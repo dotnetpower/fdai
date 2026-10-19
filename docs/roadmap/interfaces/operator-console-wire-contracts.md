@@ -19,9 +19,12 @@ snapshot. It contains the exact 15 self-health signals and the version, configur
 override, discovery, canary, kill-switch, and break-glass fields as source-qualified digests,
 freshness, or explicit unavailable states. Operator validates and redacts the shared contract. It
 does not query providers, infer healthy defaults, approve a change, or gain execution authority.
-Core supplies actual listener liveness, guarded readiness, persisted kill switch, and process startup duration,
-plus installed-version, consumed-policy, and kill-switch digests. The aggregate adapter signal remains unavailable; the other 11 signal slots and five
-fields remain unavailable. Source failures retain bounded missing, malformed, or unreachable
+Core supplies actual listener liveness, guarded readiness, persisted kill switch, process startup
+duration, consumed-canary age and the deterministic-verifier rate, plus installed-version,
+consumed-policy and kill-switch digests. Exact coverage stays with the
+[source owner](../operations/operating-and-verification.md#remaining-source-boundaries);
+the aggregate adapter signal and missing sources remain unavailable. Verifier warmup and unknown
+results are data states in the unchanged contract, not approval decisions. Source failures retain bounded missing, malformed, or unreachable
 reasons; the wire shape and Reader authorization are unchanged. Sharing `bootstrap_core.py`
 with Incident composition does not create or confirm an Incident, publish an Incident request,
 or change its lifecycle. A kill-switch digest does not expose its state revision or verify a

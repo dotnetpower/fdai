@@ -105,7 +105,8 @@ and eight sanitized operational-state fields, persists one freshness-checked sna
 unavailable sources without inventing healthy values. Operator exposes that snapshot through the
 authenticated Reader-role `GET /operations/runtime-state` projection. Delivery adapters remain
 responsible for replacing explicit unavailable bindings with source-qualified production metrics.
-`delivery/self_health_sources.py` binds owned process observations and consumed-canary receipts; `runtime/readiness.py` serializes collection independently of startup probes.
+`delivery/self_health_sources.py` binds owned process, consumed-canary and actual deterministic-verifier
+observations; runtime owns their lifetime and serializes collection without additional model probes.
 The [operating owner](../operations/operating-and-verification.md#remaining-source-boundaries) owns current counts and missing evidence; the [source-injection contract](project-structure-dependency-injection.md#self-health-source-bindings) preserves service/agent ownership.
 Embedding evidence is a separate fully registered model scope, not aggregate adapter health; these reads prove neither fleet health nor deployment acceptance.
 Operational promotion uses another exact cross-layer identity. Core measurement hashes every O7

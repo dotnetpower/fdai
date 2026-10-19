@@ -55,7 +55,6 @@ from fdai.core.tiers.t0_deterministic.opa_evaluator import (
     OpaRegoEvaluator,
 )
 from fdai.core.tiers.t1_lightweight import CurrentReuseVerifier, T1Config, T1Tier
-from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.trust_router import TrustRouter
 from fdai.core.workflow import (
     StateStoreAutomationHoldLedger,
@@ -75,6 +74,7 @@ from fdai.delivery.prospective_lineage import (
     StateStoreProspectiveLineageReadinessReader,
 )
 from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtifactStore
+from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
@@ -158,6 +158,7 @@ from .control_loop_auxiliary import (
     build_irp_event_handler as _build_irp_event_handler,
 )
 from .control_loop_auxiliary import build_t2_quality_gate as build_t2_quality_gate
+from .control_loop_auxiliary import build_t2_tier
 from .control_loop_auxiliary import rca_catalog_revision as _rca_catalog_revision
 
 __all__ = [
@@ -194,6 +195,7 @@ def _build_control_loop(
     mutation_dependency_readiness: MutationDependencyReadiness,
     workflow_event_bus: EventBus | None = None,
     approval_bindings: ApprovalRuntimeBindings | None = None,
+    verifier_health_source: RuntimeVerifierHealthSource | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -439,16 +441,13 @@ def _build_control_loop(
         ),
     )
     rules_by_id = {rule.id: rule for rule in active_rules}
-    quality_gate = build_t2_quality_gate(
+    t2 = build_t2_tier(
         container,
+        llm_bindings=llm_bindings,
         rules_by_id=rules_by_id,
         action_modes=promotion_registry,
         deterministic_evidence_verifiers=_resolve_t2_deterministic_evidence_verifiers(container),
-    )
-    t2 = T2Tier(
-        proposer=llm_bindings.require_t2_proposer(),
-        quality_gate=quality_gate,
-        self_consistency=_build_self_consistency_cascade(container, llm_bindings),
+        verifier_health_source=verifier_health_source,
     )
 
     thor_execution_port = build_thor_execution_port(

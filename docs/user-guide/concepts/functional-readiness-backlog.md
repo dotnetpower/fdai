@@ -64,7 +64,7 @@ not ranges; `-` means no mandatory package was identified for that bounded funct
 | F12.1 | Partial -> Partial | Exact approvals, profiles, revocation, and inert standing-authority/lease contracts | Live authority behavior and provider-commit fencing; no shipped A3-E adapter is eligible | A02, A03, L02 |
 | F12.2 | Partial -> Partial | Local risk/policy checks, seven safeguards, signed kill switch, and state readback | Release bounds, cross-path effects, and measured stop/recovery receipts | A01, A02, A03, A04 |
 | F12.3 | Partial -> Partial | Hash-chained audit, minimization, retention/deletion, legal holds, and redacted export | Approved privacy gate and pinned operational governance receipts | D01, D02 |
-| F12.4 | Partial -> Partial | Fifteen-signal policy, five actual signal and three field bindings, health/readiness and indexed consumed-canary age | Ten signal/five field sources, latest-attempt result/state, measured delivery/recovery, stabilization, and unresolved operating decisions | H01, H02, H03 |
+| F12.4 | Partial -> Partial | Fifteen-signal policy, six actual signal and three field bindings, health/readiness, indexed consumed-canary age and actual deterministic-verifier rate | Nine signal/five field sources, latest-attempt result/state, measured delivery/recovery, stabilization, and unresolved operating decisions | H01, H02, H03 |
 | F13.1 | Ready -> Ready | Authorized, source-qualified read views with explicit partial/unavailable states | No new mandatory read-view implementation gap found; dataset freshness and production source enrollment are not certified | - |
 | F13.2 | Ready -> Partial | Local report engine/exports and historical authenticated built-in RCA/PDF evidence | Production-datasource and authenticated error/isolation matrix beyond that built-in receipt | V01 |
 | F13.3 | Partial -> Partial | Baseline/treatment formulas, guard metrics, independent settlement, and censored outcomes | Qualifying episodes, comparable windows, denominators, and uncertainty | L04 |
@@ -213,7 +213,7 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   runtime entry to first protected readiness with a frozen observation timestamp and 80 focused passes in an
   overlapping test slice. #2250 adds indexed consumed-canary age with 99 focused checks, including
   four actual isolated PostgreSQL cases and exact byte/time boundaries. Five signals and three
-  fields are now bound. The remaining ten signal sources and five field sources stay explicitly
+  fields were bound at that checkpoint. The remaining signal sources and five field sources stay explicitly
   unavailable; canary result/state, operational index application and delivery/drill receipts
   remain open, and this package is not complete.
   #2240 observes actual normal embedding calls in an optional typed model sub-scope, independently
@@ -223,8 +223,12 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   This does not add a catalog signal/field or a Console model-scope view.
   This increment adopts #2253's protected indexed age source rather than publishing a duplicate.
   The earlier six-signal/four-field local claim is withdrawn: a last-success receipt is not the
-  latest scheduled-attempt result or complete canary state. Current coverage remains five
-  signals/three fields; ten signals/five fields are unavailable and H01 stays incomplete.
+  latest scheduled-attempt result or complete canary state.
+  The current increment adds the actual default T2 deterministic-verifier rate in complete
+  policy-bounded process windows, with 20 source/composed/persisted-readback tests and 100%
+  branch-inclusive source coverage. Unknown current results cannot re-expose a healthy old window.
+  Current coverage is six signals/three fields; nine signals/five fields remain unavailable.
+  This is neither verifier accuracy nor operational effect, and H01 stays incomplete.
 - [ ] **H02, canary and stabilization:** Retain the exact consumed canary audit within the
   implemented 30-second budget, frozen shadow replay, stop/no-execute receipts, daily jobs, and
   recurrent-query signal. Prove stabilization opens, lowers authority on breach, and exits only
