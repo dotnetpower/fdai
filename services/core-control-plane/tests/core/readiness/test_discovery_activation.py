@@ -109,6 +109,21 @@ def test_all_current_prerequisites_enable_discovery() -> None:
 
 
 @pytest.mark.parametrize(
+    "field", ["shadow", "collector", "cross_check", "verifier", "post_deploy_smoke"]
+)
+def test_future_prerequisite_cannot_enable_discovery(field: str) -> None:
+    inputs = _inputs()
+    evidence = getattr(inputs, field)
+    future = evidence.model_copy(update={"observed_at": _NOW + timedelta(seconds=1)})
+    report = reduce_discovery_activation(
+        _inputs(**{field: future}),
+        generated_at=_NOW,
+    )
+    assert report.decision is DiscoveryActivationDecision.DISABLED
+    assert report.reason_codes
+
+
+@pytest.mark.parametrize(
     ("field", "reason"),
     [
         ("shadow", DiscoveryActivationReason.SHADOW_EVIDENCE_MISSING),

@@ -264,6 +264,12 @@ class Norns(
         # here instead of discarded.
         self._shadow_dwell = shadow_dwell_ledger or ShadowDwellLedger()
 
+    def _proposal_publication_allowed(self, topic: str, payload: dict[str, Any]) -> bool:
+        if self._candidate_publication_gate is None or self._candidate_publication_gate():
+            return True
+        self.record_behavior("rule_candidate_publication_disabled")
+        return False
+
     def observe_reviewed_trajectory_dataset(self, dataset: ReviewedTrajectoryDataset) -> bool:
         """Consume one reviewed aggregate without training or promoting anything.
 

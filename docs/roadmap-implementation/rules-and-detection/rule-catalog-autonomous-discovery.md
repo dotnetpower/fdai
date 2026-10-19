@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Current discovery publication permission | implemented | Current change; `core/readiness/discovery_activation.py`; `runtime/discovery_activation.py`; Norns and shared proposal-budget paths; 167 focused passes; budget helper branch-inclusive coverage 92.68%; seven-source strict mypy and Ruff | Future/expired prerequisites, unleased report replay, Settings ABA, replaced startup evidence and elapsed leases cannot authorize new publication. Every post-await send rechecks the bound ceiling; held candidates remain pending. No live cycle, pass-rate measurement or catalog activation is claimed. |
 | Candidate grounding and poisoning guard | implemented | `services/core-control-plane/src/fdai/agents/_framework/candidate_guard.py`; `services/core-control-plane/tests/agents/test_candidate_guard.py` | Mimir quarantines ungrounded, malformed, or flooding candidates without granting promotion authority. |
 | Norns consensus | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_consensus.py`; `services/core-control-plane/tests/agents/test_norns_consensus.py` | All three deterministic perspectives must agree before Norns publishes an inert candidate. |
 | Candidate review and catalog compilation | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/agents/test_mimir_catalog_review.py` | Review packages and bounded publication state are implemented; activation still requires the ordinary catalog-as-code path. |
@@ -22,6 +23,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-19 | implemented | Hardened currentness from activation reduction through actual Norns publication. Added bounded UTC/monotonic runtime permission, post-persistence Settings revision/startup-source revalidation and final proposal-entry checks with truthful boolean results and budget release. | Current change; 17 genuine failing currentness/withdrawal probes before repair; corrected real Pattern/cohort pipeline regression; 167 integrated focused tests passed; branch-inclusive proposal-budget coverage 92.68%; seven-source strict mypy and Ruff. Two critique rounds below each cover at least ten concrete controls. | Actual composed cycle source/model bindings, independent evidence, completed-cycle metrics and governed operational receipts remain open. H01 source counts and all Partial parent packages are unchanged. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Complete the scheduled loop, shadow evidence, override intake, and mixed-model gate. |
 | 2026-08-15 | in-progress | Implemented per-candidate shadow-dwell retention and the fail-closed threshold gate, and split the former combined scheduler/dwell row. | `current change`; `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents` passed (1214 tests). | Scheduler, mixed-model cross-check, loop metrics, and an audit-entry producer for operator review outcomes. |
 | 2026-08-29 | implemented | Added the replayable bounded discovery cycle, independent-family candidate re-approval, override-aware audited throughput metrics, and the Var-Saga-Norns human shadow-review closure without adding catalog or execution authority. | `current change`; discovery cycle, persistence, shadow dwell, Var, and Saga paths; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py services/core-control-plane/tests/agents/test_discovery_shadow_review.py services/core-control-plane/tests/agents/test_wave2_governance.py services/core-control-plane/tests/agents/test_wave3_pipeline.py services/core-control-plane/tests/agents/test_quorum.py services/core-control-plane/tests/agents/test_framework_layout.py services/core-control-plane/tests/agents/test_pantheon_doc_parity.py` passed 309 tests. | Retain a governed deployed cycle and live review cohort before raising any area to `validated`. |
@@ -40,8 +42,56 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
+- [ ] Retain one complete governed runtime cycle with exact source window/provenance, distinct
+  author/reviewer model bindings, terminal cycle identity, candidate digests and authoritative
+  pass/rejection denominator before claiming discovery activation or H01 cycle metrics in an installation.
+
 - [x] Complete the bounded implementation scope: persist the four-stage cycle with replayable
   identities, retain one human-reviewed shadow sample without duplication, bind override signals and
   independent-family disagreement to review, and publish audited throughput metrics. Focused
   evidence is in `services/core-control-plane/tests/core/operational_learning/test_discovery_cycle.py`
   and `services/core-control-plane/tests/agents/test_discovery_shadow_review.py`.
+
+#### October 19 publication-currentness critique
+
+Round 1 reproduced 17 failing probes: five future prerequisites, four stale/backdated runtime
+reads, report-only replay, persistence delay, budget withdrawal, mid-batch withdrawal,
+post-admission withdrawal, Settings disable/ABA and startup-source withdrawal.
+An initial Pattern probe used a minimal candidate without a paired Pattern; it was rejected as
+insufficient evidence and replaced with the real Huginn/Muninn/Norns/Mimir/Saga fixture path.
+
+| Round | Concrete concern | Disposition |
+|---|---|---|
+| 1 | Future shadow observation | Outside-window evidence stays disabled under the existing stale reason. |
+| 1 | Future collector receipt | Cannot establish current collector eligibility. |
+| 1 | Future independent cross-check | Cannot establish current model evidence. |
+| 1 | Future verifier result | Cannot establish a completed current check. |
+| 1 | Future smoke result | Cannot establish a current completed smoke. |
+| 1 | Cached permission after expiry | Original UTC expiry bounds publication; recollection does not renew old proof. |
+| 1 | Cached permission beyond the refresh interval | Assessment is leased, not a permanent Boolean. |
+| 1 | Backdated process clock | A clock before the assessment cannot use it. |
+| 1 | Late persistence completion | Time spent awaiting storage consumes the same bounded lease. |
+| 1 | Restored report without lease | A report alone grants no current publication permission. |
+| 1 | Settings disable or disable-and-reenable | Durable revision readback detects both and leaves the gate closed. |
+| 1 | Startup evidence replacement | Current source identity must remain the assessed report. |
+| 1 | Withdrawal during proposal budget reservation | The last publish boundary rechecks permission and releases unused budget. |
+| 1 | Withdrawal between queued candidates | Later candidates remain pending rather than inheriting batch-entry permission. |
+| 1 | Withdrawal during source admission | No later send can use the earlier positive callback. |
+| 2 | Earliest cross-check expiry | One earlier prerequisite closes the lease at its exact boundary. |
+| 2 | Earliest verifier expiry | Same exact-boundary check. |
+| 2 | Earliest smoke expiry | Both audit and Kafka round-trip cases are covered. |
+| 2 | Wall-clock rollback inside the UTC lease | Independent monotonic elapsed time prevents extension. |
+| 2 | Invalid refresh interval | Non-finite and non-positive intervals are rejected. |
+| 2 | Failed Settings readback | Explicit unavailable error leaves no permission. |
+| 2 | Cancelled readback | Cancellation propagates without opening the gate. |
+| 2 | Expected Settings conflict/outage | Scheduled bounded refresh may recover; programmer errors still propagate. |
+| 2 | Rate-budget loss on a held send | A real capacity-one limiter permits retry without advancing its clock. |
+| 2 | Transport loss after reservation | Returns false, retains the candidate and releases the reservation. |
+| 2 | Reservation-release failure | Propagates an explicit error rather than reporting publication. |
+| 2 | Pattern accepted before candidate permission closes | Candidate stays pending; retry does not duplicate the accepted Pattern. |
+| 2 | Production binding supposedly absent | Rejected after tracing the unconditional existing startup binding; no speculative fallback added. |
+| 2 | Framework growth beyond 800 lines | Shared reservation completion lives in the existing budget helper; the structural gate remains enforced. |
+
+No confirmed defect above Low remained in this changed currentness scope after these checks.
+Missing source contracts, owner decisions and operational evidence remain open implementation or
+qualification work; they are not relabeled Low defects or counted as operational improvement.

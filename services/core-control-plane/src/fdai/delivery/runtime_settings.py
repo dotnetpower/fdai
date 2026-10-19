@@ -308,8 +308,13 @@ class RuntimeSettingsService:
     durable: bool = False
 
     async def effective_values(self) -> dict[str, object]:
+        values, _revision = await self.effective_values_with_revision()
+        return values
+
+    async def effective_values_with_revision(self) -> tuple[dict[str, object], int]:
+        """Read effective values and their durable revision from the same record."""
         record = await self._record()
-        return self._effective_values(dict(record["overrides"]))
+        return self._effective_values(dict(record["overrides"])), record["revision"]
 
     def environment_values(self) -> dict[str, object]:
         """Return validated startup values without durable overrides."""
@@ -381,13 +386,12 @@ class RuntimeSettingsService:
 
     async def forecast_history_collection_preference(self) -> tuple[bool, int]:
         """Read one audited preference revision for collection and in-flight revalidation."""
-        record = await self._record()
-        values = self._effective_values(dict(record["overrides"]))
+        values, revision = await self.effective_values_with_revision()
         enabled = (
             values["forecast.history_collection.enabled"] is True
             and self.forecast_history_collection_available()
         )
-        return enabled, record["revision"]
+        return enabled, revision
 
     def _runtime_projection(self) -> dict[str, object]:
         runtime_env = self.env.get("RUNTIME_ENV", "").strip().lower()

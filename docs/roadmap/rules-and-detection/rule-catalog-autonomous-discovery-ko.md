@@ -1,8 +1,8 @@
 ---
 title: 자율 규칙 발견(Autonomous Rule Discovery)
 translation_of: rule-catalog-autonomous-discovery.md
-translation_source_sha: 381f4fbac70a93fad690d9f7dfae634486535511
-translation_revised: 2026-09-29
+translation_source_sha: df73b71dfc8dd436fd48abad29a2231ff902877e
+translation_revised: 2026-10-19
 ---
 
 # 자율 규칙 발견(자율 Rule 발견)
@@ -88,6 +88,25 @@ sources + operational signals ─► observe ─► hypothesize ─► verify �
 - 루프 자체의 처리량(사이클당 후보, 게이트 통과율, override-트리거된 제안률, retirement률) 은
   계측되고 [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md) 에 보고 - 측정 가능, assert
   아님.
+
+### 런타임 게시 시점의 현재성
+
+운영 런타임의 기존 기본 꺼짐 활성화 상한은 관측 시각이 평가 시각보다 늦지 않고 아직 만료되지
+않은 전제 근거만 받아들입니다. 기존 `*_evidence_stale` 사유는 미래 관측을 포함해 사용할 수 있는
+구간을 벗어났다는 뜻입니다. 활성화 보고서는 해당 시점의 평가이며 무기한 재사용할 게시 권한이
+아닙니다. 프로세스 로컬 허용 구간은 가장 이른 근거 만료 시각이나 갱신 주기 중 먼저 도달한
+시점에 끝납니다. 단조 시계 기한으로 시스템 시각을 되돌려도 구간이 늘어나지 않도록 합니다.
+보고서만 복원해서 게이트를 다시 열 수는 없습니다.
+
+저장 후에는 적용 중인 Settings 값과 영속 개정 번호, 시작 보고서가 동일한지 다시 확인합니다.
+설정을 껐다 다시 켠 경우도 확인합니다. 철회, 읽기 실패, 취소가 발생하면 게시를 차단합니다.
+예상 가능한 Settings 충돌과 장애는 정해진 갱신 주기에만 다시 시도하며 프로그래밍 오류는
+명시적으로 드러냅니다. 시작 보고서가 교체되면 캐시는 더 이상 유효하지 않습니다.
+Norns는 원본과 제안 예산을 기다린 뒤 실제 게시 직전, 후보 사이, 연결된 Pattern의 수락 응답
+이후에도 상한을 다시 확인합니다. 보류된 전송은 후보를 대기열에 남기고 예약 예산을 반환하며,
+이미 수락된 메시지는 기존 멱등 처리 기록을 유지합니다. 이미 브로커가 수락한 메시지를 취소할
+수는 없으며 카탈로그 활성화, 발견 사이클 통과율, 독립 이력 증명, 측정된 운영 개선을 제공하지
+않습니다.
 
 ## 후보 가드 (업스트림 구현)
 

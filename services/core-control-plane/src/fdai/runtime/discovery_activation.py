@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -20,9 +22,14 @@ from fdai.core.readiness import (
     ProbeStatus,
     ShadowDecisionEvidence,
     StartupProbeResult,
+    StartupReadinessReport,
     TimedDiscoveryEvidence,
 )
-from fdai.delivery.runtime_settings import RuntimeSettingsService
+from fdai.delivery.runtime_settings import (
+    RuntimeSettingsConflictError,
+    RuntimeSettingsService,
+    RuntimeSettingsUnavailableError,
+)
 from fdai.rule_catalog.pipeline.collect import CollectorSuccessReceipt
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.shared.providers.state_store import StateStore
@@ -43,10 +50,17 @@ class DiscoveryActivationState:
     """Process-local publication gate, disabled until a current report enables it."""
 
     report: DiscoveryActivationReport | None = None
+    valid_until: datetime | None = None
 
-    def is_enabled(self) -> bool:
+    def is_enabled(self, *, now: datetime | None = None) -> bool:
+        at = now if now is not None else _utc_now()
+        if at.tzinfo is None or at.utcoffset() is None:
+            raise ValueError("discovery publication clock MUST be timezone-aware")
         return bool(
-            self.report is not None and self.report.decision is DiscoveryActivationDecision.ENABLED
+            self.report is not None
+            and self.report.decision is DiscoveryActivationDecision.ENABLED
+            and self.valid_until is not None
+            and self.report.generated_at <= at < self.valid_until
         )
 
 
@@ -61,10 +75,13 @@ class DiscoveryActivationRuntime:
     state: DiscoveryActivationState
     refresh_interval_seconds: float = 60.0
     clock: Callable[[], datetime] = _utc_now
+    monotonic_clock: Callable[[], float] = time.monotonic
     _shadow_decision_count: Callable[[], int] | None = None
+    _startup_evidence_report: StartupReadinessReport | None = None
+    _assessment_window: tuple[float, float] | None = None
 
     def __post_init__(self) -> None:
-        if self.refresh_interval_seconds <= 0:
+        if not math.isfinite(self.refresh_interval_seconds) or self.refresh_interval_seconds <= 0:
             raise ValueError("discovery activation refresh interval MUST be > 0")
 
     def bind_shadow_decision_count(self, source: Callable[[], int]) -> None:
@@ -73,45 +90,84 @@ class DiscoveryActivationRuntime:
 
     def is_enabled(self) -> bool:
         """Return the current process-local candidate publication decision."""
-        return self.state.is_enabled()
+        interval = self._assessment_window
+        observed = self.monotonic_clock()
+        return (
+            interval is not None
+            and interval[0] <= observed < interval[1]
+            and self.state.is_enabled(now=self.clock())
+            and self.startup_readiness.report is self._startup_evidence_report
+        )
 
     async def evaluate(self) -> DiscoveryActivationReport:
         """Build typed evidence, reduce it, persist it, and update the local gate."""
         self.state.report = None
+        self.state.valid_until = None
+        self._startup_evidence_report = None
+        self._assessment_window = None
+        started = self.monotonic_clock()
         now = self.clock()
-        values = await self.runtime_settings.effective_values()
+        values, revision = await self.runtime_settings.effective_values_with_revision()
         threshold = _positive_integer(values, "discovery.shadow_decision_threshold")
         freshness_seconds = _positive_integer(
             values,
             "discovery.collector_freshness_seconds",
         )
         report = self.startup_readiness.report
-        activation = await self.coordinator.evaluate(
-            DiscoveryActivationInputs(
-                policy_enabled=values.get("discovery.enabled") is True,
-                shadow=self._shadow_evidence(now),
-                shadow_decision_threshold=threshold,
-                collector=await self._collector_evidence(
-                    freshness_seconds=freshness_seconds,
-                ),
-                cross_check=_startup_group_evidence(
-                    report.results if report is not None else (),
-                    prefix=_CROSS_CHECK_PREFIX,
-                    minimum_count=2,
-                ),
-                verifier=_startup_group_evidence(
-                    report.results if report is not None else (),
-                    probe_ids=_VERIFIER_PROBE_IDS,
-                    minimum_count=1,
-                ),
-                post_deploy_smoke=_startup_group_evidence(
-                    report.results if report is not None else (),
-                    probe_ids=_POST_DEPLOY_SMOKE_PROBE_IDS,
-                    minimum_count=len(_POST_DEPLOY_SMOKE_PROBE_IDS),
-                ),
+        inputs = DiscoveryActivationInputs(
+            policy_enabled=values.get("discovery.enabled") is True,
+            shadow=self._shadow_evidence(now),
+            shadow_decision_threshold=threshold,
+            collector=await self._collector_evidence(
+                freshness_seconds=freshness_seconds,
             ),
-            generated_at=now,
+            cross_check=_startup_group_evidence(
+                report.results if report is not None else (),
+                prefix=_CROSS_CHECK_PREFIX,
+                minimum_count=2,
+            ),
+            verifier=_startup_group_evidence(
+                report.results if report is not None else (),
+                probe_ids=_VERIFIER_PROBE_IDS,
+                minimum_count=1,
+            ),
+            post_deploy_smoke=_startup_group_evidence(
+                report.results if report is not None else (),
+                probe_ids=_POST_DEPLOY_SMOKE_PROBE_IDS,
+                minimum_count=len(_POST_DEPLOY_SMOKE_PROBE_IDS),
+            ),
         )
+        activation = await self.coordinator.evaluate(inputs, generated_at=now)
+        (
+            current_values,
+            current_revision,
+        ) = await self.runtime_settings.effective_values_with_revision()
+        if (
+            current_revision != revision
+            or current_values != values
+            or self.startup_readiness.report is not report
+        ):
+            _LOGGER.info("discovery_activation_evidence_changed")
+            raise RuntimeSettingsConflictError(
+                "discovery activation inputs changed during evaluation"
+            )
+        if activation.decision is DiscoveryActivationDecision.ENABLED:
+            self._assessment_window = (started, started + self.refresh_interval_seconds)
+            self.state.valid_until = min(
+                now + timedelta(seconds=self.refresh_interval_seconds),
+                *(
+                    evidence.expires_at
+                    for evidence in (
+                        inputs.shadow,
+                        inputs.collector,
+                        inputs.cross_check,
+                        inputs.verifier,
+                        inputs.post_deploy_smoke,
+                    )
+                    if evidence is not None
+                ),
+            )
+        self._startup_evidence_report = report
         self.state.report = activation
         return activation
 
@@ -123,7 +179,14 @@ class DiscoveryActivationRuntime:
             except TimeoutError:
                 try:
                     await self.evaluate()
-                except (ConnectionError, OSError, OperationalError, TimeoutError) as exc:
+                except (
+                    ConnectionError,
+                    OSError,
+                    OperationalError,
+                    TimeoutError,
+                    RuntimeSettingsConflictError,
+                    RuntimeSettingsUnavailableError,
+                ) as exc:
                     self.state.report = None
                     _LOGGER.warning(
                         "discovery_activation_refresh_failed",

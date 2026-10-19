@@ -37,7 +37,10 @@ from fdai.agents._framework.introspection import (
     capability_facts,
     capability_sentence,
 )
-from fdai.agents._framework.proposal_budget import reserve_proposal_budget
+from fdai.agents._framework.proposal_budget import (
+    publish_reserved_proposal,
+    reserve_proposal_budget,
+)
 from fdai.agents._framework.topics import topic_for_object_type
 
 if TYPE_CHECKING:
@@ -465,29 +468,26 @@ class Agent:
             )
             return False
         try:
-            await run_cancellation_safe_critical_section(
-                self._publish_reserved_proposal(topic, payload, reservation)
+            return await run_cancellation_safe_critical_section(
+                publish_reserved_proposal(
+                    bus=lambda: self.bus,
+                    principal=self.spec.name,
+                    topic=topic,
+                    payload=payload,
+                    reservation=reservation,
+                    allowed=self._proposal_publication_allowed,
+                    record_behavior=self.record_behavior,
+                )
             )
         except CancelledError:
             raise
         except Exception:
             await reservation.release()
             raise
-        return True
 
-    async def _publish_reserved_proposal(
-        self,
-        topic: str,
-        payload: dict[str, Any],
-        reservation: Any,
-    ) -> None:
-        bus = getattr(self, "bus", None)
-        if bus is None:
-            await reservation.release()
-            self.record_behavior("rate_limit_flush_transport_unavailable")
-            return
-        await bus.publish(self.spec.name, topic, payload)
-        await reservation.commit()
+    def _proposal_publication_allowed(self, topic: str, payload: dict[str, Any]) -> bool:
+        """Recheck a bound proposal ceiling after reserving its rate-limit budget."""
+        return True
 
     def bind_rate_limit_overflow_auditor(
         self,
