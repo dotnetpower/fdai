@@ -414,6 +414,11 @@ sequence or correlation identity.
 
 Event payloads and tool output are **untrusted**; the deterministic verifier and policy
 re-check are the authority, never model or event text.
+The quality gate and its T2 consumer use owned native-JSON snapshots and the existing candidate
+evidence identity, with derived confidence pinned separately. Python aliases, provider-side mutation and
+candidate drift cannot rebind a quorum to different arguments. Invalid or changed inputs hold
+with bounded reasons; this does not replace current authorization or independent evidence.
+See [candidate identity](../phases/phase-2-quality-and-t1.md#candidate-identity-through-asynchronous-verification).
 Provider observation failures cross service boundaries only as allowlisted machine reasons.
 Raw provider response text is neither persisted as Resource state nor returned to the Console.
 

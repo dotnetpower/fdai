@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: befa8fd5bc3974d2e2d3a33b4b4c64e995ef11cd
+translation_source_sha: 354def4efc3ca99c283de793beb5fd20f9b00baa
 translation_revised: 2026-10-19
 ---
 
@@ -395,6 +395,11 @@ Operator 역할은 허용된 페이로드 없는 작업 공간 메타데이터�
 
 이벤트 페이로드와 도구 출력은 **신뢰할 수 없는** ; 결정론적 검증기와 정책 재검사가 권위이며,
 모델이나 이벤트 텍스트가 아님.
+품질 게이트와 T2 소비자는 JSON 자료형의 소유 스냅샷과 기존의 정확한 후보 근거 동일성을
+사용하고 파생 신뢰도는 별도로 고정합니다. Python 별칭, 공급자 측 변경, 후보 변경으로 정족수를 다른 인자에
+다시 연결할 수 없습니다. 잘못되거나 달라진 입력은 정해진 이유와 함께 보류하며 현재 권한이나
+독립 근거를 대체하지 않습니다.
+[후보 동일성](../phases/phase-2-quality-and-t1-ko.md#비동기-검증-동안-후보-동일성-유지)을 참조하세요.
 공급자 관측 실패는 허용 목록에 있는 기계 사유로만 서비스 경계를 통과합니다. 공급자 응답 원문은
 Resource 상태로 저장하거나 Console에 반환하지 않습니다.
 
