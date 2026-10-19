@@ -54,6 +54,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from functools import partial
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from fdai.core.prompts import PromptReplayManifest
@@ -62,6 +63,9 @@ from fdai.core.quality_gate._debate_helpers import resolve_disagreement
 from fdai.core.quality_gate._verification import (
     cross_check_candidate,
     verify_grounding,
+)
+from fdai.core.quality_gate.candidate_snapshot import (
+    evaluate_candidate_snapshot,
 )
 from fdai.core.quality_gate.deterministic_evidence import (
     DeterministicEvidenceKind,
@@ -448,6 +452,21 @@ class QualityGate:
         candidate: QualityCandidate,
         *,
         ontology_improvement_attempts: int = 0,
+    ) -> QualityDecision:
+        """Evaluate isolated input and hold any identity change through the final await."""
+        return await evaluate_candidate_snapshot(
+            candidate,
+            evaluator=partial(
+                self._evaluate_snapshot,
+                ontology_improvement_attempts=ontology_improvement_attempts,
+            ),
+        )
+
+    async def _evaluate_snapshot(
+        self,
+        candidate: QualityCandidate,
+        *,
+        ontology_improvement_attempts: int,
     ) -> QualityDecision:
         """Return the gate outcome for one candidate action.
 
