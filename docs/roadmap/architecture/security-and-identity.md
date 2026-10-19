@@ -443,4 +443,4 @@ Raw provider response text is neither persisted as Resource state nor returned t
 
 | To learn about | Read |
 |----------------|------|
-| Numeric automation inputs, content-free learning observations, and delivery status | [Schedule input boundary](../decisioning/automation-blueprints.md#review-and-materialization), [Recurrent-query metadata](../decisioning/post-turn-improvement-review.md#recurrent-query-observations), [Implementation ledger](../../roadmap-implementation/architecture/security-and-identity.md) |
+| Numeric automation inputs and stable creation replay, content-free learning observations, and delivery status | [Schedule input and replay boundary](../decisioning/automation-blueprints.md#review-and-materialization), [Recurrent-query metadata](../decisioning/post-turn-improvement-review.md#recurrent-query-observations), [Implementation ledger](../../roadmap-implementation/architecture/security-and-identity.md) |

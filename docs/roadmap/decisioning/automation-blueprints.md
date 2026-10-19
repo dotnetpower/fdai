@@ -56,6 +56,19 @@ Materialization calls `CreateScheduledTaskCommand` with the reviewing principal.
 the scheduler store directly. A stable task ID makes retry idempotent and conflicting content
 fails. The resulting task emits shadow-only events into the existing trust and risk path.
 
+Creation replay compares declared intent, not mutable `last_run` progress or an explicit versus
+implicit effective schedule kind. It returns the retained record without resetting progress.
+Changed creator, pause state, cadence, target, cron, timezone or isolation still conflicts.
+Both upstream stores expose atomic ID collisions as `ScheduleAlreadyExistsError`, a `ValueError`
+subtype; only that named collision can be reconciled after a concurrent insert. Other backend
+errors propagate. Generated-ID collisions never reuse another creation.
+
+The command detaches its payload through the shared canonical JSON normalizer before persistence.
+Unsupported values and non-finite numbers fail without a write, and an explicitly empty task ID
+cannot silently become a random one. Replay uses shared JSON-value equality: equivalent numeric
+storage forms and key order match, but booleans never match numbers. These mechanics register no
+daily stabilization jobs and change no review, role, mode or execution authority.
+
 The shared schedule model accepts only finite, positive numeric intervals. Booleans, non-finite
 values and integers that cannot be represented by the scheduler's numeric clock fail before
 persistence. Compatibility create/update tools retain their 60-second minimum and return

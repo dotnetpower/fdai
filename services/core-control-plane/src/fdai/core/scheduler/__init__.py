@@ -40,6 +40,7 @@ from fdai.core.scheduler.service import (
 )
 from fdai.core.scheduler.store import (
     InMemoryScheduleStore,
+    ScheduleAlreadyExistsError,
     ScheduleNotFoundError,
     ScheduleStore,
 )
@@ -55,6 +56,7 @@ __all__ = [
     "InMemoryScheduleStore",
     "InMemoryScheduleRunLedger",
     "ScheduleNotFoundError",
+    "ScheduleAlreadyExistsError",
     "ScheduleStore",
     "ScheduledTask",
     "ScheduleDispatchRun",
