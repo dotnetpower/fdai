@@ -124,7 +124,8 @@ image publication and Azure changes each still require their own explicit author
 Use the app-owned `python -m fdai_lifecycle_hub.database_inspection` command for separate
 source and restored observations through an approved private observer. The command reuses each
 product's runtime managed identity and verified TLS. It checks migrated schema and effective
-runtime privileges in one repeatable-read, read-only transaction and always rolls back.
+runtime privileges only after rejecting URL-query routing overrides before connecting.
+Observations use one repeatable-read, read-only transaction and always roll back.
 Per table, counts stop at 1,001 rows, at most 1,000 are accepted, and primary-key ordering selects
 at most 32 representative rows for SHA-256 comparison. Timestamp rendering uses UTC.
 

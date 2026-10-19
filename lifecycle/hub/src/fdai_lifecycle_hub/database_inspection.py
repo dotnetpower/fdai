@@ -14,7 +14,7 @@ from azure.core.exceptions import AzureError
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine, Table, Text, func, inspect, literal, select, text
 from sqlalchemy.dialects.postgresql import aggregate_order_by
-from sqlalchemy.engine import Connection, make_url
+from sqlalchemy.engine import URL, Connection, make_url
 from sqlalchemy.exc import SQLAlchemyError
 
 from fdai_lifecycle_hub.migrations import _versions, require_schema
@@ -51,6 +51,11 @@ class Receipt(BaseModel):
 
 def _digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+
+
+def _require_endpoint_binding(url: URL) -> None:
+    if {"host", "hostaddr", "port", "dbname", "user", "service"} & url.query.keys():
+        raise InspectionError("database_routing_override_not_allowed")
 
 
 def _tables(kind: Kind) -> list[Table]:
@@ -134,6 +139,7 @@ def _observe_table(connection: Connection, table: Table) -> TableObservation:
 
 def observe(engine: Engine, kind: Kind, target: Target, baseline: Receipt | None = None) -> Receipt:
     """Observe one repeatable-read snapshot, always rolling back before returning."""
+    _require_endpoint_binding(engine.url)
     if engine.dialect.name != "postgresql":
         raise InspectionError("postgresql_required")
     if (target == "restored") != (baseline is not None):
@@ -217,6 +223,8 @@ def main() -> None:
             else "FDAI_LIFECYCLE_HUB_DATABASE_URL"
         )
         original = os.environ.get(variable)
+        if original:
+            _require_endpoint_binding(make_url(original))
         if args.restored_host:
             if not original:
                 raise InspectionError("database_configuration_missing")

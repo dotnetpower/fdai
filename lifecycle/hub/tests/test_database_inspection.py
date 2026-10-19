@@ -54,6 +54,74 @@ def initialize(engine, kind):
     migrate(engine, namespace, create)
 
 
+ROUTING_OVERRIDES = [
+    ("host", "source.example.com"),
+    ("hostaddr", "127.0.0.1"),
+    ("port", "5433"),
+    ("dbname", "synthetic"),
+    ("user", "synthetic"),
+    ("service", "synthetic"),
+]
+
+
+@pytest.mark.parametrize("key,value", ROUTING_OVERRIDES)
+def test_observation_rejects_query_routing_before_connect(key, value):
+    engine = create_engine(
+        f"postgresql+psycopg://synthetic@restore.example.com/synthetic?{key}={value}",
+        hide_parameters=True,
+    )
+
+    @event.listens_for(engine, "do_connect")
+    def must_not_connect(*args):
+        pytest.fail("Routing overrides must fail before a connection attempt.")
+
+    try:
+        with pytest.raises(check.InspectionError, match="database_routing_override_not_allowed"):
+            check.observe(engine, "release", "source")
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.parametrize("target", ["source", "restored"])
+@pytest.mark.parametrize("key,value", ROUTING_OVERRIDES)
+def test_cli_rejects_query_routing_before_engine_creation(
+    monkeypatch, tmp_path, capsys, target, key, value
+):
+    original = f"postgresql+psycopg://synthetic@source.example.com/synthetic?{key}={value}"
+    monkeypatch.setenv("FDAI_RELEASE_HUB_DATABASE_URL", original)
+
+    def must_not_create(kind):
+        pytest.fail("Routing overrides must fail before creating the remote engine.")
+
+    monkeypatch.setattr(check, "remote_engine", must_not_create)
+    output = tmp_path / "result"
+    arguments = ["inspect", "--kind", "release", "--target", target, "--output", str(output)]
+    if target == "restored":
+        baseline = tmp_path / "baseline"
+        baseline.write_text(
+            check.Receipt(
+                kind="release",
+                target="source",
+                database_binding="0" * 64,
+                host_binding="1" * 64,
+                tables={},
+            ).model_dump_json()
+        )
+        arguments += ["--restored-host", "restore.example.com", "--baseline", str(baseline)]
+    monkeypatch.setattr(sys, "argv", arguments)
+    with pytest.raises(SystemExit) as error:
+        check.main()
+    assert error.value.code == 1
+    assert not output.exists()
+    assert os.environ["FDAI_RELEASE_HUB_DATABASE_URL"] == original
+    printed = capsys.readouterr()
+    assert not printed.out
+    assert "database_routing_override_not_allowed" in printed.err
+    assert "step=configuration" in printed.err
+    assert "synthetic" not in printed.err
+    assert "example.com" not in printed.err
+
+
 @pytest.mark.parametrize("kind", ["release", "target"])
 def test_empty_product_and_same_state_compare_in_readonly_transaction(database, kind):
     engine, _, schema = database

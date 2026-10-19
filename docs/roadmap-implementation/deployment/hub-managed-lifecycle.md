@@ -86,6 +86,8 @@ implementation states below.
 
 | 2026-10-19 | implemented | Added bounded app-owned source/restored PostgreSQL inspection, shared-connection schema validation, UTC fingerprints, sanitized command/database failure stages and private synced no-overwrite receipts with failed-write cleanup. | Commit `7f6dfdb6661dd2c1d7a851e04376921980f4c7b1`; `python3 scripts/automation/with-local-test-database.py python -m pytest -q --no-cov -p no:cacheprovider -c /dev/null --tb=short lifecycle/hub/tests/test_database_inspection.py` passed (27); focused Ruff/format/mypy passed; current change updates owner EN/KO and product procedure. | Private observer and retained receipt-transfer bindings, exact-candidate image publication, live PITR/security/cleanup readback remain unverified. Samples don't prove full equivalence. Historical cloud ProgrammingError lacks enough statement/SQLSTATE context to assign a cause. |
 
+| 2026-10-19 | implemented | Addressed Copilot review on #2255: reject query-level host, hostaddr, port, dbname, user and service routing overrides before creating the CLI engine or opening an observation connection, preventing a restored observation from reconnecting to the source under a misleading host digest. | `current change`; `database_inspection.py`, `test_database_inspection.py`; driver argument precedence reproduced locally without a connection; focused regression evidence recorded in #2255. | Exact-head CI and human review remain required; no cloud identity attestation or live recovery is claimed. |
+
 ### Remaining work
 
 - [x] Implement the bounded source/restored database comparison with read-only/rollback,

@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: e6ec69fafdb9cd746802c9b5d11ca3d5e091bb13
+translation_source_sha: fa3b1a9f820cc185f3d12e4fb2a334f703d712b6
 translation_revised: 2026-10-19
 ---
 # Hub 관리형 수명 주기
@@ -125,6 +125,7 @@ SQLite/mock/브라우저 근거, PostgreSQL/이미지 검증, 실제 Azure 배�
 승인된 비공개 관측 환경에서 앱 소유 명령
 `python -m fdai_lifecycle_hub.database_inspection`으로 원본과 복원본을 별도로 관측하세요.
 각 제품의 런타임 Managed Identity와 인증서를 검증하는 TLS를 재사용합니다.
+연결 전에 URL 쿼리의 접속 대상 재정의를 차단한 뒤 스키마와 실제 권한을 확인합니다.
 단일 repeatable-read 읽기 전용 트랜잭션에서 이행된 스키마와 실제 런타임 권한을 확인하고
 항상 롤백합니다. 테이블별 행 수는 1,001행까지만 확인하고 최대 1,000행을 허용합니다.
 기본 키 순서로 선택한 최대 32개 대표 행의 SHA-256 지문을 비교하며, 시간은 UTC로 표현합니다.

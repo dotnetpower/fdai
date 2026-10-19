@@ -477,7 +477,10 @@ python -m fdai_lifecycle_hub.database_inspection \
 
 Use `--kind target` for Lifecycle Hub. Keep the original database binding in the environment.
 Only the restored command substitutes the host, preserving the database, principal and TLS
-settings. A restored host equal to the source host is rejected. Host digests distinguish the
+settings. A restored host equal to the source host is rejected. Query-level `host`, `hostaddr`,
+`port`, `dbname`, `user` and
+`service` overrides are rejected before either observation. These overrides could redirect the
+driver away from the URL authority. Host digests distinguish the
 configured endpoints; they don't independently attest Azure resource identity. Verify the
 actual server ID, private DNS, restored Entra-only settings and retained principal/admin bindings
 through the owning native readback procedure before execution. Successful runtime access doesn't
