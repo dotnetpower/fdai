@@ -29,12 +29,24 @@ installation-specific operational qualification instead of treating a feature na
 
 ## How to read the decisions
 
+**Count reconciliation, 2026-10-19:** The 52 individual records below were recounted at revision
+`c3a8a26275` and compared with all 15 specification group summaries and both language versions.
+The result remains Ready 28/52 and Partial 24/52, superseding the earlier Ready 38/52 and
+Partial 14/52 totals. This is a count-consistency check, not a new assessment of every function.
+
 **Overall:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">Not assessed 0/52</span>
 Ready applies only to the support scope stated in its record. It does not certify every
 deployment, provider, scale, or autonomous action. Partial means the stated function has an
 implementation, but mandatory coverage, integration, or verification remains open in the cited
-owner. No installation was selected for a Blocked assessment. No entire subfunction was found
+owner. The original documentation audit selected no installation for a Blocked assessment. No entire subfunction was found
 to be design-only; planned components inside a partially implemented function remain explicit.
+
+**Installation status is separate:** Blocked 0/52 does not mean that every installation can run
+every function. The development full-authority activation failed closed on missing durable
+execution, rollback, distributed-lock, and preflight bindings, then was rolled back and finalized;
+see [deployment evidence](https://github.com/dotnetpower/fdai/issues/2210#issuecomment-6254158832).
+F06/F07 operational qualification and W7 cohort evidence remain open in #2204-#2208. These counts
+do not establish customer production acceptance, operational learning improvement, or realized savings.
 
 The 24 Partial decisions retain their implemented subset and recorded focused checks, but
 they do not narrow away mandatory verbs or required operational evidence. Historical live receipts
@@ -209,6 +221,11 @@ not zero-intervention or Ready. Actual source-owned anchors and completeness pro
 | <span id="f12-2">F12.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: versioned policy and risk decisions, emergency-stop and recall precedence, all seven execution safeguards, deny/no-op terminal audit, fail-closed no-execute behavior, and an authenticated operational-state read surface. The signed Operator-to-Var kill-switch path, [security ledger](../../roadmap-implementation/architecture/security-and-identity.md), [authoritative health status](../../roadmap/operations/operating-and-verification.md#implementation-status), and focused safety tests support local implementation. Release maximum bindings and a measured deployment engage/no-execute/disengage drill remain installation qualification. |
 | <span id="f12-3">F12.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: attributable hash-chained audit, deterministic replay, purpose/scope access checks, pre-model minimization, redacted export, bounded retention and deletion, legal holds, tombstones, and retry-safe audit receipts. The [privacy ledger](../../roadmap-implementation/architecture/data-governance.md) and focused audit/retention/privacy cohort support this scope. Privacy approval, external anchoring or WORM storage, and live access-review/incident receipts remain deployment qualification. |
 | <span id="f12-4">F12.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: the 15-signal policy/exporter registry, eight-field operational-state contract, service/model and evidence health queries, and exact 30-second consumed-canary check. #2218 / PR #2220 binds actual listener, protected readiness and persisted emergency-stop signals, plus installed version, consumed-policy digest and emergency-stop fields, with 92 focused passes. #2228 adds process-scoped runtime-entry-to-first-protected-ready duration, with 80 focused passes in an overlapping test slice. Its observation timestamp is frozen, not renewed by collection. The [authoritative health status](../../roadmap/operations/operating-and-verification.md#implementation-status) keeps the other eleven signals and five fields explicitly unavailable. Their real sources, measured primary/fallback delivery, live canary, stabilization and recovery-drill evidence remain mandatory. |
+
+#2240 additionally exposes actual embedding-provider outcomes as an optional typed sub-scope
+through `/operations/runtime-state`, bound to independent startup registration and parent/time
+checks. Other unobserved roles keep the model scope unknown and the catalog aggregate unavailable;
+the 169-case software check does not add a catalog binding or dedicated Console view.
 
 ## F13. Evidence views and reporting
 

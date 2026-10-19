@@ -191,6 +191,11 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   runtime entry to first protected readiness with a frozen observation timestamp and 80 focused passes in an
   overlapping test slice. Four signals and three fields are now bound. The remaining eleven
   signal sources and five field sources stay explicitly unavailable; this package is not complete.
+  #2240 observes actual normal embedding calls in an optional typed model sub-scope, independently
+  bound to the full startup role/binding registration and checked by the Operator reader.
+  The parent aggregate remains unavailable when other configured roles are unobserved.
+  The final SDK/collector/Operator/integration, wheel and document selection passed 169 cases.
+  This does not add a catalog signal/field or a Console model-scope view.
 - [ ] **H02, canary and stabilization:** Retain the exact consumed canary audit within the
   implemented 30-second budget, frozen shadow replay, stop/no-execute receipts, daily jobs, and
   recurrent-query signal. Prove stabilization opens, lowers authority on breach, and exits only

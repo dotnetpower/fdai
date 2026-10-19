@@ -4,19 +4,26 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Final
 
 import httpx
+from fdai_service_contracts.compatibility import canonical_digest
 
 from fdai.core.metering.emitter import MeteringEmitter
 from fdai.delivery.azure.llm.model_trace import prepare_embedding_input
+from fdai.delivery.azure.llm.provider_observations import (
+    EmbeddingProviderObservations,
+    EmbeddingProviderObservationSource,
+    ProviderInvocationObservation,
+)
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
 )
 from fdai.delivery.azure.llm.usage import extract_usage
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle, ModelRouteKind
+from fdai.shared.providers.self_health import ModelProviderObservationSource
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 
@@ -99,9 +106,28 @@ class AzureOpenAIEmbeddingModel:
         self.dim: int = config.dim
         self.embedding_space_id: str | None = config.embedding_space_id
         self.embedding_model_version: str | None = config.embedding_model_version
+        self._provider_observations = EmbeddingProviderObservations(
+            binding_digest=canonical_digest(asdict(config))
+        )
 
     async def embed(self, text: str) -> Sequence[float]:
         """Return the embedding vector for ``text``."""
+        with self._provider_observations.invocation() as observation:
+            return await self._embed_observed(text, observation)
+
+    def model_provider_observations(
+        self, *, maximum_age_seconds: int
+    ) -> ModelProviderObservationSource:
+        """Expose only this instance's registered embedding-adapter invocation outcomes."""
+        return EmbeddingProviderObservationSource(
+            observations=self._provider_observations,
+            client=self._http,
+            maximum_age_seconds=maximum_age_seconds,
+        )
+
+    async def _embed_observed(
+        self, text: str, observation: ProviderInvocationObservation
+    ) -> Sequence[float]:
         token = await self._identity.get_token(self._target.auth_audience)
         request = self._target.operation("embeddings")
         request_body: dict[str, object] = {
@@ -110,18 +136,22 @@ class AzureOpenAIEmbeddingModel:
         }
         if request.model_body_field is not None:
             request_body["model"] = request.model_body_field
-        response = await self._http.post(
-            request.url,
-            params=request.params,
-            headers={
-                "Authorization": f"Bearer {token.token}",
-                "Content-Type": "application/json",
-            },
-            json=request_body,
-            timeout=self._config.timeout_seconds,
-        )
-        response.raise_for_status()
-        response_body = response.json()
+        try:
+            response = await self._http.post(
+                request.url,
+                params=request.params,
+                headers={
+                    "Authorization": f"Bearer {token.token}",
+                    "Content-Type": "application/json",
+                },
+                json=request_body,
+                timeout=self._config.timeout_seconds,
+            )
+            response.raise_for_status()
+            response_body = response.json()
+        except Exception:
+            observation.result = False
+            raise
         if self._metering is not None:
             usage = extract_usage(response_body)
             if usage is not None:
@@ -129,12 +159,15 @@ class AzureOpenAIEmbeddingModel:
         try:
             vector = response_body["data"][0]["embedding"]
         except (KeyError, IndexError, TypeError):
+            observation.result = False
             raise RuntimeError(
                 "Azure OpenAI embeddings response missing data[0].embedding"
             ) from None
         if not isinstance(vector, list):
+            observation.result = False
             raise RuntimeError("Azure OpenAI embeddings response 'embedding' MUST be a list")
         if len(vector) != self._config.dim:
+            observation.result = False
             raise RuntimeError(
                 f"embedding length {len(vector)} != configured dim {self._config.dim}"
             )
@@ -145,7 +178,9 @@ class AzureOpenAIEmbeddingModel:
             if not all(math.isfinite(value) for value in values):
                 raise ValueError("non-finite vector")
         except (ValueError, TypeError, OverflowError):
+            observation.result = False
             raise RuntimeError("Azure OpenAI embedding values MUST be finite numbers") from None
+        observation.result = True
         return values
 
 

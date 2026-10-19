@@ -5,8 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
+from fdai_service_contracts.model_provider_health import (
+    ModelProviderObservationV1,
+    ModelProviderRegistrationV1,
+    ModelProviderScopeSnapshotV1,
+)
 from fdai_service_contracts.self_health import (
     OperationalStateFieldName,
     OperationalStateFieldV1,
@@ -23,6 +28,9 @@ class SelfHealthExporterUnavailableError(RuntimeError):
             "source_missing",
             "source_malformed",
             "source_unreachable",
+            "source_incomplete",
+            "source_stale",
+            "source_from_future",
         }:
             raise ValueError("self-health unavailable reason MUST be a bounded source code")
         super().__init__(message)
@@ -54,6 +62,34 @@ class SelfHealthExporter(Protocol):
     async def observe(self, *, now: datetime) -> SelfHealthExportSample: ...
 
 
+class ModelProviderObservationSource(Protocol):
+    @property
+    def role(self) -> str: ...
+
+    @property
+    def binding_digest(self) -> str: ...
+
+    async def observe(self, *, now: datetime) -> ModelProviderObservationV1: ...
+
+
+@runtime_checkable
+class ModelProviderObservedProvider(Protocol):
+    """A provider exposes typed sub-scope evidence, never the global adapter signal."""
+
+    def model_provider_observations(
+        self, *, maximum_age_seconds: int
+    ) -> ModelProviderObservationSource: ...
+
+
+class ModelProviderScopeSource(Protocol):
+    @property
+    def registration(self) -> ModelProviderRegistrationV1: ...
+
+    async def observe(
+        self, *, now: datetime, parent_snapshot_digest: str
+    ) -> ModelProviderScopeSnapshotV1: ...
+
+
 class OperationalStateFieldExporter(Protocol):
     """Export one sanitized field for the authorized runtime-state surface."""
 
@@ -74,4 +110,7 @@ __all__ = [
     "SelfHealthExportSample",
     "SelfHealthExporter",
     "SelfHealthExporterUnavailableError",
+    "ModelProviderObservationSource",
+    "ModelProviderObservedProvider",
+    "ModelProviderScopeSource",
 ]
