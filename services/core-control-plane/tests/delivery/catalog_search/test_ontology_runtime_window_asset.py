@@ -10,6 +10,7 @@ from tests.delivery.catalog_search.test_ontology_evaluation_assets import (
 
 _WINDOW = "instance-runtime-window.v1.json"
 _GOVERNED_WINDOW = "governed-read-window.v1.json"
+_GOVERNED_WINDOW_V2 = "governed-read-window.v2.json"
 _COHORTS = {
     f"{language}-{cohort}": count
     for language in ("en", "ko")
@@ -27,6 +28,7 @@ _PRIOR = (
     "instance-holdout.v5b.json",
 )
 _GOVERNED_PRIOR = (*_PRIOR, _WINDOW)
+_GOVERNED_V2_PRIOR = (*_GOVERNED_PRIOR, _GOVERNED_WINDOW)
 
 
 def test_runtime_window_has_frozen_shape_and_cohorts() -> None:
@@ -86,6 +88,28 @@ def test_governed_window_queries_are_disjoint_from_every_spent_set() -> None:
     spent = {
         _normalized_query(item["query"])
         for asset in _GOVERNED_PRIOR
+        for item in _load_asset(asset)["cases"]
+    }
+    assert len(queries) == 64
+    assert queries.isdisjoint(spent)
+
+
+def test_governed_v2_window_is_fresh_reviewed_and_disjoint() -> None:
+    window = _load_asset(_GOVERNED_WINDOW_V2)
+    cases = window["cases"]
+    assert window["independently_reviewed"] is True
+    assert window["production_qualification"] is False
+    assert window["supersedes"] == _GOVERNED_WINDOW
+    assert Counter(item["cohort"] for item in cases) == _COHORTS
+    assert {item["case_id"] for item in cases} == {
+        f"governed2-{language}-{index:02d}" for language in ("en", "ko") for index in range(1, 33)
+    }
+    object_ids = _corpus_document_ids()
+    assert all(set(item["expected_document_ids"]) <= object_ids for item in cases)
+    queries = {_normalized_query(item["query"]) for item in cases}
+    spent = {
+        _normalized_query(item["query"])
+        for asset in _GOVERNED_V2_PRIOR
         for item in _load_asset(asset)["cases"]
     }
     assert len(queries) == 64

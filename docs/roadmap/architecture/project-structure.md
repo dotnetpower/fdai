@@ -415,8 +415,8 @@ the review decision and the planned family cannot diverge.
 when `FDAI_ONTOLOGY_TYPED_SELECTION_SHADOW=enabled`. It accepts only the qualified model, prompt,
 and budget pinned in `config/ontology-typed-selection-shadow.json`, together with that file's
 data-handling policy. It resolves the target for the pin's exact registry capability and rejects
-capability family/version or target-family drift rather than borrowing another T2 target. The
-observer it feeds never changes an answer and grants no authority.
+capability family/version or target-family drift rather than borrowing another T2 target. The observer it feeds never changes an answer and grants no authority.
+`composition/typed_selection_read.py` loads `config/governed-typed-selection-read.json` for the governed answer path, resolves that exact capability, and rejects model, target, prompt or protocol drift before any call; a configured pin does not qualify or promote the read.
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,
 `operator`, `knowledge`, or `platform`, then rewrite every import in one codemod.

@@ -1,0 +1,488 @@
+{
+  "schema_version": "1.0.0",
+  "origin": "independently_authored_synthetic_holdout",
+  "independently_reviewed": true,
+  "production_qualification": false,
+  "supersedes": "governed-read-window.v1.json",
+  "corpus": "instance-corpus.v1.json",
+  "purpose": "Fresh pre-registered v2 governed typed-selection answer-path window for exact Sol capability requalification under #2034; not production qualification.",
+  "candidate_ranking_policy": {
+    "minimum_score": 0.4,
+    "exact_weight": 1,
+    "lexical_weight": 0.25,
+    "semantic_weight": 1
+  },
+  "evaluation_policy": {
+    "schema_version": "1.1.0",
+    "top_k": 5,
+    "min_recall_at_k": 1,
+    "min_mean_reciprocal_rank": 1,
+    "min_no_match_precision": 1,
+    "min_samples_per_metric": 4,
+    "required_cohorts": [
+      "en-adversarial",
+      "en-ambiguous",
+      "en-negative",
+      "en-positive",
+      "ko-adversarial",
+      "ko-ambiguous",
+      "ko-negative",
+      "ko-positive"
+    ]
+  },
+  "limits": {
+    "embedding_calls": 128,
+    "total_seconds": 600,
+    "embedding_call_seconds": 5
+  },
+  "cases": [
+    {
+      "case_id": "governed2-en-01",
+      "query": "Read BusinessService member example-service-a, requiring its effective date to be 2026-09-01 and its canonical label to end in settlement.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-a"
+      ]
+    },
+    {
+      "case_id": "governed2-en-02",
+      "query": "Resolve BusinessService key example-service-b and verify that its registered criticality outranks high.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-b"
+      ]
+    },
+    {
+      "case_id": "governed2-en-03",
+      "query": "Choose BusinessService member example-service-e only if its medium-rated canonical label ends in notifications.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-e"
+      ]
+    },
+    {
+      "case_id": "governed2-en-04",
+      "query": "Retrieve BusinessService key example-service-f after confirming that the record is low criticality.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-f"
+      ]
+    },
+    {
+      "case_id": "governed2-en-05",
+      "query": "Read Workload member example-workload-a and require the stored kind to be background-worker.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-a"
+      ]
+    },
+    {
+      "case_id": "governed2-en-06",
+      "query": "Resolve Workload key example-workload-b, validating that its effective date is 2026-09-01.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-b"
+      ]
+    },
+    {
+      "case_id": "governed2-en-07",
+      "query": "Select Workload member example-workload-c only when the recorded kind contains the word processor.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-c"
+      ]
+    },
+    {
+      "case_id": "governed2-en-08",
+      "query": "Return Workload key example-workload-f and confirm that its kind starts with web and ends with frontend.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-f"
+      ]
+    },
+    {
+      "case_id": "governed2-en-09",
+      "query": "Retrieve Resource member example-resource-a, provided its nested property map exposes a public_access field.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-a"
+      ]
+    },
+    {
+      "case_id": "governed2-en-10",
+      "query": "Read Resource key example-resource-c and verify that the registered type contains the token mysql.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-c"
+      ]
+    },
+    {
+      "case_id": "governed2-en-11",
+      "query": "Resolve Resource member example-resource-e only if its node-pool role is recorded as batch.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-e"
+      ]
+    },
+    {
+      "case_id": "governed2-en-12",
+      "query": "Select Resource key example-resource-f after checking that its workload role ends in agent.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-f"
+      ]
+    },
+    {
+      "case_id": "governed2-en-13",
+      "query": "Return the Incident whose correlation key is example-correlation-a.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a"
+      ]
+    },
+    {
+      "case_id": "governed2-en-14",
+      "query": "Resolve the Incident attached to correlation key example-correlation-b.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-b"
+      ]
+    },
+    {
+      "case_id": "governed2-en-15",
+      "query": "Select the Incident carrying correlation key example-correlation-d.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "governed2-en-16",
+      "query": "Read the Incident associated with correlation key example-correlation-e.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-e"
+      ]
+    },
+    {
+      "case_id": "governed2-en-17",
+      "query": "Choose one BusinessService effective from exactly 2026-09-01T00:00:00Z; no other selector is available.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-18",
+      "query": "Select a Workload carrying source_ref fixture:instance-retrieval-v1, but no member key or kind was supplied.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-19",
+      "query": "Open one Resource whose nested map contains a purpose field, without choosing among the matching records.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-20",
+      "query": "Return an Incident opened on 2026-09-01, with no status, severity, time, or correlation key specified.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-21",
+      "query": "Pick the object whose local identifier ends in -a; the object type is unspecified.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-22",
+      "query": "Find a corpus member whose canonical name begins with Example; no type or remaining name tokens are provided.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-23",
+      "query": "Choose a BusinessService that has at least one alias; I did not provide a name or criticality.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-24",
+      "query": "Select a Workload whose kind contains a hyphen, with no other constraint.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-25",
+      "query": "Return the BusinessService responsible for cross-border cold-chain customs clearance.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-26",
+      "query": "Find a Workload whose workload_kind is wasm-edge-handler.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-27",
+      "query": "Retrieve the Resource of type certificate-authority used to issue short-lived workload credentials.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-28",
+      "query": "Select an Incident whose update timestamp precedes its opening timestamp.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-29",
+      "query": "Return the low-criticality BusinessService aliased Employee authentication; both conditions are mandatory.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-30",
+      "query": "Choose the stream-processor Workload named Example notification dispatcher, rejecting every partial match.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-31",
+      "query": "Select a compute.vm Resource whose node_pool_role is batch; do not combine facts from separate resources.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-en-32",
+      "query": "Return an Incident that is triaging and has an update timestamp of 2026-09-01T11:00:00Z; both predicates are mandatory.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-01",
+      "query": "BusinessService의 로컬 키가 example-service-c이고 canonical name이 tracking으로 끝나는 멤버를 선택해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-c"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-02",
+      "query": "example-service-d 키를 가진 BusinessService를 읽고 criticality가 high인지 확인해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-d"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-03",
+      "query": "BusinessService 멤버 example-service-e를 조회하되 English alias의 마지막 단어가 messaging이어야 해.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-e"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-04",
+      "query": "example-service-f 로컬 키의 BusinessService가 low 등급일 때 그 레코드를 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-f"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-05",
+      "query": "Workload 키 example-workload-b를 읽고 workload_kind의 접두사가 web인지 검증해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-b"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-06",
+      "query": "example-workload-c 멤버가 stream-processor로 기록돼 있으면 해당 Workload를 선택해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-c"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-07",
+      "query": "Workload 로컬 키 example-workload-d를 조회하고 이름의 마지막 단어가 indexer인지 확인해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-d"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-08",
+      "query": "example-workload-e 키의 Workload를 읽되 kind가 consumer로 끝나야 해.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-e"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-09",
+      "query": "Resource 멤버 example-resource-b를 선택하고 nested public_network_access가 disabled인지 검증해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-b"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-10",
+      "query": "example-resource-c 로컬 키의 Resource가 zone-redundant 고가용성을 가지면 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-c"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-11",
+      "query": "Resource 키 example-resource-d를 읽고 type 값에 점 문자가 포함되는지 확인해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-d"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-12",
+      "query": "example-resource-f 멤버의 workload_role이 build로 시작할 때 해당 Resource를 선택해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-f"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-13",
+      "query": "Incident 로컬 키가 example-incident-a인 레코드를 읽고 opened_at과 updated_at이 동일한지 검증해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-14",
+      "query": "example-incident-c 키의 Incident가 medium severity이면 선택해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-c"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-15",
+      "query": "Incident 멤버 example-incident-e를 조회하고 status가 resolved인지 확인해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-e"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-16",
+      "query": "example-incident-f 로컬 키의 Incident가 low severity로 기록돼 있을 때 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "governed2-ko-17",
+      "query": "source_ref가 fixture:instance-retrieval-v1인 BusinessService 하나를 골라 줘. 다른 선택 조건은 없어.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-18",
+      "query": "effective_from이 2026-09-01 자정인 Workload 하나를 선택해 줘. 멤버 키나 kind는 지정하지 않았어.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-19",
+      "query": "nested purpose가 Store로 시작하는 Resource 하나를 열어 줘. 어느 저장 대상인지는 말하지 않을게.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-20",
+      "query": "correlation_id가 example-correlation-으로 시작하는 Incident 하나를 반환해 줘. 마지막 문자는 지정하지 않았어.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-21",
+      "query": "로컬 식별자가 -f로 끝나는 객체 하나를 선택해 줘. 객체 유형은 생략했어.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-22",
+      "query": "type 값에 하이픈이 들어간 Resource 하나를 찾아 줘. 정확한 type은 지정하지 않았어.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-23",
+      "query": "canonical name이 세 개의 English 단어로 구성된 BusinessService 하나를 골라 줘. 이름은 제공하지 않을게.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-24",
+      "query": "opened_at과 updated_at이 같은 달력 날짜인 Incident 하나를 선택해 줘. 시각과 상태는 지정하지 않았어.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-25",
+      "query": "폐배터리 수거 예약을 담당하는 BusinessService를 반환해 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-26",
+      "query": "workload_kind가 data-redaction-pipeline인 Workload를 찾아 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-27",
+      "query": "type이 time-series-database인 Resource를 조회해 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-28",
+      "query": "status가 quarantined이고 severity가 critical인 Incident를 선택해 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-29",
+      "query": "criticality가 medium이면서 alias가 Invoice payments인 BusinessService만 반환해 줘. 한 조건만 맞는 항목은 제외해 줘.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-30",
+      "query": "web-frontend kind이면서 이름이 Example billing reconciliation worker인 Workload만 선택해 줘.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-31",
+      "query": "secret-store type이면서 high_availability가 zone-redundant인 Resource만 찾아 줘. 서로 다른 리소스의 속성을 합치지 마.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed2-ko-32",
+      "query": "status가 resolved이고 updated_at이 2026-09-01T08:30:00Z인 Incident만 반환해 줘. 두 조건을 모두 만족하지 않으면 제외해 줘.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    }
+  ]
+}

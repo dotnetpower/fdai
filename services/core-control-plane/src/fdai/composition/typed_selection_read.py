@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import httpx
 from fdai_service_contracts.ontology_query import content_digest
@@ -29,8 +32,9 @@ from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from ._helpers import Container
+from .resolved_models import _capability
 from .resolved_models_revision import resolved_models_for_binding
-from .semantic_query_model_targets import t1_model_targets
+from .semantic_query_model_targets import model_target_for_capability
 
 READ_DATA_POLICY = {
     "purpose": "typed-selection-read",
@@ -40,6 +44,41 @@ READ_DATA_POLICY = {
     "max_model_calls": 2,
     "execution_authority": False,
 }
+GOVERNED_READ_CONFIG_RELATIVE_PATH = Path("config/governed-typed-selection-read.json")
+
+
+@dataclass(frozen=True, slots=True)
+class GovernedTypedSelectionModelPin:
+    model_capability: str
+    model_family: str
+    model_version: str
+    prompt_profile_id: str
+    prompt_profile_digest: str
+    system_text_sha256: str
+    reasoning_effort: str
+    timeout_seconds: float
+    max_tokens: int
+
+    @classmethod
+    def load(cls, path: Path) -> GovernedTypedSelectionModelPin:
+        raw: Any = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            not isinstance(raw, dict)
+            or raw.get("schema_version") != "1.0.0"
+            or raw.get("qualification_protocol_id") != "governed-typed-selection-answer-window.v2"
+        ):
+            raise ValueError("governed typed-selection model pin is not reviewed")
+        return cls(
+            model_capability=str(raw["model_capability"]),
+            model_family=str(raw["model_family"]),
+            model_version=str(raw["model_version"]),
+            prompt_profile_id=str(raw["prompt_profile_id"]),
+            prompt_profile_digest=str(raw["prompt_profile_digest"]),
+            system_text_sha256=str(raw["system_text_sha256"]),
+            reasoning_effort=str(raw["reasoning_effort"]),
+            timeout_seconds=float(raw["timeout_seconds"]),
+            max_tokens=int(raw["max_tokens"]),
+        )
 
 
 def compose_typed_selection_read(
@@ -53,6 +92,7 @@ def compose_typed_selection_read(
     endpoint: str | None,
     endpoint_resolver: Callable[[str], str] | None,
     catalog_root: Path,
+    config_path: Path,
     owner_loop: asyncio.AbstractEventLoop,
 ) -> GovernedTypedSelectionRead:
     registry = StateStoreTypedSelectionRead(
@@ -71,38 +111,56 @@ def compose_typed_selection_read(
     ):
         return unavailable
     try:
-        targets = t1_model_targets(
-            resolved_models_for_binding(container),
+        pin = GovernedTypedSelectionModelPin.load(config_path)
+        resolved = resolved_models_for_binding(container)
+        capability = _capability(
+            resolved,
+            pin.model_capability,
+            held_capabilities=container.held_model_capabilities,
+        )
+        target = model_target_for_capability(
+            resolved,
+            pin.model_capability,
             endpoint=endpoint,
             endpoint_resolver=endpoint_resolver,
             held_capabilities=container.held_model_capabilities,
         )
-        if not targets:
+        if (
+            capability is None
+            or target is None
+            or capability.family != pin.model_family
+            or capability.version != pin.model_version
+            or target.model_family != pin.model_family
+        ):
             return unavailable
         prompts = FileSystemPromptRegistry(catalog_root)
         plan = PromptAssembler(
-            prompts.resolve(
-                "semantic.query.plan", profile_id="diagnostic.ontology-candidate-selection"
-            )
+            prompts.resolve("semantic.query.plan", profile_id=pin.prompt_profile_id)
         ).complete
         frame = PromptAssembler(prompts.resolve("semantic.query.frame")).complete
-        profile = prompts.resolve(
-            "semantic.query.plan", profile_id="diagnostic.ontology-candidate-selection"
-        ).profile
-        if profile is None:
+        profile = prompts.resolve("semantic.query.plan", profile_id=pin.prompt_profile_id).profile
+        manifest = plan.replay_manifest()
+        if (
+            profile is None
+            or profile.reasoning_effort != pin.reasoning_effort
+            or profile.reserved_output_tokens != pin.max_tokens
+            or manifest.profile_id != pin.prompt_profile_id
+            or manifest.profile_digest != pin.prompt_profile_digest
+            or manifest.system_text_sha256 != pin.system_text_sha256
+        ):
             return unavailable
         proposer = AzureOpenAISemanticPlanningModel(
             identity=identity,
             http_client=http_client,
             owner_loop=owner_loop,
             config=AzureOpenAISemanticPlanningModelConfig(
-                candidates=(targets[0],),
+                candidates=(target,),
                 frame_system_prompt=frame.system_text,
                 plan_system_prompt=plan.system_text,
-                plan_prompt_manifest=plan.replay_manifest(),
-                timeout_seconds=20,
-                max_tokens=profile.reserved_output_tokens,
-                reasoning_effort=profile.reasoning_effort,
+                plan_prompt_manifest=manifest,
+                timeout_seconds=pin.timeout_seconds,
+                max_tokens=pin.max_tokens,
+                reasoning_effort=pin.reasoning_effort,
             ),
         )
     except (OSError, ValueError, RuntimeError):

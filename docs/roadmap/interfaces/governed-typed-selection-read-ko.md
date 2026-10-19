@@ -1,6 +1,6 @@
 ---
 translation_of: governed-typed-selection-read.md
-translation_source_sha: 5c7d78948fe720317c69b630c5b3fbb50dc087a0
+translation_source_sha: 7db512f5b1d50d21a5f68cf71017bd58bf29e665
 translation_revised: 2026-10-20
 ---
 # 적용 승인을 거치는 타입 선택 읽기
@@ -71,6 +71,14 @@ principal 범위, 모델/요청/프롬프트 식별 정보, 문맥 프로토콜,
 측정한 결정 지연 시간에 포함하지 않습니다. 모든 시도는 비공개로 보존합니다. HTTP 429, 세 번
 연속된 provider 사용 불가 또는 사용 불가 결정이 다섯 건을 넘으면 품질 결과나 재시도 없이
 중단합니다. 통과 보고서에도 production, 승격 또는 실행 권한이 없습니다.
+
+v1 window는 사용이 끝났습니다. exact merge 실행은 provider 실패 없이 13개 결정까지
+진행했지만, 현재 `gpt-5.4-mini` 결속이 답이 있는 사례 6개를 보류해 사용 불가 허용치를
+소진했습니다. 중단된 시도에는 품질 결과가 없습니다. v2는 모든 수치 기준과 안전 규칙을
+유지하고, 별도로 작성하고 검토한 `governed-read-window.v2.json`을 사용합니다.
+`config/governed-typed-selection-read.json`을 통해 정확한 `t2.ontology.council.alpha` /
+`gpt-5.6-sol` `2026-07-09` 대상에 결속합니다. v1은 튜닝이나 적격성 검증에 다시 사용하지
+않습니다.
 
 독립적인 현재 원본 검증은 모든 문서와 세대를 다시 만들고 비교합니다. 관측 기준 시각이
 projection 식별자에 포함되므로 후속 검증의 projection digest는 staged digest와 다를 수 있습니다.

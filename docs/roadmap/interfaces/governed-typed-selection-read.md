@@ -73,6 +73,13 @@ HTTP 429, three consecutive provider-unavailable decisions or more than five una
 aborts without a quality result or retry. A passing report has no production, promotion or
 execution authority.
 
+The v1 window is spent. Its exact-merge run reached 13 decisions with no provider failure, but the
+current `gpt-5.4-mini` binding held six answerable cases and exhausted the unavailable allowance;
+the aborted attempt has no quality outcome. V2 keeps every numeric threshold and safety rule,
+uses the separately authored and reviewed disjoint `governed-read-window.v2.json`, and binds the
+exact `t2.ontology.council.alpha` / `gpt-5.6-sol` `2026-07-09` target through
+`config/governed-typed-selection-read.json`. V1 is never reused for tuning or qualification.
+
 Independent current-source validation rebuilds and compares every document and generation. Its
 projection digest can differ from the staged digest because the observation cutoff is part of that
 identity. Both digests stay bound in the validation receipt; equality of content, generation,

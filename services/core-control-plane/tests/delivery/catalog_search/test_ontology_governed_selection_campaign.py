@@ -3,8 +3,10 @@
 from fdai.delivery.catalog_search.ontology_governed_selection_campaign import (
     GovernedLatencyObservation,
     GovernedLatencyProtocol,
+    GovernedLatencyProtocolV2,
     GovernedWindowDecision,
     GovernedWindowProtocol,
+    GovernedWindowProtocolV2,
     evaluate_governed_latency,
     evaluate_governed_window,
 )
@@ -43,6 +45,8 @@ def _decisions(*, wrong: int = 0, unavailable: int = 0):
 def test_governed_protocol_identity_and_clean_window_pass() -> None:
     assert GovernedLatencyProtocol().min_observations == 256
     assert GovernedWindowProtocol().decisions_per_case == 4
+    assert GovernedLatencyProtocolV2().protocol_id.endswith(".v2")
+    assert GovernedWindowProtocolV2().case_set == "governed-read-window.v2.json"
     latency = evaluate_governed_latency(
         [GovernedLatencyObservation(2_000.0, None) for _ in range(256)],
         [1.0],
