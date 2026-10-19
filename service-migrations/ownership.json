@@ -259,6 +259,9 @@
   },
   "table_migrations": {
     "core-control-plane": [
+      "document_intent_projection",
+      "document_intent_transition",
+      "document_intent_resource",
       "handover_semantic_package",
       "licensing_trial",
       "licensing_entitlement_state",
@@ -492,6 +495,9 @@
   },
   "whole_table_writers": {
     "core-control-plane": [
+      "document_intent_projection",
+      "document_intent_transition",
+      "document_intent_resource",
       "handover_semantic_package",
       "licensing_trial",
       "licensing_entitlement_state",

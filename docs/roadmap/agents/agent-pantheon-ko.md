@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: fd3c19ec142cfa8a8acda38de521671fb1a8d42c
+translation_source_sha: 050f1cd8910d8283a1e503ca5c4be22bc0be55c9
 translation_revised: 2026-10-19
 ---
 # 에이전트 판테온
@@ -65,7 +65,7 @@ Thor(운영)와 Forseti(판단)가 Odin에게 보고합니다. 거버넌스 담�
 
 ## 3. 런타임 관계도
 
-조직도는 보고 체계를, 이 관계도는 데이터 흐름을 나타냅니다. 관측과 전문가 근거는 Forseti로 전달되며, 작업 판정은 `governed-execution`을 명시적으로 선택한 경우에만 Var, Vidar 또는 실행 처리를 위해 Thor로 전달됩니다. 관찰 우선 기본값은 판정을 자문 상태로 유지하고 변경 권한을 부여하지 않습니다. Thor는 문서 수집, 배정 검토, 관찰 전용 아키텍처 검토 판정을 실행하지 않습니다. Odin은 이를 작업 포트폴리오에서 제외하고 Saga는 감사 근거를 보존합니다. 규칙 불일치 또는 이상 작업 후보 부재를 나타내는 작업 없는 shadow 사람 검토 판정은 Odin과 Saga가 처리할 수 있도록 Verdict 스트림에 남지만 Thor는 이를 무시합니다. 따라서 `ActionRun`이나 리소스 클레임을 만들지 않습니다.
+조직도는 보고 체계를, 이 관계도는 데이터 흐름을 나타냅니다. 관측과 전문가 근거는 Forseti로 전달되며, 작업 판정은 `governed-execution`을 명시적으로 선택한 경우에만 Var, Vidar 또는 실행 처리를 위해 Thor로 전달됩니다. 관찰 우선 기본값은 판정을 자문 상태로 유지하고 변경 권한을 부여하지 않습니다. Thor는 문서 수집, 정확한 변경분 문서 의도, 배정 검토, 관찰 전용 아키텍처 검토 판정을 실행하지 않습니다. Odin은 이를 작업 포트폴리오에서 제외하고 Saga는 감사 근거를 보존합니다. 규칙 불일치 또는 이상 작업 후보 부재를 나타내는 작업 없는 shadow 사람 검토 판정은 Odin과 Saga가 처리할 수 있도록 Verdict 스트림에 남지만 Thor는 이를 무시합니다. 따라서 `ActionRun`이나 리소스 클레임을 만들지 않습니다.
 Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 단계 및 최종 감사를 영속화합니다.
 클라우드 참조 패키지도 유효한 서명과 별개로 Var의 독립적인 권한 검증이 필요합니다.
 명시적인 요청자 정책 경로에서 Var는 별도로 구성된 읽기 전용 문서 수집원으로 이전에
@@ -537,8 +537,8 @@ Loki 제안 근거 검사는 같은 구현 계획의 런타임 메커니즘입�
 | object.arbitration-decision | Odin | Forseti, Saga |
 | object.action-run | Thor | Heimdall(최종 효과 관측), Vidar, Var, Saga, Loki(안전한 제안 예약 종결 전용), Bragi(진행 상황 표시) |
 | object.approval | Var | Thor(액션 승인만), Saga, Mimir(테스트 맥락 검토), Norns(학습 검토) |
-| object.rollback | Vidar | Thor (ActionRun 변환 결과), Saga |
-| object.audit-entry | Saga | Norns, Muninn (문서 인덱스 게이트), Var (문서 HIL) |
+| object.rollback | Vidar | Thor (ActionRun 변환 결과), Saga, Forseti (보류된 의도 복구) |
+| object.audit-entry | Saga | Norns, Muninn (문서 인덱스 게이트), Var (문서 HIL), Vidar (감사된 의도 복구) |
 | object.issue | Saga | Saga(이슈 발행 감사), Norns, Mimir(열린 기능 공백 인덱스) |
 | object.rule-candidate | Norns | Mimir |
 | object.pattern | Norns | Muninn (비활성 기록 보존 및 조회 시 현재 사례 검증) |
@@ -546,7 +546,7 @@ Loki 제안 근거 검사는 같은 구현 계획의 런타임 메커니즘입�
 | object.policy | Mimir | Saga(Policy 감사) |
 | object.policy-activation-request | Mimir | Var(정책 활성화 정족수 전용) |
 | operator.kill-switch.requests | Operator API | Var(서명된 Owner 또는 BreakGlass 안전 명령 전용, 조건부 비객체 구독) |
-| object.context-index | Muninn | Norns(봉인된 case-history intake), Heimdall(온톨로지 인덱스 검증), Saga(인덱스 감사) |
+| object.context-index | Muninn | Norns(봉인된 case-history intake), Heimdall(온톨로지 인덱스 검증), Saga(인덱스 감사), Forseti(보류된 의도 검토) |
 | object.state-snapshot | Muninn | Saga (스냅샷 감사) |
 | object.conversation | Bragi | Muninn(다이제스트만 담은 세션 인덱스) |
 | object.turn | Bragi | Muninn(다이제스트만 담은 턴 변환 결과) |

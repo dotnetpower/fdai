@@ -410,9 +410,10 @@ that pins the expected, next, and exact rollback graph revisions.
 
 ## G02 persistent integration proposal
 
-> **Not implemented:** This bounded design addresses #2256 G02. Existing document admission,
-> handover acceptance, inert semantic receipts, and `ProjectionPlan` values do not authorize a
-> graph write. Approving this design does not approve a particular document or graph diff.
+> **Common-graph proposal:** This section remains the unimplemented shared-graph target for
+> #2256 G02. The bounded [private intent namespace](document-declared-intent-projection.md) now
+> implements the governed-envelope SDK path with separate exact-diff approval and recovery.
+> Existing ingestion approval, handover receipts, and `ProjectionPlan` values alone grant no write.
 
 ### First delivery boundary
 

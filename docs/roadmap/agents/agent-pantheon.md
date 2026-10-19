@@ -61,7 +61,7 @@ Domain specialists and sensing agents sit under Forseti, so evidence feeds judgm
 
 ## 3. Runtime relationship diagram
 
-The org chart shows reporting lines; this diagram shows data flow. Sensing and specialists feed Forseti; action Verdicts feed Thor for Var, Vidar, or execution handling only when governed execution is explicitly selected. The observation-first default keeps those Verdicts advisory and grants no mutation authority. Thor ignores document-ingestion, assignment-review, and observation-only architecture-review Verdicts; Odin excludes them from action portfolios, and Saga retains their audit evidence. Actionless shadow Human-review Verdicts for a rule mismatch or unavailable anomaly action remain on the Verdict stream for Odin and Saga, but Thor ignores them so they create no `ActionRun` or resource claim.
+The org chart shows reporting lines; this diagram shows data flow. Sensing and specialists feed Forseti; action Verdicts feed Thor for Var, Vidar, or execution handling only when governed execution is explicitly selected. The observation-first default keeps those Verdicts advisory and grants no mutation authority. Thor ignores document-ingestion, exact-diff document-intent, assignment-review, and observation-only architecture-review Verdicts; Odin excludes them from action portfolios, and Saga retains their audit evidence. Actionless shadow Human-review Verdicts for a rule mismatch or unavailable anomaly action remain on the Verdict stream for Odin and Saga, but Thor ignores them so they create no `ActionRun` or resource claim.
 Var and Saga preserve stable document HIL idempotency, and Saga persists gated and terminal audit.
 Cloud-reference packages require independent Var authorization even with a valid signature.
 The explicit requester-policy lane lets Var verify exact previously reviewed human authority from
@@ -542,8 +542,8 @@ Loki proposal evidence checks are runtime mechanics in the same implementation p
 | object.arbitration-decision | Odin | Forseti, Saga |
 | object.action-run | Thor | Heimdall (terminal effect observation), Vidar, Var, Saga, Loki (safe proposal-reservation closure only), Bragi (progress rendering) |
 | object.approval | Var | Thor (action approvals only), Saga, Mimir (test-context reviews), Norns (learning reviews) |
-| object.rollback | Vidar | Thor (ActionRun projection), Saga |
-| object.audit-entry | Saga | Norns, Muninn (document index gate), Var (document HIL) |
+| object.rollback | Vidar | Thor (ActionRun projection), Saga, Forseti (held intent recovery) |
+| object.audit-entry | Saga | Norns, Muninn (document index gate), Var (document HIL), Vidar (audited intent recovery) |
 | object.issue | Saga | Saga (issue publication audit), Norns, Mimir (open capability-gap index) |
 | object.rule-candidate | Norns | Mimir |
 | object.pattern | Norns | Muninn (inert retention and current-case read validation) |
@@ -551,7 +551,7 @@ Loki proposal evidence checks are runtime mechanics in the same implementation p
 | object.policy | Mimir | Saga (Policy audit) |
 | object.policy-activation-request | Mimir | Var (policy activation quorum only) |
 | operator.kill-switch.requests | Operator API | Var (signed Owner or BreakGlass safety command only; conditional non-object subscription) |
-| object.context-index | Muninn | Norns (sealed case-history intake), Heimdall (ontology index validation), Saga (index audit) |
+| object.context-index | Muninn | Norns (sealed case-history intake), Heimdall (ontology index validation), Saga (index audit), Forseti (held intent review) |
 | object.state-snapshot | Muninn | Saga (snapshot audit) |
 | object.conversation | Bragi | Muninn (digest-only session index) |
 | object.turn | Bragi | Muninn (digest-only turn projection) |

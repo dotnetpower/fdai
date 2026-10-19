@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 1f80251daea19404ab10954732e2d75d7f77763b
+translation_source_sha: 7e90c339be27bc8a85587d65a888714f2f8a9156
 translation_revised: 2026-10-19
 ---
 # 문서 온톨로지 증류
@@ -407,9 +407,10 @@ truth가 됩니다. 수명 주기는 예상, 다음, 정확한 롤백 그래프 
 
 ## G02 영속 통합 제안
 
-> **미구현:** 이 설계는 #2256 G02의 범위를 제한합니다. 기존 문서 수락, 인수인계 수락,
-> 실행되지 않는 의미 검토 증적, `ProjectionPlan` 값은 그래프 쓰기를 승인하지 않습니다.
-> 이 설계에 대한 승인도 개별 문서나 그래프 변경분에 대한 승인은 아닙니다.
+> **공통 그래프 제안:** 이 절은 #2256 G02의 미구현 공통 그래프 목표입니다.
+> [비공개 의도 namespace](document-declared-intent-projection-ko.md)는 별도의 정확한 변경분
+> 승인과 복구를 포함한 통제 묶음 SDK 경로를 구현합니다. 기존 수집 승인, 인수인계 증적,
+> `ProjectionPlan` 값만으로 쓰기를 허용하지 않습니다.
 
 ### 첫 구현 범위
 

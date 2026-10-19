@@ -44,6 +44,7 @@ from fdai.agents._framework.var_development_authority import (
     VarDevelopmentAuthorityMixin,
 )
 from fdai.agents._framework.var_document_hil import ingest_document_hil
+from fdai.agents._framework.var_document_intent import DocumentIntentReviewMixin
 from fdai.agents._framework.var_final_approval import (
     _APPROVAL_PUBLICATION_CLAIM_LEASE,
     ApprovalPublicationClaim,
@@ -106,6 +107,7 @@ ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 
 
 class Var(
+    DocumentIntentReviewMixin,
     VarKillSwitchMixin,
     VarApprovalProfileMixin,
     VarDevelopmentAuthorityMixin,
@@ -141,6 +143,7 @@ class Var(
         self._cloud_application_source: CloudApplicationAuthorizationSource | None = None
         self.admin_channel = admin_channel or InMemoryAdminChannel()
         self._approver_authorizer = approver_authorizer
+        self._document_intent_approver_authorizer: ApproverAuthorizer | None = None
         self._initialize_development_authority(
             profile=development_profile,
             executor_principal=development_executor_principal,
@@ -455,8 +458,9 @@ class Var(
                 f"principal {approver_norm!r} cannot decide an action it initiated "
                 f"({correlation_id!r}): no self-approval"
             )
-        if self._approver_authorizer is not None:
-            authorized = self._approver_authorizer(approver_norm, ticket.action_type)
+        authorizer, authorization_target = self._document_intent_authorizer(ticket)
+        if authorizer is not None:
+            authorized = authorizer(approver_norm, authorization_target)
             if inspect.isawaitable(authorized):
                 authorized = await authorized
             if not authorized:

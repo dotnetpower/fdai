@@ -1082,6 +1082,31 @@
       ]
     },
     {
+      "id": "document-declared-intent-projection",
+      "paths": [
+        "docs/roadmap/rules-and-detection/document-declared-intent-projection*.md",
+        "services/core-control-plane/src/fdai/core/ontology_platform/document_intent.py",
+        "services/core-control-plane/src/fdai/agents/_framework/document_intent.py",
+        "services/core-control-plane/src/fdai/agents/_framework/var_document_intent.py",
+        "services/core-control-plane/src/fdai/delivery/persistence/postgres_document_intent*.py",
+        "services/core-control-plane/src/fdai/runtime/document_intent.py",
+        "service-migrations/branches/core-control-plane/versions/20261019_core_document_intent.py",
+        "tests/integration/services/test_document_intent_postgres.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/rules-and-detection/document-declared-intent-projection.md",
+        "docs/roadmap/interfaces/document-ingestion-agent-ownership.md",
+        "docs/roadmap/agents/agent-pantheon.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/rules-and-detection/document-declared-intent-projection.md"
+      ],
+      "validate": [
+        "python3 scripts/automation/with-local-test-database.py uv run pytest -q --no-cov tests/integration/services/test_document_intent_postgres.py"
+      ]
+    },
+    {
       "id": "document-ontology-distillation",
       "paths": [
         "docs/roadmap/rules-and-detection/document-ontology-distillation*.md",
