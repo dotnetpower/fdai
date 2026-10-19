@@ -119,6 +119,24 @@ SQLite/mock/browser evidence, PostgreSQL/image acceptance and actual Azure deplo
 reported separately; unavailable local infrastructure doesn't count as a pass. Source delivery,
 image publication and Azure changes each still require their own explicit authorization.
 
+### Bounded database recovery inspection
+
+Use the app-owned `python -m fdai_lifecycle_hub.database_inspection` command for separate
+source and restored observations through an approved private observer. The command reuses each
+product's runtime managed identity and verified TLS. It checks migrated schema and effective
+runtime privileges in one repeatable-read, read-only transaction and always rolls back.
+Per table, counts stop at 1,001 rows, at most 1,000 are accepted, and primary-key ordering selects
+at most 32 representative rows for SHA-256 comparison. Timestamp rendering uses UTC.
+
+Private `0600`, no-overwrite receipts retain counts and fingerprints, not raw rows or connection
+values. Retain them outside an ephemeral Job and use an approved private baseline-transfer path.
+The [product procedure](../../../infra/modules/hub-service/README.md#read-only-database-recovery-comparison)
+owns the command options and observation limits. This is not a restore orchestrator or evidence
+of complete database equivalence: equal counts can hide changes outside the sample. Capture the
+source near the selected restore point with writers excluded. Native server identity, private
+DNS, Entra-only/admin bindings and temporary-resource absence need separate authoritative
+readback. Local PostgreSQL tests don't validate Azure PITR or managed identity.
+
 ## Core concepts
 
 Four concepts carry the whole design. Keeping them apart is what lets one product serve every

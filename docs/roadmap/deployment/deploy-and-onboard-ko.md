@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 9e227df680241d8adec1a697f2fab811d83e6c0c
+translation_source_sha: fd8a9d9a33a7869cac1ebd9d25ea6bf96e7d6b63
 translation_revised: 2026-10-19
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -41,6 +41,14 @@ Entra 운영자/서비스 경계와 독립적인 카탈로그 pin 승인을 유�
 아니며 FDAI 설치기를 대체하지 않습니다. 로컬 컨테이너/정적 Terraform 근거로는 Azure 네트워크와
 RBAC 격리, Entra/MI, 레지스트리 아키텍처, 복제본 영속성이나 배포 성공을 입증할 수 없습니다.
 이 검증에는 승인된 실제 실행 범위가 필요합니다. Agent 적용과 전체 FDAI 설치는 제외됩니다.
+
+Hub 데이터베이스 복원을 수락하기 전에 앱 소유의 범위가 제한된 읽기 전용
+[복구 비교](../../../infra/modules/hub-service/README.md#read-only-database-recovery-comparison)를
+사용하세요. 원본과 복원본은 각각 승인된 비공개 환경에서 관측하고 증적도 비공개로 보존합니다.
+행 수와 32행 표본만으로 전체 데이터베이스 동등성을 입증할 수 없으므로 선택한 복원 시점
+전후로 쓰기를 중지하세요. 실제 서버 신원, 비공개 DNS, Entra-only 인증과 관리자 연결,
+임시 자원 정리는 독립적으로 확인합니다. 이 명령은 복원 자원을 만들거나 접근 권한을
+부여하거나 배포를 승인하지 않습니다.
 
 ## 전제조건(Prerequisites)
 

@@ -28,6 +28,14 @@ The unchanged [legacy paired fixture](../../../infra/hubs-development/README.md)
 Neither product requires the fixture; neither replaces an FDAI installer. Local/static checks don't prove Azure network/RBAC isolation, Entra/MI, registry architecture, replica durability or deployment.
 Use an authorized live scope for those receipts; Agent apply and full FDAI installation remain excluded.
 
+Before accepting a Hub database restore, use the app-owned bounded read-only
+[recovery comparison](../../../infra/modules/hub-service/README.md#read-only-database-recovery-comparison).
+Separate approved private source/restored observers and retained private receipts are required.
+Counts and a 32-row sample don't prove full database equivalence; keep writers excluded around
+the selected restore point. Independently verify actual server identity, private DNS,
+Entra-only/admin bindings and temporary-resource cleanup. The command never provisions a
+restore, grants access or authorizes deployment.
+
 ## Prerequisites
 
 ### Deployer Identity (Azure)
