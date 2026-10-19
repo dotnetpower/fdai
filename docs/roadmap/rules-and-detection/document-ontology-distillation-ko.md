@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 7e90c339be27bc8a85587d65a888714f2f8a9156
+translation_source_sha: 7df6fdc8a200bf48c6a84506b0c6260970b91a4d
 translation_revised: 2026-10-19
 ---
 # 문서 온톨로지 증류
@@ -429,7 +429,7 @@ truth가 됩니다. 수명 주기는 예상, 다음, 정확한 롤백 그래프 
 `unobserved:handover-review-only` 개정 번호와 빈 엔터티 집합은 쓰기 가능한 그래프
 맥락이 아닙니다.
 
-### 책임이 명확한 승인과 적용
+### 승인과 적용의 책임 담당자
 
 15개 에이전트와 현재 역할 바인딩을 유지합니다. 다른 에이전트를 직접 호출하거나 패키지
 컴파일러에 그래프 쓰기 기능을 주지 않고, 기존 스키마 검증 이벤트 흐름을 확장합니다.

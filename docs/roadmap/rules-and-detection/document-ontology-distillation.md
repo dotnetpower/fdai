@@ -432,7 +432,7 @@ that policy. Missing policy or identity leaves the package review-only. In parti
 handover verifier's
 `unobserved:handover-review-only` revision and empty entity set are not writable graph context.
 
-### Accountable approval and application
+### Approval and application owners
 
 Keep all 15 agents and their current role bindings. Extend the existing schema-validated event
 choreography rather than calling another agent or giving a package compiler a graph writer:
