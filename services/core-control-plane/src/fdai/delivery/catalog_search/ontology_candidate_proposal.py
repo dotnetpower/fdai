@@ -98,12 +98,30 @@ def candidate_proposal_payload(
     build: SemanticGenerationBuild,
     staged: OntologyStagedProjection,
 ) -> dict[str, object]:
+    payload = _candidate_proposal_content(
+        query=query, manifest=manifest, build=build, staged=staged
+    )
+    encoded = json.dumps(payload, ensure_ascii=False, allow_nan=False)
+    if len(encoded.encode("utf-8")) > 131072:
+        raise ValueError("complete candidate proposal context exceeds its byte bound")
+    payload["input_digest"] = content_digest(payload)
+    return payload
+
+
+def _candidate_proposal_content(
+    *,
+    query: str,
+    manifest: QueryManifest,
+    build: SemanticGenerationBuild,
+    staged: OntologyStagedProjection,
+) -> dict[str, object]:
+    """Build the complete typed domain; callers enforce their own transport byte contract."""
     if not query.strip() or len(query.encode("utf-8")) > 16384:
         raise ValueError("candidate proposal query must be nonempty and bounded")
     validate_ontology_semantic_generation(
         build=build, manifest=manifest, validator_id="candidate-proposal-context"
     )
-    payload: dict[str, object] = {
+    return {
         "query": query,
         "strategy": SELECTION_STRATEGY,
         "manifest_digest": manifest.manifest_digest,
@@ -117,11 +135,6 @@ def candidate_proposal_payload(
             if _selection_context_document(document.rule_id)
         ],
     }
-    encoded = json.dumps(payload, ensure_ascii=False, allow_nan=False)
-    if len(encoded.encode("utf-8")) > 131072:
-        raise ValueError("complete candidate proposal context exceeds its byte bound")
-    payload["input_digest"] = content_digest(payload)
-    return payload
 
 
 def filter_candidate_proposal_quotes(
