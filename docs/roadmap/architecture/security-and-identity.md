@@ -443,4 +443,4 @@ Raw provider response text is neither persisted as Resource state nor returned t
 
 | To learn about | Read |
 |----------------|------|
-| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/architecture/security-and-identity.md) |
+| Numeric automation inputs and delivery status | [Schedule input boundary](../decisioning/automation-blueprints.md#review-and-materialization), [Implementation ledger](../../roadmap-implementation/architecture/security-and-identity.md) |

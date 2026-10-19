@@ -215,6 +215,9 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   implemented 30-second budget, frozen shadow replay, stop/no-execute receipts, daily jobs, and
   recurrent-query signal. Prove stabilization opens, lowers authority on breach, and exits only
   when its configured conditions hold.
+  #2254 hardens the existing scheduler prerequisite against non-finite intervals with 110 focused
+  passes and actual creation/materialization/due-cycle controls. It does not register those daily
+  jobs or the recurrent-query signal, choose the operating policy, or close this package.
 - [ ] **H03, operating decisions:** Resolve and version all seven open owner decisions: canary
   audit-freshness/round-trip alert budget; smoke fixtures/budgets/promotion wiring; alert ownership
   and fallback; audit investigation retention/query model; cold-start deadline; stabilization

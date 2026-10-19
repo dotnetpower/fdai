@@ -1,7 +1,7 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: e1597b6681ffa9c67ccdd54ebe9841e249f66d1d
-translation_revised: 2026-09-30
+translation_source_sha: c81532b65cfb61e7d10b40d03b4e3ed79ec3091e
+translation_revised: 2026-10-19
 ---
 # Reviewable 자동화 Blueprints
 
@@ -56,6 +56,12 @@ superset이 필요합니다.
 구체화는 reviewing principal로 `CreateScheduledTaskCommand`를 호출하며 스케줄러 저장소를
 직접 쓰지 않습니다. 고정된 작업 ID가 재시도 멱등성을 제공하고 conflicting 내용은 실패합니다.
 결과 작업은 기존 trust/risk 경로로 shadow-only 이벤트를 보냅니다.
+
+공통 예약 모델은 유한한 양수 간격만 허용합니다. 불리언, 유한하지 않은 값,
+스케줄러의 숫자 시계로 표현할 수 없는 정수는 저장 전에 차단합니다. 호환 생성 및 수정
+도구는 기존 60초 하한을 유지하고, 기존 작업을 교체하지 않은 채 구조화된 오류를 반환합니다.
+유효한 숫자 문자열의 기존 변환은 유지합니다. 잘못된 기존 정의는 권한 있는 주체가 수정하거나
+취소해야 하며, 검증기가 대체 간격을 만들어 넣지 않습니다.
 
 구성 검토 캠페인도 같은 경로를 사용합니다. Exact cited 실행 세 개는 실행별 지문과
 zero 변경 도구를 가진 비활성화된, shadow-only 후보를 제출합니다. 별도 Approver 또는 Owner가

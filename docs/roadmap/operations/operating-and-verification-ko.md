@@ -1,7 +1,7 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 779634efc240122256d7a53171cb411d2cdf73eb
+translation_source_sha: 8d9b5adc72b9746c0fcd58356f56256c05230676
 translation_revised: 2026-10-19
 ---
 
@@ -127,6 +127,7 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 안정화 스케줄러 숫자 입력 검증 | implemented | #2254, 공통 예약 모델, 호환 도구 및 실제 생성 명령 검사, 집중 검사 110개, 모델 및 도구 분기 포함 커버리지 92.62%/97.63% | 유한하지 않은 잘못된 간격은 저장하거나 유효한 작업을 교체하지 못합니다. 기존 주기와 정상 실행 요청은 유지합니다. 선행 조건의 하드닝이며 일일 작업 등록이나 안정화 검증 완료를 뜻하지 않습니다. |
 | 런타임 `/live` 및 `/ready` 엔드포인트와 시작 준비 상태 평가, 저장, 전이, 보호된 새로 고침 | implemented | [`runtime/health.py`](../../../services/core-control-plane/src/fdai/runtime/health.py), [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`test_readiness.py`](../../../services/core-control-plane/tests/runtime/test_readiness.py), [`test_startup_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_startup_coordinator.py) | 프로세스 핵심 실패는 준비 상태를 닫고, 저하된 기능은 권한을 낮추며 복구 시 권한을 높이지 않습니다. |
 | 범위가 제한된 전이 구간과 메트릭 및 안전한 OTLP 구성 | implemented | [`transitions.py`](../../../services/core-control-plane/src/fdai/shared/telemetry/transitions.py), [`test_transition_telemetry.py`](../../../services/core-control-plane/tests/shared/test_transition_telemetry.py) | 안정적인 허용 목록 속성은 페이로드와 프로바이더 오류가 텔레메트리 레이블이 되지 않도록 합니다. |
 | 합성 카나리 발행기, 정규 소비자, no-op 감사 경로, 예약된 Container Apps 작업 | implemented | [`canary_cli.py`](../../../services/core-control-plane/src/fdai/delivery/canary_cli.py), [`_canary.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_canary.py), [`canary_job.tf`](../../../infra/modules/compute/container-apps/canary_job.tf), 카나리 집중 테스트 | 카나리는 T0/T1/T2, risk, 실행, 인시던트, 학습 경로와 격리됩니다. |
@@ -144,6 +145,7 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-19 | implemented | 일일 안정화 작업 연결에 앞서 공통 예약 간격 검증을 보강했습니다. 잘못된 NaN 및 무한대가 예약 상태에 들어가거나, 큰 숫자 변환이 호환 도구에서 처리되지 않은 오류로 빠지는 문제를 수정했습니다. | `current change`, #2254, 수정 전 실패한 회귀 14개, 집중 검사 110개, 실제 생성 명령과 검토된 블루프린트 구체화, 정확한 60초 경계, 수정 차단 시 상태 보존, 정상 실행 요청과 RBAC 및 격리 검사, 모델 및 도구 커버리지 92.62%/97.63% | 일일 상태 및 드리프트와 배포 기준선 작업 등록, 반복 질의 신호, 운영 정책과 운영 증적은 미완료입니다. 권한이나 모드를 높이지 않습니다. |
 | 2026-10-19 | implemented | 기존 카나리 경과 시간 메트릭을 바이트 한도가 있는 인덱스 PostgreSQL 읽기자로 최신 커밋된 Core 성공 감사에 연결했습니다. 발행기, 시작 검사나 오래된 일부 감사 기록으로 대신하지 않습니다. 호출자의 정밀도 반올림이 1마이크로초 임계값 위반을 숨기는 반례도 재현하고 제거했습니다. | `current change`, #2250, 실제 격리 PostgreSQL 사례 4개를 포함한 집중 검사 99개, 수집원과 조회의 분기 포함 커버리지 100%, 실제 부분 인덱스 계획, 정확한 Decimal 및 바이트 경계, 실제 Core 생성기와 기본 준비 상태 구성, 동시 인덱스 SQL, 공식 Core 마이그레이션 검증 | 신호 항목 5개와 필드 3개가 연결되며 나머지 10개 및 5개는 unavailable입니다. 운영 검증 전 서비스 소유 인덱스를 적용해야 합니다. 최신 시도 결과와 상태, 전체 감사 이력, 전달 및 훈련과 실제 운영 증적은 미완료입니다. |
 | 2026-10-19 | withdrawn | `e58fbf5674`의 단일 임베딩 관측을 전체 `adapter_healthcheck`에 연결한 동작과 신호 항목 5개 연결 주장을 철회했습니다. 구성된 임베딩 성공과 미관측 추론기를 함께 두자 잘못된 전체 Healthy가 재현됐습니다. | 현재 수정, 실패 후 통과한 수집기 회귀, 실제 SDK producer, 완전한 시작 역할 등록 정보, 엄격한 Operator 범위 소비자 검사 | 전체 카탈로그 수집원 연결은 항목 4개와 필드 3개이며 항목 11개와 필드 5개가 unavailable입니다. 모델 하위 관측은 별도 타입으로 구분하며 전체 어댑터 및 복제본 관측은 미구현입니다. |
 | 2026-10-19 | implemented | 정상 임베딩 SDK 호출의 실제 결과를 기록하는 producer를 등록 역할과 연결 다이제스트에 한정된 어댑터 상태 항목으로 연결했습니다. 겹친 호출이 모두 종결되어야 관측을 제공하며 취소나 미완성 결과를 다른 성공으로 덮어쓰지 않습니다. | `current change`, 임베딩 producer, `provider_observations.py`, 실제 MockTransport 호출부터 기존 스냅숏 및 읽기 계약까지의 집중 테스트 | 수집원이 연결된 항목은 신호 5개와 필드 3개입니다. 어댑터는 `t1.embedding`에 한정되며 다른 역할과 복제본은 알 수 없습니다. 신호 10개와 필드 5개는 unavailable입니다. 비율, 의미 품질, 전체 준비 완료, 배포 근거는 주장하지 않습니다. |
