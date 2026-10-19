@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 48504778b96902488eb1025d5224451f4ab690f5
+translation_source_sha: 790748999e81924b3b56d6a25ea37540359e3c24
 translation_revised: 2026-10-20
 ---
 # 온톨로지 조회 커버리지 구현 계획

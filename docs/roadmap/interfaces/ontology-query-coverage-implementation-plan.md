@@ -673,10 +673,9 @@ K=2 observation, and one contended call while that observation runs.
 
 The live campaign makes at most 512 proposal calls within a 90-minute deadline and never retries.
 Live decision starts are paced at least 12 seconds apart to limit request bursts against the
-qualified deployment's request budget. Pacing time is outside each observation's measured latency.
+qualified deployment's request budget; pacing time is outside each observation's measured latency.
 The campaign stops after three consecutive provider-unavailable observations or once the
-unavailable allowance is spent. Window cases are curated synthetic questions, not organic operator
-traffic.
+unavailable allowance is spent. Window cases are curated synthetic questions, not organic operator traffic.
 An aborted campaign has no quality outcome. It keeps its completed decisions privately with their
 unavailable reasons and content-free adapter failure classes. Every attempt is reported. A rerun
 requires a new merged commit whose changes are limited to evidence tooling or a diagnosed runtime
