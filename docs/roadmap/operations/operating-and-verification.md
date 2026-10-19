@@ -159,12 +159,14 @@ so no area is claimed as fully operationally validated.
 | Pre-launch latency measurement and frozen-scenario replay | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), and focused tests | The primitives produce bounded measurements and release-gate results; an external load generator and deployment-specific budgets remain operator inputs. |
 | Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#verification-and-release-evidence) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
 | ActionType operator-runbook schema and coverage | implemented | [`check-action-runbooks.py`](../../../scripts/quality/documentation/check-action-runbooks.py), [`incident-mitigation-and-rollback.md`](../../runbooks/incident-mitigation-and-rollback.md), and [`test_check_action_runbooks.py`](../../../tests/integration/scripts/test_check_action_runbooks.py) | Every shipped ActionType matches exactly one generic upstream runbook whose declared precondition, procedure, verification, rollback, and audit sections exist. Deployment-specific commands remain fork-owned. |
-| Post-launch stabilization composition | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler) and measurement primitives | The daily health, drift, and deployment-baseline jobs and `console.recurrent_query` signal aren't registered upstream. |
+| Grounded recurrent-query input | implemented | #2271 / PR #2273; `post_turn_procedure.py`; `norns_recurrent_queries.py`; 571 focused regression passes including four isolated PostgreSQL scenarios | Typed executed human-query shapes reach Norns through Operator validation and Bragi metadata transport. Durable distinct-principal counting feeds only the existing inert Mimir input; raw-body consent and current publication gates remain unchanged. |
+| Post-launch stabilization composition | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler), measurement primitives and the registered recurrent-query input | Daily health, drift and deployment-baseline jobs remain unregistered. Installed cohort/transport, operating policy and complete stabilization open/demotion/exit evidence remain open; local recurrence mechanics do not complete H02. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-19 | implemented | Reconciled the operating owner with the grounded recurrent-query source added in this change. The earlier unregistered-signal wording is superseded for this metadata-only input, not for daily jobs or operational qualification. | #2271 / PR #2273; typed plan receipt, actual Operator/Bragi/Norns/Mimir path, 571 focused regressions and four actual isolated PostgreSQL scenarios. | Retain daily job registration, actual installed cohort/transport, approved operating decisions and stabilization lifecycle receipts. No whole-H02 Ready claim. |
 | 2026-10-19 | implemented | Bound the actual default T2 verifier to a complete-window health source without changing its returned decision or invoking another model. Current source coverage is six signals/three fields, not the withdrawn receipt-only six/four interpretation. | Current change; `delivery/self_health_verifier.py`; `tests/delivery/test_self_health_verifier.py`: 20 passed, 100% branch-inclusive source coverage. Direct critique reproduced and repaired healthy-window reuse after an unknown result and a registry-identity mismatch. | Nine signals/five fields, installed delivery/drill receipts, and measured operational outcomes remain open. Counter state is intentionally process-local; restart returns to warmup rather than reusing a prior healthy rate. |
 | 2026-10-19 | withdrawn | Withdrew this topic's earlier six-signal/four-field claim and its receipt-only canary result/state exporters when integrating protected #2253. A fresh last-success receipt cannot establish the latest scheduled attempt or complete canary state. Reused the stronger indexed age producer instead of maintaining a competing implementation. | Earlier local `adcbf54cc6`/`c7a7a8bdfa` receipt tests established receipt validity only; protected main `3917df4297` supplies the indexed, byte-bound, hash-checked age source. No independently owned latest-attempt window exists. | Current source coverage is five of 15 signals and three of eight fields. Latest-attempt result/state, ten signal producers and five fields remain open; fixture passes are not operational qualification. |
 | 2026-10-19 | implemented | Aligned the ephemeral CI database's host port and service DSNs with canonical isolated validation port 5433 instead of relaxing the new source-regression guards. Added static CI-contract coverage for both accepted 5433 and rejected runtime-port 5432 configurations. Container-internal PostgreSQL still uses 5432. | Current change; CI `39196349170` attempt 1, exact head `50bd2a1bffe10edcb29c0700445470ee8299f42d`, completed integration job `117879915744` step 9 reported fourteen fixture-port errors; no database outage or flaky-test claim. `check-ci-contracts.py` and the 159-case CI/artifact/fast-scope selection pass locally; the actual source-backend tests retain their loopback-5433 checks. | Repaired-head CI remains authoritative. This changes test infrastructure only, not runtime databases, deployed health, H01 coverage or operational qualification. |
@@ -200,7 +202,9 @@ so no area is claimed as fully operationally validated.
   kill-switch, and break-glass state through one authorized read surface and test field freshness.
 - [x] Define a required runbook schema and add a check proving every automated ActionType has a
   generic upstream or deployment-owned runbook with verification and rollback instructions.
-- [ ] Register the daily stabilization jobs and recurrent-query signal, then prove the window opens,
+- [x] Register the metadata-only recurrent-query input through the actual typed plan and
+  Operator/Bragi/Norns/Mimir path (#2271 / PR #2273; local mechanics only).
+- [ ] Register the daily stabilization jobs, then prove the window opens,
   lowers authority on guard-metric breach, and closes only after its configured exit conditions.
 - [ ] Complete the live Azure guest-event, provider-throttling, and cross-service parity evidence
   tracked by the Azure read-investigation owner document.
@@ -438,9 +442,10 @@ the leading edge of the 30-day
 [measurement window](../architecture/goals-and-metrics.md#definitions), not a
 separate mode, and it composes existing primitives:
 
-> **Implementation status**: The scheduler and measurement primitives exist, but upstream doesn't
-> currently register the daily health/drift/deployment-baseline jobs or publish
-> `console.recurrent_query`. The bullets below define the target stabilization composition.
+> **Implementation status**: Scheduler/measurement primitives and the metadata-only
+> `console.recurrent_query` input are implemented. Daily health/drift/deployment-baseline jobs,
+> installed transport/cohort qualification and full stabilization lifecycle evidence remain open.
+> The bullets below define the target stabilization composition, not a completed rollout.
 
 - **Shadow-first stays the default.** Newly introduced actions remain in shadow
   through the window; promotion to enforce waits until the stabilization
