@@ -61,6 +61,7 @@ from fdai.core.prompts import PromptReplayManifest
 from fdai.core.quality_gate._audit import quality_decision_audit_fields
 from fdai.core.quality_gate._debate_helpers import resolve_disagreement
 from fdai.core.quality_gate._verification import (
+    CrossCheckObserver,
     cross_check_candidate,
     verify_grounding,
 )
@@ -368,6 +369,7 @@ class QualityGate:
             Mapping[DeterministicEvidenceKind, DeterministicEvidenceVerifier] | None
         ) = None,
         evidence_clock: Any = None,
+        cross_check_observer: CrossCheckObserver | None = None,
     ) -> None:
         cfg = config or QualityGateConfig()
         if not 0.0 <= cfg.confidence_threshold <= 1.0:
@@ -397,10 +399,7 @@ class QualityGate:
             declared_ids.append(model_id)
         if len(set(declared_ids)) != len(declared_ids):
             raise ValueError("cross-check models MUST declare distinct model ids")
-        # Wave 4.5 delta-2b: debate wire is opt-in. Half-wiring
-        # (orchestrator without router or vice versa) is a fork bug
-        # that would only surface on the first disagreement - refuse
-        # at construction so the failure is loud and immediate.
+        # Refuse half-wired debate configuration before the first disagreement.
         if (debate_orchestrator is None) != (debate_router_config is None):
             raise ValueError(
                 "debate_orchestrator and debate_router_config MUST be provided "
@@ -408,6 +407,7 @@ class QualityGate:
             )
         self._verifier = verifier
         self._models = cross_check_models
+        self._cross_check_observer = cross_check_observer
         self._grounding = grounding
         self._config = cfg
         self._debate_orchestrator = debate_orchestrator
@@ -541,7 +541,9 @@ class QualityGate:
 
         # 4. Mixed-model cross-check (agreement on action_type)
         try:
-            cross_check = await cross_check_candidate(candidate, self._models)
+            cross_check = await cross_check_candidate(
+                candidate, self._models, observer=self._cross_check_observer
+            )
             agree = cross_check.agree_count
             votes = list(cross_check.votes)
             first_proposer_output = cross_check.first_proposer_output

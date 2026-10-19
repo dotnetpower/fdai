@@ -19,6 +19,7 @@ from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.readiness.self_health import SelfHealthCatalog, load_self_health_catalog
 from fdai.delivery.azure.llm.provider_observations import ConfiguredModelProviderScope
 from fdai.delivery.readiness_remediation import EventBusReadinessRemediationPublisher
+from fdai.delivery.self_health_disagreement import RuntimeMixedModelHealthSource
 from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
@@ -103,6 +104,7 @@ class RuntimeSelfHealthBindings:
     catalog: SelfHealthCatalog
     model_provider_scope: ConfiguredModelProviderScope
     verifier_health_source: RuntimeVerifierHealthSource | None = None
+    mixed_model_health_source: RuntimeMixedModelHealthSource | None = None
 
 
 def build_runtime_self_health_bindings(
@@ -114,12 +116,18 @@ def build_runtime_self_health_bindings(
     verifier_source = RuntimeVerifierHealthSource(
         metric=policy.metric, window_seconds=policy.maximum_age_seconds
     )
+    mixed_policy = catalog.policies[SelfHealthSignalName.MIXED_MODEL_DISAGREEMENT_RATE]
+    mixed_source = RuntimeMixedModelHealthSource(
+        metric=mixed_policy.metric, window_seconds=mixed_policy.maximum_age_seconds
+    )
     if resources is not None:
         resources.verifier_health_source = verifier_source
+        resources.mixed_model_health_source = mixed_source
     return RuntimeSelfHealthBindings(
         catalog=catalog,
         model_provider_scope=build_runtime_model_provider_scope(container, catalog),
         verifier_health_source=verifier_source,
+        mixed_model_health_source=mixed_source,
     )
 
 

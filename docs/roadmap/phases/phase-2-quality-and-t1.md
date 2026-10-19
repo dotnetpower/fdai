@@ -201,6 +201,11 @@ another model can change shared data. The gate pins both its caller and working 
 later rubric/debate awaits; drift holds with an explicit reason rather than rebinding old votes.
 The T2 consumer matches the returned snapshot's target, arguments and confidence to its pinned
 input and forwards that owned snapshot, never the proposer's mutable argument reference.
+
+An optional `CrossCheckObserver` brackets that original comparison over the exact model tuple.
+It receives only a complete-round agreement or unknown state and adds no model call or authority.
+Default omission preserves existing decisions. The [operating owner](../operations/operating-and-verification.md#mixed-model-comparison-observations)
+defines the separate process-window metric and its native-producer qualification.
 These checks grant no source, approval or execution authority and prove no operational effect.
 
 ## T1 Lightweight Tier

@@ -20,10 +20,10 @@ override, discovery, canary, kill-switch, and break-glass fields as source-quali
 freshness, or explicit unavailable states. Operator validates and redacts the shared contract. It
 does not query providers, infer healthy defaults, approve a change, or gain execution authority.
 Core supplies actual listener liveness, guarded readiness, persisted kill switch, process startup
-duration, consumed-canary age and the deterministic-verifier rate, plus installed-version,
+duration, consumed-canary age, deterministic-verifier and native comparison-round rates, plus installed-version,
 consumed-policy and kill-switch digests. Exact coverage stays with the
 [source owner](../operations/operating-and-verification.md#remaining-source-boundaries);
-the aggregate adapter signal and missing sources remain unavailable. Verifier warmup and unknown
+the aggregate adapter signal and missing sources remain unavailable. Verifier/comparison warmup, pending and unknown
 results are data states in the unchanged contract, not approval decisions. Source failures retain bounded missing, malformed, or unreachable
 reasons; the wire shape and Reader authorization are unchanged. Sharing `bootstrap_core.py`
 with Incident composition does not create or confirm an Incident, publish an Incident request,

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from fdai.core.quality_gate.candidate_snapshot import (
     quality_candidate_evaluation_identity,
@@ -37,6 +38,21 @@ class CrossCheckResult:
     first_proposer_output: tuple[str, Any] | None
 
 
+@dataclass(slots=True)
+class CrossCheckRoundObservation:
+    """None remains unknown until the original fully settled comparison supplies a result."""
+
+    all_agreed: bool | None = None
+
+
+class CrossCheckObserver(Protocol):
+    """Observe the exact group without changing or suppressing its result or granting authority."""
+
+    def observe_round(
+        self, models: tuple[CrossCheckModel, ...]
+    ) -> AbstractContextManager[CrossCheckRoundObservation]: ...
+
+
 def verify_grounding(
     candidate: QualityCandidate,
     grounding: GroundingSource,
@@ -67,6 +83,21 @@ def verify_grounding(
 
 
 async def cross_check_candidate(
+    candidate: QualityCandidate,
+    models: tuple[CrossCheckModel, ...],
+    *,
+    observer: CrossCheckObserver | None = None,
+) -> CrossCheckResult:
+    if observer is None:
+        return await _cross_check_candidate(candidate, models)
+    with observer.observe_round(models) as observation:
+        result = await _cross_check_candidate(candidate, models)
+        if len(result.votes) >= 2:
+            observation.all_agreed = all(vote.agreed for vote in result.votes)
+        return result
+
+
+async def _cross_check_candidate(
     candidate: QualityCandidate,
     models: tuple[CrossCheckModel, ...],
 ) -> CrossCheckResult:
