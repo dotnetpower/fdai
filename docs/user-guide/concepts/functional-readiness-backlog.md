@@ -241,6 +241,10 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   focused checks, including four actual isolated PostgreSQL scenarios, cover local mechanics.
   Installed transport, actual cohort qualification, daily jobs, policy and stabilization remain
   open; this increment does not complete H02 or add a self-health signal.
+  The current creation-replay repair also preserves run state across repeated registration,
+  distinguishes atomic duplicate races from other errors, and checks canonical JSON intent.
+  Its 108 focused passes include four new isolated PostgreSQL cases and 100% creation coverage.
+  This is another registration prerequisite, not registration or operational acceptance.
 - [ ] **H03, operating decisions:** Resolve and version all seven open owner decisions: canary
   audit-freshness/round-trip alert budget; smoke fixtures/budgets/promotion wiring; alert ownership
   and fallback; audit investigation retention/query model; cold-start deadline; stabilization

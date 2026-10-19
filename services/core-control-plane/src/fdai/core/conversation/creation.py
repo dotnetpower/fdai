@@ -20,6 +20,7 @@ defaults to shadow mode).
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from dataclasses import replace
 from uuid import UUID, uuid4
 
 from fdai.core.conversation.session import (
@@ -35,8 +36,13 @@ from fdai.core.scheduler.models import (
     ScheduledTask,
     ScheduleKind,
 )
-from fdai.core.scheduler.store import ScheduleNotFoundError, ScheduleStore
+from fdai.core.scheduler.store import (
+    ScheduleAlreadyExistsError,
+    ScheduleNotFoundError,
+    ScheduleStore,
+)
 from fdai.shared.contracts.models import Incident, IncidentSeverity
+from fdai.shared.providers.ontology_instance import canonical_json_mapping, json_values_equal
 from fdai.shared.providers.scheduled_continuation import (
     ContinuationMode,
     ScheduledResultOrigin,
@@ -119,15 +125,20 @@ class CreateScheduledTaskCommand:
         continuation_mode: ContinuationMode = ContinuationMode.NONE,
         continuation_origin: ScheduledResultOrigin | None = None,
     ) -> ScheduledTask:
-        """Create a scheduled task the next scheduler tick will fire."""
+        """Snapshot JSON intent; replay an explicit id without resetting dispatch progress."""
         _require_floor(principal, "create_scheduled_task")
+        if task_id is not None and not task_id:
+            raise ValueError("ScheduledTask.task_id MUST be non-empty")
+        payload, _ = canonical_json_mapping(
+            event_payload or {}, path="scheduled_task.event_payload"
+        )
         task = ScheduledTask(
             task_id=task_id or f"task-{uuid4().hex[:12]}",
             name=name,
             interval_seconds=interval_seconds,
             event_type=event_type,
             created_by=principal.id,
-            event_payload=dict(event_payload or {}),
+            event_payload=payload,
             resource_ref=resource_ref,
             cron_expression=cron_expression,
             schedule_kind=ScheduleKind.CRON if cron_expression is not None else None,
@@ -142,10 +153,27 @@ class CreateScheduledTaskCommand:
             except ScheduleNotFoundError:
                 pass
             else:
-                if existing == task:
+                if _same_schedule_definition(existing, task):
                     return existing
                 raise ValueError(f"task_id {task_id!r} already exists with different content")
-        return await self._store.create(task)
+        try:
+            return await self._store.create(task)
+        except ScheduleAlreadyExistsError:
+            if task_id is None:
+                raise
+            existing = await self._store.get(task_id)
+            if _same_schedule_definition(existing, task):
+                return existing
+            raise ValueError(f"task_id {task_id!r} already exists with different content") from None
+
+
+def _same_schedule_definition(existing: ScheduledTask, requested: ScheduledTask) -> bool:
+    """Match intent without run progress, storage-only kind changes, or bool coercion."""
+    if replace(existing, last_run=None, event_payload={}, schedule_kind=existing.kind) != replace(
+        requested, last_run=None, event_payload={}, schedule_kind=requested.kind
+    ):
+        return False
+    return json_values_equal(existing.event_payload, requested.event_payload)
 
 
 __all__ = [
