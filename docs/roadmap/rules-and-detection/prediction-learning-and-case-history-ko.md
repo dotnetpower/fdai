@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 76841ad9463a9a3c37089887e14f63a7893a76f9
+translation_source_sha: 980d303ab7d6cf56286ce7186bb6fbda80a76bf7
 translation_revised: 2026-10-19
 ---
 # 예측 학습 및 케이스 히스토리
@@ -283,7 +283,14 @@ Vidar가 보상 작업을 수행하도록 실행된 `failed` ActionRun을 게시
 확인 기준 시점까지의 완전성을 보장하는 경계, 구간 종료와 유예 기간 이후의 데이터베이스 시계 기준
 워터마크, 전체 감사 구간의 연속성 증명이 필요합니다. 구성, 선택된 감사 행의 무결성, 호출자의 주장으로
 이 전제 조건을 대체할 수 없습니다. 제외 구간의 완전성도 아직 인정되지 않으며 현재 `ChangeWindow`
-객체는 증명된 이력이 아닙니다. 설정의 `forecast-history` 행은 런타임 조립과
+객체는 증명된 이력이 아닙니다. ChangeWindow 원천은 보존 스냅샷에 수집 범위 행이 있고 눈에 띄는
+충돌이 없어도 정규화된 기록이나 초기 상태를 반환하지 않으며
+`change_window_history_proof_unavailable`을 명시합니다. 현재 스냅샷이 비어 있다는 사실만으로
+해당 구간에 제외 조건이 없었다고 판단할 수 없습니다. 스냅샷 작성자는 아직 모든 개정과 철회를
+원본 담당자의 수락 기록에 원자적으로 연결하지 않으며 시작 기준점, 연속 개정 이력, 확인 기준
+시점까지의 완전성을 보장하는 경계도 제공하지 않습니다. 스냅샷의 항목 일치나 순차 저장으로 이를
+대체할 수 없습니다. 원본 행과 워터마크 참조는 근거로 남지만 사건 시각 전이를 만들어 내거나
+유효 시각을 `recorded_at`에 복사할 권한을 주지 않습니다. 설정의 `forecast-history` 행은 런타임 조립과
 같은 파서로 구성을 검증합니다. 이 행은 항상 `ready=false`와 `available=false`를 보고하고,
 이는 채점 준비 상태를 뜻합니다. 예측 대상을 포함한 전제 조건과 원천별 연결 여부도 나열합니다.
 별도의 감사 기록이 남는 런타임 설정 `forecast.history_collection.enabled`는 기본값이 false이며

@@ -288,7 +288,15 @@ Future positive action coverage requires independently recorded event-time histo
 start anchor, a known-at completeness fence, a database-clock watermark after window end plus
 grace, and proof of the complete contiguous audit segment. Configuration, intact selected audit
 rows, and caller assertions cannot replace these prerequisites. Excluded-window positive coverage
-also remains unavailable; current `ChangeWindow` objects are not an attested history. The Settings
+also remains unavailable; current `ChangeWindow` objects are not an attested history. The
+ChangeWindow source returns no normalized records or initial state and explicitly reports
+`change_window_history_proof_unavailable`, even when a retained snapshot has a coverage row
+and no visible conflict. An empty current snapshot cannot prove an included interval. The
+snapshot writer does not yet atomically bind all revisions and withdrawals to the source
+owner's admission or provide the start anchor, contiguous revision journal, and as-of
+completeness fence. Snapshot membership and sequential writes are not substitutes. Raw rows
+and watermark references remain evidence, not permission to manufacture event-time transitions
+or copy an effective timestamp into `recorded_at`. The Settings
 `forecast-history` row validates configuration with the same parser as runtime composition. It
 always reports `ready=false` and `available=false` for scoring and lists prerequisites, including
 forecast targets, and per-source binding. The separate audited runtime setting
