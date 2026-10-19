@@ -47,6 +47,14 @@ from fdai.shared.providers.process_runtime import ProcessRuntimeStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _PRODUCTION_RUNTIME_ENVS = frozenset({"staging", "prod", "production"})
+GOVERNANCE_HIL_ACTION_TYPES = frozenset(
+    {
+        "governance.promote-action-type",
+        "governance.override-promote-action-type",
+        "governance.promote-effect-model",
+        "governance.promote-typed-selection-read",
+    }
+)
 
 
 def production_runtime() -> bool:

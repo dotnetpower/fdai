@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass
 from datetime import timedelta
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from uuid import uuid4
 
 from fdai_service_contracts.ontology_query import content_digest
@@ -37,7 +37,14 @@ from .ontology_candidate_selection import (
     resolve_candidate_selection,
 )
 from .ontology_snapshot_store import OntologyStagedProjection
-from .ontology_snapshot_validation import OntologySnapshotValidation
+from .ontology_snapshot_validation import (
+    OntologySnapshotValidation,
+    validate_snapshot_against_current_graph,
+)
+
+if TYPE_CHECKING:
+    from .ontology_index_lifecycle import IndexScope
+    from .ontology_index_workers import OntologyContextIndexWorkers
 
 _EVIDENCE_PREFIX = "typed-selection:"
 
@@ -72,6 +79,50 @@ class PreparedReadProposer(Protocol):
         source_validation: OntologySnapshotValidation,
         limits: CandidateContextLimits | None = None,
     ) -> OntologyCandidateProposalResult: ...
+
+
+async def typed_read_source(
+    workers: OntologyContextIndexWorkers,
+    scope: IndexScope,
+    *,
+    proposer: PreparedReadProposer,
+    source_revision: str,
+    data_policy_digest: str,
+) -> ReadSelectionSource:
+    """Resolve the current secured source without inference or authority changes."""
+    target = await workers._current_target(scope)
+    build = await workers._snapshots.read(
+        target.staged.snapshot_digest,
+        manifest=target.manifest,
+        source_generation=target.staged.source_generation,
+        source_projection_digest=target.staged.source_projection_digest,
+    )
+    if build is None:
+        raise PermissionError("typed selection current snapshot is unavailable")
+    validation = await validate_snapshot_against_current_graph(
+        snapshots=workers._snapshots,
+        staged=target.staged,
+        gateway=target.gateway,
+        manifest=target.manifest,
+        as_of=workers._clock(),
+        embedding_space_id=workers._space,
+        embedding_model_version=workers._model,
+        embedding_dimension=workers._dimension,
+        validator_id="typed-selection-read-source",
+    )
+    binding = ReadCapabilityBinding(
+        source_revision=source_revision,
+        manifest_digest=target.manifest.manifest_digest,
+        principal_scope_digest=scope.principal_scope_digest,
+        model_binding_digest=content_digest(
+            asdict(proposer.candidate_proposal_binding_for_manifest(target.manifest, build))
+        ),
+        data_policy_digest=data_policy_digest,
+        context_protocol="typed-selection-context-transport.v1",
+    )
+    return ReadSelectionSource(
+        binding, target.manifest, build, target.staged, validation, target.gateway
+    )
 
 
 class GovernedTypedSelectionRead:

@@ -6,6 +6,7 @@ from dataclasses import asdict, replace
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -46,6 +47,7 @@ from fdai.delivery.catalog_search.ontology_candidate_selection import (
 from fdai.delivery.catalog_search.ontology_governed_selection_read import (
     GovernedTypedSelectionRead,
     ReadSelectionSource,
+    typed_read_source,
 )
 from fdai.delivery.persistence.state_store_typed_selection_read import StateStoreTypedSelectionRead
 from fdai.delivery.typed_selection_read_governance import (
@@ -55,6 +57,7 @@ from fdai.delivery.typed_selection_read_governance import (
     governed_read_dispatcher,
 )
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.runtime.bootstrap_thor_bindings import build_typed_read_execution_bindings
 from fdai.runtime.typed_selection_read_lifecycle import (
     FinalizedTypedReadApproval,
     TypedReadLifecycle,
@@ -697,3 +700,68 @@ async def test_missing_model_stage_and_wrong_read_identity_are_explicitly_unavai
     with pytest.raises(PermissionError, match="source scope changed"):
         await f.reader.prepare({"query": _QUERY, "limit": 20}, f.context)
     assert f.proposer.calls == 0
+
+
+async def test_current_index_source_is_resolved_and_missing_snapshot_holds(monkeypatch):
+    from tests.delivery.catalog_search.test_ontology_evaluation_runner import _harness
+    from tests.delivery.catalog_search.test_ontology_typed_selection_shadow import (
+        _scope,
+        _target,
+        _workers,
+    )
+
+    harness = await _harness(semantic_available=False, typed_selection_shadow=True)
+    workers = _workers(harness, None)
+    monkeypatch.setattr(workers, "_current_target", AsyncMock(return_value=_target(harness)))
+    proposer = _Proposer()
+    source = await typed_read_source(
+        workers,
+        _scope(harness),
+        proposer=proposer,
+        source_revision=_REVISION,
+        data_policy_digest=_DIGEST,
+    )
+    assert source.manifest == harness.manifest
+    assert source.staged == harness.staged
+    assert source.binding.source_revision == _REVISION
+    assert source.binding.model_binding_digest == content_digest(asdict(_MODEL))
+    assert proposer.calls == 0
+    monkeypatch.setattr(workers._snapshots, "read", AsyncMock(return_value=None))
+    with pytest.raises(PermissionError, match="snapshot is unavailable"):
+        await typed_read_source(
+            workers,
+            _scope(harness),
+            proposer=proposer,
+            source_revision=_REVISION,
+            data_policy_digest=_DIGEST,
+        )
+
+
+@pytest.mark.parametrize("mutation_bound", [False, True])
+async def test_composed_thor_read_bindings_preserve_fallback_and_exact_approval(mutation_bound):
+    f = await _fixture()
+    await _promote(f)
+    fallback = AsyncMock(return_value=True)
+    routes = SimpleNamespace(execute=fallback, rollback=AsyncMock())
+    lifecycle, bindings, execute = build_typed_read_execution_bindings(
+        thor_mutation_bound=mutation_bound,
+        t2_route_registry=routes,
+        acceptance_bindings=None,
+        store=f.store,
+        admission=f.admission,
+        can_approve=f.lifecycle.can_approve,
+    )
+    lifecycle.registry.clock = lambda: f.clock.now
+    assert (
+        bindings.action_rollback_executors[(READ_PROMOTION_ACTION, "scripted")]
+        == lifecycle.rollback
+    )
+    assert (
+        bindings.preflight_simulator.simulators_by_action_type[READ_PROMOTION_ACTION] is lifecycle
+    )
+    assert await execute({"run": f.executed_runs[0]})
+    assert await execute({"run": None}) is mutation_bound
+    if mutation_bound:
+        fallback.assert_awaited_once_with({"run": None})
+    else:
+        fallback.assert_not_awaited()

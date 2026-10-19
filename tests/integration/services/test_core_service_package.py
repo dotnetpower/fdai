@@ -106,6 +106,7 @@ EXPECTED_RUNTIME_MODULES = {
     "development_authority.py",
     "development_diagnostics.py",
     "discovery_activation.py",
+    "document_intent.py",
     "dynamic_evidence.py",
     "execution_backends.py",
     "forecast_learning.py",
@@ -173,6 +174,7 @@ EXPECTED_RUNTIME_MODULES = {
     "t2_recovery.py",
     "t2_route_registry.py",
     "task_workers.py",
+    "typed_selection_read_lifecycle.py",
     "venue.py",
     "workflow_action_dispatch.py",
 }

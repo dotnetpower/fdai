@@ -20,6 +20,7 @@ from fdai.delivery.azure.llm.semantic_planning import (
 from fdai.delivery.catalog_search.ontology_governed_selection_read import (
     GovernedTypedSelectionRead,
     ReadSelectionSource,
+    typed_read_source,
 )
 from fdai.delivery.persistence.state_store_typed_selection_read import StateStoreTypedSelectionRead
 from fdai.runtime.ontology_index_runtime import OntologyIndexRuntime
@@ -111,7 +112,8 @@ def compose_typed_selection_read(
         scope = await index.enroll_context(context)
         if index.workers is None:
             raise PermissionError("typed selection source workers are unavailable")
-        return await index.workers.typed_read_source(
+        return await typed_read_source(
+            index.workers,
             scope,
             proposer=proposer,
             source_revision=revision,
