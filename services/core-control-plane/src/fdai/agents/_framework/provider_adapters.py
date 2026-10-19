@@ -27,6 +27,7 @@ from fdai.agents._framework.action_run_store_time import (
 )
 from fdai.agents._framework.adapters import _digest as _digest  # noqa: F401
 from fdai.agents._framework.audit_chain_rehydrate import StateStoreAuditChainAdapter
+from fdai.agents._framework.thor_dispatch_start import StateStoreDispatchStartRecorder
 from fdai.agents.thor import ActionRun, ActionRunState
 from fdai.shared.providers.state_store import StateStore
 
@@ -94,7 +95,7 @@ class StateStoreKvAdapter:
 
 
 @dataclass
-class StateStoreActionRunStore:
+class StateStoreActionRunStore(StateStoreDispatchStartRecorder):
     """Durable ActionRun, idempotency, and cross-replica resource claims."""
 
     store: StateStore

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: a8828736e16d8fb589778b8a60b2830f347f80f8
-translation_revised: 2026-10-18
+translation_source_sha: 1323ebb64d3c9d534e2ac9f642b759735bbf8096
+translation_revised: 2026-10-19
 ---
 # 에이전트 판테온
 
@@ -75,6 +75,13 @@ Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 단�
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 Verdict가 제공한 작업 식별자만 보존하고 상관관계에서 만들어 내지 않으며 권한이 없는 `_framework` 도우미로 범위가 제한된 ActionRun 계보를 검증합니다.
 전달 계층의 생성기는 하나의 완전한 운영 계획에 대한 선택적인 인자 결속 실행 제안을 저장합니다. Forseti는 주입된 원본으로 이를 해석하고 엄격한 검증 뒤 같은 Verdict-to-ActionRun 경로를 유지합니다. 계보와 제안은 귀속 및 근거만 제공하며 정족수, 모드, 판단, 승인, 실행 권한을 바꾸지 않습니다. Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 Var 승인, Vidar 복구, Saga 인계, Norns 학습, Bragi의 인계 에스컬레이션과 턴 이후 검토 게시도 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)에 따라 영속 멱등성과 재시작 상태를 보존합니다.
+
+Thor의 비공개 디스패치 도우미는 기존 영속 저장소에 첫 디스패치 진입 메타데이터를 기록합니다.
+연결된 리소스 락과 점유 검증을 거친 뒤 실행기 입출력 전에 기록하며, 같은 ActionRun 상태를
+두 번 저장하거나 Saga 감사를 대체하지 않습니다. Shadow 실행은 관측을 쓰지 않습니다.
+기록 실패, 식별자 변경 또는 권한 상실 시 실행기 입출력을 차단합니다. 불변 관측만으로 효과
+검증이나 완전한 작업 이력이 확보되지는 않습니다. AgentSpec, 토픽과 수명 주기 소유권은
+유지합니다. [예측 수집원 경계](../rules-and-detection/prediction-learning-and-case-history-ko.md#예측-근거-수용)를 참조하세요.
 
 등록된 `AnomalyActionSource`는 정확한 Heimdall 신호를 조회해 Forseti에 최신의 비활성 작업
 후보를 제공합니다. 입력된 작업 인자와 사람 요청자 주장은 신뢰하지 않고 교체합니다.
