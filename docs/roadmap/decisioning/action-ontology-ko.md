@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: f0ce9a9d08a4c4a8a90d7fbc1bcb2854839173ed
-translation_revised: 2026-10-05
+translation_source_sha: 1ea263b17d45214ff4d5ce4ed2bce809e9da7715
+translation_revised: 2026-10-19
 ---
 
 # 액션 온톨로지
@@ -345,8 +345,8 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 
 ### 3.3 `governance.*`
 
-온톨로지 / 카탈로그 / 예외 / 승격 변경. 현재 온톨로지에 6개 항목이 있으며
-**3개는 실제 운영 dispatcher를 보유합니다**. 나머지 3개는 PR-native writer를 기다리거나 사용하는
+온톨로지 / 카탈로그 / 예외 / 승격 변경. 현재 온톨로지에 8개 항목이 있으며
+**5개는 소스에 디스패처가 구현되어 있습니다**. 나머지 3개는 PR-native writer를 기다리거나 사용하는
 catalog-as-code 산출물입니다.
 
 - `governance.promote-action-type` - 하나의 ActionType에 대한 exact 영속
@@ -362,6 +362,8 @@ catalog-as-code 산출물입니다.
 - `governance.retire-rule` - 강제 적용 집합에서 룰 제거 (shadow-only 또는
   full retire).
   **디스패처: not yet implemented (P2 적체).**
+- `governance.promote-typed-selection-read` - Forseti, Var, Thor, Saga, Vidar를 거쳐 정확히 검증된 읽기 포인터만 갱신합니다.
+  소스·모델·범위, 현재 승인과 롤백 계약은 [적용 승인을 거치는 타입 선택 읽기](../interfaces/governed-typed-selection-read-ko.md)가 담당합니다.
 - `governance.grant-exemption` - time-boxed 예외 생성
   ([rule-governance.md](../rules-and-detection/rule-governance-ko.md)). 기존 예외는
   `rule-catalog/exemptions/` 아래 JSON 으로 authored 되어 risk 게이트 가
@@ -385,12 +387,10 @@ catalog-as-code 산출물입니다.
   Shadow는 변경 없이 검증하며 enforce 모드는 Forseti, Var, Thor, Saga를 지나는 통제된
   override review를 요구합니다.
 
-거버넌스 액션은 catalog-as-code 변경이므로 `execution_path: pr_native`를 사용하고 검토된
-차이로 landing해야 하며 닫힌 예외는 3개입니다. `governance.promote-action-type`과
-`governance.override-promote-action-type`은 영속 런타임 모드 레지스트리만 변경하고
-`governance.promote-effect-model`은 reviewed graph-model active pointer만 변경합니다. 이들은
-Owner 또는 활성 프로필의 거버넌스 HIL과 exact-receipt 검증 이후에만 `direct_api`를 사용하며
-카탈로그 데이터나 managed 기반을 변경하지 않습니다. 다른 거버넌스 액션은 이 예외를 사용할 수 없습니다.
+거버넌스 액션은 검토된 `pr_native` 카탈로그 변경이며, 위의 포인터 승격 ActionType 네 개만 예외입니다.
+이들은 Owner 또는 활성 프로필의 거버넌스 HIL과 정확한 증적 검증 이후에만 `direct_api`를 사용합니다.
+등록된 런타임·읽기·모델 포인터만 변경하며 카탈로그 데이터나 관리되는 기반 리소스는 변경하지 않습니다.
+다른 거버넌스 ActionType은 이 예외를 사용할 수 없습니다.
 
 ### 3.4 `tool.*`
 

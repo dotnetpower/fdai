@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "description": "Complete inventory of registered positive decision boundaries that must resolve decision-critical evidence through the shared admission contract (FDAI-CONST-002).",
-  "decision_surface_digest": "dc2a5a738eec29b1d2d81300d06bab2f9b89ef9472bb454f2218b7e307a405ab",
+  "decision_surface_digest": "363da442a3e082543171312eb2c1779aeb9f283b01b33fa5c0ed415e4348fb23",
   "shared_admission": {
     "module": "fdai.shared.providers.decision_evidence_verifier",
     "assessor": "assess_decision_evidence_admission",
@@ -814,6 +814,52 @@
           "fail_closed_markers": [
             "False"
           ]
+        }
+      ]
+    },
+    {
+      "id": "typed-selection-read-demotion",
+      "positive_decision": "Admit exact current revocation or regression evidence before Vidar disables the governed read pointer.",
+      "module": "services/core-control-plane/src/fdai/delivery/typed_selection_read_governance.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Uses the exact typed-selection-read-demotion purpose inside TypedSelectionReadDemoter; event content cannot select another purpose.",
+      "tests": [
+        "services/core-control-plane/tests/delivery/catalog_search/test_governed_typed_selection_read.py"
+      ],
+      "decisions": [
+        {
+          "function": "TypedSelectionReadDemoter.__call__",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": []
+        }
+      ]
+    },
+    {
+      "id": "typed-selection-read-qualification",
+      "positive_decision": "Admit exact source, model and scope-bound qualification before retaining or using a governed read capability.",
+      "module": "services/core-control-plane/src/fdai/delivery/persistence/state_store_typed_selection_read.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Uses READ_QUALIFICATION_PURPOSE from core/ontology_platform/typed_selection_contracts.py for save and current revalidation.",
+      "tests": [
+        "services/core-control-plane/tests/delivery/catalog_search/test_governed_typed_selection_read.py"
+      ],
+      "decisions": [
+        {
+          "function": "StateStoreTypedSelectionRead._admit",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": []
         }
       ]
     },

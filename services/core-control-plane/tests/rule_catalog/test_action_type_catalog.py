@@ -585,6 +585,7 @@ _DOC_GOVERNANCE_ACTION_TYPES: frozenset[str] = frozenset(
     {
         "governance.promote-action-type",
         "governance.promote-effect-model",
+        "governance.promote-typed-selection-read",
         "governance.retire-rule",
         "governance.grant-exemption",
         "governance.reapply-rule-assignment",
@@ -618,6 +619,13 @@ def test_no_extra_ops_action_type_undocumented() -> None:
         "these ops.* YAMLs are not documented in action-ontology.md 3.2: "
         f"{sorted(extra)}. Update the doc OR the YAML."
     )
+
+
+def test_governance_inventory_matches_the_current_owner_document() -> None:
+    text = (REPO_ROOT / "docs/roadmap/decisioning/action-ontology.md").read_text(encoding="utf-8")
+    section = text.split("### 3.3 `governance.*`", 1)[1].split("### 3.4", 1)[0]
+
+    assert set(re.findall(r"`(governance\.[a-z0-9-]+)`", section)) == _DOC_GOVERNANCE_ACTION_TYPES
 
 
 def test_every_doc_declared_governance_action_type_ships_as_yaml() -> None:
@@ -656,6 +664,7 @@ def test_governance_action_execution_paths_match_authority_contract() -> None:
                 "governance.promote-action-type",
                 "governance.override-promote-action-type",
                 "governance.promote-effect-model",
+                "governance.promote-typed-selection-read",
             }
             else ExecutionPath.PR_NATIVE
         )

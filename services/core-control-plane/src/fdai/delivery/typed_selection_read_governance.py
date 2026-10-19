@@ -183,14 +183,17 @@ class TypedSelectionReadDemoter:
             purpose_id="typed-selection-read-demotion",
             source_revision=command.source_revision,
         )
-        if admission is None or assess_decision_evidence_admission(
+        if admission is None:
+            raise PermissionError("typed selection demotion independent admission failed")
+        rejection_reasons = assess_decision_evidence_admission(
             admission,
             expected_evidence_digest=command.digest,
             expected_scope_digest=pointer.binding.digest,
             expected_purpose_id="typed-selection-read-demotion",
             expected_source_revision=command.source_revision,
             evaluated_at=now,
-        ):
+        )
+        if rejection_reasons:
             raise PermissionError("typed selection demotion independent admission failed")
         await self.registry.store.write_state_with_audit_if_absent(
             "typed-selection-read:v1:demotion-intent:" + command.digest,

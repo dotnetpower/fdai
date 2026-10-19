@@ -765,3 +765,40 @@ async def test_composed_thor_read_bindings_preserve_fallback_and_exact_approval(
         fallback.assert_awaited_once_with({"run": None})
     else:
         fallback.assert_not_awaited()
+
+
+@pytest.mark.parametrize("stage", ["qualification", "demotion"])
+async def test_independent_admission_for_another_purpose_cannot_authorize_the_read(
+    stage, monkeypatch
+):
+    f = await _fixture()
+    pointer = await _promote(f)
+    command = ReadDemotionCommand(
+        principal_scope_digest=_DIGEST,
+        expected_revision=pointer.revision,
+        qualification_digest=f.qualification.digest,
+        action_run_identity=_DIGEST,
+        source_revision=_REVISION,
+        reason="regression",
+        issued_at=_NOW,
+        expires_at=_NOW + timedelta(seconds=60),
+    )
+    receipt = await f.admission.admit(
+        evidence_digest=command.digest if stage == "demotion" else f.qualification.digest,
+        scope_digest=f.binding.digest,
+        purpose_id="example-unrelated-purpose",
+        source_revision=_REVISION,
+    )
+    monkeypatch.setattr(f.admission, "admit", AsyncMock(return_value=receipt))
+    with pytest.raises(PermissionError, match="independent.*admission failed"):
+        if stage == "qualification":
+            await f.registry.qualification(f.qualification.digest)
+        else:
+            await TypedSelectionReadDemoter(f.registry)(
+                {
+                    "event_type": READ_DEMOTION_EVENT,
+                    "producer_principal": "Huginn",
+                    "attributes": command.model_dump(mode="json"),
+                }
+            )
+    assert await f.registry.pointer(_DIGEST) == pointer

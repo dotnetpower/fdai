@@ -84,14 +84,17 @@ class StateStoreTypedSelectionRead:
             purpose_id=READ_QUALIFICATION_PURPOSE,
             source_revision=binding.source_revision,
         )
-        if receipt is None or assess_decision_evidence_admission(
+        if receipt is None:
+            raise PermissionError("typed selection independent qualification admission failed")
+        rejection_reasons = assess_decision_evidence_admission(
             receipt,
             expected_evidence_digest=qualification.digest,
             expected_scope_digest=binding.digest,
             expected_purpose_id=READ_QUALIFICATION_PURPOSE,
             expected_source_revision=binding.source_revision,
             evaluated_at=now,
-        ):
+        )
+        if rejection_reasons:
             raise PermissionError("typed selection independent qualification admission failed")
 
     async def pointer(self, scope_digest: str) -> ReadCapabilityPointer | None:

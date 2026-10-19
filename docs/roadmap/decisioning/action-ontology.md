@@ -359,8 +359,8 @@ where compliance requires every runtime change to land as a reviewed diff.
 
 ### 3.3 `governance.*`
 
-Ontology / catalog / exemption / promotion changes. Seven entries are
-authored in the ontology today; **four currently have live dispatchers**
+Ontology / catalog / exemption / promotion changes. Eight entries are
+authored in the ontology today; **five currently have source dispatchers**
 (the other three are catalog-as-code artifacts waiting on or using a PR-native writer):
 
 - `governance.promote-action-type` - apply one exact durable operational-promotion receipt to
@@ -376,6 +376,8 @@ authored in the ontology today; **four currently have live dispatchers**
 - `governance.retire-rule` - remove a rule from the enforce set
   (shadow-only or full retire).
   **Dispatcher: not yet implemented (P2 backlog).**
+- `governance.promote-typed-selection-read` - update only the exact qualified read pointer through
+  Forseti, Var, Thor, Saga and Vidar; [governed typed-selection read](../interfaces/governed-typed-selection-read.md) owns the source/model/scope, current approval and rollback contract.
 - `governance.grant-exemption` - create a time-boxed exemption
   ([rule-governance.md](../rules-and-detection/rule-governance.md)). Existing exemptions are
   authored as JSON under `rule-catalog/exemptions/` and consumed by
@@ -402,12 +404,10 @@ authored in the ontology today; **four currently have live dispatchers**
   Thor. Shadow validates without mutation; enforce mode requires the governed
   override review through Forseti, Var, Thor, and Saga.
 
-Governance actions use `execution_path: pr_native` because they are catalog-as-code changes and
-MUST land as reviewed diffs, with three closed exceptions. `governance.promote-action-type` and
-`governance.override-promote-action-type` mutate only the durable runtime mode registry, and
-`governance.promote-effect-model` mutates only the reviewed graph-model active pointer. They use
-`direct_api` only after Owner or active-profile governance HIL and exact-receipt verification;
-none edits catalog data or a managed substrate. No other governance action may use this exception.
+Governance actions are reviewed `pr_native` catalog changes, except the four pointer-promotion
+ActionTypes above. Those use `direct_api` only after Owner or active-profile governance HIL and
+exact-receipt verification. They change only their registered runtime/read/model pointer,
+never catalog data or a managed substrate; no other governance ActionType may use this exception.
 
 ### 3.4 `tool.*`
 
