@@ -144,7 +144,8 @@ def _runtime_values(path: Path) -> dict[str, str]:
 
 
 def _container(values: Mapping[str, str]) -> Container:
-    path = Path(values["LLM_RESOLVED_MODELS_PATH"])
+    path_value = values["LLM_RESOLVED_MODELS_PATH"]
+    path = Path(path_value)
     digest = (
         values.get("LLM_RESOLVED_MODELS_SHA256") or hashlib.sha256(path.read_bytes()).hexdigest()
     )
@@ -157,7 +158,7 @@ def _container(values: Mapping[str, str]) -> Container:
             decision_evidence_admission_provider=None,
             config=SimpleNamespace(
                 llm=SimpleNamespace(
-                    resolved_models_path=path,
+                    resolved_models_path=path_value,
                     resolved_models_sha256=digest,
                 )
             ),
