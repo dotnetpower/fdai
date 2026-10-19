@@ -86,11 +86,16 @@ The existing Operator reader verifies the independent registration, exact role/b
 parent snapshot digest, time, coverage, and freshness before returning this optional sub-scope.
 Missing registration or any missing/unknown role keeps scoped health unknown; no model sub-scope
 can substantiate global adapter Healthy. This is not replica or installation-wide coverage.
-The producer observes every logical embedding invocation. Overlapping invocations form one
-cohort, closed only when all its invocations settle. All members must pass the existing HTTP and
-finite-vector checks for success; a fully known cohort with any HTTP/response failure is unhealthy.
-Cancellation, pre-provider failure, or local post-call failure makes the cohort unavailable even
-if another concurrent call succeeds. It emits no rate or inferred denominator, and adds no probe or retry.
+The producers observe normal embedding and explicitly role-bound cross-check SDK invocations.
+Overlapping invocations form one cohort, closed only when every invocation settles. Success requires
+the existing HTTP and finite-vector or final finite-JSON checks; a fully known cohort containing
+any HTTP/response failure is unhealthy. Cancellation and local-only failures in identity, prompt
+budget, tools, gateway observation or post-call bookkeeping remain unknown, even if a peer succeeds.
+Observation adds no probe, retry, rate or inferred denominator. Cross-check roles are composition-owned,
+independent of the optional prompt composer. A latency pool preserves every configured member in its
+binding digest and validates each member's identity and time before using the oldest observation.
+An unobserved, unsupported, stale or wrong-role member cannot be skipped for a selected-only Healthy.
+Duplicate role sources are diagnosed and held, not resolved by last-wins registration.
 Only the latest completed cohort observation is retained. Any in-flight invocation, missing observation,
 closed client, or expired catalog freshness bound keeps the source unavailable. A newly bound
 adapter starts unobserved and cannot reuse the old instance's results. API-contract success is
@@ -104,9 +109,21 @@ an existing stale or future-dated observation retains its original freshness dec
 Source failure codes include `source_missing`, `source_malformed`, `source_unreachable`, `source_incomplete`, `source_stale`, and `source_from_future`.
 Provider error text never becomes a projection reason.
 
+#### Deterministic T2 verifier observations
+
+The default Core quality-gate factory wraps its actual `RuleBasedVerifier` through the unchanged
+`VerifierPolicy` seam. Completed calls returning `False` or `None` form the numerator; all known
+completed verifier calls form the denominator. One complete fixed observation window equals the
+catalog freshness bound, currently 300 seconds. The existing 5% threshold is unchanged.
+Warmup, no calls, an unknown exception, ambiguous binding, clock failure and shutdown remain
+unavailable. A current unknown result also holds an earlier healthy window. Recollection preserves
+the last actual observation time. Process-local counters restart empty, while the existing monitor
+persists its sanitized snapshot. This measures neither verifier accuracy nor action or recovery
+success; retries are calls, not independent operating episodes. No additional model call is made.
+
 Other bindings remain explicitly unavailable until their owning source can supply the required
 observation. Broker queue depth and ingest-to-decision lag need broker/consumer observations;
-cold-start rate needs a complete lifecycle window and denominator; verifier, disagreement, rollback,
+cold-start rate needs a complete lifecycle window and denominator; disagreement, rollback,
 override, and discovery rates need time-bounded numerators and denominators. Complete adapter
 health needs the registered dependency checks, and canary result/state still needs a complete
 latest-attempt source. The new age reader does not provide that result. The existing oldest-first
@@ -115,9 +132,9 @@ Rule-effect, override, discovery, canary, and break-glass fields still need thei
 
 ### Remaining source boundaries
 
-Five of 15 signals and three of eight fields have qualified runtime source bindings. The
+Six of 15 signals and three of eight fields have qualified runtime source bindings. The
 indexed latest-success age reader does not establish the latest scheduled attempt or complete
-canary state. Ten signals and five fields remain unavailable; missing observations or
+canary state. Nine signals and five fields remain unavailable; missing observations or
 denominators are never zero failures or a successful result. Publication counters do not prove
 broker depth, startup duration does not prove fleet cold-start rate, and promotion records do
 not prove executed rollback or per-rule override rates.
@@ -134,6 +151,7 @@ so no area is claimed as fully operationally validated.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Actual deterministic T2 verifier rate | implemented | `delivery/self_health_verifier.py`; default gate/readiness/resource ownership; 20 focused cases, 100% branch-inclusive source coverage | Complete policy-bounded process windows, exact returned outcomes, no invented denominator or learned outcome, unchanged gate decisions, typed persisted readback and shutdown. No deployment or operational quality improvement is claimed. |
 | Stabilization scheduler numeric input integrity | implemented | #2254; shared schedule model, compatibility tools and actual creation-command tests; 110 focused checks, model/tool branch-inclusive coverage 92.62%/97.63% | Invalid non-finite intervals cannot be stored or replace a valid task; valid cadence and normal due dispatch remain unchanged. This hardens a prerequisite, not daily-job registration or stabilization qualification. |
 | Runtime `/live` and `/ready` endpoints plus startup-readiness evaluation, persistence, transitions, and guarded refresh | implemented | [`runtime/health.py`](../../../services/core-control-plane/src/fdai/runtime/health.py), [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`test_readiness.py`](../../../services/core-control-plane/tests/runtime/test_readiness.py), and [`test_startup_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_startup_coordinator.py) | Process-critical failure closes readiness; degraded capabilities lower authority without raising it on recovery. |
 | Bounded transition spans and metrics with secure OTLP configuration | implemented | [`transitions.py`](../../../services/core-control-plane/src/fdai/shared/telemetry/transitions.py) and [`test_transition_telemetry.py`](../../../services/core-control-plane/tests/shared/test_transition_telemetry.py) | Stable allowlisted attributes prevent payloads and provider errors from becoming telemetry labels. |
@@ -141,17 +159,21 @@ so no area is claimed as fully operationally validated.
 | Post-deploy promotion smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml); `scripts/deployment/azure/verify_canary_audit.py`; focused verifier tests | The workflow gives the publisher a deterministic slot, then requires one exact Core audit row within 30 seconds. The verifier rejects ambiguous, malformed, unsettled, future-dated, or over-budget rows without exposing database credentials. A retained live receipt, fixture replay, kill-switch cycle, and human-approval dry-run remain open. |
 | Complete self-health signal policy and routing map | implemented | `config/self-health-signals.yaml`; `core/readiness/self_health.py`; production startup binding; focused self-health and readiness tests | All 15 required signals map to one metric, threshold direction, freshness bound, generic owner lane, notification route, and fail-closed fallback. Missing coverage or route drift blocks startup. Decisions grant no execution authority. |
 | Consumed-canary age source | implemented | #2250; `delivery/self_health_canary.py`; `delivery/persistence/postgres_canary.py`; concurrent partial-index Core migration; 99 focused checks including four actual isolated PostgreSQL cases | Latest successful consumed audit, selected-row hash/time/identity checks, exact 600-second and 8192/8193-byte boundaries, indexed plan beyond a 512-row oldest prefix, default readiness composition and non-destructive index rollback are locally tested. Caller Decimal precision cannot round away a threshold breach. This is conservative age, not latest-attempt result or operational qualification. |
-| Complete self-health exporter registry, alert delivery, and operational drills | in-progress | Complete signal policy; exact 15-signal and eight-field exporter registry; runtime sources; typed model-role registration/scope; durable operational-state snapshot; authenticated Operator read route | Five catalog signal slots and three fields are source-bound; ten slots and five fields remain unavailable. Consumed-canary age is separate from canary result/state. Actual embedding observations remain a typed sub-scope, never proof of aggregate adapter health. Other sources and complete delivery/drill receipts remain open. |
+| Complete self-health exporter registry, alert delivery, and operational drills | in-progress | Complete signal policy; exact 15-signal and eight-field exporter registry; runtime sources; typed model-role registration/scope; durable operational-state snapshot; authenticated Operator read route | Six catalog signal slots and three fields are source-bound; nine slots and five fields remain unavailable. Consumed-canary age is separate from canary result/state. Actual embedding and cross-check/pool observations remain a typed sub-scope, never proof of aggregate adapter health. Other sources and complete delivery/drill receipts remain open. |
 | Correlation-based audit investigation and unified version/configuration exposure | implemented | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), `core/readiness/self_health_runtime.py`, and authenticated `GET /operations/runtime-state` | One sanitized contract now exposes version, configuration, rule effect, override, discovery, canary, kill-switch, break-glass, and all self-health states. Each field includes source, freshness, and an explicit unavailable state; the route grants no approval or execution authority. |
 | Pre-launch latency measurement and frozen-scenario replay | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), and focused tests | The primitives produce bounded measurements and release-gate results; an external load generator and deployment-specific budgets remain operator inputs. |
 | Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#verification-and-release-evidence) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
 | ActionType operator-runbook schema and coverage | implemented | [`check-action-runbooks.py`](../../../scripts/quality/documentation/check-action-runbooks.py), [`incident-mitigation-and-rollback.md`](../../runbooks/incident-mitigation-and-rollback.md), and [`test_check_action_runbooks.py`](../../../tests/integration/scripts/test_check_action_runbooks.py) | Every shipped ActionType matches exactly one generic upstream runbook whose declared precondition, procedure, verification, rollback, and audit sections exist. Deployment-specific commands remain fork-owned. |
-| Post-launch stabilization composition | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler) and measurement primitives | The daily health, drift, and deployment-baseline jobs and `console.recurrent_query` signal aren't registered upstream. |
+| Grounded recurrent-query input | implemented | #2271 / PR #2273; `post_turn_procedure.py`; `norns_recurrent_queries.py`; 571 focused regression passes including four isolated PostgreSQL scenarios | Typed executed human-query shapes reach Norns through Operator validation and Bragi metadata transport. Durable distinct-principal counting feeds only the existing inert Mimir input; raw-body consent and current publication gates remain unchanged. |
+| Post-launch stabilization composition | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler), measurement primitives and the registered recurrent-query input | Daily health, drift and deployment-baseline jobs remain unregistered. Installed cohort/transport, operating policy and complete stabilization open/demotion/exit evidence remain open; local recurrence mechanics do not complete H02. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-19 | implemented | Added actual normal cross-check SDK and complete latency-pool observations to the existing typed model sub-scope. Composition assigns explicit roles without requiring a prompt composer; readiness keeps every registered obligation and diagnoses duplicates. | Current change; 211 focused SDK/composition/Reader checks passed; three SDK modules: 93.82% branch-inclusive coverage. Three 12-control critique rounds reproduced and repaired future-member masking and cancellation during final bookkeeping after a known HTTP failure; 38 new SDK/pool cases pass. | Catalog coverage stays six signals/three fields, with nine signals/five fields unavailable. Other model roles and replicas need actual sources; full H01, installed qualification and operational effects are not established. |
+| 2026-10-19 | implemented | Reconciled the operating owner with the grounded recurrent-query source added in this change. The earlier unregistered-signal wording is superseded for this metadata-only input, not for daily jobs or operational qualification. | #2271 / PR #2273; typed plan receipt, actual Operator/Bragi/Norns/Mimir path, 571 focused regressions and four actual isolated PostgreSQL scenarios. | Retain daily job registration, actual installed cohort/transport, approved operating decisions and stabilization lifecycle receipts. No whole-H02 Ready claim. |
+| 2026-10-19 | implemented | Bound the actual default T2 verifier to a complete-window health source without changing its returned decision or invoking another model. Current source coverage is six signals/three fields, not the withdrawn receipt-only six/four interpretation. | Current change; `delivery/self_health_verifier.py`; `tests/delivery/test_self_health_verifier.py`: 20 passed, 100% branch-inclusive source coverage. Direct critique reproduced and repaired healthy-window reuse after an unknown result and a registry-identity mismatch. | Nine signals/five fields, installed delivery/drill receipts, and measured operational outcomes remain open. Counter state is intentionally process-local; restart returns to warmup rather than reusing a prior healthy rate. |
 | 2026-10-19 | withdrawn | Withdrew this topic's earlier six-signal/four-field claim and its receipt-only canary result/state exporters when integrating protected #2253. A fresh last-success receipt cannot establish the latest scheduled attempt or complete canary state. Reused the stronger indexed age producer instead of maintaining a competing implementation. | Earlier local `adcbf54cc6`/`c7a7a8bdfa` receipt tests established receipt validity only; protected main `3917df4297` supplies the indexed, byte-bound, hash-checked age source. No independently owned latest-attempt window exists. | Current source coverage is five of 15 signals and three of eight fields. Latest-attempt result/state, ten signal producers and five fields remain open; fixture passes are not operational qualification. |
 | 2026-10-19 | implemented | Aligned the ephemeral CI database's host port and service DSNs with canonical isolated validation port 5433 instead of relaxing the new source-regression guards. Added static CI-contract coverage for both accepted 5433 and rejected runtime-port 5432 configurations. Container-internal PostgreSQL still uses 5432. | Current change; CI `39196349170` attempt 1, exact head `50bd2a1bffe10edcb29c0700445470ee8299f42d`, completed integration job `117879915744` step 9 reported fourteen fixture-port errors; no database outage or flaky-test claim. `check-ci-contracts.py` and the 159-case CI/artifact/fast-scope selection pass locally; the actual source-backend tests retain their loopback-5433 checks. | Repaired-head CI remains authoritative. This changes test infrastructure only, not runtime databases, deployed health, H01 coverage or operational qualification. |
 | 2026-10-19 | implemented | Connected canonical consumed canary audit evidence to result, last-success age, and the canary field, with one bounded read-only latest-row query, complete-history fallback, exact receipt validation, preserved result freshness, and explicit source failure. Coverage is now six of 15 signal bindings and four of eight field bindings, not H01 completion. | `current change`; `delivery/self_health_canary.py`; `delivery/self_health_sources.py`; `tests/delivery/test_self_health_canary.py`; focused pytest with source/runtime/monitor regressions: 65 passed and 100% branch-inclusive canary-source coverage; Ruff and strict mypy passed. | Nine catalog producers and four complete field projections remain missing as listed in Remaining source boundaries. Scheduled-attempt completeness, primary/fallback delivery, and recovery-drill receipts remain open; no live or database integration validation was run. |
@@ -186,7 +208,9 @@ so no area is claimed as fully operationally validated.
   kill-switch, and break-glass state through one authorized read surface and test field freshness.
 - [x] Define a required runbook schema and add a check proving every automated ActionType has a
   generic upstream or deployment-owned runbook with verification and rollback instructions.
-- [ ] Register the daily stabilization jobs and recurrent-query signal, then prove the window opens,
+- [x] Register the metadata-only recurrent-query input through the actual typed plan and
+  Operator/Bragi/Norns/Mimir path (#2271 / PR #2273; local mechanics only).
+- [ ] Register the daily stabilization jobs, then prove the window opens,
   lowers authority on guard-metric breach, and closes only after its configured exit conditions.
 - [ ] Complete the live Azure guest-event, provider-throttling, and cross-service parity evidence
   tracked by the Azure read-investigation owner document.
@@ -424,9 +448,10 @@ the leading edge of the 30-day
 [measurement window](../architecture/goals-and-metrics.md#definitions), not a
 separate mode, and it composes existing primitives:
 
-> **Implementation status**: The scheduler and measurement primitives exist, but upstream doesn't
-> currently register the daily health/drift/deployment-baseline jobs or publish
-> `console.recurrent_query`. The bullets below define the target stabilization composition.
+> **Implementation status**: Scheduler/measurement primitives and the metadata-only
+> `console.recurrent_query` input are implemented. Daily health/drift/deployment-baseline jobs,
+> installed transport/cohort qualification and full stabilization lifecycle evidence remain open.
+> The bullets below define the target stabilization composition, not a completed rollout.
 
 - **Shadow-first stays the default.** Newly introduced actions remain in shadow
   through the window; promotion to enforce waits until the stabilization

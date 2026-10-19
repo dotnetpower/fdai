@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: befa8fd5bc3974d2e2d3a33b4b4c64e995ef11cd
+translation_source_sha: 72a4b41d659f55e6d3dbfdc2a74115ded0885fca
 translation_revised: 2026-10-19
 ---
 
@@ -393,8 +393,8 @@ Operator 역할은 허용된 페이로드 없는 작업 공간 메타데이터�
 없음 감사 일치가 있을 때만 나타납니다. 모호하거나 잘못된 일치는 `sequence` 또는 상관관계
 식별정보를 노출하지 않습니다.
 
-이벤트 페이로드와 도구 출력은 **신뢰할 수 없는** ; 결정론적 검증기와 정책 재검사가 권위이며,
-모델이나 이벤트 텍스트가 아님.
+이벤트 페이로드와 도구 출력은 **신뢰할 수 없는 입력**입니다. 판정 기준은 모델이나 이벤트 텍스트가 아니라 결정론적 검증기와 정책 재검사입니다.
+[후보 동일성](../phases/phase-2-quality-and-t1-ko.md#비동기-검증-동안-후보-동일성-유지) 검사로 정족수를 다른 인자에 다시 연결하지 않도록 합니다.
 공급자 관측 실패는 허용 목록에 있는 기계 사유로만 서비스 경계를 통과합니다. 공급자 응답 원문은
 Resource 상태로 저장하거나 Console에 반환하지 않습니다.
 
@@ -424,4 +424,4 @@ Resource 상태로 저장하거나 Console에 반환하지 않습니다.
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
-| 자동화 숫자 입력 및 구현 상태 | [예약 입력 경계](../decisioning/automation-blueprints-ko.md#검토-and-구체화), [구현 원장](../../roadmap-implementation/architecture/security-and-identity.md) |
+| 자동화 숫자 입력, 원문 없는 학습 관측 및 구현 상태 | [예약 입력 경계](../decisioning/automation-blueprints-ko.md#검토-and-구체화), [반복 질의 메타데이터](../decisioning/post-turn-improvement-review-ko.md#반복-질의-관측), [구현 원장](../../roadmap-implementation/architecture/security-and-identity.md) |

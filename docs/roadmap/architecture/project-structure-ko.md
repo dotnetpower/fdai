@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f961a2754bd73bf69b9c7ccac64ca5de0f518369
+translation_source_sha: e5c89c3e855078eda81742536bf954f2da20ad96
 translation_revised: 2026-10-19
 ---
 # 프로젝트 구조
@@ -105,11 +105,11 @@ exporter 범위를 요구하고, 신선도를 검사한 스냅숏 하나를 저�
 사용할 수 없는 수집원을 기록합니다. Operator는 인증된 Reader 역할의
 `GET /operations/runtime-state` 변환을 통해 이 스냅숏을 제공합니다. 전달 어댑터는 명시적인
 unavailable binding을 출처가 명시된 운영 메트릭으로 교체해야 합니다.
-`delivery/self_health_sources.py`는 담당 프로세스 관측과 소비된 canary 증적을 연결하며,
-`runtime/readiness.py`는 시작 검사와 독립적으로 수집을 직렬화합니다.
+`delivery/self_health_sources.py`는 담당 프로세스, 소비된 canary, 실제 결정론적 검증기의 관측을
+연결합니다. 런타임은 수집원의 수명을 소유하고 추가 모델 검사 없이 수집을 직렬화합니다.
 [운영 담당 문서](../operations/operating-and-verification-ko.md#남아-있는-수집원-경계)가 현재 수치와
 미충족 근거를 소유하며 [수집원 주입 계약](project-structure-dependency-injection-ko.md#자체-상태-수집원-연결)은
-서비스 및 에이전트 소유권을 유지합니다. 임베딩 근거는 전체 등록을 갖춘 별도 모델 범위이지
+서비스 및 에이전트 소유권을 유지합니다. 임베딩 및 교차검사/풀 근거는 전체 등록을 갖춘 별도 모델 범위이지
 어댑터 집계 상태가 아니며, 이 읽기로 전체 복제본의 상태나 배포 수락을 입증하지 않습니다.
 운영 승격은 또 하나의 정확한 계층 간 ID를 사용합니다. Core 측정은 모든 O7 임계값 정책을
 다이제스트하고 증적에 포함합니다. 검토된 replay 권한, 거버넌스 승격 요청, 영속 증적 저장,

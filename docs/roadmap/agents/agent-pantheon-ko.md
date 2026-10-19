@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 050f1cd8910d8283a1e503ca5c4be22bc0be55c9
+translation_source_sha: 982d2f1efe6e0d88a1ee8bf5f26d5db06c2ea496
 translation_revised: 2026-10-19
 ---
 # 에이전트 판테온
@@ -689,6 +689,9 @@ Bragi는 `Conversation`, `Turn`, `UserPreference`, `PostTurnReview`를
   Norns는 교정문을 포함한 전체 본문에 UTF-8 기준 64 KiB 한도를 적용합니다. 일치하는 동의
   기록이 없는 기존 outbox 레코드는 보류합니다. 동의와 민감도 통과 중 하나라도 없으면 Norns는
   원문을 기록하지 않습니다.
+- **반복 질의 메타데이터.** Core의 타입 지정 실행 계획 완료 증적은 기존의 동의 확인
+  Operator/Bragi 경로로 Norns에 전달됩니다. Norns가 서로 다른 principal의 CAS 집계와 비활성
+  `console.recurrent_query` RuleCandidate 입력을 소유하며, 현재 발견 및 Mimir 게이트는 유지합니다.
 - **보존.** 활성 대화는 30일, 저빈도 저장소는 추가 60일이며 총 90일 뒤 삭제합니다. 집계된 익명 지표는 Saga 감사 스트림에 남습니다.
 
 ## 7. 온톨로지 액션

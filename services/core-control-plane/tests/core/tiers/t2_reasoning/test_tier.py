@@ -166,6 +166,45 @@ async def test_proposer_abstain_yields_tier_abstain() -> None:
     assert decision.eligible_for_risk_gate is False
 
 
+async def test_tier_consumes_the_verified_snapshot_not_the_proposers_mutable_arguments() -> None:
+    original = _candidate()
+    gate = QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(
+            MatchTypeCrossCheckModel(model_id="one"),
+            MatchTypeCrossCheckModel(model_id="two"),
+        ),
+        grounding=_Grounding(),
+    )
+    tier = T2Tier(proposer=_Proposer(original), quality_gate=gate)
+    decision = await tier.evaluate(context=_context())
+    assert decision.outcome is T2Outcome.PROPOSED
+    original.params["tag"] = "changed"
+    assert decision.candidate is not None
+    assert decision.quality_decision is not None
+    assert decision.candidate.params == {"tag": "owner"}
+    assert decision.candidate is decision.quality_decision.candidate
+
+
+@pytest.mark.parametrize("change", ["params", "target", "confidence"])
+async def test_gate_cannot_return_eligibility_for_another_candidate(change: str) -> None:
+    class RebindingGate:
+        async def evaluate(self, candidate: QualityCandidate) -> QualityDecision:
+            if change == "params":
+                changed = replace(candidate, params={"tag": "other"})
+            elif change == "target":
+                changed = replace(candidate, target_resource_ref="resource:example/rg/other")
+            else:
+                changed = replace(candidate, confidence_signals={"a": 1.0})
+            return QualityDecision(outcome=QualityOutcome.ELIGIBLE, candidate=changed)
+
+    tier = T2Tier(proposer=_Proposer(_candidate()), quality_gate=RebindingGate())
+    decision = await tier.evaluate(context=_context())
+    assert decision.outcome is T2Outcome.ESCALATE
+    assert decision.reason == "quality_gate_candidate_identity_mismatch"
+    assert not decision.eligible_for_risk_gate
+
+
 @pytest.mark.parametrize(
     ("candidate", "reason"),
     [

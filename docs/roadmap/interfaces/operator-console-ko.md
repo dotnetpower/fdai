@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 4592c3504db2544b6d46feef6ceccb1802b238ae
+translation_source_sha: 3da2e294223d2adb25a98954ebbd2f4fec43cbe8
 translation_revised: 2026-10-19
 ---
 # FDAI Console 대화
@@ -547,15 +547,17 @@ pull 어댑터 추가. 콘솔은 이제:
 
 관찰 깊이 도구 (§3.3)과 discovery-loop 훅 추가:
 
-- 같은 tool-argument 형태가 rolling 구간 에서 구별되는 principal을
-  가로질러 N 번 나타날 때 조정기는 `console.recurrent_query` 시그널
-  을 discovery-loop 입력 스트림에 publish (N은 구성된; 기본 5 / 주).
+- Core는 원문 없는 실행 계획 증적을 만들고, Operator는 이를 검증한 뒤 공유 동의에 따라
+  큐에 제출합니다. Norns는 같은 타입 지정 질의 형태가 서로 다른 사람 principal N개에서
+  나타나면 기존 비활성 RuleCandidate 입력으로 `console.recurrent_query`를 전달합니다
+  (기본값 주당 5개). 증적 검증, 영속 집계, 한도와 기존 게시 게이트는
+  [사후 개선 검토](../decisioning/post-turn-improvement-review-ko.md#반복-질의-관측)가 소유합니다.
 - Rule-candidate generator ([rule-governance.md](../rules-and-detection/rule-governance-ko.md))
   가 여느 시그널처럼 그것을 받음; 결과 룰은 동일한 승격 파이프라인을
   통해 shadow-first로 ship.
 
-결과는 chat의 common 조사 패턴이 카탈로그의 일급 룰이 됨 -
-**콘솔은 카탈로그를 성장시키지, 자신을 성장시키지 않는다**.
+반복되는 조사 패턴은 검토된 카탈로그 룰의 근거가 될 수 있지만 신호 자체는 룰을 생성하거나
+활성화할 수 없습니다. **콘솔은 자체 권한이 아니라 통제된 검토를 통해 카탈로그를 확장합니다.**
 ## 10. 롤아웃 조정
 
 초기 Day/주/월 계획은 구현 순서를 설명한 역사적 정보이며 현재 가용성 출처가 아닙니다.

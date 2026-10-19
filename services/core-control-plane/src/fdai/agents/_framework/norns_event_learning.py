@@ -124,6 +124,8 @@ class NornsEventLearningMixin:
 
         async def flush_candidates(self) -> int: ...
 
+        async def _observe_recurrent_query(self, review: PostTurnReviewInput) -> None: ...
+
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.post-turn-review":
             if require_topic_owner(
@@ -454,6 +456,7 @@ class NornsEventLearningMixin:
             return
         if not self._post_turn_review_body_admissible(payload, raw, review_input):
             return
+        await self._observe_recurrent_query(review_input)
         await self._post_turn_review.review(review_input)
         self._reviewed_post_turn_reviews.add(fence)
         self.record_behavior("post_turn_review_completed")

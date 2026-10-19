@@ -70,6 +70,43 @@ so it receives the multiplexed request on the semantic physical Event Hub instea
 does not exist. Core consumes that request, validates it, and invokes Bragi's typed
 publisher so only Bragi writes `object.post-turn-review`.
 
+## Recurrent-query observations
+
+Core attaches a typed `PostTurnProcedureReceipt` to the technical details of a completed human
+ontology query. Its fingerprint binds the exact ontology and semantic-catalog releases, purpose,
+ordered DAG, canonical functions, and JSON argument types and structure. It excludes argument
+values, question text, principal identity, and incidental node names. It compares executed shapes,
+not the meaning of natural-language questions. Workloads, incomplete execution/evidence, and an
+exceeded shape-depth budget carry an explicit unavailable reason instead of a fingerprint.
+
+Operator checks the receipt against the authenticated principal, turn, release, plan, completed
+checks, and execution digest. It ignores unverified fingerprint/count hints. The existing current
+learner-sharing preference gates its queue; Bragi preserves typed metadata but still removes raw
+text without matching body consent. Optional procedure metadata cannot overflow an existing
+answer: Core omits only that metadata, records a content-free reason, and recomputes projection
+identity. This neither truncates the answer nor turns metadata into eligible raw-body review.
+
+Norns uses its existing durable StateStore to count distinct canonical principal scopes in
+`(now - seven UTC days, now]`. The default threshold is five; the constructor accepts integers
+from two through twenty. A stored/runtime threshold mismatch fails closed rather than resetting
+evidence. One bounded, revision-fenced record holds at most 128 shapes. Expired shape state is
+pruned on accepted observation updates; this is not a scheduled physical-deletion receipt.
+Capacity exhaustion and corrupted state are explicit failures, not empty successful collections.
+
+A qualifying cohort first becomes an immutable pending signal. Norns checkpoints the inert
+candidate in its existing learner journal before acknowledging the source signal, so restart,
+replica contention, and failed checkpoints can replay one stable identity. The signal uses
+`source_signal=console.recurrent_query` on the existing `object.rule-candidate` input to Mimir,
+not a new topic or an activated Rule. Counts describe the observed threshold cohort, not all
+queries or all principals. Release digests and canonical tool names accompany bounded evidence
+references without publishing principal identities or argument values.
+
+The existing three-perspective consensus, rate limits, current discovery-activation ceiling,
+Mimir review, and shadow promotion still apply. Norns health separates collection availability,
+publication enablement, and inert mode. Missing durable storage remains unavailable. Local
+component and isolated PostgreSQL checks do not qualify deployed transport, operational policy,
+actual rule generation, or production stabilization.
+
 ## Eligibility
 
 `PostTurnEligibilityPolicy` evaluates cheap deterministic signals before any model call:

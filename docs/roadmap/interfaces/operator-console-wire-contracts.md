@@ -19,9 +19,12 @@ snapshot. It contains the exact 15 self-health signals and the version, configur
 override, discovery, canary, kill-switch, and break-glass fields as source-qualified digests,
 freshness, or explicit unavailable states. Operator validates and redacts the shared contract. It
 does not query providers, infer healthy defaults, approve a change, or gain execution authority.
-Core supplies actual listener liveness, guarded readiness, persisted kill switch, and process startup duration,
-plus installed-version, consumed-policy, and kill-switch digests. The aggregate adapter signal remains unavailable; the other 11 signal slots and five
-fields remain unavailable. Source failures retain bounded missing, malformed, or unreachable
+Core supplies actual listener liveness, guarded readiness, persisted kill switch, process startup
+duration, consumed-canary age and the deterministic-verifier rate, plus installed-version,
+consumed-policy and kill-switch digests. Exact coverage stays with the
+[source owner](../operations/operating-and-verification.md#remaining-source-boundaries);
+the aggregate adapter signal and missing sources remain unavailable. Verifier warmup and unknown
+results are data states in the unchanged contract, not approval decisions. Source failures retain bounded missing, malformed, or unreachable
 reasons; the wire shape and Reader authorization are unchanged. Sharing `bootstrap_core.py`
 with Incident composition does not create or confirm an Incident, publish an Incident request,
 or change its lifecycle. A kill-switch digest does not expose its state revision or verify a
@@ -52,6 +55,13 @@ The existing numeric `usage` map may include `model_calls` beside token totals. 
 recorded conversation-call telemetry, not detailed prompt capture, action authority, or
 independent operational evidence. Missing values remain unavailable; older consumers may
 ignore the additive numeric key without changing answer verification or Incident handling.
+
+Optional `technical_details.post_turn_procedure` contains a versioned, content-free completed-query
+receipt. Operator binds it to the exact principal, turn, release, plan and execution result before
+forwarding it through the existing consent-gated post-turn request. The optional receipt survives
+Bragi's raw-text filtering; it grants no body-sharing, Incident, approval, execution or promotion
+authority. Older consumers can ignore it. [Post-Turn Improvement Review](../decisioning/post-turn-improvement-review.md#recurrent-query-observations)
+owns the recurrence and unavailable rules; answer fields and request versions are unchanged.
 
 The [common answer presentation](operator-console.md#common-answer-presentation) reuses existing
 answer text, verification, citation, and presentation-artifact fields. Source disclosure, the
@@ -644,6 +654,7 @@ engage or disengage drill remains incomplete until an independent store observat
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Optional post-turn procedure receipt | implemented | Shared `post_turn_review.py`; Core `post_turn_procedure.py`; Operator post-turn projection builder; `test_recurrent_query_signal.py` | Metadata binds exact principal, turn, release, plan and execution; contradictory receipt/count/tool metadata is rejected. Omitted `None` preserves legacy review mappings. Bragi body filtering preserves only the typed metadata, and optional metadata cannot overflow an existing answer. |
 | Actual-source runtime-state read projection | implemented | `cf6435701b`; runtime sources; separate typed model registration/scope; Core collector and strict Operator reader tests | Four catalog slots and three fields are source-bound; 11 slots/five fields remain unavailable. Actual embedding outcomes are separate typed sub-observations and cannot prove configured-adapter health. Existing snapshot schema and Reader access are unchanged. |
 | Global kill-switch HTTP and command event | implemented | `0398357455`; shared contract and generated schema; Operator IAM route; Var receipt gate and command handler; focused contract, Operator, agent, and runtime tests | HTTP `202` proves typed publication only. Authorized state revision readback and a retained deployment cycle remain open. |
 | GitHub knowledge-source request and projection | implemented | `425fda52ead9`; `fdai_service_contracts/knowledge_github.py`; `knowledge_github_projection.py`; focused connection tests | Owner connect/disconnect has a typed revision-checked envelope and no credential bytes or scan-consent fields. Existing Incident confirmation and execution authority are unchanged. |
@@ -667,6 +678,7 @@ engage or disengage drill remains incomplete until an independent store observat
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-19 | implemented | Added optional receipt metadata in existing technical details and post-turn envelopes without changing request versions, Incident handling, approval or execution authority. | `current change`; 571 focused regression passes including four isolated PostgreSQL scenarios and exact wire-budget controls; ten-source mypy. | Deployed N/N-1 transport and actual cohort qualification remain separate from these local mechanics. |
 | 2026-10-19 | implemented | Extracted the H01 model-scope/runtime-record decoder into a cohesive Operator helper and coupled Core self-health bindings into existing bootstrap readiness ownership. | Current change; four-source strict mypy/Ruff and the unchanged 163-case SDK/scope/reader slice passed. Reader facade 997 -> 931 lines (below its pre-model 946-line baseline); Core bootstrap 802 -> 800. | Structural separation only; aggregate unavailable, full-role registration, snapshot digest and read-time checks remain unchanged. Global delivery validation stays with the parent. |
 | 2026-10-19 | withdrawn | Withdrew the `e58fbf5674` scope narrowing and fifth catalog-slot claim after reproducing global Healthy with an unobserved configured reasoner. | Current fix; actual default-registry collector and strict Operator consumer regressions for zero/partial coverage, required-role deletion, binding replacement, and forged aggregate Healthy. | Four catalog slots/three fields remain source-bound; 11/five unavailable. Typed model sub-observations are separate; no Console rendering or deployment evidence is claimed. |
 | 2026-10-19 | implemented | Connected actual normal embedding invocation cohorts to the existing role-qualified adapter slot, preserving unknown, freshness, source identity, schema, and Reader authorization. | `current change`; producer-to-persisted-snapshot and unchanged strict reader-contract tests. | Five slots and three fields are source-bound, but the adapter covers only `t1.embedding`; other roles and replicas remain unknown. Ten slots and five fields remain unavailable. No semantic quality or overall readiness is claimed. |

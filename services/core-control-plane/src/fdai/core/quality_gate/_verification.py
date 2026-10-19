@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
+
+from fdai.core.quality_gate.candidate_snapshot import (
+    quality_candidate_evaluation_identity,
+    snapshot_candidate_params,
+    snapshot_quality_candidate,
+)
+from fdai.core.quality_gate.deterministic_evidence import quality_candidate_digest
 
 if TYPE_CHECKING:
     from fdai.core.quality_gate.gate import (
@@ -65,7 +72,12 @@ async def cross_check_candidate(
 ) -> CrossCheckResult:
     from fdai.core.quality_gate.gate import ModelVote
 
-    tasks = tuple(asyncio.create_task(_propose_model(model, candidate)) for model in models)
+    baseline = snapshot_quality_candidate(candidate)
+    expected_identity, expected_confidence = quality_candidate_evaluation_identity(baseline)
+    tasks = tuple(
+        asyncio.create_task(_propose_model(model, snapshot_quality_candidate(baseline)))
+        for model in models
+    )
     try:
         proposals = await asyncio.gather(*tasks)
     except BaseException:
@@ -74,6 +86,8 @@ async def cross_check_candidate(
                 task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         raise
+    if quality_candidate_evaluation_identity(candidate) != (expected_identity, expected_confidence):
+        raise ValueError("cross-check candidate changed during verification")
     agree = 0
     votes: list[ModelVote] = []
     first_proposer_output: tuple[str, Any] | None = None
@@ -83,7 +97,9 @@ async def cross_check_candidate(
         if index == 0:
             first_proposer_output = (proposed_type, proposed_params)
         agreed = (
-            proposed_type == candidate.action_type and dict(proposed_params) == candidate.params
+            proposed_type == baseline.action_type
+            and quality_candidate_digest(replace(baseline, params=dict(proposed_params)))
+            == expected_identity
         )
         if agreed:
             agree += 1
@@ -108,6 +124,8 @@ async def _propose_model(
     )
 
     if isinstance(model, PromptEvidenceCrossCheckModel):
-        return await model.propose_with_evidence(candidate)
-    action_type, params = await model.propose(candidate)
-    return CrossCheckProposal(action_type=action_type, params=params)
+        proposal = await model.propose_with_evidence(candidate)
+    else:
+        action_type, params = await model.propose(candidate)
+        proposal = CrossCheckProposal(action_type=action_type, params=params)
+    return replace(proposal, params=snapshot_candidate_params(candidate, proposal.params))

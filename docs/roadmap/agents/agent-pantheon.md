@@ -697,6 +697,9 @@ State is partitioned by `user_id`:
   Bragi removes unconsented corrections before checkpointing, and Norns includes corrections in
   the combined 64 KiB UTF-8 body budget. Legacy outbox rows without matching recorded consent stay
   held. Without both consent and clearance, Norns records no raw text.
+- **Recurrent-query metadata.** Core's typed completed-plan receipt reaches Norns through the
+  existing consent-gated Operator/Bragi path. Norns owns distinct-principal CAS counting and the
+  inert `console.recurrent_query` RuleCandidate input; current discovery and Mimir gates still apply.
 - **Retention.** Active conversations: 30 days, then 60 days cold storage, then deletion at 90 days. Aggregated anonymized metrics survive in Saga's audit stream.
 
 ## 7. Ontology actions

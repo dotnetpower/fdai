@@ -49,6 +49,10 @@ from enum import StrEnum
 from typing import Protocol, runtime_checkable
 
 from fdai.core.metering.budget import BudgetLedger, InMemoryBudgetLedger, ModelBudget
+from fdai.core.quality_gate.candidate_snapshot import (
+    quality_candidate_evaluation_identity,
+    snapshot_quality_candidate,
+)
 from fdai.core.quality_gate.gate import (
     QualityCandidate,
     QualityDecision,
@@ -305,7 +309,19 @@ class T2Tier:
                     )
             stability_hold = cascade.stable is False
         try:
+            candidate = snapshot_quality_candidate(candidate)
+            expected_identity = quality_candidate_evaluation_identity(candidate)
             decision = await self._quality_gate.evaluate(candidate)
+            verified = snapshot_quality_candidate(decision.candidate)
+            if quality_candidate_evaluation_identity(verified) != expected_identity:
+                return T2Decision(
+                    outcome=T2Outcome.ESCALATE,
+                    candidate=candidate,
+                    quality_decision=decision,
+                    reason="quality_gate_candidate_identity_mismatch",
+                )
+            candidate = verified
+            decision = replace(decision, candidate=verified)
         except Exception as exc:  # noqa: BLE001 - gate dependency boundary
             return T2Decision(
                 outcome=T2Outcome.ESCALATE,

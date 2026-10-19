@@ -191,6 +191,18 @@ available for isolated compatibility tests, but the shipped runtime cannot produ
 candidate without both current independent records. Synthetic records can test mechanics only and
 never satisfy live promotion.
 
+### Candidate identity through asynchronous verification
+
+Cross-check agreement uses the existing exact candidate-evidence identity, not Python dictionary
+equality. Booleans, numeric representations and signed zero stay distinct; object-key order does
+not matter. Native JSON is copied without coercing tuples or non-string keys into new agreement.
+Each model receives isolated arguments/confidence, and its completed proposal is captured before
+another model can change shared data. The gate pins both its caller and working snapshot through
+later rubric/debate awaits; drift holds with an explicit reason rather than rebinding old votes.
+The T2 consumer matches the returned snapshot's target, arguments and confidence to its pinned
+input and forwards that owned snapshot, never the proposer's mutable argument reference.
+These checks grant no source, approval or execution authority and prove no operational effect.
+
 ## T1 Lightweight Tier
 
 - **Similarity match**: embed each normalized event and match against the pattern library; a
