@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: 6dd05fccc0c8444c5c4b7c3a37ac4e8a3c55ebf1
-translation_revised: 2026-10-18
+translation_source_sha: a3ea2959dcfe909f27421a19d2812b9de34a37bc
+translation_revised: 2026-10-20
 ---
 # 문서 인제스트와 투입 구역
 
@@ -358,7 +358,7 @@ API, 워커, 이행 작업은 서로 다른 managed 신원과 PostgreSQL 역할�
 Event Hubs 수신과 OCR 권한을 받고 이행만 administrator DSN을 읽습니다. 두 런타임 역할은
 수명 주기 기록을 publish할 수 있으며 필요한 문서 표에만 접근합니다. API와 워커의 CPU,
 기억, 복제본 범위는 독립적이며 `SELECT current_user`가 role-scoped DSN을 확인한 뒤에만 준비된이
-됩니다. 워커 기본값은 복제본 하나입니다. 운영 확장 전에는
+됩니다. 워커 기본값은 복제본 하나입니다. 두 manifest는 수정된 aiohttp 보안 하한을 공유하며 공유 이미지 scan 수정 뒤 이전 호환 범위를 유지할 수 없습니다. 운영 확장 전에는
 재시작, 재전달, DLQ, durable-claim smoke 근거를 기록합니다. 제거된 co-host는 rollback 표면이
 아닙니다. 변경할 수 없는 이전 서비스 이미지와 독립 서비스 배포 상태를 사용해 shared 프로세스
 소유권을 복원하지 않고 rollback합니다.

@@ -1,8 +1,8 @@
 ---
 title: 다중 서비스 저장소 레이아웃
 translation_of: multi-service-repository-layout.md
-translation_source_sha: ac9f1c557a1e30c0b2ba0f46ce155ec5c12ad277
-translation_revised: 2026-10-02
+translation_source_sha: 79ed3be73d5eca94071f0c54e57a6111ebfc5300
+translation_revised: 2026-10-20
 ---
 # 다중 서비스 저장소 레이아웃
 
@@ -20,6 +20,7 @@ FDAI는 하나의 개발 저장소에 독립적으로 패키징하고 검증한 
 | Core 암호화 검증 | Core manifest가 배포 소유 Ed25519 관측 증적을 검증하는 `cryptography` 의존성을 소유합니다. 다른 서비스는 Core 구현을 가져오지 않으며 signing seed를 받지 않습니다. |
 | Core 이벤트 압축 | EventBus가 Snappy 압축 Kafka 레코드를 전달할 수 있으므로 Core manifest가 `python-snappy`를 소유합니다. 루트 lock은 재현 가능한 로컬 및 배포 consumer를 위해 전이 codec 패키지를 기록합니다. |
 | Core Azure 런타임 의존성 | 배포된 Azure 모델 어댑터가 런타임 부트스트랩 중 형식화된 인증 실패를 가져오므로 Core manifest가 `azure-core`를 소유합니다. 이미지 빌더는 서비스 wheel 설치 후 부트스트랩을 cold import하여 직접 의존성 누락을 Container Apps 개정 번호 실패가 아니라 게시 차단으로 전환합니다. |
+| 공유 HTTP 의존성 보안 하한 | aiohttp를 사용하는 모든 서비스 manifest는 루트 lock을 다시 만들기 전에 수정된 최소 patch를 선언합니다. 공유 이미지 scan 수정 뒤 어느 서비스 이미지도 이전 호환 범위를 유지할 수 없습니다. |
 | 공유 서비스 계약 | `packages/service-contracts/`가 서비스 구현을 가져오지 않는 버전된 wire 형식과 스키마를 소유합니다. |
 | 저장소 루트 | 루트 `pyproject.toml`과 `uv.lock`은 개발 도구와 서비스 간 통합을 조정합니다. 루트 pytest 경로는 배포 게이트가 적용된 시스템 지식 서비스 후보를 포함한 모든 서비스 `src` 루트와 독립 설치형 배포 CLI를 열거합니다. 테스트는 CLI를 uv workspace에 추가하지 않고 현재 checkout을 가져오며, 루트는 FDAI 런타임 배포판을 발행하지 않습니다. `pytest-timeout` 기본값은 개별 테스트당 120초 벽시계 상한이므로 단일 테스트가 xdist 샤드를 무기한 차단하지 못합니다. 전체 카탈로그를 두 번 조립하는 결정성 증명만 범위가 제한된 240초 예외를 사용합니다. |
 | 서비스 통신 | 서비스는 버전된 계약을 PostgreSQL 소유 변환 결과와 이벤트 버스로 교환합니다. Rule 활성화에서도 Operator가 인증된 proposal과 outbox를 소유하고 Core가 불변 receipt와 세대 적용을 소유하며 공유 패키지는 content-free wire 계약만 소유합니다. 한 서비스는 다른 서비스의 구현 패키지를 가져오지 않습니다. |

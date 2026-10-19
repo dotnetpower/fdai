@@ -8,6 +8,7 @@ remains focused on the normative repository layout.
 ### Implementation scope
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Shared aiohttp security floor | implemented | Root and six service manifests; shared lock at `aiohttp 3.14.5`; 59 focused service package/image checks | Every aiohttp consumer requires at least the fixed `3.14.4` patch. Service ownership and cross-service import boundaries are unchanged. |
 | Core operational catalog-review entry point | implemented | `services/core-control-plane/pyproject.toml`; runtime catalog-review modules; wheel build; independent-service check | The existing Core distribution owns the deployed command. No service, cross-service implementation import, or execution authority is added. |
 | Core-owned T2 cache persistence | implemented | Core migration; `delivery/persistence/postgres_t2_cache.py`; service rotation command; focused local PostgreSQL checks | The Core distribution owns the single writer, exact partitions, catalog state, and atomic receipts without adding a service or cross-service implementation import. |
 | Validated five-service baseline | validated | Five baseline `services/*/pyproject.toml` manifests; `config/independent-services.json`; retained remote transition evidence | Each validated service owns its source package, tests, image, process identity, migration branch, and rollback evidence. |
@@ -24,6 +25,7 @@ remains focused on the normative repository layout.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-20 | implemented | Raised the shared aiohttp floor across every owning service manifest and regenerated the root lock after two fixed HIGH image findings. | `current change`; exact image-scan run `39333498778`; 59 focused distribution/image/wheelhouse checks. | Corrected pushed-head image scans remain authoritative. |
 | 2026-09-27 | implemented | Removed the duplicate package-policy mirror registry and exact requirement-range comparison. Root test dependencies remain development-only and are verified by manifests, the frozen selected lock, cold imports, image builds, and owning tests. | `current change`; minimum package assurance policy/checker and updated repository-layout design. | No package-policy mirror work remains; dependency failures continue to block their owning build or test. |
 | 2026-09-27 | not-applicable | Corrected the evidence date for the Core catalog-review entry-point row below; its package and merge evidence occurred on 2026-09-27. | PR #1492 exact-head CI and merge receipt. | The original row remains append-only; operational validation remains open. |
 | 2026-11-03 | implemented | Registered `fdai-operational-catalog-review` in the Core service manifest for the optional protected AKS checkpoint. | `current change`; Core wheel build, focused catalog-review tests, package assurance, and independent-service checks. | Retain one exact-main selected deployment receipt before claiming operational validation. |
