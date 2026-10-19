@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 031dd5504280584c153c5016098e0ba19f6d516e
-translation_revised: 2026-10-18
+translation_source_sha: fa3b1a9f820cc185f3d12e4fb2a334f703d712b6
+translation_revised: 2026-10-19
 ---
 # Hub 관리형 수명 주기
 
@@ -119,6 +119,26 @@ UI 준비는 계속할 수 있으며, 별도 승인을 받으면 UI와 준비 �
 SQLite/mock/브라우저 근거, PostgreSQL/이미지 검증, 실제 Azure 배포는 별도로 보고합니다.
 로컬 인프라가 없어 실행하지 못한 검사는 통과로 세지 않습니다.
 소스 전달, 이미지 게시와 Azure 변경에는 각각 별도의 명시적 승인이 필요합니다.
+
+### 범위가 제한된 데이터베이스 복구 검사
+
+승인된 비공개 관측 환경에서 앱 소유 명령
+`python -m fdai_lifecycle_hub.database_inspection`으로 원본과 복원본을 별도로 관측하세요.
+각 제품의 런타임 Managed Identity와 인증서를 검증하는 TLS를 재사용합니다.
+연결 전에 URL 쿼리의 접속 대상 재정의를 차단한 뒤 스키마와 실제 권한을 확인합니다.
+단일 repeatable-read 읽기 전용 트랜잭션에서 이행된 스키마와 실제 런타임 권한을 확인하고
+항상 롤백합니다. 테이블별 행 수는 1,001행까지만 확인하고 최대 1,000행을 허용합니다.
+기본 키 순서로 선택한 최대 32개 대표 행의 SHA-256 지문을 비교하며, 시간은 UTC로 표현합니다.
+
+비공개 `0600` 증적은 기존 파일을 덮어쓰지 않으며 원시 행이나 연결 값 대신 행 수와 지문을
+보관합니다. 임시 Job 밖에 증적을 보존하고, 승인된 비공개 경로로 원본 증적을 전달하세요.
+명령 옵션과 관측 한계는
+[제품별 절차](../../../infra/modules/hub-service/README.md#read-only-database-recovery-comparison)에서
+다룹니다. 이 명령은 복원을 조정하거나 전체 데이터베이스 동등성을 입증하지 않습니다.
+행 수가 같아도 표본 밖 변경은 놓칠 수 있습니다. 선택한 복원 시점에 가깝게 원본을 수집하고
+그동안 쓰기를 중지하세요. 서버 신원, 비공개 DNS, Entra-only 인증과 관리자 연결, 임시 자원
+부재는 별도의 권위 있는 관측으로 확인해야 합니다. 로컬 PostgreSQL 테스트는 Azure PITR이나
+Managed Identity를 검증하지 않습니다.
 
 ## 핵심 개념
 

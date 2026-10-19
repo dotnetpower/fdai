@@ -454,6 +454,77 @@ fully known, globally zero-change plan plus the complete native Job readback.
 While retaining an app image, the candidate guard also rejects app or unrelated resource
 changes; only an in-place migration Job update is allowed before the zero-change dispatch plan.
 
+### Read-only database recovery comparison
+
+Use the packaged `fdai_lifecycle_hub.database_inspection` command through an approved private
+observer, with a reviewed product image containing this command and the existing runtime
+managed identity. It reuses `remote_engine`
+and its service-owned database environment variable, managed identity token acquisition and
+verified TLS. Don't pass a DSN, token, password or signing key on the command line.
+The source and restored observations need separate approved execution definitions; this command
+doesn't create resources, change a migration Job, grant access or authorize a restore.
+Prepare an existing private output directory and an approved private path for carrying the source
+receipt into the restored observation. A file left in an ephemeral Job doesn't establish retained
+evidence. Neither receipt grants execution authority.
+
+```bash
+python -m fdai_lifecycle_hub.database_inspection \
+  --kind release --target source --output /private/release-source.json
+python -m fdai_lifecycle_hub.database_inspection \
+  --kind release --target restored --restored-host <restored-server-fqdn> \
+  --baseline /private/release-source.json --output /private/release-restored.json
+```
+
+Use `--kind target` for Lifecycle Hub. Keep the original database binding in the environment.
+Only the restored command substitutes the host, preserving the database, principal and TLS
+settings. A restored host equal to the source host is rejected. Query-level `host`, `hostaddr`,
+`port`, `dbname`, `user` and
+`service` overrides are rejected before either observation. These overrides could redirect the
+driver away from the URL authority. Host digests distinguish the
+configured endpoints; they don't independently attest Azure resource identity. Verify the
+actual server ID, private DNS, restored Entra-only settings and retained principal/admin bindings
+through the owning native readback procedure before execution. Successful runtime access doesn't
+prove directory administrator bindings, and the command doesn't enumerate Azure-only Entra functions.
+
+Both observations use one PostgreSQL repeatable-read, read-only transaction and always roll back.
+Timestamp fingerprints use UTC without changing the session's configured time zone.
+The command checks revision 1, required tables, column types/nullability, primary keys,
+database/schema privileges, table DML permissions and sequence usage. It reads only product-owned
+tables. Per table, it examines at most 1,001 rows for the count bound, accepts at most 1,000,
+and compares SHA-256 fingerprints of at most 32 rows ordered by primary key.
+Each statement has a five-second timeout and a two-second lock timeout.
+Missing schema, denied permissions, connection failures, exceeded bounds and comparison
+differences fail explicitly. No partial receipt is emitted for a failed observation.
+
+Receipts contain counts, opaque bindings and fingerprints, never raw rows, roles, hosts or DSNs.
+Keep them private: fingerprints are comparison evidence, not encryption. Output files are
+created with mode `0600` and never overwrite an existing path. Standard output contains only
+target and table count; failure output contains a fixed reason and command step, plus the database
+stage and SQLSTATE when available.
+The command flushes and syncs a receipt before reporting success and removes its new file if
+writing, syncing or closing fails. It doesn't remove a pre-existing output.
+Capture the source baseline immediately before selecting the restore point and exclude writers
+until that point. Retain both observations' times and exact resource bindings with the restore
+receipt. An observed count, sample or schema difference stops comparison.
+Updates outside the sampled rows can go undetected when counts don't change. If writers can't be
+excluded around the selected restore point, don't use this comparison to accept the restore.
+
+This bounded comparison proves the observed schema, privileges, counts and representative sample,
+not complete database equivalence. An initialized product with no business records can pass;
+a database without its migrated schema cannot. Large tables exceeding the bound require a
+separately reviewed observation, not an automatic higher limit. Recovery acceptance still needs
+native security readback, succeeded comparison and temporary-resource cleanup/absence readback.
+
+Run local regression tests only through the isolated validation PostgreSQL wrapper:
+
+```bash
+python3 scripts/automation/with-local-test-database.py \
+  uv run --frozen --project lifecycle/release-hub --with pytest --with pytest-cov \
+  python -m pytest -q --no-cov -p no:cacheprovider -c /dev/null \
+  lifecycle/hub/tests/test_database_inspection.py \
+  lifecycle/hub/tests/test_standalone_remote.py
+```
+
 ## Existing state
 
 The legacy root and existing registry state are preserved. New roots don't read either state.

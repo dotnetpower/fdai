@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import nullcontext
 
 from sqlalchemy import Column, Engine, Integer, MetaData, Table, inspect, select, text
 from sqlalchemy.engine import Connection
@@ -26,9 +27,9 @@ def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], N
             raise ValueError("Unsupported Hub schema revision; use a compatible migration command.")
 
 
-def require_schema(engine: Engine, namespace: str) -> None:
+def require_schema(engine: Engine | Connection, namespace: str) -> None:
     versions = _versions(namespace)
-    with engine.connect() as connection:
+    with engine.connect() if isinstance(engine, Engine) else nullcontext(engine) as connection:
         if not inspect(connection).has_table(versions.name):
             raise ValueError("Hub schema is not migrated; run the explicit migrate command.")
         if connection.scalar(select(versions.c.revision)) != REVISION:
