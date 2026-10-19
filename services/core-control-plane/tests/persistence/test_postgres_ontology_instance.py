@@ -392,7 +392,7 @@ async def _isolated_committed_resource_store(count=1):
                 "(scope_ref TEXT,state TEXT,last_watermark BIGINT);"
                 "CREATE TABLE inventory_observation_journal "
                 "(scope_ref TEXT,watermark BIGINT,source_revision TEXT,effective_at TIMESTAMPTZ,"
-                "subject_kind TEXT,subject_ref TEXT)"
+                "subject_kind TEXT,subject_ref TEXT,subject_type TEXT)"
             )
         await store.replace_subgraph_with_state(
             objects=tuple(
@@ -444,7 +444,8 @@ async def test_isolated_committed_resource_scan_preserves_current_evidence(condi
         async with await store._connect() as connection:
             if condition == "journal":
                 await connection.execute(
-                    "INSERT INTO inventory_observation_journal VALUES "
+                    "INSERT INTO inventory_observation_journal "
+                    "(scope_ref,watermark,source_revision,effective_at) VALUES "
                     "('scope-example',1,'later',NOW()+INTERVAL '1 second')"
                 )
             elif condition == "correction":
