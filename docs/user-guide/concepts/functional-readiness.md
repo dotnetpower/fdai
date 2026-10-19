@@ -234,11 +234,11 @@ through `/operations/runtime-state`, bound to independent startup registration a
 checks. Other unobserved roles keep the model scope unknown and the catalog aggregate unavailable;
 the 169-case software check does not add a catalog binding or dedicated Console view.
 
-The current worktree additionally binds consumed-canary result, elapsed time since the last
-successful consumed canary, and the canary operational field to the latest canonical audit
-sequence. Coverage is now **six of 15 catalog signals and four of eight fields**; nine signals and
-four fields remain explicitly unavailable. This neither proves complete scheduled-attempt
-coverage nor supplies missing delivery, stabilization or recovery-drill receipts.
+This increment reuses #2253's indexed last-success age source and withdraws its earlier
+receipt-only canary result/state claim. Current coverage remains **five of 15 catalog signals
+and three of eight fields**; ten signals and five fields are explicitly unavailable.
+Neither the latest scheduled-attempt result/state nor missing delivery, stabilization or
+recovery-drill receipts can be inferred from a last-success observation.
 
 ## F13. Evidence views and reporting
 
