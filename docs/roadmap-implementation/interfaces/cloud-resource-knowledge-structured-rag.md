@@ -3,7 +3,8 @@
 This ledger records bounded software implementation and critique evidence for the
 [structured retrieval design](../../roadmap/interfaces/cloud-resource-knowledge-structured-rag.md).
 Issue #1019 / PR #1047 completed the original source delivery; Issue #1061 owns the retained-source
-follow-up. Issue #995 continues to own independent operational qualification.
+follow-up. Issue #995 was closed as not planned; its independent operational qualification
+residual remains recorded below and is not completed by that closure.
 
 ## Implementation status
 
@@ -24,6 +25,7 @@ follow-up. Issue #995 continues to own independent operational qualification.
 
 | Date | State | Change | Evidence | Remaining |
 |---|---|---|---|---|
+| 2026-10-19 | not-started | Corrected stale issue-state wording: #995 closed as `not_planned` on 2026-09-28, not as accepted operational qualification. No implementation or outcome was inferred from its closure. | Read-only GitHub issue state and `state_reason`; the retained qualification row and required K05 evidence. | Schedule the existing trust, rights, reviewer, service and authorized runtime receipts under an approved bounded outcome before claiming qualification. |
 | 2026-10-19 | implemented | Added explicit normalizer `2.1.1` and reader `3.1.1` for duplicate entry/ancestor attributes and unambiguous UI/authentication-control classification; retained-byte upgrades cannot reuse an older normalizer checkpoint. | `current change`; #2232; three failing-before-fix matrices below; final eight-file selection passed 329 cases; strict mypy passed seven sources and Ruff passed thirteen files; generated service contracts remained equal. | Exact-head delivery gates and independent pilot/source/claim, rights/trust, and operational qualification remain separate; K04 stays open. |
 | 2026-10-18 | implemented | Implemented the exact prior-policy API lane for normalized v2 and structured v3 without changing the default manual path, content dates, excerpt identity, source gates or independent index readback. | `current change`; #2217; lifecycle ledger's 670 focused passes and 24 actual PostgreSQL passes with four inapplicable manual-only skips; strict source typing and Ruff. | Actual independently approved policy, production read grants/trust/rights, corpus and paired-language answer evidence, and operational promotion remain open. |
 | 2026-09-15 | not-started | Linked the requester application target for eligible v2/v3 reference content under previously and independently approved policy, without claiming the current manual approval path changed. | `current change`; bilingual structured design and cloud lifecycle owner. Documentation only; existing implementation and qualification evidence are unchanged. | Extend composed legacy/structured tests to exact policy authority, revocation before visibility, self-grant denial and independent readback. Retain separate source/answer qualification and promotion evidence. |
@@ -49,7 +51,9 @@ follow-up. Issue #995 continues to own independent operational qualification.
 - [x] Implement the versioned retained-source extension and bounded offline review; retain focused tests and actual local OS-isolated preparation/readback evidence as recorded below.
 - [ ] Complete [Issue #1061](https://github.com/dotnetpower/fdai/issues/1061) through exact-head CI, protected merge and cleanup, linking its final source-delivery receipt.
 - [ ] Resolve every declared pilot source hold and obtain independently reviewed paired-language query/claim receipts before claiming the corpus is RAG-ready. Implemented evaluation contracts and synthetic wording are not those receipts.
-- [ ] Keep Issue #995 open until its actual trust, rights, reviewer, service and authorized runtime receipts are supplied.
+- [ ] Retain #995's actual trust, rights, reviewer, service and authorized runtime receipts before
+  claiming qualification. The issue was closed as not planned on 2026-09-28; schedule an approved
+  successor before external work rather than interpreting closure as completion.
 
 ## Critique and hardening rounds
 
