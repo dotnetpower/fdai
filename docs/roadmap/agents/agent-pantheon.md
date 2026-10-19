@@ -72,6 +72,13 @@ Workflow requests preserve bounded `workflow_action` lineage, including a positi
 A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan. Forseti resolves it through an injected source and preserves the same Verdict-to-ActionRun path after strict validation. Lineage and proposals provide attribution and evidence only, never change quorum, mode, judgment, approval, or execution authority. Norns proposes to Mimir; Odin arbitrates conflicts before judgment.
 Var approval, Vidar recovery, Saga handoff, Norns learning, and Bragi handoff and post-turn review publications also preserve durable idempotency and restart state through the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
 
+Thor's private dispatch helper records first dispatch-entry metadata through its existing durable
+store, after any bound resource lock and claim validation, before executor I/O. It does not save
+the same ActionRun state twice or replace Saga's audit. Shadow runs write no observation; recording
+failure, changed identity or lost authority blocks executor I/O. The immutable observation is not
+effect verification or complete action history. AgentSpec, topics and lifecycle ownership stay
+unchanged; see [prediction source boundaries](../rules-and-detection/prediction-learning-and-case-history.md#forecast-evidence-admission).
+
 Registered `AnomalyActionSource` bindings resolve exact Heimdall signals into current, inert
 action candidates for Forseti. Incoming action arguments and human-initiator claims are replaced,
 not trusted. Missing, expired, conflicting, or failed lookups yield empty-action shadow decisions
