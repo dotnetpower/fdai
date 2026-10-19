@@ -1,7 +1,7 @@
 ---
 title: "Phase 2 - 지속적 규칙 업데이트, Quality Gate, T1"
 translation_of: phase-2-quality-and-t1.md
-translation_source_sha: 3cad92983f6b2194520d6d2630f64ca27d663af1
+translation_source_sha: 15d5bca5a1d67bbe7316571fb2bab67bf248c9a8
 translation_revised: 2026-10-19
 ---
 
@@ -193,6 +193,11 @@ T2 입력은 **신뢰할 수 없는** ([security-and-identity-ko.md](../architec
 고정합니다. 값이 달라지면 이전 투표를 새 후보에 연결하지 않고 명시적인 이유와 함께 보류합니다.
 T2 소비자는 반환된 스냅샷의 대상, 인자, 신뢰도를 고정된 입력과 대조하고 제안자의 가변 인자
 참조가 아닌 해당 소유 스냅샷을 전달합니다.
+
+선택적인 `CrossCheckObserver`는 정확한 모델 객체 집합에서 원래 비교 검사의 시작과 종료를
+관측합니다. 완전한 검사의 합의 또는 결과 미확인 상태만 받으며 모델 호출이나 권한을 추가하지
+않습니다. 생략하면 기존 판정을 유지합니다. 별도 프로세스 구간 메트릭과 내장 호출 생산자의
+적격성은 [운영 담당 문서](../operations/operating-and-verification-ko.md#혼합-모델-비교-관측)에 정의합니다.
 이 검사로 원본, 승인, 실행 권한을 부여하거나 운영 효과를 입증하지 않습니다.
 
 ## T1 경량 티어

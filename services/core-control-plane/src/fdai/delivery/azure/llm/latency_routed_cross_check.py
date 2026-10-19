@@ -165,6 +165,11 @@ class LatencyRoutedCrossCheckModel:
         """Return the composition-owned identity shared by the latency pool."""
         return self._model_id
 
+    @property
+    def model_provider_observation_members(self) -> tuple[CrossCheckModel, ...]:
+        """Expose the complete composition-owned producer group, never just the selected member."""
+        return tuple(model for _, model in self._candidates)
+
     def model_provider_observations(
         self, *, maximum_age_seconds: int
     ) -> ModelProviderObservationSource:
