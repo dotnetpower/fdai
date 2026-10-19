@@ -7,6 +7,33 @@
   "roadmap_context_line_budget": 4500,
   "routes": [
     {
+      "id": "recurrent-query-observations",
+      "paths": [
+        "docs/roadmap/decisioning/post-turn-improvement-review*.md",
+        "services/core-control-plane/src/fdai_core_service/post_turn_procedure.py",
+        "services/core-control-plane/src/fdai/agents/_framework/norns_recurrent_queries.py",
+        "services/core-control-plane/src/fdai/core/learning/models.py",
+        "services/core-control-plane/src/fdai/core/learning/serialization.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/post_turn_review.py",
+        "packages/service-contracts/src/fdai_service_contracts/post_turn_review.py",
+        "tests/integration/services/test_recurrent_query_signal.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/decisioning/post-turn-improvement-review.md",
+        "docs/roadmap/interfaces/operator-console.md",
+        "docs/roadmap/agents/agent-pantheon.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/decisioning/post-turn-improvement-review.md",
+        "docs/roadmap/interfaces/operator-console.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov tests/integration/services/test_recurrent_query_signal.py"
+      ]
+    },
+    {
       "id": "recorded-resource-state",
       "paths": [
         "docs/roadmap/interfaces/recorded-resource-state*.md",

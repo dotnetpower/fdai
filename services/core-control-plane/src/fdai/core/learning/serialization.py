@@ -5,12 +5,14 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import datetime
 
+from fdai_service_contracts.post_turn_review import PostTurnProcedureReceipt
+
 from fdai.core.learning.models import PostTurnReviewInput, ToolReceiptEvidence
 from fdai.core.operator_memory import ScopeKind
 
 
 def review_input_to_mapping(review_input: PostTurnReviewInput) -> dict[str, object]:
-    return {
+    result: dict[str, object] = {
         "review_id": review_input.review_id,
         "principal_scope": review_input.principal_scope,
         "operator_turn_id": review_input.operator_turn_id,
@@ -39,6 +41,9 @@ def review_input_to_mapping(review_input: PostTurnReviewInput) -> dict[str, obje
         "procedure_fingerprint": review_input.procedure_fingerprint,
         "repeated_procedure_count": review_input.repeated_procedure_count,
     }
+    if review_input.procedure_receipt is not None:
+        result["procedure_receipt"] = review_input.procedure_receipt.model_dump(mode="json")
+    return result
 
 
 def review_input_from_mapping(value: Mapping[str, object]) -> PostTurnReviewInput:
@@ -79,6 +84,11 @@ def review_input_from_mapping(value: Mapping[str, object]) -> PostTurnReviewInpu
         failure_recovered=value.get("failure_recovered") is True,
         procedure_fingerprint=_optional_string(value, "procedure_fingerprint"),
         repeated_procedure_count=_non_negative_int(value, "repeated_procedure_count"),
+        procedure_receipt=(
+            PostTurnProcedureReceipt.model_validate(value["procedure_receipt"])
+            if value.get("procedure_receipt") is not None
+            else None
+        ),
     )
 
 

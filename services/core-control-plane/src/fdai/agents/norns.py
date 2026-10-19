@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
 from collections import deque
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -85,6 +86,7 @@ from fdai.agents._framework.norns_learning import (
 from fdai.agents._framework.norns_learning import (
     shadow_dwell_evidence as _learning_shadow_dwell_evidence,
 )
+from fdai.agents._framework.norns_recurrent_queries import RecurrentQueryTracker
 from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedbackLearning
 from fdai.agents._framework.pantheon import _NORNS
 from fdai.agents._framework.role_answers import norns_role_answer
@@ -92,6 +94,7 @@ from fdai.core.case_history import CaseHistoryAnalyzer, CaseHistoryMaterializer
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.learning import (
     PostTurnReviewCoordinator,
+    PostTurnReviewInput,
     RuleCandidateHint,
 )
 from fdai.core.operational_learning import (
@@ -136,6 +139,7 @@ class Norns(
         preflight_blocker_threshold: int = 3,
         coverage_aggregator: ScenarioCoverageAggregator | None = None,
         post_turn_review: PostTurnReviewCoordinator | None = None,
+        recurrent_query_threshold: int = 5,
         forecast_error_threshold: int = 3,
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         case_history_materializer: CaseHistoryMaterializer | None = None,
@@ -156,6 +160,8 @@ class Norns(
         # sample), the opposite of measurement-based learning.
         if promotion_threshold < 1:
             raise ValueError("promotion_threshold MUST be >= 1")
+        if type(recurrent_query_threshold) is not int or not 2 <= recurrent_query_threshold <= 20:
+            raise ValueError("recurrent-query threshold MUST be an integer from 2 through 20")
         if not 0.0 <= rollback_alarm_rate <= 1.0:
             raise ValueError("rollback_alarm_rate MUST be in [0, 1]")
         if min_outcome_samples < 1:
@@ -172,8 +178,12 @@ class Norns(
             raise ValueError("operational_case_max_age MUST be positive")
         if issue_close_quiet_window <= timedelta(0):
             raise ValueError("issue_close_quiet_window MUST be positive")
-        if provider_timeout_seconds <= 0:
-            raise ValueError("Norns provider timeout MUST be positive")
+        if (
+            isinstance(provider_timeout_seconds, bool)
+            or not math.isfinite(provider_timeout_seconds)
+            or provider_timeout_seconds <= 0
+        ):
+            raise ValueError("Norns provider timeout MUST be finite and positive")
         super().__init__(spec=_NORNS)
         self._proposal_queue_managed_externally = True
         self._fingerprint_counter: BoundedLruDict[str, int] = BoundedLruDict(_MAX_TRACKED)
@@ -189,6 +199,16 @@ class Norns(
             max_pending_candidates=max_pending_candidates,
         )
         self._learning_state_store = operational_state_store
+        self._recurrent_query_threshold = recurrent_query_threshold
+        self._recurrent_queries = (
+            RecurrentQueryTracker(
+                store=operational_state_store,
+                now=clock or (lambda: datetime.now(UTC)),
+                threshold=recurrent_query_threshold,
+            )
+            if operational_state_store is not None
+            else None
+        )
         self._learning_state_recovered = operational_state_store is None
         self._learning_dirty: dict[str, set[str]] = {}
         self._investigation_strategy_compiler = (
@@ -448,8 +468,32 @@ class Norns(
         await self._flush_candidates_unlocked()
         return proposal_ref
 
+    async def _observe_recurrent_query(self, review: PostTurnReviewInput) -> None:
+        if self._recurrent_queries is None:
+            self.record_behavior("console_recurrent_query:durability_unavailable")
+            return
+        async with asyncio.timeout(self._provider_timeout_seconds):
+            signal, reason = await self._recurrent_queries.observe(review)
+            self.record_behavior(f"console_recurrent_query:{reason}")
+            if signal is None:
+                return
+            async with self._learning_lock:
+                await self._ensure_learning_state()
+                identity = f"console-query:{signal.signal_id}"
+                if identity not in self._post_turn_hint_proposed:
+                    self._ensure_pending_capacity()
+                    self._append_candidate(signal.candidate())
+                    self._post_turn_hint_proposed.add(identity)
+                    self._mark_learning_dirty("post_turn_hint_proposed", identity)
+                await self._persist_learning_state()
+                await self._flush_candidates_unlocked()
+            await self._recurrent_queries.mark_queued(signal)
+
     def health(self) -> dict[str, Any]:
         durable_learning = self._learning_state_store is not None
+        recurrent_available = (
+            self._recurrent_queries is not None and self._post_turn_review is not None
+        )
         pending_count = len(self.pending_candidates)
         terminal_total = sum(self._candidate_terminal_counts.values())
         pattern_total = sum(self._pattern_validation_counts.values())
@@ -462,6 +506,17 @@ class Norns(
         return {
             "agent": self.spec.name,
             "status": status,
+            "recurrent_queries": {
+                "available": recurrent_available,
+                "collection_enabled": recurrent_available,
+                "publication_enabled": recurrent_available
+                and (
+                    self._candidate_publication_gate is None or self._candidate_publication_gate()
+                ),
+                "mode": "inert_candidate",
+                "threshold": self._recurrent_query_threshold,
+                "window_seconds": 7 * 24 * 60 * 60,
+            },
             "learning": {
                 "mode": "off_path",
                 "status": "enabled",
