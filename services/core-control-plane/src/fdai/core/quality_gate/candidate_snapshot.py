@@ -17,27 +17,34 @@ if TYPE_CHECKING:
 _JSON_PARAMS = TypeAdapter(dict[str, JsonValue])
 
 
+def _snapshot_json_mapping(value: Mapping[str, Any]) -> dict[str, Any]:
+    return _JSON_PARAMS.validate_python(dict(value), strict=True)
+
+
 def snapshot_candidate_params(
     candidate: QualityCandidate, params: Mapping[str, Any]
 ) -> dict[str, Any]:
     """Copy native JSON without coercion, then validate the exact evidence identity."""
-    snapshot = _JSON_PARAMS.validate_python(dict(params), strict=True)
+    snapshot = _snapshot_json_mapping(params)
     quality_candidate_digest(replace(candidate, params=snapshot))
     return snapshot
 
 
 def snapshot_quality_candidate(candidate: QualityCandidate) -> QualityCandidate:
     """Detach provider-owned arguments and derived confidence before asynchronous verification."""
+    confidence = _snapshot_json_mapping(candidate.confidence_signals)
+    canonical_digest(confidence)
     return replace(
         candidate,
         params=snapshot_candidate_params(candidate, candidate.params),
-        confidence_signals=dict(candidate.confidence_signals),
+        confidence_signals=confidence,
     )
 
 
 def quality_candidate_evaluation_identity(candidate: QualityCandidate) -> tuple[str, str]:
     """Bind exact action evidence and the confidence that may lower or hold eligibility."""
-    return quality_candidate_digest(candidate), canonical_digest(dict(candidate.confidence_signals))
+    snapshot = snapshot_quality_candidate(candidate)
+    return quality_candidate_digest(snapshot), canonical_digest(dict(snapshot.confidence_signals))
 
 
 async def evaluate_candidate_snapshot(

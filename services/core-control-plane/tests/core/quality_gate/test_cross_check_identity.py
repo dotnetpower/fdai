@@ -293,3 +293,42 @@ async def test_cancellation_during_later_rubric_propagates_and_cleans_up() -> No
     with pytest.raises(asyncio.CancelledError):
         await pending
     assert cancelled.is_set()
+
+
+@pytest.mark.parametrize("change", ["params", "confidence"])
+async def test_final_identity_guard_rejects_json_key_alias_during_later_await(change: str) -> None:
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    expected = {"1": "value"}
+    original = replace(
+        candidate(dict(expected)),
+        confidence_signals={"1": 0.9},
+        reasoning_trace="test reasoning",
+    )
+
+    class WaitingRubric:
+        async def score(self, value: QualityCandidate) -> RubricOutput:
+            entered.set()
+            await release.wait()
+            return RubricOutput()
+
+    gate = QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(Model("one", expected), Model("two", expected)),
+        grounding=InMemoryGroundingSource({}),
+        config=QualityGateConfig(require_grounding=False),
+        rubric_evaluator=WaitingRubric(),
+    )
+    pending = asyncio.create_task(gate.evaluate(original))
+    await entered.wait()
+    if change == "params":
+        original.params.clear()
+        original.params[1] = "value"  # type: ignore[index]
+    else:
+        original.confidence_signals.clear()  # type: ignore[attr-defined]
+        original.confidence_signals[1] = 0.9  # type: ignore[index]
+    release.set()
+    decision = await pending
+    assert decision.outcome is QualityOutcome.ABSTAIN
+    assert decision.candidate.params == expected
+    assert decision.candidate.confidence_signals == {"1": 0.9}
