@@ -311,8 +311,7 @@ FROM analysis-runtime AS analysis-managed-runtime
 
 USER root
 COPY --from=jdk /jdk-content.sha256 /tmp/jdk-content.sha256
-RUN tdnf clean all \
-    && timeout --signal=TERM --kill-after=10 180s tdnf install -y \
+RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y \
         icu msopenjdk-21-21.0.12.1-1 \
     && test "$(rpm -q msopenjdk-21)" = "msopenjdk-21-21.0.12.1-1.x86_64" \
     && sha256sum -c /tmp/jdk-content.sha256 \
