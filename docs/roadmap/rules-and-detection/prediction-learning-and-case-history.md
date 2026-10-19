@@ -290,17 +290,29 @@ grace, and proof of the complete contiguous audit segment. Configuration, intact
 rows, and caller assertions cannot replace these prerequisites. Excluded-window positive coverage
 also remains unavailable; current `ChangeWindow` objects are not an attested history. The Settings
 `forecast-history` row validates configuration with the same parser as runtime composition. It
-always reports `ready=false` and `available=false`, reports `enabled` only as the deployment
-opt-in, and lists prerequisites, including forecast targets, and per-source binding. The Console
-renders the row's status, mode, source, and reason; there is no Settings preference control yet.
-Configuration never grants scoring or execution authority, and independent proof issuance remains
-required before collected history can authorize scoring.
+always reports `ready=false` and `available=false` for scoring and lists prerequisites, including
+forecast targets, and per-source binding. The separate audited runtime setting
+`forecast.history_collection.enabled` defaults to false and has no environment-variable override.
+An Owner can change it through the existing revision-checked Settings API only when reviewed
+producer mappings, forecast targets, and durable settings are configured. Reset returns to false.
+The integration row attributes its enabled state to durable Settings, not deployment variables.
+The composed collector checks this preference before any producer or collector read and rechecks
+its revision before returning evidence. Disabling it blocks later collections without restart;
+an in-flight disable, including disable-and-reenable, discards that result. Already-started source
+work may finish its retained history append; the setting does not erase prior observations.
+The Console uses its existing runtime-policy controls with English and Korean labels. Configuration
+and collection preference never grant scoring or execution authority; independent proof issuance
+remains required before collected history can authorize scoring.
 
 `unsupported` is explanatory text in the action source's `limitation`, not a new readiness mode or
 outcome enum. Operator preserves that source detail in the existing runtime-settings JSON mapping.
-The current Console decoder retains the integration's standard status, mode, source, and reason,
-but does not decode the per-source detail or prerequisite arrays. It renders a configured,
-not-ready forecast integration as **Incomplete**, with **Observation** mode and the unavailable
+The Console decoder retains the integration's standard status, mode, source, and reason and
+validates all four unique source kinds plus bounded, unique prerequisites. A native disclosure
+shows each reader's binding separately from its positive checkpoint and limitation, with English
+and Korean labels. Missing or malformed supplied source detail is rejected rather than rendered
+as complete; legacy rows without that optional detail remain readable. It renders a configured,
+not-ready forecast integration as **Incomplete**, with **Observation** mode only while collection is
+enabled (otherwise **Disabled**) and the unavailable
 checkpoint/proof reason. Missing action history makes the collector raise
 `ForecastContextUnavailableError`; it does not return an empty, complete intervention slice or
 a zero-intervention count.

@@ -35,6 +35,8 @@ from fdai.delivery.persistence.postgres_state_transitions import (
     PostgresStateTransitionStoreConfig,
 )
 from fdai.delivery.repo_assets import repo_asset_root
+from fdai.delivery.runtime_settings import RuntimeSettingsService
+from fdai.runtime.forecast_history_preference import PreferenceGatedForecastHistoryCollector
 from fdai.runtime.forecast_history_producers import build_forecast_history_producers
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.forecast_context import ForecastContextProvider
@@ -127,13 +129,18 @@ def build_forecast_history_collector(
 
 
 def forecast_history_collector_from_environment(
-    *, dsn: str | None, environment: Mapping[str, str]
+    *, dsn: str | None, environment: Mapping[str, str], runtime_settings: RuntimeSettingsService
 ) -> ForecastHistoryCollector | None:
-    """Read the reviewed collector and producer mappings from validated runtime configuration."""
-    return build_forecast_history_collector(
+    """Bind reviewed mappings behind the durable, dynamically rechecked Settings preference."""
+    collector = build_forecast_history_collector(
         dsn=dsn,
         bindings_json=environment.get("FDAI_FORECAST_HISTORY_SOURCES_JSON"),
         producers_json=environment.get("FDAI_FORECAST_HISTORY_PRODUCERS_JSON"),
+    )
+    return (
+        PreferenceGatedForecastHistoryCollector(collector=collector, settings=runtime_settings)
+        if collector is not None
+        else None
     )
 
 

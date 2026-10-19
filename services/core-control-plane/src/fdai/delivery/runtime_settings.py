@@ -30,7 +30,7 @@ class RuntimeSettingSpec:
     """Validation and presentation metadata for one public setting."""
 
     key: str
-    env_name: str
+    env_name: str | None
     group: str
     value_type: Literal["boolean", "integer", "number", "enum"]
     default: object
@@ -71,6 +71,13 @@ class RuntimeSettingSpec:
 
 
 RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
+    RuntimeSettingSpec(
+        "forecast.history_collection.enabled",
+        None,
+        "forecast",
+        "boolean",
+        False,
+    ),
     RuntimeSettingSpec(
         "human_access.enabled",
         "FDAI_HUMAN_ACCESS_ENABLED",
@@ -332,8 +339,17 @@ class RuntimeSettingsService:
                     "maximum": spec.maximum,
                     "options": list(spec.options),
                     "restart_required": spec.restart_required,
-                    "available": True,
-                    "unavailable_reason": None,
+                    "available": (
+                        self.forecast_history_collection_available()
+                        if spec.key == "forecast.history_collection.enabled"
+                        else True
+                    ),
+                    "unavailable_reason": (
+                        "reviewed forecast sources, targets and durable settings are required"
+                        if spec.key == "forecast.history_collection.enabled"
+                        and not self.forecast_history_collection_available()
+                        else None
+                    ),
                 }
                 for spec in RUNTIME_SETTING_SPECS
             ],
@@ -345,7 +361,33 @@ class RuntimeSettingsService:
         for row in rows:
             if row["key"] == "human-access":
                 row["enabled"] = effective["human_access.enabled"]
+            if row["key"] == "forecast-history":
+                enabled = (
+                    effective["forecast.history_collection.enabled"] is True
+                    and self.forecast_history_collection_available()
+                )
+                row["enabled"] = enabled
+                row["enabled_source"] = "durable_settings"
+                row["mode"] = "shadow" if enabled else "disabled"
         return rows
+
+    def forecast_history_collection_available(self) -> bool:
+        """Report collection prerequisites only, never positive coverage or scoring readiness."""
+        from fdai.delivery.forecast_history_readiness import forecast_history_projection
+
+        return (
+            self.durable and forecast_history_projection(self.env)["collection_available"] is True
+        )
+
+    async def forecast_history_collection_preference(self) -> tuple[bool, int]:
+        """Read one audited preference revision for collection and in-flight revalidation."""
+        record = await self._record()
+        values = self._effective_values(dict(record["overrides"]))
+        enabled = (
+            values["forecast.history_collection.enabled"] is True
+            and self.forecast_history_collection_available()
+        )
+        return enabled, record["revision"]
 
     def _runtime_projection(self) -> dict[str, object]:
         runtime_env = self.env.get("RUNTIME_ENV", "").strip().lower()
@@ -395,6 +437,12 @@ class RuntimeSettingsService:
             spec = _SPECS_BY_KEY.get(key)
             if spec is None:
                 raise ValueError(f"unknown runtime setting: {key}")
+            if (
+                key == "forecast.history_collection.enabled"
+                and value is True
+                and not self.forecast_history_collection_available()
+            ):
+                raise ValueError("forecast history collection prerequisites are unavailable")
             if value is None:
                 overrides.pop(key, None)
             else:
@@ -471,7 +519,7 @@ class RuntimeSettingsService:
             ) from exc
 
     def _environment_value(self, spec: RuntimeSettingSpec) -> object:
-        raw = self.env.get(spec.env_name, "").strip()
+        raw = self.env.get(spec.env_name, "").strip() if spec.env_name is not None else ""
         if not raw:
             default = (
                 spec.development_default

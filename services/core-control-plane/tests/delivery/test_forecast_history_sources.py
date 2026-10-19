@@ -32,6 +32,7 @@ from fdai.delivery.persistence.postgres_forecast_lifecycle_history import (
     LifecycleIncarnationRow,
     LifecycleLedgerRead,
 )
+from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.forecast_learning import (
     build_forecast_history_collector,
     forecast_history_collector_from_environment,
@@ -274,8 +275,9 @@ def test_settings_row_uses_runtime_validation_and_never_reports_ready() -> None:
     )
     opted = forecast_history_projection(env)
     assert opted["ready"] is False and opted["available"] is False
-    assert opted["enabled"] is True and opted["enabled_source"] == "deployment_configuration"
-    assert opted["mode"] == "shadow" and opted["reason"] == opted["unavailable_reason"]
+    assert opted["collection_available"] is True
+    assert opted["enabled"] is False and opted["enabled_source"] == "durable_settings"
+    assert opted["mode"] == "disabled" and opted["reason"] == opted["unavailable_reason"]
     assert opted["scoring_authority"] is False and opted["execution_authority"] is False
     action_status = next(item for item in opted["sources"] if item["kind"] == "actions")
     assert action_status["positive_checkpoint"] is False
@@ -381,10 +383,17 @@ def test_runtime_binds_only_reviewed_available_source_producers() -> None:
     )
     environment = {"FDAI_FORECAST_HISTORY_SOURCES_JSON": json.dumps(bindings)}
     plain = forecast_history_collector_from_environment(
-        dsn="postgresql://127.0.0.1/example", environment=environment
+        dsn="postgresql://127.0.0.1/example",
+        environment=environment,
+        runtime_settings=RuntimeSettingsService(store=None, env=environment),
     )
     assert plain is not None and not isinstance(plain, ProducingForecastHistoryCollector)
-    assert forecast_history_collector_from_environment(dsn=None, environment={}) is None
+    assert (
+        forecast_history_collector_from_environment(
+            dsn=None, environment={}, runtime_settings=RuntimeSettingsService(store=None, env={})
+        )
+        is None
+    )
     failures = [
         ([{**producers[0], "target_ref": "other"}], "no reviewed collector mapping"),
         ([{**producers[0], "kind": "resource_lifecycle"}], "maps outside"),

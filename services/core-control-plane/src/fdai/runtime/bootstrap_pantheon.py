@@ -212,6 +212,7 @@ async def initialize_pantheon(
         collector=forecast_history_collector_from_environment(
             dsn=state_store_dsn,
             environment=config.environment,
+            runtime_settings=config.runtime_settings,
         ),
     )
     forecast_learning_runtime = build_forecast_learning_runtime(
