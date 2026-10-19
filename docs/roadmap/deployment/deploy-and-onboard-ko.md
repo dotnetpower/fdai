@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 06a6ad303c50708555ffc5ae99606af9148deadd
+translation_source_sha: 941d7b1cc00bd716d9c7cf173bf3ffb9aa187b50
 translation_revised: 2026-10-19
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -27,7 +27,7 @@ Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측�
 인증을 설정하기 전까지 관리 API는 사용할 수 없습니다. 익명 관리 기능을 제공하거나 새로운
 FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 보존 및 기본 Terraform/Azure CLI
 실행과 범위가 제한된 읽기 전용 데이터베이스 복구 비교는 [단일 제품 절차](../../../infra/modules/hub-service/README.md)를 따르세요.
-이 비교는 권한을 부여하거나 전체 데이터베이스 동등성을 입증하지 않습니다. 비공개 관측 환경,
+이 비교는 쿼리의 접속 대상 재정의를 차단하며 권한을 부여하거나 전체 데이터베이스 동등성을 입증하지 않습니다. 비공개 관측 환경,
 증적 보존, 독립적인 보안 설정 및 정리 결과 확인이라는 전제조건도 유지됩니다.
 
 이미 실행 중인 Hub를 업그레이드할 때는 `app_image`로 승인된 기존 서비스 이미지 digest를
