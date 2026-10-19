@@ -1,10 +1,16 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: db2a57f0070892d2a6557fe0694fce3bd3dd1f0c
-translation_revised: 2026-10-15
+translation_source_sha: bc8edadb8d0e72437268845835c0a267362d0a40
+translation_revised: 2026-10-19
 ---
 # 프로세스 자동화(프로세스 자동화)
+
+[적용 승인을 거치는 타입 선택 읽기](../interfaces/governed-typed-selection-read-ko.md)는
+자체 적격 읽기 결속과 기존 고정 역할의 승인/복구 수명주기를 사용합니다. 선택 증적이나 읽기
+포인터는 Workflow를 적용 승인하거나 워크플로 단계를 허가하지 않으며 실행 의미도 바꾸지
+않습니다. 적격성을 알 수 없으면 보류하고 기존 후보 Function은 결정적이며 네트워크를
+사용하지 않는 계약을 유지합니다.
 
 프로세스 자동화는 다단계 비즈니스 프로세스를 1급, 온톨로지 연결, 거버넌스된 아티팩트로 바꾼다. 프로세스는 컨트롤 플레인을 우회하는 스크립트가 아니다. 이는 온톨로지 `ActionType` 호출의 선언적 시퀀스이며, 동일한 trust-routing 컨트롤 루프가 한 번에 한 스텝씩, 단일 교정 과 동일한 안전 불변식 아래에서 전달 한다.
 

@@ -1,13 +1,13 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 0b4c87a7d595ca3492844bf61c50b56ad018336f
+translation_source_sha: 923b763365d551f0fd257d6de99d53be3995eb15
 translation_revised: 2026-10-19
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
 이 계획은 FDAI의 범위가 제한된 대화/온톨로지 기반과 운영자 질문을 위한 목표 non-keyword
 경로 사이의 구현 공백을 닫습니다. 100% structural 조회 커버리지에 필요한 검증된 현재 기준선,
-서비스/에이전트 소유권, 의존성 순서 작업 패키지, 전환 게이트 및 롤백 단위를 기록합니다.
+서비스/에이전트 소유권, 의존성 순서 작업 패키지, 전환 게이트 및 롤백 단위를 기록합니다. 기본 비활성인 Function 전 모델 경계는 [적용 승인을 거치는 타입 선택 읽기](governed-typed-selection-read-ko.md)가 담당합니다.
 
 관리되는 클라우드 참조 조회는 원문 구간에 연결된 단일 값 적용 조건을 사용하고 출처 날짜를
 보존합니다. [수명 주기 설계](cloud-resource-knowledge-lifecycle-ko.md)는 특정 확인 시점 및

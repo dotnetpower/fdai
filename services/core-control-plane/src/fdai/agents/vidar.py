@@ -7,8 +7,9 @@ composition root; an unbound contract fails closed.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 from fdai.agents._framework.base import Agent
@@ -123,6 +124,9 @@ class Vidar(
         self._owner_token = uuid4().hex
         self._rollback_locks: dict[tuple[str, str], _RollbackLockEntry] = {}
         self.records: list[RollbackRecord] = []
+        self._typed_read_demoter: (
+            Callable[[dict[str, Any]], Awaitable[RollbackRecord | None]] | None
+        ) = None
         # Idempotency guard: at-least-once delivery means the same failed
         # ActionRun can arrive twice. Rolling a resource back twice is not a
         # no-op for a real rollback contract (double PITR restore, double
@@ -217,6 +221,12 @@ class Vidar(
             self.record_behavior("rollback_path_validation:failed", missing)
         else:
             self.record_behavior("rollback_path_validation:checked")
+
+    def bind_typed_read_demoter(
+        self, demoter: Callable[[dict[str, Any]], Awaitable[RollbackRecord | None]]
+    ) -> None:
+        """Bind recovery mechanics; only the owned typed Event can invoke this capability."""
+        self._typed_read_demoter = demoter
 
 
 __all__ = [

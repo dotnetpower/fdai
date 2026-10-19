@@ -8,6 +8,8 @@ context, forecast intervention history, and case-history reuse. A separate read-
 each authoritative source under its own identity and issues content-free proofs, while the existing boundary
 owners keep consuming them through the unchanged admission seam.
 
+Source-only corpus regeneration does not issue [typed-selection read qualification](../interfaces/governed-typed-selection-read.md); independent admission still checks the exact source, model and scope binding.
+
 > **Status:** Partially implemented. The owner reviewed the design for exit criterion 1 of
 > [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).
 > The verifier engine, issuance seam, pinned trust and case-scope grant registries, insert-only proof store,

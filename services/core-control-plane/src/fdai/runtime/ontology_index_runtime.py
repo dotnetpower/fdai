@@ -243,6 +243,13 @@ class OntologyIndexRuntime:
     async def query(
         self, query: str, limit: int, context: FunctionInvocationContext
     ) -> dict[str, object]:
+        await self.enroll_context(context)
+        if self.workers is None:
+            raise ValueError("ontology instance index workers unavailable")
+        return await self.workers.query_function(query, limit, context)
+
+    async def enroll_context(self, context: FunctionInvocationContext) -> IndexScope:
+        """Enroll an authenticated read scope without executing a query or model."""
         if (
             context.caller_agent != "Bragi"
             or context.purposes != ("operations-review",)
@@ -276,9 +283,7 @@ class OntologyIndexRuntime:
                 f"ontology-index-enrollment:v1:{scope.digest}", enrollment.model_dump(mode="json")
             )
             self._enrollments[scope.digest] = enrollment
-        if self.workers is None:
-            raise ValueError("ontology instance index workers unavailable")
-        return await self.workers.query_function(query, limit, context)
+        return scope
 
     def _expire_enrollments(self) -> None:
         for key, enrollment in tuple(self._enrollments.items()):

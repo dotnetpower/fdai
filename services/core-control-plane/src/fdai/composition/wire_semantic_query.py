@@ -28,7 +28,6 @@ from fdai.core.ontology_platform import (
     METRIC_ARGUMENT_SCHEMAS,
     TOPOLOGY_ARGUMENT_SCHEMAS,
     AggregateNodeHandler,
-    FunctionNodeHandler,
     MetricSemanticRegistry,
     MetricWindowProvider,
     ObjectSetService,
@@ -202,6 +201,7 @@ from fdai.delivery.azure.semantic_resource_current_state import (
 from fdai.delivery.azure.semantic_resource_ingress import (
     semantic_resource_ingress_function,
 )
+from fdai.delivery.catalog_search.ontology_governed_selection_read import GovernedTypedSelectionRead
 from fdai.delivery.semantic_resource_activity import semantic_resource_activity_function
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
@@ -224,6 +224,10 @@ from .semantic_query_invocation_context import semantic_query_invocation_context
 from .semantic_query_metric_bindings import build_metric_query_handlers
 from .semantic_query_runtime_composition import SemanticQueryRuntimeComposition
 from .semantic_query_scoped_sources import scoped_source_handlers, secured_resource_selector
+from .semantic_query_typed_selection_read import (
+    bind_typed_selection_read,
+    prepared_function_handler,
+)
 
 
 def build_semantic_query_runtime(
@@ -261,6 +265,7 @@ def build_semantic_query_runtime(
     adaptive_service: AdaptiveConversationService | None = None,
     governed_document_reader: GovernedDocumentReader | None = None,
     instance_candidate_query: InstanceCandidateQuery | None = None,
+    typed_selection_read: GovernedTypedSelectionRead | None = None,
     state_store: StateStore | None = None,
     second_reader: SemanticSecondReader | None = None,
     pending_state_sources: PendingStateSources | None = None,
@@ -319,6 +324,7 @@ def build_semantic_query_runtime(
     function_registry = OntologyFunctionRegistry(release=ontology_release)
     declarations = {item.name: item for item in function_types}
     bind_instance_candidate_query(function_registry, ontology_catalog, instance_candidate_query)
+    bind_typed_selection_read(function_registry, ontology_catalog, typed_selection_read)
     inventory_function = declarations.get("inventory.select_resources")
     if inventory_function is not None:
         function_registry.register_contextual(
@@ -745,16 +751,16 @@ def build_semantic_query_runtime(
                     decision_evidence=decision_evidence_admission_provider,
                     graph_refresher=graph_refresher,
                 ),
-                QueryNodeKind.FUNCTION: FunctionNodeHandler(
+                QueryNodeKind.FUNCTION: prepared_function_handler(
                     function_registry,
-                    context=semantic_query_invocation_context(
+                    semantic_query_invocation_context(
                         principal=principal,
                         role=role,
                         purpose=purpose,
                         document_context=document_context,
                     ),
+                    typed_selection_read,
                     receipt_authority=receipt_authority,
-                    allow_presentation_read_dependencies=True,
                     pending_state_ledger=pending_state_ledger,
                 ),
                 **handlers,

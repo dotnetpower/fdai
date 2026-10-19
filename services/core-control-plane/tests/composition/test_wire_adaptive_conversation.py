@@ -194,8 +194,12 @@ async def test_azure_composition_forwards_explicit_instance_query_without_provid
     builder.assert_called_once()
     assert builder.call_args.kwargs["instance_candidate_query"] is query
     assert [item.name for item in builder.call_args.kwargs["ontology_catalog"].function_types] == [
-        "query.ontology_instance_candidates"
+        "query.ontology_instance_candidates",
+        "query.ontology_typed_instance_candidates",
     ]
+    typed_read = builder.call_args.kwargs["ontology_catalog"].function_types[-1]
+    assert typed_read.network_allowed is False
+    assert typed_read.timeout_seconds == 5
     query.assert_not_awaited()
 
 

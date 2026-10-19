@@ -48,6 +48,7 @@ class VidarDrRuntimeMixin:
     if TYPE_CHECKING:
 
         def record_behavior(self, name: str, amount: int = 1) -> None: ...
+        async def _publish_rollback_once(self, record: RollbackRecord) -> bool: ...
 
         async def rollback(self, action_run: dict[str, Any]) -> RollbackRecord | None: ...
 
@@ -60,6 +61,21 @@ class VidarDrRuntimeMixin:
         ) -> RollbackExecutor | None: ...
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
+        if topic == "object.event" and payload.get("event_type") == (
+            "governance.typed-selection-read.revoked"
+        ):
+            if require_topic_owner(
+                self, topic, payload, behavior="typed_read_demotion:rejected_owner"
+            ):
+                return
+            demoter = getattr(self, "_typed_read_demoter", None)
+            if demoter is None:
+                self.record_behavior("typed_read_demotion:unavailable")
+                return
+            record = await demoter(payload)
+            if record is not None:
+                await self._publish_rollback_once(record)
+            return
         # Vidar reacts on failed and ambiguous ActionRuns.
         if topic != "object.action-run":
             self.record_behavior("typed_message:ignored")

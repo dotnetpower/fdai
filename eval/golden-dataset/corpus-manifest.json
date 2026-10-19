@@ -42,18 +42,18 @@
     },
     {
       "kind": "declarations",
-      "case_count": 15400,
-      "case_ids_digest": "sha256:56315ff014f2c23903942bd9f2b0e8239171814db4ccb2bf194ee6e386bd74ff",
+      "case_count": 15480,
+      "case_ids_digest": "sha256:a4e677223bcd156fcac9746c76f00199cc360525ed977dea8b1b684eefbf013b",
       "locales": {
-        "en": 7700,
-        "ko": 7700
+        "en": 7740,
+        "ko": 7740
       },
       "evidence_postures": {
-        "conflicting": 3080,
-        "fresh": 3080,
-        "incomplete": 3080,
-        "stale": 3080,
-        "unavailable": 3080
+        "conflicting": 3096,
+        "fresh": 3096,
+        "incomplete": 3096,
+        "stale": 3096,
+        "unavailable": 3096
       },
       "exclusion_count": 0,
       "excluded_case_ids_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
@@ -64,9 +64,9 @@
         "stale": "sha256:3e1aeb1af4ed4a4837969550d1c3618e3e47670e1cbf704280578671612ad0c1",
         "unavailable": "sha256:e44c2aacfd4bee7848ff54dc6fa405928cd15c8536948786f05db17dbe7a74c7"
       },
-      "ontology_release_digest": "sha256:a0f40b141b60b0184f5da1165a3d04fc019af4436df92d4c805c9854ce2418db",
-      "principal_manifest_digest": "sha256:6ddc1ad02be529ec780d87267527174e0c93b8e7e2505adc64fd2a48217e25de",
-      "readable_declaration_count": 316
+      "ontology_release_digest": "sha256:11be43819507f866dd5110e1875511042b606ff83a9a94a5dffa28c27c9b6bf4",
+      "principal_manifest_digest": "sha256:5181cc727745830854ec82dfc3a14c7f99b431eff7e22c61b0514f46faee7712",
+      "readable_declaration_count": 317
     },
     {
       "kind": "semantic_judgment",
@@ -87,7 +87,7 @@
       }
     }
   ],
-  "total_case_count": 16004,
+  "total_case_count": 16084,
   "total_exclusion_count": 0,
-  "manifest_digest": "sha256:967123b85ca94531a7d5ffb0eb82236062d207b91497e8d07e861878169dee53"
+  "manifest_digest": "sha256:d1c12d5effb287f028fda4526aedf5a0d678439e083a9b949861b262d946562b"
 }

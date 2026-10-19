@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: 57431130cbdcfd28587d62f07d2f4be0b5d5302d
+translation_source_sha: 835f483ccfbe2be898520b53d54bcf40dbf85bb9
 translation_revised: 2026-10-19
 ---
 # 지속형 의미 보증
@@ -8,6 +8,8 @@ translation_revised: 2026-10-19
 이 문서는 FDAI의 전체 의미 질문 corpus를 지속해서 검증하는 책임을 소유합니다. 고정된 질문
 개수를 사용하지 않고 정확한 소스 리비전에서 측정 분모를 도출하며, 릴리스, 예약 실행, 변경
 중심 근거를 로드맵 패키지 완료와 분리합니다.
+
+[적용 승인을 거치는 타입 선택 읽기](governed-typed-selection-read-ko.md)에 맞춰 소스 전용 코퍼스를 다시 생성하면 선언 식별 정보가 바뀝니다. 이는 모델 실행 근거나 읽기 적격성을 입증하지 않습니다.
 
 > **권한 경계:** 캠페인 통과는 하나의 정확한 소스 리비전에 대한 타입 지정 해석, 근거 처리,
 > 권한 없음 동작을 입증합니다. 승인, 변경, 승격 또는 실행 권한을 부여하지 않습니다.

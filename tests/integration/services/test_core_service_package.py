@@ -174,6 +174,7 @@ EXPECTED_RUNTIME_MODULES = {
     "t2_recovery.py",
     "t2_route_registry.py",
     "task_workers.py",
+    "typed_selection_read_lifecycle.py",
     "venue.py",
     "workflow_action_dispatch.py",
 }

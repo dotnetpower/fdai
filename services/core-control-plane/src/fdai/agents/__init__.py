@@ -11,6 +11,9 @@ composition and replay callers without exposing private framework modules.
 Design authority: `docs/roadmap/agents/agent-pantheon.md`.
 """
 
+from fdai.agents._framework.action_run_identity import (
+    action_run_identity_digest as action_run_identity_digest,
+)
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.adapters import (
     AdminCard,
@@ -166,6 +169,9 @@ from fdai.agents._framework.runtime_health import (
     bind_availability_probe,
     evaluate_degradation,
 )
+from fdai.agents._framework.runtime_payload_validation import (
+    default_payload_validator as default_payload_validator,
+)
 from fdai.agents._framework.runtime_subscriptions import (
     RECOVERY_EFFECT_OBSERVATION_TOPIC,
     RECOVERY_EFFECT_OBSERVER_PRINCIPAL,
@@ -195,11 +201,17 @@ from fdai.agents._framework.topics import (
     stable_idempotency_key,
     topic_for_object_type,
 )
+from fdai.agents._framework.var_final_approval import (
+    validate_final_record as validate_final_approval_record,
+)
 from fdai.agents._framework.var_kill_switch import (
     KillSwitchRequestRejectedError,
     VarKillSwitchRequestHandler,
 )
 from fdai.agents._framework.var_ticket_identity import approval_state_key
+from fdai.agents._framework.var_ticket_identity import (
+    approval_state_key as action_approval_state_key,
+)
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents._framework.workflows import WORKFLOWS, WorkflowSpec
 from fdai.agents.bragi import Bragi
@@ -235,6 +247,10 @@ async def request_context_index(runtime: PantheonRuntime, request: ContextIndexM
 
 
 __all__ = [
+    "action_run_identity_digest",
+    "action_approval_state_key",
+    "validate_final_approval_record",
+    "default_payload_validator",
     "publish_document_intent_source",
     "approval_state_key",
     "BASELINE_EVALUATION_CLAIM_PREFIX",

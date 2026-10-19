@@ -323,7 +323,7 @@ _VIDAR = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.action-run", "object.audit-entry"),  # audited source-owned recovery
+    subscribes=("object.action-run", "object.event", "object.audit-entry"),
     question_domains=("rollback_status", "dr_readiness", "rollback_dependency_health"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/vidar.py",),
     hard_dependency=True,

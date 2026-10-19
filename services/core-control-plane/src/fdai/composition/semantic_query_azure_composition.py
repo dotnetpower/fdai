@@ -42,6 +42,7 @@ from fdai.delivery.azure.llm.semantic_planning import (
     AzureOpenAISemanticPlanningModel,
     AzureOpenAISemanticPlanningModelConfig,
 )
+from fdai.delivery.catalog_search.ontology_governed_selection_read import GovernedTypedSelectionRead
 from fdai.rule_catalog.schema.inventory_query_language import (
     InventoryQueryLanguageRegistry,
     load_inventory_query_language_from_mapping,
@@ -114,6 +115,7 @@ def compose_azure_semantic_query_runtime(
     resource_freshness_seconds: int | None = None,
     adaptive_model_factory: Callable[[], AdaptiveModel | None] | None = None,
     instance_candidate_query: InstanceCandidateQuery | None = None,
+    typed_selection_read: GovernedTypedSelectionRead | None = None,
     state_store: StateStore | None = None,
     pending_state_dsn: str | None = None,
 ) -> SemanticQueryRuntimeComposition:
@@ -263,6 +265,7 @@ def compose_azure_semantic_query_runtime(
             resource_freshness_seconds=resource_freshness_seconds,
             governed_document_reader=container.governed_document_reader,
             instance_candidate_query=instance_candidate_query,
+            typed_selection_read=typed_selection_read,
             second_reader=build_second_reader(
                 resolved=resolved,
                 identity=identity,

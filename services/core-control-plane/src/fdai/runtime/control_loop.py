@@ -96,6 +96,7 @@ from fdai.runtime.control_loop_catalogs import (
 )
 from fdai.runtime.control_loop_catalogs import load_resource_types as _load_resource_types
 from fdai.runtime.control_loop_execution_ports import (
+    GOVERNANCE_HIL_ACTION_TYPES,
     build_thor_execution_port,
     build_workflow_action_dispatcher,
     require_production_safeguard_readiness,
@@ -418,15 +419,7 @@ def _build_control_loop(
     )
     risk_gate = RiskGate(
         registry=promotion_registry,
-        config=RiskGateConfig(
-            hil_authority_action_types=frozenset(
-                {
-                    "governance.promote-action-type",
-                    "governance.override-promote-action-type",
-                    "governance.promote-effect-model",
-                }
-            )
-        ),
+        config=RiskGateConfig(hil_authority_action_types=GOVERNANCE_HIL_ACTION_TYPES),
         exemption_registry=CatalogExemptionRegistry(
             governance_catalog.exemptions,
             fallback=container.exemption_registry,

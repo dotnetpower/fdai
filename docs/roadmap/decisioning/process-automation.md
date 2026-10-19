@@ -3,6 +3,12 @@ title: Process Automation
 ---
 # Process Automation
 
+The [governed typed-selection read](../interfaces/governed-typed-selection-read.md) uses its own
+qualified read binding and the existing fixed-role approval/recovery lifecycle. Neither its
+selection receipt nor its read pointer promotes a Workflow, authorizes a workflow step or changes
+workflow execution semantics. Unknown qualification remains held and the legacy candidate Function
+remains deterministic and network-free.
+
 Process automation turns a multi-step business process into a first-class, ontology-linked, governed artifact. A process is not a script that reaches around the control plane; it is a declarative sequence of ontology `ActionType` invocations that the same trust-routing control loop dispatches, one step at a time, under the same safety invariants as a single remediation.
 
 This document is the machine-readable counterpart for the executable subset of

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 982d2f1efe6e0d88a1ee8bf5f26d5db06c2ea496
+translation_source_sha: bc0a7b10732cba5793565715bd08e95140c74ffe
 translation_revised: 2026-10-19
 ---
 # 에이전트 판테온
@@ -523,7 +523,7 @@ Loki 제안 근거 검사는 같은 구현 계획의 런타임 메커니즘입�
 
 | 토픽 | 발행기 | 기본 subscribers |
 |-------|-----------|---------------------|
-| object.event | Huginn | Heimdall(감지 및 효과 근거), Forseti(판정 입력), Saga(인시던트 안내 감사), Muninn(보존 틱과 운영 사례), Var/Mimir(테스트 맥락 명령), Njord/Freyr/Loki(범위가 제한된 전문가 신호) |
+| object.event | Huginn | Heimdall(감지 및 효과 근거), Forseti(판정 입력), Saga(인시던트 안내 감사), Muninn(보존 틱과 운영 사례), Var/Mimir(테스트 맥락 명령), Njord/Freyr/Loki(범위가 제한된 전문가 신호), Vidar(독립적으로 수용한 타입 읽기 회수) |
 | object.change | Huginn | Muninn (변경할 수 없는 변경 개정 번호), Forseti (계획된 변경 영향과 관찰 모드 ARB 결합) |
 | object.anomaly, object.forecast | Heimdall | Forseti |
 | object.drift | Heimdall | Forseti; Muninn은 감지 준비도 표류만 읽음 |

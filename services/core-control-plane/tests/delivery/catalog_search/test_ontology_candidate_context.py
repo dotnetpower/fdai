@@ -86,7 +86,9 @@ class _Source:
         }
 
 
-async def _source(*, count: int = 600, label: str = '자료 "검토" \\ 경로') -> _Source:
+async def _source(
+    *, count: int = 600, label: str = '자료 "검토" \\ 경로', function_types: tuple = ()
+) -> _Source:
     declaration = OntologyObjectType(
         schema_version="1.0.0",
         name="Resource",
@@ -98,13 +100,14 @@ async def _source(*, count: int = 600, label: str = '자료 "검토" \\ 경로')
             "metadata": PropertyDecl(type=PropertyType.OBJECT),
         },
     )
-    release = build_ontology_release(object_types=(declaration,))
+    release = build_ontology_release(object_types=(declaration,), function_types=function_types)
     manifest = build_query_manifest(
         release=release,
         principal_role=CeilingRole.READER,
         purposes=("operations-review",),
         principal_scope_digest=_DIGEST,
         object_types=(declaration,),
+        functions=function_types,
     )
     store = InMemoryOntologyInstanceStore(
         object_types=(declaration,), link_types=(), source_generation="context-source"

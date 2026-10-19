@@ -47,6 +47,14 @@ from fdai.shared.providers.process_runtime import ProcessRuntimeStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _PRODUCTION_RUNTIME_ENVS = frozenset({"staging", "prod", "production"})
+GOVERNANCE_HIL_ACTION_TYPES = frozenset(
+    {
+        "governance.promote-action-type",
+        "governance.override-promote-action-type",
+        "governance.promote-effect-model",
+        "governance.promote-typed-selection-read",
+    }
+)
 
 
 def production_runtime() -> bool:
@@ -150,6 +158,7 @@ def build_thor_execution_port(
             human_access_enabled=human_access_enabled,
             promotion_registry=promotion_registry,
             graph_model_promotion_registry=graph_model_promotion_registry,
+            typed_read_admission=container.decision_evidence_admission_provider,
             action_types_by_name=action_types_by_name,
             execution_identities=execution_identities,
             safeguard_coordinator=safeguard_coordinator,

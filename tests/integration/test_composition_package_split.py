@@ -88,6 +88,8 @@ _EXPECTED_FILES = frozenset(
         "semantic_query_descriptor_selector.py",
         "semantic_query_scoped_sources.py",
         "semantic_query_instance_candidates.py",
+        # Isolate deterministic consumption and pre-Function evidence preparation.
+        "semantic_query_typed_selection_read.py",
         # Binds exact-release semantic planning and request-role query executors.
         "wire_semantic_query.py",
         # Keeps reviewed metric handlers and optional competitor-source binding
@@ -119,6 +121,8 @@ _EXPECTED_FILES = frozenset(
         # Binds only the pinned qualified typed-selection shadow proposer and its
         # reviewed data-handling policy behind an explicit opt-in (#2011).
         "typed_selection_shadow.py",
+        # Compose the current-model governed read without growing the main wire.
+        "typed_selection_read.py",
         # Composes authoritative inventory state with ontology-native shadow parity.
         "wire_read_investigation.py",
         # Routes the eleven operational evidence purposes to the insert-only proof

@@ -8,6 +8,12 @@ This focused owner preserves the detailed contract formerly embedded in [project
 
 `SecuredObjectSetQueryGateway(source_read_admission=...)` can check current sources around reads. No deployment reader or writer is bound; [G02](../rules-and-detection/document-ontology-distillation.md#g02-persistent-integration-proposal) retains those separate gates.
 
+The [governed typed-selection read](../interfaces/governed-typed-selection-read.md) separates its
+current-model composition and pre-Function evidence binder into dedicated existing composition
+owners. Hosted inference stays outside the deterministic Function runner; registry, qualification
+and exact human-approval checks remain authoritative. This wiring grants no activation or execution
+authority and does not change other startup capabilities.
+
 Conversational synthesis uses the optional `LlmBindings.conversation_synthesis_verifier` seam.
 Core bootstrap forwards it to Bragi's read-only deliberator. Implement
 `ConversationSynthesisVerifier` from `fdai.agents` with independent V-CLAIM and entailment review;
