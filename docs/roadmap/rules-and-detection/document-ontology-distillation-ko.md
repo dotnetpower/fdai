@@ -1,6 +1,6 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: d210c498fccaca356daab7c2e02fa0542ce6838e
+translation_source_sha: 1f80251daea19404ab10954732e2d75d7f77763b
 translation_revised: 2026-10-19
 ---
 # 문서 온톨로지 증류
@@ -471,8 +471,12 @@ Var의 현재 `document.promote-authoritative` 티켓은 문서와 업로드를 
 ### 원본을 확인하는 읽기 허용 판단
 
 속성 수준 역할 및 목적별 비공개 처리는 필요하지만 문서에서 파생된 인스턴스에는 충분하지
-않습니다. 현재 `SecuredObjectSetQueryGateway`에는 문서의 현재 ACL을 읽는 입력이
-없습니다. 그래프 반영 승인은 이후 읽는 사람에게 원문 접근 권한을 부여하지 않습니다.
+않습니다. `SecuredObjectSetQueryGateway`는 이제 선택적 `source_read_admission` 읽기
+경로를 받습니다. 연결하면 조회, 인스턴스 경로 탐색, 인덱스 준비 전후에 전체 원본 집합을
+검사합니다. 차단된 요청은 그래프를 읽지 않으며 최종 검사 결과가 바뀌거나 불가능하면
+개수를 포함한 전체 결과를 보류합니다. 권한 검사는 조회의 정확한 목적과 principal 범위로
+제한합니다. 배포 문서 ACL 어댑터나 활성 문서 그래프 쓰기는 연결되어 있지 않습니다.
+그래프 반영 승인은 이후 읽는 사람에게 원문 접근 권한을 부여하지 않습니다.
 
 파생된 사실을 반환하기 전에 읽기 경로는 인증된 principal이 모든 기여 문서에 현재 접근할
 수 있는지 확인하고, 현재 버전, 권한, 보존 상태, 철회 상태, 유효 기간, 최신성도 검사해야

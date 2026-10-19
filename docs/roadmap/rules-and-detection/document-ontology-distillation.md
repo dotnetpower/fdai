@@ -472,8 +472,12 @@ effective interval. Retained immutable history remains available for replay.
 
 ### Source-aware read admission
 
-Property-level role and purpose redaction is necessary but not sufficient for document-derived
-instances. The current `SecuredObjectSetQueryGateway` receives no current document ACL reader.
+Property-level role and purpose redaction alone does not secure document-derived instances.
+`SecuredObjectSetQueryGateway` now accepts an optional `source_read_admission` reader.
+When bound, it checks the complete source universe before and after queries, instance paths, and
+index staging; denial prevents graph I/O, and a changed or unavailable final check withholds the
+whole result, including counts. It narrows authorization to the query's exact purpose and principal
+scope. There is no deployment document ACL adapter or active document graph writer bound to it.
 A projection approval cannot grant a later reader access to the underlying source.
 
 Before returning a derived fact, the read path should verify the authenticated principal's current
