@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0d11abd5d7008ab74008249f3586bd2884a871c0
+translation_source_sha: d5fa0899641be979f7e668e34b62905dd22e154a
 translation_revised: 2026-10-19
 ---
 # 프로젝트 구조
@@ -284,6 +284,11 @@ Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적�
 이 분리는 서비스, 신원, 데이터 소유자, wire 계약 또는 권한을 바꾸지 않습니다. 모델에 전달하는
 선언 식별자는 기능 바이트 한도 안에서 완전하게 유지합니다. 전체 식별자 집합이 한도를 넘으면
 순위 목록의 앞부분만 반환하지 않고 의미 판단 전에 중단합니다.
+Core는 저장 전에 예약 간격이 유한한 값인지 검증합니다. 실제 생성 명령, 검토된 블루프린트
+구체화, 호환 생성 및 수정 도구는 같은 모델 경계를 사용합니다. 잘못된 숫자 입력에는
+대체 기본값을 만들어 넣지 않고 검증 오류를 반환합니다. 비동기 작성자와 합성 이벤트
+디스패처의 기존 소유권, 식별자, 모드와 권한은 유지합니다.
+
 Core package는 배포된 `fdai-operational-catalog-review` entry point를 소유합니다. 기존 durable Pantheon, Saga audit 및 GitHub App delivery adapter를 Core runtime 경계 안에서 조립하며 새 service, executor identity, catalog 활성화, merge 또는 관리 리소스 권한을 추가하지 않습니다. Core package는 `fdai.delivery.automation_blueprint_tick_cli` binding도 소유하며, PostgreSQL blueprint evidence, candidate, proposal, audit 및 scheduler store를 아직 배포가 예약하지 않은 하나의 inert 일회성 tick으로 조립하되 Operator route나 tick에 관리 리소스 executor identity를 부여하지 않습니다.
 Core는 활성 Rule 세대 교체를 쓰기 전용 장벽 뒤에 두고, 완결된 결정은 동시 읽기 임대를 공유합니다. 따라서 결정 하나는 세대 하나만 사용하면서 서로 다른 리소스의 처리를 직렬화하지 않습니다. 목적별 모듈은 이 장벽, 의미 사전 판정, 이벤트 버스 payload 코덱, 조립된 런타임 모델, 사람 승인 레지스트리 연결 및 카탈로그 로더를 소유하며 공개 파사드는 기존 가져오기와 권한 경계를 보존합니다. `runtime/control_loop.py` 파사드는 초기화와 집중 테스트를 위해 기존 카탈로그 로더 이름을 명시적으로 다시 내보냅니다. Core wheel 인벤토리와 서비스 테스트 묶음 매니페스트는 새 런타임 모듈 및 Rule 활성화 테스트마다 하나의 소유 배포판을 지정하며 5개 서비스 경계나 System Knowledge 후보를 변경하지 않습니다. 목적별 `runtime/causal_bindings.py` 소유자는 배포의 범위가 제한된 시계열에 런타임 온톨로지 저장소 위의 Forseti `CausalHypothesis` 투영과 Thor ActionRun 영수증용 `delivery/persistence/state_store_causal_receipts.py` 확인기를 연결하며, 인과 개정은 근거로만 남습니다.
 대화 인과 맥락도 같은 근거 전용 경계를 사용합니다. 상태 전환 변화 지점, 활동, 인과 등급 증적을 읽을
