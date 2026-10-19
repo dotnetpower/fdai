@@ -1,7 +1,7 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: f7654f0fff6153c7771cc5734daee3ecd364f83b
+translation_source_sha: 1fdd368fdfd3dd37c4875bd521c2d320e531e39d
 translation_revised: 2026-10-19
 ---
 
@@ -155,6 +155,14 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 | 범위 격리 | 저장소를 공유하는 복제본은 설치 단위 근거를 공유합니다. 다른 저장소는 미관측 상태로 유지합니다. |
 | 읽기 전용 권한 | 범위가 제한된 SQL 트랜잭션은 읽기 전용이며 기존 시간 제한을 적용합니다. 감사 체인은 유효하고 스냅숏은 실행 권한을 부여하지 않습니다. |
 
+추가 PostgreSQL 회귀 테스트 4개는 `scripts/automation/with-local-test-database.py`를 통해
+실제 쿼리를 실행하며, 포트 `5433`의 격리된 루프백 검증 데이터베이스만 사용합니다. 최신
+순번 선택, 이전 성공으로 대체하지 않는 잘못된 최신 근거 거부, 빈 이력, 감사 행 512개를
+넘는 이력에서 단일 항목 읽기를 확인합니다. 실제 드라이버로 선택한 열, 반환 행 수, 읽기
+전용 트랜잭션, 구성된 명령 시간 제한을 확인합니다. 각 테스트는 자체 스키마를 생성하고
+제거하며 공유 테이블을 이행하거나 수정하지 않습니다. 이는 로컬 데이터베이스 통합 근거이며,
+배포된 카나리나 운영 전달 증적은 아닙니다.
+
 ## 구현 상태
 
 런타임 상태, 시작 준비 상태, 전이 텔레메트리, 합성 카나리 경로는 구현되어 집중 테스트로
@@ -192,6 +200,7 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 | 2026-08-14 | implemented | 운영자 런북 front matter 스키마를 정의하고 제공되는 모든 ActionType에 CI 커버리지를 추가했습니다. | 현재 변경의 `check-action-runbooks.py`와 `test_check_action_runbooks.py`. | 배포 소유 명령과 절차를 같은 필수 의미 섹션에 맞게 유지합니다. |
 | 2026-10-18 | implemented | 실제 로컬 상태 수신기, 보호된 준비 상태, 저장된 비상 정지, 설치된 버전, 실제로 사용한 정책 수집원을 연결했습니다. 느린 시작 검사와 별개로 직렬화된 30초 수집원 새로 고침, 비식별화된 수집원 실패 이유, 실행 권한 없는 취소 정리를 추가했습니다. | `current change`, `delivery/self_health_sources.py`, `runtime/health.py`, `runtime/readiness.py`, `runtime/bootstrap_core.py`, `tests/delivery/test_self_health_sources.py`, `tests/runtime/test_self_health_sources.py`, 집중 pytest 검사 92개 통과, Ruff 린트 및 서식 검사 통과, 변경 소스 파일 6개의 엄격한 mypy 통과 | 신호 수집원 12개와 운영 상태 수집원 5개에는 여전히 담당 관측이나 변환 결과가 필요합니다. 기본 및 대체 알림 전달과 실제 복구 훈련 증적은 남아 있습니다. |
 | 2026-10-19 | implemented | 정규 소비 카나리 감사 근거를 결과, 마지막 성공 경과 시간, 카나리 필드에 연결했습니다. 범위가 제한된 읽기 전용 최신 행 쿼리 하나, 완전한 이력 대체 조회, 정확한 증적 검증, 결과 최신성 보존, 명시적인 수집원 실패를 적용했습니다. 현재 신호 연결은 15개 중 6개, 필드 연결은 8개 중 4개이며 H01 완료를 뜻하지 않습니다. | `current change`, `delivery/self_health_canary.py`, `delivery/self_health_sources.py`, `tests/delivery/test_self_health_canary.py`, 수집원 및 런타임과 모니터 회귀를 포함한 집중 pytest 65개 통과 및 분기를 포함한 카나리 수집원 커버리지 100%, Ruff 및 엄격한 mypy 통과 | 남아 있는 수집원 경계에 명시한 카탈로그 생산자 9개와 완전한 필드 변환 결과 4개가 누락되어 있습니다. 예약 시도의 완전성, 기본 및 대체 전달, 복구 훈련 증적은 미완성입니다. 실제 환경 또는 데이터베이스 통합 검증은 실행하지 않았습니다. |
+| 2026-10-19 | implemented | 런타임 연결을 변경하지 않고 최신 카나리 조회의 실제 PostgreSQL 회귀 근거를 추가했습니다. 격리된 테스트 스키마에서 최신 순번, 잘못된 최신 근거, 빈 이력, 최소 데이터만 읽는 제한된 조회가 통과했습니다. 드라이버로 읽기 전용 모드와 구성된 명령 시간 제한을 확인했습니다. | `current change`, `tests/persistence/test_self_health_canary_postgres.py`, `scripts/automation/with-local-test-database.py`를 통한 단일 파일 pytest 선택자: 루프백 검증 포트 `5433`에서 4개 통과, Ruff 린트 및 서식 통과 | 신호 연결은 15개 중 6개, 필드 연결은 8개 중 4개로 유지합니다. 이전 행의 데이터베이스 통합 검증 미실행 제한은 이번 로컬 쿼리 회귀에 대해서만 해소되며 배포, 알림 전달, 운영 훈련에는 적용되지 않습니다. |
 
 ### 남은 작업
 

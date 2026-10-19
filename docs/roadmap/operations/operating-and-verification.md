@@ -152,6 +152,15 @@ The focused canary-source tests exercise these controls without a live database,
 | Scope isolation | Replicas sharing a store share installation evidence; another store remains unobserved. |
 | Read-only authority | The bounded SQL transaction is read-only, the existing timeout is applied, the audit chain remains valid, and the snapshot grants no execution authority. |
 
+Four additional PostgreSQL regressions exercise the real query through
+`scripts/automation/with-local-test-database.py`, restricted to the isolated loopback validation
+database on port `5433`. They verify latest-sequence selection, rejection of invalid latest
+evidence without fallback, empty history, and a single-entry read over more than 512 audit rows.
+The real driver confirms the selected column, returned row count, read-only transaction, and
+configured statement timeout. Each test creates and removes its own schema; it does not migrate
+or modify shared tables. This is local database integration evidence, not a deployed canary or
+operational-delivery receipt.
+
 ## Implementation status
 
 Runtime health, startup readiness, transition telemetry, and the synthetic canary path are
@@ -190,6 +199,7 @@ so no area is claimed as fully operationally validated.
 | 2026-08-14 | implemented | Defined the operator-runbook front-matter schema and added CI coverage for every shipped ActionType. | Current change; `check-action-runbooks.py` and `test_check_action_runbooks.py`. | Keep deployment-owned commands and procedures aligned with the same required semantic sections. |
 | 2026-10-18 | implemented | Bound actual local health-listener, guarded readiness, persisted kill-switch, installed version, and consumed policy sources. Added serialized 30-second source refresh independent of slow startup probes, sanitized source failure reasons, and cancellation cleanup without execution authority. | `current change`; `delivery/self_health_sources.py`; `runtime/health.py`; `runtime/readiness.py`; `runtime/bootstrap_core.py`; `tests/delivery/test_self_health_sources.py`; `tests/runtime/test_self_health_sources.py`; 92 focused pytest checks passed; Ruff lint/format passed; strict mypy passed for six changed source files. | Twelve signal sources and five operational-state sources still require their owning observations or projections. Primary/fallback notification delivery and live recovery-drill receipts remain open. |
 | 2026-10-19 | implemented | Connected canonical consumed canary audit evidence to result, last-success age, and the canary field, with one bounded read-only latest-row query, complete-history fallback, exact receipt validation, preserved result freshness, and explicit source failure. Coverage is now six of 15 signal bindings and four of eight field bindings, not H01 completion. | `current change`; `delivery/self_health_canary.py`; `delivery/self_health_sources.py`; `tests/delivery/test_self_health_canary.py`; focused pytest with source/runtime/monitor regressions: 65 passed and 100% branch-inclusive canary-source coverage; Ruff and strict mypy passed. | Nine catalog producers and four complete field projections remain missing as listed in Remaining source boundaries. Scheduled-attempt completeness, primary/fallback delivery, and recovery-drill receipts remain open; no live or database integration validation was run. |
+| 2026-10-19 | implemented | Added actual PostgreSQL regression evidence for the latest-canary reader without changing runtime bindings. Latest sequence, invalid latest evidence, empty history, and least-data bounded reads pass in isolated test schemas; the driver confirms read-only mode and the configured statement timeout. | `current change`; `tests/persistence/test_self_health_canary_postgres.py`; the single-file pytest selector through `scripts/automation/with-local-test-database.py`: four passed on loopback validation port `5433`; Ruff lint and format passed. | Signal coverage remains six of 15 and field coverage four of eight. The prior row's no-database-integration limitation is superseded only for this local query regression, not for deployment, notification delivery, or operational drills. |
 
 ### Remaining work
 
