@@ -108,7 +108,7 @@ responsible for replacing explicit unavailable bindings with source-qualified pr
 `delivery/self_health_sources.py` binds owned process, consumed-canary and actual deterministic-verifier
 observations; runtime owns their lifetime and serializes collection without additional model probes.
 The [operating owner](../operations/operating-and-verification.md#remaining-source-boundaries) owns current counts and missing evidence; the [source-injection contract](project-structure-dependency-injection.md#self-health-source-bindings) preserves service/agent ownership.
-Embedding evidence is a separate fully registered model scope, not aggregate adapter health; these reads prove neither fleet health nor deployment acceptance.
+Embedding and cross-check/pool evidence use a separate fully registered model scope, not aggregate adapter health; these reads prove neither fleet health nor deployment acceptance.
 Operational promotion uses another exact cross-layer identity. Core measurement hashes every O7
 threshold policy and carries that digest in the receipt. Reviewed replay authority, the governance
 promotion request, durable receipt storage, the action-mode record, and restart verification bind
