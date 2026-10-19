@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: 855fcf1283a603dc6e46314653400c79b0ba094e
-translation_revised: 2026-10-18
+translation_source_sha: cbd268a0877213e51024b840ac5cb3311e89c520
+translation_revised: 2026-10-19
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -14,6 +14,8 @@ translation_revised: 2026-10-18
 > 판단 권한이 없으며 전용 신원에 Thor의 실행 권한을 부여하지 않습니다.
 
 ## 설계 개요
+
+선택적인 [선언 의도 변환 SDK](../rules-and-detection/document-declared-intent-projection-ko.md)는 정확한 변경 내용에 대한 별도 승인 경로를 패키징합니다. 일반 업로드와 시작 구성에는 주입하지 않으며 인덱싱 승인은 그래프 쓰기 권한을 부여하지 않습니다.
 
 업로드는 `Event`입니다. 권한을 포함하는 각 파이프라인 단계는 `fdai.pantheon.objects`에서
 다중화된 타입이 지정된 논리 객체를 발행하거나 소비하며, `fdai.pipeline.stages`는 운영
