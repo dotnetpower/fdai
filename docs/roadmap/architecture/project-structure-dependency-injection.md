@@ -36,13 +36,18 @@ It wraps the actual deterministic verifier through unchanged `VerifierPolicy`;
 `RuntimeResources` closes it at shutdown. Complete policy-bounded windows retain real
 numerators/denominators and original observation time; missing or unknown calls never become success.
 
-With the actual listener, consumed policy, startup and verifier sources supplied, composition
+`mixed_model_health_source` shares that fixed-window mechanism, policy/lifetime owner and collector,
+but observes the original Core comparison round through optional `CrossCheckObserver`, not verifier
+outcomes. Automatic binding requires native primary/secondary producers and their exact model tuple;
+unsupported or incomplete groups remain unavailable without altering model calls or gate decisions.
+
+With the actual listener, consumed policy, startup, verifier and eligible comparison sources, composition
 provides only the [source coverage recorded by its owner](../operations/operating-and-verification.md#remaining-source-boundaries),
 not complete operational health. An absent listener binding or policy stays
 unavailable; an absent or malformed kill-switch row never
 becomes a healthy false value. `SelfHealthExporterUnavailableError.reason` preserves only
 `exporter_unavailable`, `source_missing`, `source_malformed`, `source_unreachable`, `source_incomplete`, `source_stale`, or `source_from_future`.
-The adapter aggregate remains unavailable. Separately typed embedding observations do not narrow it. Remaining signals and fields keep explicit unavailable bindings until their owning
+The adapter aggregate remains unavailable. Separately typed embedding and cross-check/pool observations do not narrow it. `wire_llm` supplies explicit logical roles even without a prompt composer; readiness binds those actual SDK sources without dropping unobserved configured roles or accepting duplicate-role sources. Remaining signals and fields keep explicit unavailable bindings until their owning
 sources exist. These read-only adapters grant no identity, approval, execution, or promotion
 authority. See the [operating source contract](../operations/operating-and-verification.md#local-source-bindings).
 

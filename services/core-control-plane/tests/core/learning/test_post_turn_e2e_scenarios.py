@@ -14,7 +14,7 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from fdai.agents import Mimir, Norns, PantheonRuntime
+from fdai.agents import Bragi, Mimir, Norns, PantheonRuntime
 from fdai.core.learning import (
     OperatorMemoryCandidate,
     PostTurnProposal,
@@ -23,7 +23,6 @@ from fdai.core.learning import (
     RuleCandidateHint,
     SkillProposalDraft,
     ToolReceiptEvidence,
-    review_input_to_mapping,
 )
 from fdai.core.operator_memory import InMemoryOperatorMemoryStore, MemoryCategory, ScopeKind
 from fdai.core.skills import skill_body_digest
@@ -35,6 +34,7 @@ from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.shared.providers.event_bus import EventEnvelope
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai.shared.providers.user_context import UserPreferenceRecord
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 RULE_CATALOG = REPO_ROOT / "rule-catalog"
@@ -158,14 +158,17 @@ async def _run_scenario(
         discovery_activation=activation,
     )
     assert report is not None
-    payload = {
-        "producer_principal": "Bragi",
-        "kind": "post_turn_review",
-        "review": review_input_to_mapping(review_input),
-    }
+    bragi = pantheon.agents.get("Bragi")
+    assert isinstance(bragi, Bragi)
+    preference = UserPreferenceRecord(
+        principal_id=review_input.operator_turn_id,
+        share_with_learner=True,
+        revision=1,
+        updated_at=NOW,
+    )
     catalog_before = _catalog_snapshot()
     for _ in range(2 if duplicate_delivery else 1):
-        await provider.publish(POST_TURN_TOPIC, review_input.principal_scope, payload)
+        assert await bragi.publish_post_turn_review(review_input, preference=preference)
     run_task = asyncio.create_task(pantheon.run())
     try:
         await asyncio.wait_for(provider.done.wait(), timeout=10)
@@ -192,7 +195,7 @@ async def test_complex_tool_recovery_routes_memory_draft_without_active_mutation
     )
     review_input = PostTurnReviewInput(
         review_id=f"review-recovery-{suffix}",
-        principal_scope=f"principal-{suffix}",
+        principal_scope=f"sha256:{sha256(f'operator-{suffix}'.encode()).hexdigest()}",
         operator_turn_id=f"operator-{suffix}",
         assistant_turn_id=f"assistant-{suffix}",
         completed_at=NOW,
@@ -233,7 +236,7 @@ async def test_explicit_correction_routes_disabled_skill_draft_without_active_mu
     proposal = _skill_proposal(f"incident-review-{suffix}")
     review_input = PostTurnReviewInput(
         review_id=f"review-correction-{suffix}",
-        principal_scope=f"principal-{suffix}",
+        principal_scope=f"sha256:{sha256(f'operator-{suffix}'.encode()).hexdigest()}",
         operator_turn_id=f"operator-{suffix}",
         assistant_turn_id=f"assistant-{suffix}",
         completed_at=NOW,
@@ -272,7 +275,7 @@ async def test_repeated_procedure_rule_hint_routes_once_without_policy_mutation(
     )
     review_input = PostTurnReviewInput(
         review_id=f"review-repeated-{suffix}",
-        principal_scope=f"principal-{suffix}",
+        principal_scope=f"sha256:{sha256(f'operator-{suffix}'.encode()).hexdigest()}",
         operator_turn_id=f"operator-{suffix}",
         assistant_turn_id=f"assistant-{suffix}",
         completed_at=NOW,

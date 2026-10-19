@@ -51,6 +51,10 @@ from .object_sets import ObjectSetService
 from .query_population_receipts import population_receipt_fields
 from .query_result_digests import instance_path_graph_digest, projected_result_digest
 from .query_snapshot import snapshot_projection_digest, validate_snapshot_records
+from .source_read_admission import (
+    SourceReadAdmissionReader,
+    admitted_source_read,
+)
 
 
 class ObjectSetRedactionSummary(ContractBase):
@@ -248,6 +252,7 @@ class SecuredObjectSetQueryGateway:
         evaluation_cutoff: Callable[[], datetime],
         graph_completeness: Callable[[], Awaitable[bool]] | None = None,
         max_as_of_skew: timedelta = timedelta(0),
+        source_read_admission: SourceReadAdmissionReader | None = None,
     ) -> None:
         copied_types: dict[str, OntologyObjectType] = {}
         for name, declaration in object_types.items():
@@ -275,8 +280,30 @@ class SecuredObjectSetQueryGateway:
         self._evaluation_cutoff = evaluation_cutoff
         self._graph_completeness = graph_completeness
         self._max_as_of_skew_seconds = skew_seconds
+        self._source_read_admission = source_read_admission
 
     async def scan_snapshot(
+        self,
+        *,
+        object_type_names: tuple[str, ...],
+        purpose: str,
+        as_of: datetime,
+        candidate_limit: int,
+        projection_request: ProjectionRequest,
+    ) -> SecuredOntologySnapshot:
+        """Admit current derived sources before staging an index and before releasing it."""
+        async with admitted_source_read(
+            self._source_read_admission, request=projection_request, purpose=purpose
+        ):
+            return await self._scan_snapshot(
+                object_type_names=object_type_names,
+                purpose=purpose,
+                as_of=as_of,
+                candidate_limit=candidate_limit,
+                projection_request=projection_request,
+            )
+
+    async def _scan_snapshot(
         self,
         *,
         object_type_names: tuple[str, ...],
@@ -355,6 +382,23 @@ class SecuredObjectSetQueryGateway:
         projection_request: ProjectionRequest,
         state_overlay: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> SecuredObjectSetQueryResult:
+        """Admit current sources before predicates, roots, counts, and result publication."""
+        async with admitted_source_read(
+            self._source_read_admission,
+            request=projection_request,
+            purpose=definition.purpose,
+        ):
+            return await self._materialize(
+                definition, projection_request=projection_request, state_overlay=state_overlay
+            )
+
+    async def _materialize(
+        self,
+        definition: ObjectSetDefinition,
+        *,
+        projection_request: ProjectionRequest,
+        state_overlay: Mapping[str, Mapping[str, Any]] | None = None,
+    ) -> SecuredObjectSetQueryResult:
         """Return a purpose-narrowed ACL projection and no-authority receipt.
 
         ``state_overlay`` replaces the nested provider properties of the named Resources before
@@ -412,6 +456,22 @@ class SecuredObjectSetQueryGateway:
         )
 
     async def materialize_instance_path(
+        self,
+        definition: OntologyInstancePathDefinition,
+        *,
+        projection_request: ProjectionRequest,
+    ) -> SecuredOntologyInstancePathGraph:
+        """Admit current sources before expanding a path and before releasing its graph."""
+        async with admitted_source_read(
+            self._source_read_admission,
+            request=projection_request,
+            purpose=definition.purpose,
+        ):
+            return await self._materialize_instance_path(
+                definition, projection_request=projection_request
+            )
+
+    async def _materialize_instance_path(
         self,
         definition: OntologyInstancePathDefinition,
         *,

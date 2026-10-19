@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 86ae11b6513e286ba802fa2dde211ea90ebc8673
+translation_source_sha: 5edb60cd63b5185dd4c9a098effef077ce521e59
 translation_revised: 2026-10-19
 ---
 # 독립 운영 근거 발급
@@ -23,6 +23,13 @@ translation_revised: 2026-10-19
 > 어떤 에이전트의 `owns`나 `subscribes`도 바꾸지 않으며, 실행 권한이나 승격 권한을 부여하지 않습니다.
 
 ## 설계 요약
+
+Core는 비공개 의도, 계보, 게시 복구를 위해 `document_intent_projection`,
+`document_intent_transition`, `document_intent_resource`를 소유하며, 이 테이블은 독립적인
+운영 성과가 아닙니다. 정확한 변경분에 대한 Var 승인, Saga 감사, Heimdall의 커밋 레코드
+비교는 해당 비공개 읽기 모델 흐름만 확인합니다. `DecisionEvidenceAdmission`이나
+프로바이더 상태 또는 개입 성공의 증거를 발급하지 않습니다.
+[승인 의도 SDK](document-declared-intent-projection-ko.md)는 별도 원본 경계를 유지합니다.
 
 참조 콘텐츠의 기존 정책 레코드는 별도의 권한 입력이며 운영 측정이나 검증기가 발급한
 `DecisionEvidenceAdmission`이 아닙니다. API가 정책 및 요청 데이터를 소유하고 Var가

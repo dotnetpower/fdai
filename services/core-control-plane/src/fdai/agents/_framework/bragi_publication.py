@@ -136,6 +136,7 @@ def post_turn_review_event_payload(
             failure_recovered=review.failure_recovered,
             procedure_fingerprint=review.procedure_fingerprint,
             repeated_procedure_count=review.repeated_procedure_count,
+            procedure_receipt=review.procedure_receipt,
         )
         carries_raw_body = False
     body_consent = (

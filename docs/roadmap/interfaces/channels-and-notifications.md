@@ -9,7 +9,7 @@ cannot approve or activate the read capability. This bounded server wiring adds 
 recipient, notification authority or verified live-channel claim.
 
 Core supervises post-turn review intake separately from channel, notification and approval topics.
-Its read-only ActionBuilder rule map validates ORR citations and actual verifier observations feed self-health; neither creates a channel, delivery receipt or approval route, or selects the notifications add-on.
+Its read-only ActionBuilder rule map validates ORR citations and actual verifier/native comparison-window observations feed self-health; neither creates a channel, delivery receipt or approval route, or selects the notifications add-on.
 
 How FDAI talks to humans through Teams, Slack, email, webhooks, paging services, SMS,
 a Direct Line custom channel, and opt-in browser notifications. This file is authoritative

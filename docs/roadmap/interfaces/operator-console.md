@@ -557,18 +557,18 @@ Teams / Slack pull adapters. The console can now:
 
 Adds the observation-depth tools (§3.3) and the discovery-loop hook:
 
-- The coordinator publishes a `console.recurrent_query` signal to the
-  discovery-loop input stream when the same tool-argument shape appears
-  N times across distinct principals in a rolling window (N configured;
-  default 5 / week).
+- Core produces content-free executed-plan receipts; Operator validates and consent-gates their
+  queue. Norns emits `console.recurrent_query` through the existing inert RuleCandidate input
+  after the same typed query shape appears across N distinct human principals (default 5 / week).
+  [Post-Turn Improvement Review](../decisioning/post-turn-improvement-review.md#recurrent-query-observations)
+  owns receipt validation, durable counting, bounds, and the unchanged publication gates.
 - The rule-candidate generator
   ([rule-governance.md](../rules-and-detection/rule-governance.md)) receives that signal like
   any other; the resulting rule ships shadow-first through the same
   promotion pipeline.
 
-The result is that a common investigation pattern in chat becomes a
-first-class rule in the catalog - **the console grows the catalog, not
-itself**.
+A common investigation pattern can seed a reviewed catalog rule; the signal itself cannot create
+or activate one. **The console grows the catalog through governance, not its own authority.**
 ## 10. Rollout reconciliation
 
 The original Day/Week/Month sequence is historical implementation context, not the current

@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from fdai_service_contracts.post_turn_review import PostTurnProcedureReceipt
+
 from fdai.core.operator_memory.types import MemoryCategory, ScopeKind
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9._:-]+$")
@@ -69,6 +71,7 @@ class PostTurnReviewInput:
     failure_recovered: bool = False
     procedure_fingerprint: str | None = None
     repeated_procedure_count: int = 0
+    procedure_receipt: PostTurnProcedureReceipt | None = None
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -105,6 +108,21 @@ class PostTurnReviewInput:
             raise ValueError("PostTurnReviewInput.repeated_procedure_count MUST be >= 0")
         if self.procedure_fingerprint is None and self.repeated_procedure_count:
             raise ValueError("repeated_procedure_count requires procedure_fingerprint")
+        if self.procedure_receipt is not None and (
+            self.procedure_receipt.principal_scope != self.principal_scope
+            or self.procedure_receipt.procedure_fingerprint != self.procedure_fingerprint
+            or self.repeated_procedure_count != 0
+            or tuple(
+                (item.tool_name, item.status, item.evidence_ref)
+                for item in self.procedure_receipt.tool_receipts
+            )
+            != tuple(
+                (item.tool_name, item.status, item.evidence_ref) for item in self.tool_receipts
+            )
+        ):
+            raise ValueError(
+                "post-turn procedure receipt MUST match its metadata without claimed counts"
+            )
 
     @property
     def body_shared(self) -> bool:

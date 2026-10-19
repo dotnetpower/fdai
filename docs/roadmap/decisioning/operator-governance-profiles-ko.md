@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: fddcadf18bbe479f1c1531aa74e1a540d05c56f6
+translation_source_sha: 93b96b672b29d8e4b628302b6c4f396832122d5d
 translation_revised: 2026-10-19
 ---
 # 운영자 거버넌스 프로필
@@ -122,6 +122,13 @@ source AKS 배포는 비공개 검토 완료 파일 하나에서만 개발 프�
 
 공유 계약 스키마에 등록된 `semantic-model-call-progress` 레코드를 포함한 실시간 대화 진행 표시는 모든
 프로필에서 표시 용도로만 쓰입니다. 승인, 검토, 확인, 정족수 구성원으로 절대 계산되지 않습니다.
+
+[비공개 문서 의도 SDK](../rules-and-detection/document-declared-intent-projection-ko.md)는
+실행 작업이 아닌 문서의 정확한 변경분을 검토하는 별도 계약을 사용합니다. 원본별 승인과 닫힌 wire 검증은
+`ApprovalProfileRevision`을 개정하거나 작업, 상시 권한, 승격 권한을 부여하지 않습니다.
+SDK의 로컬 독립 검토 근거는 설치에서 선택한 프로필을 검증하지 않으며, 프로필을 반영한
+제품 연결은 아직 검증되지 않았습니다. 일반 작업 프로필, 위험 등급, 안전장치, 승인 규칙은
+바뀌지 않습니다.
 
 ## 귀속된 운영자 재정의 승격
 

@@ -9,20 +9,26 @@ scheduler's due-lookup path (``list_all`` + ``mark_run``) round-trips.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import subprocess
 import sys
 import uuid
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
 
+import psycopg
 import pytest
+from fdai.core.conversation.creation import CreateScheduledTaskCommand
+from fdai.core.conversation.session import Principal, Role
 from fdai.core.scheduler.models import (
     ScheduledRunIsolationProfile,
     ScheduledTask,
     ScheduleKind,
 )
+from fdai.core.scheduler.service import SchedulerService
 from fdai.core.scheduler.store import ScheduleNotFoundError
 from fdai.delivery.persistence.postgres_scheduler_store import (
     PostgresScheduleStore,
@@ -33,8 +39,107 @@ from fdai.shared.providers.scheduled_continuation import (
     ContinuationMode,
     ScheduledResultOrigin,
 )
+from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+from psycopg import sql
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+@pytest.fixture
+async def replay_stores() -> AsyncIterator[tuple[PostgresScheduleStore, PostgresScheduleStore]]:
+    dsn = _plain_dsn(_requires_live_db())
+    settings = conninfo_to_dict(dsn)
+    if settings.get("host") not in {"localhost", "127.0.0.1", "::1"} or (
+        os.environ.get("GITHUB_ACTIONS") != "true" and settings.get("port") != "5433"
+    ):
+        pytest.fail("schedule replay requires the isolated loopback validation database")
+    _upgrade_head()
+    schema = f"schedule_replay_test_{uuid.uuid4().hex}"
+    async with await psycopg.AsyncConnection.connect(dsn, connect_timeout=5) as connection:
+        await connection.execute("SET statement_timeout = '15s'")
+        await connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
+        await connection.execute(
+            sql.SQL(
+                "CREATE TABLE {}.scheduled_task (LIKE public.scheduled_task INCLUDING ALL)"
+            ).format(sql.Identifier(schema))
+        )
+    config = PostgresScheduleStoreConfig(dsn=make_conninfo(dsn, options=f"-c search_path={schema}"))
+    try:
+        yield PostgresScheduleStore(config=config), PostgresScheduleStore(config=config)
+    finally:
+        async with await psycopg.AsyncConnection.connect(dsn, connect_timeout=5) as connection:
+            await connection.execute("SET statement_timeout = '15s'")
+            await connection.execute(
+                sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema))
+            )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("value", [True, 1.0, -0.0])
+async def test_creation_replay_after_real_dispatch_preserves_postgres_progress(
+    replay_stores: tuple[PostgresScheduleStore, PostgresScheduleStore], value: object
+) -> None:
+    first, restarted = replay_stores
+    actor = Principal(id="operator-1", role=Role.CONTRIBUTOR)
+    arguments = {
+        "principal": actor,
+        "task_id": "daily-read",
+        "name": "Daily bounded observation",
+        "interval_seconds": 86400,
+        "event_type": "synthetic.monitoring",
+        "event_payload": {"value": value},
+    }
+    created = await CreateScheduledTaskCommand(store=first).create(**arguments)
+    bus = InMemoryEventBus()
+    now = datetime(2026, 10, 19, tzinfo=UTC)
+    report = await SchedulerService(store=first, event_bus=bus).run_once(now=now)
+    assert report.fired == 1
+    replayed = await CreateScheduledTaskCommand(store=restarted).create(**arguments)
+    assert replayed.task_id == created.task_id
+    assert replayed.last_run == now
+    assert replayed.kind is ScheduleKind.INTERVAL
+    assert len(await restarted.list_all()) == 1
+    assert (await SchedulerService(store=restarted, event_bus=bus).run_once(now=now)).fired == 0
+
+
+@pytest.mark.integration
+async def test_postgres_atomic_creation_race_converges_without_duplicate_tasks(
+    replay_stores: tuple[PostgresScheduleStore, PostgresScheduleStore],
+) -> None:
+    ready = asyncio.Event()
+    misses = 0
+
+    class BarrierStore(PostgresScheduleStore):
+        async def get(self, task_id: str) -> ScheduledTask:
+            nonlocal misses
+            try:
+                return await super().get(task_id)
+            except ScheduleNotFoundError:
+                if misses < 2:
+                    misses += 1
+                    if misses == 2:
+                        ready.set()
+                    await ready.wait()
+                raise
+
+    source, _other = replay_stores
+    first = BarrierStore(config=source._config)
+    second = BarrierStore(config=source._config)
+    actor = Principal(id="operator-1", role=Role.CONTRIBUTOR)
+
+    async def create(store: PostgresScheduleStore) -> ScheduledTask:
+        return await CreateScheduledTaskCommand(store=store).create(
+            principal=actor,
+            task_id="same-task",
+            name="same definition",
+            interval_seconds=86400,
+            event_type="synthetic.monitoring",
+        )
+
+    a, b = await asyncio.gather(create(first), create(second))
+    assert a.task_id == b.task_id
+    assert len(await source.list_all()) == 1
 
 
 # ---------------------------------------------------------------------------

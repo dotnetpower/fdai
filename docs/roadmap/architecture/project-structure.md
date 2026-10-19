@@ -111,10 +111,10 @@ and eight sanitized operational-state fields, persists one freshness-checked sna
 unavailable sources without inventing healthy values. Operator exposes that snapshot through the
 authenticated Reader-role `GET /operations/runtime-state` projection. Delivery adapters remain
 responsible for replacing explicit unavailable bindings with source-qualified production metrics.
-`delivery/self_health_sources.py` binds owned process, consumed-canary and actual deterministic-verifier
+`delivery/self_health_sources.py` binds owned process, consumed-canary, actual verifier and native cross-check
 observations; runtime owns their lifetime and serializes collection without additional model probes.
 The [operating owner](../operations/operating-and-verification.md#remaining-source-boundaries) owns current counts and missing evidence; the [source-injection contract](project-structure-dependency-injection.md#self-health-source-bindings) preserves service/agent ownership.
-Embedding evidence is a separate fully registered model scope, not aggregate adapter health; these reads prove neither fleet health nor deployment acceptance.
+Embedding and cross-check/pool evidence use a separate fully registered model scope, not aggregate adapter health; these reads prove neither fleet health nor deployment acceptance.
 Operational promotion uses another exact cross-layer identity. Core measurement hashes every O7
 threshold policy and carries that digest in the receipt. Reviewed replay authority, the governance
 promotion request, durable receipt storage, the action-mode record, and restart verification bind
@@ -905,6 +905,8 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
    unblock a red pipeline is a governance regression.
 
 ## Customization via Dependency Injection
+
+`SecuredObjectSetQueryGateway(source_read_admission=...)` can check current sources around reads. No deployment reader or writer is bound; [G02](../rules-and-detection/document-ontology-distillation.md#g02-persistent-integration-proposal) retains those separate gates.
 
 Var's optional `CloudApplicationAuthorizationSource` reads exact human policy/request inputs from the separate document database.
 API owns inputs; Var approves, Saga audits and Muninn indexes. Worker visibility fences the same policy.

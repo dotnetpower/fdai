@@ -28,6 +28,30 @@ class PostTurnToolReceipt(BaseModel):
     evidence_ref: BoundedId
 
 
+ProcedureDigest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
+
+
+class PostTurnProcedureReceipt(BaseModel):
+    """Content-free shape evidence from one fully executed human query plan."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schema_version: Literal["1.0.0"] = "1.0.0"
+    kind: Literal["verified_ontology_query_shape"] = "verified_ontology_query_shape"
+    principal_scope: ProcedureDigest
+    turn_id: Annotated[str, Field(min_length=1, max_length=256)]
+    ontology_release_digest: ProcedureDigest
+    semantic_catalog_digest: ProcedureDigest
+    plan_digest: ProcedureDigest
+    execution_receipt_digest: ProcedureDigest
+    shape_digest: ProcedureDigest
+    tool_receipts: Annotated[tuple[PostTurnToolReceipt, ...], Field(max_length=64)]
+
+    @property
+    def procedure_fingerprint(self) -> str:
+        return f"query-shape-v1:{self.shape_digest.removeprefix('sha256:')}"
+
+
 class PostTurnReviewInputWire(BaseModel):
     """Consent-filtered bounded projection of one completed operator turn."""
 
@@ -49,6 +73,7 @@ class PostTurnReviewInputWire(BaseModel):
     failure_recovered: bool = False
     procedure_fingerprint: BoundedId | None = None
     repeated_procedure_count: Annotated[int, Field(ge=0)] = 0
+    procedure_receipt: PostTurnProcedureReceipt | None = None
 
     @model_validator(mode="after")
     def _scope_and_repetition_are_bound(self) -> PostTurnReviewInputWire:
@@ -58,12 +83,21 @@ class PostTurnReviewInputWire(BaseModel):
             raise ValueError("memory scope kind and ref MUST be supplied together")
         if self.procedure_fingerprint is None and self.repeated_procedure_count:
             raise ValueError("repeated procedure count requires a fingerprint")
+        if self.procedure_receipt is not None and (
+            self.procedure_receipt.principal_scope != self.principal_scope
+            or self.procedure_receipt.procedure_fingerprint != self.procedure_fingerprint
+            or self.procedure_receipt.tool_receipts != self.tool_receipts
+            or self.repeated_procedure_count != 0
+        ):
+            raise ValueError(
+                "post-turn procedure receipt MUST match its metadata without claimed counts"
+            )
         return self
 
     def to_wire_mapping(self) -> dict[str, object]:
         """Return the legacy mapping shape consumed by Norns."""
 
-        return {
+        result: dict[str, object] = {
             "review_id": self.review_id,
             "principal_scope": self.principal_scope,
             "operator_turn_id": self.operator_turn_id,
@@ -81,6 +115,9 @@ class PostTurnReviewInputWire(BaseModel):
             "procedure_fingerprint": self.procedure_fingerprint,
             "repeated_procedure_count": self.repeated_procedure_count,
         }
+        if self.procedure_receipt is not None:
+            result["procedure_receipt"] = self.procedure_receipt.model_dump(mode="json")
+        return result
 
 
 class PostTurnBodyConsent(BaseModel):
@@ -186,6 +223,7 @@ __all__ = [
     "POST_TURN_REVIEW_PRODUCER",
     "POST_TURN_REVIEW_TOPIC",
     "PostTurnBodyConsent",
+    "PostTurnProcedureReceipt",
     "PostTurnReviewInputWire",
     "PostTurnToolReceipt",
     "post_turn_review_event_payload",

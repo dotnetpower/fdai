@@ -1,6 +1,6 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: c81532b65cfb61e7d10b40d03b4e3ed79ec3091e
+translation_source_sha: ed90615a001d4a6441693674813bb7d102dfd777
 translation_revised: 2026-10-19
 ---
 # Reviewable 자동화 Blueprints
@@ -56,6 +56,19 @@ superset이 필요합니다.
 구체화는 reviewing principal로 `CreateScheduledTaskCommand`를 호출하며 스케줄러 저장소를
 직접 쓰지 않습니다. 고정된 작업 ID가 재시도 멱등성을 제공하고 conflicting 내용은 실패합니다.
 결과 작업은 기존 trust/risk 경로로 shadow-only 이벤트를 보냅니다.
+
+생성 재시도는 변경되는 `last_run` 진행 상태나 예약 종류의 명시적 및 암묵적 표현이 아니라
+선언된 의도를 비교합니다. 진행 상태를 초기화하지 않고 보관된 레코드를 반환합니다. 작업 생성 주체,
+일시 중지 상태, 주기, 대상, cron, 시간대나 격리가 달라지면 계속 충돌로 처리합니다.
+두 업스트림 저장소는 원자적 ID 충돌을 `ValueError` 하위 타입인
+`ScheduleAlreadyExistsError`로 구분하며, 동시 삽입 후에는 이 충돌만 재조회해 확인합니다.
+다른 백엔드 오류는 그대로 전달하고 자동 생성 ID가 충돌해도 다른 생성 결과를 재사용하지 않습니다.
+
+명령은 저장 전에 공통 정본 JSON 정규화기로 페이로드를 복사해 호출자 입력과 분리합니다.
+지원되지 않는 값이나 유한하지 않은 숫자는 저장하지 않으며, 명시적으로 비어 있는 작업 ID를
+임의 ID로 바꾸지 않습니다. 재시도에는 공통 JSON 값 동등성 검사를 사용합니다. 동등한 숫자
+저장 표현과 키 순서는 허용하지만 불리언과 숫자는 구분합니다. 이 동작은 일일 안정화 작업을
+등록하거나 검토, 역할, 모드 또는 실행 권한을 바꾸지 않습니다.
 
 공통 예약 모델은 유한한 양수 간격만 허용합니다. 불리언, 유한하지 않은 값,
 스케줄러의 숫자 시계로 표현할 수 없는 정수는 저장 전에 차단합니다. 호환 생성 및 수정

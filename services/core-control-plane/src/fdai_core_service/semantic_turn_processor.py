@@ -88,6 +88,13 @@ from fdai_service_contracts.semantic_work_progress import WorkProgressShape
 from fdai_service_contracts.test_context import TestContextDraft
 
 from fdai_core_service.dialogue_relationship import runtime_relationship
+from fdai_core_service.post_turn_procedure import (
+    bound_procedure_projection,
+    with_post_turn_procedure,
+)
+from fdai_core_service.post_turn_procedure import (
+    execution_receipt_digest as _execution_receipt_digest,
+)
 
 from . import semantic_resource_health_answer as _resource_health_answer
 from .contract_codecs import (
@@ -1133,15 +1140,8 @@ class SemanticTurnProcessor:
             "semantic_result": semantic_result,
         }
         projection["projection_id"] = _semantic_projection_id(projection)
+        encoded_size = bound_procedure_projection(projection, maximum_bytes=MAX_WIRE_BYTES)
         observe_semantic_decision(projection)
-        encoded_size = len(
-            json.dumps(
-                projection,
-                allow_nan=False,
-                separators=(",", ":"),
-                sort_keys=True,
-            ).encode("utf-8")
-        )
         _LOGGER.info(
             "semantic_projection_prepared encoded_bytes=%d",
             encoded_size,
@@ -1600,7 +1600,7 @@ def _project_runtime_result(
         model_extensions,
         _SemanticProjectionExtensions(
             rule_search=rule_search,
-            technical_details=technical_details,
+            technical_details=with_post_turn_procedure(technical_details, request, plan, execution),
             investigation_continuation=investigation_continuation,
         ),
     )
@@ -1680,17 +1680,6 @@ def _project_investigation_continuation(
         source_plan_digest=plan.plan_digest,
         source_execution_receipt_digest=execution_receipt_digest,
         execution_authority=False,
-    )
-
-
-def _execution_receipt_digest(execution: QueryPlanExecution) -> str:
-    return content_digest(
-        {
-            "plan_digest": execution.plan_digest,
-            "status": execution.status,
-            "output_node_ids": execution.output_node_ids,
-            "receipts": [receipt.model_dump(mode="json") for receipt in execution.receipts],
-        }
     )
 
 

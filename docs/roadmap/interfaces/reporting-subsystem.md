@@ -22,6 +22,12 @@ the shipping catalog here is a bounded, product-relevant subset.
 
 Service table ownership also declares the Operator-owned `operator_workflow_authoring_audit` ledger. It records Workflow draft and binding commits, is not a report source, and adds no reporting projection.
 
+The Core-owned `document_intent_projection`, `document_intent_transition`, and
+`document_intent_resource` tables are likewise private intent/provenance storage, not registered
+report datasources or operational results. The [intent SDK](../rules-and-detection/document-declared-intent-projection.md)
+adds no report, widget, format, or route. Future report use needs an explicit datasource integration
+with current source-access checks and evidence qualification; table ownership alone supplies neither.
+
 The API-owned reference-content policy, request and policy-audit tables are not report sources.
 Their Var/Saga/Muninn authorization/indexing path adds no reporting route or mutation authority;
 reports cannot approve a policy or apply a reference generation.
@@ -601,6 +607,7 @@ never crash serialization or misorder a chart. Each item is covered in
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Private intent storage/report-source separation | not-applicable | #2268; Core intent table ownership and the paired source-boundary note above | No report datasource, widget, format, route, or operational result is registered by private intent persistence. Future report consumption needs explicit source integration and current admission. |
 | Core contracts, registries, engine, widgets, and default formats | implemented | `services/core-control-plane/src/fdai/core/reporting/`; `services/core-control-plane/tests/core/reporting/` | Focused tests cover catalog loading, bounds, substitution, per-widget isolation, datasource contracts, widgets, formats, and hardening safeguards. |
 | Declarative report catalog and schema | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting catalog tests | Reviewed YAML reports and capability metadata load through the bounded schema. |
 | Operator API read routes and Console Reports view | validated | `fdai_operator_service/reporting/incident_rca_projection.py`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator and Console tests | Authenticated GET-only inventory, registry, audit-backed Incident RCA rendering, and Console presentation passed without mutation authority. |
@@ -613,6 +620,7 @@ never crash serialization or misorder a chart. Each item is covered in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-19 | not-applicable | Documented the three Core-owned private intent/provenance tables as non-report storage, without changing report registries or output qualification. | Current documentation change; #2268; paired source-boundary note and scoped route/translation/ledger checks. | Existing reporting datasource and freshness gates remain; private SDK persistence/readback is not report availability or operational-outcome evidence. |
 | 2026-09-28 | implemented | Registered the five Core-owned insert-only operational evidence proof tables in the shared service-migration inventory without adding them to reporting sources, widgets, routes, or write authority. | `current change`; `tests/integration/services/test_service_migration_inventory.py` passed 73 cases, and the loopback PostgreSQL role test proved only the verifier role inserts proof records. | No reporting behavior or datasource evidence changed. |
 | 2026-09-22 | implemented | Registered the Core-owned Rule activation receipt table in the shared service-migration inventory without adding it to reporting sources, widgets, routes, or write authority. | `current change`; service migration inventory passed 73 cases and the real PostgreSQL role test proved Operator has no direct receipt-table access. | No reporting behavior or datasource evidence changed. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger and corrected the optional PDF implementation claim; earlier provenance was not reconstructed. | `current change`; current reporting core, catalog, Operator, Console, and focused checks listed in the scope table. | Retain authoritative datasource evidence and implement optional PDF delivery before advertising it. |

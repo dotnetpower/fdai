@@ -85,6 +85,7 @@ from fdai.agents._framework.development_authority_runtime import (
     DevelopmentRuntimeBindings,
 )
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
+from fdai.agents._framework.document_intent import publish_document_intent_source
 from fdai.agents._framework.factory import (
     DEFAULT_COST_RUNTIME_BINDINGS,
     CostRuntimeBindings,
@@ -207,6 +208,7 @@ from fdai.agents._framework.var_kill_switch import (
     KillSwitchRequestRejectedError,
     VarKillSwitchRequestHandler,
 )
+from fdai.agents._framework.var_ticket_identity import approval_state_key
 from fdai.agents._framework.var_ticket_identity import (
     approval_state_key as action_approval_state_key,
 )
@@ -249,6 +251,8 @@ __all__ = [
     "action_approval_state_key",
     "validate_final_approval_record",
     "default_payload_validator",
+    "publish_document_intent_source",
+    "approval_state_key",
     "BASELINE_EVALUATION_CLAIM_PREFIX",
     "BASELINE_EVALUATION_COMPLETION_PREFIX",
     "BASELINE_EVALUATION_COVERAGE_PREFIX",

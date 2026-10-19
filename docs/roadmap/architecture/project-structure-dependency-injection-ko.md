@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 860dda51215f38aa4a5d1241bf3ae2e90c3d883a
+translation_source_sha: 167c8fcd543af83764baf5f9f42cdace515abcea
 translation_revised: 2026-10-19
 ---
 
@@ -42,13 +42,18 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
 정책에 따른 완전한 구간의 실제 분자와 분모 및 원래 관측 시각을 유지합니다. 없거나 결과를
 알 수 없는 호출을 성공으로 바꾸지 않습니다.
 
-실제 수신기, 실제로 사용한 정책, 시작 및 검증기 수집원을 제공하면 구성은
+`mixed_model_health_source`는 같은 고정 구간 처리와 정책 및 수명 담당 경계, 수집기를 공유하지만
+선택적인 `CrossCheckObserver`를 통해 검증기 결과가 아닌 원래 Core 비교 검사를 관측합니다.
+자동 연결에는 기본 및 보조 SDK 생산자와 정확한 모델 객체 집합이 필요합니다. 지원하지 않거나
+불완전한 집합은 모델 호출이나 게이트 판정을 바꾸지 않고 사용 불가로 유지합니다.
+
+실제 수신기, 실제로 사용한 정책, 시작, 검증기 및 적격 비교 수집원을 제공하면 구성은
 [담당 문서의 수집원 범위](../operations/operating-and-verification-ko.md#남아-있는-수집원-경계)만
 제공하며 전체 운영 상태를 입증하지 않습니다. 수신기 연결이나 정책이 없으면 unavailable로 유지합니다.
 비상 정지 행이 없거나 잘못되어도 정상인 false 값으로
 바꾸지 않습니다. `SelfHealthExporterUnavailableError.reason`은 `exporter_unavailable`,
 `source_missing`, `source_malformed`, `source_unreachable`, `source_incomplete`, `source_stale`, `source_from_future`만 보존합니다.
-어댑터 집계는 unavailable이며 별도 타입 지정 임베딩 관측으로 집계 범위를 좁히지 않습니다. 나머지 신호와 필드는 담당 수집원이 제공될 때까지 명시적인 unavailable 연결을
+어댑터 집계는 unavailable이며 별도 타입 지정 임베딩 및 교차검사/풀 관측으로 집계 범위를 좁히지 않습니다. `wire_llm`은 프롬프트 구성기가 없어도 논리적 역할을 명시하며, 준비 상태 구성은 미관측 구성 역할을 누락하거나 중복 역할 수집원을 수락하지 않고 실제 SDK 수집원을 연결합니다. 나머지 신호와 필드는 담당 수집원이 제공될 때까지 명시적인 unavailable 연결을
 유지합니다. 이 읽기 전용 어댑터는 신원, 승인, 실행, 승격 권한을 부여하지 않습니다.
 [운영 수집원 계약](../operations/operating-and-verification-ko.md#로컬-수집원-연결)을 참조하세요.
 

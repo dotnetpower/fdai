@@ -153,6 +153,7 @@ def runtime_self_health_registry(
     runtime_policy: Mapping[str, object] | None = None,
     startup_duration_source: SelfHealthExporter | None = None,
     verifier_health_source: SelfHealthExporter | None = None,
+    mixed_model_health_source: SelfHealthExporter | None = None,
 ) -> SelfHealthExporterRegistry:
     """Bind actual process-owned sources and retain every other unavailable binding."""
     unavailable = unavailable_self_health_registry(catalog)
@@ -164,6 +165,8 @@ def runtime_self_health_registry(
         signals[SelfHealthSignalName.COLD_START_DURATION] = startup_duration_source
     if verifier_health_source is not None:
         signals[SelfHealthSignalName.VERIFIER_FAILURE_RATE] = verifier_health_source
+    if mixed_model_health_source is not None:
+        signals[SelfHealthSignalName.MIXED_MODEL_DISAGREEMENT_RATE] = mixed_model_health_source
     signal = SelfHealthSignalName.READINESS_PROBE
     signals[signal] = RuntimeProbeSelfHealthExporter(
         signal, catalog.policies[signal].metric, "runtime:guarded-readiness", readiness

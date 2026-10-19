@@ -23,6 +23,13 @@ owners keep consuming them through the unchanged admission seam.
 
 ## Design at a glance
 
+Core owns `document_intent_projection`, `document_intent_transition`, and
+`document_intent_resource` for private intent, provenance, and publication recovery, not
+independent operational outcomes. Exact-diff Var approval, Saga audit, and Heimdall's committed-row
+comparison record only that private read-model flow; they issue no `DecisionEvidenceAdmission`
+or proof of provider state or intervention success. The
+[approved-intent SDK](document-declared-intent-projection.md) retains its separate source boundary.
+
 Reference-content prior-policy records are a separate authorization input, not an operational
 measurement or a verifier-issued `DecisionEvidenceAdmission`. The API owns policy/request data;
 Var independently reads the exact attributed human authority and Saga audits it before Muninn

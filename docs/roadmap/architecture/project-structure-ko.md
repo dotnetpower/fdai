@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a3894be133196c515a54b5c4faeca86aec01f2b1
+translation_source_sha: 95797ac98ec54a36305dc5ca10613ae63504ac05
 translation_revised: 2026-10-19
 ---
 # 프로젝트 구조
@@ -110,11 +110,11 @@ exporter 범위를 요구하고, 신선도를 검사한 스냅숏 하나를 저�
 사용할 수 없는 수집원을 기록합니다. Operator는 인증된 Reader 역할의
 `GET /operations/runtime-state` 변환을 통해 이 스냅숏을 제공합니다. 전달 어댑터는 명시적인
 unavailable binding을 출처가 명시된 운영 메트릭으로 교체해야 합니다.
-`delivery/self_health_sources.py`는 담당 프로세스, 소비된 canary, 실제 결정론적 검증기의 관측을
+`delivery/self_health_sources.py`는 담당 프로세스, 소비된 canary, 실제 검증기와 기본 교차검사의 관측을
 연결합니다. 런타임은 수집원의 수명을 소유하고 추가 모델 검사 없이 수집을 직렬화합니다.
 [운영 담당 문서](../operations/operating-and-verification-ko.md#남아-있는-수집원-경계)가 현재 수치와
 미충족 근거를 소유하며 [수집원 주입 계약](project-structure-dependency-injection-ko.md#자체-상태-수집원-연결)은
-서비스 및 에이전트 소유권을 유지합니다. 임베딩 근거는 전체 등록을 갖춘 별도 모델 범위이지
+서비스 및 에이전트 소유권을 유지합니다. 임베딩 및 교차검사/풀 근거는 전체 등록을 갖춘 별도 모델 범위이지
 어댑터 집계 상태가 아니며, 이 읽기로 전체 복제본의 상태나 배포 수락을 입증하지 않습니다.
 운영 승격은 또 하나의 정확한 계층 간 ID를 사용합니다. Core 측정은 모든 O7 임계값 정책을
 다이제스트하고 증적에 포함합니다. 검토된 replay 권한, 거버넌스 승격 요청, 영속 증적 저장,
@@ -885,6 +885,8 @@ FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_con
    기록하세요. 붉은 파이프라인을 풀려고 임계값을 낮추는 것은 거버넌스 회귀입니다.
 
 ## 의존성 주입을 통한 커스터마이제이션
+
+`SecuredObjectSetQueryGateway(source_read_admission=...)`는 읽기 전후에 현재 원본을 확인할 수 있습니다. 배포 읽기나 쓰기는 연결하지 않았으며 [G02](../rules-and-detection/document-ontology-distillation-ko.md#g02-영속-통합-제안)의 별도 조건으로 남습니다.
 
 Var의 선택적 `CloudApplicationAuthorizationSource`는 별도 문서 데이터베이스에서 정확한 사람 정책 및 요청 입력을 읽습니다.
 API가 입력을 소유하고 Var가 권한을 확인하며 Saga가 감사하고 Muninn이 색인을 생성합니다. 워커는 같은 정책을 트랜잭션으로 보호합니다.

@@ -30,13 +30,21 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Final, Protocol
 
+from fdai_service_contracts.compatibility import canonical_digest
+
 from ....core.quality_gate.gate import CrossCheckModel, QualityCandidate
+from ....shared.providers.self_health import (
+    ModelProviderObservationSource,
+    ModelProviderObservedProvider,
+    SelfHealthExporterUnavailableError,
+)
 from ....shared.telemetry.transitions import (
     RoutingTransition,
     RoutingTransitionSink,
     default_transition_emitter,
     emit_transition_safely,
 )
+from .provider_observations import PooledProviderObservationSource
 
 _LOG = logging.getLogger(__name__)
 
@@ -156,6 +164,31 @@ class LatencyRoutedCrossCheckModel:
     def model_id(self) -> str:
         """Return the composition-owned identity shared by the latency pool."""
         return self._model_id
+
+    @property
+    def model_provider_observation_members(self) -> tuple[CrossCheckModel, ...]:
+        """Expose the complete composition-owned producer group, never just the selected member."""
+        return tuple(model for _, model in self._candidates)
+
+    def model_provider_observations(
+        self, *, maximum_age_seconds: int
+    ) -> ModelProviderObservationSource:
+        sources: list[ModelProviderObservationSource] = []
+        identities: list[dict[str, str]] = []
+        for name, model in self._candidates:
+            if not isinstance(model, ModelProviderObservedProvider):
+                raise SelfHealthExporterUnavailableError(reason="source_incomplete")
+            source = model.model_provider_observations(maximum_age_seconds=maximum_age_seconds)
+            if source.role != self._model_role:
+                raise SelfHealthExporterUnavailableError(reason="source_malformed")
+            sources.append(source)
+            identities.append({"name": name, "binding_digest": source.binding_digest})
+        return PooledProviderObservationSource(
+            role=self._model_role,
+            binding_digest=canonical_digest({"role": self._model_role, "members": identities}),
+            sources=tuple(sources),
+            maximum_age_seconds=maximum_age_seconds,
+        )
 
     def current_pick_name(self) -> str:
         """Which candidate would serve the NEXT call (peek, no state change)."""

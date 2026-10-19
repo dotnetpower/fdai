@@ -408,6 +408,104 @@ intent projection. A provider-observed statement becomes current truth only afte
 observation matches it. A lifecycle can enter `projected` only through a validated `ProjectionPlan`
 that pins the expected, next, and exact rollback graph revisions.
 
+## G02 persistent integration proposal
+
+> **Common-graph proposal:** This section remains the unimplemented shared-graph target for
+> #2256 G02. The bounded [private intent namespace](document-declared-intent-projection.md) now
+> implements the governed-envelope SDK path with separate exact-diff approval and recovery.
+> Existing ingestion approval, handover receipts, and `ProjectionPlan` values alone grant no write.
+
+### First delivery boundary
+
+The first writer should accept only `declared_intent` for the exact pinned `BusinessService`
+declaration. It should accept an add or update only for a stable service identity independently
+declared by an approved service catalog, with a bounded scalar property diff validated against
+that declaration. A model cannot create an identity, source policy, property, or release.
+Updates require the exact prior source-owned record; a pre-existing record owned by another
+source is a conflict, not an overwrite opportunity. Links, arbitrary types, provider observations,
+telemetry, rules, policy, and execution authority stay outside this first delivery.
+
+The source policy should explicitly admit `declared_intent` for the exact scope and prove the
+declaration's `approved_service_catalog` creation condition. That condition is not a new ingestion
+purpose or an authority grant. Document indexing approval and handover acceptance do not establish
+that policy. Missing policy or identity leaves the package review-only. In particular, the current
+handover verifier's
+`unobserved:handover-review-only` revision and empty entity set are not writable graph context.
+
+### Accountable approval and application
+
+Keep all 15 agents and their current role bindings. Extend the existing schema-validated event
+choreography rather than calling another agent or giving a package compiler a graph writer:
+
+| Transition | Accountable owner | Required boundary |
+|------------|-------------------|-------------------|
+| Governed upload and source observation | Huginn and Heimdall | Existing admission, protection, source identity, purpose, and retention checks. |
+| Candidate and independent verification | Norns and Mimir | Retained extraction, exact source ranges, pinned release, resolved identity, and deterministic verification; no write authority. |
+| Projection admissibility | Forseti | A new projection-specific decision over the exact verified diff, not reuse of a document-indexing decision. |
+| Human approval | Var | Persisted independent approval of that diff, source revision, ACL commitment, target scope, release, and expected graph revision. |
+| Pre-application audit | Saga | Content-free audit of the exact decision and approval before a materializer can consume them. |
+| Intent read-model materialization | Muninn | Source-owned records only; atomic compare-and-set, before-image, lifecycle, and durable result event. No provider or execution mutation. |
+| Conflict and recovery | Odin and Vidar | Explicit arbitration or exact source-owned inverse change; an unresolved conflict never applies. |
+| Effect readback and final audit | Heimdall and Saga | Independently reopen committed storage and reconcile the exact source, record, and revision before reporting success. |
+
+Var's current `document.promote-authoritative` ticket identifies a document and upload. It does
+not bind a proposal diff, ontology release, or graph revision. `HandoverSemanticReceipt` explicitly
+requires `projection_authority: false`. Neither record should be widened or interpreted as an
+implicit projection approval. The new approval lane needs a distinct typed contract and persisted
+authority source before runtime wiring; existing approvals retain their original meaning.
+
+### Atomic storage and recovery
+
+The write transaction should verify current source version, source authority, ACL commitment,
+retention, approval identity, proposal digest, release, and expected target revision. It should
+commit the source-owned graph diff, exact before-image, applied lifecycle record, and durable
+publication intent together. The replay key includes the proposal and approval digests. Identical
+replay is a no-op; a changed payload under that key is a conflict. A source or approval that changes
+before commit requires a fresh review, not a regenerated approval.
+
+Persisted application is not successful reconciliation. A separate readback should compare the
+committed record and provenance with the approved diff. Failed or unavailable readback holds the
+result and requests Vidar recovery through the bus. Recovery checks that the affected record
+still has the failed revision, then restores its exact before-image or removes its exact newly
+created record. It never rewinds unrelated graph writes. If the affected record changed again,
+recovery stops for arbitration. Recovery never restores revoked source access or an expired
+effective interval. Retained immutable history remains available for replay.
+
+### Source-aware read admission
+
+Property-level role and purpose redaction alone does not secure document-derived instances.
+`SecuredObjectSetQueryGateway` now accepts an optional `source_read_admission` reader.
+When bound, it checks the complete source universe before and after queries, instance paths, and
+index staging; denial prevents graph I/O, and a changed or unavailable final check withholds the
+whole result, including counts. It narrows authorization to the query's exact purpose and principal
+scope. There is no deployment document ACL adapter or active document graph writer bound to it.
+A projection approval cannot grant a later reader access to the underlying source.
+
+Before returning a derived fact, the read path should verify the authenticated principal's current
+access to every contributing document and its current version, authority, retention, revocation
+state, effective interval, and freshness. Apply this boundary before private predicates, traversal
+expansion, counts, population receipts, semantic-index staging, and cached-result reuse can
+disclose information. Do not merely
+redact the displayed `source_ref`. Close links when an endpoint is unavailable, and invalidate
+derived receipts when a source or ACL generation changes. Unavailable or conflicting source checks
+produce an explicit unavailable result, not a stale authorized result or a claimed zero count.
+
+### Implementation and evidence gates
+
+The missing projection-specific approval lane and source-aware read admission are prerequisite
+contract work, not deployment configuration. Until both exist, connecting an active writer to
+the current handover receipt would cross an authority boundary.
+
+Local acceptance should start with a governed upload and retained normalized envelope, run the
+actual owning event/approval/audit consumers, commit into isolated PostgreSQL, restart the reader,
+and obtain an authenticated current graph result. A supplied proposal or a storage round trip
+alone does not demonstrate upload-to-graph integration. Negative cases should cover source and
+ACL changes before approval, before commit, and after commit; release and graph drift; conflicting
+sources; rejected or forged approval; duplicate and changed replay; crash recovery; unavailable
+readback; rollback with an unrelated concurrent write; and denied traversal, count, and cache
+reads. Production corpus, live Azure/model validation, selection promotion, and elapsed
+observation evidence remain separate gates.
+
 ## Agent ownership
 
 The existing pantheon owns the pipeline without a new coordinator:

@@ -5,6 +5,10 @@ title: User RBAC and Entra Identity
 
 How **human users** authenticate, are authorized, and are audited when the enterprise-identity add-on is selected for the Console, ChatOps, or catalog-as-code repository. The headless observation-first default creates no Entra app, FDAI role group, Graph permission, or human approval dependency. This file is authoritative for the optional human identity model; non-human identities remain governed by [security-and-identity.md](../architecture/security-and-identity.md) and [deploy-and-onboard.md](../deployment/deploy-and-onboard.md). Reader-authorized self-health may expose typed `model_provider_scope` evidence with independently pinned model-role registration, separate from the unchanged global snapshot. A sub-adapter observation cannot make aggregate adapter health Healthy. Such provider observations grant no human role, approval, quorum, executor identity, or operational acceptance; physical wheel/import checks establish packaging only.
 
+Native comparison-window rates are Reader-visible process telemetry, not policy-administrator
+assignment, standing authority, approval or promotion evidence. Unknown or fake producer state
+cannot supply a human permission or clear an execution safeguard.
+
 It resolves the P0 blocker "final identity mapping (external IdP ↔ Entra ↔ Managed Identity)" from [security-and-identity.md#open-decisions](../architecture/security-and-identity.md#open-decisions) for the *human* side; the executor-side mapping stays as declared there.
 
 > RBAC (this file) answers *what a human may operate*. A separate, independently resolved axis, [agent-stewardship-and-handover.md](agent-stewardship-and-handover.md),

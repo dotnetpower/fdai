@@ -35,6 +35,7 @@ from fdai.core.quality_gate.promotion import (
 from fdai.core.quality_gate.self_consistency import SelfConsistencyCascade
 from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.delivery.operator_request_receipt import core_operator_request_receipt_issuer_from_env
+from fdai.delivery.self_health_disagreement import RuntimeMixedModelHealthSource
 from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
 from fdai.shared.contracts.models import Rule
 from fdai.shared.providers.event_bus import EventBus
@@ -207,6 +208,7 @@ def build_t2_quality_gate(
         Mapping[DeterministicEvidenceKind, DeterministicEvidenceVerifier] | None
     ),
     verifier_health_source: RuntimeVerifierHealthSource | None = None,
+    mixed_model_health_source: RuntimeMixedModelHealthSource | None = None,
 ) -> QualityGate:
     """Build the production T2 gate from container bindings and the active rule set."""
     llm_bindings = container.require_llm_bindings()
@@ -217,6 +219,11 @@ def build_t2_quality_gate(
     return QualityGate(
         verifier=verifier,
         cross_check_models=llm_bindings.cross_check_models,
+        cross_check_observer=(
+            mixed_model_health_source.bind(llm_bindings.cross_check_models)
+            if mixed_model_health_source is not None
+            else None
+        ),
         grounding=RagGroundingSource(
             rules=dict(rules_by_id),
             embedding_index=HashedRuleEmbeddingIndex(),
@@ -243,6 +250,7 @@ def build_t2_tier(
         Mapping[DeterministicEvidenceKind, DeterministicEvidenceVerifier] | None
     ),
     verifier_health_source: RuntimeVerifierHealthSource | None = None,
+    mixed_model_health_source: RuntimeMixedModelHealthSource | None = None,
 ) -> T2Tier:
     """Keep the T2 proposer, observed gate and cascade on their selected bindings."""
     quality_gate = build_t2_quality_gate(
@@ -251,6 +259,7 @@ def build_t2_tier(
         action_modes=action_modes,
         deterministic_evidence_verifiers=deterministic_evidence_verifiers,
         verifier_health_source=verifier_health_source,
+        mixed_model_health_source=mixed_model_health_source,
     )
     return T2Tier(
         proposer=llm_bindings.require_t2_proposer(),

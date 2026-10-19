@@ -1,0 +1,116 @@
+{
+  "additionalProperties": false,
+  "description": "Content-free owned transition; no document text or graph properties enter the bus.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "envelope_schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Envelope Schema Version",
+      "type": "integer"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    },
+    "event_type": {
+      "anyOf": [
+        {
+          "const": "document.intent.projection.v1",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Event Type"
+    },
+    "kind": {
+      "const": "document_intent_projection",
+      "default": "document_intent_projection",
+      "title": "Kind",
+      "type": "string"
+    },
+    "phase": {
+      "enum": [
+        "source",
+        "ready",
+        "candidate",
+        "reviewed",
+        "verdict",
+        "verdict_sealed",
+        "approved_sealed",
+        "applied",
+        "verified",
+        "verified_sealed",
+        "rolled_back",
+        "held",
+        "recovery_held",
+        "arbitration_requested",
+        "arbitrated"
+      ],
+      "title": "Phase",
+      "type": "string"
+    },
+    "intent_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Intent Digest",
+      "type": "string"
+    },
+    "correlation_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "producer_principal": {
+      "title": "Producer Principal",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "resource_id": {
+      "title": "Resource Id",
+      "type": "string"
+    },
+    "outcome": {
+      "default": "pending",
+      "enum": [
+        "pending",
+        "matched",
+        "mismatched",
+        "rolled_back"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "applied_revision": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Applied Revision",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "phase",
+    "intent_digest",
+    "correlation_id",
+    "producer_principal",
+    "idempotency_key",
+    "resource_id"
+  ],
+  "title": "DocumentIntentEvent",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/document-intent-event/1.0.0"
+}

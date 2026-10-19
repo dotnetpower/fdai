@@ -74,6 +74,7 @@ from fdai.delivery.prospective_lineage import (
     StateStoreProspectiveLineageReadinessReader,
 )
 from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtifactStore
+from fdai.delivery.self_health_disagreement import RuntimeMixedModelHealthSource
 from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
@@ -196,6 +197,7 @@ def _build_control_loop(
     workflow_event_bus: EventBus | None = None,
     approval_bindings: ApprovalRuntimeBindings | None = None,
     verifier_health_source: RuntimeVerifierHealthSource | None = None,
+    mixed_model_health_source: RuntimeMixedModelHealthSource | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -449,6 +451,7 @@ def _build_control_loop(
         action_modes=promotion_registry,
         deterministic_evidence_verifiers=_resolve_t2_deterministic_evidence_verifiers(container),
         verifier_health_source=verifier_health_source,
+        mixed_model_health_source=mixed_model_health_source,
     )
 
     thor_execution_port = build_thor_execution_port(

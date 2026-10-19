@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:ff9b2d8b63649c12306f8cf53c97166201a2efcdcb50b2db9db4121d29c2ead6",
+  "catalog_digest": "sha256:8800e12123664bacccde7bcec2abdaf42a380e10caf794e31d7c8ddf80c1c8e9",
   "execution_authority": false,
-  "generated_at": "2026-10-19T11:34:37.082946Z",
+  "generated_at": "2026-10-19T12:46:47.113708Z",
   "records": [
     {
       "designed_behavior": [
@@ -106,25 +106,25 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:7843656dd9ec1112fff2a7383850f02e5860b548e5dfe375979e90bc4be6ab21",
+      "record_digest": "sha256:3802cd780b2761461bbd928d23813f41c998610587faa0ac3d4bf154d5df653e",
       "sources": [
         {
-          "authority_role": "implementation",
-          "blob_sha": "0a75c0979b34d39c742ff144c630d8125ef8d8c3",
-          "line_end": 376,
-          "line_start": 376,
-          "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
-          "source_kind": "code",
-          "symbol": "_BRAGI"
-        },
-        {
           "authority_role": "design",
-          "blob_sha": "715b852a66758b6956c23313ed30ffc9de52dbb8",
+          "blob_sha": "bc0a7b10732cba5793565715bd08e95140c74ffe",
           "line_end": 29,
           "line_start": 29,
           "path": "docs/roadmap/agents/agent-pantheon.md",
           "source_kind": "doc",
           "symbol": "Two-port model"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "da0134ab36da3f86c4d8b9e721299f4c624983a8",
+          "line_end": 378,
+          "line_start": 378,
+          "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
+          "source_kind": "code",
+          "symbol": "_BRAGI"
         }
       ],
       "status": "implemented",
@@ -268,13 +268,13 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:8135fcee39c1a4d9524f4816b7d8863f0c8abc69b00ff4541774de12cab46504",
+      "record_digest": "sha256:a0805de25e3481c92a114938856915c690826d7240ec5d29740ae6bfad4d4fa3",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "5e21d9b662cffa88c27f99b54e175d2d1d93dcc9",
-          "line_end": 17,
-          "line_start": 17,
+          "blob_sha": "e4ef0771917646a54ec34cb22bfd10292ed712e8",
+          "line_end": 21,
+          "line_start": 21,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
           "source_kind": "doc",
           "symbol": "Implementation status"
@@ -336,25 +336,25 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:6163b977fc66d556e57456510208bf7b1d0418d402e3472252e6d9885fff83ff",
+      "record_digest": "sha256:e3903f8c68cafef5b00880c875dbbd811295f408559829025625cbc00941dd3b",
       "sources": [
         {
-          "authority_role": "implementation",
-          "blob_sha": "0a75c0979b34d39c742ff144c630d8125ef8d8c3",
-          "line_end": 746,
-          "line_start": 746,
-          "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
-          "source_kind": "code",
-          "symbol": "PANTHEON_SPECS"
-        },
-        {
           "authority_role": "design",
-          "blob_sha": "715b852a66758b6956c23313ed30ffc9de52dbb8",
+          "blob_sha": "bc0a7b10732cba5793565715bd08e95140c74ffe",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/agents/agent-pantheon.md",
           "source_kind": "doc",
           "symbol": "Design principles"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "da0134ab36da3f86c4d8b9e721299f4c624983a8",
+          "line_end": 748,
+          "line_start": 748,
+          "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
+          "source_kind": "code",
+          "symbol": "PANTHEON_SPECS"
         }
       ],
       "status": "implemented",
