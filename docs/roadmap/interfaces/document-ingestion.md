@@ -355,7 +355,7 @@ The API, worker, and migration job use distinct managed identities and PostgreSQ
 worker receives Event Hubs receive and OCR access; only migration can read the administrator DSN.
 Both runtime roles can publish lifecycle records and access only their required document tables.
 Neither becomes ready until `SELECT current_user` confirms its role-scoped DSN.
-API and worker CPU, memory, and replica ranges are independent, with one worker replica by default.
+API and worker CPU, memory, and replica ranges are independent, with one worker replica by default. Their manifests share the fixed aiohttp security floor and cannot retain an older compatible range after a shared image-scan remediation.
 Production scale-out requires recorded restart, redelivery, DLQ, and durable-claim smoke evidence.
 The retired co-host is not a rollback surface. Immutable prior service images and independent
 service deployment state provide rollback without restoring shared process ownership.
