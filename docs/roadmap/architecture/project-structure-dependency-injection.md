@@ -42,7 +42,7 @@ not complete operational health. An absent listener binding or policy stays
 unavailable; an absent or malformed kill-switch row never
 becomes a healthy false value. `SelfHealthExporterUnavailableError.reason` preserves only
 `exporter_unavailable`, `source_missing`, `source_malformed`, `source_unreachable`, `source_incomplete`, `source_stale`, or `source_from_future`.
-The adapter aggregate remains unavailable. Separately typed embedding observations do not narrow it. Remaining signals and fields keep explicit unavailable bindings until their owning
+The adapter aggregate remains unavailable. Separately typed embedding and cross-check/pool observations do not narrow it. `wire_llm` supplies explicit logical roles even without a prompt composer; readiness binds those actual SDK sources without dropping unobserved configured roles or accepting duplicate-role sources. Remaining signals and fields keep explicit unavailable bindings until their owning
 sources exist. These read-only adapters grant no identity, approval, execution, or promotion
 authority. See the [operating source contract](../operations/operating-and-verification.md#local-source-bindings).
 

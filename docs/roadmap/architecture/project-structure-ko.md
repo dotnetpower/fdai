@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c15b39ff12d2720bbcd05b76debc25b944e66edf
+translation_source_sha: efc2835f336e052076145c2dd0085e60c800b9e6
 translation_revised: 2026-10-19
 ---
 # 프로젝트 구조
@@ -109,7 +109,7 @@ unavailable binding을 출처가 명시된 운영 메트릭으로 교체해야 �
 연결합니다. 런타임은 수집원의 수명을 소유하고 추가 모델 검사 없이 수집을 직렬화합니다.
 [운영 담당 문서](../operations/operating-and-verification-ko.md#남아-있는-수집원-경계)가 현재 수치와
 미충족 근거를 소유하며 [수집원 주입 계약](project-structure-dependency-injection-ko.md#자체-상태-수집원-연결)은
-서비스 및 에이전트 소유권을 유지합니다. 임베딩 근거는 전체 등록을 갖춘 별도 모델 범위이지
+서비스 및 에이전트 소유권을 유지합니다. 임베딩 및 교차검사/풀 근거는 전체 등록을 갖춘 별도 모델 범위이지
 어댑터 집계 상태가 아니며, 이 읽기로 전체 복제본의 상태나 배포 수락을 입증하지 않습니다.
 운영 승격은 또 하나의 정확한 계층 간 ID를 사용합니다. Core 측정은 모든 O7 임계값 정책을
 다이제스트하고 증적에 포함합니다. 검토된 replay 권한, 거버넌스 승격 요청, 영속 증적 저장,

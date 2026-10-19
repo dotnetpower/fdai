@@ -1,7 +1,8 @@
-"""Process- and binding-qualified observations of normal embedding provider calls."""
+"""Process- and binding-qualified observations of normal provider SDK calls."""
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -31,17 +32,19 @@ class ProviderInvocationObservation:
     result: bool | None = None
 
 
-class EmbeddingProviderObservations:
+class ProviderInvocationObservations:
     """Retain one fully settled invocation cohort, never a rate or all-model health."""
 
     def __init__(
         self,
         *,
+        role: str,
         binding_digest: str,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
+        self.role = role
         self.exporter_id = (
-            f"process:provider:t1.embedding:{uuid4().hex}:{binding_digest.removeprefix('sha256:')}"
+            f"process:provider:{role}:{uuid4().hex}:{binding_digest.removeprefix('sha256:')}"
         )
         self.binding_digest = binding_digest
         self._clock = clock
@@ -62,6 +65,9 @@ class EmbeddingProviderObservations:
             self._pending.add(token)
         try:
             yield observation
+        except asyncio.CancelledError:
+            observation.result = None
+            raise
         finally:
             with self._lock:
                 recorded_at = self._clock()
@@ -87,12 +93,27 @@ class EmbeddingProviderObservations:
             return self._last
 
 
+class EmbeddingProviderObservations(ProviderInvocationObservations):
+    """Preserve the existing embedding constructor and fixed role."""
+
+    def __init__(
+        self,
+        *,
+        binding_digest: str,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        super().__init__(role="t1.embedding", binding_digest=binding_digest, clock=clock)
+
+
 @dataclass(frozen=True, slots=True)
-class EmbeddingProviderObservationSource:
-    observations: EmbeddingProviderObservations
+class ProviderObservationSource:
+    observations: ProviderInvocationObservations
     client: httpx.AsyncClient
     maximum_age_seconds: int
-    role: str = field(default="t1.embedding", init=False)
+
+    @property
+    def role(self) -> str:
+        return self.observations.role
 
     @property
     def binding_digest(self) -> str:
@@ -118,6 +139,56 @@ class EmbeddingProviderObservationSource:
             value=Decimal(int(success)),
             observed_at=observed_at,
             source=self.exporter_id,
+            maximum_age_seconds=self.maximum_age_seconds,
+            fresh=True,
+            reason="observed_provider_contract",
+        )
+
+
+class EmbeddingProviderObservationSource(ProviderObservationSource):
+    """Preserve the embedding source constructor over the shared observation mechanics."""
+
+
+@dataclass(frozen=True, slots=True)
+class PooledProviderObservationSource:
+    role: str
+    binding_digest: str
+    sources: tuple[ModelProviderObservationSource, ...]
+    maximum_age_seconds: int
+    exporter_id: str = field(default_factory=lambda: f"process:provider-pool:{uuid4().hex}")
+
+    async def observe(self, *, now: datetime) -> ModelProviderObservationV1:
+        rows: list[ModelProviderObservationV1] = []
+        for source in self.sources:
+            row = await source.observe(now=now)
+            if row.role != self.role or row.binding_digest != source.binding_digest:
+                raise SelfHealthExporterUnavailableError(reason="source_malformed")
+            if row.health is ModelProviderHealth.UNKNOWN or row.observed_at is None:
+                raise SelfHealthExporterUnavailableError(reason="source_incomplete")
+            if not row.fresh:
+                raise SelfHealthExporterUnavailableError(reason="source_stale")
+            age = (now - row.observed_at).total_seconds()
+            if age < 0:
+                raise SelfHealthExporterUnavailableError(reason="source_from_future")
+            if age > min(row.maximum_age_seconds, self.maximum_age_seconds):
+                raise SelfHealthExporterUnavailableError(reason="source_stale")
+            rows.append(row)
+        if not rows:
+            raise SelfHealthExporterUnavailableError(reason="source_incomplete")
+        observed_at = min(row.observed_at for row in rows if row.observed_at is not None)
+        age = (now - observed_at).total_seconds()
+        if age < 0:
+            raise SelfHealthExporterUnavailableError(reason="source_from_future")
+        if age > self.maximum_age_seconds:
+            raise SelfHealthExporterUnavailableError(reason="source_stale")
+        success = all(row.health is ModelProviderHealth.HEALTHY for row in rows)
+        return ModelProviderObservationV1(
+            role=self.role,
+            binding_digest=self.binding_digest,
+            source=self.exporter_id,
+            health=ModelProviderHealth.HEALTHY if success else ModelProviderHealth.UNHEALTHY,
+            value=Decimal(int(success)),
+            observed_at=observed_at,
             maximum_age_seconds=self.maximum_age_seconds,
             fresh=True,
             reason="observed_provider_contract",

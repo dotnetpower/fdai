@@ -30,10 +30,12 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from typing import Any, Final
 
 import httpx
+from fdai_service_contracts.compatibility import canonical_digest
+from fdai_service_contracts.model_provider_health import ConfiguredModelBindingV1
 
 from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.metering.usage import TokenUsage
@@ -50,12 +52,21 @@ from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.gateway_evidence import record_gateway_route_evidence
 from fdai.delivery.azure.llm.latency_routed_cross_check import ModelHealthTransitionSink
 from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.provider_observations import (
+    ProviderInvocationObservation,
+    ProviderInvocationObservations,
+    ProviderObservationSource,
+)
 from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
 )
 from fdai.delivery.azure.llm.usage import extract_usage
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle, ModelRouteKind
+from fdai.shared.providers.self_health import (
+    ModelProviderObservationSource,
+    SelfHealthExporterUnavailableError,
+)
 from fdai.shared.providers.workload_identity import IdentityToken, WorkloadIdentity
 
 # OpenAI function names accept ``[A-Za-z0-9_-]{1,64}`` only, so tool ids
@@ -130,6 +141,7 @@ class AzureOpenAICrossCheckModel:
         scope_resolver: ScopeResolver | None = None,
         metering: MeteringEmitter | None = None,
         gateway_route_sink: ModelHealthTransitionSink | None = None,
+        observation_role: str | None = None,
     ) -> None:
         target = ModelRequestTarget(
             endpoint=config.endpoint,
@@ -191,6 +203,18 @@ class AzureOpenAICrossCheckModel:
         self._metering: Final[MeteringEmitter | None] = metering
         self._target: Final[ModelRequestTarget] = target
         self._gateway_route_sink = gateway_route_sink
+        if observation_role is not None:
+            ConfiguredModelBindingV1(role=observation_role, binding_digest=None)
+        self._provider_observations = (
+            ProviderInvocationObservations(
+                role=observation_role,
+                binding_digest=canonical_digest(
+                    {"role": observation_role, "config": asdict(config)}
+                ),
+            )
+            if observation_role is not None
+            else None
+        )
 
         # Snapshot the enforce-mode tools at construction so the
         # advertised manifest is deterministic per model instance and
@@ -231,7 +255,27 @@ class AzureOpenAICrossCheckModel:
 
     async def propose_with_evidence(self, candidate: QualityCandidate) -> CrossCheckProposal:
         """Return a proposal plus prompt evidence scoped to this call."""
+        if self._provider_observations is None:
+            return await self._propose_observed(candidate, None)
+        with self._provider_observations.invocation() as observation:
+            proposal = await self._propose_observed(candidate, observation)
+            observation.result = True
+            return proposal
 
+    def model_provider_observations(
+        self, *, maximum_age_seconds: int
+    ) -> ModelProviderObservationSource:
+        if self._provider_observations is None:
+            raise SelfHealthExporterUnavailableError(reason="source_missing")
+        return ProviderObservationSource(
+            observations=self._provider_observations,
+            client=self._http,
+            maximum_age_seconds=maximum_age_seconds,
+        )
+
+    async def _propose_observed(
+        self, candidate: QualityCandidate, observation: ProviderInvocationObservation | None
+    ) -> CrossCheckProposal:
         request = self._target.operation("chat/completions")
         resolved_prompt = await self._resolve_system_prompt(candidate)
         user_prompt = json.dumps(
@@ -295,7 +339,7 @@ class AzureOpenAICrossCheckModel:
                     raise RuntimeError("cross-check request exceeds its prompt profile budget")
                 if token is None:
                     token = await self._identity.get_token(self._target.auth_audience)
-                response = await self._http.post(
+                response = await self._post_provider(
                     request.url,
                     params=request.params,
                     headers={
@@ -304,19 +348,29 @@ class AzureOpenAICrossCheckModel:
                     },
                     json=body,
                     timeout=self._config.timeout_seconds,
+                    observation=observation,
                 )
-                response.raise_for_status()
                 await record_gateway_route_evidence(
                     response=response,
                     target=self._target,
                     model_role=self._capability_id or "t2.reasoner",
                     sink=self._gateway_route_sink,
                 )
-                envelope = response.json()
+                try:
+                    envelope = response.json()
+                except ValueError:
+                    if observation is not None:
+                        observation.result = False
+                    raise
                 call_usage = extract_usage(envelope)
                 if call_usage is not None:
                     total_usage = total_usage + call_usage
-                message = _extract_message(envelope)
+                try:
+                    message = _extract_message(envelope)
+                except RuntimeError:
+                    if observation is not None:
+                        observation.result = False
+                    raise
 
                 tool_calls = message.get("tool_calls") or []
                 if tool_calls:
@@ -338,7 +392,12 @@ class AzureOpenAICrossCheckModel:
                     continue
 
                 content = message.get("content")
-                action_type, params = _parse_final_answer(content)
+                try:
+                    action_type, params = _parse_final_answer(content)
+                except RuntimeError:
+                    if observation is not None:
+                        observation.result = False
+                    raise
                 return CrossCheckProposal(
                     action_type=action_type,
                     params=params,
@@ -351,6 +410,27 @@ class AzureOpenAICrossCheckModel:
         finally:
             if self._metering is not None:
                 await self._metering.emit_safe(total_usage)
+
+    async def _post_provider(
+        self,
+        url: str,
+        *,
+        params: Mapping[str, str] | None,
+        headers: Mapping[str, str],
+        json: Mapping[str, Any],
+        timeout: float,
+        observation: ProviderInvocationObservation | None,
+    ) -> httpx.Response:
+        try:
+            response = await self._http.post(
+                url, params=params, headers=headers, json=json, timeout=timeout
+            )
+            response.raise_for_status()
+        except httpx.HTTPError:
+            if observation is not None:
+                observation.result = False
+            raise
+        return response
 
     async def _resolve_system_prompt(self, candidate: QualityCandidate) -> _ResolvedSystemPrompt:
         """Return the system message for one ``propose()`` call.
@@ -500,6 +580,10 @@ def _parse_final_answer(content: object) -> tuple[str, Mapping[str, Any]]:
         raise RuntimeError("cross-check response MUST carry a non-empty 'action_type' string")
     if not isinstance(params, dict):
         raise RuntimeError("cross-check response 'params' MUST be an object")
+    try:
+        canonical_digest(params)
+    except ValueError as exc:
+        raise RuntimeError("cross-check response params MUST contain finite JSON") from exc
     return action_type, params
 
 

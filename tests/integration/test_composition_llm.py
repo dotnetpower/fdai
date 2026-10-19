@@ -24,6 +24,7 @@ from fdai.core.tiers.t2_reasoning import BoundedFailoverT2Proposer
 from fdai.delivery.azure.llm.embeddings import AzureOpenAIEmbeddingModel
 from fdai.shared.config import AppConfig
 from fdai.shared.config.models import LlmMode
+from fdai.shared.providers.self_health import ModelProviderObservedProvider
 from fdai.shared.providers.workload_identity import (
     IdentityToken,
     WorkloadIdentity,
@@ -292,6 +293,11 @@ def test_bind_azure_llm_bindings_attaches_adapters(tmp_path: Path) -> None:
     assert len(bindings.cross_check_models) == 2
     assert bindings.conversation_metering is metering
     assert bindings.conversation_pricing is pricing
+    for model, role in zip(
+        bindings.cross_check_models, ("t2.reasoner.primary", "t2.reasoner.secondary"), strict=True
+    ):
+        assert isinstance(model, ModelProviderObservedProvider)
+        assert model.model_provider_observations(maximum_age_seconds=120).role == role
 
 
 def test_bind_azure_llm_bindings_enables_bounded_proposer_failover(tmp_path: Path) -> None:
@@ -638,6 +644,11 @@ def test_bind_explicit_hil_only_reasoner_uses_disagree_fake(tmp_path: Path) -> N
     assert isinstance(
         finalized.require_llm_bindings().cross_check_models[1],
         MismatchCrossCheckModel,
+    )
+    primary = finalized.require_llm_bindings().cross_check_models[0]
+    assert isinstance(primary, ModelProviderObservedProvider)
+    assert (
+        primary.model_provider_observations(maximum_age_seconds=120).role == "t2.reasoner.primary"
     )
 
 
@@ -2155,6 +2166,8 @@ def test_primary_router_engaged_when_flag_on_and_pool_present(tmp_path: Path) ->
 
     bindings = _bind_with_pool(tmp_path, flag=True, pool_size=2)
     assert isinstance(bindings.cross_check_models[0], LatencyRoutedCrossCheckModel)
+    source = bindings.cross_check_models[0].model_provider_observations(maximum_age_seconds=120)
+    assert source.role == "t2.reasoner.primary"
 
 
 def test_primary_not_routed_when_flag_off(tmp_path: Path) -> None:

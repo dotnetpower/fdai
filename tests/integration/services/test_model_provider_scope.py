@@ -11,8 +11,10 @@ import httpx
 import pytest
 from fdai.composition import LlmBindings
 from fdai.core.notifications.matrix import load_matrix_from_yaml
+from fdai.core.quality_gate.gate import QualityCandidate
 from fdai.core.readiness.self_health import load_self_health_catalog
 from fdai.core.readiness.self_health_runtime import SelfHealthRuntimeMonitor
+from fdai.delivery.azure.llm import cross_check as cross_check_module
 from fdai.delivery.azure.llm import embeddings as embedding_module
 from fdai.delivery.azure.llm.cross_check import (
     AzureOpenAICrossCheckModel,
@@ -25,6 +27,7 @@ from fdai.delivery.azure.llm.embeddings import (
 from fdai.delivery.azure.llm.provider_observations import (
     ConfiguredModelProviderScope,
     EmbeddingProviderObservations,
+    ProviderInvocationObservations,
 )
 from fdai.delivery.self_health_sources import runtime_self_health_registry
 from fdai.runtime.bootstrap_readiness import build_runtime_model_provider_scope
@@ -96,10 +99,11 @@ def _container(model, other, *, revision="a", registered=True):
     )
 
 
-def _other(client):
+def _other(client, *, role=None):
     return AzureOpenAICrossCheckModel(
         identity=LocalWorkloadIdentity(),
         http_client=client,
+        observation_role=role,
         config=AzureOpenAICrossCheckModelConfig(
             endpoint="https://example.openai.azure.com",
             deployment="configured-reasoner",
@@ -129,6 +133,12 @@ def _clock(monkeypatch):
         lambda **kwargs: factory(clock=lambda: NOW, **kwargs),
     )
     monkeypatch.setattr(operator_module, "_model_scope_read_now", lambda: NOW)
+    cross_check_factory = ProviderInvocationObservations
+    monkeypatch.setattr(
+        cross_check_module,
+        "ProviderInvocationObservations",
+        lambda **kwargs: cross_check_factory(clock=lambda: NOW, **kwargs),
+    )
 
 
 class Fallback:
@@ -397,3 +407,97 @@ async def test_reader_never_returns_stale_or_future_sub_adapter_health(monkeypat
         )
         with pytest.raises(ProjectionUnavailableError, match="scope is malformed"):
             await _operator(store, monkeypatch)
+
+
+@pytest.mark.parametrize("status", [200, 503])
+async def test_actual_cross_check_sdk_to_runtime_persistence_and_operator_reader(
+    monkeypatch, status
+):
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        if request.url.path.endswith("/embeddings"):
+            return httpx.Response(200, json={"data": [{"embedding": [0.1, 0.2]}]})
+        return httpx.Response(
+            status,
+            json={"choices": [{"message": {"content": '{"action_type":"example","params":{}}'}}]},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        embedding = _embedding(client)
+        reasoner = _other(client, role="t2.reasoner.primary")
+        source = build_runtime_model_provider_scope(_container(embedding, reasoner), _catalog())
+        await embedding.embed("ordinary invocation")
+        candidate = QualityCandidate(
+            action_type="example",
+            params={},
+            cited_rule_ids=(),
+            target_resource_ref="resource:example",
+        )
+        if status == 200:
+            await reasoner.propose(candidate)
+        else:
+            with pytest.raises(httpx.HTTPStatusError):
+                await reasoner.propose(candidate)
+        store = InMemoryStateStore()
+        snapshot = await SelfHealthRuntimeMonitor(
+            registry=_registry(store), store=store, model_provider_scope=source
+        ).collect_and_persist(now=NOW)
+        result = await _operator(store, monkeypatch)
+        scope = ModelProviderScopeSnapshotV1.model_validate(result["model_provider_scope"])
+        assert scope.coverage_complete is True
+        assert scope.health is (
+            ModelProviderHealth.HEALTHY if status == 200 else ModelProviderHealth.UNHEALTHY
+        )
+        assert len(scope.configured_bindings) == 2
+        assert OperationalStateSnapshotV1.model_validate(result["snapshot"]) == snapshot
+        assert (
+            next(
+                row
+                for row in snapshot.self_health.signals
+                if row.signal is SelfHealthSignalName.ADAPTER_HEALTHCHECK
+            ).status
+            is SelfHealthSignalStatus.UNAVAILABLE
+        )
+        assert scope.execution_authority is False
+        assert len(calls) == 2
+        assert await store.verify_chain()
+        restarted = build_runtime_model_provider_scope(
+            _container(_embedding(client), _other(client, role="t2.reasoner.primary")), _catalog()
+        )
+        restarted_scope = await restarted.observe(
+            now=NOW, parent_snapshot_digest=snapshot.snapshot_digest
+        )
+        assert restarted_scope.health is ModelProviderHealth.UNKNOWN
+        assert restarted.registration.process_instance != source.registration.process_instance
+
+
+@pytest.mark.parametrize("kind", ["duplicate", "unregistered"])
+async def test_runtime_never_uses_last_wins_or_unregistered_source(kind, caplog):
+    async with httpx.AsyncClient() as client:
+        embedding = _embedding(client)
+        primary = _other(client, role="t2.reasoner.primary")
+        container = _container(embedding, primary)
+        second = _other(
+            client,
+            role="t2.reasoner.primary" if kind == "duplicate" else "t2.reasoner.secondary",
+        )
+        models = (primary, second) if kind == "duplicate" else (second,)
+        container.require_llm_bindings = lambda: LlmBindings(
+            embedding_model=embedding, cross_check_models=models
+        )
+        source = build_runtime_model_provider_scope(container, _catalog())
+        scope = await source.observe(now=NOW, parent_snapshot_digest="sha256:" + "a" * 64)
+        assert [row.role for row in scope.configured_bindings] == [
+            "t1.embedding",
+            "t2.reasoner.primary",
+        ]
+        assert scope.configured_bindings[1].binding_digest is None
+        assert scope.observations[1].health is ModelProviderHealth.UNKNOWN
+        assert scope.health is ModelProviderHealth.UNKNOWN
+        assert (
+            "model_provider_source_role_ambiguous"
+            if kind == "duplicate"
+            else "model_provider_source_role_unregistered"
+        ) in caplog.text

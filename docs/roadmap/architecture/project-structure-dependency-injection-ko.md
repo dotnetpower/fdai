@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 860dda51215f38aa4a5d1241bf3ae2e90c3d883a
+translation_source_sha: 61443243c4879c93b12df5adb94cd4d4dade295d
 translation_revised: 2026-10-19
 ---
 
@@ -48,7 +48,7 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
 비상 정지 행이 없거나 잘못되어도 정상인 false 값으로
 바꾸지 않습니다. `SelfHealthExporterUnavailableError.reason`은 `exporter_unavailable`,
 `source_missing`, `source_malformed`, `source_unreachable`, `source_incomplete`, `source_stale`, `source_from_future`만 보존합니다.
-어댑터 집계는 unavailable이며 별도 타입 지정 임베딩 관측으로 집계 범위를 좁히지 않습니다. 나머지 신호와 필드는 담당 수집원이 제공될 때까지 명시적인 unavailable 연결을
+어댑터 집계는 unavailable이며 별도 타입 지정 임베딩 및 교차검사/풀 관측으로 집계 범위를 좁히지 않습니다. `wire_llm`은 프롬프트 구성기가 없어도 논리적 역할을 명시하며, 준비 상태 구성은 미관측 구성 역할을 누락하거나 중복 역할 수집원을 수락하지 않고 실제 SDK 수집원을 연결합니다. 나머지 신호와 필드는 담당 수집원이 제공될 때까지 명시적인 unavailable 연결을
 유지합니다. 이 읽기 전용 어댑터는 신원, 승인, 실행, 승격 권한을 부여하지 않습니다.
 [운영 수집원 계약](../operations/operating-and-verification-ko.md#로컬-수집원-연결)을 참조하세요.
 

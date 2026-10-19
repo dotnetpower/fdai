@@ -25,7 +25,11 @@ from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_
 from fdai.shared.contracts.models import OntologyRelease, Rule
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.readiness import RemediationProposalBinding
-from fdai.shared.providers.self_health import ModelProviderObservedProvider
+from fdai.shared.providers.self_health import (
+    ModelProviderObservationSource,
+    ModelProviderObservedProvider,
+    SelfHealthExporterUnavailableError,
+)
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -50,25 +54,37 @@ def build_runtime_model_provider_scope(
     container: Container, catalog: SelfHealthCatalog
 ) -> ConfiguredModelProviderScope:
     """Keep the full startup registration; a sub-provider never supplies global health."""
-    embedding = container.require_llm_bindings().embedding_model
+    llm_bindings = container.require_llm_bindings()
     age = catalog.policies[SelfHealthSignalName.ADAPTER_HEALTHCHECK].maximum_age_seconds
-    source = (
-        embedding.model_provider_observations(maximum_age_seconds=age)
-        if isinstance(embedding, ModelProviderObservedProvider)
-        else None
-    )
     roles = (
         tuple(sorted(cap.name for cap in container.resolved_models.capabilities))
         if container.resolved_models is not None
         else ()
     )
+    sources: dict[str, ModelProviderObservationSource] = {}
+    ambiguous: set[str] = set()
+    for provider in (llm_bindings.embedding_model, *llm_bindings.cross_check_models):
+        if not isinstance(provider, ModelProviderObservedProvider):
+            continue
+        try:
+            source = provider.model_provider_observations(maximum_age_seconds=age)
+        except SelfHealthExporterUnavailableError as exc:
+            _LOGGER.info("model_provider_source_unavailable", extra={"reason": exc.reason})
+            continue
+        if source.role not in roles:
+            _LOGGER.warning("model_provider_source_role_unregistered")
+            continue
+        if source.role in sources or source.role in ambiguous:
+            sources.pop(source.role, None)
+            ambiguous.add(source.role)
+            _LOGGER.error("model_provider_source_role_ambiguous", extra={"role": source.role})
+            continue
+        sources[source.role] = source
     return ConfiguredModelProviderScope(
         configured_bindings=tuple(
             ConfiguredModelBindingV1(
                 role=role,
-                binding_digest=(
-                    source.binding_digest if role == "t1.embedding" and source is not None else None
-                ),
+                binding_digest=(sources[role].binding_digest if role in sources else None),
             )
             for role in roles
         ),
@@ -77,7 +93,7 @@ def build_runtime_model_provider_scope(
             if container.resolved_models_artifact_digest is not None
             else None
         ),
-        sources={"t1.embedding": source} if source is not None else {},
+        sources=sources,
         maximum_age_seconds=age,
     )
 
