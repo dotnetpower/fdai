@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai_service_contracts.rule_activation import RuleActivationSource
+from fdai_service_contracts.self_health import SelfHealthSignalName
 
 from fdai.composition import (
     Container,
@@ -23,6 +24,7 @@ from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
 from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
+from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime import bootstrap_core_model, bootstrap_incidents
 from fdai.runtime import product_profile as _product_profile
@@ -430,8 +432,14 @@ async def build_core_runtime(
         http_client=resources.http_client,
     )
     approval_bindings = await load_signed_approval_bindings(environment, state_store, resources)
+    self_health = build_runtime_self_health_bindings(container)
+    verifier_policy = self_health.catalog.policies[SelfHealthSignalName.VERIFIER_FAILURE_RATE]
+    resources.verifier_health_source = RuntimeVerifierHealthSource(
+        metric=verifier_policy.metric, window_seconds=verifier_policy.maximum_age_seconds
+    )
     control_loop = _build_control_loop(
         container,
+        verifier_health_source=resources.verifier_health_source,
         http_client=resources.http_client,
         stage_publisher=messaging.stage_publisher,
         audit_store=state_store,
@@ -622,7 +630,6 @@ async def build_core_runtime(
             ),
         },
     )
-    self_health = build_runtime_self_health_bindings(container)
     readiness = build_startup_readiness_runtime(
         state_store=state_store,
         event_bus=messaging.operational_bus,
@@ -644,6 +651,7 @@ async def build_core_runtime(
         liveness=resources.health_server.is_live if resources.health_server is not None else None,
         runtime_policy=runtime_values,
         startup_duration_source=resources.startup_duration_source,
+        verifier_health_source=resources.verifier_health_source,
         model_provider_scope=self_health.model_provider_scope,
     )
     startup_report = await readiness.evaluate()

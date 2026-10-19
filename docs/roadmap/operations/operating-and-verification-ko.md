@@ -1,7 +1,7 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 6f8abbf13da907ae02290a74c12f811bc44cb6e6
+translation_source_sha: 858fac4a6e2aad86dcec4d5aa1c837c288422ed1
 translation_revised: 2026-10-19
 ---
 
@@ -106,9 +106,21 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 수집원 실패 코드에는 `source_missing`, `source_malformed`, `source_unreachable`, `source_incomplete`, `source_stale`, `source_from_future`가 있습니다.
 프로바이더 오류 본문은 읽기 결과의 이유로 노출하지 않습니다.
 
+#### 결정론적 T2 검증기 관측
+
+기본 Core 품질 게이트 구성은 기존 `VerifierPolicy` 주입 경계를 통해 실제
+`RuleBasedVerifier`를 감쌉니다. 완료된 호출 중 `False` 또는 `None`을 반환한 건수가 분자이며,
+결과가 확인된 전체 검증기 호출 건수가 분모입니다. 완전한 고정 관측 구간 하나는 카탈로그
+최신성 한도인 현재 300초와 같습니다. 기존 5% 임계값은 바꾸지 않습니다.
+준비 구간, 호출 없음, 결과 미확인 예외, 모호한 연결, 시계 장애, 종료는 사용 불가로 유지합니다.
+현재 결과를 알 수 없으면 이전 정상 구간도 보류합니다. 재수집은 실제 마지막 관측 시각을
+유지합니다. 프로세스별 카운터는 재시작 시 비우고 기존 모니터는 비식별 스냅샷을 저장합니다.
+이는 검증기의 정확도나 작업 및 복구 성공을 측정하지 않습니다. 재시도는 호출이지 독립적인
+운영 사건이 아니며 추가 모델 호출은 없습니다.
+
 나머지 연결은 담당 수집원이 필요한 관측을 제공할 때까지 명시적으로 unavailable로 유지합니다.
 브로커 큐 깊이와 유입부터 결정까지의 지연에는 브로커 및 소비자 관측이 필요합니다.
-콜드 스타트 비율에는 완전한 수명 주기 측정 구간과 분모가 필요합니다. 검증기 실패, 모델 불일치,
+콜드 스타트 비율에는 완전한 수명 주기 측정 구간과 분모가 필요합니다. 모델 불일치,
 롤백, 재정의, 발견 통과 비율에는 시간 구간이 명확한 분자와 분모가 필요합니다.
 전체 어댑터 상태에는 등록된 의존성 검사가 필요하고, 카나리 결과와 상태에는 완전한 최신
 시도 수집원이 여전히 필요합니다. 새 경과 시간 읽기자는 그 결과를 제공하지 않습니다.
@@ -118,9 +130,9 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 
 ### 남아 있는 수집원 경계
 
-신호 15개 중 5개와 필드 8개 중 3개가 자격을 갖춘 런타임 원본에 연결됩니다. 인덱스로 읽은
+신호 15개 중 6개와 필드 8개 중 3개가 자격을 갖춘 런타임 원본에 연결됩니다. 인덱스로 읽은
 마지막 성공의 경과 시간만으로 최신 예약 시도나 완전한 카나리 상태를 확인할 수 없습니다.
-신호 10개와 필드 5개는 사용 불가이며 누락된 관측이나 분모를 실패 0건 또는 성공으로 보지
+신호 9개와 필드 5개는 사용 불가이며 누락된 관측이나 분모를 실패 0건 또는 성공으로 보지
 않습니다. 게시 횟수는 브로커 대기열 깊이를, 시작 소요 시간은 전체 복제본 콜드 스타트 비율을,
 승격 기록은 실행된 롤백이나 규칙별 재정의 비율을 입증하지 않습니다.
 
@@ -135,6 +147,7 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 실제 결정론적 T2 검증기 비율 | implemented | `delivery/self_health_verifier.py`, 기본 게이트 및 준비 상태와 자원 소유 경계, 집중 검사 20개, 분기 포함 수집원 커버리지 100% | 정책에 따른 완전한 프로세스 관측 구간과 실제 반환 결과를 사용합니다. 분모나 학습 결과를 만들지 않고 게이트 판정을 유지하며 타입 지정 저장 결과와 종료를 검증합니다. 배포나 운영 품질 개선을 주장하지 않습니다. |
 | 안정화 스케줄러 숫자 입력 검증 | implemented | #2254, 공통 예약 모델, 호환 도구 및 실제 생성 명령 검사, 집중 검사 110개, 모델 및 도구 분기 포함 커버리지 92.62%/97.63% | 유한하지 않은 잘못된 간격은 저장하거나 유효한 작업을 교체하지 못합니다. 기존 주기와 정상 실행 요청은 유지합니다. 선행 조건의 하드닝이며 일일 작업 등록이나 안정화 검증 완료를 뜻하지 않습니다. |
 | 런타임 `/live` 및 `/ready` 엔드포인트와 시작 준비 상태 평가, 저장, 전이, 보호된 새로 고침 | implemented | [`runtime/health.py`](../../../services/core-control-plane/src/fdai/runtime/health.py), [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`test_readiness.py`](../../../services/core-control-plane/tests/runtime/test_readiness.py), [`test_startup_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_startup_coordinator.py) | 프로세스 핵심 실패는 준비 상태를 닫고, 저하된 기능은 권한을 낮추며 복구 시 권한을 높이지 않습니다. |
 | 범위가 제한된 전이 구간과 메트릭 및 안전한 OTLP 구성 | implemented | [`transitions.py`](../../../services/core-control-plane/src/fdai/shared/telemetry/transitions.py), [`test_transition_telemetry.py`](../../../services/core-control-plane/tests/shared/test_transition_telemetry.py) | 안정적인 허용 목록 속성은 페이로드와 프로바이더 오류가 텔레메트리 레이블이 되지 않도록 합니다. |
@@ -142,7 +155,7 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 | 배포 후 승격 smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml), `scripts/deployment/azure/verify_canary_audit.py`, 집중 검증기 테스트 | 작업 흐름은 발행기에 결정론적 slot을 지정한 뒤 30초 안에 하나의 정확한 Core 감사 행을 요구합니다. 검증기는 데이터베이스 자격 증명을 노출하지 않고 모호하거나 잘못되거나 종결되지 않았거나 미래 시점이거나 예산을 넘은 행을 거부합니다. 보존된 실제 증적, 고정본 재생, 비상 정지 주기 및 사람 승인 예행 실행은 남아 있습니다. |
 | 전체 자체 상태 신호 정책 및 라우팅 매핑 | implemented | `config/self-health-signals.yaml`, `core/readiness/self_health.py`, 운영 시작 연결, 집중 자체 상태 및 준비 상태 테스트 | 필수 신호 15개를 각각 하나의 메트릭, 임계값 방향, 신선도 한도, 일반 담당 경로, 알림 route, 실패 시 안전한 대체 경로에 연결합니다. 범위 누락이나 route 불일치는 시작을 차단하며 어떤 결정도 실행 권한을 부여하지 않습니다. |
 | 감사로 확인한 카나리 경과 시간 수집원 | implemented | #2250, `delivery/self_health_canary.py`, `delivery/persistence/postgres_canary.py`, 동시 부분 인덱스 Core 마이그레이션, 실제 격리 PostgreSQL 사례 4개를 포함한 집중 검사 99개 | 최신 소비 성공 감사, 선택 행의 해시와 시각 및 신원 검사, 정확한 600초 및 8192/8193바이트 경계, 오래된 512행 구간을 벗어난 인덱스 조회, 기본 준비 상태 구성, 데이터 보존 인덱스 롤백을 로컬에서 검증했습니다. 호출자의 Decimal 정밀도가 임계값 위반을 반올림해 숨기지 않습니다. 보수적인 경과 시간이며 최신 시도 결과나 운영 검증을 뜻하지 않습니다. |
-| 전체 자체 상태 exporter 레지스트리, 경보 전달, 운영 훈련 | in-progress | 전체 신호 정책, 정확한 15개 신호 및 8개 필드 exporter 레지스트리, 런타임 수집원, 타입 지정 모델 역할 등록 및 범위, 영속 운영 상태 스냅숏, 인증된 Operator 읽기 route | 카탈로그 신호 항목 5개와 필드 3개에 수집원이 연결되며 항목 10개와 필드 5개는 unavailable입니다. 소비된 카나리 경과 시간은 카나리 결과 및 상태와 구분합니다. 실제 임베딩 관측은 타입 지정 하위 범위이며 전체 어댑터 상태의 근거가 아닙니다. 다른 수집원, 전체 전달과 훈련 증적은 미완성입니다. |
+| 전체 자체 상태 exporter 레지스트리, 경보 전달, 운영 훈련 | in-progress | 전체 신호 정책, 정확한 15개 신호 및 8개 필드 exporter 레지스트리, 런타임 수집원, 타입 지정 모델 역할 등록 및 범위, 영속 운영 상태 스냅숏, 인증된 Operator 읽기 route | 카탈로그 신호 항목 6개와 필드 3개에 수집원이 연결되며 항목 9개와 필드 5개는 unavailable입니다. 소비된 카나리 경과 시간은 카나리 결과 및 상태와 구분합니다. 실제 임베딩 관측은 타입 지정 하위 범위이며 전체 어댑터 상태의 근거가 아닙니다. 다른 수집원, 전체 전달과 훈련 증적은 미완성입니다. |
 | 상관관계 기반 감사 조사와 통합 버전 및 구성 노출 | implemented | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), `core/readiness/self_health_runtime.py`, 인증된 `GET /operations/runtime-state` | 비식별화된 계약 하나가 버전, 구성, 규칙 효과, 재정의, 발견, 카나리, 비상 정지, 긴급 액세스, 모든 자체 상태를 제공합니다. 각 필드는 출처, 신선도, 명시적인 unavailable 상태를 포함하며, route는 승인 또는 실행 권한을 부여하지 않습니다. |
 | 출시 전 지연 측정과 고정 시나리오 재생 | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), 집중 테스트 | 기본 기능은 범위가 제한된 측정과 릴리스 게이트 결과를 만듭니다. 외부 부하 생성기와 배포별 예산은 운영자 입력으로 남습니다. |
 | 라이브 Azure 읽기 조사 시나리오 | in-progress | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md#검증-및-release-근거) | 범위가 제한된 읽기 전용 시나리오 4개는 통과했지만 게스트 이벤트 일치, 실제 프로바이더 `429`, 서비스 간 동등성 증적은 릴리스 근거로 남아 있습니다. |
@@ -153,6 +166,7 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-19 | implemented | 실제 기본 T2 검증기를 완전한 구간의 상태 수집원에 연결했습니다. 반환 판정을 바꾸거나 다른 모델을 호출하지 않습니다. 현재 연결 범위는 신호 6개 및 필드 3개이며 철회한 성공 증적 기반의 신호 6개 및 필드 4개 해석과 다릅니다. | 이번 변경, `delivery/self_health_verifier.py`, `tests/delivery/test_self_health_verifier.py`: 20개 통과, 분기 포함 수집원 커버리지 100%. 직접 비평으로 결과 미확인 뒤 이전 정상 구간 재사용과 레지스트리 신원 불일치를 재현하고 수정했습니다. | 신호 9개 및 필드 5개, 설치 환경의 전달 및 훈련 증적, 측정된 운영 결과는 미완료입니다. 카운터는 의도적으로 프로세스별 상태이며 재시작 시 이전 정상 비율을 재사용하지 않고 준비 구간으로 돌아갑니다. |
 | 2026-10-19 | withdrawn | 보호된 #2253을 통합하면서 이 작업 브랜치의 이전 신호 6개 및 필드 4개 주장을 철회하고 성공 증적만 사용하는 카나리 결과 및 상태 내보내기를 제거했습니다. 최신 성공 증적은 최신 예약 시도나 완전한 카나리 상태를 입증하지 못하므로 더 강한 인덱스 경과 시간 생성기를 재사용합니다. | 이전 로컬 `adcbf54cc6` 및 `c7a7a8bdfa`의 테스트는 증적 유효성만 확인했습니다. 보호된 main `3917df4297`은 인덱스, 바이트 한도와 해시 검사 경과 시간 원본을 제공합니다. 독립적으로 소유한 최신 시도 구간은 없습니다. | 현재 신호 5개와 필드 3개가 연결됩니다. 최신 시도 결과 및 상태, 신호 생성기 10개와 필드 5개는 미완료이며 fixture 통과를 운영 자격으로 보지 않습니다. |
 | 2026-10-19 | implemented | 새 원본 회귀 검사의 보호 조건을 완화하는 대신 임시 CI 데이터베이스의 호스트 포트와 서비스 DSN을 격리 검증 포트 5433에 맞췄습니다. 정적 CI 계약 회귀는 5433 구성을 수락하고 런타임 포트 5432 구성을 거절합니다. 컨테이너 내부 PostgreSQL 포트는 5432입니다. | 현재 변경, 정확한 후보 `50bd2a1bffe10edcb29c0700445470ee8299f42d`의 CI `39196349170` 시도 1, 완료된 통합 작업 `117879915744`의 9단계에서 포트 불일치 14건을 확인했습니다. 데이터베이스 장애나 불안정한 테스트로 분류하지 않습니다. 로컬 `check-ci-contracts.py`와 CI, 산출물, 집중 범위 회귀 159개가 통과했으며 실제 원본 백엔드 테스트의 루프백 5433 검사는 그대로 유지합니다. | 수정된 정확한 후보의 CI가 최종 기준입니다. 테스트 기반만 바꾸며 런타임 데이터베이스, 배포된 상태, H01 연결 범위나 운영 자격은 바꾸지 않습니다. |
 | 2026-10-19 | implemented | 정규 소비 카나리 감사 근거를 결과, 마지막 성공 경과 시간, 카나리 필드에 연결했습니다. 범위가 제한된 읽기 전용 최신 행 쿼리 하나, 완전한 이력 대체 조회, 정확한 증적 검증, 결과 최신성 보존, 명시적인 수집원 실패를 적용했습니다. 당시 신호 연결은 15개 중 6개, 필드 연결은 8개 중 4개였으며 H01 완료를 뜻하지 않았습니다. | `current change`, `delivery/self_health_canary.py`, `delivery/self_health_sources.py`, `tests/delivery/test_self_health_canary.py`, 집중 pytest 65개 통과 및 분기 포함 원본 커버리지 100%, Ruff 및 엄격한 mypy 통과 | 당시 카탈로그 생산자 9개와 완전한 필드 변환 결과 4개가 누락됐으며 예약 시도 완전성과 운영 증적도 미완료였습니다. 이 로컬 연결 주장은 위 철회 행으로 정정합니다. |

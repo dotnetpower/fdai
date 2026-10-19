@@ -26,6 +26,7 @@ from fdai.core.quality_gate import (
     SelfConsistencySampler,
     UnavailableDeterministicEvidenceVerifier,
 )
+from fdai.core.quality_gate.gate import VerifierPolicy
 from fdai.core.quality_gate.promotion import (
     ActionModeSource,
     RubricModeResolver,
@@ -33,6 +34,7 @@ from fdai.core.quality_gate.promotion import (
 )
 from fdai.core.quality_gate.self_consistency import SelfConsistencyCascade
 from fdai.delivery.operator_request_receipt import core_operator_request_receipt_issuer_from_env
+from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
 from fdai.shared.contracts.models import Rule
 from fdai.shared.providers.event_bus import EventBus
 
@@ -203,12 +205,16 @@ def build_t2_quality_gate(
     deterministic_evidence_verifiers: (
         Mapping[DeterministicEvidenceKind, DeterministicEvidenceVerifier] | None
     ),
+    verifier_health_source: RuntimeVerifierHealthSource | None = None,
 ) -> QualityGate:
     """Build the production T2 gate from container bindings and the active rule set."""
     llm_bindings = container.require_llm_bindings()
     rubric_mode_resolver = build_rubric_mode_resolver(container, action_modes)
+    verifier: VerifierPolicy = RuleBasedVerifier(rules_by_id=dict(rules_by_id))
+    if verifier_health_source is not None:
+        verifier = verifier_health_source.bind(verifier)
     return QualityGate(
-        verifier=RuleBasedVerifier(rules_by_id=dict(rules_by_id)),
+        verifier=verifier,
         cross_check_models=llm_bindings.cross_check_models,
         grounding=RagGroundingSource(
             rules=dict(rules_by_id),

@@ -75,6 +75,7 @@ from fdai.delivery.prospective_lineage import (
     StateStoreProspectiveLineageReadinessReader,
 )
 from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtifactStore
+from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
@@ -194,6 +195,7 @@ def _build_control_loop(
     mutation_dependency_readiness: MutationDependencyReadiness,
     workflow_event_bus: EventBus | None = None,
     approval_bindings: ApprovalRuntimeBindings | None = None,
+    verifier_health_source: RuntimeVerifierHealthSource | None = None,
 ) -> ControlLoop:
     """Load rule / action / policy catalogs and wire the P1 control loop.
 
@@ -444,6 +446,7 @@ def _build_control_loop(
         rules_by_id=rules_by_id,
         action_modes=promotion_registry,
         deterministic_evidence_verifiers=_resolve_t2_deterministic_evidence_verifiers(container),
+        verifier_health_source=verifier_health_source,
     )
     t2 = T2Tier(
         proposer=llm_bindings.require_t2_proposer(),
