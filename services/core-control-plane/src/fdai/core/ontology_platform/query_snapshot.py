@@ -18,6 +18,44 @@ from fdai.shared.providers.ontology_instance import (
 )
 
 
+def freeze_snapshot_json(value: Any) -> Any:
+    """Freeze nested snapshot properties without losing their JSON serialization."""
+    if isinstance(value, Mapping):
+        return _ImmutableDict({key: freeze_snapshot_json(item) for key, item in value.items()})
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return tuple(freeze_snapshot_json(item) for item in value)
+    return value
+
+
+class _ImmutableDict(dict[str, Any]):
+    """JSON-serializable mapping that rejects every post-construction mutation."""
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        raise TypeError("secured ObjectSet properties are immutable")
+
+    def __delitem__(self, key: str) -> None:
+        raise TypeError("secured ObjectSet properties are immutable")
+
+    def clear(self) -> None:
+        raise TypeError("secured ObjectSet properties are immutable")
+
+    def pop(self, key: str, default: Any = None) -> Any:
+        raise TypeError("secured ObjectSet properties are immutable")
+
+    def popitem(self) -> tuple[str, Any]:
+        raise TypeError("secured ObjectSet properties are immutable")
+
+    def setdefault(self, key: str, default: Any = None) -> Any:
+        raise TypeError("secured ObjectSet properties are immutable")
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        raise TypeError("secured ObjectSet properties are immutable")
+
+    # dict's overloaded union signatures cannot express an override that always refuses mutation.
+    def __ior__(self, other: object, /) -> _ImmutableDict:  # type: ignore[override,misc]
+        raise TypeError("secured ObjectSet properties are immutable")
+
+
 def validate_snapshot_records(
     graph: OntologyGraphSnapshot,
     object_types: Mapping[str, OntologyObjectType],

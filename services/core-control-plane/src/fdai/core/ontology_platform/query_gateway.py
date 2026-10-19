@@ -8,7 +8,7 @@ submits actions, calls providers, or grants execution authority.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
@@ -50,6 +50,9 @@ from .models import (
 from .object_sets import ObjectSetService
 from .query_population_receipts import population_receipt_fields
 from .query_result_digests import instance_path_graph_digest, projected_result_digest
+from .query_snapshot import (
+    freeze_snapshot_json as _freeze_json,
+)
 from .query_snapshot import snapshot_projection_digest, validate_snapshot_records
 from .source_read_admission import (
     SourceReadAdmissionReader,
@@ -702,43 +705,6 @@ def _freeze_graph(graph: OntologyGraphSnapshot) -> OntologyGraphSnapshot:
             for link in graph.links
         ),
     )
-
-
-def _freeze_json(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return _ImmutableDict({key: _freeze_json(item) for key, item in value.items()})
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return tuple(_freeze_json(item) for item in value)
-    return value
-
-
-class _ImmutableDict(dict[str, Any]):
-    """JSON-serializable mapping that rejects every post-construction mutation."""
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        raise TypeError("secured ObjectSet properties are immutable")
-
-    def __delitem__(self, key: str) -> None:
-        raise TypeError("secured ObjectSet properties are immutable")
-
-    def clear(self) -> None:
-        raise TypeError("secured ObjectSet properties are immutable")
-
-    def pop(self, key: str, default: Any = None) -> Any:
-        raise TypeError("secured ObjectSet properties are immutable")
-
-    def popitem(self) -> tuple[str, Any]:
-        raise TypeError("secured ObjectSet properties are immutable")
-
-    def setdefault(self, key: str, default: Any = None) -> Any:
-        raise TypeError("secured ObjectSet properties are immutable")
-
-    def update(self, *args: Any, **kwargs: Any) -> None:
-        raise TypeError("secured ObjectSet properties are immutable")
-
-    # dict's overloaded union signatures cannot express an override that always refuses mutation.
-    def __ior__(self, other: object, /) -> _ImmutableDict:  # type: ignore[override,misc]
-        raise TypeError("secured ObjectSet properties are immutable")
 
 
 def _summarize_redactions(
