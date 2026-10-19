@@ -433,6 +433,7 @@ async def build_core_runtime(
     control_loop = _build_control_loop(
         container,
         verifier_health_source=resources.verifier_health_source,
+        mixed_model_health_source=resources.mixed_model_health_source,
         http_client=resources.http_client,
         stage_publisher=messaging.stage_publisher,
         audit_store=state_store,
@@ -642,6 +643,7 @@ async def build_core_runtime(
         runtime_policy=runtime_values,
         startup_duration_source=resources.startup_duration_source,
         verifier_health_source=resources.verifier_health_source,
+        mixed_model_health_source=resources.mixed_model_health_source,
         model_provider_scope=self_health.model_provider_scope,
     )
     startup_report = await readiness.evaluate()

@@ -358,6 +358,7 @@ def build_startup_readiness_runtime(
     runtime_policy: Mapping[str, object] | None = None,
     startup_duration_source: RuntimeStartupDurationSource | None = None,
     verifier_health_source: SelfHealthExporter | None = None,
+    mixed_model_health_source: SelfHealthExporter | None = None,
     model_provider_scope: ModelProviderScopeSource | None = None,
 ) -> StartupReadinessRuntime:
     """Compose standard required probes plus registered optional destinations."""
@@ -500,6 +501,7 @@ def build_startup_readiness_runtime(
             runtime_policy=runtime_policy,
             startup_duration_source=startup_duration_source,
             verifier_health_source=verifier_health_source,
+            mixed_model_health_source=mixed_model_health_source,
         )
     if self_health_catalog is None and self_health_exporter_registry is not None:
         raise ValueError("self-health catalog and exporter registry MUST be composed together")
