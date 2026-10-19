@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: dcab55dab775ae4321437e6cb11409e8ec060d7d
+translation_source_sha: c29c84e02092b5935bbb128d150316cef619da43
 translation_revised: 2026-10-19
 ---
 
@@ -23,10 +23,10 @@ translation_revised: 2026-10-19
 포함합니다. Operator는 공유 계약을 검증하고 비식별화합니다. 프로바이더를 조회하거나 정상
 기본값을 추정하거나 변경을 승인하거나 실행 권한을 얻지 않습니다.
 Core는 실제 수신기 생존 상태, 보호된 준비 상태, 저장된 비상 정지, 프로세스 시작 소요 시간,
-소비된 카나리 경과 시간, 결정론적 검증기 비율과 설치된 버전, 실제로 사용한 정책, 비상 정지의
+소비된 카나리 경과 시간, 결정론적 검증기 및 내장 비교 검사 단위의 비율과 설치된 버전, 실제로 사용한 정책, 비상 정지의
 다이제스트를 제공합니다. 정확한 범위는
 [수집원 담당 문서](../operations/operating-and-verification-ko.md#남아-있는-수집원-경계)가 소유하며,
-어댑터 집계와 누락된 수집원은 unavailable로 유지합니다. 검증기 준비 구간과 결과 미확인은
+어댑터 집계와 누락된 수집원은 unavailable로 유지합니다. 검증기 및 비교 검사의 준비 구간, 진행 중 상태와 결과 미확인은
 기존 계약 안의 데이터 상태이지 승인 판정이 아닙니다. 수집원 실패에는 누락, 잘못된 형식, 접근 실패를 나타내는 정해진
 이유를 보존합니다. Wire 형식과 Reader 권한은 바뀌지 않습니다. 인시던트 구성과
 `bootstrap_core.py`를 공유하더라도 인시던트를 생성하거나 확인하거나 인시던트 요청을 발행하거나

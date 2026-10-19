@@ -21,11 +21,17 @@ class ScheduleNotFoundError(KeyError):
     """Raised when a task id is not in the store."""
 
 
+class ScheduleAlreadyExistsError(ValueError):
+    """An atomic creation found the same task id already committed."""
+
+
 @runtime_checkable
 class ScheduleStore(Protocol):
     """Async CRUD for scheduled tasks."""
 
-    async def create(self, task: ScheduledTask) -> ScheduledTask: ...
+    async def create(self, task: ScheduledTask) -> ScheduledTask:
+        """Create once; raise ScheduleAlreadyExistsError on an atomic id collision."""
+        ...
 
     async def get(self, task_id: str) -> ScheduledTask: ...
 
@@ -48,7 +54,7 @@ class InMemoryScheduleStore:
 
     async def create(self, task: ScheduledTask) -> ScheduledTask:
         if task.task_id in self._tasks:
-            raise ValueError(f"duplicate task_id {task.task_id!r}")
+            raise ScheduleAlreadyExistsError(f"duplicate task_id {task.task_id!r}")
         self._tasks[task.task_id] = task
         return task
 
@@ -89,6 +95,7 @@ class InMemoryScheduleStore:
 
 __all__ = [
     "InMemoryScheduleStore",
+    "ScheduleAlreadyExistsError",
     "ScheduleNotFoundError",
     "ScheduleStore",
 ]

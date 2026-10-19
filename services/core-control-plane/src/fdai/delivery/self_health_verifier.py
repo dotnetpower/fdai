@@ -1,4 +1,4 @@
-"""Process-local observations of the actual deterministic T2 verifier."""
+"""Verifier adapter and shared complete-window self-health accounting."""
 
 from __future__ import annotations
 
@@ -30,10 +30,12 @@ class VerifierObservationWindow:
     last_observed_at: datetime | None
 
 
-class RuntimeVerifierHealthSource:
-    """Retain one complete fixed window, never a lifetime or inferred success rate."""
+class _RuntimeWindowedHealthSource:
+    """Share complete-window mechanics without changing the producer's outcome meaning."""
 
-    signal = SelfHealthSignalName.VERIFIER_FAILURE_RATE
+    signal: SelfHealthSignalName
+    _source_prefix = "runtime:t2-verifier"
+    _diagnostic_prefix = "verifier_health"
 
     def __init__(
         self,
@@ -44,9 +46,9 @@ class RuntimeVerifierHealthSource:
         ticks: Callable[[], int] = monotonic_ns,
     ) -> None:
         if not 1 <= window_seconds <= 86_400:
-            raise ValueError("verifier observation window must be in [1, 86400] seconds")
+            raise ValueError("health observation window must be in [1, 86400] seconds")
         self.metric = metric
-        self.exporter_id = f"runtime:t2-verifier:{uuid4().hex}"
+        self.exporter_id = f"{self._source_prefix}:{uuid4().hex}"
         self._clock = clock
         self._ticks = ticks
         self._epoch = ticks()
@@ -59,14 +61,14 @@ class RuntimeVerifierHealthSource:
         self._last_observed_at: datetime | None = None
         self._latest: VerifierObservationWindow | None = None
         self._bindings = 0
+        self._pending = 0
         self._closed = False
         self._clock_broken = False
 
-    def bind(self, verifier: VerifierPolicy) -> VerifierPolicy:
+    def _bind(self) -> None:
         self._bindings += 1
         if self._bindings > 1:
-            _LOGGER.error("verifier_health_multiple_bindings")
-        return _ObservedVerifier(verifier, self)
+            _LOGGER.error("%s_multiple_bindings", self._diagnostic_prefix)
 
     def close(self) -> None:
         self._closed = True
@@ -81,7 +83,7 @@ class RuntimeVerifierHealthSource:
         if tick < self._last_tick:
             self._clock_broken = True
             self._latest = None
-            _LOGGER.error("verifier_health_monotonic_clock_regressed")
+            _LOGGER.error("%s_monotonic_clock_regressed", self._diagnostic_prefix)
             return
         self._last_tick = tick
         index = (tick - self._epoch) // self._window_ticks
@@ -112,11 +114,13 @@ class RuntimeVerifierHealthSource:
             observed_at = self._clock()
         except (OSError, OverflowError) as exc:
             self._clock_broken = True
-            _LOGGER.error("verifier_health_clock_unavailable", extra={"kind": type(exc).__name__})
+            _LOGGER.error(
+                "%s_clock_unavailable", self._diagnostic_prefix, extra={"kind": type(exc).__name__}
+            )
             return
         if observed_at.tzinfo is None or observed_at.utcoffset() is None:
             self._clock_broken = True
-            _LOGGER.error("verifier_health_clock_not_aware")
+            _LOGGER.error("%s_clock_not_aware", self._diagnostic_prefix)
             return
         self._completed += 1
         if not known or (outcome is not True and outcome is not False and outcome is not None):
@@ -129,6 +133,8 @@ class RuntimeVerifierHealthSource:
         if self._closed or self._bindings == 0:
             raise SelfHealthExporterUnavailableError(reason="source_missing")
         if self._bindings != 1:
+            raise SelfHealthExporterUnavailableError(reason="source_incomplete")
+        if self._pending:
             raise SelfHealthExporterUnavailableError(reason="source_incomplete")
         try:
             self._advance()
@@ -154,6 +160,16 @@ class RuntimeVerifierHealthSource:
             observed_at=window.last_observed_at,
             source=self.exporter_id,
         )
+
+
+class RuntimeVerifierHealthSource(_RuntimeWindowedHealthSource):
+    """Observe the actual verifier through its unchanged synchronous policy contract."""
+
+    signal = SelfHealthSignalName.VERIFIER_FAILURE_RATE
+
+    def bind(self, verifier: VerifierPolicy) -> VerifierPolicy:
+        self._bind()
+        return _ObservedVerifier(verifier, self)
 
 
 @dataclass(frozen=True, slots=True)

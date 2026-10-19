@@ -12,8 +12,8 @@ Design invariants (mirror the in-memory
 ----------------------------------------------------------
 
 - :meth:`create` refuses a duplicate ``task_id`` (PRIMARY KEY) and surfaces
-  it as the same ``ValueError`` the in-memory store raises, so the two
-  backends are indistinguishable to callers.
+  it as ``ScheduleAlreadyExistsError`` (a ``ValueError``) in both backends,
+  so atomic duplicate races are distinguishable from other validation failures.
 - :meth:`get` / :meth:`cancel` / :meth:`mark_run` raise
   :class:`~fdai.core.scheduler.store.ScheduleNotFoundError` on a missing id.
 - :meth:`mark_run` advances ``last_run`` in a single UPDATE and returns the
@@ -40,7 +40,7 @@ from fdai.core.scheduler.models import (
     ScheduledTask,
     ScheduleKind,
 )
-from fdai.core.scheduler.store import ScheduleNotFoundError
+from fdai.core.scheduler.store import ScheduleAlreadyExistsError, ScheduleNotFoundError
 from fdai.shared.providers.scheduled_continuation import (
     ContinuationAudience,
     ContinuationMode,
@@ -138,7 +138,7 @@ class PostgresScheduleStore:
                         ),
                     )
             except psycopg.errors.UniqueViolation as exc:
-                raise ValueError(f"duplicate task_id {task.task_id!r}") from exc
+                raise ScheduleAlreadyExistsError(f"duplicate task_id {task.task_id!r}") from exc
         return task
 
     async def get(self, task_id: str) -> ScheduledTask:

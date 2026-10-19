@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 61443243c4879c93b12df5adb94cd4d4dade295d
+translation_source_sha: 167c8fcd543af83764baf5f9f42cdace515abcea
 translation_revised: 2026-10-19
 ---
 
@@ -42,7 +42,12 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
 정책에 따른 완전한 구간의 실제 분자와 분모 및 원래 관측 시각을 유지합니다. 없거나 결과를
 알 수 없는 호출을 성공으로 바꾸지 않습니다.
 
-실제 수신기, 실제로 사용한 정책, 시작 및 검증기 수집원을 제공하면 구성은
+`mixed_model_health_source`는 같은 고정 구간 처리와 정책 및 수명 담당 경계, 수집기를 공유하지만
+선택적인 `CrossCheckObserver`를 통해 검증기 결과가 아닌 원래 Core 비교 검사를 관측합니다.
+자동 연결에는 기본 및 보조 SDK 생산자와 정확한 모델 객체 집합이 필요합니다. 지원하지 않거나
+불완전한 집합은 모델 호출이나 게이트 판정을 바꾸지 않고 사용 불가로 유지합니다.
+
+실제 수신기, 실제로 사용한 정책, 시작, 검증기 및 적격 비교 수집원을 제공하면 구성은
 [담당 문서의 수집원 범위](../operations/operating-and-verification-ko.md#남아-있는-수집원-경계)만
 제공하며 전체 운영 상태를 입증하지 않습니다. 수신기 연결이나 정책이 없으면 unavailable로 유지합니다.
 비상 정지 행이 없거나 잘못되어도 정상인 false 값으로

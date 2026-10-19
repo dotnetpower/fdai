@@ -227,8 +227,14 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   The current increment adds the actual default T2 deterministic-verifier rate in complete
   policy-bounded process windows, with 20 source/composed/persisted-readback tests and 100%
   branch-inclusive source coverage. Unknown current results cannot re-expose a healthy old window.
-  Current coverage is six signals/three fields; nine signals/five fields remain unavailable.
+  At that checkpoint coverage was six signals/three fields, with nine signals/five fields unavailable.
   This is neither verifier accuracy nor operational effect, and H01 stays incomplete.
+  #2276 separately wires actual cross-check SDK/pool API observations; it adds no catalog signal.
+  The current change supplies actual Core logical-round disagreement observations: 303 source/Core
+  and 529 runtime/safety/SDK checks pass, with 100% three-module source branch coverage.
+  Seven signal slots/three fields now have concrete implementations and wiring, but the new source
+  requires a qualified native group and full known window. Eight other signals/five fields and
+  installed qualification remain open; fixture checks are not operational improvement.
 - [ ] **H02, canary and stabilization:** Retain the exact consumed canary audit within the
   implemented 30-second budget, frozen shadow replay, stop/no-execute receipts, daily jobs, and
   recurrent-query signal. Prove stabilization opens, lowers authority on breach, and exits only
@@ -241,6 +247,10 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   focused checks, including four actual isolated PostgreSQL scenarios, cover local mechanics.
   Installed transport, actual cohort qualification, daily jobs, policy and stabilization remain
   open; this increment does not complete H02 or add a self-health signal.
+  The current creation-replay repair also preserves run state across repeated registration,
+  distinguishes atomic duplicate races from other errors, and checks canonical JSON intent.
+  Its 108 focused passes include four new isolated PostgreSQL cases and 100% creation coverage.
+  This is another registration prerequisite, not registration or operational acceptance.
 - [ ] **H03, operating decisions:** Resolve and version all seven open owner decisions: canary
   audit-freshness/round-trip alert budget; smoke fixtures/budgets/promotion wiring; alert ownership
   and fallback; audit investigation retention/query model; cold-start deadline; stabilization
