@@ -435,7 +435,7 @@ async def build_core_runtime(
         verifier_health_source=resources.verifier_health_source,
         mixed_model_health_source=resources.mixed_model_health_source,
         http_client=resources.http_client,
-        stage_publisher=messaging.stage_publisher,
+        stage_publisher=self_health.stage_publisher or messaging.stage_publisher,
         audit_store=state_store,
         tool_receipt_observer=incident_runtime.observe_tool_receipt,
         symptom_index=symptom_index,
@@ -642,9 +642,8 @@ async def build_core_runtime(
         liveness=resources.health_server.is_live if resources.health_server is not None else None,
         runtime_policy=runtime_values,
         startup_duration_source=resources.startup_duration_source,
-        verifier_health_source=resources.verifier_health_source,
-        mixed_model_health_source=resources.mixed_model_health_source,
         model_provider_scope=self_health.model_provider_scope,
+        **self_health.collector_sources,
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(
