@@ -155,6 +155,9 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   #2246 separates pre-dispatch rejection from executed failure after three actual typed-bus cases
   invoked rollback without executor I/O. The 219 focused and nine actual PostgreSQL checks preserve
   genuine-failure recovery and deny replay/restart without executing; parent L01 remains open.
+  #2248 repairs the original shared ActionRun cache, with 26 reproduced JSON value/key-alias
+  regressions, actual preflight rejection, unchanged warm hash/copy counts and 203 focused passes.
+  It preserves canonical identity bytes, but does not supply the independent history proof.
 - [ ] **L02, context safety:** Complete authenticated exact-target proposal/review, bounded activation,
   expiry/revocation, Forseti decisions, Saga audit, and dispatch revalidation. Retain live queued and
   in-flight revocation/expiry, hold, stop/recovery, deadline, and subscriber-isolation receipts.

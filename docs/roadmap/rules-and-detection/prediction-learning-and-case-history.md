@@ -273,6 +273,12 @@ its existing durable path and releases its claims and local lock. It does not pu
 `failed` ActionRun that would trigger Vidar compensation for an action that never started.
 Actual executor failures and cancellation retain their existing classifications. Publication or
 claim-release failure still surfaces explicitly; a failed denial write is not reported as success.
+The original ActionRun identity/publication cache also preserves exact JSON types, including
+`true` versus `1`, integers versus floats and `0.0` versus `-0.0`. It revalidates live and returned
+cached values without changing canonical identity bytes or adding warm-path hashes/deep copies.
+The actual preflight consumer can therefore reject a type-alias mutation before executor entry;
+dispatch-only recomputation is not the sole protection.
+Mappings that need Python key coercion are re-canonicalized rather than reused as a cache hit.
 The observation proves entry into the dispatch phase, not provider mutation, verified effect,
 success or complete event-time history.
 
