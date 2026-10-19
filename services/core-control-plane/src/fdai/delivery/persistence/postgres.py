@@ -58,6 +58,9 @@ from fdai.delivery.persistence.postgres_audit_history import (
 from fdai.delivery.persistence.postgres_audit_history import (
     read_audit_entries as _read_audit_entries,
 )
+from fdai.delivery.persistence.postgres_canary import (
+    read_latest_consumed_canary as _read_latest_consumed_canary,
+)
 from fdai.delivery.persistence.postgres_state_pair import PostgresStatePairMixin
 from fdai.shared.providers.audit_hash import GENESIS_HASH, canonical_entry, next_hash
 from fdai.shared.providers.state_store import (
@@ -656,6 +659,9 @@ class PostgresStateStore(
 
     async def read_audit_entries(self, *, limit: int) -> tuple[tuple[Mapping[str, Any], ...], bool]:
         return await _read_audit_entries(self, limit=limit)
+
+    async def read_latest_consumed_canary(self) -> Mapping[str, Any] | None:
+        return await _read_latest_consumed_canary(self)
 
     # ------------------------------------------------------------------
     # Diagnostics
