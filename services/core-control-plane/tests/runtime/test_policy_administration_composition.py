@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 from fdai.agents import OperatorRequestReceiptGate, StateStorePolicyRevisionStore
-from fdai.agents._framework.mimir_policy_administration import PolicyRevisionRejectedError
 from fdai.runtime import policy_administration as composition
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai.shared.providers.workload_identity import IdentityToken
@@ -135,7 +134,7 @@ async def test_build_mimir_policy_administration_binds_required_ports(
         assert admin.release_maximums is maximums
     admin._validate_release_maximums({"governance.retire-rule": PolicyMode.SHADOW})
     reason = "release_maximum_unavailable" if maximums is None else "release_maximum_exceeded"
-    with pytest.raises(PolicyRevisionRejectedError, match=f"^{reason}$"):
+    with pytest.raises(ValueError, match=f"^{reason}$"):
         admin._validate_release_maximums({"governance.retire-rule": PolicyMode.ENFORCE})
 
 
