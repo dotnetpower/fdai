@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 from fdai_runtime_diagnostics import DevelopmentDiagnosticServer
 
+from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
 from fdai.runtime.bootstrap_messaging import MessagingRuntime
 from fdai.runtime.bootstrap_pantheon import PantheonInitializationResult
 from fdai.runtime.bootstrap_shutdown import close_runtime_resources
@@ -21,6 +22,7 @@ class RuntimeResources:
 
     health_server: RuntimeHealthServer | None = None
     startup_duration_source: RuntimeStartupDurationSource | None = field(default=None, kw_only=True)
+    verifier_health_source: RuntimeVerifierHealthSource | None = field(default=None, kw_only=True)
     development_diagnostics: DevelopmentDiagnosticServer | None = None
     http_client: httpx.AsyncClient | None = None
     messaging: MessagingRuntime | None = None
@@ -32,6 +34,8 @@ class RuntimeResources:
     async def close(self) -> None:
         """Stop authority transport first, then close shared runtime resources."""
 
+        if self.verifier_health_source is not None:
+            self.verifier_health_source.close()
         if self.startup_duration_source is not None:
             self.startup_duration_source.close()
         try:

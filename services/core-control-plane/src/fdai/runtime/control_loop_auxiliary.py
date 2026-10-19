@@ -26,13 +26,16 @@ from fdai.core.quality_gate import (
     SelfConsistencySampler,
     UnavailableDeterministicEvidenceVerifier,
 )
+from fdai.core.quality_gate.gate import VerifierPolicy
 from fdai.core.quality_gate.promotion import (
     ActionModeSource,
     RubricModeResolver,
     RubricPromotionRegistry,
 )
 from fdai.core.quality_gate.self_consistency import SelfConsistencyCascade
+from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.delivery.operator_request_receipt import core_operator_request_receipt_issuer_from_env
+from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
 from fdai.shared.contracts.models import Rule
 from fdai.shared.providers.event_bus import EventBus
 
@@ -203,12 +206,16 @@ def build_t2_quality_gate(
     deterministic_evidence_verifiers: (
         Mapping[DeterministicEvidenceKind, DeterministicEvidenceVerifier] | None
     ),
+    verifier_health_source: RuntimeVerifierHealthSource | None = None,
 ) -> QualityGate:
     """Build the production T2 gate from container bindings and the active rule set."""
     llm_bindings = container.require_llm_bindings()
     rubric_mode_resolver = build_rubric_mode_resolver(container, action_modes)
+    verifier: VerifierPolicy = RuleBasedVerifier(rules_by_id=dict(rules_by_id))
+    if verifier_health_source is not None:
+        verifier = verifier_health_source.bind(verifier)
     return QualityGate(
-        verifier=RuleBasedVerifier(rules_by_id=dict(rules_by_id)),
+        verifier=verifier,
         cross_check_models=llm_bindings.cross_check_models,
         grounding=RagGroundingSource(
             rules=dict(rules_by_id),
@@ -226,9 +233,36 @@ def build_t2_quality_gate(
     )
 
 
+def build_t2_tier(
+    container: Container,
+    *,
+    llm_bindings: LlmBindings,
+    rules_by_id: Mapping[str, Rule],
+    action_modes: ActionModeSource,
+    deterministic_evidence_verifiers: (
+        Mapping[DeterministicEvidenceKind, DeterministicEvidenceVerifier] | None
+    ),
+    verifier_health_source: RuntimeVerifierHealthSource | None = None,
+) -> T2Tier:
+    """Keep the T2 proposer, observed gate and cascade on their selected bindings."""
+    quality_gate = build_t2_quality_gate(
+        container,
+        rules_by_id=rules_by_id,
+        action_modes=action_modes,
+        deterministic_evidence_verifiers=deterministic_evidence_verifiers,
+        verifier_health_source=verifier_health_source,
+    )
+    return T2Tier(
+        proposer=llm_bindings.require_t2_proposer(),
+        quality_gate=quality_gate,
+        self_consistency=_build_self_consistency_cascade(container, llm_bindings),
+    )
+
+
 __all__ = [
     "build_irp_event_handler",
     "build_rubric_mode_resolver",
     "build_t2_quality_gate",
+    "build_t2_tier",
     "rca_catalog_revision",
 ]
