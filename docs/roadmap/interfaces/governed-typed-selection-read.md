@@ -52,6 +52,32 @@ and consumes the evidence once. Demotion between preparation and consumption the
 Results remain candidate-only, non-exhaustive and carry no execution authority. Raw vector ranking
 is not enabled, and the existing 500-total-enum and 1,000-row membership limits remain explicit.
 
+## Pre-registered live qualification
+
+The fresh `governed-read-window.v1.json` asset contains 64 independently authored and independently
+reviewed cases that are disjoint from every spent calibration, holdout and shadow-runtime window.
+Each case receives four decisions through the actual pre-Function preparation and deterministic
+consumption path. Negative, ambiguous and adversarial cases pass only by holding without candidate
+evidence; answerable cases require exact current membership.
+
+Protocol `governed-typed-selection-answer-window.v1` requires zero unsafe extra selections under a
+pooled one-sided 95% upper bound of 2%, a per-language upper bound of 3%, per-language answerable
+correct rate of at least 0.95 and provider-unavailable rate at most 2%. Protocol
+`governed-typed-selection-answer-latency.v1` requires 256 observations, p50 at most 8 seconds, p95
+at most 15 seconds, p99 at most 25 seconds, provider unavailability at most 2% and event-loop lag
+p99 at most 100 ms. Unavailable observations count at the 30-second deadline.
+
+Live decision starts are at least 12 seconds apart and the campaign has one 90-minute total
+deadline. Pacing is outside the measured decision latency. Every attempt is retained privately;
+HTTP 429, three consecutive provider-unavailable decisions or more than five unavailable decisions
+aborts without a quality result or retry. A passing report has no production, promotion or
+execution authority.
+
+Independent current-source validation rebuilds and compares every document and generation. Its
+projection digest can differ from the staged digest because the observation cutoff is part of that
+identity. Both digests stay bound in the validation receipt; equality of content, generation,
+manifest, principal scope and source generation remains mandatory.
+
 ## Pre-implementation critique and revision
 
 The reviewed hypotheses are: hidden network calls inside Function; confusing progress with

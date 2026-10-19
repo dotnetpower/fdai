@@ -219,7 +219,6 @@ def _current_context(
         != manifest.coverage_receipt.principal_scope_digest
         or source_validation.manifest_digest != manifest.manifest_digest
         or source_validation.source_projection_digest != staged.source_projection_digest
-        or source_validation.checked_projection_digest != staged.source_projection_digest
     ):
         raise CandidateContextError("invalid_source")
     source_bytes = 0
