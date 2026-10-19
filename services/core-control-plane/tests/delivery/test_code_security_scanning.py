@@ -600,6 +600,23 @@ def test_code_security_cli_entrypoint_is_declared() -> None:
     assert 'fdai-code-security = "fdai.delivery.code_security_cli:main"' in pyproject
 
 
+def test_managed_scan_runtime_refreshes_metadata_without_weakening_package_trust() -> None:
+    source = (
+        _REPO_ROOT / "services/core-control-plane/docker/code-security-scanner.Dockerfile"
+    ).read_text(encoding="utf-8")
+    stage = source.split(" AS analysis-managed-runtime\n", 1)[1].split("\nFROM ", 1)[0]
+
+    assert (
+        "RUN tdnf clean all \\\n    && timeout --signal=TERM --kill-after=10 180s tdnf install -y"
+        in stage
+    )
+    assert "icu msopenjdk-21-21.0.12.1-1" in stage
+    assert 'test "$(rpm -q msopenjdk-21)" = "msopenjdk-21-21.0.12.1-1.x86_64"' in stage
+    assert "sha256sum -c /tmp/jdk-content.sha256" in stage
+    for unsafe_option in ("--nogpgcheck", "gpgcheck=0", "repo_gpgcheck=0", "sslverify=0"):
+        assert unsafe_option not in source
+
+
 def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     import re
 
