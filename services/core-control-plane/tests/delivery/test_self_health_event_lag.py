@@ -132,6 +132,7 @@ async def test_synthetic_canary_is_not_a_tier_decision_or_an_unfinished_user_eve
     clock, source, _, wrapped = fixture()
     await wrapped.emit(event(StageName.INGEST, detail={"event_type": "fdai.control.canary"}))
     clock.tick = 100_000_000_000
+    await wrapped.emit(event(StageName.ROUTE, detail={"routed_to": "canary-no-op"}))
     await wrapped.emit(event(StageName.ROUTE))
     await wrapped.emit(event(StageName.AUDIT))
     with pytest.raises(SelfHealthExporterUnavailableError) as failure:
@@ -149,6 +150,10 @@ async def test_each_bounded_state_overflow_remains_unavailable(overflow):
     for key in ("first", "second"):
         detail = {"event_type": "fdai.control.canary"} if overflow == "canary" else {}
         await wrapped.emit(event(StageName.INGEST, key=key, detail=detail))
+        if overflow == "canary":
+            await wrapped.emit(
+                event(StageName.ROUTE, key=key, detail={"routed_to": "canary-no-op"})
+            )
         if overflow == "completed":
             clock.tick += 1
             await wrapped.emit(event(StageName.VERIFY, key=key))
@@ -327,3 +332,42 @@ async def test_completed_window_keeps_largest_latency_and_retains_no_raw_event_b
     retained = repr(vars(source))
     assert "synthetic-private-event-identity" not in retained
     assert "synthetic-private-body-not-for-health" not in retained
+
+
+async def test_a_canary_named_business_event_cannot_hide_a_stalled_normal_decision():
+    clock, source, _, wrapped = fixture()
+    await wrapped.emit(event(StageName.INGEST, key="fast"))
+    await wrapped.emit(event(StageName.VERIFY, key="fast"))
+    await wrapped.emit(event(StageName.INGEST, detail={"event_type": "fdai.control.canary"}))
+    await wrapped.emit(event(StageName.ROUTE, detail={"routed_to": "t0"}))
+    clock.tick = 6_000_000_000
+    assert (await source.observe(now=NOW)).value == 6
+
+
+async def test_canary_route_without_an_observed_ingress_stays_incomplete():
+    _, source, _, wrapped = fixture()
+    await wrapped.emit(event(StageName.ROUTE, detail={"routed_to": "canary-no-op"}))
+    with pytest.raises(SelfHealthExporterUnavailableError) as failure:
+        await source.observe(now=NOW)
+    assert failure.value.reason == "source_incomplete"
+
+
+async def test_actual_trusted_core_canary_path_is_excluded_without_a_false_success(tmp_path):
+    from fdai.delivery.canary_cli import build_canary_event
+
+    from tests.core.test_control_loop_stage_events import _make_loop
+
+    _, source, publisher, wrapped = fixture()
+    loop = _make_loop(stage_publisher=wrapped, tmp_path=tmp_path)
+    await loop.process_canary(build_canary_event(slot="example-canonical-canary", now=NOW))
+    assert [item.stage for item in publisher.events] == [
+        StageName.INGEST,
+        StageName.ROUTE,
+        StageName.AUDIT,
+    ]
+    assert publisher.events[1].detail["routed_to"] == "canary-no-op"
+    assert not source._pending
+    assert not source._canaries
+    with pytest.raises(SelfHealthExporterUnavailableError) as failure:
+        await source.observe(now=NOW)
+    assert failure.value.reason == "source_missing"

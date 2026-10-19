@@ -102,18 +102,25 @@ class RuntimeEventLagSource:
                 self._canaries.remove(key)
             return
         if event.stage is StageName.INGEST and event.phase is StagePhase.DONE:
-            if event.detail.get("event_type") == "fdai.control.canary":
-                if len(self._canaries) >= self._capacity:
-                    self._overflow()
-                else:
-                    self._canaries.add(key)
-                return
             if key in self._pending or key in self._finished:
                 return
             if len(self._pending) >= self._capacity:
                 self._overflow()
                 return
             self._pending[key] = tick
+        elif (
+            event.stage is StageName.ROUTE
+            and event.phase is StagePhase.DONE
+            and event.detail.get("routed_to") == "canary-no-op"
+        ):
+            if key not in self._pending:
+                self._unknown_at = tick
+                _LOGGER.warning("event_lag_canary_ingress_unobserved")
+            elif len(self._canaries) >= self._capacity:
+                self._overflow()
+            else:
+                del self._pending[key]
+                self._canaries.add(key)
         elif (
             event.stage is StageName.VERIFY
             and event.phase is StagePhase.DONE
