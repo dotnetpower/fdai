@@ -19,6 +19,11 @@ from psycopg import Error as DatabaseError
 
 from fdai.core.readiness.self_health import SelfHealthCatalog
 from fdai.core.readiness.self_health_runtime import SelfHealthExporterRegistry
+from fdai.delivery.self_health_canary import (
+    CanarySelfHealthExporter,
+    CanaryStateExporter,
+    ConsumedCanarySource,
+)
 from fdai.delivery.self_health_exporters import unavailable_self_health_registry
 from fdai.shared.providers.self_health import (
     SelfHealthExporter,
@@ -173,6 +178,23 @@ def runtime_self_health_registry(
     )
     fields[OperationalStateFieldName.KILL_SWITCH] = KillSwitchStateExporter(kill_switch)
     fields[OperationalStateFieldName.VERSION] = InstalledCoreVersionExporter()
+    canary = ConsumedCanarySource(store)
+    for signal in (
+        SelfHealthSignalName.CANARY_RESULT,
+        SelfHealthSignalName.TIME_SINCE_LAST_SUCCESSFUL_CANARY,
+    ):
+        signals[signal] = CanarySelfHealthExporter(
+            source=canary,
+            signal=signal,
+            metric=catalog.policies[signal].metric,
+            exporter_id=f"audit-log:canary:{signal.value}",
+        )
+    fields[OperationalStateFieldName.CANARY] = CanaryStateExporter(
+        source=canary,
+        maximum_age_seconds=catalog.policies[
+            SelfHealthSignalName.TIME_SINCE_LAST_SUCCESSFUL_CANARY
+        ].maximum_age_seconds,
+    )
     if runtime_policy is not None:
         fields[OperationalStateFieldName.CONFIGURATION] = RuntimeConfigurationExporter(
             canonical_digest(dict(runtime_policy))

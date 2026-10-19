@@ -72,6 +72,9 @@ async def test_builder_composes_real_readiness_and_supplied_listener_and_policy(
     assert signals["liveness_probe"]["status"] == "alert"
     assert signals["kill_switch_state"]["reason"] == "source_missing"
     assert signals["event_lag"]["status"] == "unavailable"
+    assert signals["canary_result"]["exporter_id"] == "audit-log:canary:canary_result"
+    assert signals["canary_result"]["reason"] == "source_missing"
+    assert signals["time_since_last_successful_canary"]["reason"] == "source_missing"
     assert persisted["snapshot"]["execution_authority"] is False
     fields = {item["name"]: item for item in persisted["snapshot"]["fields"]}
     assert fields["configuration"]["status"] == "available"

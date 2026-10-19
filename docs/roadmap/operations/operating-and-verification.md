@@ -46,6 +46,23 @@ not a claim that pending restart-required settings have taken effect. The versio
 the installed Core distribution, not a deployment or source-revision attestation.
 These process-local observations do not establish health for other replicas or services.
 
+The canary bindings read the latest `control_loop.canary` audit row written by the canonical
+consumer, independently of the publisher. PostgreSQL uses one read-only, statement-timeout-bound
+query ordered by descending audit sequence. The existing generic oldest-first reader is used
+only when it returns complete history; a truncated prefix is unavailable, even if it contains a
+successful canary. No canary, model call, retry, or deployment is triggered by collection.
+
+`canary_result` describes the latest completed canonical consumption, not the latest scheduled
+or in-flight attempt. It preserves the consumer's `recorded_at` and the existing 600-second
+freshness bound. `time_since_last_successful_canary` measures the age of that receipt at the
+current audit read, using the existing 600-second alert threshold and 60-second observation
+freshness. The canary field identifies the same receipt and current age by digest. An old
+receipt therefore becomes stale for the result while its currently measured age can alert.
+Missing or malformed receipts never become zero age or success. All three projections share
+one detached read at each collection time. A restart re-reads durable evidence; another replica
+using the same installation audit store sees that same canary, not a replica-specific health
+claim. A different store cannot reuse it.
+
 Cold-start duration measures this Core process from runtime entry to its first observed guarded
 ready state after bootstrap composition. It uses monotonic elapsed time and retains the original
 UTC observation time and an opaque process-instance source id. Before that observation, after shutdown, or without the lifecycle binding,
@@ -85,9 +102,55 @@ Other bindings remain explicitly unavailable until their owning source can suppl
 observation. Broker queue depth and ingest-to-decision lag need broker/consumer observations;
 cold-start rate needs a complete lifecycle window and denominator; verifier, disagreement, rollback,
 override, and discovery rates need time-bounded numerators and denominators. Complete adapter
-health needs the registered dependency checks, and canary state needs a bounded latest-success
-reader. The existing oldest-first audit migration reader cannot establish the latest canary.
-Rule-effect, override, discovery, canary, and break-glass fields still need their owning projections.
+health needs the registered dependency checks. The latest-consumed canary reader does not prove
+which scheduled attempts were missed; that requires an independently owned attempt/completion
+window. Rule-effect, override, discovery, and break-glass fields still need their owning projections.
+
+### Remaining source boundaries
+
+Six of 15 catalog signals and four of eight fields have runtime source bindings. Binding is
+not a current Healthy claim: absent records, source errors, and incomplete history stay unknown,
+and stale observations retain the existing fail-closed policy. The embedding sub-scope does not
+increase these counts. The remaining nine catalog signals require the following producers:
+
+| Signal | Required observation; existing data that cannot substitute |
+|--------|-----------------------------------------------------------|
+| `adapter_healthcheck` | Complete registered adapter coverage; one embedding cohort or startup readiness is not the aggregate. |
+| `event_lag` | Regular event ingestion to first tier decision, with event identities and window; inventory cursor age and handler delivery counters measure different intervals. |
+| `dlq_depth` | Current outstanding depth for every governed queue/topic; bridge `dead_lettered` is a process-lifetime count, not current broker depth. |
+| `cold_start_rate` | Complete lifecycle window and startup denominator across the declared scope; one process duration is not a fleet rate. |
+| `verifier_failure_rate` | Qualified T2 verifier outcomes and denominator in a complete window; policy compilation is not T2 verification. |
+| `mixed_model_disagreement_rate` | Complete qualified cross-check outcomes and denominator; a conversation-policy cohort is a different scope. |
+| `rollback_rate` | Independently observed reverts and eligible executed-action denominator in the same window; promotion/demotion/recall counts are not action rollbacks. |
+| `override_rate` | Per-rule override create/modify observations and denominator in the same window; ActionType override-promotion records do not measure rule overrides. |
+| `discovery_loop_pass_rate` | Complete candidate quality-gate numerator/denominator and cycle window from the active scheduler; activation prerequisites and an uncomposed scheduler's metrics cannot supply it. |
+
+The four remaining fields require effective per-rule/scope enforcement state, per-scope override
+counts with owned list evidence, discovery activation joined to the last completed cycle and pass
+rate, and durable break-glass usage in a declared window. A request, promotion cache, or discovery
+activation report alone cannot establish those complete fields. No missing denominator, empty
+window, or uninitialized source is interpreted as zero failures or 100% success.
+
+### Local source critique controls
+
+The focused canary-source tests exercise these controls without a live database, broker, or model:
+
+| Control | Verified boundary |
+|---------|-------------------|
+| Independent consumption | The real `process_canary` writer supplies evidence; publication and startup round-trip records do not. |
+| Latest source sequence | Latest append wins even when its timestamp is older; an oldest-first truncated prefix is rejected. |
+| Exact producer | Actor, action, deterministic event identity, correlation, idempotency, mode, tier, outcome, and no-op decision match the canonical publisher/consumer. |
+| Invalid latest receipt | A malformed latest row never falls back to an older successful receipt. |
+| Time integrity | Missing, naive, inverted, future, and invalid timestamps are unavailable. |
+| Latency integrity | Boolean, string, negative, and timestamp-inconsistent durations are unavailable; no new latency threshold is invented. |
+| Result freshness | Recollection does not renew the consumer's original observation time. |
+| Current age | Zero is valid only after an actual consumption; age increases and crosses the existing threshold. |
+| Partial coverage | Healthy canary evidence leaves all nine missing catalog sources unavailable. |
+| Source failure | Database/OS failures expose bounded codes, not provider details or a successful default. |
+| Collection consistency | Signals and field share one read, including a single cached source-error outcome; the next collection reobserves. |
+| Cancellation and restart | A reproduced two-read timeout regression is fixed: cancellation releases the lock and marks that collection incomplete, preventing the field from retrying the abandoned query. The next collection can recover; restart uses durable evidence, not a process counter. |
+| Scope isolation | Replicas sharing a store share installation evidence; another store remains unobserved. |
+| Read-only authority | The bounded SQL transaction is read-only, the existing timeout is applied, the audit chain remains valid, and the snapshot grants no execution authority. |
 
 ## Implementation status
 
@@ -106,7 +169,7 @@ so no area is claimed as fully operationally validated.
 | Synthetic canary publisher, canonical consumer, no-op audit path, and scheduled Container Apps Job | implemented | [`canary_cli.py`](../../../services/core-control-plane/src/fdai/delivery/canary_cli.py), [`_canary.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_canary.py), [`canary_job.tf`](../../../infra/modules/compute/container-apps/canary_job.tf), and focused canary tests | The canary is isolated from T0/T1/T2, risk, execution, incident, and learning paths. |
 | Post-deploy promotion smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml); `scripts/deployment/azure/verify_canary_audit.py`; focused verifier tests | The workflow gives the publisher a deterministic slot, then requires one exact Core audit row within 30 seconds. The verifier rejects ambiguous, malformed, unsettled, future-dated, or over-budget rows without exposing database credentials. A retained live receipt, fixture replay, kill-switch cycle, and human-approval dry-run remain open. |
 | Complete self-health signal policy and routing map | implemented | `config/self-health-signals.yaml`; `core/readiness/self_health.py`; production startup binding; focused self-health and readiness tests | All 15 required signals map to one metric, threshold direction, freshness bound, generic owner lane, notification route, and fail-closed fallback. Missing coverage or route drift blocks startup. Decisions grant no execution authority. |
-| Complete self-health exporter registry, alert delivery, and operational drills | in-progress | Complete signal policy; exact 15-signal and eight-field exporter registry; runtime sources; typed model-role registration/scope; durable operational-state snapshot; authenticated Operator read route | Four catalog signal slots and three fields are source-bound; 11 slots and five fields remain unavailable. Actual embedding observations are a separate typed sub-scope, never proof of aggregate adapter health. Other adapters/roles and complete delivery/drill receipts remain open. |
+| Complete self-health exporter registry, alert delivery, and operational drills | in-progress | Complete signal policy; exact 15-signal and eight-field exporter registry; runtime sources; `delivery/self_health_canary.py`; typed model-role registration/scope; durable operational-state snapshot; authenticated Operator read route | Six catalog signal slots and four fields are source-bound; nine slots and four fields remain unavailable. Canary bindings observe canonical consumption, not scheduled-attempt completeness or replica health. Actual embedding observations are a separate typed sub-scope, never proof of aggregate adapter health. Complete delivery/drill receipts remain open. |
 | Correlation-based audit investigation and unified version/configuration exposure | implemented | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), `core/readiness/self_health_runtime.py`, and authenticated `GET /operations/runtime-state` | One sanitized contract now exposes version, configuration, rule effect, override, discovery, canary, kill-switch, break-glass, and all self-health states. Each field includes source, freshness, and an explicit unavailable state; the route grants no approval or execution authority. |
 | Pre-launch latency measurement and frozen-scenario replay | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), and focused tests | The primitives produce bounded measurements and release-gate results; an external load generator and deployment-specific budgets remain operator inputs. |
 | Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#verification-and-release-evidence) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
@@ -126,6 +189,7 @@ so no area is claimed as fully operationally validated.
 | 2026-08-14 | in-progress | Adopted the implementation ledger and separated tested self-observability primitives from incomplete operational evidence; earlier provenance wasn't reconstructed. | Current change; focused readiness, telemetry, canary, latency, and baseline-runner tests cited in the scope table. | Complete deployment round-trip evidence, alert and drill coverage, unified exposure, and stabilization bindings. |
 | 2026-08-14 | implemented | Defined the operator-runbook front-matter schema and added CI coverage for every shipped ActionType. | Current change; `check-action-runbooks.py` and `test_check_action_runbooks.py`. | Keep deployment-owned commands and procedures aligned with the same required semantic sections. |
 | 2026-10-18 | implemented | Bound actual local health-listener, guarded readiness, persisted kill-switch, installed version, and consumed policy sources. Added serialized 30-second source refresh independent of slow startup probes, sanitized source failure reasons, and cancellation cleanup without execution authority. | `current change`; `delivery/self_health_sources.py`; `runtime/health.py`; `runtime/readiness.py`; `runtime/bootstrap_core.py`; `tests/delivery/test_self_health_sources.py`; `tests/runtime/test_self_health_sources.py`; 92 focused pytest checks passed; Ruff lint/format passed; strict mypy passed for six changed source files. | Twelve signal sources and five operational-state sources still require their owning observations or projections. Primary/fallback notification delivery and live recovery-drill receipts remain open. |
+| 2026-10-19 | implemented | Connected canonical consumed canary audit evidence to result, last-success age, and the canary field, with one bounded read-only latest-row query, complete-history fallback, exact receipt validation, preserved result freshness, and explicit source failure. Coverage is now six of 15 signal bindings and four of eight field bindings, not H01 completion. | `current change`; `delivery/self_health_canary.py`; `delivery/self_health_sources.py`; `tests/delivery/test_self_health_canary.py`; focused pytest with source/runtime/monitor regressions: 65 passed and 100% branch-inclusive canary-source coverage; Ruff and strict mypy passed. | Nine catalog producers and four complete field projections remain missing as listed in Remaining source boundaries. Scheduled-attempt completeness, primary/fallback delivery, and recovery-drill receipts remain open; no live or database integration validation was run. |
 
 ### Remaining work
 
@@ -141,6 +205,10 @@ so no area is claimed as fully operationally validated.
   version and consumed runtime policy, and test periodic refresh without repeating startup probes.
 - [x] Observe actual runtime entry to first guarded-ready duration per process without inventing a
   cold-start rate, renewing freshness, or performing another model, network, or database probe.
+- [x] Bind canonical consumed canary result and currently observed last-success age plus the canary
+  field, rejecting incomplete audit prefixes and testing restart, scope, failure, and freshness.
+- [ ] Supply the nine missing catalog producers and four complete field projections listed in
+  Remaining source boundaries, with declared coverage, windows, denominators, and freshness.
 - [x] Expose the complete version, configuration, rule-effect, override, discovery, canary,
   kill-switch, and break-glass state through one authorized read surface and test field freshness.
 - [x] Define a required runbook schema and add a check proving every automated ActionType has a
