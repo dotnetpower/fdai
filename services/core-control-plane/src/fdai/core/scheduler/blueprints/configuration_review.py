@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timedelta
 
 from fdai.core.detection.configuration_review import ConfigurationReviewScheduleProposal
@@ -51,6 +52,18 @@ def configuration_review_blueprint(
         confidence=1.0,
         created_at=now,
         expires_at=now + timedelta(days=30),
+        schedule_timezone=proposal.timezone,
+        event_payload_json=json.dumps(
+            {
+                "baseline_sha256": proposal.baseline_sha256,
+                "baseline_version": proposal.baseline_version,
+                "campaign_id": proposal.campaign_id,
+                "evidence_run_ids": list(proposal.evidence_run_ids),
+                "scope": proposal.scope,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
     )
 
 

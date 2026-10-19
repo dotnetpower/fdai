@@ -18,13 +18,15 @@ threshold, authority fields stay identical, every outcome succeeds, and schedule
 no unresolved failure for the same key.
 
 The candidate stores evidence fingerprints instead of source text and carries the narrow scope,
-schedule, event type, delivery intent, tools, default-deny isolation, estimated cost, confidence,
-proposer, and expiry. Optional off-path drafting can change bounded display text only.
+schedule expression and IANA timezone, canonical bounded event payload, event type, delivery
+intent, tools, default-deny isolation, estimated cost, confidence, proposer, and expiry. Optional
+off-path drafting can change bounded display text only.
 ## Evidence and recurrence
 
-`AutomationBlueprintEvidence` records identity, schedule, event type, resource scope, delivery,
-tools, isolation, outcome, cost, occurrence time, and source. Only `operator_turn` evidence counts.
-`scheduled_run` and `blueprint_review` records never count, and a scheduled failure vetoes its key.
+`AutomationBlueprintEvidence` records identity, schedule expression and timezone, canonical event
+payload, event type, resource scope, delivery, tools, isolation, outcome, cost, occurrence time,
+and source. Only `operator_turn` evidence counts. `scheduled_run` and `blueprint_review` records
+never count, and a scheduled failure vetoes its key.
 
 The default threshold is three unique fingerprints. Mixed scopes form separate groups. Candidate
 IDs bind the dedup key and frozen evidence set, so order does not matter and genuinely new evidence
@@ -36,6 +38,8 @@ Every candidate starts with `state=draft`, `enabled=false`, `shadow_only=true`, 
 the narrowest observed scope, default-deny isolation, and a 30-day expiry. Policy bounds expiry to
 1 hour through 90 days. Control characters, unsafe IDs, duplicate tools, negative cost, naive
 timestamps, and authority drift fail before aggregation.
+Invalid IANA timezones, non-object or non-canonical JSON, payloads over 16384 characters, and
+payload attempts to set the system-owned blueprint, delivery, or shadow fields also fail closed.
 
 ## Review and materialization
 
@@ -54,7 +58,10 @@ returns the terminal record; a new candidate requires a strict fingerprint super
 
 Materialization calls `CreateScheduledTaskCommand` with the reviewing principal. It never writes
 the scheduler store directly. A stable task ID makes retry idempotent and conflicting content
-fails. The resulting task emits shadow-only events into the existing trust and risk path.
+fails. The command receives the reviewed timezone and payload exactly; system-owned envelope fields
+are added after payload validation and cannot be overridden. Audit events retain the schedule
+expression, timezone, and payload SHA-256 without copying the payload. The resulting task emits
+shadow-only events into the existing trust and risk path.
 
 Creation replay compares declared intent, not mutable `last_run` progress or an explicit versus
 implicit effective schedule kind. It returns the retained record without resetting progress.
@@ -79,7 +86,8 @@ the guard never invents a replacement interval.
 A configuration review campaign uses the same path. Three exact, cited runs submit a disabled,
 shadow-only candidate with zero mutation tools and one fingerprint per run. A separate Approver or
 Owner must accept it before the reviewing principal can materialize the strict weekly task. Drift
-evidence never writes the scheduler store directly.
+evidence never writes the scheduler store directly. The materialized task preserves the approved
+campaign ID, baseline version and digest, scope, run IDs, cron expression, and IANA timezone.
 
 ## Text drafting
 
@@ -91,7 +99,10 @@ isolation, delivery, autonomy, and risk remain deterministic fields.
 
 Migration `20260720_0043` creates `automation_blueprint_candidate` with an active-dedup partial
 unique index. PostgreSQL stores authority fields, fingerprints, state, review reason, task ID, and
-realized usage count. The one-shot tick binding reads completed operator-turn evidence from the
+realized usage count. Operator service migration
+`operator_automation_blueprint_intent_20261019` adds the reviewed schedule timezone and canonical
+event payload with bounded object checks; existing candidates retain `UTC` and an empty payload.
+The one-shot tick binding reads completed operator-turn evidence from the
 durable semantic result projection only when an explicit blueprint-evidence payload is present, so
 missing deployment-owned inputs fail closed instead of manufacturing suggestions. State changes use
 compare-and-swap. Deployments run the tick through the opt-in Container Apps Job set by
@@ -124,7 +135,8 @@ materialized candidate's scheduled occurrence is observed.
 
 Coverage includes recurrence, dedup, scope, outcome stability, scheduler veto, recursion,
 injection, suppression/new evidence, authorization, no-self-review, expiry, text bounds,
-idempotent materialization, PostgreSQL codec/CAS, review APIs, console decoding, and metrics.
+idempotent materialization, exact timezone and payload pinning, reserved-field denial, PostgreSQL
+codec/CAS, review APIs, console decoding, and metrics.
 
 ## Related docs
 

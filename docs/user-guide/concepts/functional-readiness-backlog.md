@@ -245,6 +245,12 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   distinguishes atomic duplicate races from other errors, and checks canonical JSON intent.
   Its 108 focused passes include four new isolated PostgreSQL cases and 100% creation coverage.
   This is another registration prerequisite, not registration or operational acceptance.
+  The current change also preserves an approved configuration-review campaign's exact baseline,
+  scope, run IDs, cron and timezone from inert blueprint storage through materialization. Its 26
+  focused unit checks and two isolated PostgreSQL checks close an intent-loss defect without
+  registering any task or inventing a principal, baseline or scope. Daily health and
+  deployment-baseline jobs, approved installation inputs, transport, policy and stabilization
+  evidence remain open, so H02 stays incomplete.
 - [ ] **H03, operating decisions:** Resolve and version all seven open owner decisions: canary
   audit-freshness/round-trip alert budget; smoke fixtures/budgets/promotion wiring; alert ownership
   and fallback; audit investigation retention/query model; cold-start deadline; stabilization

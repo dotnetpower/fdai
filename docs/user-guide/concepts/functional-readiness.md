@@ -241,6 +241,11 @@ and five fields are explicitly unavailable. This process-window rate is not veri
 Neither the latest scheduled-attempt result/state nor missing delivery, stabilization or
 recovery-drill receipts can be inferred from a last-success observation.
 
+The current change preserves an approved configuration-review campaign's exact baseline, scope,
+run IDs, cron and timezone through inert blueprint persistence and materialization. It registers
+no daily job and supplies no installed transport, operating policy or stabilization receipt.
+F12.4 therefore remains Partial.
+
 ## F13. Evidence views and reporting
 
 | Function | State | Evidence, supported scope, and remaining conditions |

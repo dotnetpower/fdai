@@ -1,7 +1,7 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: d63eaddfc7712855ab52084bcc32bece39205741
+translation_source_sha: 4c3e3395ddd42645fcce55e233091e09f3da7538
 translation_revised: 2026-10-19
 ---
 
@@ -167,12 +167,13 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 | 라이브 Azure 읽기 조사 시나리오 | in-progress | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md#검증-및-release-근거) | 범위가 제한된 읽기 전용 시나리오 4개는 통과했지만 게스트 이벤트 일치, 실제 프로바이더 `429`, 서비스 간 동등성 증적은 릴리스 근거로 남아 있습니다. |
 | ActionType 운영자 런북 스키마와 커버리지 | implemented | [`check-action-runbooks.py`](../../../scripts/quality/documentation/check-action-runbooks.py), [`incident-mitigation-and-rollback-ko.md`](../../runbooks/incident-mitigation-and-rollback-ko.md), [`test_check_action_runbooks.py`](../../../tests/integration/scripts/test_check_action_runbooks.py) | 제공되는 모든 ActionType은 선언된 전제조건, 절차, 검증, 롤백, 감사 섹션이 존재하는 제네릭 업스트림 런북 하나와 정확히 일치합니다. 배포별 명령은 포크가 소유합니다. |
 | 근거에 기반한 반복 질의 입력 | implemented | #2271 / PR #2273; `post_turn_procedure.py`; `norns_recurrent_queries.py`; 격리 PostgreSQL 시나리오 4개를 포함한 집중 회귀 검사 571개 통과 | 타입이 지정된 실제 사람 질의의 실행 형태를 Operator 검증과 Bragi 메타데이터 전송을 거쳐 Norns에 전달합니다. 서로 다른 principal을 영속 집계하고 기존 Mimir 비활성 입력만 생성하며, 원문 공유 동의와 현재 게시 게이트는 그대로 유지합니다. |
-| 출시 후 안정화 조합 | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler), 측정 기본 기능과 등록된 반복 질의 입력 | 일일 상태, 드리프트와 배포 기준선 작업은 미등록입니다. 설치 환경의 집단 및 전송, 운영 정책과 안정화 시작 및 권한 하향 및 종료 근거는 미완료이며 로컬 반복 집계만으로 H02를 완료하지 않습니다. |
+| 출시 후 안정화 조합 | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler), 측정 기본 기능과 등록된 반복 질의 입력 | 수락된 구성 검토 청사진은 승인된 캠페인, 기준선, 범위, 실행, cron, 시간대를 구체화까지 보존합니다. 일일 상태, 드리프트, 배포 기준선 작업은 여전히 미등록입니다. 설치 환경의 집단 및 전송, 운영 정책, 안정화 시작 및 권한 하향과 종료 근거도 미완료이며 이 선행 조건만으로 H02를 완료하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-19 | implemented | 승인된 구성 검토 예약 경로에서 의도가 손실되는 결함을 수정했습니다. 후보 저장, 감사, 구체화가 정확한 시간대와 고정된 캠페인, 기준선, 범위, 실행 페이로드를 보존하며 감사에는 페이로드 내용을 노출하지 않습니다. | `현재 변경`; 집중 단위 검사 26개, 실제 격리 PostgreSQL 검사 2개, Ruff, strict mypy, 12개 관점의 하드닝 검토 | 예약을 등록하지 않았습니다. 승인된 설치 입력, 일일 상태 및 배포 기준선 경로, 운영 정책, 전송, 안정화 수명주기 근거는 미완료입니다. |
 | 2026-10-19 | implemented | 일일 등록에 사용하는 실제 예약 생성의 선행 조건을 강화했습니다. 실행 및 재시작 뒤에도 같은 정의를 재시도할 수 있고, 타입이 지정된 중복 경쟁은 하나로 수렴하며, 페이로드를 분리해 검증하고 정책 변경은 차단합니다. | `현재 변경`; 최초 반례 13개; 새 실제 PostgreSQL 사례 4개를 포함한 집중 검사 108개; 생성 모듈의 분기 포함 커버리지 100%; strict mypy | 일일 상태 및 드리프트와 배포 기준선 작업 등록, 승인된 기준선 및 정책과 안정화 검증은 미완료입니다. |
 | 2026-10-19 | implemented | 실제 정상 교차검사 SDK 및 전체 지연 기반 풀의 관측을 기존 타입 지정 모델 하위 범위에 연결했습니다. 조립 루트는 프롬프트 구성기 없이도 역할을 명시하고 준비 상태 구성은 등록된 의무를 모두 보존하며 중복을 진단합니다. | 현재 변경, SDK/구성/Reader 집중 검사 211건 통과, SDK 모듈 3개의 분기 포함 커버리지 93.82%. 각 12개 통제를 검토한 비평 3회에서 미래 시점 구성원의 관측이 가려지는 결함과 HTTP 실패 후 최종 계측 중 취소를 잘못 분류하는 결함을 재현한 뒤 수정했으며 새 SDK/풀 검사 38건이 통과했습니다. | 카탈로그 수집원 연결은 신호 6개와 필드 3개이며 신호 9개와 필드 5개가 unavailable입니다. 다른 모델 역할과 복제본에는 실제 수집원이 필요합니다. 전체 H01, 설치 검증, 운영 효과는 입증하지 않았습니다. |
 | 2026-10-19 | implemented | 이번 변경에서 추가한 실제 반복 질의 수집원에 운영 담당 문서를 맞췄습니다. 기존의 신호 미등록 설명은 원문 없는 입력에 한해 대체되며 일일 작업이나 운영 검증까지 완료한 것은 아닙니다. | #2271 / PR #2273; 타입 지정 계획 증적, 실제 Operator/Bragi/Norns/Mimir 경로, 집중 회귀 검사 571개와 실제 격리 PostgreSQL 시나리오 4개 | 일일 작업 등록, 실제 설치 집단 및 전송, 승인된 운영 결정과 안정화 수명주기 증적이 남아 있습니다. H02 전체를 Ready로 표시하지 않습니다. |
