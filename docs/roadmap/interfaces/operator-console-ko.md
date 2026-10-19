@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 0825511ef02694a1e0c9c0999097a8b6d405297d
+translation_source_sha: 4592c3504db2544b6d46feef6ceccb1802b238ae
 translation_revised: 2026-10-19
 ---
 # FDAI Console 대화
@@ -273,6 +273,10 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
 서버가 소유한 액션 수명 주기 근거가 필요합니다.
 
 ## 2. 3-layer 아키텍처
+
+예측 이력 제어의 영문 및 한국어 메시지는 영어 대체 표시를 유지하는 기존 지연 로드 Settings
+경로 카탈로그에 둡니다. 표시 문구, 서버 계약이나 권한을 바꾸지 않고 초기 JavaScript 예산
+500000바이트 원본 및 150000바이트 gzip 한도를 유지합니다.
 
 ![2. 3-layer 아키텍처. 주요 단계는 CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\nT1 translation 기본\nT2 translation 에스컬레이션, 의도 분류\n(read | simulate | approve | breakglass), RBAC gate\n(도구별 역할 하한), 검증기 re-check\n(자동 실행 없음), 세션 상태\n(감사 로그 기반), ControlLoop, RuleIndex / T0Engine, QualityGate입니다.](../../diagrams/generated/fdai-operator-console-01.ko.svg)
 

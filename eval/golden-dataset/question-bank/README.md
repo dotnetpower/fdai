@@ -87,6 +87,18 @@ Generate both artifacts from the repository root:
 uv run python scripts/automation/build_question_bank.py
 ```
 
+Check both artifacts without writing:
+
+```bash
+uv run python scripts/automation/build_question_bank.py --check
+```
+
+The shared Console catalogs are source commitments even when only unrelated strings change.
+Keep feature-only translations in their existing lazy route catalogs. When a committed source
+does change, regenerate the question bank before the semantic assurance corpus; the official
+`scripts/automation/refresh-derived-artifacts.sh` runs that order in write and check modes.
+The diff-scoped fast verifier checks question-bank drift for every declared input path.
+
 Run the focused question-bank and existing Golden checks:
 
 ```bash

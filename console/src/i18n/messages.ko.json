@@ -1953,7 +1953,6 @@
       "conflict": "다른 세션에서 런타임 정책이 변경되었습니다. 최신 값을 불러왔으니 다시 저장하기 전에 검토하세요.",
       "conflictReloadFailed": "다른 세션에서 런타임 정책이 변경되었으며 최신 값을 불러오지 못했습니다.",
       "groups": {
-        "forecast": "예측 이력",
         "identity": "사람 액세스",
         "investigation": "인시던트 조사",
         "inventory": "인벤토리 최신성",
@@ -1965,14 +1964,6 @@
         "diagnostics": "진단"
       },
       "fields": {
-        "forecast": {
-          "history_collection": {
-            "enabled": {
-              "label": "예측 원본 이력 수집",
-              "hint": "감사 기록이 남는 설정으로 검토된 이력을 수집합니다. 배포 변수만으로 활성화할 수 없습니다. 원본의 완전성이나 독립 근거가 부족하면 점수 계산은 계속 차단되며, 실행 권한을 부여하지 않습니다."
-            }
-          }
-        },
         "human_access": {
           "enabled": {
             "label": "사람 액세스 조정",
@@ -2282,23 +2273,6 @@
       "forecast-history": {
         "label": "예측 개입 이력",
         "hint": "예측 채점에 쓰는 원천 이력 생성기입니다. 관찰 전용이며, 원천이 불완전하면 채점을 보류합니다."
-      }
-    },
-    "forecastHistory": {
-      "details": "예측 이력 원본과 전제 조건",
-      "boundary": "읽기 경로의 연결은 완전성 증명이 아닙니다. 확인 지점이나 독립 근거가 부족하면 예측 채점은 사용할 수 없습니다.",
-      "bound": "읽기 경로 연결됨",
-      "unbound": "읽기 경로 미연결",
-      "checkpointPresent": "원본이 완전성 확인 지점을 보고함",
-      "checkpointMissing": "완전성 확인 지점 사용 불가",
-      "prerequisites": "전제 조건",
-      "configured": "구성됨",
-      "missing": "누락",
-      "kinds": {
-        "actions": "작업 이력",
-        "changes": "외부 변경",
-        "excluded_windows": "제외 구간",
-        "resource_lifecycle": "리소스 수명 주기"
       }
     },
     "integrationEvidence": "통합 근거",

@@ -277,6 +277,10 @@ correlation, or idempotency selector continues to require server-owned action li
 
 ## 2. Three-layer architecture
 
+Forecast-history controls keep their English/Korean messages in the existing lazy Settings route
+catalog with English fallback. This preserves the initial 500000-byte raw/150000-byte gzip budget
+without changing visible text, server contracts or authority.
+
 ![2. Three-layer architecture. The main stages are CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\nT1 translation default\nT2 translation escalation, Intent classify\n(read | simulate | approve | breakglass), RBAC gate\n(per-tool role floor), Verifier re-check\n(no auto-execute), Session state\n(audit-log-backed), ControlLoop, RuleIndex / T0Engine, QualityGate.](../../diagrams/generated/fdai-operator-console-01.en.svg)
 
 - **Layer 3 (Channel)** is thin. Every adapter converts one turn between its wire format and a

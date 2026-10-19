@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 31523a9ee04b607179a7f4fae3e27bfd67fa6d53
-translation_revised: 2026-10-18
+translation_source_sha: 86ae11b6513e286ba802fa2dde211ea90ebc8673
+translation_revised: 2026-10-19
 ---
 # 독립 운영 근거 발급
 
@@ -64,6 +64,8 @@ Forseti의 제한된 v1 what-if 비교 저널은 선택된 진단 입력을 기�
 다시 생성한 의미 corpus와 의도 커버리지 다이제스트는 평가 출처 정보일 뿐입니다. 답변 전용 대기
 상태 보완으로 생긴 다이제스트 갱신은 검증기 출처 산출물, 검증 증적, 프로바이더 근거 또는 운영
 자격 결과가 되지 않습니다.
+저장소 생성 과정은 의미 사례 자료 검사 전에 질문은행의 원본 일치를 검사합니다.
+이 읽기 전용 원본 변경 검사는 증명을 발급하거나 원본을 인증하거나 권한을 부여하지 않습니다.
 봉인된 Core 전용 행 신원은 후속 읽기의 재인가 피연산자일 뿐이며, 검증기 출처 산출물, 수락 기록 또는
 증명 자료가 아닙니다.
 Operator 서비스 제품 프로필 해석도 같은 근거 경계를 따릅니다. `FDAI_PRODUCT_PROFILE_JSON`을 읽으면

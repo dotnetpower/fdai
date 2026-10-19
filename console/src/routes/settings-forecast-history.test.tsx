@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, test } from "vitest";
-import { setLocale, t } from "../i18n";
+import { setLocale } from "../i18n";
+import sharedEn from "../i18n/messages.en.json";
+import sharedKo from "../i18n/messages.ko.json";
+import routeEn from "./i18n/settings-integrations.en.json";
+import routeKo from "./i18n/settings-integrations.ko.json";
 import { ForecastHistorySourceDetails } from "./settings-forecast-history";
+import { settingsIntegrationsText as text } from "./settings-integrations.i18n";
 import { decodeRuntimeSettings } from "./settings-runtime.model";
 
 const sources = ["actions", "changes", "excluded_windows", "resource_lifecycle"].map((kind) => ({
@@ -49,6 +54,15 @@ function decode(value: unknown = integration) {
 afterEach(() => setLocale("en"));
 
 describe("forecast history Settings details", () => {
+  test("keeps feature-only messages in the existing lazy route catalog", () => {
+    for (const shared of [sharedEn, sharedKo]) {
+      expect(shared.settings).not.toHaveProperty("forecastHistory");
+      expect(shared.settings.runtimePolicies.groups).not.toHaveProperty("forecast");
+      expect(shared.settings.runtimePolicies.fields).not.toHaveProperty("forecast");
+    }
+    expect(Object.keys(routeEn).filter((key) => key.startsWith("forecastHistory.")).sort())
+      .toEqual(Object.keys(routeKo).filter((key) => key.startsWith("forecastHistory.")).sort());
+  });
   test("keeps all four source bindings distinct from unavailable completeness", () => {
     const result = decode();
     expect(result.ready).toBe(false);
@@ -92,11 +106,10 @@ describe("forecast history Settings details", () => {
     const view = ForecastHistorySourceDetails({ details: decode().forecastHistory });
     expect(view?.type).toBe("details");
     const content = JSON.stringify(view);
-    expect(content).toContain(t("settings.forecastHistory.details"));
-    expect(content).toContain(t("settings.forecastHistory.checkpointMissing"));
-    expect(content).toContain(t("settings.forecastHistory.boundary"));
+    expect(content).toContain(text("forecastHistory.details"));
+    expect(content).toContain(text("forecastHistory.checkpointMissing"));
+    expect(content).toContain(text("forecastHistory.boundary"));
     expect(content).toContain("actions proof unavailable");
-    expect(t("settings.runtimePolicies.fields.forecast.history_collection.enabled.label"))
-      .not.toBe("settings.runtimePolicies.fields.forecast.history_collection.enabled.label");
+    expect(text("forecastHistory.collectionLabel")).not.toBe("forecastHistory.collectionLabel");
   });
 });

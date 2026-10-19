@@ -36,6 +36,34 @@ def _load_frozen_scenario_module() -> ModuleType:
     return module
 
 
+@pytest.mark.parametrize("port", [5432, 5433])
+def test_ci_postgres_matches_the_local_validation_port_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, port: int
+) -> None:
+    workflow = tmp_path / ".github/workflows/ci.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        yaml.safe_dump(
+            {
+                "jobs": {
+                    "integration": {
+                        "services": {"postgres": {"ports": [f"{port}:5432"]}},
+                        "env": {
+                            "FDAI_DATABASE_URL": f"postgresql://localhost:{port}/example",
+                            "FDAI_SERVICE_DATABASE_URL": f"postgresql://localhost:{port}/example_services",
+                        },
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    module = _load_contract_module()
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+    errors = module._validate_integration_database_isolation()
+    assert len(errors) == (0 if port == 5433 else 3)
+
+
 def _new_frozen_version_fixture() -> tuple[set[str], dict[str, object]]:
     root = "services/core-control-plane/tests/scenarios"
     version = "v2099.01"
@@ -1916,7 +1944,7 @@ def test_ci_partitions_database_and_provider_checks_across_two_shards() -> None:
     assert integration_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "2"
     assert integration_job["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
     assert integration_job["env"]["FDAI_SERVICE_DATABASE_URL"].endswith(
-        "@localhost:5432/fdai_services"
+        "@localhost:5433/fdai_services"
     )
     integration_steps = [step["name"] for step in integration_job["steps"]]
     assert integration_steps.index("Run alembic upgrade head") < integration_steps.index(

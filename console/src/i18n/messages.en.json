@@ -1953,7 +1953,6 @@
       "conflict": "Runtime policies changed in another session. The latest values were loaded; review them before saving again.",
       "conflictReloadFailed": "Runtime policies changed in another session, and the latest values could not be loaded.",
       "groups": {
-        "forecast": "Forecast history",
         "identity": "Human access",
         "investigation": "Incident investigation",
         "inventory": "Inventory freshness",
@@ -1965,14 +1964,6 @@
         "diagnostics": "Diagnostics"
       },
       "fields": {
-        "forecast": {
-          "history_collection": {
-            "enabled": {
-              "label": "Collect forecast source histories",
-              "hint": "Use the audited Settings preference to collect reviewed histories. Deployment variables cannot enable it. Missing source completeness or independent proofs still prevent scoring; this never grants execution authority."
-            }
-          }
-        },
         "human_access": {
           "enabled": {
             "label": "Human access reconciliation",
@@ -2282,23 +2273,6 @@
       "forecast-history": {
         "label": "Forecast intervention history",
         "hint": "Source history producers for forecast scoring. Observation only; incomplete sources keep scoring held."
-      }
-    },
-    "forecastHistory": {
-      "details": "Forecast history sources and prerequisites",
-      "boundary": "A bound reader is not a completeness proof. Missing checkpoints or independent proofs keep forecast scoring unavailable.",
-      "bound": "Reader bound",
-      "unbound": "Reader not bound",
-      "checkpointPresent": "Positive checkpoint reported by the source",
-      "checkpointMissing": "Positive checkpoint unavailable",
-      "prerequisites": "Prerequisites",
-      "configured": "Configured",
-      "missing": "Missing",
-      "kinds": {
-        "actions": "Action history",
-        "changes": "External changes",
-        "excluded_windows": "Excluded windows",
-        "resource_lifecycle": "Resource lifecycle"
       }
     },
     "integrationEvidence": "Integration evidence",

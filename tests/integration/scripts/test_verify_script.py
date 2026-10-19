@@ -119,6 +119,9 @@ def test_diff_scoping_and_gate_cache_use_verified_context(tmp_path: Path) -> Non
     assert _git(tmp_path, "add", ".").returncode == 0
     assert _git(tmp_path, "commit", "--quiet", "-m", "initial").returncode == 0
     document.write_text("changed\n", encoding="utf-8")
+    catalog = tmp_path / "console/src/i18n/messages.en.json"
+    catalog.parent.mkdir(parents=True)
+    catalog.write_text('{"message":"changed"}\n', encoding="utf-8")
     assert _git(tmp_path, "add", ".").returncode == 0
     assert _git(tmp_path, "commit", "--quiet", "-m", "docs").returncode == 0
 
@@ -195,6 +198,7 @@ def test_diff_scoping_and_gate_cache_use_verified_context(tmp_path: Path) -> Non
     assert "check-translations.sh" in first_commands
     assert "check-design-doc-impact.py HEAD^..HEAD" in first_commands
     assert "check-roadmap-implementation-tracking.py HEAD^..HEAD" in first_commands
+    assert "build_question_bank.py --check" in first_commands
     commands = command_log.read_text(encoding="utf-8")
     assert commands.count("check-translations.sh") == 2
     assert commands.count("check-design-doc-impact.py") == 2

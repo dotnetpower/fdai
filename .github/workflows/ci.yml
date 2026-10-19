@@ -778,7 +778,8 @@ jobs:
           POSTGRES_PASSWORD: ci
           POSTGRES_DB: fdai
         ports:
-          - 5432:5432
+          # Match the isolated-validation contract; never select the local runtime port.
+          - 5433:5432
         options: >-
           --health-cmd "pg_isready -U fdai -d fdai"
           --health-interval 5s
@@ -786,8 +787,8 @@ jobs:
           --health-retries 20
 
     env:
-      FDAI_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5432/fdai
-      FDAI_SERVICE_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5432/fdai_services
+      FDAI_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5433/fdai
+      FDAI_SERVICE_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5433/fdai_services
       FDAI_PYTEST_MODE: integration
       FDAI_PYTEST_SHARD_COUNT: "2"
       FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}

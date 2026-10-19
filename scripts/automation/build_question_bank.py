@@ -24,6 +24,7 @@ def _write_text(path: Path, content: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", type=Path, default=Path("."))
+    parser.add_argument("--check", action="store_true")
     parser.add_argument(
         "--source",
         type=Path,
@@ -36,11 +37,25 @@ def main() -> int:
     )
     payload = build_question_bank(repo_root=repo_root, source_path=source_path)
     output_root = source_path.parent
-    _write_text(
-        output_root / "question-bank.json",
-        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-    )
-    _write_text(output_root / "review-catalog.md", render_review_catalog(payload))
+    artifacts = {
+        output_root / "question-bank.json": json.dumps(payload, ensure_ascii=False, indent=2)
+        + "\n",
+        output_root / "review-catalog.md": render_review_catalog(payload),
+    }
+    if args.check:
+        stale = [
+            path
+            for path, expected in artifacts.items()
+            if not path.is_file() or path.read_text(encoding="utf-8") != expected
+        ]
+        for path in stale:
+            print(f"question-bank: stale generated artifact: {path.name}", file=sys.stderr)
+        if stale:
+            return 1
+        print("question-bank: OK (generated JSON and review catalog match all sources)")
+        return 0
+    for path, content in artifacts.items():
+        _write_text(path, content)
     print(
         "question-bank: rendered "
         f"{payload['summary']['question_count']} logical questions "
