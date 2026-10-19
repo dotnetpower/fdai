@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 62fc00dfbb39c6d0b8ab943e00a638e230dae8ee
+translation_source_sha: 15cdcbe1c30744e2cd0c065d948a77965a2739d5
 translation_revised: 2026-10-19
 ---
 # 예측 학습 및 케이스 히스토리
@@ -259,6 +259,9 @@ Thor의 첫 디스패치 진입 관측은 별도 불변 저장 영역 `thor:disp
 재시도는 첫 시각을 보존하며 충돌하는 식별자, 잘못된 보관 레코드 또는 첫 시각보다 이른 시계를
 차단합니다. 기록기에는 격리된 복사본을 전달합니다. Thor는 기록을 기다린 뒤 실행기 입출력 전에
 고정 식별자, 실행 중인 non-shadow 상태, 현재 shadow 권한과 개발 권한을 다시 확인합니다.
+작성자와 대기 전후 식별자 검사는 현재 데이터를 정규 JSON으로 표현해 기존 해시 계산기로
+식별자를 다시 계산합니다. Python 값 비교에서 불리언과 숫자를 같게 볼 수 있는 기존 캐시는
+신뢰하지 않습니다.
 관측은 디스패치 단계 진입만 보여 주며 공급자 변경, 검증된 효과, 성공이나 사건 시각 이력의
 완전성을 증명하지 않습니다.
 

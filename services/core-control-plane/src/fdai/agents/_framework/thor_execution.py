@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from fdai.agents._framework import thor_preflight, vidar_dr
+from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.thor_action_run import ActionRun, ActionRunStore
 from fdai.agents._framework.thor_dispatch_start import DispatchStartRecorder
@@ -336,11 +337,11 @@ async def _record_dispatch_start(
         host.record_behavior("dispatch_start:unavailable")
         return
     try:
-        identity = run.action_run_identity()
+        identity = action_run_identity_digest(run.to_dict())
         await recorder.record_dispatch_start(
             deepcopy(run), started_at=host._now(), resource_lock_ref=resource_lock_ref
         )
-        if run.action_run_identity() != identity:
+        if action_run_identity_digest(run.to_dict()) != identity:
             raise RuntimeError("ActionRun identity changed while recording dispatch entry")
         if run.shadow_mode or run.state is not ActionRunState.EXECUTING or host._must_shadow():
             raise RuntimeError("execution authority changed while recording dispatch entry")

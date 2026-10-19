@@ -392,3 +392,36 @@ async def test_actual_verdict_dispatch_binds_durable_claim_lock_and_audit_receip
     assert run.state is ActionRunState.EFFECT_PENDING
     assert run.outcome == "command_accepted_verification_pending"
     assert not locked
+
+
+@pytest.mark.parametrize("prior,replacement", [(True, 1), (False, 0), (1, 1.0)])
+@pytest.mark.parametrize("during_await", [False, True])
+async def test_json_type_changes_cannot_reuse_cached_dispatch_identity(
+    prior: object, replacement: object, during_await: bool
+) -> None:
+    original = _run()
+    original.params = {"nested": {"value": prior}}
+    original.action_run_identity()
+    state = InMemoryStateStore()
+
+    async def executor(payload: dict[str, Any]) -> bool:
+        pytest.fail("changed JSON identity reached the executor")
+
+    if during_await:
+
+        class ChangedStore(_RecordingStore):
+            async def record_dispatch_start(
+                self, run: ActionRun, *, started_at: datetime, resource_lock_ref: str | None
+            ) -> None:
+                original.params["nested"]["value"] = replacement
+
+        with pytest.raises(RuntimeError, match="identity changed"):
+            await invoke_executor(
+                Thor(executor=executor, state_store=ChangedStore(), clock=lambda: NOW), original
+            )
+    else:
+        store = StateStoreActionRunStore(store=state)
+        await store.record_dispatch_start(original, started_at=NOW, resource_lock_ref=None)
+        original.params["nested"]["value"] = replacement
+        with pytest.raises(RuntimeError, match="conflicts"):
+            await store.record_dispatch_start(original, started_at=NOW, resource_lock_ref=None)

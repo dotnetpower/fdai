@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 
+from fdai.agents._framework.action_run_identity import action_run_identity_digest
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.thor_action_run import ActionRun
 from fdai.shared.providers.state_store import StateStore
@@ -67,7 +68,7 @@ def dispatch_start_record(
         "kind": "thor.dispatch_entry",
         "owner_agent": "Thor",
         "correlation_id": run.correlation_id,
-        "action_run_identity": run.action_run_identity(),
+        "action_run_identity": action_run_identity_digest(run.to_dict()),
         "action_type": run.action_type,
         "resource_id": run.resource_id,
         "idempotency_digest": hashlib.sha256(run.idempotency_key.encode("utf-8")).hexdigest(),

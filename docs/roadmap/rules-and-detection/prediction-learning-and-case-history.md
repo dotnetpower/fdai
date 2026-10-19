@@ -265,6 +265,8 @@ Retries preserve the first timestamp and reject conflicting identities, malforme
 or a clock earlier than that timestamp. The recorder receives an isolated copy; after its await,
 Thor rechecks stable identity, executing non-shadow state, current shadow authority and development
 authorization before executor I/O.
+The writer and await-time identity check recompute the existing canonical JSON digest from current
+data, rather than trusting a cached digest whose Python equality can alias booleans and numbers.
 The observation proves entry into the dispatch phase, not provider mutation, verified effect,
 success or complete event-time history.
 
