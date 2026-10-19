@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 1323ebb64d3c9d534e2ac9f642b759735bbf8096
+translation_source_sha: 841c3074d03d534d883c520a8bd5c3e35f5e5761
 translation_revised: 2026-10-19
 ---
 # 에이전트 판테온
@@ -82,6 +82,9 @@ Thor의 비공개 디스패치 도우미는 기존 영속 저장소에 첫 디�
 기록 실패, 식별자 변경 또는 권한 상실 시 실행기 입출력을 차단합니다. 불변 관측만으로 효과
 검증이나 완전한 작업 이력이 확보되지는 않습니다. AgentSpec, 토픽과 수명 주기 소유권은
 유지합니다. [예측 수집원 경계](../rules-and-detection/prediction-learning-and-case-history-ko.md#예측-근거-수용)를 참조하세요.
+실행기 입출력 전에 관측 기록이나 진입 검증이 실패하면 ActionRun을 실행 차단 상태로 게시합니다.
+Vidar가 보상 작업을 수행하는 실행 실패로 게시하지 않습니다. 실제 실행기 실패의 복구 경로는
+유지하며 취소와 디스패치 여부가 불명확한 경우도 기존 방식으로 처리합니다.
 
 등록된 `AnomalyActionSource`는 정확한 Heimdall 신호를 조회해 Forseti에 최신의 비활성 작업
 후보를 제공합니다. 입력된 작업 인자와 사람 요청자 주장은 신뢰하지 않고 교체합니다.
