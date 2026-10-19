@@ -9,7 +9,7 @@ import runpy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import psycopg
@@ -36,21 +36,26 @@ from fdai.agents.thor import Thor
 from fdai.agents.var import Var
 from fdai.agents.vidar import Vidar
 from fdai.core.conversation.session import Principal
+from fdai.core.ontology_platform.document_intent import DocumentIntentEvent
 from fdai.core.ontology_platform.models import (
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
 )
+from fdai.core.ontology_platform.source_read_admission import SourceReadAdmissionError
 from fdai.core.rbac.roles import Role
 from fdai.delivery.identity.handover_review_identity import HandoverIdentityFacts
 from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_document_intent import PostgresDocumentIntent
-from fdai.delivery.persistence.postgres_document_intent_reader import document_intent_gateway
+from fdai.delivery.persistence.postgres_document_intent_reader import (
+    DocumentIntentInstanceReader,
+    PostgresDocumentIntentReadAdmission,
+)
 from fdai.delivery.persistence.postgres_ontology import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
 )
-from fdai.runtime.document_intent import DocumentIntentRuntime
+from fdai.runtime.document_intent import DocumentIntentRuntime, build_document_intent_runtime
 from fdai.shared.contracts.models import CeilingRole, OntologyObjectType
 from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.ontology.release import build_ontology_release
@@ -266,8 +271,8 @@ async def propose(fixture, envelope, *, operation="add", revision=0, correlation
 
 
 async def read(fixture, *, principal="human:reader"):
-    gateway = document_intent_gateway(
-        fixture.repo, Principal(id=principal, role=Role.READER, groups=frozenset({"group:catalog"}))
+    gateway = fixture.runtime.query(
+        principal=Principal(id=principal, role=Role.READER, groups=frozenset({"group:catalog"}))
     )
     admission = gateway._source_read_admission
     return await gateway.materialize(
@@ -669,5 +674,143 @@ async def test_lost_publication_ack_restarts_from_persisted_receipts_without_rea
         assert result.materialization.graph.objects[0].revision == 1
         assert fixture.agents["Saga"].durable_audit
         assert fixture.agents["Saga"].audit_chain.entries
+    finally:
+        await fixture.state.aclose()
+
+
+async def test_private_intent_reader_filters_delegates_and_denies_every_write(database):
+    fixture = await setup(database)
+    try:
+        metadata, envelope = source(fixture)
+        save(database, metadata)
+        digest, correlation = await propose(fixture, envelope)
+        await fixture.var.decide(correlation, approver="human:reviewer", decision="approve")
+        expected = (await read(fixture)).materialization.graph.objects[0]
+        reader = DocumentIntentInstanceReader(
+            PostgresDocumentIntentReadAdmission(
+                fixture.repo,
+                Principal(
+                    id="human:reader",
+                    role=Role.READER,
+                    groups=frozenset({"group:catalog"}),
+                ),
+                purpose="operations-review",
+            )
+        )
+
+        for result in (
+            await reader.scan_objects(object_types=("BusinessService",)),
+            await reader.traverse(root_ids=(expected.id,)),
+            await reader.traverse_from_type(root_object_type="BusinessService"),
+            await reader.query_objects(
+                property_equals={"name": "Example service"},
+                property_text_in={"name": ("Example service",)},
+            ),
+        ):
+            assert tuple(record.id for record in result.objects) == (expected.id,)
+        assert (await reader.get_object(expected.id)).id == expected.id
+        assert await reader.get_object("BusinessService:missing") is None
+        assert not (await reader.query_objects(object_types=("Resource",))).objects
+        assert not (await reader.query_objects(property_equals={"name": "Missing service"})).objects
+        assert not (
+            await reader.query_objects(property_text_in={"name": ("Missing service",)})
+        ).objects
+        for limit in (0, 50_001):
+            with pytest.raises(ValueError, match="limit is outside its bound"):
+                await reader.query_objects(limit=limit)
+        admission = reader.admission
+        for scope, purpose in (
+            ("sha256:" + "2" * 64, admission.purpose),
+            (admission.scope, "change-review"),
+        ):
+            with pytest.raises(PermissionError, match="scope or purpose mismatch"):
+                await admission.authorize(principal_scope_digest=scope, purpose=purpose)
+        with patch.object(fixture.repo.identities, "read", AsyncMock(return_value=None)):
+            with pytest.raises(PermissionError, match="reader identity is unavailable"):
+                await admission.authorize(
+                    principal_scope_digest=admission.scope, purpose=admission.purpose
+                )
+            with pytest.raises(PermissionError, match="review role is required"):
+                await fixture.runtime.review_diff(digest, principal=admission.principal)
+        rebuilt = build_document_intent_runtime(
+            graph=fixture.repo.graph, identities=fixture.repo.identities
+        )
+        assert rebuilt.repository.graph is fixture.repo.graph
+        assert rebuilt.repository.identities is fixture.repo.identities
+        for operation in (
+            "create_object_if_absent",
+            "upsert_object",
+            "upsert_link",
+            "replace_subgraph",
+            "delete_object",
+        ):
+            with pytest.raises(PermissionError, match="no write authority"):
+                await getattr(reader, operation)(expected)
+        assert (await reader.get_object(expected.id)).id == expected.id
+    finally:
+        await fixture.state.aclose()
+
+
+@pytest.mark.parametrize("tamper", ["diff", "missing-target", "target-revision", "unattributed"])
+async def test_private_intent_source_and_current_read_reject_tampering(database, tamper):
+    fixture = await setup(database)
+    try:
+        metadata, envelope = source(fixture)
+        save(database, metadata)
+        digest, correlation = await propose(fixture, envelope)
+        await fixture.var.decide(correlation, approver="human:reviewer", decision="approve")
+        expected = (await read(fixture)).materialization.graph.objects[0]
+        with psycopg.connect(database) as connection:
+            if tamper == "diff":
+                with pytest.raises(psycopg.errors.RaiseException, match="diff are immutable"):
+                    connection.execute(
+                        "UPDATE document_intent_projection SET diff=jsonb_set("
+                        "diff, '{properties,name}', to_jsonb(%s::text)) WHERE digest=%s",
+                        ("Unexpected service", digest),
+                    )
+                connection.rollback()
+            elif tamper == "missing-target":
+                connection.execute(
+                    "DELETE FROM document_intent_resource WHERE id=%s", (expected.id,)
+                )
+            elif tamper == "target-revision":
+                connection.execute(
+                    "UPDATE document_intent_resource SET revision=revision+1 WHERE id=%s",
+                    (expected.id,),
+                )
+            else:
+                connection.execute(
+                    "UPDATE document_intent_projection SET status='rolled_back' WHERE digest=%s",
+                    (digest,),
+                )
+        if tamper == "diff":
+            assert (await read(fixture)).materialization.graph.objects[0].id == expected.id
+        else:
+            with pytest.raises(SourceReadAdmissionError):
+                await read(fixture)
+    finally:
+        await fixture.state.aclose()
+
+
+@pytest.mark.parametrize("owner", ["Muninn", "Thor"])
+async def test_unbound_private_intent_owner_never_falls_through_to_execution(database, owner):
+    fixture = await setup(database)
+    try:
+        event = DocumentIntentEvent.create("source", "sha256:" + "1" * 64, "unbound-owner")
+        fallback = AsyncMock()
+        handler = owned_document_intent_handler(fixture.agents[owner], None, fallback)
+        if owner == "Thor":
+            await handler(event.topic, event.model_dump(mode="json"))
+        else:
+            with pytest.raises(RuntimeError, match="intent owner is unavailable"):
+                await handler(event.topic, event.model_dump(mode="json"))
+        fallback.assert_not_awaited()
+        agent = fixture.agents[owner]
+        bound_bus = agent.bus
+        agent.bus = None
+        try:
+            assert await recover_document_intent_publications({owner: agent}, fixture.repo) == 0
+        finally:
+            agent.bus = bound_bus
     finally:
         await fixture.state.aclose()
