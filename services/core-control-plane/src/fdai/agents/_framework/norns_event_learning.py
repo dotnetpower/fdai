@@ -464,9 +464,12 @@ class NornsEventLearningMixin:
         raw: Mapping[str, Any],
         review_input: PostTurnReviewInput,
     ) -> bool:
-        if not any(
-            body is not None for body in (review_input.operator_body, review_input.assistant_body)
-        ):
+        raw_text = (
+            review_input.operator_body,
+            review_input.assistant_body,
+            *review_input.explicit_corrections,
+        )
+        if not any(body is not None for body in raw_text):
             return True
         if not review_input.body_shared:
             self.record_behavior("post_turn_review_raw_body_incomplete")
@@ -482,7 +485,7 @@ class NornsEventLearningMixin:
         ):
             self.record_behavior("post_turn_review_raw_body_without_consent")
             return False
-        text = "\n".join((review_input.operator_body or "", review_input.assistant_body or ""))
+        text = "\n".join(body for body in raw_text if body is not None)
         if len(text.encode("utf-8")) > _MAX_POST_TURN_BODY_BYTES:
             self.record_behavior("post_turn_review_raw_body_too_large")
             return False

@@ -75,6 +75,10 @@ async def test_core_ingress_republishes_once_through_bragi_and_duplicate_is_term
     published = [event async for event in bus.subscribe(POST_TURN_REVIEW_TOPIC, "assert-bragi")]
     assert len(published) == 1
     assert published[0].payload["producer_principal"] == "Bragi"
+    assert published[0].payload["review"]["operator_body"] is None
+    assert published[0].payload["review"]["assistant_body"] is None
+    assert published[0].payload["review"]["explicit_corrections"] == []
+    assert "body_consent" not in published[0].payload
 
     run_task = asyncio.create_task(pantheon.run())
     try:

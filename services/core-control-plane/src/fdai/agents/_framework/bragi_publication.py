@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fdai_service_contracts.post_turn_review import (
+    BragiPostTurnReviewEnvelope,
     PostTurnBodyConsent,
     PostTurnReviewInputWire,
 )
@@ -112,8 +113,12 @@ def post_turn_review_event_payload(
         and preference.share_with_learner is True
         and principal_scope == review.principal_scope
     )
-    carries_raw_body = review.operator_body is not None or review.assistant_body is not None
-    if not body_allowed and (review.operator_body is not None or review.assistant_body is not None):
+    carries_raw_body = (
+        review.operator_body is not None
+        or review.assistant_body is not None
+        or bool(review.explicit_corrections)
+    )
+    if not body_allowed and carries_raw_body:
         review = PostTurnReviewInput(
             review_id=review.review_id,
             principal_scope=review.principal_scope,
@@ -124,7 +129,7 @@ def post_turn_review_event_payload(
             assistant_body=None,
             tool_receipts=review.tool_receipts,
             validation_outcomes=review.validation_outcomes,
-            explicit_corrections=review.explicit_corrections,
+            explicit_corrections=(),
             evidence_refs=review.evidence_refs,
             memory_scope_kind=review.memory_scope_kind,
             memory_scope_ref=review.memory_scope_ref,
@@ -437,6 +442,12 @@ class BragiPublicationMixin:
                         record("publication_outbox:recovery_invalid_row")
                     continue
                 try:
+                    if topic == "object.post-turn-review" and not _post_turn_recovery_consented(
+                        payload
+                    ):
+                        if callable(record):
+                            record("publication_outbox:recovery_missing_body_consent")
+                        continue
                     if await _publish_recovered_row(
                         state_store,
                         bus,
@@ -453,6 +464,25 @@ class BragiPublicationMixin:
             if progress == 0:
                 break
         return published
+
+
+def _post_turn_recovery_consented(payload: Mapping[str, Any]) -> bool:
+    """Hold legacy raw-text outbox rows without a matching recorded consent marker."""
+    envelope = BragiPostTurnReviewEnvelope.model_validate(payload)
+    review = envelope.review
+    if (
+        review.operator_body is None
+        and review.assistant_body is None
+        and not review.explicit_corrections
+    ):
+        return True
+    raw_consent = payload.get("body_consent")
+    return (
+        isinstance(raw_consent, Mapping)
+        and raw_consent.get("share_with_learner") is True
+        and envelope.body_consent is not None
+        and envelope.body_consent.principal_scope == review.principal_scope
+    )
 
 
 async def _publish_recovered_row(
