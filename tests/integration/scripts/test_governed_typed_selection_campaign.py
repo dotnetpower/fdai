@@ -18,6 +18,19 @@ def _module():
     return module
 
 
+def test_runtime_container_preserves_the_loader_string_path(tmp_path: Path) -> None:
+    campaign = _module()
+    artifact = tmp_path / "resolved-models.json"
+    artifact.write_text("{}")
+    container = campaign._container(
+        {
+            "LLM_RESOLVED_MODELS_PATH": str(artifact),
+            "LLM_RESOLVED_MODELS_SHA256": "0" * 64,
+        }
+    )
+    assert container.config.llm.resolved_models_path == str(artifact)
+
+
 async def test_fake_campaign_runs_actual_governed_prepare_and_consume_path() -> None:
     campaign = _module()
     cases = campaign.load_cases()
