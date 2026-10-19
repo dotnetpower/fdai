@@ -161,6 +161,9 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   read discards the result, including disable-and-reenable. Console exposes the four source
   bindings, checkpoint limitations and prerequisites. These local controls do not supply the four
   missing positive-history proofs, and the mandatory package remains open.
+  #2248 repairs the original shared ActionRun cache, with 26 reproduced JSON value/key-alias
+  regressions, actual preflight rejection, unchanged warm hash/copy counts and 203 focused passes.
+  It preserves canonical identity bytes, but does not supply the independent history proof.
 - [ ] **L02, context safety:** Complete authenticated exact-target proposal/review, bounded activation,
   expiry/revocation, Forseti decisions, Saga audit, and dispatch revalidation. Retain live queued and
   in-flight revocation/expiry, hold, stop/recovery, deadline, and subscriber-isolation receipts.

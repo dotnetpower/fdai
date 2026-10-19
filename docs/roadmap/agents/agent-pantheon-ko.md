@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e9c4d835a3d8b3dc5f217b3f7f8ab776f568f021
+translation_source_sha: ac2766b590be5daec75421f4c75db289d9ce9cde
 translation_revised: 2026-10-19
 ---
 # 에이전트 판테온
@@ -85,6 +85,9 @@ Thor의 비공개 디스패치 도우미는 기존 영속 저장소에 첫 디�
 실행기 입출력 전에 관측 기록이나 진입 검증이 실패하면 ActionRun을 실행 차단 상태로 게시합니다.
 Vidar가 보상 작업을 수행하는 실행 실패로 게시하지 않습니다. 실제 실행기 실패의 복구 경로는
 유지하며 취소와 디스패치 여부가 불명확한 경우도 기존 방식으로 처리합니다.
+공통 ActionRun 캐시는 중첩된 불리언, 정수, 부동소수점, 양의 0 및 음의 0을 정확한 타입으로
+비교합니다. 식별자에 포함되는 실행 데이터나 반환된 캐시 값이 바뀌면 변환 결과를 다시
+만들며, 정규 식별자 바이트나 캐시 재사용 경로의 해시 및 깊은 복사 호출 수는 바꾸지 않습니다.
 
 등록된 `AnomalyActionSource`는 정확한 Heimdall 신호를 조회해 Forseti에 최신의 비활성 작업
 후보를 제공합니다. 입력된 작업 인자와 사람 요청자 주장은 신뢰하지 않고 교체합니다.

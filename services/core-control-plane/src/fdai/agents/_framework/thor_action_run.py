@@ -31,6 +31,24 @@ from fdai.shared.contracts.models import Autonomy
 _REJECTION_REF = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
+def _same_stable_value(left: object, right: object) -> bool:
+    """Compare cached wire values without Python numeric aliases or extra hashing."""
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(
+            isinstance(key, str) and _same_stable_value(value, right[key])
+            for key, value in left.items()
+        )
+    if isinstance(left, (list, tuple)) and isinstance(right, (list, tuple)):
+        return len(left) == len(right) and all(
+            _same_stable_value(first, second) for first, second in zip(left, right, strict=True)
+        )
+    if isinstance(left, float) and isinstance(right, float):
+        return left == right and left.hex() == right.hex()
+    return left == right
+
+
 @dataclass
 class ActionRun:
     correlation_id: str
@@ -145,7 +163,7 @@ class ActionRun:
     def publication_identity_payload(self) -> dict[str, Any]:
         """Return the transition-stable ActionRun payload fields.
 
-        The cache is revalidated by equality on every read, so a changed stable field
+        The cache is revalidated by type-sensitive equality on every read, so a changed stable field
         rebuilds the payload and identity instead of letting an approval, rollback, or
         publication bind content the run no longer carries.
         """
@@ -201,39 +219,45 @@ class ActionRun:
 
     def _stable_fields_match(self, payload: dict[str, Any]) -> bool:
         return (
-            payload["action_idempotency_key"] == self.idempotency_key
-            and payload["action_type"] == self.action_type
-            and payload["correlation_id"] == self.correlation_id
-            and payload["decision_case"] == self.decision_case
-            and payload["development_authority"] == self.development_authority
-            and payload["approval_profile"] == self.approval_profile
-            and payload["effective_quorum_required"] == self.effective_quorum_required
-            and payload["initiator_principal"] == self.initiator_principal
-            and payload["kinetic_proposal"] == self.kinetic_proposal
-            and payload["operational_context"] == self.operational_context
-            and payload["original_quorum_required"] == self.original_quorum_required
-            and payload["params"] == self.params
-            and payload["prospective_lineage"] == self.prospective_lineage
-            and payload["quorum_required"] == self.quorum_required
-            and payload["resource_id"] == self.resource_id
-            and payload["rollback_contract"] == self.rollback_contract
-            and payload["verdict"] == self.verdict
-            and payload["workflow_action"] == self.workflow_action
-            and payload.get("action_id") == self.action_id
-            and {
-                key: payload[key]
-                for key in (
-                    "batch_role",
-                    "attempt_id",
-                    "rollup_correlation_id",
-                    "rollup_action_run_identity",
-                    "target_set_digest",
-                    "target_set",
-                    "target_count",
-                )
-                if key in payload
-            }
-            == self._batch_identity_fields()
+            _same_stable_value(payload["action_idempotency_key"], self.idempotency_key)
+            and _same_stable_value(payload["action_type"], self.action_type)
+            and _same_stable_value(payload["correlation_id"], self.correlation_id)
+            and _same_stable_value(payload["decision_case"], self.decision_case)
+            and _same_stable_value(payload["development_authority"], self.development_authority)
+            and _same_stable_value(payload["approval_profile"], self.approval_profile)
+            and _same_stable_value(
+                payload["effective_quorum_required"], self.effective_quorum_required
+            )
+            and _same_stable_value(payload["initiator_principal"], self.initiator_principal)
+            and _same_stable_value(payload["kinetic_proposal"], self.kinetic_proposal)
+            and _same_stable_value(payload["operational_context"], self.operational_context)
+            and _same_stable_value(
+                payload["original_quorum_required"], self.original_quorum_required
+            )
+            and _same_stable_value(payload["params"], self.params)
+            and _same_stable_value(payload["prospective_lineage"], self.prospective_lineage)
+            and _same_stable_value(payload["quorum_required"], self.quorum_required)
+            and _same_stable_value(payload["resource_id"], self.resource_id)
+            and _same_stable_value(payload["rollback_contract"], self.rollback_contract)
+            and _same_stable_value(payload["verdict"], self.verdict)
+            and _same_stable_value(payload["workflow_action"], self.workflow_action)
+            and _same_stable_value(payload.get("action_id"), self.action_id)
+            and _same_stable_value(
+                {
+                    key: payload[key]
+                    for key in (
+                        "batch_role",
+                        "attempt_id",
+                        "rollup_correlation_id",
+                        "rollup_action_run_identity",
+                        "target_set_digest",
+                        "target_set",
+                        "target_count",
+                    )
+                    if key in payload
+                },
+                self._batch_identity_fields(),
+            )
         )
 
     def to_dict(self) -> dict[str, Any]:

@@ -81,6 +81,10 @@ unchanged; see [prediction source boundaries](../rules-and-detection/prediction-
 An observation or admission failure before executor I/O publishes a denied ActionRun, not an
 executed failure that Vidar would compensate. Actual executor failures retain their existing
 recovery path; cancellation and ambiguous dispatch retain their existing handling.
+The shared ActionRun cache compares stable values by exact type, including nested boolean,
+integer, float and signed-zero distinctions. Changed identity-bearing live or returned cached
+values rebuild the projection without changing canonical identity bytes or adding warm-path
+hashes/deep copies.
 
 Registered `AnomalyActionSource` bindings resolve exact Heimdall signals into current, inert
 action candidates for Forseti. Incoming action arguments and human-initiator claims are replaced,
