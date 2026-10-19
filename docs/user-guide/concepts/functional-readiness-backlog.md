@@ -152,6 +152,12 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   mutation, verified effect or the still-missing independent history proof.
   Recomputed canonical JSON identities reject cached boolean/number aliases during retry and
   observation awaits; the six reproduced cases are included in the final focused set.
+  #2246 separates pre-dispatch rejection from executed failure after three actual typed-bus cases
+  invoked rollback without executor I/O. The 219 focused and nine actual PostgreSQL checks preserve
+  genuine-failure recovery and deny replay/restart without executing; parent L01 remains open.
+  #2248 repairs the original shared ActionRun cache, with 26 reproduced JSON value/key-alias
+  regressions, actual preflight rejection, unchanged warm hash/copy counts and 203 focused passes.
+  It preserves canonical identity bytes, but does not supply the independent history proof.
 - [ ] **L02, context safety:** Complete authenticated exact-target proposal/review, bounded activation,
   expiry/revocation, Forseti decisions, Saga audit, and dispatch revalidation. Retain live queued and
   in-flight revocation/expiry, hold, stop/recovery, deadline, and subscriber-isolation receipts.
@@ -195,8 +201,11 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   #2218 / [PR #2220](https://github.com/dotnetpower/fdai/pull/2220) now binds three actual local
   signals and three fields with 92 focused passes. #2228 adds a process-scoped duration from
   runtime entry to first protected readiness with a frozen observation timestamp and 80 focused passes in an
-  overlapping test slice. Four signals and three fields are now bound. The remaining eleven
-  signal sources and five field sources stay explicitly unavailable; this package is not complete.
+  overlapping test slice. #2250 adds indexed consumed-canary age with 99 focused checks, including
+  four actual isolated PostgreSQL cases and exact byte/time boundaries. Five signals and three
+  fields are now bound. The remaining ten signal sources and five field sources stay explicitly
+  unavailable; canary result/state, operational index application and delivery/drill receipts
+  remain open, and this package is not complete.
   #2240 observes actual normal embedding calls in an optional typed model sub-scope, independently
   bound to the full startup role/binding registration and checked by the Operator reader.
   The parent aggregate remains unavailable when other configured roles are unobserved.

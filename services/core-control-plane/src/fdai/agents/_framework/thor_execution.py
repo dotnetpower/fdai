@@ -29,6 +29,10 @@ class ExecutionResourceUnavailableError(RuntimeError):
     """The cross-replica mutation lock could not be acquired."""
 
 
+class DispatchEntryRejectedError(RuntimeError):
+    """Admission failed before the bound executor was invoked."""
+
+
 class ThorExecutionHost(Protocol):
     _executor: Callable[[dict[str, Any]], Awaitable[bool]]
     _executor_timeout_seconds: float
@@ -164,6 +168,14 @@ async def execute(host: ThorExecutionHost, run: ActionRun) -> None:
         try:
             async with asyncio.timeout(host._executor_timeout_seconds):
                 success = await invoke_executor(host, run)
+        except DispatchEntryRejectedError:
+            release_run_lock = True
+            run.transition(ActionRunState.DENY_DROPPED)
+            run.outcome = "dispatch_entry_rejected"
+            await host._emit_action_run(run)
+            await host._release_resource_claim(run)
+            host.record_behavior("dispatch_entry:rejected")
+            return
         except ExecutionResourceUnavailableError as exc:
             retry_state = (
                 ActionRunState.APPROVED if run.verdict == "hil" else ActionRunState.VERDICTED
@@ -266,19 +278,26 @@ async def preflight_blocks_execution(host: ThorExecutionHost, run: ActionRun) ->
 
 async def invoke_executor(host: ThorExecutionHost, run: ActionRun) -> bool:
     """Invoke the bound executor under the optional cross-replica resource lock."""
-    host._revalidate_development_authority(run)
+    try:
+        host._revalidate_development_authority(run)
+    except Exception as exc:  # noqa: BLE001 - authority failure precedes executor I/O
+        host.record_behavior("dispatch_entry:authority_rejected")
+        _LOGGER.error(
+            "thor_dispatch_authority_unavailable",
+            extra={"correlation_id": run.correlation_id, "error_type": type(exc).__name__},
+        )
+        raise DispatchEntryRejectedError("dispatch entry rejected before executor I/O") from exc
     resource_id = str(run.resource_id or "")
     if not resource_id:
-        raise ValueError("execution resource_id MUST be non-empty")
+        raise DispatchEntryRejectedError("execution resource_id MUST be non-empty")
     resource_lock = host._execution_resource_lock
     if resource_lock is None:
         if host._require_execution_resource_lock:
-            raise RuntimeError("cross-replica execution resource lock is unavailable")
+            raise DispatchEntryRejectedError("cross-replica execution resource lock is unavailable")
         await _record_dispatch_start(host, run, resource_lock_ref=None)
-        host._revalidate_development_authority(run)
         return await host._executor({"run": run})
-    context = resource_lock.acquire(resource_lock_key(resource_id))
     try:
+        context = resource_lock.acquire(resource_lock_key(resource_id))
         await context.__aenter__()
     except Exception as exc:
         raise ExecutionResourceUnavailableError from exc
@@ -313,7 +332,6 @@ async def invoke_executor(host: ThorExecutionHost, run: ActionRun) -> bool:
         run.outcome = None
     try:
         await _record_dispatch_start(host, run, resource_lock_ref=resource_lock_key(resource_id))
-        host._revalidate_development_authority(run)
         result = await host._executor({"run": run})
     except BaseException as exc:
         try:
@@ -333,10 +351,11 @@ async def _record_dispatch_start(
     host: ThorExecutionHost, run: ActionRun, *, resource_lock_ref: str | None
 ) -> None:
     recorder = host._state_store
-    if not isinstance(recorder, DispatchStartRecorder):
-        host.record_behavior("dispatch_start:unavailable")
-        return
     try:
+        if not isinstance(recorder, DispatchStartRecorder):
+            host._revalidate_development_authority(run)
+            host.record_behavior("dispatch_start:unavailable")
+            return
         identity = action_run_identity_digest(run.to_dict())
         await recorder.record_dispatch_start(
             deepcopy(run), started_at=host._now(), resource_lock_ref=resource_lock_ref
@@ -345,13 +364,14 @@ async def _record_dispatch_start(
             raise RuntimeError("ActionRun identity changed while recording dispatch entry")
         if run.shadow_mode or run.state is not ActionRunState.EXECUTING or host._must_shadow():
             raise RuntimeError("execution authority changed while recording dispatch entry")
+        host._revalidate_development_authority(run)
     except Exception as exc:  # noqa: BLE001 - persistence failure prevents executor I/O
         host.record_behavior("dispatch_start:failed")
         _LOGGER.error(
             "thor_dispatch_start_unavailable",
             extra={"correlation_id": run.correlation_id, "error_type": type(exc).__name__},
         )
-        raise
+        raise DispatchEntryRejectedError("dispatch entry rejected before executor I/O") from exc
     host.record_behavior("dispatch_start:recorded")
 
 

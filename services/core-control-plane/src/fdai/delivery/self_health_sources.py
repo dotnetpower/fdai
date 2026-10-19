@@ -19,6 +19,7 @@ from psycopg import Error as DatabaseError
 
 from fdai.core.readiness.self_health import SelfHealthCatalog
 from fdai.core.readiness.self_health_runtime import SelfHealthExporterRegistry
+from fdai.delivery.self_health_canary import ConsumedCanaryAgeExporter
 from fdai.delivery.self_health_exporters import unavailable_self_health_registry
 from fdai.shared.providers.self_health import (
     SelfHealthExporter,
@@ -156,6 +157,8 @@ def runtime_self_health_registry(
     unavailable = unavailable_self_health_registry(catalog)
     signals = dict(unavailable.signal_exporters)
     fields = dict(unavailable.state_exporters)
+    age_signal = SelfHealthSignalName.TIME_SINCE_LAST_SUCCESSFUL_CANARY
+    signals[age_signal] = ConsumedCanaryAgeExporter(store, catalog.policies[age_signal].metric)
     if startup_duration_source is not None:
         signals[SelfHealthSignalName.COLD_START_DURATION] = startup_duration_source
     signal = SelfHealthSignalName.READINESS_PROBE

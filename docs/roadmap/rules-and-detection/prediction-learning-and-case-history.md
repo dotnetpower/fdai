@@ -267,6 +267,18 @@ Thor rechecks stable identity, executing non-shadow state, current shadow author
 authorization before executor I/O.
 The writer and await-time identity check recompute the existing canonical JSON digest from current
 data, rather than trusting a cached digest whose Python equality can alias booleans and numbers.
+An observation or admission error before the bound executor is invoked is a typed pre-dispatch
+rejection. Thor records `deny_dropped` with `dispatch_entry_rejected`, publishes the denial through
+its existing durable path and releases its claims and local lock. It does not publish an executed
+`failed` ActionRun that would trigger Vidar compensation for an action that never started.
+Actual executor failures and cancellation retain their existing classifications. Publication or
+claim-release failure still surfaces explicitly; a failed denial write is not reported as success.
+The original ActionRun identity/publication cache also preserves exact JSON types, including
+`true` versus `1`, integers versus floats and `0.0` versus `-0.0`. It revalidates live and returned
+cached values without changing canonical identity bytes or adding warm-path hashes/deep copies.
+The actual preflight consumer can therefore reject a type-alias mutation before executor entry;
+dispatch-only recomputation is not the sole protection.
+Mappings that need Python key coercion are re-canonicalized rather than reused as a cache hit.
 The observation proves entry into the dispatch phase, not provider mutation, verified effect,
 success or complete event-time history.
 
@@ -276,6 +288,7 @@ success or complete event-time history.
 | Save the executing ActionRun again with a start field | Same-state payload changes conflict with durable identity/state rules | Write immutable sidecar metadata through Thor's existing store owner |
 | Treat a start observation as complete intervention history | It provides neither effect evidence nor a start/known-at/watermark proof | Keep history and scoring unavailable until every independent prerequisite is met |
 | Add an observation await without a current authority check | A shadow/kill-switch change during recording could still reach the executor | Recheck current authority and execution state after recording; retain physical-lock cleanup on rejection |
+| Route pre-dispatch rejection through generic executor failure | The typed failed-action event can invoke Vidar even though executor I/O never started | Use an explicit pre-dispatch rejection and durable denied-action publication; preserve recovery for actual executor failures |
 
 Future positive action coverage requires independently recorded event-time history, an attested
 start anchor, a known-at completeness fence, a database-clock watermark after window end plus

@@ -11,7 +11,11 @@ from fdai.agents._framework.thor_dispatch_start import (
     DISPATCH_START_PREFIX,
     dispatch_start_key,
 )
-from fdai.agents._framework.thor_execution import execute, invoke_executor
+from fdai.agents._framework.thor_execution import (
+    DispatchEntryRejectedError,
+    execute,
+    invoke_executor,
+)
 from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.core.executor.safeguards import resource_lock_key
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -231,8 +235,9 @@ async def test_observation_wait_rechecks_development_authority_before_executor()
     host = Host(
         executor=executor, state_store=store, execution_resource_lock=Lock(), clock=lambda: NOW
     )
-    with pytest.raises(ValueError, match="authority changed"):
+    with pytest.raises(DispatchEntryRejectedError) as rejection:
         await invoke_executor(host, _run())
+    assert isinstance(rejection.value.__cause__, ValueError)
     assert events == ["released"]
 
 
@@ -268,7 +273,7 @@ async def test_observer_cannot_change_the_approved_execution_payload(mutate_orig
 
     host = Thor(executor=executor, state_store=MutatingStore(), clock=lambda: NOW)
     if mutate_original:
-        with pytest.raises(RuntimeError, match="identity changed"):
+        with pytest.raises(DispatchEntryRejectedError):
             await invoke_executor(host, run)
         assert not calls
     else:
@@ -339,7 +344,7 @@ async def test_shadow_authority_change_during_recording_prevents_executor_io(
         shadow_required=lambda: shadow,
         clock=lambda: NOW,
     )
-    with pytest.raises(RuntimeError, match="authority"):
+    with pytest.raises(DispatchEntryRejectedError):
         await invoke_executor(host, original)
 
 
@@ -415,7 +420,7 @@ async def test_json_type_changes_cannot_reuse_cached_dispatch_identity(
             ) -> None:
                 original.params["nested"]["value"] = replacement
 
-        with pytest.raises(RuntimeError, match="identity changed"):
+        with pytest.raises(DispatchEntryRejectedError):
             await invoke_executor(
                 Thor(executor=executor, state_store=ChangedStore(), clock=lambda: NOW), original
             )
