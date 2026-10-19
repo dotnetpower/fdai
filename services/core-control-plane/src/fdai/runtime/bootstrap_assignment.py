@@ -11,6 +11,8 @@ from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
 from fdai.composition import Container
 from fdai.core.control_loop import ControlLoop
 from fdai.runtime.assignment_transport import AssignmentTransportRuntime
+from fdai.runtime.bootstrap_document_intent import build_document_intent_binding
+from fdai.runtime.document_intent import DocumentIntentRuntime
 from fdai.runtime.handover_semantics import bind_handover_semantics
 from fdai.runtime.human_access_runtime import build_human_access_workflow
 from fdai.runtime.human_access_workflow import HumanAccessWorkflowRuntime
@@ -72,6 +74,40 @@ def bind_assignment_capabilities(
             workflow=replace(transport.workflow, human_access=human_access.agent_bindings()),
         )
     return transport, human_access
+
+
+def bind_assignment_and_document_intent(
+    *,
+    transport: AssignmentTransportRuntime | None,
+    container: Container,
+    loop: ControlLoop,
+    store: StateStore,
+    catalog_root: Path,
+    environment: Mapping[str, str],
+    http_client: httpx.AsyncClient | None,
+    identity: WorkloadIdentity | None,
+    runtime_values: Mapping[str, Any],
+    readiness: Any,
+    product_profile: ProductProfile,
+) -> tuple[
+    AssignmentTransportRuntime | None,
+    HumanAccessWorkflowRuntime | None,
+    DocumentIntentRuntime | None,
+]:
+    assignment, human_access = bind_assignment_capabilities(
+        transport=transport,
+        container=container,
+        loop=loop,
+        store=store,
+        catalog_root=catalog_root,
+        environment=environment,
+        http_client=http_client,
+        identity=identity,
+        runtime_values=runtime_values,
+        readiness=readiness,
+        product_profile=product_profile,
+    )
+    return assignment, human_access, build_document_intent_binding(loop, assignment)
 
 
 def bind_assignment_reconciliation(

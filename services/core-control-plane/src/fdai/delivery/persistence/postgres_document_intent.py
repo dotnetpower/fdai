@@ -40,6 +40,57 @@ class PostgresDocumentIntent:
     identities: HandoverIdentityReader
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
 
+    async def staged_envelope(self, document: UUID, version: UUID) -> DocumentEnvelope | None:
+        """Read one worker-owned normalized envelope through its restricted function."""
+        async with await self.graph._connect() as connection:
+            row = await (
+                await connection.execute(
+                    "SELECT fdai_document_intent_envelope(%s,%s) AS envelope",
+                    (document, version),
+                )
+            ).fetchone()
+        raw = row["envelope"] if row else None
+        return DocumentEnvelope.model_validate(raw) if isinstance(raw, Mapping) else None
+
+    async def current_target_revision(self, envelope: DocumentEnvelope) -> int:
+        """Return the exact private target revision for deterministic add/update compilation."""
+        properties = self.intent_properties(envelope)
+        async with await self.graph._connect() as connection:
+            row = await (
+                await connection.execute(
+                    "SELECT revision FROM document_intent_resource WHERE id=%s",
+                    (properties.id,),
+                )
+            ).fetchone()
+        return int(row["revision"]) if row is not None else 0
+
+    async def current_source_digests(self, document: UUID, version: UUID) -> tuple[str, ...]:
+        async with await self.graph._connect() as connection:
+            rows = await (
+                await connection.execute(
+                    "SELECT digest FROM document_intent_projection "
+                    "WHERE document_id=%s AND version_id=%s "
+                    "AND status IN ('applied','restored') ORDER BY digest LIMIT 65",
+                    (document, version),
+                )
+            ).fetchall()
+        if len(rows) > 64:
+            raise ValueError("document intent source withdrawal exceeds its bound")
+        return tuple(str(row["digest"]) for row in rows)
+
+    @staticmethod
+    def intent_properties(envelope: DocumentEnvelope) -> IntentServiceProperties:
+        if len(envelope.units) != 1 or envelope.artifact_manifest is None:
+            raise ValueError("intent source requires one explicit normalized unit and manifest")
+        typed = json.loads(envelope.units[0].text)
+        if (
+            not isinstance(typed, dict)
+            or set(typed) != {"kind", "properties"}
+            or typed["kind"] != "fdai.declared-intent.business-service.v1"
+        ):
+            raise ValueError("source is not an explicit typed BusinessService intent document")
+        return IntentServiceProperties.model_validate(typed["properties"])
+
     async def source(
         self, connection: psycopg.AsyncConnection[Any], document: UUID, version: UUID
     ) -> DocumentVersion:
@@ -94,16 +145,10 @@ class PostgresDocumentIntent:
         expected_revision: int,
     ) -> str:
         """Compile one explicit machine-authored intent unit, not natural-language meaning."""
-        if len(envelope.units) != 1 or envelope.artifact_manifest is None:
-            raise ValueError("intent source requires one explicit normalized unit and manifest")
-        typed = json.loads(envelope.units[0].text)
-        if (
-            not isinstance(typed, dict)
-            or set(typed) != {"kind", "properties"}
-            or (typed["kind"] != "fdai.declared-intent.business-service.v1")
-        ):
-            raise ValueError("source is not an explicit typed BusinessService intent document")
-        properties = IntentServiceProperties.model_validate(typed["properties"])
+        properties = self.intent_properties(envelope)
+        manifest = envelope.artifact_manifest
+        if manifest is None:
+            raise ValueError("intent source requires an artifact manifest")
         human = await self.identities.read(requester_ref)
         if human is None or human.subject_ref != requester_ref or not human.current(self.clock()):
             raise PermissionError("current authenticated intent requester is unavailable")
@@ -111,7 +156,6 @@ class PostgresDocumentIntent:
             await self.graph._set_timeout(connection)
             source = await self.source(connection, envelope.document_id, envelope.version_id)
             self.check_access(source, requester_ref, human.group_ids)
-            manifest = envelope.artifact_manifest
             if (
                 source.scope_ref != scope_ref
                 or source.source_sha256 != envelope.source_sha256

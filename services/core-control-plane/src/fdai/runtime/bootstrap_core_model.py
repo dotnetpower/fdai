@@ -157,6 +157,7 @@ class CoreRuntime:
             assurance_twin_publishers=self.assurance_twin_publishers,
             assurance_twin_writers=self.assurance_twin_writers,
             entitlement_state_publisher=self.entitlement_state_publisher,
+            document_intent_ingress=self.pantheon.document_intent_ingress,
         )
 
 

@@ -25,6 +25,10 @@ from fdai.runtime.bootstrap_bindings import (
     EffectReconciliationRequestRuntimeBinding,
     RuleGenerationRuntimeBinding,
 )
+from fdai.runtime.bootstrap_event_consumers import (
+    schedule_document_intent_ingress,
+    schedule_incident_creation_consumer,
+)
 from fdai.runtime.bootstrap_incidents import IncidentNotificationReplayWorker
 from fdai.runtime.case_history import CaseHistoryRetentionTickPublisher
 from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
@@ -92,6 +96,7 @@ class RuntimeTaskConfiguration:
     assurance_twin_publishers: tuple[Any, ...] = ()
     assurance_twin_writers: tuple[Any, ...] = ()
     entitlement_state_publisher: Any = None
+    document_intent_ingress: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,26 +191,6 @@ def schedule_incident_intervention_consumer(
     )
 
 
-def schedule_incident_creation_consumer(
-    *,
-    binding: Any,
-    readiness: StartupReadinessRuntime,
-    bus: EventBus,
-    stop: asyncio.Event,
-) -> asyncio.Task[None] | None:
-    """Schedule the Incident creation consumer only when its binding exists."""
-
-    if binding is None:
-        return None
-    return asyncio.create_task(
-        readiness.run_when_ready(
-            stop,
-            lambda: binding.run(bus=bus, stop=stop),
-        ),
-        name="incident-creation-consumer",
-    )
-
-
 async def run_runtime_tasks(
     config: RuntimeTaskConfiguration,
     hooks: RuntimeTaskHooks,
@@ -292,6 +277,12 @@ async def run_runtime_tasks(
     )
     incident_creation_task = schedule_incident_creation_consumer(
         binding=config.incident_creation_binding,
+        readiness=config.readiness,
+        bus=config.bus,
+        stop=config.stop,
+    )
+    document_intent_task = schedule_document_intent_ingress(
+        binding=config.document_intent_ingress,
         readiness=config.readiness,
         bus=config.bus,
         stop=config.stop,
@@ -725,6 +716,7 @@ async def run_runtime_tasks(
             case_history_retention_task,
             semantic_turn_task,
             incident_creation_task,
+            document_intent_task,
             incident_intervention_task,
             read_investigation_task,
             alert_noise_task,

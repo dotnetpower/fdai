@@ -65,6 +65,8 @@ EXPECTED_RUNTIME_MODULES = {
     "bootstrap_core.py",
     "bootstrap_core_model.py",
     "bootstrap_cost_governance.py",
+    "bootstrap_document_intent.py",
+    "bootstrap_event_consumers.py",
     "bootstrap_forseti_replay.py",
     "bootstrap_assignment.py",
     "bootstrap_hil.py",

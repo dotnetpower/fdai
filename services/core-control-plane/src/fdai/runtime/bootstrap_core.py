@@ -661,23 +661,22 @@ async def build_core_runtime(
         runtime_settings=runtime_settings,
         startup_readiness=readiness.state,
     )
-    from fdai.runtime.bootstrap_assignment import (
-        bind_assignment_capabilities,
-        bind_assignment_reconciliation,
-    )
+    from fdai.runtime.bootstrap_assignment import bind_assignment_and_document_intent
 
-    assignment_transport, human_access_workflow = bind_assignment_capabilities(
-        transport=assignment_transport,
-        container=container,
-        loop=control_loop,
-        store=state_store,
-        catalog_root=_resolve_catalog_root(),
-        environment=environment,
-        http_client=resources.http_client,
-        identity=identity,
-        runtime_values=runtime_values,
-        readiness=readiness.state,
-        product_profile=plan.product_profile,
+    assignment_transport, human_access_workflow, document_intent = (
+        bind_assignment_and_document_intent(
+            transport=assignment_transport,
+            container=container,
+            loop=control_loop,
+            store=state_store,
+            catalog_root=_resolve_catalog_root(),
+            environment=environment,
+            http_client=resources.http_client,
+            identity=identity,
+            runtime_values=runtime_values,
+            readiness=readiness.state,
+            product_profile=plan.product_profile,
+        )
     )
     resources.pantheon = await initialize_pantheon(
         PantheonInitialization(
@@ -710,10 +709,11 @@ async def build_core_runtime(
             assignment_workflow=(assignment_transport.workflow if assignment_transport else None),
             effect_request_sink=effect_request_binding.producer if effect_request_binding else None,
             approval_profile=approval_bindings,
+            document_intent=document_intent,
         )
     )
-    human_access_reconciliation = bind_assignment_reconciliation(
-        human_access_workflow, resources.pantheon.runtime
+    human_access_reconciliation = resources.pantheon.assignment_reconciliation(
+        human_access_workflow
     )
     if semantic.semantic_turn_binding is not None:
         processor = semantic.semantic_turn_binding.processor

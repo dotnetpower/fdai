@@ -8,6 +8,8 @@ This plan defines how FDAI identifies operational work that is not an incident, 
 operator's SRE request into a governed incident response, and runs the Architecture Review Board
 (ARB) process as an observable workflow. It also defines the safety boundary for shadow and
 enforce operation in both local and deployed environments. Consumers import typed proposal claims from the focused persistence-model owner without changing Incident lifecycle ownership.
+Core task supervision also starts the independent document-intent ready consumer when its real
+PostgreSQL and identity prerequisites exist. That consumer cannot create an Incident or enter ARB.
 When the complete ORR posture/report pair is active, Core bootstrap derives the remediation
 publisher-and-lever pair from the active ontology release and active Rule declarations. The
 binding remains unavailable when either identity is incomplete. This mechanical selection does

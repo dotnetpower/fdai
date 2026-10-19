@@ -44,6 +44,7 @@ from fdai.core.ontology_platform.models import (
 )
 from fdai.core.ontology_platform.source_read_admission import SourceReadAdmissionError
 from fdai.core.rbac.roles import Role
+from fdai.delivery.document_intent_ingress import DocumentIntentIngress
 from fdai.delivery.identity.handover_review_identity import HandoverIdentityFacts
 from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_document_intent import PostgresDocumentIntent
@@ -59,7 +60,12 @@ from fdai.runtime.document_intent import DocumentIntentRuntime, build_document_i
 from fdai.shared.contracts.models import CeilingRole, OntologyObjectType
 from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.ontology.release import build_ontology_release
+from fdai.shared.providers.event_bus import EventEnvelope
 from fdai.shared.providers.local.event_bus import LocalEventBus
+from fdai_document_worker_service.adapters.declared_intent import (
+    PostgresDeclaredIntentEnvelopeConsumer,
+)
+from fdai_document_worker_service.adapters.processing_index import PgvectorDocumentIndex
 from fdai_document_worker_service.artifact_manifest import attach_artifact_manifest
 from fdai_service_contracts import (
     AccessDescriptor,
@@ -91,6 +97,24 @@ async def setup(database):
             str(
                 ROOT
                 / (
+                    "service-migrations/branches/document-processing-worker/versions/"
+                    "20261020_document_intent_envelope.py"
+                )
+            )
+        )["upgrade"]()
+        runpy.run_path(
+            str(
+                ROOT
+                / (
+                    "service-migrations/branches/core-control-plane/versions/"
+                    "20261020_core_document_intent_ingress_grant.py"
+                )
+            )
+        )["upgrade"]()
+        runpy.run_path(
+            str(
+                ROOT
+                / (
                     "service-migrations/branches/core-control-plane/versions/"
                     "20261019_core_document_intent.py"
                 )
@@ -101,6 +125,10 @@ async def setup(database):
         connection.execute(
             "CREATE UNIQUE INDEX document_intent_one_active_version "
             "ON document_version(document_id) WHERE active"
+        )
+        connection.execute(
+            "CREATE TABLE knowledge_chunk (doc_id TEXT NOT NULL, chunk_id TEXT PRIMARY KEY);"
+            "GRANT SELECT,INSERT,UPDATE,DELETE ON knowledge_chunk TO fdai_ingestion_worker"
         )
         for statement in statements:
             connection.execute(statement)
@@ -337,6 +365,392 @@ async def test_governed_envelope_exact_var_approval_persisted_secured_read_and_w
                 ).fetchone()[0]
                 == "rolled_back"
             )
+    finally:
+        await fixture.state.aclose()
+
+
+async def test_normal_worker_ready_fact_stages_and_proposes_exact_diff(database):
+    fixture = await setup(database)
+    try:
+        metadata, envelope = source(fixture)
+        save(database, metadata)
+        consumer = PostgresDeclaredIntentEnvelopeConsumer(
+            dsn=_role(database, "fdai_ingestion_worker")
+        )
+        assert await consumer.consume(session=SimpleNamespace(), envelope=envelope) == ()
+        assert await consumer.consume(session=SimpleNamespace(), envelope=envelope) == ()
+        transport = AsyncMock()
+        ingress = DocumentIntentIngress(fixture.runtime, fixture.bus)
+        event = EventEnvelope(
+            topic="object.event",
+            key=str(metadata.document_id),
+            payload={
+                "producer_principal": "Huginn",
+                "kind": "document_ingestion",
+                "event_type": "document.ready",
+                "record": {
+                    "document_id": str(metadata.document_id),
+                    "version_id": str(metadata.version_id),
+                    "source_sha256": metadata.source_sha256,
+                    "state": "ready",
+                    "index_state": "active",
+                    "retention_state": "live",
+                    "protection_state": "none",
+                    "purposes": ["manual_distillation"],
+                    "uploader_id": metadata.uploader_id,
+                },
+            },
+            offset=1,
+        )
+
+        assert await ingress.handle(bus=transport, envelope=event)
+        digest = next(iter(fixture.var._pending.values())).params["intent_digest"]
+        assert (
+            await fixture.runtime.review_diff(
+                digest, principal=Principal(id="human:reviewer", role=Role.OWNER)
+            )
+        ).properties.name == "Example service"
+        await fixture.var.decide(
+            "document-intent:" + digest[7:],
+            approver="human:reviewer",
+            decision="approve",
+        )
+        assert (await read(fixture)).receipt.returned_object_count == 1
+        transport.dead_letter.assert_not_awaited()
+
+        updated_metadata, updated_envelope = source(
+            fixture,
+            document=metadata.document_id,
+            name="Updated service",
+            service_id="service:example",
+        )
+        with psycopg.connect(database) as connection:
+            connection.execute(
+                "UPDATE document_version SET active=FALSE,revision=revision+1,"
+                "payload=jsonb_set(jsonb_set(payload,'{active}','false'::jsonb),"
+                "'{revision}',to_jsonb(revision+1)) WHERE version_id=%s",
+                (metadata.version_id,),
+            )
+        save(database, updated_metadata)
+        await consumer.consume(session=SimpleNamespace(), envelope=updated_envelope)
+        updated_event = event.__class__(
+            topic=event.topic,
+            key=str(updated_metadata.document_id),
+            payload={
+                **event.payload,
+                "record": {
+                    **event.payload["record"],
+                    "document_id": str(updated_metadata.document_id),
+                    "version_id": str(updated_metadata.version_id),
+                    "source_sha256": updated_metadata.source_sha256,
+                },
+            },
+            offset=2,
+        )
+        assert await ingress.handle(bus=transport, envelope=updated_event)
+        updated_digest = next(
+            ticket.params["intent_digest"]
+            for ticket in fixture.var._pending.values()
+            if ticket.params["intent_digest"] != digest
+        )
+        updated_ticket = fixture.var._pending["document-intent:" + updated_digest[7:]]
+        updated_diff = await fixture.runtime.review_diff(
+            updated_ticket.params["intent_digest"],
+            principal=Principal(id="human:reviewer", role=Role.OWNER),
+        )
+        assert updated_diff.operation == "update"
+        assert updated_diff.expected_revision == 1
+        await fixture.var.decide(
+            updated_ticket.correlation_id,
+            approver="human:reviewer",
+            decision="approve",
+        )
+        updated = await read(fixture)
+        assert updated.materialization.graph.objects[0].revision == 2
+        assert updated.materialization.graph.objects[0].properties["name"] == "Updated service"
+    finally:
+        await fixture.state.aclose()
+
+
+async def test_ready_fact_without_exact_staged_envelope_is_a_safe_noop(database):
+    fixture = await setup(database)
+    try:
+        metadata, _ = source(fixture)
+        save(database, metadata)
+        transport = AsyncMock()
+        event = EventEnvelope(
+            topic="object.event",
+            key=str(metadata.document_id),
+            payload={
+                "producer_principal": "Huginn",
+                "kind": "document_ingestion",
+                "event_type": "document.ready",
+                "record": {
+                    "document_id": str(metadata.document_id),
+                    "version_id": str(metadata.version_id),
+                    "purposes": ["manual_distillation"],
+                },
+            },
+            offset=2,
+        )
+        assert await DocumentIntentIngress(fixture.runtime, fixture.bus).handle(
+            bus=transport, envelope=event
+        )
+        assert fixture.var._pending == {}
+        transport.dead_letter.assert_not_awaited()
+
+        rejected = event.__class__(
+            topic=event.topic,
+            key=str(metadata.document_id),
+            payload={
+                **event.payload,
+                "record": {
+                    **event.payload["record"],
+                    "source_sha256": "0" * 64,
+                },
+            },
+            offset=3,
+        )
+        # No staged body remains a no-op even when an untrusted ready fact names a wrong digest.
+        assert await DocumentIntentIngress(fixture.runtime, fixture.bus).handle(
+            bus=transport, envelope=rejected
+        )
+        transport.dead_letter.assert_not_awaited()
+    finally:
+        await fixture.state.aclose()
+
+
+async def test_ready_fact_cannot_rebind_a_staged_envelope(database):
+    fixture = await setup(database)
+    try:
+        metadata, envelope = source(fixture)
+        save(database, metadata)
+        await PostgresDeclaredIntentEnvelopeConsumer(
+            dsn=_role(database, "fdai_ingestion_worker")
+        ).consume(session=SimpleNamespace(), envelope=envelope)
+        transport = AsyncMock()
+        event = EventEnvelope(
+            topic="object.event",
+            key=str(metadata.document_id),
+            payload={
+                "producer_principal": "Huginn",
+                "kind": "document_ingestion",
+                "event_type": "document.ready",
+                "record": {
+                    "document_id": str(metadata.document_id),
+                    "version_id": str(metadata.version_id),
+                    "source_sha256": "0" * 64,
+                    "state": "ready",
+                    "index_state": "active",
+                    "retention_state": "live",
+                    "protection_state": "none",
+                    "purposes": ["manual_distillation"],
+                    "uploader_id": metadata.uploader_id,
+                },
+            },
+            offset=4,
+        )
+        assert not await DocumentIntentIngress(fixture.runtime, fixture.bus).handle(
+            bus=transport, envelope=event
+        )
+        assert fixture.var._pending == {}
+        transport.dead_letter.assert_awaited_once()
+    finally:
+        await fixture.state.aclose()
+
+
+@pytest.mark.parametrize(
+    "variant",
+    ["multiple", "non-json", "other-kind", "extra", "invalid-properties", "missing-manifest"],
+)
+async def test_worker_stages_only_the_exact_declared_intent_contract(database, variant):
+    fixture = await setup(database)
+    try:
+        _, envelope = source(fixture)
+        if variant == "multiple":
+            candidate = envelope.model_copy(update={"units": envelope.units + envelope.units})
+        elif variant == "missing-manifest":
+            candidate = envelope.model_copy(update={"artifact_manifest": None})
+        else:
+            payload: str
+            if variant == "non-json":
+                payload = "not-json"
+            elif variant == "other-kind":
+                payload = json.dumps({"kind": "example.other", "properties": {}})
+            elif variant == "extra":
+                payload = json.dumps(
+                    {
+                        "kind": "fdai.declared-intent.business-service.v1",
+                        "properties": {},
+                        "extra": True,
+                    }
+                )
+            else:
+                payload = json.dumps(
+                    {
+                        "kind": "fdai.declared-intent.business-service.v1",
+                        "properties": {"id": "not-a-service"},
+                    }
+                )
+            candidate = envelope.model_copy(
+                update={"units": (envelope.units[0].model_copy(update={"text": payload}),)}
+            )
+        consumer = PostgresDeclaredIntentEnvelopeConsumer(
+            dsn=_role(database, "fdai_ingestion_worker")
+        )
+        if variant in {"multiple", "non-json", "other-kind"}:
+            assert await consumer.consume(session=SimpleNamespace(), envelope=candidate) == ()
+        else:
+            with pytest.raises(ValueError):
+                await consumer.consume(session=SimpleNamespace(), envelope=candidate)
+    finally:
+        await fixture.state.aclose()
+
+
+async def test_worker_replay_cannot_change_a_staged_envelope(database):
+    fixture = await setup(database)
+    try:
+        _, envelope = source(fixture)
+        consumer = PostgresDeclaredIntentEnvelopeConsumer(
+            dsn=_role(database, "fdai_ingestion_worker")
+        )
+        await consumer.consume(session=SimpleNamespace(), envelope=envelope)
+        with pytest.raises(ValueError, match="replay conflicts"):
+            await consumer.consume(
+                session=SimpleNamespace(),
+                envelope=envelope.model_copy(update={"extractor_version": "changed"}),
+            )
+    finally:
+        await fixture.state.aclose()
+
+
+async def test_worker_index_cleanup_deletes_the_private_intent_envelope(database):
+    fixture = await setup(database)
+    try:
+        metadata, envelope = source(fixture)
+        worker_dsn = _role(database, "fdai_ingestion_worker")
+        await PostgresDeclaredIntentEnvelopeConsumer(dsn=worker_dsn).consume(
+            session=SimpleNamespace(), envelope=envelope
+        )
+        await PgvectorDocumentIndex(dsn=worker_dsn, embedder=None, dimension=4).delete(
+            metadata.document_id, metadata.version_id
+        )
+        with psycopg.connect(database) as connection:
+            assert (
+                connection.execute(
+                    "SELECT count(*) FROM document_intent_envelope "
+                    "WHERE document_id=%s AND version_id=%s",
+                    (metadata.document_id, metadata.version_id),
+                ).fetchone()[0]
+                == 0
+            )
+    finally:
+        await fixture.state.aclose()
+
+
+async def test_normal_document_deleted_fact_rolls_back_the_private_intent(database):
+    fixture = await setup(database)
+    try:
+        metadata, envelope = source(fixture)
+        save(database, metadata)
+        worker_dsn = _role(database, "fdai_ingestion_worker")
+        await PostgresDeclaredIntentEnvelopeConsumer(dsn=worker_dsn).consume(
+            session=SimpleNamespace(), envelope=envelope
+        )
+        ingress = DocumentIntentIngress(fixture.runtime, fixture.bus)
+        transport = AsyncMock()
+        ready = EventEnvelope(
+            topic="object.event",
+            key=str(metadata.document_id),
+            payload={
+                "producer_principal": "Huginn",
+                "kind": "document_ingestion",
+                "event_type": "document.ready",
+                "record": {
+                    "document_id": str(metadata.document_id),
+                    "version_id": str(metadata.version_id),
+                    "source_sha256": metadata.source_sha256,
+                    "state": "ready",
+                    "index_state": "active",
+                    "retention_state": "live",
+                    "protection_state": "none",
+                    "purposes": ["manual_distillation"],
+                    "uploader_id": metadata.uploader_id,
+                },
+            },
+            offset=6,
+        )
+        assert await ingress.handle(bus=transport, envelope=ready)
+        digest = next(iter(fixture.var._pending.values())).params["intent_digest"]
+        await fixture.var.decide(
+            "document-intent:" + digest[7:],
+            approver="human:reviewer",
+            decision="approve",
+        )
+        await PgvectorDocumentIndex(dsn=worker_dsn, embedder=None, dimension=4).delete(
+            metadata.document_id, metadata.version_id
+        )
+        with psycopg.connect(database) as connection:
+            connection.execute(
+                "UPDATE document_version SET state='deleted',active=FALSE,revision=revision+1,"
+                "payload=jsonb_set(jsonb_set(jsonb_set(payload,'{state}','\"deleted\"'::jsonb),"
+                "'{active}','false'::jsonb),'{revision}',to_jsonb(revision+1)) "
+                "WHERE version_id=%s",
+                (metadata.version_id,),
+            )
+        deleted = ready.__class__(
+            topic=ready.topic,
+            key=ready.key,
+            payload={
+                **ready.payload,
+                "event_type": "document.deleted",
+                "idempotency_key": f"document.deleted:{metadata.version_id}:2",
+                "record": {
+                    **ready.payload["record"],
+                    "state": "deleted",
+                    "retention_state": "deleted",
+                },
+            },
+            offset=7,
+        )
+        assert await ingress.handle(bus=transport, envelope=deleted)
+        assert (await read(fixture)).receipt.returned_object_count == 0
+        with psycopg.connect(database) as connection:
+            assert (
+                connection.execute(
+                    "SELECT status FROM document_intent_projection WHERE digest=%s", (digest,)
+                ).fetchone()[0]
+                == "rolled_back"
+            )
+    finally:
+        await fixture.state.aclose()
+
+
+async def test_ingress_ignores_unrelated_topics_and_purposes(database):
+    fixture = await setup(database)
+    try:
+        transport = AsyncMock()
+        ingress = DocumentIntentIngress(fixture.runtime, fixture.bus)
+        for topic, purposes in (
+            ("object.other", ["manual_distillation"]),
+            ("object.event", ["incident_evidence"]),
+            ("object.event", "manual_distillation"),
+        ):
+            assert await ingress.handle(
+                bus=transport,
+                envelope=EventEnvelope(
+                    topic=topic,
+                    key="unrelated",
+                    payload={
+                        "producer_principal": "Huginn",
+                        "kind": "document_ingestion",
+                        "event_type": "document.ready",
+                        "record": {"purposes": purposes},
+                    },
+                    offset=5,
+                ),
+            )
+        transport.dead_letter.assert_not_awaited()
     finally:
         await fixture.state.aclose()
 

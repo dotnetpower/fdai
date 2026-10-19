@@ -223,6 +223,10 @@ class PgvectorDocumentIndex:
                 "DELETE FROM knowledge_chunk WHERE doc_id = %s",
                 (_document_ref(document_id, version_id),),
             )
+            await connection.execute(
+                "DELETE FROM document_intent_envelope WHERE document_id=%s AND version_id=%s",
+                (document_id, version_id),
+            )
 
 
 def _chunks(text: str, max_chars: int, overlap: int) -> tuple[str, ...]:

@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 7c39d7d5d0da8c130d71d9a48931c272caff6af3
-translation_revised: 2026-10-19
+translation_source_sha: de303915e963d2aec4b0e8b27b5dcb6c9e4c39e9
+translation_revised: 2026-10-20
 ---
 # 리포팅 서브시스템
 
@@ -14,6 +14,10 @@ translation_revised: 2026-10-19
 뒤에 있으며, 새 리포트 추가는 YAML 파일 하나, 새 데이터 소스
 추가는 프로토콜 구현 하나로 끝납니다. 새 시각화 형태는 순수 백엔드 빌더와 검토된 SPA
 렌더러가 모두 필요합니다.
+
+워커 소유 문서 의도 envelope와 Core 비공개 그래프는 보고 데이터 원본이 아닙니다.
+마이그레이션 소유권과 시작 구성 연결은 보고서, 위젯, 렌더러 또는 쓰기 route를 추가하지
+않습니다.
 
 계약상 읽기 전용입니다. 모든 라우트는 `GET`이며, 어떤 위젯도
 아무것도 실행하지 않습니다. 이 서브시스템은 실행자 신원을 절대로

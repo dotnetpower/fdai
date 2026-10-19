@@ -22,8 +22,9 @@ class _Cursor:
 
 
 class _Connection:
-    def __init__(self, upload_id: UUID) -> None:
+    def __init__(self, upload_id: UUID, intent_count: int = 0) -> None:
         self._upload_id = upload_id
+        self._intent_count = intent_count
 
     async def __aenter__(self) -> Self:
         return self
@@ -44,6 +45,8 @@ class _Connection:
         del params
         if "FROM knowledge_chunk" in query:
             return _Cursor((0,))
+        if "FROM document_intent_envelope" in query:
+            return _Cursor((self._intent_count,))
         if "FROM document_version" in query:
             assert "legal_hold')::boolean, FALSE" in query
             return _Cursor((self._upload_id, False))
@@ -95,4 +98,27 @@ async def test_missing_legacy_legal_hold_defaults_to_not_blocked(
     )
 
     assert receipt.legal_hold_blocked is False
+    assert receipt.cache_entries == 0
     assert receipt.verified is True
+
+
+async def test_retained_intent_envelope_blocks_purge_verification(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    upload_id = UUID(int=11)
+    _AsyncConnection.connection = _Connection(upload_id, intent_count=1)
+    monkeypatch.setattr(psycopg, "AsyncConnection", _AsyncConnection)
+    verifier = PostgresDocumentPurgeVerifier(
+        dsn="postgresql://local",
+        artifacts=_ArtifactProbe(),
+        sources=_SourceProbe(),
+    )
+
+    receipt = await verifier.verify(
+        document_id=UUID(int=12),
+        version_id=UUID(int=13),
+        source_object_keys=(),
+    )
+
+    assert receipt.cache_entries == 1
+    assert receipt.verified is False
