@@ -413,7 +413,7 @@ action, digest, trust, and no-authority audit match. Ambiguous or malformed matc
 sequence or correlation identity.
 
 Event payloads and tool output are **untrusted**; the deterministic verifier and policy
-re-check are the authority, never model or event text.
+re-check are the authority, never model or event text; [owned candidate identity](../phases/phase-2-quality-and-t1.md#candidate-identity-through-asynchronous-verification) prevents rebinding a quorum to other arguments.
 Provider observation failures cross service boundaries only as allowlisted machine reasons.
 Raw provider response text is neither persisted as Resource state nor returned to the Console.
 

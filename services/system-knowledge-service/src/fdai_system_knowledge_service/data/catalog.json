@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:726ef579effc3e01a6a74e4148ee6754599c99376a05d6f2c0f8e44cac19632e",
+  "catalog_digest": "sha256:be71abc678a35becb1e519866ca641b263937fb833499a03e9cd399c0bb1a2fc",
   "execution_authority": false,
-  "generated_at": "2026-10-19T07:47:29.392245Z",
+  "generated_at": "2026-10-19T08:35:35.762102Z",
   "records": [
     {
       "designed_behavior": [
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "f6f85c7ad032dc6387920cf09a3fdbe403bdcaf9"
+  "source_revision": "a7a109f38dc4b92c30772cfd53b0f687eb64903b"
 }
