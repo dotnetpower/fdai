@@ -52,6 +52,20 @@ UTC observation time and an opaque process-instance source id. Before that obser
 the signal is unavailable. Recollection never renews the observation's freshness. This single
 process sample supplies neither a fleet cold-start rate nor a complete installation-wide window.
 
+#### Process-owned first-decision lag
+
+The normal Core stage publisher can supply `event_lag` from accepted ingestion to the first
+completed T0, T1 or T2 verification, measured with one process-local monotonic clock. Selecting a
+route, broker acceptance and synthetic canaries are not tier decisions. The source retains the
+largest recent completed latency and every unresolved event's current age, so a fast completion
+cannot hide a stalled sibling. Bounded-state overflow, incomplete stage pairs and clock regression
+make the source unavailable rather than healthy. A missing binding, no observation, stale completed
+samples and shutdown remain explicit. No stage detail, provider identity or event body is retained.
+
+This is a process-owned measurement, not broker backlog, other replicas' latency, verifier accuracy
+or operational-effect evidence. The reviewed design rejects route timing as a proxy and never
+resets the oldest start on duplicate ingress. Ordinary pipeline publication is unchanged.
+
 #### Consumed-canary age
 
 The age source reads the latest committed successful `control_loop.canary` audit from the
@@ -139,7 +153,7 @@ persists its sanitized snapshot. This measures neither verifier accuracy nor act
 success; retries are calls, not independent operating episodes. No additional model call is made.
 
 Other bindings remain explicitly unavailable until their owning source can supply the required
-observation. Broker queue depth and ingest-to-decision lag need broker/consumer observations;
+observation. Broker queue depth still needs broker observations; first-decision lag uses only the bound Core process above.
 cold-start rate needs a complete lifecycle window and denominator; rollback,
 override, and discovery rates need time-bounded numerators and denominators. Complete adapter
 health needs the registered dependency checks, and canary result/state still needs a complete
@@ -149,11 +163,11 @@ Rule-effect, override, discovery, canary, and break-glass fields still need thei
 
 ### Remaining source boundaries
 
-Seven of 15 signal slots and three of eight fields have concrete, wired source implementations.
+Eight of 15 signal slots and three of eight fields have concrete, wired source implementations.
 Comparison observations require the native producer bindings above and a complete known window;
 source implementation is not installed qualification or a promise of Healthy. The
 indexed latest-success age reader does not establish the latest scheduled attempt or complete
-canary state. Eight other signals and five fields remain unavailable; missing observations or
+canary state. Seven other signals and five fields remain unavailable; missing observations or
 denominators are never zero failures or a successful result. Publication counters do not prove
 broker depth, startup duration does not prove fleet cold-start rate, and promotion records do
 not prove executed rollback or per-rule override rates.
@@ -179,7 +193,7 @@ so no area is claimed as fully operationally validated.
 | Post-deploy promotion smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml); `scripts/deployment/azure/verify_canary_audit.py`; focused verifier tests | The workflow gives the publisher a deterministic slot, then requires one exact Core audit row within 30 seconds. The verifier rejects ambiguous, malformed, unsettled, future-dated, or over-budget rows without exposing database credentials. A retained live receipt, fixture replay, kill-switch cycle, and human-approval dry-run remain open. |
 | Complete self-health signal policy and routing map | implemented | `config/self-health-signals.yaml`; `core/readiness/self_health.py`; production startup binding; focused self-health and readiness tests | All 15 required signals map to one metric, threshold direction, freshness bound, generic owner lane, notification route, and fail-closed fallback. Missing coverage or route drift blocks startup. Decisions grant no execution authority. |
 | Consumed-canary age source | implemented | #2250; `delivery/self_health_canary.py`; `delivery/persistence/postgres_canary.py`; concurrent partial-index Core migration; 99 focused checks including four actual isolated PostgreSQL cases | Latest successful consumed audit, selected-row hash/time/identity checks, exact 600-second and 8192/8193-byte boundaries, indexed plan beyond a 512-row oldest prefix, default readiness composition and non-destructive index rollback are locally tested. Caller Decimal precision cannot round away a threshold breach. This is conservative age, not latest-attempt result or operational qualification. |
-| Complete self-health exporter registry, alert delivery, and operational drills | in-progress | Complete signal policy; exact 15-signal and eight-field exporter registry; runtime sources; typed model-role registration/scope; durable operational-state snapshot; authenticated Operator read route | Seven signal slots and three fields have concrete source implementations and wiring; the comparison source additionally requires a qualified native group and a full known window. Eight other signals and five fields remain unavailable. Canary age is not latest-attempt result/state, and typed model API observations never establish aggregate adapter health. Other sources and installation/delivery/drill receipts remain open. |
+| Complete self-health exporter registry, alert delivery, and operational drills | in-progress | Complete signal policy; exact 15-signal and eight-field exporter registry; runtime sources; typed model-role registration/scope; durable operational-state snapshot; authenticated Operator read route | Eight signal slots and three fields have concrete source implementations and wiring; event lag is process-owned, and the comparison source requires a qualified native group and full known window. Seven other signals and five fields remain unavailable. Canary age is not latest-attempt result/state; model API observations are not aggregate adapter health. Installed delivery/drill receipts remain open. |
 | Correlation-based audit investigation and unified version/configuration exposure | implemented | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), `core/readiness/self_health_runtime.py`, and authenticated `GET /operations/runtime-state` | One sanitized contract now exposes version, configuration, rule effect, override, discovery, canary, kill-switch, break-glass, and all self-health states. Each field includes source, freshness, and an explicit unavailable state; the route grants no approval or execution authority. |
 | Pre-launch latency measurement and frozen-scenario replay | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), and focused tests | The primitives produce bounded measurements and release-gate results; an external load generator and deployment-specific budgets remain operator inputs. |
 | Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#verification-and-release-evidence) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
@@ -191,6 +205,7 @@ so no area is claimed as fully operationally validated.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-20 | implemented | Bound actual Core ingestion and first T0/T1/T2 verification stages to one process-owned event-lag source, shared with health collection and resource shutdown. Preserved transport calls and explicit stalled/incomplete states without model or provider probes. | Current change; #2286; 67 focused source/composition/health/Core-stage tests passed; new source has 100% line and branch coverage; six-source strict mypy passed. Twelve distinct bounded review hypotheses cover actual decision versus routing, oldest start, concurrent stall, duplicate completion, staleness, missing/reordered pairs, provenance, canary exclusion, bounded memory, clock regression, shutdown, and unchanged publication/no authority. | Eight signal slots/three fields have concrete sources; seven signals/five fields, installed delivery/drills and operational outcomes remain open. No whole-H01, fleet-health or functional-readiness completion is claimed. |
 | 2026-10-19 | implemented | Closed an intent-loss defect in the approved configuration-review schedule path: candidate persistence, audit and materialization now retain the exact timezone and pinned campaign/baseline/scope/run payload without exposing payload contents in audit. | `current change`; 26 focused unit passes, two actual isolated PostgreSQL passes, Ruff, strict mypy, and a 12-perspective hardening review. | No schedule was registered. Approved installation inputs, daily health and deployment-baseline paths, operating policy, transport, and stabilization lifecycle evidence remain open. |
 | 2026-10-19 | implemented | Bound the actual Core exact cross-check result to a native-producer-qualified logical-round disagreement source, with pending/unknown holds and shared verifier window mechanics. Preserved original model calls, outputs, policies and resource ownership. | Current change; 303 source/Core checks passed with 100% branch-inclusive coverage across comparison helper and both window sources; 529 runtime/safety/SDK checks passed. Three 12-control critique rounds repaired two Medium findings: reuse of a qualified observer with another model tuple, and fake direct/pool producers borrowing real SDK descriptors. Exact existing 10% policy, actual gate/bootstrap/persisted contract and shutdown are tested. | Seven implemented signal bindings/three fields, not seven operationally qualified observations. Eight other signals/five fields, complete installation/delivery/drill evidence and measured outcomes remain open. No live model call, deployment or activation. |
 | 2026-10-19 | implemented | Hardened the actual schedule-creation prerequisite for daily registration: stable definitions replay after execution/restart, typed duplicate races converge, payloads are detached and validated, and policy drift stays denied. | `current change`; initial 13 counterexamples; 108 focused checks including four new actual PostgreSQL cases; creation coverage 100% including branches; strict mypy. | Daily health/drift/deployment-baseline registration, approved baseline/policy and stabilization qualification remain open. |

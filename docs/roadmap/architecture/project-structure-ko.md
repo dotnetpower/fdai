@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 52787d2160e1aafbd5d43fd3b12a4efe6bffdd82
+translation_source_sha: 39b022e215a07dc467e1af9000da7be887e05a40
 translation_revised: 2026-10-20
 ---
 # 프로젝트 구조
@@ -105,7 +105,7 @@ exporter 범위를 요구하고, 신선도를 검사한 스냅숏 하나를 저�
 사용할 수 없는 수집원을 기록합니다. Operator는 인증된 Reader 역할의
 `GET /operations/runtime-state` 변환을 통해 이 스냅숏을 제공합니다. 전달 어댑터는 명시적인
 unavailable binding을 출처가 명시된 운영 메트릭으로 교체해야 합니다.
-`delivery/self_health_sources.py`는 담당 프로세스, 소비된 canary, 실제 검증기와 기본 교차검사의 관측을
+`delivery/self_health_sources.py`는 담당 프로세스, 최초 계층 판정 지연, 소비된 canary, 실제 검증기와 기본 교차검사의 관측을
 연결합니다. 런타임은 수집원의 수명을 소유하고 추가 모델 검사 없이 수집을 직렬화합니다.
 [운영 담당 문서](../operations/operating-and-verification-ko.md#남아-있는-수집원-경계)가 현재 수치와
 미충족 근거를 소유하며 [수집원 주입 계약](project-structure-dependency-injection-ko.md#자체-상태-수집원-연결)은

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from fdai_service_contracts.model_provider_health import ConfiguredModelBindingV1
 from fdai_service_contracts.self_health import SelfHealthSignalName
@@ -20,6 +20,7 @@ from fdai.core.readiness.self_health import SelfHealthCatalog, load_self_health_
 from fdai.delivery.azure.llm.provider_observations import ConfiguredModelProviderScope
 from fdai.delivery.readiness_remediation import EventBusReadinessRemediationPublisher
 from fdai.delivery.self_health_disagreement import RuntimeMixedModelHealthSource
+from fdai.delivery.self_health_event_lag import RuntimeEventLagSource
 from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
@@ -31,6 +32,7 @@ from fdai.shared.providers.self_health import (
     ModelProviderObservedProvider,
     SelfHealthExporterUnavailableError,
 )
+from fdai.shared.providers.stage_publisher import StagePublisher
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -99,16 +101,35 @@ def build_runtime_model_provider_scope(
     )
 
 
+class _CollectorSources(TypedDict):
+    verifier_health_source: RuntimeVerifierHealthSource | None
+    mixed_model_health_source: RuntimeMixedModelHealthSource | None
+    event_lag_source: RuntimeEventLagSource | None
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeSelfHealthBindings:
     catalog: SelfHealthCatalog
     model_provider_scope: ConfiguredModelProviderScope
     verifier_health_source: RuntimeVerifierHealthSource | None = None
     mixed_model_health_source: RuntimeMixedModelHealthSource | None = None
+    event_lag_source: RuntimeEventLagSource | None = None
+    stage_publisher: StagePublisher | None = None
+
+    @property
+    def collector_sources(self) -> _CollectorSources:
+        return {
+            "verifier_health_source": self.verifier_health_source,
+            "mixed_model_health_source": self.mixed_model_health_source,
+            "event_lag_source": self.event_lag_source,
+        }
 
 
 def build_runtime_self_health_bindings(
-    container: Container, *, resources: RuntimeResources | None = None
+    container: Container,
+    *,
+    resources: RuntimeResources | None = None,
+    stage_publisher: StagePublisher | None = None,
 ) -> RuntimeSelfHealthBindings:
     """Bind model scope and verifier observation to one catalog and optional resource owner."""
     catalog = load_runtime_self_health_catalog()
@@ -120,14 +141,24 @@ def build_runtime_self_health_bindings(
     mixed_source = RuntimeMixedModelHealthSource(
         metric=mixed_policy.metric, window_seconds=mixed_policy.maximum_age_seconds
     )
+    lag_policy = catalog.policies[SelfHealthSignalName.EVENT_LAG]
+    lag_source = RuntimeEventLagSource(
+        metric=lag_policy.metric, maximum_age_seconds=lag_policy.maximum_age_seconds
+    )
+    if stage_publisher is None and resources is not None and resources.messaging is not None:
+        stage_publisher = resources.messaging.stage_publisher
+    observed_publisher = lag_source.wrap(stage_publisher) if stage_publisher is not None else None
     if resources is not None:
         resources.verifier_health_source = verifier_source
         resources.mixed_model_health_source = mixed_source
+        resources.event_lag_source = lag_source
     return RuntimeSelfHealthBindings(
         catalog=catalog,
         model_provider_scope=build_runtime_model_provider_scope(container, catalog),
         verifier_health_source=verifier_source,
         mixed_model_health_source=mixed_source,
+        event_lag_source=lag_source,
+        stage_publisher=observed_publisher,
     )
 
 
