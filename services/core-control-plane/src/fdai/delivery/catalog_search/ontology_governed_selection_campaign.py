@@ -12,6 +12,9 @@ from .ontology_typed_selection_campaign import nearest_rank
 LATENCY_PROTOCOL_ID = "governed-typed-selection-answer-latency.v1"
 WINDOW_PROTOCOL_ID = "governed-typed-selection-answer-window.v1"
 WINDOW_CASE_SET = "governed-read-window.v1.json"
+LATENCY_PROTOCOL_ID_V2 = "governed-typed-selection-answer-latency.v2"
+WINDOW_PROTOCOL_ID_V2 = "governed-typed-selection-answer-window.v2"
+WINDOW_CASE_SET_V2 = "governed-read-window.v2.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +60,42 @@ class GovernedLatencyObservation:
 
 
 @dataclass(frozen=True, slots=True)
+class GovernedLatencyProtocolV2:
+    """Fresh Sol-bound thresholds; changing any value requires a new protocol id."""
+
+    protocol_id: str = LATENCY_PROTOCOL_ID_V2
+    min_observations: int = 256
+    deadline_ms: float = 30_000.0
+    max_p50_ms: float = 8_000.0
+    max_p95_ms: float = 15_000.0
+    max_p99_ms: float = 25_000.0
+    max_provider_unavailable_rate: float = 0.02
+    max_event_loop_lag_p99_ms: float = 100.0
+
+    def __post_init__(self) -> None:
+        if (
+            self.protocol_id,
+            self.min_observations,
+            self.deadline_ms,
+            self.max_p50_ms,
+            self.max_p95_ms,
+            self.max_p99_ms,
+            self.max_provider_unavailable_rate,
+            self.max_event_loop_lag_p99_ms,
+        ) != (
+            LATENCY_PROTOCOL_ID_V2,
+            256,
+            30_000.0,
+            8_000.0,
+            15_000.0,
+            25_000.0,
+            0.02,
+            100.0,
+        ):
+            raise ValueError("governed answer latency protocol v2 parameters are pre-registered")
+
+
+@dataclass(frozen=True, slots=True)
 class GovernedLatencyReport:
     protocol_id: str
     observations: int
@@ -77,7 +116,7 @@ class GovernedLatencyReport:
 def evaluate_governed_latency(
     observations: Sequence[GovernedLatencyObservation],
     event_loop_lag_ms: Sequence[float],
-    protocol: GovernedLatencyProtocol | None = None,
+    protocol: GovernedLatencyProtocol | GovernedLatencyProtocolV2 | None = None,
 ) -> GovernedLatencyReport:
     """Judge complete end-to-end read latency without excluding unavailable observations."""
 
@@ -191,6 +230,45 @@ class GovernedWindowLanguage:
 
 
 @dataclass(frozen=True, slots=True)
+class GovernedWindowProtocolV2:
+    """Fresh Sol-bound window; changing any value requires a new protocol id."""
+
+    protocol_id: str = WINDOW_PROTOCOL_ID_V2
+    case_set: str = WINDOW_CASE_SET_V2
+    cases: int = 64
+    decisions_per_case: int = 4
+    confidence: float = 0.95
+    max_pooled_wrong_upper_bound: float = 0.02
+    max_language_wrong_upper_bound: float = 0.03
+    min_language_correct_rate: float = 0.95
+    max_unavailable_rate: float = 0.02
+
+    def __post_init__(self) -> None:
+        if (
+            self.protocol_id,
+            self.case_set,
+            self.cases,
+            self.decisions_per_case,
+            self.confidence,
+            self.max_pooled_wrong_upper_bound,
+            self.max_language_wrong_upper_bound,
+            self.min_language_correct_rate,
+            self.max_unavailable_rate,
+        ) != (
+            WINDOW_PROTOCOL_ID_V2,
+            WINDOW_CASE_SET_V2,
+            64,
+            4,
+            0.95,
+            0.02,
+            0.03,
+            0.95,
+            0.02,
+        ):
+            raise ValueError("governed answer window protocol v2 parameters are pre-registered")
+
+
+@dataclass(frozen=True, slots=True)
 class GovernedWindowReport:
     protocol_id: str
     decisions: int
@@ -209,7 +287,7 @@ class GovernedWindowReport:
 
 def evaluate_governed_window(
     decisions: Sequence[GovernedWindowDecision],
-    protocol: GovernedWindowProtocol | None = None,
+    protocol: GovernedWindowProtocol | GovernedWindowProtocolV2 | None = None,
 ) -> GovernedWindowReport:
     """Judge one complete fresh window, including held and unavailable outcomes."""
 
@@ -265,14 +343,19 @@ def evaluate_governed_window(
 
 __all__ = [
     "LATENCY_PROTOCOL_ID",
+    "LATENCY_PROTOCOL_ID_V2",
     "WINDOW_CASE_SET",
+    "WINDOW_CASE_SET_V2",
     "WINDOW_PROTOCOL_ID",
+    "WINDOW_PROTOCOL_ID_V2",
     "GovernedLatencyObservation",
     "GovernedLatencyProtocol",
+    "GovernedLatencyProtocolV2",
     "GovernedLatencyReport",
     "GovernedWindowDecision",
     "GovernedWindowLanguage",
     "GovernedWindowProtocol",
+    "GovernedWindowProtocolV2",
     "GovernedWindowReport",
     "evaluate_governed_latency",
     "evaluate_governed_window",

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "qualification_protocol_id": "governed-typed-selection-answer-window.v2",
+  "model_capability": "t2.ontology.council.alpha",
+  "model_family": "gpt-5.6-sol",
+  "model_version": "2026-07-09",
+  "prompt_profile_id": "diagnostic.ontology-candidate-selection",
+  "prompt_profile_digest": "sha256:3766c69a7a0bb09371de96f59402e67b21c3fdcc9e417423d02418d3cf88065d",
+  "system_text_sha256": "379f315cbedc9ee1e9d777318651b0f65da2514ed37c163cdc8c6b33d6fb7770",
+  "reasoning_effort": "low",
+  "timeout_seconds": 20,
+  "max_tokens": 2048
+}

@@ -30,6 +30,7 @@ from fdai.composition.semantic_query_typed_selection_read import (
     prepared_function_handler,
 )
 from fdai.composition.typed_selection_read import (
+    GOVERNED_READ_CONFIG_RELATIVE_PATH,
     READ_DATA_POLICY,
     compose_typed_selection_read,
 )
@@ -44,9 +45,11 @@ from fdai.core.ontology_platform.typed_selection_contracts import (
 )
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.catalog_search.ontology_governed_selection_campaign import (
-    WINDOW_CASE_SET,
+    WINDOW_CASE_SET_V2,
     GovernedLatencyObservation,
+    GovernedLatencyProtocolV2,
     GovernedWindowDecision,
+    GovernedWindowProtocolV2,
     evaluate_governed_latency,
     evaluate_governed_window,
 )
@@ -83,9 +86,9 @@ from scripts.evaluation.typed_selection_runtime_campaign import (
 
 _PROTOCOL_DIGEST = content_digest(
     {
-        "latency": "governed-typed-selection-answer-latency.v1",
-        "window": "governed-typed-selection-answer-window.v1",
-        "case_set": WINDOW_CASE_SET,
+        "latency": "governed-typed-selection-answer-latency.v2",
+        "window": "governed-typed-selection-answer-window.v2",
+        "case_set": WINDOW_CASE_SET_V2,
     }
 )
 
@@ -130,7 +133,7 @@ def load_cases() -> tuple[Case, ...]:
             language=item["cohort"].split("-", 1)[0],
             expected=frozenset(item["expected_document_ids"]),
         )
-        for item in _load(WINDOW_CASE_SET)["cases"]
+        for item in _load(WINDOW_CASE_SET_V2)["cases"]
     )
 
 
@@ -211,6 +214,7 @@ async def _reader(
                 else None
             ),
             catalog_root=ROOT / "rule-catalog",
+            config_path=ROOT / GOVERNED_READ_CONFIG_RELATIVE_PATH,
             owner_loop=asyncio.get_running_loop(),
         )
         source_resolver = composed.source
@@ -390,6 +394,7 @@ def judge(rows: Sequence[Mapping[str, object]], lag: Sequence[float]) -> dict[st
             for row in rows
         ],
         lag,
+        protocol=GovernedLatencyProtocolV2(),
     )
     window = evaluate_governed_window(
         [
@@ -401,7 +406,8 @@ def judge(rows: Sequence[Mapping[str, object]], lag: Sequence[float]) -> dict[st
                 selected=frozenset(cast(Sequence[str], row["selected"])),
             )
             for row in rows
-        ]
+        ],
+        protocol=GovernedWindowProtocolV2(),
     )
     return {
         "latency": asdict(latency) | {"passed": latency.passed},
