@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -9,6 +10,7 @@ from typing import Any
 
 import pytest
 from fdai.core.conversation import CreateScheduledTaskCommand, Principal, Role
+from fdai.core.detection.configuration_review import ConfigurationReviewScheduleProposal
 from fdai.core.scheduler.blueprints import (
     AutomationBlueprintAggregator,
     AutomationBlueprintCandidate,
@@ -20,6 +22,7 @@ from fdai.core.scheduler.blueprints import (
     BlueprintEvidenceSource,
     BlueprintOutcome,
     InMemoryAutomationBlueprintStore,
+    configuration_review_blueprint,
     draft_blueprint_text,
 )
 from fdai.core.scheduler.models import ScheduledRunIsolationProfile
@@ -166,6 +169,58 @@ async def test_candidate_is_inert_until_review_then_materializes_through_command
         "automation_blueprint.materialized",
         "automation_blueprint.used",
     ]
+
+
+async def test_configuration_review_materialization_preserves_pinned_schedule_intent() -> None:
+    service, _candidates, schedules, audit, _metrics = _service()
+    candidate = configuration_review_blueprint(
+        ConfigurationReviewScheduleProposal(
+            campaign_id="campaign-1",
+            cron_expression="30 9 * * 1",
+            timezone="Asia/Seoul",
+            baseline_version="baseline-v3",
+            baseline_sha256="a" * 64,
+            scope="subscription/example/resource-group/app",
+            evidence_run_ids=("run-1", "run-2", "run-3"),
+        ),
+        proposer="operator-1",
+        now=_NOW,
+    )
+    await service.submit(candidate)
+    principal = Principal(id="approver-1", role=Role.APPROVER)
+    await service.review(
+        candidate.candidate_id,
+        principal=principal,
+        approve=True,
+        reason="Pinned campaign evidence is approved.",
+        at=_NOW + timedelta(days=1),
+    )
+
+    await service.materialize(
+        candidate.candidate_id,
+        principal=principal,
+        at=_NOW + timedelta(days=1),
+    )
+
+    (task,) = await schedules.list_all()
+    assert task.timezone == "Asia/Seoul"
+    assert task.cron_expression == "30 9 * * 1"
+    assert task.event_payload == {
+        "automation_blueprint_id": candidate.candidate_id,
+        "baseline_sha256": "a" * 64,
+        "baseline_version": "baseline-v3",
+        "campaign_id": "campaign-1",
+        "delivery_intent": "configuration-drift-audit",
+        "evidence_run_ids": ["run-1", "run-2", "run-3"],
+        "scope": "subscription/example/resource-group/app",
+        "shadow_only": True,
+    }
+    assert audit.events[-1]["schedule_timezone"] == "Asia/Seoul"
+    assert audit.events[-1]["schedule_expression"] == "30 9 * * 1"
+    assert (
+        audit.events[-1]["event_payload_sha256"]
+        == hashlib.sha256(candidate.event_payload_json.encode()).hexdigest()
+    )
 
 
 async def test_materialization_retry_is_idempotent_and_conflict_safe() -> None:

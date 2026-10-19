@@ -1,6 +1,6 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: ed90615a001d4a6441693674813bb7d102dfd777
+translation_source_sha: eb8db2f83eff9e74e1598c7e4195419001c9d521
 translation_revised: 2026-10-19
 ---
 # Reviewable 자동화 Blueprints
@@ -18,14 +18,16 @@ translation_revised: 2026-10-19
 예약 등급으로 그룹합니다. Recurrence 임계값을 충족하고 권한 필드가 동일하며 모든
 결과가 성공하고 같은 키의 스케줄러 이력에 해결되지 않은 실패가 없어야 합니다.
 
-후보는 출처 텍스트 대신 근거 지문을 저장하고 narrow 범위, 예약, 이벤트 타입,
-전달 의도, 도구, default-deny 격리, estimated 비용, 확신도, 제안자, 만료를 가집니다.
-선택적 off-path drafting은 범위가 제한된 display 텍스트만 변경할 수 있습니다.
+후보는 출처 텍스트 대신 근거 지문을 저장하고 좁은 범위, 예약 표현식과 IANA 시간대,
+정규화되고 크기가 제한된 이벤트 페이로드, 이벤트 타입, 전달 의도, 도구,
+default-deny 격리, 예상 비용, 확신도, 제안자, 만료를 보존합니다. 선택적 off-path
+drafting은 범위가 제한된 표시 텍스트만 변경할 수 있습니다.
 ## 근거 and recurrence
 
-`AutomationBlueprintEvidence`는 신원, 예약, 이벤트 타입, 리소스 범위, 전달, 도구,
-격리, 결과, 비용, occurrence 시간, 출처를 기록합니다. `operator_turn` 근거만 개수하고
-`scheduled_run`과 `blueprint_review`는 개수하지 않습니다. Scheduled 실패는 matching 키를 veto합니다.
+`AutomationBlueprintEvidence`는 신원, 예약 표현식과 시간대, 정규 이벤트 페이로드,
+이벤트 타입, 리소스 범위, 전달, 도구, 격리, 결과, 비용, 발생 시각, 출처를 기록합니다.
+`operator_turn` 근거만 집계합니다. `scheduled_run`과 `blueprint_review`는 집계하지 않으며
+예약 실행 실패는 같은 키를 차단합니다.
 
 기본값 임계값은 unique 지문 3개입니다. Mixed 범위는 별도 그룹입니다. 후보 ID는
 dedup 키와 고정된 근거 집합을 연결하므로 순서와 무관하고 거절/만료 후 실제 new 근거가
@@ -37,6 +39,9 @@ dedup 키와 고정된 근거 집합을 연결하므로 순서와 무관하고 �
 관찰된 범위, default-deny 격리, 30-day 만료로 시작합니다. Policy는 만료를 1 시간부터
 90 days로 제한합니다. 컨트롤 character, unsafe ID, 중복 도구, 부정 비용, naive 시각,
 권한 표류는 집계 전에 실패합니다.
+잘못된 IANA 시간대, 객체가 아니거나 정규화할 수 없는 JSON, 16384자를 넘는 페이로드,
+시스템이 소유하는 청사진, 전달 또는 shadow 필드를 페이로드에서 설정하려는 시도도
+안전한 쪽으로 실패합니다.
 
 ## 검토 and 구체화
 
@@ -55,7 +60,10 @@ superset이 필요합니다.
 
 구체화는 reviewing principal로 `CreateScheduledTaskCommand`를 호출하며 스케줄러 저장소를
 직접 쓰지 않습니다. 고정된 작업 ID가 재시도 멱등성을 제공하고 conflicting 내용은 실패합니다.
-결과 작업은 기존 trust/risk 경로로 shadow-only 이벤트를 보냅니다.
+명령은 검토한 시간대와 페이로드를 그대로 받습니다. 시스템 소유 묶음 필드는 페이로드
+검증 뒤에 추가되며 후보가 덮어쓸 수 없습니다. 감사 이벤트는 페이로드를 복사하지 않고
+예약 표현식, 시간대, 페이로드 SHA-256을 보존합니다. 결과 작업은 기존 trust/risk
+경로로 shadow-only 이벤트를 보냅니다.
 
 생성 재시도는 변경되는 `last_run` 진행 상태나 예약 종류의 명시적 및 암묵적 표현이 아니라
 선언된 의도를 비교합니다. 진행 상태를 초기화하지 않고 보관된 레코드를 반환합니다. 작업 생성 주체,
@@ -79,7 +87,8 @@ superset이 필요합니다.
 구성 검토 캠페인도 같은 경로를 사용합니다. Exact cited 실행 세 개는 실행별 지문과
 zero 변경 도구를 가진 비활성화된, shadow-only 후보를 제출합니다. 별도 Approver 또는 Owner가
 수용한 뒤에만 reviewing principal이 strict weekly 작업을 materialize할 수 있습니다. 표류 근거는
-스케줄러 저장소를 직접 쓰지 않습니다.
+스케줄러 저장소를 직접 쓰지 않습니다. 구체화한 작업은 승인된 캠페인 ID, 기준선 버전과
+다이제스트, 범위, 실행 ID, cron 표현식, IANA 시간대를 보존합니다.
 
 ## 텍스트 drafting
 
@@ -91,7 +100,10 @@ zero 변경 도구를 가진 비활성화된, shadow-only 후보를 제출합니
 
 이행 `20260720_0043`은 active-dedup 부분 unique 인덱스가 있는
 `automation_blueprint_candidate`를 생성합니다. PostgreSQL은 권한 필드, 지문, 상태,
-검토 사유, 작업 ID, realized 사용량 개수를 저장합니다. 일회성 tick binding은 명시적인
+검토 사유, 작업 ID, realized 사용량 개수를 저장합니다. Operator 서비스 이행
+`operator_automation_blueprint_intent_20261019`는 검토한 예약 시간대와 정규 이벤트
+페이로드를 추가하고 객체 및 크기 제한을 적용합니다. 기존 후보는 `UTC`와 빈 페이로드를
+유지합니다. 일회성 tick binding은 명시적인
 blueprint-evidence payload가 있을 때만 durable semantic result projection에서 completed
 operator-turn 근거를 읽으므로 deployment-owned 입력이 없으면 suggestion을 만들어내지 않고
 fail closed합니다. 상태 변경은 compare-and-swap입니다. 배포는
@@ -124,8 +136,9 @@ occurrence가 관찰된 뒤에만 증가합니다.
 ## 검증
 
 커버리지는 recurrence, dedup, 범위, 결과 stability, 스케줄러 veto, 재귀, 주입,
-suppression/new 근거, 권한 확인, no-self-review, 만료, 텍스트 한계치, 멱등적
-구체화, PostgreSQL codec/CAS, 검토 API, 콘솔 디코딩, metrics를 포함합니다.
+suppression/new 근거, 권한 확인, no-self-review, 만료, 텍스트 한계치, 멱등적 구체화,
+정확한 시간대 및 페이로드 고정, 예약 필드 차단, PostgreSQL codec/CAS, 검토 API,
+콘솔 디코딩, metrics를 포함합니다.
 
 ## 관련 문서
 

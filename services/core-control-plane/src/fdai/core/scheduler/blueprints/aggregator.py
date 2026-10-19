@@ -93,6 +93,8 @@ class AutomationBlueprintAggregator:
                     confidence=min(0.99, len(fingerprints) / (self._policy.min_recurrence + 1)),
                     created_at=now,
                     expires_at=now + self._policy.candidate_ttl,
+                    schedule_timezone=representative.schedule_timezone,
+                    event_payload_json=representative.event_payload_json,
                 )
             )
         return tuple(candidates)
@@ -114,6 +116,8 @@ def _qualifies(
             item.event_type,
             item.delivery_intent,
             item.schedule_expression,
+            item.schedule_timezone,
+            item.event_payload_json,
             tuple(sorted(item.required_tools)),
             item.isolation_profile,
         )
