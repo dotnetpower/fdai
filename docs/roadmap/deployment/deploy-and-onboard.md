@@ -18,7 +18,7 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 Use the vendor's [Release Hub root](../../../infra/release-hub/README.md) or the customer's [Lifecycle Hub root](../../../infra/lifecycle-hub/README.md).
 Each owns its UI/API, private PostgreSQL, resources and state without peer inputs; explicit durable private local backends retain state, with reviewed remote backends optional.
 Login/catalog bindings aren't needed for migration, health/readiness or static UI, even without Entra registrations. Management requires authentication; no anonymous APIs are enabled.
-The [single-product procedure](../../../infra/modules/hub-service/README.md) covers immutable images, state preservation and native Terraform/Azure CLI execution.
+The [single-product procedure](../../../infra/modules/hub-service/README.md) covers immutable images, state preservation, native Terraform/Azure CLI execution and bounded read-only database recovery comparison. The comparison grants no authority and isn't proof of full database equivalence; its private observer, retained evidence and independent security/cleanup readback requirements still apply.
 
 For running Hubs, `app_image` retains the approved serving digest while `image` selects the migration candidate; keep existing apps and migration Jobs enabled.
 After manual migration succeeds and independent schema observation passes, activate with `app_image=null` in a new reviewed, sealed plan; omission preserves single-image defaults.
@@ -27,14 +27,6 @@ Complete Job checks, globally zero-change dispatch plans, state ownership, authe
 The unchanged [legacy paired fixture](../../../infra/hubs-development/README.md) retains separate networks, identities/keys, migrations, Entra operator/service boundaries and catalog-pin approval for current state owners.
 Neither product requires the fixture; neither replaces an FDAI installer. Local/static checks don't prove Azure network/RBAC isolation, Entra/MI, registry architecture, replica durability or deployment.
 Use an authorized live scope for those receipts; Agent apply and full FDAI installation remain excluded.
-
-Before accepting a Hub database restore, use the app-owned bounded read-only
-[recovery comparison](../../../infra/modules/hub-service/README.md#read-only-database-recovery-comparison).
-Separate approved private source/restored observers and retained private receipts are required.
-Counts and a 32-row sample don't prove full database equivalence; keep writers excluded around
-the selected restore point. Independently verify actual server identity, private DNS,
-Entra-only/admin bindings and temporary-resource cleanup. The command never provisions a
-restore, grants access or authorizes deployment.
 
 ## Prerequisites
 

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: fd8a9d9a33a7869cac1ebd9d25ea6bf96e7d6b63
+translation_source_sha: 06a6ad303c50708555ffc5ae99606af9148deadd
 translation_revised: 2026-10-19
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -26,7 +26,9 @@ Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측�
 전제조건이 아닙니다. Entra 앱 등록 없이 migration, 상태/준비 검사와 정적 UI를 제공하며,
 인증을 설정하기 전까지 관리 API는 사용할 수 없습니다. 익명 관리 기능을 제공하거나 새로운
 FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 보존 및 기본 Terraform/Azure CLI
-실행은 [단일 제품 절차](../../../infra/modules/hub-service/README.md)를 따르세요.
+실행과 범위가 제한된 읽기 전용 데이터베이스 복구 비교는 [단일 제품 절차](../../../infra/modules/hub-service/README.md)를 따르세요.
+이 비교는 권한을 부여하거나 전체 데이터베이스 동등성을 입증하지 않습니다. 비공개 관측 환경,
+증적 보존, 독립적인 보안 설정 및 정리 결과 확인이라는 전제조건도 유지됩니다.
 
 이미 실행 중인 Hub를 업그레이드할 때는 `app_image`로 승인된 기존 서비스 이미지 digest를
 유지하고, `image`로 새 마이그레이션 후보를 지정합니다. 기존 앱과 마이그레이션 Job은 활성화
@@ -41,14 +43,6 @@ Entra 운영자/서비스 경계와 독립적인 카탈로그 pin 승인을 유�
 아니며 FDAI 설치기를 대체하지 않습니다. 로컬 컨테이너/정적 Terraform 근거로는 Azure 네트워크와
 RBAC 격리, Entra/MI, 레지스트리 아키텍처, 복제본 영속성이나 배포 성공을 입증할 수 없습니다.
 이 검증에는 승인된 실제 실행 범위가 필요합니다. Agent 적용과 전체 FDAI 설치는 제외됩니다.
-
-Hub 데이터베이스 복원을 수락하기 전에 앱 소유의 범위가 제한된 읽기 전용
-[복구 비교](../../../infra/modules/hub-service/README.md#read-only-database-recovery-comparison)를
-사용하세요. 원본과 복원본은 각각 승인된 비공개 환경에서 관측하고 증적도 비공개로 보존합니다.
-행 수와 32행 표본만으로 전체 데이터베이스 동등성을 입증할 수 없으므로 선택한 복원 시점
-전후로 쓰기를 중지하세요. 실제 서버 신원, 비공개 DNS, Entra-only 인증과 관리자 연결,
-임시 자원 정리는 독립적으로 확인합니다. 이 명령은 복원 자원을 만들거나 접근 권한을
-부여하거나 배포를 승인하지 않습니다.
 
 ## 전제조건(Prerequisites)
 
