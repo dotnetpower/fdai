@@ -64,6 +64,62 @@ def test_ci_postgres_matches_the_local_validation_port_contract(
     assert len(errors) == (0 if port == 5433 else 3)
 
 
+@pytest.mark.parametrize(
+    "handoff", ["valid", "missing", "late", "early", "wrong-shard", "wrong-target"]
+)
+def test_ci_loopback_stack_requires_exclusive_validation_port_handoff(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, handoff: str
+) -> None:
+    stop = {
+        "name": "Release integration database port",
+        "if": "matrix.shard == 2",
+        "run": 'docker stop "${{ job.services.postgres.id }}"',
+    }
+    integration = {"name": "Run integration test shard"}
+    provider = {"name": "Start loopback provider stack", "if": "matrix.shard == 2"}
+    steps = [integration, stop, provider]
+    if handoff == "missing":
+        steps.remove(stop)
+    elif handoff == "late":
+        steps = [integration, provider, stop]
+    elif handoff == "early":
+        steps = [stop, integration, provider]
+    elif handoff == "wrong-shard":
+        stop["if"] = "matrix.shard == 1"
+    elif handoff == "wrong-target":
+        stop["run"] = "docker stop unrelated-container"
+    workflow = tmp_path / ".github/workflows/ci.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        yaml.safe_dump(
+            {
+                "jobs": {
+                    "integration": {
+                        "services": {"postgres": {"ports": ["5433:5432"]}},
+                        "env": {
+                            "FDAI_DATABASE_URL": "postgresql://localhost:5433/example",
+                            "FDAI_SERVICE_DATABASE_URL": "postgresql://localhost:5433/example_services",
+                        },
+                        "steps": steps,
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    module = _load_contract_module()
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+    errors = module._validate_integration_database_isolation()
+    assert errors == (
+        []
+        if handoff == "valid"
+        else [
+            "CI job integration must release its PostgreSQL port "
+            "between integration and provider phases"
+        ]
+    )
+
+
 def _new_frozen_version_fixture() -> tuple[set[str], dict[str, object]]:
     root = "services/core-control-plane/tests/scenarios"
     version = "v2099.01"
@@ -1971,6 +2027,18 @@ def test_ci_partitions_database_and_provider_checks_across_two_shards() -> None:
     )
     assert provider_stack_step["if"] == "matrix.shard == 2"
     assert provider_stack_step["env"]["POSTGRES_PASSWORD"] == "ci"
+    release_database = next(
+        step
+        for step in integration_job["steps"]
+        if step["name"] == "Release integration database port"
+    )
+    assert release_database["if"] == "matrix.shard == 2"
+    assert release_database["run"] == 'docker stop "${{ job.services.postgres.id }}"'
+    assert (
+        integration_steps.index("Run integration test shard")
+        < integration_steps.index("Release integration database port")
+        < integration_steps.index("Start loopback provider stack")
+    )
     provider_step = next(
         step
         for step in integration_job["steps"]

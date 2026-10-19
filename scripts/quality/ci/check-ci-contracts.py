@@ -706,6 +706,39 @@ def _validate_integration_database_isolation() -> list[str]:
                 errors.append(
                     f"CI job {name} {key} must use isolated loopback validation port 5433"
                 )
+        steps = job.get("steps", [])
+        provider = next(
+            (
+                index
+                for index, step in enumerate(steps)
+                if step.get("name") == "Start loopback provider stack"
+            ),
+            None,
+        )
+        if provider is not None:
+            integration = next(
+                (
+                    index
+                    for index, step in enumerate(steps)
+                    if step.get("name") == "Run integration test shard"
+                ),
+                None,
+            )
+            releases = [
+                index
+                for index, step in enumerate(steps)
+                if step.get("run", "").strip() == 'docker stop "${{ job.services.postgres.id }}"'
+                and step.get("if") == steps[provider].get("if") == "matrix.shard == 2"
+            ]
+            if (
+                integration is None
+                or len(releases) != 1
+                or not integration < releases[0] < provider
+            ):
+                errors.append(
+                    f"CI job {name} must release its PostgreSQL port "
+                    "between integration and provider phases"
+                )
     return errors
 
 

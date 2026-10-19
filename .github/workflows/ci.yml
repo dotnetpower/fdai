@@ -888,6 +888,10 @@ jobs:
           services/core-control-plane/tests/persistence/test_postgres_ontology_instance.py::test_postgres_inventory_coverage_scopes_reconciliation_markers
           services/core-control-plane/tests/delivery/pgvector/test_knowledge.py::test_topk_rank_parity_with_reference
 
+      - name: Release integration database port
+        if: matrix.shard == 2
+        run: docker stop "${{ job.services.postgres.id }}"
+
       - name: Start loopback provider stack
         if: matrix.shard == 2
         env:
