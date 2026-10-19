@@ -55,8 +55,8 @@ def test_blueprint_row_codec_round_trips_candidate() -> None:
         "candidate_id dedup_key normalized_task_intent schedule_class schedule_expression "
         "event_type principal_id resource_scope delivery_intent required_tools isolation_profile "
         "estimated_cost_microusd evidence_fingerprints proposer confidence created_at expires_at "
-        "state enabled shadow_only mutation_tool_ids reviewed_by review_reason resulting_task_id"
-        " realized_usage_count"
+        "schedule_timezone event_payload_json state enabled shadow_only mutation_tool_ids "
+        "reviewed_by review_reason resulting_task_id realized_usage_count"
     ).split()
     row = dict(zip(columns, _values(candidate), strict=True))
 
@@ -65,9 +65,12 @@ def test_blueprint_row_codec_round_trips_candidate() -> None:
 
 @pytest.mark.skipif(not os.environ.get("FDAI_DATABASE_URL"), reason="FDAI_DATABASE_URL is unset")
 async def test_postgres_blueprint_store_persists_and_cas_transitions() -> None:
-    store = PostgresAutomationBlueprintStore(
-        config=PostgresAutomationBlueprintStoreConfig(dsn=os.environ["FDAI_DATABASE_URL"])
+    dsn = os.environ["FDAI_DATABASE_URL"].replace(
+        "postgresql+psycopg://",
+        "postgresql://",
+        1,
     )
+    store = PostgresAutomationBlueprintStore(config=PostgresAutomationBlueprintStoreConfig(dsn=dsn))
     candidate = _candidate(suffix=uuid4().hex[:8])
     stored = await store.create(candidate)
     assert stored == candidate

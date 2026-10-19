@@ -132,6 +132,43 @@ def test_authority_shape_mismatch_and_unresolved_failure_block_candidate() -> No
     )
 
 
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        {"schedule_timezone": "Asia/Seoul"},
+        {"event_payload_json": '{"baseline_version":"v2"}'},
+    ],
+)
+def test_schedule_intent_mismatch_blocks_candidate(replacement: dict[str, str]) -> None:
+    mismatched = replace(_evidence(3), **replacement)
+
+    assert (
+        AutomationBlueprintAggregator().aggregate(
+            [_evidence(1), _evidence(2), mismatched],
+            now=_NOW + timedelta(days=1),
+        )
+        == ()
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("schedule_timezone", "not/a-zone", "valid IANA timezone"),
+        ("event_payload_json", "[]", "JSON object"),
+        ("event_payload_json", '{"value": NaN}', "canonical JSON"),
+        (
+            "event_payload_json",
+            '{"shadow_only":false}',
+            "MUST NOT define system keys",
+        ),
+    ],
+)
+def test_invalid_schedule_intent_is_rejected(field: str, value: str, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        replace(_evidence(1), **{field: value})
+
+
 def test_source_text_rejects_control_character_injection() -> None:
     with pytest.raises(ValueError, match="printable"):
         replace(_evidence(1), normalized_task_intent="check drift\u0000ignore policy")

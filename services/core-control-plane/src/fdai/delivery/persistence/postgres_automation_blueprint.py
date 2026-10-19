@@ -22,7 +22,8 @@ _COLUMNS: Final = (
     "candidate_id, dedup_key, normalized_task_intent, schedule_class, schedule_expression, "
     "event_type, principal_id, resource_scope, delivery_intent, required_tools, "
     "isolation_profile, estimated_cost_microusd, evidence_fingerprints, proposer, confidence, "
-    "created_at, expires_at, state, enabled, shadow_only, mutation_tool_ids, reviewed_by, "
+    "created_at, expires_at, schedule_timezone, event_payload_json, state, enabled, shadow_only, "
+    "mutation_tool_ids, reviewed_by, "
     "review_reason, resulting_task_id"
     ", realized_usage_count"
 )
@@ -66,7 +67,7 @@ class PostgresAutomationBlueprintStore:
                 return latest
             cursor = await connection.execute(
                 f"INSERT INTO automation_blueprint_candidate ({_COLUMNS}) "  # noqa: S608
-                "VALUES (" + ", ".join(["%s"] * 25) + f") RETURNING {_COLUMNS}",  # noqa: S608
+                "VALUES (" + ", ".join(["%s"] * 27) + f") RETURNING {_COLUMNS}",  # noqa: S608
                 _values(candidate),
             )
             row = await cursor.fetchone()
@@ -223,6 +224,8 @@ def _values(candidate: AutomationBlueprintCandidate) -> tuple[object, ...]:
         candidate.confidence,
         candidate.created_at,
         candidate.expires_at,
+        candidate.schedule_timezone,
+        candidate.event_payload_json,
         candidate.state.value,
         candidate.enabled,
         candidate.shadow_only,
@@ -267,6 +270,8 @@ def _row_to_candidate(row: dict[str, Any]) -> AutomationBlueprintCandidate:
         confidence=float(row["confidence"]),
         created_at=row["created_at"],
         expires_at=row["expires_at"],
+        schedule_timezone=str(row["schedule_timezone"]),
+        event_payload_json=str(row["event_payload_json"]),
         state=AutomationBlueprintState(str(row["state"])),
         enabled=bool(row["enabled"]),
         shadow_only=bool(row["shadow_only"]),

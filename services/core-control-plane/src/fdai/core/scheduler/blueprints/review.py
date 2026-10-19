@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
@@ -146,6 +148,7 @@ class AutomationBlueprintReviewService:
             event_type=current.event_type,
             resource_ref=current.resource_scope,
             event_payload={
+                **json.loads(current.event_payload_json),
                 "automation_blueprint_id": current.candidate_id,
                 "delivery_intent": current.delivery_intent,
                 "shadow_only": True,
@@ -154,6 +157,7 @@ class AutomationBlueprintReviewService:
             cron_expression=(
                 current.schedule_expression if current.schedule_class == "cron" else None
             ),
+            timezone=current.schedule_timezone,
             isolation_profile=current.isolation_profile,
         )
         materialized = await self._store.transition(
@@ -208,6 +212,9 @@ def _event(kind: str, candidate: AutomationBlueprintCandidate) -> dict[str, obje
         "state": candidate.state.value,
         "principal_id": candidate.principal_id,
         "resource_scope": candidate.resource_scope,
+        "schedule_expression": candidate.schedule_expression,
+        "schedule_timezone": candidate.schedule_timezone,
+        "event_payload_sha256": hashlib.sha256(candidate.event_payload_json.encode()).hexdigest(),
         "evidence_fingerprints": list(candidate.evidence_fingerprints),
         "reviewed_by": candidate.reviewed_by,
         "review_reason": candidate.review_reason,
