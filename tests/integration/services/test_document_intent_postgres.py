@@ -107,6 +107,15 @@ async def setup(database):
                 ROOT
                 / (
                     "service-migrations/branches/core-control-plane/versions/"
+                    "20261020_core_document_intent_ingress_grant.py"
+                )
+            )
+        )["upgrade"]()
+        runpy.run_path(
+            str(
+                ROOT
+                / (
+                    "service-migrations/branches/core-control-plane/versions/"
                     "20261019_core_document_intent.py"
                 )
             )

@@ -29,6 +29,9 @@ exact document/version only through `fdai_document_intent_envelope`. The public 
 contains identity, revision, purpose and digest fields, never the document body or proposed values.
 Worker index cleanup deletes the private envelope in the same transaction as search chunks, and the
 authoritative purge receipt counts any retained envelope as a blocking cache entry.
+The worker migration creates and owns the table and function without creating another service's
+role. A later Core-owned migration grants only function execution after the Core role exists; the
+cross-service dependency and rollback order are explicit in the ownership manifest.
 
 | Stage | Owner | Existing topic |
 |-------|-------|----------------|

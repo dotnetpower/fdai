@@ -1,7 +1,7 @@
 ---
 title: 승인된 문서 의도 변환
 translation_of: document-declared-intent-projection.md
-translation_source_sha: 3772ec9f9965637067adffebc27dc5b5814b898a
+translation_source_sha: 08ee0d0421ea251a08445a6f8bd082028f1cbe56
 translation_revised: 2026-10-20
 ---
 # 승인된 문서 의도 변환
@@ -33,6 +33,9 @@ translation_revised: 2026-10-20
 들어가지 않습니다.
 워커 인덱스 정리는 검색 청크와 같은 트랜잭션에서 비공개 envelope를 삭제합니다. 권위 있는
 삭제 증적은 남아 있는 envelope를 차단 상태인 캐시 항목으로 계산합니다.
+워커 마이그레이션은 다른 서비스 역할을 만들지 않고 테이블과 함수를 소유합니다. 이후 Core
+소유 마이그레이션이 Core 역할 생성 뒤 함수 실행 권한만 부여합니다. 서비스 간 의존성과
+롤백 순서는 소유권 매니페스트에 명시합니다.
 
 | 단계 | 책임 에이전트 | 기존 토픽 |
 |------|---------------|-----------|

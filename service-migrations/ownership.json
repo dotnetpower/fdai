@@ -8,7 +8,7 @@
   "migration_dependencies": [
     {
       "consumer_service": "core-control-plane",
-      "consumer_revision": "core_document_intent_20261019",
+      "consumer_revision": "core_document_intent_ingress_20261020",
       "provider_service": "document-processing-worker",
       "provider_revision": "document_intent_envelope_20261020",
       "schema_prerequisites": [

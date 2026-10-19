@@ -38,7 +38,6 @@ def upgrade() -> None:
           WHERE document_id=p_document AND version_id=p_version
         $$;
         REVOKE ALL ON FUNCTION fdai_document_intent_envelope(UUID,UUID) FROM PUBLIC;
-        GRANT EXECUTE ON FUNCTION fdai_document_intent_envelope(UUID,UUID) TO fdai_core;
         """
     )
 
