@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from fdai_service_contracts.model_provider_health import ConfiguredModelBindingV1
 from fdai_service_contracts.self_health import SelfHealthSignalName
@@ -18,7 +19,9 @@ from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.readiness.self_health import SelfHealthCatalog, load_self_health_catalog
 from fdai.delivery.azure.llm.provider_observations import ConfiguredModelProviderScope
 from fdai.delivery.readiness_remediation import EventBusReadinessRemediationPublisher
-from fdai.runtime.configuration import _resolve_catalog_root
+from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
+from fdai.delivery.startup_probe import OpaCompileStartupProbe
+from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
 from fdai.shared.contracts.models import OntologyRelease, Rule
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.readiness import RemediationProposalBinding
@@ -26,6 +29,9 @@ from fdai.shared.providers.self_health import ModelProviderObservedProvider
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
+
+if TYPE_CHECKING:
+    from fdai.runtime.bootstrap_resources import RuntimeResources
 
 
 def load_runtime_self_health_catalog() -> SelfHealthCatalog:
@@ -80,14 +86,32 @@ def build_runtime_model_provider_scope(
 class RuntimeSelfHealthBindings:
     catalog: SelfHealthCatalog
     model_provider_scope: ConfiguredModelProviderScope
+    verifier_health_source: RuntimeVerifierHealthSource | None = None
 
 
-def build_runtime_self_health_bindings(container: Container) -> RuntimeSelfHealthBindings:
-    """Bind the scope to the same catalog whose freshness governs runtime readiness."""
+def build_runtime_self_health_bindings(
+    container: Container, *, resources: RuntimeResources | None = None
+) -> RuntimeSelfHealthBindings:
+    """Bind model scope and verifier observation to one catalog and optional resource owner."""
     catalog = load_runtime_self_health_catalog()
+    policy = catalog.policies[SelfHealthSignalName.VERIFIER_FAILURE_RATE]
+    verifier_source = RuntimeVerifierHealthSource(
+        metric=policy.metric, window_seconds=policy.maximum_age_seconds
+    )
+    if resources is not None:
+        resources.verifier_health_source = verifier_source
     return RuntimeSelfHealthBindings(
         catalog=catalog,
         model_provider_scope=build_runtime_model_provider_scope(container, catalog),
+        verifier_health_source=verifier_source,
+    )
+
+
+def build_runtime_policy_compile_probe() -> OpaCompileStartupProbe:
+    """Build the required OPA probe against the same resolved runtime policy tree."""
+    return OpaCompileStartupProbe(
+        probe_id="policy.compile",
+        policies_root=_resolve_policies_root(_resolve_catalog_root()),
     )
 
 

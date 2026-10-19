@@ -9,7 +9,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai_service_contracts.rule_activation import RuleActivationSource
-from fdai_service_contracts.self_health import SelfHealthSignalName
 
 from fdai.composition import (
     Container,
@@ -24,8 +23,6 @@ from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
 from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
-from fdai.delivery.self_health_verifier import RuntimeVerifierHealthSource
-from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime import bootstrap_core_model, bootstrap_incidents
 from fdai.runtime import product_profile as _product_profile
 from fdai.runtime.baseline_evaluation import bind_forseti_baseline_worker
@@ -58,6 +55,7 @@ from fdai.runtime.bootstrap_pantheon import (
 from fdai.runtime.bootstrap_plan import BootstrapPlan
 from fdai.runtime.bootstrap_readiness import (
     build_runtime_operational_readiness,
+    build_runtime_policy_compile_probe,
     build_runtime_self_health_bindings,
     load_runtime_self_health_catalog,
 )
@@ -69,7 +67,6 @@ from fdai.runtime.configuration import (
     _attach_runtime_github_change_feed,
     _new_http_client,
     _resolve_catalog_root,
-    _resolve_policies_root,
 )
 from fdai.runtime.continuous_operating_model import (
     build_continuous_operating_model_worker,
@@ -432,11 +429,7 @@ async def build_core_runtime(
         http_client=resources.http_client,
     )
     approval_bindings = await load_signed_approval_bindings(environment, state_store, resources)
-    self_health = build_runtime_self_health_bindings(container)
-    verifier_policy = self_health.catalog.policies[SelfHealthSignalName.VERIFIER_FAILURE_RATE]
-    resources.verifier_health_source = RuntimeVerifierHealthSource(
-        metric=verifier_policy.metric, window_seconds=verifier_policy.maximum_age_seconds
-    )
+    self_health = build_runtime_self_health_bindings(container, resources=resources)
     control_loop = _build_control_loop(
         container,
         verifier_health_source=resources.verifier_health_source,
@@ -637,10 +630,7 @@ async def build_core_runtime(
         event_validator=container.event_validator,
         identity=identity,
         embedding_model=container.require_llm_bindings().embedding_model,
-        policy_compile_probe=OpaCompileStartupProbe(
-            probe_id="policy.compile",
-            policies_root=_resolve_policies_root(_resolve_catalog_root()),
-        ),
+        policy_compile_probe=build_runtime_policy_compile_probe(),
         cross_check_models=container.require_llm_bindings().cross_check_models,
         environment=environment,
         registered_specs=(*container.startup_probe_specs, *semantic.readiness_specs),

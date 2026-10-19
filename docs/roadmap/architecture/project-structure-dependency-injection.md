@@ -29,8 +29,10 @@ listener-liveness callback, and the validated runtime-policy values consumed at 
 `build_startup_readiness_runtime` accepts the complete `self_health_exporter_registry` override;
 otherwise it composes those sources through its `liveness` and `runtime_policy` arguments. Its optional `startup_duration_source` receives the actual process-owned `RuntimeStartupDurationSource`, created at runtime entry and bound to the existing readiness guard only after composition; it never supplies a synthetic observation. `ModelProviderObservedProvider.model_provider_observations(maximum_age_seconds=...)` is a separate typed sub-scope source, not a `SelfHealthExporter`. Core preserves every startup-configured model obligation, pins the independent registration, and publishes `ModelProviderScopeSnapshotV1` separately from catalog health. No sub-adapter source can bind the global adapter aggregate.
 
-The optional `verifier_health_source` is shared by the default T2 gate factory and readiness
-composition. It wraps the actual deterministic verifier through the unchanged `VerifierPolicy`;
+The optional `verifier_health_source` is shared by the default T2 gate factory and readiness.
+`build_runtime_self_health_bindings(container, resources=...)` binds its policy and lifetime;
+the existing auxiliary owner assembles the T2 tier without overgrowing the runtime assembly facades.
+It wraps the actual deterministic verifier through unchanged `VerifierPolicy`;
 `RuntimeResources` closes it at shutdown. Complete policy-bounded windows retain real
 numerators/denominators and original observation time; missing or unknown calls never become success.
 

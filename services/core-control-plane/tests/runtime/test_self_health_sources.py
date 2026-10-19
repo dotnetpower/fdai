@@ -77,6 +77,57 @@ async def test_builder_composes_real_readiness_and_supplied_listener_and_policy(
     assert fields["configuration"]["status"] == "available"
 
 
+async def test_bootstrap_binding_gives_verifier_source_one_resource_owner(app_config) -> None:
+    from fdai.composition import default_container
+    from fdai.core.quality_gate.rule_based import RuleBasedVerifier
+    from fdai.runtime.bootstrap_readiness import build_runtime_self_health_bindings
+    from fdai.runtime.bootstrap_resources import RuntimeResources
+    from fdai.shared.providers.self_health import SelfHealthExporterUnavailableError
+
+    resources = RuntimeResources()
+    bindings = build_runtime_self_health_bindings(
+        default_container(app_config), resources=resources
+    )
+    health = bindings.verifier_health_source
+    assert health is not None
+    assert health is resources.verifier_health_source
+    assert (
+        health.metric
+        == bindings.catalog.policies[SelfHealthSignalName.VERIFIER_FAILURE_RATE].metric
+    )
+    health.bind(RuleBasedVerifier(rules_by_id={}))
+    with pytest.raises(SelfHealthExporterUnavailableError) as warmup:
+        await health.observe(now=datetime.now(UTC))
+    assert warmup.value.reason == "source_incomplete"
+    await resources.close()
+    with pytest.raises(SelfHealthExporterUnavailableError) as closed:
+        await health.observe(now=datetime.now(UTC))
+    assert closed.value.reason == "source_missing"
+
+
+def test_t2_assembly_preserves_gate_validation_before_proposer_resolution(
+    app_config, monkeypatch
+) -> None:
+    from unittest.mock import MagicMock
+
+    from fdai.composition import LlmBindings, default_container
+    from fdai.core.quality_gate.promotion import ActionModeSource
+    from fdai.runtime import control_loop_auxiliary
+
+    llm_bindings = MagicMock(spec=LlmBindings)
+    gate = MagicMock(side_effect=ValueError("invalid gate configuration"))
+    monkeypatch.setattr(control_loop_auxiliary, "build_t2_quality_gate", gate)
+    with pytest.raises(ValueError, match="invalid gate configuration"):
+        control_loop_auxiliary.build_t2_tier(
+            default_container(app_config),
+            llm_bindings=llm_bindings,
+            rules_by_id={},
+            action_modes=MagicMock(spec=ActionModeSource),
+            deterministic_evidence_verifiers=None,
+        )
+    llm_bindings.require_t2_proposer.assert_not_called()
+
+
 async def test_signal_refresh_does_not_repeat_startup_probes(monkeypatch) -> None:
     clock = NOW
     stop = asyncio.Event()

@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 71a72b0a682b721a42148f3814540141802b0aa3
+translation_source_sha: 860dda51215f38aa4a5d1241bf3ae2e90c3d883a
 translation_revised: 2026-10-19
 ---
 
@@ -35,7 +35,9 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
 `build_startup_readiness_runtime`은 완전한 `self_health_exporter_registry` 대체 구성을
 받습니다. 대체 구성이 없으면 `liveness`와 `runtime_policy` 인자를 통해 이 수집원을 조합합니다. 선택적인 `startup_duration_source`에는 런타임 진입 때 생성하고 구성을 마친 뒤에만 기존 준비 상태 가드에 연결하는 실제 프로세스 소유 `RuntimeStartupDurationSource`를 전달합니다. 합성 관측은 제공하지 않습니다. `ModelProviderObservedProvider.model_provider_observations(maximum_age_seconds=...)`는 `SelfHealthExporter`가 아닌 별도 타입 지정 하위 범위 수집원입니다. Core는 시작 시 구성된 모든 모델 의무와 독립된 등록 정보를 보존하며 `ModelProviderScopeSnapshotV1`을 카탈로그 상태와 별개로 제공합니다. 하위 어댑터 수집원으로 전체 어댑터 집계를 연결할 수 없습니다.
 
-선택적인 `verifier_health_source`는 기본 T2 게이트 구성과 준비 상태 구성에서 공유합니다.
+선택적인 `verifier_health_source`는 기본 T2 게이트 구성과 준비 상태에서 공유합니다.
+`build_runtime_self_health_bindings(container, resources=...)`가 정책과 수명을 연결하며 기존 보조
+구성 모듈이 런타임 조립 파일이 커지지 않도록 T2 계층을 조립합니다.
 기존 `VerifierPolicy`를 통해 실제 결정론적 검증기를 감싸며 `RuntimeResources`가 종료합니다.
 정책에 따른 완전한 구간의 실제 분자와 분모 및 원래 관측 시각을 유지합니다. 없거나 결과를
 알 수 없는 호출을 성공으로 바꾸지 않습니다.
