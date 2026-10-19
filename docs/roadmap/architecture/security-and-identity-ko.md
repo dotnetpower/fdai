@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: efcea50274b21f1cbad6dc64b227aaf91675d51b
-translation_revised: 2026-10-17
+translation_source_sha: befa8fd5bc3974d2e2d3a33b4b4c64e995ef11cd
+translation_revised: 2026-10-19
 ---
 
 # 보안과 아이덴티티
@@ -424,4 +424,4 @@ Resource 상태로 저장하거나 Console에 반환하지 않습니다.
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
-| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/security-and-identity.md) |
+| 자동화 숫자 입력 및 구현 상태 | [예약 입력 경계](../decisioning/automation-blueprints-ko.md#검토-and-구체화), [구현 원장](../../roadmap-implementation/architecture/security-and-identity.md) |

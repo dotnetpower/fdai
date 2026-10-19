@@ -56,6 +56,13 @@ Materialization calls `CreateScheduledTaskCommand` with the reviewing principal.
 the scheduler store directly. A stable task ID makes retry idempotent and conflicting content
 fails. The resulting task emits shadow-only events into the existing trust and risk path.
 
+The shared schedule model accepts only finite, positive numeric intervals. Booleans, non-finite
+values and integers that cannot be represented by the scheduler's numeric clock fail before
+persistence. Compatibility create/update tools retain their 60-second minimum and return
+structured errors without replacing an existing task. Valid numeric strings retain their
+existing conversion. Invalid legacy definitions require authorized repair or cancellation;
+the guard never invents a replacement interval.
+
 A configuration review campaign uses the same path. Three exact, cited runs submit a disabled,
 shadow-only candidate with zero mutation tools and one fingerprint per run. A separate Approver or
 Owner must accept it before the reviewing principal can materialize the strict weekly task. Drift
