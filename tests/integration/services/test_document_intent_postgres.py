@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import runpy
@@ -22,6 +23,8 @@ from fdai.agents._framework.document_intent import (
     recover_document_intent_publications,
 )
 from fdai.agents._framework.registry import load_pantheon
+from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents._framework.runtime_payload_validation import default_payload_validator
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.mimir import Mimir
@@ -51,6 +54,7 @@ from fdai.runtime.document_intent import DocumentIntentRuntime
 from fdai.shared.contracts.models import CeilingRole, OntologyObjectType
 from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.ontology.release import build_ontology_release
+from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai_document_worker_service.artifact_manifest import attach_artifact_manifest
 from fdai_service_contracts import (
     AccessDescriptor,
@@ -123,7 +127,11 @@ async def setup(database):
             return facts.get(subject)
 
     repo = PostgresDocumentIntent(graph, Identities(), clock=lambda: at)
-    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    bus = InMemoryBus(
+        registry=load_pantheon(),
+        isolate_handlers=False,
+        payload_validator=default_payload_validator,
+    )
     saga = Saga(audit_chain=StateStoreAuditChainAdapter(state), durable_state_store=state)
     var = Var(bus=bus, state_store=state, clock=lambda: at)
     agents = {
@@ -495,8 +503,12 @@ async def test_rejected_or_unpersisted_approval_cannot_create_intent(database):
                 "kind": "document_intent_projection",
                 "producer_principal": "Var",
                 "correlation_id": "forged-review",
-                "resource_id": "service:example",
+                "resource_id": "document-intent:" + digest[7:],
                 "idempotency_key": "forged-review",
+                "action_idempotency_key": "sha256:" + "b" * 64,
+                "action_type": "document.review-intent-diff",
+                "original_quorum_required": 1,
+                "effective_quorum_required": 1,
                 "state": "approved",
                 "params": {"intent_digest": digest},
                 "approvers": ["human:reviewer"],
@@ -504,6 +516,72 @@ async def test_rejected_or_unpersisted_approval_cannot_create_intent(database):
         )
         assert (await read(fixture)).receipt.returned_object_count == 0
     finally:
+        await fixture.state.aclose()
+
+
+async def test_real_runtime_bridge_uses_default_validation_for_approval_write_and_withdrawal(
+    database,
+):
+    fixture = await setup(database)
+    runtime = PantheonRuntime.build(
+        provider=LocalEventBus(),
+        raw_event_topic="fdai.document-intent.test",
+        saga=fixture.agents["Saga"],
+        var_state_store=fixture.state,
+        document_intent=fixture.repo,
+    )
+    fixture.var = runtime.agents["Var"]
+    running = asyncio.create_task(runtime.run())
+
+    async def wait_for_state(digest, phase, correlation):
+        async with asyncio.timeout(10):
+            while True:
+                with psycopg.connect(database) as connection:
+                    row = connection.execute(
+                        "SELECT receipt FROM document_intent_transition "
+                        "WHERE digest=%s AND phase=%s AND correlation_id=%s",
+                        (digest, phase, correlation),
+                    ).fetchone()
+                if row is not None:
+                    return row[0]
+                await asyncio.sleep(0.01)
+
+    try:
+        assert runtime.bridge.payload_validator is default_payload_validator
+        metadata, envelope = source(fixture)
+        save(database, metadata)
+        digest, correlation = await fixture.runtime.submit(
+            runtime.bridge,
+            envelope,
+            principal=Principal(id="human:author", role=Role.READER),
+            scope_ref="example-catalog",
+            operation="add",
+            expected_revision=0,
+        )
+        async with asyncio.timeout(10):
+            while correlation not in fixture.var._pending:
+                await asyncio.sleep(0.01)
+        await fixture.var.decide(correlation, approver="human:reviewer", decision="approve")
+        effect = await wait_for_state(digest, "verified_sealed", correlation)
+        assert effect["outcome"] == "matched"
+        assert (await read(fixture)).receipt.returned_object_count == 1
+        with psycopg.connect(database) as connection:
+            connection.execute(
+                "UPDATE document_version SET active=FALSE WHERE version_id=%s",
+                (metadata.version_id,),
+            )
+        with pytest.raises(PermissionError):
+            await read(fixture)
+        withdrawn = "withdrawal:" + digest[7:]
+        await publish_document_intent_source(
+            runtime.bridge, intent_digest=digest, correlation_id=withdrawn
+        )
+        await wait_for_state(digest, "rolled_back", withdrawn)
+        assert (await read(fixture)).receipt.returned_object_count == 0
+        assert not runtime.bridge.snapshot()["recent_rejected_edges"]
+    finally:
+        await runtime.stop()
+        await asyncio.wait_for(running, timeout=5)
         await fixture.state.aclose()
 
 

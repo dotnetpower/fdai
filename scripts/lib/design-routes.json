@@ -1084,6 +1084,10 @@
     {
       "id": "document-declared-intent-projection",
       "paths": [
+        "packages/service-contracts/src/fdai_service_contracts/document_intent.py",
+        "packages/service-contracts/src/fdai_service_contracts/schemas/document-intent-*/**",
+        "scripts/quality/contracts/generate_document_intent_schemas.py",
+        "services/core-control-plane/tests/agents/test_document_intent_wire.py",
         "docs/roadmap/rules-and-detection/document-declared-intent-projection*.md",
         "services/core-control-plane/src/fdai/core/ontology_platform/document_intent.py",
         "services/core-control-plane/src/fdai/agents/_framework/document_intent.py",

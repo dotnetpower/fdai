@@ -1,7 +1,7 @@
 ---
 title: 승인된 문서 의도 변환
 translation_of: document-declared-intent-projection.md
-translation_source_sha: d071d5ba3aa12c645609df29a54bdbfd9688af30
+translation_source_sha: 4fe8c7704b746ca3c3dcdd82d29630b6f29b4ad4
 translation_revised: 2026-10-19
 ---
 # 승인된 문서 의도 변환
@@ -40,6 +40,12 @@ translation_revised: 2026-10-19
 버스와 감사 레코드에는 원문이나 제안 속성 대신 불투명 참조만 넣습니다. Thor는 이 종류를
 무시합니다. Odin은 검토를 위해 보류하며 원본 소유권, 접근 권한, 정확한 승인을 우회하지
 않습니다.
+
+닫힌 정식 wire 계약은 `fdai_service_contracts.document_intent`에 있습니다.
+`generate_document_intent_schemas.py`가 버전별 이벤트, 승인, 변경분 스키마를 생성하며
+`--check`로 오래된 산출물을 확인합니다. 기본 런타임 검증기는 같은 형식화된 계약을 사용해
+추가 필드와 실행 권한을 차단하고 단계, 소유자, 토픽, 처리 결과, 개정 번호, 정확한 변경분
+승인 바인딩을 검사합니다. 기존 작업 봉투 검증은 바뀌지 않습니다.
 
 ## 허용되는 원본과 승인
 
@@ -98,6 +104,9 @@ Heimdall은 커밋된 저장소를 독립적으로 열어 결과와 승인된 �
 기반 캐시 재사용은 구현하지 않았습니다. 원본 파일 업로드가 일반 Console이나 대화에서
 조회된다고 주장하지 않습니다. 배포, 실제 코퍼스/모델 근거, 실제 관찰 기간, 승격은
 별도 조건으로 남습니다.
+PostgreSQL 테스트는 실제 기본 검증기와 로컬 브로커를 사용하는
+`PantheonRuntime.build(document_intent=...)`를 실행합니다. 일반 프로세스 bootstrap은
+이 선택적 바인딩을 공급하지 않으므로 설치 기능이 활성화되었다는 근거는 아닙니다.
 
 ## 관련 문서
 

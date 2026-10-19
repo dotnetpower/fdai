@@ -37,6 +37,12 @@ Messages use `document_intent_projection` and immutable content-bound identities
 audit records contain opaque references, not source bodies or proposed properties. Thor ignores
 this family. Odin holds for review; it cannot override source ownership, access, or exact approval.
 
+Canonical closed wire contracts live in `fdai_service_contracts.document_intent`.
+`generate_document_intent_schemas.py` emits the versioned event, approval, and diff schemas;
+its `--check` mode detects stale resources. The default runtime validator uses these same typed
+contracts, rejects extra fields and execution authority, and checks phase, owner, topic, outcome,
+revision, and exact-diff approval bindings. Existing action-envelope validation is unchanged.
+
 ## Admissible source and approval
 
 The first slice accepts one normalized structural unit containing JSON with exactly two keys:
@@ -91,6 +97,9 @@ API/worker routing, protected review UI, common graph/query-manifest exposure, a
 cached-result reuse outside this private namespace are not implemented. Do not claim an uploaded
 raw file is queryable through ordinary Console or conversation. Deployment, live corpus/model
 evidence, elapsed observation, and promotion remain separate gates.
+`PantheonRuntime.build(document_intent=...)` is exercised with its actual default validator and
+local broker in the PostgreSQL test. Normal process bootstrap does not supply this optional
+binding, so this evidence does not establish an active installation capability.
 
 ## Related docs
 

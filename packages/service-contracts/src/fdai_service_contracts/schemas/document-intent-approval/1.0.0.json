@@ -1,0 +1,156 @@
+{
+  "$defs": {
+    "DocumentIntentApprovalParams": {
+      "additionalProperties": false,
+      "properties": {
+        "intent_digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "title": "Intent Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "intent_digest"
+      ],
+      "title": "DocumentIntentApprovalParams",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The existing Var final-record wire shape restricted to exact non-action intent review.",
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "envelope_schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Envelope Schema Version",
+      "type": "integer"
+    },
+    "kind": {
+      "const": "document_intent_projection",
+      "default": "document_intent_projection",
+      "title": "Kind",
+      "type": "string"
+    },
+    "producer_principal": {
+      "const": "Var",
+      "title": "Producer Principal",
+      "type": "string"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    },
+    "correlation_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "action_idempotency_key": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Action Idempotency Key",
+      "type": "string"
+    },
+    "action_type": {
+      "const": "document.review-intent-diff",
+      "title": "Action Type",
+      "type": "string"
+    },
+    "action_id": {
+      "default": null,
+      "title": "Action Id",
+      "type": "null"
+    },
+    "action_run_identity": {
+      "default": null,
+      "title": "Action Run Identity",
+      "type": "null"
+    },
+    "resource_id": {
+      "pattern": "^document-intent:[a-f0-9]{64}$",
+      "title": "Resource Id",
+      "type": "string"
+    },
+    "rollback_contract": {
+      "const": "state_forward_only",
+      "default": "state_forward_only",
+      "title": "Rollback Contract",
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "approved",
+        "rejected"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "approvers": {
+      "items": {
+        "maxLength": 256,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 1,
+      "title": "Approvers",
+      "type": "array"
+    },
+    "original_quorum_required": {
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Original Quorum Required",
+      "type": "integer"
+    },
+    "effective_quorum_required": {
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Effective Quorum Required",
+      "type": "integer"
+    },
+    "development_authority": {
+      "default": null,
+      "title": "Development Authority",
+      "type": "null"
+    },
+    "decision_case": {
+      "default": null,
+      "title": "Decision Case",
+      "type": "null"
+    },
+    "params": {
+      "$ref": "#/$defs/DocumentIntentApprovalParams"
+    }
+  },
+  "required": [
+    "producer_principal",
+    "correlation_id",
+    "idempotency_key",
+    "action_idempotency_key",
+    "action_type",
+    "resource_id",
+    "state",
+    "approvers",
+    "original_quorum_required",
+    "effective_quorum_required",
+    "params"
+  ],
+  "title": "DocumentIntentApproval",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/service-contracts/document-intent-approval/1.0.0"
+}
