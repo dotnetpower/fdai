@@ -347,7 +347,6 @@ async def test_replay_rejects_changed_model_source_and_policy_pins(
         "principal_scope_digest",
         "manifest_digest",
         "source_projection_digest",
-        "checked_projection_digest",
     ],
 )
 async def test_source_validation_must_bind_the_complete_current_projection(
@@ -357,6 +356,16 @@ async def test_source_validation_must_bind_the_complete_current_projection(
     inputs["source_validation"] = replace(source.validation, **{field: _OTHER_DIGEST})
     with pytest.raises(CandidateContextError, match="invalid_source"):
         prepare_candidate_proposal_context(**inputs)
+
+
+async def test_later_current_projection_digest_is_bound_without_requiring_same_cutoff(
+    source: _Source,
+) -> None:
+    inputs = source.inputs()
+    validation = replace(source.validation, checked_projection_digest=_OTHER_DIGEST)
+    inputs["source_validation"] = validation
+    context = prepare_candidate_proposal_context(**inputs)
+    assert context.binding.source_validation_digest == validation.receipt_digest
 
 
 async def test_actual_payload_bound_counts_escaping_and_returns_no_prefix() -> None:

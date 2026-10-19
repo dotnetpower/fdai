@@ -1,0 +1,498 @@
+{
+  "schema_version": "1.0.0",
+  "origin": "independently_authored_synthetic_holdout",
+  "independently_reviewed": true,
+  "production_qualification": false,
+  "supersedes": null,
+  "corpus": "instance-corpus.v1.json",
+  "purpose": "Fresh pre-registered governed typed-selection answer-path window for #2034; not production qualification.",
+  "candidate_ranking_policy": {
+    "minimum_score": 0.4,
+    "exact_weight": 1.0,
+    "lexical_weight": 0.25,
+    "semantic_weight": 1.0
+  },
+  "evaluation_policy": {
+    "schema_version": "1.1.0",
+    "top_k": 5,
+    "min_recall_at_k": 1.0,
+    "min_mean_reciprocal_rank": 1.0,
+    "min_no_match_precision": 1.0,
+    "min_samples_per_metric": 4,
+    "required_cohorts": [
+      "en-adversarial",
+      "en-ambiguous",
+      "en-negative",
+      "en-positive",
+      "ko-adversarial",
+      "ko-ambiguous",
+      "ko-negative",
+      "ko-positive"
+    ]
+  },
+  "limits": {
+    "embedding_calls": 128,
+    "total_seconds": 600,
+    "embedding_call_seconds": 5
+  },
+  "cases": [
+    {
+      "case_id": "governed1-en-01",
+      "query": "Return the business-service record whose canonical name refers to workforce sign-in.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-b"
+      ]
+    },
+    {
+      "case_id": "governed1-en-02",
+      "query": "Return BusinessService records whose criticality is neither critical, high, nor low.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-c",
+        "object:BusinessService:example-service-e"
+      ]
+    },
+    {
+      "case_id": "governed1-en-03",
+      "query": "Find the BusinessService whose alias begins with Editorial and whose criticality is not medium or high.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-f"
+      ]
+    },
+    {
+      "case_id": "governed1-en-04",
+      "query": "Find the Workload whose alias contains balancing and whose workload_kind ends with worker.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-a"
+      ]
+    },
+    {
+      "case_id": "governed1-en-05",
+      "query": "Return the Workload aliased Parcel event stream whose workload_kind is not scheduled-job.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-c"
+      ]
+    },
+    {
+      "case_id": "governed1-en-06",
+      "query": "Return every Workload whose workload_kind starts with web-.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-b",
+        "object:Workload:example-workload-f"
+      ]
+    },
+    {
+      "case_id": "governed1-en-07",
+      "query": "Choose the network.vnet resource whose access property is private.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-d"
+      ]
+    },
+    {
+      "case_id": "governed1-en-08",
+      "query": "Find the Resource whose type ends with -store and whose nested public_network_access value is disabled.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-b"
+      ]
+    },
+    {
+      "case_id": "governed1-en-09",
+      "query": "Select incidents opened at 08:00 UTC whose update time is later than their opening time.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-b",
+        "object:Incident:example-incident-d",
+        "object:Incident:example-incident-e",
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "governed1-en-10",
+      "query": "Fetch the incident bearing correlation identifier example-correlation-c.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-c"
+      ]
+    },
+    {
+      "case_id": "governed1-en-11",
+      "query": "Which closed Incident was updated exactly one hour after it opened?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-b"
+      ]
+    },
+    {
+      "case_id": "governed1-en-12",
+      "query": "List incidents whose status is neither open nor closed.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-d",
+        "object:Incident:example-incident-e"
+      ]
+    },
+    {
+      "case_id": "governed1-en-13",
+      "query": "Return the Resource whose canonical name and nested workload_role both contain the token build.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-f"
+      ]
+    },
+    {
+      "case_id": "governed1-en-14",
+      "query": "Return the only Resource whose nested properties include a public_access key.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-a"
+      ]
+    },
+    {
+      "case_id": "governed1-en-15",
+      "query": "Find the Workload whose canonical name ends with dispatcher and whose workload_kind ends with consumer.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-e"
+      ]
+    },
+    {
+      "case_id": "governed1-en-16",
+      "query": "Provide the complete pair of business services marked with high criticality.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-a",
+        "object:BusinessService:example-service-d"
+      ]
+    },
+    {
+      "case_id": "governed1-en-17",
+      "query": "Bring back the service from the diagram I pointed at during the call.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-18",
+      "query": "What became of the incident someone pasted into the side channel?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-19",
+      "query": "Inspect whichever resource the previous operator had selected.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-20",
+      "query": "Open the workload connected to that graph spike.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-21",
+      "query": "Is the thing we discussed earlier healthy now?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-22",
+      "query": "Select the service from the note beside my keyboard.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-23",
+      "query": "Give me the resource that was highlighted before the screen share ended.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-24",
+      "query": "Check whether their incident has changed since we last spoke.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-25",
+      "query": "Return the PostgreSQL database resource from this corpus.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-26",
+      "query": "Find incidents classified with emergency severity.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-27",
+      "query": "Select the workload recorded as a message producer.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-28",
+      "query": "Retrieve the business service for warehouse robotics.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-29",
+      "query": "Return only an Incident that is both closed and high severity; exclude every partial match.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-30",
+      "query": "Select the critical business service aliased Shipment visibility, with no near-match substitution.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-31",
+      "query": "Find a queue-consumer workload named Example product search indexer, requiring both predicates exactly.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-en-32",
+      "query": "Retrieve a private network.vnet resource whose public access is enabled; do not relax either constraint.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-01",
+      "query": "별칭이 Invoice payments로 기록된 비즈니스 서비스 한 건을 선택해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-a"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-02",
+      "query": "name이 Example product search이고 aliases 배열에 Product discovery가 있는 BusinessService를 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-d"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-03",
+      "query": "criticality가 critical, high, low 중 어느 것도 아닌 BusinessService를 모두 보여 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-c",
+        "object:BusinessService:example-service-e"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-04",
+      "query": "type이 network.vnet이고 access 속성이 private인 Resource를 조회해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-d"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-05",
+      "query": "name에 search indexer가 포함되고 workload_kind가 scheduled-job인 Workload를 찾아 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-d"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-06",
+      "query": "aliases에 Sign-in API가 있고 workload_kind가 web-으로 시작하는 Workload를 찾아 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-b"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-07",
+      "query": "name이 dispatcher로 끝나고 workload_kind가 consumer로 끝나는 Workload를 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-e"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-08",
+      "query": "name에 content renderer가 포함되고 workload_kind가 web-frontend인 Workload를 찾아 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-f"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-09",
+      "query": "type이 mysql-server이고 properties.high_availability 값에 zone이 포함된 Resource를 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-c"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-10",
+      "query": "노드 풀 역할이 batch인 쿠버네티스 리소스를 조회해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-e"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-11",
+      "query": "aliases에 애플리케이션 릴리스 빌드 가상 머신이 있고 workload_role이 build-agent인 Resource를 찾아 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-f"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-12",
+      "query": "열린 시각과 갱신 시각이 모두 08:00 UTC인 인시던트를 전부 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a",
+        "object:Incident:example-incident-c"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-13",
+      "query": "status가 triaging이고 updated_at이 08:30 UTC인 인시던트를 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-14",
+      "query": "opened_at보다 updated_at이 정확히 3시간 늦은 인시던트를 찾아 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-15",
+      "query": "opened_at보다 updated_at이 정확히 2시간 늦고 status가 resolved인 인시던트를 찾아 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-e"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-16",
+      "query": "updated_at이 09:00 UTC 또는 11:00 UTC인 인시던트를 모두 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-b",
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "governed1-ko-17",
+      "query": "아까 화이트보드에서 가리킨 그 서비스를 다시 띄워 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-18",
+      "query": "교대 전에 누가 언급한 인시던트가 지금은 어때?",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-19",
+      "query": "브라우저에서 조금 전에 닫은 리소스를 찾아 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-20",
+      "query": "그래프에서 튀어 보였던 워크로드를 열어 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-21",
+      "query": "우리가 조금 전 검토한 대상이 여전히 문제인지 확인해 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-22",
+      "query": "내 메모 맨 위에 적힌 서비스를 선택해 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-23",
+      "query": "화면 공유 끝나기 전에 강조했던 리소스 상세를 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-24",
+      "query": "다른 팀에서 넘긴 인시던트의 현재 상태를 알려 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-25",
+      "query": "이 코퍼스에서 그래프 데이터베이스 리소스를 찾아 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-26",
+      "query": "severity가 warning인 인시던트만 반환해 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-27",
+      "query": "workload_kind가 cron-daemon인 워크로드를 조회해 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-28",
+      "query": "매장 재고 예측을 담당하는 비즈니스 서비스를 선택해 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-29",
+      "query": "open 상태이면서 severity가 low인 인시던트만 줘. 한 조건만 맞는 항목은 제외해.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-30",
+      "query": "별칭이 Customer messaging이면서 criticality가 critical인 서비스만 찾아 줘. 유사 항목은 허용하지 마.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-31",
+      "query": "이름이 Example authentication API이고 workload_kind가 scheduled-job인 워크로드만 선택해 줘. 두 조건을 모두 만족하지 않으면 제외해 줘.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed1-ko-32",
+      "query": "type이 mysql-server이면서 public_access가 enabled인 Resource만 반환해 줘. 두 조건을 모두 만족하지 않으면 제외해 줘.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    }
+  ]
+}

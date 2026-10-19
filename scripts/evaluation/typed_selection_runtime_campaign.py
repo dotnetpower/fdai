@@ -49,6 +49,7 @@ from fdai.agents.saga import Saga
 from fdai.composition.resolved_models import _capability, _load_resolved_models
 from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
 from fdai.composition.semantic_query_model_targets import model_target_for_capability
+from fdai.composition.semantic_query_typed_selection_read import declare_typed_selection_read
 from fdai.composition.typed_selection_shadow import (
     SHADOW_CONFIG_RELATIVE_PATH,
     TypedSelectionShadowPin,
@@ -140,6 +141,14 @@ class Case:
     expected: frozenset[str]
 
 
+@dataclass(frozen=True, slots=True)
+class CampaignRuntimeHarness:
+    runtime: OntologyIndexRuntime
+    state: InMemoryStateStore
+    catalog: OntologyCatalog
+    release: Any
+
+
 class _LocalEmbedder:
     """Deterministic local vectors; typed selection never ranks by embedding."""
 
@@ -177,9 +186,11 @@ def _git(*args: str) -> str:
     ).stdout.strip()
 
 
-async def _build_runtimes(
-    binding: TypedSelectionShadowBinding,
-) -> tuple[tuple[OntologyIndexRuntime, InMemoryStateStore], ...]:
+async def _build_runtime(
+    binding: TypedSelectionShadowBinding | None,
+    *,
+    governed_read: bool = False,
+) -> CampaignRuntimeHarness:
     corpus = _load("instance-corpus.v1.json")
     registry = PackageResourceSchemaRegistry()
     declarations = tuple(
@@ -205,31 +216,37 @@ async def _build_runtimes(
             resource_types=resource_types,
         )
     )
+    if governed_read:
+        catalog = declare_typed_selection_read(catalog)
     release = build_ontology_release(
         object_types=catalog.object_types,
         function_types=operational_function_types(catalog.function_types),
     )
-    runtimes: list[tuple[OntologyIndexRuntime, InMemoryStateStore]] = []
-    for shadow in (None, binding):
-        state = InMemoryStateStore()
-        ontology = InMemoryOntologyInstanceStore(
-            object_types=declarations, link_types=(), source_generation="runtime-window-v1"
-        )
-        for item in corpus["objects"]:
-            await ontology.upsert_object(OntologyObjectRecord(**item))
-        runtime = build_ontology_index_runtime(
-            store=state,
-            ontology_store=ontology,
-            catalog=catalog,
-            release=release,
-            embedder=_LocalEmbedder(),
-            clock=lambda: datetime.now(UTC),
-            typed_selection_shadow=shadow,
-        )
-        if runtime is None or runtime.workers is None:
-            raise CampaignAbortedError("runtime factory did not bind the instance index")
-        runtimes.append((runtime, state))
-    return tuple(runtimes)
+    state = InMemoryStateStore()
+    ontology = InMemoryOntologyInstanceStore(
+        object_types=declarations, link_types=(), source_generation="runtime-window-v1"
+    )
+    for item in corpus["objects"]:
+        await ontology.upsert_object(OntologyObjectRecord(**item))
+    runtime = build_ontology_index_runtime(
+        store=state,
+        ontology_store=ontology,
+        catalog=catalog,
+        release=release,
+        embedder=_LocalEmbedder(),
+        clock=lambda: datetime.now(UTC),
+        typed_selection_shadow=binding,
+    )
+    if runtime is None or runtime.workers is None:
+        raise CampaignAbortedError("runtime factory did not bind the instance index")
+    return CampaignRuntimeHarness(runtime, state, catalog, release)
+
+
+async def _build_runtimes(
+    binding: TypedSelectionShadowBinding,
+) -> tuple[tuple[OntologyIndexRuntime, InMemoryStateStore], ...]:
+    harnesses = await asyncio.gather(_build_runtime(None), _build_runtime(binding))
+    return tuple((item.runtime, item.state) for item in harnesses)
 
 
 def _context(request_ref: str) -> FunctionInvocationContext:

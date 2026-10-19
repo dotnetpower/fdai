@@ -1,7 +1,7 @@
 ---
 translation_of: governed-typed-selection-read.md
-translation_source_sha: e16d3da6946644086851e73da8b0404d458ddc6d
-translation_revised: 2026-10-19
+translation_source_sha: 5c7d78948fe720317c69b630c5b3fbb50dc087a0
+translation_revised: 2026-10-20
 ---
 # 적용 승인을 거치는 타입 선택 읽기
 
@@ -52,6 +52,30 @@ principal 범위, 모델/요청/프롬프트 식별 정보, 문맥 프로토콜,
 소비합니다. 준비와 소비 사이에 적용을 해제하면 해제가 우선합니다. 결과는 비완전한 후보로
 유지하며 실행 권한을 갖지 않습니다. 원시 벡터 순위 지정을 켜지 않으며 전체 enum 값 500개와
 멤버십 1,000행이라는 기존 한도도 명시적으로 유지합니다.
+
+## 사전 등록한 실제 적격성 검증
+
+새 `governed-read-window.v1.json` 자산은 독립적으로 작성하고 별도로 검토한 64개 사례를
+포함합니다. 기존에 사용한 모든 calibration, holdout 및 shadow runtime window와 겹치지 않습니다.
+각 사례는 실제 Function 전 준비 단계와 결정적 소비 경로에서 네 번 판단합니다. 부정, 모호,
+적대적 사례는 후보 근거를 만들지 않고 보류해야 통과하며, 답이 있는 사례는 정확한 현재 멤버십
+집합을 반환해야 합니다.
+
+`governed-typed-selection-answer-window.v1` 프로토콜은 위험한 추가 선택이 없어야 하며, 전체
+단측 95% 상한 2%, 언어별 상한 3%, 언어별 답이 있는 사례의 정답률 0.95 이상, provider 사용
+불가율 2% 이하를 요구합니다. `governed-typed-selection-answer-latency.v1` 프로토콜은 관찰
+256개, p50 8초 이하, p95 15초 이하, p99 25초 이하, provider 사용 불가율 2% 이하,
+이벤트 루프 지연 p99 100 ms 이하를 요구합니다. 사용 불가 관찰은 30초 기한 값으로 계산합니다.
+
+실제 결정 시작 시점은 최소 12초 간격을 두며 캠페인 전체 기한은 90분입니다. 이 대기 시간은
+측정한 결정 지연 시간에 포함하지 않습니다. 모든 시도는 비공개로 보존합니다. HTTP 429, 세 번
+연속된 provider 사용 불가 또는 사용 불가 결정이 다섯 건을 넘으면 품질 결과나 재시도 없이
+중단합니다. 통과 보고서에도 production, 승격 또는 실행 권한이 없습니다.
+
+독립적인 현재 원본 검증은 모든 문서와 세대를 다시 만들고 비교합니다. 관측 기준 시각이
+projection 식별자에 포함되므로 후속 검증의 projection digest는 staged digest와 다를 수 있습니다.
+두 digest를 모두 검증 증적에 결속하며, 콘텐츠, 세대, 매니페스트, principal 범위, 원본 세대의
+동일성은 계속 필수입니다.
 
 ## 구현 전 비판 검토와 수정
 
