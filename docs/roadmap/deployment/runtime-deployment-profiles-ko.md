@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ea2bac1aae485e701d0cda64996ceee80601b1e6
+translation_source_sha: 6d134fdef1e76e42ba70c27e1b487cd562a6860e
 translation_revised: 2026-10-19
 ---
 # 런타임 배포 프로파일
@@ -36,6 +36,12 @@ translation_revised: 2026-10-19
 독립적인 종합 검증기를 전달하고 상관 ID별 영속 예산 원장을 연결합니다. 대상과 언어의 전송,
 검증 보류 및 재시작 회계는 모든 실행 위치에서 같은 계약을 따릅니다. 이 연결은 Cost Governance를
 활성화하거나 운영 및 인수인계 준비 완료를 입증하지 않습니다.
+[비공개 의도 SDK](../rules-and-detection/document-declared-intent-projection-ko.md)도 프로필과
+독립적입니다. 명시적인 `PantheonRuntime.build(document_intent=...)` 호출은 로컬에서
+테스트했지만 일반 `bootstrap_pantheon`은 이를 주입하지 않습니다. AKS, Container Apps,
+Cost Governance 선택이나 스키마 및 테이블 설치만으로 SDK 바인딩, 원본 principal, 정확한
+승인을 제공하지 않습니다. 패키지 활성화, 정상 업로드/조회 연결, 대상별 배포 검증은
+별도 조건으로 남습니다.
 
 두 프로파일은 배포 환경에서 검토한 선택적 Pantheon 근거 파일을 동일하게 마운트할 수 있습니다.
 Core는 Mimir 유지 작업, Loki 비활성 시나리오, Forseti 과거 재생, Bragi 비활성 학습 기능별로

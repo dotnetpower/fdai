@@ -129,6 +129,12 @@ Live conversation progress, including the `semantic-model-call-progress` records
 shared contract schemas, is presentation only under every profile. It never counts as an approval,
 a review, a confirmation, or a quorum member.
 
+The [private document-intent SDK](../rules-and-detection/document-declared-intent-projection.md) has a separate non-action exact-diff review contract. Its source-specific approval and closed wire
+validation neither revise `ApprovalProfileRevision` nor grant action, standing-authorization, or
+promotion authority. The SDK's local independent-review evidence does not qualify an installation's
+selected profile; profile-aware product integration remains unqualified. Normal action profiles,
+risk classes, safeguards, and approval rules are unchanged.
+
 ## Attributed operator override promotion
 
 An installation operator with the promotion role may move an ActionType or Workflow from shadow

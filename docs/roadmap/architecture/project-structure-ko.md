@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e5c89c3e855078eda81742536bf954f2da20ad96
+translation_source_sha: 7852ce1d1eaa70d709c548bbd0296079e1728f1d
 translation_revised: 2026-10-19
 ---
 # 프로젝트 구조
@@ -881,8 +881,7 @@ FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_con
 
 ## 의존성 주입을 통한 커스터마이제이션
 
-`SecuredObjectSetQueryGateway(source_read_admission=...)`는 읽기 전후에 현재 원본을 확인할 수 있습니다.
-배포 읽기나 쓰기는 연결하지 않았으며 [G02](../rules-and-detection/document-ontology-distillation-ko.md#g02-영속-통합-제안)의 별도 조건으로 남습니다.
+`SecuredObjectSetQueryGateway(source_read_admission=...)`는 읽기 전후에 현재 원본을 확인할 수 있습니다. 배포 읽기나 쓰기는 연결하지 않았으며 [G02](../rules-and-detection/document-ontology-distillation-ko.md#g02-영속-통합-제안)의 별도 조건으로 남습니다.
 
 Var의 선택적 `CloudApplicationAuthorizationSource`는 별도 문서 데이터베이스에서 정확한 사람 정책 및 요청 입력을 읽습니다.
 API가 입력을 소유하고 Var가 권한을 확인하며 Saga가 감사하고 Muninn이 색인을 생성합니다. 워커는 같은 정책을 트랜잭션으로 보호합니다.

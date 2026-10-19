@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 49f90aa85f7572397e291342992ccdc60f94a68b
-translation_revised: 2026-10-18
+translation_source_sha: 7c39d7d5d0da8c130d71d9a48931c272caff6af3
+translation_revised: 2026-10-19
 ---
 # 리포팅 서브시스템
 
@@ -26,6 +26,13 @@ translation_revised: 2026-10-18
 가진 유한 부분집합입니다.
 
 서비스 테이블 소유권은 Operator 소유의 `operator_workflow_authoring_audit` 원장도 선언합니다. 이 원장은 Workflow 초안과 바인딩 커밋을 기록하며 보고서 원천이 아니고 보고 변환을 추가하지 않습니다.
+
+Core 소유의 `document_intent_projection`, `document_intent_transition`,
+`document_intent_resource`도 비공개 의도와 계보 저장소이며, 등록된 보고서 데이터 원본이나
+운영 결과가 아닙니다. [의도 SDK](../rules-and-detection/document-declared-intent-projection-ko.md)는
+보고서, 위젯, 형식, 라우트를 추가하지 않습니다. 향후 보고서에서 사용하려면 현재 원본 접근
+검사와 근거 적격성 확인을 포함한 명시적 데이터 원본 연결이 필요하며, 테이블 소유권만으로
+이를 충족하지 않습니다.
 
 API 소유 참조 콘텐츠 정책, 요청, 정책 감사 테이블은 보고서 원천이 아닙니다.
 Var, Saga, Muninn의 권한 확인 및 색인 경로는 보고서 라우트나 변경 권한을 추가하지 않습니다.

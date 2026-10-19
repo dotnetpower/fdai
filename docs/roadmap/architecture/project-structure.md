@@ -900,8 +900,7 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 ## Customization via Dependency Injection
 
-`SecuredObjectSetQueryGateway(source_read_admission=...)` can check current sources around reads.
-No deployment reader or writer is bound; [G02](../rules-and-detection/document-ontology-distillation.md#g02-persistent-integration-proposal) retains those separate gates.
+`SecuredObjectSetQueryGateway(source_read_admission=...)` can check current sources around reads. No deployment reader or writer is bound; [G02](../rules-and-detection/document-ontology-distillation.md#g02-persistent-integration-proposal) retains those separate gates.
 
 Var's optional `CloudApplicationAuthorizationSource` reads exact human policy/request inputs from the separate document database.
 API owns inputs; Var approves, Saga audits and Muninn indexes. Worker visibility fences the same policy.
