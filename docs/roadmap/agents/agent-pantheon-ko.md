@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: ac2766b590be5daec75421f4c75db289d9ce9cde
+translation_source_sha: fd3c19ec142cfa8a8acda38de521671fb1a8d42c
 translation_revised: 2026-10-19
 ---
 # 에이전트 판테온
@@ -684,8 +684,11 @@ Bragi는 `Conversation`, `Turn`, `UserPreference`, `PostTurnReview`를
 - **RBAC.** Muninn은 하나의 정본 principal 범위 다이제스트를 비교하고 범위가 없거나 사용자 간 읽기에는 빈 결과를 반환합니다. Saga는 다른 사용자의 대화를 읽으려는 시도를 기록합니다.
 - **학습기 경계.** Norns는 기본적으로 메타데이터만 받습니다 (`UserPreference.share_with_learner: false`). 원시 post-turn 본문은 일치하는 `share_with_learner` 동의가 있어야 패턴 추출에 사용할 수 있습니다. 배치 실행 이력 수집은 검토된 집계만 허용하며 원시 턴/실행 이력 본문은 받지 않습니다. 완료되고 동의가 확인된 대화는 `object.post-turn-review`를 사용하며 별도 `object.turn` 형태를 만들지 않습니다.
 - **Post-turn 본문 동의.** Norns는 Bragi가 발급한 `body_consent` 표시와 민감도 통과가
-  `object.post-turn-review`에 함께 있을 때만 원시 post-turn 운영자 및 assistant 본문을
-  수락합니다. 둘 중 하나라도 없으면 Norns는 메타데이터만 유지하고 본문 텍스트를 기록하지 않습니다.
+  `object.post-turn-review`에 함께 있을 때만 원시 post-turn 운영자 및 assistant 본문과
+  명시적 교정문을 수락합니다. Bragi는 체크포인트를 만들기 전에 동의 없는 교정문을 제거하고,
+  Norns는 교정문을 포함한 전체 본문에 UTF-8 기준 64 KiB 한도를 적용합니다. 일치하는 동의
+  기록이 없는 기존 outbox 레코드는 보류합니다. 동의와 민감도 통과 중 하나라도 없으면 Norns는
+  원문을 기록하지 않습니다.
 - **보존.** 활성 대화는 30일, 저빈도 저장소는 추가 60일이며 총 90일 뒤 삭제합니다. 집계된 익명 지표는 Saga 감사 스트림에 남습니다.
 
 ## 7. 온톨로지 액션

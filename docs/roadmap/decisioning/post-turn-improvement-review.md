@@ -26,15 +26,26 @@ artifact. Every other outcome becomes a bounded terminal record.
 - Stable review, operator-turn, assistant-turn, and principal-scope identifiers.
 - Completion time and safe evidence references.
 - Tool name, status, and evidence reference for each tool receipt. Raw tool output is excluded.
-- Validation outcomes, explicit corrections, recovered-failure status, and an optional repeated
+- Validation outcomes, recovered-failure status, and an optional repeated
   procedure fingerprint.
-- Optional operator and assistant bodies only when the principal has
+- Optional operator and assistant bodies and explicit correction text only when the principal has
   `share_with_learner: true`.
 - Optional operator-memory scope only when both scope kind and scope reference are known.
 
 Identifiers, body length, tuple counts, timestamps, and scope pairs are validated at construction.
 Raw credentials, hidden reasoning, unrestricted process state, and unrestricted tool output are
 not part of the contract.
+
+Explicit corrections are raw text, not consent-free metadata. Bragi removes both bodies and
+all corrections without a matching opt-in before creating an outbox checkpoint. Norns independently
+requires complete bodies and matching recorded consent, scans all correction text for sensitive
+content, and applies one 64 KiB UTF-8 budget to the bodies and corrections joined by newlines.
+Correction text alone does not bypass the complete-body requirement.
+
+Outbox recovery holds legacy raw-text rows without matching recorded consent instead of
+republishing them. The hold preserves the original row and records a content-free behavior reason;
+it does not prevent other valid rows in the selected recovery batch from being published. This
+does not redact historical records or independently revalidate current consent after restart.
 
 ## Ownership and transport
 

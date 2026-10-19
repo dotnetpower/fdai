@@ -692,9 +692,11 @@ State is partitioned by `user_id`:
   raw conversation bodies.
 - **RBAC.** Muninn compares one canonical principal-scope digest and refuses unscoped or cross-user reads with an empty result; Saga records attempts to read another user's conversation.
 - **Learner boundary.** Norns receives metadata by default (`UserPreference.share_with_learner: false`); raw post-turn bodies require a matching `share_with_learner` opt-in before pattern extraction. Batch trajectory intake accepts reviewed aggregates only, never raw turn/trajectory bodies. Completed consent-filtered exchanges use `object.post-turn-review`, never a second `object.turn` shape.
-- **Post-turn body consent.** Norns accepts raw post-turn operator and assistant bodies only when a
+- **Post-turn body consent.** Norns accepts raw post-turn operator and assistant bodies and explicit correction text only when a
   Bragi-issued `body_consent` marker and sensitivity clearance are present on the `object.post-turn-review`.
-  Without both, Norns keeps only metadata and records no body text.
+  Bragi removes unconsented corrections before checkpointing, and Norns includes corrections in
+  the combined 64 KiB UTF-8 body budget. Legacy outbox rows without matching recorded consent stay
+  held. Without both consent and clearance, Norns records no raw text.
 - **Retention.** Active conversations: 30 days, then 60 days cold storage, then deletion at 90 days. Aggregated anonymized metrics survive in Saga's audit stream.
 
 ## 7. Ontology actions

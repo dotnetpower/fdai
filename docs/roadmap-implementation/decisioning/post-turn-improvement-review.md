@@ -9,6 +9,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Correction-text consent, sensitivity, and byte bounds | implemented | `agents/_framework/{bragi_publication,norns_event_learning}.py`; `tests/agents/test_post_turn_correction_consent.py`; `tests/runtime/test_post_turn_review_ingress.py`; 91 focused checks | Unconsented corrections are removed before checkpointing. Norns scans all corrections and bounds combined UTF-8 text at exactly 64 KiB. Legacy unconsented recovery rows remain unchanged and held while valid selected rows proceed. No historical redaction or current-consent revalidation is claimed. |
+| Production consented semantic review input | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/post_turn_review.py`; `services/core-control-plane/src/fdai/delivery/post_turn_review_ingress.py`; `tests/runtime/test_post_turn_review_ingress.py` | Mechanical queue wiring is not consented learning. Operator uses a truncated principal scope, Core ingress supplies no current preference, and the current semantic producer supplies no `post_turn_review` hints. Bragi therefore strips raw text. The local ingress test now pins that outcome instead of implying eligible production review. |
 | Eligibility and bounded input contract | implemented | [`test_eligibility.py`](../../../services/core-control-plane/tests/core/learning/test_eligibility.py), [`test_norns_post_turn.py`](../../../services/core-control-plane/tests/agents/test_norns_post_turn.py) | Consent, producer ownership, evidence bounds, and deterministic eligibility have focused coverage. |
 | Independent review and governed routing | implemented | [`test_consensus.py`](../../../services/core-control-plane/tests/core/learning/test_consensus.py), [`test_routing.py`](../../../services/core-control-plane/tests/core/learning/test_routing.py), [`test_workshop.py`](../../../services/core-control-plane/tests/core/skills/test_workshop.py), [`test_postgres_skill_proposal.py`](../../../services/core-control-plane/tests/persistence/test_postgres_skill_proposal.py) | Exact mixed-family agreement routes only inert memory, skill, or rule-hint drafts. Skill drafts bind canonical verified evidence references into proposal identity, durable storage, and audit events. |
 | Durable deduplication and runtime wiring | implemented | [`test_service.py`](../../../services/core-control-plane/tests/core/learning/test_service.py), [`test_post_turn_review.py`](../../../services/core-control-plane/tests/runtime/test_post_turn_review.py) | Terminal records and duplicate suppression are tested without delaying the response path. |
@@ -22,6 +24,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-19 | implemented | Corrected explicit correction text bypassing opt-in filtering, sensitivity checks and aggregate byte bounds. A second hardening round reproduced and blocked legacy outbox replay without matching recorded consent, including numeric truth values. Preserved valid metadata, valid consent, duplicate suppression, and other selected recovery rows. | `current change`; `test_post_turn_correction_consent.py` and focused publication, Norns, outbox, ingress, bootstrap, eligibility, layout and parity selectors: `91 passed`; two-source strict mypy passed. | Production consent bridging, actual semantic input, deployed restart and current-consent revalidation remain open; H02 is not completed by these checks. |
 | 2026-09-20 | implemented | Added the typed Bragi publisher for consent-filtered `PostTurnReviewInput` and corrected the canonical transport topic from `object.turn` to `object.post-turn-review`. | `current change`; focused Bragi ownership and Norns intake checks. | Bind the deployed Operator non-blocking queue to this publisher and retain restart-safe duplicate-delivery evidence. |
 | 2026-09-12 | implemented | Extracted and tested the production bootstrap binding that places Norns post-turn rule hints behind the current discovery-activation publication gate. | `current change`; focused bootstrap binding checks (`2 passed`). | Retain the full Bragi envelope scenario and deployed duplicate-delivery receipt. |
 | 2026-09-12 | implemented | Bound verified post-turn evidence references into runtime skill draft identity, Operator-owned PostgreSQL persistence, restart readback, and audit metadata without activating the skill. | `current change`; migration `operator_skill_proposal_evidence_20260912`; focused skill, routing, and PostgreSQL checks (`12 passed`). | Retain bootstrap-composed scenario evidence and deployed duplicate-delivery receipts. |
@@ -33,6 +36,12 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
+- [ ] Bind the authoritative current learner-sharing preference to the exact canonical principal
+  scope across the production Operator-to-Core path and retain an opted-in, opted-out, revoked,
+  and mismatched-principal end-to-end receipt without trusting a caller-supplied consent flag.
+- [ ] Produce actual bounded post-turn review evidence from the validated semantic turn instead
+  of relying on currently unproduced projection hints; retain a full production-composed local
+  scenario before claiming eligible review or H02 recurrent-query signal delivery.
 - [x] Retain local event-bus plus loopback PostgreSQL evidence for complex-tool recovery,
   explicit-correction discovery, and repeated-procedure rule-hint routing with no active-policy,
   active-skill, or active-rule mutation
