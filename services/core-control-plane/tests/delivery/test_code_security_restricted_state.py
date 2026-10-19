@@ -7,7 +7,7 @@ import json
 import os
 from collections.abc import Iterator
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import SplitResult, urlsplit, urlunsplit
 from uuid import uuid4
 
 import psycopg
@@ -44,20 +44,47 @@ _MIGRATIONS = (
 )
 
 
+def _validation_database_url(raw: str) -> SplitResult:
+    parsed = urlsplit(raw.replace("postgresql+psycopg://", "postgresql://", 1))
+    if parsed.hostname not in {"localhost", "127.0.0.1", "::1"} or parsed.port != 5433:
+        pytest.fail("restricted role tests require the isolated loopback validation database")
+    return parsed
+
+
+@pytest.mark.parametrize("ci_venue", [False, True])
+@pytest.mark.parametrize(
+    ("authority", "valid"),
+    [
+        ("localhost:5433", True),
+        ("127.0.0.1:5433", True),
+        ("[::1]:5433", True),
+        ("localhost:5432", False),
+        ("127.0.0.1:5432", False),
+        ("[::1]:5432", False),
+        ("example.invalid:5433", False),
+        ("localhost", False),
+    ],
+)
+def test_validation_database_guard_is_identical_in_ci_and_local(
+    monkeypatch: pytest.MonkeyPatch, ci_venue: bool, authority: str, valid: bool
+) -> None:
+    for key in ("GITHUB_ACTIONS", "CI"):
+        monkeypatch.setenv(key, "true" if ci_venue else "false")
+    monkeypatch.setenv("GITHUB_RUN_ID", "1")
+    raw = f"postgresql://{authority}/example"
+    if valid:
+        assert _validation_database_url(raw).port == 5433
+    else:
+        with pytest.raises(pytest.fail.Exception, match="isolated loopback validation database"):
+            _validation_database_url(raw)
+
+
 @pytest.fixture
 def database(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[str, str]]:
     raw = os.environ.get("FDAI_DATABASE_URL")
     if not raw:
         pytest.skip("requires the isolated local validation database wrapper")
-    parsed = urlsplit(raw.replace("postgresql+psycopg://", "postgresql://", 1))
-    ci_venue = (
-        os.environ.get("GITHUB_ACTIONS") == "true"
-        and os.environ.get("CI") == "true"
-        and os.environ.get("GITHUB_RUN_ID", "").isdecimal()
-    )
-    allowed_port = 5432 if ci_venue else 5433
-    if parsed.hostname not in {"localhost", "127.0.0.1", "::1"} or parsed.port != allowed_port:
-        pytest.fail("restricted role tests require the isolated loopback validation database")
+    parsed = _validation_database_url(raw)
     name = "fdai_security_privileges_" + uuid4().hex[:12]
     admin = urlunsplit(parsed._replace(path="/postgres"))
     dsn = urlunsplit(parsed._replace(path="/" + name))
