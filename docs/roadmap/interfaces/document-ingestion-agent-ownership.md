@@ -9,6 +9,8 @@ agent-driven control loop used for every other event.
 
 ## Design at a glance
 
+The optional [declared-intent projection SDK](../rules-and-detection/document-declared-intent-projection.md) packages a separate exact-diff approval lane; normal upload and bootstrap do not inject it, and indexing approval grants no graph-write authority.
+
 An upload is an `Event`. Authority-bearing stages emit or consume typed logical objects multiplexed
 over `fdai.pantheon.objects`; `fdai.pipeline.stages` carries operational activity only. No worker or
 gateway side effect can substitute for an owning agent decision.

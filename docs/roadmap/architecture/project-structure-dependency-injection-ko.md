@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 167c8fcd543af83764baf5f9f42cdace515abcea
+translation_source_sha: c0de54de3c3701c71be74d11f2886905e000a5ec
 translation_revised: 2026-10-19
 ---
 
@@ -11,6 +11,8 @@ translation_revised: 2026-10-19
 ## 설계 개요
 
 이 문서는 [project-structure-ko.md](project-structure-ko.md)에 포함되어 있던 상세 계약을 그대로 보존하는 집중 소유 문서입니다.
+
+`SecuredObjectSetQueryGateway(source_read_admission=...)`는 읽기 전후에 현재 원본을 확인할 수 있습니다. 배포 읽기나 쓰기는 연결하지 않았으며 [G02](../rules-and-detection/document-ontology-distillation-ko.md#g02-영속-통합-제안)의 별도 조건으로 남습니다.
 
 대화 종합은 선택적인 `LlmBindings.conversation_synthesis_verifier` 주입 경계를 사용합니다.
 Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달합니다. `fdai.agents`의

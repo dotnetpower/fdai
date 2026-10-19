@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from fdai_service_contracts.document_intent import (
+    INTENT_KIND,
+    DocumentIntentApproval,
+    DocumentIntentEvent,
+)
+
 from fdai.agents._framework.action_run_identity import is_action_run_identity
 from fdai.agents._framework.thor_dispatch_validation import missing_wire_safeguards
 from fdai.agents._framework.vidar_dr import DR_CONTRACT_KIND, DR_OUTCOME_KIND
@@ -41,6 +47,14 @@ def default_payload_validator(topic: str, payload: Any) -> None:
 
     if not isinstance(payload, dict):
         raise ValueError("pantheon payload MUST be a mapping")
+    if payload.get("kind") == INTENT_KIND:
+        if topic == "object.approval":
+            DocumentIntentApproval.model_validate(payload)
+        else:
+            event = DocumentIntentEvent.model_validate(payload)
+            if event.topic != topic:
+                raise ValueError("document intent event does not match its canonical owned topic")
+        return
     if topic == "object.verdict":
         _validate_verdict_payload(payload)
         return

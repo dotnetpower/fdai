@@ -106,6 +106,7 @@ EXPECTED_RUNTIME_MODULES = {
     "development_authority.py",
     "development_diagnostics.py",
     "discovery_activation.py",
+    "document_intent.py",
     "dynamic_evidence.py",
     "execution_backends.py",
     "forecast_learning.py",

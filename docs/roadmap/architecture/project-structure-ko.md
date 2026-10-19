@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6cc2c577d87d87b6e35f6497c026299a0ba4cf63
+translation_source_sha: 9352e991767d41f124a6d8a0c97b85dd7c33c7a7
 translation_revised: 2026-10-19
 ---
 # 프로젝트 구조
@@ -902,7 +902,7 @@ USD 가격, 신원/클라이언트 및 계측이 있을 때 검증된 기본 표
 사용자 주입을 보존하고 V-CLAIM/독립 검토를 영속적인 두 호출 예산에 결합합니다.
 전제조건이 없으면 보류하며 실시간 사실을 인증하거나 작업 및 패키지 권한을 부여할 수 없습니다.
 
-전체 경계 카탈로그와 구성 규칙은 [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)을 참조하세요.
+현재 원본의 읽기 허용 검사를 포함한 전체 경계 카탈로그와 구성 규칙은 [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)을 참조하세요.
 Core 결과 핸들 저장소도 같은 규칙을 따릅니다. `ResultHandleStore`는 Core 조립에서 주입되며, 인메모리 로컬 구현과 PostgreSQL 구현은 암호화된 핸들 본문을 Core 소유로 유지하고 Operator에는 불투명 참조만 영속화하게 합니다. 해당 참조의 서수 후속 질문 바인딩은 기본적으로 꺼진 compiled-answer shadow 경로 안에 머물며 실행 권한을 추가하지 않습니다.
 Core `ModelEvidenceView` 빌더도 읽기 전용 대화 경계입니다. 적응형 모델 근거 읽기는 원시 조회 표,
 프로바이더 본문, 핸들 또는 보관된 스냅숏 셀이 아니라 허용 목록이 적용된 변환 결과만 받습니다.

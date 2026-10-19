@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import subprocess
 import sys
@@ -10,29 +11,45 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import psycopg
 import pytest
+from fdai.core.ontology_platform.interfaces import compile_interfaces
+from fdai.core.ontology_platform.models import (
+    ObjectSelector,
+    ObjectSelectorKind,
+    ObjectSetDefinition,
+)
+from fdai.core.ontology_platform.object_sets import ObjectSetService
+from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.core.ontology_platform.source_read_admission import (
+    SourceReadAdmission,
+    SourceReadAdmissionError,
+)
 from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
     postgres_ontology,
 )
 from fdai.shared.contracts.models import (
+    CeilingRole,
     LinkCardinality,
     OntologyLinkType,
     OntologyObjectType,
     PropertyDecl,
     PropertyType,
 )
+from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.providers.ontology_instance import (
     OntologyGraphSnapshot,
     OntologyInstanceValidationError,
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from fdai_service_contracts.ontology_query import content_digest
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.rows import dict_row
@@ -174,6 +191,102 @@ def _review_object(identifier: str, object_type: str = "ReviewCase") -> Ontology
     return OntologyObjectRecord(
         id=identifier, object_type=object_type, properties={"id": identifier, "status": "open"}
     )
+
+
+@pytest.mark.parametrize("change", ["acl", "revision", "withdrawn"])
+async def test_isolated_current_source_admission_fences_persisted_graph_read(change):
+    """A synthetic source-authority adapter reads real committed SQL, not an upload workflow."""
+    scope = "sha256:" + "a" * 64
+    purpose = "operations-review"
+    at = datetime(2026, 10, 19, tzinfo=UTC)
+    async with _isolated_replacement_store() as store:
+        await store.replace_subgraph(objects=(_review_object("service-a"),), links=())
+        async with await store._connect() as connection:
+            await connection.execute(
+                "INSERT INTO state_kv(key,value) VALUES ('test-document-source',%s::jsonb)",
+                (json.dumps({"allowed_scope": scope, "revision": 1, "active": True, "acl": 1}),),
+            )
+
+        class CurrentSource:
+            change_after_read = False
+
+            async def authorize(self, *, principal_scope_digest, purpose):
+                assert purpose == "operations-review"
+                async with await store._connect() as connection:
+                    row = await (
+                        await connection.execute(
+                            "SELECT value FROM state_kv WHERE key='test-document-source'"
+                        )
+                    ).fetchone()
+                    value = row["value"]
+                    if not value["active"]:
+                        raise SourceReadAdmissionError("source withdrawn")
+                    if value["allowed_scope"] != principal_scope_digest:
+                        raise PermissionError("source access revoked")
+                    proof = SourceReadAdmission(
+                        principal_scope_digest, purpose, content_digest(value)
+                    )
+                    if self.change_after_read:
+                        self.change_after_read = False
+                        if change == "acl":
+                            value.update(allowed_scope="sha256:" + "b" * 64, acl=2)
+                        elif change == "revision":
+                            value["revision"] = 2
+                        else:
+                            value["active"] = False
+                        await connection.execute(
+                            "UPDATE state_kv SET value=%s::jsonb WHERE key='test-document-source'",
+                            (json.dumps(value),),
+                        )
+                return proof
+
+        source = CurrentSource()
+        declarations = (_type("ReviewCase"), _type("ReviewCheck"))
+        service = ObjectSetService(
+            store=store,
+            interfaces=compile_interfaces(
+                interfaces=(), implementations=(), object_types=declarations
+            ),
+            object_type_names=frozenset(item.name for item in declarations),
+        )
+
+        def reader():
+            return SecuredObjectSetQueryGateway(
+                service=service,
+                object_types={item.name: item for item in declarations},
+                ontology_release=store._release,
+                evaluation_cutoff=lambda: at,
+                source_read_admission=source,
+            )
+
+        definition = ObjectSetDefinition(
+            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="ReviewCase"),
+            as_of=at,
+            purpose=purpose,
+        )
+        request = ProjectionRequest(
+            caller_role=CeilingRole.OWNER,
+            declared_purposes=frozenset({purpose}),
+            principal_scope_digest=scope,
+        )
+        allowed = await reader().materialize(definition, projection_request=request)
+        assert allowed.receipt.returned_object_count == 1
+        assert allowed.materialization.graph.objects[0].id == "service-a"
+        assert allowed.receipt.execution_authority is False
+
+        source.change_after_read = True
+        with pytest.raises((PermissionError, SourceReadAdmissionError)):
+            await reader().materialize(definition, projection_request=request)
+        assert (await store.get_object("service-a")).properties["status"] == "open"
+
+        if change == "revision":
+            refreshed = await reader().materialize(definition, projection_request=request)
+            assert refreshed.receipt.returned_object_count == 1
+        else:
+            service.materialize_with_population = AsyncMock()
+            with pytest.raises((PermissionError, SourceReadAdmissionError)):
+                await reader().materialize(definition, projection_request=request)
+            service.materialize_with_population.assert_not_awaited()
 
 
 @pytest.mark.parametrize("scan", [False, True])

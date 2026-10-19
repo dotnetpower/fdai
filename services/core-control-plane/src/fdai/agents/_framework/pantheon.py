@@ -164,6 +164,8 @@ _FORSETI = AgentSpec(
     initiates=(),
     subscribes=(
         "object.change",
+        "object.context-index",
+        "object.rollback",
         "object.event",
         "object.anomaly",
         "object.drift",
@@ -321,7 +323,7 @@ _VIDAR = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.action-run",),  # picks up failures
+    subscribes=("object.action-run", "object.audit-entry"),  # audited source-owned recovery
     question_domains=("rollback_status", "dr_readiness", "rollback_dependency_health"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/vidar.py",),
     hard_dependency=True,

@@ -25,6 +25,10 @@ from fdai.agents._framework.deliberation import (
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
+from fdai.agents._framework.document_intent import (
+    DocumentIntentOperations,
+    recover_document_intent_publications,
+)
 from fdai.agents._framework.forseti_historical_replay import ForsetiHistoricalReplaySource
 from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
 from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
@@ -124,6 +128,7 @@ class PantheonRuntime(RuntimeConversationPort):
     raw_event_topic: str
     subscription_count: int
     enforce: bool
+    _document_intent: DocumentIntentOperations | None = None
     kpi_collector: KpiCollector = field(default_factory=KpiCollector)
     _ingress_dropped: int = 0
     shadow_decisions: Counter[str] = field(default_factory=Counter)
@@ -160,6 +165,7 @@ class PantheonRuntime(RuntimeConversationPort):
         rule_generation_activation_binder: RuleGenerationActivationBinder | None = None,
         rule_generation_state_store: StateStore | None = None,
         context_index_workers: runtime_subscriptions.ContextIndexWorkerBindings | None = None,
+        document_intent: DocumentIntentOperations | None = None,
         disabled_agents: frozenset[str] | None = None,
         divergence: ShadowDivergenceLedger | None = None,
         kpi_collector: KpiCollector | None = None,
@@ -494,6 +500,7 @@ class PantheonRuntime(RuntimeConversationPort):
             rule_generation_activation_binder=rule_generation_activation_binder,
             rule_generation_state_store=rule_generation_state_store,
             context_index_workers=context_index_workers,
+            document_intent=document_intent,
             human_access=assignment_workflow.human_access
             if assignment_workflow is not None
             else None,
@@ -547,6 +554,7 @@ class PantheonRuntime(RuntimeConversationPort):
             raw_event_topic=raw_event_topic,
             subscription_count=subscription_count + (1 if huginn_active else 0),
             enforce=enforce,
+            _document_intent=document_intent,
             kpi_collector=kpi_collector or KpiCollector(),
             disabled=disabled,
             divergence=divergence,
@@ -628,6 +636,8 @@ class PantheonRuntime(RuntimeConversationPort):
             self.agents,
             context_index_workers=self._context_index_workers,
         )
+        if self._document_intent is not None:
+            await recover_document_intent_publications(self.agents, self._document_intent)
 
     def health(self) -> dict[str, Any]:
         snap = self.bridge.snapshot()

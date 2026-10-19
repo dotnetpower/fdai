@@ -12,6 +12,10 @@ from fdai_service_contracts.policy_administration import POLICY_REVISION_REQUEST
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import Handler
 from fdai.agents._framework.bus_bridge import EventBusBridge
+from fdai.agents._framework.document_intent import (
+    DocumentIntentOperations,
+    owned_document_intent_handler,
+)
 from fdai.agents._framework.human_access_workflow import owned_human_access_handler
 from fdai.agents._framework.ontology_index import (
     ContextIndexWorkerBindings,
@@ -90,6 +94,7 @@ def bind_runtime_subscriptions(
     rule_generation_state_store: StateStore | None,
     human_access: HumanAccessAgentBindings | None = None,
     context_index_workers: ContextIndexWorkerBindings | None = None,
+    document_intent: DocumentIntentOperations | None = None,
 ) -> int:
     """Bind declared subscriptions and optional Mimir Rule-generation wiring."""
     mimir = instantiated["Mimir"]
@@ -115,6 +120,7 @@ def bind_runtime_subscriptions(
         handler = owned_context_index_handler(
             agent, context_index_workers, owned_human_access_handler(agent, human_access)
         )
+        handler = owned_document_intent_handler(agent, document_intent, handler)
         for topic in agent.spec.subscribes:
             bridge.subscribe(topic, name, handler)
             subscription_count += 1
