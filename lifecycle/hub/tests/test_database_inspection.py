@@ -24,6 +24,7 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture
 def database():
     url = make_url(os.environ["FDAI_DATABASE_URL"])
+    check._require_endpoint_binding(url)
     assert url.host in {"127.0.0.1", "localhost", "::1"} and url.port == 5433
     schema = "hub_inspection_" + uuid4().hex
     admin = create_engine(url, hide_parameters=True)
@@ -62,6 +63,23 @@ ROUTING_OVERRIDES = [
     ("user", "synthetic"),
     ("service", "synthetic"),
 ]
+
+
+@pytest.mark.parametrize("key,value", [*ROUTING_OVERRIDES, ("port", "5432")])
+def test_database_fixture_rejects_query_routing_before_engine_creation(
+    monkeypatch, request, key, value
+):
+    monkeypatch.setenv(
+        "FDAI_DATABASE_URL",
+        f"postgresql+psycopg://synthetic@localhost:5433/synthetic?{key}={value}",
+    )
+
+    def must_not_create(*args, **kwargs):
+        pytest.fail("Unsafe fixture URLs must fail before either engine is created.")
+
+    monkeypatch.setattr(sys.modules[__name__], "create_engine", must_not_create)
+    with pytest.raises(check.InspectionError, match="database_routing_override_not_allowed"):
+        request.getfixturevalue("database")
 
 
 @pytest.mark.parametrize("key,value", ROUTING_OVERRIDES)

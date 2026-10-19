@@ -88,6 +88,8 @@ implementation states below.
 
 | 2026-10-19 | implemented | Addressed Copilot review on #2255: reject query-level host, hostaddr, port, dbname, user and service routing overrides before creating the CLI engine or opening an observation connection, preventing a restored observation from reconnecting to the source under a misleading host digest. | `current change`; `database_inspection.py`, `test_database_inspection.py`; driver argument precedence reproduced locally without a connection; focused regression evidence recorded in #2255. | Exact-head CI and human review remain required; no cloud identity attestation or live recovery is claimed. |
 
+| 2026-10-19 | implemented | Addressed the second selected review on #2255: the PostgreSQL test fixture rejects query-level routing overrides before creating either engine, so schema and role setup cannot escape the isolated authority through a driver query override. | `current change`; `lifecycle/hub/tests/test_database_inspection.py`; seven fixture cases reproduced failure with an engine-creation spy and no database connection, then all 25 routing-guard cases passed; three actual PostgreSQL cases covering both products and runtime-role privileges passed through `with-local-test-database.py` on isolated 5433. | This hardens the inspection test fixture only; no shared wrapper, runtime configuration, cloud resource or deployment behavior changed. |
+
 ### Remaining work
 
 - [x] Implement the bounded source/restored database comparison with read-only/rollback,
