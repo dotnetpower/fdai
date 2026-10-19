@@ -15,6 +15,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from enum import StrEnum
+from math import isfinite
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from croniter import croniter
@@ -30,6 +31,15 @@ class ScheduleKind(StrEnum):
     ONE_SHOT = "one-shot"
     CRON = "cron"
     EVENT_EXIT = "event-exit"
+
+
+def _valid_interval_seconds(value: object) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    try:
+        return isfinite(value) and value > 0
+    except OverflowError:
+        return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,8 +102,8 @@ class ScheduledTask:
     continuation_origin: ScheduledResultOrigin | None = None
 
     def __post_init__(self) -> None:
-        if self.interval_seconds <= 0:
-            raise ValueError("ScheduledTask.interval_seconds MUST be positive")
+        if not _valid_interval_seconds(self.interval_seconds):
+            raise ValueError("ScheduledTask.interval_seconds MUST be finite and positive")
         if not self.task_id:
             raise ValueError("ScheduledTask.task_id MUST be non-empty")
         if not self.created_by:

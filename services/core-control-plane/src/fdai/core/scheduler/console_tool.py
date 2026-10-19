@@ -30,7 +30,7 @@ from fdai.core.conversation.session import (
     principal_has_role_at_least,
 )
 from fdai.core.conversation.tools import SideEffectClass, ToolResult
-from fdai.core.scheduler.models import ScheduledTask
+from fdai.core.scheduler.models import ScheduledTask, _valid_interval_seconds
 from fdai.core.scheduler.service import SchedulerService
 from fdai.core.scheduler.store import ScheduleNotFoundError, ScheduleStore
 
@@ -101,14 +101,14 @@ class CreateScheduleTool:
         cron_expression = str(arguments.get("cron_expression") or "").strip() or None
         try:
             interval = float(arguments.get("interval_seconds", _MIN_INTERVAL_SECONDS))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return ToolResult(
                 status="error", preview="create_schedule 'interval_seconds' must be a number."
             )
-        if interval < _MIN_INTERVAL_SECONDS:
+        if not _valid_interval_seconds(interval) or interval < _MIN_INTERVAL_SECONDS:
             return ToolResult(
                 status="error",
-                preview=f"interval_seconds must be >= {int(_MIN_INTERVAL_SECONDS)}.",
+                preview=f"interval_seconds must be finite and >= {int(_MIN_INTERVAL_SECONDS)}.",
             )
 
         payload = arguments.get("event_payload")
@@ -236,8 +236,10 @@ class UpdateScheduleTool:
         try:
             current = await self._store.get(task_id)
             interval = float(arguments.get("interval_seconds", current.interval_seconds))
-            if interval < _MIN_INTERVAL_SECONDS:
-                raise ValueError(f"interval_seconds must be >= {int(_MIN_INTERVAL_SECONDS)}")
+            if not _valid_interval_seconds(interval) or interval < _MIN_INTERVAL_SECONDS:
+                raise ValueError(
+                    f"interval_seconds must be finite and >= {int(_MIN_INTERVAL_SECONDS)}"
+                )
             updated = replace(
                 current,
                 name=str(arguments.get("name", current.name)).strip(),
@@ -258,7 +260,7 @@ class UpdateScheduleTool:
             updated = await self._store.update(updated)
         except ScheduleNotFoundError:
             return ToolResult(status="error", preview=f"no scheduled task {task_id!r}")
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError, OverflowError) as exc:
             return ToolResult(status="error", preview=f"invalid schedule update: {exc}")
         return ToolResult(
             status="ok",
