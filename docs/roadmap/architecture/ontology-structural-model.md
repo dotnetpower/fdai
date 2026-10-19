@@ -6,7 +6,7 @@ title: Ontology Structural Model
 This document defines how FDAI represents exact resource types, taxonomic aggregation,
 capabilities, directional relationships, typed paths, and bounded graph presentation. It keeps
 classification useful to operators and agents without turning taxonomy into execution authority
-or a second source of provider truth.
+or a second source of provider truth. Optional source admission fences reads without adding a writer.
 
 > **Authority boundary:** Taxonomy, interfaces, link roles, and query paths define meaning only.
 > They cannot observe external state, approve an action, select an executor, or raise autonomy.
