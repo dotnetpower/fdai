@@ -17,6 +17,7 @@ from fdai_service_contracts import SemanticTurnDisposition, SemanticTurnResult
 from fdai_service_contracts.post_turn_review import (
     POST_TURN_REVIEW_REQUEST_TOPIC,
     MemoryScopeKind,
+    PostTurnProcedureReceipt,
     PostTurnReviewInputWire,
     PostTurnToolReceipt,
     post_turn_review_request_payload,
@@ -195,24 +196,56 @@ def post_turn_review_input_from_projection(
     extension = result.data.get("payload")
     post_turn = extension.get("post_turn_review") if isinstance(extension, Mapping) else None
     hints = post_turn if isinstance(post_turn, Mapping) else {}
+    procedure = _procedure_receipt(result, semantic_result, extension)
     return PostTurnReviewInputWire(
         review_id=f"review-{_digest(result.projection_id)[:32]}",
-        principal_scope=f"principal-{_digest(result.principal_id)[:32]}",
+        principal_scope=(
+            procedure.principal_scope
+            if procedure is not None
+            else f"principal-{_digest(result.principal_id)[:32]}"
+        ),
         operator_turn_id=f"operator-{_digest(result.request_id)[:32]}",
         assistant_turn_id=f"assistant-{semantic_result.turn_id}",
         completed_at=completed_at,
         operator_body=_optional_string(hints, "operator_body"),
         assistant_body=_optional_string(hints, "assistant_body") or semantic_result.answer,
-        tool_receipts=_tool_receipts(hints),
+        tool_receipts=procedure.tool_receipts if procedure is not None else _tool_receipts(hints),
         validation_outcomes=_string_tuple(hints, "validation_outcomes"),
         explicit_corrections=_string_tuple(hints, "explicit_corrections"),
         evidence_refs=tuple(semantic_result.evidence_refs),
         memory_scope_kind=_memory_scope_kind(hints),
         memory_scope_ref=_optional_string(hints, "memory_scope_ref"),
         failure_recovered=hints.get("failure_recovered") is True,
-        procedure_fingerprint=_optional_string(hints, "procedure_fingerprint"),
-        repeated_procedure_count=_non_negative_int(hints, "repeated_procedure_count"),
+        procedure_fingerprint=procedure.procedure_fingerprint if procedure is not None else None,
+        repeated_procedure_count=0,
+        procedure_receipt=procedure,
     )
+
+
+def _procedure_receipt(
+    result: StoredSemanticResult,
+    semantic_result: SemanticTurnResult,
+    extension: object,
+) -> PostTurnProcedureReceipt | None:
+    if not isinstance(extension, Mapping):
+        return None
+    details = extension.get("technical_details")
+    raw = details.get("post_turn_procedure") if isinstance(details, Mapping) else None
+    if raw is None or (isinstance(raw, Mapping) and raw.get("kind") == "unavailable"):
+        return None
+    receipt = PostTurnProcedureReceipt.model_validate(raw)
+    if (
+        semantic_result.semantic_route != "verified_query_plan"
+        or semantic_result.checks_total < 1
+        or semantic_result.checks_completed != semantic_result.checks_total
+        or receipt.principal_scope != f"sha256:{_digest(result.principal_id)}"
+        or receipt.turn_id != semantic_result.turn_id
+        or receipt.plan_digest != semantic_result.plan_digest
+        or receipt.execution_receipt_digest != semantic_result.execution_receipt_digest
+        or receipt.ontology_release_digest != semantic_result.ontology_release_digest
+    ):
+        raise ValueError("post-turn procedure receipt MUST match the completed semantic result")
+    return receipt
 
 
 def _completed_at(projection: Mapping[str, object]) -> datetime:
@@ -263,11 +296,6 @@ def _memory_scope_kind(value: Mapping[str, object]) -> MemoryScopeKind | None:
     if item == "resource-group" or item == "resource":
         return item
     return None
-
-
-def _non_negative_int(value: Mapping[str, object], key: str) -> int:
-    item = value.get(key, 0)
-    return item if isinstance(item, int) and not isinstance(item, bool) and item >= 0 else 0
 
 
 def _digest(value: str) -> str:

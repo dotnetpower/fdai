@@ -1,7 +1,7 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 858fac4a6e2aad86dcec4d5aa1c837c288422ed1
+translation_source_sha: 44ac4c3a5e11e5aab0c273770d9d2ce17e6ac1de
 translation_revised: 2026-10-19
 ---
 
@@ -160,12 +160,14 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
 | 출시 전 지연 측정과 고정 시나리오 재생 | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), 집중 테스트 | 기본 기능은 범위가 제한된 측정과 릴리스 게이트 결과를 만듭니다. 외부 부하 생성기와 배포별 예산은 운영자 입력으로 남습니다. |
 | 라이브 Azure 읽기 조사 시나리오 | in-progress | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md#검증-및-release-근거) | 범위가 제한된 읽기 전용 시나리오 4개는 통과했지만 게스트 이벤트 일치, 실제 프로바이더 `429`, 서비스 간 동등성 증적은 릴리스 근거로 남아 있습니다. |
 | ActionType 운영자 런북 스키마와 커버리지 | implemented | [`check-action-runbooks.py`](../../../scripts/quality/documentation/check-action-runbooks.py), [`incident-mitigation-and-rollback-ko.md`](../../runbooks/incident-mitigation-and-rollback-ko.md), [`test_check_action_runbooks.py`](../../../tests/integration/scripts/test_check_action_runbooks.py) | 제공되는 모든 ActionType은 선언된 전제조건, 절차, 검증, 롤백, 감사 섹션이 존재하는 제네릭 업스트림 런북 하나와 정확히 일치합니다. 배포별 명령은 포크가 소유합니다. |
-| 출시 후 안정화 조합 | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler) 및 측정 기본 기능 | 일일 상태, 드리프트, 배포 기준선 작업과 `console.recurrent_query` 신호는 업스트림에 등록되지 않았습니다. |
+| 근거에 기반한 반복 질의 입력 | implemented | #2271 / PR #2273; `post_turn_procedure.py`; `norns_recurrent_queries.py`; 격리 PostgreSQL 시나리오 4개를 포함한 집중 회귀 검사 571개 통과 | 타입이 지정된 실제 사람 질의의 실행 형태를 Operator 검증과 Bragi 메타데이터 전송을 거쳐 Norns에 전달합니다. 서로 다른 principal을 영속 집계하고 기존 Mimir 비활성 입력만 생성하며, 원문 공유 동의와 현재 게시 게이트는 그대로 유지합니다. |
+| 출시 후 안정화 조합 | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler), 측정 기본 기능과 등록된 반복 질의 입력 | 일일 상태, 드리프트와 배포 기준선 작업은 미등록입니다. 설치 환경의 집단 및 전송, 운영 정책과 안정화 시작 및 권한 하향 및 종료 근거는 미완료이며 로컬 반복 집계만으로 H02를 완료하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-19 | implemented | 이번 변경에서 추가한 실제 반복 질의 수집원에 운영 담당 문서를 맞췄습니다. 기존의 신호 미등록 설명은 원문 없는 입력에 한해 대체되며 일일 작업이나 운영 검증까지 완료한 것은 아닙니다. | #2271 / PR #2273; 타입 지정 계획 증적, 실제 Operator/Bragi/Norns/Mimir 경로, 집중 회귀 검사 571개와 실제 격리 PostgreSQL 시나리오 4개 | 일일 작업 등록, 실제 설치 집단 및 전송, 승인된 운영 결정과 안정화 수명주기 증적이 남아 있습니다. H02 전체를 Ready로 표시하지 않습니다. |
 | 2026-10-19 | implemented | 실제 기본 T2 검증기를 완전한 구간의 상태 수집원에 연결했습니다. 반환 판정을 바꾸거나 다른 모델을 호출하지 않습니다. 현재 연결 범위는 신호 6개 및 필드 3개이며 철회한 성공 증적 기반의 신호 6개 및 필드 4개 해석과 다릅니다. | 이번 변경, `delivery/self_health_verifier.py`, `tests/delivery/test_self_health_verifier.py`: 20개 통과, 분기 포함 수집원 커버리지 100%. 직접 비평으로 결과 미확인 뒤 이전 정상 구간 재사용과 레지스트리 신원 불일치를 재현하고 수정했습니다. | 신호 9개 및 필드 5개, 설치 환경의 전달 및 훈련 증적, 측정된 운영 결과는 미완료입니다. 카운터는 의도적으로 프로세스별 상태이며 재시작 시 이전 정상 비율을 재사용하지 않고 준비 구간으로 돌아갑니다. |
 | 2026-10-19 | withdrawn | 보호된 #2253을 통합하면서 이 작업 브랜치의 이전 신호 6개 및 필드 4개 주장을 철회하고 성공 증적만 사용하는 카나리 결과 및 상태 내보내기를 제거했습니다. 최신 성공 증적은 최신 예약 시도나 완전한 카나리 상태를 입증하지 못하므로 더 강한 인덱스 경과 시간 생성기를 재사용합니다. | 이전 로컬 `adcbf54cc6` 및 `c7a7a8bdfa`의 테스트는 증적 유효성만 확인했습니다. 보호된 main `3917df4297`은 인덱스, 바이트 한도와 해시 검사 경과 시간 원본을 제공합니다. 독립적으로 소유한 최신 시도 구간은 없습니다. | 현재 신호 5개와 필드 3개가 연결됩니다. 최신 시도 결과 및 상태, 신호 생성기 10개와 필드 5개는 미완료이며 fixture 통과를 운영 자격으로 보지 않습니다. |
 | 2026-10-19 | implemented | 새 원본 회귀 검사의 보호 조건을 완화하는 대신 임시 CI 데이터베이스의 호스트 포트와 서비스 DSN을 격리 검증 포트 5433에 맞췄습니다. 정적 CI 계약 회귀는 5433 구성을 수락하고 런타임 포트 5432 구성을 거절합니다. 컨테이너 내부 PostgreSQL 포트는 5432입니다. | 현재 변경, 정확한 후보 `50bd2a1bffe10edcb29c0700445470ee8299f42d`의 CI `39196349170` 시도 1, 완료된 통합 작업 `117879915744`의 9단계에서 포트 불일치 14건을 확인했습니다. 데이터베이스 장애나 불안정한 테스트로 분류하지 않습니다. 로컬 `check-ci-contracts.py`와 CI, 산출물, 집중 범위 회귀 159개가 통과했으며 실제 원본 백엔드 테스트의 루프백 5433 검사는 그대로 유지합니다. | 수정된 정확한 후보의 CI가 최종 기준입니다. 테스트 기반만 바꾸며 런타임 데이터베이스, 배포된 상태, H01 연결 범위나 운영 자격은 바꾸지 않습니다. |
@@ -201,7 +203,9 @@ unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 �
   권한 있는 읽기 표면에서 제공하고 필드 신선도를 테스트합니다.
 - [x] 필수 런북 스키마를 정의하고 모든 자동화된 ActionType에 검증 및 롤백 지침이 있는 제네릭
   업스트림 또는 배포 소유 런북이 존재하는지 검사합니다.
-- [ ] 일일 안정화 작업과 반복 질의 신호를 등록하고, 구간이 열리며 guard 메트릭 위반 시 권한을
+- [x] 실제 타입 지정 계획 및 Operator/Bragi/Norns/Mimir 경로에 원문 없는 반복 질의 입력을
+  등록합니다 (#2271 / PR #2273; 로컬 동작만 검증).
+- [ ] 일일 안정화 작업을 등록하고, 구간이 열리며 guard 메트릭 위반 시 권한을
   낮추고 구성된 종료 조건을 충족한 후에만 닫히는지 입증합니다.
 - [ ] Azure 읽기 조사 소유자 문서에서 추적하는 라이브 게스트 이벤트, 프로바이더 제한,
   서비스 간 동등성 근거를 완료합니다.
@@ -421,9 +425,10 @@ release 근거로 남습니다. Dedicated 검증 환경이 Azure 변경 없이 �
 [측정 윈도우](../architecture/goals-and-metrics-ko.md#정의definitions)의 시작 부분이며, 기존
 기본 요소를 조합합니다:
 
-> **구현 상태**: 스케줄러와 측정 기본 요소는 존재하지만 업스트림은 현재 일일
-> 상태/드리프트/배포 기준선 작업을 등록하거나 `console.recurrent_query`를 게시하지 않습니다.
-> 아래 목록은 목표로 하는 안정화 구성을 정의합니다.
+> **구현 상태**: 스케줄러 및 측정 기본 요소와 원문 없는 `console.recurrent_query` 입력은
+> 구현되어 있습니다. 일일 상태/드리프트/배포 기준선 작업, 설치 환경의 전송 및 집단 검증과
+> 전체 안정화 수명주기 근거는 미완료입니다. 아래 목록은 완료된 운영 구성이 아니라 목표로
+> 하는 안정화 구성을 정의합니다.
 
 - **Shadow-first를 기본으로 유지합니다.** 새로 도입한 액션은 구간 동안 shadow로 유지하고,
   아래 안정화 신호에 문제가 없어질 때까지 강제 적용 승격을 미룹니다. 불안정한 서비스 공개

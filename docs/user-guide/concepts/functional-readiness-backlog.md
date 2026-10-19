@@ -236,6 +236,11 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   #2254 hardens the existing scheduler prerequisite against non-finite intervals with 110 focused
   passes and actual creation/materialization/due-cycle controls. It does not register those daily
   jobs or the recurrent-query signal, choose the operating policy, or close this package.
+  The current change now wires actual typed query-shape receipts through Operator and Bragi to
+  Norns' durable distinct-principal recurrence input and Mimir's inert candidate queue. The 571
+  focused checks, including four actual isolated PostgreSQL scenarios, cover local mechanics.
+  Installed transport, actual cohort qualification, daily jobs, policy and stabilization remain
+  open; this increment does not complete H02 or add a self-health signal.
 - [ ] **H03, operating decisions:** Resolve and version all seven open owner decisions: canary
   audit-freshness/round-trip alert budget; smoke fixtures/budgets/promotion wiring; alert ownership
   and fallback; audit investigation retention/query model; cold-start deadline; stabilization
