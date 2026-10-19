@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 78b1385dc54bae76cc123f994c370fe30b0f19bf
-translation_revised: 2026-10-19
+translation_source_sha: 2c555846e98584d1a0979584265aa77c350f3e52
+translation_revised: 2026-10-20
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -90,6 +90,8 @@ Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발
 > 유지합니다. 전이 의존성의 취약점은 공유 `uv.lock`에서 수정된 버전으로 해결하며,
 > 영향받는 코드에 도달할 수 없는 이유를 기한과 함께 검토한 예외가 없으면 `.trivyignore.yaml`은
 > 비워 둡니다. Cost Governance 이미지의 Mako와 multidict 발견 항목에도 같은 규칙을 적용합니다. 알려진 서비스 소스, 테스트 및 문서 경로는 PR 트리거에서 제외하지만 패키징된
+> 공유 보안 수정은 lock을 다시 만들기 전에 영향받는 모든 서비스 매니페스트의 최소 버전을
+> 수정된 patch로 높입니다. 어느 이미지 profile도 이전 호환 범위를 유지할 수 없습니다.
 > 자산과 알 수 없는 서비스 입력은 보수적으로 선택합니다. 루트 README만 바뀌면 문서 변경으로
 > 처리하며 이미지 후보를 선택하지 않습니다. 레지스트리 게시, SBOM 및 증명에는 이미지 선택과 정확한 보호 소스 SHA를
 > 포함한 명시적 후보 디스패치가 필요합니다. 일반 소스 push와 버전 태그는 이미지를

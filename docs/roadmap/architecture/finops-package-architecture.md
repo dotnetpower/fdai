@@ -65,8 +65,8 @@ domain code and assets. It does not create another control plane or move authori
 > workflow text cannot execute ahead of the provenance gate. The verifier also rejects a
 > publication workflow dispatch outside protected `main`.
 > Build-input pull requests retain a separate read-only image build and vulnerability scan.
-> A finding in a transitive dependency is fixed by resolving a patched version in the shared
-> `uv.lock`; `.trivyignore.yaml` stays empty unless a reviewed, time-bound exception records why
+> A transitive finding is fixed in the shared `uv.lock`; every affected service manifest raises its minimum to the fixed patch before lock regeneration.
+> No image retains an older compatible range, and `.trivyignore.yaml` stays empty unless a reviewed, time-bound exception records why
 > the affected code is unreachable. The same rule covers Mako and multidict findings in the Cost Governance image.
 > Known service source, test, and documentation paths are excluded at the PR trigger, while
 > packaged assets and unknown service inputs remain conservatively selected. A root README-only
