@@ -4,6 +4,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -50,6 +51,66 @@ def test_window_assets_and_protocol_agree_on_the_plan() -> None:
     assert len(cases) == 64
     assert campaign.REPEATS == 4
     assert {case.language for case in cases} == {"en", "ko"}
+
+
+def test_live_target_resolves_the_exact_pinned_capability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    campaign = _module()
+    pin = campaign.TypedSelectionShadowPin.load(
+        campaign.ROOT / campaign.SHADOW_CONFIG_RELATIVE_PATH
+    )
+    capability = SimpleNamespace(family=pin.model_family, version=pin.model_version)
+    target = campaign.ModelRequestTarget(
+        endpoint="https://example.invalid",
+        deployment="t2.ontology.council.alpha",
+        api_version="2024-10-21",
+        model_family=pin.model_family,
+    )
+    requested: list[str] = []
+    monkeypatch.setattr(campaign, "_capability", lambda _resolved, name: capability)
+
+    def target_for_capability(_resolved: object, capability_id: str, **_kwargs: object) -> object:
+        requested.append(capability_id)
+        return target
+
+    monkeypatch.setattr(campaign, "model_target_for_capability", target_for_capability)
+    selected_capability, selected_target = campaign._qualified_live_target(
+        resolved=object(),
+        pin=pin,
+        endpoint=None,
+        endpoint_resolver=None,
+    )
+    assert requested == [pin.model_capability]
+    assert selected_capability is capability
+    assert selected_target is target
+
+
+def test_live_target_rejects_bound_family_drift(monkeypatch: pytest.MonkeyPatch) -> None:
+    campaign = _module()
+    pin = campaign.TypedSelectionShadowPin.load(
+        campaign.ROOT / campaign.SHADOW_CONFIG_RELATIVE_PATH
+    )
+    capability = SimpleNamespace(family=pin.model_family, version=pin.model_version)
+    target = campaign.ModelRequestTarget(
+        endpoint="https://example.invalid",
+        deployment="t2.ontology.council.alpha",
+        api_version="2024-10-21",
+        model_family="other",
+    )
+    monkeypatch.setattr(campaign, "_capability", lambda _resolved, _name: capability)
+    monkeypatch.setattr(
+        campaign,
+        "model_target_for_capability",
+        lambda *_args, **_kwargs: target,
+    )
+    with pytest.raises(campaign.CampaignAbortedError, match="qualified family and version"):
+        campaign._qualified_live_target(
+            resolved=object(),
+            pin=pin,
+            endpoint=None,
+            endpoint_resolver=None,
+        )
 
 
 def test_decision_evidence_is_private_and_digested_beyond_the_canonical_bound(
