@@ -3,6 +3,11 @@ title: Channels and Notifications
 ---
 # Channels and Notifications
 
+[Governed typed-selection read](governed-typed-selection-read.md) retains the existing Var human
+approval and typed audit path. A model proposal, notification delivery or reporting relationship
+cannot approve or activate the read capability. This bounded server wiring adds no channel,
+recipient, notification authority or verified live-channel claim.
+
 Core supervises post-turn review intake separately from channel, notification and approval topics.
 Its read-only ActionBuilder rule map validates ORR citations and actual verifier observations feed self-health; neither creates a channel, delivery receipt or approval route, or selects the notifications add-on.
 

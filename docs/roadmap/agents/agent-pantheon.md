@@ -528,7 +528,7 @@ Loki proposal evidence checks are runtime mechanics in the same implementation p
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|
-| object.event | Huginn | Heimdall (detection and effect evidence), Forseti (judgment input), Saga (incident guidance audit), Muninn (retention ticks and operational cases), Var/Mimir (test-context commands), Njord/Freyr/Loki (bounded specialist signals) |
+| object.event | Huginn | Heimdall (detection and effect evidence), Forseti (judgment input), Saga (incident guidance audit), Muninn (retention ticks and operational cases), Var/Mimir (test-context commands), Njord/Freyr/Loki (bounded specialist signals), Vidar (independently admitted typed-read revocation) |
 | object.change | Huginn | Muninn (immutable change revisions), Forseti (planned-change impact and observation-mode ARB join) |
 | object.anomaly, object.forecast | Heimdall | Forseti |
 | object.drift | Heimdall | Forseti; Muninn reads detection-readiness drift only |

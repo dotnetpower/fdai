@@ -251,6 +251,7 @@ def _build_direct_api_executor(
     human_access_enabled: bool = True,
     promotion_registry: Any = None,
     graph_model_promotion_registry: Any = None,
+    typed_read_admission: Any = None,
     action_types_by_name: Mapping[str, Any] | None = None,
     execution_identities: Mapping[str, WorkloadIdentity] | None = None,
     safeguard_coordinator: SafeguardLifecycleCoordinator | None = None,
@@ -352,6 +353,22 @@ def _build_direct_api_executor(
                 attestation_store=attestation_store,
                 active_approval_profile=active_approval_profile,
             )
+            allow_enforce = True
+    if action_types_by_name:
+        from fdai.core.ontology_platform.typed_selection_contracts import READ_PROMOTION_ACTION
+        from fdai.delivery.persistence.state_store_typed_selection_read import (
+            StateStoreTypedSelectionRead,
+        )
+        from fdai.delivery.promotion import StateStorePromotionAttestationStore
+        from fdai.delivery.typed_selection_read_governance import governed_read_dispatcher
+
+        if READ_PROMOTION_ACTION in action_types_by_name:
+            read_registry = StateStoreTypedSelectionRead(
+                audit_store,
+                admission=typed_read_admission,
+                approvals=StateStorePromotionAttestationStore(audit_store),
+            )
+            routes[READ_PROMOTION_ACTION] = governed_read_dispatcher(read_registry)
             allow_enforce = True
     if graph_model_promotion_registry is not None and action_types_by_name:
         from fdai.delivery.graph_model_promotion import (

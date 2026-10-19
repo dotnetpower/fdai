@@ -1,10 +1,15 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c15b39ff12d2720bbcd05b76debc25b944e66edf
+translation_source_sha: a3894be133196c515a54b5c4faeca86aec01f2b1
 translation_revised: 2026-10-19
 ---
 # 프로젝트 구조
+
+[적용 승인을 거치는 타입 선택 읽기](../interfaces/governed-typed-selection-read-ko.md)는
+현재 모델 구성과 Function 전 근거 결속을 전용 구성 모듈로 분리합니다. 호스팅된 추론은
+결정적 Function 실행기 밖에 두고 레지스트리, 적격성, 정확한 사람 승인 검사를 유지합니다.
+이 연결은 활성화나 실행 권한을 부여하지 않으며 다른 시작 기능도 바꾸지 않습니다.
 
 독립적인 로컬 공급업체 앱은 `services/`나 Console 내부가 아니라 Lifecycle Hub 및 에이전트
 옆의 `lifecycle/release-hub/`에 있습니다. 소스 루트는 저장소의 Ruff, mypy, pytest 구성에

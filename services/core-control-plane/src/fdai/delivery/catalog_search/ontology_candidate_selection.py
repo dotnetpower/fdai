@@ -32,6 +32,7 @@ from fdai.shared.providers.catalog_search import (
     CatalogSearchDocument,
     catalog_search_document_digest,
 )
+from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 from .generation import _runtime_object_documents
 from .ontology_candidate_authorization import projected_candidate_record
@@ -149,6 +150,7 @@ class SelectedOntologyCandidates:
     documents: tuple[CatalogSearchDocument, ...]
     query_receipt_digests: tuple[str, ...]
     selection_digest: str
+    objects: tuple[OntologyObjectRecord, ...] = ()
 
 
 async def resolve_candidate_selection(
@@ -194,6 +196,7 @@ async def resolve_candidate_selection(
     )
     indexed = {document.rule_id: document for document in documents}
     matched: dict[str, CatalogSearchDocument] = {}
+    matched_objects: dict[str, OntologyObjectRecord] = {}
     receipts: list[str] = []
     for clause in selection.clauses:
         _check_deadline(deadline)
@@ -240,6 +243,9 @@ async def resolve_candidate_selection(
             for record in projected
             if all(item.matches(record.properties) for item in clause.nested_predicates)
         }
+        current_objects = {
+            f"object:{record.object_type}:{record.id}": record for record in projected
+        }
         for document in current:
             _check_deadline(deadline)
             prepared = indexed.get(document.rule_id)
@@ -249,10 +255,12 @@ async def resolve_candidate_selection(
                 raise ValueError("ontology candidate selection source content changed")
             if document.rule_id in members:
                 matched[document.rule_id] = prepared
+                matched_objects[document.rule_id] = current_objects[document.rule_id]
         receipts.append(content_digest(result.receipt.model_dump(mode="json")))
     _check_deadline(deadline)
     return SelectedOntologyCandidates(
         tuple(matched[key] for key in sorted(matched)),
         tuple(dict.fromkeys(receipts)),
         selection_digest,
+        tuple(matched_objects[key] for key in sorted(matched_objects)),
     )

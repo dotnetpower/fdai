@@ -321,7 +321,7 @@ _VIDAR = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.action-run",),  # picks up failures
+    subscribes=("object.action-run", "object.event"),  # failures and typed read revocation
     question_domains=("rollback_status", "dr_readiness", "rollback_dependency_health"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/vidar.py",),
     hard_dependency=True,

@@ -150,6 +150,7 @@ def build_thor_execution_port(
             human_access_enabled=human_access_enabled,
             promotion_registry=promotion_registry,
             graph_model_promotion_registry=graph_model_promotion_registry,
+            typed_read_admission=container.decision_evidence_admission_provider,
             action_types_by_name=action_types_by_name,
             execution_identities=execution_identities,
             safeguard_coordinator=safeguard_coordinator,

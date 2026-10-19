@@ -1,0 +1,82 @@
+schema_version: 1.0.0
+name: governance.promote-typed-selection-read
+version: 1.0.0
+operation: update
+interfaces:
+- ControlPlane
+rollback_contract: scripted
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 7
+  min_samples: 20
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+preconditions:
+- kind: graph_fresh_within_seconds
+  value: 300
+stop_conditions:
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 30
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Apply one exact independently qualified typed-selection read binding after the existing human review and Thor execution path. Vidar demotion withdraws qualification and disables the pointer.
+category: governance
+trigger_kind:
+  kind: both
+execution_path: direct_api
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t1:
+    max_autonomy: shadow_only
+    min_role: owner
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - action_type_id
+  - target_mode
+  - fdai_revision
+  - scenario_set_version
+  - evidence_digest
+  - expected_revision
+  - target_resource_ref
+  - justification
+  properties:
+    action_type_id:
+      const: governance.promote-typed-selection-read
+    target_mode:
+      const: enforce
+    fdai_revision:
+      type: string
+      pattern: ^[0-9a-f]{40}$
+    scenario_set_version:
+      const: typed-selection-read-v1
+    evidence_digest:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+    expected_revision:
+      type: integer
+      minimum: 0
+    target_resource_ref:
+      type: string
+      pattern: ^typed-selection-read:sha256:[0-9a-f]{64}$
+    justification:
+      type: string
+      x-fdai-audit-safe: true
+      minLength: 20
+      maxLength: 500
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:governance.promote-typed-selection-read@1.0.0
+  content_hash: sha256:d615fd6e7b8429e6fd89edcb56ae5a26bae593531e7b7be4e6b8d917d3f3ed4a
+  license: MIT
+  retrieved_at: "2026-10-19T00:00:00Z"

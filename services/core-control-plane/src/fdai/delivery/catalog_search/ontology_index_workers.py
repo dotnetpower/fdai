@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fdai_service_contracts.ontology_query import content_digest
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, TypeAdapter
@@ -33,6 +33,9 @@ from .ontology_index_lifecycle import (
 )
 from .ontology_index_retention import reclaim_retired_index
 from .ontology_snapshot_store import OntologyGenerationSnapshotStore, OntologyStagedProjection
+
+if TYPE_CHECKING:
+    from .ontology_governed_selection_read import PreparedReadProposer, ReadSelectionSource
 from .ontology_snapshot_validation import (
     OntologySnapshotValidation,
     validate_snapshot_against_current_graph,
@@ -169,6 +172,55 @@ class OntologyContextIndexWorkers:
             saga=self.saga,
             published=self.journal.published,
             pending=self._pending,
+        )
+
+    async def typed_read_source(
+        self,
+        scope: IndexScope,
+        *,
+        proposer: PreparedReadProposer,
+        source_revision: str,
+        data_policy_digest: str,
+    ) -> ReadSelectionSource:
+        """Resolve the current secured source without inference or authority changes."""
+        from dataclasses import asdict
+
+        from fdai.core.ontology_platform.typed_selection_contracts import ReadCapabilityBinding
+
+        from .ontology_governed_selection_read import ReadSelectionSource
+
+        target = await self._current_target(scope)
+        build = await self._snapshots.read(
+            target.staged.snapshot_digest,
+            manifest=target.manifest,
+            source_generation=target.staged.source_generation,
+            source_projection_digest=target.staged.source_projection_digest,
+        )
+        if build is None:
+            raise PermissionError("typed selection current snapshot is unavailable")
+        validation = await validate_snapshot_against_current_graph(
+            snapshots=self._snapshots,
+            staged=target.staged,
+            gateway=target.gateway,
+            manifest=target.manifest,
+            as_of=self._clock(),
+            embedding_space_id=self._space,
+            embedding_model_version=self._model,
+            embedding_dimension=self._dimension,
+            validator_id="typed-selection-read-source",
+        )
+        binding = ReadCapabilityBinding(
+            source_revision=source_revision,
+            manifest_digest=target.manifest.manifest_digest,
+            principal_scope_digest=scope.principal_scope_digest,
+            model_binding_digest=content_digest(
+                asdict(proposer.candidate_proposal_binding_for_manifest(target.manifest, build))
+            ),
+            data_policy_digest=data_policy_digest,
+            context_protocol="typed-selection-context-transport.v1",
+        )
+        return ReadSelectionSource(
+            binding, target.manifest, build, target.staged, validation, target.gateway
         )
 
     async def _pending(self, owner: str) -> tuple[ContextIndexMessage, ...]:

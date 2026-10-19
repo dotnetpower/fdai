@@ -422,6 +422,7 @@ def _build_control_loop(
                     "governance.promote-action-type",
                     "governance.override-promote-action-type",
                     "governance.promote-effect-model",
+                    "governance.promote-typed-selection-read",
                 }
             )
         ),

@@ -319,6 +319,28 @@ async def initialize_pantheon(
         fallback=t2_route_registry.execute if thor_mutation_bound else None,
         resolve_verified_incident=config.resolve_verified_incident,
     )
+    from fdai.agents import CompositeThorPreflightSimulator
+    from fdai.delivery.persistence.state_store_typed_selection_read import (
+        StateStoreTypedSelectionRead,
+    )
+    from fdai.delivery.typed_selection_read_governance import (
+        READ_QUALIFIED_EVENT,
+        TypedSelectionReadDemoter,
+    )
+    from fdai.runtime.typed_selection_read_lifecycle import (
+        FinalizedTypedReadApproval,
+        TypedReadLifecycle,
+    )
+
+    typed_read_registry = StateStoreTypedSelectionRead(
+        config.incident_audit_store,
+        admission=config.container.decision_evidence_admission_provider,
+        approvals=FinalizedTypedReadApproval(config.incident_audit_store),
+    )
+    typed_read_lifecycle = TypedReadLifecycle(
+        typed_read_registry,
+        can_approve=approver_authorizer_from_environment(config.environment),
+    )
     thor_bindings = build_thor_execution_bindings(
         thor_mutation_bound=thor_mutation_bound,
         t2_route_registry=t2_route_registry,
@@ -328,6 +350,30 @@ async def initialize_pantheon(
     rollback_executors = thor_bindings.rollback_executors
     thor_preflight_simulator = thor_bindings.preflight_simulator
     acceptance_scale_out_recovery_bound = thor_bindings.acceptance_scale_out_recovery_bound
+    action_rollback_executors[("governance.promote-typed-selection-read", "scripted")] = (
+        typed_read_lifecycle.rollback
+    )
+    simulators = dict(
+        thor_preflight_simulator.simulators_by_action_type
+        if thor_preflight_simulator is not None
+        else {}
+    )
+    simulators["governance.promote-typed-selection-read"] = typed_read_lifecycle
+    thor_preflight_simulator = CompositeThorPreflightSimulator(simulators)
+    fallback_thor = (
+        acceptance_bindings.execute
+        if acceptance_bindings is not None and acceptance_scale_out_recovery_bound
+        else t2_route_registry.execute
+        if thor_mutation_bound
+        else None
+    )
+
+    async def typed_read_thor_execute(context: dict[str, Any]) -> bool:
+        run = context.get("run")
+        if getattr(run, "action_type", None) == "governance.promote-typed-selection-read":
+            return await typed_read_lifecycle.execute(context)
+        return await fallback_thor(context) if fallback_thor is not None else False
+
     execution_resource_lock = _build_resource_lock(config.environment) if pantheon_enforce else None
     thor_safety_readiness = config.build_mutation_dependency_readiness(
         saga=config.runtime_saga,
@@ -437,6 +483,10 @@ async def initialize_pantheon(
     llm_bindings = config.container.llm_bindings
     synthesis = bootstrap_agent_discussion.build_runtime_pantheon_synthesis(config, asset_root)
     reviewed_evidence = build_reviewed_pantheon_evidence(config)
+    typed_read_sources = dict(
+        acceptance_bindings.sources if acceptance_bindings is not None else {}
+    )
+    typed_read_sources[READ_QUALIFIED_EVENT] = typed_read_lifecycle
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
@@ -447,16 +497,8 @@ async def initialize_pantheon(
         ).strip(),
         enforce=pantheon_enforce,
         governed_execution_selected=config.control_loop.governed_execution_selected,
-        thor_executor=(
-            acceptance_bindings.execute
-            if acceptance_bindings is not None and acceptance_scale_out_recovery_bound
-            else t2_route_registry.execute
-            if thor_mutation_bound
-            else None
-        ),
-        anomaly_action_sources=acceptance_bindings.sources
-        if acceptance_bindings is not None
-        else None,
+        thor_executor=typed_read_thor_execute,
+        anomaly_action_sources=typed_read_sources,
         thor_state_store=StateStoreActionRunStore(config.incident_audit_store),
         thor_preflight_simulator=thor_preflight_simulator,
         rollback_executors=rollback_executors,
@@ -639,6 +681,9 @@ async def initialize_pantheon(
         semantic_router_config=config.semantic_router_config_from_env(),
         cost_runtime=cost_runtime,
         **reviewed_evidence.runtime_kwargs,
+    )
+    cast(Any, pantheon_runtime.agents["Vidar"]).bind_typed_read_demoter(
+        TypedSelectionReadDemoter(typed_read_registry)
     )
     await reviewed_evidence.run_configured_training(pantheon_runtime)
     cloud_application_dsn = config.environment.get("FDAI_RCA_DOCUMENT_DSN", "").strip()

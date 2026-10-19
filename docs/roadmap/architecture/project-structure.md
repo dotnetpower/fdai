@@ -3,6 +3,12 @@ title: Project Structure
 ---
 # Project Structure
 
+The [governed typed-selection read](../interfaces/governed-typed-selection-read.md) separates its
+current-model composition and pre-Function evidence binder into dedicated existing composition
+owners. Hosted inference stays outside the deterministic Function runner; registry, qualification
+and exact human-approval checks remain authoritative. This wiring grants no activation or execution
+authority and does not change other startup capabilities.
+
 The independent local vendor application lives in `lifecycle/release-hub/`, beside the Lifecycle
 Hub and agent rather than under `services/` or inside the Console. Its source root is registered
 in the repository's Ruff, mypy and pytest configuration. This tooling registration does not add

@@ -13,6 +13,8 @@ from fdai.core.ontology_platform.instance_candidate_queries import (
 )
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
 
+from .semantic_query_typed_selection_read import declare_typed_selection_read
+
 
 def declare_instance_candidate_query(catalog: OntologyCatalog) -> OntologyCatalog:
     """Include the source-derived read contract without making an index available."""
@@ -25,8 +27,10 @@ def declare_instance_candidate_query(catalog: OntologyCatalog) -> OntologyCatalo
     if existing is not None:
         if existing != declaration:
             raise ValueError("ontology candidate declaration conflicts with source contract")
-        return catalog
-    return replace(catalog, function_types=(*catalog.function_types, declaration))
+        return declare_typed_selection_read(catalog)
+    return declare_typed_selection_read(
+        replace(catalog, function_types=(*catalog.function_types, declaration))
+    )
 
 
 def bind_instance_candidate_query(

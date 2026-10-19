@@ -1,11 +1,16 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 6b7bea16bf90f3ad31d37d251c4f9545c0024a78
+translation_source_sha: 62edb6ee6e3af12ee0d729089fd4e8cd6e360a90
 translation_revised: 2026-10-19
 ---
 
 # 채널과 알림(Channels and Notifications)
+
+[적용 승인을 거치는 타입 선택 읽기](governed-typed-selection-read-ko.md)는 기존 Var 사람
+승인과 타입 감사 경로를 유지합니다. 모델 제안, 알림 전달, 보고 관계는 읽기 기능을 승인하거나
+활성화할 수 없습니다. 범위가 제한된 이 서버 연결은 채널, 수신자, 알림 권한을 추가하지
+않으며 실제 채널 검증을 주장하지 않습니다.
 
 Core는 턴 종료 후 검토 요청 접수를 채널, 알림, 승인 토픽과 분리하여 감독합니다.
 읽기 전용 ActionBuilder 규칙 맵은 ORR 인용을 검증하고 실제 검증기의 관측은 자체 상태에 입력됩니다. 둘 다 채널, 전달 증적, 승인 경로를 만들거나 알림 추가 기능을 선택하지 않습니다.

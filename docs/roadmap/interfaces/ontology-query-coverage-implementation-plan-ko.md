@@ -1,9 +1,12 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 0b4c87a7d595ca3492844bf61c50b56ad018336f
+translation_source_sha: 39306cc888f9fa27fb8888d20aa337b9fde8ef7c
 translation_revised: 2026-10-19
 ---
 # 온톨로지 조회 커버리지 구현 계획
+
+기본 비활성인 [적용 승인을 거치는 타입 선택 읽기](governed-typed-selection-read-ko.md)는
+hosted 추론을 결정적 Function 소비 앞에 두며, 범위가 제한된 #2275의 구현을 기록합니다.
 
 이 계획은 FDAI의 범위가 제한된 대화/온톨로지 기반과 운영자 질문을 위한 목표 non-keyword
 경로 사이의 구현 공백을 닫습니다. 100% structural 조회 커버리지에 필요한 검증된 현재 기준선,

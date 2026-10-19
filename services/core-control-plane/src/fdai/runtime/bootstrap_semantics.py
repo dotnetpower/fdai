@@ -21,6 +21,7 @@ from fdai.composition import (
     compose_resource_state_shadow_hook,
 )
 from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
+from fdai.composition.typed_selection_read import compose_typed_selection_read
 from fdai.composition.typed_selection_shadow import (
     SHADOW_CONFIG_RELATIVE_PATH,
     compose_typed_selection_shadow,
@@ -412,6 +413,18 @@ async def build_semantic_runtime(
         instance_candidate_query=ontology_index_runtime.query
         if ontology_index_runtime is not None
         else None,
+        typed_selection_read=compose_typed_selection_read(
+            container=container,
+            environment=environment,
+            state_store=state_store,
+            index=ontology_index_runtime,
+            identity=identity,
+            http_client=http_client,
+            endpoint=endpoint,
+            endpoint_resolver=endpoint_resolver,
+            catalog_root=catalog_root,
+            owner_loop=asyncio.get_running_loop(),
+        ),
         topology_reader=topology_reader,
         metric_registry=metric_registry,
         metric_window_provider=metric_window_provider,
