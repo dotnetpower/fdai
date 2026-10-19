@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 8d475384b33100c3e251ca59ac0289b41864c480
+translation_source_sha: 5e21d9b662cffa88c27f99b54e175d2d1d93dcc9
 translation_revised: 2026-10-19
 ---
 
@@ -167,6 +167,10 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 지정된 요청을 게시한 뒤 HTTP `202`를 반환합니다. 이어서 Var가 서명된 요청을 검증하고 개정
 번호가 있는 Core 상태와 감사 항목을 원자적으로 기록합니다. 이 엔드포인트는 콘솔 버튼이
 아니며 실행기 신원을 사용하지 않습니다. `202` 응답만으로는 상태 변경을 확인할 수 없습니다.
+
+결정론적 검증기 비율은 기존 Reader 역할의 `GET /operations/runtime-state` 변환을 공유합니다.
+범위가 제한된 집계, 수집원 신원, 관측 시각만 제공하며 후보나 principal 내용을 노출하지
+않습니다. 상태 수집으로 역할을 높이거나 승인 및 실행 권한을 부여할 수 없습니다.
 
 `manage-model-bindings` 기능도 Owner 전용입니다. 리비전이 있는 정책 초안과 권한 없는 평가 또는
 문서 OCR 공급자 정책을 포함한 보호된 계획 요청을 허용합니다. Terraform 적용, 공급자 변경,

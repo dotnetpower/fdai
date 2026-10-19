@@ -163,6 +163,10 @@ Reader, Contributor, and Approver cannot call it. The request supplies `Idempote
 signed request and atomically records the revisioned Core state with its audit entry. The endpoint
 is not a console button, uses no executor identity, and its `202` response is not effect proof.
 
+The deterministic-verifier rate shares the existing Reader-role `GET /operations/runtime-state`
+projection. It exposes only a bounded aggregate, source identity and observation time, not candidate
+or principal content. Health collection cannot raise a role or confer approval/execution authority.
+
 The `manage-model-bindings` capability is also Owner-only. It permits revisioned policy drafts and
 authority-free assessment or protected-plan requests, including the document OCR provider policy.
 It does not grant Terraform apply, provider mutation, model invocation, approval, or executor

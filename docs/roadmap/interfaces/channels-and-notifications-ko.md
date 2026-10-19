@@ -1,14 +1,17 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 86b8229548d933d29a0f7d7f5f92904566100726
-translation_revised: 2026-10-15
+translation_source_sha: 7bf0fdca4ae1614f6c74b3c2f5666189e8539611
+translation_revised: 2026-10-19
 ---
 
 # 채널과 알림(Channels and Notifications)
 
 턴 종료 후 검토 요청 접수는 Core 런타임 작업으로 감독하지만, 채널 전달, 알림, 승인 토픽과는 분리합니다.
 Core는 ORR 인용 검증을 위해 읽기 전용 활성 룰 맵도 ActionBuilder에 주입합니다. 이 배선은 채널, 알림 또는 승인 경로를 만들지 않습니다.
+
+실제 결정론적 검증기의 관측은 기존의 권한 없는 자체 상태 정책에 입력됩니다.
+채널이나 전달 증적을 만들지 않으며 알림 추가 기능을 선택할 수 없습니다.
 
 FDAI가 Teams, Slack, 이메일, 웹훅, 페이징 서비스, SMS, Direct Line 사용자 지정 채널 및
 명시적으로 선택한 브라우저 알림으로 사람과 소통하는 방법을 설명합니다. 이 문서는 **채널 추상화,
