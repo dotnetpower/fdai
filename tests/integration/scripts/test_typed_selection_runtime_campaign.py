@@ -53,6 +53,14 @@ def test_window_assets_and_protocol_agree_on_the_plan() -> None:
     assert {case.language for case in cases} == {"en", "ko"}
 
 
+def test_live_decision_pacing_preserves_the_total_deadline() -> None:
+    campaign = _module()
+    assert campaign._decision_pacing_delay(now=10.0, next_start=22.0, deadline=100.0) == 12.0
+    assert campaign._decision_pacing_delay(now=22.0, next_start=20.0, deadline=100.0) == 0.0
+    with pytest.raises(campaign.CampaignAbortedError, match="total deadline"):
+        campaign._decision_pacing_delay(now=90.0, next_start=100.0, deadline=100.0)
+
+
 def test_live_target_resolves_the_exact_pinned_capability(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
