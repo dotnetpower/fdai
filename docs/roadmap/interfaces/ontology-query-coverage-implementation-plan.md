@@ -3,10 +3,7 @@ title: Ontology Query Coverage Implementation Plan
 ---
 # Ontology Query Coverage Implementation Plan
 
-The default-disabled [governed typed-selection read](governed-typed-selection-read.md) keeps
-hosted inference before deterministic Function consumption and records the bounded #2275 scope.
-
-This plan closes the implementation gap between FDAI's bounded conversation and ontology foundations and the target non-keyword path for operator questions. It records the verified current baseline, service and agent ownership, dependency-ordered work packages, cutover gates, and rollback units for 100% structural query coverage.
+This plan closes the implementation gap between FDAI's bounded conversation and ontology foundations and the target non-keyword path for operator questions. It records the verified current baseline, service and agent ownership, dependency-ordered work packages, cutover gates, and rollback units for 100% structural query coverage; [governed typed-selection read](governed-typed-selection-read.md) owns the default-disabled pre-Function model boundary.
 
 Governed cloud-reference queries use source-spanned scalar applicability and preserve source dates; the [lifecycle owner](cloud-resource-knowledge-lifecycle.md) defines as-of and live-current behavior.
 Workflow trigger vocabulary loading now separates observation `SignalType` references from request and command workflow events, so typed workflow triggers do not widen T0 rule dispatch or ontology query coverage.

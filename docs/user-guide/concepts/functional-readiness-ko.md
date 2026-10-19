@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 95181550ee4d52c498f59ac40cd81dc7b7e02fc5
+translation_source_sha: a296e77c953771eec9bc33c1bf3c751ae0e68ec1
 translation_revised: 2026-10-19
 ---
 
@@ -243,6 +243,10 @@ Console은 네 가지 원본 연결, 완전성 확인 지점의 한계, 전제 �
 알려진 완전한 내장 구현의 구간을 요구합니다. 두 비율 모두 정확도나 운영 효과를 뜻하지 않습니다.
 마지막 성공 관측만으로 최신 예약 시도의 결과 및 상태나 누락된 전달, 안정화, 복구 훈련
 증적을 추론할 수 없습니다.
+
+이번 변경은 승인된 구성 검토 캠페인의 정확한 기준선, 범위, 실행 ID, cron, 시간대를
+비활성 청사진 저장과 구체화까지 보존합니다. 일일 작업을 등록하지 않았으며 설치 환경의
+전송, 운영 정책, 안정화 증적도 제공하지 않습니다. 따라서 F12.4는 Partial로 유지합니다.
 
 ## F13. 근거 조회 및 보고서
 

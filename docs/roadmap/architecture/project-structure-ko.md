@@ -1,15 +1,10 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 95797ac98ec54a36305dc5ca10613ae63504ac05
+translation_source_sha: 3bb4d7376299ed3f75548a6ca94a95dc521693d0
 translation_revised: 2026-10-19
 ---
 # 프로젝트 구조
-
-[적용 승인을 거치는 타입 선택 읽기](../interfaces/governed-typed-selection-read-ko.md)는
-현재 모델 구성과 Function 전 근거 결속을 전용 구성 모듈로 분리합니다. 호스팅된 추론은
-결정적 Function 실행기 밖에 두고 레지스트리, 적격성, 정확한 사람 승인 검사를 유지합니다.
-이 연결은 활성화나 실행 권한을 부여하지 않으며 다른 시작 기능도 바꾸지 않습니다.
 
 독립적인 로컬 공급업체 앱은 `services/`나 Console 내부가 아니라 Lifecycle Hub 및 에이전트
 옆의 `lifecycle/release-hub/`에 있습니다. 소스 루트는 저장소의 Ruff, mypy, pytest 구성에
@@ -457,6 +452,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   단일 책임을 가진 인접 모듈은 정본 신원 변환과 해시 계산을 소유할 수 있으며 기존 소유 모듈은 해당 공개 기능을 다시 내보냅니다. 분석기 발견 증적, 분석기 작업 구성과 조립, 인벤토리 스냅샷 맥락 보조 로직도 같은 분리를 따릅니다. 기존 모듈은 공개 계약을 계속 다시 내보내며 쓰기 담당, 프로바이더 또는 권한은 이동하지 않습니다. 멱등성 예약의 안정된 작업 비교도 이 분리를 따르며 직렬화 바이트, 전이 검증, 재생 의미는 바뀌지 않습니다. 버전이 있는 최종 측정 계약도 같은 서비스 경계를 따릅니다. Core는 정규화 이벤트의 분류를 감사 기록과 원자적으로 보존하고 재구축 가능한 상태 변환 결과는 최신 50,000개로 제한하며, Operator는 Core를 가져오거나 분류를 실행 및 효과 권한으로 해석하지 않고 읽습니다. 변환 결과 보존은 추가 전용 감사 항목을 제거하지 않습니다. 브로커가 이벤트를 다시 전달하면 Core는 경로를 선택하기 전에 안정적인 정규화 이벤트 신원을 보존된 최종 측정과 비교하고, 정확히 일치할 때만 중복 결과를 반환합니다. 충돌은 Rule, 유사도 또는 모델 평가 전에 안전하게 실패하며, 대기 중인 최종 측정 하나의 충돌이 이후 재시도 처리를 막지 않습니다. 버전이 있는 운영 활동도 같은 경계를 따릅니다. Core는 스키마로 검증되고 개인정보 범위가 제한된 기록을 내보내며, Operator는 읽기 모델만 저장하고 중계하고 Console은 표현만 지역화합니다. 충돌 근거는 원본 토큰을 바꾸지 않고 기계 판독에 안전한 활동 사유 코드로 매핑합니다. 중복 확인 응답은 일치하는 보존 기록을 요구하며, 충돌 때문에 원래 분류를 조용히 대체하거나 버리지 않습니다. 측정 시각에는 시간대가 명시된 datetime 또는 ISO 8601 문자열을 사용하고 숫자를 암묵적으로 epoch 시각으로 바꾸지 않습니다. 인벤토리 진행률도 같은 소유권 분리를 따릅니다. 공유 패키지는 개수 전용 계약을 소유하고 Core만 추가 전용 원장을 기록하며, Operator는 `SELECT` 권한으로 허용 목록을 투영하고 Console은 Blob, 수집, 승격, 재시도, 승인 또는 실행 권한을 얻지 않습니다.
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, `cryptography`를 통한 로컬 JWT/JWK 암호학적 검증, 콜백 감사, 영속 결정 발신함을 소유합니다. Core 구현을 가져오거나 실행기 신원을 받지 않습니다.
 - **예측 원천 이력은 읽기 전용 재표현**: `core/detection/forecast_history_producer.py`는 양성 확인 지점이 있는 원천 읽기 결과 하나를 검토된 상태 매핑으로 `derived` 전이로 다시 표현합니다. `core/detection/forecast_history_chain.py`는 기록 순서와 무관한 상태 사슬을 만들고 저장된 구간과 비교하며, `core/detection/forecast_history_source.py`는 원천 Protocol을 정의합니다. Delivery 어댑터는 기존 소유자의 기록을 읽기 전용으로 읽고, `delivery/forecast_history_configuration.py`는 런타임 조립과 설정 행이 함께 쓰는 단일 파서입니다. 두 번째 작성자, 채점 권한, 실행 권한은 생기지 않습니다. 자세한 내용은 [예측 학습](../rules-and-detection/prediction-learning-and-case-history-ko.md)을 참고하세요.
+- **자동화 청사진 예약 의도는 Core가 소유하고 비활성 상태로 유지**: `core/scheduler/blueprints`는 검토된 시간대와 크기가 제한된 정규 페이로드를 검증하고 지문을 계산합니다. Delivery 영속 계층은 이 필드를 해석하지 않고 저장하며, 구체화는 계속 인증된 `CreateScheduledTaskCommand`를 거칩니다. 예약, principal, 기준선, 범위, 프로바이더 또는 실행 권한을 추가하지 않습니다. 자세한 내용은 [검토 가능한 자동화 청사진](../decisioning/automation-blueprints-ko.md)을 참고하세요.
 - **의미 판단 추적은 개발 채널 안에만 둠**: `shared/telemetry/decision_events.py`는 로컬 개발 진단 채널이 활성화된 경우에만 의미 해석 턴마다 크기가 제한된 수집기 하나를 연결합니다. `fdai_core_service/development_decisions.py`는 이 수집기, 턴의 모델 호출 관측, 결과를 내용이 없는 형식 단계로 바꿔 runtime-diagnostics 버퍼에 넘깁니다. 두 모듈 모두 의미 projection, 이벤트 계약, 계획 판단을 바꾸지 않습니다. 자세한 내용은 [의미 판단 추적](../deployment/developer-workflow-assurance-ko.md#의미-판단-추적)을 참고하세요.
   Core는 타입이 지정된 결정만 소비하며 워크플로 슬롯은 레지스트리로, 승인 대기 작업은 HIL 조정기 또는 정확한 사용자 접근 경로로 전달합니다. 활성 HIL 큐 조회는 `StateStore`에서 대기 중인 수명 주기 상태만 필터링합니다. 해결된 park와 추가 전용 감사 근거는 계속 보존되며 승인 경로에 다시 들어갈 수 없습니다. Core가 소유한 PostgreSQL 부분 인덱스는 승인 또는 보존 권한을 옮기지 않고 이 범위 제한 조회를 지원합니다. Core 조립 루트는 별도로 연결된 Bot Managed Identity를 Teams A1 전달에 사용하며 실행기 신원을 재사용하지 않습니다.
   [Slack A1 연결](../../../services/core-control-plane/src/fdai/delivery/chatops/slack_binding.py)은 Teams 신원 없이 조립 계층이 소유한 HTTP 클라이언트를 사용합니다. 로컬 전송 증적과 보류 상태의 조회는 아직 없는 영속 발송 조정이나 인증된 브라우저 행위자 결합을 대신할 수 없습니다. [채널과 알림](../interfaces/channels-and-notifications-ko.md)을 참조하세요.
@@ -886,8 +882,6 @@ FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_con
 
 ## 의존성 주입을 통한 커스터마이제이션
 
-`SecuredObjectSetQueryGateway(source_read_admission=...)`는 읽기 전후에 현재 원본을 확인할 수 있습니다. 배포 읽기나 쓰기는 연결하지 않았으며 [G02](../rules-and-detection/document-ontology-distillation-ko.md#g02-영속-통합-제안)의 별도 조건으로 남습니다.
-
 Var의 선택적 `CloudApplicationAuthorizationSource`는 별도 문서 데이터베이스에서 정확한 사람 정책 및 요청 입력을 읽습니다.
 API가 입력을 소유하고 Var가 권한을 확인하며 Saga가 감사하고 Muninn이 색인을 생성합니다. 워커는 같은 정책을 트랜잭션으로 보호합니다.
 수집원이 없으면 명시적 경로를 차단하며 수동 기본값이나 Thor 권한을 바꾸지 않습니다.
@@ -908,7 +902,7 @@ USD 가격, 신원/클라이언트 및 계측이 있을 때 검증된 기본 표
 사용자 주입을 보존하고 V-CLAIM/독립 검토를 영속적인 두 호출 예산에 결합합니다.
 전제조건이 없으면 보류하며 실시간 사실을 인증하거나 작업 및 패키지 권한을 부여할 수 없습니다.
 
-전체 경계 카탈로그와 구성 규칙은 [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)을 참조하세요.
+현재 원본의 읽기 허용 검사와 적용 승인을 거치는 타입 선택 구성을 포함한 전체 경계 카탈로그는 [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)을 참조하세요.
 Core 결과 핸들 저장소도 같은 규칙을 따릅니다. `ResultHandleStore`는 Core 조립에서 주입되며, 인메모리 로컬 구현과 PostgreSQL 구현은 암호화된 핸들 본문을 Core 소유로 유지하고 Operator에는 불투명 참조만 영속화하게 합니다. 해당 참조의 서수 후속 질문 바인딩은 기본적으로 꺼진 compiled-answer shadow 경로 안에 머물며 실행 권한을 추가하지 않습니다.
 Core `ModelEvidenceView` 빌더도 읽기 전용 대화 경계입니다. 적응형 모델 근거 읽기는 원시 조회 표,
 프로바이더 본문, 핸들 또는 보관된 스냅숏 셀이 아니라 허용 목록이 적용된 변환 결과만 받습니다.

@@ -8,10 +8,12 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fdai.core.scheduler.models import ScheduledRunIsolationProfile
 
 _SAFE_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,255}$")
+_SYSTEM_PAYLOAD_KEYS = frozenset({"automation_blueprint_id", "delivery_intent", "shadow_only"})
 
 
 class BlueprintEvidenceSource(StrEnum):
@@ -48,6 +50,8 @@ class AutomationBlueprintEvidence:
     outcome: BlueprintOutcome
     source: BlueprintEvidenceSource
     occurred_at: datetime
+    schedule_timezone: str = "UTC"
+    event_payload_json: str = "{}"
     estimated_cost_microusd: int = 0
     unresolved_failure: bool = False
 
@@ -70,6 +74,12 @@ class AutomationBlueprintEvidence:
             raise ValueError("blueprint evidence required_tools MUST be safe identifiers")
         if self.occurred_at.tzinfo is None:
             raise ValueError("blueprint evidence occurred_at MUST include timezone")
+        _validate_timezone(self.schedule_timezone)
+        object.__setattr__(
+            self,
+            "event_payload_json",
+            _canonical_payload(self.event_payload_json, label="blueprint evidence"),
+        )
         if self.estimated_cost_microusd < 0:
             raise ValueError("blueprint evidence cost MUST be non-negative")
 
@@ -95,6 +105,8 @@ class AutomationBlueprintEvidence:
                 "isolation_profile": self.isolation_profile.profile_id,
                 "required_tools": sorted(self.required_tools),
                 "schedule_expression": self.schedule_expression,
+                "schedule_timezone": self.schedule_timezone,
+                "event_payload_json": self.event_payload_json,
             }
         )
 
@@ -118,6 +130,8 @@ class AutomationBlueprintCandidate:
     confidence: float
     created_at: datetime
     expires_at: datetime
+    schedule_timezone: str = "UTC"
+    event_payload_json: str = "{}"
     state: AutomationBlueprintState = AutomationBlueprintState.DRAFT
     enabled: bool = False
     shadow_only: bool = True
@@ -140,6 +154,12 @@ class AutomationBlueprintCandidate:
             raise ValueError("blueprint timestamps MUST include timezone")
         if self.expires_at <= self.created_at:
             raise ValueError("blueprint expiry MUST follow creation")
+        _validate_timezone(self.schedule_timezone)
+        object.__setattr__(
+            self,
+            "event_payload_json",
+            _canonical_payload(self.event_payload_json, label="blueprint candidate"),
+        )
         if self.enabled or not self.shadow_only or self.mutation_tool_ids:
             raise ValueError(
                 "blueprint candidates MUST be disabled shadow-only with zero mutation tools"
@@ -153,6 +173,39 @@ class AutomationBlueprintCandidate:
 def _bounded_text(label: str, value: str, maximum: int) -> None:
     if not value.strip() or len(value) > maximum or any(ord(character) < 32 for character in value):
         raise ValueError(f"blueprint evidence {label} MUST be bounded printable text")
+
+
+def _validate_timezone(value: str) -> None:
+    try:
+        ZoneInfo(value)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError("blueprint schedule_timezone MUST be a valid IANA timezone") from exc
+
+
+def _canonical_payload(value: str, *, label: str) -> str:
+    if len(value) > 16_384:
+        raise ValueError(f"{label} event payload MUST be at most 16384 characters")
+    try:
+        decoded = json.loads(value)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ValueError(f"{label} event payload MUST be valid JSON") from exc
+    if not isinstance(decoded, dict):
+        raise ValueError(f"{label} event payload MUST be a JSON object")
+    reserved = _SYSTEM_PAYLOAD_KEYS.intersection(decoded)
+    if reserved:
+        raise ValueError(
+            f"{label} event payload MUST NOT define system keys: {', '.join(sorted(reserved))}"
+        )
+    try:
+        return json.dumps(
+            decoded,
+            allow_nan=False,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{label} event payload MUST contain canonical JSON") from exc
 
 
 def _digest(value: dict[str, object]) -> str:

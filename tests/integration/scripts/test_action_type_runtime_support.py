@@ -49,14 +49,29 @@ def test_shipped_manifest_covers_the_catalog(checker: ModuleType) -> None:
     assert checker.main(["--root", str(REPO_ROOT)]) == 0
 
 
-def test_current_catalog_baseline_has_55_explicit_rows(
+def test_current_catalog_baseline_has_56_explicit_rows(
     checker: ModuleType,
     manifest: dict[str, Any],
 ) -> None:
     catalog = checker._load_catalog(REPO_ROOT, manifest["catalog_root"])
 
-    assert len(catalog) == 55
+    assert len(catalog) == 56
     assert set(manifest["actions"]) == set(catalog)
+
+
+def test_typed_selection_read_is_conditional_without_installed_effect_evidence(
+    manifest: dict[str, Any],
+) -> None:
+    action = manifest["actions"]["governance.promote-typed-selection-read@1.0.0"]
+    assert action["bindings"] == {
+        "core-typed-selection-read-promotion": "typed-selection-read-direct"
+    }
+    binding = manifest["bindings"]["core-typed-selection-read-promotion"]
+    assert binding["route_status"] == "conditional"
+    assert binding["mode_support"] == {"shadow": "conditional", "enforce": "conditional"}
+    support = manifest["support_profiles"]["typed-selection-read-direct"]
+    assert support["evidence"]["level"] == "focused_tests"
+    assert support["effect_observation"] == {"status": "missing", "refs": []}
 
 
 def test_alert_actions_are_explicitly_unsupported_without_provider_adapter(

@@ -35,6 +35,10 @@ An approved label, model name, dispatched request or old success receipt cannot 
 Revocation or regression lowers authority through Vidar. An old promotion cannot cross the higher
 revision fence or reuse a withdrawn qualification.
 
+Model proposals, notification delivery and reporting relationships cannot approve or activate
+this read. The runtime-support manifest records conditional source wiring, not installed effect
+evidence; this path adds no channel, recipient, notification authority or live-channel claim.
+
 ## Selected A execution boundary
 
 The production Function-node handler prepares read evidence before invoking the ordinary registry.

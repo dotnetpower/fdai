@@ -103,6 +103,23 @@
         "symbol": "PROMOTION_ACTION_TYPE"
       }
     },
+    "core-typed-selection-read-promotion": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "An independently admitted exact typed-selection qualification and a persistent registry must be bound.",
+        "Current exact Var approval, the existing Forseti/Thor/Saga lifecycle and Vidar recovery remain required; missing qualification leaves the read disabled."
+      ],
+      "source_assertion": {
+        "kind": "constant_value",
+        "path": "services/core-control-plane/src/fdai/core/ontology_platform/typed_selection_contracts.py",
+        "symbol": "READ_PROMOTION_ACTION"
+      }
+    },
     "core-override-action-promotion": {
       "runtime_surface": "core",
       "route_status": "conditional",
@@ -521,6 +538,29 @@
         ]
       }
     },
+    "typed-selection-read-direct": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "missing",
+        "refs": []
+      },
+      "recovery": {
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/runtime/typed_selection_read_lifecycle.py"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/catalog_search/test_governed_typed_selection_read.py"
+          }
+        ]
+      }
+    },
     "human-access-apply-shadow": {
       "delivery_status": "shadow_only",
       "effect_observation": {
@@ -715,6 +755,12 @@
         "core-action-promotion": "promotion-direct"
       },
       "note": "Direct promotion is conditional on a durable registry and independently admitted approval evidence."
+    },
+    "governance.promote-typed-selection-read@1.0.0": {
+      "bindings": {
+        "core-typed-selection-read-promotion": "typed-selection-read-direct"
+      },
+      "note": "Source-wired exact read promotion remains conditional on independent qualification, finalized human approval and existing fixed-role safeguards; no installed or live quality evidence is claimed."
     },
     "governance.promote-effect-model@1.0.0": {
       "bindings": {
