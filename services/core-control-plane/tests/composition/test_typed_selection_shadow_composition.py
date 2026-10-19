@@ -50,13 +50,21 @@ async def _compose(
     *,
     environment: dict[str, str] | None = None,
     capability: _Capability | None = None,
+    target: ModelRequestTarget | None = _TARGET,
     config_path: Path = _CONFIG,
 ) -> module.TypedSelectionShadowComposition:
     monkeypatch.setattr(module, "resolved_models_for_binding", lambda _container: object())
     monkeypatch.setattr(
         module, "_capability", lambda *_args, **_kwargs: capability or _Capability()
     )
-    monkeypatch.setattr(module, "t2_model_targets", lambda *_args, **_kwargs: (_TARGET,))
+
+    def target_for_capability(
+        _resolved: object, capability_id: str, **_kwargs: object
+    ) -> ModelRequestTarget | None:
+        assert capability_id == "t2.ontology.council.alpha"
+        return target
+
+    monkeypatch.setattr(module, "model_target_for_capability", target_for_capability)
     async with httpx.AsyncClient() as http:
         return compose_typed_selection_shadow(
             container=_container(),
@@ -100,6 +108,15 @@ async def test_unqualified_model_is_not_bound(
     assert result.reason == "typed_selection_shadow_model_not_qualified"
 
 
+async def test_unqualified_target_is_not_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    result = await _compose(
+        monkeypatch,
+        target=replace(_TARGET, model_family="other"),
+    )
+    assert result.binding is None
+    assert result.reason == "typed_selection_shadow_model_not_qualified"
+
+
 async def test_changed_prompt_pin_is_not_bound(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -124,7 +141,13 @@ async def test_policy_that_grants_authority_is_rejected(
 
 def test_pin_matches_the_recorded_qualification_identity() -> None:
     pin = TypedSelectionShadowPin.load(_CONFIG)
-    assert (pin.model_family, pin.model_version, pin.reasoning_effort) == (
+    assert (
+        pin.model_capability,
+        pin.model_family,
+        pin.model_version,
+        pin.reasoning_effort,
+    ) == (
+        "t2.ontology.council.alpha",
         "gpt-5.6-sol",
         "2026-07-09",
         "low",

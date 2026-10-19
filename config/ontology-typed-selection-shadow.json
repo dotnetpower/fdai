@@ -6,7 +6,7 @@
   "qualification": {
     "protocol_id": "agreement-gated-pooled-qualification.v1",
     "source_commit": "b1ac82a6b18ccc9700098c337235619e5becc7f1",
-    "model_capability": "t2.reasoner.primary",
+    "model_capability": "t2.ontology.council.alpha",
     "model_family": "gpt-5.6-sol",
     "model_version": "2026-07-09",
     "prompt_profile_id": "diagnostic.ontology-candidate-selection",

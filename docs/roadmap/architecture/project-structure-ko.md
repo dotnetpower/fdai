@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 52787d2160e1aafbd5d43fd3b12a4efe6bffdd82
+translation_source_sha: 5ef536cd91cc9752a892adf6ac38b0613568bf0f
 translation_revised: 2026-10-20
 ---
 # 프로젝트 구조
@@ -410,8 +410,10 @@ Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡
 상태 수집의 승격을 함께 소유하므로, 검토 결정과 계획되는 계열이 서로 어긋날 수 없습니다.
 `composition/typed_selection_shadow.py`는 `FDAI_ONTOLOGY_TYPED_SELECTION_SHADOW=enabled`일 때만
 타입 인스턴스 선택 `shadow` 제안기를 결속합니다. 이 모듈은 `config/ontology-typed-selection-shadow.json`에
-고정된 검증 모델, 프롬프트, 예산과 같은 파일의 데이터 처리 정책만 받아들이며, 하나라도 다르면 타입
-사유를 반환합니다. 이 모듈이 공급하는 관찰기는 답변을 바꾸지 않으며 권한을 부여하지 않습니다.
+고정된 검증 모델, 프롬프트, 예산과 같은 파일의 데이터 처리 정책만 받아들입니다. pin이 지정한 정확한
+레지스트리 capability의 대상을 확인하고 다른 T2 대상을 대신 사용하지 않으며, capability의 family/version
+또는 대상 family가 달라지면 거부합니다. 이 모듈이 공급하는 관찰기는 답변을 바꾸지 않으며 권한을 부여하지
+않습니다.
 
 **초기 설계.** 모든 평면 Core 하위 시스템을 `pipeline`, `incident`, `operator`, `knowledge`
 또는 `platform` 아래로 실제 이동한 뒤 한 번의 코드 변경 도구로 모든 가져오기를 다시 작성합니다.

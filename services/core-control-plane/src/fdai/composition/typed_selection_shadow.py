@@ -33,7 +33,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 from ._helpers import Container
 from .resolved_models import _capability
 from .resolved_models_revision import resolved_models_for_binding
-from .semantic_query_model_targets import t2_model_targets
+from .semantic_query_model_targets import model_target_for_capability
 
 SHADOW_ENABLE_ENV = "FDAI_ONTOLOGY_TYPED_SELECTION_SHADOW"
 SHADOW_CONFIG_RELATIVE_PATH = Path("config/ontology-typed-selection-shadow.json")
@@ -123,19 +123,20 @@ def compose_typed_selection_shadow(
     capability = _capability(
         resolved, pin.model_capability, held_capabilities=container.held_model_capabilities
     )
-    targets = t2_model_targets(
+    target = model_target_for_capability(
         resolved,
+        pin.model_capability,
         endpoint=endpoint,
         endpoint_resolver=endpoint_resolver,
         held_capabilities=container.held_model_capabilities,
     )
-    if capability is None or not targets:
+    if capability is None or target is None:
         return TypedSelectionShadowComposition(None, "typed_selection_shadow_target_unavailable")
-    if not capability_matches_pin(pin, capability):
+    if not capability_matches_pin(pin, capability) or target.model_family != pin.model_family:
         return TypedSelectionShadowComposition(None, "typed_selection_shadow_model_not_qualified")
     return bind_qualified_proposer(
         pin,
-        target=targets[0],
+        target=target,
         identity=identity,
         http_client=http_client,
         catalog_root=catalog_root,

@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 3338efe0eb1d27a04cc091e63507e71d57ecf267
-translation_revised: 2026-10-19
+translation_source_sha: 1b47c17dc18c82f6181b1b0fe85d1d09f86c4447
+translation_revised: 2026-10-20
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -17,7 +17,10 @@ translation_revised: 2026-10-19
 [적용 승인을 거치는 타입 선택 읽기](../interfaces/governed-typed-selection-read-ko.md)는
 현재 모델 구성과 Function 전 근거 결속을 전용 구성 모듈로 분리합니다. 호스팅된 추론은
 결정적 Function 실행기 밖에 두고 레지스트리, 적격성, 정확한 사람 승인 검사를 유지합니다.
-이 연결은 활성화나 실행 권한을 부여하지 않으며 다른 시작 기능도 바꾸지 않습니다.
+이 연결은 활성화나 실행 권한을 부여하지 않으며 다른 시작 기능도 바꾸지 않습니다. shadow
+pin은 적격성이 확인된 정확한 레지스트리 capability를 지정합니다. 구성은 동일한 capability의
+데이터 평면 대상을 확인하고 capability의 family/version 또는 연결된 대상의 family가 달라지면
+거부하며, 첫 번째 일반 T2 대상을 대신 사용하지 않습니다.
 
 대화 종합은 선택적인 `LlmBindings.conversation_synthesis_verifier` 주입 경계를 사용합니다.
 Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달합니다. `fdai.agents`의

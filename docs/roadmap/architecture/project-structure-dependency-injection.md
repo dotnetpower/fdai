@@ -12,7 +12,10 @@ The [governed typed-selection read](../interfaces/governed-typed-selection-read.
 current-model composition and pre-Function evidence binder into dedicated existing composition
 owners. Hosted inference stays outside the deterministic Function runner; registry, qualification
 and exact human-approval checks remain authoritative. This wiring grants no activation or execution
-authority and does not change other startup capabilities.
+authority and does not change other startup capabilities. Its shadow pin names the exact registry
+capability that was qualified. Composition resolves the data-plane target for that same capability
+and rejects capability family/version or bound-target family drift; it never borrows the first
+generic T2 target.
 
 Conversational synthesis uses the optional `LlmBindings.conversation_synthesis_verifier` seam.
 Core bootstrap forwards it to Bragi's read-only deliberator. Implement
