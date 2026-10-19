@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime
 from functools import partial
@@ -50,6 +50,7 @@ from fdai.delivery.azure.llm.model_trace import (
     prepare_model_messages,
     start_model_trace,
 )
+from fdai.delivery.azure.llm.semantic_candidate_proposal import CandidateProposalDiagnostics
 from fdai.delivery.azure.llm.semantic_planning_bounds import bounded_input
 from fdai.delivery.azure.llm.semantic_planning_config import (
     MAX_SYSTEM_PROMPT_CHARS as _MAX_SYSTEM_PROMPT_CHARS,
@@ -83,22 +84,15 @@ from fdai.delivery.catalog_search.ontology_candidate_context import (
     CandidateContextError,
     CandidateContextLimits,
     CandidateProposalContext,
-    restore_candidate_proposal_context,
 )
 from fdai.delivery.catalog_search.ontology_candidate_proposal import (
     OntologyCandidateModelBinding,
     OntologyCandidateProposal,
     OntologyCandidateProposalResult,
-    candidate_proposal_payload,
-    filter_candidate_proposal_quotes,
 )
-from fdai.delivery.catalog_search.ontology_candidate_selection import OntologyCandidateSelection
 from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyStagedProjection
 from fdai.delivery.catalog_search.ontology_snapshot_validation import OntologySnapshotValidation
 from fdai.shared.providers.workload_identity import WorkloadIdentity
-
-# Bounded with OntologySemanticEvaluationBudget: one typed-selection call never exceeds 20 s.
-_CANDIDATE_PROPOSAL_MAX_TIMEOUT_SECONDS = 20
 
 _LOGGER = logging.getLogger(__name__)
 _MAX_DESCRIPTORS = 512
@@ -169,18 +163,13 @@ class AzureOpenAISemanticPlanningModel:
         staged: OntologyStagedProjection,
     ) -> OntologyCandidateProposalResult:
         """One diagnostic proposal, without fallback, repair or activation authority."""
-        return await self._propose_candidate_payload(
+        return await CandidateProposalDiagnostics(
+            config=self._config, owner_loop=self._owner_loop, complete=self._complete_async
+        ).propose_candidate_selection(
             query=query,
             manifest=manifest,
             build=build,
             staged=staged,
-            payload_factory=partial(
-                candidate_proposal_payload,
-                query=query,
-                manifest=manifest,
-                build=build,
-                staged=staged,
-            ),
         )
 
     async def propose_prepared_candidate_selection(
@@ -201,99 +190,19 @@ class AzureOpenAISemanticPlanningModel:
         Preparation is not a token-budget override. The exact configured model binding and
         current source must still match, and every fragment is restored before any model call.
         """
-        prompt = self._config.plan_prompt_manifest
-        if (
-            prompt is None
-            or prompt.request_token_budget is None
-            or prompt.system_token_budget is None
-            or prompt.reserved_output_tokens is None
-        ):
-            raise CandidateContextError("invalid_source")
-
-        def payload_factory() -> dict[str, object]:
-            payload = restore_candidate_proposal_context(
-                context,
-                query=query,
-                manifest=manifest,
-                build=build,
-                staged=staged,
-                source_revision=source_revision,
-                model_binding=self.candidate_proposal_binding_for_manifest(manifest, build),
-                data_handling_policy_digest=data_handling_policy_digest,
-                source_validation=source_validation,
-                limits=limits,
-            )
-            payload["input_digest"] = context.context_digest
-            return payload
-
-        return await self._propose_candidate_payload(
+        return await CandidateProposalDiagnostics(
+            config=self._config, owner_loop=self._owner_loop, complete=self._complete_async
+        ).propose_prepared_candidate_selection(
+            context=context,
             query=query,
             manifest=manifest,
             build=build,
             staged=staged,
-            payload_factory=payload_factory,
-            operation="candidate_selection_prepared",
+            source_revision=source_revision,
+            data_handling_policy_digest=data_handling_policy_digest,
+            source_validation=source_validation,
+            limits=limits,
         )
-
-    async def _propose_candidate_payload(
-        self,
-        *,
-        query: str,
-        manifest: QueryManifest,
-        build: SemanticGenerationBuild,
-        staged: OntologyStagedProjection,
-        payload_factory: Callable[[], dict[str, object]],
-        operation: str = "candidate_selection",
-    ) -> OntologyCandidateProposalResult:
-        if asyncio.get_running_loop() is not self._owner_loop:
-            raise ValueError("candidate proposal must run on the model owner loop")
-        if (
-            len(self._config.candidates) != 1
-            or self._config.timeout_seconds > _CANDIDATE_PROPOSAL_MAX_TIMEOUT_SECONDS
-            or self._config.plan_prompt_manifest is None
-            or self._config.plan_prompt_manifest.profile_id
-            != "diagnostic.ontology-candidate-selection"
-        ):
-            raise ValueError("candidate proposal requires one bounded target and diagnostic prompt")
-        deadline = asyncio.get_running_loop().time() + self._config.timeout_seconds
-        async with asyncio.timeout(self._config.timeout_seconds):
-            payload = payload_factory()
-            if asyncio.get_running_loop().time() >= deadline:
-                raise TimeoutError("candidate proposal deadline exceeded before dispatch")
-            response = await self._complete_async(
-                payload=payload,
-                prompt=self._config.plan_system_prompt,
-                proposal_type=OntologyCandidateProposal,
-                operation=operation,
-                manifest=self._config.plan_prompt_manifest,
-                query_manifest=manifest,
-                build=build,
-                max_attempts=1,
-            )
-            if asyncio.get_running_loop().time() >= deadline:
-                raise TimeoutError("candidate proposal deadline exceeded after return")
-            if not isinstance(response, SemanticPlanningModelResponse):
-                raise ValueError("candidate proposal model unavailable")
-            proposal, quote_invalid_clauses = filter_candidate_proposal_quotes(
-                query,
-                OntologyCandidateProposal.model_validate(response.proposal),
-            )
-            result = OntologyCandidateProposalResult(
-                proposal=proposal,
-                selection=(
-                    OntologyCandidateSelection.bind(
-                        query=query, manifest=manifest, staged=staged, clauses=proposal.clauses
-                    )
-                    if proposal.status == "select"
-                    else None
-                ),
-                input_digest=str(payload["input_digest"]),
-                observation=response.observation,
-                quote_invalid_clauses=quote_invalid_clauses,
-            )
-            if asyncio.get_running_loop().time() >= deadline:
-                raise TimeoutError("candidate proposal deadline exceeded before publication")
-            return result
 
     def propose_frame(
         self,

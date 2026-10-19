@@ -637,6 +637,8 @@ Durable instance search must not reuse Rule `active` or `discovery` pointers. Th
 
 | 2026-10-19 | implemented | Integrated the prepared package into the existing actual diagnostic proposer through a separately selected complete-input entry point for bounded task #2267. Retained existing provider enum limits, finite configured prompt budgets, one attempt, explicit clarification/failure, and disabled runtime composition. | Current change: `services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py` and actual mocked-HTTP integration in `services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_context.py`; 169 focused tests pass, Ruff and three-source-file mypy checks pass. | The 500-total-enum diagnostic schema limit, qualified model context budget, larger complete membership, enforced-answer contract, persistent promotion/demotion and live evidence remain open under #2034 / G03. |
 
+| 2026-10-19 | implemented | Delivery preflight repaired its own enforced file-size regression by extracting the diagnostic implementation into a dedicated mechanical helper; public entry points, model binding, limits and authority are unchanged. | Current change: `services/core-control-plane/src/fdai/delivery/azure/llm/semantic_candidate_proposal.py`, delegating `semantic_planning.py`, paired owner updates; 169 focused tests pass, `FILE_LOC_MODE=enforce bash scripts/quality/architecture/check-file-loc.sh` and `SUBSYSTEM_FANOUT_MODE=enforce bash scripts/quality/architecture/check-subsystem-fanout.sh` pass. The worktree's own locked dev environment was restored only after reproducing missing PyYAML; the real derived-source check then passed without source-pin edits or regeneration. | Full G03 and the schema, membership, model qualification, answer and persistent-governance gates remain open. |
+
 #### G03 local prerequisite validation and critique
 
 This evidence covers only local synthetic preparation and secured membership. No deployment,
@@ -653,7 +655,10 @@ No document-distillation or G02 files are part of this change.
 Task #2267 under #2034 extends this prerequisite into an explicit actual diagnostic-adapter
 consumer. The fourth Python path is
 `services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py`.
-Together with the three owner/ledger paths above, the delivered change has exactly seven paths.
+Delivery preflight also adds
+`services/core-control-plane/src/fdai/delivery/azure/llm/semantic_candidate_proposal.py`,
+the mechanical implementation behind the unchanged public entry points. Together with the three
+owner/ledger paths above, the delivered change has exactly eight paths.
 No foreground or detached-shadow runtime is wired to the new entry point.
 
 The focused test command uses the existing locked environment. Its coverage output is a private
@@ -678,19 +683,21 @@ Every package explicitly retains `authority=transport_only` and `execution_autho
 Final result with those follow-ups:
 **169 passed; 96.79% branch-aware transport-module coverage**, including actual diagnostic
 HTTP-mocked integration and unchanged legacy frame/plan, candidate and shadow paths. No test is
-skipped. Ruff lint and formatting passed for all four task-owned Python files. The source typing
+skipped. Ruff lint and formatting passed for the task-owned Python files. The source typing
 command
-`uv run --no-sync mypy --follow-imports=silent services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_context.py services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_proposal.py`
-passed with no issues in three source files.
+`uv run --no-sync mypy --follow-imports=silent services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py services/core-control-plane/src/fdai/delivery/azure/llm/semantic_candidate_proposal.py services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_context.py services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_proposal.py`
+checks the four source files.
 
 ```bash
 uv run --no-sync ruff format \
   services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py \
+  services/core-control-plane/src/fdai/delivery/azure/llm/semantic_candidate_proposal.py \
   services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_context.py \
   services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_proposal.py \
   services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_context.py
 uv run --no-sync ruff check \
   services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py \
+  services/core-control-plane/src/fdai/delivery/azure/llm/semantic_candidate_proposal.py \
   services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_context.py \
   services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_proposal.py \
   services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_context.py
@@ -713,6 +720,7 @@ uses the existing locked environment with no dependency changes. No repository-w
 | 10 | Content-free typed failure checks, frozen-record round trip, forged-authority rejection, explicit task scope, and the remaining gates below. | The package is explicitly transport-only with no execution authority. No approval, live window, effect verification, or enforced-answer success is fabricated. |
 | 11 | Actual adapter integration with a complete 300-instance source, model clarification, budget failure, model-binding change, corrupt transport and provider 503. | Full input reaches exactly one mocked HTTP request and all 300 secured memberships verify. Budget/drift/corruption make zero requests; clarification remains explicit; a provider failure never retries or becomes empty membership. |
 | 12 | Actual binding of the complete 600-instance source fails the existing structured-output enum guard. | Preserve the provider's 500-total-enum limit and record it as an unresolved scale contract, not a reason to drop identities or weaken validation. The prepared transport does not close scale or full G03. |
+| 13 | Delivery's explicit enforced file-size gate found the expanded planning adapter at 885 LOC, above 800. | Extract the diagnostic implementation into `semantic_candidate_proposal.py` behind the same public entry points. The 169 focused tests, enforced file-size gate and enforced subsystem-fanout gate pass without adding an exemption or changing a threshold. |
 
 ### Remaining work
 

@@ -652,6 +652,12 @@ a promise of 500 usable instances. No enum is removed, shortened, or weakened he
 qualification, that reviewed schema-scale limitation, the 1,000-row membership bound, persistent
 governance, and full G03 remain open. The bounded delivered task is #2267 under #2034.
 
+The adapter's public diagnostic entry points delegate to the mechanical
+`delivery/azure/llm/semantic_candidate_proposal.py` implementation. This keeps the existing
+planning facade within the enforced file-size limit without changing the source checks, configured
+model binding, timeout, request budget, or single-attempt HTTP path. The helper is created for each
+invocation and does not own agent state, runtime composition, promotion, or execution authority.
+
 **Pre-registered runtime protocols.** These protocols were fixed before the live campaign that
 judges them, and changing a value requires a new protocol id. The private driver
 `scripts/evaluation/typed_selection_runtime_campaign.py` runs the exact runtime path:
