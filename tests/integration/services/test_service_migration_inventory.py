@@ -97,6 +97,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     future_tables = set(manifest.table_migrators) - tables
     assert tables <= set(manifest.table_migrators)
     assert future_tables == {
+        "document_intent_envelope",
         "document_intent_projection",
         "document_intent_transition",
         "document_intent_resource",

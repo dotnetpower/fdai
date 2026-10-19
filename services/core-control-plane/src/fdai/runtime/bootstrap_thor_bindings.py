@@ -10,6 +10,7 @@ from fdai.agents import CompositeThorPreflightSimulator, ThorPreflightSimulator
 from fdai.agents.vidar import RollbackExecutor
 from fdai.core.ontology_platform.typed_selection_contracts import READ_PROMOTION_ACTION
 from fdai.delivery.persistence.state_store_typed_selection_read import StateStoreTypedSelectionRead
+from fdai.delivery.typed_selection_read_governance import READ_QUALIFIED_EVENT
 from fdai.runtime.aks_commerce import AcceptanceRuntimeBindings
 from fdai.runtime.t2_route_registry import T2RoutePreflightSimulator, T2RouteRegistry
 from fdai.runtime.typed_selection_read_lifecycle import (
@@ -130,8 +131,18 @@ def build_typed_read_execution_bindings(
     )
 
 
+def typed_read_anomaly_sources(
+    acceptance: AcceptanceRuntimeBindings | None,
+    lifecycle: TypedReadLifecycle,
+) -> dict[str, Any]:
+    sources = dict(acceptance.sources if acceptance is not None else {})
+    sources[READ_QUALIFIED_EVENT] = lifecycle
+    return sources
+
+
 __all__ = [
     "ThorExecutionBindings",
     "build_thor_execution_bindings",
     "build_typed_read_execution_bindings",
+    "typed_read_anomaly_sources",
 ]

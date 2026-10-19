@@ -30,6 +30,9 @@ from fdai_document_worker_service.adapters.activity import PostgresDocumentActiv
 from fdai_document_worker_service.adapters.cloud_index_verification import (
     PostgresCloudIndexVerifier,
 )
+from fdai_document_worker_service.adapters.declared_intent import (
+    PostgresDeclaredIntentEnvelopeConsumer,
+)
 from fdai_document_worker_service.adapters.event_bus import (
     EventHubsKafkaBus,
     EventHubsKafkaConfig,
@@ -372,6 +375,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             backup_blocked=_truthy(env.get("FDAI_DOCUMENT_BACKUP_PURGE_BLOCKED", "")),
         ),
         consumers=(
+            PostgresDeclaredIntentEnvelopeConsumer(dsn=dsn),
             HandoverBootstrapConsumer(
                 directory=(
                     GraphPersonDirectory(

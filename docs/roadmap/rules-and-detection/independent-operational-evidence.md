@@ -8,6 +8,10 @@ context, forecast intervention history, and case-history reuse. A separate read-
 each authoritative source under its own identity and issues content-free proofs, while the existing boundary
 owners keep consuming them through the unchanged admission seam.
 
+The content-free document ready event and worker-owned intent envelope are source inputs, not
+independent operational evidence. Exact-diff review and readback cannot satisfy intervention,
+recurrence, or effect-verification evidence.
+
 Source-only corpus regeneration does not issue [typed-selection read qualification](../interfaces/governed-typed-selection-read.md); independent admission still checks the exact source, model and scope binding.
 
 > **Status:** Partially implemented. The owner reviewed the design for exit criterion 1 of

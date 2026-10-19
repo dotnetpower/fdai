@@ -7,9 +7,12 @@ This design owns the bounded approved-document intent namespace for #2256 G02 an
 #2268. It connects normalized governed envelopes to independent exact-diff approval, persistent
 ontology records, current source-aware queries, and recovery.
 
-> **Implemented boundary:** The Core SDK and typed agent flow support explicit machine-authored
-> `BusinessService` intent records. Synthetic provider/directory input is tested with actual
-> PostgreSQL and owning agents. This is not raw upload/Console E2E or deployment qualification.
+> **Implemented boundary:** The standard worker retains an exact normalized machine-authored
+> `BusinessService` envelope in worker-owned PostgreSQL before readiness. Its existing
+> content-free `document.ready` event lets standard Core bootstrap re-read the private envelope,
+> revalidate current source and identity, and open the existing exact-diff review flow. Synthetic
+> provider/directory input is tested with actual PostgreSQL and owning agents. This is not
+> authenticated Console E2E, a qualified production corpus, or deployment qualification.
 >
 > **Authority boundary:** Intent is not provider truth, telemetry, policy, or execution permission.
 > No new agent, execution identity, ActionType, authority registry, or provider mutation is added.
@@ -21,6 +24,11 @@ The private namespace uses the pinned `BusinessService` declaration and existing
 ObjectSet query contract. Its rows never enter common `ontology_resource` observation storage.
 Authority remains the API-owned source and Var's existing durable approval. New SQL tables contain
 provenance, an outbox, and a source-owned read model, not an alternative authority registry.
+The worker-owned `document_intent_envelope` table retains normalized source bytes; Core can read one
+exact document/version only through `fdai_document_intent_envelope`. The public lifecycle event
+contains identity, revision, purpose and digest fields, never the document body or proposed values.
+Worker index cleanup deletes the private envelope in the same transaction as search chunks, and the
+authoritative purge receipt counts any retained envelope as a blocking cache entry.
 
 | Stage | Owner | Existing topic |
 |-------|-------|----------------|
@@ -92,14 +100,19 @@ Over-bound, incomplete, changed, expired, or inaccessible sets return unavailabl
 a silently partial count. Generation names start with `document-intent:`. The private adapter
 rejects writes. A restarted reader reauthorizes instead of trusting a retained approval or result.
 
-The command boundary starts at an already governed `DocumentEnvelope`. Automatic Ingestion
-API/worker routing, protected review UI, common graph/query-manifest exposure, and source-aware
-cached-result reuse outside this private namespace are not implemented. Do not claim an uploaded
-raw file is queryable through ordinary Console or conversation. Deployment, live corpus/model
+The standard worker consumer recognizes only the exact machine `kind` after bounded extraction,
+validates the closed properties contract, and stores the envelope idempotently. Ordinary prose and
+other kinds remain unchanged. Core consumes the existing ready event in a separate at-least-once
+group, ignores documents without a staged typed envelope, and dead-letters mismatched ready facts.
+The normal Pantheon bootstrap supplies the same runtime repository and default payload validator;
+its task supervisor stops and drains this ingress with other required consumers.
+The existing `document.deleted` fact replays the applied source through independent readback and
+Vidar rollback. A missing or mismatched source cannot silently remain queryable.
+
+Protected review UI, common graph/query-manifest exposure, and source-aware cached-result reuse
+outside this private namespace are not implemented. Do not claim an uploaded raw file is queryable
+through ordinary Console or conversation. Deployment, authenticated E2E, live corpus/model
 evidence, elapsed observation, and promotion remain separate gates.
-`PantheonRuntime.build(document_intent=...)` is exercised with its actual default validator and
-local broker in the PostgreSQL test. Normal process bootstrap does not supply this optional
-binding, so this evidence does not establish an active installation capability.
 
 ## Related docs
 

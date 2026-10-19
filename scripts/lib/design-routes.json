@@ -1121,7 +1121,16 @@
         "services/core-control-plane/src/fdai/agents/_framework/var_document_intent.py",
         "services/core-control-plane/src/fdai/delivery/persistence/postgres_document_intent*.py",
         "services/core-control-plane/src/fdai/runtime/document_intent.py",
+        "services/core-control-plane/src/fdai/delivery/document_intent_ingress.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_core.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_core_model.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_pantheon.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_pantheon_models.py",
+        "services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py",
+        "services/document-processing-worker/src/fdai_document_worker_service/adapters/declared_intent.py",
+        "services/document-processing-worker/src/fdai_document_worker_service/production.py",
         "service-migrations/branches/core-control-plane/versions/20261019_core_document_intent.py",
+        "service-migrations/branches/document-processing-worker/versions/20261020_document_intent_envelope.py",
         "tests/integration/services/test_document_intent_postgres.py"
       ],
       "must_read": [

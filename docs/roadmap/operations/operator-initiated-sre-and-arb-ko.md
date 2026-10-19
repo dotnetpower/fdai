@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: c7d8f7142e0823e3654615dd8e1d60ea815c5036
-translation_revised: 2026-10-18
+translation_source_sha: b712278a1fb60d058e18a73adea4c7ca4ca48316
+translation_revised: 2026-10-20
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -13,6 +13,8 @@ Operator post-turn review 발행은 projection 이후 완료된 semantic turn만
 거버넌스가 적용되는 인시던트 대응으로 전환하는 방법, 아키텍처 검토 Board(ARB)
 프로세스를 관찰 가능한 작업 흐름으로 실행하는 방법을 정의합니다. 또한 로컬 환경과 배포
 환경에서 shadow 및 강제 적용 작업에 적용되는 안전 경계를 정의합니다. 소비자는 타입이 지정된 제안 claim을 목적별 영속 모델 소유자에서 가져오며 인시던트 수명 주기 소유권은 바뀌지 않습니다.
+Core task 감독은 실제 PostgreSQL과 신원 전제 조건이 있을 때 독립 문서 의도 준비 소비자도
+시작합니다. 이 소비자는 인시던트를 만들거나 ARB에 진입할 수 없습니다.
 완전한 ORR 자세/보고 쌍이 활성화되면 Core 부트스트랩은 활성 온톨로지 릴리스와
 활성 Rule 선언에서 교정 게시자 및 레버 쌍을 만듭니다. 두 신원 중 하나라도
 불완전하면 연결은 사용할 수 없는 상태로 유지됩니다. 이 기계적 선택은 Incident를

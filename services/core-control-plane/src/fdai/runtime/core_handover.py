@@ -46,6 +46,7 @@ class CoreHandoverServices:
     goals: HandoverGoalService
     admission: PostgresCoreHandoverReview
     source: PostgresHandoverSourceReader
+    identities: CurrentHandoverIdentityReader
 
     async def search(
         self,
@@ -151,6 +152,7 @@ def build_core_handover_services(
         ),
         admission,
         source,
+        identities,
     )
 
 

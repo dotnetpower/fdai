@@ -58,6 +58,7 @@ SELECT
         'SELECT, INSERT, UPDATE'
     )
     AND has_table_privilege(current_user, 'knowledge_chunk', 'SELECT, INSERT, UPDATE, DELETE')
+    AND has_table_privilege(current_user, 'document_intent_envelope', 'SELECT, INSERT, DELETE')
     AND has_table_privilege(current_user, 'state_kv', 'SELECT, INSERT, UPDATE, DELETE') AS ready
   FROM (VALUES (1)) AS probe(value)
   LEFT JOIN (
@@ -102,6 +103,11 @@ SELECT
        FROM knowledge_chunk
       LIMIT 0
   ) AS required_chunks ON FALSE
+  LEFT JOIN (
+     SELECT document_id, version_id, envelope, envelope_digest, source_sha256, created_at
+       FROM document_intent_envelope
+      LIMIT 0
+  ) AS required_intent_envelopes ON FALSE
   LEFT JOIN (
      SELECT key, value, updated_at
        FROM state_kv

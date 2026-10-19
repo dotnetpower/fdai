@@ -12,6 +12,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 from fdai.agents import Forseti, PantheonRuntime
@@ -87,6 +88,18 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     forseti_replay_source = object()
     bragi_training = object()
     bragi_runs: list[tuple[object, object]] = []
+    operations = SimpleNamespace(
+        authorize_review=AsyncMock(),
+        active_revision=AsyncMock(),
+        review=AsyncMock(),
+        transition=AsyncMock(),
+        apply=AsyncMock(),
+        observe=AsyncMock(),
+        rollback=AsyncMock(),
+        pending=AsyncMock(return_value=()),
+        published=AsyncMock(),
+    )
+    document_intent = SimpleNamespace(repository=operations)
     monkeypatch.setattr(pantheon_bootstrap, "build_capacity_sampler", lambda **kwargs: sampler)
     monkeypatch.setattr(
         evidence_bootstrap,
@@ -155,6 +168,7 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
             runtime_positive_integer=runtime_positive_integer,
             build_mutation_dependency_readiness=build_mutation_dependency_readiness,
             semantic_router_config_from_env=semantic_router_config_from_env,
+            document_intent=document_intent,
         )
     )
 
@@ -163,6 +177,9 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     assert isinstance(forseti, Forseti)
     assert forseti._governed_execution_selected is selected  # noqa: SLF001
     assert captured["ordered_poison_halt_state_store"] is store
+    assert captured["document_intent"] is operations
+    assert result.document_intent_ingress is not None
+    assert result.document_intent_ingress.intent is document_intent
     assert captured["freyr_utilization_sampler"] is sampler
     assert captured["loki_recurring_schedule"] is schedule
     assert captured["loki_scenario_generator"] is loki_scenarios.generator

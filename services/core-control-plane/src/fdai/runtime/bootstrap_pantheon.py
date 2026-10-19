@@ -319,10 +319,7 @@ async def initialize_pantheon(
         fallback=t2_route_registry.execute if thor_mutation_bound else None,
         resolve_verified_incident=config.resolve_verified_incident,
     )
-    from fdai.delivery.typed_selection_read_governance import (
-        READ_QUALIFIED_EVENT,
-        TypedSelectionReadDemoter,
-    )
+    from fdai.delivery.typed_selection_read_governance import TypedSelectionReadDemoter
 
     typed_read_lifecycle, thor_bindings, typed_read_thor_execute = (
         build_typed_read_execution_bindings(
@@ -443,13 +440,12 @@ async def initialize_pantheon(
     llm_bindings = config.container.llm_bindings
     synthesis = bootstrap_agent_discussion.build_runtime_pantheon_synthesis(config, asset_root)
     reviewed_evidence = build_reviewed_pantheon_evidence(config)
-    typed_read_sources = dict(
-        acceptance_bindings.sources if acceptance_bindings is not None else {}
-    )
-    typed_read_sources[READ_QUALIFIED_EVENT] = typed_read_lifecycle
+    from fdai.runtime.bootstrap_thor_bindings import typed_read_anomaly_sources
+
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
+        document_intent=config.document_intent_operations,
         raw_event_topic=config.container.config.kafka.topic_events,
         consumer_group_prefix=config.environment.get(
             "FDAI_PANTHEON_CONSUMER_GROUP_PREFIX",
@@ -458,7 +454,9 @@ async def initialize_pantheon(
         enforce=pantheon_enforce,
         governed_execution_selected=config.control_loop.governed_execution_selected,
         thor_executor=typed_read_thor_execute,
-        anomaly_action_sources=typed_read_sources,
+        anomaly_action_sources=typed_read_anomaly_sources(
+            acceptance_bindings, typed_read_lifecycle
+        ),
         thor_state_store=StateStoreActionRunStore(config.incident_audit_store),
         thor_preflight_simulator=thor_bindings.preflight_simulator,
         rollback_executors=thor_bindings.rollback_executors,
@@ -790,6 +788,7 @@ async def initialize_pantheon(
         post_turn_review_request_consumer=PostTurnReviewRequestConsumer(
             pantheon_runtime.agents.get("Bragi")
         ),
+        document_intent_ingress=config.bind_document_intent_ingress(pantheon_runtime),
     )
 
 

@@ -67,6 +67,16 @@ class PantheonInitialization:
     effect_request_sink: EffectReconciliationRequestSink | None = None
     context_index_workers: ContextIndexWorkerBindings | None = None
     approval_profile: ApprovalRuntimeBindings | None = None
+    document_intent: Any = None
+
+    @property
+    def document_intent_operations(self) -> Any:
+        return self.document_intent.repository if self.document_intent is not None else None
+
+    def bind_document_intent_ingress(self, runtime: PantheonRuntime) -> Any:
+        from fdai.runtime.bootstrap_document_intent import bind_document_intent_ingress
+
+        return bind_document_intent_ingress(self.document_intent, runtime)
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +93,12 @@ class PantheonInitializationResult:
     discovery_activation: DiscoveryActivationRuntime | None = None
     alert_noise_handler: Any = None
     post_turn_review_request_consumer: PostTurnReviewRequestConsumer | None = None
+    document_intent_ingress: Any = None
+
+    def assignment_reconciliation(self, human_access: Any) -> Any:
+        from fdai.runtime.bootstrap_assignment import bind_assignment_reconciliation
+
+        return bind_assignment_reconciliation(human_access, self.runtime)
 
 
 __all__ = ["PantheonInitialization", "PantheonInitializationResult"]

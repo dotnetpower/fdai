@@ -9,11 +9,17 @@ agent-driven control loop used for every other event.
 
 ## Design at a glance
 
-The optional [declared-intent projection SDK](../rules-and-detection/document-declared-intent-projection.md) packages a separate exact-diff approval lane; normal upload and bootstrap do not inject it, and indexing approval grants no graph-write authority.
+The [declared-intent projection](../rules-and-detection/document-declared-intent-projection.md)
+adds an exact-diff approval lane to normal worker and Core bootstrap. Indexing approval still grants
+no graph-write authority.
 
 An upload is an `Event`. Authority-bearing stages emit or consume typed logical objects multiplexed
 over `fdai.pantheon.objects`; `fdai.pipeline.stages` carries operational activity only. No worker or
 gateway side effect can substitute for an owning agent decision.
+
+For the explicit declared-intent kind, the worker stores normalized bytes in its own table and the
+existing content-free ready/deleted events drive Core proposal or source-owned rollback. The worker
+does not approve or write the private graph; Core cannot bulk-read worker document content.
 
 ![Design at a glance. The main stages are Upload event, Huginn - ingress, Heimdall - safety signals, Forseti - admissibility, abandon or deny, Var - human approval, Muninn - retrieval index, Saga - audit seal, Mimir / Norns - catalog growth, Bragi - progress + citation.](../../diagrams/generated/fdai-roadmap-interfaces-document-ingestion-agent-ownership-01.en.svg)
 

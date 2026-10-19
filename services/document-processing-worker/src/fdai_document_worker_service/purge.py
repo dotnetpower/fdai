@@ -73,6 +73,13 @@ class PostgresDocumentPurgeVerifier:
                     (doc_id,),
                 )
             ).fetchone()
+            intent_row = await (
+                await connection.execute(
+                    "SELECT count(*) FROM document_intent_envelope "
+                    "WHERE document_id=%s AND version_id=%s",
+                    (document_id, version_id),
+                )
+            ).fetchone()
             version_row = await (
                 await connection.execute(
                     "SELECT upload_id, "
@@ -93,7 +100,7 @@ class PostgresDocumentPurgeVerifier:
                     )
                 ).fetchone()
             )
-        if index_row is None or version_row is None:
+        if index_row is None or intent_row is None or version_row is None:
             raise PurgeVerificationError("purge verification could not read authoritative state")
         derivative_objects = int(await self._artifacts.artifact_exists(document_id, version_id))
         source_objects = 0
@@ -105,7 +112,7 @@ class PostgresDocumentPurgeVerifier:
             live_index_rows=int(index_row[0]),
             derivative_objects=derivative_objects,
             source_objects=source_objects,
-            cache_entries=0,
+            cache_entries=int(intent_row[0]),
             legal_hold_blocked=bool(version_row[1]),
             backup_blocked=self._backup_blocked,
             producer_blocked=producer_row is not None,

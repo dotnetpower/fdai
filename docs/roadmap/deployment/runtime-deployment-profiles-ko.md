@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 6d134fdef1e76e42ba70c27e1b487cd562a6860e
-translation_revised: 2026-10-19
+translation_source_sha: 13da7fbefe06dedbbef8353c05f1425202e9ca7a
+translation_revised: 2026-10-20
 ---
 # 런타임 배포 프로파일
 
@@ -11,6 +11,11 @@ translation_revised: 2026-10-19
 
 > **범위:** 이 계약은 신규 설치를 다룹니다. 기존 설치를 다른 런타임 플랫폼으로 옮기려면
 > 별도의 마이그레이션 설계가 필요하며, 프로파일 업데이트만으로 자동 전환되지 않습니다.
+>
+> 문서 의도 ingress는 모든 프로파일에서 같은 원본 형태를 사용하지만 워커 소유 envelope
+> 마이그레이션, Core PostgreSQL 온톨로지 저장소, 현재 사람 신원 읽기 경로, Pantheon,
+> 이벤트 버스가 모두 있어야 사용할 수 있습니다. 프로파일 선택은 이 전제 조건이나 정확한
+> Var 승인을 대체하지 않습니다.
 > **Azure 범위:** 지원되는 두 런타임 플랫폼은 같은 Azure 공급자 어댑터, 서명된 OCI 이미지,
 > Event Hubs Kafka 엔드포인트, Key Vault, 워크로드 신원, PostgreSQL 스키마를 사용합니다.
 >

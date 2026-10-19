@@ -7,6 +7,16 @@
   },
   "migration_dependencies": [
     {
+      "consumer_service": "core-control-plane",
+      "consumer_revision": "core_document_intent_20261019",
+      "provider_service": "document-processing-worker",
+      "provider_revision": "document_intent_envelope_20261020",
+      "schema_prerequisites": [
+        "fdai_document_intent_envelope"
+      ],
+      "provider_rollback": "blocked-until-core-document-intent-consumer-stopped"
+    },
+    {
       "consumer_service": "operator-service",
       "consumer_revision": "operator_forecast_retention_20260917",
       "provider_service": "core-control-plane",
@@ -482,6 +492,7 @@
       "document_version"
     ],
     "document-processing-worker": [
+      "document_intent_envelope",
       "document_protection_reconciliation",
       "document_worker_effect",
       "document_worker_outbox",
@@ -713,6 +724,7 @@
       "document_api_outbox"
     ],
     "document-processing-worker": [
+      "document_intent_envelope",
       "document_protection_reconciliation",
       "document_worker_effect",
       "document_worker_outbox",

@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: cbd268a0877213e51024b840ac5cb3311e89c520
-translation_revised: 2026-10-19
+translation_source_sha: 7f3fb84dfcc617c9dce46c845249fcf559f12ee1
+translation_revised: 2026-10-20
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -15,12 +15,18 @@ translation_revised: 2026-10-19
 
 ## 설계 개요
 
-선택적인 [선언 의도 변환 SDK](../rules-and-detection/document-declared-intent-projection-ko.md)는 정확한 변경 내용에 대한 별도 승인 경로를 패키징합니다. 일반 업로드와 시작 구성에는 주입하지 않으며 인덱싱 승인은 그래프 쓰기 권한을 부여하지 않습니다.
+[선언 의도 변환](../rules-and-detection/document-declared-intent-projection-ko.md)은 일반 워커와
+Core 시작 구성에 정확한 변경 내용의 별도 승인 경로를 추가합니다. 인덱싱 승인은 여전히
+그래프 쓰기 권한을 부여하지 않습니다.
 
 업로드는 `Event`입니다. 권한을 포함하는 각 파이프라인 단계는 `fdai.pantheon.objects`에서
 다중화된 타입이 지정된 논리 객체를 발행하거나 소비하며, `fdai.pipeline.stages`는 운영
 활동만 전달합니다. 워커나 게이트웨이의 부수 효과는 소유 에이전트의 결정을 대체할 수
 없습니다.
+
+명시적 선언 의도 종류에서 워커는 정규화한 바이트를 자체 테이블에 저장하고, 기존의 본문 없는
+준비/삭제 이벤트가 Core 제안 또는 원본 소유 롤백을 구동합니다. 워커는 비공개 그래프를 승인하거나
+쓰지 않으며 Core는 워커 문서 본문을 일괄 조회할 수 없습니다.
 
 ![설계 개요. 주요 단계는 Upload event, Huginn - ingress, Heimdall - safety signals, Forseti - admissibility, abandon or deny, Var - human approval, Muninn - retrieval index, Saga - audit seal, Mimir / Norns - catalog growth, Bragi - progress + citation입니다.](../../diagrams/generated/fdai-roadmap-interfaces-document-ingestion-agent-ownership-01.ko.svg)
 

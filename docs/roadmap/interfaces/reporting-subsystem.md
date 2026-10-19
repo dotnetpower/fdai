@@ -11,6 +11,10 @@ lives behind four registries (report / datasource / widget / format) and a YAML 
 new report is a YAML file and adding a new data source is one Protocol implementation. A new
 visualization shape requires both a pure backend builder and a reviewed SPA renderer.
 
+The worker-owned document-intent envelope and its Core-private graph are not reporting data
+sources. Their migration ownership and bootstrap wiring add no report, widget, renderer or write
+route.
+
 Read-only by contract. Every route is a `GET`; no widget executes
 anything. The subsystem is the read half of the same console that never
 holds the executor identity

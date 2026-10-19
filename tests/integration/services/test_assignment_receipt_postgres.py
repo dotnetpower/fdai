@@ -103,6 +103,9 @@ def database():
             IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='fdai_operator') THEN
                 CREATE ROLE fdai_operator NOLOGIN NOSUPERUSER NOBYPASSRLS;
             END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='fdai_ingestion_worker') THEN
+                CREATE ROLE fdai_ingestion_worker NOLOGIN NOSUPERUSER NOBYPASSRLS;
+            END IF;
             END; $roles$"""
         )
         admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
@@ -113,7 +116,7 @@ def database():
                     """CREATE TABLE state_kv (
                         key TEXT PRIMARY KEY, value JSONB NOT NULL,
                         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
-                    GRANT USAGE ON SCHEMA public TO fdai_core, fdai_operator;
+                    GRANT USAGE ON SCHEMA public TO fdai_core, fdai_operator, fdai_ingestion_worker;
                     GRANT SELECT, INSERT, UPDATE ON state_kv TO fdai_core, fdai_operator;
                     CREATE TABLE audit_log (
                         seq BIGSERIAL PRIMARY KEY, event_id UUID NOT NULL,
