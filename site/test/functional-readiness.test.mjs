@@ -184,7 +184,10 @@ for (const suffix of ["", "-ko"]) {
       const summary = text(entry.rows[0].children[0]);
       for (const state of allowedStates) {
         const count = entry.states.filter((value) => value === state).length;
-        if (count || state === "ready" || state === "partial") {
+        if (state === "partial" && count === 0) {
+          assert.ok(!summary.includes(`${stateLabel(state, suffix)} 0/${entry.rows.length}`),
+            `${group}: zero Partial count must not be displayed`);
+        } else if (count || state === "ready") {
           assert.ok(summary.includes(`${stateLabel(state, suffix)} ${count}/${entry.rows.length}`),
             `${group}: wrong ${state} count`);
         }
@@ -198,6 +201,14 @@ for (const suffix of ["", "-ko"]) {
       }
       assert.ok(assessment.includes(expected), `wrong assessment overall ${state} count`);
     }
+  });
+
+  test(`readiness${suffix}: zero Partial summary badges are omitted`, async () => {
+    const { specification, assessment } = await load(suffix);
+    const zeroPartialBadge =
+      /<span\b[^>]*data-readiness="partial"[^>]*>\s*Partial\s+0\/\d+\s*<\/span>/u;
+    assert.doesNotMatch(specification, zeroPartialBadge);
+    assert.doesNotMatch(assessment, zeroPartialBadge);
   });
 }
 
