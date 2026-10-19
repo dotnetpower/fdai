@@ -78,6 +78,9 @@ the same ActionRun state twice or replace Saga's audit. Shadow runs write no obs
 failure, changed identity or lost authority blocks executor I/O. The immutable observation is not
 effect verification or complete action history. AgentSpec, topics and lifecycle ownership stay
 unchanged; see [prediction source boundaries](../rules-and-detection/prediction-learning-and-case-history.md#forecast-evidence-admission).
+An observation or admission failure before executor I/O publishes a denied ActionRun, not an
+executed failure that Vidar would compensate. Actual executor failures retain their existing
+recovery path; cancellation and ambiguous dispatch retain their existing handling.
 
 Registered `AnomalyActionSource` bindings resolve exact Heimdall signals into current, inert
 action candidates for Forseti. Incoming action arguments and human-initiator claims are replaced,

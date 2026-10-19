@@ -152,6 +152,9 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   mutation, verified effect or the still-missing independent history proof.
   Recomputed canonical JSON identities reject cached boolean/number aliases during retry and
   observation awaits; the six reproduced cases are included in the final focused set.
+  #2246 separates pre-dispatch rejection from executed failure after three actual typed-bus cases
+  invoked rollback without executor I/O. The 219 focused and nine actual PostgreSQL checks preserve
+  genuine-failure recovery and deny replay/restart without executing; parent L01 remains open.
 - [ ] **L02, context safety:** Complete authenticated exact-target proposal/review, bounded activation,
   expiry/revocation, Forseti decisions, Saga audit, and dispatch revalidation. Retain live queued and
   in-flight revocation/expiry, hold, stop/recovery, deadline, and subscriber-isolation receipts.

@@ -12,6 +12,7 @@ from fdai.agents._framework.thor_dispatch_start import (
 from fdai.agents.thor import ActionRun, ActionRunState
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 
+from tests.agents.test_thor_dispatch_denial import _assert_dispatch_outcome
 from tests.persistence.test_postgres_state_store import saga_database as saga_database
 
 pytestmark = pytest.mark.integration
@@ -50,3 +51,26 @@ async def test_dispatch_start_is_durable_immutable_and_atomic(saga_database: str
     finally:
         await first.aclose()
         await second.aclose()
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "record",
+        "shadow",
+        "development",
+        "entry_authority",
+        "authority_error",
+        "missing_lock",
+        "executor_false",
+        "executor_error",
+    ],
+)
+async def test_dispatch_denial_and_actual_recovery_on_postgres(
+    saga_database: str, failure: str
+) -> None:
+    backend = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    try:
+        await _assert_dispatch_outcome(failure, backend)
+    finally:
+        await backend.aclose()
