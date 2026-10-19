@@ -175,7 +175,7 @@ class ActionAuditHistorySource:
 
 
 class ChangeWindowHistorySource:
-    """Restate retained ChangeWindow revisions as excluded-window state history."""
+    """Read retained revisions without treating current snapshots as complete history."""
 
     def __init__(self, *, reader: ForecastChangeWindowHistoryReader) -> None:
         self._reader = reader
@@ -194,7 +194,9 @@ class ChangeWindowHistorySource:
             end_at=end_at,
             known_at=known_at,
         )
-        tokens: set[str] = set()
+        tokens = {"change_window_history_proof_unavailable"}
+        if history.source_status is not None and history.source_status != "admitted":
+            tokens.add("source_" + history.source_status)
         if history.coverage is None:
             tokens.add("change_window_coverage_missing")
         if history.truncated:
@@ -216,13 +218,12 @@ class ChangeWindowHistorySource:
             for item in rows
         ):
             tokens.add("change_window_revision_conflict")
-        records, initial_state = _change_window_records(rows, start_at=start_at, end_at=end_at)
         coverage = history.coverage
         evidence_ref = (
             f"change-window-history:{coverage.watermark}" if coverage is not None else "unavailable"
         )
         return ForecastSourceRead(
-            records=tuple(records) if not tokens else (),
+            records=(),
             checkpoint=ForecastSourceCheckpoint(
                 source_identity=FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_IDENTITY,
                 source_revision=FORECAST_CHANGE_WINDOW_HISTORY_SOURCE_REVISION,
@@ -232,64 +233,11 @@ class ChangeWindowHistorySource:
                 known_at=known_at,
                 watermark=coverage.watermark if coverage is not None else "unavailable",
                 evidence_ref=evidence_ref,
-                complete=not tokens,
-                limitation="+".join(sorted(tokens)) if tokens else None,
-                initial_state=initial_state if not tokens else None,
-                initial_state_ref=evidence_ref if not tokens else None,
+                complete=False,
+                limitation=bounded_limitation(tokens),
             ),
             exhausted=not history.truncated,
         )
-
-
-def _change_window_records(
-    rows: list[Any], *, start_at: datetime, end_at: datetime
-) -> tuple[list[ForecastSourceRecord], str]:
-    count = sum(
-        1
-        for item in rows
-        if _effective_window(item.status, item.window_kind)
-        and item.effective_from <= start_at < item.effective_to
-    )
-    state = "open" if count > 0 else "closed"
-    deltas: dict[datetime, int] = {}
-    refs: dict[datetime, list[str]] = {}
-    for item in rows:
-        if not _effective_window(item.status, item.window_kind):
-            continue
-        if start_at <= item.effective_from <= end_at:
-            deltas[item.effective_from] = deltas.get(item.effective_from, 0) + 1
-            refs.setdefault(item.effective_from, []).append(item.revision_ref)
-        if start_at <= item.effective_to <= end_at:
-            deltas[item.effective_to] = deltas.get(item.effective_to, 0) - 1
-            refs.setdefault(item.effective_to, []).append(item.revision_ref)
-    records: list[ForecastSourceRecord] = []
-    for instant in sorted(deltas):
-        count += deltas[instant]
-        next_state = "open" if count > 0 else "closed"
-        if next_state == state:
-            continue
-        revision = _digest("|".join(sorted(refs.get(instant, ()))) + "|" + next_state)
-        records.append(
-            ForecastSourceRecord(
-                source_event_id=f"change-window:{instant.isoformat()}:{revision}",
-                source_revision=revision,
-                source_state=next_state,
-                subject_ref=rows[0].scope_ref if rows else "",
-                effective_at=instant,
-                recorded_at=instant,
-                evidence_ref=f"change-window-history:{revision}",
-            )
-        )
-        state = next_state
-    return records, "open" if any(
-        _effective_window(item.status, item.window_kind)
-        and item.effective_from <= start_at < item.effective_to
-        for item in rows
-    ) else "closed"
-
-
-def _effective_window(status: str, window_kind: str) -> bool:
-    return status.casefold() in {"active", "reviewed"} and bool(window_kind.strip())
 
 
 def _row_chain_valid(previous: ActionAuditHistoryRow, current: ActionAuditHistoryRow) -> bool:

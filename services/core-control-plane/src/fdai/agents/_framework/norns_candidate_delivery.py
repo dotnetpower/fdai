@@ -453,6 +453,8 @@ class NornsCandidateDeliveryMixin:
             return await self._publish_proposal("object.rule-candidate", payload)
         if self.bus is None:
             return False
+        if not self._proposal_publication_allowed("object.rule-candidate", payload):
+            return False
         if not self._proposal_rate_limiter().allow():
             self.record_behavior("rule_candidate_deferred:rate_limited")
             return False
@@ -537,6 +539,9 @@ class NornsCandidateDeliveryMixin:
         self._published_pattern_ids = retained
 
     async def _publish_proposal(self, topic: str, payload: dict[str, Any]) -> bool:
+        raise NotImplementedError
+
+    def _proposal_publication_allowed(self, topic: str, payload: dict[str, Any]) -> bool:
         raise NotImplementedError
 
     async def _operational_candidate_cases_are_current(

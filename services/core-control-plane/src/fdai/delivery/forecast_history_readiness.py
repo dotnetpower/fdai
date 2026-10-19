@@ -3,8 +3,8 @@
 The row validates configuration with the same parser runtime composition uses, so a mapping the
 runtime would reject never appears bound. `ready` and `available` stay false until every source
 can attest positive coverage and independent operational proofs exist; the Console therefore
-never shows this capability as ready. `enabled` reports only the deployment opt-in because no
-durable Settings preference exists yet. Configuration never grants scoring or execution authority.
+never shows this capability as ready. Collection requires a separate durable Settings preference;
+deployment configuration alone never enables collection, scoring, or execution authority.
 """
 
 from __future__ import annotations
@@ -66,26 +66,27 @@ def forecast_history_projection(env: Mapping[str, str]) -> dict[str, object]:
     bound = frozenset(
         binding.kind for binding, _history in (configuration.producers if configuration else ())
     )
-    opted_in = bool(configuration is not None and bound and dsn and targets)
+    collection_available = bool(configuration is not None and bound and dsn and targets)
     return {
         "key": "forecast-history",
         "source": _SOURCE_CORE,
         "observed": True,
         "configured": configured,
         "ready": False,
-        "mode": "shadow" if opted_in else "disabled",
+        "mode": "disabled",
         "reason": (
             "configuration is invalid"
             if invalid
             else _UNAVAILABLE
-            if opted_in
+            if collection_available
             else "configuration is incomplete"
             if configured
             else "not configured"
         ),
         "available": False,
-        "enabled": opted_in,
-        "enabled_source": "deployment_configuration",
+        "collection_available": collection_available,
+        "enabled": False,
+        "enabled_source": "durable_settings",
         "authority_mode": "shadow",
         "scoring_authority": False,
         "execution_authority": False,

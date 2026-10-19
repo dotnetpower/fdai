@@ -36,6 +36,9 @@ automatically. A document or roadmap item does not need to be edited merely beca
 
 Current corpus counts are recomputed from structured source artifacts. They are never copied into a
 roadmap exit criterion or treated as a stable product constant.
+The generation chain checks the question bank before the semantic corpus. The read-only
+`build_question_bank.py --check` compares both generated artifacts with every declared source;
+the fast verifier also runs it when a source catalog changes. This is provenance, not certification.
 
 The [source-bound corpus manifest](../../../eval/golden-dataset/corpus-manifest.json) joins the
 generated bilingual Golden cases, all five evidence-posture partitions of the Reader-scoped

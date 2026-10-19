@@ -45,6 +45,18 @@ export interface RuntimeIntegrationView {
   readonly ready: boolean;
   readonly mode: "disabled" | "enabled" | "shadow" | "enforce";
   readonly reason: string | null;
+  readonly forecastHistory?: ForecastHistoryDetails;
+}
+
+export interface ForecastHistoryDetails {
+  readonly sources: readonly {
+    readonly kind: "actions" | "changes" | "excluded_windows" | "resource_lifecycle";
+    readonly reader: string;
+    readonly bound: boolean;
+    readonly positiveCheckpoint: boolean;
+    readonly limitation: string;
+  }[];
+  readonly prerequisites: readonly { readonly name: string; readonly satisfied: boolean }[];
 }
 
 export interface RuntimeDiagnosticsView {
@@ -213,7 +225,55 @@ function decodeIntegration(value: unknown, index: number): RuntimeIntegrationVie
     ready: boolean(item["ready"], `${path}.ready`),
     mode,
     reason: nullableString(item["reason"], `${path}.reason`),
+    ...(item["key"] === "forecast-history" && item["sources"] !== undefined
+      ? { forecastHistory: decodeForecastHistoryDetails(item, path) }
+      : {}),
   };
+}
+
+function decodeForecastHistoryDetails(
+  item: Record<string, unknown>,
+  path: string,
+): ForecastHistoryDetails {
+  const sourceRows = item["sources"];
+  const prerequisiteRows = item["prerequisites"];
+  if (!Array.isArray(sourceRows) || sourceRows.length !== 4) {
+    throw new Error(`${path}.sources MUST contain exactly four history kinds`);
+  }
+  if (!Array.isArray(prerequisiteRows) || prerequisiteRows.length > 16) {
+    throw new Error(`${path}.prerequisites MUST be a bounded array`);
+  }
+  const sources = sourceRows.map((raw, index): ForecastHistoryDetails["sources"][number] => {
+    const source = record(raw, `${path}.sources[${index}]`);
+    const kind = source["kind"];
+    if (kind !== "actions" && kind !== "changes"
+      && kind !== "excluded_windows" && kind !== "resource_lifecycle") {
+      throw new Error(`${path}.sources[${index}].kind is invalid`);
+    }
+    return {
+      kind,
+      reader: nonEmptyString(source["reader"], `${path}.sources[${index}].reader`),
+      bound: boolean(source["bound"], `${path}.sources[${index}].bound`),
+      positiveCheckpoint: boolean(
+        source["positive_checkpoint"], `${path}.sources[${index}].positive_checkpoint`,
+      ),
+      limitation: nonEmptyString(source["limitation"], `${path}.sources[${index}].limitation`),
+    };
+  });
+  if (new Set(sources.map((source) => source.kind)).size !== 4) {
+    throw new Error(`${path}.sources MUST contain unique history kinds`);
+  }
+  const prerequisites = prerequisiteRows.map((raw, index) => {
+    const prerequisite = record(raw, `${path}.prerequisites[${index}]`);
+    return {
+      name: nonEmptyString(prerequisite["name"], `${path}.prerequisites[${index}].name`),
+      satisfied: boolean(prerequisite["satisfied"], `${path}.prerequisites[${index}].satisfied`),
+    };
+  });
+  if (new Set(prerequisites.map((value) => value.name)).size !== prerequisites.length) {
+    throw new Error(`${path}.prerequisites MUST contain unique names`);
+  }
+  return { sources, prerequisites };
 }
 
 function decodeRuntimeDiagnostics(value: unknown): RuntimeDiagnosticsView {

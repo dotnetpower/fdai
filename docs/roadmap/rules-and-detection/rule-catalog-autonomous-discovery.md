@@ -90,6 +90,26 @@ signal.
   rate, retirement rate) is instrumented and reported in
   [goals-and-metrics.md](../architecture/goals-and-metrics.md) so it can be measured, not asserted.
 
+### Runtime publication currentness
+
+The production runtime's existing default-off activation ceiling admits only prerequisites whose
+observation is no later than the assessment and whose expiry is still in the future. Existing
+`*_evidence_stale` reasons mean outside that usable interval, including a future observation.
+An activation report is an as-of assessment, not an indefinitely reusable publication permission.
+The process-local lease ends at the earliest prerequisite expiry or the refresh interval, whichever
+comes first. A monotonic deadline prevents a wall-clock rollback from extending that interval.
+Restoring a report alone cannot reopen the gate.
+
+After persistence, the runtime rechecks the same effective Settings values and durable revision,
+including disable-and-reenable, and the same startup report. Withdrawal, read failure or cancellation
+leaves publication closed. Expected Settings conflicts and outages retry only at the bounded refresh
+cadence; programmer errors remain explicit. Replacement of the startup report invalidates the cache.
+Norns also rechecks the ceiling at actual publication entry after source and proposal-budget awaits,
+between candidates, and after a paired Pattern acknowledgement. A held send retains its candidate
+and releases reserved budget; already accepted messages retain their normal idempotent bookkeeping.
+This cannot retract a message already accepted by the broker, activate a catalog, or supply a
+discovery-cycle pass rate, independent history proof or measured operational improvement.
+
 ## Candidate Guard (upstream implementation)
 
 `fdai.agents._framework.candidate_guard.CandidateGuard` is the deterministic gate Mimir runs on every

@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 import yaml
+from scripts.automation import build_question_bank as generator
 from scripts.automation.question_bank import build_question_bank, render_review_catalog
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -38,6 +42,37 @@ def test_question_bank_generated_artifacts_match_all_sources() -> None:
         "manual": 60,
     }
     assert len(payload["source_files"]) == 11
+
+
+def test_question_bank_check_is_non_mutating_and_detects_catalog_source_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for record in _artifact()["source_files"]:
+        relative = Path(record["path"])
+        destination = tmp_path / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(_ROOT / relative, destination)
+    for schema in _BANK_ROOT.glob("*.schema.json"):
+        shutil.copyfile(schema, tmp_path / schema.relative_to(_ROOT))
+    output = tmp_path / "eval/golden-dataset/question-bank/question-bank.json"
+    monkeypatch.setattr(
+        sys, "argv", ["build_question_bank.py", "--repo-root", str(tmp_path), "--check"]
+    )
+    assert generator.main() == 1
+    assert not output.exists()
+    monkeypatch.setattr(sys, "argv", ["build_question_bank.py", "--repo-root", str(tmp_path)])
+    assert generator.main() == 0
+    retained = output.read_bytes()
+    monkeypatch.setattr(
+        sys, "argv", ["build_question_bank.py", "--repo-root", str(tmp_path), "--check"]
+    )
+    assert generator.main() == 0
+    catalog = tmp_path / "console/src/i18n/messages.en.json"
+    payload = json.loads(catalog.read_text(encoding="utf-8"))
+    payload["question_bank_source_drift_probe"] = "an unrelated localized string"
+    catalog.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    assert generator.main() == 1
+    assert output.read_bytes() == retained
 
 
 def test_question_bank_preserves_existing_question_identities_and_variations() -> None:

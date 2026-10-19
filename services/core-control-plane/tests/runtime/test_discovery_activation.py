@@ -3,20 +3,29 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from fdai.core.readiness import (
+    DiscoveryActivationCoordinator,
     DiscoveryActivationDecision,
+    DiscoveryActivationInputs,
+    DiscoveryActivationReport,
     ProbeStatus,
     ReadinessDecision,
     StartupProbeResult,
     StartupReadinessReport,
 )
-from fdai.delivery.runtime_settings import RuntimeSettingsService
+from fdai.delivery.runtime_settings import (
+    RuntimeSettingsConflictError,
+    RuntimeSettingsService,
+    RuntimeSettingsUnavailableError,
+)
 from fdai.runtime.discovery_activation import (
     DiscoveryActivationRuntime,
+    DiscoveryActivationState,
     _startup_group_evidence,
     build_discovery_activation_runtime,
 )
@@ -96,9 +105,140 @@ async def test_runtime_enables_only_after_all_current_evidence_is_joined() -> No
     assert runtime.is_enabled()
 
 
+@pytest.mark.parametrize("offset", [-1, 60, 120, 301])
+async def test_enabled_discovery_does_not_outlive_its_bounded_assessment(offset: int) -> None:
+    runtime = await _enabled_runtime()
+    await runtime.evaluate()
+    runtime.clock = lambda: _NOW + timedelta(seconds=offset)
+    assert not runtime.is_enabled()
+
+
+async def test_a_report_without_its_own_runtime_lease_cannot_open_discovery() -> None:
+    runtime = await _enabled_runtime()
+    report = await runtime.evaluate()
+    runtime.state = DiscoveryActivationState(report=report)
+    assert not runtime.is_enabled()
+
+
+async def test_expiry_during_coordinator_await_cannot_open_discovery() -> None:
+    runtime = await _enabled_runtime()
+
+    class AdvancingCoordinator(DiscoveryActivationCoordinator):
+        async def evaluate(
+            self, inputs: DiscoveryActivationInputs, *, generated_at: datetime
+        ) -> DiscoveryActivationReport:
+            report = await super().evaluate(inputs, generated_at=generated_at)
+            runtime.clock = lambda: _NOW + timedelta(minutes=6)
+            return report
+
+    runtime.coordinator = AdvancingCoordinator(state_store=runtime.state_store)
+    await runtime.evaluate()
+    assert not runtime.is_enabled()
+
+
+@pytest.mark.parametrize("reenable", [False, True])
+async def test_settings_withdrawal_during_persistence_does_not_reopen_discovery(
+    reenable: bool,
+) -> None:
+    runtime = await _enabled_runtime()
+
+    class WithdrawingCoordinator(DiscoveryActivationCoordinator):
+        async def evaluate(
+            self, inputs: DiscoveryActivationInputs, *, generated_at: datetime
+        ) -> DiscoveryActivationReport:
+            report = await super().evaluate(inputs, generated_at=generated_at)
+            await runtime.runtime_settings.update(
+                actor_id="owner",
+                changes={"discovery.enabled": False},
+                expected_revision=0,
+            )
+            if reenable:
+                await runtime.runtime_settings.update(
+                    actor_id="owner",
+                    changes={"discovery.enabled": True},
+                    expected_revision=1,
+                )
+            return report
+
+    runtime.coordinator = WithdrawingCoordinator(state_store=runtime.state_store)
+    with pytest.raises(RuntimeSettingsConflictError):
+        await runtime.evaluate()
+    assert not runtime.is_enabled()
+
+
+async def test_startup_evidence_withdrawal_invalidates_cached_discovery() -> None:
+    runtime = await _enabled_runtime()
+    await runtime.evaluate()
+    runtime.startup_readiness.report = None
+    assert not runtime.is_enabled()
+
+
+@pytest.mark.parametrize(
+    "probe_id", ["model.cross-check.0.0", "policy.compile", "audit.append", "kafka.round-trip"]
+)
+async def test_cache_lease_preserves_the_earliest_prerequisite_expiry(probe_id: str) -> None:
+    runtime = await _enabled_runtime()
+    report = runtime.startup_readiness.report
+    assert report is not None
+    runtime.startup_readiness.report = report.model_copy(
+        update={
+            "results": tuple(
+                item.model_copy(update={"expires_at": _NOW + timedelta(seconds=1)})
+                if item.probe_id == probe_id
+                else item
+                for item in report.results
+            )
+        }
+    )
+    await runtime.evaluate()
+    assert runtime.is_enabled()
+    runtime.clock = lambda: _NOW + timedelta(seconds=1)
+    assert not runtime.is_enabled()
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [RuntimeSettingsUnavailableError("injected settings outage"), asyncio.CancelledError()],
+)
+async def test_failed_post_persistence_read_never_opens_discovery(failure: BaseException) -> None:
+    runtime = await _enabled_runtime()
+    reads = [0]
+
+    class FailingReadback(RuntimeSettingsService):
+        async def effective_values_with_revision(self) -> tuple[dict[str, object], int]:
+            reads[0] += 1
+            if reads[0] == 2:
+                raise failure
+            return await super().effective_values_with_revision()
+
+    runtime.runtime_settings = FailingReadback(
+        store=runtime.state_store, env=runtime.runtime_settings.env
+    )
+    with pytest.raises(type(failure)):
+        await runtime.evaluate()
+    assert not runtime.is_enabled()
+
+
+async def test_wall_clock_rollback_cannot_extend_the_elapsed_publication_lease() -> None:
+    runtime = await _enabled_runtime()
+    ticks = [0.0]
+    runtime.monotonic_clock = lambda: ticks[0]
+    await runtime.evaluate()
+    runtime.clock = lambda: _NOW + timedelta(seconds=30)
+    ticks[0] = 60.0
+    assert not runtime.is_enabled()
+
+
+@pytest.mark.parametrize("interval", [float("nan"), float("inf"), -float("inf"), 0.0, -1.0])
+async def test_refresh_lease_requires_a_positive_finite_interval(interval: float) -> None:
+    runtime = await _enabled_runtime()
+    with pytest.raises(ValueError, match="interval"):
+        replace(runtime, refresh_interval_seconds=interval)
+
+
 async def test_runtime_closes_an_enabled_gate_before_a_refresh_failure() -> None:
     class _FailingSettings:
-        async def effective_values(self) -> dict[str, object]:
+        async def effective_values_with_revision(self) -> tuple[dict[str, object], int]:
             raise RuntimeError("provider detail")
 
     runtime = await _enabled_runtime()
@@ -111,19 +251,24 @@ async def test_runtime_closes_an_enabled_gate_before_a_refresh_failure() -> None
     assert not runtime.is_enabled()
 
 
-async def test_refresh_retries_transient_failure_without_terminating_runtime() -> None:
+@pytest.mark.parametrize(
+    "failure", [ConnectionError, RuntimeSettingsConflictError, RuntimeSettingsUnavailableError]
+)
+async def test_refresh_retries_transient_failure_without_terminating_runtime(
+    failure: type[Exception],
+) -> None:
     runtime = await _enabled_runtime()
     runtime.refresh_interval_seconds = 0.001
     original_settings = runtime.runtime_settings
     attempts = 0
 
     class _TransientSettings:
-        async def effective_values(self) -> dict[str, object]:
+        async def effective_values_with_revision(self) -> tuple[dict[str, object], int]:
             nonlocal attempts
             attempts += 1
             if attempts == 1:
-                raise ConnectionError("state store unavailable")
-            return await original_settings.effective_values()
+                raise failure("state store unavailable")
+            return await original_settings.effective_values_with_revision()
 
     runtime.runtime_settings = _TransientSettings()  # type: ignore[assignment]
     stop = asyncio.Event()
@@ -143,7 +288,7 @@ async def test_refresh_propagates_programming_error() -> None:
     runtime.refresh_interval_seconds = 0.001
 
     class _InvalidSettings:
-        async def effective_values(self) -> dict[str, object]:
+        async def effective_values_with_revision(self) -> tuple[dict[str, object], int]:
             raise ValueError("invalid activation state")
 
     runtime.runtime_settings = _InvalidSettings()  # type: ignore[assignment]

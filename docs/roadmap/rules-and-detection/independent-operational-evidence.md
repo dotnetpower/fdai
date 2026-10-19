@@ -64,6 +64,8 @@ readbacks, or grant execution authority.
 Regenerated semantic corpus and intent-coverage digests are evaluation provenance only. A digest
 refresh caused by answer-local pending-state coverage does not become a verifier source artifact,
 an admission, provider evidence, or an operational qualification result.
+Question-bank equality now precedes semantic-corpus checking in the repository generation chain.
+This read-only source-drift check issues no proof, authenticates no source and grants no authority.
 Their sealed Core-only row identities are reauthorization operands for follow-up reads only; they
 are not verifier source artifacts, admissions, or proof material.
 Operator service product-profile parsing has the same evidence boundary. Reading

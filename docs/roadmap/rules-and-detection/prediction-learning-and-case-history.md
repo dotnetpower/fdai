@@ -294,19 +294,63 @@ Future positive action coverage requires independently recorded event-time histo
 start anchor, a known-at completeness fence, a database-clock watermark after window end plus
 grace, and proof of the complete contiguous audit segment. Configuration, intact selected audit
 rows, and caller assertions cannot replace these prerequisites. Excluded-window positive coverage
-also remains unavailable; current `ChangeWindow` objects are not an attested history. The Settings
+also remains unavailable; current `ChangeWindow` objects are not an attested history. The
+ChangeWindow source returns no normalized records or initial state and explicitly reports
+`change_window_history_proof_unavailable`, even when a retained snapshot has a coverage row
+and no visible conflict. An empty current snapshot cannot prove an included interval. The
+legacy per-window writer does not bind revisions and withdrawals to the source owner's admission.
+The source-owned journal below repairs that publication boundary for the configured writer only,
+not the independent start anchor, full historical coverage or as-of completeness fence. Raw rows
+and watermark references remain evidence, not permission to manufacture event-time transitions
+or copy an effective timestamp into `recorded_at`. The Settings
 `forecast-history` row validates configuration with the same parser as runtime composition. It
-always reports `ready=false` and `available=false`, reports `enabled` only as the deployment
-opt-in, and lists prerequisites, including forecast targets, and per-source binding. The Console
-renders the row's status, mode, source, and reason; there is no Settings preference control yet.
-Configuration never grants scoring or execution authority, and independent proof issuance remains
-required before collected history can authorize scoring.
+always reports `ready=false` and `available=false` for scoring and lists prerequisites, including
+forecast targets, and per-source binding. The separate audited runtime setting
+`forecast.history_collection.enabled` defaults to false and has no environment-variable override.
+An Owner can change it through the existing revision-checked Settings API only when reviewed
+producer mappings, forecast targets, and durable settings are configured. Reset returns to false.
+The integration row attributes its enabled state to durable Settings, not deployment variables.
+The composed collector checks this preference before any producer or collector read and rechecks
+its revision before returning evidence. Disabling it blocks later collections without restart;
+an in-flight disable, including disable-and-reenable, discards that result. Already-started source
+work may finish its retained history append; the setting does not erase prior observations.
+The Console uses its existing runtime-policy controls with English and Korean labels. Configuration
+and collection preference never grant scoring or execution authority; independent proof issuance
+remains required before collected history can authorize scoring.
+
+### Source-owned admission history
+
+Retain each operating-intent admission or denial in an immutable
+`change-window-admission-history:v1:` entry. The entry carries the full admitted ChangeWindow
+snapshot or its immutable reference, admission revision, original validation time, pinned document
+digest, and preceding entry reference. Denial is not proof of an empty interval.
+The existing atomic StateStore pair/CAS-and-insert operations commit the actual admission key,
+entry and audit together. Legacy admission rows start an explicit unanchored chain; no historical
+start anchor is invented. Exact retries preserve the entry, and a CAS conflict is an explicit
+failed attempt, not permission to overwrite a newer admission. Check rollout ownership before
+projection as well as at publication. An expired newer generation still yields to rollback.
+Unchanged revalidation references the last full snapshot rather than copying every window again.
+The read-only transaction resolves that reference without changing the original fact record time.
+Missing or corrupt head/body rows and unjournalled legacy writes invalidate readback rather than
+falling back to an older admission. Expired admissions remain explicit. This local journal does
+not fence the source mount, IdP, Inventory, Blob, or another store.
+
+| Option | Critique | Selected boundary |
+|---|---|---|
+| Write per-window rows before checking admission | Fenced-out or failed attempts leave apparently admitted history | Bind the full snapshot to the actual source admission in one transaction |
+| Use a separate epoch that the admission writer does not update | It does not protect the source | Use the source-owned key's revision and existing atomic operations |
+| Update admission after an unlocked read | A concurrent denial or rollout can win between awaits | Compare-and-set the exact observed revision; audit only the winner |
+| Treat the journal as complete scoring evidence | It still lacks independently qualified start/known-at and retention coverage | Read retained raw snapshots, but keep the incomplete-history gate |
 
 `unsupported` is explanatory text in the action source's `limitation`, not a new readiness mode or
 outcome enum. Operator preserves that source detail in the existing runtime-settings JSON mapping.
-The current Console decoder retains the integration's standard status, mode, source, and reason,
-but does not decode the per-source detail or prerequisite arrays. It renders a configured,
-not-ready forecast integration as **Incomplete**, with **Observation** mode and the unavailable
+The Console decoder retains the integration's standard status, mode, source, and reason and
+validates all four unique source kinds plus bounded, unique prerequisites. A native disclosure
+shows each reader's binding separately from its positive checkpoint and limitation, with English
+and Korean labels. Missing or malformed supplied source detail is rejected rather than rendered
+as complete; legacy rows without that optional detail remain readable. It renders a configured,
+not-ready forecast integration as **Incomplete**, with **Observation** mode only while collection is
+enabled (otherwise **Disabled**) and the unavailable
 checkpoint/proof reason. Missing action history makes the collector raise
 `ForecastContextUnavailableError`; it does not return an empty, complete intervention slice or
 a zero-intervention count.

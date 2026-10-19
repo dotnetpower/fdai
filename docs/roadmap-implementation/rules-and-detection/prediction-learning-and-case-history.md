@@ -13,6 +13,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 | L01: Pre-dispatch rejection classification | implemented | #2246; `agents/_framework/thor_execution.py`; typed-bus denial/recovery and PostgreSQL tests: 219 focused passes, nine database passes | Pre-entry errors are denied without publishing an executed failure or compensating an unstarted action. Real executor failure remains eligible for existing recovery. Pending denial-publication failure/cancellation is not success. This does not complete source history. |
 | L01: First logical dispatch-entry producer | implemented | #2242; `agents/_framework/thor_dispatch_start.py`; default `StateStoreActionRunStore`; 200 focused dispatch/durable/safety/wiring/layout passes; one actual isolated PostgreSQL pass | Records immutable exact ActionRun/resource/lock/audit metadata before executor I/O, without a same-state save. Canonical JSON identity is recomputed at write and await boundaries. Shadow writes nothing. Recording, identity or current-authority failure blocks I/O; legacy capability stays unavailable. Dispatch entry is not provider mutation, effect verification or complete history. |
 | L01: Fail-closed action-audit witness | implemented | `delivery/forecast_history_sources.py`; `delivery/forecast_history_readiness.py`; `tests/delivery/test_forecast_action_history_source.py`; focused source and producer regression tests | Every successful audit read is explicitly incomplete with `action_history_proof_unavailable` and no event-time intervention records. Raw reader facts and audit witness metadata remain available. Positive action coverage requires independent event-time history, start and known-at anchors, a DB-clock watermark after end plus grace, and full audit continuity; this safety fix does not deliver those prerequisites. |
+| L01: Fail-closed excluded-window snapshot witness | implemented | Current change; `delivery/forecast_history_sources.py`; `tests/delivery/test_forecast_history_sources.py`; six failing completeness regressions reproduced before repair; focused source/producer/context/persistence checks pass | A current or empty snapshot no longer creates complete history, an inferred initial state, or normalized transitions with invented record times. The reader retains raw rows; incomplete checkpoints retain watermarks and bounded diagnostics. Raw source-owned publication is covered separately below; independently qualified start anchors and as-of completeness remain unimplemented, not Low-severity residuals. |
+| L01: Configured source-owned admission journal | implemented | Current change; `runtime/{operating_intent_source,change_window_history}.py`; `delivery/persistence/postgres_forecast_change_window_history.py`; focused source/runtime/authority/consumer selection: 354 passed; actual isolated PostgreSQL: 10 passed | Admission, immutable full or compact snapshot, and audit commit atomically through existing pair/CAS APIs. Denial, removal, re-admission, exact retry, legacy migration, lost response, audit failure, current-generation fencing and raw readback are covered. Unknown independent completeness and external source qualification remain separate; this journal does not enable scoring. |
 | P2: Public test-context schemas and SDK exports | implemented | `packages/service-contracts/tests/test_test_context_schema.py`; `scripts/quality/contracts/generate_test_context_schemas.py` | Three standalone version `1.0.0` schemas preserve typed semantics and false execution authority. This does not certify producer/consumer N/N-1 transport or independent proof issuance. |
 | Forecast detector, agent pub/sub runtime, and single-writer enforcement | implemented | [Forecast outcome contract](../../roadmap/rules-and-detection/prediction-learning-and-case-history.md#forecast-outcome-contract), pantheon single-writer registry | Shadow findings only; no execution authority. |
 | Governed trajectory serialization, scanning, checksum, and retention primitives | implemented | [Retention and deletion](../../roadmap/rules-and-detection/prediction-learning-and-case-history.md#retention-and-deletion) | Reused rather than reimplemented. |
@@ -48,6 +50,9 @@ and resumable work while the roadmap owner remains focused on normative design.
 |------|-------|--------|----------|-----------|
 | 2026-10-19 | implemented | Repaired the underlying ActionRun cache used by preflight and publication, including boolean/integer/float, signed-zero and native mapping-key aliases in live or returned cache data. | `current change`; #2248; 24 value and two key regressions failed before repair; final 203 owning passes and 93.17% branch-inclusive coverage; canonical current-digest checks, real preflight denial, non-finite rejection and unchanged hash/copy-count tests. | Positive history, independent source proofs and operational acceptance remain open; no new approval or execution authority. |
 | 2026-10-19 | implemented | Reproduced three actual Thor/bus/Vidar false-compensation paths after observation or authority rejection before executor I/O, then separated typed pre-dispatch denial from executed failure. | `current change`; #2246; 219 focused and nine actual isolated PostgreSQL passes; branch-inclusive coverage producer 100.00%, execution 91.27%; strict mypy and Ruff. Twelve review boundaries: phase classification, record failure, shadow authority, development authority, source errors, required lock, physical cleanup, durable/local claims, actual-failure recovery, denial replay/restart, publication failure and cancellation. | L01 remains incomplete pending independent event-time histories, anchors, watermark plus grace, audit continuity, reviewed mapping and the other source slices. Denial metadata never establishes intervention or effect success. |
+| 2026-10-19 | implemented | Bound actual configured operating-intent admission and denial to immutable ChangeWindow snapshots and audit in one StateStore transaction. Added a pre-projection generation fence, CAS publication, compact unchanged revalidations, and read-only source-to-consumer readback. Missing/corrupt head or body, legacy unjournalled writes and expiry remain explicit; no positive history proof is issued. | Current change; 354 focused source/runtime/authority/context/producer/Settings tests and 10 actual PostgreSQL 5433 tests passed. The source-journal review below covers 18 concerns in two rounds. | All four independently qualified histories, historical anchors, continuity/retention fences and external-source currentness remain open. The journal protects only this source writer, not other stores or old blind writers. No deployment, activation or measured operational effect. |
+| 2026-10-19 | implemented | Reproduced and removed unsupported positive excluded-window coverage from retained current and empty snapshots. The adapter now emits only an incomplete checkpoint with `change_window_history_proof_unavailable`; it neither infers an initial closed state nor invents a normalized record timestamp from effective time. | Current change; six regressions failed before repair. The final source/action/producer/context/persistence/Settings selection passed 233 tests; Ruff and format checks passed. The review below covers 16 concrete concerns in two rounds. | This repairs false acceptance, not the missing source-owned atomic admission journal, withdrawal history, start/known-at anchors, completeness fence or independent qualification. L01 and F10-F12 remain Partial. |
+| 2026-10-19 | implemented | Added the audited Settings-only `forecast.history_collection.enabled` preference, default off without an environment override, and bound actual runtime collection behind revision-aware pre/post checks. Owner updates retain existing concurrency and atomic audit; missing prerequisites reject enablement, withdrawal blocks the next collection, and an in-flight preference revision change discards returned evidence. Console now validates and exposes four source bindings, positive-checkpoint limits and prerequisites through native disclosure with English/Korean labels. | `current change`; `runtime_settings.py`; `forecast_history_preference.py`; focused runtime, source, settings, context and producer regression selection passed (239 tests); Console contract, Settings and localization selection passed (26 tests), plus TypeScript. | Four independent positive-history proofs, source-owned anchors/watermarks, coherent external qualification and live context safety remain open. Actual Console browser acceptance was not run because the local stack was unavailable. This preference neither creates complete history nor qualifies scoring or execution. |
 | 2026-10-19 | implemented | Replaced cached identity reads at the new dispatch writer and observation-await boundary with the existing fresh canonical JSON digest. Nested `true`/`1`, `false`/`0` and integer/float substitutions now fail both retained replay and await-time mutation checks. | `current change`; #2242; six failures reproduced before repair; 200 final owning checks and one actual isolated PostgreSQL check passed; branch-inclusive coverage producer 100.00%, execution 90.93%; strict mypy and Ruff. | This closes the reproduced new-boundary defect only. L01 source proofs, independent history anchors, complete audit continuity, reviewed outcome mapping and operational qualification remain open. |
 | 2026-10-19 | implemented | Persisted first Thor dispatch-entry time separately from ActionRun state after any bound resource-lock and claim admission. Reproduced and fixed authority loss during the new await; retained isolated observer inputs, first-write identity and malformed-row rejection. | `current change`; #2242; 194 dispatch/durable/safety/wiring/layout passes; one actual isolated PostgreSQL concurrent-create/retry/readback pass; branch-inclusive coverage 100.00% producer and 90.91% execution; strict mypy and Ruff. Critique covered 12 boundaries: event/lock time, shadow, same-state saves, identity, immutable retry, clock shape/causality, claim binding, cancellation, audit ordering, await-time authority, mutable observer and legacy capability. | L01 remains incomplete: positive source histories, start/known-at anchors, DB-clock watermark plus grace, contiguous audit and reviewed intervention mapping are not supplied by a dispatch observation. |
 | 2026-10-18 | implemented | Verified the L01 source downgrade through the existing collector, runtime-settings projection, Operator HTTP mapping, and Console decoder/render boundary. Documented that `unsupported` is source-detail text, not a new enum; the Console preserves the generic incomplete/observation/unavailable-reason path and does not decode per-source details. | `current change`; `tests/core/detection/test_forecast_history_producer.py`; focused existing Operator settings and Console settings consumer tests; strict committed-range design-impact and official `refresh-derived-artifacts.sh --check` gates passed, including all 13 reference behavior seeds and unchanged release pins. Refs #2224. | Positive action eligibility still requires independent source prerequisites. No UI, API, generated artifact, authority, or migration change was needed. |
@@ -180,6 +185,11 @@ deployed qualification remain unavailable.
   from deployment configuration before claiming the capability-flag contract. The preference must
   actually gate the collector and producers, no environment variable may set it or availability, and
   the row must not show `disabled` while producers run.
+  The local collection preference, audited revision updates, actual collector/producer gate,
+  English/Korean runtime-policy labels and per-source prerequisite disclosure are now implemented
+  in the current change. Deployment configuration cannot set the preference. Positive proof
+  qualification remains open; an already-started history append can finish, but changed-preference
+  results cannot enter the scoring readback.
 - [x] P1: Run `test_closure_observation_survives_restart_and_rejects_conflicting_retry` against
   loopback PostgreSQL and prove migration, restart readback, exact duplicate handling, conflicting
   retry rejection, completeness counts, and rollback. All three completeness cases passed.
@@ -463,6 +473,68 @@ existing retention service around the real vector database, so this is not full 
 | Duplicate purge recreates data or changes source state | Medium | Exact duplicate purge after cleanup is idempotent; source retention returns no new deletion. |
 | A stalled connection or lock blocks retention indefinitely | Medium | Total 15-second write/purge deadlines; cancellation propagates, and no unbounded retry loop is added. |
 | Retention markers disclose copied case bodies | Medium | Real persisted marker assertions contain digests and no case identifier or execution authority. |
+
+#### October 19 configured source-journal review
+
+Round 1 inspected and hardened the source writer and admission path. Round 2 exercised raw
+readback, compact-reference integrity, storage failure, expiry and compatibility boundaries.
+Round 1 covered the first ten concerns below. Round 2 additionally rechecked first creation,
+legacy migration, A-B-A and audit rollback on actual PostgreSQL, for twelve readback/transaction
+concerns in that round. The final 354-test focused selection and 10 actual PostgreSQL checks passed.
+No confirmed defect
+above Low remained in this bounded new journal after hardening; missing positive qualification remains
+open implementation work, not a severity downgrade.
+
+| Concern | Disposition and evidence |
+|---------|--------------------------|
+| A departing generation projects before its final fence | Pre-projection fence now preserves the active graph, manifest and retained journal; actual runtime regression. |
+| A read/check/write overwrites a concurrent admission or denial | CAS uses the exact observed source-owned revision; losing attempts leave no row or audit. |
+| First admission cannot update a nonexistent row | Existing atomic create-pair operation is used; actual concurrent first writes yield one winner. |
+| Legacy admission has no revision | Actual PostgreSQL zero-revision migration starts an unanchored chain; no backfilled validation time. |
+| Audit failure leaves admission or snapshot committed alone | In-memory failure and actual PostgreSQL trigger roll back the whole transaction. |
+| Response loss duplicates a committed admission | Exact retry preserves the original entry and single audit. |
+| Cancellation becomes successful admission | Cancellation propagates; no fabricated metadata or complete history is returned. |
+| Clock reversal rewrites later knowledge | Backdated revalidation is refused before writing. |
+| Re-admitting an older document loses its new record time | A-B-A retains three distinct admitted entries with the actual latest admission time. |
+| Removing a window erases its prior existence | Full successor snapshot omits it while preserving the original snapshot and predecessor link. |
+| Denial becomes an empty included interval | Retained denied status is returned explicitly; normalized records stay empty and incomplete. |
+| Unchanged revalidation repeatedly copies a large window list | Compact entries reference the last full immutable snapshot; raw fact time is preserved. |
+| Missing or corrupt latest entry falls back to older success | Actual SQL regressions reject digest/head mismatches and deleted head entries. |
+| A retained compact entry hides a deleted snapshot body | Same read-only snapshot resolves the body; a missing body explicitly fails readback. |
+| An old blind writer bypasses the new journal | Head/journal disagreement fails readback; no claim that new CAS fences an old binary. |
+| Admission changes while retaining the old journal pointer | Actual source-head fields must canonically match the retained admission; a status mutation with an unchanged pointer fails the actual SQL regression. |
+| Admission natural expiry looks currently valid | Actual boundary regression returns `expired`; source diagnostic remains incomplete. |
+| The journal accidentally qualifies scoring or execution | Existing incomplete-history and Settings gates remain; 354 owning checks preserve authority and baseline behavior. |
+
+#### October 19 excluded-window snapshot review
+
+Round 1 reproduced six false-completeness cases before repair: a current window, an empty
+snapshot, a later-starting window, a window spanning the start, an exact-start window and
+overlapping windows. Round 2 added eight diagnostic faults plus read-failure/cancellation
+checks. The final focused selection passed 233 tests; these overlap earlier counts.
+
+| Concern | Disposition and evidence |
+|---------|--------------------------|
+| A current snapshot certifies the entire interval | Reproduced High-severity false acceptance; incomplete checkpoint is now unconditional for this unsupported history source. |
+| An empty snapshot proves that no exclusion existed | Reproduced false acceptance; no inferred initial state or included transition is emitted. |
+| A later-starting window proves state at the start | Missing start anchor stays unknown. |
+| A window spanning the start substitutes for full history | Retained membership does not prove omitted or withdrawn revisions; snapshot matrix stays incomplete. |
+| An exact-start window creates an initial-state/delta artifact | Unsupported state reconstruction was removed, rather than patched into a claimed complete chain. |
+| Overlapping windows hide missing revisions | Multiple current objects still supply no continuous history proof. |
+| Effective time becomes invented record time | Removed the unsupported normalized-event constructor; raw recorded timestamps remain reader facts. |
+| A source revision differs from its snapshot | Specific `change_window_revision_conflict` remains alongside the missing-proof diagnostic. |
+| A document digest differs from its snapshot | Digest-conflict regression remains fail-closed. |
+| A selected revision is not a snapshot member | Membership-conflict regression remains fail-closed. |
+| An inverted interval is accepted | Specific interval diagnostic remains; no derived events are stored. |
+| Duplicate window identities imply one coherent revision | Duplicate-record diagnostic is retained. |
+| A partial page implies exhaustiveness | Truncated results keep `result_limit` and `exhausted=false`. |
+| A future or missing coverage row establishes knowledge | Both conditions retain their specific diagnostics and no initial state. |
+| Read failure or cancellation returns success-shaped data | Both propagate to the existing owning error/deadline boundary. |
+| The actual producer persists a positive chain anyway | Integrated source-to-producer regression stores no transitions and returns incomplete coverage. |
+
+These rounds close the reproduced false-acceptance defect only. They do not downgrade missing
+source contracts or operational evidence to Low severity and do not establish positive history,
+score qualification, activation or operational improvement.
 
 The database-wide write/purge advisory lock is a bounded serialization tradeoff; search remains
 unlocked. Measure contention on the connected target before changing its partitioning. Full P0-P6

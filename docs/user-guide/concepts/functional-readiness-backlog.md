@@ -58,13 +58,13 @@ not ranges; `-` means no mandatory package was identified for that bounded funct
 | F10.2 | Ready -> Partial | Local manual and explicit prior-policy v2/v3 API admission, collection, dated retrieval, and containment | Actual prior-policy qualification/promotion, source-quality holds, and authorized source/answer receipts | K03, K04, K05 |
 | F10.3 | Partial -> Partial | Local current-schema Rules and all nine revision phases | Retained legacy migration and governed rollout; do not reimplement completed phases | R01 |
 | F10.4 | Ready -> Partial | Local inert semantic compilation, independent deterministic verification, and retirement | Governed ownership handover/withdrawal/hold receipts and actual bilingual assistive output | K06, K07 |
-| F11.1 | Partial -> Partial | Attributed immutable cases, feedback, prediction outcomes, and local retention controls | Complete source histories, authorized context lifecycle, and retained-Pattern qualification | L01, L02, L03 |
+| F11.1 | Partial -> Partial | Attributed immutable cases, feedback, prediction outcomes, local retention controls, audited default-off collection preference and per-source Settings detail | Complete source histories, authorized context lifecycle, and retained-Pattern qualification | L01, L02, L03 |
 | F11.2 | Partial -> Partial | Local replay, scenario evaluation, threshold-bound O7 measurement, and isolated LOCAL comparison | Coherent external sources, preregistered paired evaluation, and complete live cohorts | L03, L04 |
 | F11.3 | Ready -> Partial | Durable promotion/recall, override attribution, demotion, and read projections | Production Release maximums and governed activation/recall evidence | A01, A02 |
 | F12.1 | Partial -> Partial | Exact approvals, profiles, revocation, and inert standing-authority/lease contracts | Live authority behavior and provider-commit fencing; no shipped A3-E adapter is eligible | A02, A03, L02 |
 | F12.2 | Partial -> Partial | Local risk/policy checks, seven safeguards, signed kill switch, and state readback | Release bounds, cross-path effects, and measured stop/recovery receipts | A01, A02, A03, A04 |
 | F12.3 | Partial -> Partial | Hash-chained audit, minimization, retention/deletion, legal holds, and redacted export | Approved privacy gate and pinned operational governance receipts | D01, D02 |
-| F12.4 | Partial -> Partial | Fifteen-signal policy, three actual signal/field bindings, health/readiness and exact canary-consumption check | Twelve signal/five field sources, measured delivery/recovery, stabilization, and unresolved operating decisions | H01, H02, H03 |
+| F12.4 | Partial -> Partial | Fifteen-signal policy, five actual signal and three field bindings, health/readiness and indexed consumed-canary age | Ten signal/five field sources, latest-attempt result/state, measured delivery/recovery, stabilization, and unresolved operating decisions | H01, H02, H03 |
 | F13.1 | Ready -> Ready | Authorized, source-qualified read views with explicit partial/unavailable states | No new mandatory read-view implementation gap found; dataset freshness and production source enrollment are not certified | - |
 | F13.2 | Ready -> Partial | Local report engine/exports and historical authenticated built-in RCA/PDF evidence | Production-datasource and authenticated error/isolation matrix beyond that built-in receipt | V01 |
 | F13.3 | Partial -> Partial | Baseline/treatment formulas, guard metrics, independent settlement, and censored outcomes | Qualifying episodes, comparable windows, denominators, and uncertainty | L04 |
@@ -155,6 +155,12 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   #2246 separates pre-dispatch rejection from executed failure after three actual typed-bus cases
   invoked rollback without executor I/O. The 219 focused and nine actual PostgreSQL checks preserve
   genuine-failure recovery and deny replay/restart without executing; parent L01 remains open.
+  The current change implements the separate audited Settings preference
+  `forecast.history_collection.enabled`, default off without any environment override. Actual
+  collector/producer work is gated before reading, and a preference revision change during the
+  read discards the result, including disable-and-reenable. Console exposes the four source
+  bindings, checkpoint limitations and prerequisites. These local controls do not supply the four
+  missing positive-history proofs, and the mandatory package remains open.
   #2248 repairs the original shared ActionRun cache, with 26 reproduced JSON value/key-alias
   regressions, actual preflight rejection, unchanged warm hash/copy counts and 203 focused passes.
   It preserves canonical identity bytes, but does not supply the independent history proof.
@@ -178,6 +184,10 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   with production Release `capabilities` maximums under
   [#1822](https://github.com/dotnetpower/fdai/issues/1822). Prove trusted exact-release admission,
   missing/mismatched input denial, and rejection above the ceiling without weakening recall.
+  The current change distinguishes an absent authenticated Release source
+  (`release_maximum_unavailable`) from a verified restrictive maximum. The official lifecycle
+  artifact verifier does not establish Core's current installed Release plus current revocation
+  state, so wiring that prerequisite remains blocked under #1822. No unsigned input is accepted.
 - [ ] **A02, governed authority receipts:** Retain fresh policy-administrator assignment/consent
   readback and one exact-revision single-operator approve/execute/independent-effect receipt with
   reduced quorum visible in audit. Exercise promotion, override, recall/demotion, restart, and
@@ -211,6 +221,10 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   The parent aggregate remains unavailable when other configured roles are unobserved.
   The final SDK/collector/Operator/integration, wheel and document selection passed 169 cases.
   This does not add a catalog signal/field or a Console model-scope view.
+  This increment adopts #2253's protected indexed age source rather than publishing a duplicate.
+  The earlier six-signal/four-field local claim is withdrawn: a last-success receipt is not the
+  latest scheduled-attempt result or complete canary state. Current coverage remains five
+  signals/three fields; ten signals/five fields are unavailable and H01 stays incomplete.
 - [ ] **H02, canary and stabilization:** Retain the exact consumed canary audit within the
   implemented 30-second budget, frozen shadow replay, stop/no-execute receipts, daily jobs, and
   recurrent-query signal. Prove stabilization opens, lowers authority on breach, and exits only

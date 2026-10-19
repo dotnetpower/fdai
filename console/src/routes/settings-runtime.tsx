@@ -17,6 +17,7 @@ import {
   type RuntimeSettingView,
 } from "./settings-runtime.model";
 import { CostGovernanceSettingsSection } from "./cost-governance-settings";
+import { settingsIntegrationsText } from "./settings-integrations.i18n";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -183,7 +184,9 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
           <CostGovernanceSettingsSection client={client} auth={auth} />
           {groups.map((group) => (
             <section class="settings-section settings-runtime-section" key={group}>
-              <h3>{t(`settings.runtimePolicies.groups.${group}`)}</h3>
+              <h3>{group === "forecast"
+                ? settingsIntegrationsText("forecastHistory.group")
+                : t(`settings.runtimePolicies.groups.${group}`)}</h3>
               <div class="settings-list">
                 {view.settings
                   .filter((setting) => setting.group === group)
@@ -218,6 +221,14 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
   );
 }
 
+function runtimeSettingText(key: string, part: "label" | "hint"): string {
+  if (key === "forecast.history_collection.enabled") {
+    return settingsIntegrationsText(part === "label"
+      ? "forecastHistory.collectionLabel" : "forecastHistory.collectionHint");
+  }
+  return t(`settings.runtimePolicies.fields.${key}.${part}`);
+}
+
 function RuntimeSettingRow({
   setting,
   value,
@@ -240,8 +251,8 @@ function RuntimeSettingRow({
   return (
     <div class="settings-row settings-runtime-row">
       <div class="settings-runtime-copy">
-        <strong>{t(`settings.runtimePolicies.fields.${setting.key}.label`)}</strong>
-        <small class="muted">{t(`settings.runtimePolicies.fields.${setting.key}.hint`)}</small>
+        <strong>{runtimeSettingText(setting.key, "label")}</strong>
+        <small class="muted">{runtimeSettingText(setting.key, "hint")}</small>
         <span class="settings-runtime-meta">
           <span>
             {t("settings.runtimePolicies.environment")}: {formatValue(setting.environmentValue)}
@@ -295,7 +306,7 @@ function SettingControl({
   readonly disabled: boolean;
   readonly onChange: (value: RuntimeSettingValue) => void;
 }) {
-  const label = t(`settings.runtimePolicies.fields.${setting.key}.label`);
+  const label = runtimeSettingText(setting.key, "label");
   if (setting.valueType === "boolean") {
     return (
       <label class="settings-toggle-control" aria-label={label}>

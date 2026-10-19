@@ -203,7 +203,7 @@ inputs or prove production savings.
 
 | Function | State | Evidence, supported scope, and remaining conditions |
 |----------|-------|-----------------------------------------------------|
-| <span id="f11-1">F11.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: attributed feedback, immutable incident/action cases, prediction closure, inert candidates, and local retention/hold controls. The [learning ledger](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md) and [prediction ledger](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md) retain source-history, Settings/collector, context-lifecycle and retained-Pattern integration work as well as operational gates. See [L01-L03](functional-readiness-backlog.md#f11-f13-learning-authority-health-and-outcomes); the isolated LOCAL lease implementation does not qualify external sources. |
+| <span id="f11-1">F11.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: attributed feedback, immutable incident/action cases, prediction closure, inert candidates, local retention/hold controls, and audited default-off Settings control of actual history collection with per-source disclosure. The [learning ledger](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md) and [prediction ledger](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md) retain positive source-history proofs, context-lifecycle and retained-Pattern integration work as well as operational gates. See [L01-L03](functional-readiness-backlog.md#f11-f13-learning-authority-health-and-outcomes); the isolated LOCAL lease implementation does not qualify external sources. |
 | <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: judge-only replay, scenario/assurance-twin evaluation, baseline comparison, censored outcomes, and O7 evidence bound to the exact threshold policy. The [learning ledger](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md) and [workflow status](../../roadmap/agents/agent-workflows.md#implementation-status) support local checks. Remaining: coherent external issuer, preregistered SLO/safety-budget comparison, complete recurrence windows, action-specific days/sample sizes, confidence and zero-escape evidence. See [L03-L04](functional-readiness-backlog.md#f11-f13-learning-authority-health-and-outcomes). |
 | <span id="f11-3">F11.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: promotion/override attribution, automatic demotion, durable recall/lift, recall precedence, forced `shadow`, and Operator/Console recall visibility. The [governance ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md) and recorded focused tests support this subset. Remaining: production Release maximum integration and governed activation/recall receipts, [A01-A02](functional-readiness-backlog.md#f11-f13-learning-authority-health-and-outcomes). The current fail-closed shadow-only maximum is an implementation boundary, not a production binding. |
 
@@ -212,6 +212,13 @@ also keeps F11.1/F11.2 Partial: audit timestamps, latest-state joins, shadow suc
 results cannot prove complete event-time intervention history. The source now emits explicit
 incomplete coverage without normalized transitions; its existing consumers remain Incomplete,
 not zero-intervention or Ready. Actual source-owned anchors and completeness proofs remain open.
+
+The current worktree adds the default-off audited `forecast.history_collection.enabled` Settings
+preference and actual collector/producer gating, including in-flight revision revalidation.
+Console now decodes and displays the four source bindings, positive-checkpoint limitations and
+prerequisites. This closes that local control/display slice, not L01's source completeness or
+independent scoring proofs. The Release ceiling source separately reports absence as
+`release_maximum_unavailable`, not as a verified maximum. F11.1-F11.3 remain Partial.
 
 ## F12. Authority, evidence, and service health
 
@@ -226,6 +233,12 @@ not zero-intervention or Ready. Actual source-owned anchors and completeness pro
 through `/operations/runtime-state`, bound to independent startup registration and parent/time
 checks. Other unobserved roles keep the model scope unknown and the catalog aggregate unavailable;
 the 169-case software check does not add a catalog binding or dedicated Console view.
+
+This increment reuses #2253's indexed last-success age source and withdraws its earlier
+receipt-only canary result/state claim. Current coverage remains **five of 15 catalog signals
+and three of eight fields**; ten signals and five fields are explicitly unavailable.
+Neither the latest scheduled-attempt result/state nor missing delivery, stabilization or
+recovery-drill receipts can be inferred from a last-success observation.
 
 ## F13. Evidence views and reporting
 

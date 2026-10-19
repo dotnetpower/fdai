@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c27678ae23ab60846a124049d5c902d659de7f5c
+translation_source_sha: ac2766b590be5daec75421f4c75db289d9ce9cde
 translation_revised: 2026-10-19
 ---
 # 에이전트 판테온
@@ -157,6 +157,12 @@ Loki에 판단, 승인 또는 실행 권한을 부여하지 않습니다.
 
 Norns는 inert `RuleCandidate` 제안의 sole 쓰기 담당으로 유지됩니다. Three-perspective 합의, balanced 집단 한도, pending 큐, Mimir 검토 및 카탈로그 activation 경계는
 [Operational Learning 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. 비공개 `norns_deployment_learning.py` 보조 로직은 범위가 제한된 scenario-gap 및 preflight-blocker 집계 상태만 보유합니다. 모든 후보 생성과 publish는 계속 Norns가 합의 및 rate-limit 경계를 통해 수행합니다. Caller-supplied recurring preflight 수동 차단 요인은 scope-deduplicate된 inert `preflight-toggle-gap` 후보가 되며 토글을 만들거나 배포 권한을 변경하지 않습니다. 재현된 Rule 수집 실패는 Huginn-owned 이벤트로 들어옵니다. Heimdall은 exact 실패를 독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 근거를 감사하고 Muninn은 `object.context-index`로 materialize합니다. Norns는 raw 텍스트, 검증되지 않은 실패, 수집 외 원인 및 exact Rule 버전이 없는 대상을 strict하게 거부합니다. 남은 challenger를 영속하게 기록한 뒤 동일한 합의 및 `object.rule-candidate` 경로를 사용합니다. 적응형 인과 조사에서는 Muninn이 `object.context-index`로 범위가 제한된 전송 안전 활성 및 도전 선택기 비교를 제공하며, Norns가 생산자와 균형 잡힌 개선 및 대조 근거를 검증하고 실행 중인 선택기를 바꾸지 않는 비활성 shadow 전용 `revision`을 같은 Mimir 대기열로 보냅니다. 영속 싱크가 없으면 이벤트를 폐기하지 않고 backpressure합니다. 운영 런타임은 이 최종 게시 경계에 기본적으로 닫힌 상한도 주입합니다. 닫힌 게이트는 범위가 제한된 대기 큐와 합의 근거를 보존하고, 열린 게이트도 카탈로그, 승격, 승인 또는 실행 권한을 부여하지 않으며 Mimir와 검토된 catalog-as-code pull request를 다음 경계로 유지합니다.
+
+Norns는 원본과 예산을 기다린 뒤, 대기 후보 사이, Pattern의 수락 응답 이후에 연결된 발견 게시
+상한을 다시 확인하고 연결된 후보를 전송합니다. 활성화 근거가 만료되거나 Settings가 철회되면
+캐시된 게이트를 다시 열지 않습니다. 보류된 전송은 범위가 제한된 대기열을 보존하고 예약 예산을
+반환하며, 수락 응답을 받은 Pattern의 기록은 멱등성을 유지합니다. 브로커가 이미 수락한
+메시지를 취소하거나 에이전트 권한을 바꾸지는 않습니다.
 
 운영 사례 집단은 고정된 release, 완전하고 최신이며 충돌과 중복이 없는 사례의
 [검토 계약](../rules-and-detection/operational-learning-ontology-ko.md)을 따르며 Mimir가 독립적으로 다시 확인합니다.

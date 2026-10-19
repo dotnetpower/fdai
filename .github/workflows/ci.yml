@@ -778,7 +778,8 @@ jobs:
           POSTGRES_PASSWORD: ci
           POSTGRES_DB: fdai
         ports:
-          - 5432:5432
+          # Match the isolated-validation contract; never select the local runtime port.
+          - 5433:5432
         options: >-
           --health-cmd "pg_isready -U fdai -d fdai"
           --health-interval 5s
@@ -786,8 +787,8 @@ jobs:
           --health-retries 20
 
     env:
-      FDAI_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5432/fdai
-      FDAI_SERVICE_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5432/fdai_services
+      FDAI_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5433/fdai
+      FDAI_SERVICE_DATABASE_URL: postgresql+psycopg://fdai:ci@localhost:5433/fdai_services
       FDAI_PYTEST_MODE: integration
       FDAI_PYTEST_SHARD_COUNT: "2"
       FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
@@ -886,6 +887,10 @@ jobs:
           services/core-control-plane/tests/persistence/test_postgres_inventory_snapshot.py
           services/core-control-plane/tests/persistence/test_postgres_ontology_instance.py::test_postgres_inventory_coverage_scopes_reconciliation_markers
           services/core-control-plane/tests/delivery/pgvector/test_knowledge.py::test_topk_rank_parity_with_reference
+
+      - name: Release integration database port
+        if: matrix.shard == 2
+        run: docker stop "${{ job.services.postgres.id }}"
 
       - name: Start loopback provider stack
         if: matrix.shard == 2

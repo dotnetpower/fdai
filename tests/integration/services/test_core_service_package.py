@@ -109,6 +109,7 @@ EXPECTED_RUNTIME_MODULES = {
     "dynamic_evidence.py",
     "execution_backends.py",
     "forecast_learning.py",
+    "forecast_history_preference.py",
     "forecast_history_producers.py",
     "test_context_projection.py",
     "governed_rca.py",

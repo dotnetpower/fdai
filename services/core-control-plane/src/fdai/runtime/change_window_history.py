@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -16,6 +17,127 @@ CHANGE_WINDOW_HISTORY_PREFIX = "change-window-history:v1:"
 CHANGE_WINDOW_COVERAGE_PREFIX = "change-window-history-coverage:v1:"
 CHANGE_WINDOW_HISTORY_SCHEMA_VERSION = "1.0.0"
 CHANGE_WINDOW_HISTORY_WATERMARK_PREFIX = "change-window-history-watermark:"
+CHANGE_WINDOW_ADMISSION_HISTORY_PREFIX = "change-window-admission-history:v1:"
+
+
+async def persist_change_window_admission(
+    store: StateStore,
+    *,
+    key: str,
+    admission: Mapping[str, object],
+    current: Mapping[str, object] | None,
+    snapshot: OperatingModelSnapshot | None,
+    source_revision: str,
+    document_digest: str,
+    recorded_at: datetime,
+) -> bool:
+    """Atomically retain one source attempt, without qualifying history or execution."""
+
+    if recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
+        raise ValueError("ChangeWindow admission recorded_at MUST be timezone-aware")
+    if (admission.get("status") == "admitted") != (snapshot is not None):
+        raise ValueError("ChangeWindow admission requires its actual admitted snapshot")
+    revision = current.get("revision", 0) if current is not None else 0
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise ValueError("operating intent admission revision MUST be a non-negative integer")
+    if current is not None and isinstance(current.get("validated_at"), str):
+        if _timestamp(current, "validated_at") > recorded_at:
+            return False
+    previous_ref = _history_ref(current.get("history_ref")) if current is not None else None
+    if current is not None and previous_ref is not None:
+        prior_admission = {
+            name: value
+            for name, value in current.items()
+            if name not in {"revision", "history_ref", "history_snapshot_ref"}
+        }
+        if _digest(prior_admission) == _digest(admission):
+            return True
+    versioned = {**deepcopy(dict(admission)), "revision": revision + 1}
+    snapshot_ref = None
+    if (
+        current is not None
+        and current.get("status") == admission.get("status") == "admitted"
+        and current.get("source_revision") == source_revision
+        and current.get("snapshot_digest") == document_digest
+        and current.get("history_snapshot_ref") is not None
+    ):
+        snapshot_ref = _history_ref(current["history_snapshot_ref"])
+    windows = (
+        [
+            _row(
+                record.id,
+                record.properties,
+                source_revision=source_revision,
+                document_digest=document_digest,
+                recorded_at=recorded_at.astimezone(UTC),
+            )
+            for record in snapshot.objects
+            if record.object_type == "ChangeWindow"
+        ]
+        if snapshot is not None and snapshot_ref is None
+        else []
+    )
+    entry = {
+        "schema_version": CHANGE_WINDOW_HISTORY_SCHEMA_VERSION,
+        "source_revision": source_revision,
+        "document_digest": document_digest,
+        "recorded_at": recorded_at.astimezone(UTC).isoformat(),
+        "previous_ref": previous_ref,
+        "snapshot_ref": snapshot_ref,
+        "admission": versioned,
+        "windows": sorted(windows, key=lambda item: str(item["window_id"]))
+        if snapshot_ref is None
+        else None,
+    }
+    history_ref = change_window_admission_history_ref(entry)
+    value = {
+        **versioned,
+        "history_ref": history_ref,
+        "history_snapshot_ref": (snapshot_ref or history_ref) if snapshot is not None else None,
+    }
+    audit = {
+        "kind": "operating_intent.source_admission",
+        "action_kind": "operating_intent.source_admission",
+        "actor": "fdai.runtime.operating_intent_source",
+        "status": admission["status"],
+        "source_revision": source_revision,
+        "binding_generation": admission["binding_generation"],
+        "revision": revision + 1,
+        "history_ref": history_ref,
+        "timestamp": recorded_at.astimezone(UTC).isoformat(),
+    }
+    if current is None:
+        return await store.write_state_pair_with_audit_if_absent(
+            key, value, insert_key=history_ref, insert_value=entry, audit_entry=audit
+        )
+    return await store.compare_and_set_state_with_audit_and_insert(
+        key,
+        value,
+        expected_revision=revision,
+        insert_key=history_ref,
+        insert_value=entry,
+        audit_entry=audit,
+    )
+
+
+def change_window_admission_history_ref(entry: Mapping[str, object]) -> str:
+    return CHANGE_WINDOW_ADMISSION_HISTORY_PREFIX + _digest(entry)
+
+
+def _history_ref(value: object) -> str | None:
+    if value is None:
+        return None
+    if (
+        not isinstance(value, str)
+        or not value.startswith(CHANGE_WINDOW_ADMISSION_HISTORY_PREFIX)
+        or len(value) != len(CHANGE_WINDOW_ADMISSION_HISTORY_PREFIX) + 64
+        or any(
+            char not in "0123456789abcdef"
+            for char in value[len(CHANGE_WINDOW_ADMISSION_HISTORY_PREFIX) :]
+        )
+    ):
+        raise ValueError("operating intent admission history reference is malformed")
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,10 +288,13 @@ def _digest(value: object) -> str:
 
 
 __all__ = [
+    "CHANGE_WINDOW_ADMISSION_HISTORY_PREFIX",
     "CHANGE_WINDOW_COVERAGE_PREFIX",
     "CHANGE_WINDOW_HISTORY_PREFIX",
     "CHANGE_WINDOW_HISTORY_SCHEMA_VERSION",
     "CHANGE_WINDOW_HISTORY_WATERMARK_PREFIX",
     "ChangeWindowHistoryReceipt",
+    "change_window_admission_history_ref",
+    "persist_change_window_admission",
     "record_change_window_history",
 ]

@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 95e0f2b2a13b74092f7d84085c21e436c95b60ae
+translation_source_sha: 68be4c5fb3c30daff4686bac4ad8dd20dd29b20a
 translation_revised: 2026-10-19
 ---
 
@@ -203,7 +203,7 @@ Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
-| <span id="f11-1">F11.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 출처가 명시된 피드백, 불변 인시던트 및 작업 사례, 예측 종결, 비활성 후보, 로컬 보존 통제가 구현되어 있습니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 [예측 원장](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md)에는 운영 기준 외에도 수집원 이력, Settings 및 수집기, 맥락 수명 주기, 보존 Pattern 통합 작업이 남습니다. [L01-L03](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)을 참조하세요. 격리 LOCAL 임대 구현은 외부 수집원을 검증하지 않습니다. |
+| <span id="f11-1">F11.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 출처가 명시된 피드백, 불변 인시던트 및 작업 사례, 예측 종결, 비활성 후보, 로컬 보존 통제, 실제 이력 수집에 연결된 감사되는 기본 꺼짐 설정과 원본별 상세 표시가 구현되어 있습니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 [예측 원장](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md)에는 운영 기준 외에도 수집원 이력의 완전성 증명, 맥락 수명 주기, 보존 Pattern 통합 작업이 남습니다. [L01-L03](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)을 참조하세요. 격리 LOCAL 임대 구현은 외부 수집원을 검증하지 않습니다. |
 | <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 실행하지 않는 재현, 시나리오 및 보증 트윈 평가, 기준선 비교, 평가 제외 결과, 정확한 임계값 정책에 연결된 O7 근거가 구현되어 있습니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 [작업 흐름 상태](../../roadmap/agents/agent-workflows-ko.md#구현-상태)가 로컬 검사를 뒷받침합니다. 일관된 외부 발급자, 사전 등록한 SLO 및 안전 예산 비교, 완전한 재발 구간, 작업별 운영 일수 및 표본 수, 신뢰도 및 정책 위반 누락 없음 근거가 남습니다. [L03-L04](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)를 참조하세요. |
 | <span id="f11-3">F11.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 승격 및 재정의 주체 추적, 자동 하향 조정, 영속 회수 및 해제, 회수 우선순위, `shadow` 강제, Operator 및 Console 회수 표시가 구현되어 있습니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md)과 기록된 집중 검사가 이 부분을 뒷받침합니다. 운영 Release 상한 통합과 관리 절차에 따른 활성화 및 회수 증적은 [A01-A02](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)로 남습니다. 현재 안전하게 제한하는 shadow 전용 상한은 구현 경계이며 운영 연결이 아닙니다. |
 
@@ -212,6 +212,13 @@ Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하
 결과는 사건 시각 기준 개입 이력의 완전성을 입증하지 않습니다. 수집원은 정규화된 전이
 없이 불완전한 관찰 범위를 명시하며 기존 소비자도 개입 0건이나 Ready가 아닌 구성 미완료를
 유지합니다. 실제 수집원 소유 기준점과 완전성 증명은 남아 있습니다.
+
+현재 worktree는 기본 꺼짐이며 감사 기록이 남는 `forecast.history_collection.enabled`
+설정과 실제 수집기·생산자 제어를 추가하고, 진행 중에도 개정 번호를 다시 확인합니다.
+Console은 네 가지 원본 연결, 완전성 확인 지점의 한계, 전제 조건을 해석하고 표시합니다.
+로컬 제어·표시 부분은 구현했지만 L01의 원본 완전성이나 독립적인 채점 근거를 충족한 것은
+아닙니다. Release 상한 원본의 부재도 검증된 상한이 아닌 `release_maximum_unavailable`로
+구분합니다. F11.1-F11.3은 Partial로 유지합니다.
 
 ## F12. 권한 및 근거와 자체 운영
 
@@ -226,6 +233,12 @@ Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하
 `/operations/runtime-state`에서 독립된 시작 등록 정보와 상위 스냅샷 및 시각을 검증하며,
 다른 역할이 미관측이면 모델 범위는 알 수 없음, 카탈로그 집계는 사용 불가로 유지합니다.
 소프트웨어 검사 169개는 카탈로그 연결이나 전용 Console 화면을 추가했다는 뜻이 아닙니다.
+
+이번 변경은 #2253에서 인덱스로 조회하는 마지막 성공 경과 시간 원본을 재사용하고, 이전에
+성공 증적만으로 카나리 결과 및 상태를 연결했다는 주장을 철회합니다. 현재 **카탈로그 신호
+15개 중 5개, 필드 8개 중 3개**가 연결됐으며 신호 10개와 필드 5개는 사용 불가입니다.
+마지막 성공 관측만으로 최신 예약 시도의 결과 및 상태나 누락된 전달, 안정화, 복구 훈련
+증적을 추론할 수 없습니다.
 
 ## F13. 근거 조회 및 보고서
 

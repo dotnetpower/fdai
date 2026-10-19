@@ -10,7 +10,7 @@ from fdai.agents import OperatorRequestReceiptGate, StateStorePolicyRevisionStor
 from fdai.runtime import policy_administration as composition
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai.shared.providers.workload_identity import IdentityToken
-from fdai_service_contracts.policy_administration import PolicyMode
+from fdai_service_contracts.policy_administration import PolicyMode, ReleaseCapabilityMaximums
 from fdai_service_contracts.product_profile import ProductAddOn, ProductProfile
 
 
@@ -31,6 +31,11 @@ class _Identity:
 
 class _Http:
     pass
+
+
+class _ShadowReleaseMaximums:
+    def maximum_mode_for_action_type(self, action_type: str) -> PolicyMode | None:
+        return PolicyMode.SHADOW if action_type == "governance.retire-rule" else None
 
 
 class _Rego:
@@ -89,9 +94,11 @@ def test_policy_administration_selection_is_explicit() -> None:
     )
 
 
+@pytest.mark.parametrize("maximums", [None, _ShadowReleaseMaximums()])
 async def test_build_mimir_policy_administration_binds_required_ports(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    maximums: ReleaseCapabilityMaximums | None,
 ) -> None:
     monkeypatch.setattr(composition, "OpaRegoPolicyCompiler", _Rego)
     monkeypatch.setattr(composition, "AzureKeyVaultPolicyRevisionSigner", _Signer)
@@ -112,6 +119,7 @@ async def test_build_mimir_policy_administration_binds_required_ports(
         workload_identity_builder=_identity_builder,
         operator_request_receipt_gate=_gate(),
         asset_root=asset_root,
+        release_maximums=maximums,
     )
 
     assert isinstance(admin.store, StateStorePolicyRevisionStore)
@@ -120,8 +128,24 @@ async def test_build_mimir_policy_administration_binds_required_ports(
     assert admin.rego_compiler.capabilities_file == capabilities
     assert admin.release_maximums is not None
     assert admin.release_maximums.maximum_mode_for_action_type("governance.retire-rule") is (
-        PolicyMode.SHADOW
+        None if maximums is None else PolicyMode.SHADOW
     )
+    if maximums is not None:
+        assert admin.release_maximums is maximums
+    admin._validate_release_maximums({"governance.retire-rule": PolicyMode.SHADOW})
+    reason = "release_maximum_unavailable" if maximums is None else "release_maximum_exceeded"
+    with pytest.raises(ValueError, match=f"^{reason}$"):
+        admin._validate_release_maximums({"governance.retire-rule": PolicyMode.ENFORCE})
+
+
+@pytest.mark.parametrize(
+    "action_type",
+    ["governance.retire-rule", "ops.restart-pod", "unknown.action"],
+)
+def test_unbound_release_source_does_not_claim_an_authenticated_maximum(
+    action_type: str,
+) -> None:
+    assert composition.FailClosedReleaseMaximums().maximum_mode_for_action_type(action_type) is None
 
 
 @pytest.mark.parametrize(

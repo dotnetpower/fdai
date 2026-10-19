@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -32,6 +34,7 @@ from fdai.delivery.persistence.postgres_forecast_lifecycle_history import (
     LifecycleIncarnationRow,
     LifecycleLedgerRead,
 )
+from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.forecast_learning import (
     build_forecast_history_collector,
     forecast_history_collector_from_environment,
@@ -145,14 +148,15 @@ def change_window(start: int, end: int, *, identity: str = "window-1") -> Change
     )
 
 
-async def test_change_window_history_source_proves_excluded_window_chain() -> None:
+async def test_change_window_snapshot_cannot_prove_complete_excluded_history() -> None:
     source = ChangeWindowHistorySource(reader=ChangeWindows((change_window(10, 30),)))
     read = await source.read(
         subject_ref=QUERY.subject_ref, start_at=QUERY.start_at, end_at=QUERY.end_at, known_at=NOW
     )
-    assert read.checkpoint.complete is True
-    assert read.checkpoint.initial_state == "closed"
-    assert [item.source_state for item in read.records] == ["open", "closed"]
+    assert read.checkpoint.complete is False
+    assert read.checkpoint.initial_state is None
+    assert read.records == ()
+    assert "change_window_history_proof_unavailable" in str(read.checkpoint.limitation)
     store = MemoryStore()
     producer = ForecastHistoryProducer(
         binding=binding("excluded_windows", open="excluded", closed="included").model_copy(
@@ -169,7 +173,108 @@ async def test_change_window_history_source_proves_excluded_window_chain() -> No
     receipt = await producer.produce(
         ForecastContextRequest(SCOPE, producer.target_digest, QUERY.start_at, QUERY.end_at, NOW)
     )
-    assert receipt.complete and receipt.transition_count == 3
+    assert receipt.complete is False
+    assert receipt.transition_count == 0
+    assert not store.keys
+
+
+@pytest.mark.parametrize(
+    "windows",
+    [
+        (),
+        (change_window(10, 30),),
+        (change_window(-10, 30),),
+        (change_window(0, 30),),
+        (change_window(0, 10), change_window(5, 30, identity="window-2")),
+    ],
+)
+async def test_current_or_empty_window_snapshot_is_not_a_history_proof(
+    windows: tuple[ChangeWindowHistoryRow, ...],
+) -> None:
+    read = await ChangeWindowHistorySource(reader=ChangeWindows(windows)).read(
+        subject_ref=QUERY.subject_ref,
+        start_at=QUERY.start_at,
+        end_at=QUERY.end_at,
+        known_at=NOW,
+    )
+    assert not read.checkpoint.complete
+    assert read.checkpoint.initial_state is None
+    assert read.checkpoint.initial_state_ref is None
+    assert read.records == ()
+
+
+class RetainedChangeWindows:
+    def __init__(self, result: ChangeWindowHistoryRead) -> None:
+        self.result = result
+
+    async def read_history(self, **_: object) -> ChangeWindowHistoryRead:
+        return self.result
+
+
+@pytest.mark.parametrize(
+    ("fault", "diagnostic"),
+    [
+        ("missing", "change_window_coverage_missing"),
+        ("truncated", "result_limit"),
+        ("future", "coverage_time_invalid"),
+        ("source", "change_window_revision_conflict"),
+        ("document", "change_window_revision_conflict"),
+        ("membership", "change_window_revision_conflict"),
+        ("duplicate", "conflicting_source_record"),
+        ("interval", "change_window_interval_invalid"),
+    ],
+)
+async def test_unproven_change_window_history_keeps_specific_diagnostics(
+    fault: str, diagnostic: str
+) -> None:
+    result = await ChangeWindows((change_window(10, 30),)).read_history()
+    assert result.coverage is not None
+    coverage = result.coverage
+    if fault == "missing":
+        result = replace(result, coverage=None)
+    elif fault == "truncated":
+        result = replace(result, truncated=True)
+    elif fault == "future":
+        result = replace(result, coverage=replace(coverage, recorded_at=NOW + timedelta(seconds=1)))
+    elif fault == "source":
+        result = replace(result, coverage=replace(coverage, source_revision="other-revision"))
+    elif fault == "document":
+        result = replace(result, coverage=replace(coverage, document_digest=ID_B))
+    elif fault == "membership":
+        result = replace(result, coverage=replace(coverage, revision_refs=()))
+    elif fault == "duplicate":
+        result = replace(result, rows=result.rows * 2)
+    elif fault == "interval":
+        result = replace(result, rows=(change_window(30, 10),))
+    source = ChangeWindowHistorySource(reader=RetainedChangeWindows(result))
+    read = await source.read(
+        subject_ref=QUERY.subject_ref, start_at=QUERY.start_at, end_at=QUERY.end_at, known_at=NOW
+    )
+    assert not read.checkpoint.complete
+    assert read.records == ()
+    assert read.checkpoint.initial_state is None
+    assert read.checkpoint.watermark == (
+        result.coverage.watermark if result.coverage is not None else "unavailable"
+    )
+    assert diagnostic in str(read.checkpoint.limitation)
+    assert "change_window_history_proof_unavailable" in str(read.checkpoint.limitation)
+
+
+@pytest.mark.parametrize("failure", [OSError("source unavailable"), asyncio.CancelledError()])
+async def test_change_window_history_does_not_swallow_read_failure_or_cancellation(
+    failure: BaseException,
+) -> None:
+    class UnavailableHistory:
+        async def read_history(self, **_: object) -> ChangeWindowHistoryRead:
+            raise failure
+
+    with pytest.raises(type(failure)):
+        await ChangeWindowHistorySource(reader=UnavailableHistory()).read(
+            subject_ref=QUERY.subject_ref,
+            start_at=QUERY.start_at,
+            end_at=QUERY.end_at,
+            known_at=NOW,
+        )
 
 
 class Ledger:
@@ -274,8 +379,9 @@ def test_settings_row_uses_runtime_validation_and_never_reports_ready() -> None:
     )
     opted = forecast_history_projection(env)
     assert opted["ready"] is False and opted["available"] is False
-    assert opted["enabled"] is True and opted["enabled_source"] == "deployment_configuration"
-    assert opted["mode"] == "shadow" and opted["reason"] == opted["unavailable_reason"]
+    assert opted["collection_available"] is True
+    assert opted["enabled"] is False and opted["enabled_source"] == "durable_settings"
+    assert opted["mode"] == "disabled" and opted["reason"] == opted["unavailable_reason"]
     assert opted["scoring_authority"] is False and opted["execution_authority"] is False
     action_status = next(item for item in opted["sources"] if item["kind"] == "actions")
     assert action_status["positive_checkpoint"] is False
@@ -381,10 +487,17 @@ def test_runtime_binds_only_reviewed_available_source_producers() -> None:
     )
     environment = {"FDAI_FORECAST_HISTORY_SOURCES_JSON": json.dumps(bindings)}
     plain = forecast_history_collector_from_environment(
-        dsn="postgresql://127.0.0.1/example", environment=environment
+        dsn="postgresql://127.0.0.1/example",
+        environment=environment,
+        runtime_settings=RuntimeSettingsService(store=None, env=environment),
     )
     assert plain is not None and not isinstance(plain, ProducingForecastHistoryCollector)
-    assert forecast_history_collector_from_environment(dsn=None, environment={}) is None
+    assert (
+        forecast_history_collector_from_environment(
+            dsn=None, environment={}, runtime_settings=RuntimeSettingsService(store=None, env={})
+        )
+        is None
+    )
     failures = [
         ([{**producers[0], "target_ref": "other"}], "no reviewed collector mapping"),
         ([{**producers[0], "kind": "resource_lifecycle"}], "maps outside"),

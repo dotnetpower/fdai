@@ -47,6 +47,7 @@ done
 run uv run python scripts/quality/contracts/generate_service_contracts.py "${check_flag[@]}"
 run uv run python scripts/quality/contracts/generate_service_compatibility_fixtures.py "${check_flag[@]}"
 run uv run python scripts/quality/architecture/generate-behavior-seeds.py "${check_flag[@]}"
+run uv run python scripts/automation/build_question_bank.py "${check_flag[@]}"
 
 if [ "$mode" = "check" ]; then
   run uv run python scripts/catalog/refresh-release-derived-pins.py

@@ -12,6 +12,7 @@ import sys
 from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -681,6 +682,66 @@ def _validate_live_db_guards() -> list[str]:
     return errors
 
 
+def _validate_integration_database_isolation() -> list[str]:
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/ci.yml").read_text())
+    errors: list[str] = []
+    for name, job in workflow["jobs"].items():
+        postgres = job.get("services", {}).get("postgres")
+        if postgres is None:
+            continue
+        if postgres.get("ports") != ["5433:5432"]:
+            errors.append(f"CI job {name} must map isolated validation PostgreSQL to 5433:5432")
+        for key in ("FDAI_DATABASE_URL", "FDAI_SERVICE_DATABASE_URL"):
+            raw = job.get("env", {}).get(key)
+            try:
+                parsed = urlsplit(raw) if isinstance(raw, str) else None
+                valid = (
+                    parsed is not None
+                    and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+                    and parsed.port == 5433
+                )
+            except ValueError:
+                valid = False
+            if not valid:
+                errors.append(
+                    f"CI job {name} {key} must use isolated loopback validation port 5433"
+                )
+        steps = job.get("steps", [])
+        provider = next(
+            (
+                index
+                for index, step in enumerate(steps)
+                if step.get("name") == "Start loopback provider stack"
+            ),
+            None,
+        )
+        if provider is not None:
+            integration = next(
+                (
+                    index
+                    for index, step in enumerate(steps)
+                    if step.get("name") == "Run integration test shard"
+                ),
+                None,
+            )
+            releases = [
+                index
+                for index, step in enumerate(steps)
+                if step.get("run", "").strip() == 'docker stop "${{ job.services.postgres.id }}"'
+                and step.get("if") == steps[provider].get("if") == "matrix.shard == 2"
+            ]
+            if (
+                integration is None
+                or len(releases) != 1
+                or not integration < releases[0] < provider
+            ):
+                errors.append(
+                    f"CI job {name} must release its PostgreSQL port "
+                    "between integration and provider phases"
+                )
+    return errors
+
+
 def main() -> int:
     errors = [
         *_validate_workflow_layout(),
@@ -696,6 +757,7 @@ def main() -> int:
         *_validate_design_contract_environment(),
         *_validate_uv_cache_writers(),
         *_validate_live_db_guards(),
+        *_validate_integration_database_isolation(),
     ]
     if errors:
         for error in errors:

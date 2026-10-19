@@ -248,7 +248,7 @@ def _evidence_reason(
 ) -> DiscoveryActivationReason | None:
     if evidence is None:
         return missing
-    if evidence.expires_at <= generated_at:
+    if evidence.observed_at > generated_at or evidence.expires_at <= generated_at:
         return stale
     if evidence.status is DiscoveryEvidenceStatus.FAILED:
         return failed

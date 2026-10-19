@@ -49,11 +49,15 @@ POLICY_ADMIN_OPERATOR_PRODUCER_ID_ENV = "FDAI_OPERATOR_REQUEST_OPERATOR_PRODUCER
 
 @dataclass(frozen=True, slots=True)
 class FailClosedReleaseMaximums:
-    """Interim Release-maximum source until #1822 supplies signed Release data."""
+    """Report unavailable authority until #1822 supplies current signed Release data.
+
+    Mimir permits shadow-only policy requests without a source. Returning a made-up
+    shadow maximum would hide missing provenance as an authenticated Release limit.
+    """
 
     def maximum_mode_for_action_type(self, action_type: str) -> PolicyMode | None:
         del action_type
-        return PolicyMode.SHADOW
+        return None
 
 
 def policy_administration_selected(profile: ProductProfile) -> bool:

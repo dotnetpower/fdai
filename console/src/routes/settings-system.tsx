@@ -18,6 +18,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import { SettingRow } from "./settings";
+import { ForecastHistorySourceDetails } from "./settings-forecast-history";
 import { settingsIntegrationsText } from "./settings-integrations.i18n";
 import {
   decodeEmailTemplatePreview,
@@ -998,7 +999,7 @@ function IntegrationRow({ integration }: { readonly integration: RuntimeIntegrat
       label={integrationLabel(integration.key)}
       hint={integrationHint(integration.key)}
     >
-      <span class="settings-integration-status">
+      <div class="settings-integration-status">
         <StatusPill kind={kind} label={status} />
         <small class="muted">
           {t("settings.integrationMode", {
@@ -1011,7 +1012,8 @@ function IntegrationRow({ integration }: { readonly integration: RuntimeIntegrat
           })}
         </small>
         {integration.reason ? <small class="muted">{integration.reason}</small> : null}
-      </span>
+        <ForecastHistorySourceDetails details={integration.forecastHistory} />
+      </div>
     </SettingRow>
   );
 }

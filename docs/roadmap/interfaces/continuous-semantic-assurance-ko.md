@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: 350900afd93b4255617ee658aa2ca3d22220c54d
-translation_revised: 2026-10-09
+translation_source_sha: 57431130cbdcfd28587d62f07d2f4be0b5d5302d
+translation_revised: 2026-10-19
 ---
 # 지속형 의미 보증
 
@@ -37,6 +37,9 @@ Corpus 크기는 소스 리비전의 관측 속성입니다. 논리 기대치, �
 
 현재 corpus 개수는 구조화된 소스 artifact에서 다시 계산합니다. 로드맵 종료 조건에 복사하거나
 안정적인 제품 상수로 취급하지 않습니다.
+생성 과정은 의미 사례 자료보다 질문은행을 먼저 검사합니다. 읽기 전용
+`build_question_bank.py --check`는 생성 산출물 두 개를 선언된 모든 원본과 비교하며,
+빠른 검증기도 원본 카탈로그가 바뀌면 이 검사를 실행합니다. 이는 출처 검증이지 인증이 아닙니다.
 
 [소스에 연결된 corpus 매니페스트](../../../eval/golden-dataset/corpus-manifest.json)는 생성된
 영어/한국어 Golden 사례, Reader 범위의 운영 선언 질문에 대한 다섯 근거 상태별 사례, 의미
