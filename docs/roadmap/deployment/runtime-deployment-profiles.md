@@ -9,12 +9,7 @@ This document defines Azure Kubernetes Service (AKS) as the default runtime for 
 authority. Azure Container Apps remains a supported compatibility profile for existing installations. The selection is part of the signed `fdaictl` provisioning profile and every exact Terraform plan.
 
 > **Scope:** This contract covers new installations. Moving an existing installation between
-> runtime platforms requires a separate migration design and is not an implicit profile update.
->
-> Document-intent ingress has the same source shape in every profile, but remains unavailable
-> unless the worker-owned envelope migration, Core PostgreSQL ontology store, current human
-> identity reader, Pantheon, and event bus are all present. Profile selection never substitutes
-> for those prerequisites or exact Var approval.
+> runtime platforms requires a separate migration design and is not an implicit profile update; document-intent ingress still requires its worker migration, Core PostgreSQL graph, current identity reader, Pantheon, event bus and exact Var approval.
 >
 > **Azure focus:** Both supported runtime platforms use the same Azure provider adapters, signed
 > OCI images, Event Hubs Kafka endpoints, Key Vault, workload identities, and PostgreSQL schema.

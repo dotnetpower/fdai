@@ -1,15 +1,13 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 79ef30f8ebbe098efacd8772d9348f611bcacaca
+translation_source_sha: 9e52842645d7759c95a1d4c2876ce92ee62b5d0c
 translation_revised: 2026-10-20
 ---
 
 # 채널과 알림(Channels and Notifications)
 
-Core는 턴 종료 후 검토 요청 접수를 채널, 알림, 승인 토픽과 분리하여 감독합니다. [적용 승인을 거치는 타입 선택 읽기](governed-typed-selection-read-ko.md)도 채널 권한을 추가하지 않고 기존 승인·감사 경계를 유지합니다.
-별도로 감독하는 문서 의도 준비 소비자는 자체 이벤트 버스 그룹을 사용하며 사람 채널,
-알림 수신자 또는 승인 전송 경로를 추가하지 않습니다.
+Core는 턴 종료 후 검토와 문서 의도 준비 접수를 채널·알림·승인 토픽과 분리해 감독합니다. 둘 다 독립 이벤트 버스 그룹을 사용하며 사람 채널, 알림 수신자, 승인 전송 경로 또는 권한을 추가하지 않습니다.
 읽기 전용 ActionBuilder 규칙 맵은 ORR 인용을 검증하고 실제 검증기와 내장 비교 구간의 관측은 자체 상태에 입력됩니다. 둘 다 채널, 전달 증적, 승인 경로를 만들거나 알림 추가 기능을 선택하지 않습니다.
 
 FDAI가 Teams, Slack, 이메일, 웹훅, 페이징 서비스, SMS, Direct Line 사용자 지정 채널 및

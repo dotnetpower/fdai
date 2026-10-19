@@ -3,9 +3,7 @@ title: Channels and Notifications
 ---
 # Channels and Notifications
 
-Core supervises post-turn review intake separately from channel, notification and approval topics; [governed typed-selection read](governed-typed-selection-read.md) likewise retains existing approval and audit boundaries without adding channel authority.
-The separately supervised document-intent ready consumer uses its own event-bus group and adds no
-human channel, notification recipient or approval transport.
+Core supervises post-turn review and document-intent ready intake separately from channel, notification and approval topics; both use independent event-bus groups and add no human channel, notification recipient, approval transport or authority.
 Its read-only ActionBuilder rule map validates ORR citations and actual verifier/native comparison-window observations feed self-health; neither creates a channel, delivery receipt or approval route, or selects the notifications add-on.
 
 How FDAI talks to humans through Teams, Slack, email, webhooks, paging services, SMS,
