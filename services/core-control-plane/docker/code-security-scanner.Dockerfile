@@ -282,8 +282,8 @@ FROM prover-javascript AS prover
 LABEL org.fdai.code-security.proof-profile="all"
 USER root
 COPY --from=jdk /jdk-content.sha256 /tmp/jdk-content.sha256
-# Package installation retains the RPM inventory; pinned-image content rejects binary drift.
-RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y \
+# Package signature verification needs an existing home, not the runtime-only /tmp/fdai.
+RUN HOME=/root timeout --signal=TERM --kill-after=10 180s tdnf install -y \
         gcc gcc-c++ binutils glibc-devel kernel-headers icu msopenjdk-21-21.0.12.1-1 \
     && test "$(rpm -q msopenjdk-21)" = "msopenjdk-21-21.0.12.1-1.x86_64" \
     && sha256sum -c /tmp/jdk-content.sha256 \
@@ -311,7 +311,7 @@ FROM analysis-runtime AS analysis-managed-runtime
 
 USER root
 COPY --from=jdk /jdk-content.sha256 /tmp/jdk-content.sha256
-RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y \
+RUN HOME=/root timeout --signal=TERM --kill-after=10 180s tdnf install -y \
         icu msopenjdk-21-21.0.12.1-1 \
     && test "$(rpm -q msopenjdk-21)" = "msopenjdk-21-21.0.12.1-1.x86_64" \
     && sha256sum -c /tmp/jdk-content.sha256 \
