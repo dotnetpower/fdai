@@ -13,13 +13,16 @@ from fdai.core.conversation.semantic_reasoning_admission import (
     SpanAccounting,
     admit_question_form,
 )
+from fdai.core.conversation.semantic_reasoning_normalization import (
+    normalize_redundant_property_filter_labels,
+)
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_repair import (
     FormRepair,
     _violation,
-    normalize_redundant_property_filter_labels,
     repair_keeps_operands,
 )
+from fdai_service_contracts.semantic_question_form import AtomDiff, FormAlternative, SourceSpan
 
 from tests.conversation.test_semantic_reasoning_shadow import (
     _UTTERANCE,
@@ -273,6 +276,76 @@ def test_korean_property_labels_normalize_by_typed_role_not_phrase_matching() ->
         ("region", "m5"),
     ]
     assert admission.disposition is AdmissionDisposition.ADMITTED
+
+
+def _redundant_property_label_form(reference: str | None = None) -> Any:
+    utterance = "How many type VMs depend on sql-app?"
+    raw = _quoted_form()
+    raw["mentions"].append(
+        {
+            "id": "m3",
+            "form": "concept",
+            "domain": "property",
+            "span": {"text": "type", "occurrence": 1},
+        }
+    )
+    raw["goals"][0]["filters"] = [
+        {"role": "type", "mention": "m3"},
+        {"role": "type", "mention": "m2"},
+    ]
+    if reference == "qualifier":
+        raw["mentions"].append(
+            {
+                "id": "m4",
+                "form": "name",
+                "domain": "instance",
+                "span": {"text": "How", "occurrence": 1},
+                "qualifier": {"mention": "m3", "sense": "containment"},
+            }
+        )
+    elif reference == "subject":
+        raw["goals"][0]["subject"] = "m3"
+    elif reference == "filter":
+        raw["goals"][0]["filters"].append({"role": "scope", "mention": "m3"})
+    elif reference == "relation":
+        raw["goals"][0]["relation"]["anchor"] = "m3"
+    elif reference == "measure":
+        raw["goals"][0]["measure"] = {"kind": "property", "mention": "m3"}
+    form = resolve_question_form(raw, utterance=utterance).form
+    assert form is not None
+    return form
+
+
+def test_competing_reading_prevents_property_label_normalization() -> None:
+    form = _redundant_property_label_form()
+    form = form.model_copy(
+        update={
+            "alternatives": (
+                FormAlternative(
+                    goal="g1",
+                    atoms=(AtomDiff(field="operation", value="select"),),
+                ),
+            )
+        }
+    )
+    assert normalize_redundant_property_filter_labels(form) == form
+
+
+@pytest.mark.parametrize("reference", ["qualifier", "subject", "filter", "relation", "measure"])
+def test_referenced_property_label_is_never_removed(reference: str) -> None:
+    form = _redundant_property_label_form(reference)
+    normalized = normalize_redundant_property_filter_labels(form)
+    assert normalized == form
+    assert "m3" in {item.id for item in normalized.mentions}
+
+
+def test_property_label_normalization_holds_when_context_budget_is_full() -> None:
+    form = _redundant_property_label_form().model_copy(
+        update={
+            "context": tuple(SourceSpan(start=100 + item, end=101 + item) for item in range(32))
+        }
+    )
+    assert normalize_redundant_property_filter_labels(form) == form
 
 
 def test_goals_operations_times_and_operand_relations_must_survive_a_repair() -> None:
