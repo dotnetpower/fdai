@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
+from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_configuration_package import (
     SignedConfigurationPackage,
     decrypt_configuration_identifiers,
@@ -197,6 +198,50 @@ def test_actual_cli_build_verify_seal_privacy_and_retry(case: Case) -> None:
     no_clobber = case.run("build", "--destination", first, "--initial-revision")
     _refused(no_clobber)
     assert retry.read_bytes() == first.read_bytes()
+
+
+def test_actual_cli_payload_limit_matches_builder_and_reader(case: Case) -> None:
+    payload_limit = 1024 * 1024
+    schema = case.release["configuration_schema"]
+    environment = case.source["environment"]
+    assert isinstance(schema, dict) and isinstance(environment, dict)
+    schema["notes"] = {"x-fdai-axis": "deployment-environment", "x-fdai-owner": "customer"}
+    environment["notes"] = ""
+    _write(case.root / "release.json", case.release)
+    _write(case.root / "source.json", case.source)
+    small = json.loads(case.build("small.json").read_bytes())
+    environment["notes"] = "x" * (payload_limit - len(base64.b64decode(small["payload"])))
+    source_file = _write(case.root / "source.json", case.source)
+    assert source_file.stat().st_size < payload_limit
+    accepted = case.build("exact-limit.json")
+    original = accepted.read_bytes()
+    artifact = json.loads(original)
+    payload = base64.b64decode(artifact["payload"])
+    assert len(payload) == payload_limit
+    verified = case.run("verify", "--package", accepted, "--initial-revision")
+    assert verified.returncode == 0, verified.stderr
+    assert json.loads(verified.stdout)["verified"] is True
+
+    environment["notes"] += "x"
+    _write(source_file, case.source)
+    assert source_file.stat().st_size < payload_limit
+    assert (case.root / "release.json").stat().st_size < payload_limit
+    destination = case.root / "overflow.json"
+    _refused(case.run("build", "--destination", destination, "--initial-revision"))
+    assert not destination.exists()
+    _refused(case.run("build", "--destination", accepted, "--initial-revision"))
+    assert accepted.read_bytes() == original
+
+    # A valid signature cannot admit the same manifest expanded by one byte.
+    document = json.loads(payload)
+    document["configuration"]["environment"]["notes"] += "x"
+    oversized = canonical_bytes(document)
+    assert len(oversized) == payload_limit + 1
+    artifact["payload"] = base64.b64encode(oversized).decode()
+    artifact["signature"] = base64.b64encode(case.signing.sign(oversized)).decode()
+    oversized_file = _write(case.root / "oversized-signed.json", artifact)
+    _refused(case.run("verify", "--package", oversized_file, "--initial-revision"))
+    assert accepted.read_bytes() == original
 
 
 def test_actual_cli_chain_gap_fork_reorder_and_old_revision(case: Case) -> None:
