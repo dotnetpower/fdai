@@ -23,8 +23,11 @@ rules:
                   public $RET $METHOD(..., IFormFile $UPLOAD, ...) { ... }
               - pattern: $UPLOAD.FileName
           - patterns:
-              - pattern-inside: |
-                  public $RET $METHOD(..., [$ATTR] string $PARAM, ...) { ... }
+              - pattern-either:
+                  - pattern-inside: |
+                      public $RET $METHOD(..., [$ATTR] string $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      public $RET $METHOD(..., [$ATTR] string? $PARAM, ...) { ... }
               - metavariable-regex: {metavariable: $ATTR, regex: '^(FromQuery|FromRoute|FromForm|FromBody|FromHeader)$'}
               - pattern: $PARAM
           - patterns:
@@ -33,8 +36,14 @@ rules:
                       [$HTTP(...)]
                       public $RET $METHOD(..., string $PARAM, ...) { ... }
                   - pattern-inside: |
+                      [$HTTP(...)]
+                      public $RET $METHOD(..., string? $PARAM, ...) { ... }
+                  - pattern-inside: |
                       [$HTTP]
                       public $RET $METHOD(..., string $PARAM, ...) { ... }
+                  - pattern-inside: |
+                      [$HTTP]
+                      public $RET $METHOD(..., string? $PARAM, ...) { ... }
               - metavariable-regex: {metavariable: $HTTP, regex: '^Http(Get|Post|Put|Patch|Delete)$'}
               - pattern: $PARAM
     pattern-sanitizers: &cs-numeric-sanitizers
@@ -64,6 +73,11 @@ rules:
     mode: taint
     pattern-sources: *cs-sources
     pattern-sanitizers: *cs-numeric-sanitizers
+    pattern-propagators:
+      - pattern: $BUILDER.Append($VALUE)
+        from: $VALUE
+        to: $BUILDER
+        by-side-effect: true
     pattern-sinks:
       - patterns:
           - pattern-either:

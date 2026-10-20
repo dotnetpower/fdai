@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 28c9bdd075f837b329b5a00c7b824d4152aaed9d
+translation_source_sha: 57b65cc839c9cd75f3c16acd296cbb6e3dff4b69
 translation_revised: 2026-10-20
 ---
 # 프로젝트 구조
@@ -797,8 +797,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 `delivery/persistence/state_store_code_security_*.py`에 둡니다. 개수가 제한된 Console 이슈 요약은
 검토 신호 옆의 `issue_summary.py`가 만듭니다. `verifier.py`의 Python 취약점 검증기는 부수 효과가 없는
 순수 모듈 `verifier_constants.py`로 고정된 조건을 계산하고, `verifier_lists.py`로 지역 리스트의 원소를
-추적합니다. `verifier_evaluation.py`의 Core 요건 판정은 반올림한 증적 값이 아니라 참 양성과 거짓 양성의 정확한 개수를 사용합니다. `java_constant_guard.py`는 저장소 코드를 실행하지 않고, 범위가 제한된 정확한 지역
-JDK map 키와 마지막 무조건 대입을 포함한 Java 소스 수준 상수 증명을 처리합니다. 심각도 루브릭은
+추적합니다. `verifier_evaluation.py`의 Core 요건 판정은 반올림한 증적 값이 아니라 참 양성과 거짓 양성의 정확한 개수를 사용합니다. `java_constant_guard.py`는 SQL과 경로 verifier sink의 Java 소스 수준 상수 증명, 범위가 제한된 정확한 지역 JDK map 키, 지배적인 대입을 처리합니다. `java_external_constants.py`는 저장소 코드를 실행하지 않고 source root 안의 고유하고 크기가 제한된 일반 파일에서만 정확한 정규화 이름의 `static final String` initializer를 읽습니다. 심각도 루브릭은
 `rule-catalog/code-security/severity-rubric.yaml`의 카탈로그 데이터이며, 그 버전이 모든 커버리지
 증적에 기록되므로 루브릭이 바뀌면 이전 재스캔과 동등하지 않게 됩니다. Operator 읽기 측은
 `code_security_review_projection.py`와 `code_security_issue_projection.py`이고, Console 경로는 요청,

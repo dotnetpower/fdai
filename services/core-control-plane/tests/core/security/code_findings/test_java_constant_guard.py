@@ -7,9 +7,12 @@ import json
 from pathlib import Path
 
 import pytest
-from fdai.core.security.code_findings import java_constant_guard
+from fdai.core.security.code_findings import java_constant_guard, java_external_constants
 from fdai.core.security.code_findings.canonical import AnalysisContext, build_issues
-from fdai.core.security.code_findings.java_constant_guard import java_sql_constant_veto
+from fdai.core.security.code_findings.java_constant_guard import (
+    java_path_constant_veto,
+    java_sql_constant_veto,
+)
 from fdai.core.security.code_findings.models import Lane
 from fdai.core.security.code_findings.sarif import SarifIngestContext, ingest_sarif
 from fdai.core.security.code_findings.verifier import VerifierOutcome, taint_rule_verifications
@@ -29,6 +32,10 @@ def test_frozen_evaluation_is_bound_to_the_actual_guard_code() -> None:
         receipt["constant_guard_source_sha256"]
         == hashlib.sha256(Path(java_constant_guard.__file__).read_bytes()).hexdigest()
     )
+    assert (
+        receipt["external_constants_source_sha256"]
+        == hashlib.sha256(Path(java_external_constants.__file__).read_bytes()).hexdigest()
+    )
 
 
 def _source(body: str, helpers: str = "") -> str:
@@ -47,6 +54,190 @@ def _veto(tmp_path: Path, source: str) -> str | None:
     path.write_text(source, encoding="utf-8")
     line = next(i for i, text in enumerate(source.splitlines(), 1) if "// sink" in text)
     return java_sql_constant_veto(tmp_path, path.name, line)
+
+
+def _path_veto(tmp_path: Path, source: str) -> str | None:
+    path = tmp_path / "Example.java"
+    path.write_text(source, encoding="utf-8")
+    line = next(i for i, text in enumerate(source.splitlines(), 1) if "// sink" in text)
+    return java_path_constant_veto(tmp_path, path.name, line)
+
+
+@pytest.mark.parametrize(
+    "sink",
+    [
+        "new java.io.FileInputStream(path); // sink",
+        'new java.io.File(path, "/fixed"); // sink',
+        "java.nio.file.Paths.get(path); // sink",
+        "java.nio.file.Path.of(path); // sink",
+    ],
+)
+def test_constant_path_switch_vetoes_taint_evidence(tmp_path: Path, sink: str) -> None:
+    source = f"""class Example {{
+void run(String input) {{
+String path; String guess = "ABC"; char target = guess.charAt(1);
+switch (target) {{
+case 'A': path = input; break;
+case 'B': path = "fixed"; break;
+default: path = input;
+}}
+{sink}
+}}
+}}"""
+    assert _path_veto(tmp_path, source) is not None
+
+
+def test_unknown_path_flow_keeps_taint_evidence(tmp_path: Path) -> None:
+    source = """class Example {
+void run(String input) {
+String path = input;
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
+
+
+def test_exact_static_final_path_prefix_is_source_bound(tmp_path: Path) -> None:
+    helper = tmp_path / "src" / "example" / "Config.java"
+    helper.parent.mkdir(parents=True)
+    helper.write_text(
+        """package example;
+import java.io.File;
+public class Config {
+public static final String ROOT = System.getProperty("user.dir") + File.separator;
+public static final String SAFE = ROOT + "files" + File.separator;
+}""",
+        encoding="utf-8",
+    )
+    source = """class Example {
+void run(String input) {
+String path = null;
+String name = "fixed";
+try {
+path = example.Config.SAFE + name;
+new java.io.FileInputStream(path); // sink
+} catch (Exception ignored) {}
+}
+}"""
+    assert _path_veto(tmp_path, source) is not None
+
+
+def test_mutable_or_ambiguous_external_path_prefix_keeps_evidence(tmp_path: Path) -> None:
+    helper = tmp_path / "one" / "example" / "Config.java"
+    helper.parent.mkdir(parents=True)
+    helper.write_text(
+        """package example;
+public class Config { public static String SAFE = "files/"; }""",
+        encoding="utf-8",
+    )
+    source = """class Example {
+void run(String input) {
+String path = example.Config.SAFE + "fixed";
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
+
+
+def test_external_constant_symlink_cannot_escape_source_root(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "Config.java"
+    target.write_text(
+        """package example;
+public class Config { public static final String SAFE = "fixed/"; }""",
+        encoding="utf-8",
+    )
+    linked = root / "example" / "Config.java"
+    linked.parent.mkdir()
+    linked.symlink_to(target)
+    source = """class Example {
+void run(String input) {
+String path = example.Config.SAFE + "fixed";
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    assert _path_veto(root, source) is None
+
+
+def test_external_constant_requires_exact_package_declaration(tmp_path: Path) -> None:
+    helper = tmp_path / "wrong" / "Config.java"
+    helper.parent.mkdir()
+    helper.write_text(
+        """// package example;
+package wrong;
+public class Config { public static final String SAFE = "fixed/"; }""",
+        encoding="utf-8",
+    )
+    source = """class Example {
+void run(String input) {
+String path = example.Config.SAFE + "fixed";
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
+
+
+def test_external_constant_requires_one_unambiguous_class(tmp_path: Path) -> None:
+    for folder in ("one", "two"):
+        helper = tmp_path / folder / "Config.java"
+        helper.parent.mkdir()
+        helper.write_text(
+            """package example;
+public class Config { public static final String SAFE = "fixed/"; }""",
+            encoding="utf-8",
+        )
+    source = """class Example {
+void run(String input) {
+String path = example.Config.SAFE + "fixed";
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
+
+
+def test_external_constant_rejects_oversized_class(tmp_path: Path) -> None:
+    helper = tmp_path / "example" / "Config.java"
+    helper.parent.mkdir()
+    helper.write_text(
+        """package example;
+public class Config { public static final String SAFE = "fixed/"; }
+"""
+        + " " * 1_000_001,
+        encoding="utf-8",
+    )
+    source = """class Example {
+void run(String input) {
+String path = example.Config.SAFE + "fixed";
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
+
+
+def test_every_path_constructor_argument_must_be_constant(tmp_path: Path) -> None:
+    source = """class Example {
+void run(String input) {
+String base = "fixed";
+new java.io.File(base, input); // sink
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
+
+
+def test_conditional_try_assignment_keeps_path_evidence(tmp_path: Path) -> None:
+    source = """class Example {
+void run(String input, boolean unknown) {
+String path = "fixed";
+try {
+if (unknown) path = input;
+new java.io.FileInputStream(path); // sink
+} catch (Exception ignored) {}
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
 
 
 @pytest.mark.parametrize(
@@ -382,7 +573,7 @@ def test_malformed_oversized_and_escaping_sources_never_veto(tmp_path: Path) -> 
 def test_parser_deadline_failure_leaves_engine_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def deadline(source: bytes) -> None:
+    def deadline(source: bytes, external_constants: object = None) -> None:
         raise ValueError("Parsing failed")
 
     monkeypatch.setattr(java_constant_guard, "_Slice", deadline)
@@ -437,6 +628,46 @@ def test_runtime_and_evaluation_share_veto_without_dropping_base_issue(
         assert str(vetoes[0]["proof"]) in str(verdict.source)
 
 
+def test_runtime_and_evaluation_share_java_path_veto(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = """class Example {
+void run(String input) {
+String path = "fixed";
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    path = tmp_path / "Example.java"
+    path.write_text(source)
+    line = next(i for i, text in enumerate(source.splitlines(), 1) if "// sink" in text)
+    rule = "fdai.verify.java.path-traversal"
+    occurrences = ingest_sarif(
+        sarif("Opengrep", [result(rule, path.name, line, cwe=22)]),
+        SarifIngestContext(lane=Lane.DETERMINISTIC, revision=REVISION),
+    ).occurrences
+    issues = build_issues(occurrences, catalog(), AnalysisContext(revision=REVISION))
+    shipped = load_verifier_catalog(CATALOG_ROOT, frozenset(catalog().weakness_classes.classes))
+    (verdict,) = taint_rule_verifications(issues, occurrences, shipped, repository=tmp_path)
+    assert verdict.outcome is VerifierOutcome.NOT_VERIFIED
+    assert verdict.reason == "argument_provably_constant"
+    monkeypatch.setattr(
+        evaluation,
+        "_engine_scan",
+        lambda *args: {
+            "results": [{"check_id": rule, "path": path.name, "start": {"line": line}}],
+            "errors": [],
+        },
+    )
+    label = LabeledLocation("fixture", path.name, line, "path_traversal", "taint", False)
+    vetoes: list[dict[str, object]] = []
+    outcomes, _ = evaluation._taint_outcomes(
+        "unused", CATALOG_ROOT / "rules" / "verify", tmp_path, [label], vetoes=vetoes
+    )
+    assert outcomes[label] is LocationOutcome.NOT_VERIFIED
+    assert vetoes[0]["reason"] == verdict.reason
+    assert str(vetoes[0]["proof"]) in str(verdict.source)
+
+
 def test_promoted_java_sql_requires_exact_source_binding(tmp_path: Path) -> None:
     rule = "fdai.verify.java.sql-injection"
     occurrences = ingest_sarif(
@@ -449,6 +680,19 @@ def test_promoted_java_sql_requires_exact_source_binding(tmp_path: Path) -> None
         update={"promotion": shipped.promotion.model_copy(update={"promoted": (rule,)})}
     )
     (verdict,) = taint_rule_verifications(issues, occurrences, promoted)
+    assert verdict.outcome is VerifierOutcome.NOT_VERIFIED
+    assert verdict.reason == "java_constant_guard_source_unavailable"
+
+
+def test_promoted_java_path_requires_exact_source_binding(tmp_path: Path) -> None:
+    rule = "fdai.verify.java.path-traversal"
+    occurrences = ingest_sarif(
+        sarif("Opengrep", [result(rule, "Example.java", 1, cwe=22)]),
+        SarifIngestContext(lane=Lane.DETERMINISTIC, revision=REVISION),
+    ).occurrences
+    issues = build_issues(occurrences, catalog(), AnalysisContext(revision=REVISION))
+    shipped = load_verifier_catalog(CATALOG_ROOT, frozenset(catalog().weakness_classes.classes))
+    (verdict,) = taint_rule_verifications(issues, occurrences, shipped)
     assert verdict.outcome is VerifierOutcome.NOT_VERIFIED
     assert verdict.reason == "java_constant_guard_source_unavailable"
 

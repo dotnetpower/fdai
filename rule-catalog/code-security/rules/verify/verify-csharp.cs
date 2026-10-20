@@ -31,6 +31,12 @@ public class VerifyFixtureController : Controller
         return Ok();
     }
 
+    public IActionResult NullableOrders([FromQuery] string? name)
+    {
+        // ruleid: fdai.verify.csharp.sql-injection
+        return Ok(context.Orders.FromSqlRaw("SELECT * FROM Orders WHERE Name = '" + name + "'"));
+    }
+
     [HttpGet("search")]
     public IActionResult Search(string keyword, int page)
     {
