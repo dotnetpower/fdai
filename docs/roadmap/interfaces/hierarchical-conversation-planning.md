@@ -142,8 +142,7 @@ Outstanding review issues keep quality incomplete even when goal coverage is com
 permitted refinement is not skipped merely because the reviewer also marked coverage complete.
 A read that the adaptive plan hands back to the semantic path, with the `legacy` route and no action
 request, is an ordinary semantic turn: it keeps that path's own stage bounds and the turn's remaining
-deadline instead of the adaptive five-call ceiling. Under that ceiling the handoff was left with
-four calls for preflight, judgment repair, frame, and plan, and the turn held as budget exhaustion. Governed
+deadline instead of the adaptive five-call ceiling. Under that ceiling the handoff was left with four calls for preflight, judgment repair, frame, and plan, and the turn held as budget exhaustion. Governed
 action handoffs and their explanations keep the shared budget. An adaptive answer also records the
 routing preflight call that preceded it, so the turn's model trace lists every call.
 

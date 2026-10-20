@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 0f7e08250778d3fd8275c4db553c7530709dc851
+translation_source_sha: 40403ca3f880b809a7449a5f00691ea30633eb87
 translation_revised: 2026-10-20
 ---
 
