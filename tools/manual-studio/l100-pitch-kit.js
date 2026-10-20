@@ -38,14 +38,14 @@ export function pitchSlide(locale, { id, chapter, title, lead, visual, takeaway,
 
 export function resourceGraph(locale) {
   const korean = locale === "ko";
-  return `<svg class="lp-resource-graph" viewBox="0 0 1240 320" role="img" aria-label="${korean ? "API 리소스가 DB 리소스에 의존하는 방향을 나타낸 예시" : "Example: an API resource depends on a database resource"}">
+  return `<svg class="lp-resource-graph" viewBox="0 0 1240 320" role="img" aria-label="${korean ? "API가 사용하는 DB와 그 관계의 확인 시점·출처를 살펴보는 예시" : "Example: identify the database used by an API and check the relation's reference time and source"}">
     <defs><marker id="lp-arrow-${locale}" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="10" markerHeight="10" orient="auto"><path d="M0 0L10 5L0 10Z"></path></marker></defs>
     <rect class="lp-graph-node" data-lp-node="api" x="60" y="64" width="380" height="144" rx="8"></rect>
     <rect class="lp-graph-node" data-lp-node="db" x="800" y="64" width="380" height="144" rx="8"></rect>
-    <line data-lp-from="api" data-lp-to="db" x1="440" y1="136" x2="800" y2="136" marker-end="url(#lp-arrow-${locale})"></line>
-    <foreignObject x="76" y="89" width="348" height="100"><div xmlns="http://www.w3.org/1999/xhtml" class="lp-node-label"><strong>${korean ? "API 리소스" : "API resource"}</strong><span>${korean ? "요청을 처리하는 대상" : "Handles incoming requests"}</span></div></foreignObject>
-    <foreignObject x="816" y="89" width="348" height="100"><div xmlns="http://www.w3.org/1999/xhtml" class="lp-node-label"><strong>${korean ? "DB 리소스" : "Database resource"}</strong><span>${korean ? "API가 사용하는 데이터" : "Supplies data to the API"}</span></div></foreignObject>
-    <foreignObject x="465" y="80" width="310" height="44"><div xmlns="http://www.w3.org/1999/xhtml" class="lp-edge-label">${korean ? "의존합니다" : "depends on"} <code>depends_on</code></div></foreignObject>
-    <foreignObject x="60" y="250" width="1120" height="54"><div xmlns="http://www.w3.org/1999/xhtml" class="lp-graph-caption">${korean ? "관계 방향과 함께 기준 시점 · 출처 · 최신성을 확인합니다." : "Check the direction, reference time, source, and freshness together."}</div></foreignObject>
+    <line data-lp-from="api" data-lp-to="db" data-lp-relation="depends_on" x1="440" y1="136" x2="800" y2="136" marker-end="url(#lp-arrow-${locale})"></line>
+    <foreignObject x="76" y="89" width="348" height="100"><div xmlns="http://www.w3.org/1999/xhtml" class="lp-node-label"><strong>API</strong><span>${korean ? "사용자 요청 처리" : "Handles user requests"}</span></div></foreignObject>
+    <foreignObject x="816" y="89" width="348" height="100"><div xmlns="http://www.w3.org/1999/xhtml" class="lp-node-label"><strong>DB</strong><span>${korean ? "API가 사용하는 데이터베이스" : "Database used by the API"}</span></div></foreignObject>
+    <foreignObject x="465" y="80" width="310" height="44"><div xmlns="http://www.w3.org/1999/xhtml" class="lp-edge-label">${korean ? "DB 사용" : "Uses database"}</div></foreignObject>
+    <foreignObject x="60" y="236" width="1120" height="76"><div xmlns="http://www.w3.org/1999/xhtml" class="lp-graph-caption">${korean ? "화살표는 API가 DB를 사용하는 관계를 나타냅니다.<br>그 관계를 확인한 시점과 출처도 함께 살펴봅니다." : "The arrow shows which database the API uses.<br>Check when and from which source the relation was confirmed."}</div></foreignObject>
   </svg>`;
 }

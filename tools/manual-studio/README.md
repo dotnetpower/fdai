@@ -19,6 +19,8 @@ tiers, approval safeguards, and independent effect verification. Implementation,
 and deployment validation are separate claims; this static deck never activates a product feature.
 The Korean and English modules share `l100-pitch-kit.js` for framing, source links, and the
 dependency diagram. Keep new deck dependencies in the deployment artifact allowlist.
+Slide 5 explains the dependency as concrete database usage. Its arrow describes that usage
+relation, not data flow or an established incident cause; `depends_on` remains machine metadata.
 
 Run `node --test tools/manual-studio/test/l100-pitch.test.mjs` for the introduction's content
 contracts. With the existing Console Playwright dependency installed, run

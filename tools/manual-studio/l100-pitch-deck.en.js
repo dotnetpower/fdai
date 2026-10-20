@@ -49,10 +49,10 @@ export const l100PitchDeckSlides = [
   }),
   slide({
     id: "ontology", chapter: "04 / SHARED MEANING", kind: "relationship", example: true,
-    title: "An operating ontology gives targets and relations meaning",
-    lead: "Define what an object is and what it depends on. Keep a type declaration distinct from an individual resource.",
+    title: "Use the ontology to understand connected targets",
+    lead: "See which database the API uses, when that relation was confirmed, and which source supports it.",
     visual: resourceGraph("en"),
-    takeaway: "A dependency identifies a possible impact path. Its existence alone does not establish the cause of an incident.",
+    takeaway: "A DB problem can affect the API. Check both targets' state and change history.<br>A connection alone does not establish the cause of this error.",
     sources: ["ontology", "causality"],
   }),
   slide({

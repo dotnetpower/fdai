@@ -140,7 +140,7 @@ test("L100 operating diagrams preserve direction, boundaries, and one ontology c
   assert.equal([...ontology.matchAll(/data-lp-from=/g)].length, 1);
   assert.doesNotMatch(ontology, /<text\b/);
   assert.match(ontology, /marker-end="url\(#lp-arrow-ko\)"/);
-  assert.match(ontology, /data-lp-from="api" data-lp-to="db" x1="440" y1="136" x2="800" y2="136"/);
+  assert.match(ontology, /data-lp-from="api" data-lp-to="db" data-lp-relation="depends_on" x1="440" y1="136" x2="800" y2="136"/);
   assert.match(css, /\.deck-l100-calm \.lp-link::after/);
   assert.match(css, /--lp-bg: #fbfaf9/);
   assert.match(css, /font-size: 24px/);

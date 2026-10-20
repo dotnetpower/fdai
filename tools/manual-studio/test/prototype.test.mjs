@@ -444,7 +444,7 @@ test("L100 connectors expose endpoint contracts and geometric arrowheads", async
 
   assert.doesNotMatch(css, /content: ">"/);
   assert.match(css, /\.lp-link::after[\s\S]+transform: translateY\(-50%\)/);
-  assert.match(kit, /data-lp-from="api" data-lp-to="db"/);
+  assert.match(kit, /data-lp-from="api" data-lp-to="db" data-lp-relation="depends_on"/);
   assert.match(kit, /refX="10" refY="5"/);
 });
 

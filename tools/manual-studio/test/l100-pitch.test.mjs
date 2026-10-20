@@ -52,6 +52,18 @@ test("L100 source typos fail explicitly rather than producing a broken citation"
   assert.throws(() => pitchSlide("en", { sources: ["missing-source"] }), /Unknown L100 source/);
 });
 
+test("L100 relation copy names concrete usage without claiming the incident cause", () => {
+  assert.match(korean[4].content, /class="lp-edge-label">DB 사용</);
+  assert.match(english[4].content, /class="lp-edge-label">Uses database</);
+  assert.match(korean[4].content, /API가 사용하는 데이터베이스/);
+  assert.match(korean[4].content, /확인한 시점과 출처/);
+  assert.match(korean[4].content, /원인이 DB라고 단정하지는 않습니다/);
+  assert.match(english[4].content, /does not establish the cause/);
+  assert.match(korean[4].content, /data-lp-relation="depends_on"/);
+  assert.doesNotMatch(korean[4].content, /의존합니다|API가 사용하는 데이터</);
+  assert.doesNotMatch(korean[4].content, /<code>depends_on<\/code>/);
+});
+
 test("L100 styles are deck-scoped and preserve fixed print geometry", async () => {
   const css = await readFile(new URL("../l100-pitch-deck.css", import.meta.url), "utf8");
   const rules = [...css.matchAll(/([^{}]+)\{/g)].map(match => match[1].trim());
@@ -66,7 +78,7 @@ test("L100 styles are deck-scoped and preserve fixed print geometry", async () =
 test("latest L100 rendering evidence is bound to the current bilingual deck", async () => {
   const evidence = JSON.parse(await readFile(new URL("../validation-evidence.json", import.meta.url), "utf8"));
   const record = evidence.draftValidations.filter(item => item.id === "l100-pitch-deck").at(-1);
-  assert.equal(record.reviewId, "l100-calm-brief-2026-10-20");
+  assert.equal(record.reviewId, "l100-relation-clarity-2026-10-20");
   assert.equal(record.humanReview, false);
   assert.equal(record.slideModeChecks, 150);
   assert.deepEqual(record.locales, ["ko", "en"]);

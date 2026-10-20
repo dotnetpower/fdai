@@ -49,10 +49,10 @@ export const l100PitchDeckSlides = [
   }),
   slide({
     id: "ontology", chapter: "04 / 같은 의미로 연결하기", kind: "relationship", example: true,
-    title: "운영 온톨로지는 대상과 관계의 공통 기준입니다",
-    lead: "무엇을 다루는지, 무엇에 의존하는지 정의합니다. 객체의 정의와 실제 개별 리소스는 구분합니다.",
+    title: "온톨로지로 운영 대상의 연결 관계를 파악합니다",
+    lead: "API가 어떤 DB를 사용하는지, 그 관계를 언제 어떤 정보로 확인했는지 함께 살펴봅니다.",
     visual: resourceGraph("ko"),
-    takeaway: "의존관계는 영향이 전파될 수 있는 경로입니다. 관계가 있다는 사실만으로 장애 원인을 확정하지 않습니다.",
+    takeaway: "DB 문제가 API에 영향을 줄 수 있으므로 두 대상의 상태와 변경 이력을 함께 확인합니다.<br>연결 관계만으로 이번 오류의 원인이 DB라고 단정하지는 않습니다.",
     sources: ["ontology", "causality"],
   }),
   slide({
