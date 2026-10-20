@@ -4,6 +4,19 @@ Manual Studio presents FDAI reference decks on a fixed 1536x864 canvas. The view
 slide for the available screen; the presentation is a static explanation, not an operational
 control or a source of execution authority.
 
+## Open the FDAI introduction
+
+Select **Discovery & Alignment**, then **FDAI L100 Pitch Deck**, immediately after the executive
+briefing. Select the centered book again to open its 15 slides. The deck is available in English
+and Korean; its share page is `l100-pitch-deck.html` with `?locale=en` or `?locale=ko`.
+
+The introduction remains **WIP** and **DRAFT** until its content is completed and a person confirms
+the latest revision. Rendering checks do not count as human review.
+
+After adding a manual or changing the library template, restart the owning local server through
+its VS Code launch configuration: share-page metadata is loaded at startup. When Manual Studio belongs to the
+full-stack supervisor, use an authorized full-stack restart rather than replacing that child alone.
+
 ## Share a manual
 
 Each catalog entry has a stable page named `<manual-id>.html`. Share that page in Microsoft Teams

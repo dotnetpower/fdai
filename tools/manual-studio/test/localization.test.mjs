@@ -46,7 +46,7 @@ test("translator interpolates values and falls back to the English source", asyn
   const translate = createTranslator({ en: source.en, ko: koreanWithoutCount }, "ko");
 
   assert.equal(translate("language.korean"), "한국어");
-  assert.equal(translate("library.guideCount", { count: 11 }), "11 guides");
+  assert.equal(translate("library.guideCount", { count: 12 }), "12 guides");
   assert.equal(translate("missing.key"), "missing.key");
 });
 

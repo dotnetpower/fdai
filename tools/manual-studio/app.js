@@ -1,6 +1,8 @@
 import { additionalManualSlides } from "./manual-content.js";
 import { additionalManualSlides as additionalEnglishManualSlides } from "./manual-content.en.js";
 import { executiveBriefingSlides as executiveBriefingEnglishSlides } from "./executive-briefing.en.js";
+import { l100PitchDeckSlides } from "./l100-pitch-deck.js";
+import { l100PitchDeckSlides as l100PitchDeckEnglishSlides } from "./l100-pitch-deck.en.js";
 import { createTranslator, resolveLocale, urlWithLocale } from "./localization.js";
 
 const manualSlides = {
@@ -266,11 +268,13 @@ const manualSlides = {
         </div>`,
     },
   ],
+  "l100-pitch-deck": l100PitchDeckSlides,
   ...additionalManualSlides,
 };
 
 const englishManualSlides = {
   "executive-briefing": executiveBriefingEnglishSlides,
+  "l100-pitch-deck": l100PitchDeckEnglishSlides,
   ...additionalEnglishManualSlides,
 };
 
