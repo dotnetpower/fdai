@@ -19,8 +19,8 @@ from .semantic_reasoning_admission import (
 )
 from .semantic_reasoning_form import SemanticQuestionForm, SourceSpan
 from .semantic_reasoning_normalization import (
+    merge_syntactic_labels,
     normalize_redundant_property_filter_labels_with_receipt,
-    retained_syntactic_labels,
 )
 from .semantic_reasoning_proposal import FormResolution, resolve_question_form
 from .semantic_reasoning_relabel import relabel_mentions
@@ -123,8 +123,7 @@ async def propose_review_repair(
     form = normalized.form
     form = relabel_mentions(repair.typed, form, split=repair.split)
     resolution = replace(resolution, form=form)
-    syntactic_labels = retained_syntactic_labels(
-        form,
+    syntactic_labels = merge_syntactic_labels(
         repair.syntactic_labels,
         normalized.syntactic_labels,
     )

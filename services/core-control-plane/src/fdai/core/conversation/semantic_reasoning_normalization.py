@@ -25,19 +25,14 @@ class FormNormalization:
     syntactic_labels: tuple[SourceSpan, ...] = ()
 
 
-def retained_syntactic_labels(
-    form: SemanticQuestionForm,
-    *groups: tuple[SourceSpan, ...],
-) -> tuple[SourceSpan, ...]:
-    """Keep only Core-verified labels whose exact spans remain context in ``form``."""
+def merge_syntactic_labels(*groups: tuple[SourceSpan, ...]) -> tuple[SourceSpan, ...]:
+    """Deduplicate Core-verified labels retained by an accepted meaning-preserving repair."""
 
-    context = {(span.start, span.end) for span in form.context}
     retained: dict[tuple[int, int], SourceSpan] = {}
     for spans in groups:
         for span in spans:
             key = (span.start, span.end)
-            if key in context:
-                retained.setdefault(key, span)
+            retained.setdefault(key, span)
     return tuple(retained.values())
 
 
@@ -189,8 +184,8 @@ def _mention_referenced_elsewhere(
 
 __all__ = [
     "FormNormalization",
+    "merge_syntactic_labels",
     "normalize_redundant_property_filter_labels",
     "normalize_redundant_property_filter_labels_with_receipt",
-    "retained_syntactic_labels",
     "syntactic_label_covers",
 ]

@@ -14,9 +14,9 @@ from fdai.core.conversation.semantic_reasoning_admission import (
     admit_question_form,
 )
 from fdai.core.conversation.semantic_reasoning_normalization import (
+    merge_syntactic_labels,
     normalize_redundant_property_filter_labels,
     normalize_redundant_property_filter_labels_with_receipt,
-    retained_syntactic_labels,
 )
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_repair import (
@@ -388,15 +388,13 @@ def test_detached_property_operand_is_not_bound_across_multiple_goals() -> None:
     assert normalize_redundant_property_filter_labels(form) == form
 
 
-def test_only_normalized_labels_retained_as_context_survive_a_repair() -> None:
+def test_normalized_labels_survive_an_accepted_meaning_preserving_repair() -> None:
     form = _detached_korean_property_operand_form()
     receipt = normalize_redundant_property_filter_labels_with_receipt(form)
-    without_context = receipt.form.model_copy(update={"context": ()})
 
-    assert retained_syntactic_labels(receipt.form, receipt.syntactic_labels) == (
+    assert merge_syntactic_labels(receipt.syntactic_labels, receipt.syntactic_labels) == (
         receipt.syntactic_labels
     )
-    assert retained_syntactic_labels(without_context, receipt.syntactic_labels) == ()
 
 
 def _redundant_property_label_form(reference: str | None = None) -> Any:
