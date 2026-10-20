@@ -410,7 +410,7 @@ and logs its decline on the turn's own context.
 Repair feedback may repeat the judged words to
 the model, but rejection logs keep only its location, type, and reason. `semantic_judgment_review.py`
 owns both the second-tier review requirement and the promotion of a grounded state collection, so
-the review decision and the planned family cannot diverge. Before proposal repair or independent review repair, Core may move a redundant PROPERTY label to context only when the same goal already has an allowed same-role typed operand and nothing else references the label; this is structural normalization, not lexical meaning.
+the review decision and the planned family cannot diverge. Before proposal repair or independent review repair, Core may move a redundant PROPERTY label to context only when the same goal has an allowed same-role companion filter or, for a single-goal form, exactly one otherwise-unreferenced allowed operand, and nothing else references the label; this is structural normalization, not lexical meaning.
 `composition/typed_selection_shadow.py` binds the typed instance selection shadow proposer only
 when `FDAI_ONTOLOGY_TYPED_SELECTION_SHADOW=enabled`. It accepts only the qualified model, prompt,
 and budget pinned in `config/ontology-typed-selection-shadow.json`, together with that file's

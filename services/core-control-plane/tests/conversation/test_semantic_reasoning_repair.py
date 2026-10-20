@@ -278,6 +278,107 @@ def test_korean_property_labels_normalize_by_typed_role_not_phrase_matching() ->
     assert admission.disposition is AdmissionDisposition.ADMITTED
 
 
+def _detached_korean_property_operand_form(*, competing_operand: bool = False) -> Any:
+    utterance = "location이 westus2이고 type이 object-storage인 Resource를 모두 보여 줘."
+    raw = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": {"text": "Resource", "occurrence": 1},
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "property",
+                "span": {"text": "type", "occurrence": 1},
+            },
+            {
+                "id": "m3",
+                "form": "value",
+                "domain": "resource_type",
+                "span": {"text": "object-storage", "occurrence": 1},
+            },
+            {
+                "id": "m4",
+                "form": "value",
+                "domain": "region",
+                "span": {"text": "westus2", "occurrence": 1},
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [
+                    {"role": "type", "mention": "m2"},
+                    {"role": "region", "mention": "m4"},
+                ],
+                "cue": {"text": "모두 보여 줘", "occurrence": 1},
+                "confidence": 0.9,
+            }
+        ],
+        "context": [{"text": "location", "occurrence": 1}],
+    }
+    if competing_operand:
+        raw["mentions"].append(
+            {
+                "id": "m5",
+                "form": "value",
+                "domain": "resource_type",
+                "span": {"text": "Resource", "occurrence": 1},
+            }
+        )
+    form = resolve_question_form(raw, utterance=utterance).form
+    assert form is not None
+    return form
+
+
+def test_unique_detached_typed_operand_replaces_redundant_property_filter() -> None:
+    form = _detached_korean_property_operand_form()
+
+    normalized = normalize_redundant_property_filter_labels(form)
+    admission = admit_question_form(
+        normalized,
+        utterance="location이 westus2이고 type이 object-storage인 Resource를 모두 보여 줘.",
+        accounting=SpanAccounting(required=False),
+    )
+
+    assert [item.id for item in normalized.mentions] == ["m1", "m3", "m4"]
+    assert [(item.role.value, item.mention) for item in normalized.goals[0].filters] == [
+        ("type", "m3"),
+        ("region", "m4"),
+    ]
+    assert admission.disposition is AdmissionDisposition.ADMITTED
+
+
+def test_detached_property_operand_requires_one_unreferenced_candidate() -> None:
+    competing = _detached_korean_property_operand_form(competing_operand=True)
+    referenced = _detached_korean_property_operand_form()
+    referenced_goal = referenced.goals[0].model_copy(update={"counterpart": "m3"})
+    referenced = referenced.model_copy(update={"goals": (referenced_goal,)})
+
+    assert normalize_redundant_property_filter_labels(competing) == competing
+    assert normalize_redundant_property_filter_labels(referenced) == referenced
+
+
+def test_detached_property_operand_is_not_bound_across_multiple_goals() -> None:
+    form = _detached_korean_property_operand_form()
+    second = form.goals[0].model_copy(
+        update={
+            "id": "g2",
+            "filters": tuple(item for item in form.goals[0].filters if item.role.value == "region"),
+        }
+    )
+    form = form.model_copy(update={"goals": (*form.goals, second)})
+
+    assert normalize_redundant_property_filter_labels(form) == form
+
+
 def _redundant_property_label_form(reference: str | None = None) -> Any:
     utterance = "How many type VMs depend on sql-app?"
     raw = _quoted_form()
