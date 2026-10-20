@@ -9,13 +9,17 @@ database_recreated_marker="$repo_root/.fdai/local-database-recreated"
 preserved_state="$repo_root/.fdai/local-database-preserved-state.json"
 rollback_reference="$(git -C "$repo_root" rev-parse HEAD)"
 
-if [[ $# -gt 1 || ( $# -eq 1 && "${1:-}" != "--dependencies-ready" && "${1:-}" != "--check" ) ]]; then
-  echo "Usage: $0 [--dependencies-ready|--check]" >&2
+if [[ $# -gt 1 || ( $# -eq 1 && "${1:-}" != "--dependencies-ready" && "${1:-}" != "--check" && "${1:-}" != "--allow-recreate" ) ]]; then
+  echo "Usage: $0 [--dependencies-ready|--check|--allow-recreate]" >&2
   exit 2
 fi
 check_only=0
+maintenance_args=()
 if [[ "${1:-}" == "--check" ]]; then
   check_only=1
+elif [[ "${1:-}" == "--allow-recreate" ]]; then
+  maintenance_args+=(--allow-recreate)
+  bash "$repo_root/scripts/deployment/local/dev-up.sh"
 elif [[ $# -eq 0 ]]; then
   bash "$repo_root/scripts/deployment/local/dev-up.sh"
 fi
@@ -52,6 +56,7 @@ fi
 FDAI_DATABASE_URL="$database_url" \
   "$repo_root/.venv/bin/python" \
     "$repo_root/scripts/deployment/local/maintain-development-database.py" \
+    "${maintenance_args[@]}" \
     --recreated-marker "$database_recreated_marker" \
     --preserved-state "$preserved_state"
 
