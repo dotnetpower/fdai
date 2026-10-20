@@ -38,6 +38,7 @@ from fdai.delivery.operational_evidence_configuration import (
     load_registry_history,
     string_list,
 )
+from fdai.delivery.operational_evidence_transport import read_verifier_readiness
 from fdai.delivery.persistence.postgres_operational_evidence import (
     VERIFIER_ROLE,
     PostgresOperationalEvidenceConfig,
@@ -49,7 +50,6 @@ from fdai.delivery.persistence.postgres_operational_evidence_grants import (
 AUTHORIZATION_ENV = "FDAI_OPERATIONAL_EVIDENCE_HANDOFF_AUTHORIZED"
 SOURCE_SHA_ENV = "FDAI_SOURCE_SHA"
 STAGES = ("identity", "registry", "writer_readback", "verifier_readiness")
-_READINESS_PATH = "/v1/operational-evidence/readiness"
 
 
 @dataclass(slots=True)
@@ -220,13 +220,10 @@ def _stopped(receipt: HandoffReceipt, *, after: str) -> HandoffReceipt:
 
 async def _readiness(base_url: str) -> Mapping[str, object]:
     async with httpx.AsyncClient(timeout=2.0) as client:
-        response = await client.get(base_url.rstrip("/") + _READINESS_PATH)
-    if response.status_code != 200:
+        snapshot = await read_verifier_readiness(client, base_url=base_url)
+    if snapshot is None:
         raise ValueError("verifier readiness is unavailable")
-    body = response.json()
-    if not isinstance(body, dict):
-        raise ValueError("verifier readiness is malformed")
-    return body
+    return snapshot.model_dump(mode="json")
 
 
 def main(argv: list[str] | None = None) -> int:
