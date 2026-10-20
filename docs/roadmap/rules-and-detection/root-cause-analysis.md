@@ -8,6 +8,30 @@ existing trust tiers. RCA explains an incident; it never grants approval or exec
 
 > **Safety boundary:** Deterministic verification, policy, what-if, risk, approval, execution, and
 > effect observation remain authoritative over every RCA hypothesis.
+
+## Generation ownership and evidence admission
+
+Forseti owns hypothesis generation and causal judgment. Its core RCA functions generate rule-based
+T0 candidates, bounded temporal T1 candidates, and optional model-backed T2 proposals. These
+functions are not separate agents. Heimdall supplies observations and completeness; Saga records
+the evidence and judgments. A single T2 proposal is not the complete competing-hypothesis set:
+reviewed telemetry mechanisms also initialize the existing adaptive investigation Process.
+
+Generation preserves evidence identity. A model reference may be bare or kind-qualified only when
+it resolves to exactly one supplied citation. Conflicting facts for one identity, missing evidence,
+and oversized evidence sets hold before model work. Ambiguous output aliases hold during parsing.
+The coordinator independently
+checks the returned tier and exact citation facts; a model cannot add action or lineage fields.
+Historical reuse requires every prior citation, including its facts, to be reverified in current
+evidence. Original uncertainty is checked before decay, and uncited historical evidence is not
+copied into the current hypothesis.
+
+Model answers are bounded to 64 KiB of UTF-8 JSON, a 4 KiB cause, and at most 100 citation entries.
+Candidate evidence admits at most 100 entries with references no longer than 1,024 characters.
+Duplicate JSON fields, unsupported fields, invalid numbers, conflicting references, and malformed
+content hold rather than being repaired or truncated. Exact repeated citations are retained once.
+These checks establish evidence provenance, not causal truth or permission to act.
+
 ## Tier contract
 
 Make RCA a first-class output of the tiers instead of an implicit side effect.
