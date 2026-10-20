@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 757a0ef09d8652dfc6af5b6e8f051364844f0b80
-translation_revised: 2026-10-19
+translation_source_sha: 613e2fc8e8fff12de02ccd2290165a8dc134ec81
+translation_revised: 2026-10-20
 ---
 # FDAI Console 대화
 
@@ -90,6 +90,7 @@ Run Record는 의도적으로 본문을 보관하지 않은 모델 추적과 메
 표시하며 그 내용은 렌더링하지 않습니다.
 
 Command Deck의 진행 중인 턴에 대한 후속 입력, 모드 점검 및 대화 취소는 [처리 중인 대화 입력 모드](busy-input-modes-ko.md)를 따릅니다. 크기가 제한되고 형식을 엄격히 검증한 동일 세션의 Operator 조회 결과를 확인한 뒤에만 조작 기능을 사용할 수 있고, 그렇지 않으면 사용 불가 상태로 유지되며 후속 입력 영역도 숨겨지므로 유휴 입력창에 사용 불가 안내가 계속 표시되지 않습니다. 조회 결과를 확인한 뒤에도 로컬 턴이 진행 중이거나, 조회 결과가 진행 중인 턴이나 대기 중인 후속 입력을 보고하거나, 확인된 조작 기능의 실패를 알려야 할 때만 이 영역이 표시됩니다. 로컬 중지 명령은 별개이며 이 조작 기능으로 작업이나 승인을 취소할 수 없습니다.
+계정 메뉴는 완료된 redirect에서 선택한 Entra 계정을 MSAL active account로 유지합니다. 전체 경로 이동과 다시 로드한 뒤에도 안정적인 account id로 정확히 같은 캐시 신원을 복원합니다. 캐시 계정이 여러 개이고 active 선택이 없으면 첫 번째 principal의 역할을 표시하지 않고 다시 명시적으로 선택하도록 요구합니다.
 Command Deck은 출처에 결합된 테스트 맥락 후보를 표시하지만 이를 승인된 범위 또는 정책 선택지로 취급하지 않습니다. 별도의 인증된 명령 증적 조회는 요청한 principal 본인의 전달 및 과거 감사 적용만 보여 주며 현재 승인 상태는 평가되지 않습니다. 검토된 principal-사례 매핑과 독립적인 증적이 갖춰지기 전까지 브라우저는 제안, 독립 검토, 철회 조작을 제공하지 않습니다. Operator는 수락한 각 테스트 맥락 명령 옆에 본문 없는 인증 증적을 멱등 요청 digest와 분리해 보관하므로 [독립 검증기](../rules-and-detection/independent-operational-evidence-ko.md)가 사람 principal을 다시 확인할 수 있습니다. 이 증적은 브라우저 조작이나 권한을 추가하지 않습니다. 검증기가 명시적 거부 유형을 기록하면 보류된 판정의 테스트 맥락 결정은 그 유형을 밝히고 거부 기록 digest를 인용하며, Console은 이로 인해 새 조작을 얻지 않습니다. [사례 이력 문서](../rules-and-detection/prediction-learning-and-case-history-ko.md)와 [점진적 대화 문서](operator-console-progressive-conversations-ko.md)를 참고하세요.
 Settings > Integrations에서는 합성 자리 표시자를 사용한 검토된 Calm Slate 인시던트 열림 이메일을 미리 볼 수 있습니다. Operator Service는 디자인 시안과 동일한 패키지 HTML을 로드하고, Console은 샌드박스가 적용된 프레임에 표시하여 760 CSS 픽셀 캔버스 안에 640 픽셀 데스크톱 이메일 시트를 가운데 정렬하며 축소 데스크톱과 모바일 너비에서 가로 잘림 없이 재배치합니다. Owner는 상용 클라우드 Teams Workflows URL 한 개를 저장하고 범위가 제한된 진단으로 고정된 합성 Adaptive Card 한 건을 전송할 수도 있습니다. 배포 환경은 전용 Key Vault 시크릿과 버전이 지정된 이 시크릿 하나만 쓸 수 있는 Managed Identity를 사용합니다. 로컬 프로필은 비공개 서비스 DSN에서 도메인을 분리하여 파생한 키로 값을 암호화하고 루프백 Operator 데이터베이스에는 암호문만 저장합니다. FDAI는 저장된 정확한 버전을 다시 읽고 다이제스트를 확인한 후 테스트합니다. Contributor, Approver 및 Owner 역할은 새로고침 후 `no-store` 응답으로 현재 URL을 받고 Reader와 BreakGlass 역할은 `visible: false`만 받습니다. reveal에 성공할 때마다 URL 없이 행위자, 다이제스트, 바인딩 버전 및 타임스탬프를 담은 감사 기록을 남깁니다. 시크릿 저장 또는 reveal은 승인이나 실행 권한을 부여하지 않으며 알림 런타임이 이 바인딩을 참조하는 시점은 배포에서 계속 제어합니다. Teams A1 안내는 보호된 FDAI 준비와 프로바이더가 호스팅하는 테넌트 동의, Teams 앱 설치 및 최종 배포 승인을 구분하며 client secret을 입력받지 않습니다. Owner 전용 작업은 보호된 plan을 위한 revisioned 권한 없는 제안을 영속화하며 프로바이더 또는 배포 성공을 주장하지 않고 영속 요청 상태만 표시합니다.
 Settings > Integrations에는 Core의 `forecast-history` 행도 상태, 모드, 출처, 사유와 함께 표시됩니다. 기본 펼침 제어에서 네 가지 원본 읽기 경로의 연결, 완전성 확인 지점의 한계, 전제 조건을 구분해 표시하며 연결만으로 완전한 이력이라고 판단하지 않습니다. 런타임 정책에는 기존 Owner 전용 개정 번호 검사 API를 사용하는 `forecast.history_collection.enabled` 설정이 있습니다. 기본값은 꺼짐이고 변경 시 감사 기록이 남으며 배포 변수로 설정할 수 없습니다. 현재 개정 번호는 실제 생산자와 수집기의 읽기를 제어하고, 근거 반환 전 다시 확인하므로 진행 중 설정이 바뀌면 결과를 버립니다. 전제 조건이 부족하면 재시작이나 새 권한 부여 없이 활성화를 차단합니다. 완전성 확인 지점이나 독립 근거가 부족하면 채점 준비 상태는 계속 미완료이며, 수집을 켰을 때만 관찰 모드를 표시합니다. 이 행은 채점 권한이나 실행 권한을 부여하지 않습니다. 자세한 내용은 [케이스 히스토리 소유 문서](../rules-and-detection/prediction-learning-and-case-history-ko.md)를 참고하세요.
