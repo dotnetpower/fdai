@@ -14,7 +14,7 @@ The introduction remains **WIP** and **DRAFT** until its content is completed an
 the latest revision. Rendering checks do not count as human review.
 
 After adding a manual or changing the library template, restart the owning local server through
-its VS Code task: share-page metadata is loaded at startup. When Manual Studio belongs to the
+its VS Code launch configuration: share-page metadata is loaded at startup. When Manual Studio belongs to the
 full-stack supervisor, use an authorized full-stack restart rather than replacing that child alone.
 
 ## Share a manual

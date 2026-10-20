@@ -142,35 +142,6 @@
       }
     },
     {
-      "label": "manual studio: serve (5474)",
-      "type": "shell",
-      "command": "bash scripts/automation/run-local-service.sh manual-studio .fdai/logs/manual-studio.log -- env PORT=5474 npm --prefix tools/manual-studio run dev",
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "isBackground": true,
-      "problemMatcher": {
-        "owner": "manual-studio",
-        "pattern": {
-          "regexp": "^(?!)$"
-        },
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": "^.*Manual Studio prototype ready at http://127\\.0\\.0\\.1:5474$",
-          "endsPattern": "^.*Manual Studio prototype ready at http://127\\.0\\.0\\.1:5474$"
-        }
-      },
-      "presentation": {
-        "reveal": "silent",
-        "panel": "dedicated",
-        "group": "manual-studio",
-        "showReuseMessage": false
-      },
-      "runOptions": {
-        "instanceLimit": 1
-      }
-    },
-    {
       "label": "console: prepare full stack",
       "type": "shell",
       "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --defer-authoritative-inventory --auth-mode browser-entra",
