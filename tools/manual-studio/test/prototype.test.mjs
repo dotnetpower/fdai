@@ -46,13 +46,13 @@ test("catalog records stable creation and review metadata for every manual", asy
   assert.equal(pitchDeck.slideCount, 15);
   assert.equal(pitchDeck.createdAt, "2026-10-16");
   assert.equal(pitchDeck.lastEditedAt, "2026-10-20");
+  assert.equal(pitchDeck.reviewedAt, "2026-10-20");
   assert.ok(catalog.manuals
     .filter((manual) => manual.id !== "l100-pitch-deck")
     .every((manual) => manual.lastEditedAt === "2026-09-12"));
   assert.deepEqual(
     catalog.manuals.filter((manual) => manual.reviewedAt === null).map((manual) => manual.id),
     [
-      "l100-pitch-deck",
       "responsible-ai-security",
       "pilot-production",
       "ai-operating-model",
@@ -60,7 +60,7 @@ test("catalog records stable creation and review metadata for every manual", asy
     ],
   );
   assert.ok(catalog.manuals
-    .filter((manual) => manual.reviewedAt !== null)
+    .filter((manual) => manual.reviewedAt !== null && manual.id !== "l100-pitch-deck")
     .every((manual) => manual.reviewedAt === "2026-09-13"));
   assert.ok(catalog.manuals
     .filter((manual) => manual.id !== "l100-pitch-deck")

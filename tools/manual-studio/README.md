@@ -10,8 +10,10 @@ Select **Discovery & Alignment**, then **FDAI L100 Pitch Deck**, immediately aft
 briefing. Select the centered book again to open its 15 slides. The deck is available in English
 and Korean; its share page is `l100-pitch-deck.html` with `?locale=en` or `?locale=ko`.
 
-The introduction remains **WIP** and **DRAFT** until its content is completed and a person confirms
-the latest revision. Rendering checks do not count as human review.
+The introduction's **WIP** status tracks content completion independently of review. **DRAFT**
+appears on its artwork and first slide only while the latest revision lacks human confirmation.
+Rendering checks do not count as human review. A person can confirm a WIP revision without
+declaring the content complete.
 
 The introduction uses its own light Calm Slate theme, not a shared viewer theme. One illustrative
 API/database investigation connects source evidence, typed targets, competing hypotheses, decision

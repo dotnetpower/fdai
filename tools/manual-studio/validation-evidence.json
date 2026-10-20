@@ -177,6 +177,50 @@
         "test/slide-layout-geometry.mjs": "e95b53850580a2720b1d90ab3f738f5d37e12b932ccb044ddd5ae4d68943b8a2",
         "test/target-architecture-text-geometry.mjs": "8d48f80dea2718900624bbcfe0468075f7ee02a57d88f0c0f49b8020615018de"
       }
+    },
+    {
+      "id": "l100-pitch-deck",
+      "reviewId": "l100-human-draft-removal-2026-10-20",
+      "status": "wip",
+      "humanReview": true,
+      "humanConfirmation": "The operator explicitly requested removal of the title DRAFT mark on 2026-10-20 after content revision b9a641f4af. This confirms that revision's review metadata, not content completion or runtime execution authority. Other manuals retain their own review state.",
+      "validatedAt": "2026-10-20T03:14:47.482Z",
+      "scope": "The L100 catalog reviewedAt now records the operator's confirmation. No slide content or shared draft rule changed. The checker derives expected DRAFT marks from catalog metadata, so later unreviewed revisions remain detectable. WIP remains unchanged. All 15 slides in both locales were rendered without a DRAFT overlay; earlier receipts remain historical.",
+      "browser": "145.0.7632.6",
+      "viewports": ["1440x900", "993x641", "390x844", "fullscreen-1440x900", "print-1536x864"],
+      "locales": ["ko", "en"],
+      "slideModeChecks": 150,
+      "draftOverlays": 0,
+      "findings": 0,
+      "failedRequests": 0,
+      "pageErrors": 0,
+      "minimumPrimaryFontPx": 24,
+      "minimumTextContrast": 5.1554731544118555,
+      "connectorsChecked": 30,
+      "maximumConnectorGapPx": 0.0078125,
+      "connectorSelfTests": 4,
+      "pdf": {
+        "ko": {"pages": 15, "mediaBoxesChecked": 15, "mediaBoxPoints": [1152, 648], "draftOverlays": 0},
+        "en": {"pages": 15, "mediaBoxesChecked": 15, "mediaBoxPoints": [1152, 648], "draftOverlays": 0}
+      },
+      "deckDigests": {
+        "ko": "c59791e0abd5bd0b9addf26261a8378e53ef62569b8307f4203414fe4200afaa",
+        "en": "5bba1a7c9eb2e41e4c9746102d20c2b6a33f737ef3310641087d310c5e8fdbb2"
+      },
+      "sourceDigests": {
+        "catalog.json": "ee216c3433ed6af1af0fd71478c8268d4abb7afc8dfd128b64e27e87e04caabb",
+        "l100-pitch-deck.js": "5c0aaa297a2be19bcadb6d50a2ba1b5f6005fe59f6f78d556bf0ef33f66cd403",
+        "l100-pitch-deck.en.js": "fa1c7312ef7b0834409696b0491351535db97a13b5f3469308d8b969cd87f240",
+        "l100-pitch-kit.js": "d50e9c107997d50b83721081031d880913a79ae61ca00b088a65f387fbc7e3b2",
+        "l100-pitch-deck.css": "f6755c049f2b1a68b0178584469be925eeb5a6755025dfc355c15690000547b7",
+        "app.js": "45267657a701c2036bccd25032542235b11310d37e213ceccf908c04acb60b1b",
+        "styles.css": "ffe76d055cd5057bd4f69cd6c3bf6d91ecd231f34bb460766adfeced6f3b2817",
+        "english-layout.css": "2da7771765a8fd6b7e02dbc75a30450ece28c6ca67d04cf0f1cce1d57aac3276",
+        "presentation-standard.css": "04f6cb8ca70e945f81be14c5cd76eb3111ad4fa68a78552dfedb1f06468bb4d6",
+        "test/l100-pitch-visual.mjs": "ce5d0f891447ed9ea9feb1c0f0861edb8b353aab983c66213b5ca8c45a336e60",
+        "test/slide-layout-geometry.mjs": "e95b53850580a2720b1d90ab3f738f5d37e12b932ccb044ddd5ae4d68943b8a2",
+        "test/target-architecture-text-geometry.mjs": "8d48f80dea2718900624bbcfe0468075f7ee02a57d88f0c0f49b8020615018de"
+      }
     }
   ],
   "manuals": [

@@ -78,8 +78,9 @@ test("L100 styles are deck-scoped and preserve fixed print geometry", async () =
 test("latest L100 rendering evidence is bound to the current bilingual deck", async () => {
   const evidence = JSON.parse(await readFile(new URL("../validation-evidence.json", import.meta.url), "utf8"));
   const record = evidence.draftValidations.filter(item => item.id === "l100-pitch-deck").at(-1);
-  assert.equal(record.reviewId, "l100-relation-clarity-2026-10-20");
-  assert.equal(record.humanReview, false);
+  assert.equal(record.reviewId, "l100-human-draft-removal-2026-10-20");
+  assert.equal(record.humanReview, true);
+  assert.equal(record.draftOverlays, 0);
   assert.equal(record.slideModeChecks, 150);
   assert.deepEqual(record.locales, ["ko", "en"]);
   assert.equal(record.minimumPrimaryFontPx, 24);

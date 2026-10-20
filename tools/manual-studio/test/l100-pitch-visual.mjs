@@ -12,6 +12,10 @@ import { inspectSlideLayout } from "./slide-layout-geometry.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const source = join(root, "tools/manual-studio");
+const catalog = JSON.parse(await readFile(join(source, "catalog.json"), "utf8"));
+const manual = catalog.manuals.find(item => item.id === "l100-pitch-deck");
+assert.ok(manual, "The L100 pitch manual must be registered.");
+const expectedDraftOverlays = !manual.reviewedAt || manual.reviewedAt < manual.lastEditedAt ? 1 : 0;
 const output = process.argv[2];
 assert.ok(output && isAbsolute(output), "Provide an absolute artifact directory.");
 const outputRelation = relative(root, resolve(output));
@@ -197,7 +201,7 @@ try {
       assert.equal(await page.locator(".manual-slide").count(), 15);
       assert.equal(await page.locator("html").getAttribute("lang"), locale);
       assert.equal(await page.locator(".manual-slide.active").getAttribute("data-index"), "0");
-      assert.equal(await page.locator(".manual-slide .manual-draft-overlay").count(), 1);
+      assert.equal(await page.locator(".manual-slide .manual-draft-overlay").count(), expectedDraftOverlays);
       await page.addScriptTag({ content: `${inspectTextGeometry}\n${inspectSlideLayout}\n${inspectPitch}` });
       if (mode === "fullscreen") {
         await page.locator("#fullscreen-manual").click();
@@ -257,7 +261,7 @@ try {
   assert.deepEqual(await digests(), before, "Rendering inputs changed during verification.");
   const summary = {
     validatedAt: new Date().toISOString(), browser: browser.version(), modes, locales: ["ko", "en"],
-    slideModeChecks: results.length, findings, failedRequests, pageErrors, selfTests,
+    slideModeChecks: results.length, draftOverlays: expectedDraftOverlays, findings, failedRequests, pageErrors, selfTests,
     connectorsChecked: results.reduce((sum, result) => sum + result.connectors, 0),
     maximumConnectorGapPx: Math.max(...results.map(result => result.maximumGap)),
     minimumPrimaryFontPx: Math.min(...results.map(result => result.minimumBody)),
