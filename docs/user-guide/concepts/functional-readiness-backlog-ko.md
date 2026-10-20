@@ -2,7 +2,7 @@
 title: F10-F15 준비 상태 전수 점검 및 완료 계획
 description: F10부터 F15까지 모든 중분류의 잔여 작업, 미충족 근거, 의존성에 따른 완료 계획입니다.
 translation_of: functional-readiness-backlog.md
-translation_source_sha: ea3f6528f139e1a2d2ed20af3becf71e87d4e069
+translation_source_sha: 35cf3fc70f3582e105d9a63f6452fd919443abce
 translation_revised: 2026-10-20
 ---
 
@@ -341,6 +341,57 @@ F15.2/F15.3의 범위가 제한된 Ready 판정을 뒷받침합니다.
 정확한 잔여 ID와 함께 Partial로 유지합니다. 근거가 없을 때는 새 결함으로 단정하지 않고
 Not assessed를 사용합니다. 설치별 일반 설정과 명시적으로 연기한 확장은 검증한 것처럼
 표현하지 않으면서 별도로 표시합니다.
+
+## 2026-10-20 세 세션 통합 결과
+
+이 통합 결과는 `완료`, `코드 완료/실환경 미검증`, `실제 실패`, `외부 차단 요인`,
+`경과 시간 차단 요인`을 구분합니다. 각 결과는 일부 전달된 소스 범위가 아니라 필수 작업
+전체에 적용합니다. 아래 작업 중 `완료`로 전환된 항목은 없으므로 필수 작업 29개는 모두
+열린 상태로 유지합니다.
+
+### 필수 작업 결과
+
+| 작업 | 결과 | 현재 근거 | 다음 관측 조건 |
+|------|------|-----------|----------------|
+| K01 | 코드 완료/실환경 미검증 | G02는 표준 워커와 Core 문서 의도 경로를 연결하며 비공개 본문을 게시하지 않습니다. | 승인된 운영 프로필 corpus 하나를 정상 업로드, 워커, 현재 ACL, 철회, 삭제, 권한 있는 조회까지 검증합니다. |
+| K02 | 외부 차단 요인 | 보호된 소스 반출 및 연결 계약이 있습니다. | 비공개 내용을 커밋하지 않고 승인된 소스 신원, 자격 증명, 불변 개정, 독립 조회를 제공합니다. |
+| K03 | 코드 완료/실환경 미검증 | #2296에서 대소문자와 공백 변형을 이용한 자기 검토 결함을 닫았고 집중 테스트 93개와 loopback PostgreSQL 테스트 1개를 통과했습니다. | 독립 승인된 정책, 배포된 읽기 권한, 운영 승격을 연결합니다. |
+| K04 | 외부 차단 요인 | 추출과 답변 처리에는 범위가 제한된 테스트가 있습니다. | 승인된 PDF, Office, OCR, 한국어, 표, 이미지, 철회 corpus와 독립 답변 품질 검토를 제공합니다. |
+| K05 | 외부 차단 요인 | 소스에 결속된 적격성 도구가 있습니다. | 적격성 평가 전에 정확한 소스, 모델, corpus, 지표, holdout 검토를 선택하고 승인합니다. |
+| K06 | 코드 완료/실환경 미검증 | 로컬 구조화 및 적합성 검사는 provenance를 보존하고 활성화를 분리합니다. | 승인된 운영 프로필 corpus와 설치 경로에서 같은 검사를 유지합니다. |
+| K07 | 외부 차단 요인 | 접근성 요구사항을 기록했습니다. | 영어 및 한국어 키보드, 음성, 공개, 화면 읽기 프로그램을 독립 검토합니다. |
+| R01 | 외부 차단 요인 | 현재 규칙 수명 주기는 후반 거버넌스 rollout 단계를 구현했지만 전체 운영 목록은 닫히지 않았습니다. | 승인된 공급자 소스, 검증기 신원, 예약 만료 및 알림, override 소스, replica 수렴, 활성화, 고정 drift 측정을 제공합니다. |
+| L01 | 외부 차단 요인 | 세션 1에서 변경되지 않은 학습 및 권한 검사 220개를 다시 통과했지만 양성 이력 입력 4개는 없습니다. | 권위 있는 소스에서 외부 변경 연속성, 조치 및 이벤트 시간 watermark, 제외 구간 이력, 구간 이후 정리를 유지합니다. |
+| L02 | 코드 완료/실환경 미검증 | 로컬 문맥 안전, 철회, 재시작, 부정 경로를 통과했습니다. | 실제 대기 및 실행 중 만료와 철회, hold, 복구, deadline, 구독자 격리 증적을 유지합니다. |
+| L03 | 외부 차단 요인 | 로컬 retained Pattern 동작이 있습니다. | 고정 cohort, 게시, 재시작, 승격, 강등, 수용까지 일관된 신뢰 외부 발급자를 제공합니다. |
+| L04 | 경과 시간 차단 요인 | 측정 계약은 활동 횟수를 개선으로 해석하지 않습니다. | 사전 등록한 독립 baseline/treatment episode, 재발 구간, 분모, 불확실성, 안전 지표를 완료합니다. |
+| A01 | 외부 차단 요인 | 릴리스 상한 코드는 사용할 수 없는 provenance를 보존합니다. | #1822에 설치된 Release와 현재 철회 정보를 인증된 입력으로 제공합니다. |
+| A02 | 코드 완료/실환경 미검증 | 승인 및 근거 수용 동작은 로컬 부정 및 재시작 검사를 통과했습니다. | 정확한 설치 대상에서 현재 독립 승인, 적용, 감사, 효과 증적을 유지합니다. |
+| A03 | 코드 완료/실환경 미검증 | 상시 권한의 범위, 만료, 철회 보호가 있습니다. | 승인된 공급자 commit fence를 연결하고 실제 만료, 철회, 중복, 재시작 근거를 유지합니다. |
+| A04 | 외부 차단 요인 | drill 동작은 권한을 부여하지 않은 상태로 구현되어 있습니다. | 별도 승인된 중지, 롤백, 복구, 정족수, 효과 검증 drill을 실행합니다. |
+| D01 | 외부 차단 요인 | 개인정보 gate와 소스 경계가 있습니다. | 실제 corpus, 개인정보 일정, 공급자 조건, 지역, 규정 준수 대조표를 승인합니다. |
+| D02 | 외부 차단 요인 | 보존 및 감사 동작에는 로컬 검사가 있습니다. | 배포 환경의 삭제, legal hold, 접근 검토, anchoring, incident response, change-feed 수렴을 유지합니다. |
+| H01 | 실제 실패 | 현재 로컬 snapshot은 누락을 숨기지 않고 신호 15개와 필드 8개를 모두 노출하지만, 이 설치에서는 신호 7개만 concrete exporter 신원을 가집니다. readiness는 정상이고 cold-start duration은 오래되었으며, 다른 concrete 신호는 사용할 수 없습니다. 필드는 version과 configuration만 사용할 수 있습니다. | 누락된 liveness 설치 입력, 나머지 신호 모집단 7개, 필드 소스 5개, 주 전달과 대체 전달, 복구 drill을 연결한 뒤 최신의 완전한 snapshot을 유지합니다. |
+| H02 | 외부 차단 요인 | canary, 재발, scheduler, 안정화 선행 조건에는 로컬 테스트가 있습니다. | 승인된 설치 baseline, 범위, job 입력을 제공하고 예약 시도, no-execute replay, 권한 하향, 설정된 안정화 종료를 유지합니다. |
+| H03 | 외부 차단 요인 | 5분 cadence와 30초 consumed-audit 검사는 담당 결정 7개를 정하지 않습니다. | canary, smoke, alert, audit, cold-start, 안정화, 부하 및 budget 운영 정책을 버전으로 관리합니다. |
+| V01 | 외부 차단 요인 | 보고서 렌더링과 소스 격리 동작이 있습니다. | 인증된 datasource별 신원, cutoff, freshness, unavailable, timeout, partial widget, 형식 거부, GET-only 근거를 유지합니다. |
+| I01 | 외부 차단 요인 | 소스 설치와 Trial 동작이 있으며 과거 신규 Trial 증적 1개가 있습니다. | 승인된 서명 full-entitlement 입력을 제공하고 변경 없는 Trial 재실행, 신규 full 설치, Trial-to-full 전환, watermark 제거, health/readback, 두 번째 plan을 유지합니다. |
+| I02 | 외부 차단 요인 | 소스와 서명된 오프라인 경로만 사용할 수 있는 배포 경로이며 `--online` 정리는 I01 이후 순서입니다. | I01을 완료한 뒤 superseded acquisition 및 help 경로를 제거하고 `azd-up.sh`를 진단 전용으로 둘지 폐기할지 결정합니다. |
+| I03 | 외부 차단 요인 | update, recovery, host, offline 동작은 범위가 제한된 로컬 검사를 통과했습니다. | 승인된 대상에서 정확한 개정의 연결된 배포, update/recovery, disposable migration 근거를 유지합니다. |
+| X01 | 코드 완료/실환경 미검증 | bundle 등록, disabled-first 수명 주기, 철회, 타입화된 라우팅이 있습니다. #355는 필수 계보 없이 계획하지 않음으로 닫혔습니다. | 새 이슈를 만든 뒤 정확한 artifact의 설치, enable, disable, revoke, restart, disclosure, routing, audit 계보 하나를 유지합니다. |
+| S01 | 외부 차단 요인 | 설치된 acquisition, worker, 독립 로컬 수용 코드가 있습니다. | #2128을 명시적으로 재개할 때까지 중지를 유지한 뒤 terminal 설치 요청, 정확한 개정, coverage, 게시, 독립 조회를 유지합니다. |
+| S02 | 외부 차단 요인 | 예약 처리와 Incident, notification, handover 동작이 있습니다. | 중지가 해제된 뒤 승인된 신원과 channel을 연결하고 같은 correlation의 scan/no-finding, Incident, notification, handover, duplicate replay 연결을 유지합니다. |
+| S03 | 실제 실패 | label이나 임계값을 바꾸지 않고 정확한 승격 산술을 수정했습니다. Java SQL dev precision은 0.8824, Java path dev precision은 0.7143이며 C#에는 필요한 holdout true positive가 없습니다. | `dev`에서 남은 detector를 개선한 뒤 변경하지 않은 `holdout`에서 양 split 모두 precision >= 0.90과 true positive 1개 이상을 통과하고 별도 승격 검토를 진행합니다. |
+
+### G03-G07 완료 조건
+
+| 기준 | 결과 | 현재 근거 및 다음 조건 |
+|------|------|------------------------|
+| G03 | 실제 실패 | #2299는 내용이 없는 hold 진단을 개선하고 평가 권한을 격리합니다. 새로운 governed v1 및 v2는 사용 완료된 실패로 유지합니다. 새로 작성하고 검토한 protocol이 정확한 source/model/corpus 품질과 latency를 통과한 뒤 현재 Owner 승인, 영속 승격, 독립 효과 관측을 진행합니다. |
+| G04 | 외부 차단 요인 | 표준 stack은 정상이지만 정상 Browser Entra에는 사람 로그인이 필요합니다. 양성, 모호함, 거부, unavailable 결과에 대해 정확한 개정의 영어 및 한국어 request-to-Core-to-Operator-to-Console 근거를 유지합니다. |
+| G05 | 코드 완료/실환경 미검증 | 현재 권위 baseline은 Resource 877개, link 1,611개, 분류된 unavailable 후보 174개, topology revision 0개입니다. 이번 변경은 잘못된 ephemeral Local OS-disk 후보 4개를 제거하고 closure 집계를 수정합니다. 이후 정상 수집에서 후보가 사라졌는지 확인해야 하며 authorization child scope 170개는 unavailable로 남고 현재 상태로 과거를 만들 수 없습니다. |
+| G06 | 외부 차단 요인 | 정상 causal runtime seam은 연결되지 않았고 로컬 independent effect observation 모집단은 0개입니다. 독립 인증된 불변 hypothesis/action/target/time/effect 소스를 제공한 뒤 graph correlation, dispatch, provider success를 효과 증명으로 사용하지 않고 verified 및 refuted replay, rollback, 실제 recurrence window를 유지합니다. |
+| G07 | 경과 시간 차단 요인 | 승인된 운영 corpus나 완료된 ACL, 철회, 삭제 연결이 없습니다. 외부 입력을 승인한 뒤 서로 다른 live-shadow 날짜 30일과 적격 검토 제안 500건을 유지합니다. 같은 날 수행한 합성 테스트로 이 구간을 대체할 수 없습니다. |
 
 ## 근거 대조 기록
 
