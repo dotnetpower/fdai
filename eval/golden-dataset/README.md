@@ -24,6 +24,7 @@ facts.
 | `corpus-manifest.json` | Generated content-free case denominator and source identities for repository-only semantic assurance. |
 | `semantic-judgment-assurance.json` | Frozen #252 edge overlay, lexical baseline, structured-boundary replay, and acceptance thresholds. |
 | `semantic-judgment-assurance.schema.json` | Strict schema for the #252 edge overlay and metric inputs. |
+| `semantic-intent-coverage.json` | Generated CQAS topic/source inventory and static coverage; not a live model result or qualification receipt. |
 | [`question-bank/`](./question-bank/) | Federated bilingual inventory and generated human review catalog spanning Golden, manual, Console, and candidate questions. |
 
 Do not hand-edit `questions.en.json` or `questions.ko.json`. Generate both from the reviewed source:
@@ -44,6 +45,18 @@ The generator partitions the Reader-scoped operational declaration universe by e
 to respect its per-generation safety bound without sampling. The manifest counts excluded
 declarations separately and stores no question text. It is a source inventory, not a model run,
 runtime result, or certification receipt.
+
+The semantic-intent inventory pins every Core `ontology_platform/*.py` source, so adding an
+internal helper requires regeneration even when no query function or question changes:
+
+```bash
+PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src uv run --no-sync python scripts/automation/build_semantic_intent_coverage.py
+PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src uv run --no-sync python scripts/automation/build_semantic_intent_coverage.py --check
+```
+
+The second command is read-only and fails for a stale or missing artifact. Diff-scoped fast
+validation runs that same check for its source roots before publication. A fresh inventory proves
+source consistency only, not conversation quality, model parity, or operating qualification.
 
 ## Dataset shape
 

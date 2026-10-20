@@ -133,6 +133,13 @@ A 64-level preflight traversal ceiling prevents uncontrolled recursion; the exis
 property-normalization depth remains authoritative. This is not a new permission or a general
 bound on SQL buffer construction.
 
+The preflight follows the canonical normalizer's `Mapping` and `Sequence` shapes, rather than
+assuming every container is a built-in `dict`, `list`, or `tuple`. It reserves a sequence's minimum
+JSON size before requesting elements, then counts bounded numeric and temporal forms. This catches
+lazy range and mapping expansion before copying, redaction or property normalization at the
+existing generation/chunk limits. Large integers and unknown `default=str` leaves remain
+conservative; no arbitrary converter is called by preflight. Exact encoding still owns acceptance.
+
 ### Retained-concept assessment boundary
 
 The [retained-concept classification](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md#retained-concept-assessment-2111)

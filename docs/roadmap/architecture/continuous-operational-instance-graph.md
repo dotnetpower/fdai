@@ -331,7 +331,7 @@ valid completed results survive timeout, invalid budgets fail closed, and additi
 One generation admits at most 50,000 Resources, 200,000 relationships or suppression records,
 and 16 MiB of normalized collected records. Capacity exhaustion stops before the final fence and
 retains the prior generation. These are supported single-generation limits, not a claim of
-unlimited tenant scale; larger scopes require separately reviewed partitioned ownership.
+unlimited tenant scale; larger scopes require separately reviewed partitioned ownership. Separately, [derived projection work admission](continuous-operational-instance-graph-evidence.md#projection-allocation-admission) bounds normalization without retracting provider snapshots, granting source authority or establishing RSS qualification.
 These record limits alone do not bound process memory; dedicated Linux entrypoints enforce the separate address-space ceiling below. Capacity errors never silently narrow an active scope or authorize deletion outside a newly approved ownership boundary. The implementation ledger retains final 10000/50000-object publication and restart samples plus collection-to-publication measurements under that ceiling. Activated version storage reduces measured writer-lock occupancy but retains graph-sized preparation. Synthetic RSS is neither a production latency guarantee nor a database-server memory bound.
 The 32 MiB manifest ceiling is checked during incremental hashing. PostgreSQL batches replacement
 writes, keeps unchanged content at its existing revision, and validates cardinality with indexed
