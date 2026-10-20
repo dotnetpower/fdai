@@ -436,8 +436,16 @@ def _inverted_korean_type_roles_form() -> Any:
                 "subject": "m2",
                 "subject_scope": "collection",
                 "filters": [
-                    {"role": "region", "mention": "m1"},
-                    {"role": "type", "mention": "m3"},
+                    {
+                        "role": "region",
+                        "mention": "m1",
+                        "cue": {"text": "location", "occurrence": 1},
+                    },
+                    {
+                        "role": "type",
+                        "mention": "m3",
+                        "cue": {"text": "type", "occurrence": 1},
+                    },
                 ],
                 "cue": {"text": "모두 보여 줘", "occurrence": 1},
                 "confidence": 0.9,
@@ -452,14 +460,34 @@ def _inverted_korean_type_roles_form() -> Any:
 def test_inverted_object_and_resource_type_roles_are_canonicalized() -> None:
     form = _inverted_korean_type_roles_form()
 
-    normalized = normalize_redundant_property_filter_labels(form)
+    receipt = normalize_redundant_property_filter_labels_with_receipt(form)
+    normalized = receipt.form
 
     assert normalized.goals[0].subject == "m3"
     assert [(item.role.value, item.mention) for item in normalized.goals[0].filters] == [
         ("region", "m1"),
         ("type", "m2"),
     ]
+    utterance = "location이 westus2이고 type이 object-storage인 Resource를 모두 보여 줘."
+    assert [utterance[span.start : span.end] for span in receipt.syntactic_labels] == [
+        "location",
+        "type",
+    ]
     assert normalize_redundant_property_filter_labels(normalized) == normalized
+
+
+def test_filter_cue_label_receipt_requires_no_mention_overlap() -> None:
+    form = _inverted_korean_type_roles_form()
+    goal = form.goals[0]
+    type_filter = goal.filters[1].model_copy(update={"cue": form.mention("m2").span})
+    form = form.model_copy(
+        update={"goals": (goal.model_copy(update={"filters": (goal.filters[0], type_filter)}),)}
+    )
+
+    receipt = normalize_redundant_property_filter_labels_with_receipt(form)
+    utterance = "location이 westus2이고 type이 object-storage인 Resource를 모두 보여 줘."
+
+    assert [utterance[span.start : span.end] for span in receipt.syntactic_labels] == ["location"]
 
 
 def test_inverted_type_roles_are_not_swapped_across_goals_or_other_references() -> None:

@@ -103,7 +103,7 @@ def test_question_form_prompt_keeps_explicit_filter_labels_as_syntax() -> None:
     prompts = FileSystemPromptRegistry(_CATALOG)
     system_text = compose_static_selection(prompts.resolve("semantic.question_form")).system_text
 
-    assert "labels are cue/context, not mentions" in system_text
+    assert "labels are filter cues, not mentions or context" in system_text
     assert "values are region/resource_type" in system_text
     assert "Resource is the subject" in system_text
 
