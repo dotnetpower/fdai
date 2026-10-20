@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 3838e7cf9c4272f35803f5712c8af1af8178ee1b
+translation_source_sha: 60db30c547cdfd0c096d539ca0065a29f8e7868e
 translation_revised: 2026-10-20
 ---
 # 온톨로지 조회 커버리지 구현 계획
@@ -29,7 +29,7 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 호출 수는 바꾸지 않으며, 그래도 한도를 넘는 전체 변환은 보류합니다.
 집중 구현 검증 근거와 남은 실제 실행 검증 조건은
 [구현 원장](../../roadmap-implementation/interfaces/ontology-query-coverage-implementation-plan.md)에 기록합니다.
-동적 프롬프트 프로필이 닫힌 preflight 요청 주제로 지침을 선택해도 의미 판단은 전체 기능 집합을 유지합니다. 주제는 프롬프트 지침만 바꾸며, 관리 지침이 제외된 상태에서 수락된 의미는 [동적 조립](../decisioning/prompt-composition-ko.md#동적-조립)에 설명된 대로 전체 프롬프트로 한 번 더 판단합니다. Core는 preflight 컬렉션 필터를 원문에서 근거화하므로, 모델이 제안한 정규 값은 경로를 무효화하지 않고 버립니다. 범위가 제한된 제안 복구나 독립 검토 복구 전에 중복 PROPERTY 라벨은 허용된 동일 역할 companion filter가 있거나, goal이 하나인 form에 다른 곳에서 참조하지 않는 허용된 operand가 정확히 하나 있고 라벨에 다른 참조가 없을 때만 context로 이동하며, 발화 문구나 카탈로그 alias로 이 정규화를 선택하지 않습니다. Core는 이렇게 정규화한 라벨 span에만 비공개 receipt를 발급하고, 타입이 지정된 판독을 보존하는 수락된 복구가 context를 생략해도 receipt를 유지합니다. Blind review는 모델이 작성한 일반 context를 신뢰하지 않고 독립적으로 추출한 속성 라벨 이름에만 이 receipt를 사용할 수 있습니다. 제외와 다른 모든 추출 역할은 계속 전체 검토 대상입니다. goal이 하나인 인스턴스 컬렉션 `select`에 격리된 `resource_type` subject와 격리된 `object_type` type filter가 하나씩 있으면 더 넓은 ObjectType subject와 더 좁은 ResourceType filter로 정규화하며, 참조나 goal이 추가되면 변경하지 않습니다. 읽기 전용 plan 요청은 frame이 작업 초안이 아니면 ActionType 기술자를 보내지 않으며, 형태로 선택한 지침이 있으면 그 지침이나 frame이 지정한 함수만 보냅니다.
+동적 프롬프트 프로필이 닫힌 preflight 요청 주제로 지침을 선택해도 의미 판단은 전체 기능 집합을 유지합니다. 주제는 프롬프트 지침만 바꾸며, 관리 지침이 제외된 상태에서 수락된 의미는 [동적 조립](../decisioning/prompt-composition-ko.md#동적-조립)에 설명된 대로 전체 프롬프트로 한 번 더 판단합니다. Core는 preflight 컬렉션 필터를 원문에서 근거화하므로, 모델이 제안한 정규 값은 경로를 무효화하지 않고 버립니다. 범위가 제한된 제안 복구나 독립 검토 복구 전에 중복 PROPERTY 라벨은 허용된 동일 역할 companion filter가 있거나, goal이 하나인 form에 다른 곳에서 참조하지 않는 허용된 operand가 정확히 하나 있고 라벨에 다른 참조가 없을 때만 context로 이동하며, 발화 문구나 카탈로그 alias로 이 정규화를 선택하지 않습니다. Core는 이렇게 정규화한 라벨 span에만 비공개 receipt를 발급하고, 타입이 지정된 판독을 보존하는 수락된 복구가 context를 생략해도 receipt를 유지합니다. Blind review는 모델이 작성한 일반 context를 신뢰하지 않고 독립적으로 추출한 속성 라벨 이름에만 이 receipt를 사용할 수 있습니다. 제외와 다른 모든 추출 역할은 계속 전체 검토 대상입니다. goal이 하나인 인스턴스 컬렉션 `select`에 격리된 `resource_type` subject와 격리된 `object_type` type filter가 하나씩 있으면 더 넓은 ObjectType subject와 더 좁은 ResourceType filter로 정규화하며, 참조나 goal이 추가되면 변경하지 않습니다. 활성 question-form pack은 명시적인 `location`/`type` 라벨을 cue/context로, 해당 값을 `region`/`resource_type`으로 읽고 Resource를 subject로 유지하도록 지시합니다. 보수적 16,452-token 추정값은 명시적인 16,640-token 프로필 예약량 안에 들어갑니다. 읽기 전용 plan 요청은 frame이 작업 초안이 아니면 ActionType 기술자를 보내지 않으며, 형태로 선택한 지침이 있으면 그 지침이나 frame이 지정한 함수만 보냅니다.
 인과 메커니즘 어휘는 인과 맥락과 등급 증적을 위한 검토된 카탈로그 데이터입니다. 필요한 근거와
 반박 조회만 제공하며 새 온톨로지 타입, 조회 권한 또는 복구 권한을 만들지 않습니다.
 

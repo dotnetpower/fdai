@@ -20,7 +20,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fdai.core.prompts.profiles import PromptArtifactRef, PromptProfile, PromptProfileMode
+from fdai.core.prompts.profiles import (
+    PromptArtifactRef,
+    PromptProfile,
+    PromptProfileMode,
+    compose_static_selection,
+)
 from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.core.prompts.types import PromptLayer
 from fdai.rule_catalog.schema.llm_registry import load_llm_registry_from_yaml
@@ -92,6 +97,15 @@ def test_every_prompt_applies_to_is_a_known_capability() -> None:
         "prompt applies_to references capabilities not in llm-registry.yaml "
         f"(nor allowlisted prompt-only): {offenders}"
     )
+
+
+def test_question_form_prompt_keeps_explicit_filter_labels_as_syntax() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    system_text = compose_static_selection(prompts.resolve("semantic.question_form")).system_text
+
+    assert "labels are cue/context, not mentions" in system_text
+    assert "values are region/resource_type" in system_text
+    assert "Resource is the subject" in system_text
 
 
 def test_rubric_prompt_is_shipped_with_rubric_layer() -> None:
