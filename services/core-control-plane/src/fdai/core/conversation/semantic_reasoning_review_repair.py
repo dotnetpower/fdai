@@ -18,6 +18,7 @@ from .semantic_reasoning_admission import (
     admit_question_form,
 )
 from .semantic_reasoning_form import SemanticQuestionForm
+from .semantic_reasoning_normalization import normalize_redundant_property_filter_labels
 from .semantic_reasoning_proposal import FormResolution, resolve_question_form
 from .semantic_reasoning_relabel import relabel_mentions
 from .semantic_reasoning_repair import FormProposal, FormRepair, repair_keeps_operands
@@ -107,7 +108,8 @@ async def propose_review_repair(
     resolution = resolve_question_form(raw, utterance=utterance)
     if resolution.form is None:
         return FormProposal(resolution, None, "invalid", repair.reasons)
-    form = relabel_mentions(repair.typed, resolution.form, split=repair.split)
+    form = normalize_redundant_property_filter_labels(resolution.form)
+    form = relabel_mentions(repair.typed, form, split=repair.split)
     resolution = replace(resolution, form=form)
     if not repair_keeps_operands(
         repair.previous,

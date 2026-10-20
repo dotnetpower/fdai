@@ -7,6 +7,10 @@ from typing import Any
 
 import httpx
 import pytest
+from fdai.core.conversation.semantic_reasoning_admission import (
+    AdmissionDisposition,
+    SpanAccounting,
+)
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptCandidate, ConceptShard
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain, SemanticQuestionForm
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
@@ -18,6 +22,11 @@ from fdai.core.conversation.semantic_reasoning_review import (
     quoted_form,
     resolve_extraction,
     review_forms,
+)
+from fdai.core.conversation.semantic_reasoning_review_repair import (
+    ReviewRepair,
+    propose_review_repair,
+    review_repair,
 )
 from fdai.core.conversation.semantic_reasoning_shadow import run_reasoning_shadow
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
@@ -785,6 +794,203 @@ async def test_a_review_repair_never_moves_a_name_that_a_fragment_filter_reads()
 
     assert observation.passes[1].repair == "operand_dropped"
     assert observation.released is False
+
+
+@pytest.mark.parametrize(
+    ("utterance", "region_label", "region", "type_label", "resource_type", "subject"),
+    [
+        (
+            "location westus2 type object-storage resources",
+            "location",
+            "westus2",
+            "type",
+            "object-storage",
+            "resources",
+        ),
+        (
+            "location이 westus2이고 type이 object-storage인 Resource",
+            "location",
+            "westus2",
+            "type",
+            "object-storage",
+            "Resource",
+        ),
+    ],
+)
+async def test_review_repair_normalizes_redundant_property_labels_by_typed_role(
+    utterance: str,
+    region_label: str,
+    region: str,
+    type_label: str,
+    resource_type: str,
+    subject: str,
+) -> None:
+    def quote(text: str) -> dict[str, Any]:
+        return {"text": text, "occurrence": 1}
+
+    base = {
+        "mentions": [
+            {"id": "m1", "form": "concept", "domain": "resource_type", "span": quote(subject)},
+            {"id": "m2", "form": "value", "domain": "region", "span": quote(region)},
+            {
+                "id": "m3",
+                "form": "value",
+                "domain": "resource_type",
+                "span": quote(resource_type),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [
+                    {"role": "region", "mention": "m2"},
+                    {"role": "type", "mention": "m3"},
+                ],
+                "cue": quote(subject),
+                "confidence": 0.9,
+            }
+        ],
+        "context": [quote(region_label), quote(type_label)],
+    }
+    typed = resolve_question_form(base, utterance=utterance).form
+    assert typed is not None
+    repaired = {
+        **base,
+        "mentions": [
+            *base["mentions"],
+            {
+                "id": "m4",
+                "form": "concept",
+                "domain": "property",
+                "span": quote(region_label),
+            },
+            {
+                "id": "m5",
+                "form": "concept",
+                "domain": "property",
+                "span": quote(type_label),
+            },
+        ],
+        "goals": [
+            {
+                **base["goals"][0],
+                "filters": [
+                    {"role": "region", "mention": "m4"},
+                    {"role": "region", "mention": "m2"},
+                    {"role": "type", "mention": "m5"},
+                    {"role": "type", "mention": "m3"},
+                ],
+            }
+        ],
+        "context": [],
+    }
+
+    async def propose(**_: Any) -> dict[str, Any]:
+        return repaired
+
+    result = await propose_review_repair(
+        propose,
+        ReviewRepair(
+            previous=quoted_form(typed, utterance),
+            typed=typed,
+            violations=("state every independently extracted constraint",),
+            reasons=("review_uncovered",),
+        ),
+        utterance=utterance,
+        accounting=SpanAccounting(required=False),
+    )
+
+    assert result.repair == "review_applied"
+    assert result.admission is not None
+    assert result.admission.disposition is AdmissionDisposition.ADMITTED
+    assert result.resolution is not None and result.resolution.form is not None
+    assert all(
+        mention.domain is not MentionDomain.PROPERTY for mention in result.resolution.form.mentions
+    )
+
+
+def test_review_repair_requires_one_form_and_a_valid_actionable_extraction() -> None:
+    typed = _typed(_fragment_form(), _FRAGMENT)
+    review = FormReview("unfaithful", ("review_uncovered",))
+
+    assert (
+        review_repair(
+            review,
+            _FRAGMENT_EXTRACTION,
+            [typed, typed],
+            passes=1,
+            repairs=1,
+            utterance=_FRAGMENT,
+        )
+        is None
+    )
+    assert (
+        review_repair(
+            review,
+            {"constraints": "invalid", "literals": []},
+            [typed],
+            passes=1,
+            repairs=1,
+            utterance=_FRAGMENT,
+        )
+        is None
+    )
+    covered = {
+        "constraints": [_constraint("리소스", "names")],
+        "literals": [_quote("app-dev")],
+    }
+    assert (
+        review_repair(
+            review,
+            covered,
+            [typed],
+            passes=1,
+            repairs=1,
+            utterance=_FRAGMENT,
+        )
+        is None
+    )
+
+
+async def test_review_repair_reports_invalid_output_and_relaxes_only_span_accounting() -> None:
+    typed = _typed(_fragment_form(), _FRAGMENT)
+    repair = ReviewRepair(
+        previous=quoted_form(typed, _FRAGMENT),
+        typed=typed,
+        violations=("state every independently extracted constraint",),
+        reasons=("review_uncovered",),
+    )
+
+    async def invalid(**_: Any) -> dict[str, Any]:
+        return {}
+
+    rejected = await propose_review_repair(
+        invalid,
+        repair,
+        utterance=_FRAGMENT,
+        accounting=SpanAccounting(required=True),
+    )
+
+    assert rejected.repair == "invalid"
+    assert rejected.admission is None
+
+    async def incomplete(**_: Any) -> dict[str, Any]:
+        return _fragment_form()
+
+    relaxed = await propose_review_repair(
+        incomplete,
+        repair,
+        utterance=_FRAGMENT,
+        accounting=SpanAccounting(required=True),
+    )
+
+    assert relaxed.repair == "review_applied_unaccounted"
+    assert relaxed.admission is not None
+    assert relaxed.admission.disposition is AdmissionDisposition.ADMITTED
 
 
 def test_a_value_no_plan_reads_verbatim_needs_no_extracted_literal() -> None:
