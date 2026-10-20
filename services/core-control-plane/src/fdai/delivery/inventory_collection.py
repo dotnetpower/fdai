@@ -229,16 +229,26 @@ def collection_key(attempt_id: str) -> str:
     return _PREFIX + hashlib.sha256(attempt_id.encode()).hexdigest()
 
 
-def _resource_content(item: ResourceRecord) -> dict[str, Any]:
-    if item.props.get("_truncated") is True or redact_runtime_environment(item) != item:
-        raise ValueError("inventory chunk requires complete redacted resources")
+def _resource_fields(item: ResourceRecord) -> dict[str, Any]:
     return {
         "resource_id": item.resource_id,
         "type": item.type,
-        "props": normalize_json_value(item.props),
+        "props": item.props,
         "provider_ref": item.provider_ref,
         "last_seen": item.last_seen,
     }
+
+
+def _resource_content(item: ResourceRecord, *, maximum_bytes: int | None = None) -> dict[str, Any]:
+    content = _resource_fields(item)
+    if maximum_bytes is not None and inventory_json_exceeds_budget(
+        content, maximum_bytes=maximum_bytes
+    ):
+        raise ValueError("inventory resource exceeds its chunk capacity")
+    if item.props.get("_truncated") is True or redact_runtime_environment(item) != item:
+        raise ValueError("inventory chunk requires complete redacted resources")
+    content["props"] = normalize_json_value(item.props)
+    return content
 
 
 def resource_chunk(
@@ -278,6 +288,8 @@ def resource_chunk(
         raise ValueError("inventory chunk cursor is invalid")
     if len({item.resource_id for item in batch.resources}) != len(batch.resources):
         raise ValueError("inventory chunk resource identities must be unique")
+    ordered_resources = sorted(batch.resources, key=lambda record: record.resource_id)
+    resources = [_resource_fields(item) for item in ordered_resources]
     content = {
         "schema_version": "1.0.0",
         "attempt_id": attempt_id,
@@ -285,11 +297,12 @@ def resource_chunk(
         "sequence": sequence,
         "previous_digest": previous_digest,
         "cursor": batch.cursor,
-        "resources": [
-            _resource_content(item)
-            for item in sorted(batch.resources, key=lambda record: record.resource_id)
-        ],
+        "resources": resources,
     }
+    if inventory_json_exceeds_budget(content, maximum_bytes=MAX_CHUNK_BYTES):
+        raise ValueError("inventory chunk payload exceeds its byte bound")
+    for index, item in enumerate(ordered_resources):
+        resources[index] = _resource_content(item)
     digest = hashlib.sha256()
     size = 0
     for part in json.JSONEncoder(
@@ -310,7 +323,10 @@ def resource_chunk_batches(batch: InventoryBatch) -> Iterator[InventoryBatch]:
     for resource in batch.resources:
         encoded_size = len(
             json.dumps(
-                _resource_content(resource), sort_keys=True, separators=(",", ":"), allow_nan=False
+                _resource_content(resource, maximum_bytes=MAX_CHUNK_BYTES - 65536),
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
             ).encode()
         )
         if encoded_size > MAX_CHUNK_BYTES - 65536:

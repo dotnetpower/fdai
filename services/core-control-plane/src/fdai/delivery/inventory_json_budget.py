@@ -7,6 +7,7 @@ from dataclasses import fields, is_dataclass
 from json.encoder import encode_basestring_ascii
 
 _STRING_CHUNK_CHARACTERS = 1024
+_MAX_JSON_PREFLIGHT_DEPTH = 64
 
 
 def inventory_json_exceeds_budget(value: object, *, maximum_bytes: int) -> bool:
@@ -24,7 +25,9 @@ def inventory_json_exceeds_budget(value: object, *, maximum_bytes: int) -> bool:
     return False
 
 
-def _minimum_json_sizes(value: object) -> Iterator[int]:
+def _minimum_json_sizes(value: object, *, depth: int = 0) -> Iterator[int]:
+    if depth > _MAX_JSON_PREFLIGHT_DEPTH:
+        raise ValueError("inventory JSON exceeds maximum preflight nesting depth")
     if isinstance(value, str):
         yield len(value) + 2
         for offset in range(0, len(value), _STRING_CHUNK_CHARACTERS):
@@ -35,26 +38,26 @@ def _minimum_json_sizes(value: object) -> Iterator[int]:
         for index, field in enumerate(fields(value)):
             if index:
                 yield 1
-            yield from _minimum_json_sizes(field.name)
+            yield from _minimum_json_sizes(field.name, depth=depth + 1)
             yield 1
-            yield from _minimum_json_sizes(getattr(value, field.name))
+            yield from _minimum_json_sizes(getattr(value, field.name), depth=depth + 1)
     elif isinstance(value, dict):
         yield 2
         for index, (key, item) in enumerate(value.items()):
             if index:
                 yield 1
             if isinstance(key, str):
-                yield from _minimum_json_sizes(key)
+                yield from _minimum_json_sizes(key, depth=depth + 1)
             else:
                 yield 2
             yield 1
-            yield from _minimum_json_sizes(item)
+            yield from _minimum_json_sizes(item, depth=depth + 1)
     elif isinstance(value, (list, tuple)):
         yield 2
         for index, item in enumerate(value):
             if index:
                 yield 1
-            yield from _minimum_json_sizes(item)
+            yield from _minimum_json_sizes(item, depth=depth + 1)
     elif value is None or isinstance(value, bool):
         yield 4 if value is None or value else 5
     else:

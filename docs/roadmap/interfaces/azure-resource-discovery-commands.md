@@ -124,6 +124,15 @@ pre-existing 4 MiB string. This is not process RSS qualification or a general bo
 scalar serialization, projection, or SQL buffers. Those broader guarantees remain separate work.
 No collection, promotion, read, or execution authority changes.
 
+The same admission now runs at the existing 1 MiB durable-chunk boundary, before property
+normalization or whole-string encoding. The batching path retains its existing 64 KiB headroom.
+This catches records that fit the larger generation budget but cannot fit a storage chunk.
+The complete chunk header, cursor and ordered resource views are preflighted together; valid
+canonical content, digest, continuation and exact encoder checks remain unchanged.
+A 64-level preflight traversal ceiling prevents uncontrolled recursion; the existing canonical
+property-normalization depth remains authoritative. This is not a new permission or a general
+bound on SQL buffer construction.
+
 ### Retained-concept assessment boundary
 
 The [retained-concept classification](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md#retained-concept-assessment-2111)
