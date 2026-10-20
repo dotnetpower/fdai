@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 84c908f31f86145f71c9e5c61a26af8a0a7f903f
-translation_revised: 2026-10-20
+translation_source_sha: 6c4a1a35f10a5ec623d4c388156689c538e518cc
+translation_revised: 2026-10-21
 ---
 # 프로젝트 구조
 
@@ -44,8 +44,9 @@ T1 인시던트 맥락은 이제 `rca/historical_graph.py`에서 보존된 이�
 코덱에 실제 관측을 불변 상태로 보존합니다. `adaptive_revision.py`는 기존 계약 facade를
 유지하면서 정규 개정 생성을 소유합니다. 아직 관측하지 않은 레시피만 예약하며 마지막 미관측
 가설도 검증된 후보 게이트웨이를 사용합니다. RCA 인용은 조사 상태와 연관성 수준의 근거 등급을
-유지합니다. 새 사건 경로는 잔여 T2 추론 전에 과거 T1 근거를 수집하고 근거가 확인된 인용만
-전달합니다. `build_semantic_query_runtime(causal_competitor_source=...)`는 최종 메트릭 결합을
+유지합니다. 새 사건 경로는 잔여 T2 추론 전에 과거 T1 근거를 수집하고 근거가 확인된 인용만 전달합니다.
+`rca/citations.py`는 파서, 근거 검사, 조정기가 공유하는 크기 제한 및 정확한 인용 수락을 담당합니다. [근본원인 분석](../rules-and-detection/root-cause-analysis-ko.md#가설-생성-책임과-근거-수락)은 Forseti의 책임과 모호한 참조, 상충하는 사실, 불완전한 과거 근거 재사용, 지원하지 않는 T2 계보의 판단 보류를 정의합니다. 에이전트나 실행 경로를 추가하지 않습니다.
+`build_semantic_query_runtime(causal_competitor_source=...)`는 최종 메트릭 결합을
 위해 독립적으로 검증되고 서버 범위에 결속된 평가 출처를 받습니다. 요청은 리소스, 메트릭 개념,
 토폴로지와 출처 식별자, 시간, 경쟁 가설 집계를 정확히 고정합니다. 노드 JSON은 이 평가를
 만들 수 없으며 출처가 없거나 사용할 수 없으면 이유를 명시하고 판단을 보류합니다.
@@ -106,7 +107,7 @@ exporter 범위를 요구하고, 신선도를 검사한 스냅숏 하나를 저�
 `GET /operations/runtime-state` 변환을 통해 이 스냅숏을 제공합니다. 전달 어댑터는 명시적인
 unavailable binding을 출처가 명시된 운영 메트릭으로 교체해야 합니다.
 `delivery/self_health_sources.py`는 담당 프로세스, 최초 계층 판정 지연, 소비된 canary, 실제 검증기와 기본 교차검사의 관측을
-연결합니다. 런타임은 수집원의 수명을 소유하고 추가 모델 검사 없이 수집을 직렬화합니다.
+연결합니다. 런타임은 수집원의 수명을 소유하고 추가 모델 검사 없이 수집을 직렬화합니다. Core는 canary 수명 주기의 감사를, 전달 계층은 재시도 신원을 담당합니다.
 [운영 담당 문서](../operations/operating-and-verification-ko.md#남아-있는-수집원-경계)가 현재 수치와
 미충족 근거를 소유하며 [수집원 주입 계약](project-structure-dependency-injection-ko.md#자체-상태-수집원-연결)은
 서비스 및 에이전트 소유권을 유지합니다. 임베딩 및 교차검사/풀 근거는 전체 등록을 갖춘 별도 모델 범위이지
@@ -796,8 +797,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 `delivery/persistence/state_store_code_security_*.py`에 둡니다. 개수가 제한된 Console 이슈 요약은
 검토 신호 옆의 `issue_summary.py`가 만듭니다. `verifier.py`의 Python 취약점 검증기는 부수 효과가 없는
 순수 모듈 `verifier_constants.py`로 고정된 조건을 계산하고, `verifier_lists.py`로 지역 리스트의 원소를
-추적합니다. `verifier_evaluation.py`의 Core 요건 판정은 반올림한 증적 값이 아니라 참 양성과 거짓 양성의 정확한 개수를 사용합니다. `java_constant_guard.py`는 저장소 코드를 실행하지 않고, 범위가 제한된 정확한 지역
-JDK map 키와 마지막 무조건 대입을 포함한 Java 소스 수준 상수 증명을 처리합니다. 심각도 루브릭은
+추적합니다. `verifier_evaluation.py`의 Core 요건 판정은 반올림한 증적 값이 아니라 참 양성과 거짓 양성의 정확한 개수를 사용합니다. `java_constant_guard.py`는 SQL과 경로 verifier sink의 Java 소스 수준 상수 증명, 범위가 제한된 정확한 지역 JDK map 키, 지배적인 대입을 처리합니다. `java_external_constants.py`는 저장소 코드를 실행하지 않고 source root 안의 고유하고 크기가 제한된 일반 파일에서만 정확한 정규화 이름의 `static final String` initializer를 읽습니다. 심각도 루브릭은
 `rule-catalog/code-security/severity-rubric.yaml`의 카탈로그 데이터이며, 그 버전이 모든 커버리지
 증적에 기록되므로 루브릭이 바뀌면 이전 재스캔과 동등하지 않게 됩니다. Operator 읽기 측은
 `code_security_review_projection.py`와 `code_security_issue_projection.py`이고, Console 경로는 요청,

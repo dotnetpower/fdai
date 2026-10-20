@@ -40,8 +40,8 @@ Convergent telemetry keeps immutable actual observations in the existing frame, 
 Process journal and codec rather than worker-local mutable state. `adaptive_revision.py` owns
 canonical revision construction behind the unchanged contract facade. Only unobserved recipes
 are scheduled, and the final untested hypothesis still uses the verified candidate gateway.
-RCA citations retain investigation status and association-only evidence grade; novelty paths
-collect historical T1 evidence before residual T2 and forward only grounded citations.
+RCA citations retain investigation status and association-only evidence grade; novelty paths collect historical T1 evidence before residual T2 and forward only grounded citations.
+`rca/citations.py` shares bounded exact-citation admission across the parser, grounding gate and coordinator. [Root-Cause Analysis](../rules-and-detection/root-cause-analysis.md#generation-ownership-and-evidence-admission) defines Forseti ownership and holds for ambiguous references, conflicting facts, incomplete historical reuse and unsupported T2 lineage, without adding an agent or execution path.
 `build_semantic_query_runtime(causal_competitor_source=...)` accepts an independently verified,
 server-bound assessment source for final metric joins. Its exact request binds resources,
 metric concepts, topology/source identity, time and competitor accounting. Node JSON cannot
@@ -106,7 +106,7 @@ unavailable sources without inventing healthy values. Operator exposes that snap
 authenticated Reader-role `GET /operations/runtime-state` projection. Delivery adapters remain
 responsible for replacing explicit unavailable bindings with source-qualified production metrics.
 `delivery/self_health_sources.py` binds owned process, first-tier event lag, consumed-canary, actual verifier and native cross-check
-observations; runtime owns their lifetime and serializes collection without additional model probes.
+observations; runtime owns their lifetime and serializes collection without additional model probes. Core owns canary lifecycle audit; delivery owns retry identity.
 The [operating owner](../operations/operating-and-verification.md#remaining-source-boundaries) owns current counts and missing evidence; the [source-injection contract](project-structure-dependency-injection.md#self-health-source-bindings) preserves service/agent ownership.
 Embedding and cross-check/pool evidence use a separate fully registered model scope, not aggregate adapter health; these reads prove neither fleet health nor deployment acceptance.
 Operational promotion uses another exact cross-layer identity. Core measurement hashes every O7
@@ -818,8 +818,8 @@ Bounded Console issue summaries are built
 by `issue_summary.py` beside the review signal. The Python weakness verifier in `verifier.py`
 folds fixed conditions through the pure, side-effect-free `verifier_constants.py` and tracks
 local list elements through `verifier_lists.py`. Core qualification in `verifier_evaluation.py` uses exact TP/FP counts, never rounded receipt values.
-`java_constant_guard.py` handles Java source-level constant proofs, including bounded exact local
-JDK map keys and dominating assignments, without executing repository code. The severity rubric is catalog data in
+`java_constant_guard.py` handles Java source-level constant proofs for SQL and path verifier sinks, including bounded exact local JDK map keys and dominating assignments. `java_external_constants.py` reads exact fully qualified
+`static final String` initializers only from unique, size-bounded regular files inside the source root, without executing repository code. The severity rubric is catalog data in
 `rule-catalog/code-security/severity-rubric.yaml`, and its version is stamped into every coverage
 receipt, so a rubric change makes earlier rescans non-equivalent. The Operator read side is
 `code_security_review_projection.py` and `code_security_issue_projection.py`, and the Console route

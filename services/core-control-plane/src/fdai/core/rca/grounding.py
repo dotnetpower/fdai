@@ -15,11 +15,28 @@ prose.
 
 from __future__ import annotations
 
+from fdai.core.rca.citations import admitted_citations
 from fdai.core.rca.contract import (
     RcaOutcome,
     RcaResult,
     RootCauseHypothesis,
 )
+
+MAX_RCA_CAUSE_BYTES = 4 * 1024
+
+
+def valid_confidence(value: float) -> bool:
+    """Accept numeric uncertainty only; booleans are not confidence values."""
+    return not isinstance(value, bool) and 0.0 <= value <= 1.0
+
+
+def valid_cause(cause: str) -> bool:
+    if not cause.strip():
+        return False
+    try:
+        return len(cause.encode("utf-8")) <= MAX_RCA_CAUSE_BYTES
+    except UnicodeEncodeError:
+        return False
 
 
 def enforce_grounding(
@@ -29,24 +46,31 @@ def enforce_grounding(
 ) -> RcaResult:
     """Return :class:`RcaResult` - grounded, or abstained toward HIL.
 
-    Abstains (fail-closed) when the hypothesis has no citation, carries a
-    confidence outside ``[0, 1]``, or falls below ``min_confidence``. A
-    grounded, in-bounds hypothesis passes through unchanged.
+    Holds missing or conflicting citations, invalid or oversized cause text,
+    invalid uncertainty, or confidence below the configured floor. Invalid
+    floor configuration raises even when the hypothesis has no evidence.
+    An admissible hypothesis passes through unchanged.
     """
+    if not valid_confidence(min_confidence):
+        raise ValueError("min_confidence MUST be in [0, 1]")
     if not hypothesis.grounded:
         return RcaResult(
             outcome=RcaOutcome.ABSTAINED,
             hypothesis=None,
             reason="ungrounded_rca_no_citation_routed_to_hil",
         )
-    if not 0.0 <= hypothesis.confidence <= 1.0:
+    if not valid_confidence(hypothesis.confidence):
         return RcaResult(
             outcome=RcaOutcome.ABSTAINED,
             hypothesis=None,
-            reason=f"invalid_confidence_{hypothesis.confidence!r}",
+            reason="invalid_confidence",
         )
-    if not 0.0 <= min_confidence <= 1.0:
-        raise ValueError("min_confidence MUST be in [0, 1]")
+    if not valid_cause(hypothesis.cause) or admitted_citations(hypothesis.citations) is None:
+        return RcaResult(
+            outcome=RcaOutcome.ABSTAINED,
+            hypothesis=None,
+            reason="invalid_rca_cause_or_citations",
+        )
     if hypothesis.confidence < min_confidence:
         return RcaResult(
             outcome=RcaOutcome.ABSTAINED,

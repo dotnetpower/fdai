@@ -20,6 +20,7 @@ _ROOT_FILES = (
     "library.html",
     "l100-pitch-deck.css",
     "l100-pitch-deck.js",
+    "l100-pitch-kit.js",
     "localization.js",
     "manual-content.js",
     "manual-decks.css",

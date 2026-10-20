@@ -1,5 +1,6 @@
 """Indexed latest consumed-canary evidence on an isolated loopback Core schema."""
 
+import asyncio
 import importlib.util
 from contextlib import nullcontext
 from datetime import timedelta
@@ -11,6 +12,8 @@ from uuid import NAMESPACE_URL, uuid5
 
 import psycopg
 import pytest
+from fdai.core.control_loop import _canary
+from fdai.delivery.canary_cli import build_canary_event
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_canary import LATEST_CANARY_SQL
 from fdai.delivery.self_health_canary import ConsumedCanaryAgeExporter
@@ -155,7 +158,7 @@ async def test_latest_canary_query_uses_real_producer_index_and_preserves_audit_
                 "SELECT to_regclass('audit_log_canary_success_latest_idx'), COUNT(*) FROM audit_log"
             )
             preserved = await cursor.fetchone()
-            assert preserved == (None, 516)
+            assert preserved == (None, 518)
     finally:
         await backend.aclose()
 
@@ -170,7 +173,8 @@ async def test_corrupt_latest_success_is_unknown_not_a_fallback_to_older_success
             await _produce_canary(monkeypatch, backend, at=NOW - timedelta(seconds=age), slot=slot)
         async with await psycopg.AsyncConnection.connect(saga_database) as connection:
             await connection.execute(
-                "UPDATE audit_log SET entry_hash = %s WHERE correlation_id = %s",
+                "UPDATE audit_log SET entry_hash = %s WHERE correlation_id = %s "
+                "AND action_kind = 'control_loop.canary'",
                 ("0" * 64, "canary:newer"),
             )
         with pytest.raises(SelfHealthExporterUnavailableError) as failure:
@@ -191,19 +195,22 @@ async def test_latest_record_transfer_enforces_exact_byte_limit(
         async with await psycopg.AsyncConnection.connect(saga_database) as connection:
             cursor = await connection.execute(
                 "UPDATE audit_log SET entry = jsonb_set(entry, '{extra}', to_jsonb(''::text)) "
+                "WHERE action_kind = 'control_loop.canary' "
                 "RETURNING octet_length(entry::text)"
             )
             baseline = await cursor.fetchone()
             assert baseline is not None
             cursor = await connection.execute(
                 "UPDATE audit_log SET entry = jsonb_set(entry, '{extra}', to_jsonb(%s::text)) "
+                "WHERE action_kind = 'control_loop.canary' "
                 "RETURNING entry, previous_hash",
                 ("x" * (size - baseline[0]),),
             )
             updated = await cursor.fetchone()
             assert updated is not None
             await connection.execute(
-                "UPDATE audit_log SET entry_hash = %s", (next_hash(updated[1], updated[0]),)
+                "UPDATE audit_log SET entry_hash = %s WHERE action_kind = 'control_loop.canary'",
+                (next_hash(updated[1], updated[0]),),
             )
         row = await backend.read_latest_consumed_canary()
         assert row is not None
@@ -216,5 +223,43 @@ async def test_latest_record_transfer_enforces_exact_byte_limit(
             with pytest.raises(SelfHealthExporterUnavailableError) as failure:
                 await source.observe(now=NOW)
             assert failure.value.reason == "source_malformed"
+    finally:
+        await backend.aclose()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("cancelled", [False, True])
+async def test_consumed_interruption_is_independently_persisted_not_success(
+    saga_database: str, cancelled: bool
+) -> None:
+    backend = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    error = asyncio.CancelledError() if cancelled else RuntimeError("provider detail")
+
+    async def emit(**kwargs: Any) -> None:
+        raise error
+
+    host = SimpleNamespace(
+        _event_ingest=SimpleNamespace(ingest=lambda event: event),
+        _correlate_incident_id=lambda event: None,
+        _emit_stage=emit,
+        _audit_store=backend,
+    )
+    try:
+        with pytest.raises(type(error)):
+            await _canary.process_canary(host, build_canary_event(slot="interrupted", now=NOW))
+        async with await psycopg.AsyncConnection.connect(saga_database) as connection:
+            cursor = await connection.execute(
+                "SELECT seq, entry FROM audit_log ORDER BY seq LIMIT 3"
+            )
+            rows = await cursor.fetchall()
+        assert len(rows) == 2
+        assert rows[0][0] < rows[1][0]
+        assert [row[1]["outcome"] for row in rows] == [
+            "started",
+            "cancelled" if cancelled else "failure",
+        ]
+        assert rows[0][1]["attempt_id"] == rows[1][1]["attempt_id"]
+        assert await backend.verify_chain()
+        assert await backend.read_latest_consumed_canary() is None
     finally:
         await backend.aclose()

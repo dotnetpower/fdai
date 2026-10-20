@@ -10,8 +10,30 @@ Select **Discovery & Alignment**, then **FDAI L100 Pitch Deck**, immediately aft
 briefing. Select the centered book again to open its 15 slides. The deck is available in English
 and Korean; its share page is `l100-pitch-deck.html` with `?locale=en` or `?locale=ko`.
 
-The introduction remains **WIP** and **DRAFT** until its content is completed and a person confirms
-the latest revision. Rendering checks do not count as human review.
+The current introduction is complete and human-confirmed, so its artwork has neither **WIP**
+nor **DRAFT**. Completion and review remain independent: **WIP** tracks content completion,
+while **DRAFT** appears on the artwork and first slide when the latest revision lacks human
+confirmation. Rendering checks alone never confirm a revision.
+
+The introduction uses its own light Calm Slate theme, not a shared viewer theme. One illustrative
+API/database investigation connects source evidence, typed targets, competing hypotheses, decision
+tiers, approval safeguards, and independent effect verification. Implementation, default activation,
+and deployment validation are separate claims; this static deck never activates a product feature.
+The Korean and English modules share `l100-pitch-kit.js` for framing, source links, and the
+dependency diagram. Keep new deck dependencies in the deployment artifact allowlist.
+Slide 5 explains the dependency as concrete database usage. Its arrow describes that usage
+relation, not data flow or an established incident cause; `depends_on` remains machine metadata.
+
+Run `node --test tools/manual-studio/test/l100-pitch.test.mjs` for the introduction's content
+contracts. With the existing Console Playwright dependency installed, run
+`node tools/manual-studio/test/l100-pitch-visual.mjs /absolute/path/outside-the-repository`
+for both locales across desktop, tablet, mobile, fullscreen, and print. Pass `desktop` as a third
+argument for desktop inspection first, then `tablet,mobile,fullscreen,print` for the remaining
+modes. The checker starts and stops its own loopback server; it does not reuse or restart the
+standard full stack. It measures primary font sizes, contrast, visual bounds, and the deck's actual
+connector endpoints, including deliberately detached-node self-tests in desktop mode.
+Inspect the captured slides and contact sheets, and independently confirm that each exported PDF
+contains 15 pages with a 16:9 MediaBox.
 
 After adding a manual or changing the library template, restart the owning local server through
 its VS Code launch configuration: share-page metadata is loaded at startup. When Manual Studio belongs to the

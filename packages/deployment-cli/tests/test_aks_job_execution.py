@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Callable
+from typing import Any, cast
 
 import pytest
 
+from fdai_deployment_cli import aks_job_execution
 from fdai_deployment_cli.aks_job_execution import (
     job_terminal_state,
     materialize_cronjob_execution,
@@ -17,6 +19,35 @@ _TARGET = "b" * 64
 _IMAGE = "example.azurecr.io/fdai@sha256:" + "c" * 64
 _SUBSCRIPTION = "00000000-0000-0000-0000-000000000000"
 _IDENTITY_BINDING_DIGEST = "d" * 64
+
+
+def test_canary_controller_uid_field_reference_is_part_of_protected_template() -> None:
+    field_path = "metadata.labels['batch.kubernetes.io/controller-uid']"
+    job = _scheduled_job(name="canary")
+    job["field_environment"] = {"FDAI_CANARY_JOB_UID": field_path}
+    observed = cast(dict[str, Any], _cronjob(name="canary"))
+    environment = observed["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0][
+        "env"
+    ]
+    environment.append(
+        {
+            "name": "FDAI_CANARY_JOB_UID",
+            "valueFrom": {"fieldRef": {"apiVersion": "v1", "fieldPath": field_path}},
+        }
+    )
+    environment.sort(key=lambda entry: entry["name"])
+    expected = protected_cronjob_template_digest(
+        job, template_name="canary", namespace="fdai-runtime", source_revision=_REVISION
+    )
+    assert expected == aks_job_execution._digest(aks_job_execution._cronjob_contract(observed))
+    binding = next(entry for entry in environment if entry["name"] == "FDAI_CANARY_JOB_UID")
+    binding["valueFrom"]["fieldRef"]["fieldPath"] = "metadata.uid"
+    assert expected != aks_job_execution._digest(aks_job_execution._cronjob_contract(observed))
+    job["field_environment"] = {"FDAI_CANARY_JOB_UID": "metadata.uid"}
+    with pytest.raises(ValueError, match="identity field reference"):
+        protected_cronjob_template_digest(
+            job, template_name="canary", namespace="fdai-runtime", source_revision=_REVISION
+        )
 
 
 def _scheduled_job(*, name: str = "inventory") -> dict[str, object]:

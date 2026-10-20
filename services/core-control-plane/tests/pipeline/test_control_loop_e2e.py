@@ -289,8 +289,9 @@ async def test_trusted_canary_records_no_op_without_entering_tiers(
     assert result.tier == "canary"
     assert publisher.records == ()
     entries = [item["entry"] for item in audit.audit_entries]
-    assert len(entries) == 1
-    assert entries[0]["action_kind"] == "control_loop.canary"
+    assert [entry["outcome"] for entry in entries] == ["started", "success"]
+    assert entries[0]["action_kind"] == "control_loop.canary.attempt"
+    assert entries[1]["action_kind"] == "control_loop.canary"
     assert entries[0]["decision"] == "no-op"
 
 

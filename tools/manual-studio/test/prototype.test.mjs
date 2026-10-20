@@ -41,18 +41,18 @@ test("catalog records stable creation and review metadata for every manual", asy
   const pitchDeck = catalog.manuals.find((manual) => manual.id === "l100-pitch-deck");
   assert.equal(executiveBriefing.status, "complete");
   assert.equal(catalog.manuals.indexOf(pitchDeck), catalog.manuals.indexOf(executiveBriefing) + 1);
-  assert.equal(pitchDeck.status, "wip");
+  assert.equal(pitchDeck.status, "complete");
   assert.equal(pitchDeck.level, "L100");
   assert.equal(pitchDeck.slideCount, 15);
   assert.equal(pitchDeck.createdAt, "2026-10-16");
-  assert.equal(pitchDeck.lastEditedAt, "2026-10-16");
+  assert.equal(pitchDeck.lastEditedAt, "2026-10-20");
+  assert.equal(pitchDeck.reviewedAt, "2026-10-20");
   assert.ok(catalog.manuals
     .filter((manual) => manual.id !== "l100-pitch-deck")
     .every((manual) => manual.lastEditedAt === "2026-09-12"));
   assert.deepEqual(
     catalog.manuals.filter((manual) => manual.reviewedAt === null).map((manual) => manual.id),
     [
-      "l100-pitch-deck",
       "responsible-ai-security",
       "pilot-production",
       "ai-operating-model",
@@ -60,7 +60,7 @@ test("catalog records stable creation and review metadata for every manual", asy
     ],
   );
   assert.ok(catalog.manuals
-    .filter((manual) => manual.reviewedAt !== null)
+    .filter((manual) => manual.reviewedAt !== null && manual.id !== "l100-pitch-deck")
     .every((manual) => manual.reviewedAt === "2026-09-13"));
   assert.ok(catalog.manuals
     .filter((manual) => manual.id !== "l100-pitch-deck")
@@ -81,7 +81,9 @@ test("unreviewed or changed manuals render DRAFT only on their covers", async ()
 test("completed manuals provide the catalog slide count and source evidence", async () => {
   const catalog = JSON.parse(await readFile(new URL("catalog.json", root), "utf8"));
   const { additionalManualSlides } = await import(new URL("manual-content.js", root));
+  const { l100PitchDeckSlides } = await import(new URL("l100-pitch-deck.js", root));
   const expectedSlides = {
+    "l100-pitch-deck": 15,
     "readiness-maturity": 32,
     "art-of-possible": 10,
     "value-prioritization": 25,
@@ -101,10 +103,12 @@ test("completed manuals provide the catalog slide count and source evidence", as
     expectedSlides,
   );
   for (const [id, expected] of Object.entries(expectedSlides)) {
-    const slides = additionalManualSlides[id];
+    const slides = id === "l100-pitch-deck" ? l100PitchDeckSlides : additionalManualSlides[id];
     assert.equal(slides.length, expected);
     assert.equal(new Set(slides.map((slide) => slide.title)).size, expected);
-    assert.ok(slides.every((slide) => slide.content.includes("근거: docs/roadmap/") ||
+    assert.ok(slides.every((slide) =>
+      (slide.pitch?.sources?.length > 0 && slide.content.includes('class="l100-source"')) ||
+      slide.content.includes("근거: docs/roadmap/") ||
       /class="(?:ontology-evidence-source|rm-source|vp-source|ta-source)" title="(?:docs|\.github|config)\/[^\"]+">근거: [^<]+<\/small>/.test(slide.content)));
   }
 });
@@ -337,7 +341,7 @@ test("Art of the Possible deck contrasts today with the target operating day", a
   }
 });
 
-test("completed manuals retain verified hardening rounds", async () => {
+test("completed manuals retain verified hardening or digest-bound rendering evidence", async () => {
   const evidence = JSON.parse(
     await readFile(new URL("validation-evidence.json", root), "utf8"),
   );
@@ -347,7 +351,17 @@ test("completed manuals retain verified hardening rounds", async () => {
     .map((manual) => manual.id);
 
   assert.deepEqual(evidence.viewports, ["1440x900", "993x641", "390x844"]);
-  assert.deepEqual(evidence.manuals.map((manual) => manual.id), completedIds);
+  const completedRevisions = evidence.draftValidations.filter((record) => record.status === "complete");
+  assert.deepEqual(
+    new Set([...evidence.manuals.map((manual) => manual.id), ...completedRevisions.map((record) => record.id)]),
+    new Set(completedIds),
+  );
+  for (const record of completedRevisions) {
+    assert.equal(record.humanReview, true);
+    assert.equal(record.findings, 0);
+    assert.ok(record.sourceDigests && record.deckDigests);
+    assert.equal(record.pdf.ko.pages, catalog.manuals.find((manual) => manual.id === record.id).slideCount);
+  }
   for (const manual of evidence.manuals) {
     assert.ok(manual.hardening.length >= 1);
     assert.ok(manual.hardening.every((round) =>
@@ -432,23 +446,20 @@ test("L100 screen playback avoids fractional transform text rasterization", asyn
   const css = await readFile(new URL("l100-pitch-deck.css", root), "utf8");
 
   assert.match(css, /@media screen \{[\s\S]+zoom: var\(--slide-scale\)/);
-  assert.match(css, /opacity: \.999/);
   assert.match(css, /transform: none/);
   assert.match(css, /animation: none/);
   assert.match(css, /-webkit-font-smoothing: antialiased/);
   assert.match(css, /@media print \{[\s\S]+zoom: 1 !important/);
-  assert.match(css, /opacity: 1 !important/);
 });
 
-test("L100 connectors use centered geometric arrowheads instead of text glyphs", async () => {
+test("L100 connectors expose endpoint contracts and geometric arrowheads", async () => {
   const css = await readFile(new URL("l100-pitch-deck.css", root), "utf8");
+  const kit = await readFile(new URL("l100-pitch-kit.js", root), "utf8");
 
   assert.doesNotMatch(css, /content: ">"/);
-  assert.ok([...css.matchAll(/border-left: 8px solid var\(--l100-accent\)/g)].length >= 4);
-  assert.match(css, /\.l100-challenge > i::after[\s\S]+top: 50%/);
-  assert.match(css, /\.l100-engine-v2 \.engine-arrow::after[\s\S]+transform: translateY\(-50%\)/);
-  assert.match(css, /\.l100-semantic-v2 \.semantic-arrow::after[\s\S]+transform: translateY\(-50%\)/);
-  assert.match(css, /\.ontology-query-arrow::after[\s\S]+transform: translateY\(-50%\)/);
+  assert.match(css, /\.lp-link::after[\s\S]+transform: translateY\(-50%\)/);
+  assert.match(kit, /data-lp-from="api" data-lp-to="db" data-lp-relation="depends_on"/);
+  assert.match(kit, /refX="10" refY="5"/);
 });
 
 test("selected PPT artwork keeps repository-safe provenance", async () => {

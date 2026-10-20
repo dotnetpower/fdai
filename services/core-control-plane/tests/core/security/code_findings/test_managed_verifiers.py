@@ -22,9 +22,7 @@ from ._support import CATALOG_ROOT, REVISION, catalog, result, sarif
 @pytest.mark.parametrize(
     ("rule", "path", "cwe"),
     [
-        ("fdai.verify.java.path-traversal", "Upload.java", 22),
         ("fdai.verify.csharp.command-injection", "Shell.cs", 78),
-        ("fdai.verify.csharp.sql-injection", "Orders.cs", 89),
         ("fdai.verify.csharp.path-traversal", "Download.cs", 22),
     ],
 )
@@ -41,6 +39,20 @@ def test_managed_verifier_improvements_do_not_bypass_shadow_gate(
     assert verdict.outcome is VerifierOutcome.NOT_VERIFIED
     assert verdict.reason == "verifier_in_shadow"
     assert verified_confidence((verdict,)) == {}
+
+
+def test_promoted_csharp_sql_verifier_can_raise_confidence() -> None:
+    rule = "fdai.verify.csharp.sql-injection"
+    occurrences = ingest_sarif(
+        sarif("Opengrep", [result(rule, "Orders.cs", 89, cwe=89)]),
+        SarifIngestContext(lane=Lane.DETERMINISTIC, revision=REVISION),
+    ).occurrences
+    shipped = load_verifier_catalog(CATALOG_ROOT, frozenset(catalog().weakness_classes.classes))
+    (issue,) = build_issues(occurrences, catalog(), AnalysisContext(revision=REVISION))
+    (verdict,) = taint_rule_verifications((issue,), occurrences, shipped)
+    assert verdict.outcome is VerifierOutcome.VERIFIED
+    assert verdict.reason == "attacker_controlled_flow"
+    assert verified_confidence((verdict,))[issue.issue_id].value == "verified"
 
 
 def test_managed_verifier_receipt_binds_frozen_rules_and_promotion() -> None:

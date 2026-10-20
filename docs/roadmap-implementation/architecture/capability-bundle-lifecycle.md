@@ -12,12 +12,13 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Bundle validation and immutable runtime registration | implemented | `core/capability_catalog/`; `composition/install_capability_bundle`; focused capability catalog tests | Unknown targets, provider mismatches, duplicate ids, and dangling references block activation without changing the current runtime. |
 | Durable trusted artifacts and skill disclosure | implemented | `core/supply_chain/`; `delivery/trust/`; PostgreSQL trusted-artifact adapters | Artifacts retain exact content, signature, publisher, state, and revision; runtime disclosure is rebuilt from reverified records. |
 | Governed external skill source lifecycle | implemented | `core/skills/source_registry.py`; `core/supply_chain/skill_source_*.py`; skill source API routes | Installation starts disabled, revocation preserves provenance, and production reloads disclosure after a command. |
-| Exact-artifact governed lifecycle evidence | in-progress | [Issue #355](https://github.com/dotnetpower/fdai/issues/355); `config/package-assurance.json` | Local mechanics and linked-receipt rules exist, but the protected receipt set covering install, enable, disable, revoke, restart, disclosure reload, typed action routing, and audit remains open. |
+| Exact-artifact governed lifecycle evidence | in-progress | [Issue #2315](https://github.com/dotnetpower/fdai/issues/2315); predecessor [Issue #355](https://github.com/dotnetpower/fdai/issues/355); `config/package-assurance.json` | Local mechanics and linked-receipt rules exist, but the protected receipt set covering install, distinct reviewed enable, disable, revoke, restart, disclosure reload, typed action routing, independent readback, and Saga audit remains open. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-20 | in-progress | Restored accountable X01 tracking after Issue #355 closed as not planned. The successor keeps the exact signed artifact, distinct review, typed routing, independent readback, restart reconstruction, and Saga lineage exits explicit without treating local mechanics as operational evidence. | [Issue #2315](https://github.com/dotnetpower/fdai/issues/2315); current change. | Select the signed artifact, distinct reviewer, and exact runtime target, then retain the complete linked receipt set. |
 | 2026-10-04 | implemented | Migrated the inline owner status into this ledger with `--merge-existing`, merged the duplicate receipt-set item into the Issue #355 phrasing that also covers restart, and marked it deferred because Issue #355 closed as not planned. | `current change`; `scripts/automation/migrate-roadmap-implementation-ledgers.py --merge-existing --apply`; Issue #355 closure comment. | Schedule a new issue before retaining the linked exact-artifact receipt set. |
 | 2026-09-27 | implemented | Returned lifecycle transition selection and completeness to this capability owner instead of the global package gate. | `current change`; minimum package assurance policy and this owning design. | Retain the governed operational linked receipt set under Issue #355. |
 | 2026-09-26 | implemented | Allowed a complete lifecycle to use bounded linked receipts with one exact artifact lineage instead of requiring one monolithic live run. | `current change`; package assurance policy, checker, owner documentation, and focused policy tests. | Retain the governed operational linked receipt set under Issue #355. |
@@ -28,6 +29,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
-- [ ] Under [Issue #355](https://github.com/dotnetpower/fdai/issues/355), retain a complete
+- [ ] Under [Issue #2315](https://github.com/dotnetpower/fdai/issues/2315), retain a complete
   linked exact-artifact receipt set covering install, enable, disable, revoke, restart, and
-  disclosure reload while proving no bundle request bypasses the typed action path. Deferred by the 2026-09-28 owner backlog decision that closed issue `#355` as not planned; open a new issue with exit criteria before scheduling.
+  disclosure reload while proving no bundle request bypasses the typed action path. Issue #2315
+  supersedes the scheduling gap left when predecessor #355 closed as not planned.

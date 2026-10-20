@@ -852,6 +852,22 @@ constant proof. Dev precision rises from 0.8333 to 0.8824 (15 TP, 2 FP); holdout
 (21 TP, 2 FP), with no true-positive loss. Java SQL remains in shadow because dev is still below
 the 0.90 floor. Configuration-selected reflection is not assumed safe.
 
+Constant guard version 3 (catalog 1.8.0) applies the same source-bound proof to Java path sinks.
+It follows fixed switch targets, direct same-block writes inside one `try` body, and exact fully
+qualified `static final String` fields whose initializer uses only literals, other proven fields,
+`File.separator`, or a constant-key `System.getProperty` call. Mutable, ambiguous, conditional,
+aliased, or unsupported fields keep verifier evidence. The frozen corpus keeps all six Java path
+true positives and removes both `dev` false positives: precision is 1.0 on `dev` (5 TP, 0 FP) and
+1.0 on `holdout` (1 TP, 0 FP). The measured promotion list adds Java path traversal. The scanner's
+base finding remains visible, and broader Java path recall remains low and explicit.
+
+Catalog 1.9.0 recognizes nullable ASP.NET model-bound strings and the side effect of
+`StringBuilder.Append` in the C# SQL verifier. It doesn't classify every public service parameter
+as untrusted. The unchanged frozen corpus retains `dev` precision 1.0 (2 TP, 0 FP) and adds one
+`holdout` true positive at precision 1.0 (1 TP, 0 FP); one interprocedural service flow remains a
+false negative, so holdout recall is 0.5. The measured promotion list adds C# SQL injection while
+keeping that incomplete recall visible.
+
 ## Proof lane (opt-in)
 
 The proof lane is the dynamic step: it reproduces a finding instead of reasoning about it. It's

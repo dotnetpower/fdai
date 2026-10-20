@@ -26,11 +26,15 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Sequence
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
+from fdai.core.rca.citations import MAX_RCA_CITATIONS, admitted_citations, resolve_citation
 from fdai.core.rca.contract import CauseDomain, Citation, RcaTier, RootCauseHypothesis
+from fdai.core.rca.grounding import valid_cause
 
 _LOGGER = logging.getLogger(__name__)
+_MAX_RESPONSE_BYTES = 64 * 1024
+_RESPONSE_FIELDS = frozenset({"cause", "cause_domain", "confidence", "citations"})
 
 
 @runtime_checkable
@@ -60,59 +64,68 @@ def parse_rca_response(
 ) -> RootCauseHypothesis | None:
     """Parse a model JSON answer into a grounded hypothesis, or ``None``.
 
-    Returns ``None`` (an explicit abstain) for a malformed answer, a
-    missing/blank cause, an out-of-range confidence, a fabricated
-    citation (not in ``candidate_citations``), or an empty citation set.
-    Pure and deterministic - the same answer always yields the same
-    result.
+    Holds malformed, oversized, duplicate-field, or unsupported-field JSON,
+    invalid uncertainty, and missing, conflicting, or ambiguous evidence.
+    Exact citation duplicates are retained once in canonical order.
     """
-    try:
-        data: Any = json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
+    candidates = admitted_citations(candidate_citations)
+    if candidates is None or not isinstance(raw, str) or len(raw) > _MAX_RESPONSE_BYTES:
         return None
-    if not isinstance(data, dict):
+    try:
+        if len(raw.encode("utf-8")) > _MAX_RESPONSE_BYTES:
+            return None
+        data: object = json.loads(raw, object_pairs_hook=_unique_object)
+    except (ValueError, RecursionError):
+        return None
+    if not isinstance(data, dict) or data.keys() - _RESPONSE_FIELDS:
         return None
 
     cause = data.get("cause")
-    if not isinstance(cause, str) or not cause.strip():
+    if not isinstance(cause, str):
+        return None
+    cause = cause.strip()
+    if not valid_cause(cause):
         return None
     try:
         cause_domain = CauseDomain(data.get("cause_domain", CauseDomain.UNKNOWN.value))
-    except ValueError:
+    except (ValueError, TypeError):
         return None
 
     confidence = data.get("confidence")
     if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
         return None
-    if not 0.0 <= float(confidence) <= 1.0:
+    if not 0.0 <= confidence <= 1.0:
         return None
 
     cited = data.get("citations")
-    if not isinstance(cited, list):
+    if not isinstance(cited, list) or not 1 <= len(cited) <= MAX_RCA_CITATIONS:
         return None
 
-    by_ref = {c.ref: c for c in candidate_citations}
-    by_qualified_ref = {f"{c.kind.value}:{c.ref}": c for c in candidate_citations}
-    grounded: list[Citation] = []
+    grounded: set[Citation] = set()
     for ref in cited:
         if not isinstance(ref, str):
             return None  # malformed citation entry
-        citation = by_ref.get(ref) or by_qualified_ref.get(ref)
+        citation = resolve_citation(ref, candidates)
         if citation is None:
-            # A ref the caller never supplied - treat as fabricated
-            # (prompt injection) and refuse the whole hypothesis.
             return None
-        grounded.append(citation)
-    if not grounded:
-        return None  # ungrounded
+        grounded.add(citation)
 
     return RootCauseHypothesis(
         tier=tier,
-        cause=cause.strip(),
+        cause=cause,
         confidence=float(confidence),
-        citations=tuple(grounded),
+        citations=tuple(citation for citation in candidates if citation in grounded),
         cause_domain=cause_domain,
     )
+
+
+def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("RCA response contains duplicate JSON fields")
+        result[key] = value
+    return result
 
 
 class LlmRcaReasoner:
@@ -120,7 +133,7 @@ class LlmRcaReasoner:
 
     Calls the model, then parses + grounds its answer. A transport error
     or an unparsable answer becomes an abstain (``None``) so the caller
-    routes to HIL - the reasoner never raises into the control loop.
+    routes to HIL. Cancellation still propagates to the bounded caller.
     """
 
     def __init__(self, *, model: RcaModel) -> None:
@@ -132,16 +145,22 @@ class LlmRcaReasoner:
         incident_summary: str,
         candidate_citations: Sequence[Citation],
     ) -> RootCauseHypothesis | None:
-        candidates = tuple(candidate_citations)
+        candidates = admitted_citations(candidate_citations)
+        if candidates is None:
+            _LOGGER.warning("rca_model_evidence_rejected")
+            return None
         try:
             raw = await self._model.propose_cause(
                 incident_summary=incident_summary,
                 candidate_citations=candidates,
             )
-        except Exception:  # noqa: BLE001 - a model failure is an abstain, never a crash
-            _LOGGER.warning("rca_model_call_failed", exc_info=True)
+        except Exception as error:  # noqa: BLE001 - the injected transport is an external boundary
+            _LOGGER.warning("rca_model_call_failed", extra={"error_type": type(error).__name__})
             return None
-        return parse_rca_response(raw, candidate_citations=candidates)
+        hypothesis = parse_rca_response(raw, candidate_citations=candidates)
+        if hypothesis is None:
+            _LOGGER.warning("rca_model_response_rejected")
+        return hypothesis
 
 
 __all__ = ["LlmRcaReasoner", "RcaModel", "parse_rca_response"]
