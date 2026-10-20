@@ -89,6 +89,33 @@ or execution authority. `canary_result` and the canary operational-state field r
 | Read an oldest-first audit prefix | A prefix cannot identify the latest successful canary | Use an indexed latest-success query |
 | Reuse an old success as a fresh boolean | It can hide a stalled canary indefinitely | Measure increasing age from the original timestamp; keep latest-attempt status separate |
 
+#### Consumed-attempt lifecycle and the scheduling boundary
+
+Core records an append-only `control_loop.canary.attempt` audit with outcome `started` before
+publishing canary stages, followed by `failure` or `cancelled` under that same action kind, or
+the existing `control_loop.canary` success audit. Both carry the same Core-generated
+`attempt_id`, original event identity and `started_at`; the store assigns canonical sequence
+numbers. These records describe consumption, not scheduler execution or publish acceptance.
+Terminal persistence is bounded. If it fails, cancellation repeats, or the process exits, the
+durable start remains unresolved; it is not a successful completion. Failure records retain
+only the exception class, never the exception message or provider payload.
+An uncertain terminal write is not followed by a contradictory outcome, and failure of the
+post-commit stage notification does not retract a persisted success. Keeping lifecycle records
+under a separate action kind preserves the deployment verifier's single-success-row contract.
+
+This does not complete the latest scheduled-result source. The publisher receives an optional
+free-form `FDAI_CANARY_SLOT`, otherwise using its current UTC minute. Neither AKS nor Container
+Apps currently supplies an independently witnessed scheduled slot through this path. A retry
+crossing a minute boundary can acquire another identity, and a job that never publishes leaves
+no consumed event. Deriving a five-minute slot from Core's clock cannot prove which execution
+produced an event or distinguish a cancelled publisher from a missing execution.
+
+The reviewed boundary therefore keeps `canary_result` and the canary operational-state field
+unavailable. Completing them requires a pinned schedule/source and retry-stable scheduler
+identity, plus a bounded independently read projection that rejects missing, malformed, stale,
+truncated and cancelled evidence. Neither a recent successful consumption nor these lifecycle
+records alone satisfies that requirement. No publisher database permission is added.
+
 The catalog's unqualified `adapter_healthcheck` remains the configured-adapter aggregate.
 A source id cannot narrow that aggregate to `t1.embedding`; without complete authoritative
 adapter coverage the catalog signal remains unavailable. The earlier single-adapter binding
@@ -184,6 +211,8 @@ so no area is claimed as fully operationally validated.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Core consumed-attempt lifecycle | implemented | `_canary.py`; `test_canary_lifecycle.py`; `test_postgres_canary.py`; focused local canary cohort: 62 passed | Durable start before stages, bounded failure/cancellation persistence, separate canonical success, and no contradictory outcome after an uncertain write. These are consumption records, not a scheduler witness. |
+| Latest scheduled canary result and typed state | in-progress | `test_canary_cli.py`; `test_self_health_canary.py`; `packages/deployment-cli/src/fdai_deployment_cli/aks_workload_jobs.py` | The default publisher changes identity across minute-boundary retries and supplies no independent scheduler witness. Result/state remain unavailable; #2251 is not complete. |
 | Scheduled creation intent replay | implemented | `creation.py`; shared schedule-store duplicate error; PostgreSQL adapter; creation/blueprint/replay checks: 108 passed, creation line/branch coverage 100% | Idempotent registration preserves run progress and stored kind normalization without accepting changed JSON/policy intent. Four new isolated PostgreSQL cases and a reviewed materialization checkpoint failure are covered. This does not register daily jobs or settle H02 operating decisions. |
 | Actual deterministic T2 verifier rate | implemented | `delivery/self_health_verifier.py`; default gate/readiness/resource ownership; 20 focused cases, 100% branch-inclusive source coverage | Complete policy-bounded process windows, exact returned outcomes, no invented denominator or learned outcome, unchanged gate decisions, typed persisted readback and shutdown. No deployment or operational quality improvement is claimed. |
 | Stabilization scheduler numeric input integrity | implemented | #2254; shared schedule model, compatibility tools and actual creation-command tests; 110 focused checks, model/tool branch-inclusive coverage 92.62%/97.63% | Invalid non-finite intervals cannot be stored or replace a valid task; valid cadence and normal due dispatch remain unchanged. This hardens a prerequisite, not daily-job registration or stabilization qualification. |
@@ -205,6 +234,7 @@ so no area is claimed as fully operationally validated.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-20 | in-progress | Added canonical Core consumed-attempt starts and bounded failure/cancellation records while preserving the existing single-success audit contract and age-only runtime binding. | Current change; `_canary.py`, `test_canary_lifecycle.py`, `test_postgres_canary.py`, and `test_canary_cli.py`; four regressions failed before repair, then 62 focused offline/isolated-PostgreSQL cases passed. | #2251 still needs pinned schedule/source and independently witnessed retry-stable slots plus a bounded canonical audit-sequence projection. No live or deployment evidence is claimed. |
 | 2026-10-20 | implemented | Critique round 13 reproduced a normal event borrowing the canary type label and hiding a six-second stall behind a zero-latency sibling. Removed label-based exclusion: only the actual trusted canary no-op route with observed ingress is excluded. Added the real Core canary path and unmatched-route regressions. | Current change; failing-before-fix exact assertion observed 0 instead of 6 seconds. Original stage publication and no-authority contracts are unchanged; exact final focused results are retained on #2286. | This is source correctness, not fleet health, live canary acceptance or completion of the remaining H01 source and qualification gates. |
 | 2026-10-20 | implemented | Bound actual Core ingestion and first T0/T1/T2 verification stages to one process-owned event-lag source, shared with health collection and resource shutdown. Preserved transport calls and explicit stalled/incomplete states without model or provider probes. | Current change; #2286; 67 focused source/composition/health/Core-stage tests passed; new source has 100% line and branch coverage; six-source strict mypy passed. Twelve distinct bounded review hypotheses cover actual decision versus routing, oldest start, concurrent stall, duplicate completion, staleness, missing/reordered pairs, provenance, canary exclusion, bounded memory, clock regression, shutdown, and unchanged publication/no authority. | Eight signal slots/three fields have concrete sources; seven signals/five fields, installed delivery/drills and operational outcomes remain open. No whole-H01, fleet-health or functional-readiness completion is claimed. |
 | 2026-10-19 | implemented | Closed an intent-loss defect in the approved configuration-review schedule path: candidate persistence, audit and materialization now retain the exact timezone and pinned campaign/baseline/scope/run payload without exposing payload contents in audit. | `current change`; 26 focused unit passes, two actual isolated PostgreSQL passes, Ruff, strict mypy, and a 12-perspective hardening review. | No schedule was registered. Approved installation inputs, daily health and deployment-baseline paths, operating policy, transport, and stabilization lifecycle evidence remain open. |
@@ -231,6 +261,10 @@ so no area is claimed as fully operationally validated.
 
 ### Remaining work
 
+- [ ] Complete #2251 with a pinned expected schedule/source, retry-stable scheduler identity,
+  and a bounded independently persisted audit-sequence projection; prove missing, malformed,
+  stale, truncated, failed and cancelled observations cannot reuse an earlier successful slot.
+  Keep `canary_result` and the canary operational-state field unavailable until that evidence exists.
 - [x] Require the exact consumed canary audit entry within a 30-second numeric latency budget after
   publisher completion, rejecting ambiguous, malformed, unsettled, future-dated, or over-budget rows.
 - [ ] Retain a passing deployed canary receipt, replay the frozen shadow fixtures, exercise
