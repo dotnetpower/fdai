@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import tracemalloc
 from dataclasses import asdict
@@ -176,3 +177,109 @@ def test_exact_existing_encoder_accounting_is_preserved(monkeypatch, owner):
         budget = _GenerationBudget()
         budget.consume(ResourceQueryResult(resources=(record,)))
         assert budget.encoded_bytes == size
+
+
+def _chunk(batch):
+    return inventory_collection.resource_chunk(
+        attempt_id="attempt-example",
+        context_digest="sha256:" + "a" * 64,
+        sequence=0,
+        previous_digest=None,
+        batch=batch,
+    )
+
+
+@pytest.mark.parametrize("entry", ["chunk", "batches"])
+@pytest.mark.parametrize(
+    "padding",
+    ["x" * (4 * 1024 * 1024), "\n" * 600_000, "\U0001f600" * 100_000],
+    ids=["ascii", "control-escape", "astral"],
+)
+def test_chunk_real_byte_limit_refuses_before_large_allocation(entry, padding):
+    batch = InventoryBatch(
+        resources=(ResourceRecord("example", "compute.vm", {"padding": padding}),)
+    )
+    assert inventory_collection.MAX_CHUNK_BYTES == 1024 * 1024
+    tracemalloc.start()
+    try:
+        with pytest.raises(ValueError, match="chunk.*(capacity|byte bound)"):
+            if entry == "chunk":
+                _chunk(batch)
+            else:
+                list(inventory_collection.resource_chunk_batches(batch))
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 128 * 1024
+
+
+@pytest.mark.parametrize("entry", ["chunk", "batches"])
+def test_chunk_refuses_oversized_properties_before_normalization(monkeypatch, entry):
+    normalized = []
+    normalize = inventory_collection.normalize_json_value
+
+    def traced_normalize(value, **kwargs):
+        normalized.append(True)
+        return normalize(value, **kwargs)
+
+    monkeypatch.setattr(inventory_collection, "normalize_json_value", traced_normalize)
+    batch = InventoryBatch(
+        resources=(ResourceRecord("example", "compute.vm", {"padding": "x" * (2 * 1024 * 1024)}),)
+    )
+    with pytest.raises(ValueError, match="chunk.*(capacity|byte bound)"):
+        if entry == "chunk":
+            _chunk(batch)
+        else:
+            list(inventory_collection.resource_chunk_batches(batch))
+    assert normalized == []
+
+
+def test_chunk_keeps_existing_canonical_content_and_digest():
+    first = ResourceRecord("a", "compute.vm", {"quoted": "a\nb", "count": 3})
+    second = ResourceRecord("b", "compute.vm", {"enabled": True, "nested": [None, 1.25]})
+    actual = _chunk(InventoryBatch(resources=(second, first), cursor="cursor-next"))
+    expected = {
+        "schema_version": "1.0.0",
+        "attempt_id": "attempt-example",
+        "context_digest": "sha256:" + "a" * 64,
+        "sequence": 0,
+        "previous_digest": None,
+        "cursor": "cursor-next",
+        "resources": [
+            {
+                "resource_id": item.resource_id,
+                "type": item.type,
+                "props": dict(item.props),
+                "provider_ref": None,
+                "last_seen": None,
+            }
+            for item in (first, second)
+        ],
+    }
+    digest = hashlib.sha256(
+        json.dumps(
+            expected, sort_keys=True, separators=(",", ":"), ensure_ascii=True, allow_nan=False
+        ).encode()
+    ).hexdigest()
+    assert actual == {**expected, "digest": "sha256:" + digest}
+
+
+@pytest.mark.parametrize("shape", ["deep", "cycle"])
+def test_chunk_preflight_holds_invalid_nesting_without_recursion_error(shape):
+    properties = {}
+    if shape == "cycle":
+        properties["nested"] = properties
+    else:
+        for _ in range(100):
+            properties = {"nested": properties}
+    batch = InventoryBatch(resources=(ResourceRecord("example", "compute.vm", properties),))
+    with pytest.raises(ValueError, match="nesting depth"):
+        _chunk(batch)
+
+
+def test_chunk_preflight_preserves_supported_nested_properties():
+    properties = {"value": "bounded"}
+    for _ in range(30):
+        properties = {"nested": properties}
+    batch = InventoryBatch(resources=(ResourceRecord("example", "compute.vm", properties),))
+    assert _chunk(batch)["resources"][0]["props"] == properties
