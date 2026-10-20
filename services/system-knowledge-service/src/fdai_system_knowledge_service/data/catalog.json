@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:fb7bfaf501164744d9b9125c8dd6d8908db1e3bf57da9cf11ca73f11d3c35ad5",
+  "catalog_digest": "sha256:633656f73676fc19607eea9542dcecbe66e68eed711a3811f376e9ad51f50a86",
   "execution_authority": false,
-  "generated_at": "2026-10-20T09:06:28.663963Z",
+  "generated_at": "2026-10-20T12:10:43.851309Z",
   "records": [
     {
       "designed_behavior": [
@@ -379,11 +379,11 @@
         "How does FDAI perform root cause analysis?",
         "FDAI는 근본 원인 분석을 어떻게 수행하나요?"
       ],
-      "record_digest": "sha256:0554cf7c0f2a8b0fccf362c0884ea15b0a25d0bca2fa35a615390cf21f3e823a",
+      "record_digest": "sha256:0f69bd82159ce9f2d982d38d4828a9bdc34e4e1080767d59bb437e48e0daad94",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "6cf2c29d80d9a6228e1f6cb1cc1a9baea6debb5c",
+          "blob_sha": "8579b1eaef9bc5e04fa584173b3fb1f2a50f42ec",
           "line_end": 6,
           "line_start": 6,
           "path": "docs/roadmap-implementation/rules-and-detection/root-cause-analysis.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "9a84c9069e62e11421f99be4b427781dac21a95f"
+  "source_revision": "179cd907c30396aa79ff7ab6528babe1a80c1ad6"
 }

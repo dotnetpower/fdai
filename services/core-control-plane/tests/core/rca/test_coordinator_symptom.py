@@ -182,13 +182,15 @@ async def test_telemetry_gatherer_is_called_when_window_supplied() -> None:
 async def test_telemetry_gatherer_skipped_without_window() -> None:
     reasoner = _EchoReasoner()
     c = RcaCoordinator(reasoner=reasoner, evidence_gatherer=_StubGatherer())
-    await c.analyze_t2_from_symptom(
+    result = await c.analyze_t2_from_symptom(
         incident_summary="s",
         signal="pod_restart",
         target_type="pod",
         severity="low",
     )
-    assert reasoner.received[0] == ()
+    assert reasoner.received == []
+    assert result.outcome is RcaOutcome.ABSTAINED
+    assert result.reason == "invalid_or_missing_rca_evidence"
 
 
 async def test_abstain_when_no_reasoner_configured() -> None:
@@ -252,7 +254,6 @@ async def test_unknown_signal_yields_empty_scenario_set(severity: str) -> None:
         target_type="pod",
         severity=severity,
     )
-    got = reasoner.received[0]
-    assert got == ()
-    # No candidates at all -> grounding gate abstains.
+    assert reasoner.received == []
     assert result.outcome is RcaOutcome.ABSTAINED
+    assert result.reason == "invalid_or_missing_rca_evidence"
