@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
-from fdai.core.security.code_findings import java_constant_guard
+from fdai.core.security.code_findings import java_constant_guard, java_external_constants
 from fdai.core.security.code_findings.canonical import AnalysisContext, build_issues
 from fdai.core.security.code_findings.java_constant_guard import (
     java_path_constant_veto,
@@ -31,6 +31,10 @@ def test_frozen_evaluation_is_bound_to_the_actual_guard_code() -> None:
     assert (
         receipt["constant_guard_source_sha256"]
         == hashlib.sha256(Path(java_constant_guard.__file__).read_bytes()).hexdigest()
+    )
+    assert (
+        receipt["external_constants_source_sha256"]
+        == hashlib.sha256(Path(java_external_constants.__file__).read_bytes()).hexdigest()
     )
 
 
