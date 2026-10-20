@@ -181,7 +181,7 @@ async def test_policy_authority_requires_independent_review_and_cannot_be_renewe
     digest = await store.propose(policy, actor_id="author")
     with pytest.raises(ValueError, match="another"):
         await store.propose(policy, actor_id="other-author")
-    for actor in ("author", "requester"):
+    for actor in ("author", " AUTHOR ", "requester", " ReQuEsTeR "):
         with pytest.raises(ValueError, match="independent"):
             await store.review(digest, actor_id=actor)
     with pytest.raises(ValueError, match="authority"):
