@@ -49,6 +49,7 @@ _PLAIN_CONTEXT_FIELDS = (
 # Generic keys such as ``result`` or ``reason`` carry free text in other loggers, so the
 # form-path decision fields are allowed only for this logger and only as closed tokens.
 _SCOPED_DECISION_FIELDS: dict[str, tuple[str, ...]] = {
+    "fdai.agents._framework.bus_bridge": ("agent", "error_type", "failure_code"),
     "fdai.core.conversation.semantic_compiled_answers": (
         "result",
         "decline_reason",

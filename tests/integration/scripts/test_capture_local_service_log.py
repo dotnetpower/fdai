@@ -50,6 +50,44 @@ def test_raw_format_keeps_the_original_line() -> None:
     assert module._render_line(line + "\n", "raw") == line
 
 
+def test_pantheon_failure_keeps_safe_agent_and_error_kind_without_payload() -> None:
+    module = _load_module()
+    line = json.dumps(
+        {
+            "level": "WARNING",
+            "logger": "fdai.agents._framework.bus_bridge",
+            "message": "pantheon_handler_error",
+            "agent": "Saga",
+            "error_type": "AuditChainError",
+            "failure_code": "handler_error",
+            "group_id": "private-consumer",
+            "reason": "unlisted free text",
+            "payload": {"secret": "not-for-output"},
+        }
+    )
+
+    assert module._render_line(line, "json-plain") == (
+        "WARNING: fdai.agents._framework.bus_bridge: pantheon_handler_error "
+        '[agent="Saga", error_type="AuditChainError", failure_code="handler_error"]'
+    )
+
+
+def test_pantheon_failure_fields_do_not_allow_free_text_or_other_loggers() -> None:
+    module = _load_module()
+    for logger in ("fdai.agents._framework.bus_bridge", "other.logger"):
+        line = json.dumps(
+            {
+                "level": "WARNING",
+                "logger": logger,
+                "message": "failure",
+                "agent": "private agent value",
+                "error_type": "private exception text",
+                "failure_code": "private reason text",
+            }
+        )
+        assert module._render_line(line, "json-plain") == f"WARNING: {logger}: failure"
+
+
 def test_form_path_decision_fields_reach_the_plain_log_as_closed_tokens() -> None:
     module = _load_module()
     line = json.dumps(

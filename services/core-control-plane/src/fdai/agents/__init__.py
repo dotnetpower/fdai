@@ -40,6 +40,12 @@ from fdai.agents._framework.approval_readback import (
     read_current_action_approval as read_current_action_approval,
 )
 from fdai.agents._framework.assignment_wiring import AssignmentWorkflowBindings
+from fdai.agents._framework.audit_chain_migration import (
+    SagaAuditMigration as SagaAuditMigration,
+)
+from fdai.agents._framework.audit_chain_migration import (
+    prepare_saga_audit_migration as prepare_saga_audit_migration,
+)
 from fdai.agents._framework.base import (
     Agent,
     AgentSpec,

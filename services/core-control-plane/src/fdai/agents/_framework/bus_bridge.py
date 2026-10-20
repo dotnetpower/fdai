@@ -454,6 +454,7 @@ class EventBusBridge:
                         _LOG.warning(
                             "pantheon_handler_error",
                             extra={
+                                "agent": agent_name,
                                 "group_id": group_id,
                                 "topic": topic,
                                 "offset": envelope.offset,
