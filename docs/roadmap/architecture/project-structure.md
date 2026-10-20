@@ -40,8 +40,8 @@ Convergent telemetry keeps immutable actual observations in the existing frame, 
 Process journal and codec rather than worker-local mutable state. `adaptive_revision.py` owns
 canonical revision construction behind the unchanged contract facade. Only unobserved recipes
 are scheduled, and the final untested hypothesis still uses the verified candidate gateway.
-RCA citations retain investigation status and association-only evidence grade; novelty paths
-collect historical T1 evidence before residual T2 and forward only grounded citations.
+RCA citations retain investigation status and association-only evidence grade; novelty paths collect historical T1 evidence before residual T2 and forward only grounded citations.
+`rca/citations.py` shares bounded exact-citation admission across the parser, grounding gate and coordinator. [Root-Cause Analysis](../rules-and-detection/root-cause-analysis.md#generation-ownership-and-evidence-admission) defines Forseti ownership and holds for ambiguous references, conflicting facts, incomplete historical reuse and unsupported T2 lineage, without adding an agent or execution path.
 `build_semantic_query_runtime(causal_competitor_source=...)` accepts an independently verified,
 server-bound assessment source for final metric joins. Its exact request binds resources,
 metric concepts, topology/source identity, time and competitor accounting. Node JSON cannot
@@ -49,12 +49,6 @@ construct that assessment, and an absent or unusable source preserves an explici
 `semantic_query_metric_bindings.py` owns the cohesive metric-handler assembly so the public
 semantic-query facade stays within its existing structural size ceiling. No caller API,
 capability default, principal scope, or evidence authority changes in this extraction.
-`rca/citations.py` owns bounded exact-citation admission shared by the model parser,
-grounding gate, and coordinator. Forseti's existing generation boundary rejects ambiguous
-references, conflicting facts, incomplete historical reuse, and unsupported T2 lineage;
-it does not add an agent or execution path. See
-[Root-Cause Analysis](../rules-and-detection/root-cause-analysis.md#generation-ownership-and-evidence-admission)
-for generation ownership and the evidence-only contract.
 Diagnostic ontology candidate selection remains a composition-owned semantic-planning path: the
 prompt profile selects the reviewed model role and reasoning effort, while Core still receives only
 schema-validated typed clauses that the secured reader authorizes against the principal manifest.
