@@ -818,8 +818,9 @@ Bounded Console issue summaries are built
 by `issue_summary.py` beside the review signal. The Python weakness verifier in `verifier.py`
 folds fixed conditions through the pure, side-effect-free `verifier_constants.py` and tracks
 local list elements through `verifier_lists.py`. Core qualification in `verifier_evaluation.py` uses exact TP/FP counts, never rounded receipt values.
-`java_constant_guard.py` handles Java source-level constant proofs, including bounded exact local
-JDK map keys and dominating assignments, without executing repository code. The severity rubric is catalog data in
+`java_constant_guard.py` handles Java source-level constant proofs for SQL and path verifier sinks,
+including bounded exact local JDK map keys, dominating assignments, and exact fully qualified
+`static final String` initializers, without executing repository code. The severity rubric is catalog data in
 `rule-catalog/code-security/severity-rubric.yaml`, and its version is stamped into every coverage
 receipt, so a rubric change makes earlier rescans non-equivalent. The Operator read side is
 `code_security_review_projection.py` and `code_security_issue_projection.py`, and the Console route

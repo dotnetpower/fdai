@@ -858,6 +858,13 @@ true positives and removes both `dev` false positives: precision is 1.0 on `dev`
 1.0 on `holdout` (1 TP, 0 FP). The measured promotion list adds Java path traversal. The scanner's
 base finding remains visible, and broader Java path recall remains low and explicit.
 
+Catalog 1.9.0 recognizes nullable ASP.NET model-bound strings and the side effect of
+`StringBuilder.Append` in the C# SQL verifier. It doesn't classify every public service parameter
+as untrusted. The unchanged frozen corpus retains `dev` precision 1.0 (2 TP, 0 FP) and adds one
+`holdout` true positive at precision 1.0 (1 TP, 0 FP); one interprocedural service flow remains a
+false negative, so holdout recall is 0.5. The measured promotion list adds C# SQL injection while
+keeping that incomplete recall visible.
+
 ## Proof lane (opt-in)
 
 The proof lane is the dynamic step: it reproduces a finding instead of reasoning about it. It's

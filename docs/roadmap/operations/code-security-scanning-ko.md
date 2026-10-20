@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: f8b458660a1de4b02944b472d2bb45ae790f9048
+translation_source_sha: b4adb6cb9f70fdbc6927b8fcdec4108136ba40ae
 translation_revised: 2026-10-20
 ---
 
@@ -819,6 +819,13 @@ classloader 속성을 통한 reflection이 있습니다. 후자는 추가 근거
 `dev`에서 1.0(참 양성 5개, 오탐 0개), `holdout`에서 1.0(참 양성 1개, 오탐 0개)입니다.
 측정된 promotion 목록에 Java 경로 조작을 추가했습니다. Scanner의 기본 발견은 계속 표시하며
 더 넓은 Java 경로 재현율은 낮은 상태로 명시합니다.
+
+카탈로그 1.9.0은 C# SQL verifier에서 nullable ASP.NET model-bound string과
+`StringBuilder.Append`의 side effect를 인식합니다. 모든 public service parameter를
+신뢰할 수 없는 입력으로 분류하지는 않습니다. 변경하지 않은 고정 corpus는 `dev` 정밀도
+1.0(참 양성 2개, 오탐 0개)을 유지하고, `holdout` 참 양성 1개를 정밀도 1.0(오탐 0개)으로
+추가했습니다. Interprocedural service flow 1개는 계속 false negative이므로 holdout 재현율은
+0.5입니다. 측정된 promotion 목록에 C# SQL 주입을 추가하면서 불완전한 재현율을 계속 표시합니다.
 
 ## 입증 레인(선택)
 
