@@ -890,6 +890,19 @@ resource "kubernetes_cron_job_v1" "job" {
                 }
               }
 
+              dynamic "env" {
+                for_each = each.value.field_environment
+                content {
+                  name = env.key
+                  value_from {
+                    field_ref {
+                      api_version = "v1"
+                      field_path  = env.value
+                    }
+                  }
+                }
+              }
+
               dynamic "volume_mount" {
                 for_each = length(each.value.secret_environment) > 0 ? [1] : []
                 content {

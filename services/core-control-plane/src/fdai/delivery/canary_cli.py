@@ -1,12 +1,13 @@
-"""One-shot synthetic canary publisher for a Container Apps scheduled Job."""
+"""One-shot synthetic canary publisher bound to an explicit slot or AKS controller Job."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 import os
+from collections.abc import Mapping
 from datetime import UTC, datetime
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 import httpx
 
@@ -41,13 +42,34 @@ def build_canary_event(*, slot: str, now: datetime) -> Event:
     )
 
 
+def _execution_slot(environment: Mapping[str, str]) -> str:
+    """Preserve explicit slots; otherwise require the shared AKS controller Job identity."""
+    explicit = environment.get("FDAI_CANARY_SLOT", "").strip()
+    if explicit:
+        return explicit
+    uid = environment.get("FDAI_CANARY_JOB_UID", "")
+    if len(uid) != 36:
+        raise RuntimeError(
+            "canary execution identity requires FDAI_CANARY_SLOT or a canonical FDAI_CANARY_JOB_UID"
+        )
+    try:
+        parsed = UUID(uid)
+    except ValueError as exc:
+        raise RuntimeError(
+            "canary execution identity requires FDAI_CANARY_SLOT or a canonical FDAI_CANARY_JOB_UID"
+        ) from exc
+    if str(parsed) != uid or parsed.int == 0:
+        raise RuntimeError("FDAI_CANARY_JOB_UID must be a canonical nonzero controller Job UID")
+    return f"aks-job:{uid}"
+
+
 async def _run() -> int:
     topic = os.environ.get("FDAI_CANARY_TOPIC", "").strip()
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
     if not topic or not bootstrap_servers:
         raise RuntimeError("FDAI_CANARY_TOPIC and KAFKA_BOOTSTRAP_SERVERS are required")
     now = datetime.now(tz=UTC)
-    slot = os.environ.get("FDAI_CANARY_SLOT", "").strip() or now.strftime("%Y%m%dT%H%MZ")
+    slot = _execution_slot(os.environ)
     event = build_canary_event(slot=slot, now=now)
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(connect=5.0, read=15.0, write=15.0, pool=5.0)

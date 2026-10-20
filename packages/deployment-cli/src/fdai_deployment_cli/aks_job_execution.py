@@ -67,6 +67,16 @@ def protected_cronjob_template_digest(
         value.get("secret_environment", {}),
         "protected AKS Job secret environment",
     )
+    field_environment = _string_mapping(
+        value.get("field_environment", {}), "protected AKS Job field environment"
+    )
+    if field_environment and (
+        component != "canary"
+        or field_environment
+        != {"FDAI_CANARY_JOB_UID": "metadata.labels['batch.kubernetes.io/controller-uid']"}
+        or set(field_environment) & (set(environment) | set(secret_environment))
+    ):
+        raise ValueError("protected AKS canary Job identity field reference is invalid")
     env_from = value.get("env_from", [])
     if not isinstance(env_from, list) or any(
         not isinstance(item, dict) or any(not isinstance(key, str) for key in item)
@@ -110,6 +120,13 @@ def protected_cronjob_template_digest(
             },
         }
         for name in sorted(secret_environment)
+    )
+    environment_entries.extend(
+        {
+            "name": name,
+            "valueFrom": {"fieldRef": {"apiVersion": "v1", "fieldPath": field_environment[name]}},
+        }
+        for name in sorted(field_environment)
     )
     environment_entries.sort(key=lambda entry: str(entry["name"]))
     has_secrets = bool(secret_environment)

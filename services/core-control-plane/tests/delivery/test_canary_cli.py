@@ -37,10 +37,10 @@ def test_canary_rejects_naive_timestamp() -> None:
         )
 
 
-async def test_default_cli_identity_cannot_witness_retry_stable_scheduled_slot(
+async def test_job_uid_preserves_cli_identity_across_minute_and_schedule_boundaries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A same-schedule retry across a minute boundary is not the same published event."""
+    """A delayed retry belongs to its controller Job, not the current clock slot."""
     published: list[dict[str, Any]] = []
 
     class Bus:
@@ -54,6 +54,7 @@ async def test_default_cli_identity_cannot_witness_retry_stable_scheduled_slot(
             return None
 
     monkeypatch.delenv("FDAI_CANARY_SLOT", raising=False)
+    monkeypatch.setenv("FDAI_CANARY_JOB_UID", "00000000-0000-0000-0000-000000000001")
     monkeypatch.setenv("FDAI_CANARY_TOPIC", "example-canary")
     monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "example.com:9093")
     monkeypatch.setattr(canary_cli, "EventHubsKafkaBus", Bus)
@@ -62,11 +63,62 @@ async def test_default_cli_identity_cannot_witness_retry_stable_scheduled_slot(
         "ManagedIdentityWorkloadIdentity",
         SimpleNamespace(from_env=lambda **kwargs: object()),
     )
-    for minute in (0, 1):
+    for minute in (4, 5, 6):
         at = datetime(2026, 10, 20, 1, minute, tzinfo=UTC)
         monkeypatch.setattr(canary_cli, "datetime", SimpleNamespace(now=lambda *, tz, at=at: at))
         assert await canary_cli._run() == 0
-    assert published[0]["event_id"] != published[1]["event_id"]
-    assert published[0]["idempotency_key"] != published[1]["idempotency_key"]
-    assert published[0]["payload"] == {"slot": "20261020T0100Z"}
-    assert published[1]["payload"] == {"slot": "20261020T0101Z"}
+    assert len({item["event_id"] for item in published}) == 1
+    assert len({item["idempotency_key"] for item in published}) == 1
+    assert published[0]["payload"] == {"slot": "aks-job:00000000-0000-0000-0000-000000000001"}
+
+
+@pytest.mark.parametrize(
+    "uid",
+    [
+        None,
+        "",
+        "not-a-uuid",
+        "00000000-0000-0000-0000-000000000000",
+        "{00000000-0000-0000-0000-000000000001}",
+    ],
+)
+async def test_cli_rejects_missing_or_malformed_execution_identity_before_provider_access(
+    monkeypatch: pytest.MonkeyPatch, uid: str | None
+) -> None:
+    monkeypatch.delenv("FDAI_CANARY_SLOT", raising=False)
+    monkeypatch.delenv("FDAI_CANARY_JOB_UID", raising=False)
+    if uid is not None:
+        monkeypatch.setenv("FDAI_CANARY_JOB_UID", uid)
+    monkeypatch.setenv("FDAI_CANARY_TOPIC", "example-canary")
+    monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "example.com:9093")
+
+    def forbidden(**kwargs: Any) -> None:
+        pytest.fail("provider identity accessed without a stable canary identity")
+
+    monkeypatch.setattr(
+        canary_cli, "ManagedIdentityWorkloadIdentity", SimpleNamespace(from_env=forbidden)
+    )
+    with pytest.raises(RuntimeError, match="identity|UID"):
+        await canary_cli._run()
+
+
+def test_explicit_slot_precedes_platform_identity_without_rewriting_it() -> None:
+    assert (
+        canary_cli._execution_slot(
+            {"FDAI_CANARY_SLOT": "explicit-slot:example", "FDAI_CANARY_JOB_UID": "malformed"}
+        )
+        == "explicit-slot:example"
+    )
+
+
+def test_distinct_controller_jobs_have_distinct_slots() -> None:
+    first = canary_cli._execution_slot(
+        {"FDAI_CANARY_JOB_UID": "00000000-0000-0000-0000-000000000001"}
+    )
+    second = canary_cli._execution_slot(
+        {"FDAI_CANARY_JOB_UID": "00000000-0000-0000-0000-000000000002"}
+    )
+    assert first != second
+    assert build_canary_event(slot=first, now=datetime(2026, 10, 20, tzinfo=UTC)).event_id != (
+        build_canary_event(slot=second, now=datetime(2026, 10, 20, tzinfo=UTC)).event_id
+    )

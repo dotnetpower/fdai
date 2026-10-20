@@ -292,9 +292,25 @@ variable "scheduled_jobs" {
     memory                  = string
     environment             = map(string)
     secret_environment      = optional(map(string), {})
+    field_environment       = optional(map(string), {})
     identity_bridge_enabled = optional(bool, false)
   }))
   default = {}
+
+  validation {
+    condition = alltrue([
+      for job in values(var.scheduled_jobs) :
+      length(job.field_environment) == 0 || (
+        job.component == "canary" &&
+        job.field_environment == tomap({
+          FDAI_CANARY_JOB_UID = "metadata.labels['batch.kubernetes.io/controller-uid']"
+        }) &&
+        !contains(keys(job.environment), "FDAI_CANARY_JOB_UID") &&
+        !contains(keys(job.secret_environment), "FDAI_CANARY_JOB_UID")
+      )
+    ])
+    error_message = "Field environment supports only the canary controller Job UID without duplicate bindings."
+  }
 }
 
 variable "tags" {
