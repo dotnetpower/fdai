@@ -25,6 +25,7 @@ from fdai_operator_service.families.iam.errors import IamFamilyError
 from fdai_operator_service.families.iam.http import (
     error_response,
     family_error,
+    optional_string,
     read_json_object,
     require_string,
 )
@@ -34,6 +35,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 _MAX_BODY_BYTES: Final = 16_000
+_MAX_REVIEW_NOTE_CHARS: Final = 2_000
 
 
 def make_iam_routes(
@@ -189,12 +191,20 @@ def make_iam_routes(
             return error_response(503, "human access request outbox is not configured")
         try:
             body = await read_json_object(request, maximum=_MAX_BODY_BYTES)
+            review_note = optional_string(body, "justification")
+            if review_note is not None:
+                review_note = review_note.strip() or None
+            if review_note is not None and len(review_note) > _MAX_REVIEW_NOTE_CHARS:
+                return error_response(
+                    400,
+                    f"justification MUST be at most {_MAX_REVIEW_NOTE_CHARS} characters",
+                )
             reviewed = await outbox.review(
                 AccessReviewCommand(
                     principal=principal,
                     request_id=str(request.path_params["request_id"]),
                     decision=require_string(body, "decision"),
-                    justification=require_string(body, "justification"),
+                    justification=review_note,
                 )
             )
         except IamFamilyError as exc:

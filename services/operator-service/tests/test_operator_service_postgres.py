@@ -180,7 +180,13 @@ def _iam_principal(oid: str) -> IamPrincipal:
 
 
 @pytest.mark.asyncio
-async def test_access_proposals_project_complete_requests_and_block_self_review() -> None:
+@pytest.mark.parametrize(
+    "review_note",
+    [None, "Independent review is complete."],
+)
+async def test_access_proposals_project_complete_requests_and_block_self_review(
+    review_note: str | None,
+) -> None:
     store = AccessProposalStore()
     adapter = PostgresIamAdapters(store)  # type: ignore[arg-type]
     submitted = await adapter.submit(
@@ -219,11 +225,12 @@ async def test_access_proposals_project_complete_requests_and_block_self_review(
             principal=_iam_principal("owner-2"),
             request_id="proposal-1",
             decision="approve",
-            justification="Independent review is complete.",
+            justification=review_note,
         )
     )
     assert reviewed["status"] == "approved"
     assert reviewed["reviewed_by"] == "owner-2"
+    assert reviewed["review_justification"] == review_note
 
 
 @pytest.mark.asyncio

@@ -239,7 +239,7 @@ class AccessReviewCommand:
     principal: IamPrincipal
     request_id: str
     decision: str
-    justification: str
+    justification: str | None
 
 
 class HumanAccessRequestOutbox(Protocol):

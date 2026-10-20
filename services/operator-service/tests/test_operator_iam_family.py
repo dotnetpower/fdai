@@ -1580,6 +1580,30 @@ def test_human_access_and_assignment_routes_emit_typed_requests_only() -> None:
     assert created.status_code == 201
     assert created.json()["authority"] == "observation_only"
     assert assignments.created is not None and assignments.created.subject_id == "target-1"
+    oversized_review = client.post(
+        "/iam/access-requests/request-1/decision",
+        headers={"x-test-role": "Owner", "x-test-oid": "owner-2"},
+        json={"decision": "approve", "justification": "x" * 2_001},
+    )
+    assert oversized_review.status_code == 400
+    assert access.reviewed is None
+    reviewed = client.post(
+        "/iam/access-requests/request-1/decision",
+        headers={"x-test-role": "Owner", "x-test-oid": "owner-2"},
+        json={"decision": "approve"},
+    )
+    assert reviewed.status_code == 200
+    assert access.reviewed is not None
+    assert access.reviewed.justification is None
+    access_with_note = RecordingHumanAccess()
+    reviewed_with_note = _client(human_access=access_with_note).post(
+        "/iam/access-requests/request-1/decision",
+        headers={"x-test-role": "Owner", "x-test-oid": "owner-2"},
+        json={"decision": "reject", "justification": "  Independent review note.  "},
+    )
+    assert reviewed_with_note.status_code == 200
+    assert access_with_note.reviewed is not None
+    assert access_with_note.reviewed.justification == "Independent review note."
 
 
 def test_settings_kill_switch_and_review_preserve_revision_and_idempotency() -> None:

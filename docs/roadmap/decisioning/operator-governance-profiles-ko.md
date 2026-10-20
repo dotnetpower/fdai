@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 93b96b672b29d8e4b628302b6c4f396832122d5d
-translation_revised: 2026-10-19
+translation_source_sha: 85bab60a7887621e4edc8c53f7daa30afe38c9a3
+translation_revised: 2026-10-20
 ---
 # 운영자 거버넌스 프로필
 
@@ -22,7 +22,9 @@ translation_revised: 2026-10-19
 > 결정을 기록합니다.
 >
 > **안전 초점:** 이 문서의 어떤 프로필도 위험 등급, A4 차단, 7개 안전장치, 독립적인 효과 검증,
-> 승인 principal(Var)과 실행기(Thor)의 분리를 바꾸지 않습니다.
+> 승인 principal(Var)과 실행기(Thor)의 분리를 바꾸지 않습니다. 프로필의 작업 승인 정족수는
+> 사람 액세스 역할 요청에 필요한 독립 검토를 면제하지 않습니다. 추가 검토 메모는 생략할 수
+> 있지만 요청자는 자신의 요청을 결정할 수 없습니다.
 
 ## 설계 한눈에 보기
 Owner 전용 토론 요청은 거버넌스 프로필을 선택하거나 변경 권한을 상속하지 않습니다.

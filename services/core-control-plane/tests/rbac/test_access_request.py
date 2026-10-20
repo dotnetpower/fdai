@@ -202,7 +202,15 @@ async def test_owner_reviews_request_and_requester_cannot_self_approve(
             principal=principal("requester-1", Role.OWNER),
             request_id=request.request_id,
             decision=AccessReviewDecision.APPROVE,
-            justification="Reviewed against the support access policy.",
+            now=datetime(2026, 7, 16, 1, tzinfo=UTC),
+        )
+
+    with pytest.raises(AccessRequestError, match="at most 2000"):
+        await service.review(
+            principal=principal("owner-2", Role.OWNER),
+            request_id=request.request_id,
+            decision=AccessReviewDecision.APPROVE,
+            justification="x" * 2_001,
             now=datetime(2026, 7, 16, 1, tzinfo=UTC),
         )
 
@@ -210,13 +218,12 @@ async def test_owner_reviews_request_and_requester_cannot_self_approve(
         principal=principal("owner-2", Role.OWNER),
         request_id=request.request_id,
         decision=AccessReviewDecision.APPROVE,
-        justification="Reviewed against the support access policy.",
         now=datetime(2026, 7, 16, 1, tzinfo=UTC),
     )
 
     assert reviewed.status.value == "approved"
     assert reviewed.reviewed_by == "owner-2"
-    assert reviewed.review_justification == "Reviewed against the support access policy."
+    assert reviewed.review_justification is None
     action_kinds = [entry["entry"]["action_kind"] for entry in store.audit_entries]
     assert action_kinds == ["iam.access-requested", "iam.access-reviewed"]
 
@@ -224,7 +231,6 @@ async def test_owner_reviews_request_and_requester_cannot_self_approve(
         principal=principal("owner-2", Role.OWNER),
         request_id=request.request_id,
         decision=AccessReviewDecision.APPROVE,
-        justification="Reviewed against the support access policy.",
         now=datetime(2026, 7, 16, 2, tzinfo=UTC),
     )
     assert replay.reviewed_at == datetime(2026, 7, 16, 1, tzinfo=UTC)
@@ -247,6 +253,7 @@ async def test_owner_can_review_request_older_than_two_hundred_records(
     )
 
     assert reviewed.status.value == "approved"
+    assert reviewed.review_justification == "Reviewed against the support access policy."
 
 
 async def test_a_recased_object_id_cannot_approve_its_own_request(

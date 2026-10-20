@@ -204,7 +204,7 @@ def reviewed_access_request(
         or not isinstance(principal.get("oid"), str)
         or decision not in {"approve", "reject"}
         or not isinstance(accepted_at, str)
-        or not isinstance(justification, str)
+        or (justification is not None and not isinstance(justification, str))
     ):
         raise IamUnavailableError("stored access-review proposal is malformed")
     return {

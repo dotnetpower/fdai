@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: f446fb859e5a84013461a0361db7e2cb2cfc0785
+translation_source_sha: 9ea618a39232721b4561bed90c6fc64c07cbabd6
 translation_revised: 2026-10-20
 ---
 
@@ -349,6 +349,9 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
   프로필](../decisioning/operator-governance-profiles-ko.md)). 표시 문자열이 아닌 정규 주체
   신원을 비교하므로 대소문자나 주변 공백을 바꿔도 한 사람이 독립 승인자가 될 수 없습니다.
   Core는 이 결정 규칙을 구현하지만 런타임 승인 경로는 아직 활성 프로필 개정을 전달하지 않음.
+- 사람 액세스 역할 요청은 추가 검토 메모가 선택 사항이어도 독립 검토를 유지합니다. 원래 사유,
+  인증된 행위자, 결정, 대상 및 시각은 영속 감사 근거로 남으며 요청자는 자신의 요청을 결정할 수
+  없습니다.
 - 승인자는 MFA/phishing-resistant 자격증명으로 인증; 각 승인은 특정 액션 + 멱등성 키에
   바인딩되어 **다른 액션에 대해 재생될 수 없음**.
 - **시간 초과는 실패 시 차단입니다**: 현재 승인 또는 유효한 기존 상시 승인이 없는 HIL 항목은

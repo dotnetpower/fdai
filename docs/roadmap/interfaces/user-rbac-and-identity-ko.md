@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: b890232c432db281006d104d4d6d43e904c2b0cf
+translation_source_sha: c70be8ca7ef9ecfa4c0f5d7ab0eeb4dfffa1068a
 translation_revised: 2026-10-20
 ---
 
@@ -55,6 +55,7 @@ Console, ChatOps 및 catalog-as-code 저장소에서 인증, 인가 및 감사�
 새 이력은 [영문 구현 이력](user-rbac-and-identity.md#implementation-history)에만 추가하며 아래 기존 번역 이력은 그대로 보존합니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-20 | 구현됨 | 액세스 요청의 독립 검토는 유지하면서 추가 검토 메모를 선택 사항으로 바꿨습니다. Console은 제출 전에 자기 검토 컨트롤을 비활성화하고 다른 Owner가 요청을 결정해야 한다고 안내합니다. | `current change`, #2311, 집중 Console, Operator IAM 및 Core 액세스 요청 테스트. | 공급자 멤버십 적용과 독립적인 효과 검증은 브라우저 검토 경계 밖에 남습니다. |
 | 2026-09-29 | implemented | Console 경로, Slack 및 Teams 콜백 서비스와 결정 트랜잭션에서 보류된 범주 전용 거부에 대해 개발 Owner의 증명된 자기 승인 외의 모든 승인을 거부하고, 다른 권한 있는 승인자의 반려는 허용했습니다. | `current change`; `families/iam/hil_callback_decision.py`, `families/iam/hil_development_approval.py`, `postgres_hil_decision.py`, `projection_logic.py`; `services/operator-service/tests/test_hil_development_owner_only.py` 통과. | [#1623](https://github.com/dotnetpower/fdai/issues/1623)에서 실제 Owner 실행 기록 하나를 보존합니다. |
 | 2026-09-29 | implemented | Console 경로, Slack 및 Teams 콜백 서비스와 결정 트랜잭션에서 요청한 개발 Owner가 보류된 범주 전용 거부를 반려할 수 있게 했습니다. 반려는 권한을 부여하지 않으며 승인은 기존 규칙을 모두 유지합니다. | `current change`; `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py` 통과. | [#1623](https://github.com/dotnetpower/fdai/issues/1623)에서 실제 Owner 실행 기록 하나를 보존합니다. |
 | 2026-09-26 | 구현됨 | 브라우저에 행위자, 역할, 해시 또는 권한을 주지 않고 Slack A1 아웃바운드 단추를 서명된 서버 출처 브라우저 인계에 연결했습니다. | `current change`, `slack_adapter.py`, `test_slack_hil_interactivity.py` 및 집중 Operator/Console 검사. | #943을 위해 실제 Slack 클릭, 현재 매핑, 클릭 이후의 서명된 `auth_time`, PostgreSQL nonce 동시성 검사 및 작성자 확인을 보존합니다. |
@@ -627,7 +628,9 @@ Core는 읽기 전용 플래너를 연결하고 변경 신원을 만들지 않�
 제안을 저장하며 제출로 승인하거나 멤버십을 바꾸지 않습니다. 별도 검토 제안은 자기 검토를
 차단하고 의도를 다시 쓰지 않은 채 반영됩니다. `request_id` 직접 조회로 페이지가 달라져도
 이전 사례를 검토할 수 있습니다. Core 게시와 해시 체인 `iam.access-requested` /
-`iam.access-reviewed` 감사는 별도 경계입니다. 필요한 ChatOps 또는 거버넌스 승인 후 Owner가
+`iam.access-reviewed` 감사는 별도 경계입니다. 추가 검토 메모는 선택 사항이지만 요청자,
+검토자, 결정, 시각, 대상 및 원래 요청 사유는 계속 기록합니다. 필요한 ChatOps 또는
+거버넌스 승인 후 Owner가
 테넌트 신원 관리로 허용된 변경을 적용합니다. 이 수동 경로는 브라우저, Operator API,
 일반 실행기 신원에 Graph 멤버십 자격 증명을 부여하지 않습니다.
 
@@ -638,8 +641,9 @@ FDAI App Role이 없는 사용자는 운영자 화면 대신 접근 필수 화�
 다시 확인, 로그아웃을 제공합니다. `POST /iam/access-requests/self`는 토큰에서 대상을
 도출하며 브라우저 변경과 무관하게 해당 주체의 `grant Reader`만 허용합니다.
 
-Owner는 ID 및 액세스에서 요청자, 공급자 주체, 역할, 감사 상관관계를 보고 사유와 함께
-`approve` 또는 `reject`를 기록합니다. 자기 승인은 차단되며 별도 결정에 `iam.access-reviewed`
+Owner는 ID 및 액세스에서 요청자, 공급자 주체, 역할, 감사 상관관계를 보고 선택적 검토
+메모와 함께 `approve` 또는 `reject`를 기록할 수 있습니다. 자기 승인은 차단되며 컨트롤에서
+다른 Owner가 검토해야 한다고 안내합니다. 별도 결정에 `iam.access-reviewed`
 감사를 남기고 런타임 작업을 승인하지 않습니다. 그 권한은 ChatOps와 Approvals에 유지합니다.
 `approved`여도 새 토큰에 역할을 담으려면 공급자 멤버십이 필요합니다. 승인과 할당 주체는
 분리되며 향후 자동화도 이 변환 결과를 소비할 뿐 다시 쓰지 않습니다.

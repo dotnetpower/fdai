@@ -333,6 +333,7 @@ function renderTab(props: {
           loadMore={props.loadMoreRequests}
           roster={props.roster}
           canManage={props.canManage}
+          reviewerOid={props.overview.principal.oid}
           auth={props.auth}
           client={props.client}
           reload={props.reload}

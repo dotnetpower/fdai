@@ -43,6 +43,16 @@ def require_string(value: dict[str, Any], key: str) -> str:
     return item
 
 
+def optional_string(value: dict[str, Any], key: str) -> str | None:
+    """Return an optional string field without silently coercing input."""
+    item = value.get(key)
+    if item is None:
+        return None
+    if not isinstance(item, str):
+        raise HTTPException(status_code=400, detail=f"{key} MUST be a string")
+    return item
+
+
 def require_revision(value: dict[str, Any], *, positive: bool = False) -> int:
     """Return an exact non-boolean expected revision."""
     revision = value.get("expected_revision")
@@ -76,6 +86,7 @@ def error_response(status: int, message: str, *, kind: str | None = None) -> JSO
 __all__ = [
     "error_response",
     "family_error",
+    "optional_string",
     "read_json_object",
     "require_dependency",
     "require_revision",
