@@ -247,6 +247,13 @@ overwrites. Source event times, nested payload timestamps, scope, content, and a
 still participate in collision checks, including within one running process. Pending retries
 retain their original normalized receipt time. An old digest upgrades through audited revision
 CAS only after an exact original request matches it; a changed legacy request stays held.
+
+Huginn maintenance separately redrives at most eight already-admitted inventory outbox claims.
+It reacquires their leases and uses the retained normalized payload, digest, original clocks,
+and per-topic publication markers, without reconstructing raw input. Only inventory observation
+families with Huginn ownership and `incident_correlation: none` qualify. Missing projection or
+bus bindings hold recovery; operator requests, approvals and execution traffic are excluded.
+Completion follows actual typed publication and remains safe to retry after interruption.
 The causal `object.event` carries the same normalized Change evidence, avoiding cross-topic arrival-order dependencies. Before ordinary rule judgment, Forseti performs bounded planned-change impact analysis and retains the assessment in Verdict and DecisionCase evidence. Missing, stale, failed, or review-required assessment forces human approval.
 Observed changes remain context only; runtime supplies no graph-freshness authority to auto-clear planned changes. Freshness requires an explicit string source, timestamp, and integer maximum age; malformed values, including boolean ages, fail closed to human approval.
 Ordinary Verdicts and arbitration DecisionCases use the same typed freshness evidence, so arbitration cannot recover authority removed by the context ceiling. This projection grants no action authority.

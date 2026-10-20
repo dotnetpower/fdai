@@ -59,6 +59,7 @@ class HuginnDedupJournal:
         self._terminal_retention = max(capacity + 1, capacity * _TERMINAL_RETENTION_MULTIPLIER)
         self._migration_lock = asyncio.Lock()
         self._migration_complete = False
+        self._recovery_shard = 0
 
     async def published_keys(self) -> tuple[str, ...]:
         """Return completed keys in oldest-to-newest retention order.
@@ -102,6 +103,32 @@ class HuginnDedupJournal:
                 retained[key] = None
             return tuple(retained)[-self._capacity :]
         return retained_from_terminal[-self._capacity :]
+
+    async def pending_inventory_claims(
+        self,
+    ) -> tuple[tuple[str, str, HuginnIngressClaim], ...]:
+        """Page admitted inventory payloads without reconstructing a raw request."""
+        await self._ensure_migrated()
+        selected: list[tuple[str, str, HuginnIngressClaim]] = []
+        for _ in range(self._shard_count):
+            index = self._recovery_shard
+            self._recovery_shard = (index + 1) % self._shard_count
+            state = await self._store.read_state(self._shard_key(index))
+            _, capacity, _, entries = _decode(state)
+            self._validate_capacity(capacity, expected=self._shard_capacity(index))
+            for key, entry in entries.items():
+                if entry["status"] != "pending":
+                    continue
+                claim = _claim_from_entry(entry)
+                if claim.payload.get("event_type") not in {
+                    "inventory.resource_changed",
+                    "inventory.resource_observed",
+                }:
+                    continue
+                selected.append((key, str(entry["request_digest"]), claim))
+                if len(selected) == 8:
+                    return tuple(selected)
+        return tuple(selected)
 
     async def claim(
         self,

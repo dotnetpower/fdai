@@ -94,6 +94,13 @@ does not prove that Huginn completed it; independently observe the retained clai
 records. Don't reset digests, mark pending claims published, or recreate an unavailable original
 from a newer observation. Missing originals stay held for a separately approved recovery.
 
+An already-admitted inventory outbox is a different recovery source. Standard Huginn
+maintenance reacquires its expired lease, reapplies the original projection, and redrives the
+retained Event and Change through typed publication before recording completion. It processes
+at most eight inventory claims per tick and preserves their digest, source clocks and publication
+markers. This does not reconstruct raw input or replay operator, approval or execution requests.
+Verify both outbox completion and downstream Saga records independently.
+
 ## Related docs
 
 | To learn about | Read |

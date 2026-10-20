@@ -11,7 +11,11 @@ from typing import TYPE_CHECKING, Any
 
 from fdai_service_contracts.alert_noise_wire import ALERT_NOISE_EVENT_TYPES, SignedAlertCommand
 
-from fdai.agents._framework.huginn_dedup import HuginnDedupJournal, request_digest
+from fdai.agents._framework.huginn_dedup import (
+    HuginnClaimInProgressError,
+    HuginnDedupJournal,
+    request_digest,
+)
 from fdai.agents._framework.huginn_ingress_helpers import (
     _DISCOVERY_PROJECTOR_TIMEOUT_SECONDS,
     _MAX_FIELD_CHARS,
@@ -230,10 +234,66 @@ class HuginnIngressMixin:
             self.record_behavior(f"raw_ingress_rejected:{exc.reason_code}")
             raise
 
+    async def recover_pending_inventory(self) -> int:
+        """Redrive at most eight already-admitted, authority-free inventory claims.
+
+        The retained payload and digest are delivery evidence, not a replacement
+        raw request. Reacquisition preserves the original payload, source clocks,
+        lease fences and per-topic publication markers.
+        """
+        journal = self._dedup_journal
+        if journal is None or self.bus is None or self._discovery_projector is None:
+            self.record_behavior("ingress_recovery:unbound")
+            return 0
+        recovered = 0
+        async with asyncio.timeout(45):
+            for key, digest, retained in await journal.pending_inventory_claims():
+                if (
+                    retained.payload.get("producer_principal") != "Huginn"
+                    or retained.payload.get("incident_correlation") != "none"
+                ):
+                    raise ValueError(
+                        "retained inventory ingress has invalid ownership or authority"
+                    )
+                async with self._key_lock(key):
+                    try:
+                        claim = await journal.claim(
+                            idempotency_key=key,
+                            request_digest=digest,
+                            payload=retained.payload,
+                            change_projection=retained.change_projection,
+                        )
+                    except HuginnClaimInProgressError:
+                        self.record_behavior("ingress_recovery:lease_active")
+                        continue
+                    if claim.duplicate:
+                        continue
+                    async with asyncio.timeout(_DISCOVERY_PROJECTOR_TIMEOUT_SECONDS):
+                        await self._discovery_projector(claim.payload)
+                    cancelled = await self._publish_event_change(
+                        claim.payload,
+                        claim.change_projection,
+                        idempotency_key=key,
+                        request_digest=digest,
+                        published_topics=claim.published_topics,
+                    )
+                    await journal.complete(
+                        idempotency_key=key,
+                        request_digest=digest,
+                        require_published_topics=True,
+                    )
+                    self._remember_key(key)
+                    self.record_behavior("ingress_recovery:completed")
+                    recovered += 1
+                    if cancelled:
+                        raise asyncio.CancelledError
+        return recovered
+
     async def maintenance_tick(self) -> None:
         maintenance_tick = getattr(super(), "maintenance_tick", None)
         if maintenance_tick is not None:
             await maintenance_tick()
+        await self.recover_pending_inventory()
         if self._schema_learning is None:
             self.record_behavior("maintenance:schema_learning_unbound")
             return
