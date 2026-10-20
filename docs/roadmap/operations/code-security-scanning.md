@@ -187,6 +187,9 @@ supported .NET 10 operating system. CPython 3.13.16 retains its authenticated up
 checksum and is built against maintained distribution libraries; compilation, installation and
 bytecode workers are bounded. The application is rebuilt from the current source and frozen
 lock, not copied from a previous scanner image. No unused pip installer is shipped.
+Root toolchain installs clear inherited package metadata first, so a cached image layer cannot
+pair an old repository index with a newer signature. Signature checks, exact RPM identity, and
+the pinned JDK binary checksums remain enabled; runtime `HOME` and user identity do not change.
 The file builds three targets:
 
 - **`runtime` (default):** every scanner and the Python proof lane.
