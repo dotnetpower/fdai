@@ -238,20 +238,26 @@ def resolve_configuration_layers(
         path=("environment_config",),
     )
     matching: list[tuple[_VersionRange, Mapping[str, object], int]] = []
-    ranges_seen: set[str] = set()
+    ranges_seen: set[tuple[Version | None, bool, Version | None, bool]] = set()
     for index, raw_block in enumerate(entity_overrides):
         block_path = ("entity_overrides", str(index))
         block = _mapping(raw_block, block_path)
         source = _text(block.get("versions"), (*block_path, "versions"))
         values_raw = _mapping(block.get("values"), (*block_path, "values"))
         version_range = _parse_range(source, (*block_path, "versions"))
-        if version_range.source in ranges_seen:
+        interval = (
+            version_range.lower,
+            version_range.lower_inclusive,
+            version_range.upper,
+            version_range.upper_inclusive,
+        )
+        if interval in ranges_seen:
             raise ConfigurationValidationError(
                 "duplicate_override_range",
                 (*block_path, "versions"),
                 f"Entity override range {source!r} is duplicated",
             )
-        ranges_seen.add(version_range.source)
+        ranges_seen.add(interval)
         _validate_values(
             values_raw,
             schema=configuration_schema,
@@ -268,6 +274,9 @@ def resolve_configuration_layers(
         )
     selected_range, selected_values, _index = max(
         matching, key=lambda item: (item[0].specificity, -item[2])
+    )
+    _validate_values(
+        values, schema=configuration_schema, sealed_keys=sealed_keys, path=("defaults",)
     )
     _merge_values(
         values,
