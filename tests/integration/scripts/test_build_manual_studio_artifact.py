@@ -36,6 +36,7 @@ def test_build_artifact_copies_only_publishable_manual_files(tmp_path: Path) -> 
         "library.html",
         "l100-pitch-deck.css",
         "l100-pitch-deck.js",
+        "l100-pitch-kit.js",
         "localization.js",
         "manual-content.js",
         "manual-decks.css",
