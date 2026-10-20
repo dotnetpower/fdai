@@ -11,7 +11,7 @@ Design rules (see ``coding-conventions.instructions.md``):
 - ``configure_logging`` is idempotent so a re-entered composition root
   does not stack handlers.
 - Local source-checkout runs can persist ``WARNING`` and higher records in
-    a process-locked JSONL file that retains a rolling 24-hour window.
+    a process-locked JSONL file bounded by both age and bytes.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ import os
 import sys
 import threading
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from collections.abc import Hashable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -174,6 +174,7 @@ class JsonFormatter(logging.Formatter):
 
 _HANDLER_MARKER = "_fdai_json_handler"
 _DEFAULT_WARNING_RETENTION = timedelta(hours=24)
+_DEFAULT_WARNING_MAX_BYTES = 4 * 1_024 * 1_024
 _DEFAULT_CLEANUP_INTERVAL_SECONDS = 300.0
 _LOCK_TIMEOUT_SECONDS = 0.25
 _LOCK_RETRY_SECONDS = 0.005
@@ -274,7 +275,10 @@ class _BurstSummaryFilter(logging.Filter):
 
 
 class RetainedJsonlHandler(logging.Handler):
-    """Retain a rolling JSONL window without rewriting unchanged log contents."""
+    """Retain recent diagnostic JSONL within a time window and a byte cap.
+
+    Compaction leaves the file untouched when nothing needs to be dropped.
+    """
 
     def __init__(
         self,
@@ -283,17 +287,21 @@ class RetainedJsonlHandler(logging.Handler):
         retention: timedelta = _DEFAULT_WARNING_RETENTION,
         cleanup_interval_seconds: float = _DEFAULT_CLEANUP_INTERVAL_SECONDS,
         clock: Callable[[], datetime] | None = None,
+        max_bytes: int = _DEFAULT_WARNING_MAX_BYTES,
     ) -> None:
         super().__init__()
         if retention <= timedelta(0):
             raise ValueError("log retention MUST be positive")
         if cleanup_interval_seconds <= 0:
             raise ValueError("log cleanup interval MUST be positive")
+        if type(max_bytes) is not int or max_bytes < 2 * (_MAX_JSON_LOG_BYTES + 1):
+            raise ValueError("warning log byte cap MUST fit two maximum-size JSONL records")
         self._path = path
         self._lock_path = path.with_suffix(f"{path.suffix}.lock")
         self._retention = retention
         self._cleanup_interval_seconds = cleanup_interval_seconds
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._max_bytes = max_bytes
         self._stop = threading.Event()
         self._prepare_storage()
         self._compact(self._clock())
@@ -337,6 +345,10 @@ class RetainedJsonlHandler(logging.Handler):
 
     def _append_unlocked(self, entry: str) -> None:
         payload = entry.encode("utf-8")
+        if len(payload) > self._max_bytes // 2:
+            raise ValueError("warning log entry exceeds the bounded structured-record budget")
+        if self._path.stat().st_size + len(payload) > self._max_bytes:
+            self._compact_unlocked(self._clock(), byte_budget=self._max_bytes // 2)
         descriptor = os.open(
             self._path,
             os.O_WRONLY | os.O_APPEND | os.O_CLOEXEC,
@@ -351,7 +363,9 @@ class RetainedJsonlHandler(logging.Handler):
     def _compact(self, now: datetime) -> None:
         try:
             with self._locked() as lock:
-                if not self._compaction_due(lock, now):
+                if self._path.stat().st_size <= self._max_bytes and not self._compaction_due(
+                    lock, now
+                ):
                     return
                 self._compact_unlocked(now)
                 self._record_compaction(lock, now)
@@ -397,27 +411,64 @@ class RetainedJsonlHandler(logging.Handler):
             lock.close()
             raise
 
-    def _compact_unlocked(self, now: datetime) -> None:
+    def _compact_unlocked(self, now: datetime, *, byte_budget: int | None = None) -> None:
         if not self._path.is_file():
             return
         cutoff = now.astimezone(UTC) - self._retention
-        retained: list[str] = []
+        retained: deque[bytes] = deque()
+        omitted_bytes = 0
+        size = self._path.stat().st_size
+        budget = byte_budget or (
+            self._max_bytes // 2 if size > self._max_bytes else self._max_bytes
+        )
+        retained_bytes = 0
         changed = False
-        with self._path.open(encoding="utf-8", errors="replace") as handle:
-            for line in handle:
+        with self._path.open("rb") as handle:
+            if size > budget:
+                handle.seek(size - budget - 1)
+                if handle.read(1) != b"\n":
+                    handle.readline()
+                omitted_bytes = handle.tell()
+                changed = True
+            for raw in handle:
+                line = raw.decode("utf-8", errors="replace")
                 timestamp = _jsonl_timestamp(line)
                 if timestamp is not None and timestamp >= cutoff:
-                    retained.append(line.rstrip("\n") + "\n")
-                    changed |= not line.endswith("\n")
+                    encoded = (line.rstrip("\n") + "\n").encode("utf-8")
+                    retained.append(encoded)
+                    retained_bytes += len(encoded)
+                    changed |= not raw.endswith(b"\n")
                 else:
                     changed = True
-
         if not changed:
             return
+        marker = b""
+        while True:
+            if omitted_bytes:
+                marker = (
+                    json.dumps(
+                        {
+                            "timestamp": now.astimezone(UTC).isoformat(),
+                            "level": "WARNING",
+                            "logger": __name__,
+                            "message": "local_warning_log_byte_retention",
+                            "log_retention_truncated": True,
+                            "omitted_prefix_bytes": omitted_bytes,
+                        }
+                    )
+                    + "\n"
+                ).encode("utf-8")
+            if retained_bytes + len(marker) <= budget:
+                break
+            removed = retained.popleft()
+            omitted_bytes += len(removed)
+            retained_bytes -= len(removed)
 
         temporary = self._path.with_name(f".{self._path.name}.{os.getpid()}.tmp")
-        temporary.write_text("".join(retained), encoding="utf-8")
-        os.chmod(temporary, 0o600)
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(descriptor, "wb") as output:
+            os.fchmod(output.fileno(), 0o600)
+            output.write(b"".join(retained) + marker)
         temporary.replace(self._path)
 
 

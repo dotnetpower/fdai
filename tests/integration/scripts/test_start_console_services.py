@@ -682,6 +682,7 @@ set -euo pipefail
 if [[ "$1" == "local-analyzer" ]]; then
   printf '%s\n' "$FDAI_ANALYZER_RUN_ID" >> "$FDAI_TEST_ANALYZER_IDS"
 fi
+printf '%s\n' 'high-volume-service-output-owned-by-rotating-log'
 exec {service_lock_fd}>> ".fdai/logs/$1.log.lock"
 if ! flock -n "$service_lock_fd"; then
   exit 0
@@ -729,6 +730,7 @@ exec sleep 30
         run_ids = analyzer_ids.read_text(encoding="utf-8").splitlines()
         assert second_result.returncode == 0
         assert "service=console-stack event=ready" in second_result.stdout
+        assert "high-volume-service-output-owned-by-rotating-log" not in second_result.stdout
         assert len(run_ids) == 2
         assert run_ids[0] == run_ids[1]
         assert re.fullmatch(r"local-analyzer-\d+-\d+", run_ids[0])
