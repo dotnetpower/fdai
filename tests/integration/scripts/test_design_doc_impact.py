@@ -97,6 +97,36 @@ def test_shared_semantic_coverage_accepts_ontology_owner_doc() -> None:
     assert failures == []
 
 
+def test_lifecycle_configuration_primitives_accept_their_actual_owner() -> None:
+    module = _load_module()
+    manifest = json.loads(
+        (REPO_ROOT / "scripts/lib/design-routes.json").read_text(encoding="utf-8")
+    )
+    paths = {
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_package.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_sealing.py",
+        "packages/deployment-cli/tests/test_lifecycle_configuration_package.py",
+        "docs/roadmap/deployment/lifecycle-configuration.md",
+    }
+    assert module.missing_doc_updates(paths, manifest) == []
+
+
+def test_lifecycle_owner_cannot_cover_unrelated_genesis_implementation() -> None:
+    module = _load_module()
+    manifest = json.loads(
+        (REPO_ROOT / "scripts/lib/design-routes.json").read_text(encoding="utf-8")
+    )
+    failures = module.missing_doc_updates(
+        {
+            "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py",
+            "docs/roadmap/deployment/lifecycle-configuration.md",
+        },
+        manifest,
+    )
+    assert any(failure[0] == "subscription-genesis-provisioning" for failure in failures)
+
+
 def test_explicit_overlapping_route_doc_satisfies_only_owned_paths() -> None:
     module = _load_module()
     manifest = {

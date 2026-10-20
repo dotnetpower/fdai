@@ -8,9 +8,9 @@ packaged, and delivered to a Lifecycle Hub. It also keeps that configuration sep
 customer identifiers, secrets, policy, and authority. It owns the value classes, the configuration
 layers, and the signed configuration package.
 
-> **Status:** Pure schema, layer and secret-reference validators are implemented, together with a
-> placeholder repository template and key-custody runbook. There is no signed configuration
-> package, sealing or Hub import path. The
+> **Status:** Schema, layer and secret-reference validators, an offline signed package builder and
+> reader, and installation-key sealing are implemented, together with a placeholder repository
+> template and key-custody runbook. Operational key registration and Hub import remain open. The
 > [implementation ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md)
 > tracks delivery.
 >
@@ -132,6 +132,44 @@ A configuration rollback is a revert commit that produces a new revision. An old
 never imported again as the current revision. A break-glass change is reconciled to the approved
 revision when it expires, unless a merged change adopted it.
 
+## Offline package boundary and design review
+
+The deployment CLI library owns the offline package builder and reader. A canonical JSON
+manifest binds the complete existing `schema`, `environment`, and `entity_overrides` document,
+the target Release version, full Git revision, predecessor package digest, installation encryption
+key digest, and sealed identifiers. A detached Ed25519 customer signature covers the exact
+manifest bytes. This container does not replace the existing Hub/Agent configuration input
+contract; importing it and extracting independently verified inputs requires a separate integration.
+
+The reader receives the trusted Release schema and customer verification key from its caller,
+not from the package. The caller also supplies the trusted sealed-key classification, so a package
+cannot reclassify an identifier as public configuration. It validates every layer, including
+nonmatching overrides and defaults,
+before signing or accepting a package. Missing coverage holds packaging. The caller supplies the
+complete previously accepted chain: gaps, competing children, reused revisions, and reordering
+are rejected. Retrying the same revision with identical inputs returns the original signed bytes,
+including the original randomized ciphertext. Durable storage and atomic chain-head updates
+remain the importer's responsibility.
+
+Identifiers use an installation-owned X25519 encryption key, HKDF-SHA256, and authenticated
+AES-256-GCM encryption. The enrollment Ed25519 identity key is a signing key, not an encryption
+key; it is never converted or reused. Enrollment still needs to bind the encryption public key
+to the installation before operational use. Plaintext values are scanned for secret-bearing
+fields before encryption and signing, and package metadata contains only ciphertext and digests.
+
+Design critique and revision (2026-10-21): accepting an embedded schema would let a customer
+mislabel authority keys; the reader therefore requires an independently supplied schema.
+Randomized sealing would otherwise produce multiple packages on retry; verified history and an
+input digest preserve exact retry bytes. Caller-supplied history alone cannot prevent concurrent
+writers, so this offline library makes no durable import or operational delivery claim.
+Equivalent override intervals are ambiguous even when their comparator order differs. Defaults
+cannot bypass the sealed-section boundary.
+
+The implementation is in `fdai_deployment_cli.lifecycle_configuration_package` and
+`fdai_deployment_cli.lifecycle_configuration_sealing`. The existing single-Entity configuration
+document remains unchanged. Multi-Entity installation settings, encryption-key enrollment and
+rotation, a CLI command, Hub persistence, and Agent transport/decryption integration remain open.
+
 ## Secrets
 
 - Secret values never enter Git, configuration packages, the Hub, Plans, logs, or command lines.
@@ -244,10 +282,13 @@ Do not upload readable `sealed.yaml` input or treat an example schema as a trust
 
 ## Honest limits
 
-- Pure validators and the offline template are implemented; operational package delivery is not.
+- The offline builder signs real packages, checks predecessor chains, and encrypts identifiers.
+  Focused tests exercise its reader and installation-local decryption with synthetic in-memory
+  keys; operational package delivery is not implemented.
 - The example schema has annotations, but production Releases don't yet carry a qualified
   configuration-package schema.
-- No packaging, key-registration, sealing or Hub import command exists. The onboarding runbook
+- No packaging, key-registration, sealing or Hub import command exists. Library calls do not
+  register trusted keys or update a durable Hub chain head. The onboarding runbook
   records prerequisites and the required stop condition, not a working registration path.
 - A customer who loses the configuration key can't publish new revisions until a key rotation
   is registered with the Hub.
