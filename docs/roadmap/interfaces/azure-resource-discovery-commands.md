@@ -109,6 +109,21 @@ response closure. Durable shared admission budgets and independently qualified a
 issuers remain separate work under the implementation ledger; this focused correction does not
 complete that integration.
 
+### Normalized-record allocation preflight
+
+The Azure generation collector and source/enrichment collection guard check a conservative JSON
+size before copying a dataclass record or encoding a whole string. The check walks existing
+containers without copying them, accounts for string escaping in at most 1,024-character pieces,
+and stops against the remaining generation allowance. It never truncates an observation.
+The existing JSON encoder remains authoritative for exact byte accounting, including numbers and
+`default=str` values; an exhausted generation cannot regain its allowance after a refusal.
+
+Focused regressions verify refusal before record copying, cumulative budgets, exact existing
+encoding boundaries, and less than 128 KiB of traced incremental allocation when rejecting a
+pre-existing 4 MiB string. This is not process RSS qualification or a general bound on custom
+scalar serialization, projection, or SQL buffers. Those broader guarantees remain separate work.
+No collection, promotion, read, or execution authority changes.
+
 ### Retained-concept assessment boundary
 
 The [retained-concept classification](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md#retained-concept-assessment-2111)

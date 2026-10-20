@@ -21,9 +21,11 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterat
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from functools import partial
+from itertools import chain
 from typing import Final
 
 from fdai.delivery.azure.inventory_redaction import redact_runtime_environment
+from fdai.delivery.inventory_json_budget import inventory_json_exceeds_budget
 from fdai.shared.providers.inventory import (
     UNCLASSIFIED_RESOURCE_TYPE,
     InventoryBatch,
@@ -92,12 +94,19 @@ class _GenerationBudget:
                 "inventory generation capacity exceeded; narrow the collection scope"
             )
         encoder = json.JSONEncoder(ensure_ascii=True, separators=(",", ":"), default=str)
-        records: Iterable[ResourceRecord | LinkRecord | RelationshipDrop] = (
-            *result.resources,
-            *result.links,
-            *result.relationship_drops,
+        records: Iterable[ResourceRecord | LinkRecord | RelationshipDrop] = chain(
+            result.resources,
+            result.links,
+            result.relationship_drops,
         )
         for record in records:
+            if inventory_json_exceeds_budget(
+                record, maximum_bytes=MAX_GENERATION_BYTES - self.encoded_bytes
+            ):
+                self.encoded_bytes = MAX_GENERATION_BYTES + 1
+                raise RuntimeError(
+                    "inventory generation byte capacity exceeded; narrow the collection scope"
+                )
             for chunk in encoder.iterencode(asdict(record)):
                 self.encoded_bytes += len(chunk)
                 if self.encoded_bytes > MAX_GENERATION_BYTES:
