@@ -8,10 +8,16 @@ from typing import Any
 
 import httpx
 import pytest
+from fdai.core.conversation.semantic_reasoning_admission import (
+    AdmissionDisposition,
+    SpanAccounting,
+    admit_question_form,
+)
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_repair import (
     FormRepair,
     _violation,
+    normalize_redundant_property_filter_labels,
     repair_keeps_operands,
 )
 
@@ -153,6 +159,120 @@ def test_operands_survive_only_when_every_quoted_character_stays_declared() -> N
     assert repair_keeps_operands(unlocated, _resolved(widened), utterance=_UTTERANCE)
     assert not repair_keeps_operands(unlocated, single, utterance=_UTTERANCE)
     assert not repair_keeps_operands(_quoted_form(), single, utterance=_UTTERANCE)
+
+
+def test_redundant_property_label_moves_to_context_when_typed_operand_exists() -> None:
+    utterance = "How many type VMs depend on sql-app?"
+    raw = _quoted_form()
+    raw["mentions"].append(
+        {
+            "id": "m3",
+            "form": "concept",
+            "domain": "property",
+            "span": {"text": "type", "occurrence": 1},
+        }
+    )
+    raw["goals"][0]["filters"] = [
+        {"role": "type", "mention": "m3", "cue": {"text": "type", "occurrence": 1}},
+        {"role": "type", "mention": "m2"},
+    ]
+    form = resolve_question_form(raw, utterance=utterance).form
+    assert form is not None
+
+    normalized = normalize_redundant_property_filter_labels(form)
+    admission = admit_question_form(normalized, utterance=utterance)
+
+    assert [item.id for item in normalized.mentions] == ["m1", "m2"]
+    assert [item.mention for item in normalized.goals[0].filters] == ["m2"]
+    assert [utterance[item.start : item.end] for item in normalized.context] == ["type"]
+    assert admission.disposition is AdmissionDisposition.ADMITTED
+
+
+def test_property_label_is_not_removed_without_one_valid_same_role_operand() -> None:
+    utterance = "How many type depend on sql-app?"
+    raw = _quoted_form()
+    raw["mentions"][1] = {
+        "id": "m2",
+        "form": "concept",
+        "domain": "property",
+        "span": {"text": "type", "occurrence": 1},
+    }
+    raw["goals"][0]["filters"] = [{"role": "type", "mention": "m2"}]
+    form = resolve_question_form(raw, utterance=utterance).form
+    assert form is not None
+
+    assert normalize_redundant_property_filter_labels(form) == form
+
+
+def test_korean_property_labels_normalize_by_typed_role_not_phrase_matching() -> None:
+    utterance = "location이 westus2이고 type이 object-storage인 Resource를 모두 보여 줘."
+    raw = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": {"text": "Resource", "occurrence": 1},
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "property",
+                "span": {"text": "type", "occurrence": 1},
+            },
+            {
+                "id": "m3",
+                "form": "value",
+                "domain": "resource_type",
+                "span": {"text": "object-storage", "occurrence": 1},
+            },
+            {
+                "id": "m4",
+                "form": "concept",
+                "domain": "property",
+                "span": {"text": "location", "occurrence": 1},
+            },
+            {
+                "id": "m5",
+                "form": "value",
+                "domain": "region",
+                "span": {"text": "westus2", "occurrence": 1},
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [
+                    {"role": "type", "mention": "m2"},
+                    {"role": "type", "mention": "m3"},
+                    {"role": "region", "mention": "m4"},
+                    {"role": "region", "mention": "m5"},
+                ],
+                "cue": {"text": "모두 보여 줘", "occurrence": 1},
+                "confidence": 0.9,
+            }
+        ],
+    }
+    form = resolve_question_form(raw, utterance=utterance).form
+    assert form is not None
+
+    normalized = normalize_redundant_property_filter_labels(form)
+    admission = admit_question_form(
+        normalized,
+        utterance=utterance,
+        accounting=SpanAccounting(required=False),
+    )
+
+    assert [item.id for item in normalized.mentions] == ["m1", "m3", "m5"]
+    assert [(item.role.value, item.mention) for item in normalized.goals[0].filters] == [
+        ("type", "m3"),
+        ("region", "m5"),
+    ]
+    assert admission.disposition is AdmissionDisposition.ADMITTED
 
 
 def test_goals_operations_times_and_operand_relations_must_survive_a_repair() -> None:
