@@ -4,6 +4,7 @@ import importlib.util
 import sys
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -128,6 +129,8 @@ async def test_evaluation_admission_rejects_other_binding_and_approval():
         runtime_env=None, cases=(), harness=harness, source_revision="0" * 40
     )
     async with http:
+        with pytest.raises(campaign.CampaignAbortedError, match="source revision"):
+            await campaign._activate_evaluation_pointer(reader, source_revision="f" * 40)
         await campaign._activate_evaluation_pointer(reader, source_revision="0" * 40)
         qualification = reader.registry.campaign_admission.qualification
         admission = reader.registry.campaign_admission
@@ -238,3 +241,39 @@ def test_malformed_candidate_result_never_becomes_an_empty_success(value):
     campaign = _module()
     with pytest.raises(ValueError):
         campaign._selected_ids(value)
+
+
+@pytest.mark.parametrize("timeout", [False, True])
+async def test_function_contract_failure_is_unavailable_without_a_semantic_hold(
+    monkeypatch, timeout
+):
+    campaign = _module()
+    harness = await campaign._build_runtime(None, governed_read=True)
+    reader, http = await campaign._reader(
+        runtime_env=None, cases=(), harness=harness, source_revision="0" * 40
+    )
+    handler = (
+        AsyncMock(side_effect=TimeoutError("private function deadline"))
+        if timeout
+        else AsyncMock(return_value=SimpleNamespace(value={}))
+    )
+    monkeypatch.setattr(campaign, "prepared_function_handler", lambda *args: handler)
+    values = {
+        "reader": reader,
+        "harness": harness,
+        "cases": campaign.load_cases()[:1],
+        "live": False,
+        "failures": campaign.AdapterFailureLog(),
+    }
+    async with http:
+        if timeout:
+            with pytest.raises(campaign.CampaignAbortedError) as caught:
+                await campaign.run_campaign(**values)
+            rows = caught.value.rows
+        else:
+            rows = (await campaign.run_campaign(**values))["rows"]
+    assert all(row["outcome"] == "unavailable" for row in rows)
+    assert all(
+        row["failure_reason"] == ("function_timeout" if timeout else "function_contract_invalid")
+        for row in rows
+    )

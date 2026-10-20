@@ -122,7 +122,7 @@ failed, no earlier Sol pin is reused, and no full G03 or production-ready claim 
 | 8 | Membership denials or partial evidence can become candidates. | Existing ACL/completeness checks retained, with distinct denial/incomplete/contract reasons and passing candidate-selection regressions. |
 | 9 | Demotion, replay, expiry or restart can restore authority. | Existing fixed-role, single-use, expiry and rollback tests remain passing; no registry-authority relaxation. |
 | 10 | HTTP 503 or timeout can continue the same attempt. | Repaired: 429/503, adapter timeout and stage deadlines stop with the first partial row. |
-| 11 | A Function failure can pass as a semantic negative. | Repaired: Function-contract failures remain unavailable regardless of expected labels. |
+| 11 | A Function failure can pass as a semantic negative. | Repaired: malformed Function output has a fixed contract reason; other unclassified errors remain unavailable regardless of expected labels. The ordinary composition/Function wrapper is unchanged, so this repair changes no integration seam or shared structure document. |
 | 12 | Evaluation approval or actor text is Owner/promotion evidence. | Rejected: evaluation output explicitly denies independent admission/current Owner authority; ordinary registry activation is refused by the evaluation helper. |
 | 13 | Malformed output can become an empty success. | Repaired: absent/non-list candidates, invalid identities and duplicates raise an explicit failure. |
 | 14 | A returned empty result satisfies a required negative hold. | Repaired: the evaluator emits `negative-case-not-held`; numeric thresholds are unchanged. |
@@ -130,6 +130,27 @@ failed, no earlier Sol pin is reused, and no full G03 or production-ready claim 
 | 16 | Membership or Function deadlines are mislabeled model timeouts. | Separate proposal, membership, Function and whole-stage timeout codes; all stop the attempt. |
 
 This is a bounded diagnostic/evaluation review, not a whole-product Low-only certification.
+
+#### Session 1 local verification
+
+The final source selection passed 163 deterministic cases:
+
+```bash
+python -m pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/catalog_search/test_governed_selection_diagnostics.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_governed_typed_selection_read.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_selection.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_context.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_governed_selection_campaign.py \
+  services/core-control-plane/tests/composition/test_typed_selection_read_composition.py \
+  tests/integration/scripts/test_governed_typed_selection_campaign.py
+```
+
+Separately, the unchanged L01-L04/A01-A04 source/preference/context/retained-Pattern,
+outcome/Release/provider-fence/kill-switch selection passed 220 cases, recorded on #2256.
+Those checks prove neither complete source history nor live current-Owner, intervention, recurrence,
+release-admission or provider-commit evidence. Shared readiness/structure/catalog documents remain
+untouched; session 3 owns serial aggregation. No Console stack or live provider was invoked.
 
 ### Remaining work
 

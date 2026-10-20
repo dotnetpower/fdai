@@ -276,6 +276,8 @@ async def _activate_evaluation_pointer(
     if source_resolver is None:
         raise CampaignAbortedError("governed typed-selection source is unavailable")
     source = await source_resolver(_context("governed-campaign-activation"))
+    if source.binding.source_revision != source_revision:
+        raise CampaignAbortedError("evaluation activation source revision changed")
     now = datetime.now(UTC)
     qualification = ReadQualification(
         binding=source.binding,
@@ -420,7 +422,12 @@ async def run_campaign(
                 outcome = "unavailable"
                 try:
                     result = await prepared_function_handler(functions, context, reader)(node, {})
-                    selected = _selected_ids(cast(Mapping[str, object], result.value))
+                    try:
+                        selected = _selected_ids(cast(Mapping[str, object], result.value))
+                    except ValueError:
+                        raise GovernedReadError(
+                            SelectionFailure.FUNCTION_CONTRACT_INVALID
+                        ) from None
                     outcome = "returned"
                 except GovernedReadError as exc:
                     failure_reason = exc.reason.value
@@ -430,7 +437,7 @@ async def run_campaign(
                         reason = "answer_unavailable"
                 except (PermissionError, RuntimeError, TimeoutError, ValueError) as exc:
                     failure_reason = (
-                        "read_timeout" if isinstance(exc, TimeoutError) else "unclassified"
+                        "function_timeout" if isinstance(exc, TimeoutError) else "unclassified"
                     )
                     reason = "answer_unavailable"
                 adapter_reason, provider_stop = _adapter_failure(failures, failure_counts)
