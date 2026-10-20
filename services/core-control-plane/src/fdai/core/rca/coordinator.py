@@ -19,6 +19,7 @@ hypothesis (or an abstain) that the normal pipeline + risk gate act on.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import replace
 from datetime import datetime, timedelta
 
 # Optional at construction time. The RCA layer must load even if no
@@ -28,6 +29,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from fdai.core.rca.causal_chain import CorrelatedEvent
+from fdai.core.rca.citations import admitted_citations
 from fdai.core.rca.contract import (
     CauseDomain,
     Citation,
@@ -37,7 +39,7 @@ from fdai.core.rca.contract import (
     RootCauseHypothesis,
 )
 from fdai.core.rca.evidence import TelemetryEvidenceGatherer
-from fdai.core.rca.grounding import enforce_grounding
+from fdai.core.rca.grounding import enforce_grounding, valid_confidence
 from fdai.core.rca.knowledge_evidence import KnowledgeEvidenceGatherer
 from fdai.core.rca.reasoner import RcaReasoner
 from fdai.core.rca.t0 import t0_root_cause
@@ -65,7 +67,7 @@ class RcaCoordinator:
         knowledge_gatherer: KnowledgeEvidenceGatherer | None = None,
         governed_knowledge_gatherer: GovernedKnowledgeEvidenceGatherer | None = None,
     ) -> None:
-        if not 0.0 <= min_confidence <= 1.0:
+        if not valid_confidence(min_confidence):
             raise ValueError("min_confidence MUST be in [0, 1]")
         self._reasoner = reasoner
         self._min_confidence = min_confidence
@@ -132,19 +134,22 @@ class RcaCoordinator:
         """Correlation-cause reuse of a prior resolved incident's cause.
 
         Reuses the root cause a prior **resolved** incident identified,
-        but only after re-verifying it still applies: at least one of the
-        prior cause's citations MUST be present in the current incident's
-        evidence, otherwise the learned cause is stale and abstains (a
+        but only after re-verifying it still applies: every prior citation
+        and its exact facts MUST be present in current evidence, otherwise
+        the learned cause is stale and abstains (a
         stale cause is never replayed blindly, per
         observability-and-detection.md section 4). Reuse carries lower
         confidence than a fresh analysis (``reuse_confidence_factor``),
         and the result still passes the grounding gate.
         """
-        if not 0.0 <= reuse_confidence_factor <= 1.0:
+        if not valid_confidence(reuse_confidence_factor):
             raise ValueError("reuse_confidence_factor MUST be in [0, 1]")
-        current_refs = {(c.kind, c.ref) for c in current_citations}
-        still_applies = any((c.kind, c.ref) in current_refs for c in prior_hypothesis.citations)
-        if not still_applies:
+        prior_result = enforce_grounding(prior_hypothesis)
+        if not prior_result.is_grounded:
+            return prior_result
+        current = admitted_citations(current_citations)
+        prior = admitted_citations(prior_hypothesis.citations)
+        if current is None or prior is None or not set(prior).issubset(current):
             return RcaResult(
                 outcome=RcaOutcome.ABSTAINED,
                 hypothesis=None,
@@ -154,9 +159,8 @@ class RcaCoordinator:
             tier=RcaTier.T1,
             cause=prior_hypothesis.cause,
             confidence=prior_hypothesis.confidence * reuse_confidence_factor,
-            citations=prior_hypothesis.citations,
+            citations=prior,
             cause_domain=prior_hypothesis.cause_domain,
-            evidence_refs=prior_hypothesis.evidence_refs,
             remediation_ref=prior_hypothesis.remediation_ref,
         )
         return enforce_grounding(reused, min_confidence=self._min_confidence)
@@ -220,7 +224,13 @@ class RcaCoordinator:
                 hypothesis=None,
                 reason="no_t2_reasoner_configured",
             )
-        candidates = tuple(candidate_citations)
+        candidates = admitted_citations(candidate_citations)
+        if candidates is None:
+            return RcaResult(
+                outcome=RcaOutcome.ABSTAINED,
+                hypothesis=None,
+                reason="invalid_or_missing_rca_evidence",
+            )
         hypothesis = await self._reasoner.reason(
             incident_summary=incident_summary,
             candidate_citations=candidates,
@@ -231,17 +241,32 @@ class RcaCoordinator:
                 hypothesis=None,
                 reason="t2_reasoner_abstained",
             )
-        allowed = {(c.kind, c.ref) for c in candidates}
-        for citation in hypothesis.citations:
-            if (citation.kind, citation.ref) not in allowed:
+        if (
+            hypothesis.tier is not RcaTier.T2
+            or hypothesis.remediation_ref is not None
+            or hypothesis.evidence_refs
+            or hypothesis.causal_chain is not None
+        ):
+            return RcaResult(
+                outcome=RcaOutcome.ABSTAINED,
+                hypothesis=None,
+                reason="invalid_t2_hypothesis_contract",
+            )
+        citations = admitted_citations(hypothesis.citations)
+        if citations is None:
+            return enforce_grounding(hypothesis, min_confidence=self._min_confidence)
+        for citation in citations:
+            if citation not in candidates:
                 # A citation the caller never supplied is treated as
                 # fabricated - refuse rather than trust model text.
                 return RcaResult(
                     outcome=RcaOutcome.ABSTAINED,
                     hypothesis=None,
-                    reason=f"ungrounded_citation_{citation.ref!r}_not_in_evidence",
+                    reason="ungrounded_citation_not_in_evidence",
                 )
-        return enforce_grounding(hypothesis, min_confidence=self._min_confidence)
+        return enforce_grounding(
+            replace(hypothesis, citations=citations), min_confidence=self._min_confidence
+        )
 
     async def analyze_t2_from_telemetry(
         self,
