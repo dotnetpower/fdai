@@ -327,6 +327,7 @@ run_gate_scoped "architecture-review" '^(config/architecture-review\.yaml$|scrip
 # that declare derives_from are checked.
 run_gate_scoped "derived-sources" '^(README(-ko)?\.md$|docs/|scripts/quality/localization/check-derived-sources\.py$)' "${python_runner[@]}" scripts/quality/localization/check-derived-sources.py
 run_gate_scoped "question-bank" '^(console/src/i18n/messages\.(en|ko)\.json$|docs/internals/browser-session-test-prompts-q001-q120\.md$|eval/golden-dataset/|scripts/automation/(build_question_bank|question_bank[^/]*)\.py$)' "${python_runner[@]}" scripts/automation/build_question_bank.py --check
+run_gate_scoped "semantic-intent-coverage" '^(services/|packages/|console/|rule-catalog/|eval/golden-dataset/|scripts/automation/|scripts/verify\.sh$|tests/integration/(evaluation/|scripts/test_semantic_inventory_check\.py$))' "${python_runner[@]}" scripts/automation/build_semantic_intent_coverage.py --check
 
 # Behavior seeds pin the blob of every source they cite, including instruction files that no
 # changed-test selection maps to the seed tests.

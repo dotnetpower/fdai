@@ -369,6 +369,7 @@ def _write_text(path: Path, content: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path.cwd())
+    parser.add_argument("--check", action="store_true")
     parser.add_argument(
         "--output",
         type=Path,
@@ -378,10 +379,18 @@ def main() -> int:
     root = args.root.resolve()
     output = args.output if args.output.is_absolute() else root / args.output
     payload = build_inventory(root)
-    _write_text(
-        output,
-        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-    )
+    content = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    if args.check:
+        if not output.is_file() or output.read_text(encoding="utf-8") != content:
+            print(
+                "semantic-intent-coverage: stale generated artifact; regenerate with "
+                "python scripts/automation/build_semantic_intent_coverage.py",
+                file=sys.stderr,
+            )
+            return 1
+        print("semantic-intent-coverage: OK (generated inventory matches authoritative sources)")
+        return 0
+    _write_text(output, content)
     metrics = payload["coverage_metrics"]
     print(
         "conversation-quality-assurance: "
