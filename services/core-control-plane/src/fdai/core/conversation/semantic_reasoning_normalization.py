@@ -82,7 +82,8 @@ def normalize_redundant_property_filter_labels_with_receipt(
     form = _canonicalize_inverted_type_roles(form)
     mentions = {mention.id: mention for mention in form.mentions}
     removable: dict[str, list[SourceSpan]] = {}
-    syntactic_labels: dict[tuple[int, int], SourceSpan] = {}
+    cue_labels = _typed_filter_cue_labels(form)
+    syntactic_labels = dict(cue_labels)
     revised_goals: list[FormGoal] = []
     for goal in form.goals:
         allowed_by_role = {
@@ -142,13 +143,13 @@ def normalize_redundant_property_filter_labels_with_receipt(
             filters.append(item)
         revised_goals.append(goal.model_copy(update={"filters": tuple(filters)}))
     if not removable:
-        return FormNormalization(form)
+        return FormNormalization(form, tuple(cue_labels.values()))
     context_by_span = {(span.start, span.end): span for span in form.context}
     for spans in removable.values():
         for span in spans:
             context_by_span.setdefault((span.start, span.end), span)
     if len(context_by_span) > 32:
-        return FormNormalization(form)
+        return FormNormalization(form, tuple(cue_labels.values()))
     return FormNormalization(
         form.model_copy(
             update={
@@ -159,6 +160,32 @@ def normalize_redundant_property_filter_labels_with_receipt(
         ),
         tuple(syntactic_labels.values()),
     )
+
+
+def _typed_filter_cue_labels(
+    form: SemanticQuestionForm,
+) -> dict[tuple[int, int], SourceSpan]:
+    """Return non-mention cue spans attached to domain-valid typed filters."""
+
+    typed_mentions = {mention.id: mention for mention in form.mentions}
+    labels: dict[tuple[int, int], SourceSpan] = {}
+    for goal in form.goals:
+        for item in goal.filters:
+            cue = item.cue
+            mention = typed_mentions[item.mention]
+            if (
+                cue is None
+                or mention.domain
+                not in allowed_filter_domains(item.role, schema=goal.level is GoalLevel.SCHEMA)
+                or any(_overlaps(cue, candidate.span) for candidate in form.mentions)
+            ):
+                continue
+            labels.setdefault((cue.start, cue.end), cue)
+    return labels
+
+
+def _overlaps(left: SourceSpan, right: SourceSpan) -> bool:
+    return left.start < right.end and right.start < left.end
 
 
 def _canonicalize_inverted_type_roles(form: SemanticQuestionForm) -> SemanticQuestionForm:

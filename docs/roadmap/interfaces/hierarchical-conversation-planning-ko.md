@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 65d8dfd0a045eadf9386b50b32d739ae9b4735b9
+translation_source_sha: 3b7a2f4e777a81b29bf48ec2a281bfecea58d72e
 translation_revised: 2026-10-20
 ---
 
@@ -155,8 +155,7 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 
 온톨로지 상태가 없거나 운영 카탈로그가 잘못되어도 독립적으로 유효한 일반 설명 서비스를 사용할 수 있습니다.
 근거 조회가 성공했더라도 검토자가 생략하거나 지지하지 않은 설명을 뒷받침하지는 않습니다. 해당 목표에는 제한 사유를 표시하고, 지지된 일반 지식은 유지합니다. 원시 근거를 대신 표시할 때는 Markdown 구분자도 출력 길이에 포함합니다.
-통제된 처리 경로에 요청을 넘길 때 모델 관측값을 보존하되 중복 집계하지 않습니다.
-검토자가 목표를 모두 다뤘다고 평가했더라도 미해결 지적이 있으면 품질은 미완료로 남습니다. 목표를 다뤘다는 이유만으로 허용된 보강을 생략하지 않습니다.
+통제된 처리 경로에 요청을 넘길 때 모델 관측값을 보존하되 중복 집계하지 않습니다. 검토자가 목표를 모두 다뤘다고 평가했더라도 미해결 지적이 있으면 품질은 미완료로 남습니다. 목표를 다뤘다는 이유만으로 허용된 보강을 생략하지 않습니다.
 적응형 계획이 `legacy` 경로로, 작업 요청 없이 의미 해석 경로에 되돌려 준 조회는 일반 의미 해석 턴입니다. 이 조회는 적응형 5회 호출 상한 대신 해당 경로 자체의 단계별 한도와 턴의 남은 기한을 따릅니다. 그렇지 않으면 사전 판정, 판단 수정, 프레임, 계획에 4회만 남아 예산 소진으로 보류되었습니다.
 통제된 작업 처리 경로와 그 설명은 공유 한도를 그대로 따릅니다. 적응형 답변은 그 앞에서 실행한 라우팅 사전 판정 호출도 기록하므로, 턴의 모델 추적에 모든 호출이 나타납니다.
 
@@ -166,7 +165,7 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| typed-filter 구조 정규화 및 지침 | implemented | `semantic_reasoning_normalization.py`, `semantic_reasoning_repair.py`, `semantic_reasoning_review.py`, `semantic_reasoning_review_repair.py`, `semantic_reasoning_shadow.py`, `semantic-question-form-azure-resources.v1.yaml`, 영어 및 정확한 한국어 구조 회귀, 인증된 Browser Entra 재현 | 닫힌 조건식은 중복 라벨, 분리된 operand, 격리된 ObjectType/ResourceType 역전 한 건을 정규화합니다. 활성 question-form pack은 `type`과 `location` 필드 라벨을 mention이 아닌 cue/context로, 해당 값을 `resource_type`과 `region`으로 읽고 Resource를 subject로 유지하도록 모델에 지시합니다. 프로필은 측정된 16,452-token prompt에 대해 보수적 system token 16,640개를 예약합니다. Blind review는 라벨이 아닌 모든 역할을 계속 완전하게 검토하며, runtime 어휘 의미나 권한을 추가하지 않습니다. |
+| typed-filter 구조 정규화 및 지침 | implemented | `semantic_reasoning_normalization.py`, `semantic_reasoning_repair.py`, `semantic_reasoning_review.py`, `semantic_reasoning_review_repair.py`, `semantic_reasoning_shadow.py`, `semantic-question-form-azure-resources.v1.yaml`, 영어 및 정확한 한국어 구조 회귀, 인증된 Browser Entra 재현 | 닫힌 조건식은 중복 라벨, 분리된 operand, 격리된 ObjectType/ResourceType 역전 한 건을 정규화합니다. 활성 pack은 `type`과 `location` 라벨을 해당 filter cue에 두고 값을 `resource_type`과 `region`으로 읽으며 Resource를 subject로 유지하도록 지시합니다. Core는 domain-valid typed filter cue가 mention과 전혀 겹치지 않을 때만 names-only receipt를 발급합니다. 프로필은 보수적 system token 16,640개를 예약합니다. Blind review는 라벨이 아닌 모든 역할을 계속 완전하게 검토하며, runtime 어휘 의미나 권한을 추가하지 않습니다. |
 | 스키마 범위 사전 라우팅 및 Resource 하위 유형 라우팅 | validated | `conversation-preflight-schema-scope.v2.yaml`, 활성 사전 판정 및 판단 프로필 v5, [`semantic_catalog_value_mentions.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_catalog_value_mentions.py), [`semantic_manifest_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_manifest_planning.py), [`semantic_target_candidate_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_target_candidate_planning.py), [`semantic_ontology_answers.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_ontology_answers.py), 집중 계약·계획·처리기·프롬프트·로그 수집·운영 연결 검사 | 제한된 실제 T1 비교는 기준선 5건 중 3건, 수정본 6건 모두를 올바르게 분류했습니다. 버전 2는 현재 Resource 하위 유형, 범주 및 제품 약어 목록을 `resource_collection` 조회로 유지합니다. 발화의 카탈로그 `Resource.type` 구간은 후보 근거로 전달되며, 설명되지 않은 대상 없는 스키마 제안은 명확화를 반환합니다. 맥락 목록은 보조 의도, 상태 또는 이름 조각을 누락할 수 없고 매니페스트 목록은 읽을 수 있는 이름을 표시하거나 안전하게 실패합니다. 재시작 후 인증된 로컬 Browser Entra 턴에서 수정된 Console 답변을 확인했지만 모든 조회 형태를 인증하지는 않습니다. |
 | 적응형 설명과 검증된 예시 | implemented | `adaptive-plan.v4.yaml`, `adaptive-answer.v2.yaml`, `adaptive-review.v2.yaml`, 집중 프롬프트 및 런타임 검사, 인증된 Browser Entra 비교 턴 | 일반 지식과 운영이 섞인 목표, 고정 역할 프롬프트, 만료되는 담당 관계 증명, 독립 검토, 제한된 보강 및 재실행 후 표현을 연결했습니다. 순수 일반 지식은 이러한 다단계 작업을 우회합니다. |
 | One-shot 일반 지식 | validated | `conversation-preflight.v6.yaml`, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 집중 검사, 10개 관점의 독립 검토, 인증된 한국어 Browser Entra 턴 | 신뢰도가 높고 현재 입력 및 프로필에 결합된 preflight 호출 한 번이 분류와 범위가 제한된 답변 작성을 함께 수행합니다. 준비 완료 후 UI 변형 질문은 각각 3.321초, 4.210초, 4.319초, 4.691초에 완료됐고 `narrator-gpt-5-4-mini`를 한 번씩만 호출했습니다. 계획, Adaptive 답변, 검토, 보강, 검증, T2, 온톨로지 또는 프로바이더 읽기는 수행하지 않았으며 권한 없는 제한 품질을 표시했습니다. |
@@ -189,6 +188,7 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-20 | implemented | 정확한 #2307 trace는 올바른 typed form과 compiled goal을 만들었지만 blind review가 필드 라벨 cue 두 개를 다루지 않은 이름으로 판단했습니다. 이제 Core는 domain-valid typed filter cue가 mention과 전혀 겹치지 않을 때만 names-only receipt를 발급하고, 활성 prompt는 field label을 context가 아닌 filter cue에 두도록 요구합니다. | `current change`, #2307, content-free dev-discuss form shape와 `review_uncovered:names` 사유 두 개, 정확한 cue positive와 mention-overlap negative, prompt composition 계약, 정규화 coverage 98.91% | filter-cue receipt를 게시하고 정확한 병합 소스로 다시 시작한 뒤 한국어 positive 재시도를 한 번 실행합니다. 다른 공백이 남으면 다시 중단합니다. |
 | 2026-10-20 | implemented | 정확한 #2306 trace는 typed resource operand를 만들지 않고 `type`과 `location`을 PROPERTY/INSTANCE value로 선언해 `filter_domain`, `operand_dropped`, 미사용 mention을 남겼습니다. 이제 활성 Azure question-form pack이 field-label/value 계약을 직접 명시합니다. 보수적 추정값은 16,452 token이며 gate를 우회하지 않고 프로필의 명시적 예약량을 256 늘려 16,640으로 설정했습니다. | `current change`, #2306, content-free dev-discuss form shape, 활성 prompt 조립 계약, prompt registry·budget·assembly·masking 테스트 330개 | prompt 수정을 게시하고 정확한 병합 소스로 다시 시작한 뒤 한국어 positive 재시도를 한 번 실행합니다. 다른 model-form 공백이 나타나면 캠페인을 중단합니다. |
 | 2026-10-20 | implemented | 정확한 #2305 trace에서 blind review는 faithful이 됐지만 form이 `resource_type` mention을 컬렉션 subject, 일반 `object_type` mention을 type filter에 배치해 개념 근거화가 보류됐습니다. 이제 Core는 다른 참조가 없는 이 두 역할의 conjunction만 더 넓은 subject와 더 좁은 filter의 정규 순서로 교환합니다. | `current change`, #2305, content-free dev-discuss form shape와 `concept_disagreement:object_type`, 정확한 한국어 positive와 multi-goal·경쟁 참조·relation·measure negative, 정규화 branch coverage 98.78% | type-role 정규화를 게시하고 정확한 병합 소스로 다시 시작한 뒤 한국어 positive 재시도를 한 번 실행합니다. 근거화나 검토에서 다른 공백이 나타나면 다시 중단합니다. |
 | 2026-10-20 | implemented | 정확한 #2304 trace의 최종 form은 region, resource-type, Resource mention과 타입이 지정된 region/type 필터를 올바르게 보유했지만 review는 다루지 않은 `names` 제약 두 개를 계속 찾았습니다. 검토 복구가 context를 생략하면서 이전 정규화 receipt가 폐기된 것이 원인이었습니다. 이제 operand와 타입 판독 보존 검사를 통과한 제안 및 검토 복구는 이전 라벨 receipt를 유지합니다. | `current change`, #2304, 최종 form shape와 `review_uncovered:names` 사유 두 개를 보존한 content-free dev-discuss trace, 검토 복구 context 생략 회귀, semantic-reasoning coverage gate | receipt 유지 수정을 게시하고 정확한 병합 소스로 다시 시작한 뒤 한국어 positive 재시도를 한 번 실행합니다. 독립 검토가 다른 미모델링 불일치를 찾으면 다시 중단합니다. |
