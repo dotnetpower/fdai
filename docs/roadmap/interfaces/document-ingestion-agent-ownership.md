@@ -12,6 +12,8 @@ agent-driven control loop used for every other event.
 The [declared-intent projection](../rules-and-detection/document-declared-intent-projection.md)
 adds an exact-diff approval lane to normal worker and Core bootstrap. Indexing approval still grants
 no graph-write authority.
+Prior-policy author, requester, and reviewer equality uses canonical principal identity before
+approval. Case or surrounding-space variants never create an independent reviewer.
 
 An upload is an `Event`. Authority-bearing stages emit or consume typed logical objects multiplexed
 over `fdai.pantheon.objects`; `fdai.pipeline.stages` carries operational activity only. No worker or
