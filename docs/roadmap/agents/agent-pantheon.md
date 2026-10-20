@@ -241,6 +241,19 @@ Only explicit `incident_correlation=correlate` candidates with correlation, evid
 Hook failure increments a behavior counter and retains the bounded window for retry; accepted and policy-held outcomes have separate counters. Production composition rehydrates the registry and binds the enabled hook; Operator never impersonates Heimdall.
 
 Huginn owns real-time resource discovery and normalized `Change` records. Azure create/update/delete signals enter canonical Event Hubs Kafka ingress and become normalized, deduplicated, correlated `Event` records. Durable deduplication uses an exact-capacity journal split across at most 64 deterministic shards; startup migrates and compacts the legacy single-row journal through revision CAS without changing leases, retry payloads, or the event bus's at-least-once acceptance/checkpoint boundary. Routine claim creation and publication are authority-free delivery checkpoints and do not duplicate each event in the audit chain; lease recovery and legacy migration remain audited. IaC plans, release requests, and provider activity with authoritative event time also produce `object.change`; Muninn retains immutable content-addressed revisions for decision context.
+
+Raw request identity excludes only the top-level `ingested_at` receipt clock that Huginn
+overwrites. Source event times, nested payload timestamps, scope, content, and authority fields
+still participate in collision checks, including within one running process. Pending retries
+retain their original normalized receipt time. An old digest upgrades through audited revision
+CAS only after an exact original request matches it; a changed legacy request stays held.
+
+Huginn maintenance separately redrives at most eight already-admitted inventory outbox claims.
+It reacquires their leases and uses the retained normalized payload, digest, original clocks,
+and per-topic publication markers, without reconstructing raw input. Only inventory observation
+families with Huginn ownership and `incident_correlation: none` qualify. Missing projection or
+bus bindings hold recovery; operator requests, approvals and execution traffic are excluded.
+Completion follows actual typed publication and remains safe to retry after interruption.
 The causal `object.event` carries the same normalized Change evidence, avoiding cross-topic arrival-order dependencies. Before ordinary rule judgment, Forseti performs bounded planned-change impact analysis and retains the assessment in Verdict and DecisionCase evidence. Missing, stale, failed, or review-required assessment forces human approval.
 Observed changes remain context only; runtime supplies no graph-freshness authority to auto-clear planned changes. Freshness requires an explicit string source, timestamp, and integer maximum age; malformed values, including boolean ages, fail closed to human approval.
 Ordinary Verdicts and arbitration DecisionCases use the same typed freshness evidence, so arbitration cannot recover authority removed by the context ceiling. This projection grants no action authority.
@@ -337,6 +350,14 @@ Missing readers, truncated or forked history and inconsistent checkpoints hold w
 audit evidence. Longer legacy histories require a separately reviewed migration, not an invented
 head. New replicas share committed revisions after migration; mixed-version rolling writes and
 deployed migration acceptance are not established by local checks.
+
+The explicit [audit recovery procedure](../../runbooks/pantheon-audit-recovery.md) verifies up to
+50,000 Saga records and 64 MiB of source JSON under a 30-second deadline. The existing legacy
+checkpoint selects the sole chain and its unique descendants; all other independently rooted
+histories remain in the audit log. Corruption, missing ancestry, selected-chain forks, and plan
+drift block recovery. A digest-pinned application locks the checkpoint and shared audit append
+in normal order, then atomically records the v2 checkpoint and an attributed migration receipt.
+It neither resets evidence nor replays authority-bearing messages.
 
 Standard Core keeps the StateStore issue adapter by default. An explicit
 `FDAI_SAGA_GITHUB_ISSUES_ENABLED` selection can instead compose Saga with a GitHub App adapter

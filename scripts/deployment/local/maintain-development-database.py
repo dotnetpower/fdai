@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bound loopback development database growth through whole-database recreation."""
+"""Check loopback database bounds and require explicit permission for recreation."""
 
 from __future__ import annotations
 
@@ -77,6 +77,11 @@ def _parser() -> argparse.ArgumentParser:
         "--restore-preserved-state",
         type=Path,
         help="restore private durable local state after migrations complete",
+    )
+    mode.add_argument(
+        "--allow-recreate",
+        action="store_true",
+        help="explicitly discard the disposable local database generation when over its bound",
     )
     parser.add_argument(
         "--recreated-marker",
@@ -253,6 +258,15 @@ def main() -> int:
             return 0
         if args.check:
             print(f"local database recreation required: {current} > {maximum}")
+            return 3
+        if not args.allow_recreate:
+            print(
+                f"local database exceeds its size bound: {current} > {maximum}; "
+                "automatic recreation refused and existing data preserved. "
+                "Review backup and history requirements before explicitly running "
+                "prepare-console-state.sh --allow-recreate.",
+                file=sys.stderr,
+            )
             return 3
         active = connection.execute(
             "SELECT COUNT(*) FROM pg_stat_activity WHERE datname=%s",

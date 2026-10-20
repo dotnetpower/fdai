@@ -103,7 +103,31 @@ start static design mocks or fixture applications.
 
 The task-backed `console: start full stack` supervisor additionally starts Manual Studio and the continuous inventory reconciliation and observation campaign modes from the Core distribution. Its managed preparation command defers authoritative inventory refresh to that reconciliation process, allowing the frontend and service processes to start while inventory collection runs. When preparation has completed but the compound does not attach the supervisor, the visible `console: start local services` task starts the same prepared service set without repeating preparation. Local readiness and the 10-minute watchdog include all three processes plus the active-scope inventory coverage fence, so a stopped help library, stopped inventory producer, or checkpoint that does not match the active generation and exact scope set keeps the stack unavailable. Newer pending observations lower answer completeness but do not make a continuously collecting process unready. The startup supervisor gives generation recovery and graph projection a bounded 180-second readiness window before it reports failure and stops its child processes. Standalone preparation keeps the synchronous authoritative inventory stage and reuses it only when that same checkpoint check passes; unchanged files cannot hide a stale database generation.
 
-The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning service role, and local event transport uses Redpanda on `127.0.0.1:19092`. Console preparation bounds disposable development history at 1 GiB by default. When the loopback `fdai` database exceeds `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`, restart first stops the verified same-checkout supervisor, preparation rejects cache reuse, and the entire database plus dedicated local broker generation is recreated before applying the canonical legacy and service migrations. Before that recreation, preparation atomically retains at most 200 Code Security repository registrations in a private local file. After every migration completes, it validates and restores those registrations with new hash-chained audit entries, then removes the private file and reset marker. A conflict, malformed file, partial migration, broker reset failure, or restore failure keeps startup blocked and leaves the private recovery input in place. Reviews, scan requests, worker claims, and other disposable evidence are not carried into the new generation. Redpanda defaults every local topic to 24-hour and 256 MiB per-partition retention; inactive consumer-group offsets use the same 24-hour horizon with a one-minute cleanup check, while the startup probe topic remains stricter. Preparation refuses remote, alternate-port, alternate-database, active-connection, active-consumer, foreign-supervisor, and nonlocal Docker targets. Local readiness also rejects a measured primary Core lag above 1,000 records. This development-only generation reset never truncates one audit or observation family independently; deployed evidence remains subject to verified archive, restore, retention, hold, and purge policy.
+The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local
+state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning service role, and local event
+transport uses Redpanda on `127.0.0.1:19092`. Console preparation checks a 1 GiB development
+database bound by default. Exceeding `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES` blocks preparation
+with an actionable message and preserves the existing database and broker. An ordinary start
+or restart never authorizes deletion.
+
+Only an explicit `prepare-console-state.sh --allow-recreate` request permits discarding that
+disposable local generation after services stop and backup/history requirements are reviewed.
+The entire database and dedicated broker generation are then recreated before the canonical
+legacy and service migrations. Preparation retains at most 200 Code Security repository
+registrations in a private bounded file and restores them with fresh hash-chained audit entries
+after all migrations succeed. That file is not a full database backup: Incidents, historical
+audit, requests, claims, and other operational evidence do not survive an explicitly selected
+reset. Without an independent backup, their disappearance is data loss, not successful recovery.
+
+A conflict, malformed recovery file, partial migration, broker reset failure, or restore failure
+blocks startup and retains the private recovery inputs. Redpanda defaults every local topic to
+24-hour and 256 MiB per-partition retention; inactive consumer-group offsets use the same 24-hour
+horizon with a one-minute cleanup check, while the startup probe topic remains stricter.
+Preparation refuses remote, alternate-port, alternate-database, active-connection,
+active-consumer, foreign-supervisor, and nonlocal Docker targets. Local readiness rejects measured
+primary Core lag above 1,000 records. Explicit development generation reset never truncates one
+audit or observation family independently; deployed evidence remains subject to verified archive,
+restore, retention, hold, and purge policy.
 The first `db-integration` shard follows the same local-only database boundary. Its job environment
 declares both the root and service-owned DSNs against the loopback PostgreSQL service container.
 After creating `fdai_services`, the preparation step publishes that DSN as the default

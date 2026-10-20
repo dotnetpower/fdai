@@ -607,7 +607,11 @@ def test_root_package_installations_do_not_inherit_the_runtime_only_home() -> No
 
     for stage_name in ("prover", "analysis-managed-runtime"):
         stage = source.split(f" AS {stage_name}\n", 1)[1].split("\nFROM ", 1)[0]
-        assert "RUN HOME=/root timeout --signal=TERM --kill-after=10 180s tdnf install -y" in stage
+        clean = "RUN HOME=/root timeout --signal=TERM --kill-after=10 180s tdnf clean all"
+        install = "&& HOME=/root timeout --signal=TERM --kill-after=10 180s tdnf install -y"
+        assert clean in stage
+        assert install in stage
+        assert stage.index(clean) < stage.index(install)
         assert 'test "$(rpm -q msopenjdk-21)" = "msopenjdk-21-21.0.12.1-1.x86_64"' in stage
         assert "sha256sum -c /tmp/jdk-content.sha256" in stage
         assert "\nENV HOME=/root" not in stage

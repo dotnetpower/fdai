@@ -6,6 +6,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -50,10 +51,78 @@ def test_max_bytes_defaults_to_one_gibibyte_and_rejects_unsafe_floor() -> None:
         _MODULE._max_bytes(str(64 * 1024 * 1024 - 1))
 
 
+@pytest.mark.parametrize("arguments", [[], ["--check"]])
+def test_over_limit_never_recreates_without_explicit_permission(monkeypatch, capsys, arguments):
+    statements = []
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_arguments):
+            return False
+
+        def execute(self, query, parameters=()):
+            statements.append(str(query))
+            assert query == "SELECT pg_database_size(%s)"
+            return SimpleNamespace(fetchone=lambda: (2 * 1024 * 1024 * 1024,))
+
+    monkeypatch.setattr(_MODULE.psycopg, "connect", lambda *_args, **_kwargs: Connection())
+    monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://fdai@127.0.0.1:5432/fdai")
+    monkeypatch.delenv("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES", raising=False)
+    monkeypatch.setattr(sys, "argv", [str(_PATH), *arguments])
+    assert _MODULE.main() == 3
+    assert statements == ["SELECT pg_database_size(%s)"]
+    if not arguments:
+        assert "existing data preserved" in capsys.readouterr().err
+
+
+def test_recreation_requires_an_explicit_cli_mode():
+    assert _MODULE._parser().parse_args([]).allow_recreate is False
+    assert _MODULE._parser().parse_args(["--allow-recreate"]).allow_recreate is True
+    with pytest.raises(SystemExit):
+        _MODULE._parser().parse_args(["--check", "--allow-recreate"])
+
+
+@pytest.mark.parametrize("active_connections", [0, 1])
+def test_explicit_recreation_keeps_active_connection_guard(monkeypatch, active_connections):
+    statements = []
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_arguments):
+            return False
+
+        def execute(self, query, parameters=()):
+            rendered = query if isinstance(query, str) else query.as_string()
+            statements.append(rendered)
+            result = (
+                2 * 1024 * 1024 * 1024 if "pg_database_size" in rendered else active_connections
+            )
+            return SimpleNamespace(fetchone=lambda: (result,))
+
+    monkeypatch.setattr(_MODULE.psycopg, "connect", lambda *_args, **_kwargs: Connection())
+    monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://fdai@127.0.0.1:5432/fdai")
+    monkeypatch.delenv("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES", raising=False)
+    monkeypatch.setattr(sys, "argv", [str(_PATH), "--allow-recreate"])
+    if active_connections:
+        with pytest.raises(RuntimeError, match="stop local services"):
+            _MODULE.main()
+        assert not any(statement.startswith("DROP") for statement in statements)
+    else:
+        assert _MODULE.main() == 0
+        assert statements[-2:] == ['DROP DATABASE "fdai"', 'CREATE DATABASE "fdai" OWNER "fdai"']
+
+
 def test_console_state_preparation_checks_and_applies_database_maintenance() -> None:
     source = _PREPARE.read_text(encoding="utf-8")
 
     assert source.count("maintain-development-database.py") == 3
+    assert "maintenance_args=()" in source
+    assert "maintenance_args+=(--allow-recreate)" in source
+    assert '"${maintenance_args[@]}"' in source
     assert 'maintain-development-database.py" --check' in source
     assert '--recreated-marker "$database_recreated_marker"' in source
     assert '--preserved-state "$preserved_state"' in source

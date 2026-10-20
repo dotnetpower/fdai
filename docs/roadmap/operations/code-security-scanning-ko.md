@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: b4adb6cb9f70fdbc6927b8fcdec4108136ba40ae
-translation_revised: 2026-10-20
+translation_source_sha: 49b8a71e96d1db9bda82e61cb71284f920ce5212
+translation_revised: 2026-10-21
 ---
 
 # 코드 보안 스캔
@@ -183,6 +183,10 @@ CPython 3.13.16은 인증된 상위 프로젝트 소스 체크섬을 유지하�
 라이브러리에 연결해 빌드합니다. 컴파일, 설치, 바이트코드 작업자 수에는 한도가 적용됩니다.
 이전 스캐너 이미지에서 애플리케이션을 복사하지 않고 현재 소스와 고정된 잠금 파일로 다시
 빌드합니다. 사용하지 않는 pip 설치 도구는 배포하지 않습니다.
+도구 체인을 root 권한으로 설치하기 전에 상속된 패키지 메타데이터를 정리합니다. 따라서
+캐시된 이미지 계층의 이전 저장소 인덱스와 새 서명이 섞이지 않습니다. 서명 검사, 정확한
+RPM 식별값, 고정된 JDK 바이너리 체크섬 검증은 유지하며, 런타임 `HOME`과 사용자 신원은
+바꾸지 않습니다.
 이 파일은 세 대상을 빌드합니다.
 
 - **`runtime`(기본):** 모든 스캐너와 Python 입증 레인을 담습니다.
