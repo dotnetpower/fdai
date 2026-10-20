@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: cb195d54ec3fd2471d997cd318695a9245c1a9b6
-translation_revised: 2026-10-19
+translation_source_sha: 6cbdd8830b6f31faa0898a1a58cf3e3716880004
+translation_revised: 2026-10-21
 ---
 
 # 설치형 배포 CLI
@@ -24,6 +24,7 @@ Host에서 실행됩니다.
 | 항목 | 결정 |
 |------|------|
 | 운영자 명령 | `fdaictl provision azure` |
+| 로컬 구성 산출물 | `fdaictl configuration build`와 `fdaictl configuration verify`. Azure 로그인이나 배포는 하지 않습니다 |
 | 소스 checkout 명령 | `scripts/deployment/azure/fdai-up.sh` |
 | 인프라 엔진 | 선택한 서명 프로필 폐쇄 집합의 Terraform |
 | 대상 선택 | 활성 대화형 Azure CLI 사용자 |
@@ -35,6 +36,18 @@ Host에서 실행됩니다.
 | GitHub 의존성 | 대상 환경 배포에는 없음 |
 
 GitHub Actions는 소스를 검증하고 이미지를 빌드하며 선택적으로 서명된 release를 게시할 수 있지만, 게시는 배포 검증의 필수 조건이 아닙니다. GitHub Actions는 대상 환경을 계획, 적용, 재개 또는 제거할 수 없습니다. 읽기 전용 [관측 산출물 사전 점검](../architecture/aks-outbound-connector-ko.md#산출물-사전-점검)은 정확한 Core 이미지에 같은 고정 신뢰 루트의 오프라인 키트·OCI 검증기를 재사용하며, 제한된 프로세스 결과로 새 release 신뢰나 승인·설치 권한을 만들지 않습니다. 같은 키트는 경로, profile id, source timestamp, 파일 digest 및 전체 manifest digest에 결속된 선택적 기본 Rule 활성화 profile도 포함할 수 있습니다. 준비 단계는 결정론적 Core 환경 바인딩만 출력하며 세대를 적용하거나 대상 환경 workload를 배포하지 않습니다.
+
+## 로컬 구성 산출물
+
+`fdaictl configuration build` 또는 `fdaictl configuration verify`로 로컬 서명 구성 패키지를
+생성하거나 검증할 수 있습니다. 이 명령에는 명시적인 비공개 입력 파일, 독립적으로 제공된
+Release/스키마와 검증 키 입력, 설치 공개 키, 수락한 체인의 명시적인 기준이 필요합니다.
+성공 결과에는 digest와 로컬 전용 처리 결과만 포함되며, 구성 값이나 비공개 키는 포함되지 않습니다.
+
+이 명령 그룹은 프로비저닝, 서명자 신뢰 등록, Release 적격성 확인, Hub 가져오기, Agent 복호화
+활성화를 수행하지 않으며 배포 권한도 부여하지 않습니다. 이 명령을 사용할 수 있다고 해서
+Hub 관리형 설치 경로를 사용할 수 있는 것은 아닙니다. 명령 인자, 파일 권한, 검증 방법과
+남은 구현 범위는 [수명 주기 구성](lifecycle-configuration-ko.md)을 참조하세요.
 
 ## 연결된 소스 배포
 

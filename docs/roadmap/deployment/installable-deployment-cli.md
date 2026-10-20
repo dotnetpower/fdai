@@ -21,6 +21,7 @@ inside the target virtual network.
 | Concern | Decision |
 |---------|----------|
 | Operator command | `fdaictl provision azure` |
+| Local configuration artifacts | `fdaictl configuration build` and `fdaictl configuration verify`; no Azure sign-in or deployment |
 | Source-checkout command | `scripts/deployment/azure/fdai-up.sh` |
 | Infrastructure engine | Terraform from the selected signed profile closure |
 | Target selection | Active interactive Azure CLI user |
@@ -32,6 +33,19 @@ inside the target virtual network.
 | GitHub dependency | None for tenant deployment |
 
 GitHub Actions may validate source, build images, and optionally publish signed releases; publication is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment. The read-only [observer artifact preflight](../architecture/aks-outbound-connector.md#artifact-preflight) reuses the same pinned-root offline kit and OCI verifier for an exact Core image; its bounded process result creates no new release trust, approval or installation authority. The kit may also bind one optional default Rule activation profile by path, id, source timestamp, file digest, and complete-kit manifest digest. Preparation emits deterministic Core environment bindings only; it neither applies a generation nor deploys a tenant workload.
+
+## Local configuration artifacts
+
+Use `fdaictl configuration build` or `fdaictl configuration verify` for a local signed
+configuration package. These commands require explicit private input files, independently supplied
+Release/schema and verification-key inputs, an installation public key, and an explicit accepted
+chain boundary. Successful output contains digests and the local-only result, not configuration
+values or private keys.
+
+This command group does not run provisioning, register signer trust, qualify a Release, import
+into the Hub, activate Agent decryption, or grant deployment authority. Its availability does not
+make the Hub-managed installation path available. See [Lifecycle Configuration](lifecycle-configuration.md)
+for command arguments, file permissions, verification, and remaining implementation scope.
 
 ## Connected source deployment
 
