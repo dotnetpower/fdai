@@ -9,7 +9,8 @@ customer identifiers, secrets, policy, and authority. It owns the value classes,
 layers, and the signed configuration package.
 
 > **Status:** Schema, layer and secret-reference validators, an offline signed package builder and
-> reader, a local packaging/verification CLI, and installation-key sealing are implemented, together with a placeholder repository
+> reader, a local single/multi-Entity packaging/verification CLI, installation-key sealing and
+> explicit in-memory Hub planning consumption are implemented, together with a placeholder repository
 > template and key-custody runbook. Operational key registration and Hub import remain open. The
 > [implementation ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md)
 > tracks delivery.
@@ -192,8 +193,54 @@ cannot bypass the sealed-section boundary.
 
 The implementation is in `fdai_deployment_cli.lifecycle_configuration_package` and
 `fdai_deployment_cli.lifecycle_configuration_sealing`. The existing single-Entity configuration
-document remains unchanged. Multi-Entity installation settings, encryption-key enrollment and
-rotation, Hub persistence, and Agent transport/decryption integration remain open.
+document remains unchanged. The full multi-Entity source path is defined below. Encryption-key
+enrollment and rotation, atomic Hub persistence, and Agent transport/decryption integration remain open.
+
+### Full multi-Entity revision design and critique
+
+The authority-neutral `fdai.lifecycle-configuration-package.v2` format keeps the v1 signed
+envelope fields and cryptography and adds the exact `release_digest` of the Release manifest.
+Its `configuration` contains `schema`, `environment`, and
+an `entities` array. Each entry has exactly `entity_id` and `entity_overrides`. Entries are
+sorted by `entity_id`; duplicates and noncanonical ordering are not accepted. The existing
+`entity_id` vocabulary carries an opaque 64-character lowercase hexadecimal binding supplied
+independently by the installation, never a customer name, resource ID or hash of a customer name.
+This binding identifies configuration; it proves neither ownership nor permission.
+
+Each selected Entity independently resolves the same exact Release schema and Environment Config
+with its own most-specific override. Missing coverage, ambiguous intervals or an unknown key in
+any block blocks the whole revision. Common sealed inputs are overlaid only by that Entity's
+sealed inputs. Every resulting identifier map has exactly the independently classified sealed
+keys. One authenticated encrypted object maps opaque Entity bindings to their complete identifier
+maps. The customer signature and encryption context cover the entire revision and Entity mapping.
+
+**Critique and revision (2026-10-21):** A signed list alone cannot prove completeness, and a
+valid child package could otherwise be relabeled for another Entity. The reader therefore requires
+the exact independently selected Entity set, Release version and manifest digest, verifies one whole signed
+document, and binds all Entity mappings into authenticated encryption. A package cannot supply
+its own trust, classification or selection. A version alone cannot distinguish two manifest builds.
+Ordering is canonical before the retry input digest;
+the complete existing predecessor chain, including legacy v1 ancestors, remains authoritative.
+The legacy reader refuses v2 rather than treating the first Entity as a single-Entity result.
+
+Compatibility and intentional rejection changes:
+
+- Existing v1 package bytes and the legacy CLI input shape remain supported. Selecting the new
+  format is explicit; it never upgrades local Release eligibility.
+- Both formats reject crossing matching intervals without one uniquely most-specific interval.
+  Equivalent intervals remain duplicates even if comparator order differs.
+- Only the current chain head can be retried. Building an already superseded Git revision is
+  rejected rather than returning an obsolete artifact. A revert uses a new Git revision.
+- A full revision contains 1-256 Entities and the complete accepted history contains at most
+  256 packages. Missing, extra or duplicate bindings never truncate to an accepted subset.
+
+The existing Hub upgrade planner can consume this candidate through explicit caller-supplied verification
+inputs and the exact catalog Release schema. It checks coverage for every already-managed Entity,
+binds the Plan to the package digest, and retains ownership, recall, envelope and timing checks.
+This in-memory consumption does not enroll a key, import or persist configuration, or change
+production eligibility. Atomic Hub import, key enrollment/rotation, Agent transport, CSI secret
+resolution and production qualification remain separate work. This source API does not implement
+persisted same-Release configuration-change scheduling.
 
 ### Local packaging and verification commands
 
@@ -205,13 +252,22 @@ Supply file paths only, never key bytes or identifier values in arguments. All i
 absolute paths, current-user ownership, mode `0600` and one link, in mode-`0700` private directories.
 Symlinks, nonregular files and unsafe parent directories are not accepted.
 
-The private `--release-input` JSON object contains exactly `release_version`,
-`configuration_schema` (the annotated key map), and `sealed_keys` (a unique array of identifier
+For legacy single-Entity packages, the private `--release-input` JSON object contains exactly
+`release_version`, `configuration_schema` (the annotated key map), and `sealed_keys` (a unique array of identifier
 key names). Obtain these inputs independently of the package; supplying a file does not qualify
 a production Release or register trust. The private `--input` JSON object contains exactly
 `revision_id` (the full Git commit), `environment` (an object), `entity_overrides` (an array of
-`versions`/`values` blocks), and `sealed` (the identifier object). It represents the existing
-single-Entity contract, not the template's unimplemented multi-Entity installation format.
+`versions`/`values` blocks), and `sealed` (the identifier object). These existing inputs produce v1.
+
+For a full multi-Entity revision, add exactly `entity_ids` and `release_digest` to the independent
+Release input. `entity_ids` is a unique array of the opaque bindings selected by the installation;
+`release_digest` is the exact Release manifest's SHA-256. These local inputs still establish no
+Release or key trust. The configuration input contains exactly `revision_id`, `environment`,
+`sealed`, and `entities`. Each Entity contains exactly `entity_id`, `entity_overrides`, and
+`sealed`. Common sealed values are overlaid separately by each Entity's sealed object; every
+result must cover the trusted sealed keys exactly. The CLI builds v2, then independently reads it
+against the supplied full selection, Release version/digest, schema, keys and accepted chain before
+publishing the private file. A legacy/multi-Entity shape mixture is not accepted.
 
 ```bash
 fdaictl configuration build \

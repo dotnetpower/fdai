@@ -18,9 +18,17 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_configuration import (
     LayerResolution,
-    resolve_configuration_layers,
     validate_configuration_package_for_signing,
-    validate_release_configuration_schema,
+)
+from fdai_deployment_cli.lifecycle_configuration_document import (
+    validate_configuration_document,
+)
+from fdai_deployment_cli.lifecycle_configuration_entities import (
+    INSTALLATION_CONFIGURATION_FORMAT,
+    InstallationConfigurationInput,
+    InstallationLayerResolution,
+    prepare_installation_configuration,
+    resolve_installation_configuration,
 )
 from fdai_deployment_cli.lifecycle_configuration_sealing import (
     encryption_key_digest,
@@ -87,8 +95,6 @@ def build_configuration_package(
     and persist the result atomically; passing an empty or stale history cannot prove that.
     No key material is read from files or discovered from the environment.
     """
-    recipient_digest = encryption_key_digest(installation_key)
-    chain = _verify_history(history, signing_key.public_key(), recipient_digest)
     sealed_values = read_object(canonical_bytes(source.sealed_values))
     if set(sealed_values) != source.sealed_keys:
         raise ValueError("sealed identifier values do not match the trusted sealed keys")
@@ -101,37 +107,73 @@ def build_configuration_package(
             }
         )
     )
-    _validate_configuration(
+    validate_configuration_document(
         configuration, source.configuration_schema, source.release_version, set(source.sealed_keys)
     )
+    return _build_signed_revision(
+        revision_id=source.revision_id,
+        release_version=source.release_version,
+        configuration=configuration,
+        sealed_values=sealed_values,
+        sealed_keys=source.sealed_keys,
+        package_format=_FORMAT,
+        release_digest=None,
+        signing_key=signing_key,
+        installation_key=installation_key,
+        history=history,
+    )
+
+
+def _build_signed_revision(
+    *,
+    revision_id: str,
+    release_version: str,
+    configuration: dict[str, object],
+    sealed_values: dict[str, object],
+    sealed_keys: frozenset[str],
+    package_format: str,
+    release_digest: str | None,
+    signing_key: Ed25519PrivateKey,
+    installation_key: X25519PublicKey,
+    history: Sequence[SignedConfigurationPackage],
+) -> SignedConfigurationPackage:
+    recipient_digest = encryption_key_digest(installation_key)
+    chain = _verify_history(history, signing_key.public_key(), recipient_digest)
     validate_configuration_package_for_signing(sealed_values)
-    _revision(source.revision_id)
+    _revision(revision_id)
+    _sealed_keys(sorted(sealed_keys))
     inputs: dict[str, object] = {
         "configuration": configuration,
-        "release_version": source.release_version,
+        "release_version": release_version,
         "sealed_values": sealed_values,
         "installation_key_digest": recipient_digest,
-        "sealed_keys": sorted(source.sealed_keys),
+        "sealed_keys": sorted(sealed_keys),
     }
+    if release_digest is not None:
+        if not _DIGEST.fullmatch(release_digest):
+            raise ValueError("configuration Release manifest digest is invalid")
+        inputs["release_digest"] = release_digest
     read_object(canonical_bytes(inputs))
     input_digest = canonical_digest(inputs)
     for package, previous in zip(history, chain, strict=True):
-        if previous["revision_id"] == source.revision_id:
-            if previous["input_digest"] != input_digest:
+        if previous["revision_id"] == revision_id:
+            if package != history[-1] or previous["input_digest"] != input_digest:
                 raise ValueError(
                     "configuration revision was already packaged with different inputs"
                 )
             return package
     document: dict[str, object] = {
-        "format": _FORMAT,
-        "revision_id": source.revision_id,
+        "format": package_format,
+        "revision_id": revision_id,
         "predecessor_digest": history[-1].digest if history else None,
-        "release_version": source.release_version,
+        "release_version": release_version,
         "installation_key_digest": recipient_digest,
         "input_digest": input_digest,
         "configuration": configuration,
-        "sealed_keys": sorted(source.sealed_keys),
+        "sealed_keys": sorted(sealed_keys),
     }
+    if release_digest is not None:
+        document["release_digest"] = release_digest
     context = canonical_bytes(document)
     document["sealed"] = seal_identifiers(sealed_values, installation_key, context=context)
     payload = canonical_bytes(document)
@@ -154,17 +196,14 @@ def verify_configuration_package(
     An exact retry of the current head is a no-op. An older revision cannot become current.
     The returned values are public configuration only, never decrypted identifiers.
     """
-    chain = _verify_history(history, configuration_key, installation_key_digest)
-    document = _verified_document(package, configuration_key, installation_key_digest)
-    if _sealed_keys(document["sealed_keys"]) != sealed_keys:
-        raise ValueError("sealed identifier keys do not match the trusted Release keys")
-    if history and package == history[-1]:
-        pass
-    else:
-        _check_successor(document, history[-1].digest if history else None, chain)
+    document = _verify_candidate(
+        package, configuration_key, installation_key_digest, sealed_keys, history
+    )
+    if document["format"] != _FORMAT:
+        raise ValueError("single-Entity reader cannot consume an installation revision")
     configuration = _object(document["configuration"])
     release_version = _text(document["release_version"])
-    return _validate_configuration(
+    return validate_configuration_document(
         configuration, configuration_schema, release_version, _sealed_keys(document["sealed_keys"])
     )
 
@@ -187,10 +226,16 @@ def decrypt_configuration_identifiers(
         sealed_keys=sealed_keys,
         history=history,
     )
+    return _decrypt_values(package, installation_key)
+
+
+def _decrypt_values(
+    package: SignedConfigurationPackage, installation_key: X25519PrivateKey
+) -> dict[str, object]:
     document = read_object(package.payload)
     envelope = _object(document.pop("sealed"))
     values = open_identifiers(envelope, installation_key, context=canonical_bytes(document))
-    if set(values) != _sealed_keys(document["sealed_keys"]):
+    if document["format"] == _FORMAT and set(values) != _sealed_keys(document["sealed_keys"]):
         raise ValueError("sealed identifier keys do not match the manifest")
     inputs = {
         "configuration": document["configuration"],
@@ -199,6 +244,8 @@ def decrypt_configuration_identifiers(
         "installation_key_digest": document["installation_key_digest"],
         "sealed_keys": document["sealed_keys"],
     }
+    if document["format"] == INSTALLATION_CONFIGURATION_FORMAT:
+        inputs["release_digest"] = document["release_digest"]
     if canonical_digest(inputs) != document["input_digest"]:
         raise ValueError("configuration input digest does not match")
     return values
@@ -207,6 +254,8 @@ def decrypt_configuration_identifiers(
 def _verify_history(
     history: Sequence[SignedConfigurationPackage], key: Ed25519PublicKey, recipient_digest: str
 ) -> list[dict[str, object]]:
+    if len(history) > 256:
+        raise ValueError("configuration history exceeds its bound")
     chain: list[dict[str, object]] = []
     predecessor: str | None = None
     for package in history:
@@ -238,7 +287,14 @@ def _verified_document(
     except InvalidSignature:
         raise ValueError("configuration package signature is invalid") from None
     document = read_object(package.payload)
-    if set(document) != _FIELDS or document.get("format") != _FORMAT:
+    package_format = document.get("format")
+    fields = _FIELDS | (
+        {"release_digest"} if package_format == INSTALLATION_CONFIGURATION_FORMAT else set()
+    )
+    if set(document) != fields or package_format not in (
+        _FORMAT,
+        INSTALLATION_CONFIGURATION_FORMAT,
+    ):
         raise ValueError("configuration package fields or format are invalid")
     if canonical_bytes(document) != package.payload:
         raise ValueError("configuration package must use canonical JSON")
@@ -246,6 +302,10 @@ def _verified_document(
     for name in ("installation_key_digest", "input_digest"):
         if not _DIGEST.fullmatch(_text(document[name])):
             raise ValueError("configuration package digest is invalid")
+    if package_format == INSTALLATION_CONFIGURATION_FORMAT and not _DIGEST.fullmatch(
+        _text(document["release_digest"])
+    ):
+        raise ValueError("configuration Release manifest digest is invalid")
     predecessor = document["predecessor_digest"]
     if predecessor is not None and not _DIGEST.fullmatch(_text(predecessor)):
         raise ValueError("configuration predecessor digest is invalid")
@@ -256,57 +316,110 @@ def _verified_document(
     return document
 
 
-def _validate_configuration(
-    configuration: Mapping[str, object],
-    schema: Mapping[str, object],
+def _verify_candidate(
+    package: SignedConfigurationPackage,
+    configuration_key: Ed25519PublicKey,
+    recipient_digest: str,
+    sealed_keys: frozenset[str],
+    history: Sequence[SignedConfigurationPackage],
+) -> dict[str, object]:
+    chain = _verify_history(history, configuration_key, recipient_digest)
+    document = _verified_document(package, configuration_key, recipient_digest)
+    if _sealed_keys(document["sealed_keys"]) != sealed_keys:
+        raise ValueError("sealed identifier keys do not match the trusted Release keys")
+    if not history or package != history[-1]:
+        _check_successor(document, history[-1].digest if history else None, chain)
+    return document
+
+
+def build_installation_configuration_package(
+    source: InstallationConfigurationInput,
+    *,
+    entity_ids: frozenset[str],
+    signing_key: Ed25519PrivateKey,
+    installation_key: X25519PublicKey,
+    history: Sequence[SignedConfigurationPackage] = (),
+) -> SignedConfigurationPackage:
+    """Produce one signed full revision, checked against the independently selected Entity set."""
+    configuration, sealed_values = prepare_installation_configuration(source, entity_ids=entity_ids)
+    return _build_signed_revision(
+        revision_id=source.revision_id,
+        release_version=source.release_version,
+        configuration=configuration,
+        sealed_values=sealed_values,
+        sealed_keys=source.sealed_keys,
+        package_format=INSTALLATION_CONFIGURATION_FORMAT,
+        release_digest=source.release_digest,
+        signing_key=signing_key,
+        installation_key=installation_key,
+        history=history,
+    )
+
+
+def verify_installation_configuration_package(
+    package: SignedConfigurationPackage,
+    *,
+    configuration_key: Ed25519PublicKey,
+    installation_key_digest: str,
+    configuration_schema: Mapping[str, object],
+    sealed_keys: frozenset[str],
+    entity_ids: frozenset[str],
     release_version: str,
-    sealed_keys: set[str],
-) -> LayerResolution:
-    if set(configuration) != {"schema", "environment", "entity_overrides"}:
-        raise ValueError("configuration document fields are invalid")
-    if canonical_bytes(configuration["schema"]) != canonical_bytes(schema):
-        raise ValueError("configuration schema does not match the trusted Release schema")
-    validate_release_configuration_schema(schema)
-    defaults = {
-        key: entry["default"]
-        for key, raw_entry in schema.items()
-        if "default" in (entry := _object(raw_entry))
-    }
-    validate_configuration_package_for_signing(
-        {
-            "defaults": defaults,
-            "environment": configuration["environment"],
-            "entity_overrides": configuration["entity_overrides"],
-        }
+    release_digest: str,
+    history: Sequence[SignedConfigurationPackage] = (),
+) -> InstallationLayerResolution:
+    """Authenticate the full revision against independent Release, selection, keys and history."""
+    document = _verify_candidate(
+        package, configuration_key, installation_key_digest, sealed_keys, history
     )
-    overrides = configuration["entity_overrides"]
-    if not isinstance(overrides, list | tuple):
-        raise ValueError("configuration overrides must be a sequence")
-    blocks = [_object(item) for item in overrides]
-    for block in blocks:
-        if set(block) != {"versions", "values"}:
-            raise ValueError("configuration override fields are invalid")
-        _reject_public_identifiers(block["values"], sealed_keys)
-    _reject_public_identifiers(defaults, sealed_keys)
-    _reject_public_identifiers(configuration["environment"], sealed_keys)
-    return resolve_configuration_layers(
+    if (
+        document["format"] != INSTALLATION_CONFIGURATION_FORMAT
+        or document["release_version"] != release_version
+        or document["release_digest"] != release_digest
+    ):
+        raise ValueError("installation configuration format or Release does not match")
+    return resolve_installation_configuration(
+        _object(document["configuration"]),
+        configuration_schema=configuration_schema,
         release_version=release_version,
-        configuration_schema=schema,
-        environment_config=_object(configuration["environment"]),
-        entity_overrides=blocks,
         sealed_keys=sealed_keys,
+        entity_ids=entity_ids,
     )
 
 
-def _reject_public_identifiers(value: object, sealed_keys: set[str]) -> None:
-    if isinstance(value, Mapping):
-        if sealed_keys.intersection(value):
-            raise ValueError("sealed identifier belongs in the sealed section")
-        for item in value.values():
-            _reject_public_identifiers(item, sealed_keys)
-    elif isinstance(value, list | tuple):
-        for item in value:
-            _reject_public_identifiers(item, sealed_keys)
+def decrypt_installation_configuration_identifiers(
+    package: SignedConfigurationPackage,
+    *,
+    entity_id: str,
+    configuration_key: Ed25519PublicKey,
+    installation_key: X25519PrivateKey,
+    configuration_schema: Mapping[str, object],
+    sealed_keys: frozenset[str],
+    entity_ids: frozenset[str],
+    release_version: str,
+    release_digest: str,
+    history: Sequence[SignedConfigurationPackage] = (),
+) -> dict[str, object]:
+    """Verify the whole revision before returning identifiers for exactly one selected Entity."""
+    verify_installation_configuration_package(
+        package,
+        configuration_key=configuration_key,
+        installation_key_digest=encryption_key_digest(installation_key.public_key()),
+        configuration_schema=configuration_schema,
+        sealed_keys=sealed_keys,
+        entity_ids=entity_ids,
+        release_version=release_version,
+        release_digest=release_digest,
+        history=history,
+    )
+    if entity_id not in entity_ids:
+        raise ValueError("requested Entity is not selected")
+    values = _decrypt_values(package, installation_key)
+    if set(values) != entity_ids or any(
+        set(_object(item)) != sealed_keys for item in values.values()
+    ):
+        raise ValueError("sealed Entity identifier coverage does not match")
+    return _object(values[entity_id])
 
 
 def _sealed_keys(value: object) -> set[str]:

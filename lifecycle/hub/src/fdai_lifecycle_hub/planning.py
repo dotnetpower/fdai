@@ -26,6 +26,7 @@ from fdai_deployment_cli.lifecycle_plan import (
 from fdai_deployment_cli.runtime_release import RuntimeRelease
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
+from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.domain import (
     CandidateCheck,
     Installation,
@@ -56,8 +57,13 @@ def plan_next(
     *,
     catalog: ReleaseCatalog,
     key: HubSigningKey,
+    configuration_revision: ConfigurationRevisionCandidate | None = None,
 ) -> PlanOutcome:
-    """Return the next Plan for `installation`, or why there is none."""
+    """Return the next Plan, optionally verifying one transient full configuration revision.
+
+    The optional candidate never enrolls keys or persists configuration. Its selection is the
+    installation's already-managed Entity set, not a package-supplied permission.
+    """
 
     if now.tzinfo is None:
         raise ValueError("planning time must be timezone-aware")
@@ -68,9 +74,13 @@ def plan_next(
     candidates = catalog.newer_than(installation.settings.channel, installation.current_release)
     for release_id, release in candidates:
         schema = release.configuration_schema
-        if schema is not None and (
-            schema.release_version != release_id
-            or schema.digest != canonical_digest(installation.configuration.schema)
+        if (
+            configuration_revision is None
+            and schema is not None
+            and (
+                schema.release_version != release_id
+                or schema.digest != canonical_digest(installation.configuration.schema)
+            )
         ):
             checks.append(
                 CandidateCheck(
@@ -78,11 +88,46 @@ def plan_next(
                 )
             )
             continue
+        resolved = None
+        if configuration_revision is not None:
+            try:
+                resolved = configuration_revision.resolve(
+                    release_id, release, installation.managed_entity_ids
+                )
+            except ValueError:
+                checks.append(
+                    CandidateCheck(release_id, (ConstraintBlock("configuration_revision_invalid"),))
+                )
+                continue
         draft = _draft(installation, release_id, release, key=key, windows=windows, now=now)
+        if configuration_revision is not None:
+            draft = replace(
+                draft, configuration_revision_digest=configuration_revision.package.digest
+            )
         context = _constraint_context(
             installation, draft, release, catalog=catalog, windows=windows, now=now
         )
-        blocks = evaluate_lifecycle_constraints(context, admitted_plan=draft)
+        contexts = [context]
+        if resolved is not None:
+            # Every Entity was independently verified against the same catalog schema.
+            if schema is None:
+                raise ValueError("verified configuration requires a catalog schema")
+            contexts = [
+                replace(
+                    context,
+                    configuration_schema=schema.to_mapping(),
+                    environment_config={},
+                    entity_overrides=({"versions": release_id, "values": resolution.values},),
+                )
+                for resolution in resolved.entities.values()
+            ]
+        blocks = tuple(
+            dict.fromkeys(
+                block
+                for entity_context in contexts
+                for block in evaluate_lifecycle_constraints(entity_context, admitted_plan=draft)
+            )
+        )
         checks.append(CandidateCheck(release_id, blocks))
         if any(block.reason_code not in TIMING_REASONS for block in blocks):
             continue

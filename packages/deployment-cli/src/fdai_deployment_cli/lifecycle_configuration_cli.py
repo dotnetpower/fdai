@@ -14,11 +14,18 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
 
 from fdai_deployment_cli.cli_help import command, command_group
 from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.lifecycle_configuration_entities import (
+    EntityConfigurationInput,
+    InstallationConfigurationInput,
+    validate_entity_ids,
+)
 from fdai_deployment_cli.lifecycle_configuration_package import (
     ConfigurationPackageInput,
     SignedConfigurationPackage,
     build_configuration_package,
+    build_installation_configuration_package,
     verify_configuration_package,
+    verify_installation_configuration_package,
 )
 from fdai_deployment_cli.lifecycle_configuration_sealing import encryption_key_digest, read_object
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
@@ -47,7 +54,7 @@ def register_configuration_commands(
         for name, help_text in (
             (
                 "release-input",
-                "Independent JSON Release version, configuration schema and sealed keys",
+                "Independent JSON Release/schema, sealed keys and optional opaque Entity selection",
             ),
             ("configuration-key", "Independently supplied Ed25519 verification key in PEM format"),
             (
@@ -81,7 +88,7 @@ def register_configuration_commands(
                 type=Path,
                 required=True,
                 metavar="PRIVATE_FILE",
-                help="Private JSON revision, environment, entity_overrides and sealed identifiers",
+                help="Private JSON revision, environment, Entity override blocks and sealed identifiers",
             )
             parser.add_argument(
                 "--signing-key",
@@ -136,9 +143,12 @@ def _run(args: argparse.Namespace) -> int:
 
 
 def _execute(args: argparse.Namespace) -> SignedConfigurationPackage:
-    release = _fields(
-        read_object(_read(args.release_input)),
-        {"release_version", "configuration_schema", "sealed_keys"},
+    release = read_object(_read(args.release_input))
+    multi_entity = "entity_ids" in release
+    _fields(
+        release,
+        {"release_version", "configuration_schema", "sealed_keys"}
+        | ({"entity_ids", "release_digest"} if multi_entity else set()),
     )
     version = _text(release["release_version"])
     schema = _object(release["configuration_schema"])
@@ -148,6 +158,7 @@ def _execute(args: argparse.Namespace) -> SignedConfigurationPackage:
     sealed_keys = frozenset(_text(key) for key in keys)
     if len(sealed_keys) != len(keys):
         raise ValueError("sealed keys must be unique")
+    entity_ids = _entity_ids(release["entity_ids"]) if multi_entity else frozenset()
     public_key = serialization.load_pem_public_key(_read(args.configuration_key, limit=16384))
     recipient = serialization.load_pem_public_key(_read(args.installation_key, limit=16384))
     if not isinstance(public_key, Ed25519PublicKey) or not isinstance(recipient, X25519PublicKey):
@@ -169,37 +180,64 @@ def _execute(args: argparse.Namespace) -> SignedConfigurationPackage:
             raise ValueError("configuration signing key must be Ed25519")
         if private_key.public_key().public_bytes_raw() != public_key.public_bytes_raw():
             raise ValueError("signing key does not match the independent verification key")
-        source = _fields(
-            read_object(_read(args.input)),
-            {"revision_id", "environment", "entity_overrides", "sealed"},
-        )
-        overrides = source["entity_overrides"]
-        if not isinstance(overrides, list):
-            raise ValueError("entity overrides must be an array")
-        package = build_configuration_package(
-            ConfigurationPackageInput(
-                revision_id=_text(source["revision_id"]),
-                release_version=version,
-                configuration_schema=schema,
-                environment_config=_object(source["environment"]),
-                entity_overrides=[_object(block) for block in overrides],
-                sealed_values=_object(source["sealed"]),
-                sealed_keys=sealed_keys,
-            ),
-            signing_key=private_key,
-            installation_key=recipient,
+        source = read_object(_read(args.input))
+        if multi_entity:
+            _fields(source, {"revision_id", "environment", "entities", "sealed"})
+            package = build_installation_configuration_package(
+                InstallationConfigurationInput(
+                    revision_id=_text(source["revision_id"]),
+                    release_version=version,
+                    release_digest=_text(release["release_digest"]),
+                    configuration_schema=schema,
+                    environment_config=_object(source["environment"]),
+                    entities=_entities(source["entities"]),
+                    sealed_values=_object(source["sealed"]),
+                    sealed_keys=sealed_keys,
+                ),
+                entity_ids=entity_ids,
+                signing_key=private_key,
+                installation_key=recipient,
+                history=history,
+            )
+        else:
+            _fields(source, {"revision_id", "environment", "entity_overrides", "sealed"})
+            package = build_configuration_package(
+                ConfigurationPackageInput(
+                    revision_id=_text(source["revision_id"]),
+                    release_version=version,
+                    configuration_schema=schema,
+                    environment_config=_object(source["environment"]),
+                    entity_overrides=_overrides(source["entity_overrides"]),
+                    sealed_values=_object(source["sealed"]),
+                    sealed_keys=sealed_keys,
+                ),
+                signing_key=private_key,
+                installation_key=recipient,
+                history=history,
+            )
+    else:
+        package = _decode(_read(args.package, limit=_MAX_ARTIFACT))
+    if multi_entity:
+        verify_installation_configuration_package(
+            package,
+            configuration_key=public_key,
+            installation_key_digest=encryption_key_digest(recipient),
+            configuration_schema=schema,
+            sealed_keys=sealed_keys,
+            entity_ids=entity_ids,
+            release_version=version,
+            release_digest=_text(release["release_digest"]),
             history=history,
         )
     else:
-        package = _decode(_read(args.package, limit=_MAX_ARTIFACT))
-    verify_configuration_package(
-        package,
-        configuration_key=public_key,
-        installation_key_digest=encryption_key_digest(recipient),
-        configuration_schema=schema,
-        sealed_keys=sealed_keys,
-        history=history,
-    )
+        verify_configuration_package(
+            package,
+            configuration_key=public_key,
+            installation_key_digest=encryption_key_digest(recipient),
+            configuration_schema=schema,
+            sealed_keys=sealed_keys,
+            history=history,
+        )
     if read_object(package.payload)["release_version"] != version:
         raise ValueError("package does not match the expected Release")
     if args.configuration_operation == "build":
@@ -212,6 +250,38 @@ def _execute(args: argparse.Namespace) -> SignedConfigurationPackage:
 
 def _read(path: Path, *, limit: int = _MAX_INPUT) -> bytes:
     return read_private_bytes(path, max_bytes=limit)
+
+
+def _entity_ids(value: object) -> frozenset[str]:
+    if not isinstance(value, list):
+        raise ValueError("selected Entities must be an array")
+    ids = frozenset(_text(item) for item in value)
+    if len(ids) != len(value):
+        raise ValueError("selected Entities must be unique")
+    validate_entity_ids(ids)
+    return ids
+
+
+def _overrides(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        raise ValueError("entity overrides must be an array")
+    return [_object(block) for block in value]
+
+
+def _entities(value: object) -> list[EntityConfigurationInput]:
+    if not isinstance(value, list):
+        raise ValueError("Entities must be an array")
+    result = []
+    for raw in value:
+        entry = _fields(_object(raw), {"entity_id", "entity_overrides", "sealed"})
+        result.append(
+            EntityConfigurationInput(
+                entity_id=_text(entry["entity_id"]),
+                entity_overrides=_overrides(entry["entity_overrides"]),
+                sealed_values=_object(entry["sealed"]),
+            )
+        )
+    return result
 
 
 def _encode(package: SignedConfigurationPackage) -> bytes:

@@ -52,6 +52,24 @@ defines annotation and version checks. A Release without this optional capabilit
 existing behavior; source and offline installation gain no new gate. Independent export pin,
 manifest signature, expiry, recall and local effect-envelope checks remain authoritative.
 
+The existing upgrade planner's `plan_next` source API can also receive a transient
+`ConfigurationRevisionCandidate` for one signed full multi-Entity configuration revision. The
+caller supplies independently bound customer/installation keys, sealed-key classification,
+complete accepted history and the independently retained head. The planner verifies the exact
+catalog Release version, manifest digest and schema, and requires the package to cover exactly
+the installation's already-managed opaque `entity_id` set. Every Entity resolves independently;
+one failure blocks the whole candidate, and the signed Plan binds the complete package digest.
+It neither manages an Entity because it appears in a package nor bypasses recall, timing or
+effect-envelope checks. With no candidate, legacy planning is unchanged. With a candidate, a
+Release without the schema capability is blocked rather than falling back to legacy configuration.
+
+This API is in-memory source consumption only. It is not exposed as a remote import or enrollment
+route, does not write a configuration-head receipt, and does not claim ciphertext-only database
+storage. The [configuration owner](lifecycle-configuration.md#full-multi-entity-revision-design-and-critique)
+defines the new format, compatibility and critique. Key enrollment/rotation, atomic Hub import,
+persisted same-Release configuration-change scheduling, Agent delivery/decryption, CSI reference
+resolution and production qualification remain open.
+
 The existing paired fixture remains available for its current state owners. It is not the default
 deployment unit. Use the independent product roots below for new preparation.
 
