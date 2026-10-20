@@ -17,8 +17,11 @@ from .semantic_reasoning_admission import (
     SpanAccounting,
     admit_question_form,
 )
-from .semantic_reasoning_form import SemanticQuestionForm
-from .semantic_reasoning_normalization import normalize_redundant_property_filter_labels
+from .semantic_reasoning_form import SemanticQuestionForm, SourceSpan
+from .semantic_reasoning_normalization import (
+    normalize_redundant_property_filter_labels_with_receipt,
+    retained_syntactic_labels,
+)
 from .semantic_reasoning_proposal import FormResolution, resolve_question_form
 from .semantic_reasoning_relabel import relabel_mentions
 from .semantic_reasoning_repair import FormProposal, FormRepair, repair_keeps_operands
@@ -47,6 +50,7 @@ class ReviewRepair:
     # Mentions the independent reading found merging separate constraints; the repair
     # replaces each with one mention per part.
     split: frozenset[str] = frozenset()
+    syntactic_labels: tuple[SourceSpan, ...] = ()
 
 
 def review_repair(
@@ -57,6 +61,7 @@ def review_repair(
     passes: int,
     repairs: int,
     utterance: str,
+    syntactic_labels: tuple[SourceSpan, ...] = (),
 ) -> ReviewRepair | None:
     """Return one repair for a single admitted pass whose review found uncovered words."""
 
@@ -67,7 +72,12 @@ def review_repair(
     extraction = resolve_extraction(raw, utterance)
     if extraction is None:
         return None
-    uncovered = uncovered_constraints(forms, extraction, utterance)
+    uncovered = uncovered_constraints(
+        forms,
+        extraction,
+        utterance,
+        syntactic_labels=syntactic_labels,
+    )
     unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
     merged = merged_mentions(forms, extraction)
     # A repair only adds information, except that it may split a mention holding separate
@@ -90,6 +100,7 @@ def review_repair(
         violations=tuple(dict.fromkeys(violations)),
         reasons=review.reasons,
         split=frozenset(merged),
+        syntactic_labels=syntactic_labels,
     )
 
 
@@ -108,9 +119,15 @@ async def propose_review_repair(
     resolution = resolve_question_form(raw, utterance=utterance)
     if resolution.form is None:
         return FormProposal(resolution, None, "invalid", repair.reasons)
-    form = normalize_redundant_property_filter_labels(resolution.form)
+    normalized = normalize_redundant_property_filter_labels_with_receipt(resolution.form)
+    form = normalized.form
     form = relabel_mentions(repair.typed, form, split=repair.split)
     resolution = replace(resolution, form=form)
+    syntactic_labels = retained_syntactic_labels(
+        form,
+        repair.syntactic_labels,
+        normalized.syntactic_labels,
+    )
     if not repair_keeps_operands(
         repair.previous,
         form,
@@ -131,8 +148,14 @@ async def propose_review_repair(
         relaxed = admit_question_form(
             form, utterance=utterance, accounting=SpanAccounting(required=False)
         )
-        return FormProposal(resolution, relaxed, f"{applied}_unaccounted", repair.reasons)
-    return FormProposal(resolution, admission, applied, repair.reasons)
+        return FormProposal(
+            resolution,
+            relaxed,
+            f"{applied}_unaccounted",
+            repair.reasons,
+            syntactic_labels,
+        )
+    return FormProposal(resolution, admission, applied, repair.reasons, syntactic_labels)
 
 
 __all__ = ["ReviewRepair", "propose_review_repair", "review_repair"]

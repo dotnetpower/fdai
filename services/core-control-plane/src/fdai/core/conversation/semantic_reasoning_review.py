@@ -42,6 +42,7 @@ from .semantic_reasoning_form import (
     SourceSpan,
     SubjectRole,
 )
+from .semantic_reasoning_normalization import syntactic_label_covers
 from .semantic_reasoning_proposal import MAX_OCCURRENCE, RequestKind, locate_quote
 
 MAX_EXTRACTED_CONSTRAINTS = 24
@@ -188,6 +189,7 @@ def review_forms(
     raw: Mapping[str, Any] | None,
     *,
     utterance: str,
+    syntactic_labels: tuple[SourceSpan, ...] = (),
 ) -> FormReview:
     """Compare the admitted forms with the blind extraction and return the verdict."""
 
@@ -196,7 +198,12 @@ def review_forms(
     extraction = _resolved(raw, utterance)
     if isinstance(extraction, str):
         return FormReview("invalid", ("review_invalid", f"review_invalid:{extraction}"))
-    uncovered = uncovered_constraints(forms, extraction, utterance)
+    uncovered = uncovered_constraints(
+        forms,
+        extraction,
+        utterance,
+        syntactic_labels=syntactic_labels,
+    )
     unacknowledged = unacknowledged_constraints(forms, extraction, utterance)
     merged = merged_constraints(forms, extraction)
     differing = literal_disagreements(forms, extraction)
@@ -343,7 +350,11 @@ def _resolved(raw: Mapping[str, Any], utterance: str) -> ConstraintExtraction | 
 
 
 def uncovered_constraints(
-    forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction, utterance: str
+    forms: Sequence[SemanticQuestionForm],
+    extraction: ConstraintExtraction,
+    utterance: str,
+    *,
+    syntactic_labels: tuple[SourceSpan, ...] = (),
 ) -> tuple[ExtractedConstraint, ...]:
     """Return each extracted constraint the admitted forms do not state."""
 
@@ -361,12 +372,22 @@ def uncovered_constraints(
         # A request word and a word meaning all or every state no restriction to cover.
         if item.role in unstated or (item.role is ConstraintRole.SUPPOSES and supposing):
             continue
+        # Only Core's structural normalizer can issue these spans. Model-authored context
+        # remains non-semantic and cannot satisfy the independent review.
+        if item.role is ConstraintRole.NAMES and syntactic_label_covers(
+            item.quote, syntactic_labels, utterance
+        ):
+            continue
         # A restriction the extractor isolated inside such a particle, such as only or
         # from, narrows the answer, so the mention it rides on never states it.
         isolated = item.role in _ISOLATED_ROLES and any(
             span.start <= item.quote.start and item.quote.end <= span.end for span in suffixes
         )
-        spans = semantic if isolated else [*semantic, *suffixes]
+        spans = (
+            [*semantic, *syntactic_labels]
+            if isolated
+            else [*semantic, *suffixes, *syntactic_labels]
+        )
         if not _stated(item, spans, mentions, utterance):
             uncovered.append(item)
     return tuple(uncovered)
