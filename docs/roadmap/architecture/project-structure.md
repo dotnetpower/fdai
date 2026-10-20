@@ -49,6 +49,12 @@ construct that assessment, and an absent or unusable source preserves an explici
 `semantic_query_metric_bindings.py` owns the cohesive metric-handler assembly so the public
 semantic-query facade stays within its existing structural size ceiling. No caller API,
 capability default, principal scope, or evidence authority changes in this extraction.
+`rca/citations.py` owns bounded exact-citation admission shared by the model parser,
+grounding gate, and coordinator. Forseti's existing generation boundary rejects ambiguous
+references, conflicting facts, incomplete historical reuse, and unsupported T2 lineage;
+it does not add an agent or execution path. See
+[Root-Cause Analysis](../rules-and-detection/root-cause-analysis.md#generation-ownership-and-evidence-admission)
+for generation ownership and the evidence-only contract.
 Diagnostic ontology candidate selection remains a composition-owned semantic-planning path: the
 prompt profile selects the reviewed model role and reasoning effort, while Core still receives only
 schema-validated typed clauses that the secured reader authorizes against the principal manifest.

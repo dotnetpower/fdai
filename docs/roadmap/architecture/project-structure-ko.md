@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 84c908f31f86145f71c9e5c61a26af8a0a7f903f
+translation_source_sha: f2d02016bfb79d8036acd5de44770de34461db1d
 translation_revised: 2026-10-20
 ---
 # 프로젝트 구조
@@ -52,6 +52,12 @@ T1 인시던트 맥락은 이제 `rca/historical_graph.py`에서 보존된 이�
 `semantic_query_metric_bindings.py`가 메트릭 처리기의 조립을 응집된 단위로 소유하므로
 공개 의미 쿼리 facade는 기존 구조적 크기 상한을 유지합니다. 이 분리는 호출자 API,
 기능 기본값, principal 범위 또는 근거 권한을 변경하지 않습니다.
+`rca/citations.py`는 모델 파서, 근거 검사, 조정기가 공유하는 크기 제한 및 정확한 인용 수락을
+담당합니다. Forseti의 기존 가설 생성 경계는 모호한 참조, 상충하는 사실, 불완전한 과거 근거
+재사용, 지원하지 않는 T2 계보를 차단합니다. 에이전트나 실행 경로를 추가하지 않습니다.
+가설 생성 책임과 근거 전용 계약은
+[근본원인 분석](../rules-and-detection/root-cause-analysis-ko.md#가설-생성-책임과-근거-수락)을
+참조하세요.
 진단용 온톨로지 후보 선택은 조립이 소유하는 의미 계획 경로로 유지됩니다. 프롬프트 프로필이
 검토된 모델 역할과 reasoning effort를 선택하고, Core는 principal 매니페스트를 기준으로 보안
 판독기가 권한을 확인하는 스키마 검증 형식 절만 받습니다.
