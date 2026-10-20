@@ -176,6 +176,53 @@ new java.io.FileInputStream(path); // sink
     assert _path_veto(tmp_path, source) is None
 
 
+def test_external_constant_requires_one_unambiguous_class(tmp_path: Path) -> None:
+    for folder in ("one", "two"):
+        helper = tmp_path / folder / "Config.java"
+        helper.parent.mkdir()
+        helper.write_text(
+            """package example;
+public class Config { public static final String SAFE = "fixed/"; }""",
+            encoding="utf-8",
+        )
+    source = """class Example {
+void run(String input) {
+String path = example.Config.SAFE + "fixed";
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
+
+
+def test_external_constant_rejects_oversized_class(tmp_path: Path) -> None:
+    helper = tmp_path / "example" / "Config.java"
+    helper.parent.mkdir()
+    helper.write_text(
+        """package example;
+public class Config { public static final String SAFE = "fixed/"; }
+"""
+        + " " * 1_000_001,
+        encoding="utf-8",
+    )
+    source = """class Example {
+void run(String input) {
+String path = example.Config.SAFE + "fixed";
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
+
+
+def test_every_path_constructor_argument_must_be_constant(tmp_path: Path) -> None:
+    source = """class Example {
+void run(String input) {
+String base = "fixed";
+new java.io.File(base, input); // sink
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
+
+
 def test_conditional_try_assignment_keeps_path_evidence(tmp_path: Path) -> None:
     source = """class Example {
 void run(String input, boolean unknown) {
@@ -629,6 +676,19 @@ def test_promoted_java_sql_requires_exact_source_binding(tmp_path: Path) -> None
         update={"promotion": shipped.promotion.model_copy(update={"promoted": (rule,)})}
     )
     (verdict,) = taint_rule_verifications(issues, occurrences, promoted)
+    assert verdict.outcome is VerifierOutcome.NOT_VERIFIED
+    assert verdict.reason == "java_constant_guard_source_unavailable"
+
+
+def test_promoted_java_path_requires_exact_source_binding(tmp_path: Path) -> None:
+    rule = "fdai.verify.java.path-traversal"
+    occurrences = ingest_sarif(
+        sarif("Opengrep", [result(rule, "Example.java", 1, cwe=22)]),
+        SarifIngestContext(lane=Lane.DETERMINISTIC, revision=REVISION),
+    ).occurrences
+    issues = build_issues(occurrences, catalog(), AnalysisContext(revision=REVISION))
+    shipped = load_verifier_catalog(CATALOG_ROOT, frozenset(catalog().weakness_classes.classes))
+    (verdict,) = taint_rule_verifications(issues, occurrences, shipped)
     assert verdict.outcome is VerifierOutcome.NOT_VERIFIED
     assert verdict.reason == "java_constant_guard_source_unavailable"
 
