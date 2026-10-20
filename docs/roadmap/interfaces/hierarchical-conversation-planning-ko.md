@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 40403ca3f880b809a7449a5f00691ea30633eb87
+translation_source_sha: 1f4006b0251001b42dacf466db37fd60d74e092a
 translation_revised: 2026-10-20
 ---
 
@@ -170,7 +170,7 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 중복 typed-filter 라벨 정규화 | implemented | `semantic_reasoning_normalization.py`, `semantic_reasoning_repair.py`, `semantic_reasoning_review_repair.py`, 영어 및 정확한 한국어 구조 회귀, 인증된 Browser Entra 재현 | 초기 제안 복구와 독립 검토 복구는 모두 동일 역할의 허용된 operand가 있고 다른 참조가 없을 때만 중복 PROPERTY 라벨을 context로 이동합니다. 어휘 의미나 권한을 추가하지 않습니다. |
+| 중복 typed-filter 라벨 정규화 | implemented | `semantic_reasoning_normalization.py`, `semantic_reasoning_repair.py`, `semantic_reasoning_review_repair.py`, 영어 및 정확한 한국어 구조 회귀, 인증된 Browser Entra 재현 | 초기 제안 복구와 독립 검토 복구는 모두 동일 역할의 허용된 companion filter가 있거나, goal이 하나인 form에 다른 곳에서 참조하지 않는 허용된 operand가 정확히 하나 있고 라벨에 다른 참조가 없을 때만 중복 PROPERTY 라벨을 context로 이동합니다. 어휘 의미나 권한을 추가하지 않습니다. |
 | 스키마 범위 사전 라우팅 및 Resource 하위 유형 라우팅 | validated | `conversation-preflight-schema-scope.v2.yaml`, 활성 사전 판정 및 판단 프로필 v5, [`semantic_catalog_value_mentions.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_catalog_value_mentions.py), [`semantic_manifest_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_manifest_planning.py), [`semantic_target_candidate_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_target_candidate_planning.py), [`semantic_ontology_answers.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_ontology_answers.py), 집중 계약·계획·처리기·프롬프트·로그 수집·운영 연결 검사 | 제한된 실제 T1 비교는 기준선 5건 중 3건, 수정본 6건 모두를 올바르게 분류했습니다. 버전 2는 현재 Resource 하위 유형, 범주 및 제품 약어 목록을 `resource_collection` 조회로 유지합니다. 발화의 카탈로그 `Resource.type` 구간은 후보 근거로 전달되며, 설명되지 않은 대상 없는 스키마 제안은 명확화를 반환합니다. 맥락 목록은 보조 의도, 상태 또는 이름 조각을 누락할 수 없고 매니페스트 목록은 읽을 수 있는 이름을 표시하거나 안전하게 실패합니다. 재시작 후 인증된 로컬 Browser Entra 턴에서 수정된 Console 답변을 확인했지만 모든 조회 형태를 인증하지는 않습니다. |
 | 적응형 설명과 검증된 예시 | implemented | `adaptive-plan.v4.yaml`, `adaptive-answer.v2.yaml`, `adaptive-review.v2.yaml`, 집중 프롬프트 및 런타임 검사, 인증된 Browser Entra 비교 턴 | 일반 지식과 운영이 섞인 목표, 고정 역할 프롬프트, 만료되는 담당 관계 증명, 독립 검토, 제한된 보강 및 재실행 후 표현을 연결했습니다. 순수 일반 지식은 이러한 다단계 작업을 우회합니다. |
 | One-shot 일반 지식 | validated | `conversation-preflight.v6.yaml`, [`conversation_preflight.py`](../../../services/core-control-plane/src/fdai/core/conversation/conversation_preflight.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 집중 검사, 10개 관점의 독립 검토, 인증된 한국어 Browser Entra 턴 | 신뢰도가 높고 현재 입력 및 프로필에 결합된 preflight 호출 한 번이 분류와 범위가 제한된 답변 작성을 함께 수행합니다. 준비 완료 후 UI 변형 질문은 각각 3.321초, 4.210초, 4.319초, 4.691초에 완료됐고 `narrator-gpt-5-4-mini`를 한 번씩만 호출했습니다. 계획, Adaptive 답변, 검토, 보강, 검증, T2, 온톨로지 또는 프로바이더 읽기는 수행하지 않았으며 권한 없는 제한 품질을 표시했습니다. |
@@ -193,6 +193,7 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-20 | implemented | 검토 복구 정규화를 적용한 정확한 revision에서 PROPERTY 필터가 만들어졌지만 허용된 typed operand는 별도의 미사용 mention으로 남았습니다. 이제 goal이 하나인 form에서 역할에 PROPERTY 필터가 정확히 하나 있고 허용된 companion filter가 없으며 다른 곳에서 참조하지 않는 허용된 mention이 정확히 하나일 때만 그 operand를 필터에 결속합니다. | `current change`, #2301, 정확한 revision의 content-free Browser Entra 사유 `filter_domain:g1:type`, `mention_unused`, `operand_dropped`, 정확한 한국어 구조 회귀, 정규화 line/branch coverage 100% | 분리된 operand 수정을 게시하고 정확한 병합 소스로 다시 시작한 뒤 한국어 positive 재시도를 한 번 실행합니다. 모델이 다른 미모델링 typed shape를 만들면 다시 중단합니다. |
 | 2026-10-20 | implemented | 처음 게시한 정규화는 초기 복구 경로에 적용됐습니다. 허용된 한국어 재시도 한 번에서 새 property-name 형태가 만들어졌고, 독립 검토 복구가 중복 PROPERTY 라벨을 다시 넣은 뒤 operand를 잃었습니다. 이제 제안 복구와 검토 복구를 비교하기 전에 동일한 닫힌 언어 중립 정규화를 적용합니다. | `current change`, #2298, 정확한 revision의 content-free Browser Entra 결과, 영어 및 한국어 검토 복구 구조 회귀, 집중 검토·복구·컴파일러 검사 | 검토 복구 수정을 게시하고 정확한 병합 소스로 다시 시작한 뒤 한국어 positive 재시도를 한 번 실행합니다. 모델이 다른 미모델링 typed shape를 만들면 다시 중단합니다. |
 | 2026-10-20 | implemented | 인증된 Browser Entra에서 영어 Resource 읽기 결과를 검증하고 두 개의 한국어 typed 결과를 재현했습니다. 명시적인 한국어 `type`/`location` 형태는 PROPERTY 라벨 필터와 typed operand 필터를 중복 생성해 `filter_domain`으로 실패했습니다. Core는 이제 범위가 제한된 복구 전에 구조적으로 중복된 라벨만 제거합니다. | `current change`, content-free typed 로그, 정확한 한국어와 영어 구조 형태를 포함한 복구·컴파일러 테스트 144개, strict mypy 및 Ruff | 게시 후 한국어 집중 재시도를 한 번 실행합니다. 새로 모델링되지 않은 형태가 나타나면 캠페인을 중단합니다. |
 | 2026-09-29 | implemented | 사전 판정이 운영, 지식, 스레드, 사회적 신호를 하나도 설정하지 않은 턴은 이제 검증된 경로로 들어갑니다. 긴 Console 대화에서 Key Vault 목록을 묻는 이런 턴이 Adaptive 플래너로 가서 읽기 없이 대화 내용만으로 답한 적이 있습니다. Adaptive 계획이 의미 경로로 되돌려 보낸 읽기는 의미 경로 자체의 단계 한도를 유지합니다. | `test_explicit_operational_preflight_bypasses_adaptive_planning`(명시적 신호와 신호 없음 사례), `test_a_read_handed_back_to_the_semantic_path_keeps_its_own_stage_bounds`, dev discuss 추적에서 추적한 사전 판정 129개 중 신호 없는 사전 판정 9개를 확인했습니다. | 나열된 남은 작업 외에는 없습니다. |
