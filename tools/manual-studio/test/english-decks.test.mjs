@@ -63,54 +63,46 @@ test("L100 pitch cover identifies its internal-development status in both locale
 
   assert.equal(koreanSlide.eyebrow, "MICROSOFT KOREA CSU · INTERNAL DEVELOPMENT");
   assert.equal(englishSlide.eyebrow, koreanSlide.eyebrow);
-  assert.match(koreanSlide.lead, /현재 상태에 대한 정보를 바탕으로/);
-  assert.match(koreanSlide.lead, /목표와 실행 권한을 정하고/);
-  assert.match(koreanSlide.lead, /별도의 관측을 통해 작업 결과를 검증합니다/);
-  assert.match(koreanSlide.lead, /Microsoft의 공식 제품이나 Azure 서비스가 아닙니다/);
-  assert.match(englishSlide.lead, /not an official Microsoft product or Azure service/);
-  assert.match(englishSlide.lead, /developed and validated internally by Microsoft Korea CSU/);
+  assert.match(koreanSlide.lead, /사람이 목표와 권한을 정하고/);
+  assert.match(koreanSlide.lead, /실제 효과를 확인/);
+  assert.match(koreanSlide.content, /Microsoft 공식 제품이나 Azure 서비스가 아닙니다/);
+  assert.match(englishSlide.content, /not an official Microsoft product or Azure service/);
+  assert.match(englishSlide.content, /validated internally by Microsoft Korea CSU/);
 });
 
 test("L100 operating challenge names the context-connection bottleneck directly", () => {
   assert.equal(
-    koreanL100PitchDeckSlides[2].title,
-    "운영 대응은 흩어진 정보를 하나의 판단으로 연결하는 과정에서 지연됩니다",
+    koreanL100PitchDeckSlides[1].title,
+    "운영자는 흩어진 정보를 모으고 대조해야 합니다",
   );
-  assert.match(koreanL100PitchDeckSlides[2].lead, /로그와 메트릭, 최근 변경, 서비스 관계/);
-  assert.match(koreanL100PitchDeckSlides[2].content, /운영자가 단계 사이의 맥락을 매번 직접 연결합니다/);
-  assert.match(l100PitchDeckSlides[2].title, /scattered information is connected into one decision/);
-  assert.match(l100PitchDeckSlides[2].content, /Operators reconnect context at every handoff/);
+  assert.match(koreanL100PitchDeckSlides[1].content, /최근 배포 때문인지 DB 문제인지/);
+  assert.match(koreanL100PitchDeckSlides[1].content, /설명용 예시/);
+  assert.match(l100PitchDeckSlides[1].title, /scattered information/);
+  assert.match(l100PitchDeckSlides[1].content, /Illustrative example/);
 });
 
 test("L100 product identity separates product value from delivery status", () => {
-  assert.equal(
-    koreanL100PitchDeckSlides[1].title,
-    "FDAI는 운영 신호를 판단, 실행, 결과 검증으로 연결합니다",
-  );
-  assert.match(koreanL100PitchDeckSlides[1].lead, /자율 클라우드 운영 컨트롤 플레인/);
-  assert.match(koreanL100PitchDeckSlides[1].content, /WHAT FDAI DOES/);
-  assert.match(koreanL100PitchDeckSlides[1].content, /PRODUCT STATUS/);
-  assert.match(koreanL100PitchDeckSlides[1].content, /사람이 목표와 실행 권한을 정하고/);
-  assert.match(l100PitchDeckSlides[1].title, /decisions, execution, and outcome verification/);
-  assert.match(l100PitchDeckSlides[1].content, /internal solution developed/);
+  assert.match(koreanL100PitchDeckSlides[2].lead, /컨트롤 플레인, 즉/);
+  assert.match(koreanL100PitchDeckSlides[2].content, /RESILIENCE/);
+  assert.match(koreanL100PitchDeckSlides[2].content, /CHANGE SAFETY/);
+  assert.match(koreanL100PitchDeckSlides[2].content, /COST GOVERNANCE/);
+  assert.match(koreanL100PitchDeckSlides[2].content, /지원 방식과 업데이트 책임/);
+  assert.match(l100PitchDeckSlides[2].content, /support and update ownership/);
 });
 
 test("L100 remaining story uses direct actor-action language", () => {
   const korean = koreanL100PitchDeckSlides;
-  assert.match(korean[3].title, /대체하지 않고/);
-  assert.match(korean[5].title, /실행 권한을 함께 확인해야 합니다/);
-  assert.match(korean[6].title, /대상, 관계, 시간, 근거, 권한과 예상 효과/);
-  assert.match(korean[7].title, /근거 있는 판단과 검증된 작업/);
-  assert.match(korean[8].title, /^시멘틱 검색은/);
-  assert.match(korean[9].title, /^FDAI는 필요한 판단 수준/);
-  assert.match(korean[10].title, /LLM을 사용하지 않고/);
-  assert.match(korean[11].title, /^에이전트는 하나의 지식베이스/);
-  assert.match(korean[12].lead, /문자열을 단순 비교하지 않고/);
-  assert.match(korean[13].lead, /고객이 선택한 Azure 리전과 정책 경계/);
-  assert.equal(korean[14].title, "첫 검증 워크플로와 운영 책임자를 정합니다");
-  assert.match(l100PitchDeckSlides[7].title, /grounded decision and verified work/);
-  assert.match(l100PitchDeckSlides[8].title, /^Semantic search connects/);
-  assert.match(l100PitchDeckSlides[14].lead, /does not approve adoption or autonomous execution/);
+  assert.match(korean[3].title, /설계와 현재 관측 사실은 다릅니다/);
+  assert.match(korean[5].title, /비슷한 이름만으로/);
+  assert.match(korean[7].title, /가설을 비교/);
+  assert.match(korean[8].content, /경량 모델/);
+  assert.match(korean[10].content, /일곱|기계가 평가할 중단 조건/);
+  assert.match(korean[11].content, /등록된 복구 절차/);
+  assert.match(korean[12].content, /표준 답변 경로에서 비활성/);
+  assert.match(korean[13].content, /모든 연계의 데이터 상주를 보장하지는 않습니다/);
+  assert.match(korean[14].lead, /관찰 종료를 실행 허용으로 간주하지 않습니다/);
+  assert.match(l100PitchDeckSlides[12].content, /Disabled in the standard answer path/);
+  assert.match(l100PitchDeckSlides[14].lead, /does not authorize execution/);
 });
 
 test("L100 pitch deck uses diagram-led operating explanations in both locales", () => {
@@ -125,44 +117,33 @@ test("L100 pitch deck uses diagram-led operating explanations in both locales", 
   const koreanContent = koreanL100PitchDeckSlides
     .map((slide) => `${slide.eyebrow}\n${slide.title}\n${slide.content}`)
     .join("\n");
-  assert.match(koreanContent, /QUESTION DECOMPOSITION/);
-  assert.match(koreanContent, /FDAI OPERATING ENGINE/);
-  assert.match(koreanContent, /시멘틱 검색/);
+  assert.match(koreanContent, /질문 해석/);
+  assert.match(koreanContent, /계획 검증/);
+  assert.match(koreanContent, /벡터 유사도 후보 검색/);
   assert.match(koreanContent, /T0/);
-  assert.match(koreanContent, /결정론적 엔진/);
-  assert.match(koreanContent, /AGENT KNOWLEDGE BASE/);
-  assert.match(koreanContent, /depends on/);
+  assert.match(koreanContent, /결정론적으로 검증/);
+  assert.match(koreanContent, /문서·매뉴얼/);
+  assert.match(koreanContent, /depends_on/);
   assert.match(koreanContent, /Azure Kubernetes Service/);
   assert.ok(koreanL100PitchDeckSlides.slice(1).every((slide) => slide.content.includes("l100-source")));
 });
 
 test("L100 operating diagrams preserve direction, boundaries, and one ontology coordinate system", async () => {
-  const engine = koreanL100PitchDeckSlides[7].content;
-  const semantic = koreanL100PitchDeckSlides[8].content;
-  const ontology = koreanL100PitchDeckSlides[12].content;
+  const semantic = koreanL100PitchDeckSlides[5].content;
+  const ontology = koreanL100PitchDeckSlides[4].content;
   const css = await readFile(new URL("l100-pitch-deck.css", root), "utf8");
 
-  assert.match(engine, /class="l100-visual l100-engine-v2"/);
-  assert.match(engine, /근거화[\s\S]*판단[\s\S]*권한[\s\S]*실행/);
-  assert.match(engine, /독립 효과 검증[\s\S]*완료 또는 롤백/);
-  assert.match(semantic, /class="l100-visual l100-semantic-v2"/);
-  assert.match(semantic, /ACCOUNTABLE[\s\S]*SEMANTIC SEARCH[\s\S]*운영 온톨로지/);
-  assert.match(semantic, /CONTEXT[\s\S]*DECISION[\s\S]*ACTION/);
-  assert.match(ontology, /<svg class="l100-ontology-svg" viewBox="0 0 920 350" role="img"/);
-  assert.equal([...ontology.matchAll(/<path d=/g)].length, 7);
-  assert.equal([...ontology.matchAll(/class="ontology-node /g)].length, 7);
-  assert.equal([...ontology.matchAll(/class="ontology-edge-label"/g)].length, 6);
-  assert.equal([...ontology.matchAll(/class="ontology-legend /g)].length, 3);
+  assert.match(semantic, /질문 해석[\s\S]*계획 검증[\s\S]*현재 객체 확인/);
+  assert.match(semantic, /후보 순위는 사실 확인이나 실행 승인이 아닙니다/);
+  assert.match(ontology, /<svg class="lp-resource-graph" viewBox="0 0 1240 320" role="img"/);
+  assert.equal([...ontology.matchAll(/data-lp-node=/g)].length, 2);
+  assert.equal([...ontology.matchAll(/data-lp-from=/g)].length, 1);
   assert.doesNotMatch(ontology, /<text\b/);
-  assert.match(ontology, /marker-end="url\(#ontology-arrow-ko\)"/);
-  assert.match(ontology, /M 700 122 V 135 H 797 V 145/);
-  assert.match(ontology, /class="ontology-edge-label" x="735" y="92" width="135"/);
-  assert.match(css, /\.l100-ontology-svg \.ontology-links/);
-  assert.match(css, /\.l100-ontology-svg \.ontology-node div/);
-  assert.match(css, /\.l100-ontology-svg \.ontology-edge-label div/);
-  assert.match(css, /\.l100-ontology-svg \.ontology-edge-label div \{[\s\S]+background: #1b1e23/);
-  assert.match(css, /\.l100-engine-v2 \.engine-arrow::after/);
-  assert.match(css, /\.l100-semantic-v2 \.semantic-arrow::after/);
+  assert.match(ontology, /marker-end="url\(#lp-arrow-ko\)"/);
+  assert.match(ontology, /data-lp-from="api" data-lp-to="db" data-lp-relation="depends_on" x1="440" y1="136" x2="800" y2="136"/);
+  assert.match(css, /\.deck-l100-calm \.lp-link::after/);
+  assert.match(css, /--lp-bg: #fbfaf9/);
+  assert.match(css, /font-size: 24px/);
 });
 
 test("English and Korean modular decks preserve the same structural contracts", () => {

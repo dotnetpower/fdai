@@ -1,167 +1,169 @@
-const source = (...paths) =>
-  `<small class="l100-source" title="${paths.join(" · ")}">Sources: ${paths.join(" · ")}</small>`;
+import { pitchSlide, resourceGraph } from "./l100-pitch-kit.js";
+
+const slide = data => pitchSlide("en", data);
 
 export const l100PitchDeckSlides = [
-  {
-    eyebrow: "MICROSOFT KOREA CSU · INTERNAL DEVELOPMENT",
-    brandLogo: "assets/microsoft-logo.png",
-    deckTitle: "FDAI L100 Pitch Deck",
+  slide({
+    id: "cover", chapter: "INTRODUCTION", kind: "cover", cover: true,
     title: "From operational signals<br><em>to verified outcomes</em>",
-    lead: `FDAI performs repeatable operational tasks based on organizational operating rules and information about the current state. People define the goals and execution authority, and FDAI verifies task outcomes through separate observation.
-      <span class="l100-pitch-disclaimer">FDAI is not an official Microsoft product or Azure service. It is a solution being developed and validated internally by Microsoft Korea CSU.</span>`,
-    layout: "cover deck-l100-pitch",
-    content: `<figure class="l100-pitch-photo"><img src="assets/l100-pitch-deck.jpeg" alt="Pink and blue data particles flowing along several paths"><figcaption><span>RESILIENCE</span><span>CHANGE SAFETY</span><span>COST GOVERNANCE</span></figcaption></figure>`,
-  },
-  {
-    eyebrow: "01 / PRODUCT IDENTITY",
-    title: "FDAI connects operational signals to decisions, execution, and outcome verification",
-    lead: "It is an autonomous cloud operations control plane that handles repeatable work using organizational operating rules and current state.",
-    layout: "l100-pitch-body slide-l100-identity",
-    content: `<section class="l100-visual l100-identity" aria-label="What FDAI is and is not">
-      <article class="is"><span>WHAT FDAI DOES</span><strong>Connect operational signals<br>to verifiable outcomes</strong><div><b>Connect current state with service relationships</b><b>Apply organizational rules and policy first</b><b>Execute approved work and verify the actual effect</b></div></article>
-      <article class="is-not"><span>PRODUCT STATUS</span><strong>An internal solution developed<br>by Microsoft Korea CSU</strong><div><b>Not an official Microsoft product or Azure service</b><b>Not covered by Microsoft product support or SLA</b><b>Support and update responsibilities are agreed before adoption</b></div></article>
-      <p>People define the goals and execution authority, and FDAI acts only within the permitted scope</p>
-    </section>${source("docs/roadmap/architecture/fdai-constitution.md")}`,
-  },
-  {
-    eyebrow: "02 / OPERATING CHALLENGE",
-    title: "Operational response slows while scattered information is connected into one decision",
-    lead: "Operators must find logs and metrics, recent changes, service relationships, operating policies, and approval status across multiple tools, then evaluate them together.",
-    layout: "l100-pitch-body slide-l100-challenge",
-    content: `<section class="l100-visual l100-challenge" aria-label="Five stages operators connect manually">
-      <article><b>01</b><strong>Signal</strong><span>Logs · metrics · alerts</span></article><i></i><article><b>02</b><strong>Impact</strong><span>Relations · SLO · deployment</span></article><i></i><article><b>03</b><strong>Decision</strong><span>Procedure · risk · approval</span></article><i></i><article><b>04</b><strong>Execution</strong><span>Change · recovery · rollback</span></article><i></i><article><b>05</b><strong>Verification</strong><span>State · recurrence · audit</span></article><div class="human"><span>OPERATOR</span><strong>Operators reconnect context at every handoff</strong></div>
-    </section>${source("docs/roadmap/architecture/goals-and-metrics.md")}`,
-  },
-  {
-    eyebrow: "03 / CONNECTED OPERATIONS",
-    title: "FDAI connects repeatable work across existing tools without replacing them",
-    lead: "Each system remains authoritative for its own data, and FDAI uses only information the deployment is allowed to access.",
-    layout: "l100-pitch-body slide-l100-connected",
-    content: `<section class="l100-visual l100-connected" aria-label="Flow from sources through FDAI to outcomes">
-      <article class="sources"><small>AUTHORITATIVE SOURCES</small><strong>Operational information</strong><span>Azure state</span><span>Logs and metrics</span><span>Service relations</span><span>Rules and Git changes</span></article><i></i>
-      <article class="control"><small>FDAI CONTROL PLANE</small><strong>Connect decisions and work</strong><span>Identify target</span><span>Evaluate rules</span><span>Build plan</span><span>Check authority</span></article><i></i>
-      <article class="outcomes"><small>GOVERNED OUTCOMES</small><strong>Operational outcome</strong><span>Proposal</span><span>Human approval</span><span>Permitted execution</span><span>Verification and recovery</span></article>
-      <p>FDAI Console does not change customer resources. Only the isolated Executor performs approved work.</p>
-    </section>${source(".github/instructions/app-shape.instructions.md", "docs/roadmap/deployment/deployment.md")}`,
-  },
-  {
-    eyebrow: "04 / OPERATING DOMAINS",
-    title: "One SRE operating model connects resilience, change safety, and cost governance",
-    lead: "All three domains share the same service objectives, operational evidence, and authority boundaries.",
-    layout: "l100-pitch-body slide-l100-domains",
-    content: `<section class="l100-visual l100-domains" aria-label="Three FDAI operating domains"><div class="sre-core"><small>OPERATING MODEL</small><strong>SRE</strong><span>Objectives · risk · evidence · effects</span></div><article class="resilience"><b>01</b><strong>RESILIENCE</strong><span>Detect · recover · verify</span></article><article class="change"><b>02</b><strong>CHANGE SAFETY</strong><span>Impact · approve · roll back</span></article><article class="cost"><b>03</b><strong>COST GOVERNANCE</strong><span>Cost · capacity · safe optimization</span></article><p>FDAI's goal is not automation itself. It is less repetitive human intervention without losing safety or accountability.</p></section>${source("docs/roadmap/architecture/goals-and-metrics.md")}`,
-  },
-  {
-    eyebrow: "05 / A TYPICAL OPERATING QUESTION",
-    title: "One operating question requires multiple authoritative sources and an execution-authority check",
-    lead: "An error-rate increase alone cannot determine whether it is safe to roll back the latest deployment.",
-    layout: "l100-pitch-body slide-l100-question",
-    content: `<section class="l100-visual l100-question" aria-label="An operating question about rolling back a deployment"><div class="question-icon" aria-hidden="true">?</div><blockquote>Service errors have surged.<br>Should we roll back the latest deployment?</blockquote><div class="question-sources"><span>Service relations</span><span>Change history</span><span>Operating rules</span><span>Execution authority</span></div><p>Target, relation, time, evidence, authority, and expected effect must agree.</p></section>${source("docs/roadmap/decisioning/execution-model.md")}`,
-  },
-  {
-    eyebrow: "06 / QUESTION DECOMPOSITION",
-    title: "FDAI decomposes an operating question into target, relation, time, evidence, authority, and expected effect",
-    lead: "Natural language conveys intent, but it never creates execution authority.",
-    layout: "l100-pitch-body slide-l100-decomposition",
-    content: `<section class="l100-visual l100-decomposition" aria-label="Operating question decomposed into six decision dimensions">
-      <div class="callout target"><b>Target</b><span>Which service and revision?</span></div><div class="callout relation"><b>Relation</b><span>Which services are affected?</span></div><div class="callout time"><b>Time</b><span>When did errors begin?</span></div>
-      <p class="annotated"><mark>Service</mark> <mark>errors have surged</mark>.<br>Should we <mark>roll back</mark> the <mark>latest deployment</mark>?</p>
-      <div class="callout evidence"><b>Evidence</b><span>Are observations current?</span></div><div class="callout authority"><b>Authority</b><span>Is rollback registered and approved?</span></div><div class="callout effect"><b>Expected effect</b><span>Which metric must recover?</span></div><p class="example-note">Illustrative example, not an actual customer outcome.</p>
-    </section>${source("docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/decisioning/execution-model.md")}`,
-  },
-  {
-    eyebrow: "07 / FDAI OPERATING ENGINE",
-    title: "FDAI connects an operating question to a grounded decision and verified work",
-    lead: "Every stage checks the evidence and authority established by the previous stage and stops when a required condition is not met.",
-    layout: "l100-pitch-body slide-l100-engine",
-    content: `<section class="l100-visual l100-engine-v2" aria-label="FDAI operating engine that grounds an operating question, decides, authorizes, executes, and independently verifies the effect">
-      <div class="engine-sources"><span>Operating ontology</span><span>Current observations</span><span>Rule Catalog</span><span>Verified cases</span></div>
-      <div class="engine-grounding" aria-hidden="true"><i></i><b>GROUNDED CONTEXT</b><i></i></div>
-      <div class="engine-flow">
-        <article class="engine-input"><small>INPUT</small><strong>Error surge</strong><span>Roll back the latest deployment?</span></article>
-        <i class="engine-arrow" aria-hidden="true"></i>
-        <div class="engine-core">
-          <header><small>FDAI OPERATING ENGINE</small><strong>Pin evidence and authority at every stage</strong></header>
-          <ol>
-            <li><b>01</b><strong>Ground</strong><span>Target · relation · time</span></li>
-            <li><b>02</b><strong>Decide</strong><span>Rule · tier · risk</span></li>
-            <li><b>03</b><strong>Authorize</strong><span>Approval · scope · safeguards</span></li>
-            <li><b>04</b><strong>Execute</strong><span>Lock · idempotency · audit</span></li>
-          </ol>
-        </div>
-        <i class="engine-arrow" aria-hidden="true"></i>
-        <article class="engine-output"><small>GOVERNED OUTCOME</small><strong>Authorized rollback</strong><span>or hold · deny · human review</span></article>
-      </div>
-      <div class="engine-verification"><strong>Independent effect verification</strong><span>Pre-action baseline</span><i></i><span>Separate observation</span><i></i><span>Error rate recovered</span><i></i><b>Complete or roll back</b></div>
-    </section>${source("docs/roadmap/architecture/fdai-constitution.md", "docs/roadmap/agents/agent-pantheon.md")}`,
-  },
-  {
-    eyebrow: "08 / SEMANTIC OPERATING CONTEXT",
-    title: "Semantic search connects a question to typed targets and relations in the operating ontology",
-    lead: "Agents use those structured targets and relations to retrieve only the operational information they need.",
-    layout: "l100-pitch-body slide-l100-semantic",
-    content: `<section class="l100-visual l100-semantic-v2" aria-label="Agents map an operating question into typed semantic search, bind it to ontology, rules, and cases, and receive bounded context, decisions, and action contracts">
-      <article class="semantic-agents"><small>ACCOUNTABLE</small><b>15</b><strong>AGENTS</strong><span>Ask · observe · decide · execute</span></article>
-      <i class="semantic-arrow" aria-hidden="true"></i>
-      <div class="semantic-mapper"><small>SEMANTIC SEARCH</small><strong>Map language to types</strong><div><span>Intent</span><span>Target</span><span>Relation</span><span>Time</span><span>Evidence</span><span>ActionType</span></div></div>
-      <i class="semantic-arrow" aria-hidden="true"></i>
-      <div class="semantic-knowledge"><div class="ontology-hub"><small>SHARED MEANING</small><strong>Operating ontology</strong><span>Resource · service · objective · dependency</span></div><div class="knowledge-pair"><span>Rule Catalog</span><span>Verified cases</span></div></div>
-      <i class="semantic-arrow" aria-hidden="true"></i>
-      <div class="semantic-outputs"><article><small>CONTEXT</small><strong>Current state</strong><span>Relation · time · freshness</span></article><article><small>DECISION</small><strong>Permitted scope</strong><span>Rule · risk · approval</span></article><article><small>ACTION</small><strong>Action contract</strong><span>Effect · recovery · verification</span></article></div>
-      <p>Semantic search structures meaning. The ontology never creates authority.</p>
-    </section>${source("docs/roadmap/architecture/operating-ontology-platform.md", "docs/roadmap/agents/agent-pantheon.md")}`,
-  },
-  {
-    eyebrow: "09 / DECISION EFFORT",
-    title: "FDAI selects T0, T1, or T2 based on the judgment required",
-    lead: "It uses the lowest tier sufficient for a decision to reduce cost and latency.",
-    layout: "l100-pitch-body slide-l100-tier-selector",
-    content: `<section class="l100-visual l100-tier-selector" aria-label="T0, T1, and T2 decision effort"><aside><strong>Decision<br>Reasoning<br>Effort</strong><p>Start with deterministic rules. Use AI only for residual ambiguity.</p></aside><div class="levels"><article class="t0"><b>T0</b><strong>Rules and policy</strong><span>Lowest cost · predictable · no model</span></article><article class="t1"><b>T1</b><strong>Verified reuse</strong><span>Similar case · low cost · evidence match</span></article><article class="t2"><b>T2</b><strong>Grounded reasoning</strong><span>Novel case · multiple models · deterministic verification</span></article></div><p>A model response never authorizes execution. Tier shares are targets to measure, not current results.</p></section>${source("docs/roadmap/architecture/llm-strategy.md", "docs/roadmap/architecture/goals-and-metrics.md")}`,
-  },
-  {
-    eyebrow: "10 / DETERMINISTIC OPERATION",
-    title: "Repeatable situations run deterministically without using an LLM",
-    lead: "The same structured event and policy receive the same decision.",
-    layout: "l100-pitch-body slide-l100-deterministic",
-    content: `<section class="l100-visual l100-deterministic" aria-label="T0 deterministic decision flow"><div class="intent"><small>STRUCTURED EVENT</small><strong>Error threshold exceeded</strong><span>Target · revision · time · metric</span></div><div class="definitions"><small>GOVERNED DEFINITIONS</small><article><b>Rule</b><span>Decision condition</span></article><article><b>Policy</b><span>Risk and approval</span></article><article><b>ActionType</b><span>Work and safeguards</span></article></div><i></i><div class="engine"><small>T0</small><strong>Deterministic engine</strong><span>Schema · policy · dry run</span></div><i></i><div class="receipt"><small>TYPED OUTCOME</small><strong>Same input = same decision</strong><span>Verdict · ceiling · audit receipt</span></div><p>Missing evidence never becomes a guess. FDAI holds, denies, or moves to the next tier.</p></section>${source("docs/roadmap/decisioning/execution-model.md", "docs/roadmap/architecture/llm-strategy.md")}`,
-  },
-  {
-    eyebrow: "11 / AGENT KNOWLEDGE BASE",
-    title: "Agents query policy, ontology, and verified cases through one knowledge base",
-    lead: "The knowledge base fixes each operating domain's retrieval scope, information sources, and synthesis behavior.",
-    layout: "l100-pitch-body slide-l100-knowledge",
-    content: `<section class="l100-visual l100-knowledge" aria-label="Agent knowledge base structure"><aside><small>KNOWLEDGE DOMAIN</small><strong>One governed entry point</strong><span>Retrieval scope</span><span>Knowledge sources</span><span>Synthesis behavior</span><span>Grounding and citations</span></aside><div class="kb"><header><strong>AGENT KNOWLEDGE BASE</strong></header><div class="sources"><article><b>INDEXED</b><span>Rule Catalog</span><span>Case history</span><span>Document index</span></article><article><b>FEDERATED</b><span>Operating ontology</span><span>Current observations</span><span>Authoritative sources</span></article></div><div class="indexes"><span>Vector index</span><span>Lexical index</span><span>Typed query</span></div><div class="guard"><b>Policy · source · freshness · authority</b></div></div><div class="agent-output"><strong>AGENTS</strong><span>Retrieve only what is needed</span></div><p>Retrieved knowledge informs a decision. It never grants approval or execution authority.</p></section>${source("docs/roadmap/architecture/operating-ontology-platform.md", "docs/roadmap/rules-and-detection/prediction-learning-and-case-history.md")}`,
-  },
-  {
-    eyebrow: "12 / OPERATING ONTOLOGY",
-    title: "The operating ontology connects resources, services, objectives, and actions",
-    lead: "Agents query typed operating relationships instead of comparing strings alone.",
-    layout: "l100-pitch-body slide-l100-ontology-graph",
-    content: `<section class="l100-visual l100-ontology-graph-v2" aria-label="Operating ontology graph connecting change, service, resource, evidence, SLO, ActionType, and expected effect">
-      <aside><small>SEMANTIC QUERY</small><strong>Did the latest deployment<br>contribute to the<br>error surge?</strong><span>Bind target and time as typed scope</span></aside>
-      <i class="ontology-query-arrow" aria-hidden="true"></i>
-      <svg class="l100-ontology-svg" viewBox="0 0 920 350" role="img" aria-label="Change affects Service. Service depends on Resource and is measured by SLO. Resource is observed by Evidence. ActionType targets Resource and expects an Expected Effect.">
-        <defs><marker id="ontology-arrow-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"></path></marker></defs>
-        <g class="ontology-links" marker-end="url(#ontology-arrow-en)"><path d="M 190 92 H 300"></path><path d="M 490 92 H 590"></path><path d="M 700 122 V 135 H 797 V 145"></path><path d="M 300 115 C 250 160 230 258 190 258"></path><path d="M 395 230 C 450 175 540 150 590 105"></path><path d="M 490 258 H 590"></path></g>
-        <foreignObject class="ontology-edge-label" x="200" y="50" width="90" height="28"><div xmlns="http://www.w3.org/1999/xhtml">affects</div></foreignObject><foreignObject class="ontology-edge-label" x="490" y="50" width="110" height="28"><div xmlns="http://www.w3.org/1999/xhtml">depends on</div></foreignObject><foreignObject class="ontology-edge-label" x="735" y="92" width="135" height="28"><div xmlns="http://www.w3.org/1999/xhtml">observed by</div></foreignObject><foreignObject class="ontology-edge-label" x="172" y="165" width="118" height="28"><div xmlns="http://www.w3.org/1999/xhtml">measured by</div></foreignObject><foreignObject class="ontology-edge-label" x="440" y="138" width="90" height="28"><div xmlns="http://www.w3.org/1999/xhtml">targets</div></foreignObject><foreignObject class="ontology-edge-label" x="500" y="218" width="80" height="28"><div xmlns="http://www.w3.org/1999/xhtml">expects</div></foreignObject>
-        <foreignObject class="ontology-node change-node" x="40" y="62" width="150" height="60"><div xmlns="http://www.w3.org/1999/xhtml">Change</div></foreignObject><foreignObject class="ontology-node service-node" x="300" y="62" width="190" height="60"><div xmlns="http://www.w3.org/1999/xhtml">Service</div></foreignObject><foreignObject class="ontology-node resource-node" x="590" y="62" width="140" height="60"><div xmlns="http://www.w3.org/1999/xhtml">Resource</div></foreignObject><foreignObject class="ontology-node evidence-node" x="700" y="145" width="194" height="55"><div xmlns="http://www.w3.org/1999/xhtml">Evidence</div></foreignObject><foreignObject class="ontology-node slo-node" x="40" y="230" width="150" height="55"><div xmlns="http://www.w3.org/1999/xhtml">SLO</div></foreignObject><foreignObject class="ontology-node action-node" x="300" y="230" width="190" height="55"><div xmlns="http://www.w3.org/1999/xhtml">ActionType</div></foreignObject><foreignObject class="ontology-node effect-node" x="590" y="230" width="230" height="55"><div xmlns="http://www.w3.org/1999/xhtml">Expected Effect</div></foreignObject>
-        <foreignObject class="ontology-legend observed" x="55" y="305" width="160" height="34"><div xmlns="http://www.w3.org/1999/xhtml"><i></i><span>Observed state</span></div></foreignObject><foreignObject class="ontology-legend governed" x="215" y="305" width="160" height="34"><div xmlns="http://www.w3.org/1999/xhtml"><i></i><span>Policy and action</span></div></foreignObject><foreignObject class="ontology-legend desired" x="375" y="305" width="180" height="34"><div xmlns="http://www.w3.org/1999/xhtml"><i></i><span>Objective and effect</span></div></foreignObject>
-      </svg>
-      <p>FDAI checks direction, effective time, source, and freshness. The ontology never grants authority.</p>
-    </section>${source("docs/roadmap/architecture/operating-ontology-platform.md", "docs/roadmap/architecture/fdai-constitution.md")}`,
-  },
-  {
-    eyebrow: "13 / AZURE DEPLOYMENT",
-    title: "FDAI deploys its operations control plane inside the customer's Azure subscription",
-    lead: "Operational data, network paths, service identities, and audit records stay within the Azure region and policy boundary selected by the customer.",
-    layout: "l100-pitch-body slide-l100-azure",
-    content: `<section class="l100-visual l100-azure" aria-label="Core and optional Azure resources used by FDAI"><header><small>CUSTOMER AZURE SUBSCRIPTION</small><strong>An Azure boundary owned and controlled by the customer</strong></header><div class="layers"><article><small>COMPUTE</small><strong>Azure Kubernetes Service</strong><span>Core · Operator · Ingestion · Worker · Executor</span></article><article><small>CONTROL DATA</small><strong>Event Hubs + PostgreSQL</strong><span>Events · state · audit · KPIs · pgvector</span></article><article><small>TRUST + OBSERVABILITY</small><strong>Key Vault + Managed Identity</strong><span>ACR · Log Analytics · Application Insights · VNet</span></article></div><div class="optional"><small>OPTIONAL</small><span>Static Web Apps + Entra ID</span><span>Azure OpenAI + Foundry</span><span>ADLS Gen2 + Document Intelligence</span><span>Blob Storage</span><span>Private Endpoints</span><span>Teams or Bot</span></div><p>These are Azure services used by FDAI. FDAI itself is not an official Microsoft product or Azure service.</p></section>${source("docs/roadmap/deployment/deploy-and-onboard.md", "docs/roadmap/deployment/deployment.md")}`,
-  },
-  {
-    eyebrow: "14 / ADOPTION DECISION",
-    title: "Choose the first validation workflow and accountable owners",
-    lead: "The first step does not approve adoption or autonomous execution. It aligns on the problem and exit criteria for shadow validation.",
-    layout: "l100-pitch-body slide-l100-adoption",
-    content: `<section class="l100-visual l100-adoption" aria-label="FDAI readiness and first validation path"><ol><li><b>01</b><strong>Scope</strong><span>Workflow · target · exclusions</span></li><li><b>02</b><strong>Owners</strong><span>Service · operations · approval · review</span></li><li><b>03</b><strong>Evidence</strong><span>Inventory · observations · changes · policy</span></li><li><b>04</b><strong>Baseline</strong><span>Window · success · guard metrics</span></li><li><b>05</b><strong>Azure</strong><span>Region · quota · network · cost</span></li><li><b>06</b><strong>Exit criteria</strong><span>Shadow result · review date</span></li></ol><div class="path"><span>Align scope</span><i></i><span>Azure preflight</span><i></i><span>Deploy</span><i></i><span>Shadow mode</span><i></i><span>Compare baseline</span><i></i><span>Review promotion</span></div><aside><small>FIRST DELIVERABLE</small><strong>One-page validation charter</strong><span>Owners · baseline · sources · exclusions · exit criteria</span></aside><p>FDAI is an internal Microsoft Korea CSU solution, not an official Microsoft product or Azure service.</p></section>${source("docs/roadmap/deployment/deploy-and-onboard.md", "docs/roadmap/architecture/goals-and-metrics.md")}`,
-  },
+    lead: "Connect organizational rules with current state to reduce repeat work.<br>People set goals and authority. FDAI checks the actual effect of each task.",
+    visual: `<div class="lp-cover-composition">
+      <div class="lp-cover-message"><span class="lp-kicker">FDAI / AUTONOMOUS CLOUD OPERATIONS</span><strong>From gathering information<br>to safe decisions and action</strong><p>Resilience · Change Safety · Cost Governance</p></div>
+      <figure class="lp-cover-photo"><img src="assets/l100-pitch-deck.jpeg" alt=""><figcaption>Rules first · Evidence grounded · Effect verified</figcaption></figure>
+    </div>`,
+    takeaway: "Developed and validated internally by Microsoft Korea CSU. FDAI is not an official Microsoft product or Azure service.",
+    sources: ["constitution"],
+  }),
+  slide({
+    id: "challenge", chapter: "01 / THE OPERATOR'S QUESTION", kind: "timeline", example: true,
+    title: "Operators gather and reconcile scattered information",
+    lead: "An error surge means checking logs, recent changes, service relations, and approval state across tools.",
+    visual: `<blockquote class="lp-question">"API errors are rising. Check whether the latest deployment or the database<br>is responsible, and tell me what would allow a rollback."</blockquote>
+      <ol class="lp-event-line"><li><b>Signal</b><span>Error logs and metrics</span></li><li><b>Context</b><span>Changes and dependencies</span></li><li><b>Decision</b><span>Impact and action conditions</span></li><li><b>Verification</b><span>Actual post-action state</span></li></ol>`,
+    takeaway: "FDAI connects repeatable checks and decisions across existing tools rather than replacing those tools.",
+    sources: ["constitution", "execution"],
+  }),
+  slide({
+    id: "domains", chapter: "02 / FDAI'S ROLE", kind: "operating-map",
+    title: "Connect resilience, change safety, and cost governance",
+    lead: "FDAI is a control plane that coordinates operational decisions and action, using Site Reliability Engineering (SRE) as its operating model.",
+    visual: `<dl class="lp-domain-list">
+      <div><dt><span>01 / RESILIENCE</span><strong>Recover safely</strong></dt><dd>Detect problems and check that the service recovers after a recovery action.</dd></div>
+      <div><dt><span>02 / CHANGE SAFETY</span><strong>Control change</strong></dt><dd>Review impact, approval conditions, and a recovery path together.</dd></div>
+      <div><dt><span>03 / COST GOVERNANCE</span><strong>Manage cost</strong></dt><dd>Review cost and capacity without sacrificing service objectives.</dd></div>
+    </dl><p class="lp-context-note">Connect existing observation, Git, and cloud tools. Agree on support and update ownership before adoption.</p>`,
+    takeaway: "The goal is less repetitive human work while preserving safety and accountability, not automation for its own sake.",
+    sources: ["constitution", "deployment"],
+  }),
+  slide({
+    id: "knowledge", chapter: "03 / DISTINCT INFORMATION SOURCES", kind: "evidence-layers",
+    title: "Documented intent is not the same as observed state",
+    lead: "FDAI retains sources and reference times, distinguishing what each item can support.",
+    visual: `<div class="lp-evidence-layers">
+      <section><span class="lp-kicker">DESIGN INTENT</span><h3>Documents and guides</h3><p>Extract claims about objects and relations.<br>A change proposal needs review; it is not a current fact.</p></section>
+      <section><span class="lp-kicker">CURRENT FACTS</span><h3>Inventory and observations</h3><p>Read resources and state; verify relations.<br>Check source, time, and missing information.</p></section>
+      <section><span class="lp-kicker">PRIOR EXPERIENCE</span><h3>Investigations and cases</h3><p>Refer to earlier hypotheses and outcomes.<br>Check applicability to this target and situation.</p></section>
+    </div>`,
+    takeaway: "A document proposal or model-generated explanation is not a fact observed in the environment.",
+    sources: ["documents", "graph"],
+  }),
+  slide({
+    id: "ontology", chapter: "04 / SHARED MEANING", kind: "relationship", example: true,
+    title: "Use the ontology to understand connected targets",
+    lead: "See which database the API uses, when that relation was confirmed, and which source supports it.",
+    visual: resourceGraph("en"),
+    takeaway: "A DB problem can affect the API. Check both targets' state and change history.<br>A connection alone does not establish the cause of this error.",
+    sources: ["ontology", "causality"],
+  }),
+  slide({
+    id: "target", chapter: "05 / FROM QUESTION TO EXACT TARGET", kind: "verified-flow", example: true,
+    title: "A similar name is not enough to select a target",
+    lead: "Interpret the question, then verify the exact identity against current objects the principal is authorized to read.",
+    visual: `<div class="lp-flow">
+      <section data-lp-node="intent"><span class="lp-kicker">INTERPRET INTENT</span><h3>"Investigate API errors"</h3><p>Goal · target · time · constraints</p></section>
+      <i class="lp-link" data-lp-from="intent" data-lp-to="plan" aria-hidden="true"></i>
+      <section data-lp-node="plan"><span class="lp-kicker">VERIFY THE PLAN</span><h3>Allowed reads only</h3><p>Type · arguments · role · scope</p></section>
+      <i class="lp-link" data-lp-from="plan" data-lp-to="object" aria-hidden="true"></i>
+      <section data-lp-node="object"><span class="lp-kicker">READ CURRENT OBJECTS</span><h3>Exact target</h3><p>Identity · source · freshness</p></section>
+    </div><p class="lp-context-note">Ask for clarification when names or scope are ambiguous. Candidate rank is neither fact verification nor action approval.</p>`,
+    takeaway: "Language conveys intent. It does not expand access or execution authority.",
+    sources: ["ontology", "constitution"],
+  }),
+  slide({
+    id: "time", chapter: "06 / ONE TIME WINDOW", kind: "incident-timeline", example: true,
+    title: "Compare changes and impact around the deployment",
+    lead: "Use the same target and time window. Current topology cannot prove past relations when historical evidence is missing.",
+    visual: `<div class="lp-time-board"><div class="lp-time-head"><span>Record to check</span><span>Before deployment</span><span>Deployment point</span><span>Error window</span></div>
+      <div><strong>Change history</strong><span>Previous revision</span><span class="lp-focus">New revision</span><span>Target and config</span></div>
+      <div><strong>API observations</strong><span>Baseline state</span><span>Request records</span><span class="lp-focus">Errors and latency</span></div>
+      <div><strong>DB observations</strong><span>Baseline state</span><span>Find latency onset</span><span>Check persistence</span></div>
+    </div>`,
+    takeaway: "Temporal proximity alone does not make the deployment the cause. Missing evidence remains explicit.",
+    sources: ["graph", "causality"],
+  }),
+  slide({
+    id: "hypotheses", chapter: "07 / COMPETING HYPOTHESES", kind: "hypothesis-board", example: true,
+    title: "Compare hypotheses before naming a cause",
+    lead: "Find supporting and refuting evidence, then identify the next observation that distinguishes the hypotheses.",
+    visual: `<table class="lp-table lp-hypotheses"><thead><tr><th>Possible cause</th><th>Evidence to inspect</th><th>Still unknown</th></tr></thead><tbody>
+      <tr><th>Deployment regression</th><td>Changed target and error onset</td><td>Does the change explain the symptom?</td></tr>
+      <tr><th>Database latency</th><td>Timing of DB latency and API requests</td><td>Did latency precede the errors?</td></tr>
+      <tr><th>Shared dependency</th><td>Services using the same dependency</td><td>Are other services affected?</td></tr>
+    </tbody></table><div class="lp-answer"><span class="lp-kicker">EXAMPLE ANSWER</span><p>"Current evidence does not establish the cause.<br>I will compare the deployment target with the onset of database latency."</p></div>`,
+    takeaway: "Finding a related case is not the same as establishing the cause of this incident.",
+    sources: ["causality"],
+  }),
+  slide({
+    id: "tiers", chapter: "08 / PROPORTIONATE DECISION EFFORT", kind: "tier-comparison",
+    title: "Apply rules first; reason only as far as needed",
+    lead: "T0, T1, and T2 describe decision effort. At every tier, a model proposal alone cannot authorize execution.",
+    visual: `<dl class="lp-tier-list">
+      <div><dt>T0</dt><dd><h3>Rules and policy</h3><p>No model. The same verified inputs, policy version, and context produce the same decision.</p></dd></div>
+      <div><dt>T1</dt><dd><h3>Verified reuse and lightweight judgment</h3><p>Use cases, patterns, and lightweight models. Deterministically verify proposed targets and intent.</p></dd></div>
+      <div><dt>T2</dt><dd><h3>Deeper reasoning for residual ambiguity</h3><p>Ground reasoning in evidence, with distinct-model cross-checks and independent verification.</p></dd></div>
+    </dl>`,
+    takeaway: "Use the least effort sufficient for a decision. Reacquire evidence or hold judgment when support is insufficient.",
+    sources: ["llm", "execution"],
+  }),
+  slide({
+    id: "agents", chapter: "09 / SEPARATE RESPONSIBILITIES", kind: "ownership",
+    title: "Agents own distinct roles and collaborate through events",
+    lead: "The fixed 15-agent organization assigns accountability. These are role groups, not the complete organization chart.",
+    visual: `<div class="lp-ownership"><div class="lp-event-bus"><span class="lp-kicker">SHARED COLLABORATION PATH</span><h3>Schema-validated events</h3><p>Owner · target · evidence · time</p></div>
+      <dl><div><dt>Observe and retain</dt><dd>Check signals and relations; supply verified context.</dd></div><div><dt>Decide and explain</dt><dd>Review rules and risk; communicate the decision basis.</dd></div><div><dt>Approval and execution</dt><dd>Check valid human approval. The executor uses a separate identity.</dd></div><div><dt>Verify, recover, audit</dt><dd>Observe effects independently; retain outcomes and recovery history.</dd></div></dl>
+    </div>`,
+    takeaway: "An agent does not approve its own proposal. Shared knowledge is not shared execution authority.",
+    sources: ["agents", "constitution"],
+  }),
+  slide({
+    id: "authority", chapter: "10 / BEFORE EXECUTION", kind: "safeguards",
+    title: "Execution requires authority and all safety conditions",
+    lead: "Establishing a cause does not authorize an action. Check the approval and seven safeguards for each registered action.",
+    visual: `<div class="lp-authority-band"><strong>Proposal</strong><span>Not authority</span><strong>Valid approval</strong><span>Recheck safeguards</span><strong>Isolated executor</strong></div>
+      <ol class="lp-safeguards"><li>Machine-evaluable stop condition</li><li>Tested rollback or recovery</li><li>Impact scope and limit</li><li>Successful dry run</li><li>Exact logical-target lock</li><li>Stable deduplication key</li><li>Audit before and after effects</li></ol>`,
+    takeaway: "Do not execute when a condition fails. FDAI can still diagnose the missing evidence and readiness requirements.",
+    sources: ["constitution", "execution"],
+  }),
+  slide({
+    id: "effect", chapter: "11 / ACTUAL TASK EFFECT", kind: "effect-verification", example: true,
+    title: "Verify recovery, not just an accepted command",
+    lead: "An accepted rollback request is not completion. Compare expected effects using an observation independent of the execution channel.",
+    visual: `<div class="lp-effect-stages"><section><span class="lp-kicker">BEFORE ACTION</span><h3>Pin the baseline</h3><p>Exact target and revision<br>Error state and expected recovery</p></section><section><span class="lp-kicker">AUTHORIZED ACTION</span><h3>Perform the rollback</h3><p>Execution receipt and audit<br>Acceptance is not effect evidence</p></section><section><span class="lp-kicker">SEPARATE OBSERVATION</span><h3>Compare actual state</h3><p>Window, source, completeness<br>Check the expected recovery</p></section></div>
+      <div class="lp-outcomes"><p><b>Recovery verified</b>Complete only when the expected effect is observed.</p><p><b>Recovery unverified</b>Do not report success. Follow the registered recovery contract or request human review.</p></div>`,
+    takeaway: "Recovery does not automatically establish the cause. Retain causal-hypothesis verification separately.",
+    sources: ["constitution", "causality"],
+  }),
+  slide({
+    id: "status", chapter: "12 / IMPLEMENTATION AND VALIDATION", kind: "status-comparison",
+    title: "Separate implemented, enabled, and live-validated",
+    lead: "Code alone does not prove default availability or operational quality. Repository reference date: 2026-10-20.",
+    visual: `<table class="lp-table lp-status"><thead><tr><th>Capability</th><th>Observed status</th><th>Check before adoption</th></tr></thead><tbody>
+      <tr><th>Typed reads and plan checks</th><td>Implementation foundation exists</td><td>Actual data, roles, and source bindings</td></tr>
+      <tr><th>Vector-ranked instance candidates</th><td>Disabled in the standard answer path</td><td>Separate activation and validation</td></tr>
+      <tr><th>Document-derived relations</th><td>Change proposals for review</td><td>Active-graph admission integration</td></tr>
+      <tr><th>Causal analysis and action effects</th><td>No live validation claimed</td><td>Validate the exact deployment scope</td></tr>
+    </tbody></table><p class="lp-context-note">Natural-language interpretation differs from vector candidate search. This deck is not a live-validation report.</p>`,
+    takeaway: "Check evidence and readiness per capability. Enabled configuration never grants execution authority.",
+    sources: ["ontology", "indexRuntime", "documents", "causality"],
+  }),
+  slide({
+    id: "azure", chapter: "13 / AZURE DEPLOYMENT BOUNDARIES", kind: "deployment",
+    title: "Check Azure components and data-processing boundaries",
+    lead: "Deploy in the customer's Azure subscription. Check each service's region, network, and identity.",
+    visual: `<div class="lp-azure-boundary"><span class="lp-kicker">CUSTOMER-SELECTED AZURE SUBSCRIPTION / BASELINE</span>
+      <dl><div><dt>Runtime services</dt><dd>Azure Kubernetes Service<br>Core · Operator · Ingestion · Worker · Executor</dd></div><div><dt>Events and state</dt><dd>Event Hubs · PostgreSQL<br>Events, service-owned state, and audit</dd></div><div><dt>Identity and observation</dt><dd>Key Vault · Managed Identity<br>Log Analytics · Application Insights</dd></div></dl>
+    </div><p class="lp-context-note"><b>Optional scope</b> Configure Console, models, document processing, private connectivity, and Teams as needed. Console requires the applicable Entra ID authentication setup.</p>`,
+    takeaway: "Deployment inside a subscription does not guarantee residency for every connection. Review processing locations for models, documents, Git, and other services.",
+    sources: ["deployment", "constitution"],
+  }),
+  slide({
+    id: "adoption", chapter: "14 / THE FIRST VALIDATION DECISION", kind: "adoption-worksheet", example: true,
+    title: "Define the first observation scope and its owners",
+    lead: "Start in observation mode without applying changes. Agree on exit criteria; completing observation does not authorize execution.",
+    visual: `<div class="lp-worksheet"><div class="lp-sheet-heading"><span class="lp-kicker">FIRST VALIDATION SCOPE / EXAMPLE WORKSHEET</span><strong>Investigate API errors and inspect decision evidence</strong></div>
+      <dl><div><dt>Target and exclusions</dt><dd>Owners define services, time windows, and excluded targets.</dd></div><div><dt>Owners and roles</dt><dd>Name the operational owner, approver, and reviewer.</dd></div><div><dt>Baseline and window</dt><dd>Agree on the current process and measurement period.</dd></div><div><dt>Safety and exit</dt><dd>No changes applied. Review evidence, hold reasons, and the next decision date.</dd></div></dl>
+    </div>`,
+    takeaway: "Continue observing, improve evidence, adjust scope, or review execution eligibility. Promotion and approval remain separate.",
+    sources: ["constitution", "deployment"],
+  }),
 ];
