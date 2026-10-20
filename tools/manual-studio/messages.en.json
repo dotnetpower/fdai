@@ -101,6 +101,12 @@
       "coverLabel": "Value to scale",
       "description": "Learn FDAI's operating model, 15 agents, data sovereignty, AIOps decisions, adoption readiness, and the path to a first validation."
     },
+    "l100-pitch-deck": {
+      "title": "FDAI L100 Pitch Deck",
+      "eyebrow": "L100 pitch deck",
+      "coverLabel": "Verifiable autonomy",
+      "description": "See how the internal Microsoft Korea CSU solution FDAI handles operating questions, connects ontology and agents, deploys on Azure, and begins with a bounded validation."
+    },
     "readiness-maturity": {
       "title": "AI/Data Readiness & Maturity",
       "eyebrow": "Readiness & maturity",

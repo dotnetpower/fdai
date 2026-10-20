@@ -18,6 +18,8 @@ _ROOT_FILES = (
     "executive-deck.css",
     "executive-story.css",
     "library.html",
+    "l100-pitch-deck.css",
+    "l100-pitch-deck.js",
     "localization.js",
     "manual-content.js",
     "manual-decks.css",
@@ -70,6 +72,7 @@ _ROOT_FILES = (
 _ENGLISH_DECK_FILES = (
     "art-of-possible.en.js",
     "executive-briefing.en.js",
+    "l100-pitch-deck.en.js",
     "manual-content.en.js",
     "ontology-foundation.en.js",
     "ontology-slide-kit.en.js",
