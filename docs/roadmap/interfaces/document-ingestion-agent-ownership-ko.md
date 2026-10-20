@@ -1,6 +1,6 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: 7f3fb84dfcc617c9dce46c845249fcf559f12ee1
+translation_source_sha: 7008ce19686e4c67e7503ec1f439a9693cef877a
 translation_revised: 2026-10-20
 ---
 
@@ -18,6 +18,8 @@ translation_revised: 2026-10-20
 [선언 의도 변환](../rules-and-detection/document-declared-intent-projection-ko.md)은 일반 워커와
 Core 시작 구성에 정확한 변경 내용의 별도 승인 경로를 추가합니다. 인덱싱 승인은 여전히
 그래프 쓰기 권한을 부여하지 않습니다.
+기존 정책의 작성자, 요청자, 검토자가 같은지 승인 전에 정규 principal 신원으로 비교합니다.
+대소문자나 주변 공백을 바꿔도 독립 검토자가 될 수 없습니다.
 
 업로드는 `Event`입니다. 권한을 포함하는 각 파이프라인 단계는 `fdai.pantheon.objects`에서
 다중화된 타입이 지정된 논리 객체를 발행하거나 소비하며, `fdai.pipeline.stages`는 운영
