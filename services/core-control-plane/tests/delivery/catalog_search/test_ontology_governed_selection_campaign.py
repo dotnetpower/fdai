@@ -1,5 +1,7 @@
 """Frozen protocol arithmetic for governed typed-selection answer qualification."""
 
+from dataclasses import replace
+
 from fdai.delivery.catalog_search.ontology_governed_selection_campaign import (
     GovernedLatencyObservation,
     GovernedLatencyProtocol,
@@ -68,3 +70,11 @@ def test_governed_protocol_fails_wrong_and_unavailable_bounds() -> None:
     assert "provider-unavailable-rate-exceeded" in latency.failure_codes
     assert "pooled-wrong-selection-bound-exceeded" in window.failure_codes
     assert "unavailable-rate-exceeded" in window.failure_codes
+
+
+def test_negative_empty_return_cannot_replace_the_required_semantic_hold() -> None:
+    rows = _decisions()
+    rows[16] = replace(rows[16], outcome="returned")
+    report = evaluate_governed_window(rows)
+    assert "negative-case-not-held" in report.failure_codes
+    assert not report.passed

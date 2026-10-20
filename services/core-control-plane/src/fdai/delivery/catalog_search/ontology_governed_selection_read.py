@@ -10,12 +10,14 @@ from typing import TYPE_CHECKING, Any, Protocol
 from uuid import uuid4
 
 from fdai_service_contracts.ontology_query import content_digest
+from pydantic import ValidationError
 
 from fdai.core.ontology_platform import QueryManifest
 from fdai.core.ontology_platform.functions import FunctionInvocationContext
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.core.ontology_platform.typed_selection_contracts import (
     ReadCapabilityBinding,
+    ReadCapabilityPointer,
     ReadModelStageContract,
     ReadSelectionEvidence,
 )
@@ -23,6 +25,7 @@ from fdai.delivery.persistence.state_store_typed_selection_read import StateStor
 
 from .generation import SemanticGenerationBuild
 from .ontology_candidate_context import (
+    CandidateContextError,
     CandidateContextLimits,
     CandidateProposalContext,
     prepare_candidate_proposal_context,
@@ -35,6 +38,12 @@ from .ontology_candidate_selection import (
     OntologyCandidateSelection,
     SelectedOntologyCandidates,
     resolve_candidate_selection,
+)
+from .ontology_selection_errors import (
+    CandidateSelectionDeniedError,
+    CandidateSelectionError,
+    GovernedReadError,
+    SelectionFailure,
 )
 from .ontology_snapshot_store import OntologyStagedProjection
 from .ontology_snapshot_validation import (
@@ -149,15 +158,24 @@ class GovernedTypedSelectionRead:
             or context.caller_agent != "Bragi"
             or context.purposes != ("operations-review",)
         ):
-            raise PermissionError("typed selection requires the current authenticated read source")
-        source = await self.source(context)
+            raise GovernedReadError(SelectionFailure.SOURCE_UNAVAILABLE)
+        try:
+            source = await self.source(context)
+        except (PermissionError, ValueError, RuntimeError):
+            raise GovernedReadError(SelectionFailure.SOURCE_UNAVAILABLE) from None
         if (
             source.binding.principal_scope_digest != context.principal_scope_digest
             or source.binding.manifest_digest != source.manifest.manifest_digest
         ):
-            raise PermissionError("typed selection current source scope changed")
-        await self.registry.active(source.binding)
+            raise GovernedReadError(SelectionFailure.SOURCE_SCOPE_CHANGED)
+        await self._active(source)
         return source
+
+    async def _active(self, source: ReadSelectionSource) -> ReadCapabilityPointer:
+        try:
+            return await self.registry.active(source.binding)
+        except (PermissionError, ValueError):
+            raise GovernedReadError(SelectionFailure.REGISTRY_UNAVAILABLE) from None
 
     @staticmethod
     def _same_source(first: ReadSelectionSource, second: ReadSelectionSource) -> bool:
@@ -174,7 +192,7 @@ class GovernedTypedSelectionRead:
     ) -> FunctionInvocationContext:
         """Run exactly two bounded proposals and issue no evidence on failure/cancellation."""
         if self.proposer is None or len(context.evidence_refs) >= 64:
-            raise PermissionError("typed selection qualified proposer is unavailable")
+            raise GovernedReadError(SelectionFailure.PROPOSAL_UNAVAILABLE)
         query = arguments.get("query")
         limit = arguments.get("limit")
         if (
@@ -185,18 +203,19 @@ class GovernedTypedSelectionRead:
             or not 1 <= limit <= 20
             or set(arguments) != {"query", "limit"}
         ):
-            raise PermissionError("typed selection read arguments are invalid")
+            raise GovernedReadError(SelectionFailure.REQUEST_INVALID)
         request_ref = context.authentication_request_ref or "typed-read:" + uuid4().hex
         began = False
+        evidence_saved = False
         try:
             async with asyncio.timeout(self.contract.total_timeout_seconds):
                 source = await self._source(context)
-                pointer = await self.registry.active(source.binding)
+                pointer = await self._active(source)
                 model = self.proposer.candidate_proposal_binding_for_manifest(
                     source.manifest, source.build
                 )
                 if content_digest(asdict(model)) != source.binding.model_binding_digest:
-                    raise PermissionError("typed selection actual model binding changed")
+                    raise GovernedReadError(SelectionFailure.MODEL_BINDING_CHANGED)
                 packaged = prepare_candidate_proposal_context(
                     query=query,
                     manifest=source.manifest,
@@ -210,37 +229,55 @@ class GovernedTypedSelectionRead:
                 await self.registry.begin_request(request_ref)
                 began = True
                 tasks = []
-                async with asyncio.TaskGroup() as group:
-                    for _ in range(self.contract.max_model_calls):
-                        tasks.append(
-                            group.create_task(
-                                self._propose(
-                                    context=packaged,
-                                    query=query,
-                                    manifest=source.manifest,
-                                    build=source.build,
-                                    staged=source.staged,
-                                    source_revision=source.binding.source_revision,
-                                    data_handling_policy_digest=source.binding.data_policy_digest,
-                                    source_validation=source.validation,
+                try:
+                    async with asyncio.TaskGroup() as group:
+                        for _ in range(self.contract.max_model_calls):
+                            tasks.append(
+                                group.create_task(
+                                    self._propose(
+                                        context=packaged,
+                                        query=query,
+                                        manifest=source.manifest,
+                                        build=source.build,
+                                        staged=source.staged,
+                                        source_revision=source.binding.source_revision,
+                                        data_handling_policy_digest=source.binding.data_policy_digest,
+                                        source_validation=source.validation,
+                                    )
                                 )
                             )
-                        )
+                except* GovernedReadError as failures:
+                    # A timeout takes precedence; otherwise keep a deterministic bounded cause.
+                    reasons = {
+                        failure.reason
+                        for failure in failures.exceptions
+                        if isinstance(failure, GovernedReadError)
+                    }
+                    reason = (
+                        SelectionFailure.PROPOSAL_TIMEOUT
+                        if SelectionFailure.PROPOSAL_TIMEOUT in reasons
+                        else min(reasons, default=SelectionFailure.PROPOSAL_UNAVAILABLE)
+                    )
+                    raise GovernedReadError(reason) from None
                 results = [task.result() for task in tasks]
                 selections = []
                 for result in results:
-                    if (
-                        result.input_digest != packaged.context_digest
-                        or result.proposal.status != "select"
-                        or result.selection is None
-                        or result.quote_invalid_clauses
-                    ):
-                        raise PermissionError("typed selection proposal requires clarification")
-                    result.proposal.validate_source_quotes(query)
+                    if result.input_digest != packaged.context_digest:
+                        raise GovernedReadError(SelectionFailure.PROPOSAL_BINDING_CHANGED)
+                    if result.quote_invalid_clauses:
+                        raise GovernedReadError(SelectionFailure.CITATION_INVALID)
+                    if result.proposal.status != "select":
+                        raise GovernedReadError(SelectionFailure(result.proposal.reason))
+                    if result.selection is None:
+                        raise GovernedReadError(SelectionFailure.PROPOSAL_CONTRACT_INVALID)
+                    try:
+                        result.proposal.validate_source_quotes(query)
+                    except ValueError:
+                        raise GovernedReadError(SelectionFailure.CITATION_INVALID) from None
                     selections.append(result.selection)
                 current = await self._source(context)
                 if not self._same_source(source, current):
-                    raise PermissionError("typed selection source drifted during inference")
+                    raise GovernedReadError(SelectionFailure.SOURCE_DRIFT)
                 resolved = await asyncio.gather(
                     *(self._resolve(selection, query, current) for selection in selections)
                 )
@@ -248,7 +285,7 @@ class GovernedTypedSelectionRead:
                     tuple(document.rule_id for document in value.documents) for value in resolved
                 )
                 if memberships[0] != memberships[1]:
-                    raise PermissionError("typed selection proposals disagree")
+                    raise GovernedReadError(SelectionFailure.AGREEMENT_MISMATCH)
                 issued_at = self.registry.clock()
                 evidence = ReadSelectionEvidence(
                     binding=current.binding,
@@ -265,17 +302,24 @@ class GovernedTypedSelectionRead:
                     issued_at=issued_at,
                     expires_at=issued_at + timedelta(seconds=30),
                 )
-                reference = await self.registry.save_selection(evidence)
+                try:
+                    reference = await self.registry.save_selection(evidence)
+                except (PermissionError, ValueError):
+                    raise GovernedReadError(SelectionFailure.REGISTRY_UNAVAILABLE) from None
+                evidence_saved = True
                 return context.model_copy(
                     update={
                         "authentication_request_ref": request_ref,
                         "evidence_refs": (*context.evidence_refs, _EVIDENCE_PREFIX + reference),
                     }
                 )
-        except BaseException:
-            if began:
+        except CandidateContextError:
+            raise GovernedReadError(SelectionFailure.CONTEXT_UNAVAILABLE) from None
+        except TimeoutError:
+            raise GovernedReadError(SelectionFailure.READ_TIMEOUT) from None
+        finally:
+            if began and not evidence_saved:
                 await asyncio.shield(self.registry.cancel_request(request_ref))
-            raise
 
     async def _resolve(
         self,
@@ -283,23 +327,37 @@ class GovernedTypedSelectionRead:
         query: str,
         source: ReadSelectionSource,
     ) -> SelectedOntologyCandidates:
-        return await resolve_candidate_selection(
-            selection=selection,
-            query=query,
-            staged=source.staged,
-            manifest=source.manifest,
-            documents=source.build.documents,
-            gateway=source.gateway,
-            as_of=self.registry.clock(),
-            deadline=asyncio.get_running_loop().time() + 5,
-            resource_type_query_terms={},
-        )
+        try:
+            return await resolve_candidate_selection(
+                selection=selection,
+                query=query,
+                staged=source.staged,
+                manifest=source.manifest,
+                documents=source.build.documents,
+                gateway=source.gateway,
+                as_of=self.registry.clock(),
+                deadline=asyncio.get_running_loop().time() + 5,
+                resource_type_query_terms={},
+            )
+        except (CandidateSelectionError, CandidateSelectionDeniedError) as exc:
+            raise GovernedReadError(exc.reason) from None
+        except TimeoutError:
+            raise GovernedReadError(SelectionFailure.MEMBERSHIP_TIMEOUT) from None
 
     async def _propose(self, **values: Any) -> OntologyCandidateProposalResult:
         if self.proposer is None:
-            raise PermissionError("typed selection qualified proposer is unavailable")
-        async with asyncio.timeout(self.contract.per_call_timeout_seconds):
-            return await self.proposer.propose_prepared_candidate_selection(**values)
+            raise GovernedReadError(SelectionFailure.PROPOSAL_UNAVAILABLE)
+        try:
+            async with asyncio.timeout(self.contract.per_call_timeout_seconds):
+                return await self.proposer.propose_prepared_candidate_selection(**values)
+        except CandidateContextError:
+            raise GovernedReadError(SelectionFailure.CONTEXT_UNAVAILABLE) from None
+        except TimeoutError:
+            raise GovernedReadError(SelectionFailure.PROPOSAL_TIMEOUT) from None
+        except ValidationError:
+            raise GovernedReadError(SelectionFailure.PROPOSAL_CONTRACT_INVALID) from None
+        except (PermissionError, ValueError, RuntimeError):
+            raise GovernedReadError(SelectionFailure.PROPOSAL_UNAVAILABLE) from None
 
     async def consume(
         self,
@@ -314,8 +372,11 @@ class GovernedTypedSelectionRead:
             if value.startswith(_EVIDENCE_PREFIX)
         )
         if len(references) != 1:
-            raise PermissionError("typed selection requires one exact immutable evidence reference")
-        evidence = await self.registry.selection(references[0])
+            raise GovernedReadError(SelectionFailure.EVIDENCE_INVALID)
+        try:
+            evidence = await self.registry.selection(references[0])
+        except (PermissionError, ValueError):
+            raise GovernedReadError(SelectionFailure.EVIDENCE_INVALID) from None
         source = await self._source(context)
         if (
             evidence.binding != source.binding
@@ -326,16 +387,17 @@ class GovernedTypedSelectionRead:
             or evidence.generation_digest != source.build.metadata.generation_digest
             or evidence.source_projection_digest != source.staged.source_projection_digest
         ):
-            raise PermissionError(
-                "typed selection evidence scope, source, model or request drifted"
-            )
+            raise GovernedReadError(SelectionFailure.EVIDENCE_INVALID)
         selected = await self._resolve(
             OntologyCandidateSelection.model_validate_json(evidence.selection_json), query, source
         )
         current = await self._source(context)
         if not self._same_source(source, current):
-            raise PermissionError("typed selection source changed before consumption")
-        await self.registry.consume(evidence)
+            raise GovernedReadError(SelectionFailure.SOURCE_DRIFT)
+        try:
+            await self.registry.consume(evidence)
+        except (PermissionError, ValueError):
+            raise GovernedReadError(SelectionFailure.REGISTRY_UNAVAILABLE) from None
         payload: dict[str, object] = {
             "candidates": [
                 {
