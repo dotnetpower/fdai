@@ -8,6 +8,21 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 
 
+def test_canary_retry_identity_uses_controller_job_downward_api_not_pod_uid() -> None:
+    source = (ROOT / "infra/runtimes/aks/workloads/main.tf").read_text(encoding="utf-8")
+    variables = (ROOT / "infra/runtimes/aks/workloads/variables.tf").read_text(encoding="utf-8")
+    cronjob = source[source.index('resource "kubernetes_cron_job_v1" "job"') :]
+    assert "for_each = each.value.field_environment" in cronjob
+    assert "field_ref {" in cronjob
+    assert 'api_version = "v1"' in cronjob
+    assert "field_path  = env.value" in cronjob
+    assert "field_environment       = optional(map(string), {})" in variables
+    assert "metadata.labels['batch.kubernetes.io/controller-uid']" in variables
+    assert '!contains(keys(job.environment), "FDAI_CANARY_JOB_UID")' in variables
+    assert '!contains(keys(job.secret_environment), "FDAI_CANARY_JOB_UID")' in variables
+    assert "metadata.uid" not in cronjob
+
+
 @pytest.mark.parametrize(
     ("resource_type", "resource_name", "settings"),
     [

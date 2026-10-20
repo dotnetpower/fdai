@@ -11,6 +11,10 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from fdai_deployment_cli import aks_kubernetes_defaults as defaults
+from fdai_deployment_cli.aks_job_environment import (
+    protected_environment_entries,
+    protected_environment_sources,
+)
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _DNS_LABEL = re.compile(r"^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?$")
@@ -67,13 +71,17 @@ def protected_cronjob_template_digest(
         value.get("secret_environment", {}),
         "protected AKS Job secret environment",
     )
-    env_from = value.get("env_from", [])
-    if not isinstance(env_from, list) or any(
-        not isinstance(item, dict) or any(not isinstance(key, str) for key in item)
-        for item in env_from
-    ):
-        raise ValueError("protected AKS Job envFrom contract is invalid")
-    protected_env_from = copy.deepcopy(env_from)
+    field_environment = _string_mapping(
+        value.get("field_environment", {}), "protected AKS Job field environment"
+    )
+    environment_entries = protected_environment_entries(
+        component=component,
+        template_name=template_name,
+        environment=environment,
+        secret_environment=secret_environment,
+        field_environment=field_environment,
+    )
+    protected_env_from = protected_environment_sources(value.get("env_from", []))
     if (
         _DNS_LABEL.fullmatch(component) is None
         or _IMAGE.fullmatch(image) is None
@@ -96,22 +104,6 @@ def protected_cronjob_template_digest(
         "fdai.io/source-commit": source_revision,
     }
     pod_labels = {**labels, "azure.workload.identity/use": "true"}
-    environment_entries: list[dict[str, Any]] = [
-        {"name": name, "value": environment[name]} for name in sorted(environment)
-    ]
-    environment_entries.extend(
-        {
-            "name": name,
-            "valueFrom": {
-                "secretKeyRef": {
-                    "name": f"{template_name}-job",
-                    "key": name,
-                }
-            },
-        }
-        for name in sorted(secret_environment)
-    )
-    environment_entries.sort(key=lambda entry: str(entry["name"]))
     has_secrets = bool(secret_environment)
     contract = {
         "apiVersion": "batch/v1",

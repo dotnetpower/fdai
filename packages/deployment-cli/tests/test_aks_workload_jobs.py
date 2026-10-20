@@ -63,6 +63,9 @@ def test_prepares_inventory_jobs_and_protected_bindings() -> None:
     assert inventory["environment"]["FDAI_INVENTORY_SCOPES"] == _SUBSCRIPTION  # type: ignore[index]
     assert inventory["environment"]["FDAI_INVENTORY_SOURCES"] == "arg,arm"  # type: ignore[index]
     assert canary["environment"]["FDAI_CANARY_TOPIC"] == "fdai.control.canary"  # type: ignore[index]
+    assert canary["field_environment"] == {
+        "FDAI_CANARY_JOB_UID": "metadata.labels['batch.kubernetes.io/controller-uid']"
+    }
     assert set(prepared.protected_template_digests) == set(prepared.jobs)
     assert all(len(digest) == 64 for digest in prepared.protected_template_digests.values())
     assert set(prepared.protected_identity_bindings) == set(prepared.jobs)

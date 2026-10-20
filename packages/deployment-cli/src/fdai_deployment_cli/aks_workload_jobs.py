@@ -66,6 +66,15 @@ def build_aks_scheduled_job(
         "memory": "1Gi",
         "environment": {name: str(value) for name, value in environment.items()},
         "secret_environment": secret_environment,
+        **(
+            {
+                "field_environment": {
+                    "FDAI_CANARY_JOB_UID": "metadata.labels['batch.kubernetes.io/controller-uid']"
+                }
+            }
+            if component == "canary"
+            else {}
+        ),
     }
 
 
