@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: acca08b23060e22b0d1b5d8840d35826a7e30961
-translation_revised: 2026-10-08
+translation_source_sha: 2dc9df2252aba4679b5db3f1412df1b04f5aac41
+translation_revised: 2026-10-20
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -455,6 +455,10 @@ Ontology projection은 같은 세대를 `relationship_complete=false`로 전진�
 사유를 보존합니다. 관계 커버리지는 관계 주장을 한정합니다. 즉 쿼리가 그래프를 완전한 관계
 근거로 사용하지 못하게 하되, 객체 집합이 집합 내부 edge를 만들 수 없는 스냅샷은 관계에 대해
 아무것도 진술하지 않으므로 자신의 객체 커버리지를 그대로 유지합니다. 분류되지 않거나 잘못된 관계 후보는 제외하고 관계 완전성을 낮추되 독립적으로 검증된 객체는 갱신합니다.
+종결 증적은 서로 다른 사유의 개수가 아니라 분류된 전체 후보 수를 기록하며, 분류 내역이 없거나
+서로 일치하지 않으면 증적을 만들지 않습니다. 공급자 레코드에
+`diffDiskSettings.option=Local`이 선언된 가상 머신은 ephemeral local storage를 사용하므로
+해당 `managedDisk.id`에서 관리 디스크 관계 후보를 만들지 않습니다.
 부분 원본 세대, 객체 충돌 또는 저장된 관계의 다중성 위반은 계속 차단되며 이전
 그래프를 보존합니다. Kubernetes EndpointSlice와 Ingress 배열 mapping은 정확히 해석된 모든 backend를 다대다 LinkType의 개별 `routes_to` 연결로 구체화합니다. 변환 결과는 관측된 전체 목적지 집합을 보존하며 backend 하나를 선택하는 방식은 프로바이더 사실을 버리므로 cardinality 불일치를 해결할 수 없습니다.
 

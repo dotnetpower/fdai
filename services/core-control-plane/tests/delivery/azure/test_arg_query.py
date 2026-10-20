@@ -3095,6 +3095,64 @@ def test_reviewed_mapping_drives_vm_attachment_orientation() -> None:
     assert attached[0].mapping_evidence.mapping_id == "azure.vm-nic-attached-to-vm"
 
 
+def test_reviewed_mapping_omits_ephemeral_local_vm_os_disk_candidate() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    reverse = build_arm_to_neutral_map(_vocab())
+    vm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Compute/virtualMachines/vm-1"
+    )
+    disk_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-a/providers/Microsoft.Compute/disks/os-1"
+    )
+    owner = ResourceRecord(resource_id=to_neutral_id(vm_id), type="compute.vm", provider_ref=vm_id)
+
+    result = project_provider_relationships(
+        {
+            "id": vm_id,
+            "type": "Microsoft.Compute/virtualMachines",
+            "properties": {
+                "storageProfile": {
+                    "osDisk": {
+                        "managedDisk": {"id": disk_id},
+                        "diffDiskSettings": {
+                            "option": "Local",
+                            "placement": "ResourceDisk",
+                        },
+                    }
+                }
+            },
+        },
+        owner=owner,
+        arm_to_neutral=reverse,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    assert result.dropped == ()
+    assert all(
+        link.mapping_evidence is None
+        or link.mapping_evidence.mapping_id != "azure.vm-os-disk-attached-to-vm"
+        for link in result.links
+    )
+
+
 def test_reviewed_mapping_projects_container_app_environment_dependency() -> None:
     from pathlib import Path
 

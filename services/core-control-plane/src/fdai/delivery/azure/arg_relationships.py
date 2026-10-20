@@ -40,6 +40,8 @@ _CONFIGURED_ENDPOINT_MAPPING_ID = "azure.container-workload-depends-on-configure
 _REGISTRY_MAPPING_ID = "azure.container-workload-depends-on-registry"
 _ROLE_ASSIGNMENT_PRINCIPAL_MAPPING_ID = "azure.role-assignment-attached-to-managed-identity"
 _ROLE_ASSIGNMENT_SCOPE_MAPPING_ID = "azure.role-assignment-attached-to-scope"
+_VM_OS_DISK_MAPPING_ID = "azure.vm-os-disk-attached-to-vm"
+_VM_EPHEMERAL_DISK_OPTION_PATH = "properties.storageProfile.osDisk.diffDiskSettings.option"
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +96,12 @@ def project_provider_relationships(
             mapping,
             source_provider_type=source_provider_type,
             source_identity=source_identity,
+        ):
+            continue
+        if mapping.mapping_id == _VM_OS_DISK_MAPPING_ID and _path_has_value(
+            row,
+            _VM_EPHEMERAL_DISK_OPTION_PATH,
+            "Local",
         ):
             continue
         if mapping.source_schema.digest != observed_schema_digest:
@@ -516,6 +524,13 @@ def _predicate_matches(
         and isinstance(match.value, str)
         and match.value.casefold() == predicate.equals.casefold()
         for match in _path_matches(row, predicate.property_path)
+    )
+
+
+def _path_has_value(row: Mapping[str, Any], path: str, expected: str) -> bool:
+    return any(
+        isinstance(match.value, str) and match.value.casefold() == expected.casefold()
+        for match in _path_matches(row, path)
     )
 
 
