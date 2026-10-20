@@ -25,9 +25,9 @@ held for review, not treated as an empty chain. The explicit recovery command su
    Plain local logs retain the handler's safe `agent`, `error_type`, and `failure_code` tokens,
    but exclude raw exception text, consumer identity, and payloads.
 3. Confirm that `pantheon/saga/audit-chain/verified-head` uses schema `1.0.0`.
-4. Distinguish missing activity from missing findings. Observation activity, source timeouts,
-   held evidence, and evaluated targets with no finding are different outcomes. Don't create
-   synthetic Incidents or increase agent activity just to make a screen appear busy.
+4. Distinguish missing activity from a lack of detected issues. Observation activity, source
+   timeouts, held evidence, and evaluated targets with no detected issue are different outcomes.
+   Don't create synthetic Incidents or increase agent activity just to make a screen appear busy.
 
 ## Review and apply recovery
 
@@ -76,8 +76,9 @@ audit log. Historical DLQ entries remain for a separately reviewed replay. Recov
 replay approvals, execution requests, or other authority-bearing messages.
 
 Inspect Incident eligibility separately: automatic creation still requires correlated,
-sufficient evidence and the configured severity threshold. No findings can legitimately mean
-no new Incident. An Entra sign-in requirement also remains intact during browser validation.
+sufficient evidence and the configured severity threshold. An evaluation with no detected issues
+can legitimately produce no new Incident. An Entra sign-in requirement remains intact during
+browser validation.
 
 ## Diagnose a remaining raw-input collision
 

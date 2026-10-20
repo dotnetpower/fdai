@@ -1,7 +1,7 @@
 ---
 title: 이전 형식의 Pantheon 감사 체크포인트 복구
 translation_of: pantheon-audit-recovery.md
-translation_source_sha: f3e85c9438f6235cecd397b63c78ae0b15ae394e
+translation_source_sha: 5fda577ea54acebd63c9c5e68c0081f54917ed42
 translation_revised: 2026-10-21
 ---
 # 이전 형식의 Pantheon 감사 체크포인트 복구
@@ -29,8 +29,8 @@ Saga 레코드 최대 50,000건과 원본 JSON 64 MiB를 지원하며, 전체 �
    일반 텍스트 형식의 로컬 로그에는 핸들러의 안전한 `agent`, `error_type`, `failure_code`
    토큰을 남기며, 원문 예외 메시지, 소비자 식별 정보, 페이로드는 제외합니다.
 3. `pantheon/saga/audit-chain/verified-head`가 `1.0.0` 스키마를 사용하는지 확인하세요.
-4. 활동 부족과 발견 사항 부족을 구분하세요. 관측 활동, 소스 시간 초과, 근거 검증 보류,
-   평가했으나 발견 사항이 없는 대상은 서로 다른 결과입니다. 화면을 바쁘게 보이게 하려고
+4. 활동 부족과 문제가 발견되지 않은 경우를 구분하세요. 관측 활동, 소스 시간 초과, 근거 검증 보류,
+   평가했으나 문제가 발견되지 않은 대상은 서로 다른 결과입니다. 화면을 바쁘게 보이게 하려고
    가짜 Incident를 만들거나 에이전트 활동을 늘리지 마세요.
 
 ## 복구 검토 및 적용
@@ -80,7 +80,7 @@ uv run python scripts/automation/migrate-pantheon-audit-chain.py \
 그 밖에 권한을 수반하는 메시지를 재처리하지 않습니다.
 
 Incident 생성 조건은 별도로 점검하세요. 자동 생성에는 여전히 상관관계가 확인된 충분한
-근거와 설정된 심각도 기준이 필요합니다. 발견 사항이 없으면 새 Incident가 없는 것이 정상일
+근거와 설정된 심각도 기준이 필요합니다. 평가에서 문제가 발견되지 않았다면 새 Incident가 없는 것이 정상일
 수 있습니다. 브라우저 검증에서도 Entra 로그인 요구 사항은 유지합니다.
 
 ## 원본 입력 충돌이 남아 있는 경우
