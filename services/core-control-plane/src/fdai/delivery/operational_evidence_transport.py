@@ -21,6 +21,7 @@ from fdai_service_contracts.operational_evidence import (
 from pydantic import ValidationError
 
 from fdai.core.operational_evidence.issuance import OperationalEvidenceVerifierEngine
+from fdai.delivery.http_response import BOUNDED_ACCEPT_ENCODING, read_bounded_response
 
 ISSUANCE_PATH = "/v1/operational-evidence/issuance"
 READINESS_PATH = "/v1/operational-evidence/readiness"
@@ -51,10 +52,13 @@ async def read_verifier_readiness(
     try:
         url = verifier_endpoint(base_url).join(READINESS_PATH)
         async with asyncio.timeout(timeout_seconds):
-            response = await client.get(str(url))
-        if response.status_code != 200 or len(response.content) > _MAX_READINESS_BYTES:
-            raise ValueError("verifier readiness response is unavailable")
-        return OperationalEvidenceVerifierReadiness.model_validate_json(response.content)
+            async with client.stream(
+                "GET", str(url), headers={"accept-encoding": BOUNDED_ACCEPT_ENCODING}
+            ) as response:
+                if response.status_code != 200:
+                    raise ValueError("verifier readiness response is unavailable")
+                body = await read_bounded_response(response, max_bytes=_MAX_READINESS_BYTES)
+        return OperationalEvidenceVerifierReadiness.model_validate_json(body)
     except (TimeoutError, OSError, httpx.HTTPError, ValidationError, ValueError) as exc:
         _LOGGER.warning(
             "operational_evidence_readiness_unobserved",
@@ -104,14 +108,19 @@ class HttpOperationalEvidenceTransport:
     async def send(
         self, request: OperationalEvidenceIssuanceRequest
     ) -> OperationalEvidenceIssuanceResponse:
-        response = await self._client.post(
+        async with self._client.stream(
+            "POST",
             self._url,
             content=request.model_dump_json().encode(),
-            headers={"content-type": "application/json"},
-        )
-        if response.status_code != 200 or len(response.content) > _MAX_RESPONSE_BYTES:
-            return OperationalEvidenceIssuanceResponse.unavailable(request)
-        return OperationalEvidenceIssuanceResponse.model_validate_json(response.content)
+            headers={
+                "content-type": "application/json",
+                "accept-encoding": BOUNDED_ACCEPT_ENCODING,
+            },
+        ) as response:
+            if response.status_code != 200:
+                return OperationalEvidenceIssuanceResponse.unavailable(request)
+            body = await read_bounded_response(response, max_bytes=_MAX_RESPONSE_BYTES)
+        return OperationalEvidenceIssuanceResponse.model_validate_json(body)
 
 
 class InProcessOperationalEvidenceTransport:
