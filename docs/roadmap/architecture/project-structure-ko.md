@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 57b65cc839c9cd75f3c16acd296cbb6e3dff4b69
+translation_source_sha: ab7a40b309169252356b2d0e7564e367fa86247d
 translation_revised: 2026-10-20
 ---
 # 프로젝트 구조
@@ -108,6 +108,10 @@ exporter 범위를 요구하고, 신선도를 검사한 스냅숏 하나를 저�
 unavailable binding을 출처가 명시된 운영 메트릭으로 교체해야 합니다.
 `delivery/self_health_sources.py`는 담당 프로세스, 최초 계층 판정 지연, 소비된 canary, 실제 검증기와 기본 교차검사의 관측을
 연결합니다. 런타임은 수집원의 수명을 소유하고 추가 모델 검사 없이 수집을 직렬화합니다.
+기존 Core canary 경로는 정식 성공 기록을 바꾸지 않고 소비 시도의 시작, 실패, 취소에 대한
+감사 사실을 제한된 시간 안에 저장합니다. 전달 CLI는 명시적인 슬롯이나 실제 플랫폼 실행에서
+재시도 신원을 도출합니다. 신원이나 발행 성공만으로 최신 예약 시도의 결과를 검증하지 않으며,
+검증되지 않은 결과와 상태 연결은 계속 사용할 수 없는 상태로 유지합니다.
 [운영 담당 문서](../operations/operating-and-verification-ko.md#남아-있는-수집원-경계)가 현재 수치와
 미충족 근거를 소유하며 [수집원 주입 계약](project-structure-dependency-injection-ko.md#자체-상태-수집원-연결)은
 서비스 및 에이전트 소유권을 유지합니다. 임베딩 및 교차검사/풀 근거는 전체 등록을 갖춘 별도 모델 범위이지

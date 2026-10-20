@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 1fa99322153ee76f9e480cda3d2d6fb7d9064777
+translation_source_sha: d2a9a2110044d43294ccad1ae135cff3fa9d6449
 translation_revised: 2026-10-20
 ---
 # 런타임 배포 프로파일
@@ -576,6 +576,14 @@ Core와 canary CronJob은 동일한 고정 canary topic을 받습니다. Core는
 topic을 사용하고 신뢰할 수 있는 canary를 `shadow` no-op으로 기록합니다. 따라서 consumer가
 연결되지 않은 상태에서 publisher Job만 성공한 결과를 end-to-end canary 성공으로 오인하지
 않습니다.
+canary CLI에 `FDAI_CANARY_SLOT`을 명시하면 해당 슬롯을 유지합니다. 명시하지 않으면 AKS는
+Downward API를 통해 controller Job UID를 제공하고, Container Apps는 공식 문서에 정의된
+`CONTAINER_APP_JOB_EXECUTION_NAME`을 제공합니다. 이 실행 신원은 재시도 사이에 유지되며,
+현재 시각의 분 값은 실행 신원이 아닙니다. 플랫폼 신원이 없거나 잘못되거나 모호하면
+프로바이더에 접근하기 전에 실패합니다. API 권한, 데이터베이스 접근 권한, 런타임 권한은
+추가하지 않습니다. 소비 시도의 감사 사실은 독립적으로 검증된 최신 예약 시도의 관측을
+대신하지 않습니다. 해당 조건을 충족할 때까지 결과와 상태는 계속 사용할 수 없는 상태로
+유지합니다.
 목적별 `aks_workload_jobs.py` 모듈이 순수 scheduled-job assembly를 소유합니다. Managed Host는 orchestration만 유지하며 이 소유권 분리는 렌더링된 Job, identity, schedule 또는 authority를 변경하지 않습니다.
 분석기 작업은 결과가 불확실한 발행을 대조할 때 기존 인벤토리 신원으로 정확한 수집 Event Hub만
 읽습니다. 새 토픽 범위 수신자 역할에는 쓰기, 배포 또는 실행 권한이 없으며, 역할 선언만으로
