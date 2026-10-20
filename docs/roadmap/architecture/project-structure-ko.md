@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ebfd47d2f50fd9e457a768c4f1d1a0c5b19584bf
+translation_source_sha: f3d5258f1401f4ec3b7c8b320f832a12afa50dd1
 translation_revised: 2026-10-20
 ---
 # 프로젝트 구조
@@ -407,7 +407,7 @@ Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡
 `semantic_compiled_answers.py`는 다시 샘플링으로 대체된 샘플을 반환 관측값에 담아 두고 그 거절 이유를 턴
 자신의 컨텍스트에서 기록합니다. 수정 피드백은 판단한 발화의 단어를 모델에 다시 보여 줄 수 있지만, 거부
 로그에는 위치, 유형, 사유만 남깁니다. `semantic_judgment_review.py`는 두 번째 계층 검토 요건과 근거화된
-상태 수집의 승격을 함께 소유하므로, 검토 결정과 계획되는 계열이 서로 어긋날 수 없습니다. 제안 복구나 독립 검토 복구 전에 Core는 같은 goal에 허용된 동일 역할의 companion filter가 있거나, goal이 하나인 form에 다른 곳에서 참조하지 않는 허용된 operand가 정확히 하나 있고 라벨도 다른 곳에서 참조하지 않을 때만 중복 PROPERTY 라벨을 context로 옮길 수 있습니다. 정규화기는 정확히 이 span에만 비공개 syntactic-label receipt를 발급합니다. 타입이 지정된 판독을 보존하는 수락된 복구는 제안기가 context를 생략해도 receipt를 유지합니다. Blind review는 독립 판독기가 해당 속성 라벨을 이름으로 분류할 때만 이 receipt를 사용할 수 있습니다. 제외와 다른 모든 역할은 계속 전체 검토 대상이고, 모델이 작성한 일반 context도 의미를 충족하지 못합니다. 이는 lexical 의미 추론이 아니라 구조 정규화입니다.
+상태 수집의 승격을 함께 소유하므로, 검토 결정과 계획되는 계열이 서로 어긋날 수 없습니다. 제안 복구나 독립 검토 복구 전에 Core는 같은 goal에 허용된 동일 역할의 companion filter가 있거나, goal이 하나인 form에 다른 곳에서 참조하지 않는 허용된 operand가 정확히 하나 있고 라벨도 다른 곳에서 참조하지 않을 때만 중복 PROPERTY 라벨을 context로 옮길 수 있습니다. 정규화기는 정확히 이 span에만 비공개 syntactic-label receipt를 발급합니다. 타입이 지정된 판독을 보존하는 수락된 복구는 제안기가 context를 생략해도 receipt를 유지합니다. Blind review는 독립 판독기가 해당 속성 라벨을 이름으로 분류할 때만 이 receipt를 사용할 수 있습니다. 제외와 다른 모든 역할은 계속 전체 검토 대상이고, 모델이 작성한 일반 context도 의미를 충족하지 못합니다. goal이 하나인 인스턴스 컬렉션 `select`에서 격리된 `resource_type` subject와 격리된 `object_type` type filter가 하나씩 있으면 Core는 두 참조를 교환해 더 넓은 ObjectType을 subject, 더 좁은 ResourceType을 filter로 정규화합니다. 두 번째 goal, 경쟁 판독 또는 다른 참조가 있으면 교환하지 않습니다. 이는 lexical 의미 추론이 아니라 구조 정규화입니다.
 `composition/typed_selection_shadow.py`는 `FDAI_ONTOLOGY_TYPED_SELECTION_SHADOW=enabled`일 때만
 타입 인스턴스 선택 `shadow` 제안기를 결속합니다. 이 모듈은 `config/ontology-typed-selection-shadow.json`에
 고정된 검증 모델, 프롬프트, 예산과 같은 파일의 데이터 처리 정책만 받아들입니다. pin이 지정한 정확한
