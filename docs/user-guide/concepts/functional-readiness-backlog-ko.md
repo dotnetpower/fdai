@@ -2,7 +2,7 @@
 title: F10-F15 준비 상태 전수 점검 및 완료 계획
 description: F10부터 F15까지 모든 중분류의 잔여 작업, 미충족 근거, 의존성에 따른 완료 계획입니다.
 translation_of: functional-readiness-backlog.md
-translation_source_sha: 2f8a27be712db08b649b6546c6124cfb5d03293d
+translation_source_sha: 55743a2b8ef223fc964cafb0064ec846a99bc289
 translation_revised: 2026-10-20
 ---
 
@@ -380,7 +380,7 @@ Not assessed를 사용합니다. 설치별 일반 설정과 명시적으로 연�
 | I03 | 외부 차단 요인 | update, recovery, host, offline 동작은 범위가 제한된 로컬 검사를 통과했습니다. | 승인된 대상에서 정확한 개정의 연결된 배포, update/recovery, disposable migration 근거를 유지합니다. |
 | X01 | 코드 완료/실환경 미검증 | bundle 등록, disabled-first 수명 주기, 철회, 타입화된 라우팅이 있습니다. #355는 필수 계보 없이 계획하지 않음으로 닫혔습니다. | 새 이슈를 만든 뒤 정확한 artifact의 설치, enable, disable, revoke, restart, disclosure, routing, audit 계보 하나를 유지합니다. |
 | S01 | 외부 차단 요인 | 설치된 acquisition, worker, 독립 로컬 수용 코드가 있습니다. | #2128을 명시적으로 재개할 때까지 중지를 유지한 뒤 terminal 설치 요청, 정확한 개정, coverage, 게시, 독립 조회를 유지합니다. |
-| S02 | 외부 차단 요인 | 예약 처리와 Incident, notification, handover 동작이 있습니다. | 중지가 해제된 뒤 승인된 신원과 channel을 연결하고 같은 correlation의 scan/no-finding, Incident, notification, handover, duplicate replay 연결을 유지합니다. |
+| S02 | 외부 차단 요인 | 예약 처리, Incident, notification, 담당자 인수인계 동작이 있습니다. | 중지가 해제된 뒤 승인된 신원과 channel을 연결하고 같은 correlation의 scan 또는 명시적인 발견 문제 없음 결과, Incident, notification, 담당자 인수인계, duplicate replay 연결을 유지합니다. |
 | S03 | 실제 실패 | label이나 임계값을 바꾸지 않고 정확한 승격 산술을 수정했습니다. Java SQL dev precision은 0.8824, Java path dev precision은 0.7143이며 C#에는 필요한 holdout true positive가 없습니다. | `dev`에서 남은 detector를 개선한 뒤 변경하지 않은 `holdout`에서 양 split 모두 precision >= 0.90과 true positive 1개 이상을 통과하고 별도 승격 검토를 진행합니다. |
 
 ### G03-G07 완료 조건
