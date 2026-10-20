@@ -24,7 +24,15 @@ from fdai.core.conversation.semantic_reasoning_repair import (
     _violation,
     repair_keeps_operands,
 )
-from fdai_service_contracts.semantic_question_form import AtomDiff, FormAlternative, SourceSpan
+from fdai_service_contracts.semantic_question_form import (
+    AtomDiff,
+    FormAlternative,
+    FormMeasure,
+    FormQualifier,
+    MeasureKind,
+    RelationSense,
+    SourceSpan,
+)
 
 from tests.conversation.test_semantic_reasoning_shadow import (
     _UTTERANCE,
@@ -395,6 +403,116 @@ def test_normalized_labels_survive_an_accepted_meaning_preserving_repair() -> No
     assert merge_syntactic_labels(receipt.syntactic_labels, receipt.syntactic_labels) == (
         receipt.syntactic_labels
     )
+
+
+def _inverted_korean_type_roles_form() -> Any:
+    utterance = "location이 westus2이고 type이 object-storage인 Resource를 모두 보여 줘."
+    raw = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "value",
+                "domain": "region",
+                "span": {"text": "westus2", "occurrence": 1},
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": {"text": "object-storage", "occurrence": 1},
+            },
+            {
+                "id": "m3",
+                "form": "concept",
+                "domain": "object_type",
+                "span": {"text": "Resource", "occurrence": 1},
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [
+                    {"role": "region", "mention": "m1"},
+                    {"role": "type", "mention": "m3"},
+                ],
+                "cue": {"text": "모두 보여 줘", "occurrence": 1},
+                "confidence": 0.9,
+            }
+        ],
+    }
+    form = resolve_question_form(raw, utterance=utterance).form
+    assert form is not None
+    return form
+
+
+def test_inverted_object_and_resource_type_roles_are_canonicalized() -> None:
+    form = _inverted_korean_type_roles_form()
+
+    normalized = normalize_redundant_property_filter_labels(form)
+
+    assert normalized.goals[0].subject == "m3"
+    assert [(item.role.value, item.mention) for item in normalized.goals[0].filters] == [
+        ("region", "m1"),
+        ("type", "m2"),
+    ]
+    assert normalize_redundant_property_filter_labels(normalized) == normalized
+
+
+def test_inverted_type_roles_are_not_swapped_across_goals_or_other_references() -> None:
+    form = _inverted_korean_type_roles_form()
+    goal = form.goals[0]
+    multi_goal = form.model_copy(
+        update={"goals": (*form.goals, goal.model_copy(update={"id": "g2"}))}
+    )
+    counterpart = form.model_copy(
+        update={"goals": (goal.model_copy(update={"counterpart": "m3"}),)}
+    )
+    extra_filter = form.model_copy(
+        update={
+            "goals": (
+                goal.model_copy(
+                    update={
+                        "filters": (
+                            *goal.filters,
+                            goal.filters[0].model_copy(update={"mention": "m2"}),
+                        )
+                    }
+                ),
+            )
+        }
+    )
+    mentions = list(form.mentions)
+    mentions[0] = mentions[0].model_copy(
+        update={
+            "qualifier": FormQualifier(mention="m2", sense=RelationSense.CONTAINMENT),
+        }
+    )
+    qualified = form.model_copy(update={"mentions": tuple(mentions)})
+    relation = _resolved(_quoted_form()).goals[0].relation
+    assert relation is not None
+    related = form.model_copy(
+        update={
+            "goals": (
+                goal.model_copy(update={"relation": relation.model_copy(update={"anchor": "m3"})}),
+            )
+        }
+    )
+    measured = form.model_copy(
+        update={
+            "goals": (
+                goal.model_copy(
+                    update={"measure": FormMeasure(kind=MeasureKind.PROPERTY, mention="m2")}
+                ),
+            )
+        }
+    )
+
+    for ambiguous in (multi_goal, counterpart, extra_filter, qualified, related, measured):
+        assert normalize_redundant_property_filter_labels(ambiguous) == ambiguous
 
 
 def _redundant_property_label_form(reference: str | None = None) -> Any:

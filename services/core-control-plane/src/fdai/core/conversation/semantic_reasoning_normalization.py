@@ -9,9 +9,11 @@ from fdai_service_contracts.semantic_question_form import (
     FormFilter,
     FormGoal,
     GoalLevel,
+    GoalOperation,
     MentionDomain,
     SemanticQuestionForm,
     SourceSpan,
+    SubjectScope,
 )
 
 from .semantic_reasoning_admission import allowed_filter_domains
@@ -77,6 +79,7 @@ def normalize_redundant_property_filter_labels_with_receipt(
 
     if form.alternatives:
         return FormNormalization(form)
+    form = _canonicalize_inverted_type_roles(form)
     mentions = {mention.id: mention for mention in form.mentions}
     removable: dict[str, list[SourceSpan]] = {}
     syntactic_labels: dict[tuple[int, int], SourceSpan] = {}
@@ -156,6 +159,76 @@ def normalize_redundant_property_filter_labels_with_receipt(
         ),
         tuple(syntactic_labels.values()),
     )
+
+
+def _canonicalize_inverted_type_roles(form: SemanticQuestionForm) -> SemanticQuestionForm:
+    """Put the broader ObjectType subject before one narrower ResourceType filter."""
+
+    if len(form.goals) != 1:
+        return form
+    goal = form.goals[0]
+    if (
+        goal.level is not GoalLevel.INSTANCE
+        or goal.operation is not GoalOperation.SELECT
+        or goal.subject_scope is not SubjectScope.COLLECTION
+        or goal.subject is None
+    ):
+        return form
+    mentions = {mention.id: mention for mention in form.mentions}
+    subject = mentions[goal.subject]
+    type_filters = [item for item in goal.filters if item.role is FilterRole.TYPE]
+    if (
+        subject.domain is not MentionDomain.RESOURCE_TYPE
+        or len(type_filters) != 1
+        or mentions[type_filters[0].mention].domain is not MentionDomain.OBJECT_TYPE
+        or not _type_roles_are_isolated(form, goal.subject, type_filters[0])
+    ):
+        return form
+    type_filter = type_filters[0]
+    filters = tuple(
+        item.model_copy(update={"mention": goal.subject}) if item is type_filter else item
+        for item in goal.filters
+    )
+    return form.model_copy(
+        update={
+            "goals": (
+                goal.model_copy(
+                    update={
+                        "subject": type_filter.mention,
+                        "filters": filters,
+                    }
+                ),
+            )
+        }
+    )
+
+
+def _type_roles_are_isolated(
+    form: SemanticQuestionForm,
+    subject_id: str,
+    type_filter: FormFilter,
+) -> bool:
+    """Return whether swapping the two type roles changes no other reference."""
+
+    type_id = type_filter.mention
+    if any(
+        mention.qualifier is not None and mention.qualifier.mention in {subject_id, type_id}
+        for mention in form.mentions
+    ):
+        return False
+    goal = form.goals[0]
+    if goal.counterpart in {subject_id, type_id}:
+        return False
+    if any(
+        item is not type_filter and item.mention in {subject_id, type_id} for item in goal.filters
+    ):
+        return False
+    if goal.relation is not None and {
+        goal.relation.anchor,
+        goal.relation.counterpart,
+    } & {subject_id, type_id}:
+        return False
+    return goal.measure is None or goal.measure.mention not in {subject_id, type_id}
 
 
 def _mention_referenced_elsewhere(
