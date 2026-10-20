@@ -41,6 +41,7 @@ from .semantic_reasoning_form import (
     TimeKind,
     Want,
 )
+from .semantic_reasoning_normalization import normalize_redundant_property_filter_labels
 from .semantic_reasoning_proposal import FormResolution, locate_quote, resolve_question_form
 from .semantic_reasoning_relabel import relabel_mentions
 
@@ -84,6 +85,10 @@ async def propose_with_repair(
     if raw is None:
         return FormProposal(None, None)
     resolution = resolve_question_form(raw, utterance=utterance)
+    if resolution.form is not None:
+        resolution = replace(
+            resolution, form=normalize_redundant_property_filter_labels(resolution.form)
+        )
     admission = _admit(resolution, utterance, accounting)
     repair = repair_for(raw, resolution, admission, utterance=utterance) if repairs > 0 else None
     if repair is None:
@@ -99,7 +104,7 @@ async def propose_with_repair(
     )
     if repaired.form is None:
         return FormProposal(repaired, None, "invalid", faulted)
-    form = repaired.form
+    form = normalize_redundant_property_filter_labels(repaired.form)
     if resolution.form is not None:
         form = relabel_mentions(resolution.form, form)
         repaired = replace(repaired, form=form)

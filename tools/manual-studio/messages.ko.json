@@ -101,6 +101,12 @@
       "coverLabel": "가치에서 확장까지",
       "description": "FDAI의 운영 모델, 15개 에이전트, 데이터 주권, AIOps 판단, 도입 준비도와 첫 검증 경로를 설명합니다."
     },
+    "l100-pitch-deck": {
+      "title": "FDAI L100 Pitch Deck",
+      "eyebrow": "L100 피치 덱",
+      "coverLabel": "검증 가능한 자율 운영",
+      "description": "Microsoft Korea CSU 내부 개발 솔루션인 FDAI의 역할, 운영 질문 처리 방식, 온톨로지와 에이전트, Azure 배포 구성과 첫 검증 경로를 소개합니다."
+    },
     "readiness-maturity": {
       "title": "AI/데이터 준비도 및 성숙도",
       "eyebrow": "준비도 및 성숙도",

@@ -13,12 +13,14 @@ Local synthetic evidence cannot qualify or activate a deployed model.
 | Governed pointer and read stage | implemented | 145 focused local tests pass in the worktree's own locked environment; production/default payload validator enabled. | No activation or live evidence. |
 | Real production consumer | implemented | `composition/wire_semantic_query.py` uses `prepared_function_handler`; bootstrap composes the current-model stage and actual source resolver. | Hosted calls remain outside the ordinary Function registry. |
 | Fixed-role promotion and demotion | implemented | Real Forseti, Var, Thor, Saga and Vidar in the local validated bus; exact current approval readback, independent admission, audited CAS and scripted rollback. | Unknown/failed qualification and unavailable current human authorization deny. |
-| Fresh governed answer-path qualification | in-progress | Spent v1 mini-bound window; fresh `governed-read-window.v2.json`; exact Sol-bound config; pre-registered v2 answer-window and latency protocol source; fake-path, composition and protocol tests in the current change. | Live v2 execution on the exact merged commit and independent adjudication are still required before persistent promotion. |
+| Governed failure diagnosis and evaluation isolation | implemented | Current change: producer reason codes, gold-independent driver, disposable evaluation registry and deterministic regressions. | Local mechanics only; no model qualification or human authority is asserted. |
+| Fresh governed answer-path qualification | in-progress | V1 and v2 are spent: 13/12 decisions and six answerable holds each, provider errors zero, no quality outcome. | Historical producer cause is unknown. A revised hypothesis and independently authored/reviewed, deduplicated fresh protocol are required before another live attempt; persistent promotion remains disabled. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-20 | implemented | Classified the historical evidence limit without attributing holds to the model. Added bounded producer diagnoses, gold-independent observed outcomes, strict candidate output, required negative holds, grouped-error retention, immediate backpressure/deadline stop and an exact-bound disposable evaluation registry. Both spent windows are blocked before live setup. | Current change; `test_governed_selection_diagnostics.py`, `test_governed_typed_selection_campaign.py`, candidate-selection/protocol/composition regressions; sixteen distinct hypotheses below. | No live quality result, independent installation admission, current Owner approval, promotion or effect observation. Keep #2034/#2256 G03 open and obtain a fresh reviewed protocol before live work. |
 | 2026-10-20 | in-progress | The exact-merge v1 governed run reached 13 decisions with no provider error, then stopped after the current mini binding held six answerable cases. V1 is spent and has no quality outcome. Pre-registered v2 with unchanged thresholds, a new independently authored/reviewed disjoint window, and an exact `t2.ontology.council.alpha` Sol pin; composition now fails closed on capability, family, version, target or prompt drift. | `current change`; private v1 partial evidence digest `sha256:0142d05f28ac8807ca8817a898eba73e3cccfec25e53503673c01cf3b771c7e0`; v2 asset/config/protocol/composition regressions. | Merge and run v2 once on the exact merged commit. Never reuse v1 for tuning or qualification. |
 | 2026-10-20 | in-progress | The first exact-merge governed live attempt stopped before any provider call because the evidence driver passed a `Path` object to the production resolved-model loader's string contract. The repair preserves the validated string path and adds a focused regression; the aborted attempt has no quality outcome. | `current change`; merged `ba8672d188`; `test_runtime_container_preserves_the_loader_string_path`. | Merge the bounded evidence-tooling repair and rerun once on that exact merged commit. |
 | 2026-10-20 | in-progress | Pre-registered the fresh governed answer-path window and latency protocols, added a disjoint independently authored/reviewed 64-case asset, and added a bounded driver over the actual preparation and deterministic consumption path. The fake-path run exposed and repaired a current-source validation defect: separately observed projection digests legitimately differ when their cutoffs differ, while document/generation equality and both receipt-bound identities remain mandatory. | `current change`; governed campaign protocol, driver, asset, source-context repair and 64 focused fake-path/protocol/asset/context checks. | Merge, execute once on the exact merged commit, independently adjudicate the private rows, then use explicit Owner approval for one persistent development promotion and effect observation. |
@@ -106,8 +108,54 @@ System Knowledge sources. All exact reported owning-doc routes and eight owner-l
 passed. No generated catalog content was hand-edited. Existing raw-ranking qualification remains
 failed, no earlier Sol pin is reused, and no full G03 or production-ready claim is made.
 
+#### Session 1 bounded diagnostic critique
+
+| # | Hypothesis | Inspection or deterministic regression and disposition |
+|---|------------|-------------------------------------------------------|
+| 1 | Zero provider errors proves a model-meaning defect. | Rejected: v1/v2 contain only coarse `answer_unavailable`; producer cause cannot be reconstructed. Originals remain unchanged. |
+| 2 | Gold labels influence observed execution status. | Confirmed and repaired: identical exceptions now yield identical outcomes for positive and negative labels. |
+| 3 | A grouped proposer error escapes partial evidence handling. | Confirmed and repaired: known errors become one bounded diagnosis; the sibling is cancelled and no evidence is saved. |
+| 4 | Evaluation adapters can admit another installation tuple. | Repaired: a separately constructed disposable registry admits only its exact qualification, binding, purpose and source revision. Installation/source state receives no evaluation pointer. |
+| 5 | Spent windows can run live again. | Repaired: v1/v2 live setup is rejected before runtime or provider construction. Fake regression remains available. |
+| 6 | Source/time drift looks like a semantic defect. | Typed source and membership-time diagnoses preserve the hold and expose no content. |
+| 7 | Citation, clarification and agreement failures share one cause. | Separated fixed reasons; quote/count/input/selection and disagreement regressions preserve the evidence fence. |
+| 8 | Membership denials or partial evidence can become candidates. | Existing ACL/completeness checks retained, with distinct denial/incomplete/contract reasons and passing candidate-selection regressions. |
+| 9 | Demotion, replay, expiry or restart can restore authority. | Existing fixed-role, single-use, expiry and rollback tests remain passing; no registry-authority relaxation. |
+| 10 | HTTP 503 or timeout can continue the same attempt. | Repaired: 429/503, adapter timeout and stage deadlines stop with the first partial row. |
+| 11 | A Function failure can pass as a semantic negative. | Repaired: malformed Function output has a fixed contract reason; other unclassified errors remain unavailable regardless of expected labels. The ordinary composition/Function wrapper is unchanged, so this repair changes no integration seam or shared structure document. |
+| 12 | Evaluation approval or actor text is Owner/promotion evidence. | Rejected: evaluation output explicitly denies independent admission/current Owner authority; ordinary registry activation is refused by the evaluation helper. |
+| 13 | Malformed output can become an empty success. | Repaired: absent/non-list candidates, invalid identities and duplicates raise an explicit failure. |
+| 14 | A returned empty result satisfies a required negative hold. | Repaired: the evaluator emits `negative-case-not-held`; numeric thresholds are unchanged. |
+| 15 | Schema/context adapter failures count as provider outages. | Repaired: content-free adapter fields distinguish proposal contract, context, provider and unknown adapter failures. |
+| 16 | Membership or Function deadlines are mislabeled model timeouts. | Separate proposal, membership, Function and whole-stage timeout codes; all stop the attempt. |
+
+This is a bounded diagnostic/evaluation review, not a whole-product Low-only certification.
+
+#### Session 1 local verification
+
+The final source selection passed 163 deterministic cases:
+
+```bash
+python -m pytest -q --no-cov \
+  services/core-control-plane/tests/delivery/catalog_search/test_governed_selection_diagnostics.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_governed_typed_selection_read.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_selection.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_context.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_governed_selection_campaign.py \
+  services/core-control-plane/tests/composition/test_typed_selection_read_composition.py \
+  tests/integration/scripts/test_governed_typed_selection_campaign.py
+```
+
+Separately, the unchanged L01-L04/A01-A04 source/preference/context/retained-Pattern,
+outcome/Release/provider-fence/kill-switch selection passed 220 cases, recorded on #2256.
+Those checks prove neither complete source history nor live current-Owner, intervention, recurrence,
+release-admission or provider-commit evidence. Shared readiness/structure/catalog documents remain
+untouched; session 3 owns serial aggregation. No Console stack or live provider was invoked.
+
 ### Remaining work
 
 - [x] Complete positive and negative local integration and ten or more final critiques: 145 focused tests and sixteen recorded rounds above.
 - [ ] Retain actual immutable model/source qualification and exact human approval before any deployment activation; this task performs neither.
 - [ ] Keep larger-scope schema/membership, live answer latency and production promotion gates open under #2034.
+- [ ] Register a fresh independently authored and separately reviewed window after the producer diagnoses establish a revised hypothesis. Check it against every spent asset, then pin the exact merged source/model/prompt/scope before one live attempt.
+- [ ] Retain independent installation qualification admission, current Var Owner approval, Thor application, Saga audit, Vidar demotion/rollback and independent effect re-observation. Evaluation adapters and pointers cannot satisfy these gates.
