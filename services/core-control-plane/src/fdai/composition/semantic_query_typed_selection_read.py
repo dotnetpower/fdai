@@ -19,6 +19,10 @@ from fdai.core.ontology_platform.query_source_handlers import FunctionNodeHandle
 from fdai.core.ontology_platform.typed_selection_contracts import READ_FUNCTION
 from fdai.core.ontology_platform.typed_selection_function import typed_selection_function_type
 from fdai.delivery.catalog_search.ontology_governed_selection_read import GovernedTypedSelectionRead
+from fdai.delivery.catalog_search.ontology_selection_errors import (
+    GovernedReadError,
+    SelectionFailure,
+)
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
 
 
@@ -80,13 +84,18 @@ def prepared_function_handler(
         if node.arguments.get("function_name") != READ_FUNCTION:
             return await ordinary(node, dependencies)
         if reader is None or node.depends_on:
-            raise PermissionError(
-                "typed selection read stage is unavailable or has unbound dependencies"
-            )
+            raise GovernedReadError(SelectionFailure.FUNCTION_CONTRACT_INVALID)
         arguments = node.arguments.get("arguments")
         if not isinstance(arguments, dict):
-            raise PermissionError("typed selection read stage requires exact typed arguments")
+            raise GovernedReadError(SelectionFailure.FUNCTION_CONTRACT_INVALID)
         prepared = await reader.prepare(arguments, context)
-        return await factory(prepared)(node, dependencies)
+        try:
+            return await factory(prepared)(node, dependencies)
+        except GovernedReadError:
+            raise
+        except TimeoutError:
+            raise GovernedReadError(SelectionFailure.FUNCTION_TIMEOUT) from None
+        except (PermissionError, ValueError, RuntimeError):
+            raise GovernedReadError(SelectionFailure.FUNCTION_CONTRACT_INVALID) from None
 
     return handle

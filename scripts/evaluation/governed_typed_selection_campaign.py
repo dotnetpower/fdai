@@ -59,10 +59,15 @@ from fdai.delivery.catalog_search.ontology_governed_selection_read import (
     ReadSelectionSource,
     typed_read_source,
 )
+from fdai.delivery.catalog_search.ontology_selection_errors import (
+    GovernedReadError,
+    SelectionFailure,
+)
 from fdai.delivery.persistence.state_store_typed_selection_read import StateStoreTypedSelectionRead
 from fdai.runtime.configuration import _model_endpoint_resolver
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.direct_api import DirectApiOutcome, DirectApiReceipt
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind, content_digest
 from scripts.evaluation.typed_selection_runtime_campaign import (
     LIVE_MIN_DECISION_START_INTERVAL_SECONDS,
@@ -94,6 +99,9 @@ _PROTOCOL_DIGEST = content_digest(
 
 
 class _CampaignAdmission:
+    def __init__(self) -> None:
+        self.qualification: ReadQualification | None = None
+
     async def admit(
         self,
         *,
@@ -101,7 +109,15 @@ class _CampaignAdmission:
         scope_digest: str,
         purpose_id: str,
         source_revision: str,
-    ) -> DecisionEvidenceAdmission:
+    ) -> DecisionEvidenceAdmission | None:
+        qualification = self.qualification
+        if qualification is None or (
+            evidence_digest != qualification.digest
+            or scope_digest != qualification.binding.digest
+            or purpose_id != READ_QUALIFICATION_PURPOSE
+            or source_revision != qualification.binding.source_revision
+        ):
+            return None
         now = datetime.now(UTC)
         return DecisionEvidenceAdmission(
             receipt_digest=_PROTOCOL_DIGEST,
@@ -116,12 +132,31 @@ class _CampaignAdmission:
 
 
 class _CampaignApproval:
-    async def load_replay(self, idempotency_key: str, request_fingerprint: str) -> DirectApiReceipt:
+    async def load_replay(
+        self, idempotency_key: str, request_fingerprint: str
+    ) -> DirectApiReceipt | None:
+        if (idempotency_key, request_fingerprint) != (
+            "governed-campaign-approval",
+            _PROTOCOL_DIGEST,
+        ):
+            return None
         return DirectApiReceipt(
             outcome=DirectApiOutcome.SUCCEEDED,
             receipt_ref=content_digest(
                 {"idempotency_key": idempotency_key, "fingerprint": request_fingerprint}
             ),
+        )
+
+
+class _EvaluationRegistry(StateStoreTypedSelectionRead):
+    """Disposable evaluation state, never the source harness or installation StateStore."""
+
+    def __init__(self) -> None:
+        self.campaign_admission = _CampaignAdmission()
+        super().__init__(
+            InMemoryStateStore(),
+            admission=self.campaign_admission,
+            approvals=_CampaignApproval(),
         )
 
 
@@ -223,11 +258,7 @@ async def _reader(
             raise CampaignAbortedError("governed typed-selection live composition is unavailable")
         source = source_resolver
         proposer = composed.proposer
-    registry = StateStoreTypedSelectionRead(
-        harness.state,
-        admission=_CampaignAdmission(),
-        approvals=_CampaignApproval(),
-    )
+    registry = _EvaluationRegistry()
     return GovernedTypedSelectionRead(registry=registry, source=source, proposer=proposer), http
 
 
@@ -236,6 +267,11 @@ async def _activate_evaluation_pointer(
     *,
     source_revision: str,
 ) -> dict[str, str]:
+    registry = reader.registry
+    if not isinstance(registry, _EvaluationRegistry):
+        raise CampaignAbortedError("evaluation activation requires its disposable registry")
+    if registry.campaign_admission.qualification is not None:
+        raise CampaignAbortedError("evaluation activation cannot reuse a qualification")
     source_resolver = reader.source
     if source_resolver is None:
         raise CampaignAbortedError("governed typed-selection source is unavailable")
@@ -249,8 +285,9 @@ async def _activate_evaluation_pointer(
         issued_at=now - timedelta(seconds=1),
         expires_at=now + timedelta(hours=2),
     )
-    await reader.registry.save_qualification(qualification)
-    pointer = await reader.registry.promote(
+    registry.campaign_admission.qualification = qualification
+    await registry.save_qualification(qualification)
+    pointer = await registry.promote(
         qualification_digest=qualification.digest,
         expected_revision=0,
         approval_key="governed-campaign-approval",
@@ -271,14 +308,58 @@ async def _activate_evaluation_pointer(
 def _selected_ids(value: Mapping[str, object]) -> frozenset[str]:
     candidates = value.get("candidates")
     if not isinstance(candidates, list):
-        return frozenset()
+        raise ValueError("governed campaign result requires a candidate list")
     selected: set[str] = set()
     for item in candidates:
-        if isinstance(item, dict):
-            object_type, object_id = item.get("object_type"), item.get("id")
-            if isinstance(object_type, str) and isinstance(object_id, str):
-                selected.add(f"object:{object_type}:{object_id}")
+        if not isinstance(item, dict):
+            raise ValueError("governed campaign candidate requires exact typed identity")
+        object_type, object_id = item.get("object_type"), item.get("id")
+        if (
+            not isinstance(object_type, str)
+            or not object_type
+            or not isinstance(object_id, str)
+            or not object_id
+        ):
+            raise ValueError("governed campaign candidate requires exact typed identity")
+        identity = f"object:{object_type}:{object_id}"
+        if identity in selected:
+            raise ValueError("governed campaign candidate identities must be unique")
+        selected.add(identity)
     return frozenset(selected)
+
+
+def _adapter_failure(
+    failures: AdapterFailureLog, before: Mapping[str, int]
+) -> tuple[str | None, bool]:
+    reasons: set[str] = set()
+    for key, count in failures.counts.items():
+        if count <= before.get(key, 0):
+            continue
+        fields = json.loads(key)
+        kind = fields.get("failure_type")
+        if fields.get("status_code") in {429, 503, "429", "503"}:
+            reasons.add("provider_backpressure")
+        elif kind in {
+            "TimeoutError",
+            "TimeoutException",
+            "ReadTimeout",
+            "ConnectTimeout",
+            "WriteTimeout",
+            "PoolTimeout",
+        }:
+            reasons.add("provider_timeout")
+        elif kind == "HTTPStatusError":
+            reasons.add("provider_http_error")
+        elif kind in {"ValidationError", "SemanticPlanningResponseValidationError"}:
+            reasons.add("proposal_contract_invalid")
+        elif kind == "CandidateContextError":
+            reasons.add("context_unavailable")
+        else:
+            reasons.add("adapter_unavailable")
+    for reason in ("provider_backpressure", "provider_timeout"):
+        if reason in reasons:
+            return reason, True
+    return min(reasons) if reasons else None, False
 
 
 async def run_campaign(
@@ -331,28 +412,36 @@ async def run_campaign(
                         separators=(",", ":"),
                     ),
                 )
-                failure_count = sum(failures.counts.values())
+                failure_counts = dict(failures.counts)
                 started = time.perf_counter()
                 reason: str | None = None
+                failure_reason: str | None = None
                 selected: frozenset[str] = frozenset()
                 outcome = "unavailable"
                 try:
                     result = await prepared_function_handler(functions, context, reader)(node, {})
                     selected = _selected_ids(cast(Mapping[str, object], result.value))
                     outcome = "returned"
-                except PermissionError:
-                    if sum(failures.counts.values()) > failure_count:
-                        reason = "provider_unavailable"
-                    elif not case.expected:
+                except GovernedReadError as exc:
+                    failure_reason = exc.reason.value
+                    if exc.clarification:
                         outcome = "held"
                     else:
                         reason = "answer_unavailable"
-                except (RuntimeError, TimeoutError, ValueError):
+                except (PermissionError, RuntimeError, TimeoutError, ValueError) as exc:
+                    failure_reason = (
+                        "read_timeout" if isinstance(exc, TimeoutError) else "unclassified"
+                    )
+                    reason = "answer_unavailable"
+                adapter_reason, provider_stop = _adapter_failure(failures, failure_counts)
+                if adapter_reason is not None:
+                    failure_reason = adapter_reason
                     reason = (
                         "provider_unavailable"
-                        if sum(failures.counts.values()) > failure_count
+                        if adapter_reason.startswith("provider_")
                         else "answer_unavailable"
                     )
+                    outcome = "unavailable"
                 latency_ms = (time.perf_counter() - started) * 1000
                 provider_failure = reason == "provider_unavailable"
                 consecutive = consecutive + 1 if provider_failure else 0
@@ -366,12 +455,22 @@ async def run_campaign(
                         "selected": sorted(selected),
                         "outcome": outcome,
                         "unavailable_reason": reason,
+                        "failure_reason": failure_reason,
                         "latency_ms": latency_ms,
                     }
                 )
+                if provider_stop or failure_reason in {
+                    SelectionFailure.PROPOSAL_TIMEOUT,
+                    SelectionFailure.READ_TIMEOUT,
+                    SelectionFailure.MEMBERSHIP_TIMEOUT,
+                    SelectionFailure.FUNCTION_TIMEOUT,
+                }:
+                    raise CampaignAbortedError(
+                        "provider backpressure or deadline ended the attempt", rows=rows
+                    )
                 if consecutive >= MAX_CONSECUTIVE_UNAVAILABLE or unavailable > MAX_UNAVAILABLE:
                     raise CampaignAbortedError(
-                        "provider unavailability exceeded the allowance", rows=rows
+                        "read unavailability exceeded the allowance", rows=rows
                     )
             print(f"repeat {repeat}/4 complete: {len(rows)} decisions", flush=True)
     finally:
@@ -424,6 +523,11 @@ async def main() -> int:
     args = parser.parse_args()
     if args.fake == (args.runtime_env is not None):
         parser.error("choose exactly one of --fake or --runtime-env")
+    if not args.fake:
+        parser.error(
+            "governed v1/v2 windows are spent; live qualification requires a fresh independently "
+            "authored, reviewed and deduplicated protocol"
+        )
     if _git("status", "--porcelain", "--untracked-files=no"):
         raise SystemExit("tracked worktree must be clean")
     source_commit = _git("rev-parse", "HEAD")
@@ -471,6 +575,9 @@ async def main() -> int:
         "completed_decisions": len(rows),
         "decisions_digest": "sha256:" + hashlib.sha256(text.encode()).hexdigest(),
         "evaluation_pointer_persistent": False,
+        "evidence_scope": "isolated_evaluation_only",
+        "independent_qualification_admission": False,
+        "current_owner_approval": False,
         "production_qualification": False,
         "execution_authority": False,
     }

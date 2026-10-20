@@ -26,7 +26,10 @@ from fdai.core.ontology_platform.models import (
     ObjectSetDefinition,
 )
 from fdai.core.ontology_platform.object_sets import object_matches_predicates
-from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
+from fdai.core.ontology_platform.query_gateway import (
+    SecuredObjectSetQueryGateway,
+    UnsupportedObjectSetAsOfError,
+)
 from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.providers.catalog_search import (
     CatalogSearchDocument,
@@ -36,6 +39,11 @@ from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 from .generation import _runtime_object_documents
 from .ontology_candidate_authorization import projected_candidate_record
+from .ontology_selection_errors import (
+    CandidateSelectionDeniedError,
+    CandidateSelectionError,
+    SelectionFailure,
+)
 from .ontology_snapshot_store import OntologyStagedProjection
 from .ontology_vector_store import _check_deadline
 
@@ -173,7 +181,7 @@ async def resolve_candidate_selection(
     """
     encoded = selection.model_dump_json()
     if len(encoded.encode("utf-8")) > 32_768:
-        raise ValueError("ontology candidate selection exceeds its input bound")
+        raise CandidateSelectionError(SelectionFailure.SELECTION_BOUND)
     selection = OntologyCandidateSelection.model_validate_json(encoded)
     selection_digest = content_digest(
         {"strategy": SELECTION_STRATEGY, "selection": selection.model_dump(mode="json")}
@@ -188,7 +196,7 @@ async def resolve_candidate_selection(
         or selection.snapshot_digest != staged.snapshot_digest
         or any(clause.object_type not in readable_types for clause in selection.clauses)
     ):
-        raise ValueError("ontology candidate selection binding or ObjectType mismatch")
+        raise CandidateSelectionError(SelectionFailure.SELECTION_BINDING_CHANGED)
     projection = ProjectionRequest(
         caller_role=manifest.principal_role,
         declared_purposes=frozenset(manifest.purposes),
@@ -213,7 +221,14 @@ async def resolve_candidate_selection(
             limit=1000,
             include_relationships=False,
         )
-        result = await gateway.materialize(definition, projection_request=projection)
+        try:
+            result = await gateway.materialize(definition, projection_request=projection)
+        except UnsupportedObjectSetAsOfError:
+            raise CandidateSelectionError(SelectionFailure.TIME_DRIFT) from None
+        except PermissionError:
+            raise CandidateSelectionDeniedError() from None
+        except ValueError:
+            raise CandidateSelectionError(SelectionFailure.PREDICATE_INVALID) from None
         _check_deadline(deadline)
         receipt = result.receipt
         if (
@@ -229,7 +244,7 @@ async def resolve_candidate_selection(
             or receipt.caller_role != manifest.principal_role
             or receipt.purpose != manifest.purposes[0]
         ):
-            raise ValueError("ontology candidate selection requires complete current evidence")
+            raise CandidateSelectionError(SelectionFailure.MEMBERSHIP_INCOMPLETE)
         projected = tuple(
             projected_candidate_record(record) for record in result.materialization.graph.objects
         )
@@ -252,7 +267,7 @@ async def resolve_candidate_selection(
             if prepared is None or catalog_search_document_digest(
                 prepared
             ) != catalog_search_document_digest(document):
-                raise ValueError("ontology candidate selection source content changed")
+                raise CandidateSelectionError(SelectionFailure.SOURCE_DRIFT)
             if document.rule_id in members:
                 matched[document.rule_id] = prepared
                 matched_objects[document.rule_id] = current_objects[document.rule_id]

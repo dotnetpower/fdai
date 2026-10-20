@@ -85,6 +85,36 @@ projection digest can differ from the staged digest because the observation cuto
 identity. Both digests stay bound in the validation receipt; equality of content, generation,
 manifest, principal scope and source generation remains mandatory.
 
+## Failure diagnosis and evaluation isolation
+
+V2 is also spent: its exact-Sol attempt stopped after 12 decisions and six answerable holds,
+with no provider error or quality outcome. Neither attempt retained producer-stage reasons.
+`answer_unavailable` therefore cannot establish a model-meaning defect, unsupported predicate,
+citation failure, membership failure, source/time drift, disagreement or registry/Function failure.
+Historical rows remain unchanged and are regression references only.
+
+The read and membership boundaries now expose fixed, content-free reason codes. They distinguish
+proposal clarification, input binding, citation validation, agreement, secured membership,
+source/time drift, registry admission and Function contracts. Proposal, membership, Function and
+whole-stage deadlines remain separate. Known grouped proposal failures cancel their siblings and
+retain a bounded cause; cancellation still invalidates the pending request without publishing
+consumable evidence. A predicate/membership contract rejection does not prove a semantic error.
+
+The campaign records observed outcomes without reading expected answers. Only an explicit model
+clarification produces `held`; other failures remain unavailable. Expected answers are used only
+for subsequent scoring. Malformed candidate output cannot become an empty success, and a returned
+empty result cannot satisfy a negative case that requires holding without evidence. Adapter schema
+and context failures are distinguished from provider errors. HTTP 429, HTTP 503 and any deadline
+end the attempt with its partial rows, without a retry.
+
+Evaluation activation creates a separate disposable in-memory registry, never a pointer in the
+source harness or installation store. Its permissive test approval and admission are bound to the
+exact evaluation tuple and carry no independent qualification, current Owner approval or persistent
+promotion evidence. An actor string or evaluation report cannot establish those authorities.
+The driver rejects live reuse of v1/v2 before runtime or provider setup. A future live attempt needs
+a revised hypothesis and a fresh independently authored, separately reviewed, deduplicated protocol
+that fixes the exact source, model, prompt, scope and unchanged acceptance requirements.
+
 ## Pre-implementation critique and revision
 
 The reviewed hypotheses are: hidden network calls inside Function; confusing progress with

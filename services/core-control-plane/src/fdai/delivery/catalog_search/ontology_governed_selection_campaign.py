@@ -310,6 +310,8 @@ def evaluate_governed_window(
         failures.append("pooled-wrong-selection-bound-exceeded")
     if unavailable > protocol.max_unavailable_rate * len(decisions):
         failures.append("unavailable-rate-exceeded")
+    if any(not item.expected and item.outcome == "returned" for item in decisions):
+        failures.append("negative-case-not-held")
     languages: list[GovernedWindowLanguage] = []
     for language in sorted({item.language for item in decisions}):
         own = [item for item in decisions if item.language == language]
