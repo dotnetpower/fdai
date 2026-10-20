@@ -106,11 +106,7 @@ unavailable sources without inventing healthy values. Operator exposes that snap
 authenticated Reader-role `GET /operations/runtime-state` projection. Delivery adapters remain
 responsible for replacing explicit unavailable bindings with source-qualified production metrics.
 `delivery/self_health_sources.py` binds owned process, first-tier event lag, consumed-canary, actual verifier and native cross-check
-observations; runtime owns their lifetime and serializes collection without additional model probes.
-The existing Core canary path retains bounded consumed-attempt start, failure and cancellation
-audit facts without replacing its canonical success record. The delivery CLI derives retry identity
-from an explicit slot or the actual platform execution; neither identity nor publication success
-qualifies the latest scheduled result. Unqualified result/state bindings remain unavailable.
+observations; runtime owns their lifetime and serializes collection without additional model probes. Core owns canary lifecycle audit; delivery owns retry identity.
 The [operating owner](../operations/operating-and-verification.md#remaining-source-boundaries) owns current counts and missing evidence; the [source-injection contract](project-structure-dependency-injection.md#self-health-source-bindings) preserves service/agent ownership.
 Embedding and cross-check/pool evidence use a separate fully registered model scope, not aggregate adapter health; these reads prove neither fleet health nor deployment acceptance.
 Operational promotion uses another exact cross-layer identity. Core measurement hashes every O7

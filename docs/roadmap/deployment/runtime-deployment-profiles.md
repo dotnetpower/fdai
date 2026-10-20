@@ -579,14 +579,7 @@ in fixed `shadow` mode. A non-shadow lifecycle requires a separate protected tra
 Core and the canary CronJob receive the same fixed canary topic. Core consumes it through the
 auxiliary transport and records the trusted canary as a shadow no-op, so a successful publisher
 Job cannot be mistaken for an end-to-end canary result when no consumer is bound.
-The canary CLI preserves an explicit `FDAI_CANARY_SLOT` when supplied. Otherwise AKS supplies
-the controller Job UID through the Downward API, while Container Apps supplies its documented
-`CONTAINER_APP_JOB_EXECUTION_NAME`. These execution identities remain stable across retries;
-the current minute is not an execution identity. Missing, malformed or ambiguous platform
-identity fails before provider access. This adds no API permission, database access or runtime
-authority. Consumed-attempt audit facts do not replace an independently qualified latest
-scheduled-attempt observation; result/state remain unavailable until that boundary is met.
-The focused `aks_workload_jobs.py` module owns pure scheduled-job assembly; the managed host remains orchestration-only, and this ownership split changes no rendered Job, identity, schedule, or authority.
+AKS job assembly and environment rendering stay in pure CLI helpers (`aks_workload_jobs.py`, `aks_job_environment.py`); managed hosts remain orchestration-only, with canary retry and qualification rules defined by the [operating owner](../operations/operating-and-verification.md).
 The analyzer Job reuses the inventory identity to read only the exact ingest Event Hub for
 uncertain-publication reconciliation. Its new topic-scoped receiver assignment adds no write,
 deployment, or execution authority; a declared role is not proof of effective deployed access.
