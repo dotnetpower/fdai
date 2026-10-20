@@ -347,6 +347,57 @@ required owner gate. Otherwise keep Partial with exact remaining IDs; use Not as
 evidence is unavailable rather than claiming a new defect. Routine per-installation configuration
 and explicitly deferred expansion remain visible without pretending they were validated.
 
+## 2026-10-20 three-session reconciliation
+
+This reconciliation separates `Complete`, `Code complete / live unverified`, `Actual failure`,
+`External blocker`, and `Elapsed-time blocker`. A result applies to the mandatory package as a
+whole, not only to one delivered source slice. No package below is `Complete`, so all 29 mandatory
+packages remain open.
+
+### Mandatory package outcomes
+
+| Package | Result | Current evidence | Next observation condition |
+|---------|--------|------------------|----------------------------|
+| K01 | Code complete / live unverified | G02 now connects the standard worker and Core document-intent path without publishing private bytes. | Retain one approved production-profile corpus through normal upload, worker, current ACL, revocation, deletion, and authorized readback. |
+| K02 | External blocker | Protected-source export and binding contracts exist. | Supply approved source identities, credentials, immutable revisions, and independent readback without committing private content. |
+| K03 | Code complete / live unverified | #2296 closes the case- and whitespace-variant self-review defect; 93 focused tests and one loopback PostgreSQL test pass. | Bind an independently approved policy, deployed read grants, and operational promotion. |
+| K04 | External blocker | Extraction and answer mechanics have bounded tests. | Supply approved PDF, Office, OCR, Korean, table, image, and revocation corpora with independent answer-quality review. |
+| K05 | External blocker | Source-bound qualification tooling exists. | Select and approve the exact source, model, corpus, metrics, and holdout review before qualification. |
+| K06 | Code complete / live unverified | Local distillation and conformance gates preserve provenance and separate activation. | Retain the same checks on an approved production-profile corpus and installed path. |
+| K07 | External blocker | Accessibility requirements remain recorded. | Complete independent English and Korean keyboard, speech, disclosure, and screen-reader review. |
+| R01 | External blocker | The current rule lifecycle implements later governed rollout phases, but the complete operational list is not closed. | Supply approved provider sources, verifier identity, scheduled expiry/notifier, override source, replica convergence, activation, and frozen drift measurement. |
+| L01 | External blocker | Session 1 reran 220 unchanged learning/authority checks; four positive history inputs are still absent. | Retain external-change continuity, action/event-time watermark, exclusion history, and post-window reconciliation from authoritative sources. |
+| L02 | Code complete / live unverified | Local context-safety, revocation, restart, and negative paths pass. | Retain live queued and in-flight expiry/revocation, hold, recovery, deadline, and subscriber-isolation receipts. |
+| L03 | External blocker | Local retained-Pattern mechanics exist. | Supply one coherent trusted external issuer through frozen cohort, publication, restart, promotion, demotion, and acceptance. |
+| L04 | Elapsed-time blocker | Measurement contracts reject activity counts as improvement. | Complete preregistered independent baseline/treatment episodes, recurrence windows, denominators, uncertainty, and safety guards. |
+| A01 | External blocker | Release-ceiling code preserves unavailable provenance. | Supply authenticated installed-Release and current revocation input for #1822. |
+| A02 | Code complete / live unverified | Approval and evidence admission mechanics pass local negative and restart checks. | Retain current independent approval, application, audit, and effect receipts on an exact installation target. |
+| A03 | Code complete / live unverified | Standing-authority scope, expiry, and revocation guards exist. | Bind approved provider commit fences and retain live expiry, revocation, duplicate, and restart evidence. |
+| A04 | External blocker | Drill mechanics exist without granting authority. | Run separately authorized stop, rollback, recovery, quorum, and effect-verification drills. |
+| D01 | External blocker | Privacy gates and source boundaries exist. | Approve the real corpus, privacy schedule, provider terms, regions, and compliance crosswalk. |
+| D02 | External blocker | Retention and audit mechanisms have local coverage. | Retain deployed deletion, legal hold, access review, anchoring, incident response, and change-feed convergence. |
+| H01 | Actual failure | The current local snapshot exposes all 15 signals and eight fields without hiding gaps, but only seven signals have concrete exporter identities in this installation. Readiness is healthy, cold-start duration is stale, the other concrete signals are unavailable, and only version/configuration fields are available. | Bind the missing liveness installation input, seven remaining signal populations, five remaining field sources, primary/fallback delivery, and recovery drills, then retain a fresh complete snapshot. |
+| H02 | External blocker | Canary, recurrence, scheduler, and stabilization prerequisites have local tests. | Supply approved installation baseline/scope/job inputs and retain scheduled attempts, no-execute replay, authority lowering, and configured stabilization exit. |
+| H03 | External blocker | The five-minute cadence and 30-second consumed-audit check do not settle the seven owner decisions. | Version the canary, smoke, alert, audit, cold-start, stabilization, and load/budget operating policy. |
+| V01 | External blocker | Report rendering and source-isolation mechanics exist. | Retain authenticated per-datasource identity, cutoff, freshness, unavailable, timeout, partial-widget, format-rejection, and GET-only evidence. |
+| I01 | External blocker | Source installation and Trial mechanics exist with one historical new-Trial receipt. | Supply approved signed full-entitlement input and retain unchanged Trial rerun, new full install, Trial-to-full transition, watermark removal, health/readback, and second plan. |
+| I02 | External blocker | Source and signed offline paths remain the only available distribution paths; `--online` cleanup is ordered after I01. | Complete I01, then remove superseded acquisition/help paths and decide whether `azd-up.sh` is diagnostic-only or retired. |
+| I03 | External blocker | Update, recovery, host, and offline mechanics pass bounded local checks. | Retain exact-revision connected deployment, update/recovery, and disposable migration evidence on an approved target. |
+| X01 | Code complete / live unverified | Bundle registration, disabled-first lifecycle, revocation, and typed routing exist; #355 closed as not planned without the mandatory lineage. | Open a new issue, then retain one exact-artifact install, enable, disable, revoke, restart, disclosure, routing, and audit lineage. |
+| S01 | External blocker | Installed acquisition, worker, and independent local acceptance code exists. | Keep #2128 paused until explicitly resumed, then retain one terminal installed request, exact revision, coverage, publication, and independent readback. |
+| S02 | External blocker | Scheduled processing, Incident, notification, and ownership handover mechanics exist. | After the pause lifts, bind approved identities and channels and retain one same-correlation scan or explicit no-issues result, Incident, notification, ownership handover, and duplicate-replay chain. |
+| S03 | Actual failure | Exact promotion arithmetic is repaired without changing labels or thresholds. Java SQL dev precision is 0.8824, Java path dev precision is 0.7143, and C# lacks the required held-out true positives. | Improve the remaining detectors on `dev`, then pass unchanged `holdout` precision >= 0.90 with at least one true positive in both splits before separate promotion review. |
+
+### G03-G07 exit criteria
+
+| Criterion | Result | Current evidence and next condition |
+|-----------|--------|-------------------------------------|
+| G03 | Actual failure | #2299 improves content-free hold diagnostics and isolates evaluation authority. Fresh governed v1 and v2 remain spent failures, so a newly authored and reviewed protocol must pass exact-source/model/corpus quality and latency before current Owner approval, persistent promotion, and independent effect observation. |
+| G04 | Actual failure | #2298 protected-merged language-neutral typed-label normalization, and the exact `ab7adaadf8` stack restarted at 12/12 ready with a normal Browser Entra session. One bounded Korean retry still failed closed as `semantic_reading_unverified`: the new `resource_property_name` and review-repair shape is not modeled. Add a deterministic language-neutral contract and focused regression, then rerun one exact-revision English/Korean sequence before denied and unavailable follow-ups. |
+| G05 | Code complete / live unverified | The current authoritative baseline is 877 Resources, 1,611 links, 174 classified unavailable candidates, and zero topology revisions. This change removes four false ephemeral Local OS-disk candidates and fixes closure accounting, but a later normal collection must show them absent; 170 authorization child scopes remain unavailable and current state does not create history. |
+| G06 | External blocker | The normal causal runtime seam remains unbound and the local independent effect-observation population is zero. Supply an independently authenticated immutable hypothesis/action/target/time/effect source, then retain verified and refuted replay, rollback, and a real recurrence window without using graph correlation, dispatch, or provider success as effect proof. |
+| G07 | Elapsed-time blocker | No approved production corpus or completed ACL/revocation/deletion chain exists. After those external inputs are approved, retain 30 distinct live-shadow days and 500 eligible reviewed proposals; same-day synthetic tests cannot satisfy the window. |
+
 ## Evidence reconciliation notes
 
 - **Historical tests:** The assessment's A-P cohorts and F06/F07 908+8 results are retained historical

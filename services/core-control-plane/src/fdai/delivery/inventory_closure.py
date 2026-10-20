@@ -117,7 +117,7 @@ class PostgresInventoryClosureVerifier:
         )
         started_at = progress_record.started_at
         promoted_at = active["promoted_at"]
-        coverage_gaps = len(metadata.get("relationship_drop_reasons", []))
+        coverage_gaps = _relationship_coverage_gap_count(metadata)
         subscription_scope = _canonical_subscription_scope(active["scopes"])
         scope_digest = "sha256:" + hashlib.sha256(subscription_scope.encode("utf-8")).hexdigest()
         conditions = {
@@ -209,6 +209,39 @@ class PostgresInventoryClosureVerifier:
             row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
         )
+
+
+def _relationship_coverage_gap_count(metadata: Mapping[str, Any]) -> int:
+    reasons = metadata.get("relationship_drop_reasons")
+    classifications = metadata.get("relationship_drop_classifications")
+    if not isinstance(reasons, list) or not all(isinstance(reason, str) for reason in reasons):
+        raise ValueError("inventory closure relationship gap reasons are invalid")
+    if not reasons:
+        if classifications not in (None, []):
+            raise ValueError("inventory closure relationship classifications are inconsistent")
+        return 0
+    if not isinstance(classifications, list) or not classifications:
+        raise ValueError("inventory closure relationship classifications are unavailable")
+
+    classified_reasons: set[str] = set()
+    candidate_count = 0
+    for classification in classifications:
+        if not isinstance(classification, Mapping):
+            raise ValueError("inventory closure relationship classification is invalid")
+        reason = classification.get("reason")
+        count = classification.get("count")
+        if (
+            not isinstance(reason, str)
+            or isinstance(count, bool)
+            or not isinstance(count, int)
+            or count < 1
+        ):
+            raise ValueError("inventory closure relationship classification is invalid")
+        classified_reasons.add(reason)
+        candidate_count += count
+    if classified_reasons != set(reasons):
+        raise ValueError("inventory closure relationship classifications are inconsistent")
+    return candidate_count
 
 
 def _mapping(value: object, label: str) -> Mapping[str, Any]:

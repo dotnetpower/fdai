@@ -119,7 +119,30 @@ async def test_closure_verifier_binds_exact_active_generation(
                 "materialized_unmapped_provider_object_count": 1,
             },
             "derived_source_states": [],
-            "relationship_drop_reasons": [],
+            "relationship_drop_reasons": [
+                "missing_source_endpoint",
+                "target_type_mismatch",
+            ],
+            "relationship_drop_classifications": [
+                {
+                    "reason": "missing_source_endpoint",
+                    "mapping_id": "azure.vm-os-disk-attached-to-vm",
+                    "source_property_path": ("properties.storageProfile.osDisk.managedDisk.id"),
+                    "source_provider_type": "microsoft.compute/virtualmachines",
+                    "target_provider_type": "Microsoft.Compute/disks",
+                    "unavailable_reason": "source_outside_active_generation",
+                    "count": 4,
+                },
+                {
+                    "reason": "target_type_mismatch",
+                    "mapping_id": "azure.role-assignment-attached-to-scope",
+                    "source_property_path": "properties.scope",
+                    "source_provider_type": "microsoft.authorization/roleassignments",
+                    "target_provider_type": "Microsoft.EventHub/namespaces/eventhubs",
+                    "unavailable_reason": "authorization_child_scope_unmodeled",
+                    "count": 170,
+                },
+            ],
         },
     )
     active: dict[str, object] = {
@@ -159,9 +182,56 @@ async def test_closure_verifier_binds_exact_active_generation(
         + hashlib.sha256(b"/subscriptions/00000000-0000-0000-0000-000000000000").hexdigest()
     )
     assert receipt.fresh_generation is True
+    assert receipt.coverage_gap_count == 174
 
     connection.progress = _progress("sha256:" + "f" * 64).model_dump(mode="json")
     with pytest.raises(ValueError, match="active_generation"):
+        await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
+
+
+async def test_closure_verifier_rejects_unaccounted_relationship_candidates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generation = "snapshot-one"
+    digest = "sha256:" + hashlib.sha256(generation.encode()).hexdigest()
+    progress = _progress(digest)
+    active: dict[str, object] = {
+        "id": generation,
+        "status": "active",
+        "source": "arg",
+        "observation_kind": "observed",
+        "scopes": ["00000000-0000-0000-0000-000000000000"],
+        "resource_types": ["virtual-machine"],
+        "metadata": {
+            "coverage_scope": "full_provider_scope",
+            "provider_scope_coverage": {
+                "provider_identity_complete": True,
+                "materialized_unmapped_provider_object_count": 0,
+            },
+            "derived_source_states": [],
+            "relationship_drop_reasons": ["target_type_mismatch"],
+            "relationship_drop_classifications": [],
+        },
+        "promoted_at": NOW + timedelta(seconds=2),
+        "resource_count": 0,
+        "link_count": 0,
+        "unmapped_count": 0,
+        "overlay_count": 0,
+        "watermarks": {
+            "ontology_generation": generation,
+            "ontology_projection_watermark": 5,
+            "journal_high_watermark": 5,
+        },
+    }
+    verifier = PostgresInventoryClosureVerifier(
+        config=PostgresInventoryClosureVerifierConfig(dsn="postgresql://test")
+    )
+
+    async def connect() -> Any:
+        return _Connection(progress.model_dump(mode="json"), active)
+
+    monkeypatch.setattr(verifier, "_connect", connect)
+    with pytest.raises(ValueError, match="classifications are unavailable"):
         await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
 
 
