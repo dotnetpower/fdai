@@ -1,4 +1,4 @@
-"""Veto Java SQL verifier evidence only for provably constant sink arguments.
+"""Veto Java verifier evidence only for provably constant sink arguments.
 
 This is a bounded expression/definition slice, not a Java compiler or general taint analyzer.
 Unsupported syntax, mutation, dispatch, or path selection leaves the engine result unchanged.
@@ -8,8 +8,9 @@ Source is parsed, never rewritten, imported, compiled, or executed.
 from __future__ import annotations
 
 import hashlib
+import re
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from itertools import islice
 from pathlib import Path
 
@@ -24,8 +25,8 @@ from fdai.core.security.code_findings.java_constant_values import (
     unary,
 )
 
-VERSION = "fdai.java.constant-guard@2"
-_SINKS = frozenset(
+VERSION = "fdai.java.constant-guard@3"
+_SQL_SINKS = frozenset(
     {
         "execute",
         "executeQuery",
@@ -37,6 +38,12 @@ _SINKS = frozenset(
         "createQuery",
         "createNativeQuery",
     }
+)
+_PATH_CONSTRUCTORS = frozenset({"File", "FileInputStream", "FileOutputStream", "FileReader"})
+_PATH_METHOD_SINKS = frozenset({("Path", "of"), ("Paths", "get")})
+_QUALIFIED_CONSTANT = re.compile(
+    rb"\b(?P<class>(?:[a-z_][A-Za-z0-9_]*\.)+[A-Z][A-Za-z0-9_]*)"
+    rb"\.(?P<field>[A-Z][A-Z0-9_]*)\b"
 )
 _LANGUAGE = Language(tree_sitter_java.language())
 
@@ -71,7 +78,9 @@ def _text(node: Node | None) -> str:
 
 
 class _Slice:
-    def __init__(self, source: bytes) -> None:
+    def __init__(
+        self, source: bytes, external_constants: Mapping[str, Constant] | None = None
+    ) -> None:
         # The locked 0.25 parser supports this bound for byte input. Its replacement progress
         # callback only supports callable input; never leave untrusted byte parsing unbounded.
         with warnings.catch_warnings():
@@ -81,6 +90,7 @@ class _Slice:
         self.nodes = tuple(islice(_walk(self.tree.root_node), 25001))
         self.budget = 10000
         self.active: set[tuple[int, str]] = set()
+        self.external_constants = external_constants or {}
 
     def expression(
         self, node: Node | None, parameters: dict[str, Constant | None], depth: int = 0
@@ -100,6 +110,8 @@ class _Slice:
     def _expression(
         self, node: Node, parameters: dict[str, Constant | None], depth: int
     ) -> Constant | None:
+        if (external := self.external_constants.get(_text(node))) is not None:
+            return external
         if node.type == "identifier":
             return self._local(node, parameters, depth)
         if node.type == "parenthesized_expression":
@@ -189,9 +201,18 @@ class _Slice:
             return None
         binding, value, certainty = possible[-1]
         # Only an unconditional write in the read's own lexical block dominates earlier writes.
-        if len(possible) > 1 and _parent(binding, "block") != _parent(node, "block"):
+        binding_block = _parent(binding, "block")
+        node_block = _parent(node, "block")
+        if len(possible) > 1 and binding_block != node_block:
             return None
-        if certainty is not True:
+        direct_statement = binding
+        while direct_statement.parent is not None and direct_statement.parent != binding_block:
+            direct_statement = direct_statement.parent
+        if certainty is not True and not (
+            binding_block == node_block
+            and direct_statement.parent == binding_block
+            and direct_statement.type == "expression_statement"
+        ):
             return None
         declared_type = _text(_field(declaration.parent, "type"))
         return coerce(self.expression(value, parameters, depth), declared_type)
@@ -621,14 +642,90 @@ class _Slice:
         return coerce(values[0], _text(_field(method, "type")))
 
 
-def java_sql_constant_veto(
-    repository: Path, relative_path: str, line: int, *, max_file_bytes: int = 1_000_000
-) -> str | None:
-    """Return a source-bound constant proof, or ``None`` to keep the engine evidence.
+def _static_string(node: Node | None, constants: Mapping[str, Constant]) -> Constant | None:
+    if node is None:
+        return None
+    if node.type == "identifier":
+        return constants.get(_text(node))
+    if node.type == "parenthesized_expression":
+        return _static_string(node.named_children[0], constants)
+    if node.type == "binary_expression":
+        return binary(
+            _text(_field(node, "operator")),
+            _static_string(_field(node, "left"), constants),
+            _static_string(_field(node, "right"), constants),
+        )
+    if node.type in {"field_access", "scoped_identifier"} and _text(node) in {
+        "File.separator",
+        "java.io.File.separator",
+    }:
+        return Constant("String", "<file-separator>")
+    if node.type == "method_invocation":
+        receiver = _text(_field(node, "object"))
+        arguments = _field(node, "arguments")
+        if (
+            receiver in {"System", "java.lang.System"}
+            and _text(_field(node, "name")) == "getProperty"
+            and arguments is not None
+            and len(arguments.named_children) == 1
+        ):
+            key = _static_string(arguments.named_children[0], constants)
+            if key is not None and key.kind == "String":
+                return Constant("String", f"<system-property:{key.value}>")
+    return literal(_text(node), node.type)
 
-    A proof requires every SQL argument that could match the hit's line to be constant.
-    Missing, escaping, oversized, malformed, or unsupported source never creates a veto.
-    """
+
+def _qualified_string_constants(root: Path, source: bytes) -> Mapping[str, Constant]:
+    resolved: dict[str, Constant] = {}
+    for match in _QUALIFIED_CONSTANT.finditer(source):
+        class_name = match.group("class").decode("ascii")
+        field_name = match.group("field").decode("ascii")
+        reference = f"{class_name}.{field_name}"
+        if reference in resolved:
+            continue
+        package_name, _, simple_name = class_name.rpartition(".")
+        candidates = tuple(islice(root.rglob(f"{simple_name}.java"), 2))
+        if len(candidates) != 1:
+            continue
+        try:
+            candidate_source = candidates[0].read_bytes()
+        except OSError:
+            continue
+        if (
+            len(candidate_source) > 1_000_000
+            or f"package {package_name};".encode() not in candidate_source
+        ):
+            continue
+        try:
+            candidate = _Slice(candidate_source)
+        except ValueError:
+            continue
+        constants: dict[str, Constant] = {}
+        for node in candidate.nodes:
+            if node.type != "field_declaration":
+                continue
+            declaration_text = _text(node)
+            if (
+                "static" not in declaration_text.split()
+                or "final" not in declaration_text.split()
+                or _text(_field(node, "type")) != "String"
+            ):
+                continue
+            for declarator in node.named_children:
+                if declarator.type != "variable_declarator":
+                    continue
+                name = _text(_field(declarator, "name"))
+                value = _static_string(_field(declarator, "value"), constants)
+                if value is not None and value.kind == "String":
+                    constants[name] = value
+        if (value := constants.get(field_name)) is not None:
+            resolved[reference] = value
+    return resolved
+
+
+def _load_analysis(
+    repository: Path, relative_path: str, *, max_file_bytes: int = 1_000_000
+) -> tuple[bytes, _Slice] | None:
     root = repository.resolve()
     path = (root / relative_path).resolve()
     if not path.is_relative_to(root):
@@ -649,33 +746,76 @@ def java_sql_constant_veto(
     except UnicodeDecodeError:
         return None
     try:
-        analysis = _Slice(source)
+        analysis = _Slice(source, _qualified_string_constants(root, source))
     except ValueError:
         # The parser reports its deadline as parsing failure. No constant proof is available.
         return None
     if analysis.tree.root_node.has_error or len(analysis.nodes) > 25000:
         return None
+    return source, analysis
+
+
+def _constant_proof(
+    source: bytes, analysis: _Slice, candidates: list[Node], line: int
+) -> str | None:
+    for arg in candidates:
+        parent = arg.parent
+        while parent is not None and parent.type != "method_declaration":
+            if parent.type in {
+                "while_statement",
+                "for_statement",
+                "enhanced_for_statement",
+                "do_statement",
+                "lambda_expression",
+            }:
+                # A write after this textual sink may reach its next iteration.
+                return None
+            parent = parent.parent
+    if not candidates or any(analysis.expression(arg, {}) is None for arg in candidates):
+        return None
+    return f"{VERSION}; source_sha256={hashlib.sha256(source).hexdigest()}; line={line}"
+
+
+def java_sql_constant_veto(
+    repository: Path, relative_path: str, line: int, *, max_file_bytes: int = 1_000_000
+) -> str | None:
+    """Return a source-bound SQL constant proof, or keep the engine evidence."""
+    loaded = _load_analysis(repository, relative_path, max_file_bytes=max_file_bytes)
+    if loaded is None:
+        return None
+    source, analysis = loaded
     candidates = []
     for node in analysis.nodes:
-        if node.type != "method_invocation" or _text(_field(node, "name")) not in _SINKS:
+        if node.type != "method_invocation" or _text(_field(node, "name")) not in _SQL_SINKS:
             continue
         args = _field(node, "arguments")
         if args is not None and args.named_children:
             arg = args.named_children[0]
             if arg.start_point.row + 1 <= line <= arg.end_point.row + 1:
-                parent = arg.parent
-                while parent is not None and parent.type != "method_declaration":
-                    if parent.type in {
-                        "while_statement",
-                        "for_statement",
-                        "enhanced_for_statement",
-                        "do_statement",
-                        "lambda_expression",
-                    }:
-                        # A write after this textual sink may reach its next iteration.
-                        return None
-                    parent = parent.parent
                 candidates.append(arg)
-    if not candidates or any(analysis.expression(arg, {}) is None for arg in candidates):
+    return _constant_proof(source, analysis, candidates, line)
+
+
+def java_path_constant_veto(
+    repository: Path, relative_path: str, line: int, *, max_file_bytes: int = 1_000_000
+) -> str | None:
+    """Return a source-bound path constant proof, or keep the engine evidence."""
+    loaded = _load_analysis(repository, relative_path, max_file_bytes=max_file_bytes)
+    if loaded is None:
         return None
-    return f"{VERSION}; source_sha256={hashlib.sha256(source).hexdigest()}; line={line}"
+    source, analysis = loaded
+    candidates: list[Node] = []
+    for node in analysis.nodes:
+        arguments: Node | None = None
+        if node.type == "object_creation_expression":
+            type_name = _text(_field(node, "type")).rsplit(".", 1)[-1]
+            if type_name in _PATH_CONSTRUCTORS:
+                arguments = _field(node, "arguments")
+        elif node.type == "method_invocation":
+            receiver = _text(_field(node, "object")).rsplit(".", 1)[-1]
+            name = _text(_field(node, "name"))
+            if (receiver, name) in _PATH_METHOD_SINKS:
+                arguments = _field(node, "arguments")
+        if arguments is not None and node.start_point.row + 1 <= line <= node.end_point.row + 1:
+            candidates.extend(arguments.named_children)
+    return _constant_proof(source, analysis, candidates, line)

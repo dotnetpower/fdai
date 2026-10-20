@@ -23,7 +23,10 @@ from enum import StrEnum
 from pathlib import Path
 
 from fdai.core.security.code_findings import verifier_lists as lists
-from fdai.core.security.code_findings.java_constant_guard import java_sql_constant_veto
+from fdai.core.security.code_findings.java_constant_guard import (
+    java_path_constant_veto,
+    java_sql_constant_veto,
+)
 from fdai.core.security.code_findings.models import CodeSecurityIssue, Lane, Occurrence
 from fdai.core.security.code_findings.verifier_constants import (
     UNKNOWN,
@@ -656,9 +659,9 @@ def taint_rule_verifications(
     Only deterministic-lane occurrences from an Opengrep or Semgrep run count, so external SARIF
     can't claim verification by naming a rule. The rule pack digest in the coverage receipt binds
     the exact rules that produced the hit. A rule the catalog hasn't promoted records its hit as
-    ``verifier_in_shadow`` without raising confidence. Java SQL hits additionally use the same
-    constant-flow veto as evaluation when ``repository`` is the exact acquired source tree.
-    A promoted Java SQL verifier cannot grant confidence without that source binding.
+    ``verifier_in_shadow`` without raising confidence. Java SQL and path hits additionally use the
+    same constant-flow veto as evaluation when ``repository`` is the exact acquired source tree.
+    A promoted Java SQL or path verifier cannot grant confidence without that source binding.
     """
     by_id = {occ.occurrence_id: occ for occ in occurrences}
     results: list[VerifierResult] = []
@@ -676,7 +679,15 @@ def taint_rule_verifications(
             outcome = VerifierOutcome.VERIFIED if promoted else VerifierOutcome.NOT_VERIFIED
             reason = "attacker_controlled_flow" if promoted else "verifier_in_shadow"
             provenance = f"taint rule {occ.rule_id} ({occ.producer} {occ.producer_version})"
-            if match["language"] == "java" and match["rule"] == "sql-injection":
+            java_veto = (
+                {
+                    "path-traversal": java_path_constant_veto,
+                    "sql-injection": java_sql_constant_veto,
+                }.get(match["rule"])
+                if match["language"] == "java"
+                else None
+            )
+            if java_veto is not None:
                 fix_line = issue.fix_site.start_line
                 if (repository is None or fix_line is None) and promoted:
                     outcome = VerifierOutcome.NOT_VERIFIED
@@ -686,7 +697,7 @@ def taint_rule_verifications(
                         else "java_constant_guard_fix_site_unavailable"
                     )
                 elif repository is not None and fix_line is not None:
-                    proof = java_sql_constant_veto(
+                    proof = java_veto(
                         repository,
                         issue.fix_site.path,
                         fix_line,

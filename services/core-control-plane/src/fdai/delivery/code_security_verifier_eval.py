@@ -23,7 +23,10 @@ from typing import Any
 import yaml
 
 from fdai.core.security.code_findings.canonical import AnalysisContext, build_issues
-from fdai.core.security.code_findings.java_constant_guard import java_sql_constant_veto
+from fdai.core.security.code_findings.java_constant_guard import (
+    java_path_constant_veto,
+    java_sql_constant_veto,
+)
 from fdai.core.security.code_findings.models import Lane, Occurrence, SourceLocation
 from fdai.core.security.code_findings.verifier import VerifierOutcome, verify_issues
 from fdai.core.security.code_findings.verifier_evaluation import (
@@ -187,9 +190,13 @@ def _taint_outcomes(
         if "fdai.verify." in str(item.get("check_id", ""))
     }
     for rule, path, line in tuple(hits):
-        if rule != "java.sql-injection":
+        veto = {
+            "java.path-traversal": java_path_constant_veto,
+            "java.sql-injection": java_sql_constant_veto,
+        }.get(rule)
+        if veto is None:
             continue
-        proof = java_sql_constant_veto(tree, path, line, max_file_bytes=max_file_bytes)
+        proof = veto(tree, path, line, max_file_bytes=max_file_bytes)
         if proof is not None:
             hits.remove((rule, path, line))
             if vetoes is not None:

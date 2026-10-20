@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 78e0b2dac1b83048c04cd8da4e0a16a404a3c25f
-translation_revised: 2026-10-19
+translation_source_sha: f8b458660a1de4b02944b472d2bb45ae790f9048
+translation_revised: 2026-10-20
 ---
 
 # 코드 보안 스캔
@@ -809,6 +809,16 @@ classloader 속성을 통한 reflection이 있습니다. 후자는 추가 근거
 0.8824(참 양성 15개, 오탐 2개)로 높아졌고, `holdout`은 참 양성 손실 없이 0.9130(참 양성 21개,
 오탐 2개)을 유지합니다. `dev`가 아직 0.90 하한보다 낮으므로 Java SQL은 shadow에 남습니다.
 구성이 선택하는 reflection을 안전하다고 가정하지 않습니다.
+
+상수 가드 버전 3(카탈로그 1.8.0)은 같은 소스 결속 증명을 Java 경로 sink에도 적용합니다.
+고정 switch 대상, 하나의 `try` 본문 안에서 같은 블록에 직접 쓴 값, 그리고 initializer가
+리터럴, 검증된 다른 field, `File.separator` 또는 상수 key의 `System.getProperty` 호출만
+사용하는 정확한 정규화 이름의 `static final String` field를 추적합니다. 변경 가능하거나
+모호하거나 조건부인 field, alias 또는 지원하지 않는 field는 verifier 근거를 유지합니다.
+고정 corpus는 Java 경로 참 양성 6개를 모두 유지하고 `dev` 오탐 2개를 제거했습니다. 정밀도는
+`dev`에서 1.0(참 양성 5개, 오탐 0개), `holdout`에서 1.0(참 양성 1개, 오탐 0개)입니다.
+측정된 promotion 목록에 Java 경로 조작을 추가했습니다. Scanner의 기본 발견은 계속 표시하며
+더 넓은 Java 경로 재현율은 낮은 상태로 명시합니다.
 
 ## 입증 레인(선택)
 

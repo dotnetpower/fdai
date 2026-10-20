@@ -22,7 +22,6 @@ from ._support import CATALOG_ROOT, REVISION, catalog, result, sarif
 @pytest.mark.parametrize(
     ("rule", "path", "cwe"),
     [
-        ("fdai.verify.java.path-traversal", "Upload.java", 22),
         ("fdai.verify.csharp.command-injection", "Shell.cs", 78),
         ("fdai.verify.csharp.sql-injection", "Orders.cs", 89),
         ("fdai.verify.csharp.path-traversal", "Download.cs", 22),
