@@ -78,14 +78,7 @@ class PostgresCloudApplicationStore:
             if revoke:
                 updates = {"revoked_at": now}
             else:
-                if (
-                    actor_id == authority.author_id
-                    or actor_id in authority.policy.requester_ids
-                    or authority.approved_by is not None
-                    or authority.revoked_at is not None
-                    or now >= authority.policy.valid_until
-                ):
-                    raise ValueError("policy requires a new independent human review")
+                authority.require_independent_reviewer(actor_id, now)
                 updates = {"approved_by": actor_id, "approved_at": now}
             updated = CloudPolicyAuthority.model_validate(authority.model_dump() | updates)
             await conn.execute(

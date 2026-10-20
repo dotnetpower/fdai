@@ -26,6 +26,10 @@ class CloudApplicationUnavailableError(ValueError):
     """Current prior authority cannot support visibility; contain the pending generation."""
 
 
+def _principal_key(value: str) -> str:
+    return value.strip().casefold()
+
+
 class CloudApplicationPolicy(KnowledgeContract):
     """Closed policy proposal; the server records its author and independent reviewer separately."""
 
@@ -59,6 +63,9 @@ class CloudApplicationPolicy(KnowledgeContract):
         ):
             if len(set(values)) != len(values) or any(not v.strip() or v == "*" for v in values):
                 raise ValueError("application policy identities must be explicit and unique")
+        for principals in (self.requester_ids, self.reader_groups):
+            if len({_principal_key(value) for value in principals}) != len(principals):
+                raise ValueError("application policy principals must be canonically unique")
         return self
 
     @property
@@ -73,15 +80,32 @@ class CloudPolicyAuthority(KnowledgeContract):
     approved_at: AwareDatetime | None = None
     revoked_at: AwareDatetime | None = None
 
-    def require_current(self, requester: str, now: datetime) -> None:
-        """A reviewed policy, not its signature or source registry, establishes prior authority."""
+    def require_independent_reviewer(self, reviewer: str, now: datetime) -> None:
+        reviewer_key = _principal_key(reviewer)
+        requester_keys = {_principal_key(value) for value in self.policy.requester_ids}
         if (
             now.tzinfo is None
             or now.utcoffset() is None
-            or not self.approved_by
-            or self.approved_by == self.author_id
-            or self.approved_by in self.policy.requester_ids
-            or requester not in self.policy.requester_ids
+            or not reviewer_key
+            or reviewer_key == _principal_key(self.author_id)
+            or reviewer_key in requester_keys
+            or self.approved_by is not None
+            or self.revoked_at is not None
+            or now >= self.policy.valid_until
+        ):
+            raise ValueError("policy requires a new independent human review")
+
+    def require_current(self, requester: str, now: datetime) -> None:
+        """A reviewed policy, not its signature or source registry, establishes prior authority."""
+        approved_by = _principal_key(self.approved_by or "")
+        requester_keys = {_principal_key(value) for value in self.policy.requester_ids}
+        if (
+            now.tzinfo is None
+            or now.utcoffset() is None
+            or not approved_by
+            or approved_by == _principal_key(self.author_id)
+            or approved_by in requester_keys
+            or _principal_key(requester) not in requester_keys
             or self.approved_at is None
             or not self.approved_at <= now
             or self.revoked_at is not None

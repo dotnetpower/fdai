@@ -101,12 +101,15 @@ def test_prior_independent_policy_accepts_exact_request():
     "updates",
     [
         {"approved_by": "author"},
+        {"approved_by": " AUTHOR "},
         {"approved_by": "requester"},
+        {"approved_by": " ReQuEsTeR "},
         {"approved_by": None},
         {"approved_at": None},
         {"approved_at": NOW + timedelta(seconds=1)},
         {"revoked_at": NOW},
         {"author_id": "reviewer"},
+        {"author_id": " REVIEWER "},
     ],
 )
 def test_authority_cannot_self_grant_or_outlive_revocation(updates):
@@ -138,8 +141,10 @@ def test_current_exact_request_scope_is_required(updates):
     [
         {"requester_ids": ("*",)},
         {"requester_ids": ("requester", "requester")},
+        {"requester_ids": ("requester", " ReQuEsTeR ")},
         {"source_ids": ()},
         {"reader_groups": ("",)},
+        {"reader_groups": ("readers", " READERS ")},
         {"manifest_versions": ()},
         {"request_ttl_seconds": 3601},
         {"max_bytes": 16777217},

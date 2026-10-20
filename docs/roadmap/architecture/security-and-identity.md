@@ -360,8 +360,7 @@ The PostgreSQL evidence provider follows these boundaries:
   actions require **quorum (multi-approver)** rather than a single approver. The single-operator
   production profile is the only production exception: one named operator may approve, and the
   audit records the original quorum with an effective quorum of one
-  ([Operator Governance Profiles](../decisioning/operator-governance-profiles.md)). Core implements
-  this decision rule; runtime approval paths don't pass an active profile revision yet.
+  ([Operator Governance Profiles](../decisioning/operator-governance-profiles.md)). Canonical subject identity blocks spelling, case, or surrounding-space variants from becoming a second approver. Core implements this rule; runtime approval paths don't pass an active profile revision yet.
 - Approvers authenticate with MFA/phishing-resistant credentials; each approval is bound to a
   specific action + idempotency key so it **cannot be replayed** against a different action.
 - **Timeout is fail-closed**: an HIL item without current approval or a valid pre-existing standing

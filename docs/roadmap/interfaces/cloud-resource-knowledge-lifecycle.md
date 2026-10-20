@@ -257,6 +257,9 @@ or obtaining a new per-document `Approver` decision for a candidate already cove
 approved content-activation policy. The requester invokes prior authority; they do not approve,
 renew, widen, or grant it to themselves. This is a bounded reference-content workflow, not A3-E
 emergency authority, a resource action, or promotion of a document into executable policy.
+The authority boundary compares principals with a trimmed, case-insensitive canonical key. Case or
+surrounding-space variants of the policy author, requester, reviewer, or reader group cannot create
+an independent approval or a duplicate scope.
 
 > **Local software:** The manual lane remains the default. The explicit authenticated application
 > endpoints below select prior policy only after its independent human review. Registry approval,
