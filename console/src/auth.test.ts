@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { initAuth, interactiveLoginRequest } from "./auth";
+import type { AccountInfo } from "@azure/msal-browser";
+
+import {
+  clearMsalActiveAccount,
+  initAuth,
+  interactiveLoginRequest,
+  restoreMsalActiveAccount,
+} from "./auth";
 import type { ConsoleConfig } from "./config";
 
 function config(overrides: Partial<ConsoleConfig> = {}): ConsoleConfig {
@@ -23,6 +30,101 @@ function config(overrides: Partial<ConsoleConfig> = {}): ConsoleConfig {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+function account(id: string): AccountInfo {
+  return {
+    environment: "login.microsoftonline.com",
+    homeAccountId: `home-${id}`,
+    idTokenClaims: {},
+    localAccountId: `local-${id}`,
+    name: id,
+    tenantId: "tenant",
+    username: `${id}@example.com`,
+  };
+}
+
+describe("MSAL active account restoration", () => {
+  test("persists the redirect-selected account over an older active account", () => {
+    const admin = account("admin");
+    const reader = account("reader");
+    const setActiveAccount = vi.fn();
+    const client = {
+      getActiveAccount: () => admin,
+      getAllAccounts: () => [admin, reader],
+      setActiveAccount,
+    };
+
+    expect(restoreMsalActiveAccount(client, reader)).toBe(reader);
+    expect(setActiveAccount).toHaveBeenCalledWith(reader);
+  });
+
+  test("restores the matching cached active account instead of array order", () => {
+    const admin = account("admin");
+    const reader = account("reader");
+    const setActiveAccount = vi.fn();
+    const client = {
+      getActiveAccount: () => ({ ...reader }),
+      getAllAccounts: () => [admin, reader],
+      setActiveAccount,
+    };
+
+    expect(restoreMsalActiveAccount(client, null)).toBe(reader);
+    expect(setActiveAccount).toHaveBeenCalledWith(reader);
+  });
+
+  test("uses the only cached account when no active selection exists", () => {
+    const reader = account("reader");
+    const setActiveAccount = vi.fn();
+    const client = {
+      getActiveAccount: () => null,
+      getAllAccounts: () => [reader],
+      setActiveAccount,
+    };
+
+    expect(restoreMsalActiveAccount(client, null)).toBe(reader);
+    expect(setActiveAccount).toHaveBeenCalledWith(reader);
+  });
+
+  test("requires selection instead of choosing the first of multiple accounts", () => {
+    const admin = account("admin");
+    const reader = account("reader");
+    const setActiveAccount = vi.fn();
+    const client = {
+      getActiveAccount: () => null,
+      getAllAccounts: () => [admin, reader],
+      setActiveAccount,
+    };
+
+    expect(restoreMsalActiveAccount(client, null)).toBeNull();
+    expect(setActiveAccount).toHaveBeenCalledWith(null);
+  });
+
+  test("does not restore an active account that is absent from the cache", () => {
+    const admin = account("admin");
+    const reader = account("reader");
+    const setActiveAccount = vi.fn();
+    const client = {
+      getActiveAccount: () => account("removed"),
+      getAllAccounts: () => [admin, reader],
+      setActiveAccount,
+    };
+
+    expect(restoreMsalActiveAccount(client, null)).toBeNull();
+    expect(setActiveAccount).toHaveBeenCalledWith(null);
+  });
+
+  test("clears the active account before sign-out redirect", () => {
+    const setActiveAccount = vi.fn();
+
+    clearMsalActiveAccount({
+      getActiveAccount: () => account("reader"),
+      getAllAccounts: () => [account("reader")],
+      setActiveAccount,
+    });
+
+    expect(setActiveAccount).toHaveBeenCalledWith(null);
+  });
 });
 
 describe("local Azure CLI auth", () => {

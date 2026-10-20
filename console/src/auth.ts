@@ -58,6 +58,34 @@ export interface SignInOptions {
   readonly reauthenticate?: boolean;
 }
 
+interface MsalAccountSelectionClient {
+  getActiveAccount(): AccountInfo | null;
+  getAllAccounts(): AccountInfo[];
+  setActiveAccount(account: AccountInfo | null): void;
+}
+
+export function restoreMsalActiveAccount(
+  client: MsalAccountSelectionClient,
+  redirectAccount: AccountInfo | null,
+): AccountInfo | null {
+  const accounts = client.getAllAccounts();
+  const active = client.getActiveAccount();
+  const cachedActive = active
+    ? accounts.find((account) =>
+      account.homeAccountId === active.homeAccountId &&
+      account.localAccountId === active.localAccountId
+    ) ?? null
+    : null;
+  const selected = redirectAccount ?? cachedActive ??
+    (accounts.length === 1 ? accounts[0] ?? null : null);
+  client.setActiveAccount(selected);
+  return selected;
+}
+
+export function clearMsalActiveAccount(client: MsalAccountSelectionClient): void {
+  client.setActiveAccount(null);
+}
+
 class DevModeAuth implements AuthContext {
   readonly devMode = true;
   readonly interactiveSignIn = false;
@@ -141,8 +169,7 @@ class MsalAuth implements AuthContext {
     // any silent-acquire call.
     const redirectResult = await this.#client.handleRedirectPromise();
     if (redirectResult?.account) resetHandoverLoginSession(window.sessionStorage);
-    const accounts = this.#client.getAllAccounts();
-    this.#account = redirectResult?.account ?? (accounts.length > 0 ? (accounts[0] ?? null) : null);
+    this.#account = restoreMsalActiveAccount(this.#client, redirectResult?.account ?? null);
   }
 
   async getAuthorizationHeader(): Promise<string | null> {
@@ -190,10 +217,14 @@ class MsalAuth implements AuthContext {
     if (this.#interactiveRequestPending) return;
     this.#interactiveRequestPending = true;
     try {
+      const requireSelection = this.#account === null && this.#client.getAllAccounts().length > 1;
       await this.#client.loginRedirect(interactiveLoginRequest(
         this.#scope,
         this.#account,
-        options,
+        {
+          ...options,
+          selectAccount: options.selectAccount ?? requireSelection,
+        },
       ));
     } finally {
       this.#interactiveRequestPending = false;
@@ -201,8 +232,12 @@ class MsalAuth implements AuthContext {
   }
 
   async signOut(): Promise<void> {
-    if (this.#account) {
-      await this.#client.logoutRedirect({ account: this.#account });
+    const account = this.#account;
+    if (account) {
+      this.#account = null;
+      this.#authorizationRequest = null;
+      clearMsalActiveAccount(this.#client);
+      await this.#client.logoutRedirect({ account });
     }
   }
 }
