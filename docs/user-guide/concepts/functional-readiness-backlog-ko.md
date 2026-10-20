@@ -2,7 +2,7 @@
 title: F10-F15 준비 상태 전수 점검 및 완료 계획
 description: F10부터 F15까지 모든 중분류의 잔여 작업, 미충족 근거, 의존성에 따른 완료 계획입니다.
 translation_of: functional-readiness-backlog.md
-translation_source_sha: 35cf3fc70f3582e105d9a63f6452fd919443abce
+translation_source_sha: 2f8a27be712db08b649b6546c6124cfb5d03293d
 translation_revised: 2026-10-20
 ---
 
@@ -388,7 +388,7 @@ Not assessed를 사용합니다. 설치별 일반 설정과 명시적으로 연�
 | 기준 | 결과 | 현재 근거 및 다음 조건 |
 |------|------|------------------------|
 | G03 | 실제 실패 | #2299는 내용이 없는 hold 진단을 개선하고 평가 권한을 격리합니다. 새로운 governed v1 및 v2는 사용 완료된 실패로 유지합니다. 새로 작성하고 검토한 protocol이 정확한 source/model/corpus 품질과 latency를 통과한 뒤 현재 Owner 승인, 영속 승격, 독립 효과 관측을 진행합니다. |
-| G04 | 외부 차단 요인 | 표준 stack은 정상이지만 정상 Browser Entra에는 사람 로그인이 필요합니다. 양성, 모호함, 거부, unavailable 결과에 대해 정확한 개정의 영어 및 한국어 request-to-Core-to-Operator-to-Console 근거를 유지합니다. |
+| G04 | 실제 실패 | #2298에서 언어 중립 typed-label 정규화를 보호 병합했고 exact `ab7adaadf8` stack을 12/12 ready로 재시작해 정상 Browser Entra session을 사용했습니다. 범위가 제한된 한국어 재시도 1회는 새 `resource_property_name` 및 review-repair 형태를 처리하지 못해 `semantic_reading_unverified`로 fail-closed했습니다. 결정적인 언어 중립 계약과 집중 회귀를 추가한 뒤 exact-revision 영어 및 한국어 순서를 한 번 다시 실행하고 거부 및 unavailable 후속 검증을 진행합니다. |
 | G05 | 코드 완료/실환경 미검증 | 현재 권위 baseline은 Resource 877개, link 1,611개, 분류된 unavailable 후보 174개, topology revision 0개입니다. 이번 변경은 잘못된 ephemeral Local OS-disk 후보 4개를 제거하고 closure 집계를 수정합니다. 이후 정상 수집에서 후보가 사라졌는지 확인해야 하며 authorization child scope 170개는 unavailable로 남고 현재 상태로 과거를 만들 수 없습니다. |
 | G06 | 외부 차단 요인 | 정상 causal runtime seam은 연결되지 않았고 로컬 independent effect observation 모집단은 0개입니다. 독립 인증된 불변 hypothesis/action/target/time/effect 소스를 제공한 뒤 graph correlation, dispatch, provider success를 효과 증명으로 사용하지 않고 verified 및 refuted replay, rollback, 실제 recurrence window를 유지합니다. |
 | G07 | 경과 시간 차단 요인 | 승인된 운영 corpus나 완료된 ACL, 철회, 삭제 연결이 없습니다. 외부 입력을 승인한 뒤 서로 다른 live-shadow 날짜 30일과 적격 검토 제안 500건을 유지합니다. 같은 날 수행한 합성 테스트로 이 구간을 대체할 수 없습니다. |
