@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: c771d44a10a3ccb869a3aca398909c3ecfd087db
-translation_revised: 2026-10-20
+translation_source_sha: bb57c4d72688a94cfa3b95fc3c7984982d981acd
+translation_revised: 2026-10-21
 ---
 # 독립 운영 근거 발급
 
@@ -182,6 +182,14 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준이며, 그 밖의 
 요청은 소비자의 5초 기한 안에서 제안된 2초 제한을 사용하며, 시간 초과, `429`, `503`은 재시도 없이
 `unavailable`로 끝납니다. 진행 중인 중복 요청만 병합합니다. 현재 검증 증적은 재사용할 수 있지만 거부 기록은
 재사용하지 않으므로, 새 시도마다 새 결과를 받습니다.
+
+검증기 HTTP 읽기는 본문 전체를 저장하거나 압축 해제하기 전에 원시 스트리밍과 기존 응답 크기
+검사기를 사용합니다. 발급 응답의 압축 해제 후 상한은 4 KiB, 준비 상태 응답은 8 KiB이며
+연결 환경 인계에도 같은 제한을 적용합니다. gzip/deflate의 네이티브 출력은 저장 전에 제한하고,
+200이 아닌 응답은 본문을 읽지 않고 닫습니다. 기한에는 본문 읽기도 포함하며 취소는 계속
+호출자에게 전달합니다. 재시도는 추가하지 않습니다. 정확히 상한에 도달한 응답은 유효하며,
+준비 상태를 읽을 수 없으면 인계 단계가 실패합니다. 이를 대체 증명이나 정상 기본값으로
+취급하지 않습니다.
 
 각 소유자는 이미 쓰는 기록에 유형을 남기고 거부 기록 digest를 인용합니다. Forseti의 보류 사유, Thor의
 디스패치 보류, Mimir의 전이 거부 감사, Heimdall의 채점 제외(새 `ForecastOutcome` 마이너 버전), T1 사유 코드,
