@@ -2,7 +2,7 @@
 title: F10-F15 준비 상태 전수 점검 및 완료 계획
 description: F10부터 F15까지 모든 중분류의 잔여 작업, 미충족 근거, 의존성에 따른 완료 계획입니다.
 translation_of: functional-readiness-backlog.md
-translation_source_sha: 55743a2b8ef223fc964cafb0064ec846a99bc289
+translation_source_sha: 6e302bd38bf44113382cecf7d5fed3d63dcd05b0
 translation_revised: 2026-10-20
 ---
 
@@ -388,8 +388,8 @@ Not assessed를 사용합니다. 설치별 일반 설정과 명시적으로 연�
 | 기준 | 결과 | 현재 근거 및 다음 조건 |
 |------|------|------------------------|
 | G03 | 실제 실패 | #2299는 내용이 없는 hold 진단을 개선하고 평가 권한을 격리합니다. 새로운 governed v1 및 v2는 사용 완료된 실패로 유지합니다. 새로 작성하고 검토한 protocol이 정확한 source/model/corpus 품질과 latency를 통과한 뒤 현재 Owner 승인, 영속 승격, 독립 효과 관측을 진행합니다. |
-| G04 | 실제 실패 | #2298에서 언어 중립 typed-label 정규화를 보호 병합했고 exact `ab7adaadf8` stack을 12/12 ready로 재시작해 정상 Browser Entra session을 사용했습니다. 범위가 제한된 한국어 재시도 1회는 새 `resource_property_name` 및 review-repair 형태를 처리하지 못해 `semantic_reading_unverified`로 fail-closed했습니다. 결정적인 언어 중립 계약과 집중 회귀를 추가한 뒤 exact-revision 영어 및 한국어 순서를 한 번 다시 실행하고 거부 및 unavailable 후속 검증을 진행합니다. |
-| G05 | 코드 완료/실환경 미검증 | 현재 권위 baseline은 Resource 877개, link 1,611개, 분류된 unavailable 후보 174개, topology revision 0개입니다. 이번 변경은 잘못된 ephemeral Local OS-disk 후보 4개를 제거하고 closure 집계를 수정합니다. 이후 정상 수집에서 후보가 사라졌는지 확인해야 하며 authorization child scope 170개는 unavailable로 남고 현재 상태로 과거를 만들 수 없습니다. |
+| G04 | 실제 실패 | #2301과 #2302는 언어 중립 review-repair 정규화와 분리된 typed operand 연결을 구현했습니다. exact `0478f42fc5` stack에서 인증된 한국어 재시도 1회는 필터 수용 표본 2개를 모두 통과하고 goal 2개를 모두 컴파일했지만 독립 검토는 `unfaithful`로 남았습니다. 이 turn은 근거 0개와 실행 권한이 없는 상태에서 detail `role:names`의 `semantic_reading_unverified`로 fail-closed했습니다. 범위가 제한된 live loop는 중단했고 denied 및 unavailable 후속 검증은 실행하지 않았습니다. 어휘 추론이나 약화된 검증 없이 독립적으로 검토한 의미 합의 가설과 집중 로컬 회귀를 마련한 뒤 exact 한국어 positive를 한 번 실행하고 남은 영어 및 한국어 resource-filter, incident-investigation, ambiguous, denied, unavailable 순서를 진행합니다. |
+| G05 | 실제 실패 | 병합 후 정상 세대는 Resource 877개와 원시 link 1,611개를 유지하고 관계 후보 1,781개를 집계했습니다. 이 중 1,611개를 구체화하고 authorization child scope 170개를 검토된 unavailable로 분류했으며 미분류 후보는 0개였습니다. Local OS-disk 공급자 행 4개에서는 관리 디스크 후보가 생성되지 않아 #2300 수정 효과를 검증했습니다. 관계 완전성은 계속 false이고 topology revision은 0개입니다. 남은 authorization child-scope non-edge를 각각 모델링, 매핑 또는 명시적으로 수용한 뒤 완전한 관계 답변과 실제 topology revision을 유지합니다. 현재 상태로 Resource, edge 또는 이력을 합성하지 않습니다. |
 | G06 | 외부 차단 요인 | 정상 causal runtime seam은 연결되지 않았고 로컬 independent effect observation 모집단은 0개입니다. 독립 인증된 불변 hypothesis/action/target/time/effect 소스를 제공한 뒤 graph correlation, dispatch, provider success를 효과 증명으로 사용하지 않고 verified 및 refuted replay, rollback, 실제 recurrence window를 유지합니다. |
 | G07 | 경과 시간 차단 요인 | 승인된 운영 corpus나 완료된 ACL, 철회, 삭제 연결이 없습니다. 외부 입력을 승인한 뒤 서로 다른 live-shadow 날짜 30일과 적격 검토 제안 500건을 유지합니다. 같은 날 수행한 합성 테스트로 이 구간을 대체할 수 없습니다. |
 
