@@ -22,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass
 from datetime import datetime
+from itertools import chain
 from typing import Any
 
 from fdai_service_contracts.recorded_resource_state import (
@@ -45,6 +46,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 
+from .inventory_projection_bounds import validate_projection_allocation
 from .observation_adjudication import (
     CONFLICT_PROVIDER_REF,
     CONFLICT_TRUNCATED,
@@ -158,6 +160,7 @@ def build_inventory_ontology_projection(
     if recorded_at is not None and recorded_at.tzinfo is None:
         raise ValueError("inventory projection recorded_at MUST be timezone-aware")
 
+    validate_projection_allocation(chain(resources, links, relationship_drops))
     objects = _build_objects(
         resources,
         generation=generation,

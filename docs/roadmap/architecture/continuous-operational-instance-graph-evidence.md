@@ -37,6 +37,25 @@ Protected receipt readback resolves the storage account through an account-speci
 ops-owned Blob private DNS zone linked to the deploy runner VNet. Workload resolution remains in the
 app-owned zone. This split grants neither public network access nor storage key authentication.
 
+## Projection allocation admission
+
+The pure inventory projection admits at most 2,000,000 expanded values (including containers and
+mapping keys) and 16,777,216 string
+characters before copying properties, adjudicating observations, or building graph objects.
+Repeated references count for each occurrence because normalization expands them; a cycle or
+excessive input depth is held with an explicit error. Existing resource/link count and
+canonical-value checks still apply. Dense containers can pass the existing byte allowances yet
+exceed this normalization-work limit.
+
+These are explicit work counters, not a weighted shallow-size estimator, encoded JSON size,
+peak allocation, or process RSS. They do not replace the collection's 16 MiB normalized-generation
+allowance or its 1 MiB durable chunk limit. Failure returns no partial projection and grants no
+source, promotion, or execution authority; snapshot and derived graph ownership remain separate.
+
+The authoritative [retained-concept assessment](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md#retained-concept-assessment-2111)
+remains partial. These bounded-input repairs do not classify unresolved independent-issuer,
+whole-interval, fleet-admission, reuse, SQL-buffer, or operating-memory guarantees.
+
 ## Operational state-transition ledger
 
 FDAI stores semantic state changes in a Core-owned append-only PostgreSQL ledger. Event Hubs

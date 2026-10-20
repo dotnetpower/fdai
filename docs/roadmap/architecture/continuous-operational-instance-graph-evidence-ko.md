@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph-evidence.md
-translation_source_sha: f197c47a26763f6627df3ed146d71d6123192ca0
-translation_revised: 2026-10-20
+translation_source_sha: b1bdc36608ae4c36432676ad0e056e1cb704dd2b
+translation_revised: 2026-10-21
 ---
 
 # 지속형 운영 인스턴스 그래프 근거
@@ -44,6 +44,24 @@ binding을
 보호된 증적 readback은 배포 실행기 VNet에 연결된 ops 소유의 Blob 비공개 DNS 영역에서
 storage 계정 전용 record를 해석합니다. Workload 해석은 앱 소유 영역에 유지합니다. 이
 분리는 공용 네트워크 접근이나 storage key 인증 권한을 부여하지 않습니다.
+
+## 변환 결과의 메모리 할당 사전 검사
+
+인벤토리를 변환하는 순수 함수는 속성 복사, 관측 판정, 그래프 객체 생성 전에 펼쳐진 값
+2,000,000개(컨테이너와 매핑 키 포함)와 문자열에 포함된 문자 16,777,216개까지만 허용합니다.
+정규화 과정에서 같은 참조가
+여러 번 펼쳐지므로 나타날 때마다 계산합니다. 순환 참조나 과도한 입력 깊이는 명시적인
+오류로 보류합니다. 기존 리소스/링크 개수 제한과 정규 값 검사도 그대로 적용됩니다.
+작은 컨테이너가 많이 들어 있으면 기존 바이트 허용량 안에서도 이 정규화 작업량을 넘을 수 있습니다.
+
+이는 명시적인 작업량 계수이며, 얕은 객체 크기의 가중 추정치, 인코딩된 JSON 크기,
+최대 메모리 할당량 또는 프로세스 RSS가 아닙니다. 수집 단계의 정규화된 세대 허용량 16 MiB와
+영속 청크 제한 1 MiB를 대체하지 않습니다. 실패하면 부분적인 변환 결과를 반환하지 않으며
+원본, 승격 또는 실행 권한도 부여하지 않습니다. 스냅샷과 파생 그래프의 담당 경계는 분리됩니다.
+
+권위 있는 [보존된 개념 평가](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md#retained-concept-assessment-2111)는
+부분 완료 상태입니다. 이 입력 제한 수정으로 아직 해결되지 않은 독립 발급자, 전체 구간,
+전체 인스턴스의 공유 허용 예산, 재사용, SQL 버퍼 또는 운영 메모리 보증까지 분류하지는 않습니다.
 
 ## 운영 상태 전이 원장
 
