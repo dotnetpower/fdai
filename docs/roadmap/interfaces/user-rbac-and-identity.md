@@ -41,6 +41,7 @@ It resolves the P0 blocker "final identity mapping (external IdP ↔ Entra ↔ M
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-20 | implemented | Preserved independent access-request review while making the additional reviewer note optional. The Console now disables self-review controls before submission and explains that another Owner must decide the request. | `current change`; #2311; focused Console, Operator IAM, and Core access-request tests. | Provider membership apply and independent effect verification remain outside the browser review boundary. |
 | 2026-10-20 | implemented | Persisted the redirect-selected MSAL account as the active account and restored it by stable account ids. Multiple cached accounts without an active selection now require explicit selection instead of silently using the first account, and sign-out clears the selection before redirect. | `current change`; #2309; reproduced `moonchoi` to `admin` identity drift on full navigation; focused auth/session/account-menu tests and Console typecheck. | Retain one post-merge account-switch, full-navigation, and IAM principal/role readback with two cached accounts. |
 | 2026-10-15 | implemented | Replaced the inert kill-switch proposal with a fresh-authenticated, signed Operator-to-Var command path. Var revalidates the exact actor, Owner or BreakGlass role, authentication time, request digest, producer, correlation, and replay fence before the existing revision-safe state and audit transaction. | `current change`; `fdai_service_contracts.kill_switch`; Operator IAM governance and composition; Var handler and runtime subscription; focused contract tests passed 2, Operator IAM tests passed 60, and Var/runtime/layout tests passed 96. | Deploy the exact revision, retain engage and disengage state readbacks plus no-execute evidence, and expose the authorized unified read surface. |
 | 2026-09-29 | implemented | Refused every approval of a parked category-only denial except the development Owner's attested self-approval at the Console route, the Slack and Teams callback service, and the decision transaction, while any other authorized approver may still reject it. | `current change`; `families/iam/hil_callback_decision.py`, `families/iam/hil_development_approval.py`, `postgres_hil_decision.py`, and `projection_logic.py`; `services/operator-service/tests/test_hil_development_owner_only.py` passed. | Retain one live Owner run under [#1623](https://github.com/dotnetpower/fdai/issues/1623). |
@@ -629,7 +630,9 @@ The verified token supplies requester and capabilities. Operator stores a durabl
 `pending` proposal; submission neither approves nor changes membership. Separate review proposals
 reject self-review and overlay, never rewrite, intent. Direct `request_id` lookup keeps older cases
 reviewable after pagination. Core publication and hash-chained `iam.access-requested` /
-`iam.access-reviewed` audit remain separate. After the required ChatOps or governance approval,
+`iam.access-reviewed` audit remain separate. The additional reviewer note is optional; requester,
+reviewer, decision, timestamp, target, and the original request justification remain recorded.
+After the required ChatOps or governance approval,
 an Owner applies the allowlisted change through tenant identity administration. This manual path
 grants no Graph membership credential to the browser, Operator API, or general executor identity.
 
@@ -641,7 +644,8 @@ pending request id/status, check-again, and sign-out. `POST /iam/access-requests
 target from the token and permits only `grant Reader` to that subject, regardless of browser edits.
 
 An Owner sees requester, provider subject, role, and audit correlation in Identity and access and
-may record a justified `approve` or `reject`. Self-approval is blocked; the separate decision carries
+may record `approve` or `reject` with an optional reviewer note. Self-approval is blocked and its
+controls identify that another Owner must review; the separate decision carries
 `iam.access-reviewed` audit and never approves a runtime action. ChatOps and Approvals retain that
 authority. `approved` still needs provider membership before a new token carries the role; approval
 and assignment principals remain separate. Future automation may consume, not rewrite, that projection.

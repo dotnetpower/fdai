@@ -49,14 +49,18 @@ export async function reviewIamAccessRequest(
   auth: AuthContext,
   operatorApiBaseUrl: string,
   requestId: string,
-  input: { readonly decision: "approve" | "reject"; readonly justification: string },
+  input: { readonly decision: "approve" | "reject"; readonly justification?: string },
 ): Promise<IamAccessRequest> {
   const path = `/iam/access-requests/${encodeURIComponent(requestId)}/decision`;
+  const justification = input.justification?.trim();
   return decodeIamAccessRequest(await putGovernedJson(
     auth,
     operatorApiBaseUrl,
     path,
-    { ...input },
+    {
+      decision: input.decision,
+      ...(justification ? { justification } : {}),
+    },
     "POST",
   ));
 }

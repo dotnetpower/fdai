@@ -2513,8 +2513,8 @@
         "rejected": "거부됨"
       },
       "reviewJustification": "검토 사유",
-      "reviewJustificationHint": "최소 20자가 필요합니다({count}/2000).",
-      "reviewJustificationMinimum": "요청을 검토하려면 사유를 20자 이상 입력하세요({count}/20).",
+      "reviewJustificationHint": "검토 메모는 선택 사항입니다({count}/2000).",
+      "selfReviewNotAllowed": "이 계정이 만든 요청은 다른 Owner가 검토해야 합니다.",
       "approve": "승인",
       "reject": "거부",
       "awaitingReview": "Owner 검토 대기",

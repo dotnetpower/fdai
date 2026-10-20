@@ -9,6 +9,7 @@ import {
   referencedUsers,
 } from "./settings-iam";
 import {
+  canReviewAccessRequest,
   isRoleAssigned,
   pendingAccessRequestCountKey,
   rosterIdentity,
@@ -335,19 +336,18 @@ describe("IAM settings contracts", () => {
     expect(result.identityProvider).toBe("entra");
   });
 
-  test("submits an Owner review decision", async () => {
+  test("submits an Owner review decision without an additional note", async () => {
     const fetchMock = vi.fn(async (url: URL, init?: RequestInit) => {
       expect(url.pathname).toBe("/iam/access-requests/request-1/decision");
       expect(JSON.parse(String(init?.body))).toEqual({
         decision: "approve",
-        justification: "Reviewed against the operator access policy.",
       });
       return new Response(JSON.stringify({
         ...accessRequest,
         status: "approved",
         reviewed_by: "owner-1",
         reviewed_at: "2026-07-16T01:00:00+00:00",
-        review_justification: "Reviewed against the operator access policy.",
+        review_justification: null,
       }), { status: 200 });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -363,14 +363,18 @@ describe("IAM settings contracts", () => {
       auth,
       "http://127.0.0.1:8000",
       "request-1",
-      {
-        decision: "approve",
-        justification: "Reviewed against the operator access policy.",
-      },
+      { decision: "approve" },
     );
 
     expect(result.status).toBe("approved");
     expect(result.reviewedBy).toBe("owner-1");
+    expect(result.reviewJustification).toBeNull();
+  });
+
+  test("requires a different principal to review an access request", () => {
+    const request = decodeIamAccessRequests({ items: [accessRequest] })[0]!;
+    expect(canReviewAccessRequest(request, " PRINCIPAL-1 ")).toBe(false);
+    expect(canReviewAccessRequest(request, "PRINCIPAL-2")).toBe(true);
   });
 
   test("resolves request identities from person roster entries only", () => {

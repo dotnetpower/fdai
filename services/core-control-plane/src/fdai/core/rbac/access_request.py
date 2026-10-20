@@ -267,7 +267,7 @@ class AccessRequestService:
         principal: Principal,
         request_id: str,
         decision: AccessReviewDecision,
-        justification: str,
+        justification: str | None = None,
         now: datetime | None = None,
     ) -> AccessRequest:
         """Record an Owner review without changing provider membership."""
@@ -275,10 +275,15 @@ class AccessRequestService:
         if not has_capability(principal.roles, Capability.MANAGE_GROUP_MEMBERSHIP):
             raise AccessRequestPermissionError("manage-group-membership capability is required")
         normalized_request_id = _bounded(request_id, "request_id")
-        normalized_justification = justification.strip()
-        if len(normalized_justification) < self.min_justification_chars:
+        normalized_justification = justification.strip() if justification is not None else None
+        if normalized_justification == "":
+            normalized_justification = None
+        if (
+            normalized_justification is not None
+            and len(normalized_justification) > _MAX_JUSTIFICATION_CHARS
+        ):
             raise AccessRequestError(
-                f"justification MUST be at least {self.min_justification_chars} characters"
+                f"justification MUST be at most {_MAX_JUSTIFICATION_CHARS} characters"
             )
         request = await self._find_request(normalized_request_id)
         if request is None:
@@ -345,7 +350,7 @@ class AccessRequestService:
             status=status,
             reviewed_by=_required_string(dict(decision), "reviewed_by"),
             reviewed_at=datetime.fromisoformat(_required_string(dict(decision), "reviewed_at")),
-            review_justification=_required_string(dict(decision), "justification"),
+            review_justification=_optional_stored_string(dict(decision), "justification"),
         )
 
 
@@ -405,7 +410,7 @@ def _optional_datetime(value: dict[str, Any], key: str) -> datetime | None:
     return datetime.fromisoformat(item) if item else None
 
 
-def _same_review(existing: Any, requested: dict[str, str]) -> bool:
+def _same_review(existing: Any, requested: dict[str, Any]) -> bool:
     if not isinstance(existing, dict):
         return False
     return all(

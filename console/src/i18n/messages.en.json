@@ -2513,8 +2513,8 @@
         "rejected": "Rejected"
       },
       "reviewJustification": "Review justification",
-      "reviewJustificationHint": "At least 20 characters required ({count}/2000).",
-      "reviewJustificationMinimum": "Enter at least 20 characters before reviewing this request ({count}/20).",
+      "reviewJustificationHint": "Optional reviewer note ({count}/2000).",
+      "selfReviewNotAllowed": "A different Owner must review a request created by this account.",
       "approve": "Approve",
       "reject": "Reject",
       "awaitingReview": "Awaiting Owner review",

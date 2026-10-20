@@ -11,6 +11,14 @@ export function pendingAccessRequestCountKey(hasMore: boolean): string {
   return hasMore ? "settings.iam.pendingLoadedCount" : "settings.iam.pendingCount";
 }
 
+export function canReviewAccessRequest(
+  request: IamAccessRequest,
+  reviewerOid: string,
+): boolean {
+  return request.requesterOid.trim().toLowerCase()
+    !== reviewerOid.trim().toLowerCase();
+}
+
 export function AccessRequestsView({
   requests,
   total,
@@ -18,6 +26,7 @@ export function AccessRequestsView({
   loadMore,
   roster,
   canManage,
+  reviewerOid,
   auth,
   client,
   reload,
@@ -28,6 +37,7 @@ export function AccessRequestsView({
   readonly loadMore: () => Promise<void>;
   readonly roster: readonly IdentityRosterItem[];
   readonly canManage: boolean;
+  readonly reviewerOid: string;
   readonly auth: AuthContext;
   readonly client: OperatorApiClient;
   readonly reload: () => Promise<void>;
@@ -125,7 +135,15 @@ export function AccessRequestsView({
             key: "review",
             header: t("settings.iam.action"),
             render: (item: IamAccessRequest) => item.status === "pending"
-              ? <RequestReviewActions item={item} auth={auth} client={client} reload={reload} />
+              ? (
+                <RequestReviewActions
+                  item={item}
+                  reviewerOid={reviewerOid}
+                  auth={auth}
+                  client={client}
+                  reload={reload}
+                />
+              )
               : reviewedByLabel(item, roster),
           },
         ]}
@@ -180,8 +198,9 @@ function reviewedByLabel(
   return identity?.username ?? identity?.displayName ?? request.reviewedBy;
 }
 
-function RequestReviewActions({ item, auth, client, reload }: {
+function RequestReviewActions({ item, reviewerOid, auth, client, reload }: {
   readonly item: IamAccessRequest;
+  readonly reviewerOid: string;
   readonly auth: AuthContext;
   readonly client: OperatorApiClient;
   readonly reload: () => Promise<void>;
@@ -191,10 +210,11 @@ function RequestReviewActions({ item, auth, client, reload }: {
   const [error, setError] = useState<string | null>(null);
   const justificationLength = justification.trim().length;
   const helpId = `review-justification-${item.requestId}`;
+  const selfReview = !canReviewAccessRequest(item, reviewerOid);
 
   const review = async (decision: "approve" | "reject") => {
-    if (justificationLength < 20) {
-      setError(t("settings.iam.reviewJustificationMinimum", { count: justificationLength }));
+    if (selfReview) {
+      setError(t("settings.iam.selfReviewNotAllowed"));
       return;
     }
     setSubmitting(true);
@@ -202,7 +222,7 @@ function RequestReviewActions({ item, auth, client, reload }: {
     try {
       await reviewIamAccessRequest(auth, client.operatorApiBaseUrl, item.requestId, {
         decision,
-        justification,
+        ...(justification.trim() ? { justification: justification.trim() } : {}),
       });
       await reload();
     } catch (reason) {
@@ -217,8 +237,8 @@ function RequestReviewActions({ item, auth, client, reload }: {
       <input
         aria-label={t("settings.iam.reviewJustification")}
         aria-describedby={helpId}
-        minLength={20}
         maxLength={2000}
+        disabled={submitting || selfReview}
         value={justification}
         placeholder={t("settings.iam.reviewJustification")}
         onInput={(event) => setJustification(event.currentTarget.value)}
@@ -230,7 +250,7 @@ function RequestReviewActions({ item, auth, client, reload }: {
         <button
           type="button"
           class="btn primary"
-          disabled={submitting}
+          disabled={submitting || selfReview}
           onClick={() => { void review("approve"); }}
         >
           {t("settings.iam.approve")}
@@ -238,12 +258,17 @@ function RequestReviewActions({ item, auth, client, reload }: {
         <button
           type="button"
           class="secondary"
-          disabled={submitting}
+          disabled={submitting || selfReview}
           onClick={() => { void review("reject"); }}
         >
           {t("settings.iam.reject")}
         </button>
       </div>
+      {selfReview ? (
+        <small class="settings-review-hint" role="status">
+          {t("settings.iam.selfReviewNotAllowed")}
+        </small>
+      ) : null}
       {error ? <small class="error" role="alert">{error}</small> : null}
     </div>
   );
