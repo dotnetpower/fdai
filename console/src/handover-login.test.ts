@@ -3,13 +3,24 @@ import { initAuth } from "./auth";
 import { loadConfig } from "./config";
 import { handoverLoginSessionId } from "./handover-session";
 
-const { redirect } = vi.hoisted(() => ({ redirect: vi.fn() }));
+const { activeAccount, redirect } = vi.hoisted(() => ({
+  activeAccount: { value: null as unknown },
+  redirect: vi.fn(),
+}));
 vi.mock("@azure/msal-browser", () => ({
   InteractionRequiredAuthError: class extends Error {},
   PublicClientApplication: class {
     async initialize() {}
     handleRedirectPromise = redirect;
-    getAllAccounts() { return [{ homeAccountId: "synthetic-user", username: "user@example.com" }]; }
+    getActiveAccount() { return activeAccount.value; }
+    getAllAccounts() {
+      return [{
+        homeAccountId: "synthetic-user",
+        localAccountId: "synthetic-user",
+        username: "user@example.com",
+      }];
+    }
+    setActiveAccount(account: unknown) { activeAccount.value = account; }
   },
 }));
 
@@ -25,6 +36,7 @@ beforeEach(() => {
   };
   vi.stubGlobal("window", { location: { origin: "http://localhost:5273" }, sessionStorage: storage });
   redirect.mockReset();
+  activeAccount.value = null;
 });
 afterEach(() => vi.unstubAllGlobals());
 
