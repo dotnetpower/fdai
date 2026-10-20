@@ -787,6 +787,47 @@ async def test_normalized_property_label_receipt_reaches_blind_review() -> None:
     assert observation.released is True
 
 
+async def test_review_repair_retains_prior_label_receipt_when_context_is_omitted() -> None:
+    raw = _fragment_with_detached_property_label()
+    form = resolve_question_form(raw, utterance=_FRAGMENT).form
+    assert form is not None
+    normalized = normalize_redundant_property_filter_labels_with_receipt(form)
+    repaired = normalized.form.model_copy(update={"context": ()})
+
+    async def propose(**_: Any) -> dict[str, Any]:
+        return quoted_form(repaired, _FRAGMENT)
+
+    result = await propose_review_repair(
+        propose,
+        ReviewRepair(
+            previous=quoted_form(normalized.form, _FRAGMENT),
+            typed=normalized.form,
+            violations=("state every independently extracted constraint",),
+            reasons=("review_uncovered",),
+            syntactic_labels=normalized.syntactic_labels,
+        ),
+        utterance=_FRAGMENT,
+        accounting=SpanAccounting(required=False),
+    )
+    extraction = {
+        **_FRAGMENT_EXTRACTION,
+        "constraints": [
+            _constraint("이름", "names"),
+            *_FRAGMENT_EXTRACTION["constraints"],
+        ],
+    }
+
+    assert result.repair == "review_applied"
+    assert result.resolution is not None and result.resolution.form is not None
+    assert result.syntactic_labels == normalized.syntactic_labels
+    assert review_forms(
+        (result.resolution.form,),
+        extraction,
+        utterance=_FRAGMENT,
+        syntactic_labels=result.syntactic_labels,
+    ) == FormReview("faithful")
+
+
 async def test_a_review_repair_never_changes_a_literal_value() -> None:
     picks = {"m1": ["any:resource"]}
     widened = await _fragment(
