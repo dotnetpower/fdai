@@ -13,6 +13,24 @@ and Korean; its share page is `l100-pitch-deck.html` with `?locale=en` or `?loca
 The introduction remains **WIP** and **DRAFT** until its content is completed and a person confirms
 the latest revision. Rendering checks do not count as human review.
 
+The introduction uses its own light Calm Slate theme, not a shared viewer theme. One illustrative
+API/database investigation connects source evidence, typed targets, competing hypotheses, decision
+tiers, approval safeguards, and independent effect verification. Implementation, default activation,
+and deployment validation are separate claims; this static deck never activates a product feature.
+The Korean and English modules share `l100-pitch-kit.js` for framing, source links, and the
+dependency diagram. Keep new deck dependencies in the deployment artifact allowlist.
+
+Run `node --test tools/manual-studio/test/l100-pitch.test.mjs` for the introduction's content
+contracts. With the existing Console Playwright dependency installed, run
+`node tools/manual-studio/test/l100-pitch-visual.mjs /absolute/path/outside-the-repository`
+for both locales across desktop, tablet, mobile, fullscreen, and print. Pass `desktop` as a third
+argument for desktop inspection first, then `tablet,mobile,fullscreen,print` for the remaining
+modes. The checker starts and stops its own loopback server; it does not reuse or restart the
+standard full stack. It measures primary font sizes, contrast, visual bounds, and the deck's actual
+connector endpoints, including deliberately detached-node self-tests in desktop mode.
+Inspect the captured slides and contact sheets, and independently confirm that each exported PDF
+contains 15 pages with a 16:9 MediaBox.
+
 After adding a manual or changing the library template, restart the owning local server through
 its VS Code launch configuration: share-page metadata is loaded at startup. When Manual Studio belongs to the
 full-stack supervisor, use an authorized full-stack restart rather than replacing that child alone.

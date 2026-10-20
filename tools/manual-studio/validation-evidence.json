@@ -90,6 +90,52 @@
         "docs/roadmap/decisioning/execution-model.md",
         "docs/roadmap/deployment/deploy-and-onboard.md"
       ]
+    },
+    {
+      "id": "l100-pitch-deck",
+      "reviewId": "l100-calm-brief-2026-10-20",
+      "status": "wip",
+      "humanReview": false,
+      "validatedAt": "2026-10-20T02:08:42.720Z",
+      "scope": "All 15 Korean and English slides use a deck-scoped light Calm Slate theme. One illustrative API/database investigation separates document claims, current observations, typed target verification, competing hypotheses, decision tiers, human authority, and independently observed effects. Desktop inspection preceded responsive and print validation. This receipt records rendering and editorial checks, not live product validation, human approval, or feature activation. The earlier draft receipt remains historical.",
+      "browser": "145.0.7632.6",
+      "viewports": ["1440x900", "993x641", "390x844", "fullscreen-1440x900", "print-1536x864"],
+      "locales": ["ko", "en"],
+      "slideModeChecks": 150,
+      "findings": 0,
+      "failedRequests": 0,
+      "pageErrors": 0,
+      "minimumPrimaryFontPx": 24,
+      "minimumTextContrast": 5.1554731544118555,
+      "maximumTitleLines": 2,
+      "maximumLeadLines": 2,
+      "connectorsChecked": 30,
+      "maximumConnectorGapPx": 0.0078125,
+      "connectorSelfTests": 4,
+      "connectorSelfTestMethod": "Move actual SVG and HTML source nodes, wait for two animation frames, require a detected endpoint gap, restore each node, then require zero gaps.",
+      "geometry": "Every slide checked for text clipping, canvas and stage bounds, horizontal document overflow, visual-region containment and overlap. All three actual connectors were checked in each of five modes and two locales.",
+      "editorial": "Reviewed all 15 Korean and English slide sources and desktop contact sheets, plus actual-size representative pages. Rechecked T1 lightweight-model semantics, standard vector candidate search disabled state, document-proposal authority, recovery failure wording, and service-specific residency limits. No live Azure or model calls.",
+      "pdf": {
+        "ko": {"pages": 15, "mediaBoxesChecked": 15, "mediaBoxPoints": [1152, 648], "extractableText": true, "draftFirstPageOnly": true},
+        "en": {"pages": 15, "mediaBoxesChecked": 15, "mediaBoxPoints": [1152, 648], "extractableText": true, "draftFirstPageOnly": true}
+      },
+      "deckDigests": {
+        "ko": "1374ced68d89c862d01707cce4cca6860facc204de0ff10a419fe91f67cb9bca",
+        "en": "2420a55b1f62c17c61738cb4af5bd01dc5a6eb26b7658e712e4300964bdb5900"
+      },
+      "sourceDigests": {
+        "l100-pitch-deck.js": "9183308c5ce71771c8c88121f28ad1ab6e535b8fb0831cc4301da54e00c32987",
+        "l100-pitch-deck.en.js": "d3cc4dc72eae021d268ca53756a0ab198988455c60f50884347e69787055a7b2",
+        "l100-pitch-kit.js": "44c59ff4a62a4f11bd537afa417024c10f3fe058ab845dc672fadd86dd990863",
+        "l100-pitch-deck.css": "f6755c049f2b1a68b0178584469be925eeb5a6755025dfc355c15690000547b7",
+        "app.js": "45267657a701c2036bccd25032542235b11310d37e213ceccf908c04acb60b1b",
+        "styles.css": "ffe76d055cd5057bd4f69cd6c3bf6d91ecd231f34bb460766adfeced6f3b2817",
+        "english-layout.css": "2da7771765a8fd6b7e02dbc75a30450ece28c6ca67d04cf0f1cce1d57aac3276",
+        "presentation-standard.css": "04f6cb8ca70e945f81be14c5cd76eb3111ad4fa68a78552dfedb1f06468bb4d6",
+        "test/l100-pitch-visual.mjs": "4f1bb10a5cc136675e27f616c488f83bd845fea1f2f2e7b092df82ab1be30a8b",
+        "test/slide-layout-geometry.mjs": "e95b53850580a2720b1d90ab3f738f5d37e12b932ccb044ddd5ae4d68943b8a2",
+        "test/target-architecture-text-geometry.mjs": "8d48f80dea2718900624bbcfe0468075f7ee02a57d88f0c0f49b8020615018de"
+      }
     }
   ],
   "manuals": [

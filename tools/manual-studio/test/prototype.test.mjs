@@ -45,7 +45,7 @@ test("catalog records stable creation and review metadata for every manual", asy
   assert.equal(pitchDeck.level, "L100");
   assert.equal(pitchDeck.slideCount, 15);
   assert.equal(pitchDeck.createdAt, "2026-10-16");
-  assert.equal(pitchDeck.lastEditedAt, "2026-10-16");
+  assert.equal(pitchDeck.lastEditedAt, "2026-10-20");
   assert.ok(catalog.manuals
     .filter((manual) => manual.id !== "l100-pitch-deck")
     .every((manual) => manual.lastEditedAt === "2026-09-12"));
@@ -432,23 +432,20 @@ test("L100 screen playback avoids fractional transform text rasterization", asyn
   const css = await readFile(new URL("l100-pitch-deck.css", root), "utf8");
 
   assert.match(css, /@media screen \{[\s\S]+zoom: var\(--slide-scale\)/);
-  assert.match(css, /opacity: \.999/);
   assert.match(css, /transform: none/);
   assert.match(css, /animation: none/);
   assert.match(css, /-webkit-font-smoothing: antialiased/);
   assert.match(css, /@media print \{[\s\S]+zoom: 1 !important/);
-  assert.match(css, /opacity: 1 !important/);
 });
 
-test("L100 connectors use centered geometric arrowheads instead of text glyphs", async () => {
+test("L100 connectors expose endpoint contracts and geometric arrowheads", async () => {
   const css = await readFile(new URL("l100-pitch-deck.css", root), "utf8");
+  const kit = await readFile(new URL("l100-pitch-kit.js", root), "utf8");
 
   assert.doesNotMatch(css, /content: ">"/);
-  assert.ok([...css.matchAll(/border-left: 8px solid var\(--l100-accent\)/g)].length >= 4);
-  assert.match(css, /\.l100-challenge > i::after[\s\S]+top: 50%/);
-  assert.match(css, /\.l100-engine-v2 \.engine-arrow::after[\s\S]+transform: translateY\(-50%\)/);
-  assert.match(css, /\.l100-semantic-v2 \.semantic-arrow::after[\s\S]+transform: translateY\(-50%\)/);
-  assert.match(css, /\.ontology-query-arrow::after[\s\S]+transform: translateY\(-50%\)/);
+  assert.match(css, /\.lp-link::after[\s\S]+transform: translateY\(-50%\)/);
+  assert.match(kit, /data-lp-from="api" data-lp-to="db"/);
+  assert.match(kit, /refX="10" refY="5"/);
 });
 
 test("selected PPT artwork keeps repository-safe provenance", async () => {
