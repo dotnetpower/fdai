@@ -611,7 +611,7 @@
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_metric_selection.py": "f274afe5731a1da6201b8957e48cfc017242e59de7fce527f633df61ebff3f19",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_metrics.py": "da01cefc1d2f91244906e7d2c156aca76dc717f1be0aa77fecde0a8c38b5cbbc",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_nodes.py": "2bcc3d179c19831257441024e3de947dbe5bd97c0d24a61afad748343494ddab",
-    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_normalization.py": "b2bc009691be1efdcec57650a228bbcc76394ad9b19d6e36b535267e146a9063",
+    "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_normalization.py": "43ce6f94c046d8614e6af04ab707124fffd49e1e1425f00a3678cf48a12d1346",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_operators.py": "f1df47836ea8b57a00854e1c62d83c519ce0328b57d5916c09caee94effa6f30",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_property_reads.py": "6d2d5cd02ed3774c30650ca9f2c53a12e8e29eba5ca7f82f1ada8e37ac8511d5",
     "services/core-control-plane/src/fdai/core/conversation/semantic_reasoning_proposal.py": "8cda4664252d445ff5bcaf95bc1aee744cbb40422bf58162857eb472195b13ad",
@@ -2035,7 +2035,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204",
     "services/operator-service/src/fdai_operator_service/entitlement_stamp.py": "d94f5239a78fdda58caa06e5c41ac96c7cdc2e36368c8e3fe6f9adde4d7ab4f2"
   },
-  "generated_at": "2026-10-20T04:36:27Z",
+  "generated_at": "2026-10-20T05:42:22Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
