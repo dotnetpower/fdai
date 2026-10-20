@@ -9,7 +9,7 @@ customer identifiers, secrets, policy, and authority. It owns the value classes,
 layers, and the signed configuration package.
 
 > **Status:** Schema, layer and secret-reference validators, an offline signed package builder and
-> reader, and installation-key sealing are implemented, together with a placeholder repository
+> reader, a local packaging/verification CLI, and installation-key sealing are implemented, together with a placeholder repository
 > template and key-custody runbook. Operational key registration and Hub import remain open. The
 > [implementation ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md)
 > tracks delivery.
@@ -168,7 +168,61 @@ cannot bypass the sealed-section boundary.
 The implementation is in `fdai_deployment_cli.lifecycle_configuration_package` and
 `fdai_deployment_cli.lifecycle_configuration_sealing`. The existing single-Entity configuration
 document remains unchanged. Multi-Entity installation settings, encryption-key enrollment and
-rotation, a CLI command, Hub persistence, and Agent transport/decryption integration remain open.
+rotation, Hub persistence, and Agent transport/decryption integration remain open.
+
+### Local packaging and verification commands
+
+Use `fdaictl configuration build` and `fdaictl configuration verify` for explicit local files.
+Neither command contacts a Hub, Azure, a model or a key provider. Both require independently
+supplied Ed25519 verification and X25519 encryption public keys as PEM files. Building additionally
+reads an unencrypted PKCS8 Ed25519 signing-key file and checks it against the verification key.
+Supply file paths only, never key bytes or identifier values in arguments. All input files use
+absolute paths, current-user ownership, mode `0600` and one link, in mode-`0700` private directories.
+Symlinks, nonregular files and unsafe parent directories are not accepted.
+
+The private `--release-input` JSON object contains exactly `release_version`,
+`configuration_schema` (the annotated key map), and `sealed_keys` (a unique array of identifier
+key names). Obtain these inputs independently of the package; supplying a file does not qualify
+a production Release or register trust. The private `--input` JSON object contains exactly
+`revision_id` (the full Git commit), `environment` (an object), `entity_overrides` (an array of
+`versions`/`values` blocks), and `sealed` (the identifier object). It represents the existing
+single-Entity contract, not the template's unimplemented multi-Entity installation format.
+
+```bash
+fdaictl configuration build \
+  --release-input /private/release-input.json \
+  --configuration-key /private/configuration-public.pem \
+  --installation-key /private/installation-encryption-public.pem \
+  --input /private/configuration-input.json \
+  --signing-key /private/configuration-signing.pem \
+  --initial-revision --destination /private/configuration-package.json --output json
+fdaictl configuration verify \
+  --release-input /private/release-input.json \
+  --configuration-key /private/configuration-public.pem \
+  --installation-key /private/installation-encryption-public.pem \
+  --initial-revision --package /private/configuration-package.json --output json
+```
+
+`--initial-revision` explicitly asserts an empty accepted chain. For later revisions, replace it
+with `--expected-predecessor <independently-retained-head-sha256>` and repeat `--history <file>`
+for the complete accepted chain, oldest first (at most 256 packages). Missing history, a wrong
+head, forks, reordered revisions and attempts to make an old revision current are blocked.
+Retrying the current revision with identical inputs preserves the signed bytes.
+
+The destination is a new mode-`0600` file and is never overwritten. The
+`fdai.lifecycle-configuration-file.v1` JSON container has exactly `format`, `payload`, and
+`signature`; the last two are strict base64 of the existing signed manifest and detached
+signature. The reader verifies schema, classification, expected Release version, signature and
+chain before build publication or verification success. Build success also requires exact file
+readback. Results expose a digest and verification state, never configuration or key values;
+errors omit input-derived diagnostics. Success means a verified local artifact only.
+
+CLI critique and hardening (2026-10-21): separate payload and signature output files could expose
+a partial artifact, so the CLI writes one closed container. Deriving trust from the signing key
+would self-admit it, so a separate verification-key input is mandatory. Explicit empty-chain or
+retained-head assertions prevent accidental history omission; they cannot prove that the caller
+supplied the latest durable head or serialize concurrent builds. Qualified Release admission,
+key registration/rotation, atomic Hub import and activation remain separate governed work.
 
 ## Secrets
 
@@ -277,7 +331,7 @@ installation, Environment Config, private sealing input and Entity layout above,
 annotated Release schema. Its focused offline tests call the existing validators; they do not
 create a package, key, signature, upload or deployment. The
 [configuration key runbook](../../runbooks/lifecycle-configuration-key-onboarding.md) separates
-customer key custody from the unimplemented signer, independent trust registration and Hub import.
+customer key custody and local packaging from independent trust registration and Hub import.
 Do not upload readable `sealed.yaml` input or treat an example schema as a trusted Release.
 
 ## Honest limits
@@ -287,8 +341,8 @@ Do not upload readable `sealed.yaml` input or treat an example schema as a trust
   keys; operational package delivery is not implemented.
 - The example schema has annotations, but production Releases don't yet carry a qualified
   configuration-package schema.
-- No packaging, key-registration, sealing or Hub import command exists. Library calls do not
-  register trusted keys or update a durable Hub chain head. The onboarding runbook
+- Local packaging and verification commands exist; key-registration and Hub import commands do
+  not. These commands do not register trusted keys or update a durable Hub chain head. The onboarding runbook
   records prerequisites and the required stop condition, not a working registration path.
 - A customer who loses the configuration key can't publish new revisions until a key rotation
   is registered with the Hub.

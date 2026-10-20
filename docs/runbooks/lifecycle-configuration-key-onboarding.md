@@ -1,12 +1,14 @@
 # Lifecycle configuration key onboarding
 
 Use this runbook to prepare customer ownership, key custody and the public verification binding
-for a future lifecycle configuration package. It separates those prerequisites from the package
-signer and Hub registration paths, which are not implemented.
+for lifecycle configuration packages. It separates those prerequisites from the implemented local
+packager and the unimplemented operational key registration and Hub import paths.
 
 > **Stop condition:** This runbook does not register, generate, rotate or export a key, and it
-> provides no packaging or Hub import command. Do not publish real configuration until the
-> signing, predecessor, sealing and import contracts are implemented and independently verified.
+> provides no Hub import command. The [local CLI](../roadmap/deployment/lifecycle-configuration.md#local-packaging-and-verification-commands)
+> signs and verifies explicit private files; it does not establish key trust or qualify a Release.
+> Do not publish real configuration until operational key binding, qualified Release inputs and
+> Hub import are implemented and independently verified.
 
 ## What this runbook covers
 
@@ -55,7 +57,8 @@ Before onboarding can complete, the implementation needs to demonstrate all of t
 - Secret values are rejected before signing; Key Vault references are not dereferenced by the Hub.
 - Changing configuration cannot change policy, promotion state or execution authority.
 
-These are acceptance requirements, not claims that the future signer or import path exists.
+These are operational acceptance requirements. Local package signing and verification implement
+only the offline boundary; they do not establish installation trust or implement Hub import.
 
 ## 4. Check the placeholder structure offline
 

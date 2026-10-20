@@ -20,7 +20,7 @@ inside the target virtual network.
 
 | Concern | Decision |
 |---------|----------|
-| Operator command | `fdaictl provision azure` |
+| Operator commands | `fdaictl provision azure` for deployment; `fdaictl configuration build`/`verify` for [local signed configuration artifacts](lifecycle-configuration.md) only, without Azure access, trust registration, or deployment |
 | Source-checkout command | `scripts/deployment/azure/fdai-up.sh` |
 | Infrastructure engine | Terraform from the selected signed profile closure |
 | Target selection | Active interactive Azure CLI user |

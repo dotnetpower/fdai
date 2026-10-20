@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: cb195d54ec3fd2471d997cd318695a9245c1a9b6
-translation_revised: 2026-10-19
+translation_source_sha: 20988abe064780b637bd1d20d7910b9f56706b61
+translation_revised: 2026-10-21
 ---
 
 # 설치형 배포 CLI
@@ -23,7 +23,7 @@ Host에서 실행됩니다.
 
 | 항목 | 결정 |
 |------|------|
-| 운영자 명령 | `fdaictl provision azure` |
+| 운영자 명령 | 배포에는 `fdaictl provision azure`를 사용합니다. `fdaictl configuration build`/`verify`는 [로컬 서명 구성 산출물](lifecycle-configuration-ko.md) 전용이며, Azure 접근, 신뢰 등록 또는 배포를 하지 않습니다 |
 | 소스 checkout 명령 | `scripts/deployment/azure/fdai-up.sh` |
 | 인프라 엔진 | 선택한 서명 프로필 폐쇄 집합의 Terraform |
 | 대상 선택 | 활성 대화형 Azure CLI 사용자 |
