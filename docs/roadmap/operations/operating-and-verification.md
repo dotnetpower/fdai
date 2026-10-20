@@ -104,9 +104,9 @@ post-commit stage notification does not retract a persisted success. Keeping lif
 under a separate action kind preserves the deployment verifier's single-success-row contract.
 
 This does not complete the latest scheduled-result source. The publisher accepts an explicit
-`FDAI_CANARY_SLOT` or the retry-stable AKS controller Job UID described below; it never derives
+`FDAI_CANARY_SLOT` or one retry-stable platform execution identity described below; it never derives
 identity from the current clock. A job that never publishes still leaves no consumed event.
-The controller UID identifies one actual execution, not the latest due schedule or a missing
+The controller UID or Container Apps execution name identifies one actual execution, not the latest due schedule or a missing
 execution. Deriving a five-minute slot from Core's clock cannot supply that independent witness
 or distinguish a cancelled publisher from a missing execution.
 
@@ -126,12 +126,18 @@ The protected CronJob digest includes this exact field reference, not its eventu
 No Kubernetes API read, database access or additional role is required.
 
 Using a Pod UID would split retries; rounding the current clock would split delayed retries or
-merge independent executions. Neither is a fallback. Without an explicit slot or a canonical
-controller Job UID the publisher fails before provider access. The Container Apps profile has no
-verified retry-stable execution identity binding here, so its unconfigured scheduled publisher
-also fails explicitly rather than inventing an environment variable or a time-based slot.
-Job identity repairs retry deduplication only. It does not witness a missing scheduled execution
-or make the result/state exporters available.
+merge independent executions. Neither is a fallback. Container Apps uses its automatically supplied
+`CONTAINER_APP_JOB_EXECUTION_NAME` as `aca-execution:<name>`, not the job definition name or replica
+name. [Microsoft Learn's built-in Jobs variables](https://learn.microsoft.com/en-us/azure/container-apps/environment-variables#jobs)
+identify this variable as the execution name (document dated 2026-03-31). No template environment
+override or additional permission is needed. The canary accepts an exact 1-86-character lowercase
+alphanumeric/hyphen token, with alphanumeric ends, to preserve its 100-character slot bound.
+
+Without an explicit slot, configuring both platform identity keys is ambiguous and fails before
+provider access, even if one value is empty or malformed. A missing or malformed sole identity also
+fails; the publisher never selects another identity or a current-clock fallback. An explicit
+nonempty `FDAI_CANARY_SLOT` still wins over platform metadata. Execution identity repairs retry
+deduplication only. It does not witness a missing scheduled execution or make result/state available.
 
 The catalog's unqualified `adapter_healthcheck` remains the configured-adapter aggregate.
 A source id cannot narrow that aggregate to `t1.embedding`; without complete authoritative
@@ -228,9 +234,10 @@ so no area is claimed as fully operationally validated.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Retry-stable Container Apps canary publisher identity | implemented | Official Microsoft Learn built-in Jobs variables (2026-03-31); `canary_cli.py`; `test_canary_cli.py`; focused offline canary cohort: 83 passed | Uses the automatically supplied execution name, not job definition or replica name. Exact names are bounded and namespaced; two platform keys fail closed without an explicit slot. No API, permission or Terraform change is required. |
 | Retry-stable AKS canary publisher identity | implemented | `canary_cli.py`; `aks_workload_jobs.py`; `aks_job_execution.py`; AKS workload Terraform; focused offline canary/deployment cohort: 80 passed | Explicit slots retain precedence; otherwise the Downward API supplies controller Job UID. The protected digest binds its exact field reference. Missing or malformed identity fails before provider access; no current-clock or unverified Container Apps fallback exists. |
 | Core consumed-attempt lifecycle | implemented | `_canary.py`; `test_canary_lifecycle.py`; `test_postgres_canary.py`; focused local canary cohort: 62 passed | Durable start before stages, bounded failure/cancellation persistence, separate canonical success, and no contradictory outcome after an uncertain write. These are consumption records, not a scheduler witness. |
-| Latest scheduled canary result and typed state | in-progress | `test_canary_cli.py`; `test_self_health_canary.py`; `packages/deployment-cli/src/fdai_deployment_cli/aks_workload_jobs.py` | AKS retry identity is stable, but independent observation of the latest scheduled attempt and a bounded sequence projection remain absent. Result/state remain unavailable; #2251 is not complete. |
+| Latest scheduled canary result and typed state | in-progress | `test_canary_cli.py`; `test_self_health_canary.py`; `packages/deployment-cli/src/fdai_deployment_cli/aks_workload_jobs.py` | AKS and Container Apps retry identities are stable, but independent observation of the latest scheduled attempt and a bounded sequence projection remain absent. Result/state remain unavailable; #2251 is not complete. |
 | Scheduled creation intent replay | implemented | `creation.py`; shared schedule-store duplicate error; PostgreSQL adapter; creation/blueprint/replay checks: 108 passed, creation line/branch coverage 100% | Idempotent registration preserves run progress and stored kind normalization without accepting changed JSON/policy intent. Four new isolated PostgreSQL cases and a reviewed materialization checkpoint failure are covered. This does not register daily jobs or settle H02 operating decisions. |
 | Actual deterministic T2 verifier rate | implemented | `delivery/self_health_verifier.py`; default gate/readiness/resource ownership; 20 focused cases, 100% branch-inclusive source coverage | Complete policy-bounded process windows, exact returned outcomes, no invented denominator or learned outcome, unchanged gate decisions, typed persisted readback and shutdown. No deployment or operational quality improvement is claimed. |
 | Stabilization scheduler numeric input integrity | implemented | #2254; shared schedule model, compatibility tools and actual creation-command tests; 110 focused checks, model/tool branch-inclusive coverage 92.62%/97.63% | Invalid non-finite intervals cannot be stored or replace a valid task; valid cadence and normal due dispatch remain unchanged. This hardens a prerequisite, not daily-job registration or stabilization qualification. |
@@ -252,6 +259,7 @@ so no area is claimed as fully operationally validated.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-20 | implemented | Corrected the preceding AKS-only publisher change's Container Apps scheduling regression using the documented built-in execution name. Explicit slots retain priority; ambiguous dual-platform metadata fails before provider access. | Current change; official Microsoft Learn built-in Jobs variables dated 2026-03-31; eight pre-repair ACA/ambiguity regressions failed; 83 focused offline cases, strict mypy on source/tests, and Ruff passed. | Supersedes the prior row's Container Apps identity gap only. Independent latest-scheduled-attempt observation, bounded canonical sequence projection and full result/state remain open under #2251. No live or deployment evidence is claimed. |
 | 2026-10-20 | implemented | Repaired minute-boundary retry identity changes by binding scheduled AKS canaries to the controller Job UID through the Downward API and protected template contract. Explicit `FDAI_CANARY_SLOT` inputs are unchanged; unbound scheduled publishers fail safely. | Current change; CLI, scheduled-job builder, protected template, Terraform wiring and regression tests; five pre-repair cases failed, then the focused offline canary/deployment cohort passed 80 tests. Strict mypy passed for all three touched source modules plus CLI tests; Terraform formatting passed. | Independent observation of the latest scheduled attempt, bounded canonical audit-sequence projection and full result/state remain open under #2251. Container Apps has no verified execution-identity binding here. No live or deployment evidence is claimed. |
 | 2026-10-20 | in-progress | Added canonical Core consumed-attempt starts and bounded failure/cancellation records while preserving the existing single-success audit contract and age-only runtime binding. | Current change; `_canary.py`, `test_canary_lifecycle.py`, `test_postgres_canary.py`, and `test_canary_cli.py`; four regressions failed before repair, then 62 focused offline/isolated-PostgreSQL cases passed. | #2251 still needs pinned schedule/source and independently witnessed retry-stable slots plus a bounded canonical audit-sequence projection. No live or deployment evidence is claimed. |
 | 2026-10-20 | implemented | Critique round 13 reproduced a normal event borrowing the canary type label and hiding a six-second stall behind a zero-latency sibling. Removed label-based exclusion: only the actual trusted canary no-op route with observed ingress is excluded. Added the real Core canary path and unmatched-route regressions. | Current change; failing-before-fix exact assertion observed 0 instead of 6 seconds. Original stage publication and no-authority contracts are unchanged; exact final focused results are retained on #2286. | This is source correctness, not fleet health, live canary acceptance or completion of the remaining H01 source and qualification gates. |
