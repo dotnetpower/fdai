@@ -17,6 +17,7 @@ from typing import Any
 import httpx
 
 from fdai.delivery.azure.inventory_redaction import redact_runtime_environment
+from fdai.delivery.inventory_json_budget import inventory_json_exceeds_budget
 from fdai.delivery.inventory_sync_models import PromotedInventoryObservation
 from fdai.shared.providers.inventory import InventoryBatch, ResourceRecord
 from fdai.shared.providers.inventory_snapshot import (
@@ -55,6 +56,13 @@ class NormalizedCollectionBudget:
         encoder = json.JSONEncoder(ensure_ascii=True, separators=(",", ":"), default=str)
         for records in (batch.resources, batch.links, batch.relationship_drops):
             for record in records:
+                if inventory_json_exceeds_budget(
+                    record, maximum_bytes=MAX_COLLECTION_BYTES - self.byte_count
+                ):
+                    self.byte_count = MAX_COLLECTION_BYTES + 1
+                    raise InventoryStreamError(
+                        "inventory normalized generation exceeds its byte bound"
+                    )
                 for part in encoder.iterencode(asdict(record)):
                     self.byte_count += len(part)
                     if self.byte_count > MAX_COLLECTION_BYTES:
