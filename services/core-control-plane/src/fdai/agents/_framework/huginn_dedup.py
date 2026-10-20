@@ -110,12 +110,17 @@ class HuginnDedupJournal:
         request_digest: str,
         payload: Mapping[str, Any],
         change_projection: Mapping[str, Any] | None,
+        legacy_request_digest: str | None = None,
     ) -> HuginnIngressClaim:
         """Claim one key or return its completed duplicate disposition."""
         await self._ensure_migrated()
         terminal = await self._store.read_state(_terminal_key(idempotency_key))
         if terminal is not None:
-            _validate_request(terminal, request_digest=request_digest)
+            await self._validate_terminal_request(
+                idempotency_key=idempotency_key,
+                request_digest=request_digest,
+                legacy_request_digest=legacy_request_digest,
+            )
             return HuginnIngressClaim(payload={}, change_projection=None, duplicate=True)
         shard_index = self._shard_index(idempotency_key)
         state_key = self._shard_key(shard_index)
@@ -127,7 +132,29 @@ class HuginnDedupJournal:
             self._validate_capacity(stored_capacity, expected=capacity)
             existing = entries.get(idempotency_key)
             if existing is not None:
-                _validate_request(existing, request_digest=request_digest)
+                _validate_request(
+                    existing,
+                    request_digest=request_digest,
+                    legacy_request_digest=legacy_request_digest,
+                )
+                if existing["request_digest"] != request_digest:
+                    await self._advance(
+                        state_key=state_key,
+                        current=current,
+                        revision=revision,
+                        capacity=capacity,
+                        next_sequence=next_sequence,
+                        entries={
+                            **entries,
+                            idempotency_key: {**existing, "request_digest": request_digest},
+                        },
+                        audit={
+                            "actor": "Huginn",
+                            "action_kind": "ingress.request-digest.upgraded",
+                            "idempotency_key": idempotency_key,
+                        },
+                    )
+                    continue
                 if existing["status"] == "published":
                     return HuginnIngressClaim(payload={}, change_projection=None, duplicate=True)
                 if existing["owner_token"] == self._owner_token:
@@ -309,6 +336,43 @@ class HuginnDedupJournal:
                 return
         raise RuntimeError("Huginn publication marker contention exceeded the bounded retry limit")
 
+    async def _validate_terminal_request(
+        self,
+        *,
+        idempotency_key: str,
+        request_digest: str,
+        legacy_request_digest: str | None,
+    ) -> None:
+        key = _terminal_key(idempotency_key)
+        for _ in range(_MAX_CAS_ATTEMPTS):
+            terminal = await self._store.read_state(key)
+            if terminal is None:
+                raise RuntimeError(
+                    "Huginn completed ingress record disappeared during verification"
+                )
+            _validate_request(
+                terminal,
+                request_digest=request_digest,
+                legacy_request_digest=legacy_request_digest,
+            )
+            if terminal["request_digest"] == request_digest:
+                return
+            revision = terminal.get("revision")
+            if type(revision) is not int or revision < 1:
+                raise ValueError("Huginn completed ingress revision MUST be positive")
+            if await self._store.compare_and_set_state_with_audit(
+                key,
+                {**terminal, "revision": revision + 1, "request_digest": request_digest},
+                expected_revision=revision,
+                audit_entry={
+                    "actor": "Huginn",
+                    "action_kind": "ingress.request-digest.upgraded",
+                    "idempotency_key": idempotency_key,
+                },
+            ):
+                return
+        raise RuntimeError("Huginn request digest upgrade exceeded the bounded retry limit")
+
     async def _advance(
         self,
         *,
@@ -450,11 +514,18 @@ class HuginnDedupJournal:
         raise RuntimeError("Huginn dedup shard migration exceeded the bounded retry limit")
 
 
-def request_digest(raw: Mapping[str, Any]) -> str:
-    """Return the canonical identity of one raw ingress request."""
+def request_digest(raw: Mapping[str, Any], *, include_ingested_at: bool = False) -> str:
+    """Hash source content, not the receipt clock that Huginn overwrites.
+
+    Source event clocks and nested payload fields remain identity-bearing.
+    The legacy form is used only to prove an exact old request before upgrading
+    a retained claim; changed legacy requests still require reviewed recovery.
+    """
     try:
         encoded = json.dumps(
-            raw,
+            raw
+            if include_ingested_at
+            else {key: value for key, value in raw.items() if key != "ingested_at"},
             allow_nan=False,
             ensure_ascii=True,
             separators=(",", ":"),
@@ -575,8 +646,16 @@ def _published_topics(entry: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(topics)
 
 
-def _validate_request(entry: Mapping[str, Any], *, request_digest: str) -> None:
-    if entry.get("request_digest") != request_digest:
+def _validate_request(
+    entry: Mapping[str, Any],
+    *,
+    request_digest: str,
+    legacy_request_digest: str | None = None,
+) -> None:
+    retained = entry.get("request_digest")
+    if retained != request_digest and (
+        legacy_request_digest is None or retained != legacy_request_digest
+    ):
         raise ValueError("Huginn idempotency key collides with another raw request")
 
 

@@ -283,7 +283,7 @@ class HuginnIngressMixin:
         verified_operator_receipt: VerifiedOperatorRequestReceipt | None = None,
     ) -> dict[str, Any] | None:
         raw_request_digest = request_digest(raw) if self._dedup_journal is not None else ""
-        if key in self._seen_keys:
+        if key in self._seen_keys and self._dedup_journal is None:
             self._seen_keys.move_to_end(key)
             self.record_behavior("deduped")
             return None
@@ -440,6 +440,7 @@ class HuginnIngressMixin:
                     request_digest=raw_request_digest,
                     payload=payload,
                     change_projection=change_projection,
+                    legacy_request_digest=request_digest(raw, include_ingested_at=True),
                 )
             except ValueError:
                 self._dedup_collision_decisions += 1

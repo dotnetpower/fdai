@@ -1,7 +1,7 @@
 ---
 title: 이전 형식의 Pantheon 감사 체크포인트 복구
 translation_of: pantheon-audit-recovery.md
-translation_source_sha: b4cfc1ca814a4ed269b439c8c56cbdd1be7711d0
+translation_source_sha: acda88d72f8078f807e33f9c9cbff21d024876d8
 translation_revised: 2026-10-21
 ---
 # 이전 형식의 Pantheon 감사 체크포인트 복구
@@ -82,6 +82,21 @@ uv run python scripts/automation/migrate-pantheon-audit-chain.py \
 Incident 생성 조건은 별도로 점검하세요. 자동 생성에는 여전히 상관관계가 확인된 충분한
 근거와 설정된 심각도 기준이 필요합니다. 발견 사항이 없으면 새 Incident가 없는 것이 정상일
 수 있습니다. 브라우저 검증에서도 Entra 로그인 요구 사항은 유지합니다.
+
+## 원본 입력 충돌이 남아 있는 경우
+
+Saga 체크포인트를 복구해도 활동이 적다면 원본 입력의 DLQ도 확인하세요. 이전 형식의
+Huginn 대기 요청은 생산자가 재시도하면서 묶음의 `ingested_at` 수신 시각만 바꿔도 충돌로
+판단할 수 있습니다. 새 요청의 식별값에서는 덮어쓰는 최상위 시각만 제외하며, 공급자의
+이벤트 시각, 중첩된 타임스탬프, 내용, 권한 필드는 그대로 검사합니다. 원본 요청이 정확히
+일치한 경우에만 감사 기록과 리비전 검사를 거쳐 이전 식별값을 갱신합니다.
+
+이전 대기 요청을 검토 후 재처리하려면 원본 소스 메시지를 보존하고 전체 이전 요청
+다이제스트가 일치하는지 먼저 검증하세요. 인벤토리 전용 복구는 원본 바이트와 관측 시각,
+`incident_correlation: none`, 관찰 모드를 유지합니다. 게시 성공만으로 Huginn이 처리를
+마쳤다고 판단하지 말고, 저장된 요청 상태와 새 Saga 기록을 독립적으로 확인하세요.
+다이제스트 초기화, 대기 요청의 게시 완료 강제 처리, 새 관측을 이용한 사라진 원본 재구성은
+하지 않습니다. 원본이 없는 요청은 별도로 승인된 복구를 위해 계속 보류합니다.
 
 ## 관련 문서
 

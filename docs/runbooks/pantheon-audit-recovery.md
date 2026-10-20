@@ -79,6 +79,21 @@ Inspect Incident eligibility separately: automatic creation still requires corre
 sufficient evidence and the configured severity threshold. No findings can legitimately mean
 no new Incident. An Entra sign-in requirement also remains intact during browser validation.
 
+## Diagnose a remaining raw-input collision
+
+If Saga's checkpoint is repaired but activity remains quiet, inspect the raw ingress DLQ too.
+An old pending Huginn request can reject a producer retry when only the wrapper's `ingested_at`
+receipt time changed. New request fingerprints exclude that overwritten top-level clock, not
+the provider's event time, nested timestamps, content, or authority fields. Exact original
+requests upgrade old fingerprints through audited revision checks.
+
+For an old pending request, retain the original source message and prove its complete legacy
+request digest before any reviewed replay. An inventory-only recovery preserves its original
+bytes and observation time, `incident_correlation: none`, and observation mode. Publishing it
+does not prove that Huginn completed it; independently observe the retained claim and new Saga
+records. Don't reset digests, mark pending claims published, or recreate an unavailable original
+from a newer observation. Missing originals stay held for a separately approved recovery.
+
 ## Related docs
 
 | To learn about | Read |
