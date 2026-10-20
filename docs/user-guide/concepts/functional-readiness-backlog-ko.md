@@ -2,7 +2,7 @@
 title: F10-F15 준비 상태 전수 점검 및 완료 계획
 description: F10부터 F15까지 모든 중분류의 잔여 작업, 미충족 근거, 의존성에 따른 완료 계획입니다.
 translation_of: functional-readiness-backlog.md
-translation_source_sha: 6e302bd38bf44113382cecf7d5fed3d63dcd05b0
+translation_source_sha: 8bacf72f0ab20a0b75dfc069d5efeece256fdff6
 translation_revised: 2026-10-20
 ---
 
@@ -378,17 +378,17 @@ Not assessed를 사용합니다. 설치별 일반 설정과 명시적으로 연�
 | I01 | 외부 차단 요인 | 소스 설치와 Trial 동작이 있으며 과거 신규 Trial 증적 1개가 있습니다. | 승인된 서명 full-entitlement 입력을 제공하고 변경 없는 Trial 재실행, 신규 full 설치, Trial-to-full 전환, watermark 제거, health/readback, 두 번째 plan을 유지합니다. |
 | I02 | 외부 차단 요인 | 소스와 서명된 오프라인 경로만 사용할 수 있는 배포 경로이며 `--online` 정리는 I01 이후 순서입니다. | I01을 완료한 뒤 superseded acquisition 및 help 경로를 제거하고 `azd-up.sh`를 진단 전용으로 둘지 폐기할지 결정합니다. |
 | I03 | 외부 차단 요인 | update, recovery, host, offline 동작은 범위가 제한된 로컬 검사를 통과했습니다. | 승인된 대상에서 정확한 개정의 연결된 배포, update/recovery, disposable migration 근거를 유지합니다. |
-| X01 | 코드 완료/실환경 미검증 | bundle 등록, disabled-first 수명 주기, 철회, 타입화된 라우팅이 있습니다. #355는 필수 계보 없이 계획하지 않음으로 닫혔습니다. | 새 이슈를 만든 뒤 정확한 artifact의 설치, enable, disable, revoke, restart, disclosure, routing, audit 계보 하나를 유지합니다. |
+| X01 | 코드 완료/실환경 미검증 | bundle 등록, disabled-first 수명 주기, 철회, 타입화된 라우팅이 있습니다. #355는 필수 계보 없이 계획하지 않음으로 닫혔고, 이제 #2315가 관측 가능한 후속 기준을 담당합니다. | #2315에서 정확한 서명 artifact의 설치, 서로 다른 검토자의 enable, disable, revoke, restart, disclosure, routing, 독립 조회, Saga audit 계보를 유지합니다. |
 | S01 | 외부 차단 요인 | 설치된 acquisition, worker, 독립 로컬 수용 코드가 있습니다. | #2128을 명시적으로 재개할 때까지 중지를 유지한 뒤 terminal 설치 요청, 정확한 개정, coverage, 게시, 독립 조회를 유지합니다. |
 | S02 | 외부 차단 요인 | 예약 처리, Incident, notification, 담당자 인수인계 동작이 있습니다. | 중지가 해제된 뒤 승인된 신원과 channel을 연결하고 같은 correlation의 scan 또는 명시적인 발견 문제 없음 결과, Incident, notification, 담당자 인수인계, duplicate replay 연결을 유지합니다. |
-| S03 | 실제 실패 | label이나 임계값을 바꾸지 않고 정확한 승격 산술을 수정했습니다. Java SQL dev precision은 0.8824, Java path dev precision은 0.7143이며 C#에는 필요한 holdout true positive가 없습니다. | `dev`에서 남은 detector를 개선한 뒤 변경하지 않은 `holdout`에서 양 split 모두 precision >= 0.90과 true positive 1개 이상을 통과하고 별도 승격 검토를 진행합니다. |
+| S03 | 실제 실패 | 정확한 승격 산술, label, 임계값, corpus를 변경하지 않았습니다. 카탈로그 1.8.0은 Java 경로 조작을 precision 1.0, TP 5/1, FP 0/0으로 승격했고, 카탈로그 1.9.0은 C# SQL을 precision 1.0, TP 2/1, FP 0/0으로 승격했습니다. Java SQL `dev` precision은 여전히 0.8824이고 C# command/path에는 holdout true positive가 없습니다. | Java SQL은 `dev`만 사용해 개선하고 C# command/path에는 독립적으로 labeling한 holdout 근거를 제공합니다. 추가 승격 전까지 변경하지 않은 `holdout`, precision >= 0.90, 양 split true positive 1개 이상을 유지합니다. |
 
 ### G03-G07 완료 조건
 
 | 기준 | 결과 | 현재 근거 및 다음 조건 |
 |------|------|------------------------|
 | G03 | 실제 실패 | #2299는 내용이 없는 hold 진단을 개선하고 평가 권한을 격리합니다. 새로운 governed v1 및 v2는 사용 완료된 실패로 유지합니다. 새로 작성하고 검토한 protocol이 정확한 source/model/corpus 품질과 latency를 통과한 뒤 현재 Owner 승인, 영속 승격, 독립 효과 관측을 진행합니다. |
-| G04 | 실제 실패 | #2301과 #2302는 언어 중립 review-repair 정규화와 분리된 typed operand 연결을 구현했습니다. exact `0478f42fc5` stack에서 인증된 한국어 재시도 1회는 필터 수용 표본 2개를 모두 통과하고 goal 2개를 모두 컴파일했지만 독립 검토는 `unfaithful`로 남았습니다. 이 turn은 근거 0개와 실행 권한이 없는 상태에서 detail `role:names`의 `semantic_reading_unverified`로 fail-closed했습니다. 범위가 제한된 live loop는 중단했고 denied 및 unavailable 후속 검증은 실행하지 않았습니다. 어휘 추론이나 약화된 검증 없이 독립적으로 검토한 의미 합의 가설과 집중 로컬 회귀를 마련한 뒤 exact 한국어 positive를 한 번 실행하고 남은 영어 및 한국어 resource-filter, incident-investigation, ambiguous, denied, unavailable 순서를 진행합니다. |
+| G04 | 외부 차단 요인 | #2304-#2308에서 남은 언어 중립 typed-form 미비점을 닫았습니다. exact `bedfc6e3939c`의 정상 Browser Entra 한국어 positive는 `westus2`의 `object-storage` 행 10개를 반환하고 근거 reference 2개를 유지했으며 verification 1/1을 통과했고 실행 권한을 부여하지 않았습니다. 이전 영어 positive도 검증 상태를 유지합니다. Ambiguous/context-required, unsupported, incident-source-unavailable 결과도 보존했습니다. #2310은 선택한 account를 안정적으로 유지합니다. 현재 Graph 조회에서는 direct `Reader` assignment가 없고 `aw-owners` membership이 유지되지만 수정 provenance를 알 수 없어 이번 변경의 결과로 주장하지 않습니다. | 실제 denied 결과에는 정상 인증된 적절한 non-Owner principal을 제공하고 positive investigation에는 권위 있는 incident source를 복원합니다. Fixture principal, 약화한 review 또는 합성 근거로 대체하지 않습니다. |
 | G05 | 실제 실패 | 병합 후 정상 세대는 Resource 877개와 원시 link 1,611개를 유지하고 관계 후보 1,781개를 집계했습니다. 이 중 1,611개를 구체화하고 authorization child scope 170개를 검토된 unavailable로 분류했으며 미분류 후보는 0개였습니다. Local OS-disk 공급자 행 4개에서는 관리 디스크 후보가 생성되지 않아 #2300 수정 효과를 검증했습니다. 관계 완전성은 계속 false이고 topology revision은 0개입니다. 남은 authorization child-scope non-edge를 각각 모델링, 매핑 또는 명시적으로 수용한 뒤 완전한 관계 답변과 실제 topology revision을 유지합니다. 현재 상태로 Resource, edge 또는 이력을 합성하지 않습니다. |
 | G06 | 외부 차단 요인 | 정상 causal runtime seam은 연결되지 않았고 로컬 independent effect observation 모집단은 0개입니다. 독립 인증된 불변 hypothesis/action/target/time/effect 소스를 제공한 뒤 graph correlation, dispatch, provider success를 효과 증명으로 사용하지 않고 verified 및 refuted replay, rollback, 실제 recurrence window를 유지합니다. |
 | G07 | 경과 시간 차단 요인 | 승인된 운영 corpus나 완료된 ACL, 철회, 삭제 연결이 없습니다. 외부 입력을 승인한 뒤 서로 다른 live-shadow 날짜 30일과 적격 검토 제안 500건을 유지합니다. 같은 날 수행한 합성 테스트로 이 구간을 대체할 수 없습니다. |
