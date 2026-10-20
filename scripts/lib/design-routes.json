@@ -3259,6 +3259,8 @@
       "paths": [
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration*.py",
         "packages/deployment-cli/tests/test_lifecycle_configuration*.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/runtime_release.py",
+        "packages/deployment-cli/tests/test_runtime_release.py",
         "lifecycle/hub/**",
         "lifecycle/release-hub/**",
         "lifecycle/Dockerfile.hubs*",

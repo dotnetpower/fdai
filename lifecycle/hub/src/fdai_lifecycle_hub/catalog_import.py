@@ -78,6 +78,9 @@ def load_pinned_export(
         release = parse_runtime_release_manifest(payload)
         if release.schema_version != "fdai.runtime-release.v3":
             raise ValueError("Release Hub export requires runtime Release v3")
+        schema = release.configuration_schema
+        if schema is not None and schema.release_version != release_id:
+            raise ValueError("Configuration schema does not match the exact Release version")
         releases[release_id] = release
     return ReleaseCatalog(
         releases=releases,

@@ -11,8 +11,10 @@ from dataclasses import replace
 from datetime import datetime
 from typing import cast
 
+from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.lifecycle_plan import (
     CapabilityMode,
+    ConstraintBlock,
     DataResidencyRequirement,
     LifecycleConstraintContext,
     LifecycleEffectEnvelope,
@@ -65,6 +67,17 @@ def plan_next(
     checks: list[CandidateCheck] = []
     candidates = catalog.newer_than(installation.settings.channel, installation.current_release)
     for release_id, release in candidates:
+        schema = release.configuration_schema
+        if schema is not None and (
+            schema.release_version != release_id
+            or schema.digest != canonical_digest(installation.configuration.schema)
+        ):
+            checks.append(
+                CandidateCheck(
+                    release_id, (ConstraintBlock("release_configuration_schema_mismatch"),)
+                )
+            )
+            continue
         draft = _draft(installation, release_id, release, key=key, windows=windows, now=now)
         context = _constraint_context(
             installation, draft, release, catalog=catalog, windows=windows, now=now

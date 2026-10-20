@@ -18,6 +18,22 @@ from urllib.parse import urlsplit
 
 _ANNOTATION_AXIS = "x-fdai-axis"
 _ANNOTATION_OWNER = "x-fdai-owner"
+_SCHEMA_METADATA = frozenset({_ANNOTATION_AXIS, _ANNOTATION_OWNER, "default"})
+_AUTHORITY_KEYS = frozenset(
+    {
+        "action-lifecycle",
+        "approval-profile",
+        "approval-policy",
+        "authorization-policy",
+        "standing-authority",
+        "standing-authorizations",
+        "promotion-kind",
+        "promotion-state",
+        "executor-identity",
+        "human-identity",
+        "kill-switch",
+    }
+)
 _CONFIGURATION_AXES = frozenset(
     {
         "execution-venue",
@@ -203,7 +219,12 @@ def validate_release_configuration_schema(configuration_schema: Mapping[str, obj
         entry = _mapping(raw_entry, ("configuration_schema", key))
         axis = entry.get(_ANNOTATION_AXIS)
         owner = entry.get(_ANNOTATION_OWNER)
-        if not isinstance(axis, str) or not axis or not isinstance(owner, str) or not owner:
+        if (
+            not isinstance(axis, str)
+            or not axis.strip()
+            or not isinstance(owner, str)
+            or not owner.strip()
+        ):
             raise ConfigurationValidationError(
                 "unannotated_configuration_key",
                 (key,),
@@ -215,6 +236,32 @@ def validate_release_configuration_schema(configuration_schema: Mapping[str, obj
                 (key,),
                 f"configuration key {key!r} uses an unsupported or authority axis",
             )
+        if owner != "customer":
+            raise ConfigurationValidationError(
+                "unsupported_configuration_owner",
+                (key,),
+                "lifecycle configuration keys belong to the customer",
+            )
+        if set(entry) - _SCHEMA_METADATA:
+            raise ConfigurationValidationError(
+                "unknown_configuration_metadata",
+                (key,),
+                "configuration schema metadata is unsupported",
+            )
+        _reject_authority_keys({key: entry.get("default")}, (key,))
+
+
+def _reject_authority_keys(value: object, path: tuple[str, ...]) -> None:
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if isinstance(key, str) and _normal_token(key) in _AUTHORITY_KEYS:
+                raise ConfigurationValidationError(
+                    "authority_configuration_key", path, "authority state is not configuration"
+                )
+            _reject_authority_keys(item, (*path, str(key)))
+    elif isinstance(value, AbstractSequence) and not isinstance(value, str | bytes | bytearray):
+        for index, item in enumerate(value):
+            _reject_authority_keys(item, (*path, str(index)))
 
 
 def resolve_configuration_layers(
@@ -228,6 +275,7 @@ def resolve_configuration_layers(
     """Resolve defaults, Environment Config, and the most-specific matching override block."""
 
     validate_release_configuration_schema(configuration_schema)
+    _reject_authority_keys(environment_config, ("environment_config",))
     version = _parse_version(release_version, ("release_version",))
     values = _defaults(configuration_schema)
     _merge_values(
@@ -244,6 +292,7 @@ def resolve_configuration_layers(
         block = _mapping(raw_block, block_path)
         source = _text(block.get("versions"), (*block_path, "versions"))
         values_raw = _mapping(block.get("values"), (*block_path, "values"))
+        _reject_authority_keys(values_raw, (*block_path, "values"))
         version_range = _parse_range(source, (*block_path, "versions"))
         interval = (
             version_range.lower,

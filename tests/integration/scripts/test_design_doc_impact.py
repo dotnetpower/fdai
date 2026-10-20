@@ -107,6 +107,8 @@ def test_lifecycle_configuration_primitives_accept_their_actual_owner() -> None:
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_package.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_sealing.py",
         "packages/deployment-cli/tests/test_lifecycle_configuration_package.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/runtime_release.py",
+        "packages/deployment-cli/tests/test_runtime_release.py",
         "docs/roadmap/deployment/lifecycle-configuration.md",
     }
     assert module.missing_doc_updates(paths, manifest) == []

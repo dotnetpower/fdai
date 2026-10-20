@@ -12,7 +12,11 @@ from typing import Any
 
 from cryptography.exceptions import InvalidSignature
 from fdai_deployment_cli.contracts import canonical_bytes
-from fdai_deployment_cli.runtime_release import is_release_id, parse_runtime_release_manifest
+from fdai_deployment_cli.runtime_release import (
+    RuntimeRelease,
+    is_release_id,
+    parse_runtime_release_manifest,
+)
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine, create_engine, event, func, select
 from sqlalchemy.engine import Connection
@@ -128,6 +132,7 @@ class ReleaseStore:
                 release = parse_runtime_release_manifest(change.manifest.encode())
                 if release.schema_version != "fdai.runtime-release.v3":
                     raise CatalogError("Only fdai.runtime-release.v3 manifests are supported.")
+                self._validate_configuration_version(release_id, release)
                 db.execute(
                     releases.insert().values(
                         id=release_id,
@@ -144,6 +149,11 @@ class ReleaseStore:
                 if action == "publish":
                     if row["signature"]:
                         raise CatalogError("Release is already published.", 409)
+                    # Revalidate persisted draft bytes at the signing boundary, not just ingress.
+                    release = parse_runtime_release_manifest(row["manifest"].encode())
+                    self._validate_configuration_version(release_id, release)
+                    if release.digest != row["digest"]:
+                        raise CatalogError("Stored Release digest does not match the draft.", 409)
                     signature = b64encode(self.key.sign(row["manifest"].encode())).decode("ascii")
                     db.execute(
                         releases.update()
@@ -198,6 +208,12 @@ class ReleaseStore:
                 )
             )
         return self.snapshot()
+
+    @staticmethod
+    def _validate_configuration_version(release_id: str, release: RuntimeRelease) -> None:
+        schema = release.configuration_schema
+        if schema is not None and schema.release_version != release_id:
+            raise CatalogError("Configuration schema does not match the exact Release version.")
 
     def snapshot(self) -> dict[str, Any]:
         from base64 import b64decode

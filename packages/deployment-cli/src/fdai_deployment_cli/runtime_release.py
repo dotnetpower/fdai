@@ -20,6 +20,7 @@ from typing import Literal, cast
 
 from fdai_deployment_cli import offline_kit
 from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
+from fdai_deployment_cli.lifecycle_configuration import validate_release_configuration_schema
 from fdai_deployment_cli.oci_archive import (
     VerifiedOciImage,
     validate_dependency_oci_archive,
@@ -140,6 +141,19 @@ class RecallRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class ConfigurationSchema:
+    """Manifest-bound schema snapshot; parsing alone establishes no Release trust."""
+
+    release_version: str
+    digest: str
+    _keys: bytes = field(repr=False)
+
+    def to_mapping(self) -> dict[str, object]:
+        """Return detached key definitions, never mutable manifest state."""
+        return load_json_object(self._keys, label="Release configuration schema")
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeRelease:
     """Immutable validated metadata; not a trust or execution authorization."""
 
@@ -155,6 +169,7 @@ class RuntimeRelease:
     capability_maximums: dict[str, str] = field(default_factory=dict)
     downtime_entities: tuple[str, ...] = ()
     installation_agent_images: tuple[str, ...] = ()
+    configuration_schema: ConfigurationSchema | None = None
 
     def to_mapping(self) -> dict[str, object]:
         """Return a detached canonical catalog mapping, without host paths or bytes."""
@@ -250,6 +265,8 @@ def _parse_runtime_release(
         schema_keys.add("sidecars")
     if schema == _LIFECYCLE_SCHEMA:
         schema_keys.update({"installation_agents", "schema", "capabilities", "downtime"})
+        if "configuration_schema" in payload:
+            schema_keys.add("configuration_schema")
     catalog = _object(payload, schema_keys)
     commit, platform = catalog["source_commit"], catalog["platform_tag"]
     if not isinstance(commit, str) or _COMMIT.fullmatch(commit) is None:
@@ -276,6 +293,7 @@ def _parse_runtime_release(
     schema_range: SchemaRange | None = None
     capability_maximums: dict[str, str] = {}
     downtime_entities: tuple[str, ...] = ()
+    configuration_schema: ConfigurationSchema | None = None
     if schema == _LIFECYCLE_SCHEMA:
         sidecars = _object(catalog["sidecars"], set(RUNTIME_SIDECARS))
         for sidecar in sorted(RUNTIME_SIDECARS):
@@ -287,6 +305,8 @@ def _parse_runtime_release(
         schema_target, schema_range = _release_schema(catalog["schema"])
         capability_maximums = _capability_maximums(catalog["capabilities"])
         downtime_entities = _downtime_entities(catalog["downtime"])
+        if "configuration_schema" in catalog:
+            configuration_schema = _configuration_schema(catalog["configuration_schema"])
     for section in ("console", "deployment_support"):
         _declare_record(catalog[section], service=False, declared=declared)
     canonical = canonical_bytes(catalog)
@@ -303,8 +323,27 @@ def _parse_runtime_release(
         capability_maximums=capability_maximums,
         downtime_entities=downtime_entities,
         installation_agent_images=installation_agent_images,
+        configuration_schema=configuration_schema,
     )
     return release, declared
+
+
+def _configuration_schema(value: object) -> ConfigurationSchema:
+    artifact = _object(value, {"format", "release_version", "schema_sha256", "keys"})
+    version = artifact["release_version"]
+    if artifact["format"] != "fdai.release-configuration-schema.v1":
+        raise RuntimeReleaseError("Release configuration schema format is unsupported")
+    if not isinstance(version, str) or not is_release_id(version):
+        raise RuntimeReleaseError("Release configuration schema version is invalid")
+    keys = artifact["keys"]
+    if not isinstance(keys, dict):
+        raise RuntimeReleaseError("Release configuration schema keys are invalid")
+    validate_release_configuration_schema(keys)
+    canonical = canonical_bytes(keys)
+    digest = hashlib.sha256(canonical).hexdigest()
+    if artifact["schema_sha256"] != digest:
+        raise RuntimeReleaseError("Release configuration schema digest does not match")
+    return ConfigurationSchema(version, digest, canonical)
 
 
 def validate_runtime_images(root: Path, release: RuntimeRelease) -> dict[str, str]:

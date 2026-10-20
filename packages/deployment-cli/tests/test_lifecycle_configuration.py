@@ -92,6 +92,63 @@ def test_release_configuration_schema_accepts_known_non_authority_axes(axis: str
     validate_release_configuration_schema(schema)
 
 
+@pytest.mark.parametrize(
+    "metadata,code",
+    [
+        ({"x-fdai-owner": " "}, "unannotated_configuration_key"),
+        ({"x-fdai-owner": "unknown"}, "unsupported_configuration_owner"),
+        ({"x-fdai-execution-authority": True}, "unknown_configuration_metadata"),
+        ({"properties": {}}, "unknown_configuration_metadata"),
+    ],
+)
+def test_release_configuration_schema_rejects_unknown_metadata_and_owners(
+    metadata: dict[str, object], code: str
+) -> None:
+    schema = _schema()
+    schema["replicas"].update(metadata)
+    with pytest.raises(ConfigurationValidationError) as error:
+        validate_release_configuration_schema(schema)
+    assert error.value.code == code
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "approval_profile",
+        "authorizationPolicy",
+        "standing-authority",
+        "promotion_state",
+        "killSwitch",
+    ],
+)
+def test_authority_key_cannot_be_disguised_with_allowed_axis(key: str) -> None:
+    schema = _schema()
+    schema[key] = schema.pop("replicas")
+    with pytest.raises(ConfigurationValidationError, match="authority state"):
+        validate_release_configuration_schema(schema)
+
+
+@pytest.mark.parametrize("layer", ["default", "environment", "nonmatching-override"])
+def test_nested_authority_keys_are_rejected_in_every_layer(layer: str) -> None:
+    schema = _schema()
+    environment: dict[str, object] = {}
+    overrides = [{"versions": ">=1.0.0 <2.0.0", "values": {}}]
+    value = {"replicas": [{"approval_profile": "single-operator-production"}]}
+    if layer == "default":
+        schema["replicas"]["default"] = value["replicas"]
+    elif layer == "environment":
+        environment = value
+    else:
+        overrides.append({"versions": ">=2.0.0 <3.0.0", "values": value})
+    with pytest.raises(ConfigurationValidationError, match="authority state"):
+        resolve_configuration_layers(
+            release_version="1.5.0",
+            configuration_schema=schema,
+            environment_config=environment,
+            entity_overrides=overrides,
+        )
+
+
 def test_layer_resolution_uses_most_specific_matching_version_range() -> None:
     result = resolve_configuration_layers(
         release_version="1.5.2",

@@ -50,6 +50,31 @@ Each configuration key in a Release's configuration schema declares its
 It also rejects any key on an authority axis, such as action lifecycle, approval profile,
 authorization policy, or standing authority.
 
+### Release schema admission design and critique
+
+Runtime Release v3 can carry an optional `configuration_schema` object with exactly `format`
+(`fdai.release-configuration-schema.v1`), `release_version`, `schema_sha256`, and `keys`.
+`keys` uses the existing `x-fdai-axis`, `x-fdai-owner`, and optional `default` vocabulary.
+Both annotations are explicit, and the configuration owner is `customer`. Unknown metadata,
+blank or unknown owners, unsupported or authority axes,
+and authority-state keys are not accepted. `schema_sha256` pins the canonical `keys` bytes.
+The complete object is inside the existing manifest digest and detached signature.
+
+**Critique and revision:** A schema beside a manifest, a caller-selected key, or a digest returned
+with a download cannot establish Release trust. Release Hub registration and publication validate
+the schema and its exact Release version. Lifecycle Hub admission first verifies the separately
+approved export pin and existing manifest signature, then validates the same schema/version binding.
+It exposes the accepted schema on that exact Release, not as an independent trusted schema file.
+Before issuing a Plan, the existing Hub planner compares the installation configuration's schema
+digest with this Release schema. A mismatch blocks that candidate. Publication also rechecks the
+persisted draft's manifest digest before signing, so changed draft bytes cannot reuse its identity.
+No signing key, channel membership, or local packaging result grants production eligibility.
+
+This is an authority-neutral development capability, not a production root ceremony. Missing
+metadata means configuration-schema capability is unavailable for that Release. Legacy Releases
+remain readable, and source and offline installation gain no new prerequisite. Production Release
+qualification, configuration import, Agent delivery and customer-key registration remain separate.
+
 ## Where common items belong
 
 | Item | Class | Where it lives | Notes |
@@ -340,7 +365,8 @@ Do not upload readable `sealed.yaml` input or treat an example schema as a trust
   Focused tests exercise its reader and installation-local decryption with synthetic in-memory
   keys; operational package delivery is not implemented.
 - The example schema has annotations, but production Releases don't yet carry a qualified
-  configuration-package schema.
+  configuration-package schema. Runtime v3 development publication and independently pinned Hub
+  admission now bind optional schemas to exact Release artifacts; this is not production qualification.
 - Local packaging and verification commands exist; key-registration and Hub import commands do
   not. These commands do not register trusted keys or update a durable Hub chain head. The onboarding runbook
   records prerequisites and the required stop condition, not a working registration path.
