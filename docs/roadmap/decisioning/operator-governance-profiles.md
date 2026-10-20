@@ -23,7 +23,9 @@ administration in FDAI Console.
 >
 > **Safety focus:** No profile in this document changes risk classes, A4 denial, the seven
 > safeguards, independent effect verification, or the separation of the approval principal (Var)
-> from the executor (Thor).
+> from the executor (Thor). A profile's action-approval quorum does not waive the independent
+> review required for human access-role requests; their additional reviewer note may be omitted,
+> but a requester cannot decide their own request.
 
 ## Design at a glance
 An Owner-only discussion request does not select a governance profile or inherit mutation
