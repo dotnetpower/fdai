@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: f363823bcdbf4051429b1eeec519c54b23ebe520
-translation_revised: 2026-10-19
+translation_source_sha: f446fb859e5a84013461a0361db7e2cb2cfc0785
+translation_revised: 2026-10-20
 ---
 
 # 보안과 아이덴티티
@@ -345,9 +345,10 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
 
 - 승인과 실행은 별개 principal; **자기승인 없음**, 그리고 고-blast-radius 액션은 단일 승인자가
   아니라 **정족수(멀티 승인자)** 필요. 단독 운영자 프로덕션 프로필이 유일한 프로덕션 예외이며,
-  지정된 운영자 한 명이 승인하고 감사는 원래 정족수와 유효 정족수 1을 기록함
-  ([운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md)). Core는 이 결정
-  규칙을 구현하지만 런타임 승인 경로는 아직 활성 프로필 개정을 전달하지 않음.
+  지정된 운영자 한 명이 승인하고 감사는 원래 정족수와 유효 정족수 1을 기록함([운영자 거버넌스
+  프로필](../decisioning/operator-governance-profiles-ko.md)). 표시 문자열이 아닌 정규 주체
+  신원을 비교하므로 대소문자나 주변 공백을 바꿔도 한 사람이 독립 승인자가 될 수 없습니다.
+  Core는 이 결정 규칙을 구현하지만 런타임 승인 경로는 아직 활성 프로필 개정을 전달하지 않음.
 - 승인자는 MFA/phishing-resistant 자격증명으로 인증; 각 승인은 특정 액션 + 멱등성 키에
   바인딩되어 **다른 액션에 대해 재생될 수 없음**.
 - **시간 초과는 실패 시 차단입니다**: 현재 승인 또는 유효한 기존 상시 승인이 없는 HIL 항목은
