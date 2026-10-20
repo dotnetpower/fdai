@@ -440,6 +440,10 @@ verified links. The ontology projection advances the same generation with
 relationship claims: it prevents a query from using the graph as complete relationship evidence,
 while a snapshot whose object set admits no intra-set edge states nothing about relationships and
 therefore keeps its own object coverage. Unclassified or invalid relationship candidates are excluded and keep relationship completeness false, without freezing independently verified objects. A
+closure receipt counts the complete classified candidate population, not only the distinct reason
+labels, and refuses missing or inconsistent classification accounting. A virtual machine whose
+provider record declares `diffDiskSettings.option=Local` has ephemeral local storage, so its
+`managedDisk.id` does not create a managed-disk relationship candidate.
 partial source generation, object conflict, or persisted cardinality violation remains blocking and preserves the
 previous graph. Kubernetes EndpointSlice and Ingress array mappings materialize every exactly resolved backend as a separate `routes_to` edge under the many-to-many LinkType; projection retains the complete observed destination set because selecting one backend would discard provider truth rather than recover a cardinality mismatch.
 
