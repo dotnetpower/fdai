@@ -96,6 +96,46 @@ def _load(root: Path, **expected: str) -> RuntimeRelease:
     )
 
 
+def test_optional_configuration_schema_is_part_of_exact_runtime_artifact(tmp_path: Path) -> None:
+    catalog = _catalog_v3(tmp_path)
+    keys = {
+        "replicas": {
+            "default": 1,
+            "x-fdai-axis": "deployment-environment",
+            "x-fdai-owner": "customer",
+        }
+    }
+    catalog["configuration_schema"] = {
+        "format": "fdai.release-configuration-schema.v1",
+        "release_version": "1.6.0",
+        "schema_sha256": hashlib.sha256(canonical_bytes(keys)).hexdigest(),
+        "keys": keys,
+    }
+    _save(tmp_path, catalog)
+    release = _load(tmp_path)
+    assert release.configuration_schema is not None
+    assert release.configuration_schema.to_mapping() == keys
+    assert release.digest == hashlib.sha256(canonical_bytes(catalog)).hexdigest()
+    catalog["configuration_schema"]["keys"]["replicas"]["default"] = 2
+    _save(tmp_path, catalog)
+    with pytest.raises(RuntimeReleaseError, match="schema digest"):
+        _load(tmp_path)
+
+
+@pytest.mark.parametrize("version", ["fdai.runtime-release.v1", "fdai.runtime-release.v2"])
+def test_legacy_runtime_inventory_has_no_new_configuration_prerequisite(
+    tmp_path: Path, version: str
+) -> None:
+    catalog = _catalog(tmp_path)
+    catalog["schema_version"] = version
+    if version.endswith(".v2"):
+        catalog["sidecars"] = {role: _record(tmp_path, role, True) for role in SIDECARS}
+    _save(tmp_path, catalog)
+    release = _load(tmp_path)
+    assert release.configuration_schema is None
+    assert "configuration_schema" not in release.to_mapping()
+
+
 @pytest.mark.parametrize("platform", [PLATFORM, "linux-aarch64"])
 def test_runtime_release_validates_local_bytes_and_canonical_metadata(
     tmp_path: Path, platform: str

@@ -71,6 +71,15 @@ Agent apply, or evidence of a successful Azure deployment.
 | `workloads` | The workload template and the schema-expand migration Job template that the lifecycle agent renders, as [Workload rendering migration](hub-managed-lifecycle.md#workload-rendering-migration) defines |
 | Signature | Detached signature by the vendor release key over the canonical manifest |
 
+The implemented runtime v3 manifest optionally embeds the digest-pinned, version-bound
+`configuration_schema` artifact defined in
+[Release schema admission design and critique](lifecycle-configuration.md#release-schema-admission-design-and-critique).
+Release Hub registration/publication and independently pinned Lifecycle Hub admission validate it
+through the canonical configuration validator. Its bytes are covered by the existing manifest
+signature. Releases without it retain existing behavior but do not offer this configuration
+capability. This development contract neither establishes production Release qualification nor
+changes source/offline installation.
+
 An image built from a source checkout has no vendor signature and is labeled
 `unverified-source-build`. Such an installation can enroll with a Hub. The Hub treats every Entity
 that runs an unverified image as drifted, and the first Plan replaces those images with a signed

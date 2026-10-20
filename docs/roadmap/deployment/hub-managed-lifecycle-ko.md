@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: fa3b1a9f820cc185f3d12e4fb2a334f703d712b6
-translation_revised: 2026-10-19
+translation_source_sha: 4c85ddb67b22ac7e6f7f3ede5de11203501dc9bf
+translation_revised: 2026-10-21
 ---
 # Hub 관리형 수명 주기
 
@@ -43,6 +43,14 @@ Lifecycle Hub가 사용하는 릴리스 목록, 데이터 또는 피드인 **Rel
 | 기록 | cell이나 Target Hub마다 Hub PostgreSQL을 두고, 설치 증적은 Foundation 스토리지에 추가 전용으로 남깁니다. |
 
 ## 기존 결합형 개발 검증 구성
+
+선택적 구성 스키마 메타데이터가 있는 runtime v3 Release를 수락하면 기존 Hub 플래너는
+Plan을 발행하기 전에 설치의 스키마 다이제스트를 해당 Release에서 수락한 스키마와
+비교합니다. 다르면 그 후보를 차단합니다.
+[구성 설계](lifecycle-configuration-ko.md#release-스키마-수락-설계와-검토)에서 주석과
+버전 검사를 정의합니다. 이 선택적 기능이 없는 Release는 기존 동작을 유지하며 소스 및
+오프라인 설치에 새 검사가 추가되지 않습니다. 독립 export pin, 매니페스트 서명, 만료,
+회수, 로컬 효과 경계 검사는 계속 적용됩니다.
 
 기존 결합형 구성은 현재 state 소유자를 위해 유지하며, 기본 배포 단위가 아닙니다.
 새 준비 작업은 아래의 제품별 독립 루트를 사용합니다.

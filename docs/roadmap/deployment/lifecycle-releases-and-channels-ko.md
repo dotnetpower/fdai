@@ -1,8 +1,8 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: d0b290d8e5cd2405aa928286c28a2fccd6356c4e
-translation_revised: 2026-10-16
+translation_source_sha: 2efbb15f834fc7e4de05e482ddb276eae1d13635
+translation_revised: 2026-10-21
 ---
 # Lifecycle Release와 채널
 
@@ -72,6 +72,15 @@ translation_revised: 2026-10-16
 | `downtime` | 이 업그레이드에 다운타임 구간이 필요한 Entity |
 | `workloads` | [워크로드 렌더링 마이그레이션](hub-managed-lifecycle-ko.md#워크로드-렌더링-마이그레이션)에 정의된 대로 수명 주기 에이전트가 렌더링하는 워크로드 템플릿과 스키마 확장 마이그레이션 Job 템플릿 |
 | 서명 | 정규화된 매니페스트에 대한 공급업체 release 키의 분리 서명 |
+
+구현된 runtime v3 매니페스트에는 다이제스트와 버전을 고정한 `configuration_schema`
+아티팩트를 선택적으로 포함할 수 있습니다.
+[Release 스키마 수락 설계와 검토](lifecycle-configuration-ko.md#release-스키마-수락-설계와-검토)에서
+이 형식을 정의합니다. Release Hub의 등록과 발행, 독립 pin을 검증하는 Lifecycle Hub의
+수락 경로는 공통 구성 검증기로 이 객체를 검증합니다. 기존 매니페스트 서명이 이 바이트도
+보호합니다. 객체가 없는 Release는 기존 동작을 유지하지만 이 구성 기능은 제공하지 않습니다.
+이 개발용 계약은 프로덕션 Release 적격성을 확립하지 않으며 소스 및 오프라인 설치를 바꾸지
+않습니다.
 
 소스 checkout에서 빌드한 이미지에는 공급업체 서명이 없으며 `unverified-source-build`로
 표시됩니다. 이런 설치도 Hub에 등록할 수 있습니다. Hub는 검증되지 않은 이미지를 실행하는 모든

@@ -44,6 +44,14 @@ Release Hub service already exists.
 
 ## Legacy paired development fixture
 
+For an admitted runtime v3 Release with optional configuration-schema metadata, the existing Hub
+planner compares the installation's schema digest with that exact Release's accepted schema before
+issuing a Plan. Mismatches block the candidate. The
+[configuration owner](lifecycle-configuration.md#release-schema-admission-design-and-critique)
+defines annotation and version checks. A Release without this optional capability keeps its
+existing behavior; source and offline installation gain no new gate. Independent export pin,
+manifest signature, expiry, recall and local effect-envelope checks remain authoritative.
+
 The existing paired fixture remains available for its current state owners. It is not the default
 deployment unit. Use the independent product roots below for new preparation.
 
