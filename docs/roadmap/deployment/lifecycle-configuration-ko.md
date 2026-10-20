@@ -1,7 +1,7 @@
 ---
 title: 수명 주기 구성
 translation_of: lifecycle-configuration.md
-translation_source_sha: d7db13cb796ba9e944cfba30ea3b861f487112dd
+translation_source_sha: d9e10275be45ac37c49f435f510d5262e8a0ddc0
 translation_revised: 2026-10-21
 ---
 # 수명 주기 구성
@@ -10,7 +10,7 @@ translation_revised: 2026-10-21
 전달하는 방법을 정의합니다. 또한 그 구성을 고객 식별자, 비밀, 정책, 권한과 분리합니다. 이 문서는
 값 분류, 구성 계층, 서명된 구성 패키지를 소유합니다.
 
-> **상태:** 스키마, 계층 및 비밀 참조 검증기, 오프라인 서명 패키지 생성기와 읽기 경로, 설치 키
+> **상태:** 스키마, 계층 및 비밀 참조 검증기, 오프라인 서명 패키지 생성기와 읽기 경로, 로컬 패키지 생성/검증 CLI, 설치 키
 > 봉인과 자리 표시자 저장소 템플릿, 키 보관 런북이 구현되어 있습니다. 운영용 키 등록과 Hub
 > 가져오기는 아직 남아 있습니다.
 > [구현 ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md)가 제공 현황을
@@ -161,8 +161,64 @@ installations/<installation-id>/
 
 구현은 `fdai_deployment_cli.lifecycle_configuration_package`와
 `fdai_deployment_cli.lifecycle_configuration_sealing`에 있습니다. 기존 단일 Entity 구성
-문서는 바뀌지 않습니다. 여러 Entity의 설치 설정, 암호화 키 등록과 교체, CLI 명령, Hub 영구
+문서는 바뀌지 않습니다. 여러 Entity의 설치 설정, 암호화 키 등록과 교체, Hub 영구
 저장, Agent 전송 및 복호화 연결은 아직 남아 있습니다.
+
+### 로컬 패키지 생성과 검증 명령
+
+명시적으로 지정한 로컬 파일에는 `fdaictl configuration build`와
+`fdaictl configuration verify`를 사용합니다. 두 명령은 Hub, Azure, 모델이나 키 공급자에
+접속하지 않습니다. 두 명령 모두 독립적으로 제공한 Ed25519 검증 공개 키와 X25519 암호화
+공개 키를 PEM 파일로 받습니다. 생성 명령은 암호화하지 않은 PKCS8 Ed25519 서명 키 파일도
+읽고 검증 키와 대조합니다. 인자에는 파일 경로만 지정하고 키 바이트나 식별자 값은 넣지 마세요.
+모든 입력 파일은 절대 경로, 현재 사용자 소유, `0600` 권한, 단일 링크 조건을 충족해야 하며,
+`0700` 비공개 디렉터리에 둡니다. 심볼릭 링크, 일반 파일이 아닌 입력, 안전하지 않은 상위
+디렉터리는 수락하지 않습니다.
+
+비공개 `--release-input` JSON 객체에는 `release_version`, `configuration_schema`(주석이 있는
+키 맵), `sealed_keys`(중복 없는 식별자 키 이름 배열)만 포함합니다. 이 입력은 패키지와 독립된
+경로에서 확보하세요. 파일을 제공하는 것만으로 프로덕션 Release를 검증하거나 신뢰를 등록하지
+않습니다. 비공개 `--input` JSON 객체에는 `revision_id`(전체 Git 커밋),
+`environment`(객체), `entity_overrides`(`versions`/`values` 블록 배열),
+`sealed`(식별자 객체)만 포함합니다. 기존 단일 Entity 계약을 나타내며, 아직 구현되지 않은
+템플릿의 다중 Entity 설치 형식은 아닙니다.
+
+```bash
+fdaictl configuration build \
+  --release-input /private/release-input.json \
+  --configuration-key /private/configuration-public.pem \
+  --installation-key /private/installation-encryption-public.pem \
+  --input /private/configuration-input.json \
+  --signing-key /private/configuration-signing.pem \
+  --initial-revision --destination /private/configuration-package.json --output json
+fdaictl configuration verify \
+  --release-input /private/release-input.json \
+  --configuration-key /private/configuration-public.pem \
+  --installation-key /private/installation-encryption-public.pem \
+  --initial-revision --package /private/configuration-package.json --output json
+```
+
+`--initial-revision`은 수락한 체인이 비어 있음을 명시적으로 선언합니다. 후속 개정에서는
+이를 `--expected-predecessor <independently-retained-head-sha256>`로 바꾸고, 수락한 전체
+체인을 오래된 순서대로 `--history <file>`에 반복 지정합니다(최대 256개). 이력 누락,
+체인 끝 불일치, 분기, 순서 변경, 과거 개정을 현재 개정으로 되돌리는 시도는 차단됩니다.
+동일한 입력으로 현재 개정을 재시도하면 원래 서명 바이트를 유지합니다.
+
+출력 대상은 새로운 `0600` 파일이며 기존 파일을 덮어쓰지 않습니다.
+`fdai.lifecycle-configuration-file.v1` JSON 컨테이너에는 `format`, `payload`,
+`signature`만 있습니다. 뒤의 두 필드는 기존 서명 매니페스트와 분리 서명을 엄격한 base64
+형식으로 담습니다. 읽기 경로는 스키마, 분류, 예상 Release 버전, 서명과 체인을 검증한 뒤에만
+파일을 생성하거나 검증 성공을 보고합니다. 생성 성공에는 파일을 다시 읽어 정확히 일치하는지
+확인하는 절차도 필요합니다. 결과에는 구성 값이나 키 값 대신 다이제스트와 검증 상태만
+표시하며, 오류에는 입력에서 가져온 진단 내용을 포함하지 않습니다. 성공은 검증된 로컬
+산출물만을 뜻합니다.
+
+CLI 설계 검토와 보강(2026-10-21): 페이로드와 서명을 별도 파일로 쓰면 불완전한 산출물이
+노출될 수 있으므로 하나의 완결된 컨테이너에 기록합니다. 서명 키에서 신뢰를 도출하면 스스로
+키를 허용하게 되므로 별도 검증 키 입력을 요구합니다. 빈 체인이나 보관한 체인 끝을 명시하면
+실수로 이력을 빠뜨리는 일을 막을 수 있지만, 호출자가 최신 영구 체인 끝을 제공했는지
+입증하거나 동시 생성을 직렬화하지는 못합니다. 검증된 Release 허용, 키 등록/교체,
+원자적 Hub 가져오기와 활성화는 별도의 통제 작업으로 남습니다.
 
 ## 비밀
 
@@ -269,7 +325,7 @@ Customer B는 East US의 중앙 Hub cell을 사용하고, `RELEASE_CANDIDATE`를
 Environment Config, 비공개 봉인 입력과 Entity 구조에 합성 주석 Release 스키마를 더해
 제공합니다. 집중 오프라인 검사는 기존 검증기를 호출할 뿐 패키지, 키, 서명, 업로드나 배포를
 만들지 않습니다. [구성 키 런북](../../runbooks/lifecycle-configuration-key-onboarding-ko.md)은
-고객 키 보관을 아직 구현되지 않은 서명기, 독립 신뢰 등록과 Hub 가져오기에서 구분합니다.
+고객 키 보관과 로컬 패키지 생성을 독립 신뢰 등록과 Hub 가져오기에서 구분합니다.
 읽을 수 있는 `sealed.yaml` 입력을 업로드하거나 예제 스키마를 신뢰된 Release로 취급하지 마세요.
 
 ## 현재 한계
@@ -278,7 +334,7 @@ Environment Config, 비공개 봉인 입력과 Entity 구조에 합성 주석 Re
   집중 테스트는 메모리에만 있는 합성 키로 읽기 경로와 설치 내부 복호화를 실행합니다.
   운영 패키지 전달은 아직 구현되지 않았습니다.
 - 예제 스키마에는 주석이 있지만 프로덕션 Release에는 아직 검증된 구성 패키지 스키마가 없습니다.
-- 패키지 생성, 키 등록, 봉인이나 Hub 가져오기 명령은 없습니다. 라이브러리 호출은 신뢰 키를
+- 로컬 패키지 생성과 검증 명령은 있지만 키 등록과 Hub 가져오기 명령은 없습니다. 이 명령들은 신뢰 키를
   등록하거나 Hub에 영구 저장된 체인의 끝을 갱신하지 않습니다. 등록 런북은 작동하는 등록
   경로가 아니라 선행 조건과 필수 중단 조건을 기록합니다.
 - 구성 키를 잃어버린 고객은 키 교체가 Hub에 등록될 때까지 새 개정을 게시할 수 없습니다.
