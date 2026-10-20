@@ -16,7 +16,7 @@ test("catalog records stable creation and review metadata for every manual", asy
     L400: 50,
   });
   assert.equal(catalog.journey.stages.length, 5);
-  assert.equal(catalog.manuals.length, 11);
+  assert.equal(catalog.manuals.length, 12);
   assert.equal(catalog.journey.stages[2].differentiator, true);
   for (const manual of catalog.manuals) {
     assert.match(manual.id, /^[a-z0-9-]+$/);
@@ -38,11 +38,21 @@ test("catalog records stable creation and review metadata for every manual", asy
     catalog.manuals.length,
   );
   const executiveBriefing = catalog.manuals.find((manual) => manual.id === "executive-briefing");
+  const pitchDeck = catalog.manuals.find((manual) => manual.id === "l100-pitch-deck");
   assert.equal(executiveBriefing.status, "complete");
-  assert.ok(catalog.manuals.every((manual) => manual.lastEditedAt === "2026-09-12"));
+  assert.equal(catalog.manuals.indexOf(pitchDeck), catalog.manuals.indexOf(executiveBriefing) + 1);
+  assert.equal(pitchDeck.status, "wip");
+  assert.equal(pitchDeck.level, "L100");
+  assert.equal(pitchDeck.slideCount, 15);
+  assert.equal(pitchDeck.createdAt, "2026-10-16");
+  assert.equal(pitchDeck.lastEditedAt, "2026-10-16");
+  assert.ok(catalog.manuals
+    .filter((manual) => manual.id !== "l100-pitch-deck")
+    .every((manual) => manual.lastEditedAt === "2026-09-12"));
   assert.deepEqual(
     catalog.manuals.filter((manual) => manual.reviewedAt === null).map((manual) => manual.id),
     [
+      "l100-pitch-deck",
       "responsible-ai-security",
       "pilot-production",
       "ai-operating-model",
@@ -52,7 +62,9 @@ test("catalog records stable creation and review metadata for every manual", asy
   assert.ok(catalog.manuals
     .filter((manual) => manual.reviewedAt !== null)
     .every((manual) => manual.reviewedAt === "2026-09-13"));
-  assert.ok(catalog.manuals.every((manual) => manual.status === "complete"));
+  assert.ok(catalog.manuals
+    .filter((manual) => manual.id !== "l100-pitch-deck")
+    .every((manual) => manual.status === "complete"));
 });
 
 test("unreviewed or changed manuals render DRAFT only on their covers", async () => {
@@ -84,7 +96,7 @@ test("completed manuals provide the catalog slide count and source evidence", as
 
   assert.deepEqual(
     Object.fromEntries(catalog.manuals
-      .filter((manual) => manual.id !== "executive-briefing")
+      .filter((manual) => manual.status === "complete" && manual.id !== "executive-briefing")
       .map((manual) => [manual.id, manual.slideCount])),
     expectedSlides,
   );
@@ -330,7 +342,9 @@ test("completed manuals retain verified hardening rounds", async () => {
     await readFile(new URL("validation-evidence.json", root), "utf8"),
   );
   const catalog = JSON.parse(await readFile(new URL("catalog.json", root), "utf8"));
-  const completedIds = catalog.manuals.map((manual) => manual.id);
+  const completedIds = catalog.manuals
+    .filter((manual) => manual.status === "complete")
+    .map((manual) => manual.id);
 
   assert.deepEqual(evidence.viewports, ["1440x900", "993x641", "390x844"]);
   assert.deepEqual(evidence.manuals.map((manual) => manual.id), completedIds);
@@ -348,12 +362,102 @@ test("completed manuals retain verified hardening rounds", async () => {
   }
 });
 
+test("L100 pitch deck records bounded draft rendering evidence", async () => {
+  const evidence = JSON.parse(
+    await readFile(new URL("validation-evidence.json", root), "utf8"),
+  );
+  const validation = evidence.draftValidations.find((item) => item.id === "l100-pitch-deck");
+
+  assert.equal(validation.status, "wip");
+  assert.match(validation.scope, /Complete 15-slide WIP pitch deck/);
+  assert.deepEqual(validation.viewports, [
+    "1440x900",
+    "993x641",
+    "390x844",
+    "fullscreen-1440x900",
+  ]);
+  assert.equal(validation.checks.catalogOrder, "Immediately after executive-briefing");
+  assert.equal(validation.checks.activeSlides, 15);
+  assert.equal(validation.checks.requestFailures, 0);
+  assert.equal(validation.checks.pageErrors, 0);
+  assert.equal(validation.checks.textOutsideSlide, 0);
+  assert.equal(validation.checks.clippedTextFindings, 0);
+  assert.equal(validation.checks.horizontalOverflow, 0);
+  assert.equal(validation.checks.slideModeChecks, 105);
+  assert.deepEqual(validation.checks.locales, ["ko", "en"]);
+  assert.equal(validation.checks.pdfPages, 15);
+  assert.equal(validation.checks.pdfAspectRatio, "16:9");
+  assert.deepEqual(validation.checks.diagramSlides, [6, 7, 8, 9, 10, 11, 12, 13]);
+  assert.equal(validation.checks.ontologyConnectorChecks, 6);
+  assert.equal(validation.checks.maximumOntologyConnectorGapPixels, 0);
+  assert.equal(validation.checks.ontologyNodeOverlaps, 0);
+  assert.equal(validation.checks.desktopLeadToVisualGapPixels, 12.1);
+  assert.equal(validation.checks.desktopVisualToSourceGapPixels, 5.2);
+  assert.equal(validation.checks.ontologyNodeFontPixels, 24);
+  assert.equal(validation.checks.ontologyRelationshipFontPixels, 19);
+  assert.equal(validation.checks.ontologyLegendFontPixels, 17);
+  assert.equal(validation.checks.screenScalingMethod, "css-zoom");
+  assert.equal(validation.checks.desktopScreenScale, 0.861111);
+  assert.equal(validation.checks.screenCompositionOpacity, 0.999);
+  assert.equal(validation.checks.screenTransform, "none");
+  assert.equal(validation.checks.ontologyTextRenderer, "html-foreignObject");
+  assert.equal(validation.checks.ontologySvgTextElements, 0);
+  assert.equal(validation.checks.ontologyHtmlNodeLabels, 7);
+  assert.equal(validation.checks.ontologyHtmlRelationshipLabels, 6);
+  assert.equal(validation.checks.ontologyHtmlLegendLabels, 3);
+  assert.equal(validation.checks.ontologyRelationshipLabelPlates, 6);
+  assert.equal(validation.checks.ontologyRelationshipLabelOcclusions, 0);
+  assert.equal(validation.checks.observedByConnectorRoute, "M 700 122 V 135 H 797 V 145");
+  assert.equal(validation.checks.observedByLabelClearancePixels, 15);
+  assert.equal(validation.checks.slide3KoreanTitleLines, 2);
+  assert.equal(validation.checks.slide3KoreanLeadLines, 1);
+  assert.equal(validation.checks.slide3EnglishTitleLines, 2);
+  assert.equal(validation.checks.slide3EnglishLeadLines, 2);
+  assert.equal(validation.checks.slide2KoreanTitleLines, 1);
+  assert.equal(validation.checks.slide2KoreanLeadLines, 1);
+  assert.equal(validation.checks.slide2EnglishTitleLines, 2);
+  assert.equal(validation.checks.slide2EnglishLeadLines, 2);
+  assert.equal(validation.checks.maximumBodyLeadLines, 2);
+  assert.deepEqual(validation.checks.copyReviewedSlides, [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+  ]);
+  assert.equal(validation.checks.bodyCopyLayoutChecks, 84);
+  assert.deepEqual(validation.checks.geometricArrowheadSlides, [3, 4, 8, 9, 11, 13]);
+  assert.equal(validation.checks.geometricArrowheadsChecked, 17);
+  assert.equal(validation.checks.textGlyphArrowheads, 0);
+  assert.equal(validation.checks.misalignedArrowheads, 0);
+});
+
+test("L100 screen playback avoids fractional transform text rasterization", async () => {
+  const css = await readFile(new URL("l100-pitch-deck.css", root), "utf8");
+
+  assert.match(css, /@media screen \{[\s\S]+zoom: var\(--slide-scale\)/);
+  assert.match(css, /opacity: \.999/);
+  assert.match(css, /transform: none/);
+  assert.match(css, /animation: none/);
+  assert.match(css, /-webkit-font-smoothing: antialiased/);
+  assert.match(css, /@media print \{[\s\S]+zoom: 1 !important/);
+  assert.match(css, /opacity: 1 !important/);
+});
+
+test("L100 connectors use centered geometric arrowheads instead of text glyphs", async () => {
+  const css = await readFile(new URL("l100-pitch-deck.css", root), "utf8");
+
+  assert.doesNotMatch(css, /content: ">"/);
+  assert.ok([...css.matchAll(/border-left: 8px solid var\(--l100-accent\)/g)].length >= 4);
+  assert.match(css, /\.l100-challenge > i::after[\s\S]+top: 50%/);
+  assert.match(css, /\.l100-engine-v2 \.engine-arrow::after[\s\S]+transform: translateY\(-50%\)/);
+  assert.match(css, /\.l100-semantic-v2 \.semantic-arrow::after[\s\S]+transform: translateY\(-50%\)/);
+  assert.match(css, /\.ontology-query-arrow::after[\s\S]+transform: translateY\(-50%\)/);
+});
+
 test("selected PPT artwork keeps repository-safe provenance", async () => {
   const provenance = JSON.parse(
     await readFile(new URL("assets/provenance.json", root), "utf8"),
   );
+  const catalog = JSON.parse(await readFile(new URL("catalog.json", root), "utf8"));
 
-  assert.equal(provenance.assets.length, 13);
+  assert.equal(provenance.assets.length, 14);
   assert.equal(provenance.layoutReference.source, "Microsoft_Brand_Template_May2023.potx");
   assert.equal(provenance.layoutReference.logoInches.height, 0.32);
   assert.equal(provenance.layoutReference.contentTitleInches.y, 0.64);
@@ -362,6 +466,16 @@ test("selected PPT artwork keeps repository-safe provenance", async () => {
   assert.ok(provenance.assets.some((asset) => asset.path === "microsoft-logo.png"));
   assert.ok(provenance.assets.some((asset) => asset.path === "fdai-console-sign-in.png"));
   assert.ok(provenance.assets.some((asset) => asset.path === "sre-incident-response.png"));
+  assert.ok(provenance.assets.some((asset) => asset.path === "l100-pitch-deck.jpeg"));
+  const coverRecords = catalog.manuals.map((manual) => {
+    const coverName = manual.coverImage.split("/").at(-1);
+    return provenance.assets.find((asset) => asset.path === coverName);
+  });
+  assert.ok(coverRecords.every(Boolean));
+  assert.equal(
+    new Set(coverRecords.map((asset) => asset.sourceMedia)).size,
+    coverRecords.length,
+  );
   for (const asset of provenance.assets) {
     await access(new URL(`assets/${asset.path}`, root));
   }

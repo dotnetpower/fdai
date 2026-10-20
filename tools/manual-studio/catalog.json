@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "generatedAt": "2026-09-13T00:00:00Z",
+  "generatedAt": "2026-10-16T03:05:39Z",
   "minimumSlidesByLevel": {
     "L100": 10,
     "L200": 25,
@@ -66,6 +66,24 @@
       "coverImage": "assets/executive-briefing.jpeg",
       "coverLabel": "VALUE TO SCALE",
       "featured": true
+    },
+    {
+      "id": "l100-pitch-deck",
+      "stageId": "understand-align",
+      "kind": "core",
+      "level": "L100",
+      "status": "wip",
+      "title": "FDAI L100 Pitch Deck",
+      "eyebrow": "L100 PITCH DECK",
+      "description": "Microsoft Korea CSU 내부 개발 솔루션인 FDAI의 역할, 운영 질문 처리 방식, 온톨로지와 에이전트, Azure 배포 구성과 첫 검증 경로를 소개합니다.",
+      "createdAt": "2026-10-16",
+      "lastEditedAt": "2026-10-16",
+      "reviewedAt": null,
+      "duration": "15분",
+      "slideCount": 15,
+      "coverImage": "assets/l100-pitch-deck.jpeg",
+      "coverLabel": "VERIFIABLE AUTONOMY",
+      "featured": false
     },
     {
       "id": "readiness-maturity",
