@@ -34,6 +34,8 @@ def test_build_artifact_copies_only_publishable_manual_files(tmp_path: Path) -> 
         "executive-deck.css",
         "executive-story.css",
         "library.html",
+        "l100-pitch-deck.css",
+        "l100-pitch-deck.js",
         "localization.js",
         "manual-content.js",
         "manual-decks.css",
@@ -86,6 +88,7 @@ def test_build_artifact_copies_only_publishable_manual_files(tmp_path: Path) -> 
     assert {
         "art-of-possible.en.js",
         "executive-briefing.en.js",
+        "l100-pitch-deck.en.js",
         "manual-content.en.js",
         "ontology-foundation.en.js",
         "ontology-slide-kit.en.js",
@@ -117,6 +120,7 @@ def test_build_artifact_copies_only_publishable_manual_files(tmp_path: Path) -> 
         "value-prioritization.en.js",
     } <= copied_names
     assert "assets/executive-briefing.jpeg" in copied_names
+    assert "assets/l100-pitch-deck.jpeg" in copied_names
     assert "assets/provenance.json" in copied_names
     assert "executive-briefing.html" in copied_names
     assert "target-architecture.html" in copied_names
