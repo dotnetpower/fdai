@@ -40,8 +40,8 @@ Convergent telemetry keeps immutable actual observations in the existing frame, 
 Process journal and codec rather than worker-local mutable state. `adaptive_revision.py` owns
 canonical revision construction behind the unchanged contract facade. Only unobserved recipes
 are scheduled, and the final untested hypothesis still uses the verified candidate gateway.
-RCA citations retain investigation status and association-only evidence grade; novelty paths
-collect historical T1 evidence before residual T2 and forward only grounded citations.
+RCA citations retain investigation status and association-only evidence grade; novelty paths collect historical T1 evidence before residual T2 and forward only grounded citations.
+`rca/citations.py` shares bounded exact-citation admission across the parser, grounding gate and coordinator. [Root-Cause Analysis](../rules-and-detection/root-cause-analysis.md#generation-ownership-and-evidence-admission) defines Forseti ownership and holds for ambiguous references, conflicting facts, incomplete historical reuse and unsupported T2 lineage, without adding an agent or execution path.
 `build_semantic_query_runtime(causal_competitor_source=...)` accepts an independently verified,
 server-bound assessment source for final metric joins. Its exact request binds resources,
 metric concepts, topology/source identity, time and competitor accounting. Node JSON cannot
