@@ -13,6 +13,9 @@ from fdai.core.conversation.semantic_reasoning_admission import (
 )
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptCandidate, ConceptShard
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain, SemanticQuestionForm
+from fdai.core.conversation.semantic_reasoning_normalization import (
+    normalize_redundant_property_filter_labels_with_receipt,
+)
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_repair import repair_keeps_operands
 from fdai.core.conversation.semantic_reasoning_review import (
@@ -708,6 +711,82 @@ async def _fragment(model: _Model) -> Any:
     )
 
 
+def _fragment_with_detached_property_label() -> dict[str, Any]:
+    form = _fragment_form(cue="이름에 app-dev가 들어간")
+    form["mentions"].append(
+        {
+            "id": "m3",
+            "form": "concept",
+            "domain": "property",
+            "span": _quote("이름"),
+        }
+    )
+    form["goals"][0]["filters"] = [
+        {
+            "role": "name_fragment",
+            "mention": "m3",
+            "cue": _quote("이름에 app-dev가 들어간"),
+        }
+    ]
+    return form
+
+
+def test_only_core_normalized_property_labels_are_syntactic_for_blind_review() -> None:
+    raw = _fragment_with_detached_property_label()
+    form = resolve_question_form(raw, utterance=_FRAGMENT).form
+    assert form is not None
+    normalized = normalize_redundant_property_filter_labels_with_receipt(form)
+    extraction = {
+        **_FRAGMENT_EXTRACTION,
+        "constraints": [
+            _constraint("이름", "names"),
+            *_FRAGMENT_EXTRACTION["constraints"],
+        ],
+    }
+
+    untrusted = review_forms((normalized.form,), extraction, utterance=_FRAGMENT)
+    trusted = review_forms(
+        (normalized.form,),
+        extraction,
+        utterance=_FRAGMENT,
+        syntactic_labels=normalized.syntactic_labels,
+    )
+    exclusion = review_forms(
+        (normalized.form,),
+        {
+            "constraints": [_constraint("이름", "negates")],
+            "literals": [_quote("app-dev")],
+        },
+        utterance=_FRAGMENT,
+        syntactic_labels=normalized.syntactic_labels,
+    )
+
+    assert untrusted.reasons == ("review_uncovered:names:0-2",)
+    assert trusted == FormReview("faithful")
+    assert exclusion.reasons == ("review_unexpressible:negates:0-2",)
+
+
+async def test_normalized_property_label_receipt_reaches_blind_review() -> None:
+    extraction = {
+        **_FRAGMENT_EXTRACTION,
+        "constraints": [
+            _constraint("이름", "names"),
+            *_FRAGMENT_EXTRACTION["constraints"],
+        ],
+    }
+    observation = await _fragment(
+        _Model(
+            [_fragment_with_detached_property_label()],
+            {"m1": ["any:resource"]},
+            extraction=extraction,
+        )
+    )
+
+    assert observation.passes[0].disposition == "admitted"
+    assert observation.review == "faithful"
+    assert observation.released is True
+
+
 async def test_a_review_repair_never_changes_a_literal_value() -> None:
     picks = {"m1": ["any:resource"]}
     widened = await _fragment(
@@ -911,6 +990,23 @@ async def test_review_repair_normalizes_redundant_property_labels_by_typed_role(
     assert all(
         mention.domain is not MentionDomain.PROPERTY for mention in result.resolution.form.mentions
     )
+    assert [utterance[span.start : span.end] for span in result.syntactic_labels] == [
+        region_label,
+        type_label,
+    ]
+    label_extraction = {
+        "constraints": [
+            _constraint(region_label, "names"),
+            _constraint(type_label, "names"),
+        ],
+        "literals": [],
+    }
+    assert review_forms(
+        (result.resolution.form,),
+        label_extraction,
+        utterance=utterance,
+        syntactic_labels=result.syntactic_labels,
+    ) == FormReview("faithful")
 
 
 def test_review_repair_requires_one_form_and_a_valid_actionable_extraction() -> None:

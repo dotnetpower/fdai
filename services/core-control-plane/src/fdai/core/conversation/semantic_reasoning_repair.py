@@ -41,7 +41,10 @@ from .semantic_reasoning_form import (
     TimeKind,
     Want,
 )
-from .semantic_reasoning_normalization import normalize_redundant_property_filter_labels
+from .semantic_reasoning_normalization import (
+    normalize_redundant_property_filter_labels_with_receipt,
+    retained_syntactic_labels,
+)
 from .semantic_reasoning_proposal import FormResolution, locate_quote, resolve_question_form
 from .semantic_reasoning_relabel import relabel_mentions
 
@@ -70,6 +73,7 @@ class FormProposal:
     admission: FormAdmission | None
     repair: str | None = None
     repaired_reasons: tuple[str, ...] = ()
+    syntactic_labels: tuple[SourceSpan, ...] = ()
 
 
 async def propose_with_repair(
@@ -85,18 +89,19 @@ async def propose_with_repair(
     if raw is None:
         return FormProposal(None, None)
     resolution = resolve_question_form(raw, utterance=utterance)
+    syntactic_labels: tuple[SourceSpan, ...] = ()
     if resolution.form is not None:
-        resolution = replace(
-            resolution, form=normalize_redundant_property_filter_labels(resolution.form)
-        )
+        normalized = normalize_redundant_property_filter_labels_with_receipt(resolution.form)
+        resolution = replace(resolution, form=normalized.form)
+        syntactic_labels = normalized.syntactic_labels
     admission = _admit(resolution, utterance, accounting)
     repair = repair_for(raw, resolution, admission, utterance=utterance) if repairs > 0 else None
     if repair is None:
-        return FormProposal(resolution, admission)
+        return FormProposal(resolution, admission, syntactic_labels=syntactic_labels)
     faulted = resolution.reasons if admission is None else admission.reasons
     repaired_raw = await propose(repair=repair)
     if repaired_raw is None:
-        return FormProposal(resolution, admission, "unavailable", faulted)
+        return FormProposal(resolution, admission, "unavailable", faulted, syntactic_labels)
     repaired = resolve_question_form(repaired_raw, utterance=utterance)
     # A repair of unaccounted words only places them; it never rewrites stated meaning.
     placing = admission is not None and all(
@@ -104,16 +109,22 @@ async def propose_with_repair(
     )
     if repaired.form is None:
         return FormProposal(repaired, None, "invalid", faulted)
-    form = normalize_redundant_property_filter_labels(repaired.form)
+    normalized = normalize_redundant_property_filter_labels_with_receipt(repaired.form)
+    form = normalized.form
     if resolution.form is not None:
         form = relabel_mentions(resolution.form, form)
         repaired = replace(repaired, form=form)
+    repaired_labels = retained_syntactic_labels(
+        form,
+        syntactic_labels,
+        normalized.syntactic_labels,
+    )
     if not repair_keeps_operands(
         raw, form, utterance=utterance, typed=resolution.form, extension_only=placing
     ):
         if placing and resolution.form is not None and same_reading(resolution.form, form):
-            return _kept_original(resolution, utterance, faulted)
-        return FormProposal(resolution, admission, "operand_dropped", faulted)
+            return _kept_original(resolution, utterance, faulted, syntactic_labels)
+        return FormProposal(resolution, admission, "operand_dropped", faulted, syntactic_labels)
     admission = _admit(repaired, utterance, accounting)
     if (
         admission is not None
@@ -124,8 +135,8 @@ async def propose_with_repair(
         # states a constraint is for the blind constraint review, which releases nothing
         # it cannot find stated.
         relaxed = _admit(repaired, utterance, SpanAccounting(required=False))
-        return FormProposal(repaired, relaxed, "applied_unaccounted", faulted)
-    return FormProposal(repaired, admission, "applied", faulted)
+        return FormProposal(repaired, relaxed, "applied_unaccounted", faulted, repaired_labels)
+    return FormProposal(repaired, admission, "applied", faulted, repaired_labels)
 
 
 def same_reading(before: SemanticQuestionForm, after: SemanticQuestionForm) -> bool:
@@ -169,7 +180,10 @@ def _goal_readings(form: SemanticQuestionForm) -> list[dict[str, Any]]:
 
 
 def _kept_original(
-    resolution: FormResolution, utterance: str, faulted: tuple[str, ...]
+    resolution: FormResolution,
+    utterance: str,
+    faulted: tuple[str, ...],
+    syntactic_labels: tuple[SourceSpan, ...],
 ) -> FormProposal:
     """Keep a proposal whose only fault was accounting when its repair is unusable.
 
@@ -181,7 +195,7 @@ def _kept_original(
     """
 
     relaxed = _admit(resolution, utterance, SpanAccounting(required=False))
-    return FormProposal(resolution, relaxed, "original_unaccounted", faulted)
+    return FormProposal(resolution, relaxed, "original_unaccounted", faulted, syntactic_labels)
 
 
 def _admit(

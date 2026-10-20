@@ -43,7 +43,7 @@ from .semantic_reasoning_direction import (
     DirectionQuestion,
     settle_directions,
 )
-from .semantic_reasoning_form import SemanticQuestionForm
+from .semantic_reasoning_form import SemanticQuestionForm, SourceSpan
 from .semantic_reasoning_handles import (
     HandleScope,
     ReferenceReceipt,
@@ -372,6 +372,7 @@ async def run_reasoning_shadow(
         "stored_reference_binder": stored_reference_binder,
     }
     admitted_forms: list[SemanticQuestionForm] = []
+    syntactic_labels: list[SourceSpan] = []
     # The snapshot generation the turn's first anchor reads saw; continuations must match it.
     pinned: tuple[str, ...] = ()
     # The extraction reads only the question, so it runs beside the form passes.
@@ -401,7 +402,7 @@ async def run_reasoning_shadow(
                 if pending:
                     notes.append("continuation_failed")
                 break
-            shadow_pass, goals, compilation, admitted = outcome
+            shadow_pass, goals, compilation, admitted, normalized_labels = outcome
             if index > 0 and _generation_drifted(pinned, shadow_pass.source_generations):
                 # A continuation that read another snapshot cannot join the verified part, so
                 # the turn stops with the continuation still pending instead of mixing reads.
@@ -419,6 +420,7 @@ async def run_reasoning_shadow(
             passes.append(shadow_pass)
             if admitted is not None and shadow_pass.disposition == "admitted":
                 admitted_forms.append(admitted)
+                syntactic_labels.extend(normalized_labels)
             if compilation is None:
                 if pending:
                     notes.append("continuation_failed")
@@ -442,7 +444,12 @@ async def run_reasoning_shadow(
             review = (
                 FormReview("unavailable", (failure,))
                 if failure is not None
-                else review_forms(admitted_forms, raw, utterance=utterance)
+                else review_forms(
+                    admitted_forms,
+                    raw,
+                    utterance=utterance,
+                    syntactic_labels=tuple(syntactic_labels),
+                )
             )
             if review.outcome == "invalid":
                 # An unusable extraction, such as a quote not in the question, is read once
@@ -454,7 +461,12 @@ async def run_reasoning_shadow(
                 review = (
                     FormReview("unavailable", (failure,))
                     if failure is not None
-                    else review_forms(admitted_forms, raw, utterance=utterance)
+                    else review_forms(
+                        admitted_forms,
+                        raw,
+                        utterance=utterance,
+                        syntactic_labels=tuple(syntactic_labels),
+                    )
                 )
             repair = review_repair(
                 review,
@@ -463,10 +475,11 @@ async def run_reasoning_shadow(
                 passes=len(passes),
                 repairs=limits.repairs_per_pass,
                 utterance=utterance,
+                syntactic_labels=tuple(syntactic_labels),
             )
             if repair is not None:
                 try:
-                    shadow_pass, _goals, compilation, admitted = await _run_pass(
+                    shadow_pass, _goals, compilation, admitted, normalized_labels = await _run_pass(
                         counting,
                         index=len(passes),
                         utterance=utterance,
@@ -491,7 +504,12 @@ async def run_reasoning_shadow(
                     and shadow_pass.disposition == "admitted"
                     and repaired_whole
                 ):
-                    review = review_forms((admitted,), raw, utterance=utterance)
+                    review = review_forms(
+                        (admitted,),
+                        raw,
+                        utterance=utterance,
+                        syntactic_labels=normalized_labels,
+                    )
                     if retain_compilations and compilation is not None:
                         compilations = [compilation]
                 else:
@@ -594,6 +612,7 @@ async def _run_pass(
     tuple[dict[str, Any], ...],
     ReasoningCompilation | None,
     SemanticQuestionForm | None,
+    tuple[SourceSpan, ...],
 ]:
     """Run one bounded form pass; return the pass, its goal summaries, its compilation,
     and the admitted form, whose spans the next pass may rely on."""
@@ -618,7 +637,7 @@ async def _run_pass(
         )
     )
     if proposal.resolution is None:
-        return ShadowPass(index, "model_unavailable"), (), None, None
+        return ShadowPass(index, "model_unavailable"), (), None, None, ()
     resolution, admission = proposal.resolution, proposal.admission
     if resolution.form is None or admission is None:
         return (
@@ -632,6 +651,7 @@ async def _run_pass(
             (),
             None,
             None,
+            (),
         )
     if admission.disposition is not AdmissionDisposition.ADMITTED:
         return (
@@ -647,6 +667,7 @@ async def _run_pass(
             (),
             None,
             None,
+            (),
         )
 
     def select(lane: Any, calls: int) -> Any:
@@ -692,7 +713,13 @@ async def _run_pass(
             reasons = admission.reasons
     form = admission.form
     if reasons:
-        return ShadowPass(index, "direction_held", reasons, shape=form_shape(form)), (), None, None
+        return (
+            ShadowPass(index, "direction_held", reasons, shape=form_shape(form)),
+            (),
+            None,
+            None,
+            (),
+        )
     anchors = await bind_anchors(admission, resolver, utterance=utterance)
     generations = tuple(
         sorted({item.source_generation for item in anchors.bindings if item.source_generation})
@@ -753,7 +780,7 @@ async def _run_pass(
             for value in item.values
         ),
     )
-    return shadow_pass, goals, compilation, form
+    return shadow_pass, goals, compilation, form, proposal.syntactic_labels
 
 
 __all__ = [

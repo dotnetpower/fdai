@@ -15,6 +15,8 @@ from fdai.core.conversation.semantic_reasoning_admission import (
 )
 from fdai.core.conversation.semantic_reasoning_normalization import (
     normalize_redundant_property_filter_labels,
+    normalize_redundant_property_filter_labels_with_receipt,
+    retained_syntactic_labels,
 )
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
 from fdai.core.conversation.semantic_reasoning_repair import (
@@ -341,7 +343,8 @@ def _detached_korean_property_operand_form(*, competing_operand: bool = False) -
 def test_unique_detached_typed_operand_replaces_redundant_property_filter() -> None:
     form = _detached_korean_property_operand_form()
 
-    normalized = normalize_redundant_property_filter_labels(form)
+    receipt = normalize_redundant_property_filter_labels_with_receipt(form)
+    normalized = receipt.form
     admission = admit_question_form(
         normalized,
         utterance="location이 westus2이고 type이 object-storage인 Resource를 모두 보여 줘.",
@@ -353,6 +356,12 @@ def test_unique_detached_typed_operand_replaces_redundant_property_filter() -> N
         ("type", "m3"),
         ("region", "m4"),
     ]
+    assert [
+        "location이 westus2이고 type이 object-storage인 Resource를 모두 보여 줘."[
+            span.start : span.end
+        ]
+        for span in receipt.syntactic_labels
+    ] == ["type"]
     assert admission.disposition is AdmissionDisposition.ADMITTED
 
 
@@ -377,6 +386,17 @@ def test_detached_property_operand_is_not_bound_across_multiple_goals() -> None:
     form = form.model_copy(update={"goals": (*form.goals, second)})
 
     assert normalize_redundant_property_filter_labels(form) == form
+
+
+def test_only_normalized_labels_retained_as_context_survive_a_repair() -> None:
+    form = _detached_korean_property_operand_form()
+    receipt = normalize_redundant_property_filter_labels_with_receipt(form)
+    without_context = receipt.form.model_copy(update={"context": ()})
+
+    assert retained_syntactic_labels(receipt.form, receipt.syntactic_labels) == (
+        receipt.syntactic_labels
+    )
+    assert retained_syntactic_labels(without_context, receipt.syntactic_labels) == ()
 
 
 def _redundant_property_label_form(reference: str | None = None) -> Any:
