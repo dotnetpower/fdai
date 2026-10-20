@@ -687,18 +687,28 @@ def _qualified_string_constants(root: Path, source: bytes) -> Mapping[str, Const
         candidates = tuple(islice(root.rglob(f"{simple_name}.java"), 2))
         if len(candidates) != 1:
             continue
+        candidate_path = candidates[0]
         try:
-            candidate_source = candidates[0].read_bytes()
+            resolved_path = candidate_path.resolve(strict=True)
+            if (
+                candidate_path.is_symlink()
+                or not resolved_path.is_relative_to(root)
+                or resolved_path.stat().st_size > 1_000_000
+            ):
+                continue
+            candidate_source = resolved_path.read_bytes()
         except OSError:
             continue
-        if (
-            len(candidate_source) > 1_000_000
-            or f"package {package_name};".encode() not in candidate_source
-        ):
+        if len(candidate_source) > 1_000_000:
             continue
         try:
             candidate = _Slice(candidate_source)
         except ValueError:
+            continue
+        package_declarations = [
+            _text(node) for node in candidate.nodes if node.type == "package_declaration"
+        ]
+        if package_declarations != [f"package {package_name};"]:
             continue
         constants: dict[str, Constant] = {}
         for node in candidate.nodes:

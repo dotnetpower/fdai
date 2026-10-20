@@ -135,6 +135,47 @@ new java.io.FileInputStream(path); // sink
     assert _path_veto(tmp_path, source) is None
 
 
+def test_external_constant_symlink_cannot_escape_source_root(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "Config.java"
+    target.write_text(
+        """package example;
+public class Config { public static final String SAFE = "fixed/"; }""",
+        encoding="utf-8",
+    )
+    linked = root / "example" / "Config.java"
+    linked.parent.mkdir()
+    linked.symlink_to(target)
+    source = """class Example {
+void run(String input) {
+String path = example.Config.SAFE + "fixed";
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    assert _path_veto(root, source) is None
+
+
+def test_external_constant_requires_exact_package_declaration(tmp_path: Path) -> None:
+    helper = tmp_path / "wrong" / "Config.java"
+    helper.parent.mkdir()
+    helper.write_text(
+        """// package example;
+package wrong;
+public class Config { public static final String SAFE = "fixed/"; }""",
+        encoding="utf-8",
+    )
+    source = """class Example {
+void run(String input) {
+String path = example.Config.SAFE + "fixed";
+new java.io.FileInputStream(path); // sink
+}
+}"""
+    assert _path_veto(tmp_path, source) is None
+
+
 def test_conditional_try_assignment_keeps_path_evidence(tmp_path: Path) -> None:
     source = """class Example {
 void run(String input, boolean unknown) {
