@@ -41,12 +41,16 @@ from typing import Literal
 
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_plan import (
+    LifecycleAuthorizationReceipt,
     LifecycleEffectEnvelope,
+    LifecyclePhaseCompletionReceipt,
     LifecyclePlan,
     PlanAdmissionState,
     SignatureVerifier,
     decode_canonical_plan_payload,
+    evaluate_phase_authorization,
     evaluate_plan_admission,
+    issue_lifecycle_authorization_receipt,
 )
 from fdai_deployment_cli.lifecycle_release import is_product_id
 
@@ -120,6 +124,12 @@ class AgentReason(StrEnum):
     ROLLBACK_FAILED = "rollback_failed"
     PLAN_EXPIRED = "plan_expired"
     WORKLOAD_RENDER_FAILED = "workload_render_failed"
+    EARLIER_PHASE_RECEIPT_MISSING = "earlier_phase_receipt_missing"
+    EARLIER_PHASE_RECEIPT_MISMATCH = "earlier_phase_receipt_mismatch"
+    AUTHORIZATION_RECEIPT_MISSING = "authorization_receipt_missing"
+    AUTHORIZATION_RECEIPT_PLAN_MISMATCH = "authorization_receipt_plan_mismatch"
+    PHASE_FENCING_MISMATCH = "phase_fencing_mismatch"
+    AUTHORIZATION_RECEIPT_WINDOW_CLOSED = "authorization_receipt_window_closed"
 
 
 # Admission rejections whose bytes no configured Hub key signed. Blocking their sequence would let
@@ -177,6 +187,17 @@ class ApplyMode:
     workload: Workload
     store: WorkloadStore
     write_current_state: Callable[[Mapping[str, object]], None]
+    require_infrastructure_receipt: bool = False
+    read_infrastructure_receipt: Callable[[str], LifecyclePhaseCompletionReceipt | None] | None = (
+        None
+    )
+    build_authorization_receipt: (
+        Callable[
+            [LifecyclePlan, datetime, LifecyclePhaseCompletionReceipt | None],
+            LifecycleAuthorizationReceipt | None,
+        ]
+        | None
+    ) = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -251,6 +272,8 @@ class LifecycleAgent:
                 )
         signed = self._deps.hub.fetch_plan(self._settings.installation_id)
         if signed is None:
+            if (apply := self._deps.apply) is not None:
+                self._report_observed_drift(apply, workload_state, current)
             _log("lifecycle_agent.no_plan")
             return PollResult(outcome="no-plan", reason_code=AgentReason.NO_PLAN_PENDING)
         try:
@@ -383,6 +406,39 @@ class LifecycleAgent:
         """Render, preflight, and journal the rollback target; return ``apply-started``."""
 
         settings = self._settings
+        now = self._deps.clock()
+        earlier_receipt = (
+            apply.read_infrastructure_receipt(plan.plan_id)
+            if apply.read_infrastructure_receipt is not None
+            else None
+        )
+        authorization_receipt = (
+            apply.build_authorization_receipt(plan, now, earlier_receipt)
+            if apply.build_authorization_receipt is not None
+            else issue_lifecycle_authorization_receipt(
+                plan,
+                phase="workload",
+                window_starts_at=now,
+                window_ends_at=plan.expires_at,
+                issued_at=now,
+                prerequisite_receipt=earlier_receipt,
+            )
+            if now < plan.expires_at
+            else None
+        )
+        phase_decision = evaluate_phase_authorization(
+            plan,
+            phase="workload",
+            authorization_receipt=authorization_receipt,
+            trusted_now=now,
+            require_earlier_phase=apply.require_infrastructure_receipt,
+            earlier_phase_receipt=earlier_receipt,
+        )
+        if not phase_decision.allowed:
+            return _rejection(
+                phase_decision.reason_code,
+                retryable=phase_decision.reason_code == AgentReason.EARLIER_PHASE_RECEIPT_MISSING,
+            )
         try:
             desired, previous = prepare_workload(
                 plan,
@@ -564,6 +620,54 @@ class LifecycleAgent:
         apply.store.save(replace(workload_state, journal=None))
         _log("lifecycle_agent.state_reported", plan_id=journal.plan_id)
         return result
+
+    def _report_observed_drift(
+        self, apply: ApplyMode, workload_state: WorkloadState, current: CurrentState
+    ) -> None:
+        if not workload_state.healthy:
+            return
+        drifted, expected_digests = apply.workload.drifted_entities(workload_state.healthy)
+        if not drifted:
+            return
+        entities = dict(current.entities)
+        changed = False
+        for entity_id, live_digests in drifted.items():
+            prior = entities.get(entity_id)
+            if prior is None or prior.release_id is None:
+                continue
+            updated = EntityState(
+                release_id=prior.release_id,
+                artifact_digests=live_digests,
+                health=Health.DEGRADED,
+            )
+            if updated != prior:
+                entities[entity_id] = updated
+                changed = True
+        if not changed:
+            return
+        available = current.available_artifact_digests
+        if available is None:
+            available = frozenset(expected_digests).union(
+                *(state.artifact_digests for state in current.entities.values())
+            )
+        else:
+            available = available | expected_digests
+        snapshot = snapshot_document(
+            entities,
+            schema_revision=current.schema_revision,
+            observed_at=max(self._deps.clock(), current.observed_at + _MIN_STATE_STEP),
+            available_artifact_digests=available,
+        )
+        apply.write_current_state(snapshot)
+        try:
+            self._deps.hub.submit_state(self._settings.installation_id, snapshot)
+        except HubProtocolError as error:
+            if error.code != "stale_state":
+                _log(
+                    "lifecycle_agent.drift_state_report_failed",
+                    level=logging.WARNING,
+                    error=str(error),
+                )
 
     def _replace_result(self, plan_id: str, result: PlanResult) -> PollResult:
         """Make ``result`` the Plan's result, reported with the next attempt, and deliver it."""

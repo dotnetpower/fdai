@@ -11,8 +11,10 @@ import pytest
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_plan import (
     DataResidencyRequirement,
+    LifecycleAuthorizationReceipt,
     LifecycleConstraintContext,
     LifecycleEffectEnvelope,
+    LifecyclePhaseCompletionReceipt,
     LifecyclePlan,
     MaintenanceWindow,
     PlanAdmissionState,
@@ -20,7 +22,10 @@ from fdai_deployment_cli.lifecycle_plan import (
     canonical_plan_payload,
     decode_canonical_plan_payload,
     evaluate_lifecycle_constraints,
+    evaluate_phase_authorization,
     evaluate_plan_admission,
+    exact_plan_digest_for,
+    issue_lifecycle_authorization_receipt,
 )
 from fdai_deployment_cli.runtime_release import RecallRecord, RuntimeRelease, SchemaRange
 
@@ -447,13 +452,18 @@ def test_constraint_context_must_match_signed_plan_fields() -> None:
         _passing_context(candidate_release=_release(version="1.5.1")),
         admitted_plan=_plan(),
     )
-    unsupported_type = evaluate_lifecycle_constraints(
+    drift_reconciliation = evaluate_lifecycle_constraints(
         _passing_context(plan_type="drift-reconciliation"),
         admitted_plan=_plan(plan_type="drift-reconciliation"),
+    )
+    unsupported_type = evaluate_lifecycle_constraints(
+        _passing_context(plan_type="uninstall"),  # type: ignore[arg-type]
+        admitted_plan=_plan(plan_type="uninstall"),
     )
 
     assert {block.reason_code for block in plan_type_switch} == {"plan_context_mismatch"}
     assert {block.reason_code for block in release_swap} == {"target_release_digest_mismatch"}
+    assert drift_reconciliation == ()
     assert {block.reason_code for block in unsupported_type} == {"plan_type_unsupported"}
 
 
@@ -643,6 +653,104 @@ def _payload_document(**overrides: object) -> dict[str, object]:
     assert isinstance(document, dict)
     document.update(overrides)
     return document
+
+
+def test_phase_authorization_requires_bound_receipt_and_earlier_phase_completion() -> None:
+    plan = _plan()
+    infra_receipt = issue_lifecycle_authorization_receipt(
+        plan,
+        phase="infrastructure",
+        window_starts_at=NOW - timedelta(minutes=5),
+        window_ends_at=NOW + timedelta(minutes=30),
+        issued_at=NOW,
+    )
+    assert evaluate_phase_authorization(
+        plan,
+        phase="infrastructure",
+        authorization_receipt=infra_receipt,
+        trusted_now=NOW,
+    ).allowed
+
+    # Workload phase requiring earlier infrastructure phase waits while the receipt is absent.
+    missing_earlier = evaluate_phase_authorization(
+        plan,
+        phase="workload",
+        authorization_receipt=None,
+        trusted_now=NOW,
+        require_earlier_phase=True,
+        earlier_phase_receipt=None,
+    )
+    assert (missing_earlier.allowed, missing_earlier.reason_code) == (
+        False,
+        "earlier_phase_receipt_missing",
+    )
+
+    infra_done = LifecyclePhaseCompletionReceipt(
+        plan_id=plan.plan_id,
+        exact_plan_digest=exact_plan_digest_for(plan),
+        fencing_generation=plan.fencing_generation,
+        phase="infrastructure",
+        authorization_receipt_digest=infra_receipt.digest,
+        completed_at=NOW,
+    )
+    workload_receipt = issue_lifecycle_authorization_receipt(
+        plan,
+        phase="workload",
+        window_starts_at=NOW - timedelta(minutes=5),
+        window_ends_at=NOW + timedelta(minutes=30),
+        issued_at=NOW,
+        prerequisite_receipt=infra_done,
+    )
+    assert (
+        LifecycleAuthorizationReceipt.from_mapping(workload_receipt.to_mapping())
+        == workload_receipt
+    )
+    assert evaluate_phase_authorization(
+        plan,
+        phase="workload",
+        authorization_receipt=workload_receipt,
+        trusted_now=NOW,
+        require_earlier_phase=True,
+        earlier_phase_receipt=infra_done,
+    ).allowed
+
+    # Mismatched plan digest, fencing generation, or closed window is rejected.
+    wrong_digest = replace(workload_receipt, exact_plan_digest="sha256:" + "0" * 64)
+    assert (
+        evaluate_phase_authorization(
+            plan,
+            phase="workload",
+            authorization_receipt=wrong_digest,
+            trusted_now=NOW,
+            require_earlier_phase=True,
+            earlier_phase_receipt=infra_done,
+        ).reason_code
+        == "authorization_receipt_plan_mismatch"
+    )
+    wrong_fencing = replace(workload_receipt, fencing_generation=99)
+    assert (
+        evaluate_phase_authorization(
+            plan,
+            phase="workload",
+            authorization_receipt=wrong_fencing,
+            trusted_now=NOW,
+            require_earlier_phase=True,
+            earlier_phase_receipt=infra_done,
+        ).reason_code
+        == "phase_fencing_mismatch"
+    )
+    closed_window = evaluate_phase_authorization(
+        plan,
+        phase="workload",
+        authorization_receipt=workload_receipt,
+        trusted_now=NOW + timedelta(minutes=35),
+        require_earlier_phase=True,
+        earlier_phase_receipt=infra_done,
+    )
+    assert (closed_window.allowed, closed_window.reason_code) == (
+        False,
+        "authorization_receipt_window_closed",
+    )
 
 
 def _encoded(document: Mapping[str, object]) -> bytes:

@@ -4,12 +4,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
+from fdai_deployment_cli.lifecycle_plan import (
+    LifecyclePhaseCompletionReceipt,
+    exact_plan_digest_for,
+    issue_lifecycle_authorization_receipt,
+)
 
-from fdai_lifecycle_agent.dry_run import load_current_state
+from fdai_lifecycle_agent.dry_run import Health, load_current_state
 from fdai_lifecycle_agent.hub_client import HubProtocolError
 from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.workload import Manifest, render
@@ -304,3 +310,139 @@ def test_a_live_object_without_a_healthy_record_rejects_the_plan(
     assert (result.outcome, result.reason_code) == ("rejected", "rollback_target_unknown")
     assert cluster.writes() == []
     assert _outcomes(harness) == [(1, "rejected", "rollback_target_unknown")]
+
+
+def test_manual_deployment_change_is_reported_and_reconciled_by_drift_reconciliation_plan(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    _upgrade_to_v2(harness, cluster)
+    assert cluster.image() == f"{harness.repository}@{V2}"
+
+    # Simulate a manual out-of-band Deployment change in the cluster.
+    manual_image = _image("manual-drift")
+    live = cluster.get("Deployment", "core-control-plane")
+    assert live is not None
+    live["spec"]["template"]["spec"]["containers"][0]["image"] = (
+        f"{harness.repository}@{manual_image}"
+    )
+    cluster.apply(live)
+    assert cluster.image() == f"{harness.repository}@{manual_image}"
+
+    # Polling while no Plan is pending detects the live Deployment drift and reports it to the Hub.
+    harness.hub.plan = None
+    no_plan = harness.apply_poll(cluster)
+    assert no_plan.outcome == "no-plan"
+    assert len(harness.hub.states) == 1
+    drifted_state = load_current_state(harness.state_file)
+    assert drifted_state.entities["core"].release_id == "1.1.0"
+    assert drifted_state.entities["core"].artifact_digests == frozenset({manual_image})
+    assert drifted_state.entities["core"].health == Health.DEGRADED
+    assert V2 in (drifted_state.available_artifact_digests or frozenset())
+
+    # When the Hub issues a drift-reconciliation Plan for 1.1.0 in the next matching window,
+    # the agent admits and applies it, restoring the Deployment to the signed V2 image.
+    reconcile_plan = harness.release_plan(
+        "1.1.0", V2, sequence=10, plan_type="drift-reconciliation"
+    )
+    harness.serve(reconcile_plan)
+    reconciled = harness.apply_poll(cluster)
+    assert (reconciled.outcome, reconciled.reason_code, reconciled.reported) == (
+        "applied",
+        "applied",
+        True,
+    )
+    assert cluster.image() == f"{harness.repository}@{V2}"
+    restored_state = load_current_state(harness.state_file)
+    assert restored_state.entities["core"].release_id == "1.1.0"
+    assert restored_state.entities["core"].artifact_digests == frozenset({V2})
+    assert restored_state.entities["core"].health == Health.HEALTHY
+
+
+def test_automatic_apply_requires_bound_authorization_receipt_and_waits_for_earlier_phase(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    plan = harness.serve(harness.release_plan("1.0.0", V1))
+
+    # 1. Workload phase waits while the earlier infrastructure phase completion receipt is absent.
+    infra_receipts: dict[str, LifecyclePhaseCompletionReceipt] = {}
+    waiting = harness.apply_poll(
+        cluster,
+        require_infrastructure_receipt=True,
+        read_infrastructure_receipt=lambda plan_id: infra_receipts.get(plan_id),
+    )
+    assert (waiting.outcome, waiting.reason_code) == (
+        "rejected",
+        "earlier_phase_receipt_missing",
+    )
+    assert cluster.writes() == []
+
+    # 2. Recording the infrastructure phase completion receipt for the exact Plan digest unblocks
+    # the workload phase on the next poll, unless the local authorization receipt is mismatched.
+    infra_receipt = issue_lifecycle_authorization_receipt(
+        plan,
+        phase="infrastructure",
+        window_starts_at=plan.expires_at - timedelta(minutes=30),
+        window_ends_at=plan.expires_at,
+        issued_at=plan.expires_at - timedelta(minutes=30),
+    )
+    infra_receipts[plan.plan_id] = LifecyclePhaseCompletionReceipt(
+        plan_id=plan.plan_id,
+        exact_plan_digest=exact_plan_digest_for(plan),
+        fencing_generation=plan.fencing_generation,
+        phase="infrastructure",
+        authorization_receipt_digest=infra_receipt.digest,
+        completed_at=plan.expires_at - timedelta(minutes=25),
+    )
+
+    # Mismatched authorization receipt (wrong exact_plan_digest) is refused before cluster writes.
+    mismatched = harness.apply_poll(
+        cluster,
+        require_infrastructure_receipt=True,
+        read_infrastructure_receipt=lambda plan_id: infra_receipts.get(plan_id),
+        build_authorization_receipt=lambda p, now, prereq: replace(
+            issue_lifecycle_authorization_receipt(
+                p,
+                phase="workload",
+                window_starts_at=now,
+                window_ends_at=p.expires_at,
+                issued_at=now,
+                prerequisite_receipt=prereq,
+            ),
+            exact_plan_digest="sha256:" + "0" * 64,
+        ),
+    )
+    assert (mismatched.outcome, mismatched.reason_code) == (
+        "rejected",
+        "authorization_receipt_plan_mismatch",
+    )
+    assert cluster.writes() == []
+
+    # 3. With a valid local authorization receipt bound to the exact Plan digest and earlier phase
+    # receipt, the workload phase applies automatically.
+    next_plan = harness.serve(harness.release_plan("1.0.0", V1, sequence=9))
+    next_infra_receipt = issue_lifecycle_authorization_receipt(
+        next_plan,
+        phase="infrastructure",
+        window_starts_at=next_plan.expires_at - timedelta(minutes=30),
+        window_ends_at=next_plan.expires_at,
+        issued_at=next_plan.expires_at - timedelta(minutes=30),
+    )
+    infra_receipts[next_plan.plan_id] = LifecyclePhaseCompletionReceipt(
+        plan_id=next_plan.plan_id,
+        exact_plan_digest=exact_plan_digest_for(next_plan),
+        fencing_generation=next_plan.fencing_generation,
+        phase="infrastructure",
+        authorization_receipt_digest=next_infra_receipt.digest,
+        completed_at=next_plan.expires_at - timedelta(minutes=25),
+    )
+    applied = harness.apply_poll(
+        cluster,
+        require_infrastructure_receipt=True,
+        read_infrastructure_receipt=lambda plan_id: infra_receipts.get(plan_id),
+    )
+    assert (applied.outcome, applied.reason_code, applied.reported) == (
+        "applied",
+        "applied",
+        True,
+    )
+    assert cluster.image() == f"{harness.repository}@{V1}"

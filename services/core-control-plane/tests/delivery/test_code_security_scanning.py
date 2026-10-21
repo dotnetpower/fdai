@@ -638,7 +638,7 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
         assert f"go version -m /out/{binary}" in dockerfile
     assert "ENV GOTOOLCHAIN=local" in dockerfile
     assert 'test "$(go env GOVERSION)" = "${SCANNER_GO_VERSION}"' in dockerfile
-    assert "ARG SCANNER_GO_VERSION=go1.27.2" in dockerfile
+    assert "ARG SCANNER_GO_VERSION=go1.27.3" in dockerfile
     assert "ARG SCANNER_X_NET_VERSION=v0.60.0" in dockerfile
     assert "ARG SCANNER_X_CRYPTO_VERSION=v0.57.0" in dockerfile
     assert "ARG SCANNER_X_TEXT_VERSION=v0.42.0" in dockerfile

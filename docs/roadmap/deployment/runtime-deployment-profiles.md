@@ -20,6 +20,8 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 
 Stewardship governance is runtime-profile neutral. With `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true` and no GitHub credentials, AKS and Container Apps both compose the Console-governed candidate publisher and merge-effects worker, and Terraform creates no webhook secret, GitHub secret reference, or Git host binding. Selecting a GitOps target adds them. Neither selection grants merge, IAM, approval, or execution authority.
 
+The Core and Cost Governance images build OPA with the same pinned Go toolchain in both runtime profiles. Selecting AKS or Container Apps never changes that toolchain, its builder digest, or the image scan that gates a pull request.
+
 ## Design at a glance
 
 The [local Release Hub](../../../lifecycle/release-hub/README.md) is a separate loopback-only vendor
