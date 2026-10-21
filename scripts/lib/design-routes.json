@@ -3693,6 +3693,7 @@
         "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py",
         "packages/deployment-cli/src/fdai_deployment_cli/standalone_host_state.py",
         "packages/deployment-cli/src/fdai_deployment_cli/standalone_host_values.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/standalone_kubernetes_tools.py",
         "packages/deployment-cli/tests/test_aks_*.py",
         "packages/deployment-cli/tests/test_catalog_review_profile.py",
         "packages/deployment-cli/tests/test_application_progress.py",

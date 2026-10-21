@@ -2154,6 +2154,7 @@ def test_aks_kubeconfig_uses_explicit_host_identity(tmp_path, monkeypatch, exist
         kubeconfig.write_text("generated kubeconfig")
 
     monkeypatch.setattr(standalone_host, "_run", run)
+    monkeypatch.setattr(standalone_host, "_run_env", run)
     reads = []
 
     def capture(command, **kwargs):
@@ -2182,7 +2183,7 @@ def test_aks_kubeconfig_uses_explicit_host_identity(tmp_path, monkeypatch, exist
             }
         )
 
-    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(standalone_host, "_capture_env", capture)
     assert (
         standalone_host._prepare_aks_kubeconfig(
             context, tmp_path, resource_group="example-group", cluster_name="example-cluster"
@@ -2233,6 +2234,7 @@ def test_aks_kubeconfig_fails_closed(tmp_path, monkeypatch, failure):
         kubeconfig.write_text("generated")
 
     monkeypatch.setattr(standalone_host, "_run", run)
+    monkeypatch.setattr(standalone_host, "_run_env", run)
     with pytest.raises((ValueError, OSError)):
         standalone_host._prepare_aks_kubeconfig(
             context, tmp_path, resource_group="example-group", cluster_name="example-cluster"
@@ -2282,7 +2284,12 @@ def test_aks_kubeconfig_readback_rejects_wrong_authentication(
         lambda *_args, **_kwargs: (tmp_path / "aks.kubeconfig").write_text("config"),
     )
     monkeypatch.setattr(
-        standalone_host, "_capture", lambda *_args, **_kwargs: json.dumps({"users": users})
+        standalone_host,
+        "_run_env",
+        lambda *_args, **_kwargs: (tmp_path / "aks.kubeconfig").write_text("config"),
+    )
+    monkeypatch.setattr(
+        standalone_host, "_capture_env", lambda *_args, **_kwargs: json.dumps({"users": users})
     )
     with pytest.raises(ValueError, match="AKS authentication"):
         standalone_host._prepare_aks_kubeconfig(
@@ -2757,7 +2764,7 @@ def test_aks_application_readback_requires_core_and_checks_the_rendered_profile_
         health_checks.append(kwargs)
         return True
 
-    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(standalone_host, "_capture_env", capture)
     monkeypatch.setattr(standalone_host.aks_readiness, "verify_workload_health", verify_health)
     context = {
         "runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-flex"},
@@ -2950,7 +2957,7 @@ def test_aks_deployment_capture_uses_typed_apps_collection(
         calls.append((command, kwargs))
         return '{"kind":"DeploymentList","items":[]}'
 
-    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(standalone_host, "_capture_env", capture)
     context = {"kubeconfig": str(kubeconfig), "kit_bin": str(kit_bin)}
 
     assert json.loads(standalone_host._capture_aks_deployments(context))["kind"] == (
