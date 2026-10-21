@@ -9,11 +9,13 @@ namespace, verifies the rollout, and rolls back on failure. See [Apply mode](#ap
 
 ## Boundary
 
-- No Azure client is imported. Only `kube.py` imports a Kubernetes client, and only `--apply`
-  loads it, so a dry run performs no write. `tests/test_no_write.py` proves this statically and in
+- No Azure client is imported. Only `kube.py` imports a Kubernetes client. Explicit `--apply`
+  or the read-only `reference-status` command loads it; a dry-run poll never does.
+  `tests/test_no_write.py` proves the poll boundary statically and in
   a fresh interpreter.
-- Only `hub_client.py` opens a network connection, and only outbound to the Hub. Plain HTTP is
+- Hub HTTP traffic is confined to `hub_client.py` and outbound Hub requests. Plain HTTP is
   accepted only for a loopback Hub, because the Lifecycle I0 Hub has no authentication.
+  Explicit Kubernetes apply/status requests use the independently selected local context.
 - The maximum effect envelope is derived locally. `--local-policy` sets the hard limit. The signed
   Release's `capabilities.<id>.maximum_mode` lowers each capability mode and drops any capability
   the Release doesn't name, and a `region` in the signed configuration narrows the regions. Neither
@@ -22,7 +24,8 @@ namespace, verifies the rollout, and rolls back on failure. See [Apply mode](#ap
   SHA-256 of the decoded `signed_payload`), and a summary string with counts only. Entity ids, digests,
   installation identifiers, and secrets stay inside the installation. A rejection reports only its
   reason, with a `null` digest and an empty summary.
-- Development test keys are generated outside the repository (#1947). Only public keys are read.
+- Development test keys are generated outside the repository (#1947). Signing verification uses
+  public keys. Optional full-revision decryption uses a separate private X25519 installation input.
 
 ## Poll order
 
@@ -91,6 +94,32 @@ the first 16 hex characters of the SHA-256 of the raw public key.
 The command prints one JSON result. It exits `0` when the poll finished and every required report
 was accepted, `1` when the Hub or local state failed, a report didn't land, or the agent is halted,
 and `2` for invalid configuration.
+
+## Full signed configuration revisions and CSI reports
+
+The actual `poll-once` entry point and `DirectoryArtifactStore` also consume unchanged
+`fdai.lifecycle-configuration-file.v1` containers carrying complete signed v2 revisions.
+Add independent private `--configuration-binding` and `--installation-encryption-key` inputs;
+missing prerequisites hold the new capability without changing legacy flat artifact behavior.
+The exact Release/schema, current active digest, already-managed Entity mapping, signature,
+recipient, authenticated sealed coverage and complete historical key bindings are verified before
+prepare. The package never supplies a trusted key. Decryption is installation-local.
+
+Each Entity reaches the existing renderer with its own values. The v2 demo supports 1-3 replicas;
+the Operator profile keeps the existing same-schema gate. Configuration cannot choose a namespace,
+image repository, component ownership or capability mode. Rendered reference names can persist
+only in private installation state, never reports or public output. Existing dry-run, approval,
+fencing, expiry, report, rollback and restart safeguards remain required.
+
+The explicit read-only `reference-status` command reads exact CSI/Pod/provider metadata through
+the existing Kubernetes adapter. It reports source/version/Entity/freshness, never secret values.
+`reported-mounted` is a driver report, not independent verification of secret usability. Missing
+source bindings remain unavailable; fixtures cannot qualify a real Key Vault/CSI installation.
+
+See [Installation Agent configuration inputs](../../docs/runbooks/installation-agent-configuration.md)
+([Korean](../../docs/runbooks/installation-agent-configuration-ko.md)) for exact private formats,
+compatibility, bounds and unavailable/stale/conflict states. No live onboarding, authenticated
+artifact synchronization, Agent rollout or production trust is established by source tests.
 
 ## Apply mode
 
@@ -237,7 +266,8 @@ namespace by hand, then remove the halt file.
 
 ### Limits
 
-- The default demo remains one fixed replica. The Operator profile supports 1-3 replicas with
+- The legacy demo remains one fixed replica. Full v2 Entity values and the Operator profile
+  support 1-3 replicas with
   fixed resource bounds and reference-only configuration; neither path renders a Pod disruption
   budget, autoscaler, ConfigMap, or Secret.
 - The agent doesn't read the cluster to build the current state. It trusts `--current-state` and

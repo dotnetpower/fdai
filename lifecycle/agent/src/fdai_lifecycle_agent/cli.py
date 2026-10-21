@@ -22,10 +22,13 @@ from fdai_lifecycle_agent.agent import (
     HubTrust,
     LifecycleAgent,
 )
+from fdai_lifecycle_agent.configuration_revision import load_full_revision_binding
 from fdai_lifecycle_agent.dry_run import load_current_state
 from fdai_lifecycle_agent.hub_client import HttpHubClient, HubProtocolError
 from fdai_lifecycle_agent.inputs import DirectoryArtifactStore
 from fdai_lifecycle_agent.journal import WorkloadStore
+from fdai_lifecycle_agent.reference_cli import register_reference_command, run_reference_command
+from fdai_lifecycle_agent.reference_state import ReferenceStatusSource
 from fdai_lifecycle_agent.signatures import (
     Ed25519ArtifactVerifier,
     Ed25519HubKeyring,
@@ -60,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Hub-managed lifecycle agent. Dry-runs a Plan unless --apply is given.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
+    register_reference_command(commands)
     poll = commands.add_parser(
         "poll-once", help="Fetch one Plan, admit it, dry-run it, and report the result."
     )
@@ -77,6 +81,16 @@ def build_parser() -> argparse.ArgumentParser:
     poll.add_argument("--fencing-generation", required=True, type=int)
     poll.add_argument("--release-public-key", required=True, type=Path)
     poll.add_argument("--configuration-public-key", required=True, type=Path)
+    poll.add_argument(
+        "--configuration-binding",
+        type=Path,
+        help="Independent private active revision/Entity/history binding.",
+    )
+    poll.add_argument(
+        "--installation-encryption-key",
+        type=Path,
+        help="Independent private X25519 installation key; never an identity key.",
+    )
     poll.add_argument(
         "--inputs-dir",
         required=True,
@@ -122,12 +136,21 @@ def _connect_cluster(context: str, namespace: str) -> Cluster:
     return KubernetesCluster(context=context, namespace=namespace)
 
 
+def _connect_reference_source(context: str, namespace: str) -> ReferenceStatusSource:
+    from fdai_lifecycle_agent.kube import KubernetesCluster
+
+    return KubernetesCluster(context=context, namespace=namespace)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
     clock: Callable[[], datetime] = _utc_now,
     connect_hub: Callable[[str, float], HttpHubClient] = _connect_hub,
     connect_cluster: Callable[[str, str], Cluster] = _connect_cluster,
+    connect_reference_source: Callable[
+        [str, str], ReferenceStatusSource
+    ] = _connect_reference_source,
 ) -> int:
     """Run the command. ``clock``, ``connect_hub``, and ``connect_cluster`` are seams for tests;
     defaults are real."""
@@ -137,6 +160,8 @@ def main(
     logging.getLogger("httpx").setLevel(logging.WARNING)
     parser = build_parser()
     arguments = parser.parse_args(argv)
+    if arguments.command == "reference-status":
+        return run_reference_command(arguments, clock=clock, connect=connect_reference_source)
     if arguments.apply and not (arguments.kube_context and arguments.namespace):
         parser.error("--apply requires --kube-context and --namespace")
     try:
@@ -157,6 +182,13 @@ def main(
         configuration_verifier = Ed25519ArtifactVerifier.from_file(
             arguments.configuration_public_key
         )
+        binding = None
+        if arguments.configuration_binding and arguments.installation_encryption_key:
+            binding = load_full_revision_binding(
+                arguments.configuration_binding,
+                arguments.installation_encryption_key,
+                arguments.configuration_public_key,
+            )
         # Fail fast as a configuration error; each poll then reads the current state again.
         load_current_state(arguments.current_state)
         if arguments.apply:
@@ -192,6 +224,7 @@ def main(
             read_current_state=partial(load_current_state, arguments.current_state),
             clock=clock,
             apply=apply,
+            configuration_binding=binding,
         )
         try:
             result = LifecycleAgent(settings, dependencies).poll_once()

@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 9cf9e6c7d80ac75c69cdaade39e59651ccc26b1e
+translation_source_sha: ee9458cbb8c5274f88ee10b7aaaeb7ec59229b36
 translation_revised: 2026-10-21
 ---
 # Hub 관리형 수명 주기
@@ -41,6 +41,29 @@ Lifecycle Hub가 사용하는 릴리스 목록, 데이터 또는 피드인 **Rel
 | 업그레이드 | 유지 관리 구간 안에서 자동으로 적용합니다. 구성 변경에는 승인된 변경 요청이, Azure 리소스 삭제나 교체에는 확인이 필요합니다. |
 | 데이터 경계 | Hub는 고객 워크로드의 자격 증명이나 운영 데이터를 보관하지 않습니다. Hub 자체의 제한된 서비스 ID와 서명 키는 고객 리소스를 변경할 권한을 주지 않습니다. 경계를 넘는 것은 수명 주기 메타데이터뿐입니다. |
 | 기록 | cell이나 Target Hub마다 Hub PostgreSQL을 두고, 설치 증적은 Foundation 스토리지에 추가 전용으로 남깁니다. |
+
+## 설치 Agent 구성 소스 소비 경로
+
+기존 `fdai-lifecycle-agent poll-once` 진입점과 디렉터리 산출물 저장소는 원래 서명된
+v2 전체 구성 컨테이너를 받습니다. 독립적인 설치 로컬 공개 키, X25519 비공개 입력,
+활성 개정 및 Entity/이력 결합 정보는 Hub 전송과 분리합니다. Agent는 Plan, 정확한
+Release/스키마, 패키지와 전체 이력을 검증한 뒤 복호화하고 각 Entity의 값을 기존
+렌더러에 전달합니다. 선행 조건이 없으면 이 기능만 보류하며 기존 평면 산출물과 기본
+사전 실행 동작은 유지합니다.
+[구성 소유 문서](lifecycle-configuration-ko.md#설치-agent-소비-경로-설계와-비평)는
+구현 전 비평과 개인정보 보호 경계를 기록합니다.
+
+명시적인 읽기 전용 `reference-status` 명령은 기존 Kubernetes 전송 경로로 정확한
+CSI/Pod/공급자 메타데이터를 검사하고 Entity, 출처 버전과 최신성을 명시합니다.
+가장 강한 긍정 결과도 `reported-mounted`이며 비밀값의 사용 가능성을 검증한 결과가
+아닙니다. Kubernetes Secret 데이터나 마운트된 파일은 읽지 않으며 출처 결합이 없으면
+사용 불가 상태를 유지합니다. 로컬 입력은
+[설치 가이드](../../runbooks/installation-agent-configuration-ko.md)를 참조하세요.
+
+이는 구현된 소스와 로컬 합성 테스트 근거뿐입니다. 실제 등록, 산출물 전달, CSI 공급자
+결합, Agent 배포, 운영 효과 증적 또는 운영 적격성을 주장하지 않습니다.
+Hub 가져오기, 변경 승인, 활성화, 서명된 Plan 허용 심사와 로컬 실행 안전장치는
+별도 결정으로 유지합니다.
 
 ## 기존 결합형 개발 검증 구성
 

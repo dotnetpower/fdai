@@ -97,6 +97,24 @@ class WorkloadStore:
         }
         self._write(self._path, document, "workload state")
 
+    def require_private(self) -> None:
+        """V2 rendering may persist private reference names, never into a public directory."""
+        from fdai_deployment_cli.private_output import read_private_bytes
+
+        from fdai_lifecycle_agent.workload import WorkloadError
+
+        try:
+            # The helper validates every ancestor and the held private parent even when the
+            # first journal file does not exist yet.
+            read_private_bytes(self._path.absolute(), max_bytes=_MAX_BYTES)
+        except FileNotFoundError:
+            if not self._path.parent.is_dir():
+                raise WorkloadError(
+                    "configuration_private_state_unavailable", retryable=True
+                ) from None
+        except (OSError, ValueError):
+            raise WorkloadError("configuration_private_state_unavailable", retryable=True) from None
+
     def halted_plan_id(self) -> str | None:
         """Return the Plan whose rollback failed, or ``None``. A bad marker still halts."""
 

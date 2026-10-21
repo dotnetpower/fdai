@@ -13,7 +13,9 @@ layers, and the signed configuration package.
 > explicit in-memory Hub planning consumption are implemented, together with a placeholder repository
 > template and key-custody runbook. Authenticated public-key registration/rotation and durable
 > key-bound Hub planning, atomic signed-package import, independent scope/change approval and
-> durable activated-revision consumption are implemented for local verification. Actual onboarding
+> durable activated-revision consumption are implemented for local verification. The existing
+> installation Agent entry point also consumes full v2 artifacts with local decryption and
+> per-Entity rendering, and has a read-only CSI metadata adapter. Actual onboarding
 > and operational Agent delivery remain open. The
 > [implementation ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md)
 > tracks delivery.
@@ -317,6 +319,74 @@ would self-admit it, so a separate verification-key input is mandatory. Explicit
 retained-head assertions prevent accidental history omission; they cannot prove that the caller
 supplied the latest durable head or serialize concurrent builds. Qualified Release admission,
 key registration/rotation, atomic Hub import and activation remain separate governed work.
+
+## Installation Agent consumer: design and critique
+
+This source increment extends the existing `fdai-lifecycle-agent poll-once` artifact path.
+It does not enroll an installation, distribute keys, activate a revision, or add an apply mode.
+The configuration remains subordinate to the signed Plan and installation-local hard policy.
+
+### Compatibility and independent inputs
+
+- The existing Agent accepts a complete `fdai.runtime-release.v3` manifest, not a Release Hub
+  export or an offline kit. That manifest has no top-level semantic Release ID. For v2
+  configuration, the independently verified manifest's `configuration_schema.release_version`
+  binds the Plan's Release ID; its canonical digest binds the manifest. Without that optional
+  schema capability, the full-revision consumer holds instead of guessing compatibility.
+- `configurations/<package-digest>.json` can contain the unchanged
+  `fdai.lifecycle-configuration-file.v1` container produced by `fdaictl configuration build`.
+  The digest names its original signed payload, not the wrapper. Legacy flat documents and
+  detached `.sig` files keep their existing path. Container inputs use private-file readers.
+- The existing local configuration verification key remains independent of package bytes.
+  An optional private `--configuration-binding` input pins the installation, active package
+  digest, one-to-one map from already-managed Entity IDs to opaque bindings, sealed-key names,
+  and the complete ancestor digests with their historical public-key files and recipient
+  digests. An independent private `--installation-encryption-key` is X25519, never the
+  installation's Ed25519 identity. Neither file is obtained from the artifact directory or Hub.
+  This is a local provisioning input, not a new approval workflow or proof of production trust.
+  The existing Hub independent import/change approval and signed Plan admission remain required.
+
+### Verification, rendering and privacy
+
+Before preparing any change, verify Plan admission, exact active package digest, full Entity
+coverage, current independent signer/recipient, complete ordered history with acceptance-time
+keys, exact Release version/manifest/schema, and authenticated sealed identifier coverage.
+Missing bindings, encryption input or schema capability produce retryable unavailable outcomes;
+invalid or substituted bytes are rejected without prepare, journal or cluster effects.
+
+Resolve every Entity separately. Regions intersect the existing local/Release envelope for
+every selected Entity. Only the existing demo and same-schema Operator renderer shapes are
+supported; configuration cannot supply a namespace, image repository, component ownership,
+capability mode or grant. The demo profile may set bounded replicas independently per Entity.
+Operator profile checks run on its own Entity values. Cross-Entity object-name collisions hold.
+Sealed identifiers are available only to the installation's in-memory render inputs; only
+supported reference fields reach rendered objects. Rendered private references require a private
+installation journal. Reports, current-state snapshots and logs never contain decrypted values.
+The existing dry run, lock, two-phase reports, rollback, deadline and restart journal remain.
+
+### CSI reference state
+
+A separate read-only Agent command reads exactly named `SecretProviderClassPodStatus`, Pod and
+`SecretProviderClass` objects through the existing Kubernetes mechanical transport, bounded to
+one namespace. Independently supplied references pin Entity, Pod UID, class, object ID and
+expected secret version. The adapter never requests a Secret or mounted file.
+Provider status and resource versions are source-attributed reports, not independent proof that a
+secret value is usable. Missing bindings/source yield unavailable; absent timestamp yields unknown;
+old timestamps yield stale; differing Pod/class/Entity/version yields conflict. Even a fresh
+`mounted` report is only reported state, never operational secret-resolution qualification.
+Tests with synthetic objects demonstrate wiring only, not real Key Vault or CSI operation.
+
+### Critique and revision before implementation
+
+Parsing v2 as the legacy flat document would silently lose Entity isolation. Reusing the first
+Entity's values or inferring trust from a wrapper key would widen authority. Therefore exact
+independent coverage and per-Entity rendering are required, and the wrapper contains no key.
+Revalidating ancestors with today's recipient/signer breaks rotation, so each ancestor retains
+its own verification binding without current permission. A signed configuration is not a
+change approval: the signed admitted Plan and the independently retained active digest remain
+separate prerequisites. File presence and CSI `mounted=true` cannot establish secret resolution;
+the reader retains reported-only provenance and never opens secret data. Existing journals can
+contain rendered reference names, so private state is checked before v2 preparation.
 
 ## Secrets
 

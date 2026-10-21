@@ -10,12 +10,13 @@ derived maximum envelope.
 
 from __future__ import annotations
 
+import base64
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal, Protocol, cast, get_args
+from typing import TYPE_CHECKING, Literal, Protocol, cast, get_args
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.lifecycle_configuration import (
@@ -28,7 +29,12 @@ from fdai_deployment_cli.lifecycle_plan import (
     LifecycleEffectEnvelope,
     LifecyclePlan,
 )
-from fdai_deployment_cli.runtime_release import RuntimeReleaseError, parse_runtime_release_manifest
+from fdai_deployment_cli.private_output import read_private_bytes
+from fdai_deployment_cli.runtime_release import (
+    ConfigurationSchema,
+    RuntimeReleaseError,
+    parse_runtime_release_manifest,
+)
 
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
@@ -98,8 +104,9 @@ class ArtifactStore(Protocol):
 class DirectoryArtifactStore:
     """Read ``releases/<digest>.json`` and ``configurations/<digest>.json`` below one root.
 
-    Each document has a sibling ``<digest>.sig`` file with the raw Ed25519 signature. A missing
-    signature file yields an unsigned artifact so the caller can reject it explicitly.
+    Legacy documents use a sibling ``<digest>.sig`` raw Ed25519 signature. A missing signature
+    yields an unsigned artifact for explicit rejection. Configuration CLI containers instead
+    carry their detached signature internally and require the existing private-file checks.
     """
 
     def __init__(self, root: Path) -> None:
@@ -109,9 +116,33 @@ class DirectoryArtifactStore:
         if _HEX_DIGEST.fullmatch(digest) is None:
             return None
         directory = self._root / f"{kind}s"
-        payload = _read_optional(directory / f"{digest}.json")
+        payload = _read_optional(
+            directory / f"{digest}.json",
+            limit=2 * MAX_INPUT_BYTES if kind == "configuration" else MAX_INPUT_BYTES,
+        )
         if payload is None:
             return None
+        if kind == "configuration":
+            try:
+                document = load_json(payload, label="configuration artifact")
+            except ValueError:
+                # A legacy artifact remains opaque until its detached signature is checked.
+                document = None
+            if isinstance(document, dict) and document.get("format") == (
+                "fdai.lifecycle-configuration-file.v1"
+            ):
+                private_payload = read_private_bytes(
+                    directory / f"{digest}.json", max_bytes=2 * MAX_INPUT_BYTES
+                )
+                if private_payload != payload:
+                    raise ValueError("configuration artifact changed")
+                if set(document) != {"format", "payload", "signature"}:
+                    raise ValueError("configuration artifact fields are invalid")
+                raw = base64.b64decode(document["payload"], validate=True)
+                container_signature = base64.b64decode(document["signature"], validate=True)
+                if len(raw) > MAX_INPUT_BYTES or len(container_signature) != 64:
+                    raise ValueError("configuration artifact size is invalid")
+                return SignedArtifact(raw, container_signature)
         signature = _read_optional(directory / f"{digest}.sig")
         return SignedArtifact(payload=payload, signature=signature or b"")
 
@@ -126,6 +157,7 @@ class VerifiedRelease:
     schema_target: int | None = None
     schema_minimum: int | None = None
     schema_maximum: int | None = None
+    configuration_schema: ConfigurationSchema | None = None
 
     def maximum_envelope(self, local: LifecycleEffectEnvelope) -> LifecycleEffectEnvelope:
         """Return the maximum envelope derived from local hard policy and this signed Release.
@@ -165,14 +197,17 @@ class VerifiedConfiguration:
     """A signature-verified configuration package, resolved for the target Release."""
 
     digest: str
-    values: Mapping[str, object]
+    values: Mapping[str, object] = field(repr=False)
+    entity_values: Mapping[str, Mapping[str, object]] = field(default_factory=dict, repr=False)
+    render_values: Mapping[str, Mapping[str, object]] = field(default_factory=dict, repr=False)
 
     def narrow(self, envelope: LifecycleEffectEnvelope) -> LifecycleEffectEnvelope:
         """Narrow ``envelope`` by the configured Azure region. Configuration never widens it."""
 
-        match self.values.get(REGION_KEY):
-            case str(region):
-                return replace(envelope, regions=envelope.regions & {region})
+        for values in self.entity_values.values() if self.entity_values else (self.values,):
+            match values.get(REGION_KEY):
+                case str(region):
+                    envelope = replace(envelope, regions=envelope.regions & {region})
         return envelope
 
 
@@ -201,11 +236,18 @@ def verify_release(
         schema_target=release.schema_target,
         schema_minimum=None if release.schema_range is None else release.schema_range.minimum,
         schema_maximum=None if release.schema_range is None else release.schema_range.maximum,
+        configuration_schema=release.configuration_schema,
     )
 
 
 def verify_configuration(
-    plan: LifecyclePlan, store: ArtifactStore, verify_signature: ArtifactVerifier
+    plan: LifecyclePlan,
+    store: ArtifactStore,
+    verify_signature: ArtifactVerifier,
+    *,
+    full_revision: FullRevisionBinding | None = None,
+    release: VerifiedRelease | None = None,
+    managed_entities: frozenset[str] = frozenset(),
 ) -> VerifiedConfiguration:
     """Verify the Plan's configuration package and resolve it for the target Release.
 
@@ -220,6 +262,17 @@ def verify_configuration(
         document = load_json(payload, label="configuration")
     except ValueError as error:
         raise InputRejectedError("configuration", InputProblem.MALFORMED) from error
+    if isinstance(document, dict) and document.get("format") == (
+        "fdai.lifecycle-configuration-package.v2"
+    ):
+        if full_revision is None or release is None or release.configuration_schema is None:
+            raise InputRejectedError("configuration", InputProblem.UNAVAILABLE)
+        try:
+            return full_revision.consume(
+                plan, SignedArtifact(payload, b""), store, release, managed_entities
+            )
+        except (ValueError, TypeError) as error:
+            raise InputRejectedError("configuration", InputProblem.MALFORMED) from error
     if not isinstance(document, dict) or set(document) != _CONFIGURATION_KEYS:
         raise InputRejectedError("configuration", InputProblem.MALFORMED)
     if canonical_digest(document) != plan.configuration_revision_digest:
@@ -262,11 +315,11 @@ def _verified_payload(
     store: ArtifactStore,
     verify_signature: ArtifactVerifier,
 ) -> bytes:
-    """Load the artifact and verify its signature over the exact bytes; nothing is parsed yet."""
+    """Verify exact signed payload bytes; the store may decode a bounded outer container."""
 
     try:
         artifact = store.load(kind, expected_digest)
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, TypeError) as error:
         raise InputRejectedError(kind, InputProblem.UNREADABLE) from error
     if artifact is None:
         raise InputRejectedError(kind, InputProblem.UNAVAILABLE)
@@ -293,8 +346,12 @@ def _component_images(catalog: Mapping[str, object]) -> dict[str, str]:
     return images
 
 
-def _read_optional(path: Path) -> bytes | None:
+def _read_optional(path: Path, *, limit: int = MAX_INPUT_BYTES) -> bytes | None:
     try:
-        return read_limited(path, limit=MAX_INPUT_BYTES, label=path.name)
+        return read_limited(path, limit=limit, label=path.name)
     except FileNotFoundError:
         return None
+
+
+if TYPE_CHECKING:
+    from fdai_lifecycle_agent.configuration_revision import FullRevisionBinding
