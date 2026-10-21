@@ -25,7 +25,7 @@ export const homeCopy = {
     outcomes: [
       { id: "change", domain: "Change Safety", title: "Understand a change before it runs.", text: "Review proposed changes against policy, impact scope, and rollback readiness. Keep the decision and its evidence together.", link: "capabilities/change-safety/", action: "Explore change safety" },
       { id: "resilience", domain: "Resilience", title: "Make recovery a practiced capability.", text: "Connect incidents with their dependencies and evidence. Use bounded recovery actions and drills to assess readiness.", link: "capabilities/resilience/", action: "Explore resilience" },
-      { id: "cost", domain: "Cost Governance", title: "Give every cost decision context.", text: "Investigate spending anomalies and right-sizing opportunities. Review the evidence before an eligible change is allowed to run.", link: "capabilities/cost-governance/", action: "Explore cost governance" },
+      { id: "cost", domain: "Cost Governance", title: "Give every cost decision context.", text: "Investigate cost anomalies and right-sizing opportunities. Review the evidence before an eligible change is allowed to run.", link: "capabilities/cost-governance/", action: "Explore cost governance" },
     ],
     availability: "Available actions depend on connected evidence, configured policies, and each action's promotion state.",
     methodLabel: "HOW IT WORKS",
@@ -94,7 +94,7 @@ export const homeCopy = {
     outcomes: [
       { id: "change", domain: "변경 안전성", title: "실행 전에 변경 영향을 파악합니다", text: "제안된 변경의 정책 적합성, 영향 범위, 롤백 준비 상태를 검토합니다. 결정과 판단 근거를 함께 기록합니다.", link: "capabilities/change-safety/", action: "변경 안전성 살펴보기" },
       { id: "resilience", domain: "복원력", title: "훈련을 통해 복구 역량을 강화합니다.", text: "인시던트를 관련 의존 관계와 근거에 연결합니다. 범위가 제한된 복구 작업과 훈련으로 준비 상태를 평가합니다.", link: "capabilities/resilience/", action: "복원력 살펴보기" },
-      { id: "cost", domain: "비용 거버넌스", title: "비용 결정에 필요한 맥락을 제공합니다.", text: "비정상적인 지출과 리소스 규모 최적화 기회를 조사합니다. 변경 실행을 허용하기 전에 관련 근거를 검토합니다.", link: "capabilities/cost-governance/", action: "비용 거버넌스 살펴보기" },
+      { id: "cost", domain: "비용 거버넌스", title: "비용 결정에 필요한 맥락을 제공합니다.", text: "비용 이상과 리소스 규모 최적화 기회를 조사합니다. 변경 실행을 허용하기 전에 관련 근거를 검토합니다.", link: "capabilities/cost-governance/", action: "비용 거버넌스 살펴보기" },
     ],
     availability: "사용 가능한 작업은 연결된 근거, 설정된 정책, 각 작업의 적용 전환 상태에 따라 달라집니다.",
     methodLabel: "동작 원리",

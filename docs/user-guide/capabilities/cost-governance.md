@@ -1,6 +1,6 @@
 ---
 title: Cost Governance
-description: How FDAI detects spend anomalies, recommends right-sizing, and runs the low-risk cleanup on its own, while risky cost changes wait for approval.
+description: How FDAI detects cost anomalies, recommends right-sizing, and runs the low-risk cleanup on its own, while risky cost changes wait for approval.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
     sha: d67f4fdd18f99eb8a755286c43fb9138a41e8603
@@ -10,7 +10,7 @@ derives_from:
 
 # Cost Governance
 
-FDAI watches your cloud spend the way it watches everything else. Detection is
+FDAI watches your cloud costs the way it watches everything else. Detection is
 deterministic first, autonomous action covers only the low-risk majority, and
 anything that could hurt waits for human approval. FDAI finds waste, proposes
 right-sizing, and cleans up the safe subset on its own. Changes with a real impact
@@ -18,7 +18,7 @@ scope wait for you.
 
 ## What you get
 
-- **Spend anomaly detection.** A cost signal that drifts from the expected
+- **Cost anomaly detection.** A cost signal that drifts from the expected
   baseline raises a detected issue. Detection runs in observation mode and never
   acts on its own.
 - **Right-sizing recommendations.** FDAI flags an over-provisioned resource with a

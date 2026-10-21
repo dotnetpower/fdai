@@ -2,8 +2,8 @@
 title: SRE 기초(SRE foundations)
 description: FDAI가 자동화하는 핵심 SRE 기능과 각 기능이 컨트롤 루프, 에이전트, 세 가지 운영 영역에 어떻게 연결되는지 설명합니다.
 translation_of: sre-foundations.md
-translation_source_sha: 8a70fde8c1708ef21e7c55ebce00d537d903df57
-translation_revised: 2026-08-11
+translation_source_sha: f3fe32cfbd7dc2741f9ebcf02452a06c645e02b5
+translation_revised: 2026-10-22
 sidebar:
   order: 1
 ---
@@ -29,7 +29,7 @@ FDAI는 **사이트 신뢰성 엔지니어링(Site Reliability Engineering, SRE)
 | 인시던트 탐지와 대응 | 각 신호를 신뢰도로 라우팅하고, 판정을 내리고, 실행하거나 에스컬레이션 | trust-router, Forseti |
 | 변경 관리 | 제안된 모든 변경을 배포 전 policy-as-code에 대해 게이트 | 변경 안전성 |
 | 용량과 성능 | 사이징 격차를 탐지하고 측정된 수요에 맞춘 승격된 스케일 액션을 제안 또는 실행 | Freyr, 비용 거버넌스 |
-| 비용과 효율 | 지출 이상을 탐지하고 승격된 낭비 제거 후보를 평가 | Njord, 비용 거버넌스 |
+| 비용과 효율 | 비용 이상을 탐지하고 승격된 낭비 제거 후보를 평가 | Njord, 비용 거버넌스 |
 | 신뢰성과 재해 복구 | 승격된 DR 훈련, DB 복원 훈련, 범위가 제한된 카오스 실험을 계획 및 실행 | 복원력, Loki, Vidar |
 | 토일 제거 | 검증된 반복 사례를 수동 처리에서 결정론 규칙으로 전환 | deterministic-first |
 | 포스트모템과 학습 | 모든 액션에 추가 전용 감사 기록을 남기고 운영 신호에서 카탈로그 갱신 제안 | Saga, Norns |

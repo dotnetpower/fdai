@@ -65,7 +65,7 @@ restore meets the target RPO and RTO -> the audit entry is recorded.
 
 ### Cost Governance
 
-Spend anomaly detection, right-sizing recommendations, and automatic execution of
+Cost anomaly detection, right-sizing recommendations, and automatic execution of
 the low-risk subset such as idle disk cleanup, unused public IP release, and
 orphan NIC removal.
 

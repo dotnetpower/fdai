@@ -97,8 +97,8 @@ See [Readiness states](#readiness-states) for badge meanings, or select a functi
 | **F06. Govern changes and architecture** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 2/3</span> | [F06.1 Proposed-change assessment](functional-readiness.md#f06-1) | Inspect proposed infrastructure and configuration changes, evaluate policy and risk, and present pre-change simulation and rollback evidence. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F06.2 Drift and policy compliance](functional-readiness.md#f06-2) | Detect configuration drift and control gaps, retain exceptions and evidence, and propose governed corrections. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F06.3 Architecture and readiness review](functional-readiness.md#f06-3) | Assemble Architecture Review Board (ARB) evidence, assess architectural constraints, and check ownership and operational readiness before handover or promotion. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-| **F07. Govern cost** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 4/4</span> | [F07.1 Cost visibility and allocation](functional-readiness.md#f07-1) | Associate spend and utilization with resources and services, identify allocation gaps, and explain source coverage. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
-| | [F07.2 Budgets and forecasts](functional-readiness.md#f07-2) | Compare spend with budgets and baselines, detect anomalies, and forecast costs with stated assumptions. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+| **F07. Govern cost** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 4/4</span> | [F07.1 Cost visibility and allocation](functional-readiness.md#f07-1) | Associate costs and utilization with resources and services, identify allocation gaps, and explain source coverage. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+| | [F07.2 Budgets and forecasts](functional-readiness.md#f07-2) | Compare costs with budgets and baselines, detect anomalies, and forecast costs with stated assumptions. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 | | [F07.3 Optimization planning](functional-readiness.md#f07-3) | Recommend resource sizing and cleanup, assess reliability and capacity trade-offs, and route eligible actions through approval and execution. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 | | [F07.4 Realized savings](functional-readiness.md#f07-4) | Verify utilization and cost effects against comparable baseline and treatment periods; distinguish estimated savings from realized savings. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 
@@ -258,7 +258,7 @@ does not prove complete implementation coverage.
 | **SRE operations** | Observe availability and performance, assess incidents and service objectives, and verify recovery. SRE is the overall operating model. |
 | **Resilience** | Assess backup and recovery readiness and govern disaster-recovery drills, restore, failover, and separately authorized Chaos experiments. |
 | **Change safety** | Assess proposed changes, configuration drift, policy compliance, and architecture constraints before and after a change. |
-| **Cost governance** | Observe spend and utilization, detect anomalies, propose optimization, and verify the effects of approved changes. |
+| **Cost governance** | Observe costs and utilization, detect anomalies, propose optimization, and verify the effects of approved changes. |
 
 ## Coverage and owner references
 
