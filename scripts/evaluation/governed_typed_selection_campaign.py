@@ -45,11 +45,11 @@ from fdai.core.ontology_platform.typed_selection_contracts import (
 )
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.catalog_search.ontology_governed_selection_campaign import (
-    WINDOW_CASE_SET_V2,
+    WINDOW_CASE_SET_V3,
     GovernedLatencyObservation,
-    GovernedLatencyProtocolV2,
+    GovernedLatencyProtocolV3,
     GovernedWindowDecision,
-    GovernedWindowProtocolV2,
+    GovernedWindowProtocolV3,
     evaluate_governed_latency,
     evaluate_governed_window,
 )
@@ -91,9 +91,9 @@ from scripts.evaluation.typed_selection_runtime_campaign import (
 
 _PROTOCOL_DIGEST = content_digest(
     {
-        "latency": "governed-typed-selection-answer-latency.v2",
-        "window": "governed-typed-selection-answer-window.v2",
-        "case_set": WINDOW_CASE_SET_V2,
+        "latency": "governed-typed-selection-answer-latency.v3",
+        "window": "governed-typed-selection-answer-window.v3",
+        "case_set": WINDOW_CASE_SET_V3,
     }
 )
 
@@ -168,7 +168,7 @@ def load_cases() -> tuple[Case, ...]:
             language=item["cohort"].split("-", 1)[0],
             expected=frozenset(item["expected_document_ids"]),
         )
-        for item in _load(WINDOW_CASE_SET_V2)["cases"]
+        for item in _load(WINDOW_CASE_SET_V3)["cases"]
     )
 
 
@@ -500,7 +500,7 @@ def judge(rows: Sequence[Mapping[str, object]], lag: Sequence[float]) -> dict[st
             for row in rows
         ],
         lag,
-        protocol=GovernedLatencyProtocolV2(),
+        protocol=GovernedLatencyProtocolV3(),
     )
     window = evaluate_governed_window(
         [
@@ -513,7 +513,7 @@ def judge(rows: Sequence[Mapping[str, object]], lag: Sequence[float]) -> dict[st
             )
             for row in rows
         ],
-        protocol=GovernedWindowProtocolV2(),
+        protocol=GovernedWindowProtocolV3(),
     )
     return {
         "latency": asdict(latency) | {"passed": latency.passed},
@@ -527,10 +527,11 @@ async def main() -> int:
     parser.add_argument("--label", required=True)
     parser.add_argument("--runtime-env", type=Path)
     parser.add_argument("--fake", action="store_true")
+    parser.add_argument("--protocol", choices=("v1", "v2", "v3"), default="v2")
     args = parser.parse_args()
     if args.fake == (args.runtime_env is not None):
         parser.error("choose exactly one of --fake or --runtime-env")
-    if not args.fake:
+    if not args.fake and args.protocol != "v3":
         parser.error(
             "governed v1/v2 windows are spent; live qualification requires a fresh independently "
             "authored, reviewed and deduplicated protocol"

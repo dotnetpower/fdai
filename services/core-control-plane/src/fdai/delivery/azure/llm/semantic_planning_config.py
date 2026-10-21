@@ -126,7 +126,16 @@ def candidate_proposal_binding(
 ) -> OntologyCandidateModelBinding:
     if len(config.candidates) != 1 or config.plan_prompt_manifest is None:
         raise ValueError("candidate proposal binding requires one target and a prompt")
-    schema = proposal_schema(OntologyCandidateProposal, manifest=manifest, build=build)
+    pages = partition_candidate_build_pages(manifest=manifest, build=build)
+    schemas = tuple(
+        proposal_schema(OntologyCandidateProposal, manifest=manifest, build=page) for page in pages
+    )
+    schema = max(schemas, key=estimate_prompt_tokens)
+    response_format: object = (
+        candidate_proposal_response_format(manifest=manifest, build=pages[0])
+        if len(pages) == 1
+        else [candidate_proposal_response_format(manifest=manifest, build=page) for page in pages]
+    )
     target = candidate_proposal_request_target(config.candidates[0])
     prompt = transmitted_prompt_manifest(
         config.plan_prompt_manifest,
@@ -145,10 +154,7 @@ def candidate_proposal_binding(
                     temperature=0.0,
                     max_tokens=config.max_tokens,
                 ),
-                "response_format": candidate_proposal_response_format(
-                    manifest=manifest,
-                    build=build,
-                ),
+                "response_format": response_format,
                 "reasoning_effort": reasoning_effort_for_target(config, target),
                 "quote_policy": quote_policy(),
                 "timeout_seconds": config.timeout_seconds,
@@ -490,6 +496,91 @@ def strict_candidate_proposal_schema(
 
 # Azure OpenAI structured outputs reject schemas above this total; hold before dispatch.
 _MAX_STRUCTURED_ENUM_VALUES = 500
+_MAX_PAGE_INSTANCES = 300
+_MAX_PAGE_INSTANCE_BYTES = 96 * 1024
+
+
+def partition_candidate_build_pages(
+    *,
+    manifest: QueryManifest | None = None,
+    build: SemanticGenerationBuild | None = None,
+) -> tuple[SemanticGenerationBuild | None, ...]:
+    """Partition large instance builds into deterministic pages that fit the 500-enum ceiling."""
+    if build is None:
+        strict_candidate_proposal_schema(manifest=manifest, build=None)
+        return (None,)
+    paired = tuple(zip(build.documents, build.document_digests, strict=True))
+    non_instances = tuple(item for item in paired if not item[0].rule_id.startswith("object:"))
+    instances = tuple(item for item in paired if item[0].rule_id.startswith("object:"))
+    if not instances:
+        strict_candidate_proposal_schema(manifest=manifest, build=build)
+        return (build,)
+
+    def _slice_build(slice_items: tuple[tuple[Any, str], ...]) -> SemanticGenerationBuild:
+        selected_ids = {item[0].rule_id for item in non_instances} | {
+            item[0].rule_id for item in slice_items
+        }
+        return SemanticGenerationBuild(
+            metadata=build.metadata,
+            documents=tuple(doc for doc, _ in paired if doc.rule_id in selected_ids),
+            document_digests=tuple(dig for doc, dig in paired if doc.rule_id in selected_ids),
+            reused_document_count=0,
+        )
+
+    total_instance_bytes = sum(len(item[0].text.encode("utf-8")) for item in instances)
+    if len(instances) <= _MAX_PAGE_INSTANCES and (
+        len(instances) == 1 or total_instance_bytes <= _MAX_PAGE_INSTANCE_BYTES
+    ):
+        try:
+            strict_candidate_proposal_schema(manifest=manifest, build=build)
+            return (build,)
+        except ValueError:
+            pass
+
+    pages: list[SemanticGenerationBuild] = []
+    offset = 0
+    total = len(instances)
+    while offset < total:
+        max_count = min(_MAX_PAGE_INSTANCES, total - offset)
+        count = 1
+        running_bytes = len(instances[offset][0].text.encode("utf-8"))
+        while count < max_count:
+            next_bytes = len(instances[offset + count][0].text.encode("utf-8"))
+            if running_bytes + next_bytes > _MAX_PAGE_INSTANCE_BYTES:
+                break
+            running_bytes += next_bytes
+            count += 1
+        low = 1
+        high = count
+        best_build: SemanticGenerationBuild | None = None
+        best_count = 0
+        # Verify the full byte-bounded slice first; only binary-search if enums overflow.
+        candidate = _slice_build(instances[offset : offset + high])
+        try:
+            strict_candidate_proposal_schema(manifest=manifest, build=candidate)
+            best_build = candidate
+            best_count = high
+        except ValueError:
+            high -= 1
+            while low <= high:
+                mid = (low + high) // 2
+                mid_build = _slice_build(instances[offset : offset + mid])
+                try:
+                    strict_candidate_proposal_schema(manifest=manifest, build=mid_build)
+                    best_build = mid_build
+                    best_count = mid
+                    low = mid + 1
+                except ValueError:
+                    high = mid - 1
+        if best_build is None or best_count < 1:
+            strict_candidate_proposal_schema(
+                manifest=manifest,
+                build=_slice_build(instances[offset : offset + 1]),
+            )
+            raise ValueError("candidate proposal schema exceeds the structured-output enum bound")
+        pages.append(best_build)
+        offset += best_count
+    return tuple(pages)
 
 
 def _enum_value_count(node: Any) -> int:

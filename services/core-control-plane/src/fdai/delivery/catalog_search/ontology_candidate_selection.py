@@ -109,7 +109,7 @@ class OntologyCandidateClause(BaseModel):
     object_type: str = Field(min_length=1, max_length=256)
     predicates: tuple[ObjectPredicate, ...] = Field(default=(), max_length=16)
     nested_predicates: tuple[OntologyNestedPredicate, ...] = Field(default=(), max_length=16)
-    object_ids: tuple[_Identifier, ...] | None = Field(default=None, min_length=1, max_length=100)
+    object_ids: tuple[_Identifier, ...] | None = Field(default=None, min_length=1, max_length=20000)
 
     @model_validator(mode="after")
     def _unique_ids(self) -> OntologyCandidateClause:
@@ -212,66 +212,95 @@ async def resolve_candidate_selection(
             ObjectPredicate(property=name, operator=ObjectPredicateOperator.EXISTS)
             for name in dict.fromkeys(item.property for item in clause.nested_predicates)
         )
-        definition = ObjectSetDefinition(
-            selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name=clause.object_type),
-            predicates=(*clause.predicates, *parent_presence),
-            object_ids=clause.object_ids,
-            as_of=as_of,
-            purpose=manifest.purposes[0],
-            limit=1000,
-            include_relationships=False,
+        prefix = f"object:{clause.object_type}:"
+        snapshot_type_ids = tuple(
+            doc.rule_id.removeprefix(prefix) for doc in documents if doc.rule_id.startswith(prefix)
         )
-        try:
-            result = await gateway.materialize(definition, projection_request=projection)
-        except UnsupportedObjectSetAsOfError:
-            raise CandidateSelectionError(SelectionFailure.TIME_DRIFT) from None
-        except PermissionError:
-            raise CandidateSelectionDeniedError() from None
-        except ValueError:
-            raise CandidateSelectionError(SelectionFailure.PREDICATE_INVALID) from None
-        _check_deadline(deadline)
-        receipt = result.receipt
-        if (
-            result.materialization.definition != definition
-            or result.materialization.concrete_types != (clause.object_type,)
-            or not receipt.complete
-            or receipt.truncated
-            or not receipt.source_complete
-            or receipt.redactions.redacted_identity_count
-            or receipt.source_generation != staged.source_generation
-            or receipt.ontology_release.digest != manifest.release_digest
-            or receipt.principal_scope_digest != projection.principal_scope_digest
-            or receipt.caller_role != manifest.principal_role
-            or receipt.purpose != manifest.purposes[0]
-        ):
-            raise CandidateSelectionError(SelectionFailure.MEMBERSHIP_INCOMPLETE)
-        projected = tuple(
-            projected_candidate_record(record) for record in result.materialization.graph.objects
-        )
-        current = _runtime_object_documents(
-            projected,
-            manifest=manifest,
-            resource_type_query_terms=resource_type_query_terms,
-        )
-        members = {
-            f"object:{record.object_type}:{record.id}"
-            for record in projected
-            if all(item.matches(record.properties) for item in clause.nested_predicates)
-        }
-        current_objects = {
-            f"object:{record.object_type}:{record.id}": record for record in projected
-        }
-        for document in current:
+        if clause.object_ids is not None and len(clause.object_ids) > 100:
+            id_batches: tuple[tuple[str, ...] | None, ...] = tuple(
+                clause.object_ids[offset : offset + 100]
+                for offset in range(0, len(clause.object_ids), 100)
+            )
+        elif clause.object_ids is None and len(snapshot_type_ids) > 1000:
+            id_batches = tuple(
+                snapshot_type_ids[offset : offset + 100]
+                for offset in range(0, len(snapshot_type_ids), 100)
+            )
+        else:
+            id_batches = (clause.object_ids,)
+        for batch_ids in id_batches:
             _check_deadline(deadline)
-            prepared = indexed.get(document.rule_id)
-            if prepared is None or catalog_search_document_digest(
-                prepared
-            ) != catalog_search_document_digest(document):
+            definition = ObjectSetDefinition(
+                selector=ObjectSelector(
+                    kind=ObjectSelectorKind.OBJECT_TYPE, name=clause.object_type
+                ),
+                predicates=(*clause.predicates, *parent_presence),
+                object_ids=batch_ids,
+                as_of=as_of,
+                purpose=manifest.purposes[0],
+                limit=1000,
+                include_relationships=False,
+            )
+            try:
+                result = await gateway.materialize(definition, projection_request=projection)
+            except UnsupportedObjectSetAsOfError:
+                raise CandidateSelectionError(SelectionFailure.TIME_DRIFT) from None
+            except PermissionError:
+                raise CandidateSelectionDeniedError() from None
+            except ValueError:
+                raise CandidateSelectionError(SelectionFailure.PREDICATE_INVALID) from None
+            _check_deadline(deadline)
+            receipt = result.receipt
+            if (
+                result.materialization.definition != definition
+                or result.materialization.concrete_types != (clause.object_type,)
+                or not receipt.complete
+                or receipt.truncated
+                or not receipt.source_complete
+                or receipt.redactions.redacted_identity_count
+                or receipt.source_generation != staged.source_generation
+                or receipt.ontology_release.digest != manifest.release_digest
+                or receipt.principal_scope_digest != projection.principal_scope_digest
+                or receipt.caller_role != manifest.principal_role
+                or receipt.purpose != manifest.purposes[0]
+            ):
+                raise CandidateSelectionError(SelectionFailure.MEMBERSHIP_INCOMPLETE)
+            if (
+                batch_ids is not None
+                and clause.object_ids is None
+                and not clause.predicates
+                and not clause.nested_predicates
+                and len(result.materialization.graph.objects) != len(batch_ids)
+            ):
                 raise CandidateSelectionError(SelectionFailure.SOURCE_DRIFT)
-            if document.rule_id in members:
-                matched[document.rule_id] = prepared
-                matched_objects[document.rule_id] = current_objects[document.rule_id]
-        receipts.append(content_digest(result.receipt.model_dump(mode="json")))
+            projected = tuple(
+                projected_candidate_record(record)
+                for record in result.materialization.graph.objects
+            )
+            current = _runtime_object_documents(
+                projected,
+                manifest=manifest,
+                resource_type_query_terms=resource_type_query_terms,
+            )
+            members = {
+                f"object:{record.object_type}:{record.id}"
+                for record in projected
+                if all(item.matches(record.properties) for item in clause.nested_predicates)
+            }
+            current_objects = {
+                f"object:{record.object_type}:{record.id}": record for record in projected
+            }
+            for document in current:
+                _check_deadline(deadline)
+                prepared = indexed.get(document.rule_id)
+                if prepared is None or catalog_search_document_digest(
+                    prepared
+                ) != catalog_search_document_digest(document):
+                    raise CandidateSelectionError(SelectionFailure.SOURCE_DRIFT)
+                if document.rule_id in members:
+                    matched[document.rule_id] = prepared
+                    matched_objects[document.rule_id] = current_objects[document.rule_id]
+            receipts.append(content_digest(result.receipt.model_dump(mode="json")))
     _check_deadline(deadline)
     return SelectedOntologyCandidates(
         tuple(matched[key] for key in sorted(matched)),
