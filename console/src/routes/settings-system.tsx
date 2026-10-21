@@ -36,7 +36,8 @@ import {
 } from "./settings-slack-webhook.model";
 import {
   loadTeamsWorkflowBinding,
-  testTeamsWorkflowWebhook,
+  saveTeamsWorkflowBinding,
+  testSavedTeamsWorkflowBinding,
 } from "./settings-teams-workflow.command";
 import {
   newTeamsWorkflowTestRequestId,
@@ -482,19 +483,25 @@ function TeamsWorkflowTestPanel({
     setError(null);
     setResult(null);
     try {
-      const saved = await testTeamsWorkflowWebhook(
+      const requestId = newTeamsWorkflowTestRequestId();
+      const saved = await saveTeamsWorkflowBinding(
         auth,
         operatorApiBaseUrl,
         submittedUrl,
-        newTeamsWorkflowTestRequestId(),
+        requestId,
       );
-      setResult(saved);
       setBindingSaved({
         bindingVersion: saved.bindingVersion,
         savedAt: saved.savedAt,
-        observedAt: saved.testedAt,
+        observedAt: saved.savedAt,
       });
       setBindingVisibility("visible");
+      const tested = await testSavedTeamsWorkflowBinding(
+        auth,
+        operatorApiBaseUrl,
+        requestId,
+      );
+      setResult(tested);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {

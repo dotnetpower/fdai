@@ -9,6 +9,13 @@ export interface TeamsWorkflowTestResult {
   readonly testedAt: string;
 }
 
+export interface TeamsWorkflowBindingSaveResult {
+  readonly requestId: string;
+  readonly saved: true;
+  readonly bindingVersion: string;
+  readonly savedAt: string;
+}
+
 /**
  * Secret-free saved-binding metadata.
  *
@@ -99,6 +106,31 @@ export function decodeTeamsWorkflowTestResult(value: unknown): TeamsWorkflowTest
       "Teams Workflow test result.workflow_run_id",
     ),
     testedAt,
+  };
+}
+
+export function decodeTeamsWorkflowBindingSaveResult(
+  value: unknown,
+): TeamsWorkflowBindingSaveResult {
+  const item = record(value, "Teams Workflow binding save result");
+  if (item["saved"] !== true) {
+    throw new Error("Teams Workflow binding save result.saved MUST be true");
+  }
+  const savedAt = isoTimestamp(
+    item["saved_at"],
+    "Teams Workflow binding save result.saved_at",
+  );
+  return {
+    requestId: nonEmptyString(
+      item["request_id"],
+      "Teams Workflow binding save result.request_id",
+    ),
+    saved: true,
+    bindingVersion: nonEmptyString(
+      item["binding_version"],
+      "Teams Workflow binding save result.binding_version",
+    ),
+    savedAt,
   };
 }
 

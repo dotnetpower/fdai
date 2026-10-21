@@ -7,7 +7,10 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 from fdai_operator_service.families.iam.contracts import TeamsWorkflowTestCommand
-from fdai_operator_service.teams_workflow_binding import LoadedTeamsWorkflowBinding
+from fdai_operator_service.teams_workflow_binding import (
+    LoadedTeamsWorkflowBinding,
+    TeamsWorkflowBindingError,
+)
 from fdai_operator_service.teams_workflow_diagnostics import (
     TeamsWorkflowDiagnosticTester,
     TeamsWorkflowProviderResponse,
@@ -151,6 +154,53 @@ async def test_saves_and_verifies_before_sending_the_test_card() -> None:
     )
     assert binding_state["outcome"] == "saved"
     assert URL not in repr(store.values)
+
+
+async def test_save_is_confirmed_before_a_provider_test_can_fail() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+
+    async def reject(_: str, __: object) -> TeamsWorkflowProviderResponse:
+        return TeamsWorkflowProviderResponse(500)
+
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        post=reject,
+        clock=lambda: NOW,
+    )
+
+    saved = await tester.save_binding(_command())
+
+    assert saved.binding_version == "version-1"
+    described = await tester.describe_binding(actor_id="owner-1")
+    assert described is not None
+    assert described["binding_version"] == "version-1"
+    assert described["saved_at"] == NOW.isoformat()
+    with pytest.raises(TeamsWorkflowTestProviderError, match="HTTP 500"):
+        await tester.test_saved_binding(
+            actor_id="owner-1",
+            request_id="teams-test-1",
+        )
+    assert bindings.values == [URL]
+    assert URL not in repr(store.values)
+
+
+async def test_saved_binding_test_requires_durable_binding_metadata() -> None:
+    bindings = MemoryBindingStore()
+    bindings.values.append(URL)
+    tester = TeamsWorkflowDiagnosticTester(
+        store=MemoryStore(),
+        binding_store=bindings,
+        post=_accepting_post(),
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(TeamsWorkflowBindingError, match="metadata does not match"):
+        await tester.test_saved_binding(
+            actor_id="owner-1",
+            request_id="teams-test-1",
+        )
 
 
 async def test_save_and_test_requires_injected_secret_storage() -> None:

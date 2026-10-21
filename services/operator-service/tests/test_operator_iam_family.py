@@ -52,6 +52,7 @@ from fdai_operator_service.families.iam.contracts import (
     SlackWebhookTestCommand,
     SlackWebhookTestResult,
     TeamsA1OnboardingPlanCommand,
+    TeamsWorkflowBindingSaveResult,
     TeamsWorkflowTestCommand,
     TeamsWorkflowTestResult,
     WebSearchSettingsCommand,
@@ -1064,6 +1065,35 @@ class RecordingTeamsWorkflowTester:
     def __init__(self) -> None:
         self.command: TeamsWorkflowTestCommand | None = None
 
+    async def save_binding(
+        self,
+        command: TeamsWorkflowTestCommand,
+    ) -> TeamsWorkflowBindingSaveResult:
+        self.command = command
+        return TeamsWorkflowBindingSaveResult(
+            request_id=command.request_id,
+            binding_version="version-1",
+            saved_at=NOW,
+        )
+
+    async def test_saved_binding(
+        self,
+        *,
+        actor_id: str,
+        request_id: str,
+    ) -> TeamsWorkflowTestResult:
+        self.test_saved_actor_id = actor_id
+        return TeamsWorkflowTestResult(
+            request_id=request_id,
+            saved=True,
+            binding_version="version-1",
+            saved_at=NOW,
+            accepted=True,
+            provider_status=202,
+            workflow_run_id="run-1",
+            tested_at=NOW,
+        )
+
     async def save_and_test(
         self,
         command: TeamsWorkflowTestCommand,
@@ -1318,7 +1348,7 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 59
+    assert len(snapshot) == 60
     assert ("GET", "/handover/readiness", "readiness") in snapshot
     assert ("POST", "/policy/revisions", "policy_revision_request") not in snapshot
 
@@ -1331,7 +1361,7 @@ def test_family_owns_exact_route_manifest_without_fdai_implementation_imports() 
         (item.method, item.path, item.name)
         for item in iam_family_manifest(policy_administration=True)
     )
-    assert len(selected_snapshot) == 60
+    assert len(selected_snapshot) == 61
     assert ("POST", "/policy/revisions", "policy_revision_request") in selected_snapshot
 
     for path in FAMILY_SOURCE.rglob("*.py"):
@@ -1789,6 +1819,42 @@ def test_owner_can_send_one_secret_free_teams_workflow_diagnostic() -> None:
     }
     assert webhook_url not in response.text
     assert tester.command is not None and tester.command.actor_id == "owner-1"
+
+
+def test_owner_saves_then_tests_the_server_side_teams_workflow_binding() -> None:
+    tester = RecordingTeamsWorkflowTester()
+    webhook_url = (
+        "https://example.e4.environment.api.powerplatform.com/"
+        "powerautomate/automations/direct/workflows/"
+        "d74f3e0ee1314a4191c650cfda483a70/triggers/manual/paths/invoke"
+        "?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0"
+        "&sig=abcdefghijklmnopqrstuvwxyz012345"
+    )
+    client = _client(teams_workflow_tester=tester)
+
+    saved = client.put(
+        "/runtime/integrations/teams-workflow/binding",
+        headers={"x-test-role": "Owner", "x-test-oid": "owner-1"},
+        json={"request_id": "teams-test-1", "webhook_url": webhook_url},
+    )
+    tested = client.post(
+        "/runtime/integrations/teams-workflow/test",
+        headers={"x-test-role": "Owner", "x-test-oid": "owner-1"},
+        json={"request_id": "teams-test-1"},
+    )
+
+    assert saved.status_code == 200
+    assert saved.json() == {
+        "request_id": "teams-test-1",
+        "saved": True,
+        "binding_version": "version-1",
+        "saved_at": NOW.isoformat(),
+    }
+    assert webhook_url not in saved.text
+    assert tested.status_code == 200
+    assert tested.json()["accepted"] is True
+    assert tester.command is not None and tester.command.webhook_url == webhook_url
+    assert tester.test_saved_actor_id == "owner-1"
 
 
 def test_teams_workflow_diagnostic_requires_owner_and_injected_audit_store() -> None:

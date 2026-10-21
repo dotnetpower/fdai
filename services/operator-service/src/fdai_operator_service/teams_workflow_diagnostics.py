@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlsplit
 import httpx
 
 from fdai_operator_service.families.iam.contracts import (
+    TeamsWorkflowBindingSaveResult,
     TeamsWorkflowTestCommand,
     TeamsWorkflowTestResult,
 )
@@ -80,6 +81,18 @@ class TeamsWorkflowDiagnosticTester:
         self,
         command: TeamsWorkflowTestCommand,
     ) -> TeamsWorkflowTestResult:
+        await self.save_binding(command)
+        return await self.test_saved_binding(
+            actor_id=command.actor_id,
+            request_id=command.request_id,
+        )
+
+    async def save_binding(
+        self,
+        command: TeamsWorkflowTestCommand,
+    ) -> TeamsWorkflowBindingSaveResult:
+        """Persist and independently verify one endpoint before any provider test."""
+
         endpoint_digest = validate_teams_workflow_url(command.webhook_url)
         if not command.actor_id.strip():
             raise ValueError("Teams Workflow test actor_id MUST be non-empty")
@@ -103,7 +116,7 @@ class TeamsWorkflowDiagnosticTester:
         }
         if not await self.store.create_state(key, prepared):
             existing = await self.store.read_state(key)
-            return await self._existing_saved_result(existing=existing, command=command)
+            return self._existing_saved_binding(existing=existing, command=command)
         try:
             saved = await self.binding_store.save_and_verify(
                 webhook_url=command.webhook_url,
@@ -153,10 +166,48 @@ class TeamsWorkflowDiagnosticTester:
                 "actor_id": command.actor_id,
             },
         )
+        return TeamsWorkflowBindingSaveResult(
+            request_id=command.request_id,
+            binding_version=saved.version,
+            saved_at=saved_at,
+        )
+
+    async def test_saved_binding(
+        self,
+        *,
+        actor_id: str,
+        request_id: str,
+    ) -> TeamsWorkflowTestResult:
+        """Test the current durable binding without receiving its URL from the browser."""
+
+        if not actor_id.strip():
+            raise ValueError("Teams Workflow test actor_id MUST be non-empty")
+        if not _REQUEST_ID.fullmatch(request_id):
+            raise ValueError("Teams Workflow test request_id is invalid")
+        if self.binding_store is None:
+            raise TeamsWorkflowBindingUnavailableError(
+                "Teams Workflow binding storage is not configured"
+            )
+        saved = await self.binding_store.load()
+        if saved is None:
+            raise TeamsWorkflowBindingUnavailableError("Teams Workflow binding is not configured")
+        metadata = await self.store.read_state(_ACTIVE_BINDING_METADATA_KEY)
+        if metadata is None or metadata.get("binding_version") != saved.version:
+            raise TeamsWorkflowBindingError(
+                "Teams Workflow binding metadata does not match the saved version"
+            )
+        saved_at = metadata.get("saved_at")
+        if not isinstance(saved_at, str):
+            raise TeamsWorkflowBindingError("Teams Workflow binding saved timestamp is unavailable")
+        parsed_saved_at = datetime.fromisoformat(saved_at)
+        if parsed_saved_at.tzinfo is None:
+            raise TeamsWorkflowBindingError(
+                "Teams Workflow binding saved timestamp is timezone-naive"
+            )
         tested = await self.test(
             TeamsWorkflowTestCommand(
-                actor_id=command.actor_id,
-                request_id=command.request_id,
+                actor_id=actor_id,
+                request_id=request_id,
                 webhook_url=saved.webhook_url,
             )
         )
@@ -164,7 +215,7 @@ class TeamsWorkflowDiagnosticTester:
             request_id=tested.request_id,
             saved=True,
             binding_version=saved.version,
-            saved_at=saved_at,
+            saved_at=parsed_saved_at,
             accepted=tested.accepted,
             provider_status=tested.provider_status,
             workflow_run_id=tested.workflow_run_id,
@@ -204,12 +255,12 @@ class TeamsWorkflowDiagnosticTester:
                 metadata["saved_at"] = saved_at
         return metadata
 
-    async def _existing_saved_result(
+    def _existing_saved_binding(
         self,
         *,
         existing: Mapping[str, object] | None,
         command: TeamsWorkflowTestCommand,
-    ) -> TeamsWorkflowTestResult:
+    ) -> TeamsWorkflowBindingSaveResult:
         if (
             existing is None
             or existing.get("phase") != "completed"
@@ -230,16 +281,10 @@ class TeamsWorkflowDiagnosticTester:
         parsed_saved_at = datetime.fromisoformat(saved_at)
         if parsed_saved_at.tzinfo is None:
             raise RuntimeError("stored Teams Workflow binding timestamp is timezone-naive")
-        tested = await self.test(command)
-        return TeamsWorkflowTestResult(
-            request_id=tested.request_id,
-            saved=True,
+        return TeamsWorkflowBindingSaveResult(
+            request_id=command.request_id,
             binding_version=version,
             saved_at=parsed_saved_at,
-            accepted=tested.accepted,
-            provider_status=tested.provider_status,
-            workflow_run_id=tested.workflow_run_id,
-            tested_at=tested.tested_at,
         )
 
     async def test(self, command: TeamsWorkflowTestCommand) -> TeamsWorkflowTestResult:

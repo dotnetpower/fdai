@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import {
+  decodeTeamsWorkflowBindingSaveResult,
   decodeTeamsWorkflowBindingView,
   decodeTeamsWorkflowTestResult,
   newTeamsWorkflowTestRequestId,
@@ -68,6 +69,20 @@ describe("Teams Workflow binding view", () => {
 });
 
 describe("Teams Workflow diagnostic model", () => {
+  test("decodes a secret-free durable save result before provider testing", () => {
+    expect(decodeTeamsWorkflowBindingSaveResult({
+      request_id: "teams-workflow-test-1",
+      saved: true,
+      binding_version: "version-1",
+      saved_at: "2026-08-27T11:59:59+00:00",
+    })).toEqual({
+      requestId: "teams-workflow-test-1",
+      saved: true,
+      bindingVersion: "version-1",
+      savedAt: "2026-08-27T11:59:59+00:00",
+    });
+  });
+
   test("decodes only a secret-free accepted result", () => {
     expect(decodeTeamsWorkflowTestResult({
       request_id: "teams-workflow-test-1",

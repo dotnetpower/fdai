@@ -569,8 +569,29 @@ class TeamsWorkflowTestResult:
     tested_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class TeamsWorkflowBindingSaveResult:
+    """Secret-free result returned after durable endpoint verification."""
+
+    request_id: str
+    binding_version: str
+    saved_at: datetime
+
+
 class TeamsWorkflowTester(Protocol):
-    """Persist one endpoint, then send and audit one synthetic notification."""
+    """Persist one endpoint and test the saved value without returning it."""
+
+    async def save_binding(
+        self,
+        command: TeamsWorkflowTestCommand,
+    ) -> TeamsWorkflowBindingSaveResult: ...
+
+    async def test_saved_binding(
+        self,
+        *,
+        actor_id: str,
+        request_id: str,
+    ) -> TeamsWorkflowTestResult: ...
 
     async def save_and_test(self, command: TeamsWorkflowTestCommand) -> TeamsWorkflowTestResult: ...
 
