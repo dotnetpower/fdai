@@ -97,6 +97,8 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
     future_tables = set(manifest.table_migrators) - tables
     assert tables <= set(manifest.table_migrators)
     assert future_tables == {
+        "licensing_accepted_entitlement",
+        "licensing_entitlement_acceptance_audit",
         "document_intent_envelope",
         "document_intent_projection",
         "document_intent_transition",
@@ -1743,6 +1745,10 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         MIGRATION_ROOT
         / "branches/core-control-plane/versions/20261001_core_licensing_entitlement_state.py"
     )
+    accepted_entitlement_migration = inventory_module.load_revision_metadata(
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20261021_core_accepted_entitlement.py"
+    )
 
     document_intent_migration = inventory_module.load_revision_metadata(
         MIGRATION_ROOT / "branches/core-control-plane/versions/20261019_core_document_intent.py"
@@ -1789,6 +1795,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(operational_evidence_migration.owned_tables)
         | set(licensing_trial_migration.owned_tables)
         | set(licensing_entitlement_state_migration.owned_tables)
+        | set(accepted_entitlement_migration.owned_tables)
         | set(document_intent_migration.owned_tables)
     )
     assert granted_tables == expected_tables

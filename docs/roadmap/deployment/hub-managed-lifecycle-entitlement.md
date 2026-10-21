@@ -7,8 +7,8 @@ This decision defines how a future Hub-managed installation receives entitlement
 the Hub a licensing authority. It preserves the existing installation/deployment-bound entitlement
 and original Trial anchor through upgrades, imports and recovery.
 
-> **Status:** Design decision only. The Hub carrier, local handoff and qualification described
-> here are not implemented or activated by this document.
+> **Status:** Direct/offline full-entitlement transport and local acceptance have source
+> implementations. Hub API/Plan integration, rotation and installed qualification remain open.
 
 ## Design at a glance
 
@@ -52,10 +52,52 @@ is independently provisioned for that role; no signing identity is converted int
 Envelope decryption is confidentiality only. The unchanged inner issuer signature and local
 licensing checks establish eligibility.
 
+### Initial full-entitlement carrier contract
+
+The first source increment is a direct/offline carrier and local licensing-owner handoff, not
+a Hub API, Lifecycle Plan extension or deployed Hub-managed installation. It carries only an
+existing `fdai.installation-entitlement.v1` token; expiring v1 licenses and Trial records are not
+converted or transported by this increment.
+
+| Boundary | Selected contract |
+|---|---|
+| Public envelope | `fdai.lifecycle.entitlement-carrier.v1` has an exact schema/purpose, installation and deployment binding digests, recipient fingerprint, ephemeral X25519 public key, nonce and ciphertext. Canonical JSON is bounded to 16 KiB and original token bytes to 8 KiB. |
+| Confidentiality | Independently provisioned X25519 recipient material, HKDF-SHA256 and AES-GCM use a fixed entitlement-only domain and authenticated header. No signing key conversion or configuration-key lookup exists. Encryption is not evidence of issuer authority. |
+| Issuer and handoff | The producer only seals bytes. The local importer independently verifies the unchanged inner document with the packaged licensing verifier and exact distribution/installation/deployment binding before acceptance. No command-line issuer-key override or Hub licensing authority is added. |
+| Durable acceptance | Core alone owns a private PostgreSQL record and matching acceptance audit in one transaction. The exact token digest is idempotent; a different token for an already accepted binding is a conflict and cannot replace it. There is no timestamp-based winner, automatic rotation, clear or delete API. |
+| Runtime | An explicit accepted-store source is optional and exclusive with the legacy environment token. Every acting resolution rereads the accepted record off the event loop and verifies its original issuer signature through the existing authority. Missing/corrupt storage is explicit; it never creates a Trial. Legacy omission preserves current source/offline behavior. |
+| Visibility | Receipts expose digests and original acceptance time, never token/key bytes or license content. Operator continues to read only the existing entitlement notice, not the private token record. |
+
+Critique rejects automatic replacement ordered by `issued_at`: that field is not an issuer
+revision or a new validity window. A repeated original token returns the original acceptance
+identity and receipt; changed ciphertext does not create a new entitlement. Distinct valid tokens
+hold for a future separately governed rotation contract. The current Trial activation, expiry,
+clock history and watermark rules remain unchanged. Source proof does not qualify a connected or
+offline installation, a new key ceremony, old-binary compatibility, or Hub transport.
+
 The original document and selected trust metadata are verified before atomic local acceptance.
 Duplicate deliveries retain the same identity and result; older or conflicting state does not
 replace a newer authoritative record. A missing carrier or private input is unavailable, not full
 entitlement and not a newly started Trial.
+
+### Local source commands
+
+`fdaictl license seal-entitlement` takes private original-token and X25519 public-key files,
+exact installation/deployment digests and a new private `--destination`. It emits only the carrier
+digest and recipient fingerprint; `license_verified=false` makes its boundary explicit.
+No signing-key input or new licensing document is created.
+
+Run `python -m fdai.delivery.licensing_entitlement_import` in the local licensing-owner environment
+with `--carrier`, `--recipient-key`, `--recipient-fingerprint`, `--installation-binding` and
+`--deployment-binding`. It uses the existing Core database environment and packaged issuer trust,
+not a CLI issuer-key override. `--inspect` with the two binding digests reads only the original
+safe receipt. Storage errors leave the outcome unconfirmed: inspect before retrying.
+
+Only `FDAI_ACCEPTED_INSTALLATION_ENTITLEMENT_SOURCE=postgres` opts Core into the accepted store;
+both exact binding variables and its state database are required. An inline `FDAI_LICENSE_TOKEN`
+cannot compete with that source. Startup logging performs no store read, and acting resolution
+uses the existing worker-thread boundary. An absent row may use an existing valid Trial under
+the unchanged resolver; corrupt/unavailable or rejected input cannot obtain a Trial fallback.
 
 ## Trial and recovery invariants
 
@@ -95,7 +137,9 @@ to learn a current change remains an explicit limitation, not a hidden network f
 
 ## Remaining implementation and evidence
 
-- [ ] Implement the purpose-distinct carrier and local handoff without introducing a Hub issuer.
+- [x] Implement the direct/offline purpose-distinct carrier and local licensing-owner handoff
+  in #2352, without a Hub issuer, new token or Trial transition.
+- [ ] Wire actual Hub opaque transport and a separately reviewed Lifecycle Plan handoff.
 - [ ] Prove wrong-key/purpose/binding, replay, conflict, expiry, clock rollback and unavailable cases.
 - [ ] Prove upgrades, slot rollback and same-installation recovery preserve the original anchor,
   watermark, clock restrictions and existing source/offline behavior.

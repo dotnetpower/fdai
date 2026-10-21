@@ -16,6 +16,7 @@ from fdai.core.licensing import (
     LicenseEntitlementAuthority,
     LicenseVerifier,
 )
+from fdai.core.licensing.entitlement import EntitlementTokenSource
 from fdai.core.licensing.trial_entitlement import TrialEntitlementResolver
 from fdai.delivery.persistence.postgres_licensing_trial import PostgresTrialStore
 from fdai.delivery.repo_assets import repo_asset_root
@@ -110,10 +111,11 @@ def build_runtime_license_authority(
         require_license=True,
         issuer_workstation=issuer_workstation,
         trial=_trial_resolver(catalog=catalog, environment=environment),
+        token_source=_accepted_entitlement_source(environment),
     )
-    # The startup log reports the token decision only: the Trial store must not be
-    # observed on the event loop that is starting the runtime.
-    entitlement = dataclasses.replace(authority, trial=None).resolve(
+    # Durable license sources are observed by the existing off-loop resolution path,
+    # not by a startup log on the event loop.
+    entitlement = dataclasses.replace(authority, trial=None, token_source=None).resolve(
         now=evaluated_at or datetime.now(tz=UTC)
     )
     _LOGGER.info(
@@ -126,9 +128,26 @@ def build_runtime_license_authority(
             ),
             "available_capability_count": len(entitlement.available_capability_ids),
             "trial_configured": authority.trial is not None,
+            "accepted_store_configured": authority.token_source is not None,
         },
     )
     return authority
+
+
+def _accepted_entitlement_source(environment: Mapping[str, str]) -> EntitlementTokenSource | None:
+    selected = environment.get("FDAI_ACCEPTED_INSTALLATION_ENTITLEMENT_SOURCE", "")
+    if not selected:
+        return None
+    if selected != "postgres":
+        raise ValueError("accepted installation entitlement source must be postgres or omitted")
+    from fdai.delivery.persistence.postgres_licensing_token import PostgresAcceptedEntitlementStore
+
+    installation = environment.get("FDAI_INSTALLATION_BINDING", "")
+    deployment = environment.get("FDAI_LICENSE_DEPLOYMENT_BINDING", "")
+    dsn = environment.get("FDAI_STATE_STORE_DSN", "")
+    return PostgresAcceptedEntitlementStore(
+        dsn=dsn, installation_binding=installation, deployment_binding=deployment
+    )
 
 
 def _trial_resolver(
