@@ -153,6 +153,62 @@ fleet admission, and declining an allocation estimator does not retire the memor
 Source and operational qualification remain separate open caveats, not substitutes for concept
 classification. This partial assessment grants no new read, capture, promotion, or execution authority.
 
+### Durable provider-read admission design review (#2329)
+
+> **Design proposal, not an implemented boundary:** Shared request/byte admission and retained
+> provider cooldown remain unavailable. Existing reads retain their existing bounded contracts;
+> they are not relabeled as qualified durable operation.
+
+The proposed owner remains the inventory collector and its service-owned PostgreSQL transaction
+adapter. `SourceCollectionPolicy` supplies the limits; the current identity adapter and declared
+source universe supply the binding. The budget is load control, not capture, promotion, execution,
+or read permission. A digest can bind content but cannot authenticate its issuer.
+
+The proposal requires these decisions before persistent flow changes:
+
+- **Binding lifecycle:** Select an installation-owned binding to the actual read identity,
+  provider endpoint/audience, complete target/source universe, and exact policy. Its stable ledger
+  identity cannot change merely because a caller substitutes an identity, policy, or digest.
+  Missing binding, storage, or an applicable generation produces a hold, not an in-memory budget.
+- **Atomic admission:** Validate the current source/policy/generation and reserve one physical
+  request plus its bounded byte allowance in one transaction. Concurrent adapters and restarted
+  processes use the same row. Separate reads followed by an update do not satisfy this requirement.
+- **Accounting and ambiguity:** Bind each reservation to an immutable request identity and
+  attempt. Preserve charged capacity after cancellation, uncertain commit, or uncertain dispatch.
+  Replaying a reservation is not permission to dispatch again. Reuse needs separately retained,
+  equivalent, complete evidence under the same generation; otherwise it remains unsupported.
+- **Provider pressure:** Retain the latest valid `Retry-After` and ARG quota-reset deadline in the
+  shared boundary, including across generation and budget-window changes. Malformed metadata or
+  unaccounted response consumption holds the source. Existing body, retry, process, cancellation,
+  and final promotion fences remain authoritative and cannot be relaxed to fit the budget.
+- **Read coverage:** Inventory ARG/ARM pages, scope/relationship probes, enrichment reads, and
+  Activity Log/resource-change recovery all need the same declared boundary. Pre-collection reads
+  need an owner-selected generation rule; an invented bootstrap UUID is not a snapshot generation.
+
+**Critique and revision:** Keying a new ledger by a caller-provided digest could replenish the
+allowance on identity or policy substitution. Reusing the current collection-context digest does
+not resolve that problem: the actual ARG and ARM source implementations can use two Managed
+Identity configurations with distinct client IDs while retaining identical manifests and context
+digests. Mock HTTP verifies the selected credentials, not an installation's authenticated principal.
+`WorkloadIdentity` deliberately
+exposes only an audience-scoped token. A client ID in one concrete adapter is not an independent,
+cross-venue identity/source registration, and does not cover the developer Azure CLI identity.
+
+Wrapping only `InventorySyncCoordinator` also misses reads: `run()` constructs the enrichment
+pipeline, including optional AKS subscription discovery, before `begin()` creates a snapshot
+attempt. Activity Log and resource-change recovery have separate client lifecycles. ARM retains
+`Retry-After` on its error, but a subsequent physical read on the same client can proceed before
+that deadline. These are deterministic source counterexamples, not provider incidents or
+authorization bypasses.
+
+The revised proposal therefore stops before introducing a persistent ledger or qualification
+flag. The installation/current identity owner first needs to select the independently governed
+binding and the generation rule for pre-collection and recovery reads. No substitute issuer,
+signing key, caller-selected principal handle, or accepting fallback is introduced. Tests in
+`test_inventory_retained_assessment.py` preserve this bounded evidence; they do not satisfy
+#2329's shared PostgreSQL, complete wiring, or actual-installation consumption exits. #2111's
+original classification criterion remains open.
+
 ## Discovery universe
 
 Completeness is measured per universe, not one successful query. The table defines target coverage.
