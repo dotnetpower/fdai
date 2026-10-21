@@ -3,7 +3,7 @@ title: Change Safety
 description: Learn how FDAI checks policy and risk before delivering a proposed change as an auditable pull request.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: d67f4fdd18f99eb8a755286c43fb9138a41e8603
+    sha: a8c53ee45e09d0c3c0993ca3051e891a0639e8ce
 ---
 
 # Change Safety

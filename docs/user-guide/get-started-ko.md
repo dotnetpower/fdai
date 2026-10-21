@@ -2,7 +2,7 @@
 title: FDAI 시작하기
 description: FDAI를 5분 안에 살펴보세요. 무엇을 하는지, 언제 적합한지, 다음에 무엇을 확인할지 알아봅니다.
 translation_of: get-started.md
-translation_source_sha: 4734a7c7c91a7b83697722fe71d766d645b4faa0
+translation_source_sha: 171e0f68be778cfa275bffd51a91b06d3bea2de5
 translation_revised: 2026-10-22
 ---
 
