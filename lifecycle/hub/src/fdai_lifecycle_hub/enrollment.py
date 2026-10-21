@@ -48,6 +48,8 @@ class EnrollmentRequest:
     def __post_init__(self) -> None:
         if self.requested_at.tzinfo is None:
             raise ValueError("requested_at must be timezone-aware")
+        if self.installation.settings.product is not None:
+            raise ValueError("application binding requires a separate operator request")
 
     @property
     def installation_key_id(self) -> str:

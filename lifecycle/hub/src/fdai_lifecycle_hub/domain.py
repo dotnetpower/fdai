@@ -21,6 +21,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     PlanType,
     SuppressionWindow,
 )
+from fdai_deployment_cli.lifecycle_release import is_product_id
 from fdai_deployment_cli.runtime_release import compare_release_ids, is_release_id
 
 from fdai_lifecycle_hub.entity import Entity
@@ -81,6 +82,11 @@ class Settings:
     windows: tuple[DailyWindow, ...]
     plan_duration: timedelta = timedelta(minutes=30)
     fencing_generation: int = 1
+    product: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.product is not None and not is_product_id(self.product):
+            raise ValueError("Settings product must be an application identifier.")
 
     @property
     def plan_duration_minutes(self) -> int:

@@ -16,8 +16,10 @@ loop, and the customer isolation boundary.
 > tracks the exact delivered boundaries. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
 >
-> **Scope:** This path manages FDAI's own lifecycle: installation, upgrade, configuration, drift,
-> and recall. It never manages customer resources, which stay with the operations loop.
+> **Scope:** The Hub deployment engine is application-neutral. FDAI is one deployable application,
+> not a required service inventory. Each installation remains restricted to its independently
+> approved application, owned Entities and local effect envelope. This does not give the FDAI
+> operations loop authority over other applications.
 > [Lifecycle Configuration](lifecycle-configuration.md) owns configuration layers and secrets, and
 > [Lifecycle Releases and Channels](lifecycle-releases-and-channels.md) owns Releases, channels,
 > bundles, and recall.
@@ -41,6 +43,41 @@ Release Hub service already exists.
 | Upgrades | Automatic inside maintenance windows. Configuration changes need an approved change request, and deleting or replacing an Azure resource needs confirmation. |
 | Data boundary | The Hub holds no customer workload credential or operational data. Its own bounded service identity and signing key do not authorize customer resource changes. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |
+
+## Application-neutral package boundary
+
+Publication, pinned import, planning, execution and reporting share `fdai.application-release.v1`.
+Its product, application source, immutable component images and HTTP metadata are data, not engine
+branches. The [Release contract](lifecycle-releases-and-channels.md#application-package-contract)
+owns field bounds and optional configuration/database schema metadata. Without database metadata,
+schema revision zero represents a stateless application, not migration or database-reset authority.
+
+The operator-bound Hub Settings and installation-local Agent policy each bind `product`.
+Enrollment cannot set this binding; neither can a package or Plan. A missing or different binding blocks the
+application package. Existing installations without this field retain only legacy runtime-package
+compatibility; explicit application bindings never fall back to that path. The legacy runtime
+parser still validates complete FDAI inventories for source/offline compatibility.
+
+For existing enrollments, operator-only `POST /v1/installations/{installation_id}/application-binding`
+requires a UUID, current Settings digest, reason and confirmation
+`bind application <installation_id> <product> <settings_digest>`. The installation row lock
+serializes scheduling and planning; open Plans, stale digests and application retargeting are
+blocked. Exact same-actor retry and attributed audit are retained without changing ownership,
+permissions, configuration or reported state. The lazy **Application** tab requires the ID twice
+and generates machine values. Uncertain results require refresh, not automatic resubmission.
+Agent local policy remains independent; see the [operator procedure](../../runbooks/hub-lifecycle-operator-guide.md).
+
+**Critique and revision:** Renaming a hardcoded application is not a shared engine. Image lists alone
+permit cross-application substitution and omit health observation. Independent product bindings,
+signed component/health metadata and strict JSON retain exact signatures, version/digest checks,
+artifact availability, recall, windows, ownership, dry-run, rollback and durable replay guards.
+Application packages reject legacy workload profiles. Packages never prove ownership or select app-specific flags or Entity kinds.
+Arbitrary Kubernetes templates, privileges, namespace creation, new ownership evidence and
+database migration execution remain outside this change.
+
+Release ids remain unique within one Release Hub catalog. This change makes that catalog usable
+for any application; it does not introduce a multi-product version namespace. Local synthetic
+checks are not Azure deployment evidence or production qualification.
 
 ## Installation Agent configuration source consumer
 
@@ -165,6 +202,42 @@ network/RBAC isolation, real Entra sign-in, registry availability, or replica du
 Those require a separately approved exact cloud preview and execution scope. This path does
 not change source/offline installation and does not implement automatic polling, production
 catalog metadata/root ceremony, cloud Agent apply, or a complete FDAI installation.
+
+## Execution scheduling preparation design and critique
+
+An authenticated customer operator can prepare daily maintenance windows and the Plan duration
+for an already enrolled installation. `GET /v1/installations/{installation_id}/execution-settings`
+returns only those scheduling fields and the digest of the complete current settings.
+`POST` requires a request UUID, that expected digest, bounded windows and duration, a reason code,
+and the exact confirmation `update execution settings <installation_id> <settings_digest>`.
+The authenticated operator comes from verified transport claims, never the request body.
+
+Windows use local wall-clock start times, IANA time zones, `duration_minutes` between 1 and
+1440, and an explicit downtime flag. Fractional minutes preserve existing subminute precision
+in the read projection. There are at most 32 windows; Plan duration is an integer from 1 to
+1440 minutes. Unknown fields and invalid values return `422`; bodies above 8192 bytes return `413`.
+
+**Critique and revision:** Updating all installation settings would also expose placement,
+channel and fencing changes. This operation changes only windows and Plan duration. It holds the
+existing installation lock and rejects an open Plan rather than silently changing its assumptions.
+The same transaction updates settings and appends the attributed hash-chained audit. Repeating
+an identical request UUID and actor returns its original applied digest without another change;
+reusing that UUID with different bytes or another actor is a conflict. The returned digest on
+a replay identifies the historical operation, not a claim that later settings remain unchanged.
+An unchanged schedule is audited with `changed: false` without refreshing the installation's
+recorded timestamp. Conflicting revisions, request reuse and open Plans return `409`.
+
+This preparation doesn't manage an Entity, accept ownership evidence, register keys, import
+artifacts, compute a Plan or authorize application. Installation Agents, catalog service identities
+and unauthenticated loopback caller names can't use the operator route. No new table or remote
+database mutation script is needed.
+
+The installation's **Execution schedule** section loads this projection only when opened.
+It provides bounded window controls, the server-read confirmation text and a browser-generated
+request UUID. Reads and writes have ten-second deadlines. A rejected or uncertain save disables
+further changes until an explicit refresh; it never retries a write or computes/applies a Plan.
+Focused source and synthetic UI checks are not live deployment evidence. Exact-source activation,
+human operational confirmation and the remaining evidence-backed nginx preparation stay separate.
 
 ## Read-only input inventory
 

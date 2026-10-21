@@ -21,6 +21,19 @@ export type Change = {
   label?: string; manifest?: string;
 };
 
+export function releaseTitle(release: Release): string {
+  const manifest = JSON.parse(release.manifest) as { product?: string };
+  return `${manifest.product ?? "Release"} ${release.id}`;
+}
+
+export function schemaCompatibility(manifest: string): string {
+  const parsed = JSON.parse(manifest) as {
+    schema?: { target: number; tolerates: { minimum: number; maximum: number } };
+  };
+  if (!parsed.schema) return "Not declared (stateless package)";
+  return `${parsed.schema.tolerates.minimum} - ${parsed.schema.tolerates.maximum} (target ${parsed.schema.target})`;
+}
+
 export async function requestCatalog(path = "/v1/catalog", body?: Change): Promise<Catalog> {
   const response = await authenticatedFetch(path, {
     signal: AbortSignal.timeout(10_000),
@@ -51,7 +64,7 @@ export function artifacts(manifest: string): { component: string; digest: string
   if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid manifest.");
   const root = parsed as Record<string, unknown>;
   const result: { component: string; digest: string; sbom: string }[] = [];
-  for (const section of ["services", "sidecars", "installation_agents", "console", "deployment_support"]) {
+  for (const section of ["services", "sidecars", "installation_agents", "workloads", "console", "deployment_support"]) {
     const group = root[section];
     if (typeof group !== "object" || group === null) continue;
     const entries = section === "console" || section === "deployment_support"
@@ -62,7 +75,7 @@ export function artifacts(manifest: string): { component: string; digest: string
       result.push({
         component,
         digest: typeof record.image_digest === "string" ? record.image_digest : String(record.archive_sha256),
-        sbom: String(record.sbom_sha256),
+        sbom: typeof record.sbom_sha256 === "string" ? record.sbom_sha256 : "Not declared",
       });
     }
   }

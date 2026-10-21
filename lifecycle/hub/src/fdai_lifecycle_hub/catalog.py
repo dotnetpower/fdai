@@ -11,12 +11,15 @@ from dataclasses import dataclass
 from functools import cmp_to_key
 from pathlib import Path
 
+from fdai_deployment_cli.lifecycle_release import (
+    ApplicationRelease,
+    LifecycleRelease,
+    parse_lifecycle_release_manifest,
+)
 from fdai_deployment_cli.runtime_release import (
     RecallRecord,
-    RuntimeRelease,
     compare_release_ids,
     is_release_id,
-    parse_runtime_release_manifest,
 )
 from pydantic import TypeAdapter
 
@@ -38,12 +41,17 @@ class LocalCurationEvidence:
 class ReleaseCatalog:
     """Releases by SemVer id, channel membership, and recall records."""
 
-    releases: Mapping[str, RuntimeRelease]
+    releases: Mapping[str, LifecycleRelease]
     channels: Mapping[str, frozenset[str]]
     recalls: tuple[RecallRecord, ...] = ()
     local_curation: LocalCurationEvidence | None = None
 
     def __post_init__(self) -> None:
+        if any(
+            isinstance(release, ApplicationRelease) and release.release_version != release_id
+            for release_id, release in self.releases.items()
+        ):
+            raise ValueError("Application version must match its catalog id.")
         if invalid := sorted(r for r in self.releases if not is_release_id(r)):
             raise ValueError(f"Release ids are not canonical SemVer: {invalid}")
         unknown = {
@@ -55,7 +63,7 @@ class ReleaseCatalog:
         if unknown:
             raise ValueError(f"channels name unknown Releases: {sorted(unknown)}")
 
-    def newer_than(self, channel: str, release_id: str) -> Iterator[tuple[str, RuntimeRelease]]:
+    def newer_than(self, channel: str, release_id: str) -> Iterator[tuple[str, LifecycleRelease]]:
         """Yield the channel's Releases newer than `release_id`, newest first."""
 
         newer = (
@@ -73,7 +81,7 @@ def load_catalog(root: Path) -> ReleaseCatalog:
     recalls_path = root / "recalls.json"
     return ReleaseCatalog(
         releases={
-            path.stem: parse_runtime_release_manifest(_read(path))
+            path.stem: parse_lifecycle_release_manifest(_read(path))
             for path in sorted((root / "releases").glob("*.json"))
         },
         channels=_CHANNELS.validate_json(_read(root / "channels.json")),

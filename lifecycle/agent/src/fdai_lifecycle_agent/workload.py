@@ -12,6 +12,8 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from fdai_deployment_cli.lifecycle_release import HttpWorkload
+
 FIELD_MANAGER = "fdai-lifecycle-agent"
 MANAGED_BY_LABEL = "app.kubernetes.io/managed-by"
 ENTITY_LABEL = "fdai.io/entity"
@@ -69,7 +71,12 @@ def object_key(manifest: Manifest) -> ObjectKey:
     return manifest["kind"], manifest["metadata"]["name"]
 
 
-def render(namespace: str, images: Mapping[tuple[str, str], str]) -> tuple[Manifest, ...]:
+def render(
+    namespace: str,
+    images: Mapping[tuple[str, str], str],
+    *,
+    specifications: Mapping[str, HttpWorkload] | None = None,
+) -> tuple[Manifest, ...]:
     """Render a Deployment and a Service for each ``(entity_id, component)`` image reference.
 
     Raises ``WorkloadError`` (``workload_render_failed``) for a name Kubernetes can't hold, an
@@ -96,7 +103,16 @@ def render(namespace: str, images: Mapping[tuple[str, str], str]) -> tuple[Manif
         }
         metadata = {"name": component, "namespace": namespace, "labels": labels}
         selector = {COMPONENT_LABEL: component}
-        manifests.append(_deployment(metadata, selector, labels, image))
+        deployment = _deployment(metadata, selector, labels, image)
+        if specifications is not None:
+            if component not in specifications:
+                raise WorkloadError("workload_render_failed")
+            specification = specifications[component]
+            deployment["spec"]["replicas"] = specification.replicas
+            container = deployment["spec"]["template"]["spec"]["containers"][0]
+            container["ports"][0]["containerPort"] = specification.port
+            container["readinessProbe"]["httpGet"]["path"] = specification.health_path
+        manifests.append(deployment)
         manifests.append(_service(metadata, selector))
     return tuple(manifests)
 

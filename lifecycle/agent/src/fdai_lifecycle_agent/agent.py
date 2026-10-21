@@ -47,6 +47,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     decode_canonical_plan_payload,
     evaluate_plan_admission,
 )
+from fdai_deployment_cli.lifecycle_release import is_product_id
 
 from fdai_lifecycle_agent.configuration_rendering import (
     prepare_workload,
@@ -147,6 +148,7 @@ class AgentSettings:
     maximum_envelope: LifecycleEffectEnvelope
     entity_components: Mapping[str, frozenset[str]]
     component_repositories: Mapping[str, str] = field(default_factory=dict)
+    product: str | None = None
 
     def __post_init__(self) -> None:
         validate_path_segment(self.installation_id, "installation_id")
@@ -155,6 +157,8 @@ class AgentSettings:
         }
         if uncovered:
             raise ValueError("every envelope Entity MUST name at least one Release component")
+        if self.product is not None and not is_product_id(self.product):
+            raise ValueError("local policy product must be an application identifier")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -310,7 +314,9 @@ class LifecycleAgent:
             return _rejection(AgentReason.PLAN_SEQUENCE_PREVIOUSLY_REJECTED)
         settings = self._settings
         try:
-            release = verify_release(plan, deps.artifact_store, deps.verify_release_signature)
+            release = verify_release(
+                plan, deps.artifact_store, deps.verify_release_signature, product=settings.product
+            )
             configuration = verify_configuration(
                 plan,
                 deps.artifact_store,

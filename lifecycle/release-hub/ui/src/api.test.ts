@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { actionsFor, artifacts, isCustomChannel, requestCatalog, type Release } from "./api";
+import { actionsFor, artifacts, isCustomChannel, releaseTitle, requestCatalog, schemaCompatibility, type Release } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe("release action boundaries", () => {
@@ -30,6 +30,18 @@ describe("release action boundaries", () => {
     const digest = `sha256:${"a".repeat(64)}`;
     expect(artifacts(JSON.stringify({ services: { core: { image_digest: digest, sbom_sha256: "b".repeat(64) } } })))
       .toEqual([{ component: "core", digest, sbom: "b".repeat(64) }]);
+  });
+  it.each(["example-web", "example-worker", "fdai"])("renders %s without application branches", (product) => {
+    const digest = `sha256:${"a".repeat(64)}`;
+    const manifest = JSON.stringify({ product, workloads: { frontend: { image_digest: digest } } });
+    expect(releaseTitle({ ...base, manifest })).toBe(`${product} 1.0.0`);
+    expect(schemaCompatibility(manifest)).toBe("Not declared (stateless package)");
+    expect(artifacts(manifest)).toEqual([{ component: "frontend", digest, sbom: "Not declared" }]);
+  });
+  it("does not invent a product for a legacy manifest", () => {
+    const manifest = JSON.stringify({ schema: { target: 6, tolerates: { minimum: 5, maximum: 7 } } });
+    expect(releaseTitle({ ...base, manifest })).toBe("Release 1.0.0");
+    expect(schemaCompatibility(manifest)).toBe("5 - 7 (target 6)");
   });
   it("surfaces server denial without success-shaped defaults", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: "Catalog changed." }) }));

@@ -1,7 +1,6 @@
 ---
 title: Installable Deployment CLI
 ---
-
 # Installable Deployment CLI
 
 > **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies. [One-Command Source Deployment](source-deployment.md) owns the source path's artifacts and entitlement selection.
@@ -31,6 +30,7 @@ inside the target virtual network.
 | Approval | Current human approval bound to each exact plan digest |
 | Runtime identity | Scoped read-only observation identity by default; privileged executor only for the explicit governed-execution add-on |
 | GitHub dependency | None for tenant deployment |
+| Shared Hub library | Application parser and legacy runtime adapter follow the [Release contract](lifecycle-releases-and-channels.md#application-package-contract); public source/offline commands remain unchanged |
 
 GitHub Actions may validate source, build images, and optionally publish signed releases; publication is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment. The read-only [observer artifact preflight](../architecture/aks-outbound-connector.md#artifact-preflight) reuses the same pinned-root offline kit and OCI verifier for an exact Core image; its bounded process result creates no new release trust, approval or installation authority. The kit may also bind one optional default Rule activation profile by path, id, source timestamp, file digest, and complete-kit manifest digest. Preparation emits deterministic Core environment bindings only; it neither applies a generation nor deploys a tenant workload.
 

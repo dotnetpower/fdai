@@ -270,6 +270,63 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+.execution-settings {
+  max-width: 1040px;
+}
+.execution-fields,
+.schedule-window {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0 0 24px;
+}
+.schedule-window {
+  border-top: 1px solid var(--cs-hairline);
+  padding: 16px 0;
+}
+.execution-fields legend {
+  font-size: var(--cs-type-compact-size);
+  margin-bottom: 16px;
+}
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.execution-field {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: var(--cs-type-compact-size);
+}
+.execution-field .input {
+  width: 100%;
+  border-color: var(--cs-text-soft);
+}
+.execution-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-bottom: 16px;
+}
+.schedule-confirmation {
+  display: block;
+  overflow-wrap: anywhere;
+  user-select: all;
+  margin: 0 0 16px;
+}
+@media (max-width: 700px) {
+  .schedule-grid {
+    grid-template-columns: 1fr;
+  }
+  .execution-settings .input,
+  .execution-settings .btn {
+    min-height: 44px;
+  }
+}
+
 /* Data presentation */
 .badge {
   display: inline-flex;

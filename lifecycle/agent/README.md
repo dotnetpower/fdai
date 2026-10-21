@@ -4,7 +4,7 @@ This package is the Lifecycle I0 skeleton of the in-cluster lifecycle agent desc
 [Hub-Managed Lifecycle](../../docs/roadmap/deployment/hub-managed-lifecycle.md). It polls the
 Lifecycle Hub, admits a signed Plan, verifies the signed Release and configuration package,
 computes the change it would make, and reports the result. By default it never applies anything.
-With `--apply`, it applies a demo workload or the opt-in same-schema Operator profile to one
+With `--apply`, it applies a bounded HTTP application or the legacy same-schema Operator profile to one
 namespace, verifies the rollout, and rolls back on failure. See [Apply mode](#apply-mode).
 
 ## Boundary
@@ -39,7 +39,7 @@ namespace, verifies the rollout, and rolls back on failure. See [Apply mode](#ap
 4. Refuse a sequence that the agent already rejected.
 5. Verify the Release and configuration signatures over the exact file bytes. An unsigned input is
    rejected before any change is computed. The Release then passes the full manifest validation
-   of `parse_runtime_release_manifest`, and the configuration package must resolve for the target
+   of `parse_lifecycle_release_manifest`, and the configuration package must resolve for the target
    Release through `resolve_configuration_layers` (`configuration_override_missing` otherwise).
    Each document's canonical JSON must hash to the digest that the Plan names, as the Hub computes
    it. Then the Plan envelope must fit the maximum derived from local policy and both signed inputs
@@ -75,7 +75,7 @@ nothing, logs `lifecycle_agent.plan_id_conflict`, and exits `1`.
 
 | Option | Content |
 |--------|---------|
-| `--inputs-dir` | `releases/<digest>.json` (a runtime release manifest) and `configurations/<digest>.json` (`schema`, `environment`, `entity_overrides`), each with a raw Ed25519 signature over the file bytes in `<digest>.sig`. `<digest>` is the hex SHA-256 of the document's canonical JSON. |
+| `--inputs-dir` | `releases/<digest>.json` (an application or legacy runtime manifest) and `configurations/<digest>.json` (`schema`, `environment`, `entity_overrides`), each with a raw Ed25519 signature over the file bytes in `<digest>.sig`. `<digest>` is the hex SHA-256 of the document's canonical JSON. |
 | `--current-state` | The Hub's reported-state shape, rewritten by the agent in apply mode: `{"digest": "<64 hex>", "schema_revision": 15, "entities": {"<entity>": {"release_id": "1.4.0", "artifact_digests": ["sha256:..."], "health": "healthy"}}, "observed_at": "<RFC 3339>"}` |
 | `--local-policy` | `{"schema": "fdai.lifecycle-local-policy.v1", "entity_ids": [...], "regions": [...], "capability_modes": {...}, "destructive_allowed": false, "max_duration_minutes": 60, "entity_components": {"core": ["core-control-plane"]}}`. Every Entity in `entity_ids` must name at least one component. Apply mode also needs `"component_images": {"core-control-plane": "<repository>"}`, a repository path without a tag or digest for every component. |
 
@@ -94,6 +94,22 @@ the first 16 hex characters of the SHA-256 of the raw public key.
 The command prints one JSON result. It exits `0` when the poll finished and every required report
 was accepted, `1` when the Hub or local state failed, a report didn't land, or the agent is halted,
 and `2` for invalid configuration.
+
+## Application-neutral packages
+
+`fdai.application-release.v1` declares an application `product` and named HTTP `workloads`.
+Add the independently approved `product` to local policy and bind the same value in Hub Settings.
+A missing or different product rejects the package; neither a Plan nor a signed manifest chooses
+local authority. An omitted product retains only legacy runtime compatibility.
+Map each already-owned Entity to its named components and approved image repositories.
+Signed `port`, `health_path` and `replicas` reach the existing Deployment/ClusterIP Service renderer.
+No application-specific flag, Entity kind, arbitrary template or permission is added.
+Application packages reject `workload_profile` in flat and per-Entity configuration before rendering;
+only a legacy runtime package can select the legacy Operator renderer and its schema-check Job.
+Absent database metadata means schema revision zero, not permission to reset a database.
+See the [package contract](../../docs/roadmap/deployment/lifecycle-releases-and-channels.md#application-package-contract)
+for bounds. Ownership, dry run, independent rollout observation, rollback and durable replay guards
+remain required; local synthetic tests are not installation evidence.
 
 ## Full signed configuration revisions and CSI reports
 

@@ -11,7 +11,7 @@ from fdai_deployment_cli.lifecycle_configuration_package import (
     SignedConfigurationPackage,
     verify_installation_configuration_package,
 )
-from fdai_deployment_cli.runtime_release import RuntimeRelease
+from fdai_deployment_cli.lifecycle_release import LifecycleRelease
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -35,7 +35,7 @@ class ConfigurationRevisionCandidate:
     def resolve(
         self,
         release_id: str,
-        release: RuntimeRelease,
+        release: LifecycleRelease,
         entity_ids: frozenset[str],
         *,
         installation_id: str,

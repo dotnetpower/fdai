@@ -6,6 +6,7 @@ import hashlib
 from collections.abc import Mapping
 
 from fdai_deployment_cli.lifecycle_plan import LifecyclePlan
+from fdai_deployment_cli.lifecycle_release import APPLICATION_RELEASE_SCHEMA
 
 from fdai_lifecycle_agent.inputs import VerifiedConfiguration, VerifiedRelease
 from fdai_lifecycle_agent.journal import WorkloadStore
@@ -22,6 +23,7 @@ def validate_entity_configuration(
     plan: LifecyclePlan,
 ) -> None:
     """Validate public workload intent with private reference inputs, independently per Entity."""
+    _validate_release_profile(release, configuration)
     if not configuration.entity_values and "workload_profile" in configuration.values:
         validate_profile(
             configuration.values,
@@ -59,6 +61,7 @@ def render_entity_configuration(
     configuration: VerifiedConfiguration,
     core_image: str | None,
     plan: LifecyclePlan,
+    release: VerifiedRelease,
 ) -> tuple[Manifest, ...]:
     """Only selected Entities reach renderers. References never cross to another Entity."""
     desired: list[Manifest] = []
@@ -76,10 +79,12 @@ def render_entity_configuration(
                 plan_digest=hashlib.sha256(plan.signed_payload).hexdigest(),
             )
         else:
-            rendered = render(namespace, own_images)
+            rendered = render(namespace, own_images, specifications=release.workloads or None)
             for manifest in rendered:
                 if manifest["kind"] == "Deployment":
-                    manifest["spec"]["replicas"] = values.get("replicas", 1)
+                    manifest["spec"]["replicas"] = values.get(
+                        "replicas", manifest["spec"]["replicas"]
+                    )
         desired.extend(rendered)
     if len({object_key(item) for item in desired}) != len(desired):
         raise WorkloadError("workload_render_failed")
@@ -97,6 +102,7 @@ def prepare_workload(
     store: WorkloadStore,
 ) -> tuple[tuple[Manifest, ...], tuple[Manifest, ...]]:
     """Render and dry-run the existing workload shapes before the intent journal is written."""
+    _validate_release_profile(release, configuration)
     try:
         images = {
             (entity, component): f"{component_repositories[component]}"
@@ -118,6 +124,7 @@ def prepare_workload(
             configuration=configuration,
             core_image=core_image,
             plan=plan,
+            release=release,
         )
     elif "workload_profile" in values:
         if core_image is None:
@@ -130,8 +137,18 @@ def prepare_workload(
             plan_digest=hashlib.sha256(plan.signed_payload).hexdigest(),
         )
     else:
-        desired = render(workload.namespace, images)
+        desired = render(workload.namespace, images, specifications=release.workloads or None)
     healthy = {object_key(manifest): manifest for manifest in store.load().healthy}
     previous = tuple(healthy[key] for key in map(object_key, desired) if key in healthy)
     workload.preflight(desired, previous)
     return desired, previous
+
+
+def _validate_release_profile(
+    release: VerifiedRelease, configuration: VerifiedConfiguration
+) -> None:
+    values = (configuration.values, *configuration.entity_values.values())
+    if release.schema_version == APPLICATION_RELEASE_SCHEMA and any(
+        "workload_profile" in value for value in values
+    ):
+        raise WorkloadError("application_workload_profile_unsupported")

@@ -23,7 +23,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     canonical_plan_payload,
     evaluate_lifecycle_constraints,
 )
-from fdai_deployment_cli.runtime_release import RuntimeRelease
+from fdai_deployment_cli.lifecycle_release import LifecycleRelease
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
@@ -73,6 +73,11 @@ def plan_next(
     checks: list[CandidateCheck] = []
     candidates = catalog.newer_than(installation.settings.channel, installation.current_release)
     for release_id, release in candidates:
+        if release.product != installation.settings.product:
+            checks.append(
+                CandidateCheck(release_id, (ConstraintBlock("release_product_mismatch"),))
+            )
+            continue
         schema = release.configuration_schema
         if (
             configuration_revision is None
@@ -149,7 +154,7 @@ def plan_id_for(installation_id: str, sequence: int) -> str:
 def _draft(
     installation: Installation,
     release_id: str,
-    release: RuntimeRelease,
+    release: LifecycleRelease,
     *,
     key: HubSigningKey,
     windows: tuple[MaintenanceWindow, ...],
@@ -195,7 +200,7 @@ def _draft(
 def _constraint_context(
     installation: Installation,
     draft: LifecyclePlan,
-    release: RuntimeRelease,
+    release: LifecycleRelease,
     *,
     catalog: ReleaseCatalog,
     windows: tuple[MaintenanceWindow, ...],
