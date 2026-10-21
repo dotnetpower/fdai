@@ -8,6 +8,8 @@ services, one independently packaged read-only service candidate, and a shared s
 SDK. The root coordinates tooling and integration tests; it is not a monolithic runtime
 distribution, and no service imports another service's implementation.
 
+A shared runtime dependency constraint, such as Pillow, changes in the root manifest and in every owning service manifest together. The single root lock then supplies each service image, so a dependency fix reaches all images that include it.
+
 ## Packaging contract
 
 | Surface | Ownership contract |
