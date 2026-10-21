@@ -39,7 +39,11 @@ print(settings_digest(Settings(
     results = [
         subprocess.run(  # noqa: S603 - fixed test interpreter and synthetic source
             [sys.executable, "-c", source],
-            env={**os.environ, "PYTHONHASHSEED": seed},
+            env={
+                **os.environ,
+                "PYTHONPATH": os.pathsep.join(sys.path),
+                "PYTHONHASHSEED": seed,
+            },
             check=True,
             capture_output=True,
             text=True,
