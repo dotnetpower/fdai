@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { actionsFor, artifacts, requestCatalog, type Action, type Catalog, type Release } from "./api";
+import { actionsFor, artifacts, isCustomChannel, requestCatalog, type Action, type Catalog, type Release } from "./api";
 
 const TITLES = { register: "Register release", publish: "Publish to DEV", contribute: "Add to channel", recall: "Recall release", renew: "Renew catalog freshness" };
 type Pending = { action: Action; release: Release | null };
@@ -20,6 +20,8 @@ function Confirm({ pending, catalog, close, done }: {
   const [channel, setChannel] = useState(
     Object.keys(catalog.channels).find((name) => !pending.release?.channels.includes(name)) ?? "",
   );
+  const [channelConfirmation, setChannelConfirmation] = useState("");
+  const customChannel = isCustomChannel(channel);
   const action = pending.action;
   const target = action === "renew" ? `renew ${catalog.revision}` : id;
   useEffect(() => {
@@ -38,7 +40,7 @@ function Confirm({ pending, catalog, close, done }: {
       await requestCatalog(action === "renew" ? "/v1/catalog/renew" : `/v1/releases/${encodeURIComponent(id)}/${action}`, {
         revision: catalog.revision, confirmation, reason,
         ...(action === "register" ? { label, manifest } : {}),
-        ...(action === "contribute" ? { channel } : {}),
+        ...(action === "contribute" ? { channel, ...(customChannel ? { channel_confirmation: channelConfirmation } : {}) } : {}),
       });
       await done(id);
     } catch (failure) {
@@ -59,9 +61,12 @@ function Confirm({ pending, catalog, close, done }: {
       {pending.release && <p><strong>FDAI {pending.release.id}</strong><code class="digest">{pending.release.digest}</code></p>}
       {action === "publish" && <p>Sign the exact manifest with the development key and add it to DEV. This does not establish production trust.</p>}
       {action === "contribute" && <>
-        <label>Destination channel<select value={channel} onChange={(e) => setChannel(e.currentTarget.value)}>
-          {Object.keys(catalog.channels).filter((c) => !pending.release?.channels.includes(c)).map((c) => <option key={c}>{c}</option>)}
-        </select></label>
+        <label>Destination channel<input required list="contribution-channels" maxLength={64} pattern="DEV|RELEASE_CANDIDATE|RELEASE|custom-[a-z0-9]+(-[a-z0-9]+)*" aria-describedby="channel-help" value={channel} onInput={(e) => setChannel(e.currentTarget.value)} /></label>
+        <datalist id="contribution-channels">
+          {Object.keys(catalog.channels).filter((c) => !pending.release?.channels.includes(c)).map((c) => <option key={c} value={c} />)}
+        </datalist>
+        <p id="channel-help">Choose an existing channel or enter custom-name, using lowercase letters, numbers and single hyphens (64 characters maximum). The first reviewed contribution creates its membership.</p>
+        {customChannel && <label class="channel-confirmation">Type {channel} to confirm destination<input required maxLength={64} autoComplete="off" value={channelConfirmation} onInput={(e) => setChannelConfirmation(e.currentTarget.value)} /></label>}
         <p>Manual eligibility curation. Soak time, canary health and security review gates are not implemented.</p>
       </>}
       {action === "recall" && <p class="warning">Withdraw eligibility in every channel. Recall is irreversible here. Running installations and issued Plans do not change automatically.</p>}
@@ -71,7 +76,7 @@ function Confirm({ pending, catalog, close, done }: {
       <p>Catalog revision {catalog.revision}. A concurrent change requires refresh and review.</p>
       {error && <p class="error" role="alert">{error} Close this dialog and refresh to inspect the current state.</p>}
       <footer><button type="button" disabled={busy} onClick={close}>Cancel</button>
-        <button class={action === "recall" ? "danger" : "primary"} disabled={busy || confirmation !== target || !target || reason.trim().length < 3 || !!error}>
+        <button class={action === "recall" ? "danger" : "primary"} disabled={busy || confirmation !== target || !target || reason.trim().length < 3 || !!error || (action === "contribute" && customChannel && channelConfirmation !== channel)}>
           {busy ? "Saving..." : `Confirm ${TITLES[action].toLowerCase()}`}
         </button></footer>
     </form>
@@ -89,7 +94,7 @@ function ReleaseDetail({ release, catalog, act, disabled }: {
   return <>
     <a href="#/releases" class="back">All releases</a>
     <div class="page-head"><div><p class="eyebrow">Release detail</p><h1>FDAI {release.id}</h1><p>{release.label || "No release label"}</p></div>
-      <div class="actions">{actionsFor(release).map((action) => <button key={action} disabled={disabled || (action === "contribute" && release.channels.length === Object.keys(catalog.channels).length)} class={action === "recall" ? "danger" : ""} onClick={() => act(action, release)}>{TITLES[action]}</button>)}</div>
+      <div class="actions">{actionsFor(release).map((action) => <button key={action} disabled={disabled} class={action === "recall" ? "danger" : ""} onClick={() => act(action, release)}>{TITLES[action]}</button>)}</div>
     </div>
     <div class="facts">
       <div><span>Publication state</span><Status release={release} /></div>

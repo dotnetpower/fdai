@@ -74,6 +74,7 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 dialog { width: min(640px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid var(--rh-border); border-radius: var(--cs-radius); color: var(--cs-text); background: var(--cs-card); }
 dialog::backdrop { background: rgb(20 28 36 / .4); }
 dialog label { display: grid; gap: 8px; margin: 16px 0; }
+dialog label.channel-confirmation { grid-template-columns: minmax(0, 1fr); overflow-wrap: anywhere; }
 dialog input, dialog select, dialog textarea { width: 100%; min-width: 0; }
 dialog textarea { resize: vertical; }
 dialog footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 24px; }

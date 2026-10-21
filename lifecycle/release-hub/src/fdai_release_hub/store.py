@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from base64 import b64decode, b64encode
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -36,6 +37,14 @@ from fdai_release_hub.database import (
 CHANNELS = ("DEV", "RELEASE_CANDIDATE", "RELEASE")
 
 
+def _is_custom_channel(value: str | None) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) <= 64
+        and re.fullmatch(r"custom-[a-z0-9]+(?:-[a-z0-9]+)*", value) is not None
+    )
+
+
 class CatalogError(ValueError):
     def __init__(self, message: str, status: int = 422) -> None:
         super().__init__(message)
@@ -51,7 +60,8 @@ class CatalogConfirmation(BaseModel):
 
 
 class Change(CatalogConfirmation):
-    channel: str | None = None
+    channel: str | None = Field(default=None, max_length=64)
+    channel_confirmation: str | None = Field(default=None, max_length=64)
     label: str = Field(default="", max_length=160)
     manifest: str | None = Field(default=None, max_length=1024 * 1024)
 
@@ -181,7 +191,7 @@ class ReleaseStore:
         *,
         actor: str = "local-operator",
     ) -> dict[str, Any]:
-        if not actor or len(actor) > 160:
+        if not actor.strip() or len(actor) > 160:
             raise CatalogError("An attributed operator is required.")
         if not is_release_id(release_id):
             raise CatalogError("Release id must be canonical SemVer.")
@@ -189,6 +199,18 @@ class ReleaseStore:
             raise CatalogError("Type the exact Release id to confirm.")
         if not change.reason.strip():
             raise CatalogError("A non-blank reason is required.")
+        if action == "contribute":
+            if change.channel not in CHANNELS and not _is_custom_channel(change.channel):
+                raise CatalogError("Choose a built-in channel or a custom- channel name.")
+            if _is_custom_channel(change.channel):
+                if change.channel_confirmation != change.channel:
+                    raise CatalogError("Type the exact custom channel name to confirm.")
+            elif change.channel_confirmation is not None:
+                raise CatalogError(
+                    "Custom channel confirmation is not valid for a built-in channel."
+                )
+        elif change.channel_confirmation is not None:
+            raise CatalogError("Custom channel confirmation is only valid for contribution.")
         with self.connect() as db:
             self._lock_revision(db, change.revision)
             now = self.clock().isoformat()
@@ -238,8 +260,6 @@ class ReleaseStore:
                         raise CatalogError(
                             "Publish the Release before adding it to a channel.", 409
                         )
-                    if change.channel not in CHANNELS:
-                        raise CatalogError("Choose a supported channel.")
                     exists = db.execute(
                         select(membership).where(
                             membership.c.channel == change.channel,
@@ -298,6 +318,12 @@ class ReleaseStore:
                 if history
                 else db.execute(select(catalog_metadata.c.created_at)).scalar_one()
             )
+        channel_names = set(CHANNELS)
+        for member in memberships:
+            channel = member["channel"]
+            if channel not in CHANNELS and not _is_custom_channel(channel):
+                raise CatalogError("Stored catalog channel is invalid.")
+            channel_names.add(channel)
         records = []
         for row in rows:
             record = dict(row)
@@ -323,7 +349,8 @@ class ReleaseStore:
             "key_id": self.key.key_id,
             "releases": records,
             "channels": {
-                c: [m["release_id"] for m in memberships if m["channel"] == c] for c in CHANNELS
+                c: [m["release_id"] for m in memberships if m["channel"] == c]
+                for c in (*CHANNELS, *sorted(channel_names - set(CHANNELS)))
             },
             "events": history,
         }
