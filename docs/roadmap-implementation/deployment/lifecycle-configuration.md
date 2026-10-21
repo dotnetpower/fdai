@@ -129,8 +129,10 @@ The selection includes actual locked Kubernetes SDK request serialization/deseri
 only HTTP transport mocked. No live provider or database was used:
 
 The full-revision producer-to-Agent test invokes both public `main(args)` functions in process.
-The Agent uses an injected Hub transport and fake cluster; this is not an Agent `python -m`
-or installed-binary process test. The separate packaging CLI subprocess suite is not included
+Its Agent CLI calls are dry runs with an injected Hub transport. Full-revision renderer/apply
+checks separately invoke `LifecycleAgent` in process with a fake cluster; existing legacy CLI
+apply checks also inject a fake cluster. None proves a full-revision Agent `python -m`
+or installed-binary process execution. The separate packaging CLI subprocess suite is not included
 in this selector. Its no-write fresh-interpreter test invokes `Harness.poll`, not the Agent CLI.
 The explicitly skipped node is
 `lifecycle/agent/tests/test_cross_process_resumption.py::test_a_superseded_unreported_plan_is_abandoned_not_misapplied`.
