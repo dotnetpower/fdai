@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: cb8ff725f5ec87df1722f114a0029d130c4da562
-translation_revised: 2026-10-16
+translation_source_sha: 755306302fc1db223e040fd693f76ef41c3705d1
+translation_revised: 2026-10-21
 ---
 
 # 다운스트림 포크 가이드
@@ -105,6 +105,10 @@ repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 �
 저장소, 그 Core 구성, 고정 시각 활성화 작성자, AKS 소스 배포 연결, AKS 키 보유자 사용권 발급은
 이미 있으며, Container Apps
 런타임의 바인딩 입력은 [소스 배포](../deployment/source-deployment-ko.md)의 남은 과제입니다.
+
+선택적 [사용권 수락 입력](capability-licensing-ko.md#선택적-전체-사용권-수락-입력)은 비공개 저장
+어댑터를 바꿀 수 있지만 패키지의 발급자 신뢰, 정확한 결속, Trial 시계·기준 시점이나 워터마크를
+바꾸지 않습니다. 기밀 전달 묶음은 전달 경로이지 포크의 사용권이나 권한이 아닙니다.
 
 선택적 버티컬 패키지도 포크 경계와 독립적입니다. 예를 들어
 [`fdai-cost-governance`](../architecture/finops-package-architecture-ko.md)는 검토된 업스트림

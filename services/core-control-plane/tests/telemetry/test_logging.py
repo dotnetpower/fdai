@@ -306,6 +306,104 @@ def test_warning_file_does_not_compact_before_each_emit(
     assert [entry["message"] for entry in entries] == ["one", "two"]
 
 
+@pytest.mark.parametrize("empty", [False, True])
+def test_warning_file_does_not_rewrite_unexpired_records(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    empty: bool,
+) -> None:
+    now = datetime(2026, 10, 21, 6, 0, tzinfo=UTC)
+    warning_path = tmp_path / "warnings.jsonl"
+    contents = (
+        ""
+        if empty
+        else "\n".join(
+            json.dumps({"timestamp": timestamp.isoformat(), "message": "retained"})
+            for timestamp in (now, now - timedelta(hours=23), now - timedelta(hours=1))
+        )
+        + "\n"
+    )
+    warning_path.write_text(contents, encoding="utf-8")
+    rewritten_bytes: list[int] = []
+    original_write_text = Path.write_text
+
+    def track_write_text(
+        path: Path,
+        data: str,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> int:
+        rewritten_bytes.append(len(data.encode("utf-8")))
+        return original_write_text(path, data, encoding=encoding, errors=errors, newline=newline)
+
+    monkeypatch.setattr(Path, "write_text", track_write_text)
+    handler = RetainedJsonlHandler(
+        warning_path,
+        cleanup_interval_seconds=300,
+        clock=lambda: now,
+    )
+    try:
+        handler._compact(now + timedelta(seconds=300))
+        handler._compact(now + timedelta(seconds=600))
+    finally:
+        handler.close()
+
+    assert rewritten_bytes == []
+    assert warning_path.read_text(encoding="utf-8") == contents
+
+
+def test_warning_file_expires_records_after_noop_cleanup(tmp_path: Path) -> None:
+    now = datetime(2026, 10, 21, 6, 0, tzinfo=UTC)
+    warning_path = tmp_path / "warnings.jsonl"
+    warning_path.write_text(
+        "\n".join(
+            json.dumps({"timestamp": timestamp.isoformat(), "message": message})
+            for timestamp, message in (
+                (now - timedelta(seconds=1), "expires"),
+                (now, "boundary"),
+            )
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    handler = RetainedJsonlHandler(
+        warning_path,
+        retention=timedelta(seconds=600),
+        cleanup_interval_seconds=300,
+        clock=lambda: now,
+    )
+    try:
+        handler._compact(now + timedelta(seconds=300))
+        assert len(warning_path.read_text().splitlines()) == 2
+        handler._compact(now + timedelta(seconds=600))
+    finally:
+        handler.close()
+
+    entries = [json.loads(line) for line in warning_path.read_text().splitlines()]
+    assert [entry["message"] for entry in entries] == ["boundary"]
+
+
+def test_warning_file_repairs_missing_final_newline(tmp_path: Path) -> None:
+    now = datetime(2026, 10, 21, 6, 0, tzinfo=UTC)
+    warning_path = tmp_path / "warnings.jsonl"
+    contents = json.dumps({"timestamp": now.isoformat(), "message": "retained"})
+    warning_path.write_text(contents, encoding="utf-8")
+    handler = RetainedJsonlHandler(
+        warning_path,
+        cleanup_interval_seconds=3600,
+        clock=lambda: now,
+    )
+    handler.setFormatter(JsonFormatter())
+    try:
+        handler.emit(logging.LogRecord("test", logging.WARNING, "", 0, "appended", (), None))
+    finally:
+        handler.close()
+
+    entries = [json.loads(line) for line in warning_path.read_text().splitlines()]
+    assert [entry["message"] for entry in entries] == ["retained", "appended"]
+
+
 def test_warning_file_compacts_once_per_shared_cleanup_interval(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

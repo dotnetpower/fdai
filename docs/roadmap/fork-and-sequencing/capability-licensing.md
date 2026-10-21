@@ -221,6 +221,23 @@ receives it as a CSI-mounted secret environment. Container Apps Core does not re
 installation binding yet, so a Container Apps key-holder deployment still receives the 30-day v1
 token.
 
+### Optional accepted full-grant source
+
+The [confidential entitlement carrier](../deployment/hub-managed-lifecycle-entitlement.md#initial-full-entitlement-carrier-contract)
+and local licensing-owner importer can retain an existing installation full grant without
+issuing one. They verify the original issuer and exact binding, then atomically retain immutable
+Core-owned token/audit records. Duplicates return the original receipt; a different token conflicts.
+Neither `issued_at` nor a Hub signature is a replacement authority. Operator reads only the
+existing notice, not the private token.
+
+`FDAI_ACCEPTED_INSTALLATION_ENTITLEMENT_SOURCE=postgres` explicitly selects this optional
+`EntitlementTokenSource`; it requires the installation/deployment digests and Core database and is
+exclusive with `FDAI_LICENSE_TOKEN`. The normal off-loop authority rereads and reverifies the
+original bytes. Startup logging does not read the store. Missing state never activates a Trial;
+an existing valid Trial remains governed by the unchanged resolver, and corrupt/untrusted storage
+cannot obtain that fallback. Legacy omission, the v1 ceiling, Trial anchor/clock/expiry and
+watermark semantics remain unchanged. This source is not Hub integration or installed acceptance.
+
 ## The token
 
 The token is `base64url(canonical-document) "." base64url(signature)` - a single ASCII string that

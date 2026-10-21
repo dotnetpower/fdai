@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 3f40a3fe4b95736bcb7c2de319664857e9cc70f6
+translation_source_sha: bc821b347b23a42bd100955d2b2d0090f1a2b8af
 translation_revised: 2026-10-21
 ---
 
@@ -23,6 +23,7 @@ Host에서 실행됩니다.
 
 | 항목 | 결정 |
 |------|------|
+| 사용권 전달 | 선택적 `fdaictl license seal-entitlement`는 [로컬 사용권 담당 인계](hub-managed-lifecycle-entitlement-ko.md#로컬-소스-명령)를 위해 기존 바이트만 봉인합니다. 발급자, Trial 활성화, Hub 선행 조건이나 배포는 추가하지 않습니다 |
 | 운영자 명령 | 배포에는 `fdaictl provision azure`를 사용합니다. `fdaictl configuration build`/`verify`는 [로컬 서명 구성 산출물](lifecycle-configuration-ko.md) 전용이며, Azure 접근, 신뢰 등록 또는 배포를 하지 않습니다 |
 | 소스 checkout 명령 | `scripts/deployment/azure/fdai-up.sh` |
 | 인프라 엔진 | 선택한 서명 프로필 폐쇄 집합의 Terraform |
@@ -672,6 +673,11 @@ Git 상태가 깨끗하다는 사실만으로 소스 신원을 입증하지 않�
 집중 소스 테스트는 서명, 정확한 파일 목록, SBOM 검사나 네트워크가 격리된 에어갭 훈련의
 신규 및 재개 완전 산출물 수락을 대신하지 않습니다. 전체 산출물 신뢰 경계는
 [연결이 끊긴 배포](disconnected-deployment-ko.md)를 참조하세요.
+
+새 번들 서명은 [정식 릴리스 채널](lifecycle-releases-and-channels-ko.md#릴리스-채널)을 사용합니다.
+검증기는 원래 서명된 바이트나 해시를 바꾸지 않고 인증된 기존 이름을 매핑합니다.
+패키지가 허용하는 채널은 기존 `development`를 포함한 `DEV`뿐입니다. 이름 이전으로 릴리스
+후보나 릴리스를 신뢰하거나 프로덕션 신뢰 루트를 추가하지 않습니다.
 
 CLI는 [Lifecycle 구성](lifecycle-configuration-ko.md) 패키지용 순수 검증기도 포함합니다. 이
 검증기는 허용된 비권한 축과 소유자가 없는 구성 키를 거부하고, 릴리스 기본값, 환경 구성, 가장

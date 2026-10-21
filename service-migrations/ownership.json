@@ -269,6 +269,8 @@
   },
   "table_migrations": {
     "core-control-plane": [
+      "licensing_accepted_entitlement",
+      "licensing_entitlement_acceptance_audit",
       "document_intent_projection",
       "document_intent_transition",
       "document_intent_resource",
@@ -506,6 +508,8 @@
   },
   "whole_table_writers": {
     "core-control-plane": [
+      "licensing_accepted_entitlement",
+      "licensing_entitlement_acceptance_audit",
       "document_intent_projection",
       "document_intent_transition",
       "document_intent_resource",

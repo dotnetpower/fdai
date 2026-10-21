@@ -46,7 +46,7 @@ def prepared_snapshot(tmp_path, monkeypatch):
             "rule-catalog/placeholders/.gitkeep",
         ),
         bundle_version="0.1.0",
-        release_channel="development",
+        release_channel="DEV",
         min_cli_version="0.1.0",
         max_cli_version=None,
         private_key_pem=private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()),

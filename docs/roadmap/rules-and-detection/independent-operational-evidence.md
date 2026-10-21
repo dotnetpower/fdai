@@ -29,6 +29,11 @@ Source-only corpus regeneration does not issue [typed-selection read qualificati
 
 ## Design at a glance
 
+Core's private installation-entitlement token and acceptance audit establish local licensing
+acceptance only, not operational evidence or execution authority. The
+[entitlement handoff](../deployment/hub-managed-lifecycle-entitlement.md) adds no evidence issuer,
+source registration, `DecisionEvidenceAdmission`, or independent effect observation.
+
 Core owns `document_intent_projection`, `document_intent_transition`, and
 `document_intent_resource` for private intent, provenance, and publication recovery, not
 independent operational outcomes. Exact-diff Var approval, Saga audit, and Heimdall's committed-row
