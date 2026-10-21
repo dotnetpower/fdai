@@ -56,7 +56,19 @@ packaging rule changes no runtime profile or authority.
 
 Operator production composition uses the same focused lifecycle, route-family, and read-source
 modules in every runtime profile. Core's coupled self-health catalog/scope factory stays in `bootstrap_readiness`, while Operator model-scope decoding stays in `runtime_model_scope_projection`. This structural extraction changes no profile behavior. The internal ownership split changes no platform selection,
-identity, source binding, readiness condition, or deployment authority. Core's common read-only self-health registry observes the actual listener, guarded readiness, persisted kill switch, and process startup duration, and identifies the installed version, consumed bootstrap policy, and kill-switch state. Model outcomes are separate typed sub-observations with independent complete startup registration; they cannot supply global adapter Healthy. Four catalog slots/three fields are source-bound and 11/five remain unavailable. Selecting AKS, Container Apps, or observation-first supplies no missing source, human role, executor identity, or execution authority. Process-local checks are not deployed alert/drill acceptance; see [Operating and Verification](../operations/operating-and-verification.md#local-source-bindings).
+identity, source binding, readiness condition, or deployment authority. Core's common read-only self-health registry observes the actual listener, guarded readiness, persisted kill switch, and process startup duration, and identifies the installed version, consumed bootstrap policy, and kill-switch state. Model outcomes are separate typed sub-observations with independent complete startup registration; they cannot supply global adapter Healthy. Source coverage and remaining bindings follow [Operating and Verification](../operations/operating-and-verification.md#local-source-bindings), rather than a separate profile-specific count. Selecting a runtime supplies no missing source, human role, executor identity, or execution authority. Process-local checks are not deployed alert/drill acceptance.
+
+The standalone AKS workload module binds Core's canary observer to its exact namespace and `canary`
+CronJob through `FDAI_CANARY_OBSERVER_NAMESPACE` and `FDAI_CANARY_OBSERVER_CRONJOB`. Conflicting
+environment values fail planning. A namespace-local Role permits only named-CronJob `get` and
+Job `list`, with no Secret read or mutation. The canary's explicit `Etc/UTC` timezone is also bound
+into the protected CLI template digest; other Jobs retain their existing timezone contract.
+The read-only source joins independently fetched Kubernetes 1.32+ scheduled-Job metadata to the
+complete bounded canonical consumption sequence. Missing, malformed, stale, truncated, changed,
+cancelled or replayed observations cannot reuse an earlier success. Unconfigured sources and
+unqualified Container Apps scheduler witnesses remain unavailable. This adds no diagnostic graph
+facts, action authority or installed acceptance; the exact data and critique contract stays in
+[Operating and Verification](../operations/operating-and-verification.md#independently-witnessed-aks-result).
 Both profiles also use the same authenticated instance-index enrollment and bounded Core reconciliation task. Governed embedding identity gates adapter construction; cached candidates never replace current graph authorization. Unqualified semantic ranking remains closed, and exact-ID availability does not establish AKS diagnostic evidence, provider health, or deployment readiness.
 Both profiles derive static Key Vault secret names and versionless receipt-signing secret
 references from declared resource names. Provider-computed attributes remain the authority for
