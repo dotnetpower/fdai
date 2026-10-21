@@ -14,8 +14,9 @@ channel model, upgrade bundles, and recall.
 > pinned export admission by the Lifecycle Hub. It does not implement production authentication,
 > signed catalog roles, registry publication, or recall roll-off.
 > FDAI also has signed deployment bundles and offline kits, and their
-> signed manifests use the channel names `development`, `beta`, and `stable`. The deployment CLI
-> trusts only `development`. The
+> new bundle signatures use `DEV`, `RELEASE_CANDIDATE`, and `RELEASE`. Verification maps legacy
+> `development`, `beta`, and `stable` names without rewriting signed bytes. The deployment CLI
+> still admits only `DEV` and its authenticated legacy equivalent. The
 > [implementation ledger](../../roadmap-implementation/deployment/lifecycle-releases-and-channels.md)
 > tracks the rest.
 >
@@ -145,6 +146,14 @@ Channel names migrate one way. `development` maps to `DEV`, `beta` maps to `RELE
 `stable` maps to `RELEASE`. Artifacts signed before the migration keep their legacy names, and the
 deployment CLI maps those names only to verify them.
 
+**Migration design and critique:** Normalize metadata only after verifying the original
+signature and canonical bytes; rewriting the signed document would invalidate its provenance.
+New bundle producers accept canonical names only, and the package-pinned eligible channel stays
+`DEV`, including authenticated legacy `development`. Mapping `beta` or `stable` does not make
+either eligible. Unknown names hold rather than becoming custom channels. Compatibility is
+one-way: old binaries are not claimed to accept newly signed canonical names. This change
+adds no installation gate, trust root, promotion or production qualification.
+
 ## Subscriptions and automatic upgrades
 
 - Installation settings name one channel and an optional version range. Every Entity follows the
@@ -257,7 +266,9 @@ it also contains the Target Hub.
 
 ## Honest limits
 
-- Nothing beyond signed deployment bundles, offline kits, and legacy channel names is implemented.
+- Signed deployment bundles and offline kits implement the one-way channel migration. The local
+  Release Hub also has the bounded development capabilities listed above; production catalog trust,
+  automated promotion and distribution remain open.
 - The production trust-root ceremony hasn't run. A vendor release key must exist before any Hub
   path can verify Releases.
 - Reproducible double-build verification of the signed bundle remains open.

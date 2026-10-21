@@ -14,6 +14,10 @@ from pathlib import Path, PurePosixPath
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from fdai_service_contracts.release_channels import (
+    ReleaseChannelError,
+    verified_release_channel,
+)
 
 from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
 
@@ -80,6 +84,10 @@ def verify_bundle(
         raise BundleVerificationError("deployment bundle manifest schema does not match")
     if canonical_bytes(payload) + b"\n" != manifest:
         raise BundleVerificationError("deployment bundle manifest is not canonical")
+    try:
+        release_channel = verified_release_channel(_text(payload, "release_channel"))
+    except ReleaseChannelError as error:
+        raise BundleVerificationError(str(error)) from error
     current = _semver(cli_version, "CLI version")
     minimum = _semver(_text(payload, "min_cli_version"), "minimum CLI version")
     maximum_value = payload["max_cli_version"]
@@ -128,7 +136,7 @@ def verify_bundle(
     _verify_sbom(root, payload, declared)
     return BundleVerification(
         bundle_version=_text(payload, "bundle_version"),
-        release_channel=_text(payload, "release_channel"),
+        release_channel=release_channel,
         file_count=len(observed),
         manifest_digest=hashlib.sha256(manifest).hexdigest(),
     )

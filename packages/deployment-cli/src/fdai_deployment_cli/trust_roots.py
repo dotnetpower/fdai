@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 _TRUST_PACKAGE = "fdai_deployment_cli"
 _TRUST_DIRECTORY = "trust"
-_DEPLOYMENT_RELEASE_CHANNEL = "development"
+_DEPLOYMENT_RELEASE_CHANNEL = "DEV"
 
 
 def deployment_release_root_pem() -> bytes:

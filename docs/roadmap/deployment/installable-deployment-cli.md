@@ -672,7 +672,7 @@ and completion of every requested artifact stage; interruption cannot continue t
 Source hardening covers packaged entry points, stateful verification-only resume, and nested
 cancellation. Focused source tests do not replace signature verification, exact-file and SBOM
 checks, or fresh and resumed complete artifact acceptance in the network-isolated air-gap drill.
-See [Disconnected Deployment](disconnected-deployment.md) for the complete artifact trust boundary.
+See [Disconnected Deployment](disconnected-deployment.md) for the complete artifact trust boundary. New signatures use [canonical release channels](lifecycle-releases-and-channels.md#release-channels); verification maps authenticated legacy names without rewriting original signed bytes or digests, widening DEV-only package eligibility, or adding production trust roots.
 
 The CLI also carries pure validators for [Lifecycle Configuration](lifecycle-configuration.md)
 packages. They reject configuration keys without an allowed non-authority axis and an owner, resolve
