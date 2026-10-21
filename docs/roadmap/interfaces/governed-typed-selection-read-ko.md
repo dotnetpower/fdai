@@ -1,6 +1,6 @@
 ---
 translation_of: governed-typed-selection-read.md
-translation_source_sha: a371b7bd10cb6a1abad865e99a0f61a115854d8a
+translation_source_sha: 92ff31ec50afa9a87405c515d13d93bba795e190
 translation_revised: 2026-10-21
 ---
 # 적용 승인을 거치는 타입 선택 읽기
@@ -133,9 +133,7 @@ p50 2.662초, p95 4.013초, p99 5.369초, 이벤트 루프 지연 p99 0.897 ms�
 이어서 영속 PostgreSQL 개발 상태 저장소에서 독립 적격성 수용(`DecisionEvidenceReadinessGate`
 -> `StateStoreDecisionEvidenceAdmissionRecorder`), 명시적 Var Owner 승인, Thor 레지스트리
 승격, Saga 감사를 실행했고 독립 리더가 활성 포인터와 종단 간 답변 소비 효과를 검증했습니다
-(증적 `sha256:72b8038ef7be188e00eac79eb718375b0a38bed85656e5f182f46da545658e4b`). 최초
-`expected_revision=0` 승격은 `write_state_with_audit_if_absent`를 사용하여 행이 없는
-PostgreSQL 저장소와 메모리 저장소가 동일하게 동작합니다.
+(증적 `sha256:72b8038ef7be188e00eac79eb718375b0a38bed85656e5f182f46da545658e4b`).
 
 ## 구현 전 비판 검토와 수정
 

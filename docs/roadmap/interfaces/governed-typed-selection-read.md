@@ -136,9 +136,7 @@ Independent qualification admission (`DecisionEvidenceReadinessGate` ->
 `StateStoreDecisionEvidenceAdmissionRecorder`), explicit Var Owner approval, Thor registry
 promotion and Saga audit then executed in the durable PostgreSQL development state store, and an
 independent reader verified the active pointer and end-to-end answer consumption
-(receipt `sha256:72b8038ef7be188e00eac79eb718375b0a38bed85656e5f182f46da545658e4b`). Initial
-`expected_revision=0` promotion uses `write_state_with_audit_if_absent` so absent-row PostgreSQL
-stores and in-memory stores behave identically.
+(receipt `sha256:72b8038ef7be188e00eac79eb718375b0a38bed85656e5f182f46da545658e4b`).
 
 ## Pre-implementation critique and revision
 

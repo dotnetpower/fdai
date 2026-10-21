@@ -802,28 +802,3 @@ async def test_independent_admission_for_another_purpose_cannot_authorize_the_re
                 }
             )
     assert await f.registry.pointer(_DIGEST) == pointer
-
-
-async def test_initial_promotion_uses_absent_row_insert_before_later_cas_revisions(
-    monkeypatch,
-):
-    f = await _fixture()
-    insert = AsyncMock(wraps=f.store.write_state_with_audit_if_absent)
-    cas = AsyncMock(wraps=f.store.compare_and_set_state_with_audit)
-    monkeypatch.setattr(f.store, "write_state_with_audit_if_absent", insert)
-    monkeypatch.setattr(f.store, "compare_and_set_state_with_audit", cas)
-    active_key = "typed-selection-read:v1:active:" + _DIGEST
-    pointer = await _promote(f)
-    assert pointer.revision == 1
-    assert [call.args[0] for call in insert.await_args_list].count(active_key) == 1
-    assert [call.args[0] for call in cas.await_args_list].count(active_key) == 0
-    second = await f.registry.promote(
-        qualification_digest=f.qualification.digest,
-        expected_revision=1,
-        approval_key=pointer.approval_key,
-        approval_fingerprint=pointer.approval_fingerprint,
-        request_digest=pointer.promotion_request_digest,
-        actor="Thor",
-    )
-    assert second.revision == 2
-    assert [call.args[0] for call in cas.await_args_list].count(active_key) == 1

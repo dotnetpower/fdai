@@ -141,27 +141,18 @@ class StateStoreTypedSelectionRead:
             promotion_request_digest=request_digest,
         )
         key = _PREFIX + "active:" + pointer.binding.principal_scope_digest
-        audit_entry = {
-            "actor": "Thor",
-            "action_kind": "typed_selection_read.promote",
-            "binding_digest": pointer.binding.digest,
-            "qualification_digest": qualification.digest,
-            "revision": pointer.revision,
-            "recorded_at": self.clock().isoformat(),
-        }
-        applied = (
-            await self.store.write_state_with_audit_if_absent(
-                key,
-                pointer.model_dump(mode="json"),
-                audit_entry,
-            )
-            if expected_revision == 0
-            else await self.store.compare_and_set_state_with_audit(
-                key,
-                pointer.model_dump(mode="json"),
-                expected_revision=expected_revision,
-                audit_entry=audit_entry,
-            )
+        applied = await self.store.compare_and_set_state_with_audit(
+            key,
+            pointer.model_dump(mode="json"),
+            expected_revision=expected_revision,
+            audit_entry={
+                "actor": "Thor",
+                "action_kind": "typed_selection_read.promote",
+                "binding_digest": pointer.binding.digest,
+                "qualification_digest": qualification.digest,
+                "revision": pointer.revision,
+                "recorded_at": self.clock().isoformat(),
+            },
         )
         if not applied:
             raise PermissionError("typed selection promotion revision changed")
