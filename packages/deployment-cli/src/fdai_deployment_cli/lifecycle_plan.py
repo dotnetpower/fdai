@@ -24,14 +24,28 @@ from fdai_deployment_cli.runtime_release import (
 
 CapabilityMode = Literal["shadow", "enforce"]
 SchemaDirection = Literal["upgrade", "rollback"]
-PlanType = Literal["install", "upgrade", "configuration-change", "recall-rolloff", "rollback"]
+PlanType = Literal[
+    "install",
+    "upgrade",
+    "configuration-change",
+    "recall-rolloff",
+    "rollback",
+    "drift-reconciliation",
+]
 SuppressionOrigin = Literal["manual", "failure"]
 SignatureVerifier = Callable[[str, bytes, bytes], bool]
 
 _MODE_ORDER: Mapping[CapabilityMode, int] = {"shadow": 0, "enforce": 1}
 _SCOPE_ID = re.compile(r"[a-z][a-z0-9._-]*\Z", re.ASCII)
 _SUPPORTED_PLAN_TYPES = frozenset(
-    {"install", "upgrade", "configuration-change", "recall-rolloff", "rollback"}
+    {
+        "install",
+        "upgrade",
+        "configuration-change",
+        "recall-rolloff",
+        "rollback",
+        "drift-reconciliation",
+    }
 )
 _PLAN_PAYLOAD_KEYS = frozenset(
     {
@@ -615,7 +629,7 @@ def _scope_matches(scope: str, context: LifecycleConstraintContext) -> bool:
 def _schema_direction(plan_type: PlanType) -> SchemaDirection:
     if plan_type in {"rollback", "recall-rolloff"}:
         return "rollback"
-    if plan_type in {"install", "upgrade", "configuration-change"}:
+    if plan_type in {"install", "upgrade", "configuration-change", "drift-reconciliation"}:
         return "upgrade"
     raise ValueError(f"unsupported plan type: {plan_type}")
 
@@ -671,6 +685,12 @@ def _required_artifacts(release: LifecycleRelease) -> tuple[ArtifactRequirement,
             if isinstance(digest, str):
                 result.append(ArtifactRequirement(f"{section}/{name}", digest))
     return tuple(sorted(result, key=lambda artifact: artifact.name))
+
+
+def required_artifact_digests(release: LifecycleRelease) -> frozenset[str]:
+    """Return the immutable image digests declared by a Release manifest."""
+
+    return frozenset(artifact.digest for artifact in _required_artifacts(release))
 
 
 def _version_range_block(release_version: str, version_range: str) -> ConstraintBlock | None:
