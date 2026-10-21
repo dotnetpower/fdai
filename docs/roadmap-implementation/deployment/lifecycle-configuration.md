@@ -40,7 +40,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-10-21 | implemented | Added #2333 source-only independently authenticated public configuration-key requests, approval, explicit rotation/revocation and retained version history on the existing enrollment lock/audit chain. The real configuration planning store resolves approved persisted keys, and pending Plans retain exact trust versions. Added explicit additive Lifecycle Hub migration 1-to-2 without changing Release Hub revision 1 or legacy enrollment. Reproduced crypto-provider acceptance of an identity-point signature and reject noncanonical, off-curve and small-order signing points at this new binding boundary. Missing configuration trust does not withdraw an existing legacy Plan. | `current change`; source and focused tests above; the exact command below passed 259 cases on isolated loopback PostgreSQL 5433; strict mypy and Ruff passed. The broad selected run first exposed an existing port-1 negative-connect test without a timeout; a process-local `PGCONNECT_TIMEOUT=3` bounded it without changing runtime configuration or weakening checks. | No real enrollment, deployed migration, atomic configuration-package/head import, cross-key historical-chain import, Agent/CSI integration, Azure/model use or production qualification. Protected delivery belongs to the parent issue outcome. |
 
-Focused #2333 validation (passed: 259 tests):
+Focused #2333 validation (passed: 259 tests; repeated on the clean immutable candidate with the
+repository's strict defaults preserved and only coverage disabled):
 
 ```bash
 PGCONNECT_TIMEOUT=3 python3 scripts/automation/with-local-test-database.py \
@@ -56,7 +57,7 @@ PGCONNECT_TIMEOUT=3 python3 scripts/automation/with-local-test-database.py \
   lifecycle/hub/tests/test_api.py \
   lifecycle/hub/tests/test_store.py \
   lifecycle/hub/tests/test_database_inspection.py \
-  -q --tb=short --timeout=30 --override-ini=addopts= \
+  -q --no-cov --tb=short --timeout=30 \
   --basetemp=.fdai/pytest-approved-keys-validated
 ```
 
