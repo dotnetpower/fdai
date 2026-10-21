@@ -8,22 +8,26 @@ export type Release = {
 export type Event = {
   revision: number; release_id: string; action: string; reason: string;
   channel: string | null; occurred_at: string;
+  actor?: string;
 };
 export type Catalog = {
   revision: number; updated_at: string; expires_at: string; expired: boolean;
   key_id: string; mode: string; releases: Release[];
   channels: Record<string, string[]>; events: Event[]; export_sha256?: string;
 };
-export type Action = "register" | "publish" | "contribute" | "recall";
+export type Action = "register" | "publish" | "contribute" | "recall" | "renew";
 export type Change = {
   revision: number; confirmation: string; reason: string; channel?: string;
   label?: string; manifest?: string;
 };
 
 export async function requestCatalog(path = "/v1/catalog", body?: Change): Promise<Catalog> {
-  const response = await authenticatedFetch(path, body ? {
+  const response = await authenticatedFetch(path, {
+    signal: AbortSignal.timeout(10_000),
+    ...(body ? {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-  } : {});
+    } : {}),
+  });
   if (!response.ok) {
     const result: unknown = await response.json();
     const message = typeof result === "object" && result !== null && "error" in result

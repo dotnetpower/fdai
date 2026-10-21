@@ -646,6 +646,65 @@ def test_service_identity_is_read_export_only(protected):
             )
 
 
+def test_release_catalog_renewal_requires_attributed_vendor_operator(auth, protected, tmp_path):
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    from fdai_lifecycle_hub.signing import HubSigningKey
+    from fdai_release_hub.api import create_app
+    from fdai_release_hub.store import ReleaseStore
+
+    now = datetime(2026, 10, 15, tzinfo=UTC)
+    store = ReleaseStore(
+        tmp_path / "vendor.db", HubSigningKey(Ed25519PrivateKey.generate(), 1), clock=lambda: now
+    )
+    store.clock = lambda: now + timedelta(seconds=1)
+    original, token = protected
+    app = create_app(store, remote_auth=auth, remote_origin=auth.origin)
+    app.state.entra_verifier._keys = original.state.entra_verifier._keys
+    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    payload = {"revision": 0, "confirmation": "renew 0", "reason": "Reviewed current catalog"}
+    with TestClient(app, base_url=auth.origin) as client:
+        assert client.post("/v1/catalog/renew", json=payload).status_code == 401
+        for identity in (
+            dict(
+                oid="customer-service",
+                azp="customer-client",
+                scp=None,
+                idtyp="app",
+                roles=["Catalog.Read"],
+            ),
+            dict(
+                oid="agent-object",
+                azp="agent-client",
+                scp=None,
+                idtyp="app",
+                roles=["Agent.Access"],
+            ),
+            dict(oid="other-human"),
+        ):
+            assert (
+                client.post(
+                    "/v1/catalog/renew", headers=token(**identity), json=payload
+                ).status_code
+                == 403
+            )
+        assert (
+            client.post(
+                "/v1/catalog/renew",
+                headers={**token(), "Origin": "https://other.example.com"},
+                json=payload,
+            ).status_code
+            == 403
+        )
+        assert store.snapshot()["revision"] == 0
+        response = client.post(
+            "/v1/catalog/renew", headers={**token(), "Origin": auth.origin}, json=payload
+        )
+        assert response.status_code == 200
+        assert response.json()["revision"] == 1
+        assert response.json()["events"][0]["actor"] == "approved-human"
+
+
 def test_cross_origin_mutation_and_wrong_signature_are_denied(protected):
     app, token = protected
     with TestClient(app, base_url="https://hub.example.com") as client:
