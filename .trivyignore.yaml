@@ -4,3 +4,8 @@ vulnerabilities:
       - usr/local/bin/opa
     statement: Go 1.27.2 crypto/x509 finding in the OPA build. FDAI invokes OPA only as a local `opa eval --stdin-input` subprocess, and no shipped policy calls http.send, so OPA opens no outbound TLS connection. A Go 1.27.3 rebuild changes every Rule revision identity and awaits a Rule-governance decision; remove this entry when the rebuild lands (#2383).
     expired_at: 2026-11-12
+  - id: CVE-2026-63209
+    paths:
+      - usr/local/bin/opa
+    statement: klauspost/compress v1.18.5 zstd dictionary-processing finding in the OPA build. FDAI invokes OPA only as a local `opa eval --stdin-input --data <file>` subprocess; it builds, loads, and serves no compressed bundle and parses no untrusted zstd dictionary. The fix needs an OPA release that carries klauspost/compress 1.18.7 or a build override; remove this entry then or at expiry (#2383).
+    expired_at: 2026-11-12
