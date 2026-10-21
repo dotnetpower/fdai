@@ -896,6 +896,7 @@ tokens, and secret-like assignments before the local coordinator renders it.
 
 | To learn about | Read |
 |----------------|------|
+| Shared lifecycle schema refusal evidence, distinct from a physical migration or installed rollback | [Release schema compatibility](lifecycle-releases-and-channels.md#schema-compatibility) |
 | Implementation status and remaining evidence | [Implementation ledger](../../roadmap-implementation/deployment/installable-deployment-cli.md) |
 | One-command source deployment and entitlement | [One-Command Source Deployment](source-deployment.md) |
 | Execution-host and connectivity choices | [Provisioning Execution Profiles](provisioning-execution-profiles.md) |
