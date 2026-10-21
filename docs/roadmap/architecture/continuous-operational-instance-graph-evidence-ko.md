@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph-evidence.md
-translation_source_sha: b6361d3ca7a060b8a3ec33fc98103c172c5afc87
+translation_source_sha: 103fc4772c3080206683d3519813fd3a8153f477
 translation_revised: 2026-10-21
 ---
 
@@ -60,8 +60,12 @@ storage 계정 전용 record를 해석합니다. Workload 해석은 앱 소유 �
 원본, 승격 또는 실행 권한도 부여하지 않습니다. 스냅샷과 파생 그래프의 담당 경계는 분리됩니다.
 
 권위 있는 [보존된 개념 평가](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md#retained-concept-assessment-2111)는
-부분 완료 상태입니다. 이 입력 제한 수정으로 아직 해결되지 않은 독립 발급자, 전체 구간,
-전체 인스턴스의 공유 허용 예산, 재사용, SQL 버퍼 또는 운영 메모리 보증까지 분류하지는 않습니다.
+3분류 스파이크 평가(이미 구현됨, 대체됨, 재현 가능한 잔여)를 완결합니다. 스냅샷 저장소도 정규 JSON
+매핑의 복사 전 1 MiB 바이트 상한, `jsonb_to_recordset` SQL 배치당 누적 UTF-8 전송 바이트 4 MiB
+상한, 봉인 전 변환 작업량 허용 검사, 승격 시 잠긴 영속 후보 행의 신원 및 시간 구간 검증을
+강제합니다. 독립 발급자와 전체 구간의 가시성 증명, 재시작 후에도 유지되는 공유 요청/바이트 및 대기
+시간 허용 예산, 세대 내 동등 읽기 재사용, 배포 환경의 최대 RSS 검증은 재현 가능한 잔여로 분류하여
+#2329, #1393 및 항목 04, 13, 14, 17, 31에서 후속 추적합니다.
 
 ## 수집 인증 구성
 
@@ -72,7 +76,7 @@ ARG/ARM의 유효한 수집 구성에는 이제 기존 어댑터에 구성된 �
 알 수 없는 주입 ID 어댑터는 바인딩되지 않은 상태입니다.
 [제한된 수정과 비평](../interfaces/azure-resource-discovery-commands-ko.md#제한된-수정-구성된-인증-선택자의-연속성)에서
 포함하는 선택자와 제외하는 자격 증명을 정의합니다. 영구 보존형 공유 허용 예산, 전체 구간의
-신원 입증 및 실제 설치의 사용량 검증은 #2329와 #2111에서 계속 미완료 상태입니다.
+신원 입증 및 실제 설치의 사용량 검증은 #2329와 #1393에서 계속 미완료 상태입니다.
 
 ## 운영 상태 전이 원장
 

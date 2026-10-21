@@ -50,10 +50,11 @@ from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
     canonical_json_mapping as _canonical_json_mapping,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
-    snapshot_relationship_props as _snapshot_relationship_props,
+    require_candidate_promotion_window,
+    stage_snapshot_batch,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot_support import (
-    stage_snapshot_batch,
+    snapshot_relationship_props as _snapshot_relationship_props,
 )
 from fdai.shared.providers.inventory import (
     INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX,
@@ -157,7 +158,9 @@ class PostgresInventorySnapshotStore:
         for resource in batch.resources:
             _canonical_json_mapping(resource.props, "snapshot resource props")
         for link in batch.links:
-            _canonical_json_mapping(link.link_props, "snapshot relationship props")
+            _canonical_json_mapping(
+                _snapshot_relationship_props(link), "snapshot relationship props"
+            )
         async with await self._connect() as connection:
             async with connection.transaction():
                 await self._set_timeout(connection)
@@ -244,7 +247,9 @@ class PostgresInventorySnapshotStore:
                     "WHERE a.singleton=TRUE FOR UPDATE"
                 )
                 active = await active_cursor.fetchone()
-                candidate_started = manifest.started_at or completed
+                candidate_started = await require_candidate_promotion_window(
+                    connection, attempt_id=attempt_id, manifest=manifest, completed=completed
+                )
                 state_base_generation = manifest.metadata.get("state_base_generation")
                 state_base_checked = "state_base_generation" in manifest.metadata
                 if (
