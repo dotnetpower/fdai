@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { actionsFor, artifacts, requestCatalog, type Action, type Catalog, type Release } from "./api";
 
-const TITLES = { register: "Register release", publish: "Publish to DEV", contribute: "Add to channel", recall: "Recall release" };
+const TITLES = { register: "Register release", publish: "Publish to DEV", contribute: "Add to channel", recall: "Recall release", renew: "Renew catalog freshness" };
 type Pending = { action: Action; release: Release | null };
 const time = (value: string) => new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC");
 const locationRoute = () => decodeURI(location.hash.slice(1) || "/releases");
@@ -21,6 +21,7 @@ function Confirm({ pending, catalog, close, done }: {
     Object.keys(catalog.channels).find((name) => !pending.release?.channels.includes(name)) ?? "",
   );
   const action = pending.action;
+  const target = action === "renew" ? `renew ${catalog.revision}` : id;
   useEffect(() => {
     const previous = document.activeElement;
     dialog.current?.showModal();
@@ -31,9 +32,10 @@ function Confirm({ pending, catalog, close, done }: {
   }, []);
   async function submit(event: SubmitEvent) {
     event.preventDefault();
+    if (busy || error) return;
     setBusy(true); setError("");
     try {
-      await requestCatalog(`/v1/releases/${encodeURIComponent(id)}/${action}`, {
+      await requestCatalog(action === "renew" ? "/v1/catalog/renew" : `/v1/releases/${encodeURIComponent(id)}/${action}`, {
         revision: catalog.revision, confirmation, reason,
         ...(action === "register" ? { label, manifest } : {}),
         ...(action === "contribute" ? { channel } : {}),
@@ -63,12 +65,13 @@ function Confirm({ pending, catalog, close, done }: {
         <p>Manual eligibility curation. Soak time, canary health and security review gates are not implemented.</p>
       </>}
       {action === "recall" && <p class="warning">Withdraw eligibility in every channel. Recall is irreversible here. Running installations and issued Plans do not change automatically.</p>}
+      {action === "renew" && <p class="warning">Review the current releases, channels and recalls before confirming. Publish a new revision with 24-hour freshness; manifests, signatures and eligibility stay unchanged. Customers must separately approve the new exact export pin and import it. This does not restore their accepted catalogs automatically.</p>}
       <label>Reason<textarea required minLength={3} maxLength={500} rows={2} value={reason} onInput={(e) => setReason(e.currentTarget.value)} /></label>
-      <label>Type {id || "the Release id"} to confirm<input required autoComplete="off" value={confirmation} onInput={(e) => setConfirmation(e.currentTarget.value)} /></label>
+      <label>Type {target || "the Release id"} to confirm<input required autoComplete="off" value={confirmation} onInput={(e) => setConfirmation(e.currentTarget.value)} /></label>
       <p>Catalog revision {catalog.revision}. A concurrent change requires refresh and review.</p>
       {error && <p class="error" role="alert">{error} Close this dialog and refresh to inspect the current state.</p>}
       <footer><button type="button" disabled={busy} onClick={close}>Cancel</button>
-        <button class={action === "recall" ? "danger" : "primary"} disabled={busy || confirmation !== id || !id || !!error}>
+        <button class={action === "recall" ? "danger" : "primary"} disabled={busy || confirmation !== target || !target || reason.trim().length < 3 || !!error}>
           {busy ? "Saving..." : `Confirm ${TITLES[action].toLowerCase()}`}
         </button></footer>
     </form>
@@ -119,8 +122,10 @@ function ReleaseDetail({ release, catalog, act, disabled }: {
 function Activity({ catalog, releaseId }: { catalog: Catalog; releaseId?: string }) {
   const events = catalog.events.filter((event) => !releaseId || event.release_id === releaseId);
   return events.length ? <ol class="activity">{events.map((event) => <li key={event.revision}>
-    <div><strong>{event.action}{event.channel ? ` / ${event.channel}` : ""}</strong><a href={`#/releases/${event.release_id}`}>FDAI {event.release_id}</a></div>
-    <p>{event.reason}</p><small>Revision {event.revision} / {time(event.occurred_at)} / local operator (unauthenticated)</small>
+    <div><strong>{event.action}{event.channel ? ` / ${event.channel}` : ""}</strong>{event.action === "renew"
+      ? <a href="#/trust">Catalog freshness</a>
+      : <a href={`#/releases/${event.release_id}`}>FDAI {event.release_id}</a>}</div>
+    <p>{event.reason}</p><small>Revision {event.revision} / {time(event.occurred_at)} / {event.actor === "local-operator" ? "local operator (unauthenticated)" : event.actor ? `operator: ${event.actor}` : "Operator attribution unavailable"}</small>
   </li>)}</ol> : <p class="empty">No recorded activity.</p>;
 }
 
@@ -160,10 +165,10 @@ export function App() {
       <div class="workspace-bar"><span>Vendor / FDAI</span><button disabled={loading} onClick={() => { setNotice(""); void refresh(); }}>{loading ? "Loading..." : "Refresh catalog"}</button></div>
       <p class="boundary">Development signatures only. Images remain external; nothing is deployed.</p>
       {error && <p class="error" role="alert">Catalog unavailable: {error} {catalog ? "Previously loaded data is shown; mutations are disabled." : "Use Refresh catalog to retry."}</p>}
-      {notice && <p role="status" class="success">{notice}</p>}
+      {notice && <p role="status" class={error ? "warning" : "success"}>{notice}</p>}
       {!catalog && !error && <p role="status" class="empty">Loading release catalog...</p>}
       {catalog && <>
-        {catalog.expired && <p class="warning">Catalog export expired at {time(catalog.expires_at)}. Consumers will reject it. Review and make an explicit catalog change before exporting again.</p>}
+        {catalog.expired && <p class="warning">Catalog export expired at {time(catalog.expires_at)}. Consumers will reject it. Review the releases, channels and recalls, then use <a href="#/trust">Catalog trust</a> to explicitly renew freshness. Refresh catalog is read-only.</p>}
         {release ? <ReleaseDetail release={release} catalog={catalog} disabled={disabled} act={(action, r) => setPending({ action, release: r })} />
           : releaseId ? <><h1>Release unavailable</h1><p>No release matches {releaseId}.</p><a href="#/releases">Back to releases</a></>
           : route === "/releases" ? <>
@@ -177,21 +182,28 @@ export function App() {
               {members.map((id) => <p key={id}><a href={`#/releases/${id}`}>FDAI {id}</a> {catalog.releases.find((r) => r.id === id)?.state === "recalled" ? " / Recalled" : ""}</p>)}
               {!members.length && <p>No releases added.</p>}
             </section>)}</div><p>Channel membership is eligibility, not permission to deploy. Installation constraints remain authoritative.</p>
-          </> : route === "/activity" ? <><h1>Activity</h1><p>Transactional local changes, newest first. These are not authenticated production audit records.</p><Activity catalog={catalog} /></>
+          </> : route === "/activity" ? <><h1>Activity</h1><p>Transactional publication changes, newest first. Development attribution is not a production audit guarantee.</p><Activity catalog={catalog} /></>
           : route === "/trust" ? <>
             <h1>Catalog trust</h1><p>Verify exact export bytes and every published manifest before Lifecycle planning.</p>
             <section><h2>Development verification boundary</h2><p>Release signatures are verified against the active development key on every read. Channels and recalls are development metadata, not signed production catalog roles.</p>
               <dl><dt>Key id</dt><dd><code>{catalog.key_id}</code></dd><dt>Revision</dt><dd>{catalog.revision}</dd><dt>Export expiry</dt><dd>{time(catalog.expires_at)}</dd><dt>Export SHA-256 pin</dt><dd><code class="digest">{catalog.export_sha256 || "Refresh to obtain the current pin."}</code></dd></dl>
               <a href="/v1/catalog/export" target="_blank" rel="noreferrer">Open local JSON export (new tab)</a>
-              <p>Obtain the pin and public key independently. Retain the accepted revision floor. A new channel or recall revision needs a new pin.</p>
-            </section><section><h2>Not available in this build</h2><p>Production signing, key rotation, authenticated contributors, TUF freshness, automatic sync, registry mirroring and upgrade bundle import.</p></section>
+              <p>Obtain the pin and public key independently. Retain the accepted revision floor. Every new export revision, including freshness renewal, needs a separately approved pin and explicit customer import.</p>
+            </section><section><h2>Renew development freshness</h2>
+              <p>After reviewing the releases, channels and recalls, extend freshness by 24 hours from publication without changing their content. This creates an attributed catalog event and a new export pin; it does not update customer Hubs or deploy anything.</p>
+              <button disabled={disabled} onClick={() => setPending({ action: "renew", release: null })}>Renew catalog freshness</button>
+            </section><section><h2>Not available in this build</h2><p>Production signing, key rotation, production contributor governance, TUF freshness, automatic sync, registry mirroring and upgrade bundle import.</p></section>
           </> : <><h1>Page not found</h1><a href="#/releases">Back to releases</a></>}
       </>}
       {pending && catalog && <Confirm pending={pending} catalog={catalog} close={() => setPending(null)} done={async (id) => {
-        setPending(null); location.hash = `/releases/${id}`; const readBack = await refresh();
+        const renewed = pending.action === "renew";
+        setPending(null); location.hash = renewed ? "/trust" : `/releases/${id}`; const readBack = await refresh();
         setNotice(readBack
-          ? "Change recorded locally. Catalog state was read back; no deployment was performed."
+          ? renewed
+            ? "Freshness renewal recorded and read back. Customers still need separate pin approval and import; no deployment was performed."
+            : "Catalog change recorded and read back; no deployment was performed."
           : "The API accepted the change, but catalog readback is unavailable. Refresh before another action.");
+        if (renewed) heading.current?.focus();
       }} />}
     </main>
   </div>;

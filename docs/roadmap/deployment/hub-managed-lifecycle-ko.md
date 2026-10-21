@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: ee9458cbb8c5274f88ee10b7aaaeb7ec59229b36
+translation_source_sha: 9f368ff4180c3c9d8b9885ac8a0822c41e57cb6f
 translation_revised: 2026-10-21
 ---
 # Hub 관리형 수명 주기
@@ -153,15 +153,65 @@ object ID, 클라이언트, scope를 직접 검증합니다. 서비스 요청은
 아닙니다. 검증한 원본 바이트, digest, 키 식별 정보, 낮아지지 않는 revision 하한과 행위자 감사
 기록을 영속 보관합니다. 기존 매니페스트 서명, 만료, 회수 계약과 플래너 제약을 유지하며,
 회수 반영과 Plan 계산은 같은 신뢰 상태 행의 잠금으로 직렬화합니다.
-UI는 이미 준비한 합성 설치본의 Plan을 계산하지만, 원격 프로필은 Agent 통신이나 Plan 실행을
-허용하지 않습니다.
+UI는 이미 준비한 합성 설치본의 Plan을 계산합니다. 기존 검증 구성은 설치 Agent의
+인증 연결을 설정하거나 Plan을 실행하지 않습니다.
 
 준비 절차와 검증 명령은 [두 Hub 개발 경계 안내](../../../infra/hubs-development/README.md)를
 따릅니다. 정적 IaC 검사와 로컬 컨테이너 검증만으로 Azure 네트워크/RBAC 격리, 실제 Entra
 로그인, 레지스트리 아티팩트 존재, replica 교체 후 보존을 입증할 수는 없습니다.
 이를 검증하려면 정확한 클라우드 preview와 실행 범위를 별도로 승인해야 합니다.
 이 경로는 소스/오프라인 설치를 바꾸지 않으며, 자동 polling, 프로덕션 카탈로그 메타데이터와
-신뢰 루트 설정, Agent 적용, 전체 FDAI 설치를 구현하지 않습니다.
+신뢰 루트 설정, 클라우드 Agent 적용, 전체 FDAI 설치를 구현하지 않습니다.
+
+## 읽기 전용 입력 조회
+
+**Available releases**는 `GET /v1/catalog/releases`로 이미 수락한 카탈로그를 조회합니다.
+외부 가져오기 없이 고정값, 서명, 만료를 다시 검증합니다. 신뢰를 확인할 수 없으면
+`503`을 반환하며, 검증한 빈 카탈로그와 구분합니다. **Configuration packages**는
+`GET /v1/configurations`로 저장된 다이제스트, 개수, 시각, 현재 설치본 참조만 표시합니다.
+값과 봉인된 식별자는 제외하고, 독립된 패키지 서명 출처를 기록하지 않았음을 명시합니다.
+두 목록은 이미지 가용성, 배포 자격, 서명된 입력 준비 완료를 입증하지 않습니다.
+Agent 신원은 이 운영자 목록을 읽을 수 없습니다.
+초기 등록과 반복 배포 그림, 공개 입력의 출처, 현재 수동 절차와 운영 목표의 차이는
+[운영자 가이드](../../runbooks/hub-lifecycle-operator-guide-ko.md)를 확인하세요.
+
+## 명시적으로 선택하는 설치 Agent 통신
+
+로컬 개발 구현은 설치본별로 명시적인 `auth.agent_principals` 연결을 받습니다.
+호출자는 직접 검증한 Entra 토큰에 정확한 애플리케이션 object/client 쌍, `idtyp=app`,
+`Agent.Access` 역할을 갖춰야 합니다. 해당 설치본의 Plan을 읽고 상태와 보고서를 제출할
+수 있을 뿐입니다. 운영자, 카탈로그 ID, Agent ID는 구분합니다. Agent는 등록, 승인,
+게시, 가져오기, 재계산을 할 수 없습니다. Release Hub는 Agent 연결을 받지 않으며,
+연결 목록이 비어 있으면 기존 차단 동작을 유지합니다.
+
+명시적으로 연결한 설치본에 한해, 인증된 운영자는 서명된 등록 요청을
+`POST /v1/enrollments/{installation_id}/requests`로 제출할 수 있습니다.
+기존 설치 키 증명, 요청 시각, 설치본 ID 일치 여부와 크기 검사를 그대로 적용합니다.
+감사 기록의 `requested_by`에는 인증된 운영자를 남깁니다. 제출 결과는 승인 대기 요청일
+뿐이며, 승인과 Entity 관리 설정은 별도입니다. 기존 Agent 등록 경로는 계속 차단하고,
+연결하지 않은 설치본은 운영자 경로도 사용할 수 없습니다. 독립 Lifecycle Terraform
+루트는 비어 있지 않은 Agent 연결을 실행 설정으로 전달합니다. 연결 목록이 비어 있으면
+이전 이미지와의 호환성을 위해 실행 설정에서 해당 필드를 생략합니다.
+
+운영자는 **Enrollment requests** 화면에서 연결된 설치본 ID를 입력하고 64 KiB 이하의
+서명된 요청 JSON 파일을 선택할 수 있습니다. `signed_payload`와 `proof`만 전송하며,
+개인 키는 업로드하지 않습니다. 제출 요청은 10초 안에 끝내고 자동으로 재시도하지 않습니다.
+결과를 확인할 수 없으면 승인 대기 목록을 새로 고친 뒤 재시도하세요.
+승인 대기 상태는 승인, 소유권 증명 또는 Plan 적용 권한을 뜻하지 않습니다.
+
+Agent는 명시적으로 선택한 경우에만 AKS의 투영된 워크로드 ID로 지정된 Hub API 범위의
+토큰을 얻습니다. 클러스터 내부 Kubernetes 인증은 별도로 읽으며 kubeconfig로 대체하지
+않습니다. 횟수와 시간이 제한된 폴링은 오류, 입력 차단, 롤백 시 중단합니다. 서명된 입력은
+별도로 승인한 digest에 고정하고, 오프라인 배치 전에 검증한 다음 Plan 수락 시 다시 검증합니다.
+기존 fsync 기반 재전송 하한, 미전달 보고서, 롤백 저널은 현재 상태와 함께 Agent 네임스페이스의
+영구 볼륨에 보관합니다. 워크로드 Role은 이 영역을 변경할 수 없습니다. 권한은 워크로드
+네임스페이스의 Deployment, Service, Job 작업에만 한정합니다.
+[Agent 준비 안내](../../../lifecycle/agent/README.md#remote-development-preparation)를 참조하세요.
+
+이 선택 기능의 근거는 집중 로컬 테스트입니다. 실제 Entra 인증, 이미지, AKS, 볼륨 재연결,
+nginx 변경 효과를 입증하지 않습니다. 이 준비 작업은 기존 Hub의 이미지, revision,
+카탈로그 연결, 네트워크 허용 목록을 변경하지 않습니다. 해당 변경에는 정확한 클라우드
+계획과 별도 승인이 먼저 필요합니다.
 
 ## 제품별 독립 배포
 
@@ -721,9 +771,10 @@ Release 테이블은 [Lifecycle Release와 채널](lifecycle-releases-and-channe
   안에서 이전 이미지를 복원하고 `rolled-back`을 보고합니다. 그러면 Hub는 그 Plan의 각 Entity에
   24시간짜리 실패 억제 구간을 두며, 운영자는 이를 더 일찍 해제할 수 있습니다. 설치 전체에 대한
   실패 임계값은 구현되지 않았습니다.
-- 에이전트와 Target Hub의 두 슬롯 자체 업그레이드에는 별도의 실패 분석이 필요합니다.
-- Hub 관리형 설치에 사용권이 어떻게 전달되는지는 아직 정하지 않았습니다. Hub 업그레이드는
-  Trial을 갱신하지 않습니다.
+- [자체 업그레이드 실패 분석](hub-managed-lifecycle-self-upgrade-ko.md)은 슬롯/실행 제한 세대,
+  데이터 호환성과 복구 의무를 정의합니다. 제어기와 운영 훈련은 아직 구현되지 않았습니다.
+- [사용권 연속성](hub-managed-lifecycle-entitlement-ko.md)은 설치 내부의 사용권 권한과 전달만 하는
+  Hub를 선택합니다. 전달/인계는 아직 구현되지 않았으며 업그레이드는 Trial을 갱신하지 않습니다.
 - 오프라인 설치는 운영자가 다음 번들을 가져올 때만 회수를 받습니다.
 - Hub 경로는 AKS만 지원하며 온프레미스 런타임은 범위 밖입니다.
 
@@ -732,6 +783,8 @@ Release 테이블은 [Lifecycle Release와 채널](lifecycle-releases-and-channe
 | 알아볼 내용 | 참고 문서 |
 |-------------|-----------|
 | 결정 기록 | [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md) |
+| 자체 업그레이드 실패와 복구 | [실패 분석](hub-managed-lifecycle-self-upgrade-ko.md) |
+| 사용권과 Trial 연속성 | [사용권 결정](hub-managed-lifecycle-entitlement-ko.md) |
 | 구성 계층, 패키지, 비밀 | [수명 주기 구성](lifecycle-configuration-ko.md) |
 | Release, 채널, 번들, 회수 | [Lifecycle Release와 채널](lifecycle-releases-and-channels-ko.md) |
 | 승인 프로필과 정책 관리 | [운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md) |

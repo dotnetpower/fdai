@@ -25,6 +25,7 @@ from __future__ import annotations
 import base64
 import binascii
 import ipaddress
+import math
 import re
 import time
 from collections.abc import Callable, Mapping
@@ -135,8 +136,15 @@ class HttpHubClient:
         timeout_seconds: float = 10.0,
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        authorization: Callable[[], str] | None = None,
     ) -> None:
         self._base_url = validate_hub_url(base_url)
+        if authorization is not None and urlsplit(self._base_url).scheme != "https":
+            raise ValueError("Authenticated Hub transport requires HTTPS.")
+        if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+            raise ValueError("Hub timeout MUST be positive and finite.")
+        self._authorization = authorization
+        self._timeout_seconds = timeout_seconds
         self._sleep = sleep
         self._client = httpx.Client(
             base_url=self._base_url,
@@ -163,14 +171,16 @@ class HttpHubClient:
     def fetch_plan(self, installation_id: str) -> SignedPlan | None:
         path = f"/v1/installations/{_segment(installation_id, 'installation_id')}/plan"
         try:
-            with self._client.stream("GET", path) as response:
+            headers = self._headers()
+            deadline = time.monotonic() + self._timeout_seconds
+            with self._client.stream("GET", path, headers=headers) as response:
                 if response.status_code == 204:
                     return None
                 if response.status_code == 404:
                     raise HubProtocolError("Hub does not know this installation (404)")
                 if response.status_code != 200:
                     raise HubProtocolError(f"Hub plan request returned {response.status_code}")
-                body = _bounded_body(response)
+                body = _bounded_body(response, deadline=deadline)
         except httpx.HTTPError as error:
             raise HubProtocolError(f"Hub plan request failed: {type(error).__name__}") from error
         return _parse_plan_body(body)
@@ -191,7 +201,18 @@ class HttpHubClient:
 
         for retry in range(MAX_CONCURRENT_WRITE_RETRIES + 1):
             try:
-                response = self._client.post(path, json=body)
+                headers = self._headers()
+                deadline = time.monotonic() + self._timeout_seconds
+                with self._client.stream("POST", path, json=body, headers=headers) as stream:
+                    response_headers = stream.headers.copy()
+                    # iter_bytes() already decodes the content encoding.
+                    response_headers.pop("content-encoding", None)
+                    response_headers.pop("content-length", None)
+                    response = httpx.Response(
+                        stream.status_code,
+                        headers=response_headers,
+                        content=_bounded_body(stream, deadline=deadline),
+                    )
             except httpx.HTTPError as error:
                 raise HubProtocolError(
                     f"Hub {label} request failed: {type(error).__name__}"
@@ -209,12 +230,22 @@ class HttpHubClient:
             f"Hub {label} request returned {response.status_code} {code}".rstrip(), code=code
         )
 
+    def _headers(self) -> dict[str, str]:
+        if self._authorization is None:
+            return {}
+        token = self._authorization()
+        if not token or any(character.isspace() for character in token):
+            raise HubProtocolError("Hub credential returned an invalid access token.")
+        return {"Authorization": f"Bearer {token}"}
+
 
 def _retry_after(response: httpx.Response) -> float:
     try:
         seconds = float(response.headers.get("Retry-After", "1"))
     except ValueError:
         seconds = 1.0
+    if not math.isfinite(seconds):
+        raise HubProtocolError("Hub Retry-After MUST be finite.")
     return min(max(seconds, 0.0), _MAX_RETRY_AFTER_SECONDS)
 
 
@@ -239,8 +270,16 @@ def validate_hub_url(base_url: str) -> str:
     """
 
     parts = urlsplit(base_url)
-    if parts.username or parts.password or parts.query or parts.fragment:
-        raise ValueError("Hub URL MUST NOT carry credentials, a query, or a fragment")
+    if (
+        parts.username
+        or parts.password
+        or parts.query
+        or parts.fragment
+        or parts.path not in ("", "/")
+    ):
+        raise ValueError(
+            "Hub URL MUST be an origin without credentials, a path, query, or fragment"
+        )
     if not parts.hostname:
         raise ValueError("Hub URL MUST name a host")
     if parts.scheme == "https":
@@ -274,10 +313,12 @@ def _segment(value: str, label: str) -> str:
         raise HubProtocolError(str(error)) from error
 
 
-def _bounded_body(response: httpx.Response) -> bytes:
+def _bounded_body(response: httpx.Response, *, deadline: float) -> bytes:
     chunks: list[bytes] = []
     total = 0
     for chunk in response.iter_bytes():
+        if time.monotonic() >= deadline:
+            raise HubProtocolError("Hub response exceeded the request deadline.")
         total += len(chunk)
         if total > MAX_PLAN_RESPONSE_BYTES:
             raise HubProtocolError("Hub plan response exceeds the size limit")

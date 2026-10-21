@@ -102,6 +102,67 @@ def vendor_for(tmp_path, key, catalog, now):
     return vendor
 
 
+def test_read_only_release_inventory_uses_accepted_catalog(
+    tmp_path, key, catalog, now, store, monkeypatch
+):
+    from starlette.testclient import TestClient
+
+    from fdai_lifecycle_hub.api import create_app
+    from fdai_lifecycle_hub.remote import target_routes
+
+    vendor = vendor_for(tmp_path, key, catalog, now)
+    raw = vendor.export()[0]
+    source = source_for(key)
+    engine = create_engine(f"sqlite:///{tmp_path / 'inventory.db'}")
+    migrate(engine, "lifecycle_hub", lambda c: initialize_trust(c, source))
+    target = RemoteCatalog(engine, source, fetch=lambda _: raw)
+    approve(target, raw, now)
+    target.import_once(actor="operator", now=now)
+    target.fetch = lambda _: pytest.fail("GET must not fetch or import a catalog")
+    before = target.status()
+    monkeypatch.setattr("fdai_lifecycle_hub.remote.utc_now", lambda: now)
+    app = create_app(store)
+    app.routes[0:0] = target_routes(store, target, key)
+    with TestClient(app) as client:
+        response = client.get("/v1/catalog/releases")
+        assert response.status_code == 200
+        releases = response.json()["releases"]
+        assert [item["release_id"] for item in releases] == ["1.5.0", "1.6.0"]
+        first = releases[0]
+        assert first["digest"] == catalog.releases["1.5.0"].digest
+        assert first["channels"] == ["DEV"]
+        assert first["schema_target"] == 15
+        assert first["schema_range"] == {"minimum": 12, "maximum": 16}
+        assert len(first["images"]) == 9
+        assert all(
+            set(image) == {"section", "component", "image_digest"} for image in first["images"]
+        )
+        assert first["recall_notices"] == []
+        assert client.post("/v1/catalog/releases", json={}).status_code == 405
+        monkeypatch.setattr("fdai_lifecycle_hub.remote.utc_now", lambda: now + timedelta(days=2))
+        unavailable = client.get("/v1/catalog/releases")
+        assert unavailable.status_code == 503
+        assert unavailable.json() == {"error": "catalog_unavailable_review_trust_and_expiry"}
+    assert target.status() == before
+
+
+def test_release_inventory_refuses_unimported_catalog(tmp_path, key, store, now):
+    from starlette.testclient import TestClient
+
+    from fdai_lifecycle_hub.api import create_app
+    from fdai_lifecycle_hub.remote import target_routes
+
+    source = source_for(key)
+    engine = create_engine(f"sqlite:///{tmp_path / 'unimported.db'}")
+    migrate(engine, "lifecycle_hub", lambda c: initialize_trust(c, source))
+    target = RemoteCatalog(engine, source, fetch=lambda _: pytest.fail("GET must not fetch"))
+    app = create_app(store)
+    app.routes[0:0] = target_routes(store, target, key)
+    with TestClient(app) as client:
+        assert client.get("/v1/catalog/releases").status_code == 503
+    assert target.status()["minimum_revision"] == 0
+
+
 def test_separate_pin_channel_persistence_planner_and_recall(
     tmp_path,
     key,

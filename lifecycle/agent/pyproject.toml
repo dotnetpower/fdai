@@ -5,6 +5,7 @@ description = "Hub-managed lifecycle agent skeleton: poll, admit, dry-run, repor
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "azure-identity>=1.19,<2",
     "cryptography>=45,<51",
     "fdai-deployment-cli==0.1.1",
     "httpx>=0.27,<1",

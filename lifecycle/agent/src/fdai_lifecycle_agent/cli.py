@@ -8,6 +8,7 @@ import logging
 import math
 import sys
 from collections.abc import Callable, Sequence
+from contextlib import ExitStack
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
@@ -25,8 +26,15 @@ from fdai_lifecycle_agent.agent import (
 from fdai_lifecycle_agent.configuration_revision import load_full_revision_binding
 from fdai_lifecycle_agent.dry_run import load_current_state
 from fdai_lifecycle_agent.hub_client import HttpHubClient, HubProtocolError
-from fdai_lifecycle_agent.inputs import DirectoryArtifactStore
+from fdai_lifecycle_agent.inputs import (
+    MAX_INPUT_BYTES,
+    DirectoryArtifactStore,
+    InputKind,
+    SignedArtifact,
+    stage_artifact,
+)
 from fdai_lifecycle_agent.journal import WorkloadStore
+from fdai_lifecycle_agent.polling import PollLimits, poll_bounded
 from fdai_lifecycle_agent.reference_cli import register_reference_command, run_reference_command
 from fdai_lifecycle_agent.reference_state import ReferenceStatusSource
 from fdai_lifecycle_agent.signatures import (
@@ -105,12 +113,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Local hard policy: maximum effect envelope and the components each Entity runs.",
     )
     poll.add_argument("--timeout-seconds", type=float, default=10.0)
+    poll.add_argument("--hub-auth", choices=["none", "workload-identity"], default="none")
+    poll.add_argument("--hub-scope", help="Exact api:// Hub application /.default scope.")
     poll.add_argument(
         "--apply",
         action="store_true",
         help="Apply an admitted Plan to one namespace, verify it, and roll back on failure.",
     )
     poll.add_argument("--kube-context", help="kubeconfig context; required with --apply.")
+    poll.add_argument(
+        "--in-cluster", action="store_true", help="Use the projected Kubernetes identity."
+    )
     poll.add_argument("--namespace", help="The only namespace to change; required with --apply.")
     poll.add_argument(
         "--health-timeout-seconds",
@@ -118,6 +131,19 @@ def build_parser() -> argparse.ArgumentParser:
         default=180.0,
         help="Time each Deployment rollout and each rollback has to complete.",
     )
+    continuous = commands.add_parser("poll", parents=[poll], add_help=False)
+    continuous.add_argument("--max-polls", type=int, default=30)
+    continuous.add_argument("--poll-interval-seconds", type=float, default=15)
+    continuous.add_argument("--max-duration-seconds", type=float, default=900)
+    stage = commands.add_parser(
+        "stage-input", help="Verify and stage one independently pinned input."
+    )
+    stage.add_argument("--kind", choices=["release", "configuration"], required=True)
+    stage.add_argument("--digest", required=True)
+    stage.add_argument("--document", type=Path, required=True)
+    stage.add_argument("--signature", type=Path, required=True)
+    stage.add_argument("--public-key", type=Path, required=True)
+    stage.add_argument("--inputs-dir", type=Path, required=True)
     return parser
 
 
@@ -134,6 +160,12 @@ def _connect_cluster(context: str, namespace: str) -> Cluster:
     from fdai_lifecycle_agent.kube import KubernetesCluster
 
     return KubernetesCluster(context=context, namespace=namespace)
+
+
+def _connect_in_cluster(namespace: str) -> Cluster:
+    from fdai_lifecycle_agent.kube import KubernetesCluster
+
+    return KubernetesCluster(in_cluster=True, namespace=namespace)
 
 
 def _connect_reference_source(context: str, namespace: str) -> ReferenceStatusSource:
@@ -162,9 +194,45 @@ def main(
     arguments = parser.parse_args(argv)
     if arguments.command == "reference-status":
         return run_reference_command(arguments, clock=clock, connect=connect_reference_source)
-    if arguments.apply and not (arguments.kube_context and arguments.namespace):
-        parser.error("--apply requires --kube-context and --namespace")
+    if arguments.command == "stage-input":
+        try:
+            stage_artifact(
+                arguments.inputs_dir,
+                cast(InputKind, arguments.kind),
+                arguments.digest,
+                SignedArtifact(
+                    read_limited(arguments.document, limit=MAX_INPUT_BYTES, label="signed input"),
+                    read_limited(arguments.signature, limit=64, label="input signature"),
+                ),
+                Ed25519ArtifactVerifier.from_file(arguments.public_key),
+            )
+        except (OSError, ValueError) as error:
+            logging.error("lifecycle_agent.staging_failed error_type=%s", type(error).__name__)
+            print(
+                "Verify the approved digest, detached signature, public key and input paths.",
+                file=sys.stderr,
+            )
+            return _EXIT_CONFIGURATION
+        logging.info("lifecycle_agent.input_staged")
+        return _EXIT_OK
+    if arguments.apply and (
+        not arguments.namespace or arguments.in_cluster == bool(arguments.kube_context)
+    ):
+        parser.error(
+            "--apply requires --namespace and exactly one of --kube-context or --in-cluster"
+        )
+    if not arguments.apply and (
+        arguments.in_cluster or arguments.kube_context or arguments.namespace
+    ):
+        parser.error("Kubernetes connection options require --apply")
+    if (arguments.hub_auth == "workload-identity") != bool(arguments.hub_scope):
+        parser.error("--hub-scope is required only with --hub-auth workload-identity")
+    limits = None
     try:
+        if arguments.command == "poll":
+            limits = PollLimits(
+                arguments.max_polls, arguments.poll_interval_seconds, arguments.max_duration_seconds
+            )
         settings = AgentSettings(
             installation_id=arguments.installation_id,
             trust=HubTrust(
@@ -193,15 +261,35 @@ def main(
         load_current_state(arguments.current_state)
         if arguments.apply:
             _check_apply_settings(settings, arguments.namespace, arguments.health_timeout_seconds)
-        hub = connect_hub(arguments.hub_url, arguments.timeout_seconds)
     except ValueError as error:
         print(f"fdai-lifecycle-agent: configuration error: {error}", file=sys.stderr)
         return _EXIT_CONFIGURATION
-    with hub:
+    with ExitStack() as resources:
+        try:
+            if arguments.hub_auth == "workload-identity":
+                from fdai_lifecycle_agent.remote_auth import WorkloadIdentityAuthorization
+
+                authorization = WorkloadIdentityAuthorization(arguments.hub_scope)
+                resources.callback(authorization.close)
+                hub = HttpHubClient(
+                    arguments.hub_url,
+                    timeout_seconds=arguments.timeout_seconds,
+                    authorization=authorization,
+                )
+            else:
+                hub = connect_hub(arguments.hub_url, arguments.timeout_seconds)
+        except ValueError as error:
+            print(f"fdai-lifecycle-agent: configuration error: {error}", file=sys.stderr)
+            return _EXIT_CONFIGURATION
+        resources.enter_context(hub)
         apply = None
         if arguments.apply:
             try:
-                cluster = connect_cluster(arguments.kube_context, arguments.namespace)
+                cluster = (
+                    _connect_in_cluster(arguments.namespace)
+                    if arguments.in_cluster
+                    else connect_cluster(arguments.kube_context, arguments.namespace)
+                )
             except ValueError as error:
                 print(f"fdai-lifecycle-agent: configuration error: {error}", file=sys.stderr)
                 return _EXIT_CONFIGURATION
@@ -226,17 +314,31 @@ def main(
             apply=apply,
             configuration_binding=binding,
         )
-        try:
-            result = LifecycleAgent(settings, dependencies).poll_once()
-        except (HubProtocolError, AgentStateError) as error:
-            print(f"fdai-lifecycle-agent: poll failed: {error}", file=sys.stderr)
-            return _EXIT_FAILED
-    print(json.dumps(result.to_json(), sort_keys=True))
-    if result.outcome in {"malformed-plan", "halted"}:
-        return _EXIT_FAILED
-    if result.outcome not in {"no-plan", "already-reported"} and not result.reported:
-        return _EXIT_FAILED
-    return _EXIT_OK
+        agent = LifecycleAgent(settings, dependencies)
+
+        def poll_once() -> int:
+            try:
+                result = agent.poll_once()
+            except (HubProtocolError, AgentStateError) as error:
+                print(f"fdai-lifecycle-agent: poll failed: {error}", file=sys.stderr)
+                return _EXIT_FAILED
+            if limits is None:
+                print(json.dumps(result.to_json(), sort_keys=True))
+            else:
+                logging.info("lifecycle_agent.poll outcome=%s", result.outcome)
+            if result.outcome in {"malformed-plan", "halted"}:
+                return _EXIT_FAILED
+            if limits is not None and result.outcome in {"rejected", "rolled-back"}:
+                return _EXIT_FAILED
+            if result.outcome not in {"no-plan", "already-reported"} and not result.reported:
+                return _EXIT_FAILED
+            return _EXIT_OK
+
+        if limits is None:
+            return poll_once()
+        status = poll_bounded(poll_once, limits)
+        logging.info("lifecycle_agent.polling_complete exit_code=%s", status)
+        return status
 
 
 def _check_apply_settings(settings: AgentSettings, namespace: str, timeout: float) -> None:

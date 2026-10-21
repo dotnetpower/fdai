@@ -852,6 +852,110 @@ async def test_legacy_checkpoint_requires_verified_chain_before_upgrade(defect: 
             assert upgraded["content_digest"].startswith("sha256:")
 
 
+async def test_inventory_snapshot_stage_splits_batches_at_sql_parameter_byte_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with _database() as (store, attempt, _):
+        batch_sizes: list[int] = []
+        original_execute = psycopg.AsyncConnection.execute
+
+        async def recording_execute(
+            connection: psycopg.AsyncConnection[object],
+            query: object,
+            params: object = None,
+            *,
+            prepare: bool | None = None,
+            binary: bool = False,
+        ) -> psycopg.AsyncCursor[object]:
+            if isinstance(query, str) and query.startswith(
+                "INSERT INTO inventory_snapshot_resource "
+            ):
+                assert isinstance(params, tuple)
+                assert isinstance(params[0], Jsonb)
+                batch_sizes.append(len(params[0].obj))
+            return await original_execute(
+                connection,
+                query,  # type: ignore[arg-type]
+                params,  # type: ignore[arg-type]
+                prepare=prepare,
+                binary=binary,
+            )
+
+        monkeypatch.setattr(psycopg.AsyncConnection, "execute", recording_execute)
+        payload = "x" * (900 * 1024)
+        resource_ids = tuple(f"sql-byte-bound-{index}" for index in range(6))
+        await store.stage(
+            attempt,
+            InventoryBatch(
+                resources=tuple(
+                    ResourceRecord(resource_id, "compute.vm", {"blob": payload})
+                    for resource_id in resource_ids
+                )
+            ),
+        )
+        assert batch_sizes == [4, 2]
+
+
+async def test_promotion_enforces_locked_candidate_identity_and_observation_interval() -> None:
+    async with _database() as (store, attempt, _):
+        async with await store._connect() as connection:
+            await connection.execute(
+                "ALTER TABLE inventory_snapshot "
+                "ADD COLUMN resource_count INTEGER, ADD COLUMN link_count INTEGER;"
+                "CREATE TABLE inventory_active (singleton BOOLEAN PRIMARY KEY, "
+                "snapshot_id TEXT, updated_at TIMESTAMPTZ);"
+                "CREATE TABLE inventory_realtime_link (observed_at TIMESTAMPTZ);"
+                "CREATE TABLE inventory_realtime_resource "
+                "(resource_id TEXT PRIMARY KEY, observed_at TIMESTAMPTZ)"
+            )
+            cursor = await connection.execute(
+                "SELECT * FROM inventory_snapshot WHERE id=%s", (attempt,)
+            )
+            row = await cursor.fetchone()
+            assert row is not None
+            started: datetime = row["started_at"]
+            completed = started + timedelta(milliseconds=1)
+            await connection.execute(
+                "INSERT INTO inventory_realtime_resource (resource_id, observed_at) "
+                "VALUES ('during-window', %s)",
+                (completed,),
+            )
+        manifest = InventoryCoverageManifest(
+            source=row["source"],
+            scopes=tuple(row["scopes"]),
+            resource_types=tuple(row["resource_types"]),
+            started_at=started,
+            completed_at=completed,
+        )
+        for invalid_manifest, match in (
+            (replace(manifest, source="other-source"), "candidate binding mismatch"),
+            (replace(manifest, scopes=("other-scope",)), "candidate binding mismatch"),
+            (
+                replace(manifest, resource_types=("compute.container-app",)),
+                "candidate binding mismatch",
+            ),
+            (
+                replace(manifest, completed_at=started - timedelta(seconds=1)),
+                "observation interval is invalid",
+            ),
+            (
+                replace(manifest, completed_at=datetime.now(UTC) + timedelta(minutes=5)),
+                "observation interval is invalid",
+            ),
+        ):
+            with pytest.raises(ValueError, match=match):
+                await store.promote(attempt, invalid_manifest)
+
+        await store.promote(attempt, replace(manifest, started_at=completed))
+        assert await store.active_snapshot_id() == attempt
+        async with await store._connect() as connection:
+            cursor = await connection.execute(
+                "SELECT COUNT(*) AS count FROM inventory_realtime_resource"
+            )
+            retained = await cursor.fetchone()
+            assert retained is not None and retained["count"] == 1
+
+
 async def test_checkpoint_failure_rolls_back_resource_and_chunk() -> None:
     async with _database() as (store, attempt, context):
         first = await store.stage_chunk(

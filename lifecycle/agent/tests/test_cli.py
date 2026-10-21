@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import base64
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -147,6 +149,130 @@ def test_poll_once_without_plan_exits_cleanly(
     assert hub_server.run(_arguments(harness, tmp_path)) == 0
     assert json.loads(capsys.readouterr().out)["outcome"] == "no-plan"
     assert hub_server.reports == []
+
+
+def test_bounded_poll_command_reuses_durable_state_without_printing_receipts(
+    harness: Harness, hub_server: FakeHubServer, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    harness.serve(harness.plan())
+    arguments = _arguments(harness, tmp_path)
+    arguments[0] = "poll"
+    arguments.extend(["--max-polls", "2", "--poll-interval-seconds", "0.001"])
+    assert hub_server.run(arguments) == 0
+    assert len(hub_server.reports) == 1
+    assert capsys.readouterr().out == ""
+
+
+def test_bounded_poll_stops_after_signed_input_rejection(
+    harness: Harness,
+    hub_server: FakeHubServer,
+    tmp_path: Path,
+) -> None:
+    harness.serve(harness.plan())
+    arguments = _arguments(harness, tmp_path)
+    (tmp_path / "inputs" / "releases" / f"{harness.release_digest}.sig").unlink()
+    arguments[0] = "poll"
+    arguments.extend(["--max-polls", "2", "--poll-interval-seconds", "0.001"])
+    assert hub_server.run(arguments) == 1
+    assert len(hub_server.reports) == 1
+
+
+def test_in_cluster_flag_is_wired_to_apply_without_context(
+    harness: Harness,
+    hub_server: FakeHubServer,
+    cluster: FakeCluster,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    harness.serve(harness.plan())
+    arguments = _arguments(harness, tmp_path)
+    (tmp_path / "local-policy.json").write_text(json.dumps(APPLY_POLICY))
+    seen: list[str] = []
+
+    def connect(namespace: str) -> FakeCluster:
+        seen.append(namespace)
+        return cluster
+
+    monkeypatch.setattr(cli, "_connect_in_cluster", connect)
+    assert (
+        hub_server.run([*arguments, "--apply", "--in-cluster", "--namespace", cluster.namespace])
+        == 0
+    )
+    assert seen == [cluster.namespace]
+    assert cluster.image("operator-service") is not None
+
+
+def test_remote_workload_identity_is_wired_and_closed(
+    harness: Harness,
+    hub_server: FakeHubServer,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai_lifecycle_agent import remote_auth
+
+    token = Mock(return_value="test-federated")
+    credentials = Mock(return_value=token)
+    monkeypatch.setattr(remote_auth, "WorkloadIdentityAuthorization", credentials)
+
+    def connect(
+        url: str, *, timeout_seconds: float, authorization: Callable[[], str]
+    ) -> HttpHubClient:
+        def handle(request: httpx.Request) -> httpx.Response:
+            assert request.headers["authorization"] == "Bearer test-federated"
+            return hub_server.handle(request)
+
+        return HttpHubClient(
+            url,
+            timeout_seconds=timeout_seconds,
+            authorization=authorization,
+            transport=httpx.MockTransport(handle),
+        )
+
+    monkeypatch.setattr(cli, "HttpHubClient", connect)
+    arguments = _arguments(
+        harness,
+        tmp_path,
+        **{
+            "--hub-url": "https://hub.example.com",
+            "--hub-auth": "workload-identity",
+            "--hub-scope": "api://hub-example/.default",
+        },
+    )
+    assert cli.main(arguments, clock=lambda: NOW) == 0
+    credentials.assert_called_once_with("api://hub-example/.default")
+    token.close.assert_called_once()
+
+
+def test_stage_input_command_verifies_before_publishing_without_network(
+    harness: Harness,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    digest, artifact = next(iter(harness.store.releases.items()))
+    document = tmp_path / "release.json"
+    signature = tmp_path / "release.sig"
+    public_key = tmp_path / "release.pem"
+    document.write_bytes(artifact.payload)
+    signature.write_bytes(artifact.signature)
+    public_key.write_bytes(harness.public_pem(harness.release_key))
+    arguments = [
+        "stage-input",
+        "--kind",
+        "release",
+        "--digest",
+        digest,
+        "--document",
+        str(document),
+        "--signature",
+        str(signature),
+        "--public-key",
+        str(public_key),
+        "--inputs-dir",
+        str(tmp_path / "staged"),
+    ]
+    assert cli.main(arguments, connect_hub=lambda *_args: pytest.fail("unexpected network")) == 0
+    assert (tmp_path / "staged" / "releases" / f"{digest}.json").read_bytes() == artifact.payload
+    assert capsys.readouterr().out == ""
 
 
 @pytest.mark.parametrize(

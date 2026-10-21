@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any, Literal
 from urllib.parse import urlsplit
@@ -24,6 +25,16 @@ logger = logging.getLogger(__name__)
 MAX_JWKS_BYTES = 256 * 1024
 
 
+class AgentPrincipal(BaseModel):
+    """A separately provisioned workload identity bound to one installation."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    installation_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+    object_id: str = Field(min_length=1)
+    client_id: str = Field(min_length=1)
+
+
 class RemoteAuth(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
@@ -37,6 +48,7 @@ class RemoteAuth(BaseModel):
     service_object_id: str | None = None
     service_client_id: str | None = None
     service_role: str = "Catalog.Read"
+    agent_principals: tuple[AgentPrincipal, ...] = ()
 
     @model_validator(mode="after")
     def validate_boundary(self) -> RemoteAuth:
@@ -54,6 +66,19 @@ class RemoteAuth(BaseModel):
             raise ValueError("Remote origin must be an exact HTTPS origin without a path.")
         if bool(self.service_object_id) != bool(self.service_client_id):
             raise ValueError("Service object and client identities must be supplied together.")
+        for field in ("installation_id", "object_id", "client_id"):
+            values = [getattr(principal, field) for principal in self.agent_principals]
+            if len(values) != len(set(values)):
+                raise ValueError("Agent identity and installation bindings must be unique.")
+        if any(
+            principal.object_id in self.operator_ids
+            or principal.object_id == self.service_object_id
+            or principal.client_id in {self.spa_client_id, self.service_client_id}
+            for principal in self.agent_principals
+        ):
+            raise ValueError(
+                "Agent identities must be distinct from operator and catalog identities."
+            )
         return self
 
     @property
@@ -172,6 +197,8 @@ def secure_app(
         return app
 
     verifier = EntraVerifier(config)
+    if vendor and config.agent_principals:
+        raise ValueError("Release Hub does not accept Agent principals.")
     app.state.entra_verifier = verifier
 
     async def auth_config(request: Request) -> Response:
@@ -215,6 +242,8 @@ def secure_app(
                     and isinstance(claims.get("roles"), list)
                     and config.service_role in claims["roles"]
                 )
+                if not vendor:
+                    allowed = _agent_allowed(config, claims, request.method, path)
             else:
                 allowed = (
                     claims.get("oid") in config.operator_ids
@@ -222,8 +251,11 @@ def secure_app(
                     and isinstance(claims.get("scp"), str)
                     and config.operator_scope in claims["scp"].split()
                 )
-            # Installation agent transport is deliberately not enabled by this development slice.
-            if not vendor and (path.endswith(("/state", "/reports", "/plan", "/enrollment"))):
+            if (
+                not vendor
+                and not service
+                and path.endswith(("/state", "/reports", "/plan", "/enrollment"))
+            ):
                 allowed = False
             if not allowed:
                 return _denied(403, "principal_not_authorized")
@@ -234,7 +266,9 @@ def secure_app(
                     or request.headers.get("content-type", "").split(";")[0] != "application/json"
                 ):
                     return _denied(403, "untrusted_mutation")
-            request.state.operator = claims["oid"]
+            request.state.principal = claims["oid"]
+            if not service or vendor:
+                request.state.operator = claims["oid"]
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -248,6 +282,30 @@ def secure_app(
 
     app.add_middleware(BaseHTTPMiddleware, dispatch=boundary)
     return app
+
+
+def _agent_allowed(config: RemoteAuth, claims: dict[str, Any], method: str, path: str) -> bool:
+    match = re.fullmatch(
+        r"/v1/installations/([A-Za-z0-9][A-Za-z0-9._-]{0,127})/"
+        r"(plan|state|plans/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/reports)",
+        path,
+        flags=re.ASCII,
+    )
+    if match is None:
+        return False
+    installation, operation = match.groups()
+    return (
+        method in ({"GET", "HEAD"} if operation == "plan" else {"POST"})
+        and claims.get("idtyp") == "app"
+        and isinstance(claims.get("roles"), list)
+        and "Agent.Access" in claims["roles"]
+        and any(
+            principal.installation_id == installation
+            and principal.object_id == claims["oid"]
+            and principal.client_id == claims["azp"]
+            for principal in config.agent_principals
+        )
+    )
 
 
 def _denied(status: int, reason: str) -> Response:

@@ -1,0 +1,501 @@
+{
+  "schema_version": "1.0.0",
+  "origin": "independently_authored_synthetic_holdout",
+  "independently_reviewed": true,
+  "production_qualification": false,
+  "supersedes": "governed-read-window.v2.json",
+  "corpus": "instance-corpus.v1.json",
+  "purpose": "Fresh pre-registered v3 governed typed-selection answer-path window after producer resource-term and empty-membership repairs under #2034; not production qualification.",
+  "candidate_ranking_policy": {
+    "minimum_score": 0.4,
+    "exact_weight": 1,
+    "lexical_weight": 0.25,
+    "semantic_weight": 1
+  },
+  "evaluation_policy": {
+    "schema_version": "1.1.0",
+    "top_k": 5,
+    "min_recall_at_k": 1,
+    "min_mean_reciprocal_rank": 1,
+    "min_no_match_precision": 1,
+    "min_samples_per_metric": 4,
+    "required_cohorts": [
+      "en-adversarial",
+      "en-ambiguous",
+      "en-negative",
+      "en-positive",
+      "ko-adversarial",
+      "ko-ambiguous",
+      "ko-negative",
+      "ko-positive"
+    ]
+  },
+  "limits": {
+    "embedding_calls": 128,
+    "total_seconds": 600,
+    "embedding_call_seconds": 5
+  },
+  "cases": [
+    {
+      "case_id": "governed3-en-01",
+      "query": "During incident review, which BusinessService records have criticality set to high?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-a",
+        "object:BusinessService:example-service-d"
+      ]
+    },
+    {
+      "case_id": "governed3-en-02",
+      "query": "For quarterly audit, list every BusinessService whose criticality is medium.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-c",
+        "object:BusinessService:example-service-e"
+      ]
+    },
+    {
+      "case_id": "governed3-en-03",
+      "query": "Which BusinessService has criticality set to critical or low?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-b",
+        "object:BusinessService:example-service-f"
+      ]
+    },
+    {
+      "case_id": "governed3-en-04",
+      "query": "Show me the BusinessService aliased Invoice payments.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-a"
+      ]
+    },
+    {
+      "case_id": "governed3-en-05",
+      "query": "Which Workload has workload_kind set to background-worker?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-a"
+      ]
+    },
+    {
+      "case_id": "governed3-en-06",
+      "query": "Retrieve the Workload whose workload_kind is stream-processor.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-c"
+      ]
+    },
+    {
+      "case_id": "governed3-en-07",
+      "query": "List the Workloads whose workload_kind is either scheduled-job or queue-consumer.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-d",
+        "object:Workload:example-workload-e"
+      ]
+    },
+    {
+      "case_id": "governed3-en-08",
+      "query": "Find the Workload aliased Editorial page renderer.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-f"
+      ]
+    },
+    {
+      "case_id": "governed3-en-09",
+      "query": "Which object-storage Resource has nested public_access set to enabled?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-a"
+      ]
+    },
+    {
+      "case_id": "governed3-en-10",
+      "query": "Identify the secret-store Resource with nested public_network_access set to disabled.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-b"
+      ]
+    },
+    {
+      "case_id": "governed3-en-11",
+      "query": "Return the mysql-server Resource whose nested high_availability is zone-redundant.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-c"
+      ]
+    },
+    {
+      "case_id": "governed3-en-12",
+      "query": "Which network.vnet Resource has nested access set to private?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-d"
+      ]
+    },
+    {
+      "case_id": "governed3-en-13",
+      "query": "List all Incidents that currently have status open or triaging.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a",
+        "object:Incident:example-incident-c",
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "governed3-en-14",
+      "query": "Show every Incident whose status is closed.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-b",
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "governed3-en-15",
+      "query": "Find the Incident with correlation_id example-correlation-e and status resolved.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-e"
+      ]
+    },
+    {
+      "case_id": "governed3-en-16",
+      "query": "Return the Incident that has status open and severity medium.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-c"
+      ]
+    },
+    {
+      "case_id": "governed3-en-17",
+      "query": "Open the business service that was highlighted on the war-room whiteboard.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-18",
+      "query": "Check the workload my colleague bookmarked in her browser tab.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-19",
+      "query": "Pull up the resource from the screenshot attached to the pager note.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-20",
+      "query": "Show me the incident we talked about during the hallway handoff.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-21",
+      "query": "Did that service recover after the maintenance window?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-22",
+      "query": "Inspect the workload mentioned in the voice memo.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-23",
+      "query": "Bring up whichever resource the on-call engineer was just viewing.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-24",
+      "query": "What is the current state of the incident from that earlier thread?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-25",
+      "query": "Which Resource is of type cosmos-db-account?",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-26",
+      "query": "List Incidents whose status is mitigated.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-27",
+      "query": "Find the Workload with workload_kind set to cron-daemon.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-28",
+      "query": "Which BusinessService is named Example payroll processing?",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-29",
+      "query": "Find an Incident that has status resolved and severity low; both conditions must hold.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-30",
+      "query": "Return the BusinessService aliased Invoice payments with criticality low; do not substitute another criticality.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-31",
+      "query": "Select the Workload named Example authentication API whose workload_kind is background-worker; require both.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-en-32",
+      "query": "Retrieve the mysql-server Resource whose nested node_pool_role is batch; do not combine separate resources.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-01",
+      "query": "중요도가 medium으로 설정된 비즈니스 서비스들을 모두 조회해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-c",
+        "object:BusinessService:example-service-e"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-02",
+      "query": "중요도가 critical이거나 high인 비즈니스 서비스 목록을 전부 보여 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-a",
+        "object:BusinessService:example-service-b",
+        "object:BusinessService:example-service-d"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-03",
+      "query": "중요도가 low인 콘텐츠 게시 비즈니스 서비스를 찾아 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-f"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-04",
+      "query": "별칭이 Product discovery인 비즈니스 서비스를 알려 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-d"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-05",
+      "query": "workload_kind가 web-api 또는 web-frontend인 워크로드를 모두 골라 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-b",
+        "object:Workload:example-workload-f"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-06",
+      "query": "workload_kind가 scheduled-job인 상품 검색 인덱스 워크로드를 찾아 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-d"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-07",
+      "query": "workload_kind가 queue-consumer인 워크로드를 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-e"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-08",
+      "query": "workload_kind가 background-worker이거나 stream-processor인 워크로드를 모두 보여 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-a",
+        "object:Workload:example-workload-c"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-09",
+      "query": "type이 kubernetes-cluster이고 nested node_pool_role이 batch인 리소스를 찾아 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-e"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-10",
+      "query": "type이 compute.vm이고 nested workload_role이 build-agent인 리소스를 알려 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-f"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-11",
+      "query": "type이 secret-store이고 nested public_network_access가 disabled인 리소스를 조회해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-b"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-12",
+      "query": "type이 object-storage이고 nested public_access가 enabled인 리소스를 선택해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-a"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-13",
+      "query": "status가 open인 인시던트를 모두 보여 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a",
+        "object:Incident:example-incident-c"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-14",
+      "query": "severity가 critical이면서 status가 closed인 인시던트를 찾아 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-b"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-15",
+      "query": "correlation_id가 example-correlation-d인 인시던트를 조회해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-16",
+      "query": "severity가 low이고 status가 closed인 인시던트를 반환해 줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "governed3-ko-17",
+      "query": "아까 상황실 화이트보드에 적어 둔 그 비즈니스 서비스 열어 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-18",
+      "query": "동료가 브라우저 북마크에 저장해 둔 워크로드 확인해 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-19",
+      "query": "호출 메모 스크린샷에 있던 리소스 다시 띄워 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-20",
+      "query": "복도에서 교대할 때 언급했던 그 인시던트 보여 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-21",
+      "query": "점검 끝난 뒤에 그 서비스는 이제 정상으로 돌아왔어?",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-22",
+      "query": "음성 메모에서 말했던 워크로드 상태 좀 봐 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-23",
+      "query": "당직 엔지니어가 방금 보던 리소스가 어떤 건지 가져와 줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-24",
+      "query": "이전 스레드에서 얘기하던 인시던트 지금 어떻게 됐어?",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-25",
+      "query": "type이 cosmos-db-account인 리소스가 있어?",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-26",
+      "query": "status가 mitigated인 인시던트 목록을 보여 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-27",
+      "query": "workload_kind가 cron-daemon으로 설정된 워크로드를 찾아 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-28",
+      "query": "급여 정산 처리를 담당하는 비즈니스 서비스가 있는지 알려 줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-29",
+      "query": "status가 resolved이면서 severity가 low인 인시던트를 찾아 줘. 두 조건을 모두 만족해야 해.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-30",
+      "query": "별칭이 Invoice payments이면서 중요도가 low인 비즈니스 서비스를 반환해 줘. 다른 중요도로 대체하지 마.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-31",
+      "query": "이름이 Example authentication API이고 workload_kind가 background-worker인 워크로드만 골라 줘.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "governed3-ko-32",
+      "query": "type이 mysql-server이면서 nested node_pool_role이 batch인 리소스를 찾아 줘. 다른 리소스와 조합하지 마.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    }
+  ]
+}

@@ -25,13 +25,42 @@ Local CLIs keep their loopback defaults. The independent
 its own passwordless PostgreSQL identity, a separately provisioned development signing key,
 and explicit schema revision 1 migration. It never trusts ACA principal headers.
 The existing enrollment approval API binds the approver to the verified operator OID.
-Installation Agent enrollment/state/report/Plan transport is not opened by this profile.
+Without explicit installation Agent bindings, enrollment/state/report/Plan transport remains
+closed. The opt-in [Agent preparation](../agent/README.md#remote-development-preparation) opens
+only an installation-bound Agent's Plan/state/report routes.
+
+For a bound installation, an authenticated operator can submit a signed enrollment through
+`POST /v1/enrollments/{installation_id}/requests`. The body uses the existing `signed_payload`
+and `proof` base64 fields. The Hub verifies the installation signature, request freshness,
+matching installation id and request-size limit, and audits the verified operator as
+`requested_by`, including proof failures. Submission creates only a pending request visible in
+Enrollment requests; approval remains separate and Entities remain unmanaged. Agents cannot
+submit or approve enrollment. Empty bindings retain the existing closed route, and the original
+Agent enrollment route stays closed even to an operator.
+
+In the operator UI, open **Enrollment requests**, enter the bound installation ID,
+and select the signed request JSON file. **Submit request** sends only its `signed_payload`
+and `proof` fields to that operator route. Files are limited to 64 KiB; private keys must
+never be uploaded. A successful submission remains pending and requires a separate approval
+after independent installation-key verification. If submission times out, refresh the pending
+list before retrying; the UI never retries automatically.
 
 The Catalog import screen separates independent exact-pin approval from one bounded outbound
 import using the customer's managed identity. Accepted bytes, digest, key binding, revision
 floor, and approval/import audit survive restart in PostgreSQL. The existing planner revalidates
 the persisted catalog, including expiry; publishing metadata alone never proves artifact
 availability. No operation here applies a Plan or deploys FDAI.
+
+**Available releases** reads the accepted catalog without fetching or importing it. Every read
+revalidates its accepted pin, signatures and expiry; an unavailable catalog returns `503`, not
+an empty success. The read-only **Configuration packages** screen lists stored revision metadata
+and enrolled installation references, never configuration values or sealed identifiers. Enrollment can
+create a revision without independent package signature provenance, so the screen explicitly
+shows **Not recorded** rather than claiming signed-input readiness. Neither route is available
+to an Agent identity.
+
+See the [operator guide](../../docs/runbooks/hub-lifecycle-operator-guide.md) for diagrams,
+responsibilities, the source of each identifier, human enrollment steps and production gaps.
 
 See [Two-Hub development boundaries](../../infra/hubs-development/README.md) for images,
 separate IaC boundaries, safe key/database provisioning, manual migration Jobs, validation
@@ -55,9 +84,10 @@ This status page does not enable anonymous management access.
    request.
 2. The installation is `pending`. It receives no Plan, the Hub doesn't recompute it, and it
    accepts no reported state or suppression.
-3. A customer approver runs `approve` with the installation key id they verified out of band, or
-   `reject` with a reason code. The audit records the approver. Approval is a command-line action
-   only, so an installation can't approve itself through the agent API. Rejection is final.
+3. A customer approver uses the operator UI or `approve` with the installation key id they
+   verified out of band, or rejects with a reason code. The audit records the approver.
+   Operator approval is separate from submission; an installation can't approve itself through
+   the agent API. Rejection is final.
 4. Every Entity starts unmanaged. `record-ownership` records an Entity's ownership evidence, and
    the audit keeps the operator who supplied it and its digests. Ownership is proven only by a Foundation receipt digest together with a Terraform state
    digest. The `fdai:managed=true` tag alone records `ownership_tag_only`, and anything less than
@@ -158,6 +188,8 @@ and health values, displayed as "Not reported".
 
 | Method and path | Result |
 |-----------------|--------|
+| `GET /v1/configurations` | `200` with stored revision digests, timestamps, counts and enrolled installation references; pending/rejected requests retain revision metadata without installation links; package signature provenance is explicitly `not-recorded`; values and sealed identifiers are omitted |
+| `GET /v1/catalog/releases` (remote catalog profile) | `200` with accepted and reverified Release metadata; `503` when unimported, invalid or expired; never fetches/imports or asserts registry readiness |
 | `GET /v1/installations` | `200` with every enrolled installation's channel, current and target Release, latest outcome, health, and the next maintenance window with whether it's already open |
 | `GET /v1/installations/{id}` | `200` with settings, Entities, suppressions, the open Plan, the last evaluation, and every report; `404` for an unknown or not-yet-enrolled installation |
 | `GET /v1/installations/{id}/plans/{plan_id}` | `200` with the Plan's status (`open` or `superseded`), its events, every report, and every recompute that targeted it; `404` for an unknown Plan |

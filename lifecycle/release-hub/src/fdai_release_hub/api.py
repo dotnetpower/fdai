@@ -20,7 +20,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from fdai_lifecycle_hub.remote_auth import RemoteAuth, secure_app
-from fdai_release_hub.store import CatalogError, Change, ReleaseStore
+from fdai_release_hub.store import CatalogConfirmation, CatalogError, Change, ReleaseStore
 
 MAX_BODY = 2 * 1024 * 1024
 logger = logging.getLogger(__name__)
@@ -57,14 +57,19 @@ def create_app(
             if len(body) > MAX_BODY:
                 return JSONResponse({"error": "Request body is too large."}, status_code=413)
         try:
-            payload = Change.model_validate_json(bytes(body))
-            result = await run_in_threadpool(
-                store.change,
-                action,
-                request.path_params["release_id"],
-                payload,
-                actor=request.state.operator if remote_auth else "local-operator",
-            )
+            actor = request.state.operator if remote_auth else "local-operator"
+            if action == "renew":
+                renewal = CatalogConfirmation.model_validate_json(bytes(body))
+                result = await run_in_threadpool(store.renew, renewal, actor=actor)
+            else:
+                payload = Change.model_validate_json(bytes(body))
+                result = await run_in_threadpool(
+                    store.change,
+                    action,
+                    request.path_params["release_id"],
+                    payload,
+                    actor=actor,
+                )
         except ValidationError:
             return JSONResponse(
                 {"error": "Invalid fields. Check revision, confirmation, reason and manifest."},
@@ -72,7 +77,15 @@ def create_app(
             )
         except ValueError as error:
             status = error.status if isinstance(error, CatalogError) else 422
-            message = str(error) if isinstance(error, CatalogError) else "Invalid Release manifest."
+            message = (
+                str(error)
+                if isinstance(error, CatalogError)
+                else (
+                    "Invalid catalog renewal input."
+                    if action == "renew"
+                    else "Invalid Release manifest."
+                )
+            )
             return JSONResponse({"error": message}, status_code=status)
         return JSONResponse(result)
 
@@ -91,6 +104,7 @@ def create_app(
         ),
         Route("/v1/catalog", catalog),
         Route("/v1/catalog/export", export),
+        Route("/v1/catalog/renew", partial(change, action="renew"), methods=["POST"]),
     ]
     routes += [
         Route(

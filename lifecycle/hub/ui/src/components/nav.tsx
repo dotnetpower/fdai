@@ -1,4 +1,6 @@
-import { enrollmentsPath, installationsPath, type Route } from "../router";
+import {
+  availableReleasesPath, configurationPackagesPath, enrollmentsPath, installationsPath, type Route,
+} from "../router";
 import { Link } from "./link";
 import { EnrollmentsIcon, InstallationsIcon } from "./nav-icons";
 
@@ -16,9 +18,7 @@ function isOnEnrollments(route: Route): boolean {
 const UNBUILT_SURFACES = [
   "Confirmations",
   "Commands",
-  "Available releases",
   "Custom channels",
-  "Configuration packages",
   "Audit",
 ];
 
@@ -50,6 +50,10 @@ export function Nav({ route }: { route: Route }) {
       <div class="side-divider" role="separator" />
       <Link href="/catalog" class={`it ${route.kind === "catalog" ? "on" : ""}`}
         aria-current={route.kind === "catalog" ? "page" : undefined}>Catalog import</Link>
+      <Link href={availableReleasesPath()} class={`it ${route.kind === "releases" ? "on" : ""}`}
+        aria-current={route.kind === "releases" ? "page" : undefined}>Available releases</Link>
+      <Link href={configurationPackagesPath()} class={`it ${route.kind === "configurations" ? "on" : ""}`}
+        aria-current={route.kind === "configurations" ? "page" : undefined}>Configuration packages</Link>
       {UNBUILT_SURFACES.map((label) => (
         <span key={label} class="it disabled" aria-disabled="true" title="Not available yet">
           {label}
