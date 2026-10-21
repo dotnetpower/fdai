@@ -83,11 +83,6 @@ IAM_FAMILY_MANIFEST = (
         "get_teams_workflow_binding",
     ),
     IamRouteManifestEntry(
-        "PUT",
-        "/runtime/integrations/teams-workflow/binding",
-        "save_teams_workflow_binding",
-    ),
-    IamRouteManifestEntry(
         "POST",
         "/runtime/integrations/teams-workflow/test",
         "test_teams_workflow",

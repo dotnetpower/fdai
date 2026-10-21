@@ -3,17 +3,10 @@ export interface TeamsWorkflowTestResult {
   readonly saved: true;
   readonly bindingVersion: string;
   readonly savedAt: string;
-  readonly accepted: true;
+  readonly accepted: boolean;
   readonly providerStatus: number;
   readonly workflowRunId: string | null;
   readonly testedAt: string;
-}
-
-export interface TeamsWorkflowBindingSaveResult {
-  readonly requestId: string;
-  readonly saved: true;
-  readonly bindingVersion: string;
-  readonly savedAt: string;
 }
 
 /**
@@ -71,17 +64,21 @@ export function decodeTeamsWorkflowBindingView(value: unknown): TeamsWorkflowBin
 
 export function decodeTeamsWorkflowTestResult(value: unknown): TeamsWorkflowTestResult {
   const item = record(value, "Teams Workflow test result");
-  if (item["accepted"] !== true) {
-    throw new Error("Teams Workflow test result.accepted MUST be true");
-  }
+  const accepted = boolean(
+    item["accepted"],
+    "Teams Workflow test result.accepted",
+  );
   if (item["saved"] !== true) {
     throw new Error(
       "Teams Workflow save was not confirmed. Restart or upgrade the Operator API before retrying.",
     );
   }
   const providerStatus = integer(item["provider_status"], "Teams Workflow test result.provider_status");
-  if (providerStatus < 200 || providerStatus > 299) {
+  if (accepted && (providerStatus < 200 || providerStatus > 299)) {
     throw new Error("Teams Workflow test result.provider_status MUST be a 2xx status");
+  }
+  if (!accepted && (providerStatus < 0 || providerStatus > 599)) {
+    throw new Error("Teams Workflow test result.provider_status MUST be a bounded HTTP status");
   }
   const testedAt = nonEmptyString(item["tested_at"], "Teams Workflow test result.tested_at");
   if (Number.isNaN(Date.parse(testedAt))) {
@@ -99,38 +96,13 @@ export function decodeTeamsWorkflowTestResult(value: unknown): TeamsWorkflowTest
       "Teams Workflow test result.binding_version",
     ),
     savedAt,
-    accepted: true,
+    accepted,
     providerStatus,
     workflowRunId: nullableString(
       item["workflow_run_id"],
       "Teams Workflow test result.workflow_run_id",
     ),
     testedAt,
-  };
-}
-
-export function decodeTeamsWorkflowBindingSaveResult(
-  value: unknown,
-): TeamsWorkflowBindingSaveResult {
-  const item = record(value, "Teams Workflow binding save result");
-  if (item["saved"] !== true) {
-    throw new Error("Teams Workflow binding save result.saved MUST be true");
-  }
-  const savedAt = isoTimestamp(
-    item["saved_at"],
-    "Teams Workflow binding save result.saved_at",
-  );
-  return {
-    requestId: nonEmptyString(
-      item["request_id"],
-      "Teams Workflow binding save result.request_id",
-    ),
-    saved: true,
-    bindingVersion: nonEmptyString(
-      item["binding_version"],
-      "Teams Workflow binding save result.binding_version",
-    ),
-    savedAt,
   };
 }
 
@@ -168,6 +140,13 @@ function isoTimestamp(value: unknown, path: string): string {
 function integer(value: unknown, path: string): number {
   if (typeof value !== "number" || !Number.isInteger(value)) {
     throw new Error(`${path} MUST be an integer`);
+  }
+  return value;
+}
+
+function boolean(value: unknown, path: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new Error(`${path} MUST be a boolean`);
   }
   return value;
 }

@@ -436,22 +436,15 @@ def make_runtime_settings_routes(
                 "Teams Workflow diagnostics require the authoritative Operator store",
             )
         body = await read_json_object(request, maximum=8 * 1024)
+        _require_exact_fields(body, {"request_id", "webhook_url"})
         try:
-            if "webhook_url" in body:
-                _require_exact_fields(body, {"request_id", "webhook_url"})
-                result = await teams_workflow_tester.save_and_test(
-                    TeamsWorkflowTestCommand(
-                        actor_id=principal.oid,
-                        request_id=require_string(body, "request_id"),
-                        webhook_url=require_string(body, "webhook_url"),
-                    )
-                )
-            else:
-                _require_exact_fields(body, {"request_id"})
-                result = await teams_workflow_tester.test_saved_binding(
+            result = await teams_workflow_tester.save_and_test(
+                TeamsWorkflowTestCommand(
                     actor_id=principal.oid,
                     request_id=require_string(body, "request_id"),
+                    webhook_url=require_string(body, "webhook_url"),
                 )
+            )
         except ValueError as exc:
             return error_response(400, str(exc), kind="invalid_webhook_url")
         except TeamsWorkflowBindingUnavailableError as exc:
@@ -472,42 +465,6 @@ def make_runtime_settings_routes(
                 "provider_status": result.provider_status,
                 "workflow_run_id": result.workflow_run_id,
                 "tested_at": result.tested_at.astimezone(UTC).isoformat(),
-            }
-        )
-
-    async def save_teams_workflow_binding(request: Request) -> Response:
-        principal = await authorize(request)
-        if not has_capability(principal.roles, IamCapability.MANAGE_RUNTIME_SETTINGS):
-            return error_response(403, "Owner role is required")
-        if teams_workflow_tester is None:
-            return error_response(
-                503,
-                "Teams Workflow diagnostics require the authoritative Operator store",
-            )
-        body = await read_json_object(request, maximum=8 * 1024)
-        _require_exact_fields(body, {"request_id", "webhook_url"})
-        try:
-            result = await teams_workflow_tester.save_binding(
-                TeamsWorkflowTestCommand(
-                    actor_id=principal.oid,
-                    request_id=require_string(body, "request_id"),
-                    webhook_url=require_string(body, "webhook_url"),
-                )
-            )
-        except ValueError as exc:
-            return error_response(400, str(exc), kind="invalid_webhook_url")
-        except TeamsWorkflowBindingUnavailableError as exc:
-            return error_response(503, str(exc), kind="binding_unavailable")
-        except TeamsWorkflowBindingError as exc:
-            return error_response(502, str(exc), kind="binding_provider_error")
-        except TeamsWorkflowTestConflictError as exc:
-            return error_response(409, str(exc), kind="request_conflict")
-        return JSONResponse(
-            {
-                "request_id": result.request_id,
-                "saved": True,
-                "binding_version": result.binding_version,
-                "saved_at": result.saved_at.astimezone(UTC).isoformat(),
             }
         )
 
@@ -588,12 +545,6 @@ def make_runtime_settings_routes(
             get_teams_workflow_binding,
             methods=["GET"],
             name="get_teams_workflow_binding",
-        ),
-        Route(
-            "/runtime/integrations/teams-workflow/binding",
-            save_teams_workflow_binding,
-            methods=["PUT"],
-            name="save_teams_workflow_binding",
         ),
         Route(
             "/runtime/integrations/teams-workflow/test",

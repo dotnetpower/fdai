@@ -36,8 +36,7 @@ import {
 } from "./settings-slack-webhook.model";
 import {
   loadTeamsWorkflowBinding,
-  saveTeamsWorkflowBinding,
-  testSavedTeamsWorkflowBinding,
+  testTeamsWorkflowWebhook,
 } from "./settings-teams-workflow.command";
 import {
   newTeamsWorkflowTestRequestId,
@@ -483,25 +482,28 @@ function TeamsWorkflowTestPanel({
     setError(null);
     setResult(null);
     try {
-      const requestId = newTeamsWorkflowTestRequestId();
-      const saved = await saveTeamsWorkflowBinding(
+      const saved = await testTeamsWorkflowWebhook(
         auth,
         operatorApiBaseUrl,
         submittedUrl,
-        requestId,
+        newTeamsWorkflowTestRequestId(),
       );
+      setResult(saved);
       setBindingSaved({
         bindingVersion: saved.bindingVersion,
         savedAt: saved.savedAt,
-        observedAt: saved.savedAt,
+        observedAt: saved.testedAt,
       });
       setBindingVisibility("visible");
-      const tested = await testSavedTeamsWorkflowBinding(
-        auth,
-        operatorApiBaseUrl,
-        requestId,
-      );
-      setResult(tested);
+      if (!saved.accepted) {
+        setError(
+          saved.providerStatus > 0
+            ? `Binding saved, but Teams rejected the test card with HTTP ${saved.providerStatus}`
+            : "Binding saved, but the Teams test acknowledgement was not observed",
+        );
+        return;
+      }
+      setResult(saved);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
