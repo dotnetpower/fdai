@@ -14,18 +14,22 @@ from collections.abc import Callable, Sequence
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
+from uuid import UUID
 
+from azure.core.exceptions import AzureError
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
 
 from fdai_lifecycle_hub import domain, models, schemas
 from fdai_lifecycle_hub.catalog import load_catalog
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.errors import HubStoreError, SchemaMismatchError
-from fdai_lifecycle_hub.migrations import migrate
+from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.native_ownership import NativeOwnershipStore
+from fdai_lifecycle_hub.native_proofs import NativeProofStore
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import (
     generate_development_key,
@@ -49,6 +53,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return handler(args)
     except (HubStoreError, ValueError) as error:  # ValueError covers pydantic and domain checks.
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
+        return 1
+    except (AzureError, SQLAlchemyError) as error:
+        print(
+            f"{type(error).__name__}: Hub operation failed; verify storage, identity and inputs.",
+            file=sys.stderr,
+        )
         return 1
 
 
@@ -97,8 +107,20 @@ def _parser() -> argparse.ArgumentParser:
         "accept signed native creation evidence with separate operator confirmation",
     )
     native.add_argument("installation_id")
-    native.add_argument("path", type=Path, help="private complete acceptance request")
+    native.add_argument("path", nargs="?", type=Path, help="private complete acceptance request")
+    native.add_argument("--submitted-proof", help="claim digest from the private approval input")
+    native.add_argument("--request-id", type=UUID)
+    native.add_argument("--settings-digest")
+    native.add_argument("--reason")
+    native.add_argument("--confirmation")
     native.add_argument("--operator", required=True)
+
+    binding = command(
+        "bind-application", _bind_application, "bind an application with a private operator request"
+    )
+    binding.add_argument("installation_id")
+    binding.add_argument("path", type=Path)
+    binding.add_argument("--operator", required=True)
 
     manage = command("manage", _manage, "give an Entity its settings, which makes it managed")
     manage.add_argument("installation_id")
@@ -160,6 +182,18 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _store() -> HubStore:
+    if "FDAI_HUB_REMOTE_CONFIG" in os.environ:
+        from fdai_lifecycle_hub.remote import RemoteConfig, remote_engine
+
+        try:
+            config = RemoteConfig.model_validate_json(os.environ["FDAI_HUB_REMOTE_CONFIG"])
+        except ValueError:
+            raise ValueError("Trusted Lifecycle CLI remote configuration is invalid.") from None
+        if config.kind != "target":
+            raise ValueError("Trusted Lifecycle CLI requires a target Hub configuration.")
+        engine = remote_engine("target")
+        require_schema(engine, "lifecycle_hub")
+        return HubStore(engine)
     url = os.environ.get(DATABASE_URL_ENV)
     if not url:
         raise SystemExit(f"{DATABASE_URL_ENV} is not set")
@@ -241,17 +275,55 @@ def _record_ownership(args: argparse.Namespace) -> int:
 
 
 def _accept_native_ownership(args: argparse.Namespace) -> int:
+    store = _store()
+    selection = (
+        args.submitted_proof,
+        args.request_id,
+        args.settings_digest,
+        args.reason,
+        args.confirmation,
+    )
+    if args.path is not None and any(value is not None for value in selection):
+        raise ValueError("native_ownership_request_sources_conflict")
+    if args.path is None and not all(value is not None for value in selection):
+        raise ValueError("native_ownership_request_required")
     try:
-        with args.path.open("rb") as handle:
-            body = handle.read(8193)
-        load_json_object(body, label="native ownership", max_bytes=8192, strict=True)
-        command = NativeOwnershipAcceptance.model_validate_json(body)
+        if args.path is not None:
+            with args.path.open("rb") as handle:
+                body = handle.read(8193)
+            load_json_object(body, label="native ownership", max_bytes=8192, strict=True)
+            command = NativeOwnershipAcceptance.model_validate_json(body)
+        else:
+            command = NativeOwnershipAcceptance(
+                request_id=args.request_id,
+                expected_settings_digest=args.settings_digest,
+                proof=NativeProofStore(store).load(args.installation_id, args.submitted_proof),
+                reason=args.reason,
+                confirmation=args.confirmation,
+            )
     except (OSError, ValueError) as error:
         raise ValueError("native_ownership_request_invalid") from error
-    result = NativeOwnershipStore(_store()).accept(
+    result = NativeOwnershipStore(store).accept(
         args.installation_id, command, operator=args.operator, now=domain.utc_now()
     )
     _print({"accepted": True, "changed": result["changed"]})
+    return 0
+
+
+def _bind_application(args: argparse.Namespace) -> int:
+    from fdai_lifecycle_hub.execution_settings import ApplicationBindingRequest
+
+    try:
+        with args.path.open("rb") as handle:
+            body = handle.read(8193)
+        load_json_object(body, label="application binding", max_bytes=8192, strict=True)
+        command = ApplicationBindingRequest.model_validate_json(body)
+    except (OSError, ValueError) as error:
+        raise ValueError("application_binding_request_invalid") from error
+    result = _store().bind_application(
+        args.installation_id, command, operator=args.operator, now=domain.utc_now()
+    )
+    _print({"bound": True, "changed": result["changed"]})
     return 0
 
 

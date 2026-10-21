@@ -15,6 +15,7 @@ from functools import partial
 from pathlib import Path
 from typing import TypedDict, cast, get_args
 
+from fdai_deployment_cli.lifecycle_native import SignedNativeScope
 from fdai_deployment_cli.lifecycle_plan import CapabilityMode, LifecycleEffectEnvelope
 from fdai_deployment_cli.lifecycle_release import is_product_id
 
@@ -86,6 +87,14 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
     register_reference_command(commands)
     register_native_command(commands)
+    submit = commands.add_parser(
+        "submit-native-proof", help="Deliver a private signed proof without accepting ownership."
+    )
+    submit.add_argument("--installation-id", required=True)
+    submit.add_argument("--proof", type=Path, required=True)
+    submit.add_argument("--hub-url", required=True)
+    submit.add_argument("--hub-scope", required=True)
+    submit.add_argument("--timeout-seconds", type=float, default=10.0)
     poll = commands.add_parser(
         "poll-once", help="Fetch one Plan, admit it, dry-run it, and report the result."
     )
@@ -208,6 +217,34 @@ def main(
     logging.getLogger("httpx").setLevel(logging.WARNING)
     parser = build_parser()
     arguments = parser.parse_args(argv)
+    if arguments.command == "submit-native-proof":
+        from fdai_lifecycle_agent.remote_auth import WorkloadIdentityAuthorization
+
+        try:
+            body = read_limited(arguments.proof, limit=8192, label="native proof")
+            load_json(body, label="native proof")
+            proof = SignedNativeScope.model_validate_json(body)
+            if proof.claim.installation_id != arguments.installation_id:
+                raise ValueError("Native proof installation binding does not match.")
+            with ExitStack() as resources:
+                authorization = WorkloadIdentityAuthorization(arguments.hub_scope)
+                resources.callback(authorization.close)
+                hub = resources.enter_context(
+                    HttpHubClient(
+                        arguments.hub_url,
+                        timeout_seconds=arguments.timeout_seconds,
+                        authorization=authorization,
+                    )
+                )
+                hub.submit_native_proof(arguments.installation_id, proof)
+        except (ValueError, OSError, HubProtocolError) as error:
+            logging.error("lifecycle_agent.native_proof_failed error_type=%s", type(error).__name__)
+            print(
+                "Native proof delivery failed; verify identity and private inputs.", file=sys.stderr
+            )
+            return _EXIT_CONFIGURATION
+        logging.info("lifecycle_agent.native_proof_submitted")
+        return _EXIT_OK
     if arguments.command == "reference-status":
         return run_reference_command(arguments, clock=clock, connect=connect_reference_source)
     if arguments.command == "bootstrap-slot":
