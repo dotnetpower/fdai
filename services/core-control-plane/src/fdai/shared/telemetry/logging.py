@@ -274,7 +274,7 @@ class _BurstSummaryFilter(logging.Filter):
 
 
 class RetainedJsonlHandler(logging.Handler):
-    """Append JSONL records while retaining only a rolling time window."""
+    """Retain a rolling JSONL window without rewriting unchanged log contents."""
 
     def __init__(
         self,
@@ -402,11 +402,18 @@ class RetainedJsonlHandler(logging.Handler):
             return
         cutoff = now.astimezone(UTC) - self._retention
         retained: list[str] = []
+        changed = False
         with self._path.open(encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 timestamp = _jsonl_timestamp(line)
                 if timestamp is not None and timestamp >= cutoff:
                     retained.append(line.rstrip("\n") + "\n")
+                    changed |= not line.endswith("\n")
+                else:
+                    changed = True
+
+        if not changed:
+            return
 
         temporary = self._path.with_name(f".{self._path.name}.{os.getpid()}.tmp")
         temporary.write_text("".join(retained), encoding="utf-8")
