@@ -82,6 +82,93 @@ class KubernetesCluster:
         )
         return None if live is None else dict(live.to_dict())
 
+    def create(self, manifest: Manifest, *, dry_run: bool = False) -> Manifest:
+        """POST only: an object appearing after preflight is a conflict, not an adoption."""
+        check_scope((manifest,), self._namespace)
+        live = self._call(
+            manifest["kind"],
+            lambda client, resource: client.create(
+                resource,
+                body=dict(manifest),
+                namespace=self._namespace,
+                field_manager=FIELD_MANAGER,
+                dry_run="All" if dry_run else None,
+                _request_timeout=self._timeout,
+            ),
+            missing_ok=False,
+        )
+        return dict(live.to_dict())
+
+    def replace_owned(self, manifest: Manifest, uid: str, *, dry_run: bool = False) -> None:
+        """Atomically test UID/version and replace the spec using existing patch authority."""
+        check_scope((manifest,), self._namespace)
+        name = manifest["metadata"]["name"]
+        current = self.get(manifest["kind"], name)
+        metadata = (current or {}).get("metadata", {})
+        if metadata.get("uid") != uid or not isinstance(metadata.get("resourceVersion"), str):
+            raise WorkloadError("native_resource_identity_changed")
+        body = dict(manifest) | {
+            "metadata": dict(manifest["metadata"])
+            | {"uid": uid, "resourceVersion": metadata["resourceVersion"]}
+        }
+        if manifest["kind"] == "Service":
+            defaults = {
+                key: current["spec"][key]
+                for key in ("clusterIP", "clusterIPs", "ipFamilies", "ipFamilyPolicy")
+                if current is not None and key in current.get("spec", {})
+            }
+            body["spec"] = defaults | dict(manifest["spec"])
+        self._call(
+            manifest["kind"],
+            lambda client, resource: client.patch(
+                resource,
+                name=name,
+                namespace=self._namespace,
+                body=[
+                    {"op": "test", "path": "/metadata/uid", "value": uid},
+                    {
+                        "op": "test",
+                        "path": "/metadata/resourceVersion",
+                        "value": metadata["resourceVersion"],
+                    },
+                    {
+                        "op": "add",
+                        "path": "/metadata/labels",
+                        "value": dict(metadata.get("labels", {}))
+                        | dict(body["metadata"]["labels"]),
+                    },
+                    {
+                        "op": "add",
+                        "path": "/metadata/ownerReferences",
+                        "value": body["metadata"].get("ownerReferences", []),
+                    },
+                    {"op": "replace", "path": "/spec", "value": body["spec"]},
+                ],
+                content_type="application/json-patch+json",
+                field_manager=FIELD_MANAGER,
+                dry_run="All" if dry_run else None,
+                _request_timeout=self._timeout,
+            ),
+            missing_ok=False,
+        )
+
+    def delete_owned(self, kind: str, name: str, uid: str) -> None:
+        """A same-name replacement cannot satisfy this API-server UID precondition."""
+        self._call(
+            kind,
+            lambda client, resource: client.delete(
+                resource,
+                name=name,
+                namespace=self._namespace,
+                body={
+                    "apiVersion": "v1",
+                    "kind": "DeleteOptions",
+                    "preconditions": {"uid": uid},
+                },
+                _request_timeout=self._timeout,
+            ),
+        )
+
     def delete(self, kind: str, name: str) -> None:
         self._call(
             kind,

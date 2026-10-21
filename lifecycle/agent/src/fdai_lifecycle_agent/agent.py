@@ -32,6 +32,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta
@@ -149,6 +150,7 @@ class AgentSettings:
     entity_components: Mapping[str, frozenset[str]]
     component_repositories: Mapping[str, str] = field(default_factory=dict)
     product: str | None = None
+    native_scope_digest: str | None = None
 
     def __post_init__(self) -> None:
         validate_path_segment(self.installation_id, "installation_id")
@@ -159,6 +161,11 @@ class AgentSettings:
             raise ValueError("every envelope Entity MUST name at least one Release component")
         if self.product is not None and not is_product_id(self.product):
             raise ValueError("local policy product must be an application identifier")
+        if self.native_scope_digest is not None and (
+            self.product is None
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", self.native_scope_digest) is None
+        ):
+            raise ValueError("native local policy requires a product and exact scope digest")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

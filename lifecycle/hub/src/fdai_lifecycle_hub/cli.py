@@ -15,12 +15,15 @@ from datetime import timedelta
 from functools import partial
 from pathlib import Path
 
+from fdai_deployment_cli.contracts import load_json_object
+from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 
 from fdai_lifecycle_hub import domain, schemas
 from fdai_lifecycle_hub.catalog import load_catalog
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.errors import HubStoreError
+from fdai_lifecycle_hub.native_ownership import NativeOwnershipStore
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import (
     generate_development_key,
@@ -84,6 +87,15 @@ def _parser() -> argparse.ArgumentParser:
     ownership.add_argument("entity_id")
     ownership.add_argument("path", type=Path)
     ownership.add_argument("--operator", required=True)
+
+    native = command(
+        "accept-native-ownership",
+        _accept_native_ownership,
+        "accept signed native creation evidence with separate operator confirmation",
+    )
+    native.add_argument("installation_id")
+    native.add_argument("path", type=Path, help="private complete acceptance request")
+    native.add_argument("--operator", required=True)
 
     manage = command("manage", _manage, "give an Entity its settings, which makes it managed")
     manage.add_argument("installation_id")
@@ -214,6 +226,21 @@ def _record_ownership(args: argparse.Namespace) -> int:
         now=domain.utc_now(),
     )
     _print({"entity": args.entity_id, "proven": evidence.gap is None, "reason": evidence.gap})
+    return 0
+
+
+def _accept_native_ownership(args: argparse.Namespace) -> int:
+    try:
+        with args.path.open("rb") as handle:
+            body = handle.read(8193)
+        load_json_object(body, label="native ownership", max_bytes=8192, strict=True)
+        command = NativeOwnershipAcceptance.model_validate_json(body)
+    except (OSError, ValueError) as error:
+        raise ValueError("native_ownership_request_invalid") from error
+    result = NativeOwnershipStore(_store()).accept(
+        args.installation_id, command, operator=args.operator, now=domain.utc_now()
+    )
+    _print({"accepted": True, "changed": result["changed"]})
     return 0
 
 

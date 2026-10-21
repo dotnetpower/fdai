@@ -12,7 +12,7 @@ REVISION = 1
 
 
 def _revision(namespace: str) -> int:
-    return 5 if namespace == "lifecycle_hub" else REVISION
+    return 6 if namespace == "lifecycle_hub" else REVISION
 
 
 def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], None]) -> None:
@@ -64,6 +64,10 @@ def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], N
             _empty_state_migration(connection)
             connection.execute(versions.update().values(revision=5))
             revision = 5
+        if revision == 5 and namespace == "lifecycle_hub":
+            # Old readers cannot interpret native ownership metadata.
+            connection.execute(versions.update().values(revision=6))
+            revision = 6
         if revision is not None and revision != _revision(namespace):
             raise ValueError("Unsupported Hub schema revision; use a compatible migration command.")
 

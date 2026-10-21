@@ -15,6 +15,7 @@ implementation states below.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Create-only native workload scope and UID-fenced recovery | implemented | `current change`; shared `lifecycle_native.py`; Agent `native_*.py`, `kube.py`, `cli.py`; Hub `native_ownership*.py`, `entity.py`, `migrations.py`; focused commands below: 188 passed with 14 separately exercised database skips, isolated PostgreSQL selection 70 passed, strict mypy 66 source files and Ruff passed | Selector-free newly created Service anchor, private exact local policy/approval, enrolled-key signature, separate operator UUID/Settings-CAS/confirmation/audit acceptance and new unmanaged scope Entity. Namespace stays unmanaged. Real empty-state reporting and normal manage/Plan/input/window checks remain required. Native creation never uses legacy SSA adoption; updates retain UID/resourceVersion, deletes retain UID preconditions, and uncertain creation stops for review. Synthetic Kubernetes/HTTP checks cover first install, distinct update, failed install/update recovery and restart replay. Explicit reader floor 6 retains prior database rows. No source activation, installed effect or production qualification is claimed. |
 | Explicit empty workload state and staged inventory | implemented | `current change`; Hub `domain.py`, `catalog.py`, `planning.py`, `store.py`, `migrations.py`; Agent `dry_run.py`, `agent.py`; `tests/test_first_install.py` in both packages; merged first-install/planning/local-channel/state selection: 79 passed with 54 separately exercised database skips; isolated PostgreSQL migration/inspection selection: 67 passed; strict mypy 59 source files passed | Real absence is a null Release, not a fabricated version. Staged availability is independent from installed images. Signed first apply, rollback to verified absence, replay, native CLI coverage, mixed-installation anti-downgrade, revision 1/2/3/4 preservation and transactional SQLite recovery are covered. Reader floor 5 retains existing local-channel evidence. Ownership and operational activation remain separate prerequisites. |
 | Application-neutral packages and independent installation binding | implemented | `current change`; shared `lifecycle_release.py`, Hub `planning.py`, `execution_settings*.py`, `store.py`, Agent `inputs.py` and `workload.py`; CLI selection 271 passed; publication/planning selection 103 passed; auth/settings/inventory 71 passed; Agent selection 99 passed; isolated PostgreSQL binding/settings/package selection 55 passed with two intentional SQLite locking skips; strict mypy 19 source files passed; Hub UI 51 tests and 12 built-asset browser scenarios passed; both UI builds passed | Independent Hub/local-policy product bindings, bounded signed HTTP components, legacy adapter compatibility and strict JSON. Binding is operator-only, permanent, CAS/UUID/audit protected and blocked by an open Plan. Local synthetic evidence only; namespace ownership, actual input delivery, activation and installation effects are not supplied by the package. |
 | Customer-local development channel curation | implemented | `current change`; #2361; explicit revision-4 migration, immutable exact-source membership and Target Hub operator routes/UI; focused native/configuration and browser checks in the release-channel ledger passed | Same catalog transaction serializes curation, accepted import and planning; local revision/pin/digest are in plan audit. No vendor rewrite, subscription selection or execution authority. Existing data is preserved; older binaries refuse schema 4 rather than ignore curation. |
@@ -59,6 +60,7 @@ implementation states below.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-21 | implemented | Added the application-neutral native first-creation path after rejecting namespace claims as ownership. Bound actual create-only anchor UID evidence to independent local scope/approval and the enrolled key; added separate attributed operator acceptance, unmanaged scope registration, fail-closed native CLI composition, UID/RV update/delete recovery and explicit schema-6 reader fencing. | `current change`; task-owned shared/Agent/Hub source and `test_lifecycle_native.py`, `test_native_scope.py`, `test_native_first_install.py`, `test_native_ownership.py`, existing focused regression selectors. The exact commands below passed: 188 focused cases, 70 isolated PostgreSQL cases, strict mypy 66 source files and Ruff. | Publish and review the exact source, migrate and activate it under separate operational authorization, then independently qualify first install, distinct update, failure recovery and durable identity/state continuity. Namespace adoption and automatic RBAC expansion remain unsupported. |
 | 2026-10-21 | implemented | Added source-only customer-local curation as a narrowing view of independently accepted RELEASE membership, with explicit schema 4, operator confirmation, immutable provenance and planning-audit binding. | `current change`; #2361; overlapping 193-case configuration/native and 153-case local/auth/real-PostgreSQL/store/bootstrap cohorts passed; 43 UI unit tests, typecheck/build and 8 mocked-network browser contracts passed; see the [release-channel ledger](lifecycle-releases-and-channels.md). | This is not an installed lifecycle, production trust root, automatic recall roll-off, physical phase fence or controller receipt. Explicit migration and compatible binary remain deployment prerequisites. |
 | 2026-10-21 | implemented | Delivered the direct/offline full-grant carrier, Core-owned immutable acceptance/audit and optional existing-authority runtime read path, without making the Hub an issuer. | `current change`; #2352; 188 source and actual PostgreSQL/fresh-process checks; separate entitlement owner/ledger. | Hub transport/Plan integration, controlled rotation, actual key and connected/offline installation acceptance remain open. |
 | 2026-10-21 | implemented | Published the two outstanding design spikes: component-specific dual-slot failure/recovery analysis and transport-only entitlement continuity without Trial renewal. Updated honest limits without rewriting ADR-0003 or upgrading runtime status. | #2342, #2343; `current change`; new bilingual companions and their authoritative design ledgers; scoped documentation/design/localization checks | Implement and qualify actual slot controllers and licensing handoff, then retain authorized connected/offline independent effects and unchanged Trial history. |
@@ -118,13 +120,61 @@ implementation states below.
 | 2026-10-21 | implemented | Added explicit uninstalled Entity state, separate staged-image availability, initial override coverage and a reader-floor migration without changing ownership authority. Mixed installations cannot downgrade an already installed Entity through a first-install Plan. | `current change`; `uv run --no-sync pytest -c pyproject.toml -q --no-cov lifecycle/hub/tests/test_first_install.py lifecycle/hub/tests/test_planning.py lifecycle/agent/tests/test_first_install.py lifecycle/agent/tests/test_dry_run.py`: 50 passed, two PostgreSQL cases separately verified; isolated PostgreSQL first-install/inspection/revision 1 and 2 migration selection: 66 passed; strict mypy: 57 source files passed. SQLite interruption injection verifies rollback retains rows, constraints and the old revision before successful retry. | Complete independently authorized native first creation, exact-source activation and real installation/update/recovery readback. No live Hub, namespace, identity or permission change is included. |
 | 2026-10-22 | implemented | Integrated main's revision-4 local channel storage without reusing its schema revision for empty state. Explicit migration now advances to floor 5; interrupted revision-3/4 migration preserves the old revision, rows and approved local membership before a successful idempotent retry. Current workload guidance no longer names a sample application. | `current change`; `migrations.py`, `test_first_install.py`, `test_local_channels.py`; first-install/planning/local-channel/database-inspection/Agent state selection: 79 passed, 54 database skips; the same first-install/inspection paths plus revision-1/2 migration checks through `scripts/automation/with-local-test-database.py`: 67 passed on isolated PostgreSQL 5433; strict mypy: 59 source files passed. Validation database was restored to stopped state. | Native first creation and genuine ownership evidence remain prerequisites. No production database migration, Hub activation, permission expansion or actual installation is claimed. |
 
+### Native first-creation validation
+
+Commands use the selected Python environment. Kubernetes and HTTP responses in these tests are
+synthetic; PostgreSQL runs only on the isolated loopback validation cluster through the repository
+wrapper. No remote database, model or Azure effect is exercised.
+
+```bash
+python -m pytest -c pyproject.toml -q --no-cov \
+  packages/deployment-cli/tests/test_lifecycle_native.py \
+  lifecycle/agent/tests/test_native_scope.py \
+  lifecycle/agent/tests/test_native_first_install.py \
+  lifecycle/agent/tests/test_first_install.py \
+  lifecycle/agent/tests/test_kube.py \
+  lifecycle/agent/tests/test_cli.py \
+  lifecycle/agent/tests/test_application_release.py \
+  lifecycle/agent/tests/test_no_write.py \
+  lifecycle/hub/tests/test_native_ownership.py \
+  lifecycle/hub/tests/test_first_install.py \
+  lifecycle/hub/tests/test_local_channels.py \
+  lifecycle/hub/tests/test_remote_auth.py \
+  lifecycle/hub/tests/test_entity.py --tb=short
+```
+
+Result: 188 passed, 14 database cases skipped without a bound database. These database cases
+are included in the separately passing command below.
+
+```bash
+python scripts/automation/with-local-test-database.py \
+  python -m pytest -c pyproject.toml -q --no-cov \
+  lifecycle/hub/tests/test_native_ownership.py \
+  lifecycle/hub/tests/test_first_install.py \
+  lifecycle/hub/tests/test_local_channels.py \
+  lifecycle/hub/tests/test_configuration_import_postgres.py --tb=short
+```
+
+Result: 70 passed. The validation container was returned to its original stopped state.
+The marker-only revision-5-to-6 transition preserves existing Entity/settings/audit records.
+Existing revision-1/2/3/4 tests also exercise the full explicit upgrade sequence.
+
+```bash
+MYPYPATH=lifecycle/agent/src:lifecycle/hub/src:packages/deployment-cli/src \
+  python -m mypy --strict lifecycle/agent/src lifecycle/hub/src \
+  packages/deployment-cli/src/fdai_deployment_cli/lifecycle_native.py
+```
+
+Result: passed, 66 source files. Ruff check and format pass for the task-owned Python paths.
+
 ### Remaining work
 
 - [x] Implement the shared package and independent product bindings with focused parser,
   publication, planner, Agent apply/rollback/replay, authenticated API, PostgreSQL and built-UI
   evidence recorded above.
-- [ ] Establish genuine namespace ownership through a general bootstrap/adoption contract, without
-  fabricating Foundation or Terraform evidence or expanding Agent permissions implicitly.
+- [x] Implement and locally verify native ownership of newly created workload objects without
+  adopting their parent namespace, fabricating Foundation/Terraform evidence or implicitly
+  expanding Agent permissions. Source and focused evidence are recorded above.
 - [x] Represent empty workloads and independent staged inventory, with real first-version selection,
   signed Agent creation/replay, rollback to absence and legacy database preservation covered above.
 - [ ] Activate a separately approved exact source, bind a real application and independently

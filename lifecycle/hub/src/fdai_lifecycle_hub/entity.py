@@ -24,24 +24,34 @@ class OwnershipGap(StrEnum):
 class OwnershipEvidence:
     """Digests of what proves FDAI ownership, as the installation reports them.
 
-    A signed Foundation creation receipt together with a Terraform state identity proves
-    ownership. The `fdai:managed=true` tag is only a discovery hint, because anyone with tag
-    rights can set it.
+    Foundation ownership requires a signed creation receipt and Terraform state identity.
+    Native workload ownership requires separate operator acceptance of an installation-signed
+    actual creation claim; it never owns the parent namespace. The `fdai:managed=true` tag is
+    only a discovery hint, because anyone with tag rights can set it.
     """
 
     foundation_receipt_digest: str | None = None
     terraform_state_digest: str | None = None
     managed_tag: bool = False
+    native_creation_receipt_digest: str | None = None
 
     def __post_init__(self) -> None:
-        digests = (self.foundation_receipt_digest, self.terraform_state_digest)
+        digests = (
+            self.foundation_receipt_digest,
+            self.terraform_state_digest,
+            self.native_creation_receipt_digest,
+        )
         if not (self.managed_tag or any(digests)):
             raise ValueError("ownership evidence is empty")
         if any(d is not None and not _PREFIXED_SHA256.fullmatch(d) for d in digests):
             raise ValueError("an ownership digest must be sha256: followed by 64 hex characters")
+        if self.native_creation_receipt_digest and any(digests[:2]):
+            raise ValueError("native creation evidence cannot impersonate Foundation evidence")
 
     @property
     def gap(self) -> OwnershipGap | None:
+        if self.native_creation_receipt_digest is not None:
+            return None
         if self.foundation_receipt_digest and self.terraform_state_digest:
             return None
         if self.foundation_receipt_digest or self.terraform_state_digest:

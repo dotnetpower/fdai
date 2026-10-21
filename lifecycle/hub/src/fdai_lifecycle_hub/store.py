@@ -336,6 +336,8 @@ class HubStore:
     ) -> None:
         """Record an unmanaged Entity's ownership evidence, who supplied it, and its shortfall."""
 
+        if evidence.native_creation_receipt_digest is not None:
+            raise ValueError("native ownership requires separate verified operator acceptance")
         operator = schemas.actor_name.validate_python(operator)
         recorded = schemas.ownership_json.dump_python(evidence, mode="json")
         with self._write() as session:
