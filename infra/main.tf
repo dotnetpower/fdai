@@ -116,6 +116,12 @@ resource "terraform_data" "installation" {
 }
 
 locals {
+  # Console-governed stewardship needs no Git host. GitOps credentials and the merge webhook secret
+  # exist only when a deployment explicitly selects the optional GitOps target.
+  stewardship_gitops_configured = var.enable_stewardship_governance && trimspace(var.gitops_owner) != ""
+}
+
+locals {
   installation_binding    = sha256("fdai-installation:${terraform_data.installation.id}")
   installation_created_at = terraform_data.installation.output
 }
@@ -2590,7 +2596,7 @@ resource "azurerm_role_assignment" "core_github_app_private_key_reader" {
 }
 
 resource "azurerm_role_assignment" "ingestion_github_auth_secret_reader" {
-  count = var.enable_stewardship_governance && var.enable_document_ingestion ? 1 : 0
+  count = local.stewardship_gitops_configured && var.enable_document_ingestion ? 1 : 0
   scope = (
     trimspace(nonsensitive(var.github_app_private_key)) != ""
     ? azurerm_key_vault_secret.github_app_private_key[0].resource_versionless_id
@@ -2602,7 +2608,7 @@ resource "azurerm_role_assignment" "ingestion_github_auth_secret_reader" {
 }
 
 resource "azurerm_role_assignment" "ingestion_github_webhook_secret_reader" {
-  count                = var.enable_stewardship_governance && var.enable_document_ingestion ? 1 : 0
+  count                = local.stewardship_gitops_configured && var.enable_document_ingestion ? 1 : 0
   scope                = azurerm_key_vault_secret.github_webhook_secret[0].resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.ingestion_identity[0].principal_id
@@ -2701,7 +2707,7 @@ resource "azurerm_key_vault_secret" "github_app_private_key" {
 }
 
 resource "azurerm_key_vault_secret" "github_webhook_secret" {
-  count        = var.enable_stewardship_governance ? 1 : 0
+  count        = local.stewardship_gitops_configured ? 1 : 0
   name         = "fdai-github-webhook-secret"
   value        = var.github_webhook_secret
   key_vault_id = module.key_vault.id
@@ -3638,7 +3644,7 @@ module "ingestion_gateway" {
     var.enable_stewardship_governance && trimspace(nonsensitive(var.gitops_token)) != "" ? azurerm_key_vault_secret.gitops_token[0].id : ""
   )
   github_webhook_secret_id = (
-    var.enable_stewardship_governance ? azurerm_key_vault_secret.github_webhook_secret[0].id : ""
+    local.stewardship_gitops_configured ? azurerm_key_vault_secret.github_webhook_secret[0].id : ""
   )
   chatops_webhook_url_secret_id = (
     var.enable_stewardship_governance ? azurerm_key_vault_secret.chatops_webhook_url[0].id : ""

@@ -40,7 +40,9 @@ _INGESTION_MODULE = (
 
 def test_platform_exports_review_only_stewardship_gitops_binding() -> None:
     assert 'output "stewardship_gitops_binding"' in _PLATFORM_OUTPUTS
-    assert "auth_mode                 = trimspace(" in _PLATFORM_OUTPUTS
+    assert 'trimspace(nonsensitive(var.github_app_private_key)) != "" ? "github_app"' in (
+        _PLATFORM_OUTPUTS
+    )
     assert "azurerm_key_vault_secret.gitops_token[0].resource_versionless_id" in _PLATFORM_OUTPUTS
     assert (
         "azurerm_key_vault_secret.github_app_private_key[0].resource_versionless_id"
@@ -131,3 +133,15 @@ def test_production_gate_supports_console_governed_mode_without_github_app() -> 
     assert core_binding["auth_mode"] == "console"
     assert core_binding["app_client_id"] == ""
     assert core_binding["webhook_secret_id"] == ""
+
+
+def test_console_mode_creates_no_github_secret_or_webhook_resources() -> None:
+    assert "stewardship_gitops_configured" in _PLATFORM_MAIN
+    assert (
+        'resource "azurerm_key_vault_secret" "github_webhook_secret" {\n'
+        "  count        = local.stewardship_gitops_configured ? 1 : 0" in _PLATFORM_MAIN
+    )
+    assert "local.stewardship_gitops_configured && var.enable_document_ingestion" in _PLATFORM_MAIN
+    assert '!local.stewardship_gitops_configured ? "console"' in _PLATFORM_OUTPUTS
+    assert 'var.stewardship_gitops.auth_mode == "console"' in _SERVICE_VARIABLES
+    assert 'var.stewardship_gitops.auth_mode == "console" ? []' in _SERVICE_MODULE

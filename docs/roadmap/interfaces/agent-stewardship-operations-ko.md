@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: a2dd5cec650f3eb5725311b9e000c8b5ed0b3d00
+translation_source_sha: c534e95f08c99d5cdfe21291a00b57a92df628db
 translation_revised: 2026-10-22
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -100,6 +100,7 @@ title: 에이전트 운영 책임 수명 주기
 - [x] **최종 소스 비판 검토:** 잔여 소스 구현 이후 서로 다른 통합 검토 12회를 완료했습니다. [FI-01부터 FI-12](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)에 미해결로 확인된 Medium/High 소스 문제는 없습니다.
 - [x] **#946 게시 근거:** 검토된 영문/한국어, 정본 생성, 정상 훅과 보호된 #1014 전달을 완료했으며 정확한 헤드와 병합 후 CI가 통과했습니다. #1017은 자체 후속 전달을 추적합니다.
 - [x] **로컬 UI 근거:** [#1017](../../internals/handover-ui-evidence-20260915.md)은 서로 다른 합성 브라우저 시나리오 28개, 단위 검사 127개, 집중 비판 10회와 최종 검토 10회, 모든 평가 기준 ID를 기록합니다. 실제 보조 기술 출력은 측정하지 않았습니다.
+- [ ] **인증된 Console 활성화:** `stewardship_revision_candidate:*` 레코드 하나에 대한 형식화되고 멱등적인 활성화 요청을 제출하는 Owner 전용 Operator 경로와 Console 컨트롤을 추가합니다. Core는 활성 승인 프로필에서 요청자와 검토자 분리를 적용한 뒤 `activate_console_stewardship_candidate`를 호출해야 하며, 집중 경로 테스트와 Core 소비자 테스트로 중복 전달이 아무것도 바꾸지 않음을 입증합니다.
 - [ ] **사람 확인과 운영 근거:** 실제 스크린 리더 안내와 별도로 통제되는 #458/Teams/문서/배포/코호트/훈련 증적을 [현행 독립 경로](../deployment/installable-deployment-cli-ko.md)로 보존합니다. 소스 검토는 전체 WCAG/UI 점수, 운영 수락이나 승격을 허가하지 않습니다.
 
 근거에 기반한 T2 `HandoverInterpreter`는 선택적인 배포 연결로 남습니다. 결정론적

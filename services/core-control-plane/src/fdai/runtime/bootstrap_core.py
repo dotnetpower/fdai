@@ -112,6 +112,7 @@ from fdai.runtime.rule_activation_transport import (
     rule_activation_source_time,
 )
 from fdai.runtime.stewardship_governance import (
+    ConsoleStewardshipCandidatePublisher,
     StewardshipGovernanceWorker,
     build_stewardship_governance_worker,
 )
@@ -168,9 +169,16 @@ async def build_core_runtime(
     gitops_delivery_requested = (
         product_selection.governed_execution and github_credentials_configured(environment)
     )
+    console_stewardship_requested = (
+        product_selection.governed_execution
+        and not gitops_delivery_requested
+        and environment.get("FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", "").strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
     if (
         plan.requires_channel_http_client
         or gitops_delivery_requested
+        or console_stewardship_requested
         or environment.get("FDAI_OPERATIONAL_EVIDENCE_ENABLED", "").strip() == "1"
     ) and resources.http_client is None:
         resources.http_client = _new_http_client()
@@ -230,10 +238,14 @@ async def build_core_runtime(
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     scoped_publisher = None
-    if gitops_delivery_requested:
+    if gitops_delivery_requested or console_stewardship_requested:
         if resources.http_client is None:  # pragma: no cover - guarded above
-            raise RuntimeError("stewardship governance GitOps delivery requires an HTTP client")
-        publisher = _build_publisher(resources.http_client)
+            raise RuntimeError("stewardship governance delivery requires an HTTP client")
+        publisher = (
+            _build_publisher(resources.http_client)
+            if gitops_delivery_requested
+            else ConsoleStewardshipCandidatePublisher(store=state_store)
+        )
         scoped_publisher = publisher
         stewardship_governance_worker = build_stewardship_governance_worker(
             store=state_store,
