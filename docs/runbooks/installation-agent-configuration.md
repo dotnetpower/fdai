@@ -116,6 +116,20 @@ conflicting bindings/versions are `conflict`; missing or denied sources are `una
 `reported-mounted` and `reported-unmounted` describe driver reports only, never independently
 verified secret usability. Fixtures and file existence cannot upgrade this state.
 
+## Local module-entry validation
+
+`lifecycle/agent/tests/test_configuration_process.py` runs the producer
+`python -m fdai_deployment_cli` and Agent `python -m fdai_lifecycle_agent.cli` in fresh
+processes. It reuses the existing bounded loopback Hub wire fixture and synthetic private
+inputs, with only this checkout's source paths and a minimal generated environment.
+The checks cover full v2 dry-run admission, durable replay and a wrong-recipient rejection.
+The rejection sends only the existing rejection audit report, never an admitted/apply-started
+report or workload preparation. Process timeouts, output privacy and server cleanup are checked.
+
+This is source/module-entry wiring evidence, not actual Hub authentication, approved onboarding,
+installed-wheel qualification, Kubernetes apply, CSI operation or operational effect proof.
+The infrastructure-dependent kind process scenario remains separate and was not run.
+
 ## Next steps
 
 | To learn about | Read |

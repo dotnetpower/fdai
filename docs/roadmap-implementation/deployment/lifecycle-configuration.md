@@ -28,6 +28,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-21 | implemented | Added explicit #2338 native module-entry proof after the earlier in-process evidence: producer `python -m fdai_deployment_cli` and Agent `python -m fdai_lifecycle_agent.cli` run as fresh processes over the existing bounded loopback Hub fixture, consuming a real canonical v2 container, independent private key/binding inputs and signed Release/Plan. Wrong-recipient input produces only a rejection audit report, with no admitted/apply-started report or workload journal. | `current change`; `test_configuration_process.py`, reused `test_configuration_entrypoint.py` fixture; two fresh-process cases passed, including durable replay, stdout/stderr privacy, process timeouts and server cleanup. Synthetic inputs and minimal generated child environment only; no dependency installation or actual Kubernetes call. | This proves source module-entry wiring, not actual Hub authentication/onboarding, installed-wheel qualification, real cluster effects, CSI operation or production trust. The existing kind process node remains needs-infrastructure and unexecuted. Parent owns protected delivery. |
 | 2026-10-21 | implemented | Reproduced a #2338 completion-deadline defect through in-process public `reference-status` CLI execution: the final CSI read returning exactly at the deadline still produced `reported-mounted`. Added the same `>=` check after each source return, so late completion becomes unavailable without another request or retry. Kept the existing SDK request timeout; the acceptance budget does not interrupt in-flight requests or promise an absolute command wall time. | `current change`; `reference_state.py`, `test_reference_state.py`, paired installation Agent guide. The pre-fix equality case failed as expected; focused reference/legacy CLI/no-write selection passed (69 cases), including last representable tick before, exact equality, first representable tick after, earlier-read exhaustion, earlier unavailability and no retries. No actual Kubernetes call or cluster start. | Parent-owned protected delivery remains separate. Existing source-only onboarding/artifact/CSI binding and operational qualification boundaries are unchanged. |
 | 2026-10-21 | implemented | Hardened #2338 legacy compatibility after the source consumer commit: malformed legacy bytes remain opaque until their detached signature is checked, preserving signature-missing/signature-invalid precedence and permanent malformed rejection instead of accidental retryable unreadability. Full-container trust checks remain unchanged. | `current change`; `lifecycle/agent/src/fdai_lifecycle_agent/inputs.py`, `lifecycle/agent/tests/test_configuration_entrypoint.py`; same focused command below passed (206 cases, 1 explicit opt-in kind skip), including three actual directory-adapter legacy rejection cases; strict mypy (13 files), Ruff and format passed. | Protected delivery remains parent-owned; operational key/artifact/CSI binding, rollout, independent effects and production qualification are unchanged open boundaries. |
 | 2026-10-21 | implemented | Added #2338 installation-local full v2 revision consumption through the actual Agent CLI, original container protocol, independent signing/encryption/head/Entity/history inputs and exact manifest-bound Release schema. Connected per-Entity values and a supported decrypted reference to the existing renderers without bypassing admission, envelope, private journal, dry-run, reporting or recovery. Added concrete read-only CSI status transport and source-attributed unavailable/unknown/stale/conflict/reported states without Secret or mount reads. | `current change`; source/tests above and `docs/runbooks/installation-agent-configuration.md`; exact focused command below passed; strict mypy/Ruff passed. Synthetic keys, private files and mocked HTTP/Kubernetes mechanical transports only; no real DB, Azure, model, Kubernetes or Key Vault call. | Parent-owned protected delivery and exact-head CI remain separate. Actual key onboarding/readback, artifact synchronization, provider binding, Agent rollout, independently observed installation effects and production qualification remain open. Neither #1823 nor #1824 is complete. |
@@ -128,10 +129,11 @@ legacy rejection-precedence hardening, each with one explicit opt-in kind case s
 The selection includes actual locked Kubernetes SDK request serialization/deserialization with
 only HTTP transport mocked. No live provider or database was used:
 
-The full-revision producer-to-Agent test invokes both public `main(args)` functions in process.
+The earlier 206-case selector's full-revision producer-to-Agent test invokes both public
+`main(args)` functions in process.
 Its Agent CLI calls are dry runs with an injected Hub transport. Full-revision renderer/apply
 checks separately invoke `LifecycleAgent` in process with a fake cluster; existing legacy CLI
-apply checks also inject a fake cluster. None proves a full-revision Agent `python -m`
+apply checks also inject a fake cluster. Those earlier cases do not prove full-revision Agent `python -m`
 or installed-binary process execution. The separate packaging CLI subprocess suite is not included
 in this selector. Its no-write fresh-interpreter test invokes `Harness.poll`, not the Agent CLI.
 The explicitly skipped node is
@@ -139,6 +141,19 @@ The explicitly skipped node is
 It runs real Agent `python -m fdai_lifecycle_agent.cli poll-once --apply` processes only when
 `FDAI_LIFECYCLE_KIND_CONTEXT` starts with `kind-` and the `kind` executable is available.
 That test was not executed, and no live cluster or operational effect is claimed.
+
+The later native module-entry check is separate from that earlier selector:
+
+```bash
+.venv/bin/python -m pytest -q --no-cov --basetemp=.fdai/test-output/native-configuration \
+  lifecycle/agent/tests/test_configuration_process.py
+```
+
+It passed two cases using fresh producer and Agent processes and the existing loopback wire
+fixture. The positive case also replays through another fresh Agent process without duplicate
+reporting. The negative case preserves the existing rejection audit report rather than
+manufacturing a no-report contract. The fixture does not establish operational authentication
+or an actual cluster effect.
 
 ```bash
 .venv/bin/python -m pytest -q --no-cov --basetemp=.fdai/test-output/configuration-agent \

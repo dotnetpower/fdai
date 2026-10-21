@@ -37,8 +37,16 @@ def write(path: Path, value: object) -> Path:
 
 
 @pytest.fixture
+def configuration_producer() -> Callable[[list[str]], int]:
+    return cast(Callable[[list[str]], int], importlib.import_module("fdai_deployment_cli.cli").main)
+
+
+@pytest.fixture
 def entrypoint(
-    harness: Harness, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    harness: Harness,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    configuration_producer: Callable[[list[str]], int],
 ) -> tuple[list[str], dict[str, Any]]:
     private = tmp_path / "private"
     private.mkdir(mode=0o700)
@@ -110,11 +118,8 @@ def entrypoint(
             ],
         },
     )
-    producer_main = cast(
-        Callable[[list[str]], int], importlib.import_module("fdai_deployment_cli.cli").main
-    )
     assert (
-        producer_main(
+        configuration_producer(
             [
                 "configuration",
                 "build",

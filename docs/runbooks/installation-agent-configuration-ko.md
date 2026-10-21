@@ -1,7 +1,7 @@
 ---
 title: 설치 Agent 구성 입력
 translation_of: installation-agent-configuration.md
-translation_source_sha: a89da3dd32841c2845b820cbe667bc30d51c72b5
+translation_source_sha: 354c76f58ec2b21b25fabde08fc62cfc3b4d10e2
 translation_revised: 2026-10-21
 ---
 # 설치 Agent 구성 입력
@@ -120,6 +120,21 @@ SecretProviderClass, SecretProviderClassPodStatus만 읽습니다. 상태 리소
 출처가 없거나 접근이 차단되면 `unavailable`입니다. `reported-mounted`와
 `reported-unmounted`는 드라이버의 보고일 뿐 비밀값의 사용 가능성을 독립적으로 검증한
 결과가 아닙니다. 픽스처나 파일 존재만으로 상태를 높일 수 없습니다.
+
+## 로컬 모듈 진입점 검증
+
+`lifecycle/agent/tests/test_configuration_process.py`는 생산자의
+`python -m fdai_deployment_cli`와 Agent의 `python -m fdai_lifecycle_agent.cli`를
+각각 새 프로세스에서 실행합니다. 기존의 범위가 제한된 loopback Hub 와이어 픽스처와
+합성 비공개 입력을 재사용하며, 현재 체크아웃의 소스 경로와 최소한의 생성된 환경만
+제공합니다. v2 전체 개정의 사전 실행 허용, 영속 상태를 통한 중복 방지와 잘못된 수신자
+차단을 확인합니다. 차단 시에는 기존 거부 감사 보고만 보내고 허용/적용 시작 보고나
+워크로드 준비는 수행하지 않습니다. 프로세스 제한 시간, 출력의 개인정보 보호와 서버
+정리도 확인합니다.
+
+이는 소스/모듈 진입점의 연결 근거이며 실제 Hub 인증, 승인된 등록, 설치된 wheel의 적격성,
+Kubernetes 적용, CSI 동작 또는 운영 효과의 증거는 아닙니다.
+인프라가 필요한 kind 프로세스 시나리오는 별도이며 실행하지 않았습니다.
 
 ## 다음 단계
 
