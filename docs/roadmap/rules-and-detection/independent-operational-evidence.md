@@ -192,6 +192,12 @@ A request uses a proposed two-second limit inside the consumer's five-second dea
 `503` ends it without retry as `unavailable`. Only in-flight duplicates coalesce. A current admission may be
 reused, but a rejection never is, so every new attempt gets a fresh result.
 
+After caller authentication, verifier ingress accepts a fixed-length JSON reference body of at
+most 16 KiB, including exact-limit equality. A two-second total body-read deadline isn't extended
+by trickling bytes. An incomplete upload returns `408`/`request_timeout` and closes without an
+unread-body lingering drain or issuance/proof-store call. Existing `413` size refusal and `422`
+invalid-input responses remain explicit. This transport bound grants no authentication or evidence.
+
 Verifier HTTP reads use raw streaming and the existing bounded response reader before retaining
 or decompressing a complete body. Issuance keeps its 4 KiB decoded limit and readiness its 8 KiB
 limit, including the connected handoff. Native gzip/deflate output is capped before retention;

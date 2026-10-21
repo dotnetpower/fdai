@@ -135,6 +135,7 @@ from fdai.shared.providers.workload_identity import IdentityToken
 
 _LOGGER = logging.getLogger(__name__)
 _MAX_REQUEST_BYTES = 16_384
+_MAX_BODY_READ_SECONDS = 2.0
 
 
 class CallerAuthenticator(Protocol):
@@ -199,7 +200,13 @@ def build_verifier_app(
         if request.content_length is None or request.content_length > _MAX_REQUEST_BYTES:
             return web.json_response({"error": "request_bound_exceeded"}, status=413)
         try:
-            issuance = OperationalEvidenceIssuanceRequest.model_validate_json(await request.read())
+            async with asyncio.timeout(_MAX_BODY_READ_SECONDS):
+                body = await request.read()
+            issuance = OperationalEvidenceIssuanceRequest.model_validate_json(body)
+        except TimeoutError:
+            response = web.json_response({"error": "request_timeout"}, status=408)
+            response.force_close()
+            return response
         except (ValidationError, ValueError):
             return web.json_response({"error": "request_invalid"}, status=422)
         if readiness().state != "ready":
@@ -226,7 +233,10 @@ def build_verifier_app(
         )
         return web.Response(body=snapshot.model_dump_json(), content_type="application/json")
 
-    app = web.Application(client_max_size=_MAX_REQUEST_BYTES)
+    app = web.Application(
+        client_max_size=_MAX_REQUEST_BYTES,
+        handler_args={"lingering_time": 0},
+    )
     app.router.add_post(ISSUANCE_PATH, issue)
     app.router.add_get(READINESS_PATH, ready)
     return app
