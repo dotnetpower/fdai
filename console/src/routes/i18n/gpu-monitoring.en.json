@@ -1,0 +1,118 @@
+{
+  "title": "GPU monitoring",
+  "subtitle": "Authenticated GPU observations, findings, Agent delivery, and verified recovery evidence.",
+  "sample": "Sample evidence",
+  "live": "Live evidence",
+  "openLive": "Open Live cockpit",
+  "readonlyTitle": "Observation does not grant action authority.",
+  "readonlyBody": "GPU findings stay in shadow mode until a registered ActionType passes approval and safety checks.",
+  "unavailable": "No authenticated GPU observation has reached the live stream. Confirm the collector, EventBus publication, and source freshness.",
+  "stream": {
+    "connecting": "Connecting to the live stream",
+    "closed": "Live stream disconnected",
+    "unsupported": "Live stream is not supported",
+    "open": "Live stream connected",
+    "idle": "Live stream idle"
+  },
+  "kpi": {
+    "devices": "Observed GPUs",
+    "devicesHint": "exact logical GPU identities",
+    "utilization": "GPU utilization",
+    "utilizationHint": "latest measured value",
+    "memory": "VRAM used",
+    "memoryHint": "latest framebuffer occupancy",
+    "findings": "Open findings",
+    "findingsHint": "latest status per GPU"
+  },
+  "inventory": {
+    "title": "GPU inventory",
+    "description": "Select one exact source and GPU identity. Different sources are never merged.",
+    "label": "Observed GPU identities",
+    "selected": "Selected GPU",
+    "source": "Source",
+    "resource": "Logical resource",
+    "model": "Model"
+  },
+  "evidence": {
+    "fresh": "Fresh",
+    "stale": "Stale",
+    "missing": "Missing",
+    "conflicting": "Conflicting",
+    "age": "Observed {seconds}s ago",
+    "sampleAge": "Sample timeline",
+    "origin": "Evidence origin",
+    "collector": "Collector",
+    "ready": "Ready",
+    "degraded": "Degraded"
+  },
+  "charts": {
+    "load": "GPU and VRAM load",
+    "loadDescription": "Measured utilization and framebuffer occupancy for the selected GPU.",
+    "utilization": "GPU utilization",
+    "memory": "VRAM occupancy",
+    "temperature": "Temperature",
+    "temperatureDescription": "Measured GPU temperature in degrees Celsius.",
+    "power": "Power",
+    "powerDescription": "Measured board power in watts."
+  },
+  "metrics": {
+    "title": "Latest measured state",
+    "description": "Missing counters stay unavailable; they are never treated as zero.",
+    "temperature": "Temperature",
+    "power": "Power draw",
+    "ecc": "Uncorrectable ECC",
+    "xid": "XID code",
+    "memory": "VRAM",
+    "observed": "Observed at"
+  },
+  "findings": {
+    "title": "Findings and follow-up",
+    "description": "A cleared condition is not proof that an unexecuted action caused recovery.",
+    "none": "No GPU finding is retained for this identity.",
+    "open": "Open",
+    "cleared": "Cleared in follow-up",
+    "memory_pressure": "VRAM pressure",
+    "sustained_saturation_backlog": "Sustained saturation with backlog",
+    "high_temperature": "High temperature",
+    "new_ecc_error": "New ECC error",
+    "new_xid_code": "New XID code",
+    "observed_cuda_oom": "CUDA out of memory",
+    "observed_thermal_throttle": "Thermal throttling",
+    "allocated_idle_window": "Allocated GPU idle"
+  },
+  "pipeline": {
+    "title": "Agent and delivery path",
+    "description": "Typed ownership is shown separately from notification delivery.",
+    "empty": "No Agent path was retained.",
+    "eventBus": "EventBus",
+    "notification": "Signed HTTPS notification",
+    "verified": "Schema and signature verified"
+  },
+  "action": {
+    "title": "Governed response evidence",
+    "description": "The Console renders receipts only. It cannot execute or approve the action.",
+    "none": "No governed GPU response receipt is retained.",
+    "actionType": "ActionType",
+    "outcome": "Outcome",
+    "effect": "Independent effect observation",
+    "rollback": "Recovery test",
+    "powerState": "Final power state",
+    "verified": "Verified",
+    "notVerified": "Not verified",
+    "tested": "Tested",
+    "notTested": "Not tested",
+    "succeeded": "Succeeded",
+    "failed": "Failed",
+    "unknown": "Unknown",
+    "running": "Running",
+    "deallocated": "Deallocated"
+  },
+  "technical": {
+    "title": "Technical provenance",
+    "eventCount": "{count} bounded observation(s)",
+    "resourceRef": "Resource reference",
+    "gpuId": "GPU identity",
+    "correlation": "Correlation",
+    "sampleBoundary": "Sample mode reproduces the measured development evidence. It is not a connection to the retained VM."
+  }
+}

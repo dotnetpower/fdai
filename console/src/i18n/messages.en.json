@@ -190,6 +190,7 @@
     },
     "panel": {
       "live": "Live",
+      "gpu": "GPU",
       "agents": "Fleet",
       "hilQueue": "Approvals",
       "provision": "Provisioning",

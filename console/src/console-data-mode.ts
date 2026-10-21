@@ -5,6 +5,7 @@ const SAMPLE_STORAGE_KEY = "fdai:console:data-mode";
 const SAMPLE_PANEL_IDS = new Set([
   "dashboard",
   "live",
+  "gpu",
   "incidents",
   "audit",
   "trace",

@@ -42,6 +42,10 @@ function lazyRoute<K extends string, M extends Record<K, ComponentType<PanelProp
 const DashboardRoute = lazyRoute(() => import("./routes/dashboard"), "DashboardRoute");
 const DashboardV2Route = lazy(() => import("./routes/dashboard-v2"));
 const LiveRoute = lazyRoute(() => import("./routes/live"), "LiveRoute");
+const GpuMonitoringRoute = lazyRoute(
+  () => import("./routes/gpu-monitoring"),
+  "GpuMonitoringRoute",
+);
 const IncidentsRoute = lazyRoute(() => import("./routes/incidents"), "IncidentsRoute");
 const AgentsRoute = lazyRoute(() => import("./routes/agents"), "AgentsRoute");
 const HilQueueRoute = lazyRoute(() => import("./routes/hil-queue"), "HilQueueRoute");
@@ -285,6 +289,13 @@ export const CORE_PANELS: readonly ConsolePanel[] = [
     subtitle: t("nav.panelSub.live"),
     group: "operations",
     component: LiveRoute,
+  },
+  {
+    id: "gpu",
+    label: t("nav.panel.gpu"),
+    subtitle: t("nav.groupHint.operations"),
+    group: "operations",
+    component: GpuMonitoringRoute,
   },
   {
     id: "incidents",
