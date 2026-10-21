@@ -492,8 +492,18 @@ def build_startup_readiness_runtime(
     )
     state = RuntimeReadinessState()
     if self_health_catalog is not None and self_health_exporter_registry is None:
+        from fdai_service_contracts.self_health import SelfHealthSignalName
+
+        from fdai.delivery.self_health_canary_result import runtime_canary_exporters
         from fdai.delivery.self_health_sources import runtime_self_health_registry
 
+        canary_policy = self_health_catalog.policies[SelfHealthSignalName.CANARY_RESULT]
+        canary_exporters = runtime_canary_exporters(
+            store=state_store,
+            environment=environment,
+            metric=canary_policy.metric,
+            maximum_age_seconds=canary_policy.maximum_age_seconds,
+        )
         self_health_exporter_registry = runtime_self_health_registry(
             catalog=self_health_catalog,
             store=state_store,
@@ -504,6 +514,8 @@ def build_startup_readiness_runtime(
             verifier_health_source=verifier_health_source,
             mixed_model_health_source=mixed_model_health_source,
             event_lag_source=event_lag_source,
+            canary_result_source=canary_exporters[0] if canary_exporters is not None else None,
+            canary_state_source=canary_exporters[1] if canary_exporters is not None else None,
         )
     if self_health_catalog is None and self_health_exporter_registry is not None:
         raise ValueError("self-health catalog and exporter registry MUST be composed together")

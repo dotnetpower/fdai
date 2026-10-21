@@ -23,6 +23,27 @@ def test_canary_retry_identity_uses_controller_job_downward_api_not_pod_uid() ->
     assert "metadata.uid" not in cronjob
 
 
+def test_canary_observer_has_only_exact_namespaced_read_permissions() -> None:
+    source = (ROOT / "infra/runtimes/aks/workloads/canary_observer.tf").read_text(encoding="utf-8")
+    workload = (ROOT / "infra/runtimes/aks/workloads/main.tf").read_text(encoding="utf-8")
+    assert 'contains(keys(var.workloads), "core-control-plane")' in source
+    assert 'contains(keys(var.scheduled_jobs), "canary")' in source
+    assert 'resource "kubernetes_role_v1" "canary_observer"' in source
+    assert 'resource_names = ["canary"]' in source
+    assert 'verbs          = ["get"]' in source
+    assert 'verbs      = ["list"]' in source
+    assert '["workload-core-control-plane"]' in source
+    assert not re.search(r'"(?:secrets|create|patch|update|delete|watch|\*)"', source)
+    assert "ClusterRole" not in source
+    assert "kubernetes_role_binding_v1.canary_observer," in workload
+    assert "local.canary_observer_environment" in workload
+    assert "lookup(each.value.environment, name, value) == value" in workload
+    assert (
+        'timezone                      = each.value.component == "canary" ? "Etc/UTC" : null'
+        in workload
+    )
+
+
 @pytest.mark.parametrize(
     ("resource_type", "resource_name", "settings"),
     [

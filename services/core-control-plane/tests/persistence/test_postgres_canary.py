@@ -14,8 +14,9 @@ import psycopg
 import pytest
 from fdai.core.control_loop import _canary
 from fdai.delivery.canary_cli import build_canary_event
+from fdai.delivery.canary_sequence import MAX_CANARY_AUDITS, consumed_canary_sequence
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
-from fdai.delivery.persistence.postgres_canary import LATEST_CANARY_SQL
+from fdai.delivery.persistence.postgres_canary import CANARY_SEQUENCE_SQL, LATEST_CANARY_SQL
 from fdai.delivery.self_health_canary import ConsumedCanaryAgeExporter
 from fdai.delivery.startup_probe import StaticStartupProbe
 from fdai.runtime.readiness import build_startup_readiness_runtime
@@ -78,6 +79,91 @@ def test_canary_index_migration_owns_only_concurrent_rebuildable_index() -> None
     commands = _migration_sql(migration)
     assert migration.migration_owner == "core-control-plane" and migration.owned_tables == ()
     assert "CONCURRENTLY" in commands[0] and "CONCURRENTLY" in commands[1]
+
+
+def _sequence_migration() -> ModuleType:
+    path = MIGRATION.with_name("20261021_core_canary_sequence_index.py")
+    spec = importlib.util.spec_from_file_location("canary_sequence_index_test", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_canary_sequence_index_is_rebuildable_and_follows_the_actual_service_head() -> None:
+    migration = _sequence_migration()
+    commands = _migration_sql(migration)
+    assert migration.down_revision == "core_document_intent_ingress_20261020"
+    assert migration.migration_owner == "core-control-plane" and migration.owned_tables == ()
+    assert "CONCURRENTLY" in commands[0] and "CONCURRENTLY" in commands[1]
+    assert "(event_id, correlation_id, seq)" in commands[0]
+    assert "control_loop.canary.attempt" in commands[0]
+
+
+@pytest.mark.integration
+async def test_complete_canary_sequence_reads_the_real_producer_without_rewriting_history(
+    saga_database: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    upgrade, downgrade = _migration_sql(_sequence_migration())
+    backend = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    slot = "aks-job:00000000-0000-0000-0000-000000000001"
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            saga_database, autocommit=True
+        ) as connection:
+            await connection.execute(upgrade)
+        assert await backend.read_consumed_canary_sequence(slot=slot) == ((), False)
+        await _produce_canary(monkeypatch, backend, at=NOW, slot=slot)
+        await _produce_canary(monkeypatch, backend, at=NOW, slot="not-this-native-execution")
+        rows, truncated = await backend.read_consumed_canary_sequence(slot=slot)
+        assert not truncated and len(rows) == 2
+        assert [row["entry"]["outcome"] for row in rows] == ["started", "success"]
+        result = consumed_canary_sequence(rows, slot=slot, truncated=False, now=NOW)
+        assert result.outcome == "success"
+        before, before_truncated = await backend.read_audit_entries(limit=64)
+        assert not before_truncated and await backend.verify_chain()
+        assert await backend.read_consumed_canary_sequence(slot=slot) == (rows, False)
+        assert await backend.read_audit_entries(limit=64) == (before, False)
+        async with await psycopg.AsyncConnection.connect(
+            saga_database, autocommit=True
+        ) as connection:
+            await connection.execute("SET enable_seqscan = off")
+            cursor = await connection.execute(
+                "EXPLAIN (FORMAT JSON) " + CANARY_SEQUENCE_SQL,
+                (
+                    uuid5(NAMESPACE_URL, f"fdai.canary://{slot}"),
+                    f"canary:{slot}",
+                    MAX_CANARY_AUDITS + 1,
+                ),
+            )
+            plan = await cursor.fetchone()
+            assert plan is not None
+            assert "audit_log_canary_sequence_idx" in _indexes(plan[0][0]["Plan"])
+            await connection.execute(downgrade)
+        assert await backend.verify_chain()
+    finally:
+        await backend.aclose()
+
+
+@pytest.mark.integration
+async def test_canary_sequence_returns_at_most_64_rows_and_one_explicit_truncation_witness(
+    saga_database: str,
+) -> None:
+    from tests.delivery.test_canary_sequence import NOW as OBSERVATION_AT
+    from tests.delivery.test_canary_sequence import SLOT, facts
+
+    backend = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    try:
+        for row in facts(*(["success"] * 33))[: MAX_CANARY_AUDITS + 1]:
+            await backend.append_audit_entry(row["entry"])
+        rows, truncated = await backend.read_consumed_canary_sequence(slot=SLOT)
+        assert truncated and len(rows) == MAX_CANARY_AUDITS
+        with pytest.raises(SelfHealthExporterUnavailableError) as failure:
+            consumed_canary_sequence(rows, slot=SLOT, truncated=truncated, now=OBSERVATION_AT)
+        assert failure.value.reason == "source_incomplete"
+        assert await backend.verify_chain()
+    finally:
+        await backend.aclose()
 
 
 @pytest.mark.integration

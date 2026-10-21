@@ -67,6 +67,21 @@ def _timestamp(value: object) -> datetime:
 
 
 def _validated_recorded_at(row: Mapping[str, Any]) -> datetime:
+    entry = validated_canary_audit(row)
+    if entry["action_kind"] != "control_loop.canary" or entry["outcome"] != "success":
+        raise ValueError("canary age requires a canonical success")
+    recorded_at = _timestamp(entry["recorded_at"])
+    detected_at = _timestamp(entry["detected_at"])
+    latency = entry["latency_ms"]
+    if type(latency) is not int or latency != int(
+        (recorded_at - detected_at).total_seconds() * 1000
+    ):
+        raise ValueError("canary audit timing is inconsistent")
+    return recorded_at
+
+
+def validated_canary_audit(row: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Validate a bounded canonical success or consumed-attempt audit envelope."""
     entry = row["entry"]
     if not isinstance(entry, Mapping):
         raise ValueError("canary audit entry is not an object")
@@ -74,13 +89,18 @@ def _validated_recorded_at(row: Mapping[str, Any]) -> datetime:
         raise ValueError("canary audit sequence is malformed")
     expected = {
         "actor": "fdai.canary-job",
-        "action_kind": "control_loop.canary",
         "tier": "canary",
         "decision": "no-op",
-        "outcome": "success",
     }
     if any(entry.get(key) != value for key, value in expected.items()):
         raise ValueError("canary audit identity is malformed")
+    if (entry.get("action_kind"), entry.get("outcome")) not in {
+        ("control_loop.canary", "success"),
+        ("control_loop.canary.attempt", "started"),
+        ("control_loop.canary.attempt", "failure"),
+        ("control_loop.canary.attempt", "cancelled"),
+    }:
+        raise ValueError("canary audit phase is malformed")
     for key in ("actor", "action_kind", "event_id", "correlation_id", "mode"):
         if row[key] != entry.get(key):
             raise ValueError("canary audit columns conflict with its entry")
@@ -107,11 +127,6 @@ def _validated_recorded_at(row: Mapping[str, Any]) -> datetime:
         raise ValueError("canary audit hash is malformed")
     recorded_at = _timestamp(entry["recorded_at"])
     detected_at = _timestamp(entry["detected_at"])
-    latency = entry["latency_ms"]
-    if (
-        detected_at > recorded_at
-        or type(latency) is not int
-        or latency != int((recorded_at - detected_at).total_seconds() * 1000)
-    ):
+    if detected_at > recorded_at:
         raise ValueError("canary audit timing is inconsistent")
-    return recorded_at
+    return entry

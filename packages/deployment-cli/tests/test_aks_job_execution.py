@@ -26,6 +26,7 @@ def test_canary_controller_uid_field_reference_is_part_of_protected_template() -
     job = _scheduled_job(name="canary")
     job["field_environment"] = {"FDAI_CANARY_JOB_UID": field_path}
     observed = cast(dict[str, Any], _cronjob(name="canary"))
+    observed["spec"]["timeZone"] = "Etc/UTC"
     environment = observed["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0][
         "env"
     ]
