@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: e96a32d1eeccb8476e2259204e14a639d7b2712a
+translation_source_sha: bcf2eac269d29d7b751020d313d38a57fedb62d6
 translation_revised: 2026-10-22
 ---
 # Hub 관리형 수명 주기
@@ -542,6 +542,14 @@ Release가 허용하는 경우 완료된 단계를 역순으로 보상하고, �
   Plan을 발행합니다.
 - Hub는 보고 상태, Entity 설정, 구성 개정, 채널 구성원, 회수가 바뀔 때와 Plan이 정해진 임계
   시간보다 오래 차단될 때 Plan을 다시 계산합니다.
+
+> **구현된 Deployment 드리프트 조정 경계:** 대기 중인 Plan이 없을 때 수명 주기 에이전트는 범위 내
+> 실제 Deployment를 기록된 정상 렌더링과 비교하고, 스테이징된 `available_artifact_digests`를 보존한
+> 채 드리프트가 발생한 Entity를 관측된 이미지 다이제스트와 함께 `degraded` 상태로 보고합니다.
+> `plan_next`는 관리 대상 Entity가 비정상 상태이거나 실행 중인 Release 매니페스트 밖의 산출물
+> 다이제스트를 보고하면 유지 관리 구간 밖에서는 `Waiting` 상태로 대기하고, 다음 일치하는 구간에서
+> 현재 Release에 대한 서명된 `drift-reconciliation` Plan을 발급합니다. Terraform refresh 드리프트와
+> 실제 AKS 검증은 별도로 유지됩니다.
 
 ### 명령과 재정의
 

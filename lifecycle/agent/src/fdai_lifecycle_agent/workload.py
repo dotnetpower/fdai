@@ -319,6 +319,46 @@ class Workload:
                     return False
         return True
 
+    def drifted_entities(
+        self, expected: Sequence[Manifest]
+    ) -> tuple[dict[str, frozenset[str]], frozenset[str]]:
+        """Compare live Deployments against recorded healthy manifests.
+
+        Returns ``(drifted_by_entity, expected_image_digests)`` where ``drifted_by_entity``
+        maps each drifted Entity id to the valid ``sha256:<hex>`` image digests currently
+        observed on its live Deployments.
+        """
+
+        drifted: set[str] = set()
+        live_digests: dict[str, set[str]] = {}
+        expected_digests: set[str] = set()
+        for manifest in expected:
+            if manifest.get("kind") != "Deployment":
+                continue
+            metadata = manifest.get("metadata") or {}
+            labels = metadata.get("labels") or {}
+            entity_id = labels.get(ENTITY_LABEL)
+            name = metadata.get("name")
+            if not isinstance(entity_id, str) or not isinstance(name, str):
+                continue
+            expected_digests.update(_deployment_image_digests(manifest))
+            live = self.cluster.get("Deployment", name)
+            if (
+                live is None
+                or (live.get("metadata") or {}).get("deletionTimestamp") is not None
+                or not _contains(live.get("spec"), manifest.get("spec"))
+            ):
+                drifted.add(entity_id)
+            if live is not None:
+                live_digests.setdefault(entity_id, set()).update(_deployment_image_digests(live))
+        return (
+            {
+                entity_id: frozenset(live_digests.get(entity_id, set()))
+                for entity_id in sorted(drifted)
+            },
+            frozenset(expected_digests),
+        )
+
     def _jobs_complete(self, jobs: Sequence[Manifest]) -> bool:
         complete = True
         for job in jobs:
@@ -366,6 +406,24 @@ class Workload:
 def _check_deadline(can_continue: Callable[[], bool] | None) -> None:
     if can_continue is not None and not can_continue():
         raise WorkloadError("plan_expired")
+
+
+def _deployment_image_digests(manifest: Manifest) -> tuple[str, ...]:
+    containers = (((manifest.get("spec") or {}).get("template") or {}).get("spec") or {}).get(
+        "containers"
+    ) or []
+    if not isinstance(containers, Sequence):
+        return ()
+    digests: list[str] = []
+    for container in containers:
+        if not isinstance(container, Mapping):
+            continue
+        image = container.get("image")
+        if isinstance(image, str):
+            _, _, digest = image.partition("@")
+            if _IMAGE_DIGEST.fullmatch(digest):
+                digests.append(digest)
+    return tuple(digests)
 
 
 def _contains(actual: object, desired: object) -> bool:

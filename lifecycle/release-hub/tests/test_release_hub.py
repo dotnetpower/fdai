@@ -624,3 +624,71 @@ def test_renewal_origin_and_bounded_body(client: TestClient) -> None:
         ).status_code
         == 413
     )
+
+
+def test_capability_recall_blocks_repromotion_until_lifted_and_exports_records(
+    store: ReleaseStore, client: TestClient
+) -> None:
+    for release_id in ("1.5.0", "1.6.0"):
+        change(store, "register", release_id, manifest=(SAMPLES / f"{release_id}.json").read_text())
+        change(store, "publish", release_id)
+    rev = store.snapshot()["revision"]
+    response = client.post(
+        "/v1/capabilities/action:scale-service/recall",
+        json={
+            "revision": rev,
+            "confirmation": "action:scale-service",
+            "reason": "Safety regression in scale-service",
+        },
+    )
+    assert response.status_code == 200
+    rev = response.json()["revision"]
+    # Duplicate active capability recall is rejected.
+    assert (
+        client.post(
+            "/v1/capabilities/action:scale-service/recall",
+            json={
+                "revision": rev,
+                "confirmation": "action:scale-service",
+                "reason": "Duplicate recall",
+            },
+        ).status_code
+        == 409
+    )
+    # Promoting either Release while its capability is actively recalled is blocked.
+    for release_id in ("1.5.0", "1.6.0"):
+        with pytest.raises(CatalogError, match="active recalled capability"):
+            change(store, "contribute", release_id, channel="RELEASE_CANDIDATE")
+    # Lifting with an unpublished Release is rejected.
+    assert (
+        client.post(
+            "/v1/capabilities/action:scale-service/lift",
+            json={
+                "revision": rev,
+                "confirmation": "action:scale-service",
+                "reason": "Unpublished lift",
+                "lifting_release_id": "1.9.0",
+            },
+        ).status_code
+        == 409
+    )
+    # Lifting at 1.6.0 succeeds, keeps 1.5.0 blocked from promotion, and allows 1.6.0 promotion.
+    lift_resp = client.post(
+        "/v1/capabilities/action:scale-service/lift",
+        json={
+            "revision": rev,
+            "confirmation": "action:scale-service",
+            "reason": "Fixed in 1.6.0",
+            "lifting_release_id": "1.6.0",
+        },
+    )
+    assert lift_resp.status_code == 200
+    with pytest.raises(CatalogError, match="active recalled capability"):
+        change(store, "contribute", "1.5.0", channel="RELEASE_CANDIDATE")
+    change(store, "contribute", "1.6.0", channel="RELEASE_CANDIDATE")
+    admitted = admit(store)
+    assert admitted.channels["RELEASE_CANDIDATE"] == frozenset({"1.6.0"})
+    assert [(r.scope, r.target, r.action, r.lifting_release_id) for r in admitted.recalls] == [
+        ("capability", "action:scale-service", "recall", None),
+        ("capability", "action:scale-service", "lift", "1.6.0"),
+    ]

@@ -20,7 +20,13 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from fdai_lifecycle_hub.remote_auth import RemoteAuth, secure_app
-from fdai_release_hub.store import CatalogConfirmation, CatalogError, Change, ReleaseStore
+from fdai_release_hub.store import (
+    CapabilityChange,
+    CatalogConfirmation,
+    CatalogError,
+    Change,
+    ReleaseStore,
+)
 
 MAX_BODY = 2 * 1024 * 1024
 logger = logging.getLogger(__name__)
@@ -61,6 +67,15 @@ def create_app(
             if action == "renew":
                 renewal = CatalogConfirmation.model_validate_json(bytes(body))
                 result = await run_in_threadpool(store.renew, renewal, actor=actor)
+            elif "capability_id" in request.path_params:
+                cap_payload = CapabilityChange.model_validate_json(bytes(body))
+                result = await run_in_threadpool(
+                    store.change_capability,
+                    action,
+                    request.path_params["capability_id"],
+                    cap_payload,
+                    actor=actor,
+                )
             else:
                 payload = Change.model_validate_json(bytes(body))
                 result = await run_in_threadpool(
@@ -113,6 +128,14 @@ def create_app(
             methods=["POST"],
         )
         for action in ("register", "publish", "contribute", "recall")
+    ]
+    routes += [
+        Route(
+            f"/v1/capabilities/{{capability_id:path}}/{action}",
+            partial(change, action=action),
+            methods=["POST"],
+        )
+        for action in ("recall", "lift")
     ]
     app = Starlette(routes=routes)
     if remote_auth is None and remote_origin is None:

@@ -251,6 +251,8 @@ class LifecycleAgent:
                 )
         signed = self._deps.hub.fetch_plan(self._settings.installation_id)
         if signed is None:
+            if (apply := self._deps.apply) is not None:
+                self._report_observed_drift(apply, workload_state, current)
             _log("lifecycle_agent.no_plan")
             return PollResult(outcome="no-plan", reason_code=AgentReason.NO_PLAN_PENDING)
         try:
@@ -564,6 +566,54 @@ class LifecycleAgent:
         apply.store.save(replace(workload_state, journal=None))
         _log("lifecycle_agent.state_reported", plan_id=journal.plan_id)
         return result
+
+    def _report_observed_drift(
+        self, apply: ApplyMode, workload_state: WorkloadState, current: CurrentState
+    ) -> None:
+        if not workload_state.healthy:
+            return
+        drifted, expected_digests = apply.workload.drifted_entities(workload_state.healthy)
+        if not drifted:
+            return
+        entities = dict(current.entities)
+        changed = False
+        for entity_id, live_digests in drifted.items():
+            prior = entities.get(entity_id)
+            if prior is None or prior.release_id is None:
+                continue
+            updated = EntityState(
+                release_id=prior.release_id,
+                artifact_digests=live_digests,
+                health=Health.DEGRADED,
+            )
+            if updated != prior:
+                entities[entity_id] = updated
+                changed = True
+        if not changed:
+            return
+        available = current.available_artifact_digests
+        if available is None:
+            available = frozenset(expected_digests).union(
+                *(state.artifact_digests for state in current.entities.values())
+            )
+        else:
+            available = available | expected_digests
+        snapshot = snapshot_document(
+            entities,
+            schema_revision=current.schema_revision,
+            observed_at=max(self._deps.clock(), current.observed_at + _MIN_STATE_STEP),
+            available_artifact_digests=available,
+        )
+        apply.write_current_state(snapshot)
+        try:
+            self._deps.hub.submit_state(self._settings.installation_id, snapshot)
+        except HubProtocolError as error:
+            if error.code != "stale_state":
+                _log(
+                    "lifecycle_agent.drift_state_report_failed",
+                    level=logging.WARNING,
+                    error=str(error),
+                )
 
     def _replace_result(self, plan_id: str, result: PlanResult) -> PollResult:
         """Make ``result`` the Plan's result, reported with the next attempt, and deliver it."""

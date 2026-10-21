@@ -391,3 +391,86 @@ def test_full_constraint_matrix_enforces_waiting_vs_skipping_at_hub_entrypoint(
     recall_outcome = plan_next(installation, now, catalog=cap_recalled, key=key)
     assert isinstance(recall_outcome, NoEligibleRelease)
     assert "capability_recalled" in {b.reason_code for b in recall_outcome.checks[0].blocks}
+
+
+def test_running_recalled_release_issues_rolloff_plan_with_priority(
+    installation: Installation,
+    catalog: ReleaseCatalog,
+    key: HubSigningKey,
+    now: datetime,
+) -> None:
+    running_160 = _with_core_release(installation, "1.6.0")
+    recalled_catalog = replace(catalog, recalls=(_recall("1.6.0"),))
+
+    # Even with an active plan:upgrade suppression and a prior open upgrade Plan, recall-rolloff
+    # takes priority and rolls off 1.6.0 to the newest non-recalled Release (1.5.0).
+    prior = plan_next(installation, now, catalog=catalog, key=key)
+    assert isinstance(prior, Issued)
+    with_open_and_upgrade_suppression = replace(
+        running_160,
+        last_sequence=1,
+        open_plan=IssuedPlan.from_signed(prior.plan),
+        suppressions=(
+            SuppressionWindow("plan:upgrade", now - timedelta(minutes=1), now + timedelta(hours=1)),
+        ),
+    )
+
+    rolloff = plan_next(with_open_and_upgrade_suppression, now, catalog=recalled_catalog, key=key)
+
+    assert isinstance(rolloff, Issued)
+    assert rolloff.plan.plan_type == "recall-rolloff"
+    assert rolloff.plan.target_release_id == "1.5.0"
+    assert rolloff.plan.sequence == 2
+    assert [check.release_id for check in rolloff.checks] == ["1.6.0", "1.5.0"]
+    assert "release_recalled" in {b.reason_code for b in rolloff.checks[0].blocks}
+
+    # A manual installation-wide suppression still holds recall-rolloff in Waiting.
+    manually_suppressed = replace(
+        running_160,
+        suppressions=(
+            SuppressionWindow("installation", now - timedelta(minutes=1), now + timedelta(hours=1)),
+        ),
+    )
+    waiting = plan_next(manually_suppressed, now, catalog=recalled_catalog, key=key)
+    assert isinstance(waiting, Waiting)
+    assert waiting.release_id == "1.5.0"
+    assert "suppression_window_active" in {b.reason_code for b in waiting.checks[-1].blocks}
+
+
+def test_manual_deployment_change_waits_outside_window_and_reconciles_in_next_matching_window(
+    installation: Installation,
+    catalog: ReleaseCatalog,
+    key: HubSigningKey,
+    now: datetime,
+) -> None:
+    running_latest = _with_core_release(installation, "1.6.0")
+    assert plan_next(running_latest, now, catalog=catalog, key=key) == UpToDate()
+
+    # A manual Deployment change alters the running Deployment image/spec and reports drift.
+    drifted = replace(
+        running_latest,
+        reported=replace(
+            running_latest.reported,
+            entities={
+                **running_latest.reported.entities,
+                "core": EntityState(
+                    release_id="1.6.0",
+                    artifact_digests=frozenset({"sha256:" + "d" * 64}),
+                    health=Health.DEGRADED,
+                ),
+            },
+        ),
+    )
+
+    # Outside the maintenance window, the Hub holds the reconciliation Plan in Waiting.
+    outside_window = now - timedelta(hours=3)
+    waiting = plan_next(drifted, outside_window, catalog=catalog, key=key)
+    assert isinstance(waiting, Waiting)
+    assert waiting.release_id == "1.6.0"
+    assert "maintenance_window_unavailable" in {b.reason_code for b in waiting.checks[-1].blocks}
+
+    # In the next matching window, the Hub issues a drift-reconciliation Plan for 1.6.0.
+    reconciled = plan_next(drifted, now, catalog=catalog, key=key)
+    assert isinstance(reconciled, Issued)
+    assert reconciled.plan.plan_type == "drift-reconciliation"
+    assert reconciled.plan.target_release_id == "1.6.0"

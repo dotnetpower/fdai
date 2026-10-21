@@ -546,6 +546,14 @@ old slot stays as the rollback target.
 - The Hub recomputes Plans when reported state, Entity settings, the configuration revision,
   channel membership, or a recall changes, and when a Plan stays blocked past a bounded threshold.
 
+> **Implemented Deployment drift reconciliation boundary:** When no Plan is pending, the lifecycle
+> agent compares live in-scope Deployments against the recorded healthy rendering, preserves staged
+> `available_artifact_digests`, and reports any drifted Entity as `degraded` with its observed
+> image digests. When `plan_next` sees a managed Entity with non-healthy status or artifact digests
+> outside the running Release manifest, it holds in `Waiting` outside maintenance windows and
+> issues a signed `drift-reconciliation` Plan for the current Release in the next matching window.
+> Terraform refresh drift and live AKS qualification remain separate.
+
 ### Commands and overrides
 
 Apollo has no runtime-override layer. Its closest concepts are suppression windows, maintenance

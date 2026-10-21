@@ -26,6 +26,7 @@ import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from ipaddress import ip_address
 from typing import Final
 from urllib.parse import quote, urlsplit
 
@@ -128,7 +129,9 @@ class DirectLineConfig:
     hosting model; an explicit ``/v3/directline`` suffix is accepted.
     ``endpoint`` and ``conversation_id`` are deployment values and stay out of
     ``repr``. There is no retry setting: the fan-out router's durable attempt
-    ceiling is the only retry layer.
+    ceiling is the only retry layer. ``allow_insecure_loopback`` exists only
+    for the upstream example CLI integration test and is not exposed through
+    runtime binding configuration.
     """
 
     channel_id: str
@@ -138,6 +141,7 @@ class DirectLineConfig:
     sender_id: str = DIRECT_LINE_DEFAULT_SENDER_ID
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS
     credential_expiry_margin_seconds: float = 60.0
+    allow_insecure_loopback: bool = False
 
 
 class DirectLineNotificationChannel:
@@ -183,9 +187,12 @@ class DirectLineNotificationChannel:
         if config.credential_expiry_margin_seconds < 0:
             raise ValueError("Direct Line credential expiry margin MUST be >= 0")
         self._config: Final = config
+        api_base = _api_base(
+            config.endpoint,
+            allow_insecure_loopback=config.allow_insecure_loopback,
+        )
         self._activities_url: Final = (
-            f"{_api_base(config.endpoint)}/conversations/"
-            f"{quote(config.conversation_id, safe='')}/activities"
+            f"{api_base}/conversations/{quote(config.conversation_id, safe='')}/activities"
         )
         self._http: Final = http_client
         self._credential_provider: Final = credential_provider
@@ -277,7 +284,7 @@ class DirectLineNotificationChannel:
         )
 
 
-def _api_base(endpoint: str) -> str:
+def _api_base(endpoint: str, *, allow_insecure_loopback: bool = False) -> str:
     """Return the validated ``.../v3/directline`` base without echoing the value."""
 
     try:
@@ -285,8 +292,14 @@ def _api_base(endpoint: str) -> str:
         port = parts.port
     except ValueError as exc:
         raise ValueError("Direct Line endpoint MUST be an absolute https URL") from exc
+    is_insecure_loopback = (
+        allow_insecure_loopback
+        and parts.scheme == "http"
+        and parts.hostname is not None
+        and _is_loopback_host(parts.hostname)
+    )
     if (
-        parts.scheme != "https"
+        (parts.scheme != "https" and not is_insecure_loopback)
         or not parts.hostname
         or parts.username is not None
         or parts.password is not None
@@ -303,7 +316,16 @@ def _api_base(endpoint: str) -> str:
     path = parts.path.rstrip("/")
     if not path.endswith(_API_SUFFIX):
         path = f"{path}{_API_SUFFIX}"
-    return f"https://{host}{path}"
+    return f"{parts.scheme}://{host}{path}"
+
+
+def _is_loopback_host(hostname: str) -> bool:
+    if hostname.casefold() == "localhost":
+        return True
+    try:
+        return ip_address(hostname).is_loopback
+    except ValueError:
+        return False
 
 
 def _accepted_activity_id(response: httpx.Response) -> str:
