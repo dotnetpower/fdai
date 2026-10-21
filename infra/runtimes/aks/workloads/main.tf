@@ -536,7 +536,10 @@ resource "kubernetes_deployment_v1" "workload" {
           }
 
           dynamic "env" {
-            for_each = each.value.environment
+            for_each = merge(
+              each.value.environment,
+              each.key == "core-control-plane" ? local.canary_observer_environment : {},
+            )
             content {
               name  = env.key
               value = env.value
@@ -694,10 +697,21 @@ resource "kubernetes_deployment_v1" "workload" {
     }
   }
 
-  depends_on = [kubernetes_manifest.workload_secret_provider]
+  depends_on = [
+    kubernetes_manifest.workload_secret_provider,
+    kubernetes_role_binding_v1.canary_observer,
+  ]
 
   lifecycle {
     ignore_changes = [spec[0].replicas]
+
+    precondition {
+      condition = each.key != "core-control-plane" || alltrue([
+        for name, value in local.canary_observer_environment :
+        lookup(each.value.environment, name, value) == value
+      ])
+      error_message = "Core canary observation must match its exact namespace-local scheduler binding."
+    }
 
     precondition {
       condition     = !each.value.identity_bridge_enabled || var.identity_bridge != null
@@ -822,6 +836,7 @@ resource "kubernetes_cron_job_v1" "job" {
   spec {
     concurrency_policy            = "Forbid"
     schedule                      = each.value.schedule
+    timezone                      = each.value.component == "canary" ? "Etc/UTC" : null
     suspend                       = each.value.suspend
     successful_jobs_history_limit = 3
     failed_jobs_history_limit     = 3

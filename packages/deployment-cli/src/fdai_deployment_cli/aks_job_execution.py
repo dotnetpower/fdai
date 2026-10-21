@@ -116,7 +116,7 @@ def protected_cronjob_template_digest(
         },
         "spec": {
             "schedule": schedule,
-            "timeZone": None,
+            "timeZone": "Etc/UTC" if component == "canary" else None,
             "suspend": suspend,
             "concurrencyPolicy": "Forbid",
             "startingDeadlineSeconds": None,
