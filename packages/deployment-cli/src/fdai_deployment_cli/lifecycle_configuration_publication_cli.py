@@ -41,8 +41,17 @@ def register_publication_commands(
             f"{operation.title()} venue-scoped configuration evidence",
             epilog="Local custody only. Git review, global publisher identity and Hub acceptance are unverified.",
         )
-        for name in ("release-input", "configuration-key", "installation-key"):
-            parser.add_argument(f"--{name}", type=Path, required=True, metavar="PRIVATE_FILE")
+        for name, help_text in (
+            (
+                "release-input",
+                "Independent JSON Release/schema and optional opaque Entity selection",
+            ),
+            ("configuration-key", "Independently supplied Ed25519 verification key in PEM format"),
+            ("installation-key", "Explicit installation X25519 public key in PEM format"),
+        ):
+            parser.add_argument(
+                f"--{name}", type=Path, required=True, metavar="PRIVATE_FILE", help=help_text
+            )
         parser.add_argument(
             "--state-dir",
             type=Path,
@@ -51,9 +60,19 @@ def register_publication_commands(
             help="Existing absolute operator-owned mode-0700 venue; no reset or destructive recovery",
         )
         if operation == "publish":
-            parser.add_argument("--input", type=Path, required=True, metavar="PRIVATE_JSON_FILE")
             parser.add_argument(
-                "--signing-key", type=Path, required=True, metavar="PRIVATE_PEM_FILE"
+                "--input",
+                type=Path,
+                required=True,
+                metavar="PRIVATE_JSON_FILE",
+                help="Private v1/v2 revision inputs; plaintext identifiers are sealed, not journaled",
+            )
+            parser.add_argument(
+                "--signing-key",
+                type=Path,
+                required=True,
+                metavar="PRIVATE_PEM_FILE",
+                help="Private unencrypted PKCS8 Ed25519 PEM file; never supply key bytes in argv",
             )
             head = parser.add_mutually_exclusive_group(required=True)
             head.add_argument(
@@ -68,7 +87,12 @@ def register_publication_commands(
             parser.add_argument(
                 "--revision-id", required=True, help="Full lowercase source revision shape"
             )
-        parser.add_argument("--output", choices=("text", "json"), default="text")
+        parser.add_argument(
+            "--output",
+            choices=("text", "json"),
+            default="text",
+            help="Render local evidence as readable text or a JSON object",
+        )
         parser.set_defaults(
             handler=partial(_run, execute=execute),
             configuration_operation=operation,

@@ -19,6 +19,7 @@ acceptance, a globally unique publisher or an installed configuration.
 |------|-------|--------|----------|-----------|
 | 2026-10-22 | not-started | Recorded the venue-scoped design and critique before implementation; no historical delivery is invented. | Current paired owner; existing builder/reader and private-output contracts. | Implement and verify the bounded source capability below. |
 | 2026-10-22 | implemented | Added the schema-1 private journal, serialized publication, exact post-commit artifact recovery, historical retries, read-only inspection and real CLI. Unknown/corrupt state, transaction sidecars, conflicts and bounds hold without reset. | `current change`; #2363; focused command below: 211 passed; Ruff passed; strict mypy: 4 source files passed. Real subprocess exit and competing fresh process, native SQLite, independent cryptographic reader and no-network/no-subprocess CLI guards are exercised. | Exact-head delivery evidence is tracked in #2363; global venue registration, protected-merge automation and actual installation qualification remain separate. |
+| 2026-10-22 | implemented | Repaired missing descriptions for every new publication option after the existing global CLI help contract deterministically failed in CI run 39633410559, attempt 1, completed job 119337454944/step 11. No crypto, storage, fixture or authority rule changed. | `current change`; `lifecycle_configuration_publication_cli.py`; the single existing failing help test reproduced locally, then the complete CLI help file and publication regressions passed (67 cases). | Exact-head CI and protected integration remain tracked in #2363/#2366; broader publication and installation prerequisites remain open. |
 
 ### Remaining work
 
@@ -38,3 +39,12 @@ Focused source command:
 ```
 
 Result: **211 passed**. No live Git-provider, Azure, model, key-onboarding or installation action ran.
+
+Additional option-description repair command:
+
+```bash
+.venv/bin/pytest -q -c pyproject.toml --no-cov packages/deployment-cli/tests/test_cli_help.py packages/deployment-cli/tests/test_lifecycle_configuration_publication.py
+```
+
+Result: **67 passed**. The existing global help contract is now part of this capability's local
+validation selection, rather than relying only on successful `--help` rendering.
