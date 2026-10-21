@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import math
+import re
 import sys
 from collections.abc import Callable, Sequence
 from contextlib import ExitStack
@@ -35,6 +36,11 @@ from fdai_lifecycle_agent.inputs import (
     stage_artifact,
 )
 from fdai_lifecycle_agent.journal import WorkloadStore
+from fdai_lifecycle_agent.native_cli import (
+    compose_native_cluster,
+    register_native_command,
+    run_native_bootstrap,
+)
 from fdai_lifecycle_agent.polling import PollLimits, poll_bounded
 from fdai_lifecycle_agent.reference_cli import register_reference_command, run_reference_command
 from fdai_lifecycle_agent.reference_state import ReferenceStatusSource
@@ -45,7 +51,13 @@ from fdai_lifecycle_agent.signatures import (
 )
 from fdai_lifecycle_agent.state import AgentStateError, LocalStateStore, write_json_atomically
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
-from fdai_lifecycle_agent.workload import Cluster, Workload, is_dns_label, is_repository
+from fdai_lifecycle_agent.workload import (
+    Cluster,
+    Workload,
+    WorkloadError,
+    is_dns_label,
+    is_repository,
+)
 
 LOCAL_POLICY_SCHEMA = "fdai.lifecycle-local-policy.v1"
 _LOCAL_POLICY_KEYS = frozenset(
@@ -59,7 +71,7 @@ _LOCAL_POLICY_KEYS = frozenset(
         "entity_components",
     }
 )
-_OPTIONAL_LOCAL_POLICY_KEYS = frozenset({"component_images", "product"})
+_OPTIONAL_LOCAL_POLICY_KEYS = frozenset({"component_images", "product", "native_scope_digest"})
 _MAX_LOCAL_POLICY_BYTES = 64 * 1024
 _EXIT_OK = 0
 _EXIT_FAILED = 1
@@ -73,6 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     commands = parser.add_subparsers(dest="command", required=True)
     register_reference_command(commands)
+    register_native_command(commands)
     poll = commands.add_parser(
         "poll-once", help="Fetch one Plan, admit it, dry-run it, and report the result."
     )
@@ -126,6 +139,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--in-cluster", action="store_true", help="Use the projected Kubernetes identity."
     )
     poll.add_argument("--namespace", help="The only namespace to change; required with --apply.")
+    poll.add_argument("--native-approval", type=Path, help="Independent local creation approval.")
+    poll.add_argument("--installation-public-key", type=Path, help="Enrolled identity PEM key.")
     poll.add_argument(
         "--health-timeout-seconds",
         type=float,
@@ -195,6 +210,35 @@ def main(
     arguments = parser.parse_args(argv)
     if arguments.command == "reference-status":
         return run_reference_command(arguments, clock=clock, connect=connect_reference_source)
+    if arguments.command == "bootstrap-slot":
+
+        def connect_native(context: str | None, namespace: str, in_cluster: bool) -> Cluster:
+            if in_cluster:
+                return _connect_in_cluster(namespace)
+            if context is None:
+                raise ValueError("Native bootstrap requires an explicit Kubernetes context.")
+            return connect_cluster(context, namespace)
+
+        try:
+            policy = load_local_policy(arguments.local_policy)
+            return run_native_bootstrap(
+                arguments,
+                product=policy["product"],
+                entity_components=policy["entity_components"],
+                entity_ids=policy["maximum_envelope"].entity_ids,
+                native_scope_digest=policy["native_scope_digest"],
+                clock=clock,
+                connect=connect_native,
+            )
+        except (ValueError, OSError, WorkloadError, AgentStateError) as error:
+            logging.error(
+                "lifecycle_agent.native_bootstrap_failed error_type=%s", type(error).__name__
+            )
+            print(
+                "Native bootstrap failed; verify local approval, policy, identity and state.",
+                file=sys.stderr,
+            )
+            return _EXIT_CONFIGURATION
     if arguments.command == "stage-input":
         try:
             stage_artifact(
@@ -291,7 +335,20 @@ def main(
                     if arguments.in_cluster
                     else connect_cluster(arguments.kube_context, arguments.namespace)
                 )
-            except ValueError as error:
+                cluster = compose_native_cluster(
+                    cluster,
+                    state_dir=arguments.state_dir,
+                    approval_path=arguments.native_approval,
+                    public_key_path=arguments.installation_public_key,
+                    native_scope_digest=settings.native_scope_digest,
+                    installation_id=settings.installation_id,
+                    namespace=arguments.namespace,
+                    product=settings.product,
+                    entity_components=settings.entity_components,
+                    entity_ids=settings.maximum_envelope.entity_ids,
+                    clock=clock,
+                )
+            except (ValueError, WorkloadError) as error:
                 print(f"fdai-lifecycle-agent: configuration error: {error}", file=sys.stderr)
                 return _EXIT_CONFIGURATION
             apply = ApplyMode(
@@ -357,6 +414,7 @@ class LocalPolicy(TypedDict):
     entity_components: dict[str, frozenset[str]]
     component_repositories: dict[str, str]
     product: str | None
+    native_scope_digest: str | None
 
 
 def load_local_policy(path: Path) -> LocalPolicy:
@@ -376,6 +434,13 @@ def load_local_policy(path: Path) -> LocalPolicy:
     product = document.get("product")
     if product is not None and not is_product_id(product):
         raise ValueError("local policy product must be an application identifier")
+    native_pin = document.get("native_scope_digest")
+    if native_pin is not None and (
+        product is None
+        or not isinstance(native_pin, str)
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", native_pin) is None
+    ):
+        raise ValueError("native local policy requires a product and exact scope digest")
     modes = document["capability_modes"]
     if not isinstance(modes, dict) or not set(modes.values()) <= set(get_args(CapabilityMode)):
         raise ValueError("local policy capability mode is unsupported")
@@ -408,6 +473,7 @@ def load_local_policy(path: Path) -> LocalPolicy:
         },
         component_repositories={str(name): str(repo) for name, repo in repositories.items()},
         product=product,
+        native_scope_digest=native_pin,
     )
 
 

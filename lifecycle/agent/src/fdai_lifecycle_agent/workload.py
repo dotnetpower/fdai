@@ -41,6 +41,14 @@ class WorkloadError(Exception):
         self.retryable = retryable
 
 
+class CreationRejectedError(WorkloadError):
+    """The provider confirmed rejection before creating the requested object."""
+
+
+class MutationNotSubmittedError(WorkloadError):
+    """A local submission guard denied a mutation before its request was sent."""
+
+
 class Cluster(Protocol):
     """One namespace of one cluster. Every failed call raises ``WorkloadError``."""
 
@@ -302,7 +310,7 @@ class Workload:
         for manifest in manifests:
             kind, name = object_key(manifest)
             live = self.cluster.get(kind, name)
-            if live is None:
+            if live is None or live.get("metadata", {}).get("deletionTimestamp") is not None:
                 return False
             if not _contains(live.get("spec"), manifest.get("spec")):
                 return False

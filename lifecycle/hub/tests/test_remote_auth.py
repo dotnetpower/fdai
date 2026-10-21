@@ -63,6 +63,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
             "/v1/installations/installation-alpha/enrollment/approve",
             "/v1/installations/installation-alpha/recompute",
             "/v1/installations/installation-alpha/application-binding",
+            "/v1/installations/installation-alpha/native-ownership",
         ):
             assert client.get(path, headers=token(**service)).status_code == 403
             assert client.post(path, headers=token(**service), json={}).status_code == 403
@@ -141,6 +142,59 @@ def test_application_binding_requires_verified_operator(
         assert updated.status_code == 200
         assert updated.json()["changed"] is True
         assert client.get(path, headers=token()).json()["product"] == "example-web"
+        assert client.post(path, headers=token(), json=body).json()["changed"] is False
+
+
+def test_native_creation_acceptance_requires_separate_verified_operator(
+    enrollment_remote, enrolled_store, installation, installation_key, now
+):
+    from lifecycle.hub.tests.test_application_binding import command
+    from lifecycle.hub.tests.test_native_ownership import acceptance
+
+    from fdai_lifecycle_hub import models
+    from fdai_lifecycle_hub.api import create_app
+    from fdai_lifecycle_hub.migrations import migrate
+
+    identifier = installation.installation_id
+    migrate(enrolled_store.engine, "lifecycle_hub", models.Base.metadata.create_all)
+    enrolled_store.bind_application(
+        identifier,
+        command(enrolled_store, identifier, "example-app"),
+        operator="owner",
+        now=now,
+    )
+    request = acceptance(enrolled_store, installation_key)
+    body = json.loads(request.model_dump_json())
+    factory, token = enrollment_remote
+    path = f"/v1/installations/{identifier}/native-ownership"
+    with TestClient(create_app(enrolled_store)) as local:
+        assert local.post(path, json=body).status_code == 403
+    with factory(target_store=enrolled_store) as client:
+        assert client.post(path, json=body).status_code == 401
+        agent = token(
+            oid="agent-object", azp="agent-client", scp=None, idtyp="app", roles=["Agent.Access"]
+        )
+        assert client.post(path, headers=agent, json=body).status_code == 403
+        assert (
+            client.post(path, headers=token(), json={**body, "operator": "forged"}).status_code
+            == 422
+        )
+        duplicate = json.dumps(body)[:-1] + ',"reason":"duplicate"}'
+        assert (
+            client.post(
+                path, headers={**token(), "Content-Type": "application/json"}, content=duplicate
+            ).status_code
+            == 422
+        )
+        assert (
+            client.post(
+                path, headers={**token(), "Origin": "https://foreign.example.test"}, json=body
+            ).status_code
+            == 403
+        )
+        response = client.post(path, headers=token(), json=body)
+        assert response.status_code == 200
+        assert response.json()["changed"] is True
         assert client.post(path, headers=token(), json=body).json()["changed"] is False
 
 

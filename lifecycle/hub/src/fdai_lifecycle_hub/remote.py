@@ -298,7 +298,7 @@ def _run() -> None:
             migrate(engine, "lifecycle_hub", initialize_target)
             require_schema(engine, "lifecycle_hub")
             return
-        require_schema(engine, "lifecycle_hub")
+        require_schema(engine, "lifecycle_hub", allow_pre_native=True)
         hub = HubStore(engine)
         from fdai_lifecycle_hub.api import create_app
 
@@ -345,6 +345,7 @@ def _run() -> None:
                 require_schema,
                 engine,
                 "release_hub" if config.kind == "release" else "lifecycle_hub",
+                allow_pre_native=True,
             )
         except ValueError:
             logger.error("hub_schema_not_ready")
