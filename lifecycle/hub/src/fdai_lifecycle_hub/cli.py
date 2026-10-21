@@ -18,11 +18,13 @@ from pathlib import Path
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
+from sqlalchemy.engine import Connection
 
-from fdai_lifecycle_hub import domain, schemas
+from fdai_lifecycle_hub import domain, models, schemas
 from fdai_lifecycle_hub.catalog import load_catalog
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
-from fdai_lifecycle_hub.errors import HubStoreError
+from fdai_lifecycle_hub.errors import HubStoreError, SchemaMismatchError
+from fdai_lifecycle_hub.migrations import migrate
 from fdai_lifecycle_hub.native_ownership import NativeOwnershipStore
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import (
@@ -169,7 +171,14 @@ def _print(record: object) -> None:
 
 
 def _migrate(args: argparse.Namespace) -> int:
-    _store().create_schema()
+    store = _store()
+
+    def initialize(connection: Connection) -> None:
+        if stale := models.stale_tables(connection):
+            raise SchemaMismatchError(f"recreate the Hub database; earlier schema in {stale}")
+        models.Base.metadata.create_all(connection)
+
+    migrate(store.engine, "lifecycle_hub", initialize)
     _print({"schema": "created"})
     return 0
 

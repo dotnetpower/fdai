@@ -19,6 +19,48 @@ from fdai_lifecycle_agent.dry_run import (
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import NativeCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore
+from fdai_lifecycle_agent.workload import WorkloadError
+
+
+def test_idle_legacy_agent_rechecks_mode_after_bootstrap_under_poll_lock(harness, monkeypatch):
+    settings = prepare(harness)
+    harness.hub.plan = None
+    provider = UidProvider()
+    apply = harness.apply_mode(provider)
+    agent = LifecycleAgent(settings, harness.dependencies(apply=apply))
+    assert agent.poll_once().outcome == "no-plan"
+    clock = harness.dependencies().clock
+    approval = NativeApproval(
+        schema_version="fdai.lifecycle-native-approval.v1",
+        scope=NativeScope(
+            installation_id=settings.installation_id,
+            entity_id="application",
+            product=settings.product,
+            namespace=harness.namespace,
+            components=("frontend",),
+        ),
+        profile="full-authority-development",
+        approved_by="owner",
+        approved_at=clock() - timedelta(minutes=1),
+        expires_at=clock() + timedelta(hours=1),
+    )
+    bootstrap_native_scope(
+        provider,
+        NativeStateStore(harness.state_store.path.parent),
+        approval,
+        Ed25519PrivateKey.generate(),
+        clock=clock,
+        apply=True,
+    )
+    before = list(provider.calls)
+
+    def unexpected_poll():
+        pytest.fail("mode validation must precede Plan fetch and journal recovery")
+
+    monkeypatch.setattr(agent, "_poll", unexpected_poll)
+    with pytest.raises(WorkloadError, match="native_scope_poll_mode_changed"):
+        agent.poll_once()
+    assert provider.calls == before
 
 
 @pytest.mark.parametrize("first_failure", [False, True])

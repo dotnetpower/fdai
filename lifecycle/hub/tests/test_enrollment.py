@@ -272,7 +272,9 @@ def test_proven_entity_with_settings_becomes_managed_and_alone_is_planned(
         "core",
         {
             "operator": "bob",
-            "evidence": schemas.ownership_json.dump_python(ownership, mode="json"),
+            "evidence": schemas.ownership_json.dump_python(
+                ownership, mode="json", exclude={"native_creation_receipt_digest"}
+            ),
             "reason": None,
         },
     )

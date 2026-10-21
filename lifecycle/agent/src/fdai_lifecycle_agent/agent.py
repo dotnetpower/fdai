@@ -78,6 +78,8 @@ from fdai_lifecycle_agent.inputs import (
     verify_release,
 )
 from fdai_lifecycle_agent.journal import ApplyJournal, WorkloadState, WorkloadStore
+from fdai_lifecycle_agent.native_cluster import NativeCluster
+from fdai_lifecycle_agent.native_state import NativeStateStore
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
 from fdai_lifecycle_agent.state import (
     AgentState,
@@ -223,6 +225,13 @@ class LifecycleAgent:
         """
 
         with self._deps.state_store.lock():
+            if (apply := self._deps.apply) is not None:
+                path = NativeStateStore(self._deps.state_store.path.parent).path
+                pinned = self._settings.native_scope_digest is not None
+                if pinned != isinstance(apply.workload.cluster, NativeCluster) or (
+                    not pinned and (path.exists() or path.is_symlink())
+                ):
+                    raise WorkloadError("native_scope_poll_mode_changed")
             return self._poll()
 
     def _poll(self) -> PollResult:

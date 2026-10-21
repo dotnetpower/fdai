@@ -339,7 +339,9 @@ class HubStore:
         if evidence.native_creation_receipt_digest is not None:
             raise ValueError("native ownership requires separate verified operator acceptance")
         operator = schemas.actor_name.validate_python(operator)
-        recorded = schemas.ownership_json.dump_python(evidence, mode="json")
+        recorded = schemas.ownership_json.dump_python(
+            evidence, mode="json", exclude={"native_creation_receipt_digest"}
+        )
         with self._write() as session:
             rows.lock_enrolled(session, installation_id)
             row = rows.entity_row(session, installation_id, entity_id)

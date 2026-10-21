@@ -30,8 +30,14 @@ from fdai_lifecycle_hub.store import HubStore
 
 
 @pytest.fixture
-def native_store(hub_store, enroll, installation, now):
-    migrate(hub_store.engine, "lifecycle_hub", models.Base.metadata.create_all)
+def native_store(hub_store, enroll, installation, now, monkeypatch, capsys):
+    from fdai_lifecycle_hub import cli
+
+    monkeypatch.setattr(cli, "_store", lambda: hub_store)
+    assert cli.main(["migrate"]) == 0
+    assert cli.main(["migrate"]) == 0
+    capsys.readouterr()
+    require_schema(hub_store.engine, "lifecycle_hub")
     enroll(hub_store, installation)
     identifier = installation.installation_id
     digest = hub_store.execution_settings(identifier)["settings_digest"]

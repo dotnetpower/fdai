@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 54fa9122b0a307e6d89ec81cf273fea11c3283c4
+translation_source_sha: 3415bf29dceb0aab52e1ac8f356058be7d42cd6e
 translation_revised: 2026-10-22
 ---
 # Hub 관리형 수명 주기
@@ -682,10 +682,15 @@ cell이 다른 고객의 cell에 영향을 줄 수 없습니다.
    실제 UID를 영구 기록합니다. 갱신에는 UID와 리소스 버전 사전 조건을, 삭제에는 UID 사전
    조건을 적용합니다. 기준 객체가 없거나 바뀌었거나 외부 객체가 발견되면 인수하지 않고
    실행을 멈춥니다.
+   Deployment와 Service의 선택 조건과 Pod 레이블은 Entity 및 실제 기준 객체 생성 신원에
+   연결됩니다. 구성 요소 레이블만으로 외부 Pod나 소유자 없는 ReplicaSet을 선택하지 않습니다.
 6. 복구는 보존한 UID 이력만 사용하며 이름만으로 삭제하지 않습니다. 생성 결과, 기록 성공이나
    신원이 불확실하면 성공으로 간주해 재시도하지 않고 검토를 요청합니다. 기존 서명 입력,
    제품 연결, 작업 시간대, 영향 범위, 사전 실행, 롤백, 재실행 방지와 독립적인 상태 확인은
    계속 필요합니다.
+   적용을 위한 매 조회에서는 Plan을 가져오거나 작업 기록을 복구하기 전에 같은 독점 상태
+   잠금 안에서 실행 방식을 다시 확인합니다. 초기 생성 전에 준비된 기존 방식의 클라이언트는
+   실행을 멈춥니다.
 
 초기 범위는 애플리케이션 패키지의 Deployment와 내부 Service로 제한합니다. 네임스페이스,
 RoleBinding, Azure 리소스, Secret 읽기, DB 마이그레이션 실행, 애플리케이션 전용 렌더러나
@@ -709,7 +714,9 @@ RoleBinding, Azure 리소스, Secret 읽기, DB 마이그레이션 실행, 애�
    `--kube-context` 또는 `--in-cluster` 중 하나를 전달합니다. 기본 동작은 기준 객체의
    사전 실행뿐입니다. 명시적인 `--apply`에는 비공개 `--proof-output`도 필요합니다.
    이 명령은 애플리케이션을 설치하지 않습니다.
-4. UUID, 현재 전체 Settings 다이제스트, 서명된 증명, 사유와 정확한
+4. 신뢰하는 로컬 Hub에서 `fdai-lifecycle-hub migrate`로 명시적으로 마이그레이션합니다.
+   원격 배포는 별도의 명시적 마이그레이션 Job을 사용합니다. UUID, 현재 전체 Settings
+   다이제스트, 서명된 증명, 사유와 정확한
    `required_confirmation`을 담은 `NativeOwnershipAcceptance` 요청을 준비합니다.
    인증된 운영자로 `POST /v1/installations/{installation_id}/native-ownership`에 제출하거나,
    신뢰하는 Hub 호스트에서 `fdai-lifecycle-hub accept-native-ownership <installation-id>

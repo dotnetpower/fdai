@@ -687,10 +687,14 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
    atomically, and its actual UID is durably retained before further effects. Updates carry UID
    and resource-version preconditions; deletion carries a UID precondition. Missing or replaced
    anchors and foreign objects stop execution without adoption.
+   Deployment and Service selectors and Pod labels bind the Entity and actual anchor creation
+   identity, so a component label alone cannot select foreign Pods or orphan ReplicaSets.
 6. Recovery uses that retained UID history, never a name-only deletion. Uncertain creation,
    failed persistence or conflicting identity requires review rather than a success-shaped
    retry. Existing signed-input, product, window, envelope, dry-run, rollback, replay and
    independent health checks remain required.
+   Every apply poll rechecks native versus legacy mode under the exclusive state lock before
+   fetching a Plan or recovering a journal; a legacy client composed before bootstrap stops.
 
 The initial surface is limited to application-package Deployments and internal Services.
 It adds no namespace, RoleBinding, Azure resource, secret read, database migration execution,
@@ -713,7 +717,8 @@ separates source validation, publication, activation and installed qualification
    `--local-policy`, `--current-state`, `--native-approval`, `--installation-key` and exactly one
    of `--kube-context` or `--in-cluster`. The default only dry-runs the anchor. Explicit `--apply`
    also requires a private `--proof-output`. It does not install the application.
-4. Prepare a complete `NativeOwnershipAcceptance` request with a UUID, current full Settings
+4. Explicitly migrate the trusted local Hub with `fdai-lifecycle-hub migrate`; remote deployments
+   use their explicit migration Job. Prepare a complete `NativeOwnershipAcceptance` request with a UUID, current full Settings
    digest, signed proof, reason and exact `required_confirmation`. Submit it as an authenticated
    operator to `POST /v1/installations/{installation_id}/native-ownership`, or from the trusted
    Hub host with `fdai-lifecycle-hub accept-native-ownership <installation-id> <request-file>

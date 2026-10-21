@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from copy import deepcopy
 from datetime import datetime
 from typing import Protocol, runtime_checkable
 
@@ -19,6 +20,8 @@ from fdai_lifecycle_agent.workload import (
     check_scope,
     object_key,
 )
+
+ANCHOR_LABEL = "fdai.io/native-anchor"
 
 
 @runtime_checkable
@@ -127,7 +130,7 @@ class NativeCluster:
             raise WorkloadError("native_resource_outside_scope")
         live = self.get(kind, name)
         owned_uid = state.resources.get(key)
-        owned_manifest = dict(manifest) | {
+        owned_manifest = deepcopy(dict(manifest)) | {
             "metadata": dict(manifest["metadata"])
             | {
                 "ownerReferences": [
@@ -142,6 +145,18 @@ class NativeCluster:
                 ]
             }
         }
+        anchor_label = state.creation_receipt_digest.removeprefix("sha256:")[:32]
+        owned_manifest["metadata"]["labels"] = dict(labels) | {ANCHOR_LABEL: anchor_label}
+        selector = {
+            COMPONENT_LABEL: name,
+            ENTITY_LABEL: state.scope.entity_id,
+            ANCHOR_LABEL: anchor_label,
+        }
+        if kind == "Deployment":
+            owned_manifest["spec"]["selector"]["matchLabels"] = selector
+            owned_manifest["spec"]["template"]["metadata"]["labels"].update(selector)
+        else:
+            owned_manifest["spec"]["selector"] = selector
         if owned_uid is not None:
             if live is None:
                 raise WorkloadError("native_owned_resource_missing")

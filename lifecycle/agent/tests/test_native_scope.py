@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption,
 from fdai_deployment_cli.lifecycle_native import NativeApproval, NativeScope
 
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
-from fdai_lifecycle_agent.native_cluster import NativeCluster
+from fdai_lifecycle_agent.native_cluster import ANCHOR_LABEL, NativeCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore
 from fdai_lifecycle_agent.workload import Manifest, WorkloadError, object_key, render
 
@@ -131,6 +131,39 @@ def test_default_bootstrap_only_dry_runs_and_does_not_persist(native):
     assert provider.calls == [("create", True)]
     assert provider.objects == {}
     assert not store.path.exists()
+
+
+def test_native_selectors_exclude_foreign_labels_and_retain_anchor_identity(native):
+    provider, store, approval, _ = native
+    bootstrap(native)
+    cluster = wrapper(native)
+    rendered = manifests()
+    original = deepcopy(rendered)
+    for manifest in rendered:
+        cluster.apply(manifest)
+    deployment = provider.objects[("Deployment", "frontend")]
+    service = provider.objects[("Service", "frontend")]
+    selector = deployment["spec"]["selector"]["matchLabels"]
+    assert selector == service["spec"]["selector"]
+    assert (
+        selector[ANCHOR_LABEL] == store.load().creation_receipt_digest.removeprefix("sha256:")[:32]
+    )
+    assert selector.items() <= deployment["spec"]["template"]["metadata"]["labels"].items()
+    for foreign in (
+        original[0]["spec"]["template"]["metadata"]["labels"],
+        dict(selector) | {ANCHOR_LABEL: "another-anchor"},
+        dict(selector) | {"fdai.io/entity": "another-entity"},
+    ):
+        assert not selector.items() <= foreign.items()
+    cluster.apply(rendered[0])
+    assert (
+        provider.objects[("Deployment", "frontend")]["spec"]["selector"]["matchLabels"] == selector
+    )
+    assert rendered == original
+    assert (
+        store.load().anchor_uid
+        == provider.objects[("Service", approval.scope.anchor_name)]["metadata"]["uid"]
+    )
 
 
 def test_proof_binds_actual_anchor_and_does_not_disclose_private_scope(native):
