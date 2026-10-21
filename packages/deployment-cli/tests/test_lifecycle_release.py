@@ -128,7 +128,7 @@ def test_duplicate_workload_fields_do_not_publish_unstaggable_artifacts() -> Non
         parse_lifecycle_release_manifest(raw)
 
 
-def schema_default_manifest(default: float) -> dict[str, object]:
+def schema_default_manifest(default: object) -> dict[str, object]:
     schema = {
         "scale": {
             "default": default,
@@ -153,6 +153,24 @@ def test_finite_schema_defaults_have_a_canonical_round_trip(default: float) -> N
     release = parse_lifecycle_release_manifest(canonical_bytes(document))
     assert release.to_mapping() == document
     assert parse_lifecycle_release_manifest(canonical_bytes(release.to_mapping())) == release
+
+
+@pytest.mark.parametrize("exceeds_limit", [False, True])
+def test_unicode_defaults_obey_the_canonical_decoder_size_limit(exceeds_limit: bool) -> None:
+    limit = 1_048_576
+    overhead = len(canonical_bytes(schema_default_manifest("")))
+    count = (limit - overhead) // len(canonical_bytes("가")[1:-1])
+    document = schema_default_manifest("가" * (count + int(exceeds_limit)))
+    raw = json.dumps(document, ensure_ascii=False).encode("utf-8")
+    assert len(raw) < limit
+    assert (len(canonical_bytes(document)) > limit) is exceeds_limit
+    if exceeds_limit:
+        with pytest.raises(RuntimeReleaseError):
+            parse_lifecycle_release_manifest(raw)
+    else:
+        release = parse_lifecycle_release_manifest(raw)
+        assert release.to_mapping() == document
+        assert parse_lifecycle_release_manifest(canonical_bytes(release.to_mapping())) == release
 
 
 @pytest.mark.parametrize("default", [float("inf"), float("-inf")])

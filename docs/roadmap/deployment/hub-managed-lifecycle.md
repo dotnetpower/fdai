@@ -154,14 +154,18 @@ transaction. Current-Plan retrieval holds them after expiry, rotation or revocat
 public bindings remain intact; the atomic importer verifies each historical package with its exact
 accepted key version and receipt, never a replacement key. Absent or unprovable bindings hold
 only this new configuration capability. Legacy enrollment and planning remain compatible.
-Explicit Lifecycle Hub schema revision 3 upgrades revisions 1 and 2 additively, preserving
-enrollment, public key bindings and legacy raw configuration; Release Hub remains at revision 1.
+Explicit Lifecycle Hub schema revision 5 preserves the additive configuration upgrades from
+revisions 1 and 2, revision-4 customer-local channel storage, and adds explicit empty workload state.
+Enrollment, public key
+bindings and legacy raw configuration remain intact; Release Hub stays at revision 1.
 The actual authenticated source API separately requests/approves an installation-proven Entity
 scope, imports a complete signed container, approves its change request and activates its exact
 receipt. The accepted head, import record and audit share the pinned-catalog/installation owner
 transaction. Import, approval and activation are distinct and cannot grant execution or promotion.
 The [configuration owner](lifecycle-configuration.md#atomic-import-and-configured-consumption-design-and-critique)
 defines request formats, bounds, historical trust and the pre-implementation critique.
+
+The same catalog transaction now supports [customer-local channel curation](lifecycle-releases-and-channels.md#customer-local-channel-curation-design-and-critique). Existing operator approval can narrow a fresh imported `RELEASE` set into `local-` membership; exact local revision and accepted pin/digest remain in planning audit. It changes no installation settings, execution approval or vendor bytes, and serving requires the explicit current schema migration.
 
 Only this new import path stores original ciphertext containers and public metadata. Legacy raw
 configuration remains unchanged. Local HTTP/JWT and isolated PostgreSQL tests prove default
@@ -234,7 +238,7 @@ It provides bounded window controls, the server-read confirmation text and a bro
 request UUID. Reads and writes have ten-second deadlines. A rejected or uncertain save disables
 further changes until an explicit refresh; it never retries a write or computes/applies a Plan.
 Focused source and synthetic UI checks are not live deployment evidence. Exact-source activation,
-human operational confirmation and the remaining evidence-backed nginx preparation stay separate.
+human operational confirmation and the remaining evidence-backed workload preparation stay separate.
 
 ## Read-only input inventory
 
@@ -279,7 +283,7 @@ floor, pending report and rollback journal live with current state on a persiste
 Agent namespace, outside its workload Role. Only namespace-scoped Deployment, Service and Job
 operations are granted. See the [Agent preparation guide](../../../lifecycle/agent/README.md#remote-development-preparation).
 
-These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or nginx
+These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or workload
 effect evidence. Existing Hub images, revisions, catalog bindings and network allowlists are
 not changed by this preparation. An exact cloud plan and separate approval precede those effects.
 
@@ -626,9 +630,10 @@ without a recorded rollback target. A failed first apply removes only objects cr
 attempt and independently verifies their absence. This state contract neither adopts a namespace
 nor supplies ownership evidence. Native ownership/bootstrap remains a separate prerequisite.
 
-The explicit lifecycle database migration advances its reader floor before storing null Release
-IDs or separate inventory. Existing rows and snapshot digests remain unchanged; old binaries refuse
-the newer database instead of misreading absence. Serving never migrates a database automatically.
+The explicit lifecycle database migration advances its reader floor to 5 before storing null Release
+IDs or separate inventory. Revision-4 local channel records, existing rows and snapshot digests remain
+unchanged; old binaries refuse the newer database instead of misreading absence.
+Serving never migrates a database automatically.
 
 Today the Terraform application stage renders workloads. The Hub path moves the rendering of
 namespaced workload objects to the lifecycle agent, as

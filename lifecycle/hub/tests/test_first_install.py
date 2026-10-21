@@ -6,13 +6,13 @@ from datetime import timedelta
 from uuid import UUID
 
 import pytest
-from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_release import parse_lifecycle_release_manifest
 from lifecycle.hub.tests.test_application_release import manifest
 from sqlalchemy import MetaData, create_engine, inspect, select
 from sqlalchemy.engine import Connection
 
-from fdai_lifecycle_hub import cli, domain, models, schemas
+from fdai_lifecycle_hub import cli, domain, local_channels, models, schemas
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.domain import Configuration, EntityState, Health, Issued, NoEligibleRelease
 from fdai_lifecycle_hub.entity import EntitySettings
@@ -201,15 +201,35 @@ def test_existing_installation_cannot_bypass_running_override_coverage(
         )
 
 
-def test_sqlite_revision_three_migration_retains_rows_constraints_and_digests(
-    tmp_path, installation, enroll, now, monkeypatch
+@pytest.mark.parametrize("legacy_revision", [3, 4])
+def test_sqlite_legacy_migration_retains_rows_constraints_and_digests(
+    tmp_path, installation, enroll, now, monkeypatch, legacy_revision
 ):
     engine = create_engine(f"sqlite:///{tmp_path / 'legacy.db'}")
     store = HubStore(engine)
     store.create_schema()
     enroll(store, installation)
     original_state = store.load(installation.installation_id).reported
+    retained_channel = {
+        "revision": 1,
+        "channel": "local-example",
+        "release_id": "1.5.0",
+        "release_digest": "a" * 64,
+        "accepted_sha256": "b" * 64,
+        "source_revision": 1,
+        "key_digest": "c" * 64,
+        "actor": "operator",
+        "reason": "Retain approved local membership",
+        "recorded_at": now.isoformat(),
+    }
     with engine.begin() as connection:
+        if legacy_revision == 4:
+            local_channels.metadata.create_all(connection)
+            connection.execute(
+                local_channels.entries.insert().values(
+                    **retained_channel, entry_digest=canonical_digest(retained_channel)
+                )
+            )
         metadata = MetaData()
         metadata.reflect(bind=connection)
         original = metadata.tables["lifecycle_entity_reported_state"]
@@ -226,7 +246,7 @@ def test_sqlite_revision_three_migration_retains_rows_constraints_and_digests(
         )
         versions = _versions("lifecycle_hub")
         versions.create(connection)
-        connection.execute(versions.insert().values(revision=3))
+        connection.execute(versions.insert().values(revision=legacy_revision))
     with pytest.raises(ValueError, match="migrate before serving"):
         require_schema(engine, "lifecycle_hub")
 
@@ -247,7 +267,7 @@ def test_sqlite_revision_three_migration_retains_rows_constraints_and_digests(
         with pytest.raises(RuntimeError, match="injected_migration_interruption"):
             migrate(engine, "lifecycle_hub", initialize)
     with engine.connect() as connection:
-        assert connection.scalar(select(_versions("lifecycle_hub").c.revision)) == 3
+        assert connection.scalar(select(_versions("lifecycle_hub").c.revision)) == legacy_revision
         assert (
             connection.scalar(
                 select(models.EntityReportedState.release_id).where(
@@ -267,6 +287,14 @@ def test_sqlite_revision_three_migration_retains_rows_constraints_and_digests(
     migrate(engine, "lifecycle_hub", initialize)
     migrate(engine, "lifecycle_hub", initialize)
     require_schema(engine, "lifecycle_hub")
+    with engine.connect() as connection:
+        assert connection.scalar(select(_versions("lifecycle_hub").c.revision)) == 5
+        rows = connection.execute(select(local_channels.entries)).mappings().all()
+        assert [dict(row) for row in rows] == (
+            [{**retained_channel, "entry_digest": canonical_digest(retained_channel)}]
+            if legacy_revision == 4
+            else []
+        )
     assert store.load(installation.installation_id).reported == original_state
     schema = inspect(engine)
     assert schema.get_pk_constraint("lifecycle_entity_reported_state")["constrained_columns"] == [

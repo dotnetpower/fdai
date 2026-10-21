@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import datetime, timedelta
 from typing import Self, assert_never
 
@@ -26,7 +26,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from fdai_lifecycle_hub import audit, domain, mapping, models, rows, schemas, signing
-from fdai_lifecycle_hub.catalog import ReleaseCatalog
+from fdai_lifecycle_hub.catalog import LocalCurationEvidence, ReleaseCatalog
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_consumer import persisted_candidate
 from fdai_lifecycle_hub.configuration_import_models import (
@@ -581,7 +581,11 @@ class HubStore:
             )
 
         return self._recompute(
-            installation_id, evaluate, now=now, configuration_binding_version=binding_version
+            installation_id,
+            evaluate,
+            now=now,
+            configuration_binding_version=binding_version,
+            local_curation=catalog.local_curation,
         )
 
     def recompute_persisted(
@@ -623,7 +627,9 @@ class HubStore:
                 installation, now, catalog=catalog, key=key, configuration_revision=candidate
             )
 
-        return self._recompute(installation_id, evaluate, now=now)
+        return self._recompute(
+            installation_id, evaluate, now=now, local_curation=catalog.local_curation
+        )
 
     def _recompute(
         self,
@@ -632,6 +638,7 @@ class HubStore:
         *,
         now: datetime,
         configuration_binding_version: int | None = None,
+        local_curation: LocalCurationEvidence | None = None,
     ) -> domain.PlanOutcome:
         failure: KeyBindingError | None = None
         with self._write() as session:
@@ -710,7 +717,11 @@ class HubStore:
                 "plan.evaluated",
                 installation_id,
                 evaluation.plan_id or installation_id,
-                {"outcome": outcome.kind, "target": evaluation.target_release_id},
+                {
+                    "outcome": outcome.kind,
+                    "target": evaluation.target_release_id,
+                    **({"local_curation": asdict(local_curation)} if local_curation else {}),
+                },
             )
         if failure is not None:
             raise failure

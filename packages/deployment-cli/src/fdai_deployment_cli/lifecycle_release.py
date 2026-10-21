@@ -127,6 +127,8 @@ def parse_lifecycle_release_manifest(raw: bytes) -> LifecycleRelease:
         target, schema_range = (
             _schema(document["schema"]) if "schema" in document else (0, SchemaRange(0, 0))
         )
+        catalog = canonical_bytes(document)
+        load_json_object(catalog, label="canonical application release", strict=True)
         return ApplicationRelease(
             product=product,
             release_version=version,
@@ -134,7 +136,7 @@ def parse_lifecycle_release_manifest(raw: bytes) -> LifecycleRelease:
             platform_tag=platform,
             digest=canonical_digest(document),
             workloads=MappingProxyType(parsed_workloads),
-            _catalog=canonical_bytes(document),
+            _catalog=catalog,
             schema_target=target,
             schema_range=schema_range,
             configuration_schema=configuration,

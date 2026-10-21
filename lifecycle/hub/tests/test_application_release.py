@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
@@ -9,7 +10,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_release import APPLICATION_RELEASE_SCHEMA
 from fdai_deployment_cli.runtime_release import RuntimeReleaseError
 
@@ -195,6 +196,41 @@ def test_duplicate_keys_and_version_relabeling_are_rejected_before_publication(
     with pytest.raises(CatalogError, match="version"):
         change(vendor, "register", manifest=original.replace("1.5.0", "1.6.0"))
     assert vendor.snapshot()["releases"] == []
+
+
+@pytest.mark.parametrize("count", [1_000, 180_000])
+def test_unicode_configuration_defaults_are_readable_after_publication_or_rejected_atomically(
+    tmp_path: Path, key: HubSigningKey, now: datetime, count: int
+) -> None:
+    schema = {
+        "label": {
+            "default": "가" * count,
+            "x-fdai-axis": "installation-path",
+            "x-fdai-owner": "customer",
+        }
+    }
+    document = {
+        **manifest(),
+        "configuration_schema": {
+            "format": "fdai.release-configuration-schema.v1",
+            "release_version": "1.5.0",
+            "schema_sha256": canonical_digest(schema),
+            "keys": schema,
+        },
+    }
+    raw = json.dumps(document, ensure_ascii=False).encode("utf-8")
+    assert len(raw) < 1_048_576
+    vendor = ReleaseStore(tmp_path / "vendor.db", key, clock=lambda: now)
+    if count == 180_000:
+        assert len(canonical_bytes(document)) > 1_048_576
+        before = vendor.snapshot()
+        with pytest.raises(RuntimeReleaseError):
+            change(vendor, "register", manifest=raw.decode("utf-8"))
+        assert vendor.snapshot() == before
+    else:
+        change(vendor, "register", manifest=raw.decode("utf-8"))
+        change(vendor, "publish")
+        assert catalog_from(vendor, now).releases["1.5.0"].to_mapping() == document
 
 
 def test_application_binding_survives_store_reopen(
