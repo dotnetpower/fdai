@@ -169,6 +169,44 @@ def test_full_producer_reader_decryption_and_deterministic_retry(revision: Revis
     assert revision.verify(package).entities[SECOND].values["region"] == "koreacentral"
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("inclusive", [False, True])
+@pytest.mark.parametrize(
+    "version,position",
+    [
+        ("1500000000.0.0", "before"),
+        ("2000000000.0.0", "at"),
+        ("2000000000.0.1", "after"),
+    ],
+)
+def test_multi_entity_producer_reader_preserves_large_upper_bound_specificity(
+    revision: RevisionCase, reverse: bool, inclusive: bool, version: str, position: str
+) -> None:
+    finite = f">=0.0.0 {'<=' if inclusive else '<'}2000000000.0.0"
+    blocks = (
+        {"versions": ">=0.0.0", "values": {"replicas": 2}},
+        {"versions": finite, "values": {"replicas": 4}},
+    )
+    source = replace(
+        revision.source,
+        release_version=version,
+        entities=tuple(
+            replace(
+                entity,
+                entity_overrides=(tuple(reversed(blocks)) if reverse else blocks)
+                if entity.entity_id == FIRST
+                else ({"versions": ">=0.0.0", "values": {"replicas": 7}},),
+            )
+            for entity in revision.source.entities
+        ),
+    )
+    resolved = revision.verify(revision.build(source), source=source)
+    finite_matches = position == "before" or (position == "at" and inclusive)
+    assert resolved.entities[FIRST].version_range == (finite if finite_matches else ">=0.0.0")
+    assert resolved.entities[FIRST].values["replicas"] == (4 if finite_matches else 2)
+    assert resolved.entities[SECOND].values["replicas"] == 7
+
+
 @pytest.mark.parametrize(
     "problem",
     [

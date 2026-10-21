@@ -195,16 +195,15 @@ class _VersionRange:
         return True
 
     @property
-    def specificity(self) -> tuple[Version, int, Version, int, int]:
+    def specificity(self) -> tuple[Version, int, int, Version, int, int]:
         """Order overlapping ranges by the most constrained matching interval."""
 
         lower = self.lower if self.lower is not None else (-1, -1, -1)
-        upper = (
-            self.upper if self.upper is not None else (1_000_000_000, 1_000_000_000, 1_000_000_000)
-        )
+        upper = self.upper if self.upper is not None else (0, 0, 0)
         return (
             lower,
             0 if self.lower_inclusive else 1,
+            1 if self.upper is not None else 0,
             (-upper[0], -upper[1], -upper[2]),
             1 if not self.upper_inclusive else 0,
             len(self.constraints),
