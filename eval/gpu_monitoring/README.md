@@ -216,4 +216,4 @@ Local evidence for this task:
 * [Legacy Datadog DCGM integration](https://docs.datadoghq.com/integrations/dcgm/)
 * [FDAI observability design](../../docs/roadmap/rules-and-detection/observability-and-detection.md)
 * [FDAI notification contracts](../../docs/roadmap/interfaces/channels-and-notifications.md)
-* [Korean technical-test guide](README-ko.md)
+* [Korean technical-test guide](README.ko.md)
