@@ -12,8 +12,9 @@ layers, and the signed configuration package.
 > reader, a local single/multi-Entity packaging/verification CLI, installation-key sealing and
 > explicit in-memory Hub planning consumption are implemented, together with a placeholder repository
 > template and key-custody runbook. Authenticated public-key registration/rotation and durable
-> key-bound Hub planning are implemented for local verification; actual onboarding and atomic
-> Hub package import remain open. The
+> key-bound Hub planning, atomic signed-package import, independent scope/change approval and
+> durable activated-revision consumption are implemented for local verification. Actual onboarding
+> and operational Agent delivery remain open. The
 > [implementation ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md)
 > tracks delivery.
 >
@@ -195,8 +196,9 @@ cannot bypass the sealed-section boundary.
 
 The implementation is in `fdai_deployment_cli.lifecycle_configuration_package` and
 `fdai_deployment_cli.lifecycle_configuration_sealing`. The existing single-Entity configuration
-document remains unchanged. The full multi-Entity source path is defined below. Encryption-key
-enrollment and rotation, atomic Hub persistence, and Agent transport/decryption integration remain open.
+document remains unchanged. The full multi-Entity source path is defined below. Actual encryption-key
+onboarding and Agent transport/decryption integration remain open. The bounded atomic Hub importer
+below owns source persistence separately from the offline library.
 
 ### Full multi-Entity revision design and critique
 
@@ -248,8 +250,9 @@ The existing Hub upgrade planner can consume this candidate through explicit cal
 inputs and the exact catalog Release schema. It checks coverage for every already-managed Entity,
 binds the Plan to the package digest, and retains ownership, recall, envelope and timing checks.
 This in-memory consumption does not enroll a key, import or persist configuration, or change
-production eligibility. Atomic Hub import, key enrollment/rotation, Agent transport, CSI secret
-resolution and production qualification remain separate work. This source API does not implement
+production eligibility. Atomic Hub import is the separately governed source path below. Actual key
+onboarding, Agent transport, CSI secret resolution and production qualification remain open.
+This source API does not implement
 persisted same-Release configuration-change scheduling.
 
 ### Local packaging and verification commands
@@ -454,9 +457,9 @@ production trust root. Existing enrollment and source/offline installation remai
    hold configuration planning, not legacy enrollment or planning. Historical versions are retained
    and never replaced by the current signer. Issued configuration Plans pin the approved binding
    version and request digest; current-Plan retrieval holds them after expiry, rotation or revocation.
-   Cross-version package-chain import remains a separate
-   increment: a chain that cannot verify under its exact retained bindings holds, rather than
-   being silently reinterpreted. Configuration acceptance is not atomic package import or activation.
+   The atomic importer below resolves historical packages with their exact retained bindings;
+   an unprovable chain holds rather than being silently reinterpreted. Registering a key is not
+   package import or configuration activation.
 
 **Critique and revision before implementation:** A caller-selected key plus an actor field is
 self-asserted trust, even when the package signature is valid. Therefore only the existing verified
@@ -470,6 +473,90 @@ Rotation cannot overwrite a row or reset a version after revocation, and schema 
 cannot be called a migration. Private keys, credentials and customer identifiers are not stored.
 No live enrollment, Azure operation, Agent/CSI delivery or production qualification is included.
 
+## Atomic import and configured consumption: design and critique
+
+This bounded source path separates five decisions: scope binding, package import, configuration
+change approval, activation, and upgrade planning. None grants execution or promotion authority.
+
+### Proposed contract
+
+- An enrolled installation signs a short-lived scope request binding its unchanged managed Entity
+  identifiers to independently chosen opaque package identifiers, the sealed-key classification,
+  and an exact admitted Release/schema. A different JWT-authenticated customer operator approves
+  the exact request digest. The package cannot create this binding or manage a new Entity.
+- A bounded authenticated import supplies the complete original signed file container, an explicit
+  current key-binding version, the approved scope digest and an installation-identity proof over
+  this complete import context. The server resolves Release/schema from its independently pinned
+  catalog and keys from the persisted approved registry. Hub never decrypts sealed values.
+- Under the existing installation lock, successful verification appends an immutable import
+  receipt and advances the accepted head together with the existing audit chain. The retained
+  predecessor is authoritative. Exact current-head retries preserve original container bytes;
+  competing children, reused Git revisions, reordered history and conflicting retry bytes fail.
+  Catalog and installation locks share one database transaction. A validation denial commits its
+  audit before the API error; an unexpected storage or audit failure rolls back the entire change.
+- Every receipt pins its accepted key version, key-request digest, scope digest, original signed
+  bytes and predecessor. Historical verification checks each signature with that receipt's
+  independently approved retained binding, at its acceptance time. Rotation is not permission to
+  rewrite history. Revoked, missing or unprovable historical bindings hold with a bounded reason.
+  Each issued imported-configuration Plan also retains its exact import and acceptance receipt.
+  Missing Plan/import/head provenance holds rather than falling back to key-only verification.
+- Import creates a change request, not approval. A different authenticated operator approves its
+  exact receipt within ten minutes; explicit activation rechecks current trust, complete history,
+  selected scope and accepted-head compare-and-swap. Activation only selects configuration for
+  the existing upgrade planner. It neither schedules a same-Release action nor applies anything.
+- Default configured recomputation reads the persisted activated head within the planning
+  transaction, without injected candidates. Missing configuration leaves legacy planning intact;
+  staged but unactivated configuration holds only this capability and preserves unrelated legacy
+  Plans. Recall, windows, ownership, local envelope and explicit approval checks remain unchanged.
+
+### Critique and revision before implementation
+
+A map in an HTTP body is still self-asserted even when its package verifies. Therefore mapping
+and sealed classification need their own installation proof and independent exact-digest approval,
+reusing the key-approval principal separation rather than inventing an enrollment grant. Existing
+enrolled identifiers and signed Plan identifiers stay unchanged; no customer identifier is hashed.
+
+Rechecking all ancestors with the newest signer breaks valid rotation, while trusting previously
+parsed dictionaries hides tampering. The canonical package reader and builder therefore accept
+explicit per-ancestor public verification bindings and still verify original bytes and the complete
+chain. The Hub derives those bindings only from immutable import receipts and approved key records;
+historical acceptance never makes an old key current permission.
+An explicit Plan-to-import receipt prevents missing persisted packages from being mistaken for
+the older transient compatibility seam.
+
+A helper or an optional composition candidate leaves default startup disconnected. The actual
+pinned-catalog recompute route therefore resolves durable state by default. The new additive Hub
+schema revision preserves legacy raw configuration records, which are not ciphertext-only.
+Only this new import path claims ciphertext/public-metadata storage. Local tests do not establish
+real enrollment, deployed migration, Agent delivery, CSI integration or production qualification.
+
+### Authenticated source API
+
+The configured Target Lifecycle Hub exposes these operator-only routes beneath
+`/v1/installations/{installation_id}`. Existing JWT issuer, audience, client, scope and principal
+checks apply; local caller names, service tokens and actor fields cannot approve anything.
+
+| Route | Input and effect |
+|-------|------------------|
+| `POST /configuration-scope/request` | Base64 canonical `fdai.configuration-scope.v1` payload and enrolled installation identity proof; exact Release/schema, one-to-one Entity map, sealed-key names and bounded deadlines |
+| `POST /configuration-scope/approve` | Exact `digest`, approved by a different authenticated operator |
+| `GET /configuration-scope/requests/{digest}` | Public request metadata for independent review |
+| `POST /configuration/import` | Base64 original file container, canonical `fdai.configuration-import.v1` context and identity proof; context binds installation, requester, current key version, scope, container/package digests and retained predecessor |
+| `POST /configuration/approve` | Exact package `digest` and `receipt_digest`; independent configuration-change approval |
+| `POST /configuration/activate` | Same exact pair, with current head/trust/history and unexpired approval rechecked |
+| `GET /configuration` | Accepted and active digests, which are distinct |
+| `GET /configuration/revisions/{digest}` | Original ciphertext container and public acceptance digests, never decrypted values |
+
+Serving never migrates automatically. Explicit Hub schema revision 3 additively creates
+`lifecycle_configuration_scope_request`, `lifecycle_configuration_scope_approval`,
+`lifecycle_configuration_import`, `lifecycle_configuration_head` and
+`lifecycle_configuration_change_approval`, plus `lifecycle_configuration_plan_import` to retain
+issued Plan provenance. Revisions 1 and 2 upgrade without reinitializing legacy
+enrollment, keys or raw configuration. Accepted history is bounded to 256 packages and 16 MiB of
+signed payloads; overflow holds rather than truncating. The canonical builder, reader and
+installation-local decryption API accept per-ancestor `ConfigurationHistoryBinding` inputs.
+Those inputs authenticate history only and never establish current key permission.
+
 ## Honest limits
 
 - The offline builder signs real packages, checks predecessor chains, and encrypts identifiers.
@@ -482,7 +569,9 @@ No live enrollment, Azure operation, Agent/CSI delivery or production qualificat
   chain head. Separate authenticated Hub public-key request/approval/revocation APIs now persist
   trust and gate configuration planning. They require an already enrolled installation and
   independently authenticated customer operators. No operational enrollment was performed here,
-  and no atomic package-import or Agent delivery path is claimed.
+  and no operational Agent delivery is claimed. The separate atomic source importer persists
+  original signed containers, independently approved mappings and accepted/active heads; existing
+  legacy raw configuration records do not become ciphertext-only.
 - A customer who loses the configuration key can't publish new revisions until a key rotation
   is registered with the Hub.
 

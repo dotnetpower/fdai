@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fdai_deployment_cli.lifecycle_configuration_entities import InstallationLayerResolution
 from fdai_deployment_cli.lifecycle_configuration_package import (
+    ConfigurationHistoryBinding,
     SignedConfigurationPackage,
     verify_installation_configuration_package,
 )
@@ -29,6 +30,7 @@ class ConfigurationRevisionCandidate:
     sealed_keys: frozenset[str]
     expected_predecessor: str | None
     history: tuple[SignedConfigurationPackage, ...] = ()
+    history_bindings: tuple[ConfigurationHistoryBinding, ...] | None = None
 
     def resolve(
         self,
@@ -64,4 +66,5 @@ class ConfigurationRevisionCandidate:
             release_version=release_id,
             release_digest=release.digest,
             history=self.history,
+            history_bindings=self.history_bindings,
         )

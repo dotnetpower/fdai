@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Atomic signed-revision import and default configured consumption | implemented | `current change`; `lifecycle/hub/src/fdai_lifecycle_hub/configuration_import_*.py`, `configuration_consumer.py`, `store.py`, `remote_catalog.py`, `migrations.py`; exact #2336 commands below: 312 focused cases and 8 isolated PostgreSQL cases passed; strict mypy and Ruff passed | Real JWT scope request/independent approval, installation identity proof, current approved key/version, exact pinned Release/schema and managed Entity map, original ciphertext container, atomic receipt/head/audit, retry/restart/fork rejection, per-ancestor accepted key/receipt, issued Plan-to-import receipt and distinct change approval/activation. Default configured recomputation needs no candidate injection. Legacy raw configuration remains unchanged; no Agent delivery, same-Release action or production qualification is claimed. |
 | Approved configuration public-key source bindings and consumption | implemented | `current change`; `lifecycle/hub/src/fdai_lifecycle_hub/configuration_keys.py`, `configuration_key_store.py`, `configuration_key_api.py`, `models.py`, `migrations.py`, `store.py`, `remote.py`, `remote_catalog.py`; #2333 focused command below passed (259 cases); strict mypy and Ruff passed | Real JWT-authenticated request and independent approval, enrolled identity and signer proofs, role-separated Ed25519/X25519 public keys, immutable version/predecessor records, expiry, replay/CAS and revocation. The actual planning/store/API seam resolves durable trust and pins pending Plans to it. Local-only synthetic evidence; actual onboarding, cross-key historical-chain import, atomic package import and production qualification remain open. |
 | Full multi-Entity source revision production and consumption | implemented | `current change`; `lifecycle_configuration_entities.py`, `lifecycle_configuration_document.py`, `lifecycle_configuration_package.py`, `lifecycle_configuration_cli.py`; `lifecycle/hub/src/fdai_lifecycle_hub/{configuration,planning}.py`; focused #2331 checks below | One signed v2 revision binds every independently selected opaque Entity, exact Release version/manifest digest, canonical schema and authenticated identifier mapping. Actual library/CLI production and verification, installation-local decryption and the existing in-memory Hub planner are exercised. v1 remains explicit and compatible; no trust enrollment, durable Hub import, Agent delivery, CSI resolution or production eligibility is implied. |
 | Release-bound configuration schema publication, admission and planning | implemented | `current change`; `runtime_release.py`, `lifecycle_configuration.py`; `lifecycle/release-hub/src/fdai_release_hub/store.py`; `lifecycle/hub/src/fdai_lifecycle_hub/{catalog_import.py,planning.py}`; focused 515-test selection and final 51-test publication hardening selection below passed; #2327 | Optional v3 metadata pins canonical annotated keys, schema format and exact Release version inside the existing manifest digest/signature. Registration/publication and independently pinned admission reject invalid schemas; the real planner blocks installation-schema mismatch. Legacy paths and unverified CLI eligibility remain unchanged. Production Release qualification is not established. |
@@ -16,15 +17,16 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Configuration layers and override coverage | implemented | `current change`; `packages/deployment-cli/tests/test_lifecycle_configuration_package.py`; focused selection below passed | Actual package construction and reading validate all blocks, reject missing coverage and equivalent intervals, preserve most-specific selection, and reject sealed defaults. Hub/Agent transport integration remains open. |
 | Configuration package, signing, and predecessor checks | in-progress | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_package.py`; focused selection below passed | Real detached Ed25519 signatures, unsigned/tampered rejection, ordered predecessor/fork/revision checks, exact retry bytes. Caller-provided history is not a durable atomic Hub import or protected-merge pipeline. |
 | Supported local configuration package CLI | implemented | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_cli.py`; `cli_parser.py`; `packages/deployment-cli/tests/test_lifecycle_configuration_cli.py`; focused 409-test selection and strict checks below passed; #2325 | `fdaictl configuration build` and `verify` reuse the canonical builder/reader. Independent file inputs, explicit empty-chain/retained-head assertions, private single-file no-clobber output and verified readback. Local success is not key admission, qualified Release eligibility, Hub import or deployment. |
-| Sealed values | in-progress | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_sealing.py`; builder/reader/decryption tests below passed | X25519/HKDF-SHA256/AES-256-GCM seals identifiers; signed persisted bytes contain ciphertext and digests, not plaintext values. Installation decryption works locally. Actual key onboarding and atomic ciphertext-only Hub package persistence remain open. |
+| Sealed values | in-progress | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_sealing.py`; builder/reader/decryption tests below passed | X25519/HKDF-SHA256/AES-256-GCM seals identifiers; signed persisted bytes contain ciphertext and digests, not plaintext values. The new atomic source importer stores original ciphertext containers and local installation decryption is tested. Actual onboarding and Agent delivery remain open; legacy raw configuration storage is unchanged. |
 | Secret references | in-progress | `current change`; `packages/deployment-cli/tests/test_lifecycle_configuration_package.py`; focused selection below passed | The actual builder rejects literal secrets in defaults, Environment Config, nonmatching overrides, and sealing input before encryption/signing. Key Vault references remain valid. CSI reading and resolve-state reporting are not implemented here. |
-| Operational configuration transport | not-started | Owner design, current offline library/CLI and source public-key API boundaries | Actual key onboarding and independent readback, atomic Hub import and existing Agent artifact verification/decryption still need operational acceptance. Source public-key registration/rotation is tracked separately above. No existing protocol is silently replaced. |
+| Operational configuration transport | not-started | Owner design, current offline library/CLI and authenticated source key/import API boundaries | Actual key onboarding/readback and existing Agent artifact verification/decryption still need operational acceptance. Atomic source import and key registration/rotation are tracked separately above. No existing Agent protocol is silently replaced. |
 | Customer repository template and key-custody runbook | implemented | `config/lifecycle-configuration-template/`; paired `docs/runbooks/lifecycle-configuration-key-onboarding.md`; `tests/integration/test_lifecycle_configuration_template.py` | Placeholders and pure-validator checks only. The runbook links the local CLI while retaining the stop before operational trust registration, qualified Release publication and Hub import. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-21 | implemented | Designed, critiqued and revised #2336 before persistent/public edits. Added independently approved installation-proven opaque Entity scope, bounded actual JWT signed-container import, atomic accepted receipt/head/audit, separate change approval/activation, additive schema 1/2-to-3 migration and the default durable configured consumer. Historical signatures retain their exact accepted key/version/approval receipt across rotation and expiry; revoked or unprovable history holds. Corrected SQLite savepoint transaction ownership after an audit-failure counterexample, without weakening PostgreSQL serialization. Issued Plans explicitly pin their import receipt so missing Plan/key/head provenance cannot fall back to the transient key-only seam. | `current change`; source/tests above; exact commands below passed (312 focused cases, 8 isolated PostgreSQL cases, no skips); strict mypy passed (15 source files), Ruff passed. Normal SignedEnrollment HTTP parsing, two PostgreSQL connections, rollback, restart/exact bytes, fork/predecessor/old revision, substitution/tamper, independent approvals, current versus historical key permission, missing receipt/key/head holds, privacy, recall/windows and legacy Plan preservation are exercised. | Actual enrollment, deployed migration/startup, operational Agent/CSI delivery and production qualification remain open. Activation selects an upgrade input only, not a same-Release action or execution/promotion authority. Protected publication is independently owned; this is local source evidence. |
 | 2026-10-21 | implemented | Corrected the actual Hub consumer boundary: enrolled Entity IDs retain their existing maximum-63-character vocabulary, while v2 package bindings remain opaque 64-hex values. A transient candidate now requires an independent one-to-one mapping and exact installation binding; signed Plans retain the enrolled IDs. The prior test fixture's unsupported 64-character enrolled IDs no longer stand in for enrollment acceptance. | #2331; `current change`; the real signed-enrollment-to-planner regression failed before repair; `python3 scripts/automation/with-local-test-database.py uv run --no-sync pytest -q --no-cov --tb=short lifecycle/hub/tests/test_configuration_revision.py lifecycle/hub/tests/test_planning.py lifecycle/hub/tests/test_release_configuration_schema.py lifecycle/hub/tests/test_enrollment.py` passed (111, no skips); scoped strict mypy and Ruff passed. | This independent mapping is an explicit source-composition input, not durable mapping/key enrollment, ciphertext-only Hub import, Agent/CSI integration or production qualification. |
 | 2026-10-21 | implemented | Added and critiqued the authority-neutral v2 full revision contract before source edits. Reused canonical layers, schema, signing, sealing and predecessor verification; bound exact Release manifest and independent opaque Entity selection; wired actual CLI and existing transient Hub planning consumption. Missing/extra/duplicate Entity coverage, crossing ambiguous intervals, schema/key/signature substitution, forks, gaps and superseded revision retries fail closed. | `current change`; task-owned source/tests listed above; `uv run --no-sync pytest -q --no-cov --basetemp=.fdai/test-2331-final packages/deployment-cli/tests/test_lifecycle_{configuration*,plan}.py lifecycle/hub/tests/test_{planning,release_configuration_schema,configuration_revision}.py tests/integration/test_lifecycle_configuration_template.py` passed (381); strict mypy/Ruff passed; #2331. | Independent key enrollment/rotation, atomic durable ciphertext-only Hub import, Agent transport/decryption, Key Vault CSI resolution and production Release qualification. This source slice does not close #1823 or any independent candidate. |
 | 2026-10-21 | implemented | Routed only the lifecycle-configuration CLI source/tests to the existing Hub lifecycle owner, so the broad genesis route accepts their real owner without waiving documentation for unrelated provisioning changes. | `current change`; the real-manifest owner regression failed before routing repair; all 26 design-impact cases pass after repair, including refusal for unrelated `standalone_host.py`. The unchanged Hub PostgreSQL consumer cohort passed 2 cases on isolated loopback validation storage. The new package/sealing cohort passed 46 cases at 99.70% branch-inclusive coverage; the full focused package/resolver/template cohort passed 162. | These source and mechanical database checks do not implement atomic package import, independent installation key registration/rotation, Agent delivery/decryption, qualified schema, or CSI; #1823 remains open. |
@@ -61,6 +63,38 @@ PGCONNECT_TIMEOUT=3 python3 scripts/automation/with-local-test-database.py \
   --basetemp=.fdai/pytest-approved-keys-validated
 ```
 
+Focused #2336 source validation (passed: 116 Hub cases plus 196 schema/package/CLI cases):
+
+```bash
+uv run --no-sync python -m pytest -q --no-cov --tb=short \
+  --basetemp=.fdai/pytest-atomic-import \
+  lifecycle/hub/tests/test_configuration_import.py \
+  lifecycle/hub/tests/test_configuration_keys.py \
+  lifecycle/hub/tests/test_configuration_revision.py \
+  lifecycle/hub/tests/test_planning.py \
+  lifecycle/hub/tests/test_remote_catalog.py
+uv run --no-sync python -m pytest -q --no-cov --tb=short \
+  --basetemp=.fdai/pytest-atomic-import-packages \
+  lifecycle/hub/tests/test_release_configuration_schema.py \
+  packages/deployment-cli/tests/test_lifecycle_configuration_package.py \
+  packages/deployment-cli/tests/test_lifecycle_configuration_entities.py \
+  packages/deployment-cli/tests/test_lifecycle_configuration_cli.py
+```
+
+Isolated PostgreSQL #2336 validation (passed: 8 cases, loopback port 5433 only):
+
+```bash
+python3 scripts/automation/with-local-test-database.py \
+  uv run --no-sync python -m pytest -q --no-cov --tb=short \
+  --basetemp=.fdai/pytest-atomic-import-pg \
+  lifecycle/hub/tests/test_configuration_import_postgres.py \
+  lifecycle/hub/tests/test_configuration_keys_postgres.py \
+  lifecycle/hub/tests/test_hubs_postgres.py
+```
+
+The reviewed Starlette/AnyIO deprecation warning remains nonblocking. No dependency, marker,
+strict-config or timeout policy was overridden.
+
 ### Remaining work
 
 - [x] Add pure validator coverage for axis and owner annotations, including rejection of an
@@ -73,8 +107,9 @@ PGCONNECT_TIMEOUT=3 python3 scripts/automation/with-local-test-database.py \
 - [x] Add the offline packager, and record tests that reject an unsigned package, a predecessor
   gap, and a forked revision, and that call the schema, layer, sealed-key, and secret-reference
   validators. The 2026-10-21 history row records the passing actual builder/reader checks.
-- [ ] Add sealing, and record a test in which the Hub stores only ciphertext and digests and an
-  installation decrypts with its own key.
+- [x] Prove the new authenticated importer stores original ciphertext/public metadata and an
+  installation decrypts with its own key; #2336 tests exercise both boundaries without changing
+  existing legacy raw configuration storage.
 - [x] Implement and exercise offline sealing and installation-only decryption with synthetic
   in-memory keys, including wrong-recipient and ciphertext-tampering rejection. Operational Hub
   persistence and enrollment binding are not implied.
@@ -83,9 +118,11 @@ PGCONNECT_TIMEOUT=3 python3 scripts/automation/with-local-test-database.py \
   replay/CAS rejection, revocation and actual planning consumption. No live ceremony is implied.
 - [ ] Record actual customer-key onboarding and independent readback under an explicitly approved
   operational scope; source tests do not establish a trusted production installation.
-- [ ] Add atomic, durable Hub import of signed full installation revisions and integrate the
-  existing Agent artifact protocol without admitting plaintext sealed identifiers. Prove concurrent
-  fork rejection, restart/idempotent import, old-revision rejection, and ciphertext-only storage.
+- [x] Add atomic durable signed full-revision import, independently approved mapping/change,
+  explicit activation and default configured consumption; #2336 records concurrent fork rejection,
+  restart/exact retry, old-revision rejection, cross-key receipts and ciphertext storage evidence.
+- [ ] Integrate the existing Agent artifact protocol and record independently observed installation
+  verification/decryption effects without sending plaintext sealed identifiers through Hub.
 - [x] Expose and exercise the supported local packaging and verification commands, including actual
   subprocess success, signature/schema/chain failures, pre-sign secret rejection, malformed input,
   private file boundaries, output privacy and preservation of existing output. The #2325
