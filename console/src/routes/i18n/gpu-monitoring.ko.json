@@ -1,0 +1,118 @@
+{
+  "title": "GPU 모니터링",
+  "subtitle": "인증된 GPU 관측, 발견 사항, 에이전트 전달 및 검증된 복구 근거를 확인합니다.",
+  "sample": "샘플 근거",
+  "live": "실시간 근거",
+  "openLive": "실시간 운영 화면 열기",
+  "readonlyTitle": "관측 정보는 작업 권한을 부여하지 않습니다.",
+  "readonlyBody": "GPU 발견 사항은 등록된 ActionType이 승인과 안전성 검토를 통과할 때까지 shadow 모드로 유지됩니다.",
+  "unavailable": "인증된 GPU 관측이 실시간 스트림에 도착하지 않았습니다. 수집기, EventBus 게시 및 원본 freshness를 확인하세요.",
+  "stream": {
+    "connecting": "실시간 스트림에 연결 중",
+    "closed": "실시간 스트림 연결 끊김",
+    "unsupported": "실시간 스트림이 지원되지 않음",
+    "open": "실시간 스트림 연결됨",
+    "idle": "실시간 스트림 대기 중"
+  },
+  "kpi": {
+    "devices": "관측된 GPU",
+    "devicesHint": "정확한 논리 GPU ID",
+    "utilization": "GPU 사용률",
+    "utilizationHint": "최신 측정값",
+    "memory": "사용 중인 VRAM",
+    "memoryHint": "최신 프레임 버퍼 점유율",
+    "findings": "미해결 발견 사항",
+    "findingsHint": "GPU별 최신 상태"
+  },
+  "inventory": {
+    "title": "GPU 인벤토리",
+    "description": "정확한 원본과 GPU ID 하나를 선택합니다. 서로 다른 원본은 병합하지 않습니다.",
+    "label": "관측된 GPU ID",
+    "selected": "선택된 GPU",
+    "source": "원본",
+    "resource": "논리 리소스",
+    "model": "모델"
+  },
+  "evidence": {
+    "fresh": "신선함",
+    "stale": "오래됨",
+    "missing": "누락",
+    "conflicting": "충돌",
+    "age": "{seconds}초 전에 관측됨",
+    "sampleAge": "샘플 타임라인",
+    "origin": "근거 출처",
+    "collector": "수집기",
+    "ready": "준비됨",
+    "degraded": "성능 저하"
+  },
+  "charts": {
+    "load": "GPU 및 VRAM 부하",
+    "loadDescription": "선택한 GPU의 사용률과 프레임 버퍼 점유율 측정값입니다.",
+    "utilization": "GPU 사용률",
+    "memory": "VRAM 점유율",
+    "temperature": "온도",
+    "temperatureDescription": "섭씨 단위로 측정한 GPU 온도입니다.",
+    "power": "전력",
+    "powerDescription": "와트 단위로 측정한 보드 전력입니다."
+  },
+  "metrics": {
+    "title": "최신 측정 상태",
+    "description": "누락된 카운터는 사용할 수 없음으로 유지하며 0으로 처리하지 않습니다.",
+    "temperature": "온도",
+    "power": "소비 전력",
+    "ecc": "수정 불가능한 ECC",
+    "xid": "XID 코드",
+    "memory": "VRAM",
+    "observed": "관측 시각"
+  },
+  "findings": {
+    "title": "발견 사항 및 후속 관측",
+    "description": "조건 해제는 실행하지 않은 작업이 복구를 일으켰다는 증거가 아닙니다.",
+    "none": "이 GPU ID에 보존된 발견 사항이 없습니다.",
+    "open": "미해결",
+    "cleared": "후속 관측에서 해제됨",
+    "memory_pressure": "VRAM 압력",
+    "sustained_saturation_backlog": "백로그를 동반한 지속 포화",
+    "high_temperature": "높은 온도",
+    "new_ecc_error": "새 ECC 오류",
+    "new_xid_code": "새 XID 코드",
+    "observed_cuda_oom": "CUDA 메모리 부족",
+    "observed_thermal_throttle": "열 제한",
+    "allocated_idle_window": "할당된 GPU 유휴 상태"
+  },
+  "pipeline": {
+    "title": "에이전트 및 전달 경로",
+    "description": "타입이 지정된 소유권과 알림 전달을 구분해 표시합니다.",
+    "empty": "보존된 에이전트 경로가 없습니다.",
+    "eventBus": "EventBus",
+    "notification": "서명된 HTTPS 알림",
+    "verified": "스키마 및 서명 검증됨"
+  },
+  "action": {
+    "title": "통제된 대응 근거",
+    "description": "Console은 증적만 표시하며 작업을 실행하거나 승인할 수 없습니다.",
+    "none": "보존된 GPU 대응 증적이 없습니다.",
+    "actionType": "ActionType",
+    "outcome": "결과",
+    "effect": "독립 효과 관측",
+    "rollback": "복구 테스트",
+    "powerState": "최종 전원 상태",
+    "verified": "검증됨",
+    "notVerified": "검증되지 않음",
+    "tested": "테스트됨",
+    "notTested": "테스트되지 않음",
+    "succeeded": "성공",
+    "failed": "실패",
+    "unknown": "알 수 없음",
+    "running": "실행 중",
+    "deallocated": "할당 해제됨"
+  },
+  "technical": {
+    "title": "기술 출처",
+    "eventCount": "범위가 제한된 관측 {count}개",
+    "resourceRef": "리소스 참조",
+    "gpuId": "GPU ID",
+    "correlation": "상관관계",
+    "sampleBoundary": "샘플 모드는 측정된 개발 근거를 재현합니다. 보존된 VM에 연결된 상태가 아닙니다."
+  }
+}

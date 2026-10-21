@@ -13,6 +13,7 @@ describe("panel navigation placement", () => {
     const operations = panelsInGroup("operations").map((panel) => panel.id);
     expect(operations).toEqual([
       "live",
+      "gpu",
       "incidents",
       "hil-queue",
       "detection-readiness",
