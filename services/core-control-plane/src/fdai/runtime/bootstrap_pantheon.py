@@ -331,7 +331,12 @@ async def initialize_pantheon(
             can_approve=approver_authorizer_from_environment(config.environment),
         )
     )
-    execution_resource_lock = _build_resource_lock(config.environment) if pantheon_enforce else None
+    development_bindings = pantheon_inputs.pantheon_development_bindings(config.control_loop)
+    execution_resource_lock = (
+        _build_resource_lock(config.environment)
+        if pantheon_enforce or development_bindings is not None
+        else None
+    )
     thor_safety_readiness = config.build_mutation_dependency_readiness(
         saga=config.runtime_saga,
         rollback_executors=thor_bindings.rollback_executors,
@@ -483,7 +488,7 @@ async def initialize_pantheon(
         proposal_rate_limit_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,
         approver_authorizer=approver_authorizer_from_environment(config.environment),
-        development_authority=pantheon_inputs.pantheon_development_bindings(config.control_loop),
+        development_authority=development_bindings,
         approval_profile=approval_bindings,
         saga=config.runtime_saga,
         muninn_state_store=config.incident_audit_store,
