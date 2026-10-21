@@ -29,6 +29,7 @@ from fdai_lifecycle_hub.errors import (
     NotPendingError,
     PlanDigestMismatchError,
     ReportConflictError,
+    SchemaMigrationPendingError,
     StateRejectedError,
     UnknownInstallationError,
     UnknownPlanError,
@@ -339,6 +340,9 @@ def create_app(
 
         routes.append(Route("/{path:path}", serve_ui))
 
+    async def migration_pending(request: Request, error: Exception) -> Response:
+        return _error(503, "schema_migration_pending")
+
     app = Starlette(
         routes=routes,
         exception_handlers={
@@ -352,6 +356,7 @@ def create_app(
             NotPendingError: not_pending,
             InstallationKeyMismatchError: key_mismatch,
             ConcurrentWriteError: retry,
+            SchemaMigrationPendingError: migration_pending,
         },
     )
     return (

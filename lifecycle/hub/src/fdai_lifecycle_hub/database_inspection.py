@@ -15,9 +15,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine, Table, Text, func, inspect, literal, select, text
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.engine import URL, Connection, make_url
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import MultipleResultsFound, SQLAlchemyError
 
-from fdai_lifecycle_hub.migrations import _versions, require_schema
+from fdai_lifecycle_hub.migrations import _prepared_revision, _versions, require_schema
 from fdai_lifecycle_hub.remote import remote_engine
 
 ROW_LIMIT = 1000
@@ -58,7 +58,7 @@ def _require_endpoint_binding(url: URL) -> None:
         raise InspectionError("database_routing_override_not_allowed")
 
 
-def _tables(kind: Kind) -> list[Table]:
+def _tables(kind: Kind, connection: Connection | None = None) -> list[Table]:
     if kind == "release":
         from fdai_release_hub.database import metadata
 
@@ -69,7 +69,10 @@ def _tables(kind: Kind) -> list[Table]:
 
         tables = [*Base.metadata.sorted_tables, *metadata.sorted_tables]
     namespace = "release_hub" if kind == "release" else "lifecycle_hub"
-    return sorted([*tables, _versions(namespace)], key=lambda table: table.name)
+    versions = _versions(namespace)
+    if connection is not None:
+        _prepared_revision(connection, versions)
+    return sorted([*tables, versions], key=lambda table: table.name)
 
 
 def _observe_table(connection: Connection, table: Table) -> TableObservation:
@@ -158,7 +161,7 @@ def observe(engine: Engine, kind: Kind, target: Target, baseline: Receipt | None
                 require_schema(connection, namespace)
                 binding = connection.execute(text("SELECT current_database(), current_user")).one()
                 tables = {}
-                for table in _tables(kind):
+                for table in _tables(kind, connection):
                     phase = f"table_{table.name}"
                     tables[table.name] = _observe_table(connection, table)
                 if tables[f"{namespace}_schema_revision"].rows != 1:
@@ -183,6 +186,8 @@ def observe(engine: Engine, kind: Kind, target: Target, baseline: Receipt | None
                 return result
             finally:
                 transaction.rollback()
+    except MultipleResultsFound:
+        raise InspectionError(f"schema_revision_row_count_mismatch stage={phase}") from None
     except SQLAlchemyError as error:
         state = getattr(error.orig, "sqlstate", None) if hasattr(error, "orig") else None
         code = (
