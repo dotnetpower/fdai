@@ -22,6 +22,35 @@ from fdai_lifecycle_agent.hub_client import (
 HUB = "http://127.0.0.1:8740"
 
 
+def test_post_response_is_size_bounded() -> None:
+    with HttpHubClient(
+        HUB,
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(202, content=b"x" * (MAX_PLAN_RESPONSE_BYTES + 1))
+        ),
+    ) as client:
+        with pytest.raises(HubProtocolError, match="size limit"):
+            client.submit_state("installation-alpha", {})
+
+
+def test_slow_stream_stops_at_total_body_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = iter([0.0, 11.0])
+    with HttpHubClient(
+        HUB, transport=httpx.MockTransport(lambda request: httpx.Response(200, content=b"{}"))
+    ) as client:
+        monkeypatch.setattr(
+            "fdai_lifecycle_agent.hub_client.time.monotonic", lambda: next(clock, 11.0)
+        )
+        with pytest.raises(HubProtocolError, match="deadline"):
+            client.fetch_plan("installation-alpha")
+
+
+@pytest.mark.parametrize("timeout", [0, -1, float("nan"), float("inf")])
+def test_invalid_http_timeouts_are_rejected(timeout: float) -> None:
+    with pytest.raises(ValueError, match="positive and finite"):
+        HttpHubClient(HUB, timeout_seconds=timeout)
+
+
 def _client(handler: httpx.MockTransport, sleeps: list[float] | None = None) -> HttpHubClient:
     recorded = sleeps if sleeps is not None else []
     return HttpHubClient(HUB, transport=handler, sleep=recorded.append)

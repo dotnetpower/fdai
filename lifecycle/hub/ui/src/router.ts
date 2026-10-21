@@ -8,12 +8,16 @@ export type Route =
   | { kind: "enrollments" }
   | { kind: "enrollment"; installationId: string }
   | { kind: "catalog" }
+  | { kind: "releases" }
+  | { kind: "configurations" }
   | { kind: "not-found"; path: string };
 
 export function parseRoute(pathname: string): Route {
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return { kind: "installations" };
   if (segments.length === 1 && segments[0] === "catalog") return { kind: "catalog" };
+  if (segments.length === 1 && segments[0] === "available-releases") return { kind: "releases" };
+  if (segments.length === 1 && segments[0] === "configuration-packages") return { kind: "configurations" };
   if (segments[0] === "installations") {
     if (segments.length === 1) return { kind: "installations" };
     if (segments.length === 2) return { kind: "installation", installationId: segments[1]! };
@@ -30,6 +34,14 @@ export function parseRoute(pathname: string): Route {
 
 export function installationsPath(): string {
   return "/installations";
+}
+
+export function availableReleasesPath(): string {
+  return "/available-releases";
+}
+
+export function configurationPackagesPath(): string {
+  return "/configuration-packages";
 }
 
 export function installationPath(installationId: string): string {

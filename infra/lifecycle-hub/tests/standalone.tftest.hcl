@@ -156,3 +156,73 @@ run "mutable_app_image_is_rejected" {
   }
   expect_failures = [var.app_image]
 }
+
+run "operator_defaults_preserve_older_runtime_config" {
+  command = plan
+  variables {
+    operator_auth = {
+      profile        = "remote-development"
+      tenant_id      = "00000000-0000-0000-0000-000000000001"
+      audience       = "example-api"
+      spa_client_id  = "example-browser"
+      operator_scope = "Hub.Access"
+      operator_ids   = ["example-operator"]
+    }
+  }
+  assert {
+    condition     = !contains(keys(output.deployment.runtime_config.auth), "agent_principals")
+    error_message = "Default bindings must not add fields that older Hub images reject."
+  }
+}
+
+run "explicit_agent_bindings_reach_runtime" {
+  command = plan
+  variables {
+    operator_auth = {
+      profile        = "remote-development"
+      tenant_id      = "00000000-0000-0000-0000-000000000001"
+      audience       = "example-api"
+      spa_client_id  = "example-browser"
+      operator_scope = "Hub.Access"
+      operator_ids   = ["example-operator"]
+      agent_principals = [{
+        installation_id = "installation-alpha"
+        object_id       = "example-agent-object"
+        client_id       = "example-agent-client"
+      }]
+    }
+  }
+  assert {
+    condition = (
+      length(output.deployment.runtime_config.auth.agent_principals) == 1 &&
+      output.deployment.runtime_config.auth.agent_principals[0].installation_id == "installation-alpha" &&
+      output.deployment.runtime_config.auth.agent_principals[0].object_id == "example-agent-object" &&
+      output.deployment.runtime_config.auth.agent_principals[0].client_id == "example-agent-client"
+    )
+    error_message = "Independent Lifecycle Hub inputs must preserve the exact Agent binding."
+  }
+}
+
+run "vendor_rejects_agent_bindings" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "release"
+    operator_auth = {
+      profile        = "remote-development"
+      tenant_id      = "00000000-0000-0000-0000-000000000001"
+      audience       = "example-api"
+      spa_client_id  = "example-browser"
+      operator_scope = "Hub.Access"
+      operator_ids   = ["example-operator"]
+      agent_principals = [{
+        installation_id = "installation-alpha"
+        object_id       = "example-agent-object"
+        client_id       = "example-agent-client"
+      }]
+    }
+  }
+  expect_failures = [var.operator_auth]
+}

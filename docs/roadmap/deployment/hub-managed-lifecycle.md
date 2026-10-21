@@ -131,15 +131,62 @@ approved trust channel before requesting one bounded outbound import. The export
 digest is not that approval. Accepted bytes, digest, key binding, monotonic revision floor,
 and attributed audit persist. Existing manifest signatures, expiry, recall contracts, and
 planner constraints remain in force; recall import and planning serialize against one trust row.
-The UI can compute a Plan for an already prepared synthetic installation, but the remote profile
-does not open Agent transport or execute a Plan.
+The UI can compute a Plan for an already prepared synthetic installation. The legacy fixture does
+not configure installation Agent bindings or execute a Plan.
 
 [Two-Hub development boundaries](../../../infra/hubs-development/README.md) owns preparation
 steps and validation commands. Static IaC and local containers do not establish Azure
 network/RBAC isolation, real Entra sign-in, registry availability, or replica durability.
 Those require a separately approved exact cloud preview and execution scope. This path does
 not change source/offline installation and does not implement automatic polling, production
-catalog metadata/root ceremony, Agent apply, or a complete FDAI installation.
+catalog metadata/root ceremony, cloud Agent apply, or a complete FDAI installation.
+
+## Read-only input inventory
+
+The read-only **Available releases** screen projects the already accepted catalog through
+`GET /v1/catalog/releases`, rechecking its pin, signatures and expiry without an outbound import.
+Unavailable catalog trust returns `503`; a verified empty catalog remains a distinct result.
+**Configuration packages** uses `GET /v1/configurations` for stored digests, counts, timestamps
+and current installation references, omitting values and sealed identifiers. It explicitly
+states that independent package signature provenance is not recorded. Neither listing proves
+artifact availability, eligibility or signed-input readiness, and Agent identities cannot read
+these operator inventories. See the [operator guide](../../runbooks/hub-lifecycle-operator-guide.md)
+for onboarding/release diagrams, public input provenance and the current manual/production gap.
+
+## Opt-in installation Agent transport
+
+The local development implementation accepts an explicit `auth.agent_principals` binding for
+each installation. A caller needs the exact application object/client pair, `idtyp=app`, and
+the `Agent.Access` role in a directly verified Entra token. It can only read that installation's
+Plan and submit its state/reports. Operators, catalog identities and Agent identities remain
+distinct; an Agent cannot enroll, approve, publish, import or recompute. Release Hub refuses
+Agent bindings, and an empty binding list preserves existing denial.
+
+For an explicitly bound installation, the verified operator can submit its signed enrollment to
+`POST /v1/enrollments/{installation_id}/requests`. The existing installation proof, freshness,
+matching-id and size checks still apply; the audit records the authenticated `requested_by`.
+Submission creates only a pending request. Approval and Entity management remain separate.
+The original Agent enrollment route stays closed, and unbound installations cannot use the
+operator route. The independent Lifecycle Terraform root forwards nonempty Agent bindings;
+empty bindings omit the runtime field for compatibility with older images.
+
+The **Enrollment requests** screen lets the operator enter the bound installation ID and
+upload a signed request JSON file of at most 64 KiB. It sends only `signed_payload` and
+`proof`; private keys are never an upload input. Submission has a ten-second deadline and
+does not retry automatically. After an uncertain result, refresh the pending list before
+retrying. A pending result is not approval, ownership evidence, or permission to apply a Plan.
+
+The Agent can explicitly exchange its AKS projected workload identity for the selected Hub API
+scope and separately load in-cluster Kubernetes authentication without kubeconfig fallback.
+Finite polling stops on errors, rejection or rollback. Signed inputs are independently pinned,
+verified before offline staging, then verified again at admission. The existing fsynced replay
+floor, pending report and rollback journal live with current state on a persistent volume in the
+Agent namespace, outside its workload Role. Only namespace-scoped Deployment, Service and Job
+operations are granted. See the [Agent preparation guide](../../../lifecycle/agent/README.md#remote-development-preparation).
+
+These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or nginx
+effect evidence. Existing Hub images, revisions, catalog bindings and network allowlists are
+not changed by this preparation. An exact cloud plan and separate approval precede those effects.
 
 ## Independent product deployment
 

@@ -93,6 +93,11 @@ variable "operator_auth" {
     service_object_id = optional(string)
     service_client_id = optional(string)
     service_role      = optional(string, "Catalog.Read")
+    agent_principals = optional(list(object({
+      installation_id = string
+      object_id       = string
+      client_id       = string
+    })), [])
   })
   default = null
   validation {
@@ -100,9 +105,10 @@ variable "operator_auth" {
       var.operator_auth.profile == "remote-development" &&
       length(var.operator_auth.operator_ids) > 0 &&
       var.operator_auth.audience != "" && var.operator_auth.spa_client_id != "" &&
-      (var.kind == "release" || var.operator_auth.service_object_id == null)
+      (var.kind == "release" || var.operator_auth.service_object_id == null) &&
+      (var.kind == "target" || length(var.operator_auth.agent_principals) == 0)
     )
-    error_message = "Supply complete verified operator bindings; Lifecycle Hub cannot admit a vendor service identity."
+    error_message = "Supply complete verified operator bindings; Lifecycle Hub cannot admit a vendor service identity and Release Hub cannot admit Agents."
   }
 }
 variable "catalog" {

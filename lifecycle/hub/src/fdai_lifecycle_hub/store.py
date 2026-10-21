@@ -86,6 +86,37 @@ class HubStore:
             raise SchemaMismatchError(f"recreate the Hub database; earlier schema in {stale}")
         models.Base.metadata.create_all(self.engine)
 
+    def configuration_inventory(self) -> dict[str, object]:
+        """Stored revision metadata only; enrollment bodies carry no signature provenance."""
+        with self._sessions.begin() as session:
+            installations: dict[str, list[str]] = {}
+            for installation_id, digest in session.execute(
+                select(
+                    models.Installation.installation_id,
+                    models.Installation.configuration_digest,
+                ).order_by(models.Installation.installation_id)
+            ):
+                installations.setdefault(digest, []).append(installation_id)
+            revisions = session.scalars(
+                select(models.ConfigurationRevision).order_by(
+                    models.ConfigurationRevision.imported_at.desc(),
+                    models.ConfigurationRevision.digest,
+                )
+            )
+            return {
+                "configurations": [
+                    {
+                        "digest": revision.digest,
+                        "imported_at": revision.imported_at.isoformat(),
+                        "schema_key_count": len(revision.body["schema"]),
+                        "override_count": len(revision.body["entity_overrides"]),
+                        "installation_ids": installations.get(revision.digest, []),
+                        "signature_status": "not-recorded",
+                    }
+                    for revision in revisions
+                ]
+            }
+
     def drop_schema(self) -> None:
         models.Base.metadata.drop_all(self.engine)
 
@@ -100,12 +131,19 @@ class HubStore:
             raise ConcurrentWriteError("a concurrent write committed first; retry") from error
 
     def request_enrollment(
-        self, request: EnrollmentRequest, *, verify: KeyProofVerifier, now: datetime
+        self,
+        request: EnrollmentRequest,
+        *,
+        verify: KeyProofVerifier,
+        now: datetime,
+        requested_by: str | None = None,
     ) -> None:
         """Record a pending request, or audit why its key proof fails and raise."""
 
         installation_id = request.installation.installation_id
         details = {"installation_key_id": request.installation_key_id}
+        if requested_by is not None:
+            details["requested_by"] = schemas.actor_name.validate_python(requested_by)
         if (failure := request.proof_failure(verify, now)) is not None:
             with self._write() as session:
                 audit.append(

@@ -31,6 +31,7 @@ from fdai_deployment_cli.lifecycle_plan import (
 from fdai_deployment_cli.runtime_release import RuntimeReleaseError, parse_runtime_release_manifest
 
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
+from fdai_lifecycle_agent.state import write_bytes_atomically
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
 
 LIFECYCLE_RELEASE_SCHEMA = "fdai.runtime-release.v3"
@@ -114,6 +115,25 @@ class DirectoryArtifactStore:
             return None
         signature = _read_optional(directory / f"{digest}.sig")
         return SignedArtifact(payload=payload, signature=signature or b"")
+
+
+def stage_artifact(
+    root: Path, kind: InputKind, digest: str, artifact: SignedArtifact, verify: ArtifactVerifier
+) -> None:
+    """Stage independently pinned, signed bytes. Full semantic validation remains at admission."""
+    if _HEX_DIGEST.fullmatch(digest) is None or kind not in ("release", "configuration"):
+        raise ValueError("Signed input kind or digest is invalid.")
+    if len(artifact.payload) > MAX_INPUT_BYTES or len(artifact.signature) != 64:
+        raise ValueError("Signed input exceeds its byte limit or has an invalid signature length.")
+    if not verify(artifact.payload, artifact.signature):
+        raise ValueError("Signed input signature verification failed.")
+    document = load_json(artifact.payload, label="signed input")
+    if canonical_digest(document) != digest:
+        raise ValueError("Signed input does not match the independently approved digest.")
+    directory = root / f"{kind}s"
+    # Publish the document last; an interrupted pair is rejected again during admission.
+    write_bytes_atomically(directory / f"{digest}.sig", artifact.signature)
+    write_bytes_atomically(directory / f"{digest}.json", artifact.payload)
 
 
 @dataclass(frozen=True, slots=True)

@@ -11,6 +11,7 @@ from collections.abc import Callable
 from typing import Any
 
 from kubernetes import config, dynamic  # type: ignore[import-untyped]
+from kubernetes.client import ApiClient, Configuration  # type: ignore[import-untyped]
 from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
 from urllib3.exceptions import HTTPError
 
@@ -30,12 +31,26 @@ class KubernetesCluster:
     """
 
     def __init__(
-        self, *, context: str, namespace: str, request_timeout_seconds: float = 10.0
+        self,
+        *,
+        context: str | None = None,
+        namespace: str,
+        in_cluster: bool = False,
+        request_timeout_seconds: float = 10.0,
     ) -> None:
+        if in_cluster == bool(context):
+            raise ValueError("Select exactly one kubeconfig context or in-cluster authentication.")
         try:
-            self._api_client = config.new_client_from_config(context=context)
+            if in_cluster:
+                configuration = Configuration()
+                config.load_incluster_config(client_configuration=configuration)
+                self._api_client = ApiClient(configuration=configuration)
+            else:
+                self._api_client = config.new_client_from_config(context=context)
         except (config.ConfigException, OSError) as error:
-            raise ValueError(f"kubeconfig context is unusable: {type(error).__name__}") from error
+            raise ValueError(
+                f"Kubernetes authentication is unusable: {type(error).__name__}"
+            ) from error
         self._namespace = namespace
         self._timeout = request_timeout_seconds
         self._dynamic: Any = None

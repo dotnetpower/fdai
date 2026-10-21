@@ -76,6 +76,9 @@ def create_app(
     async def healthz(request: Request) -> Response:
         return JSONResponse({"status": "ok"})
 
+    async def list_configurations(request: Request) -> Response:
+        return JSONResponse(await run_in_threadpool(store.configuration_inventory))
+
     async def get_plan(request: Request) -> Response:
         installation_id = request.path_params["installation_id"]
         plan = await run_in_threadpool(store.current_plan, installation_id, now=clock())
@@ -90,7 +93,7 @@ def create_app(
             }
         )
 
-    async def post_enrollment(request: Request) -> Response:
+    async def post_enrollment(request: Request, *, requested_by: str | None = None) -> Response:
         body = await _read_limited(request, MAX_ENROLLMENT_BYTES)
         if body is None:
             return _error(413, "enrollment_too_large")
@@ -103,7 +106,11 @@ def create_app(
             return _error(422, "enrollment_invalid")
         try:
             await run_in_threadpool(
-                store.request_enrollment, enrollment, verify=verify_proof, now=clock()
+                store.request_enrollment,
+                enrollment,
+                verify=verify_proof,
+                now=clock(),
+                requested_by=requested_by,
             )
         except EnrollmentProofError as error:
             return _error(403, error.failure)
@@ -114,6 +121,16 @@ def create_app(
             },
             status_code=202,
         )
+
+    async def post_operator_enrollment(request: Request) -> Response:
+        if error := _decision_request_error(request):
+            return error
+        if remote_auth is None or not any(
+            principal.installation_id == request.path_params["installation_id"]
+            for principal in remote_auth.agent_principals
+        ):
+            return _error(403, "installation_not_bound")
+        return await post_enrollment(request, requested_by=request.state.operator)
 
     async def post_report(request: Request) -> Response:
         body = await _read_limited(request, MAX_REPORT_BYTES)
@@ -276,6 +293,7 @@ def create_app(
         Route("/v1/installations/{installation_id}/state", post_state, methods=["POST"]),
         # Operator UI routes: read-only, plus enrollment approval.
         Route("/v1/installations", list_installations),
+        Route("/v1/configurations", list_configurations),
         Route("/v1/installations/{installation_id}", get_installation),
         Route("/v1/installations/{installation_id}/plans/{plan_id}", get_plan_detail),
         Route("/v1/enrollments/pending", list_pending),
@@ -291,6 +309,14 @@ def create_app(
             methods=["POST"],
         ),
     ]
+    if remote_auth is not None and remote_auth.agent_principals:
+        routes.append(
+            Route(
+                "/v1/enrollments/{installation_id}/requests",
+                post_operator_enrollment,
+                methods=["POST"],
+            )
+        )
     if static_dir is not None:
         # The UI is a single-page app: any built file (an asset, the brand image, the favicon)
         # is served as-is; any other path (a route the UI's own router reads) gets `index.html`.

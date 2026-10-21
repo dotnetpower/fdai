@@ -9,11 +9,13 @@ namespace, verifies the rollout, and rolls back on failure. See [Apply mode](#ap
 
 ## Boundary
 
-- No Azure client is imported. Only `kube.py` imports a Kubernetes client, and only `--apply`
-  loads it, so a dry run performs no write. `tests/test_no_write.py` proves this statically and in
-  a fresh interpreter.
-- Only `hub_client.py` opens a network connection, and only outbound to the Hub. Plain HTTP is
-  accepted only for a loopback Hub, because the Lifecycle I0 Hub has no authentication.
+- Azure identity is loaded only when workload federation is explicitly selected. It requests
+  only the configured Hub API scope; no Azure management client, CLI credential, or client secret
+  is used. The default dry run loads neither Azure nor Kubernetes. Only `kube.py` imports a
+  Kubernetes client and only `--apply` loads it.
+- `hub_client.py` opens outbound Hub connections. Explicit federation also contacts Entra through
+  the identity SDK. Bearer transport requires an exact HTTPS origin and never follows redirects.
+  Plain HTTP is accepted only for the unauthenticated loopback profile.
 - The maximum effect envelope is derived locally. `--local-policy` sets the hard limit. The signed
   Release's `capabilities.<id>.maximum_mode` lowers each capability mode and drops any capability
   the Release doesn't name, and a `region` in the signed configuration narrows the regions. Neither
@@ -106,9 +108,62 @@ fdai-lifecycle-agent poll-once <options above> \
 | Option | Content |
 |--------|---------|
 | `--apply` | Apply an admitted Plan. Without it, the poll is the dry run above. |
-| `--kube-context` | The kubeconfig context to use. Required with `--apply`. |
+| `--kube-context` | Select one kubeconfig context, or select `--in-cluster`, with `--apply`. |
+| `--in-cluster` | Use the Pod's projected Kubernetes identity and CA, without kubeconfig fallback. |
 | `--namespace` | The only namespace the agent reads or changes. Required with `--apply`. |
 | `--health-timeout-seconds` | How long each rollout and each rollback has to complete. Default `180`. |
+
+### Remote development preparation
+
+Remote transport is opt-in and has local test evidence only. It doesn't modify an existing Hub,
+register an application, grant a role, create an AKS cluster, or authorize workload application.
+Use a separately approved Hub build that supports `auth.agent_principals`. Each entry binds
+`installation_id`, `object_id` and `client_id` to one distinct application identity. The verified
+token also needs `idtyp=app` and the `Agent.Access` application role. The role permits only that
+installation's Plan GET/HEAD and state/report POST routes, never enrollment, catalog, operator
+approval or recomputation. Empty bindings retain denial by default.
+
+Select federation with `--hub-auth workload-identity --hub-scope api://<hub-api-id>/.default`.
+The AKS workload-identity webhook supplies `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and
+`AZURE_FEDERATED_TOKEN_FILE`. Its projected token has the token-exchange audience, not the
+Kubernetes API audience. Kubernetes authentication still uses its own projected identity.
+Don't supply token contents through command arguments, input files or logs.
+
+The `poll` command accepts the same settings as `poll-once` plus `--max-polls` (default 30),
+`--poll-interval-seconds` (15) and `--max-duration-seconds` (900). It bounds poll starts and
+sleeps, stops on transport/authentication errors, rejected inputs and rollback, and logs only
+outcome codes rather than receipt contents. An in-flight apply finishes its existing bounded
+verification/recovery before the scheduling deadline takes effect; it isn't forcibly killed.
+Each HTTP response is size-bounded and has a body deadline in addition to socket timeouts.
+
+Before polling, stage each independently pinned signed input:
+
+```bash
+fdai-lifecycle-agent stage-input --kind release --digest <approved-canonical-digest> \
+  --document <release.json> --signature <release.sig> --public-key <release-public.pem> \
+  --inputs-dir <inputs-dir>
+```
+
+Use `--kind configuration` and the configuration public key for the other input. This offline
+command verifies the exact bytes and canonical digest before atomic owner-only publication.
+It never signs data or obtains trust from a key bundled with the download. Admission rechecks
+both inputs and all existing semantic, expiry, replay and envelope constraints at every new Plan.
+
+The [namespace RBAC template](deploy/namespace-rbac.yaml) binds a service account in
+`fdai-agent-system` to a Role in the separate `fdai-nginx-dev` namespace. Its only permissions
+are get/create/patch/delete on Deployments, Services and Jobs. It grants no Secrets, Pods,
+exec, RBAC, node, namespace or cluster-admin access. The workload namespace enforces restricted
+Pod Security. Discovery relies on the cluster's authenticated discovery access; don't add a
+wildcard ClusterRole if discovery fails.
+
+The [state PVC template](deploy/state-volume.yaml) reserves an Azure Disk claim in the Agent
+namespace, outside its workload write scope. Mount it writable and keep `--state-dir` and
+`--current-state` on that same volume; seed the initial current-state snapshot through the
+approved operator setup before starting. Mount signed input directories, public keys and
+local policy read-only. Use one Agent replica and a Recreate strategy with the ReadWriteOnce
+volume. Don't substitute `emptyDir` or container-local storage for the replay floor, pending
+reports, journal or current state. These are preparation templates, not an installed Agent
+image or evidence that a cloud Pod can authenticate, mount storage or recover after eviction.
 
 ### What the agent applies
 

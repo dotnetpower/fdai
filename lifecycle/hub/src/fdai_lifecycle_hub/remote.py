@@ -167,6 +167,18 @@ def target_routes(
 ) -> list[Route]:
     """Optional server-owned configuration context never comes from the HTTP body."""
 
+    async def releases(request: Request) -> Response:
+        from fdai_lifecycle_hub.inventory import release_inventory
+
+        try:
+            admitted = await run_in_threadpool(catalog.catalog, utc_now())
+        except ValueError:
+            logger.warning("hub_catalog_unavailable reason=catalog_verification_failed")
+            return JSONResponse(
+                {"error": "catalog_unavailable_review_trust_and_expiry"}, status_code=503
+            )
+        return JSONResponse(release_inventory(admitted))
+
     async def status(request: Request) -> Response:
         return JSONResponse(await run_in_threadpool(catalog.status))
 
@@ -207,6 +219,7 @@ def target_routes(
     return [
         *configuration_routes(ConfigurationImportStore(store.engine), catalog, utc_now),
         Route("/v1/catalog/trust", status),
+        Route("/v1/catalog/releases", releases),
         Route("/v1/catalog/trust/approve", approve, methods=["POST"]),
         Route("/v1/catalog/import", import_catalog, methods=["POST"]),
         Route("/v1/installations/{installation_id}/recompute", recompute, methods=["POST"]),
