@@ -17,6 +17,8 @@ to complete that flow.
 > points, focused host suite, and legacy compatibility facade were removed during the 2026-08-08
 > service extraction and have no replacement in the current tree.
 
+The SREGym benchmark image builds OPA with the same pinned Go toolchain as the Core and Cost Governance images. A toolchain change moves all of them and their pin tests together.
+
 ## Design at a glance
 
 The target flow keeps SREGym, CyberGym, and other harness protocols outside the FDAI wheel. An
