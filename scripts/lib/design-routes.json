@@ -3277,6 +3277,8 @@
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md",
         "docs/roadmap/deployment/hub-managed-lifecycle.md",
+        "docs/roadmap/deployment/hub-managed-lifecycle-self-upgrade.md",
+        "docs/roadmap/deployment/hub-managed-lifecycle-entitlement.md",
         "docs/roadmap/deployment/lifecycle-configuration.md",
         "docs/roadmap/deployment/lifecycle-releases-and-channels.md",
         "docs/roadmap/deployment/source-deployment.md",

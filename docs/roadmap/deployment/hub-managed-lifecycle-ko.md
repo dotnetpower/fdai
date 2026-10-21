@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: b4cd7628eeb01c3718926db8636b7ce90d072728
+translation_source_sha: 9f368ff4180c3c9d8b9885ac8a0822c41e57cb6f
 translation_revised: 2026-10-21
 ---
 # Hub 관리형 수명 주기
@@ -771,9 +771,10 @@ Release 테이블은 [Lifecycle Release와 채널](lifecycle-releases-and-channe
   안에서 이전 이미지를 복원하고 `rolled-back`을 보고합니다. 그러면 Hub는 그 Plan의 각 Entity에
   24시간짜리 실패 억제 구간을 두며, 운영자는 이를 더 일찍 해제할 수 있습니다. 설치 전체에 대한
   실패 임계값은 구현되지 않았습니다.
-- 에이전트와 Target Hub의 두 슬롯 자체 업그레이드에는 별도의 실패 분석이 필요합니다.
-- Hub 관리형 설치에 사용권이 어떻게 전달되는지는 아직 정하지 않았습니다. Hub 업그레이드는
-  Trial을 갱신하지 않습니다.
+- [자체 업그레이드 실패 분석](hub-managed-lifecycle-self-upgrade-ko.md)은 슬롯/실행 제한 세대,
+  데이터 호환성과 복구 의무를 정의합니다. 제어기와 운영 훈련은 아직 구현되지 않았습니다.
+- [사용권 연속성](hub-managed-lifecycle-entitlement-ko.md)은 설치 내부의 사용권 권한과 전달만 하는
+  Hub를 선택합니다. 전달/인계는 아직 구현되지 않았으며 업그레이드는 Trial을 갱신하지 않습니다.
 - 오프라인 설치는 운영자가 다음 번들을 가져올 때만 회수를 받습니다.
 - Hub 경로는 AKS만 지원하며 온프레미스 런타임은 범위 밖입니다.
 
@@ -782,6 +783,8 @@ Release 테이블은 [Lifecycle Release와 채널](lifecycle-releases-and-channe
 | 알아볼 내용 | 참고 문서 |
 |-------------|-----------|
 | 결정 기록 | [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md) |
+| 자체 업그레이드 실패와 복구 | [실패 분석](hub-managed-lifecycle-self-upgrade-ko.md) |
+| 사용권과 Trial 연속성 | [사용권 결정](hub-managed-lifecycle-entitlement-ko.md) |
 | 구성 계층, 패키지, 비밀 | [수명 주기 구성](lifecycle-configuration-ko.md) |
 | Release, 채널, 번들, 회수 | [Lifecycle Release와 채널](lifecycle-releases-and-channels-ko.md) |
 | 승인 프로필과 정책 관리 | [운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md) |
