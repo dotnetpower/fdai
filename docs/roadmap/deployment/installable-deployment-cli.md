@@ -20,7 +20,7 @@ inside the target virtual network.
 | Concern | Decision |
 |---------|----------|
 | Entitlement transport | Optional `fdaictl license seal-entitlement` seals existing bytes for [local licensing-owner intake](hub-managed-lifecycle-entitlement.md#local-source-commands); no issuer, Trial activation, Hub requirement or deployment is introduced |
-| Operator commands | `fdaictl provision azure` for deployment; `fdaictl configuration build`/`verify` for [local signed configuration artifacts](lifecycle-configuration.md) only, without Azure access, trust registration, or deployment |
+| Operator commands | `fdaictl provision azure` for deployment; `fdaictl configuration build`/`verify` for [local signed artifacts](lifecycle-configuration.md); `publish`/`inspect-publication` for [private local publication evidence](lifecycle-configuration-publication.md), without Git-review proof, Azure access, trust registration or deployment |
 | Source-checkout command | `scripts/deployment/azure/fdai-up.sh` |
 | Infrastructure engine | Terraform from the selected signed profile closure |
 | Target selection | Active interactive Azure CLI user |

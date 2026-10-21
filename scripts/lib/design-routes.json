@@ -3255,6 +3255,30 @@
       ]
     },
     {
+      "id": "configuration-local-publication",
+      "paths": [
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_publication*.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_artifact.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_cli.py",
+        "packages/deployment-cli/tests/test_lifecycle_configuration_publication*.py",
+        "docs/roadmap/deployment/lifecycle-configuration-publication*.md",
+        "docs/roadmap-implementation/deployment/lifecycle-configuration-publication.md"
+      ],
+      "must_read": [
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/deployment/lifecycle-configuration.md",
+        "docs/roadmap/deployment/lifecycle-configuration-publication.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/lifecycle-configuration-publication.md",
+        "docs/roadmap-implementation/deployment/lifecycle-configuration-publication.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "hub-managed-lifecycle",
       "paths": [
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_release.py",

@@ -1,8 +1,8 @@
 ---
 title: 수명 주기 구성
 translation_of: lifecycle-configuration.md
-translation_source_sha: 02511cbeaaac449a83620f70747467c2f6dd47c2
-translation_revised: 2026-10-21
+translation_source_sha: 0a343a7f3b3ecc3007ca9ef045384c81669be791
+translation_revised: 2026-10-22
 ---
 # 수명 주기 구성
 
@@ -644,6 +644,7 @@ pin 카탈로그 재계산 경로가 기본적으로 영속 상태를 확인합�
 
 | 알아볼 내용 | 참고 문서 |
 |-------------|-----------|
+| Git 검토나 Hub 수락을 추정하지 않는 지속적인 로컬 출판 | [로컬 구성 출판](lifecycle-configuration-publication-ko.md) |
 | 수명 주기 아키텍처와 Plan | [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md) |
 | Release, 채널, 번들 | [Lifecycle Release와 채널](lifecycle-releases-and-channels-ko.md) |
 | 승인 정책과 허용 정책 | [운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md) |

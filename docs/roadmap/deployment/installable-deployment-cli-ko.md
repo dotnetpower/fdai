@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: bc821b347b23a42bd100955d2b2d0090f1a2b8af
-translation_revised: 2026-10-21
+translation_source_sha: 8f6606569c66fb03df9e22c9049bd3ad258c30cc
+translation_revised: 2026-10-22
 ---
 
 # 설치형 배포 CLI
@@ -24,7 +24,7 @@ Host에서 실행됩니다.
 | 항목 | 결정 |
 |------|------|
 | 사용권 전달 | 선택적 `fdaictl license seal-entitlement`는 [로컬 사용권 담당 인계](hub-managed-lifecycle-entitlement-ko.md#로컬-소스-명령)를 위해 기존 바이트만 봉인합니다. 발급자, Trial 활성화, Hub 선행 조건이나 배포는 추가하지 않습니다 |
-| 운영자 명령 | 배포에는 `fdaictl provision azure`를 사용합니다. `fdaictl configuration build`/`verify`는 [로컬 서명 구성 산출물](lifecycle-configuration-ko.md) 전용이며, Azure 접근, 신뢰 등록 또는 배포를 하지 않습니다 |
+| 운영자 명령 | 배포에는 `fdaictl provision azure`를 사용합니다. `fdaictl configuration build`/`verify`는 [로컬 서명 산출물](lifecycle-configuration-ko.md)에, `publish`/`inspect-publication`은 [비공개 로컬 출판 근거](lifecycle-configuration-publication-ko.md)에 사용합니다. Git 검토를 입증하거나 Azure 접근, 신뢰 등록 또는 배포를 수행하지 않습니다 |
 | 소스 checkout 명령 | `scripts/deployment/azure/fdai-up.sh` |
 | 인프라 엔진 | 선택한 서명 프로필 폐쇄 집합의 Terraform |
 | 대상 선택 | 활성 대화형 Azure CLI 사용자 |
