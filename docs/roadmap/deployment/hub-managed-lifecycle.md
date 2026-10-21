@@ -526,6 +526,14 @@ old slot stays as the rollback target.
 | Recall | Vendor | Proposing a recalled Release. It also triggers a roll-off. |
 | Destructive change | Constitution | Deleting or replacing an existing Azure resource until confirmed |
 
+> **Implemented planning constraint boundary:** `plan_next` evaluates maintenance and suppression
+> windows, version and schema ranges, artifact availability, both installation-level and per-Entity
+> `EntitySettings` override coverage, data residency, and Release/capability recalls before signing
+> a Plan. Timing blocks (`maintenance` and `suppression` windows) hold in `Waiting` without falling
+> back to an older Release, whereas non-timing blocks skip ineligible candidates or return
+> `NoEligibleRelease`. Physical phase fencing, local authorization receipts, and live installation
+> qualification remain separate.
+
 ### Failure, drift, and reconciliation
 
 - A failed Plan places an automatic suppression window on its Entity. When failures cross a

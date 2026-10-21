@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 06c79f52a778534c1d5be10b98fd2097bddea61f
+translation_source_sha: a587d8418ca3c3395569f7f9bb369cf1b58aed22
 translation_revised: 2026-10-22
 ---
 # Hub 관리형 수명 주기
@@ -524,6 +524,13 @@ Release가 허용하는 경우 완료된 단계를 역순으로 보상하고, �
 | 데이터 상주 | Environment Config | 허용 범위 밖에서 데이터를 처리하는 Release나 모델 바인딩 |
 | 회수 | 공급업체 | 회수된 Release의 제안. 회수는 roll-off도 시작합니다. |
 | 파괴적 변경 | 헌법 | 확인 전까지 기존 Azure 리소스의 삭제나 교체 |
+
+> **구현된 계획 제약 경계:** `plan_next`는 Plan에 서명하기 전에 유지 관리 및 억제 구간, 버전 및
+> 스키마 범위, 산출물 가용성, 설치 수준 및 각 관리 대상 Entity의 `EntitySettings` 재정의 적용 범위,
+> 데이터 상주, Release 및 기능 회수를 평가합니다. 시점 제약(유지 관리 및 억제 구간)은 이전
+> Release로 후퇴하지 않고 `Waiting` 상태로 대기하며, 시점 외 제약은 부적격 후보를 건너뛰거나
+> `NoEligibleRelease`를 반환합니다. 물리적 단계 펜싱, 로컬 승인 증적 및 실제 설치 검증은 별도로
+> 유지됩니다.
 
 ### 실패, 드리프트, 조정
 
