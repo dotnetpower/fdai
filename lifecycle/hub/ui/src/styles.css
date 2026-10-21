@@ -246,6 +246,15 @@ h3 {
 .catalog-panel input {
   width: 100%;
 }
+.local-channels label { min-width: 0; grid-template-columns: minmax(0, 1fr); overflow-wrap: anywhere; }
+.local-channels input, .local-channels select { min-width: 0; width: 100%; border-color: var(--cs-text-soft); }
+.local-channels li, .local-channels .mono { overflow-wrap: anywhere; }
+.local-channel-members { list-style: none; padding: 0; margin: 16px 0; }
+.local-channel-members li { display: grid; gap: 8px; padding: 8px 0; }
+.local-channel-members p { margin: 0; }
+@media (max-width: 600px) {
+  .local-channels .btn, .local-channels .input { min-height: var(--cs-control-height-touch); }
+}
 .catalog-trust {
   display: grid;
   gap: 6px;

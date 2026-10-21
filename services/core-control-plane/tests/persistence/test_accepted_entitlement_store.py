@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 import psycopg
 import pytest
@@ -18,6 +19,7 @@ from fdai.core.licensing.entitlement import EntitlementSourceUnavailableError, L
 from fdai.core.licensing.entitlement_source import EntitlementAcceptanceConflictError
 from fdai.delivery.persistence.postgres_licensing_token import PostgresAcceptedEntitlementStore
 from fdai_service_contracts.installation_entitlement_transport import entitlement_recipient
+from psycopg import sql
 
 from tests.core.licensing.test_accepted_entitlement_source import signed_authority
 from tests.core.licensing.test_installation_entitlement import (
@@ -52,11 +54,71 @@ def migration_sql(*, downgrade: bool = False, path: Path = MIGRATION) -> str:
 @pytest.fixture
 async def entitlement_database(saga_database: str) -> str:
     async with await psycopg.AsyncConnection.connect(saga_database) as connection:
+        await _ensure_licensing_test_roles(connection)
         await connection.execute(migration_sql())
         await connection.execute(
             migration_sql(path=MIGRATION.with_name("20260929_core_licensing_trial.py"))
         )
     return saga_database
+
+
+async def _ensure_licensing_test_roles(
+    connection: psycopg.AsyncConnection,
+    roles: tuple[str, ...] = ("fdai_core", "fdai_operator"),
+) -> None:
+    if connection.info.port != 5433 or connection.info.host not in {
+        "127.0.0.1",
+        "localhost",
+        "::1",
+    }:
+        pytest.fail("Licensing role bootstrap requires isolated loopback validation port 5433.")
+    async with connection.transaction():
+        await connection.execute(
+            "SELECT pg_advisory_xact_lock(hashtext('fdai-licensing-test-role-bootstrap'))"
+        )
+        for role in roles:
+            found = await connection.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (role,))
+            if await found.fetchone() is None:
+                await connection.execute(
+                    sql.SQL("CREATE ROLE {} NOLOGIN NOSUPERUSER NOBYPASSRLS").format(
+                        sql.Identifier(role)
+                    )
+                )
+
+
+async def test_licensing_fixture_bootstraps_absent_roles_without_widening_privileges(
+    entitlement_database: str,
+) -> None:
+    suffix = uuid4().hex[:12]
+    roles = (f"fdai_entitlement_core_{suffix}", f"fdai_entitlement_operator_{suffix}")
+    created = False
+    async with await psycopg.AsyncConnection.connect(
+        entitlement_database, autocommit=True
+    ) as connection:
+        try:
+            before = await connection.execute(
+                "SELECT oid FROM pg_roles WHERE rolname = ANY(%s)", (list(roles),)
+            )
+            assert await before.fetchall() == []
+            await _ensure_licensing_test_roles(connection, roles)
+            created = True
+            first = await connection.execute(
+                "SELECT oid, rolcanlogin, rolsuper, rolbypassrls, rolcreaterole, rolcreatedb "
+                "FROM pg_roles WHERE rolname = ANY(%s) ORDER BY rolname",
+                (list(roles),),
+            )
+            records = await first.fetchall()
+            assert len(records) == 2
+            assert all(record[1:] == (False, False, False, False, False) for record in records)
+            await _ensure_licensing_test_roles(connection, roles)
+            second = await connection.execute(
+                "SELECT oid FROM pg_roles WHERE rolname = ANY(%s) ORDER BY rolname", (list(roles),)
+            )
+            assert await second.fetchall() == [(record[0],) for record in records]
+        finally:
+            if created:
+                for role in roles:
+                    await connection.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(role)))
 
 
 def store(dsn: str) -> PostgresAcceptedEntitlementStore:

@@ -12,11 +12,11 @@ REVISION = 1
 
 
 def _revision(namespace: str) -> int:
-    return 3 if namespace == "lifecycle_hub" else REVISION
+    return 4 if namespace == "lifecycle_hub" else REVISION
 
 
 def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], None]) -> None:
-    from fdai_lifecycle_hub import configuration_import_models, models
+    from fdai_lifecycle_hub import configuration_import_models, local_channels, models
 
     versions = _versions(namespace)
     with engine.begin() as connection:
@@ -28,6 +28,8 @@ def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], N
         revision = connection.scalar(select(versions.c.revision))
         if revision is None:
             initialize(connection)
+            if namespace == "lifecycle_hub":
+                local_channels.metadata.create_all(connection)
             connection.execute(versions.insert().values(revision=_revision(namespace)))
         elif revision == 1 and namespace == "lifecycle_hub":
             models.Base.metadata.tables["lifecycle_configuration_key_request"].create(
@@ -51,7 +53,12 @@ def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], N
             ):
                 models.Base.metadata.tables[model.__tablename__].create(connection, checkfirst=True)
             connection.execute(versions.update().values(revision=3))
-        elif revision is not None and revision != _revision(namespace):
+            revision = 3
+        if revision == 3 and namespace == "lifecycle_hub":
+            local_channels.metadata.create_all(connection)
+            connection.execute(versions.update().values(revision=4))
+            revision = 4
+        if revision is not None and revision != _revision(namespace):
             raise ValueError("Unsupported Hub schema revision; use a compatible migration command.")
 
 

@@ -1,7 +1,7 @@
 ---
 title: 수명 주기 구성
 translation_of: lifecycle-configuration.md
-translation_source_sha: 9607685fcd60735b654c5cbf648aa1a34115bf2c
+translation_source_sha: 02511cbeaaac449a83620f70747467c2f6dd47c2
 translation_revised: 2026-10-21
 ---
 # 수명 주기 구성
@@ -618,7 +618,8 @@ pin 카탈로그 재계산 경로가 기본적으로 영속 상태를 확인합�
 `lifecycle_configuration_import`, `lifecycle_configuration_head`,
 `lifecycle_configuration_change_approval`과 발행된 Plan의 출처를 보존하는
 `lifecycle_configuration_plan_import`를 추가합니다. 개정 1과 2는 기존 등록, 키나 원시
-구성을 다시 초기화하지 않고 갱신합니다. 수락 이력은 패키지 256개와 서명 페이로드 16 MiB로
+구성을 다시 초기화하지 않고 갱신합니다. 현재 개정 4는 이 테이블을 보존하고 별도의
+[로컬 채널 메타데이터](lifecycle-releases-and-channels-ko.md#고객-로컬-채널-관리-설계-및-검토)를 추가하며 구성 승인이나 활성화를 바꾸지 않습니다. 수락 이력은 패키지 256개와 서명 페이로드 16 MiB로
 제한하며 초과하면 자르지 않고 보류합니다. 공통 생성기, 읽기 경로와 설치 내부 복호화 API는
 이전 개정별 `ConfigurationHistoryBinding` 입력을 받습니다. 이 입력은 이력만 인증하며
 현재 키 권한을 부여하지 않습니다.

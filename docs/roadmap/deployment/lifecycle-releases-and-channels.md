@@ -204,6 +204,35 @@ distinct bounded namespace. Confirming only a Release would not confirm a newly 
 so require both values without changing built-in requests. Never infer approval from a new export
 digest or let a channel bypass recall, schema constraints, local Plan authority or effect checks.
 
+## Customer-local channel curation design and critique
+
+An existing authenticated Target Hub operator may add one exact imported `RELEASE` member to a
+`local-` channel, using lowercase ASCII alphanumeric segments separated by single hyphens, at
+most 64 characters. The request binds the accepted catalog digest, exact Release id/digest, local
+revision, reason and typed `add <release> to <channel>` confirmation. It cannot select or change
+an installation's subscription, source, key, maximum envelope or approval policy.
+The development store supports at most 1024 immutable local memberships; reaching the limit
+explicitly holds further additions, and an oversized retained set is unavailable, never truncated.
+
+One immutable membership row is also its attributed audit record. Explicit Hub migration adds
+that table at schema revision 4; serving never migrates. Older binaries refuse the newer schema
+rather than silently ignoring curation. Recovery preserves the table and history; no downgrade or
+destructive rollback is supplied. Existing deployments need an explicit migration before using
+the new binary, not a Hub or new trust gate for source/offline installation.
+
+Local membership is a narrowing view: the current independently verified catalog must still
+contain the same Release digest in `RELEASE`, under the same key, without an active recall.
+Unknown, changed, withdrawn or recalled members remain visible as held provenance, not eligible
+fallbacks. Vendor/local namespace collisions hold rather than overwrite either side. Import,
+curation and planning use the same catalog lock and transaction. Planning audit records the exact
+accepted pin and local revision/digest; original vendor bytes and digests are never rewritten.
+
+**Critique and revision:** Copying a channel dictionary would lose durable approval and permit
+stale membership to survive a changed source. Persist exact bindings and recheck them for each
+fresh view instead. A channel grants no installation approval, promotion or executor authority.
+This add-only development increment does not rename/delete channels or implement automatic
+recall roll-off of previously issued Plans; those keep the existing lifecycle safeguards.
+
 ## Subscriptions and automatic upgrades
 
 - Installation settings name one channel and an optional version range. Every Entity follows the
