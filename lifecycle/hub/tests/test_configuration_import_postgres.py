@@ -9,6 +9,9 @@ from threading import Barrier
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+from fdai_deployment_cli.lifecycle_configuration_package import (
+    build_installation_configuration_package,
+)
 from lifecycle.hub.tests.configuration_import_helpers import make_harness
 from lifecycle.hub.tests.configuration_key_helpers import tokens
 from lifecycle.hub.tests.test_configuration_revision import plan_case as plan_case
@@ -28,6 +31,7 @@ from fdai_lifecycle_hub.configuration_import_models import (
     ConfigurationScopeRequest,
 )
 from fdai_lifecycle_hub.configuration_import_store import ConfigurationImportStore
+from fdai_lifecycle_hub.configuration_import_trust import accepted_history
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.migrations import _versions, migrate, require_schema
 from fdai_lifecycle_hub.remote import target_routes
@@ -250,3 +254,123 @@ def test_postgres_revision_two_upgrade_is_additive_and_preserves_legacy(postgres
         assert session.get(models.ConfigurationKeyBinding, (h.iid, 1)) is not None
     h.approve_scope()
     assert h.stage()["digest"] == h.case.candidate.package.digest
+
+
+def test_postgres_historical_scope_allows_new_independently_approved_managed_entity(
+    databases, plan_case, installation_key, key, now, sign, tmp_path, monkeypatch
+):
+    case = plan_case
+    full_source = case.source
+    full_bindings = case.candidate.entity_bindings
+    core = next(entity for entity in case.installation.entities if entity.entity_id == "core")
+    first_binding = dict(full_bindings)["core"]
+    case.installation = replace(
+        case.installation,
+        entities=frozenset(
+            replace(entity, ownership=None, settings=None)
+            if entity.entity_id == "console"
+            else entity
+            for entity in case.installation.entities
+        ),
+    )
+    case.source = replace(
+        full_source,
+        entities=tuple(
+            entity for entity in full_source.entities if entity.entity_id == first_binding
+        ),
+    )
+    case.candidate = replace(
+        case.build_candidate(case.source), entity_bindings=(("core", first_binding),)
+    )
+    first_package = case.candidate.package
+    h = make_harness(
+        databases["target"], case, installation_key, key, now, sign, tmp_path, monkeypatch
+    )
+    with h.client:
+        h.register_keys()
+        old_scope = h.approve_scope()
+        first = h.stage()
+        h.activate(first)
+        assert h.post("recompute", {}).json()["outcome"] == "issued"
+
+        # The existing enrollment/management owners, not the package, add management permission.
+        h.store.record_ownership(h.iid, "console", core.ownership, operator="approver", now=h.now)
+        h.store.manage(h.iid, "console", core.settings, operator="approver", now=h.now)
+        assert h.store.load(h.iid).managed_entity_ids == frozenset({"core", "console"})
+        with Session(h.engine) as session:
+            with pytest.raises(KeyBindingError, match="configuration_release_scope_mismatch"):
+                accepted_history(
+                    session,
+                    session.get(models.Installation, h.iid),
+                    first["digest"],
+                    replace(case.catalog, releases={}, channels={}),
+                )
+        case.source = full_source
+        case.candidate = replace(case.candidate, entity_bindings=full_bindings)
+        successor = h.child("b", history=(first_package,))
+
+        old = h.post(
+            "configuration/import",
+            h.import_request(successor, predecessor=first["digest"], scope_digest=old_scope.digest),
+        )
+        assert old.status_code == 409
+        assert old.json()["error"] == "configuration_entity_scope_mismatch"
+
+        scope, signed_scope = h.scope_request()
+        assert h.post("configuration-scope/request", signed_scope).status_code == 202
+        unsigned = h.post(
+            "configuration/import",
+            h.import_request(successor, predecessor=first["digest"], scope_digest=scope.digest),
+        )
+        assert unsigned.status_code == 409
+        assert unsigned.json()["error"] == "configuration_scope_unapproved"
+        assert (
+            h.post(
+                "configuration-scope/approve", {"digest": scope.digest}, actor="approver"
+            ).status_code
+            == 202
+        )
+        h.scope_digest = scope.digest
+
+        substituted_source = replace(
+            full_source,
+            revision_id="c" * 40,
+            entities=tuple(
+                replace(entity, entity_id="3" * 64) if entity.entity_id == first_binding else entity
+                for entity in full_source.entities
+            ),
+        )
+        substituted = build_installation_configuration_package(
+            substituted_source,
+            entity_ids=frozenset(entity.entity_id for entity in substituted_source.entities),
+            signing_key=case.signing,
+            installation_key=case.recipient.public_key(),
+            history=(first_package,),
+        )
+        assert (
+            h.post(
+                "configuration/import", h.import_request(substituted, predecessor=first["digest"])
+            ).status_code
+            == 409
+        )
+
+        second = h.stage(h.import_request(successor, predecessor=first["digest"]))
+        h.activate(second)
+        outcome = h.post("recompute", {})
+        assert outcome.json()["outcome"] == "issued", outcome.json()
+        plan = h.store.current_plan(h.iid, now=h.now)
+        assert plan.configuration_digest == successor.digest
+        assert plan.entity_ids == frozenset({"core", "console"})
+        assert (
+            h.post(
+                "configuration/import",
+                h.import_request(first_package, scope_digest=old_scope.digest),
+            ).json()["error"]
+            == "configuration_entity_scope_mismatch"
+        )
+        with Session(h.engine) as session:
+            assert (
+                session.get(ConfigurationImport, first["digest"]).scope_digest == old_scope.digest
+            )
+            assert session.get(ConfigurationImport, second["digest"]).scope_digest == scope.digest
+            assert audit.chain_intact(session)

@@ -51,7 +51,10 @@ def scope_for(
     digest: str,
     catalog: ReleaseCatalog | None,
     now: datetime,
+    *,
+    historical: bool = False,
 ) -> ScopeRequest:
+    """Historical selection is only for ancestors with already verified acceptance receipts."""
     row = session.get(ConfigurationScopeRequest, digest)
     approval = session.get(ConfigurationScopeApproval, digest)
     if row is None or approval is None:
@@ -81,12 +84,16 @@ def scope_for(
         approval.approved_at,
     )
     if (
-        frozenset(scope.entity_bindings)
+        not historical
+        and frozenset(scope.entity_bindings)
         != mapping.to_domain(session, installation).managed_entity_ids
     ):
         raise KeyBindingError("configuration_entity_scope_mismatch")
     if catalog is not None:
-        validate_scope(session, installation, scope, catalog)
+        if historical:
+            _validate_release_scope(scope, catalog)
+        else:
+            validate_scope(session, installation, scope, catalog)
     return scope
 
 
@@ -97,12 +104,16 @@ def validate_scope(
     catalog: ReleaseCatalog,
 ) -> None:
     selected = mapping.to_domain(session, installation).managed_entity_ids
-    release = catalog.releases.get(scope.release_version)
     if (
         frozenset(scope.entity_bindings) != selected
         or scope.installation_id != installation.installation_id
     ):
         raise KeyBindingError("configuration_entity_scope_mismatch")
+    _validate_release_scope(scope, catalog)
+
+
+def _validate_release_scope(scope: ScopeRequest, catalog: ReleaseCatalog) -> None:
+    release = catalog.releases.get(scope.release_version)
     if (
         release is None
         or release.digest != scope.release_digest
@@ -230,7 +241,9 @@ def accepted_history(
         )
         if approved.digest != row.binding_digest:
             raise KeyBindingError("configuration_history_binding_mismatch")
-        scope = scope_for(session, installation, row.scope_digest, catalog, row.imported_at)
+        scope = scope_for(
+            session, installation, row.scope_digest, catalog, row.imported_at, historical=True
+        )
         binding = public_binding(approved)
         if catalog is not None:
             candidate_for(
@@ -238,7 +251,7 @@ def accepted_history(
             ).resolve(
                 scope.release_version,
                 catalog.releases[scope.release_version],
-                mapping.to_domain(session, installation).managed_entity_ids,
+                frozenset(scope.entity_bindings),
                 installation_id=installation.installation_id,
             )
         packages += (package,)

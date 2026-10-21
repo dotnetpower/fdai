@@ -500,6 +500,12 @@ change approval, activation, and upgrade planning. None grants execution or prom
   rewrite history. Revoked, missing or unprovable historical bindings hold with a bounded reason.
   Each issued imported-configuration Plan also retains its exact import and acceptance receipt.
   Missing Plan/import/head provenance holds rather than falling back to key-only verification.
+  Historical Entity coverage uses that receipt's independently approved mapping, not today's
+  managed set: reapplying today's selection would prevent a legitimate full successor after an
+  Entity becomes managed. Current import, approval, activation and consumption still require
+  today's exact managed set; historical acceptance grants no new Entity permission. During
+  catalog-bound import/planning, every historical Release/schema still needs its exact admitted
+  catalog entry. A missing historical Release holds; an old receipt does not invent admission.
 - Import creates a change request, not approval. A different authenticated operator approves its
   exact receipt within ten minutes; explicit activation rechecks current trust, complete history,
   selected scope and accepted-head compare-and-swap. Activation only selects configuration for
