@@ -54,7 +54,7 @@ availability. No operation here applies a Plan or deploys FDAI.
 **Available releases** reads the accepted catalog without fetching or importing it. Every read
 revalidates its accepted pin, signatures and expiry; an unavailable catalog returns `503`, not
 an empty success. The read-only **Configuration packages** screen lists stored revision metadata
-and installation references, never configuration values or sealed identifiers. Enrollment can
+and enrolled installation references, never configuration values or sealed identifiers. Enrollment can
 create a revision without independent package signature provenance, so the screen explicitly
 shows **Not recorded** rather than claiming signed-input readiness. Neither route is available
 to an Agent identity.
@@ -188,7 +188,7 @@ and health values, displayed as "Not reported".
 
 | Method and path | Result |
 |-----------------|--------|
-| `GET /v1/configurations` | `200` with stored revision digests, timestamps, counts and current installation references; package signature provenance is explicitly `not-recorded`; values and sealed identifiers are omitted |
+| `GET /v1/configurations` | `200` with stored revision digests, timestamps, counts and enrolled installation references; pending/rejected requests retain revision metadata without installation links; package signature provenance is explicitly `not-recorded`; values and sealed identifiers are omitted |
 | `GET /v1/catalog/releases` (remote catalog profile) | `200` with accepted and reverified Release metadata; `503` when unimported, invalid or expired; never fetches/imports or asserts registry readiness |
 | `GET /v1/installations` | `200` with every enrolled installation's channel, current and target Release, latest outcome, health, and the next maintenance window with whether it's already open |
 | `GET /v1/installations/{id}` | `200` with settings, Entities, suppressions, the open Plan, the last evaluation, and every report; `404` for an unknown or not-yet-enrolled installation |

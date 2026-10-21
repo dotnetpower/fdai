@@ -94,7 +94,9 @@ class HubStore:
                 select(
                     models.Installation.installation_id,
                     models.Installation.configuration_digest,
-                ).order_by(models.Installation.installation_id)
+                )
+                .where(models.Installation.enrollment == EnrollmentStatus.ENROLLED)
+                .order_by(models.Installation.installation_id)
             ):
                 installations.setdefault(digest, []).append(installation_id)
             revisions = session.scalars(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import gzip
 import json
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -20,6 +21,53 @@ from fdai_lifecycle_agent.hub_client import (
 )
 
 HUB = "http://127.0.0.1:8740"
+
+
+@pytest.mark.parametrize("operation", ["state", "report"])
+@pytest.mark.parametrize("initial_status", [202, 503])
+def test_compressed_post_response_is_decoded_once(operation: str, initial_status: int) -> None:
+    requests: list[bytes] = []
+    sleeps: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request.content)
+        status = initial_status if len(requests) == 1 else 202
+        body = b'{"error":"concurrent_write"}' if status == 503 else b'{"accepted":true}'
+        encoded = gzip.compress(body)
+        return httpx.Response(
+            status,
+            headers={
+                "content-encoding": "gzip",
+                "content-length": str(len(encoded)),
+                "retry-after": "0.05",
+            },
+            stream=httpx.ByteStream(encoded),
+        )
+
+    with _client(httpx.MockTransport(handler), sleeps) as client:
+        if operation == "state":
+            client.submit_state("installation-alpha", {"entities": []})
+        else:
+            client.submit_report("installation-alpha", "plan-0008", _report())
+
+    assert len(requests) == (2 if initial_status == 503 else 1)
+    assert requests[0] == requests[-1]
+    assert sleeps == ([0.05] if initial_status == 503 else [])
+
+
+def test_compressed_post_response_limit_uses_decoded_size() -> None:
+    encoded = gzip.compress(b"x" * (MAX_PLAN_RESPONSE_BYTES + 1))
+    with _client(
+        httpx.MockTransport(
+            lambda request: httpx.Response(
+                202,
+                headers={"content-encoding": "gzip", "content-length": str(len(encoded))},
+                stream=httpx.ByteStream(encoded),
+            )
+        )
+    ) as client:
+        with pytest.raises(HubProtocolError, match="size limit"):
+            client.submit_state("installation-alpha", {})
 
 
 def test_post_response_is_size_bounded() -> None:
