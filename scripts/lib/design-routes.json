@@ -3285,6 +3285,8 @@
         "packages/deployment-cli/tests/test_lifecycle_native.py",
         "lifecycle/agent/src/fdai_lifecycle_agent/native_*.py",
         "lifecycle/agent/tests/test_native*.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py",
+        "packages/deployment-cli/tests/test_lifecycle_plan.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_release.py",
         "packages/deployment-cli/tests/test_lifecycle_release.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration*.py",

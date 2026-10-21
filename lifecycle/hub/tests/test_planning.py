@@ -435,3 +435,42 @@ def test_running_recalled_release_issues_rolloff_plan_with_priority(
     assert isinstance(waiting, Waiting)
     assert waiting.release_id == "1.5.0"
     assert "suppression_window_active" in {b.reason_code for b in waiting.checks[-1].blocks}
+
+
+def test_manual_deployment_change_waits_outside_window_and_reconciles_in_next_matching_window(
+    installation: Installation,
+    catalog: ReleaseCatalog,
+    key: HubSigningKey,
+    now: datetime,
+) -> None:
+    running_latest = _with_core_release(installation, "1.6.0")
+    assert plan_next(running_latest, now, catalog=catalog, key=key) == UpToDate()
+
+    # A manual Deployment change alters the running Deployment image/spec and reports drift.
+    drifted = replace(
+        running_latest,
+        reported=replace(
+            running_latest.reported,
+            entities={
+                **running_latest.reported.entities,
+                "core": EntityState(
+                    release_id="1.6.0",
+                    artifact_digests=frozenset({"sha256:" + "d" * 64}),
+                    health=Health.DEGRADED,
+                ),
+            },
+        ),
+    )
+
+    # Outside the maintenance window, the Hub holds the reconciliation Plan in Waiting.
+    outside_window = now - timedelta(hours=3)
+    waiting = plan_next(drifted, outside_window, catalog=catalog, key=key)
+    assert isinstance(waiting, Waiting)
+    assert waiting.release_id == "1.6.0"
+    assert "maintenance_window_unavailable" in {b.reason_code for b in waiting.checks[-1].blocks}
+
+    # In the next matching window, the Hub issues a drift-reconciliation Plan for 1.6.0.
+    reconciled = plan_next(drifted, now, catalog=catalog, key=key)
+    assert isinstance(reconciled, Issued)
+    assert reconciled.plan.plan_type == "drift-reconciliation"
+    assert reconciled.plan.target_release_id == "1.6.0"
