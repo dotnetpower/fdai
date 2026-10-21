@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 978023f1027881e7939f507cbae1f636a9c37b20
+translation_source_sha: ec9c307eeac8b87ae8529d4fcdb2866294eee0bb
 translation_revised: 2026-10-21
 ---
 # 프로젝트 구조
@@ -908,7 +908,7 @@ Bragi가 소유하는 대화 구성은 정확한 선택 대상과 언어, 독립
 상관 ID별 영속 모델 회계를 전달합니다. 참여가 누락되거나 근거 충돌이 해결되지 않으면 최종
 결론 없이 부분 완료 또는 보류로 남습니다. 이 읽기 전용 연결은 MSCP 활성화, 실행 권한, 승인,
 감사, 복구, ActionType 승격 또는 Cost Governance 패키지 권한을 바꾸지 않습니다. 정확한
-주입 경계는 [의존성 주입 보조 문서](project-structure-dependency-injection-ko.md)를 참조하세요.
+주입 경계는 [의존성 주입 보조 문서](project-structure-dependency-injection-ko.md)를 참조하세요. 선택적 사용권 수락 입력도 기존 발급자·Trial 권한과 작업자 스레드 경계를 유지합니다.
 
 `composition/pantheon_synthesis.py`는 정확한 기존 독립 Azure 대상, 검토된 프롬프트 팩,
 USD 가격, 신원/클라이언트 및 계측이 있을 때 검증된 기본 표시 경로를 제공합니다.

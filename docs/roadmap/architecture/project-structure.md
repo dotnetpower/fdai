@@ -921,7 +921,7 @@ synthesis verification, and policy-pinned durable per-correlation model accounti
 participation or unresolved evidence conflicts remain partial or held without a final conclusion.
 These read-only bindings change no MSCP activation, execution authorization, approval, audit,
 recovery, ActionType promotion, or Cost Governance package authority. See the
-[dependency-injection companion](project-structure-dependency-injection.md) for the exact seams.
+[dependency-injection companion](project-structure-dependency-injection.md) for the exact seams, including the optional accepted-entitlement source that retains the existing issuer/Trial authority and worker-thread boundary.
 
 `composition/pantheon_synthesis.py` now supplies verified default presentation when exact existing
 independent Azure targets, reviewed prompt packs, USD prices, identity/client and metering exist.

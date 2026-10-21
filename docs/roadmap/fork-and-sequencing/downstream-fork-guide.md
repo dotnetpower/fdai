@@ -102,6 +102,10 @@ composition, its anchored activation writer, its AKS source-deployment wiring, a
 key-holder entitlement issuance exist; the Container Apps runtime's binding input remains open in
 [Source Deployment](../deployment/source-deployment.md).
 
+The optional [accepted-entitlement source](capability-licensing.md#optional-accepted-full-grant-source)
+can change the private storage adapter, never the packaged issuer trust, exact binding, Trial
+clock/anchor or watermark. A confidential carrier is transport, not a fork license or authority.
+
 An optional vertical package is also independent from the fork boundary. For example,
 [`fdai-cost-governance`](../architecture/finops-package-architecture.md) can be included in a
 reviewed upstream or downstream image, then enabled or disabled for each deployment. Package

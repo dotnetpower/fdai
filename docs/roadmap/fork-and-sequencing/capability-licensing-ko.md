@@ -1,8 +1,8 @@
 ---
 title: Capability 라이선싱
 translation_of: capability-licensing.md
-translation_source_sha: c9b6294c6cb4181545416d7b1110ccc88994faef
-translation_revised: 2026-10-01
+translation_source_sha: 95fbb4d4d7e5ad7f8890a31c3b9358eb6cae2d60
+translation_revised: 2026-10-21
 ---
 # 기능 라이선싱
 
@@ -206,6 +206,22 @@ Core 밖에서 행을 수정하는 것은 영속 상태 변조이며, [정직한
 사용권을 발급하고, AKS Core는 이를 CSI로 마운트된 비밀 환경 변수로 받습니다. Container Apps
 Core는 아직 설치 바인딩을 받지 않으므로, Container Apps 키 보유자 배포는 여전히 30일 v1 토큰을
 받습니다.
+
+### 선택적 전체 사용권 수락 입력
+
+[기밀 사용권 전달 경로](../deployment/hub-managed-lifecycle-entitlement-ko.md#초기-전체-사용권-전달-계약)와
+로컬 사용권 담당 수신자는 사용권을 발급하지 않고 기존 설치 전체 사용권을 보존할 수 있습니다.
+원래 발급자와 정확한 결속을 검증한 뒤 Core 소유의 변경 불가 토큰 및 감사 기록을 원자적으로
+저장합니다. 중복은 원래 증적을 반환하고 다른 토큰은 충돌로 처리합니다. `issued_at`이나 Hub
+서명은 교체 권한이 아닙니다. Operator는 비공개 토큰이 아니라 기존 알림만 읽습니다.
+
+`FDAI_ACCEPTED_INSTALLATION_ENTITLEMENT_SOURCE=postgres`는 선택적 `EntitlementTokenSource`를
+명시적으로 선택합니다. 설치·배포 digest와 Core 데이터베이스가 필요하며 `FDAI_LICENSE_TOKEN`과
+동시에 선택하지 못합니다. 기존 이벤트 루프 밖의 담당 검증기가 원본 바이트를 다시 읽고
+검증하며 시작 로그는 저장소를 읽지 않습니다. 상태 누락은 Trial을 활성화하지 않습니다.
+기존 유효 Trial은 변경하지 않은 검증기를 따르며 손상되거나 신뢰할 수 없는 저장소는 대체
+경로를 얻지 못합니다. 생략 시의 기존 동작, v1 기간 한도, Trial 기준 시점·시계·만료와
+워터마크 의미는 유지합니다. 이 입력은 Hub 연결이나 설치 수락이 아닙니다.
 
 ## 토큰
 

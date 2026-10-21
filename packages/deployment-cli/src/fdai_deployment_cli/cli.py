@@ -55,6 +55,7 @@ from fdai_deployment_cli.entitlement_preflight import (
     select_entitlement_mode,
 )
 from fdai_deployment_cli.entra_source import run_source_entra_operation
+from fdai_deployment_cli.entitlement_transport import seal_entitlement_command
 from fdai_deployment_cli.execution_copies import execution_copy_scope
 from fdai_deployment_cli.license import (
     INSTALLATION_ENTITLEMENT_SCHEMA,
@@ -122,6 +123,7 @@ def _parser() -> argparse.ArgumentParser:
             "provision_bootstrap_reconcile": _provision_bootstrap_reconcile,
             "bundle_verify": _bundle_verify,
             "license_inspect": _license_inspect,
+            "license_seal_entitlement": seal_entitlement_command,
             "onboard_guided": _onboard_guided,
             "onboard_status": _onboard_status,
         }
