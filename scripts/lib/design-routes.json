@@ -3464,8 +3464,7 @@
         "docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md",
         "docs/roadmap/interfaces/channels-and-notifications.md",
         "docs/roadmap/architecture/operating-ontology.md",
-        "docs/roadmap/decisioning/action-ontology.md",
-        "docs/roadmap/deployment/runtime-deployment-profiles.md"
+        "docs/roadmap/decisioning/action-ontology.md"
       ],
       "docs_update_routes": [
         "conversation-attachments",
@@ -3568,8 +3567,7 @@
         "docs/roadmap/deployment/deploy-and-onboard.md",
         "docs/roadmap/deployment/installable-deployment-cli.md",
         "docs/roadmap/deployment/provisioning-execution-profiles.md",
-        "docs/roadmap/architecture/security-and-identity.md",
-        "docs/roadmap/deployment/runtime-deployment-profiles.md"
+        "docs/roadmap/architecture/security-and-identity.md"
       ],
       "docs_update_routes": [
         "conversation-attachments",
