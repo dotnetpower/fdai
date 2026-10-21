@@ -15,7 +15,6 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final
-from urllib.parse import urlencode
 
 from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
 
@@ -24,6 +23,7 @@ from fdai_deployment_cli import (
     catalog_review_profile,
     source_application_inputs,
     standalone_host_values,
+    standalone_kubernetes_tools,
     standalone_planned_outputs,
     standalone_terraform_environment,
 )
@@ -2067,47 +2067,20 @@ def _application_operation(
 
 
 def _capture_aks_deployments(context: dict[str, object], *, service: str | None = None) -> str:
-    kubeconfig = Path(str(context.get("kubeconfig", "")))
-    if not kubeconfig.is_file():
-        raise ValueError("AKS kubeconfig is unavailable for service update readback")
-    endpoint = f"/apis/apps/v1/namespaces/{_AKS_RUNTIME_NAMESPACE}/deployments"
-    if service is not None:
-        endpoint = f"{endpoint}?{urlencode({'labelSelector': f'app.kubernetes.io/name={service}'})}"
-    command = [
-        "kubectl",
-        "get",
-        f"--raw={endpoint}",
-        "--request-timeout=60s",
-        f"--kubeconfig={kubeconfig}",
-    ]
-    return _capture(
-        tuple(command),
-        cwd=kubeconfig.parent,
-        timeout=90,
-        reason="AKS Deployment observation failed",
+    return standalone_kubernetes_tools.capture_deployments(
+        context,
+        namespace=_AKS_RUNTIME_NAMESPACE,
+        service=service,
+        capture=_capture_env,
     )
 
 
 def _capture_aks_pods(context: dict[str, object], *, service: str) -> str:
-    kubeconfig = Path(str(context.get("kubeconfig", "")))
-    if not kubeconfig.is_file():
-        raise ValueError("AKS kubeconfig is unavailable for service update readback")
-    return _capture(
-        (
-            "kubectl",
-            "get",
-            "pods",
-            "--namespace",
-            _AKS_RUNTIME_NAMESPACE,
-            "--output",
-            "json",
-            "--request-timeout=60s",
-            f"--selector=app.kubernetes.io/name={service}",
-            f"--kubeconfig={kubeconfig}",
-        ),
-        cwd=kubeconfig.parent,
-        timeout=90,
-        reason="AKS Pod observation failed",
+    return standalone_kubernetes_tools.capture_pods(
+        context,
+        namespace=_AKS_RUNTIME_NAMESPACE,
+        service=service,
+        capture=_capture_env,
     )
 
 
@@ -3620,6 +3593,7 @@ def _prepare_aks_kubeconfig(
     """Select explicit managed-host MSI authentication before any Kubernetes operation."""
     client_id = _required_guid(context, "client_id")
     subscription_id = _required_guid(context, "subscription_id")
+    kubectl, kubelogin, environment = standalone_kubernetes_tools.tools(context)
     kubeconfig = work_dir / "aks.kubeconfig"
     if kubeconfig.exists() or kubeconfig.is_symlink():
         read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
@@ -3648,9 +3622,9 @@ def _prepare_aks_kubeconfig(
         reason="private AKS kubeconfig acquisition failed",
     )
     read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
-    _run(
+    _run_env(
         (
-            "kubelogin",
+            kubelogin,
             "convert-kubeconfig",
             "--kubeconfig",
             str(kubeconfig),
@@ -3662,11 +3636,12 @@ def _prepare_aks_kubeconfig(
         cwd=work_dir,
         timeout=60,
         reason="private AKS managed-host authentication setup failed",
+        env=environment,
     )
     read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
-    rendered = _capture(
+    rendered = _capture_env(
         (
-            "kubectl",
+            kubectl,
             "config",
             "view",
             "--minify",
@@ -3678,6 +3653,7 @@ def _prepare_aks_kubeconfig(
         cwd=work_dir,
         timeout=30,
         reason="private AKS authentication configuration readback failed",
+        env=environment,
     )
     configuration = load_json_object(
         rendered.encode(), label="AKS authentication configuration", max_bytes=1024 * 1024
@@ -4303,9 +4279,10 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
         kubeconfig = Path(str(context.get("kubeconfig", "")))
         if not kubeconfig.is_file():
             raise ValueError("AKS kubeconfig is unavailable for database readback")
+        kubectl, _kubelogin, environment = standalone_kubernetes_tools.tools(context)
         result = subprocess.run(
             (
-                "kubectl",
+                kubectl,
                 "rollout",
                 "status",
                 "statefulset/postgres",
@@ -4317,6 +4294,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
             check=False,
             capture_output=True,
             timeout=360,
+            env=environment,
         )
         return result.returncode == 0
     if stage == "runtime":
@@ -4346,15 +4324,16 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
         kubeconfig = Path(str(context.get("kubeconfig", "")))
         if not kubeconfig.is_file():
             raise ValueError("AKS kubeconfig is unavailable for workload readback")
+        kubectl, _kubelogin, environment = standalone_kubernetes_tools.tools(context)
         expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
         if "core-control-plane" not in expected:
             return False
         observed = []
         for resource in ("deployments", "pods"):
             observed.append(
-                _capture(
+                _capture_env(
                     (
-                        "kubectl",
+                        kubectl,
                         "get",
                         resource,
                         "--namespace",
@@ -4367,6 +4346,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
                     cwd=kubeconfig.parent,
                     timeout=90,
                     reason="AKS workload observation failed",
+                    env=environment,
                 )
             )
         return aks_readiness.verify_workload_health(
@@ -4543,7 +4523,13 @@ def _terraform_json_output(infra: Path, name: str) -> object:
     )
 
 
-def _run(command: tuple[str, ...] | list[str], *, cwd: Path, timeout: int, reason: str) -> None:
+def _run(
+    command: tuple[str, ...] | list[str],
+    *,
+    cwd: Path,
+    timeout: int,
+    reason: str,
+) -> None:
     result = subprocess.run(command, cwd=cwd, check=False, capture_output=True, timeout=timeout)
     if result.returncode != 0:
         raise (
@@ -4551,7 +4537,13 @@ def _run(command: tuple[str, ...] | list[str], *, cwd: Path, timeout: int, reaso
         )
 
 
-def _capture(command: tuple[str, ...], *, cwd: Path, timeout: int, reason: str) -> str:
+def _capture(
+    command: tuple[str, ...],
+    *,
+    cwd: Path,
+    timeout: int,
+    reason: str,
+) -> str:
     result = subprocess.run(
         command, cwd=cwd, check=False, capture_output=True, text=True, timeout=timeout
     )

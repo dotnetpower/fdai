@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 57e1168498ac5c200b65c8c3c246ca18b57d432d
-translation_revised: 2026-10-21
+translation_source_sha: 092a5b8c0eb0cd8e53acfe92c68fcd2412b07f0f
+translation_revised: 2026-10-22
 ---
 # 런타임 배포 프로파일
 
@@ -466,6 +466,9 @@ DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kube
 사용하는 사용자 하나, `kubelogin get-token`, 일치하는 client 하나와 MSI 로그인 옵션 하나를
 확인하며 환경 변수 재정의를 허용하지 않습니다. 변환 실패나 재조회 불일치 시 Kubernetes
 작업 전에 중단합니다. 브라우저/디바이스 코드 로그인이나 기본/노드 신원으로 대체하지 않습니다.
+이후의 모든 관리 호스트 Kubernetes 체크포인트는 봉인된 `kit_bin` 디렉터리의 검증된 `kubectl`
+바이너리를 실행하고, 함께 검증된 `kubelogin` exec 플러그인을 위해 이 디렉터리를 `PATH` 앞에
+추가합니다. 서비스 업데이트와 복구 재조회는 SSH 사용자의 주변 도구에 의존하지 않습니다.
 런타임 토폴로지 인벤토리는 정확한 AKS ARM ID를 권한 연결로 유지한 다음, Kubernetes 객체와
 관계를 구성하기 전에 공급자 중립 Resource 신원으로 변환합니다. 이 신원 변환은 배포 범위를
 넓히거나 관측 권한을 부여하지 않습니다.

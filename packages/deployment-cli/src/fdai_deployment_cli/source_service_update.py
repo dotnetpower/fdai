@@ -286,7 +286,10 @@ def deploy_source_service_update(
                 development_authority_profile_digest=intent["development_authority_profile_digest"],
             )
         active = context.get("active_service_update")
-        if active is None:
+        active_matches = isinstance(active, dict) and all(
+            active.get(key) == value for key, value in expected_update.items()
+        )
+        if active is None or (service == "core-control-plane" and not active_matches):
             prepared = _host_json(
                 application,
                 (
@@ -315,9 +318,7 @@ def deploy_source_service_update(
             )
             if any(prepared.get(key) != value for key, value in expected_update.items()):
                 raise ValueError("prepared source service update differs from imported image")
-        elif not isinstance(active, dict) or any(
-            active.get(key) != value for key, value in expected_update.items()
-        ):
+        elif not active_matches:
             raise ValueError("another AKS service update is active")
         recovered = _host_json(
             application,

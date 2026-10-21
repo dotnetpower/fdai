@@ -837,6 +837,11 @@ without identifiers.
 
 A control-only repair can reuse a verified kit through a [signed deployment-control package](disconnected-deployment.md#deployment-control-package).
 
+Every managed-host Kubernetes operation runs the verified `kubectl` binary from the sealed
+`kit_bin` directory. The coordinator prepends that directory to `PATH` so the kubeconfig's
+`kubelogin` exec plugin resolves to the paired verified binary. Source service updates and recovery
+readbacks never depend on the SSH user's ambient `PATH`.
+
 ### Development authority input
 
 `--development-authority-profile <path>` is a source-AKS-only application input. The local coordinator validates the reviewed JSON, binds its digest to the transfer, and the managed host verifies the staged bytes again before placing the canonical profile and its profile-derived executor principal in Core's environment. The option cannot accompany preparation, preflight, teardown, online, offline-kit, or non-AKS execution. An omitted input never removes a retained profile. `--clear-development-profile` removes it through an explicit application-plan change.
