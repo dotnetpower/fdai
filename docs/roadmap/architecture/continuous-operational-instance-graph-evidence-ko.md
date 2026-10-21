@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph-evidence.md
-translation_source_sha: b1bdc36608ae4c36432676ad0e056e1cb704dd2b
+translation_source_sha: b6361d3ca7a060b8a3ec33fc98103c172c5afc87
 translation_revised: 2026-10-21
 ---
 
@@ -62,6 +62,17 @@ storage 계정 전용 record를 해석합니다. Workload 해석은 앱 소유 �
 권위 있는 [보존된 개념 평가](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md#retained-concept-assessment-2111)는
 부분 완료 상태입니다. 이 입력 제한 수정으로 아직 해결되지 않은 독립 발급자, 전체 구간,
 전체 인스턴스의 공유 허용 예산, 재사용, SQL 버퍼 또는 운영 메모리 보증까지 분류하지는 않습니다.
+
+## 수집 인증 구성
+
+ARG/ARM의 유효한 수집 구성에는 이제 기존 어댑터에 구성된 인증 모드와 선택자의 비밀 값이
+없는 다이제스트가 포함됩니다. 기존 PostgreSQL 준비 후보와 미완료 청크 리더는 구성된
+클라이언트/백엔드 선택자가 바뀌면 재사용하지 않습니다. 유효한 입력이 같으면 원래 시도를
+유지합니다. 이는 구성 연속성이며 인증된 principal 신원이나 권한을 입증하지 않습니다.
+알 수 없는 주입 ID 어댑터는 바인딩되지 않은 상태입니다.
+[제한된 수정과 비평](../interfaces/azure-resource-discovery-commands-ko.md#제한된-수정-구성된-인증-선택자의-연속성)에서
+포함하는 선택자와 제외하는 자격 증명을 정의합니다. 영구 보존형 공유 허용 예산, 전체 구간의
+신원 입증 및 실제 설치의 사용량 검증은 #2329와 #2111에서 계속 미완료 상태입니다.
 
 ## 운영 상태 전이 원장
 

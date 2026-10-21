@@ -186,12 +186,12 @@ The proposal requires these decisions before persistent flow changes:
   need an owner-selected generation rule; an invented bootstrap UUID is not a snapshot generation.
 
 **Critique and revision:** Keying a new ledger by a caller-provided digest could replenish the
-allowance on identity or policy substitution. Reusing the current collection-context digest does
-not resolve that problem: the actual ARG and ARM source implementations can use two Managed
-Identity configurations with distinct client IDs while retaining identical manifests and context
-digests. Mock HTTP verifies the selected credentials, not an installation's authenticated principal.
-`WorkloadIdentity` deliberately
-exposes only an audience-scoped token. A client ID in one concrete adapter is not an independent,
+allowance on identity or policy substitution. At checkpoint `b5605953ece95d445b1010bd7555fd8d45a74195`,
+mock HTTP showed that the ARG and ARM source implementations used distinct configured client IDs
+while retaining identical collection contexts. The scoped correction below repairs that
+configuration-continuity defect, not an installation's authenticated principal binding.
+`WorkloadIdentity` deliberately exposes only an audience-scoped token. A client ID in one concrete
+adapter is not an independent,
 cross-venue identity/source registration, and does not cover the developer Azure CLI identity.
 
 Wrapping only `InventorySyncCoordinator` also misses reads: `run()` constructs the enrichment
@@ -201,13 +201,33 @@ attempt. Activity Log and resource-change recovery have separate client lifecycl
 that deadline. These are deterministic source counterexamples, not provider incidents or
 authorization bypasses.
 
-The revised proposal therefore stops before introducing a persistent ledger or qualification
+The broader revised proposal therefore stops before introducing a persistent ledger or qualification
 flag. The installation/current identity owner first needs to select the independently governed
 binding and the generation rule for pre-collection and recovery reads. No substitute issuer,
 signing key, caller-selected principal handle, or accepting fallback is introduced. Tests in
-`test_inventory_retained_assessment.py` preserve this bounded evidence; they do not satisfy
+`test_inventory_retained_assessment.py` retain the cooldown evidence and configured-selector
+regressions; they do not satisfy
 #2329's shared PostgreSQL, complete wiring, or actual-installation consumption exits. #2111's
 original classification criterion remains open.
+
+#### Scoped correction: configured authentication selector continuity
+
+The narrower correction binds the existing concrete adapter's configured authentication mode and
+selector to `build_sources()`'s effective ARG/ARM collection configuration. Managed Identity uses its
+configured client selector or federated tenant/client/projected-file selector. Azure CLI
+uses its executable and effective subscription-or-tenant selector, preserving subscription
+precedence. Only a canonical SHA-256 digest enters collection configuration; token values, header
+credentials, token-endpoint addresses, projected-file contents, caches and refresh timings are
+excluded.
+
+**Critique and revision:** This is configuration continuity, not authenticated principal identity.
+Ambient identity changes with an unchanged selector remain unproven. Unknown injected identity
+adapters remain explicitly unbound. Existing prepared-candidate and unfinished-chunk loaders use
+the resulting context digest, so changed configured selectors cannot reuse the old retained
+candidate or cursor; unchanged effective inputs remain reusable. The coordinator may start a new
+collection under its existing rules, but cannot promote or continue the mismatched retained work.
+No independent issuer, permission, admission ledger, generation rule, or operational receipt is
+created. The broader #2329 boundary and #2111 classification remain open.
 
 ## Discovery universe
 

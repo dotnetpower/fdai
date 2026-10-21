@@ -28,6 +28,7 @@ the same skew the Managed-Identity adapter uses.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import subprocess
@@ -67,6 +68,20 @@ class AzureCliWorkloadIdentity:
     subscription_id: str | None = None
     tenant_id: str | None = None
     _cache: dict[str, _CacheEntry] = field(default_factory=dict, init=False)
+
+    @property
+    def authentication_selector_digest(self) -> str:
+        """Fingerprint effective CLI selection without reading the ambient account or token."""
+
+        selector = {
+            "schema_version": "1.0.0",
+            "backend": "azure-cli",
+            "executable": self.executable,
+            "subscription_id": self.subscription_id,
+            "tenant_id": None if self.subscription_id is not None else self.tenant_id,
+        }
+        encoded = json.dumps(selector, sort_keys=True, separators=(",", ":")).encode()
+        return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
     @classmethod
     def from_env(
@@ -181,6 +196,12 @@ class AsyncAzureCliWorkloadIdentity:
 
     credential: AzureCliWorkloadIdentity = field(default_factory=AzureCliWorkloadIdentity)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
+
+    @property
+    def authentication_selector_digest(self) -> str:
+        """Preserve the selector used by the wrapped synchronous credential."""
+
+        return self.credential.authentication_selector_digest
 
     @classmethod
     def from_env(

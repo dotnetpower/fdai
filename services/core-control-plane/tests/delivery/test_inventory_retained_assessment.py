@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import cast
@@ -11,6 +12,10 @@ import pytest
 from fdai.delivery.azure import arg_transport, arm_inventory_transport
 from fdai.delivery.azure.arm_inventory_transport import fetch_arm_json
 from fdai.delivery.azure.arm_inventory_vm_state import ArmInventoryError
+from fdai.delivery.azure.dev_workload_identity import (
+    AsyncAzureCliWorkloadIdentity,
+    AzureCliWorkloadIdentity,
+)
 from fdai.delivery.azure.workload_identity import (
     ManagedIdentityWorkloadIdentity,
     ManagedIdentityWorkloadIdentityConfig,
@@ -48,10 +53,10 @@ async def test_arg_cooldown_is_adapter_local_not_replayed_by_a_replacement(
 
 
 @pytest.mark.parametrize("source_name", ["arg", "arm"])
-async def test_source_context_does_not_bind_the_selected_managed_identity(
+async def test_source_context_changes_with_the_selected_managed_identity(
     source_name: str,
 ) -> None:
-    """Exercise actual source reads; equal context digests are not identity witnesses."""
+    """Fence configured selector changes without claiming authenticated identity evidence."""
 
     config = InventoryJobConfig.from_env(
         {
@@ -103,6 +108,25 @@ async def test_source_context_does_not_bind_the_selected_managed_identity(
                 started_at=datetime(2026, 10, 21, tzinfo=UTC),
             )
             manifests.append(source.manifest)
+            (same_source,) = build_sources(
+                config=config,
+                vocabulary=load_resource_type_registry(),
+                resource_types=("resource-group",),
+                identity=ManagedIdentityWorkloadIdentity(
+                    http_client=client,
+                    config=ManagedIdentityWorkloadIdentityConfig(
+                        endpoint="https://identity.example.invalid/token",
+                        header="rotated-synthetic-header",
+                        client_id=principal,
+                        timeout_seconds=2.0,
+                    ),
+                ),
+                http_client=client,
+                started_at=datetime(2026, 10, 21, tzinfo=UTC),
+            )
+            assert collection_context_digest(source.manifest) == collection_context_digest(
+                same_source.manifest
+            )
             before = len(provider_authorizations)
             batches = [batch async for batch in cast(Inventory, source.inventory).full_snapshot()]
             assert batches
@@ -110,8 +134,52 @@ async def test_source_context_does_not_bind_the_selected_managed_identity(
             assert set(provider_authorizations[before:]) == {f"Bearer synthetic-{principal}"}
 
     assert len(set(identity_selections)) == 2
-    assert manifests[0] == manifests[1]
-    assert collection_context_digest(manifests[0]) == collection_context_digest(manifests[1])
+    assert manifests[0] != manifests[1]
+    assert collection_context_digest(manifests[0]) != collection_context_digest(manifests[1])
+
+
+@pytest.mark.parametrize("change", ["subscription", "tenant", "executable", "ignored_tenant"])
+def test_cli_selector_digest_tracks_only_effective_configuration(change: str) -> None:
+    original = AzureCliWorkloadIdentity(
+        subscription_id="subscription-example" if change == "ignored_tenant" else None,
+        tenant_id="tenant-example",
+    )
+    if change == "subscription":
+        changed = replace(original, subscription_id="other-subscription")
+    elif change == "executable":
+        changed = replace(original, executable="/example/az")
+    else:
+        changed = replace(original, tenant_id="other-tenant")
+    first = AsyncAzureCliWorkloadIdentity(credential=original).authentication_selector_digest
+    second = AsyncAzureCliWorkloadIdentity(credential=changed).authentication_selector_digest
+    assert (first == second) == (change == "ignored_tenant")
+    assert "tenant-example" not in first
+    assert original._cache == {}
+
+
+@pytest.mark.parametrize("change", ["client", "tenant", "path"])
+async def test_federated_selector_digest_does_not_read_projected_credentials(change: str) -> None:
+    config = ManagedIdentityWorkloadIdentityConfig(
+        endpoint="",
+        header="",
+        client_id="00000000-0000-0000-0000-000000000001",
+        federated_tenant_id="00000000-0000-0000-0000-000000000002",
+        federated_token_file="/example/projected-token",
+    )
+    if change == "client":
+        changed = replace(config, client_id="00000000-0000-0000-0000-000000000003")
+    elif change == "tenant":
+        changed = replace(config, federated_tenant_id="00000000-0000-0000-0000-000000000004")
+    else:
+        changed = replace(config, federated_token_file="/example/other-projected-token")
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: pytest.fail("no HTTP"))
+    ) as client:
+        original = ManagedIdentityWorkloadIdentity(http_client=client, config=config)
+        replacement = ManagedIdentityWorkloadIdentity(http_client=client, config=changed)
+        assert original.authentication_selector_digest != replacement.authentication_selector_digest
+        assert config.federated_tenant_id is not None
+        assert config.federated_tenant_id not in original.authentication_selector_digest
 
 
 async def test_arm_retry_after_is_not_retained_by_the_next_read(

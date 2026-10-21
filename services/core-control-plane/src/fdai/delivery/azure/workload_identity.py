@@ -21,6 +21,8 @@ records the rest of the app already understands.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -96,6 +98,21 @@ class ManagedIdentityWorkloadIdentity:
         # result the first caller stores.
         self._audience_locks: dict[str, asyncio.Lock] = {}
         self._registry_lock = asyncio.Lock()
+
+    @property
+    def authentication_selector_digest(self) -> str:
+        """Fingerprint configured selection only, never a token or principal attestation."""
+
+        cfg = self._config
+        selector = {
+            "schema_version": "1.0.0",
+            "backend": "azure-federated" if cfg.federated_token_file else "azure-managed-identity",
+            "client_id": cfg.client_id,
+            "tenant_id": cfg.federated_tenant_id if cfg.federated_token_file else None,
+            "projected_token_path": cfg.federated_token_file,
+        }
+        encoded = json.dumps(selector, sort_keys=True, separators=(",", ":")).encode()
+        return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
     @classmethod
     def from_env(

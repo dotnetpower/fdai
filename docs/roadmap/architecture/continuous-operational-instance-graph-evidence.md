@@ -56,6 +56,17 @@ The authoritative [retained-concept assessment](../../roadmap-implementation/int
 remains partial. These bounded-input repairs do not classify unresolved independent-issuer,
 whole-interval, fleet-admission, reuse, SQL-buffer, or operating-memory guarantees.
 
+## Collection authentication configuration
+
+ARG/ARM effective collection configuration now includes a secret-free digest of the existing
+adapter's configured authentication mode and selector. Existing PostgreSQL prepared-candidate and
+unfinished-chunk readers refuse reuse under a changed configured client/backend selector, while
+identical effective inputs retain their original attempt. This is configuration continuity, not
+authenticated principal identity or permission. Unknown injected identity adapters remain unbound.
+The [scoped correction and critique](../interfaces/azure-resource-discovery-commands.md#scoped-correction-configured-authentication-selector-continuity)
+defines the included selectors and excluded credentials. Durable shared admission, whole-interval
+identity proof and actual installation consumption remain unqualified under #2329 and #2111.
+
 ## Operational state-transition ledger
 
 FDAI stores semantic state changes in a Core-owned append-only PostgreSQL ledger. Event Hubs
