@@ -48,7 +48,9 @@ def _body() -> bytes:
 
 
 @asynccontextmanager
-async def _server() -> AsyncIterator[tuple[str, int, MemoryProofStore]]:
+async def _server(
+    prepared_statuses: list[int] | None = None,
+) -> AsyncIterator[tuple[str, int, MemoryProofStore]]:
     store = MemoryProofStore()
     registry = history()
     engine = OperationalEvidenceVerifierEngine(
@@ -59,13 +61,18 @@ async def _server() -> AsyncIterator[tuple[str, int, MemoryProofStore]]:
         writer=store,
         clock=lambda: NOW,
     )
-    runner = web.AppRunner(
-        server.build_verifier_app(
-            engine,
-            caller=server.LoopbackCallerAuthenticator("fdai_core"),
-            readiness=lambda: server.VerifierReadiness(),
-        )
+    app = server.build_verifier_app(
+        engine,
+        caller=server.LoopbackCallerAuthenticator("fdai_core"),
+        readiness=lambda: server.VerifierReadiness(),
     )
+    if prepared_statuses is not None:
+
+        async def record_response(_: web.Request, response: web.StreamResponse) -> None:
+            prepared_statuses.append(response.status)
+
+        app.on_response_prepare.append(record_response)
+    runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", 0)
     await site.start()
@@ -108,11 +115,14 @@ async def test_partial_issuance_body_has_a_server_deadline(
             await writer.wait_closed()
 
 
+@pytest.mark.parametrize("response_delay", [0.0, 0.15])
 async def test_trickling_bytes_do_not_extend_the_total_body_deadline(
     monkeypatch: pytest.MonkeyPatch,
+    response_delay: float,
 ) -> None:
     monkeypatch.setattr(server, "_MAX_BODY_READ_SECONDS", 0.06)
-    async with _server() as (host, port, store):
+    prepared_statuses: list[int] = []
+    async with _server(prepared_statuses) as (host, port, store):
         reader, writer = await asyncio.open_connection(host, port)
         writer.write(
             f"POST {ISSUANCE_PATH} HTTP/1.1\r\nHost: localhost\r\n"
@@ -131,8 +141,14 @@ async def test_trickling_bytes_do_not_extend_the_total_body_deadline(
 
         sender = asyncio.create_task(trickle())
         try:
-            response = await asyncio.wait_for(reader.read(), timeout=0.5)
-            assert b" 408 " in response and b"request_timeout" in response
+            await asyncio.sleep(response_delay)
+            try:
+                response = await asyncio.wait_for(reader.read(), timeout=0.5)
+            except (ConnectionResetError, BrokenPipeError):
+                assert prepared_statuses == [408]
+            else:
+                assert b" 408 " in response and b"request_timeout" in response
+            assert prepared_statuses == [408]
             assert store.admissions == [] and store.rejections == []
         finally:
             sender.cancel()
