@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: de303915e963d2aec4b0e8b27b5dcb6c9e4c39e9
-translation_revised: 2026-10-20
+translation_source_sha: e3bf79c877520d021c09692da9cfd6b70cd94b5a
+translation_revised: 2026-10-21
 ---
 # 리포팅 서브시스템
 
@@ -18,6 +18,11 @@ translation_revised: 2026-10-20
 워커 소유 문서 의도 envelope와 Core 비공개 그래프는 보고 데이터 원본이 아닙니다.
 마이그레이션 소유권과 시작 구성 연결은 보고서, 위젯, 렌더러 또는 쓰기 route를 추가하지
 않습니다.
+
+Core가 수락한 비공개 설치 사용권 토큰과 수락 감사 기록은 보고 데이터 원본이 아닙니다.
+[사용권 전달](../deployment/hub-managed-lifecycle-entitlement-ko.md)은 보고 경로나 두 테이블에
+대한 Operator 접근 권한을 추가하지 않으며, 기존 사용권 알림이 표시 경계를 유지합니다.
+수락 증적은 운영 결과가 아닙니다.
 
 계약상 읽기 전용입니다. 모든 라우트는 `GET`이며, 어떤 위젯도
 아무것도 실행하지 않습니다. 이 서브시스템은 실행자 신원을 절대로

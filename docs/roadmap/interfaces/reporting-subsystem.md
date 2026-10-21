@@ -15,6 +15,11 @@ The worker-owned document-intent envelope and its Core-private graph are not rep
 sources. Their migration ownership and bootstrap wiring add no report, widget, renderer or write
 route.
 
+Core's private accepted installation-entitlement token and acceptance audit are not report
+datasources. Their [licensing handoff](../deployment/hub-managed-lifecycle-entitlement.md)
+adds no report route or Operator access to either table; the existing licensing notice remains
+the presentation boundary. An acceptance receipt is not an operational result.
+
 Read-only by contract. Every route is a `GET`; no widget executes
 anything. The subsystem is the read half of the same console that never
 holds the executor identity
