@@ -154,8 +154,9 @@ transaction. Current-Plan retrieval holds them after expiry, rotation or revocat
 public bindings remain intact; the atomic importer verifies each historical package with its exact
 accepted key version and receipt, never a replacement key. Absent or unprovable bindings hold
 only this new configuration capability. Legacy enrollment and planning remain compatible.
-Explicit Lifecycle Hub schema revision 4 preserves the additive configuration upgrades from
-revisions 1 and 2 and adds customer-local channel storage to revision 3. Enrollment, public key
+Explicit Lifecycle Hub schema revision 5 preserves the additive configuration upgrades from
+revisions 1 and 2, revision-4 customer-local channel storage, and adds explicit empty workload state.
+Enrollment, public key
 bindings and legacy raw configuration remain intact; Release Hub stays at revision 1.
 The actual authenticated source API separately requests/approves an installation-proven Entity
 scope, imports a complete signed container, approves its change request and activates its exact
@@ -164,7 +165,7 @@ transaction. Import, approval and activation are distinct and cannot grant execu
 The [configuration owner](lifecycle-configuration.md#atomic-import-and-configured-consumption-design-and-critique)
 defines request formats, bounds, historical trust and the pre-implementation critique.
 
-The same catalog transaction now supports [customer-local channel curation](lifecycle-releases-and-channels.md#customer-local-channel-curation-design-and-critique). Existing operator approval can narrow a fresh imported `RELEASE` set into `local-` membership; exact local revision and accepted pin/digest remain in planning audit. It changes no installation settings, execution approval or vendor bytes, and serving requires the explicit revision-4 migration.
+The same catalog transaction now supports [customer-local channel curation](lifecycle-releases-and-channels.md#customer-local-channel-curation-design-and-critique). Existing operator approval can narrow a fresh imported `RELEASE` set into `local-` membership; exact local revision and accepted pin/digest remain in planning audit. It changes no installation settings, execution approval or vendor bytes, and serving requires the explicit current schema migration.
 
 Only this new import path stores original ciphertext containers and public metadata. Legacy raw
 configuration remains unchanged. Local HTTP/JWT and isolated PostgreSQL tests prove default
@@ -237,7 +238,7 @@ It provides bounded window controls, the server-read confirmation text and a bro
 request UUID. Reads and writes have ten-second deadlines. A rejected or uncertain save disables
 further changes until an explicit refresh; it never retries a write or computes/applies a Plan.
 Focused source and synthetic UI checks are not live deployment evidence. Exact-source activation,
-human operational confirmation and the remaining evidence-backed nginx preparation stay separate.
+human operational confirmation and the remaining evidence-backed workload preparation stay separate.
 
 ## Read-only input inventory
 
@@ -282,7 +283,7 @@ floor, pending report and rollback journal live with current state on a persiste
 Agent namespace, outside its workload Role. Only namespace-scoped Deployment, Service and Job
 operations are granted. See the [Agent preparation guide](../../../lifecycle/agent/README.md#remote-development-preparation).
 
-These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or nginx
+These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or workload
 effect evidence. Existing Hub images, revisions, catalog bindings and network allowlists are
 not changed by this preparation. An exact cloud plan and separate approval precede those effects.
 
@@ -605,7 +606,34 @@ time-bound role that the customer grants in its own tenant. The Hub grants none.
    operator adds its settings. A signed Foundation creation receipt together with a Terraform state
    identity proves ownership. The `fdai:managed=true` tag alone keeps the Entity unmanaged, and the
    Hub records that reason. An installation without a managed Entity receives no Plan.
-5. The first Plan replaces any source-built images with signed images.
+5. The first Plan replaces source-built images, or installs into an explicitly empty workload
+   slot, with signed images.
+
+### Empty workload state
+
+An Entity that has never been installed reports `release_id: null`, no installed artifact
+digests, and `health: unknown`. This is explicit absence, not an invented deployed version.
+The snapshot separately reports `available_artifact_digests` for staged images. Omitting that
+optional field retains legacy inventory behavior; an explicitly empty inventory means unavailable.
+
+The planner considers every subscribed Release when a managed Entity is not installed, including
+`0.0.0` when that is a real catalog version. Ownership, separate application binding, matching
+configuration, artifact availability, signatures, windows and the local envelope remain required.
+An ordinary first-install or upgrade Plan never lowers any already installed Entity's version.
+Managing an empty slot requires `manage --initial-release <version>` to validate its override
+coverage; this does not pin a Plan or bypass candidate checks.
+
+**Critique and revision:** Missing health is not successful installation. Staged images are not
+running images, and a fake current version can skip valid first Releases. The explicit null and
+separate inventory retain these distinctions. Agent preflight still refuses an existing object
+without a recorded rollback target. A failed first apply removes only objects created by that
+attempt and independently verifies their absence. This state contract neither adopts a namespace
+nor supplies ownership evidence. Native ownership/bootstrap remains a separate prerequisite.
+
+The explicit lifecycle database migration advances its reader floor to 5 before storing null Release
+IDs or separate inventory. Revision-4 local channel records, existing rows and snapshot digests remain
+unchanged; old binaries refuse the newer database instead of misreading absence.
+Serving never migrates a database automatically.
 
 Today the Terraform application stage renders workloads. The Hub path moves the rendering of
 namespaced workload objects to the lifecycle agent, as

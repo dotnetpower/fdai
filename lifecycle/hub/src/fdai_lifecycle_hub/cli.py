@@ -90,6 +90,7 @@ def _parser() -> argparse.ArgumentParser:
     manage.add_argument("entity_id")
     manage.add_argument("path", type=Path, help="Entity override blocks")
     manage.add_argument("--operator", required=True)
+    manage.add_argument("--initial-release", help="override coverage version for an empty Entity")
 
     record_state = command("record-state", _record_state, "record a reported-state snapshot")
     record_state.add_argument("installation_id")
@@ -224,6 +225,7 @@ def _manage(args: argparse.Namespace) -> int:
         settings,
         operator=args.operator,
         now=domain.utc_now(),
+        initial_release=args.initial_release,
     )
     _print({"managed": args.entity_id, "settings": settings.digest, "covering_range": covering})
     return 0

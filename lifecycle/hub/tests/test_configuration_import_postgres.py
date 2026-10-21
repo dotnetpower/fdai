@@ -234,6 +234,12 @@ def test_postgres_revision_two_upgrade_is_additive_and_preserves_legacy(postgres
     with h.engine.begin() as connection:
         for model in additions:
             models.Base.metadata.tables[model.__tablename__].drop(connection)
+        connection.exec_driver_sql(
+            "ALTER TABLE lifecycle_state_report DROP COLUMN available_artifact_digests"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE lifecycle_entity_reported_state ALTER COLUMN release_id SET NOT NULL"
+        )
         connection.execute(_versions("lifecycle_hub").update().values(revision=2))
     with pytest.raises(ValueError, match="migrate"):
         require_schema(h.engine, "lifecycle_hub")
@@ -244,7 +250,7 @@ def test_postgres_revision_two_upgrade_is_additive_and_preserves_legacy(postgres
     migrate(h.engine, "lifecycle_hub", never_initialize)
     require_schema(h.engine, "lifecycle_hub")
     with h.engine.connect() as connection:
-        assert connection.scalar(select(_versions("lifecycle_hub").c.revision)) == 4
+        assert connection.scalar(select(_versions("lifecycle_hub").c.revision)) == 5
         assert all(inspect(connection).has_table(model.__tablename__) for model in additions)
     with Session(h.engine) as session:
         installation = session.get(models.Installation, h.iid)

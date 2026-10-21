@@ -24,6 +24,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     evaluate_lifecycle_constraints,
 )
 from fdai_deployment_cli.lifecycle_release import LifecycleRelease
+from fdai_deployment_cli.runtime_release import compare_release_ids
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
@@ -73,6 +74,15 @@ def plan_next(
     checks: list[CandidateCheck] = []
     candidates = catalog.newer_than(installation.settings.channel, installation.current_release)
     for release_id, release in candidates:
+        if any(
+            state.release_id is not None and compare_release_ids(release_id, state.release_id) < 0
+            for entity_id, state in installation.reported.entities.items()
+            if entity_id in installation.managed_entity_ids
+        ):
+            checks.append(
+                CandidateCheck(release_id, (ConstraintBlock("release_would_downgrade_entity"),))
+            )
+            continue
         if release.product != installation.settings.product:
             checks.append(
                 CandidateCheck(release_id, (ConstraintBlock("release_product_mismatch"),))
