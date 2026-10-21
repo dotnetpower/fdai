@@ -54,6 +54,43 @@ def test_healthy_windows_do_not_create_findings(model: str, source: str) -> None
     assert not result.events
 
 
+def test_authenticated_live_origin_is_preserved_in_event_and_report() -> None:
+    samples = window(
+        source="azure_vm_run_command",
+        model="NVIDIA H100 NVL",
+        memory_used_mib=95_000.0,
+        memory_total_mib=95_830.0,
+    )
+
+    result = analyze(
+        samples,
+        now=NOW,
+        evidence_origin="authenticated_live_observation",
+    )
+    report = build_report(result)
+
+    assert result.evidence_origin == "authenticated_live_observation"
+    assert result.events[0].payload["evidence_origin"] == "authenticated_live_observation"
+    assert result.events[0].idempotency_key.startswith("gpu-authenticated_live_observation:")
+    assert report["evidence_origin"] == "authenticated_live_observation"
+    after = analyze(
+        [
+            item.model_copy(
+                update={
+                    "observed_at": item.observed_at + timedelta(minutes=6),
+                    "memory_used_mib": 1_000.0,
+                }
+            )
+            for item in samples
+        ],
+        now=NOW + timedelta(minutes=6),
+        evidence_origin="authenticated_live_observation",
+    )
+    assert verify_followup(result, after)["verification_status"] == (
+        "condition_cleared_in_followup"
+    )
+
+
 def test_saturation_requires_sustained_utilization_and_rising_backlog() -> None:
     samples = [
         item.model_copy(update={"queue_depth": i})

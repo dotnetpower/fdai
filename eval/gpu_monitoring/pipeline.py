@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 from uuid import NAMESPACE_URL, uuid5
 
-from eval.gpu_monitoring.models import Analysis, GpuSample, Policy
+from eval.gpu_monitoring.models import Analysis, EvidenceOrigin, GpuSample, Policy
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.contracts.validation import ContractValidator
 
@@ -29,7 +29,11 @@ def _digest(value: object) -> str:
 
 
 def analyze(
-    samples: Sequence[GpuSample], *, now: datetime, policy: Policy = _DEFAULT_POLICY
+    samples: Sequence[GpuSample],
+    *,
+    now: datetime,
+    policy: Policy = _DEFAULT_POLICY,
+    evidence_origin: EvidenceOrigin = "synthetic_replay",
 ) -> Analysis:
     """Analyze exactly one logical GPU/source window; incomplete evidence is explicit."""
     if now.tzinfo is None or now.utcoffset() is None:
@@ -37,7 +41,12 @@ def analyze(
     if len(samples) > policy.max_samples:
         raise ValueError("sample count exceeds the policy bound")
     if not samples:
-        return Analysis("insufficient_evidence", "no_samples", ())
+        return Analysis(
+            "insufficient_evidence",
+            "no_samples",
+            (),
+            evidence_origin=evidence_origin,
+        )
     identity = samples[0].identity
     by_time: dict[datetime, GpuSample] = {}
     for sample in samples:
@@ -63,10 +72,25 @@ def analyze(
     candidates = _detect(window, policy, sustained=coverage_reason is None)
     if not candidates and coverage_reason is not None:
         return Analysis(
-            "insufficient_evidence", coverage_reason, window, (), evidence_digest, policy_digest
+            "insufficient_evidence",
+            coverage_reason,
+            window,
+            (),
+            evidence_digest,
+            policy_digest,
+            evidence_origin,
         )
     events = tuple(
-        _event(window, signal, kind, severity, now, evidence_digest, policy_digest)
+        _event(
+            window,
+            signal,
+            kind,
+            severity,
+            now,
+            evidence_digest,
+            policy_digest,
+            evidence_origin,
+        )
         for signal, kind, severity in candidates
     )
     return Analysis(
@@ -76,6 +100,7 @@ def analyze(
         events,
         evidence_digest,
         policy_digest,
+        evidence_origin,
     )
 
 
@@ -148,13 +173,14 @@ def _event(
     now: datetime,
     evidence_digest: str,
     policy_digest: str,
+    evidence_origin: EvidenceOrigin,
 ) -> Event:
     latest = samples[-1]
     key = _digest([latest.identity, kind, evidence_digest, policy_digest])
     return Event(
         schema_version="1.0.0",
-        event_id=uuid5(NAMESPACE_URL, f"fdai-gpu-replay:{key}"),
-        idempotency_key=f"gpu-replay:{key}",
+        event_id=uuid5(NAMESPACE_URL, f"fdai-gpu-{evidence_origin}:{key}"),
+        idempotency_key=f"gpu-{evidence_origin}:{key}",
         correlation_id=f"{latest.resource_ref}:{latest.gpu_id}",
         source=latest.source,
         event_type="anomaly_detected",
@@ -165,7 +191,7 @@ def _event(
             "severity": severity,
             "gpu_id": latest.gpu_id,
             "gpu_model": latest.model,
-            "evidence_origin": "synthetic_replay",
+            "evidence_origin": evidence_origin,
             "evidence_digest": evidence_digest,
             "policy_digest": policy_digest,
             "sample_count": len(samples),

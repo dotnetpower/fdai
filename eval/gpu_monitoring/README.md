@@ -10,15 +10,16 @@ recovery through its existing control loop. This evaluation validates the metric
 and local report boundary, not a deployed agent system.
 
 > [!IMPORTANT]
-> All observations are synthetic. No Azure resources, Datadog API, model, production
-> event topic, notification channel or executor was invoked. Do not publish this replay
-> data to a deployed FDAI installation. `external_effect_verified` is always `false`.
+> The bundled demonstration uses only synthetic observations. It does not invoke Azure
+> resources, Datadog APIs, models, production event topics, notification channels or
+> executors. Do not publish that replay to a deployed FDAI installation.
+> `external_effect_verified` remains `false`.
 
 The baseline is upstream commit `f8a4208ef`, checked out on `gpu-monitoring`.
 The 54-case replay covers A10, T4 and H100 labels, two source mappings and nine scenarios:
 six healthy cases and 48 finding cases. The later synthetic observations clear the
 monitored conditions in those 48 cases; no actual remediation or hardware recovery is proven.
-The owning suite has 53 passing tests. These are software contract tests, not physical
+The owning suite has 54 passing tests. These are software contract tests, not physical
 certification of any GPU model.
 
 ## Repository structure and existing integration seams
@@ -145,9 +146,16 @@ recording publisher through the publish-only EventBus-compatible seam, not Kafka
 or a running agent. Replay keys include identity, evidence and policy. Durable deduplication,
 restarts, incident lifecycle and cross-provider duplicate suppression are not implemented.
 
+`analyze` defaults to `synthetic_replay`. An authenticated development adapter can explicitly
+select `authenticated_live_observation` with the `azure_vm_run_command` source. The origin is
+preserved in the Event, idempotency key and report, but it does not grant execution authority
+or turn a development diagnostic into a production collector.
+
 Follow-up verification requires a fresh, complete, non-overlapping later window for the
 same GPU/source identity and availability of the original finding's telemetry.
-`recovered_in_replay` means only that the monitored replay conditions cleared.
+`recovered_in_replay` means only that the monitored replay conditions cleared. Live
+development evidence uses `condition_cleared_in_followup` so it does not claim that an
+unexecuted recovery action caused the change.
 
 ## Running and verification
 
@@ -168,7 +176,7 @@ status, required safety gates and follow-up reports.
 
 Local evidence for this task:
 
-* 53 owning tests passed and the 54-case demonstration executed.
+* 54 owning tests passed and the 54-case demonstration executed.
 * Strict mypy passed for the five implementation modules.
 * Python 3.12.4, pytest 9.1.1, Pydantic 2.12.5 and jsonschema 4.26.0 were reused from the
   existing environment; mypy was 1.10.0.

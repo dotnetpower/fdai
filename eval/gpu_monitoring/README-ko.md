@@ -11,15 +11,15 @@ GPU 지표에서 Event와 로컬 리포트를 만드는 경계입니다. 배포�
 검증한 것은 아닙니다.
 
 > [!IMPORTANT]
-> 모든 관측은 합성 데이터입니다. Azure 리소스, Datadog API, 모델, 운영 이벤트 토픽,
-> 알람 채널, 실행기를 호출하지 않았습니다. 이 replay 데이터를 배포된 FDAI에
-> 넣지 마세요. `external_effect_verified`는 항상 `false`입니다.
+> 기본 demonstration은 합성 관측만 사용합니다. Azure 리소스, Datadog API, 모델,
+> 운영 이벤트 토픽, 알림 채널, 실행기를 호출하지 않습니다. 이 replay 데이터를
+> 배포된 FDAI에 넣지 마세요. `external_effect_verified`는 `false`로 유지됩니다.
 
 기준 소스는 upstream `f8a4208ef`이며 작업 브랜치는 `gpu-monitoring`입니다.
 A10, T4, H100 라벨과 두 수집원 매핑, 아홉 시나리오를 조합한 54개 replay를
 실행했습니다. 정상 6개와 finding 48개입니다. 이후 합성 관측에서는 48개의
 모니터링 조건이 해제되었습니다. 실제 조치나 하드웨어 복구를 증명하지는 않습니다.
-소유 테스트 53개가 통과했습니다. GPU 모델에 대한 물리적 인증이 아닌 소프트웨어
+소유 테스트 54개가 통과했습니다. GPU 모델에 대한 물리적 인증이 아닌 소프트웨어
 계약 검증입니다.
 
 ## 저장소 구조와 기존 연동 경계
@@ -146,9 +146,16 @@ publish-only 경계와 호환되는 로컬 기록 객체를 사용합니다. Kaf
 실제 Agent를 실행하지 않았습니다. Replay key에는 identity, 증거, 정책을 포함합니다.
 영속 중복 제거, 재시작, Incident lifecycle, 수집원 간 중복 억제는 구현하지 않았습니다.
 
+`analyze`는 기본적으로 `synthetic_replay`를 사용합니다. 인증된 개발 어댑터는
+`azure_vm_run_command` source와 함께 `authenticated_live_observation`을 명시적으로
+선택할 수 있습니다. 이 출처는 Event, idempotency key, 리포트에 보존되지만 실행
+권한을 부여하지 않으며 개발 진단을 운영 수집기로 바꾸지 않습니다.
+
 후속 비교는 같은 GPU/source의 신선하고 완전한 후속 window가 기존 window와
 겹치지 않고, 원래 finding에 필요한 지표가 계속 존재할 때만 검증됩니다.
-`recovered_in_replay`는 합성 관측 조건이 해제되었다는 의미만 갖습니다.
+`recovered_in_replay`는 합성 관측 조건이 해제되었다는 의미만 갖습니다. 실개발
+관측은 `condition_cleared_in_followup`을 사용합니다. 실행하지 않은 복구 작업이
+변화를 일으켰다고 주장하지 않기 위한 구분입니다.
 
 ## 실행과 검증
 
@@ -169,7 +176,7 @@ gate, 사후 리포트가 포함됩니다.
 
 이번 작업의 로컬 검증 증거:
 
-* 소유 테스트 53개가 통과했고 54개 시나리오 demonstration을 실행했습니다.
+* 소유 테스트 54개가 통과했고 54개 시나리오 demonstration을 실행했습니다.
 * 구현 모듈 5개에 대한 strict mypy 검증이 통과했습니다.
 * 기존 Python 3.12.4, pytest 9.1.1, Pydantic 2.12.5, jsonschema 4.26.0을 사용했고
   mypy는 1.10.0이었습니다.

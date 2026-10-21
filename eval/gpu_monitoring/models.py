@@ -13,10 +13,11 @@ from pydantic import Field, field_validator, model_validator
 Percent = Annotated[float, Field(strict=True, ge=0, le=100, allow_inf_nan=False)]
 Nonnegative = Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)]
 Counter = Annotated[int, Field(strict=True, ge=0)]
+EvidenceOrigin = Literal["synthetic_replay", "authenticated_live_observation"]
 
 
 class GpuSample(ContractBase):
-    source: Literal["azure_monitor", "datadog"]
+    source: Literal["azure_monitor", "datadog", "azure_vm_run_command"]
     resource_ref: Annotated[str, Field(pattern=r"^resource:[A-Za-z0-9_.:-]{1,120}$")]
     gpu_id: Annotated[str, Field(pattern=r"^[A-Za-z0-9_.:-]{1,120}$")]
     model: Annotated[str, Field(min_length=1, max_length=120)]
@@ -99,3 +100,4 @@ class Analysis:
     events: tuple[Event, ...] = ()
     evidence_digest: str | None = None
     policy_digest: str | None = None
+    evidence_origin: EvidenceOrigin = "synthetic_replay"

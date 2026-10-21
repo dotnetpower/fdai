@@ -74,7 +74,7 @@ def build_report(result: Analysis) -> dict[str, object]:
         )
     return {
         "schema_version": "1.0.0",
-        "evidence_origin": "synthetic_replay",
+        "evidence_origin": result.evidence_origin,
         "mode": "shadow",
         "status": result.status,
         "reason": result.reason,
@@ -117,13 +117,14 @@ def build_report(result: Analysis) -> dict[str, object]:
 
 
 def verify_followup(before: Analysis, after: Analysis) -> dict[str, object]:
-    """Compare non-overlapping replay windows, never claim real remediation success."""
+    """Compare non-overlapping observation windows without inferring action causality."""
     status = "unverified"
     if (
         before.status == "finding"
         and after.status != "insufficient_evidence"
         and before.samples
         and after.samples
+        and before.evidence_origin == after.evidence_origin
         and before.samples[-1].identity == after.samples[-1].identity
         and after.samples[0].observed_at > before.samples[-1].observed_at
         and all(
@@ -133,9 +134,14 @@ def verify_followup(before: Analysis, after: Analysis) -> dict[str, object]:
             for sample in after.samples
         )
     ):
-        status = "recovered_in_replay" if after.status == "healthy" else "still_failing"
+        if after.status != "healthy":
+            status = "still_failing"
+        elif before.evidence_origin == "authenticated_live_observation":
+            status = "condition_cleared_in_followup"
+        else:
+            status = "recovered_in_replay"
     return {
-        "evidence_origin": "synthetic_replay",
+        "evidence_origin": before.evidence_origin,
         "verification_status": status,
         "execution_status": "not_executed",
         "external_effect_verified": False,
