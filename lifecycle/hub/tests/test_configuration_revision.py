@@ -19,6 +19,7 @@ from fdai_deployment_cli.lifecycle_configuration_sealing import encryption_key_d
 from fdai_deployment_cli.lifecycle_plan import canonical_plan_payload
 from fdai_deployment_cli.runtime_release import RecallRecord
 
+from fdai_lifecycle_hub import schemas
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
@@ -71,22 +72,16 @@ def plan_case(
     tmp_path: Path,
 ) -> PlanCase:
     core = next(entity for entity in installation.entities if entity.managed)
-    ids = {"core": FIRST, "console": SECOND}
     target = replace(
         installation,
         settings=replace(installation.settings, channel="DEV"),
         entities=frozenset(
             replace(
                 entity,
-                entity_id=ids[entity.entity_id],
                 ownership=core.ownership,
                 settings=core.settings,
             )
             for entity in installation.entities
-        ),
-        reported=replace(
-            installation.reported,
-            entities={ids[name]: state for name, state in installation.reported.entities.items()},
         ),
     )
     schema = {
@@ -148,6 +143,8 @@ def plan_case(
     )
     candidate = ConfigurationRevisionCandidate(
         package=package,
+        installation_id=target.installation_id,
+        entity_bindings=(("core", FIRST), ("console", SECOND)),
         configuration_key=signing.public_key(),
         installation_key_digest=encryption_key_digest(recipient.public_key()),
         sealed_keys=source.sealed_keys,
@@ -168,15 +165,101 @@ def test_real_release_publication_packaging_and_planning(
         configuration_revision=case.candidate,
     )
     assert isinstance(outcome, Issued)
-    assert outcome.plan.entity_ids == outcome.plan.envelope.entity_ids == ENTITIES
+    assert (
+        outcome.plan.entity_ids
+        == outcome.plan.envelope.entity_ids
+        == frozenset({"core", "console"})
+    )
     assert outcome.plan.configuration_revision_digest == case.candidate.package.digest
     assert outcome.plan.target_release_digest == case.source.release_digest
     assert outcome.plan.signed_payload == canonical_plan_payload(outcome.plan)
     key.public_key.verify(outcome.plan.signature, outcome.plan.signed_payload)
-    resolution = case.candidate.resolve("1.6.0", case.catalog.releases["1.6.0"], ENTITIES)
+    resolution = case.candidate.resolve(
+        "1.6.0",
+        case.catalog.releases["1.6.0"],
+        case.installation.managed_entity_ids,
+        installation_id=case.installation.installation_id,
+    )
     assert resolution.entities[FIRST].values["replicas"] == 2
     assert resolution.entities[SECOND].values["replicas"] == 4
     assert resolution.entities[SECOND].values["credential_ref"] == "second-secret"
+
+
+def test_enrollment_compatible_entity_ids_reach_the_real_configuration_planner(
+    plan_case: PlanCase, key: HubSigningKey, now: datetime
+) -> None:
+    case = plan_case
+    target = case.installation
+    request = schemas.sign_enrollment(
+        {
+            "installation_id": target.installation_id,
+            "settings": schemas.settings_json.dump_python(target.settings, mode="json"),
+            "configuration": schemas.configuration_json.dump_python(
+                target.configuration, mode="json"
+            ),
+            "entities": [
+                {"entity_id": entity.entity_id, "kind": entity.kind}
+                for entity in sorted(target.entities, key=lambda entity: entity.entity_id)
+            ],
+            "reported": schemas.reported_state_json.dump_python(target.reported, mode="json"),
+        },
+        Ed25519PrivateKey.generate(),
+        now,
+    )
+    assert {entity.entity_id for entity in request.installation.entities} == {"core", "console"}
+    outcome = plan_next(
+        target, now, catalog=case.catalog, key=key, configuration_revision=case.candidate
+    )
+    assert isinstance(outcome, Issued)
+    assert outcome.plan.entity_ids == frozenset({"core", "console"})
+
+
+@pytest.mark.parametrize(
+    "bindings",
+    [
+        (),
+        (("core", FIRST),),
+        (("core", FIRST), ("core", SECOND)),
+        (("core", FIRST), ("console", FIRST)),
+        (("core", FIRST), ("console", SECOND), ("extra", "3" * 64)),
+        (("unmanaged", FIRST), ("console", SECOND)),
+        (("core", "3" * 64), ("console", SECOND)),
+        (("core", "plaintext"), ("console", SECOND)),
+    ],
+)
+def test_configuration_cannot_replace_or_infer_the_independent_entity_mapping(
+    plan_case: PlanCase,
+    key: HubSigningKey,
+    now: datetime,
+    bindings: tuple[tuple[str, str], ...],
+) -> None:
+    candidate = replace(plan_case.candidate, entity_bindings=bindings)
+    outcome = plan_next(
+        plan_case.installation,
+        now,
+        catalog=plan_case.catalog,
+        key=key,
+        configuration_revision=candidate,
+    )
+    assert isinstance(outcome, NoEligibleRelease)
+    assert {block.reason_code for check in outcome.checks for block in check.blocks} == {
+        "configuration_revision_invalid"
+    }
+
+
+def test_configuration_mapping_is_bound_to_the_selected_installation(
+    plan_case: PlanCase, key: HubSigningKey, now: datetime
+) -> None:
+    other = replace(plan_case.installation, installation_id="other-installation")
+    outcome = plan_next(
+        other,
+        now,
+        catalog=plan_case.catalog,
+        key=key,
+        configuration_revision=plan_case.candidate,
+    )
+    assert isinstance(outcome, NoEligibleRelease)
+    assert outcome.checks[0].blocks[0].reason_code == "configuration_revision_invalid"
 
 
 @pytest.mark.parametrize(

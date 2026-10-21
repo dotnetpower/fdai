@@ -57,7 +57,8 @@ The existing upgrade planner's `plan_next` source API can also receive a transie
 caller supplies independently bound customer/installation keys, sealed-key classification,
 complete accepted history and the independently retained head. The planner verifies the exact
 catalog Release version, manifest digest and schema, and requires the package to cover exactly
-the installation's already-managed opaque `entity_id` set. Every Entity resolves independently;
+an independently supplied one-to-one map of the exact installation's already-managed Entity set to
+opaque package bindings. Existing enrolled IDs remain unchanged in signed Plans. Every Entity resolves independently;
 one failure blocks the whole candidate, and the signed Plan binds the complete package digest.
 It neither manages an Entity because it appears in a package nor bypasses recall, timing or
 effect-envelope checks. With no candidate, legacy planning is unchanged. With a candidate, a

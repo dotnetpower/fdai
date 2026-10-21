@@ -92,7 +92,10 @@ def plan_next(
         if configuration_revision is not None:
             try:
                 resolved = configuration_revision.resolve(
-                    release_id, release, installation.managed_entity_ids
+                    release_id,
+                    release,
+                    installation.managed_entity_ids,
+                    installation_id=installation.installation_id,
                 )
             except ValueError:
                 checks.append(

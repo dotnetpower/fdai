@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: c0067a192982062d0f718cfab266cd1cf373afd1
+translation_source_sha: aad74c6bf7821cd5414ae968e40f8295fcf445cd
 translation_revised: 2026-10-21
 ---
 # Hub 관리형 수명 주기
@@ -56,7 +56,8 @@ Plan을 발행하기 전에 설치의 스키마 다이제스트를 해당 Releas
 `ConfigurationRevisionCandidate`로 받을 수도 있습니다. 호출자는 독립적으로 연결한 고객 키와
 설치 키, 봉인 키 분류, 수락한 전체 이력과 독립적으로 보관한 체인 끝을 제공합니다. 플래너는
 정확한 카탈로그 Release 버전, 매니페스트 다이제스트와 스키마를 검증하며, 패키지가 설치에서
-이미 관리 중인 불투명한 `entity_id` 집합을 정확히 포함하는지 확인합니다. 각 Entity를 따로
+이미 관리 중인 Entity 집합과 불투명한 패키지 연결 값의 독립적인 일대일 매핑을 정확히 포함하는지
+확인합니다. 기존 등록 식별자는 서명된 Plan에서도 바꾸지 않습니다. 각 Entity를 따로
 해석하고, 하나라도 실패하면 후보 전체를 차단합니다. 서명된 Plan은 전체 패키지 다이제스트를
 포함합니다. 패키지에 등장했다는 이유로 Entity를 관리 대상으로 바꾸지 않으며, 회수, 시간이나
 영향 범위 검사도 우회하지 않습니다. 후보가 없으면 기존 계획 동작을 유지합니다. 후보가 있을 때

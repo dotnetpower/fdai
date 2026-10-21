@@ -1,7 +1,7 @@
 ---
 title: 수명 주기 구성
 translation_of: lifecycle-configuration.md
-translation_source_sha: 6fe177d9722f68d548c5678ecd482ef83cf24594
+translation_source_sha: a551ff5fad003e98894a4b605cf4b2429e0f5b68
 translation_revised: 2026-10-21
 ---
 # 수명 주기 구성
@@ -198,9 +198,16 @@ installations/<installation-id>/
 암호화 방식을 유지하며, 정확한 Release 매니페스트의 `release_digest`를 추가합니다.
 `configuration`에는 `schema`, `environment`, `entities` 배열이
 있습니다. 각 항목은 `entity_id`와 `entity_overrides`만 포함하며 `entity_id` 순으로 정렬합니다.
-중복과 정규 순서가 아닌 배열은 수락하지 않습니다. 기존 `entity_id`는 설치가 독립적으로
+중복과 정규 순서가 아닌 배열은 수락하지 않습니다. 패키지의 `entity_id`는 설치가 독립적으로
 제공한 소문자 16진수 64자리의 불투명한 연결 값입니다. 고객 이름, 리소스 ID나 고객 이름의
 해시를 사용하지 않습니다. 이 값은 구성을 구별할 뿐 소유권이나 권한을 입증하지 않습니다.
+
+Hub에 등록된 기존 Entity 식별자는 다른 어휘이며, 소문자, 숫자와 하이픈으로 최대 63자입니다.
+등록, 저장소와 서명된 Plan에서 이 식별자를 바꾸지 않습니다. 일시적인 플래너 후보에는 정확한
+설치 식별자와, 이미 관리 중인 Entity 식별자를 패키지 연결 값에 일대일로 대응시키는 독립적인
+매핑이 필요합니다. 고객 이름에서 불투명한 연결 값을 만들지 않고 매핑의 두 집합을 검사합니다.
+누락, 중복 또는 다른 설치의 매핑은 보류하며 패키지가 자신의 신뢰 매핑을 제공할 수 없습니다.
+이는 명시적인 소스 조립 입력이며 영속 키/매핑 등록이나 Hub 가져오기가 아닙니다.
 
 선택한 각 Entity는 동일한 정확한 Release 스키마와 Environment Config에 자신의 가장 구체적인
 재정의만 적용합니다. 어느 블록이든 적용 범위 누락, 모호한 구간이나 알 수 없는 키가 있으면 전체

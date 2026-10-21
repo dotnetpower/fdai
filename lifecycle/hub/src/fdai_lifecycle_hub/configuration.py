@@ -22,6 +22,8 @@ class ConfigurationRevisionCandidate:
     """
 
     package: SignedConfigurationPackage
+    installation_id: str
+    entity_bindings: tuple[tuple[str, str], ...]
     configuration_key: Ed25519PublicKey
     installation_key_digest: str
     sealed_keys: frozenset[str]
@@ -29,9 +31,23 @@ class ConfigurationRevisionCandidate:
     history: tuple[SignedConfigurationPackage, ...] = ()
 
     def resolve(
-        self, release_id: str, release: RuntimeRelease, entity_ids: frozenset[str]
+        self,
+        release_id: str,
+        release: RuntimeRelease,
+        entity_ids: frozenset[str],
+        *,
+        installation_id: str,
     ) -> InstallationLayerResolution:
         """Verify against the exact catalog schema and existing managed Entity selection."""
+        bindings = dict(self.entity_bindings)
+        if (
+            not installation_id
+            or self.installation_id != installation_id
+            or len(bindings) != len(self.entity_bindings)
+            or frozenset(bindings) != entity_ids
+            or len(set(bindings.values())) != len(bindings)
+        ):
+            raise ValueError("configuration Entity bindings do not match the managed installation")
         head = self.history[-1].digest if self.history else None
         if head != self.expected_predecessor:
             raise ValueError("configuration history does not match the retained head")
@@ -44,7 +60,7 @@ class ConfigurationRevisionCandidate:
             installation_key_digest=self.installation_key_digest,
             configuration_schema=schema.to_mapping(),
             sealed_keys=self.sealed_keys,
-            entity_ids=entity_ids,
+            entity_ids=frozenset(bindings.values()),
             release_version=release_id,
             release_digest=release.digest,
             history=self.history,

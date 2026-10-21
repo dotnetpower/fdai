@@ -202,10 +202,18 @@ The authority-neutral `fdai.lifecycle-configuration-package.v2` format keeps the
 envelope fields and cryptography and adds the exact `release_digest` of the Release manifest.
 Its `configuration` contains `schema`, `environment`, and
 an `entities` array. Each entry has exactly `entity_id` and `entity_overrides`. Entries are
-sorted by `entity_id`; duplicates and noncanonical ordering are not accepted. The existing
-`entity_id` vocabulary carries an opaque 64-character lowercase hexadecimal binding supplied
+sorted by `entity_id`; duplicates and noncanonical ordering are not accepted.
+Package `entity_id` carries an opaque 64-character lowercase hexadecimal binding supplied
 independently by the installation, never a customer name, resource ID or hash of a customer name.
 This binding identifies configuration; it proves neither ownership nor permission.
+
+The Hub's existing enrolled Entity identifiers are a different vocabulary (up to 63 lowercase
+letters, digits and hyphens). They remain unchanged in enrollment, storage and signed Plans.
+The transient planner candidate requires the exact installation identifier and an independently
+supplied one-to-one mapping from its already-managed Entity identifiers to package bindings.
+Both mapping sets are checked without deriving opaque bindings from customer names. Missing,
+duplicate or foreign-installation mappings hold; the package cannot supply its own trusted map.
+This is an explicit source-composition input, not durable key/mapping enrollment or Hub import.
 
 Each selected Entity independently resolves the same exact Release schema and Environment Config
 with its own most-specific override. Missing coverage, ambiguous intervals or an unknown key in
