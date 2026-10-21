@@ -573,6 +573,17 @@ suppression windows, and version ranges. It still passes signature checks, the l
 exact plan, the lock, idempotency, audit intent, recall, destructive-change confirmation, recovery,
 and independent readback. The installation's own kill switch route keeps its existing behavior.
 
+> **Implemented command expiry and break-glass boundary:** `LifecycleCommand` and
+> `validate_lifecycle_command` require an explicit expiry on every command (`suppression-window`,
+> `authority-lowering`, and `break-glass`) and reject any authority-raising request (`target_mode`
+> above `shadow`, `target_autonomy` above `hil`, kill-switch disengagement, or bypasses outside
+> `maintenance-window`, `suppression-window`, and `version-range`). While active, a break-glass
+> command applies its secret-scanned emergency overrides (`configuration-change` Plan) and bypasses
+> only its declared window or version-range constraints while preserving recall, schema, artifact,
+> and residency checks. At expiry, `plan_next` reconciles unadopted emergency overrides back to the
+> approved configuration revision with a `drift-reconciliation` Plan. Dedicated Hub command HTTP/UI
+> routes remain separate.
+
 ## Separation from the operations loop
 
 - The lifecycle loop changes only resources it provably owns. Foundation resources require a

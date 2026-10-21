@@ -758,13 +758,24 @@ from fdai_deployment_cli.lifecycle_authorization import (  # noqa: E402
     exact_plan_digest_for,
     issue_lifecycle_authorization_receipt,
 )
+from fdai_deployment_cli.lifecycle_commands import (  # noqa: E402
+    BreakGlassBypass,
+    LifecycleCommand,
+    LifecycleCommandKind,
+    overrides_adopted,
+    require_valid_lifecycle_command,
+    validate_lifecycle_command,
+)
 
 __all__ = [
     "ArtifactRequirement",
+    "BreakGlassBypass",
     "CapabilityMode",
     "ConstraintBlock",
     "DataResidencyRequirement",
     "LifecycleAuthorizationReceipt",
+    "LifecycleCommand",
+    "LifecycleCommandKind",
     "LifecycleConstraintContext",
     "LifecycleEffectEnvelope",
     "LifecyclePhase",
@@ -785,5 +796,8 @@ __all__ = [
     "evaluate_plan_admission",
     "exact_plan_digest_for",
     "issue_lifecycle_authorization_receipt",
+    "overrides_adopted",
+    "require_valid_lifecycle_command",
     "required_artifact_digests",
+    "validate_lifecycle_command",
 ]

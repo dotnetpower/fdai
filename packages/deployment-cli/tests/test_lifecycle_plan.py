@@ -12,6 +12,7 @@ from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_plan import (
     DataResidencyRequirement,
     LifecycleAuthorizationReceipt,
+    LifecycleCommand,
     LifecycleConstraintContext,
     LifecycleEffectEnvelope,
     LifecyclePhaseCompletionReceipt,
@@ -26,6 +27,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     evaluate_plan_admission,
     exact_plan_digest_for,
     issue_lifecycle_authorization_receipt,
+    validate_lifecycle_command,
 )
 from fdai_deployment_cli.runtime_release import RecallRecord, RuntimeRelease, SchemaRange
 
@@ -751,6 +753,44 @@ def test_phase_authorization_requires_bound_receipt_and_earlier_phase_completion
         False,
         "authorization_receipt_window_closed",
     )
+
+
+def test_lifecycle_commands_require_expiry_and_reject_authority_raising_requests() -> None:
+    missing_expiry = LifecycleCommand(
+        command_id="cmd-no-expiry",
+        kind="authority-lowering",
+        actor="operator-alice",
+        reason="Lower action mode",
+        starts_at=NOW,
+        expires_at=None,
+        target_action_type="action:scale-service",
+        target_mode="shadow",
+    )
+    assert (
+        validate_lifecycle_command(missing_expiry, trusted_now=NOW).reason_code
+        == "command_expiry_required"
+    )
+
+    valid_lowering = replace(missing_expiry, expires_at=NOW + timedelta(hours=2))
+    assert validate_lifecycle_command(valid_lowering, trusted_now=NOW).allowed
+
+    authority_raising_cases = (
+        replace(valid_lowering, target_mode="enforce"),
+        replace(valid_lowering, target_autonomy="auto"),
+        replace(valid_lowering, disengage_kill_switch=True),
+        LifecycleCommand(
+            command_id="cmd-bad-bypass",
+            kind="break-glass",
+            actor="break-glass-bob",
+            reason="Attempt forbidden bypass",
+            starts_at=NOW,
+            expires_at=NOW + timedelta(hours=1),
+            bypass_scopes=frozenset({"local-envelope", "recall"}),
+        ),
+    )
+    for invalid_cmd in authority_raising_cases:
+        decision = validate_lifecycle_command(invalid_cmd, trusted_now=NOW)
+        assert (decision.allowed, decision.reason_code) == (False, "command_raises_authority")
 
 
 def _encoded(document: Mapping[str, object]) -> bytes:
