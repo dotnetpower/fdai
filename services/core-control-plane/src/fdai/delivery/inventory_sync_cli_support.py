@@ -30,6 +30,7 @@ from fdai.delivery.azure.arm_inventory import (
     AzureArmInventoryFactory,
     AzureArmInventoryFactoryConfig,
 )
+from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
 from fdai.delivery.azure.metrics_api import AzureMonitorMetricsConfig, AzureMonitorMetricsProvider
 from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
@@ -46,6 +47,7 @@ from fdai.delivery.azure.static_web_app_inventory import (
     AzureStaticWebAppInventoryConfig,
     AzureStaticWebAppInventoryEnricher,
 )
+from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.inventory_collection import (
     collection_configuration_digest,
     collection_producer_digest,
@@ -232,6 +234,14 @@ def build_sources(
             "schema_version": "1.0.0",
             "source": source_name,
             "producer_digest": producer_digest,
+            "authentication_selector_digest": (
+                identity.authentication_selector_digest
+                if source_name in {"arg", "arm"}
+                and isinstance(
+                    identity, (ManagedIdentityWorkloadIdentity, AsyncAzureCliWorkloadIdentity)
+                )
+                else None
+            ),
             "policy": asdict(source_policy),
             "management_endpoint": (
                 arg_endpoint if source_name == "arg" else config.management_endpoint

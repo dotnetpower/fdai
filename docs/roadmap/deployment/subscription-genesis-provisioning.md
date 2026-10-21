@@ -26,7 +26,7 @@ exact-plan approval or private-network boundaries. The focused `cli_plan` module
 
 `fdaictl` owns orchestration and presentation. Terraform remains the infrastructure source of
 truth, service migration tools own schema changes, repository catalogs own ontology and rules, and
-the inventory single writer owns observed resource instances.
+the inventory single writer owns observed resource instances. ARG/ARM retained collection contexts bind a secret-free digest of the configured authentication selector and backend, so changing them prevents reuse of earlier prepared candidates or cursors. This is configuration continuity, not proof of the effective provider principal or durable shared request admission.
 
 ```text
 inspect -> reconcile current state -> foundation plan/apply -> attest runner

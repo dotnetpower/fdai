@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 69f974cb592d2763588526f8e2255963de818234
-translation_revised: 2026-10-02
+translation_source_sha: bf3e1f905baab0dc5e14fa1379822ca59c17e1e5
+translation_revised: 2026-10-21
 ---
 # 구독 초기 프로비저닝
 
@@ -29,7 +29,7 @@ translation_revised: 2026-10-02
 
 `fdaictl`은 조정과 표시를 담당합니다. Terraform은 인프라 진실 원본으로 유지하고, 서비스
 이행 도구는 스키마 변경을 소유하며, 저장소 카탈로그는 온톨로지와 규칙을 소유하고,
-인벤토리 단일 작성기는 관측된 리소스 인스턴스를 소유합니다.
+인벤토리 단일 작성기는 관측된 리소스 인스턴스를 소유합니다. ARG/ARM의 보존 수집 맥락에는 구성된 인증 선택자와 백엔드의 비밀 값 없는 digest를 결합합니다. 설정이 바뀌면 이전 준비 후보나 커서를 재사용하지 않습니다. 이는 구성 연속성 검사이며, 실제 공급자 principal 증명이나 영속 공유 요청 허용량이 아닙니다.
 
 ```text
 inspect -> reconcile current state -> foundation plan/apply -> attest runner
