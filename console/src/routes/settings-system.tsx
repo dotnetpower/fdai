@@ -495,6 +495,15 @@ function TeamsWorkflowTestPanel({
         observedAt: saved.testedAt,
       });
       setBindingVisibility("visible");
+      if (!saved.accepted) {
+        setError(
+          saved.providerStatus > 0
+            ? `Binding saved, but Teams rejected the test card with HTTP ${saved.providerStatus}`
+            : "Binding saved, but the Teams test acknowledgement was not observed",
+        );
+        return;
+      }
+      setResult(saved);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
