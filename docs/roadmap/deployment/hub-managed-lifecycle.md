@@ -707,6 +707,12 @@ The initial surface is limited to application-package Deployments and internal S
 It adds no namespace, RoleBinding, Azure resource, secret read, database migration execution,
 application-specific renderer or production authorization. Explicit Hub schema migration
 advances the reader floor to 6 before persisting native evidence; old binaries do not reinterpret it.
+For a staged cutover, the new server can serve revision 5 before that explicit migration.
+Only serving and readiness accept revisions 5 and 6; native acceptance and explicit schema
+verification still require revision 6. Missing, older and future revisions remain blocked.
+Move traffic to the compatible image and drain revision-5 readers before advancing the floor.
+Before migration, the old image remains a rollback option. After migration, recovery uses a
+verified revision-6-compatible image, never a lowered reader floor.
 The [implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
 separates source validation, publication, activation and installed qualification.
 

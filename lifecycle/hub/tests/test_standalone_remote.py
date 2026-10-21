@@ -18,7 +18,7 @@ from sqlalchemy.pool import StaticPool
 from starlette.testclient import TestClient
 
 from fdai_lifecycle_hub import remote, remote_auth
-from fdai_lifecycle_hub.migrations import require_schema
+from fdai_lifecycle_hub.migrations import _versions, require_schema
 
 
 @pytest.fixture(params=["sqlite", "postgres"])
@@ -114,7 +114,7 @@ def test_migrate_serve_and_ready_without_directory_or_peer(
         monkeypatch.setattr(
             remote,
             "require_schema",
-            lambda *args: (_ for _ in ()).throw(ValueError("synthetic missing schema")),
+            lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("synthetic missing schema")),
         )
         assert client.get("/readyz").status_code == 503
         assert client.get("/healthz").status_code == 200
@@ -128,6 +128,64 @@ def test_serving_before_migration_is_rejected(monkeypatch, engine, kind):
     monkeypatch.setattr(remote, "remote_engine", lambda _: engine)
     monkeypatch.setattr(sys, "argv", ["remote", "serve"])
     with pytest.raises(ValueError, match="not migrated"):
+        remote._run()
+    namespace = "release_hub" if kind == "release" else "lifecycle_hub"
+    with pytest.raises(ValueError, match="not migrated"):
+        require_schema(engine, namespace, allow_pre_native=True)
+
+
+def test_reader_cutover_precedes_native_floor_upgrade(monkeypatch, tmp_path, engine):
+    origin = "https://standalone.example.com"
+    monkeypatch.setenv("FDAI_HUB_REMOTE_CONFIG", json.dumps({"kind": "target", "origin": origin}))
+    monkeypatch.setattr(remote, "remote_engine", lambda _: engine)
+    monkeypatch.setattr(remote, "remote_key", lambda _: Ed25519PrivateKey.generate())
+    monkeypatch.setattr(sys, "argv", ["remote", "migrate"])
+    remote._run()
+    versions = _versions("lifecycle_hub")
+    with engine.begin() as connection:
+        connection.execute(versions.update().values(revision=5))
+    captured = []
+    monkeypatch.setattr(uvicorn, "run", lambda app, **kwargs: captured.append(app))
+    monkeypatch.setattr(sys, "argv", ["remote", "serve", "--ui", str(tmp_path)])
+    remote._run()
+    with TestClient(captured.pop(), base_url=origin) as client:
+        assert client.get("/readyz").json() == {"status": "ready"}
+        with engine.connect() as connection:
+            assert (
+                connection.scalar(text("SELECT revision FROM lifecycle_hub_schema_revision")) == 5
+            )
+        monkeypatch.setattr(sys, "argv", ["remote", "schema"])
+        with pytest.raises(ValueError, match="Unsupported Hub schema revision"):
+            remote._run()
+        monkeypatch.setattr(sys, "argv", ["remote", "migrate"])
+        remote._run()
+        assert client.get("/readyz").json() == {"status": "ready"}
+        require_schema(engine, "lifecycle_hub")
+        for unsupported in (4, 7):
+            with engine.begin() as connection:
+                connection.execute(versions.update().values(revision=unsupported))
+            assert client.get("/readyz").status_code == 503
+            assert client.get("/healthz").status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("kind", "revision"),
+    [("target", 4), ("target", 7), ("release", 2), ("release", 5), ("release", 6)],
+)
+def test_serving_compatibility_does_not_accept_other_revisions(monkeypatch, engine, kind, revision):
+    monkeypatch.setenv(
+        "FDAI_HUB_REMOTE_CONFIG", json.dumps({"kind": kind, "origin": "https://hub.example.com"})
+    )
+    monkeypatch.setattr(remote, "remote_engine", lambda _: engine)
+    monkeypatch.setattr(sys, "argv", ["remote", "migrate"])
+    remote._run()
+    namespace = "lifecycle_hub" if kind == "target" else "release_hub"
+    with engine.begin() as connection:
+        connection.execute(_versions(namespace).update().values(revision=revision))
+    with pytest.raises(ValueError, match="Unsupported Hub schema revision"):
+        require_schema(engine, namespace, allow_pre_native=True)
+    monkeypatch.setattr(sys, "argv", ["remote", "serve"])
+    with pytest.raises(ValueError, match="Unsupported Hub schema revision"):
         remote._run()
 
 

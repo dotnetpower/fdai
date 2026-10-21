@@ -255,6 +255,7 @@ def test_revision_five_requires_explicit_marker_upgrade_without_changing_data(
     versions = _versions("lifecycle_hub")
     with store.engine.begin() as connection:
         connection.execute(versions.update().values(revision=5))
+    require_schema(store.engine, "lifecycle_hub", allow_pre_native=True)
     with pytest.raises(ValueError, match="Unsupported Hub schema revision"):
         require_schema(store.engine, "lifecycle_hub")
     with pytest.raises(ValueError, match="Unsupported Hub schema revision"):
