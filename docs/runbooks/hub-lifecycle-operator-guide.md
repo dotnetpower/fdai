@@ -197,6 +197,31 @@ Use `--kind configuration` with the customer's configuration public key for conf
 This command verifies an existing signature; it does not create a signed package, acquire trust
 from a bundled key, mirror registry images or make a target eligible.
 
+#### Prepare execution windows
+
+This procedure requires a build with the execution-settings API and UI, an enrolled installation,
+and a verified customer operator. A missing section or authentication failure isn't a reason to
+add permissions or edit the database.
+
+1. Open **Installations**, select the installation, and open **Execution schedule**.
+   The default constraints view doesn't load or change the schedule.
+2. If an open Plan blocks changes, resolve that Plan through the existing review procedure,
+   then refresh the installation. This form doesn't cancel or replace it.
+3. Choose **Add window**. Set **Local start time**, **Duration (minutes)** and **Time zone**,
+   such as `Asia/Seoul`. You can keep up to 32 daily windows, each from 1 through 1440 minutes.
+   Leave **Allow downtime in this window** unchecked unless downtime is approved.
+4. Set **Plan duration (minutes)** to an integer from 1 through 1440 and choose **Reason**.
+   Review all windows, including any removed ones.
+5. Copy the displayed confirmation into **Exact confirmation**.
+   The UI reads the expected settings digest and creates the request UUID; you don't calculate
+   or invent them. This settings digest isn't a catalog trust pin or ownership proof.
+6. Choose **Save execution settings** once. Verify the saved notice and reread the schedule.
+   Only scheduling changes; ownership, placement, channel, signing keys, configuration and
+   installed-state reports stay unchanged. No Plan is computed or applied.
+7. If saving is rejected or its outcome is uncertain, choose **Refresh settings** before
+   another request. Review the actual stored values and confirmation again. Don't automatically
+   repeat a write or interpret a network failure as proof that nothing changed.
+
 ### D. Plan, then apply only when the missing prerequisites are resolved
 
 The current setup should stop before apply unless all of these are independently established:

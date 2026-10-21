@@ -5,7 +5,7 @@ from __future__ import annotations
 import binascii
 from base64 import b64decode, b64encode
 from collections.abc import Mapping
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Annotated, Any, Self, assert_never
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -25,6 +25,7 @@ from pydantic import (
 from fdai_lifecycle_hub.domain import (
     CandidateCheck,
     Configuration,
+    DailyWindow,
     Evaluation,
     Installation,
     InstallationOverview,
@@ -78,6 +79,15 @@ checks_json = TypeAdapter(tuple[CandidateCheck, ...])
 evaluation_json = TypeAdapter(Evaluation)
 actor_name = TypeAdapter(Actor)
 reason_code = TypeAdapter(ReasonCode)
+
+
+def maintenance_window_record(window: DailyWindow) -> dict[str, object]:
+    return {
+        "start": window.start.isoformat(),
+        "duration_minutes": window.duration.total_seconds() / 60,
+        "timezone": window.timezone,
+        "allows_downtime": window.allows_downtime,
+    }
 
 
 class EntityDeclaration(BaseModel):
@@ -263,13 +273,7 @@ def installation_detail_record(
             "region": installation.settings.region,
             "allowed_regions": sorted(installation.settings.allowed_regions),
             "windows": [
-                {
-                    "start": window.start.isoformat(),
-                    "duration_minutes": window.duration // timedelta(minutes=1),
-                    "timezone": window.timezone,
-                    "allows_downtime": window.allows_downtime,
-                }
-                for window in installation.settings.windows
+                maintenance_window_record(window) for window in installation.settings.windows
             ],
         },
         "configuration_digest": installation.configuration.digest,

@@ -55,6 +55,21 @@ export interface MaintenanceWindow {
   allows_downtime: boolean;
 }
 
+export interface ExecutionSettings {
+  settings_digest: string;
+  windows: readonly MaintenanceWindow[];
+  plan_duration_minutes: number;
+}
+
+export interface ExecutionSettingsRequest {
+  request_id: string;
+  expected_settings_digest: string;
+  windows: readonly MaintenanceWindow[];
+  plan_duration_minutes: number;
+  reason_code: string;
+  confirmation: string;
+}
+
 export interface EntityView {
   entity_id: string;
   kind: string;
@@ -177,6 +192,19 @@ export class HubApiError extends Error {
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const signal = init?.signal;
+  signal?.throwIfAborted();
+  const pending = fetchJson<T>(path, init);
+  if (!signal) return pending;
+  return new Promise<T>((resolve, reject) => {
+    const aborted = () => reject(signal.reason);
+    signal.addEventListener("abort", aborted, { once: true });
+    void pending.then(resolve, reject).finally(() => signal.removeEventListener("abort", aborted));
+    if (signal.aborted) aborted();
+  });
+}
+
+async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await authenticatedFetch(path, {
     ...init,
     headers: { ...(init?.body ? { "content-type": "application/json" } : {}), ...init?.headers },
@@ -229,7 +257,21 @@ export const hubApi = {
   listInstallations: () =>
     request<{ installations: readonly InstallationSummary[] }>("/v1/installations"),
   getInstallation: (installationId: string) =>
-    request<InstallationDetail>(`/v1/installations/${encodeURIComponent(installationId)}`),
+    request<InstallationDetail>(`/v1/installations/${encodeURIComponent(installationId)}`, {
+      signal: AbortSignal.timeout(10_000),
+    }),
+  getExecutionSettings: (installationId: string) =>
+    request<ExecutionSettings>(
+      `/v1/installations/${encodeURIComponent(installationId)}/execution-settings`,
+      { signal: AbortSignal.timeout(10_000) },
+    ),
+  updateExecutionSettings: (installationId: string, body: ExecutionSettingsRequest) =>
+    request<{ changed: boolean; settings_digest: string }>(
+      `/v1/installations/${encodeURIComponent(installationId)}/execution-settings`,
+      {
+        method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(10_000),
+      },
+    ),
   getPlan: (installationId: string, planId: string) =>
     request<PlanDetail>(
       `/v1/installations/${encodeURIComponent(installationId)}/plans/${encodeURIComponent(planId)}`,

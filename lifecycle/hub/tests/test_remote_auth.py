@@ -101,6 +101,49 @@ def test_agent_bindings_do_not_change_default_or_vendor_authority(auth):
 TENANT = "00000000-0000-0000-0000-000000000000"
 
 
+def test_execution_settings_require_verified_operator(
+    enrollment_remote, enrolled_store, installation
+):
+    from uuid import uuid4
+
+    factory, token = enrollment_remote
+    identifier = installation.installation_id
+    path = f"/v1/installations/{identifier}/execution-settings"
+    with factory(target_store=enrolled_store) as client:
+        assert client.get(path).status_code == 401
+        assert client.post(path, json={}).status_code == 401
+        before = client.get(path, headers=token())
+        assert before.status_code == 200
+        digest = before.json()["settings_digest"]
+        body = {
+            "request_id": str(uuid4()),
+            "expected_settings_digest": digest,
+            "windows": [],
+            "plan_duration_minutes": 20,
+            "reason_code": "operator_schedule_change",
+            "confirmation": f"update execution settings {identifier} {digest}",
+        }
+        agent = token(
+            oid="agent-object", azp="agent-client", scp=None, idtyp="app", roles=["Agent.Access"]
+        )
+        assert client.get(path, headers=agent).status_code == 403
+        assert client.post(path, headers=agent, json=body).status_code == 403
+        updated = client.post(path, headers=token(), json=body)
+        assert updated.status_code == 200
+        assert updated.json()["changed"] is True
+        assert client.post(path, headers=token(), json=body).json()["changed"] is False
+        invalid = body | {"operator": "forged"}
+        assert client.post(path, headers=token(), json=invalid).status_code == 422
+        assert (
+            client.post(
+                path,
+                headers=token() | {"Content-Type": "application/json"},
+                content=b"x" * 8193,
+            ).status_code
+            == 413
+        )
+
+
 def test_configuration_inventory_requires_operator_identity(enrollment_remote):
     factory, token = enrollment_remote
     with factory() as client:

@@ -1,7 +1,7 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: 762cdcb70415c82596390596765c8a632b42ca66
+translation_source_sha: 1ee93aa4210a0fb06af0f1156be565675428b046
 translation_revised: 2026-10-21
 ---
 # Hub 수명 주기 운영자 가이드
@@ -200,6 +200,32 @@ fdai-lifecycle-agent stage-input --kind release \
 설정에는 `--kind configuration`과 고객의 설정 공개키를 사용합니다. 이 명령은 기존
 서명을 검증합니다. 서명된 패키지를 만들거나, 패키지에 동봉된 키를 신뢰하게 만들거나,
 이미지를 복제하거나, 대상을 배포 가능한 상태로 바꾸지 않습니다.
+
+#### 실행 시간 준비
+
+이 절차에는 실행 설정 API와 UI가 포함된 빌드, 등록된 설치본, 인증된 고객 운영자가
+필요합니다. 항목이 없거나 인증이 실패해도 권한을 늘리거나 DB를 직접 편집하지 않습니다.
+
+1. **Installations**에서 설치본을 선택하고 **Execution schedule**을 엽니다.
+   기본 제약 확인 화면은 실행 일정을 조회하거나 바꾸지 않습니다.
+2. 열린 Plan 때문에 변경할 수 없다면 기존 검토 절차로 그 Plan을 해결한 뒤 설치본을
+   새로고침합니다. 이 양식은 Plan을 취소하거나 대체하지 않습니다.
+3. **Add window**를 누르고 **Local start time**, **Duration (minutes)**,
+   **Time zone**을 입력합니다. 시간대는 `Asia/Seoul`처럼 지정합니다.
+   일일 유지 관리 시간은 최대 32개이며, 각각 1~1440분으로 설정합니다.
+   중단이 승인되지 않았다면 **Allow downtime in this window**는 선택하지 않습니다.
+4. **Plan duration (minutes)**을 1~1440분의 정수로 입력하고 **Reason**을 선택합니다.
+   삭제한 시간을 포함해 전체 일정을 검토합니다.
+5. 표시된 확인 문구를 **Exact confirmation**에 복사합니다.
+   화면이 현재 설정의 다이제스트를 읽고 요청 UUID를 생성하므로 직접 계산하거나
+   임의로 만들 필요가 없습니다. 이 설정 다이제스트는 카탈로그 신뢰 고정값이나
+   소유권 증명이 아닙니다.
+6. **Save execution settings**를 한 번 누르고 저장 안내와 조회된 일정을 확인합니다.
+   일정만 변경합니다. 소유권, 배치 위치, 채널, 서명 키, 설정 패키지, 설치 상태 보고는
+   그대로이며 Plan을 계산하거나 적용하지 않습니다.
+7. 저장이 차단되거나 결과가 불확실하면 다음 요청 전에 **Refresh settings**를 누릅니다.
+   실제 저장값과 확인 문구를 다시 검토합니다. 쓰기를 자동 반복하거나 네트워크 실패를
+   아무것도 변경되지 않았다는 근거로 해석하지 않습니다.
 
 ### D. 부족한 선행 조건을 해결한 뒤 계획과 적용 진행
 

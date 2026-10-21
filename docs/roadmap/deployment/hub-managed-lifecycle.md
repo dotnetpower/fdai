@@ -163,6 +163,42 @@ Those require a separately approved exact cloud preview and execution scope. Thi
 not change source/offline installation and does not implement automatic polling, production
 catalog metadata/root ceremony, cloud Agent apply, or a complete FDAI installation.
 
+## Execution scheduling preparation design and critique
+
+An authenticated customer operator can prepare daily maintenance windows and the Plan duration
+for an already enrolled installation. `GET /v1/installations/{installation_id}/execution-settings`
+returns only those scheduling fields and the digest of the complete current settings.
+`POST` requires a request UUID, that expected digest, bounded windows and duration, a reason code,
+and the exact confirmation `update execution settings <installation_id> <settings_digest>`.
+The authenticated operator comes from verified transport claims, never the request body.
+
+Windows use local wall-clock start times, IANA time zones, `duration_minutes` between 1 and
+1440, and an explicit downtime flag. Fractional minutes preserve existing subminute precision
+in the read projection. There are at most 32 windows; Plan duration is an integer from 1 to
+1440 minutes. Unknown fields and invalid values return `422`; bodies above 8192 bytes return `413`.
+
+**Critique and revision:** Updating all installation settings would also expose placement,
+channel and fencing changes. This operation changes only windows and Plan duration. It holds the
+existing installation lock and rejects an open Plan rather than silently changing its assumptions.
+The same transaction updates settings and appends the attributed hash-chained audit. Repeating
+an identical request UUID and actor returns its original applied digest without another change;
+reusing that UUID with different bytes or another actor is a conflict. The returned digest on
+a replay identifies the historical operation, not a claim that later settings remain unchanged.
+An unchanged schedule is audited with `changed: false` without refreshing the installation's
+recorded timestamp. Conflicting revisions, request reuse and open Plans return `409`.
+
+This preparation doesn't manage an Entity, accept ownership evidence, register keys, import
+artifacts, compute a Plan or authorize application. Installation Agents, catalog service identities
+and unauthenticated loopback caller names can't use the operator route. No new table or remote
+database mutation script is needed.
+
+The installation's **Execution schedule** section loads this projection only when opened.
+It provides bounded window controls, the server-read confirmation text and a browser-generated
+request UUID. Reads and writes have ten-second deadlines. A rejected or uncertain save disables
+further changes until an explicit refresh; it never retries a write or computes/applies a Plan.
+Focused source and synthetic UI checks are not live deployment evidence. Exact-source activation,
+human operational confirmation and the remaining evidence-backed nginx preparation stay separate.
+
 ## Read-only input inventory
 
 The read-only **Available releases** screen projects the already accepted catalog through

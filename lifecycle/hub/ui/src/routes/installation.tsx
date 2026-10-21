@@ -4,16 +4,18 @@ import { AsyncBoundary } from "../components/async-boundary";
 import { HealthBadge, OutcomeBadge } from "../components/badge";
 import { Link } from "../components/link";
 import { ConstraintResults } from "../components/constraint-results";
+import { ExecutionSettingsPanel } from "../components/execution-settings";
 import { formatDurationMinutes, formatRelative, formatTimestamp } from "../format";
 import { useAsync } from "../hooks/use-async";
 import { reportSeverity, reportSeverityClass } from "../report-status";
 import { installationsPath, planPath } from "../router";
 
-type Tab = "constraints" | "entities";
+type Tab = "constraints" | "entities" | "schedule";
 
 export function InstallationPage({ installationId }: { installationId: string }) {
   const detail = useAsync(() => hubApi.getInstallation(installationId), [installationId]);
   const [tab, setTab] = useState<Tab>("constraints");
+  const [notice, setNotice] = useState("");
 
   return (
     <AsyncBoundary state={detail}>
@@ -40,6 +42,7 @@ export function InstallationPage({ installationId }: { installationId: string })
               </div>
             </div>
 
+            {notice && <p class="banner" role="status">{notice}</p>}
             <div class="kv">
               <div>
                 <div class="k">Current release</div>
@@ -99,10 +102,22 @@ export function InstallationPage({ installationId }: { installationId: string })
               >
                 Entities
               </button>
+              <button type="button" class={tab === "schedule" ? "on" : ""}
+                aria-pressed={tab === "schedule"} onClick={() => setTab("schedule")}>
+                Execution schedule
+              </button>
               <button type="button" disabled title="Not available yet">
                 Configuration
               </button>
             </nav>
+
+            {tab === "schedule" && <ExecutionSettingsPanel
+              installationId={installationId} blocked={installation.open_plan !== null}
+              onSaved={() => {
+                setNotice("Execution settings saved. No Plan was computed or applied.");
+                detail.reload();
+              }}
+            />}
 
             {tab === "constraints" && (
               <section aria-label="Constraints">
