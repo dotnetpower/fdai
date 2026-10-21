@@ -204,9 +204,13 @@ class HttpHubClient:
                 headers = self._headers()
                 deadline = time.monotonic() + self._timeout_seconds
                 with self._client.stream("POST", path, json=body, headers=headers) as stream:
+                    response_headers = stream.headers.copy()
+                    # iter_bytes() already decodes the content encoding.
+                    response_headers.pop("content-encoding", None)
+                    response_headers.pop("content-length", None)
                     response = httpx.Response(
                         stream.status_code,
-                        headers=stream.headers,
+                        headers=response_headers,
                         content=_bounded_body(stream, deadline=deadline),
                     )
             except httpx.HTTPError as error:
