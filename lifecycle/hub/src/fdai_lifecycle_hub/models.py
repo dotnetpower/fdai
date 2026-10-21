@@ -82,6 +82,58 @@ class ConfigurationRevision(Base):
     imported_at: Mapped[datetime]
 
 
+class ConfigurationKeyRequest(Base):
+    """Immutable, identity-proven public metadata awaiting independent approval."""
+
+    __tablename__ = "lifecycle_configuration_key_request"
+    __table_args__ = (UniqueConstraint("installation_id", "request_id"),)
+
+    digest: Mapped[str] = mapped_column(Digest, primary_key=True)
+    installation_id: Mapped[str] = mapped_column(
+        ForeignKey("lifecycle_installation.installation_id")
+    )
+    request_id: Mapped[str] = mapped_column(String(32))
+    payload: Mapped[bytes] = mapped_column(LargeBinary)
+    identity_proof: Mapped[bytes] = mapped_column(LargeBinary)
+    signer_proof: Mapped[bytes] = mapped_column(LargeBinary)
+    requested_by: Mapped[str] = mapped_column(Identifier)
+    recorded_at: Mapped[datetime]
+
+
+class ConfigurationKeyBinding(Base):
+    """One approved version; revocation never removes the version or its original request."""
+
+    __tablename__ = "lifecycle_configuration_key_binding"
+
+    installation_id: Mapped[str] = mapped_column(
+        ForeignKey("lifecycle_installation.installation_id"), primary_key=True
+    )
+    version: Mapped[int] = mapped_column(primary_key=True)
+    request_digest: Mapped[str] = mapped_column(
+        ForeignKey(ConfigurationKeyRequest.digest), unique=True
+    )
+    approved_by: Mapped[str] = mapped_column(Identifier)
+    approved_at: Mapped[datetime]
+    revoked_at: Mapped[datetime | None]
+
+
+class ConfigurationPlanTrust(Base):
+    """An issued configuration Plan retains its exact independently approved key version."""
+
+    __tablename__ = "lifecycle_configuration_plan_trust"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["installation_id", "binding_version"],
+            [ConfigurationKeyBinding.installation_id, ConfigurationKeyBinding.version],
+        ),
+    )
+
+    plan_id: Mapped[str] = mapped_column(ForeignKey("lifecycle_plan.plan_id"), primary_key=True)
+    installation_id: Mapped[str] = mapped_column(Identifier)
+    binding_version: Mapped[int]
+    request_digest: Mapped[str] = mapped_column(ForeignKey(ConfigurationKeyRequest.digest))
+
+
 class Installation(Base):
     __tablename__ = "lifecycle_installation"
 

@@ -16,6 +16,8 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import BaseRoute, Route
 
+from fdai_lifecycle_hub.configuration_key_api import key_routes
+from fdai_lifecycle_hub.configuration_key_store import ConfigurationKeyStore
 from fdai_lifecycle_hub.domain import Clock, utc_now
 from fdai_lifecycle_hub.enrollment import EnrollmentStatus, KeyProofVerifier
 from fdai_lifecycle_hub.errors import (
@@ -259,6 +261,9 @@ def create_app(
         return response
 
     routes: list[BaseRoute] = [
+        *key_routes(
+            ConfigurationKeyStore(store.engine), clock, authenticated=remote_auth is not None
+        ),
         Route("/auth/config", lambda request: JSONResponse({"profile": "local-development"})),
         Route("/healthz", healthz),
         Route("/v1/installations/{installation_id}/enrollment", post_enrollment, methods=["POST"]),

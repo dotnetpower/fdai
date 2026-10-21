@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
@@ -23,8 +24,10 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from fdai_lifecycle_hub import models, schemas
+from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
+from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import utc_now
-from fdai_lifecycle_hub.migrations import migrate, require_schema
+from fdai_lifecycle_hub.migrations import _revision, migrate, require_schema
 from fdai_lifecycle_hub.remote_auth import RemoteAuth
 from fdai_lifecycle_hub.remote_catalog import (
     CatalogSource,
@@ -152,7 +155,16 @@ def remote_key(epoch: int) -> HubSigningKey:
     return HubSigningKey(key, epoch)
 
 
-def target_routes(store: HubStore, catalog: RemoteCatalog, key: HubSigningKey) -> list[Route]:
+def target_routes(
+    store: HubStore,
+    catalog: RemoteCatalog,
+    key: HubSigningKey,
+    *,
+    configuration_candidates: Mapping[str, tuple[ConfigurationRevisionCandidate, int]]
+    | None = None,
+) -> list[Route]:
+    """Optional server-owned configuration context never comes from the HTTP body."""
+
     async def status(request: Request) -> Response:
         return JSONResponse(await run_in_threadpool(catalog.status))
 
@@ -174,13 +186,20 @@ def target_routes(store: HubStore, catalog: RemoteCatalog, key: HubSigningKey) -
 
     async def recompute(request: Request) -> Response:
         now = utc_now()
-        outcome = await run_in_threadpool(
-            catalog.recompute,
-            store,
-            request.path_params["installation_id"],
-            key,
-            now=now,
-        )
+        installation_id = request.path_params["installation_id"]
+        selected = (configuration_candidates or {}).get(installation_id)
+        try:
+            outcome = await run_in_threadpool(
+                catalog.recompute,
+                store,
+                installation_id,
+                key,
+                now=now,
+                configuration_revision=selected[0] if selected else None,
+                configuration_key_version=selected[1] if selected else None,
+            )
+        except KeyBindingError as error:
+            return JSONResponse({"error": str(error)}, status_code=409)
         return JSONResponse(schemas.outcome_record(outcome))
 
     return [
@@ -219,7 +238,7 @@ def _run() -> None:
         return
     if args.command == "schema":
         require_schema(engine, namespace)
-        logger.info("hub_schema_verified namespace=%s revision=1", namespace)
+        logger.info("hub_schema_verified namespace=%s revision=%s", namespace, _revision(namespace))
         return
     if config.kind == "release":
         from fdai_release_hub.api import create_app as release_app

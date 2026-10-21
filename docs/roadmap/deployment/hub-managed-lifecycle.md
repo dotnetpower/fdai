@@ -67,9 +67,35 @@ Release without the schema capability is blocked rather than falling back to leg
 This API is in-memory source consumption only. It is not exposed as a remote import or enrollment
 route, does not write a configuration-head receipt, and does not claim ciphertext-only database
 storage. The [configuration owner](lifecycle-configuration.md#full-multi-entity-revision-design-and-critique)
-defines the new format, compatibility and critique. Key enrollment/rotation, atomic Hub import,
+defines the new format, compatibility and critique. Actual key onboarding, atomic Hub import,
 persisted same-Release configuration-change scheduling, Agent delivery/decryption, CSI reference
 resolution and production qualification remain open.
+
+### Approved configuration-key consumption
+
+The separate authenticated configuration-key APIs now attach public Ed25519 configuration-signing
+and X25519 installation-encryption keys to an already enrolled installation. Its existing Ed25519
+identity proves the complete request; a different authenticated customer operator approves the
+exact digest. Local caller names and package keys cannot register trust. The
+[configuration owner](lifecycle-configuration.md#approved-configuration-keys-design-and-critique)
+defines the pre-implementation critique, role separation, deadlines and explicit version chain.
+
+`HubStore.recompute_configuration` resolves current approved public bindings under the existing
+installation lock and passes only those keys into the actual planner/verifier. The existing remote
+catalog recompute API can consume a candidate and binding version from an explicit server-owned
+`target_routes(..., configuration_candidates=...)` composition seam, never the HTTP body.
+Entity mappings, sealed-key classification and retained accepted history remain independent
+composition inputs. Default startup does not load or import a customer package.
+
+Configuration Plans persist the exact approved binding version and request digest in the same
+transaction. Current-Plan retrieval holds them after expiry, rotation or revocation. Historical
+public bindings remain intact; cross-key historical package chains hold pending the separately
+owned atomic importer instead of being verified with a replacement key. Absent bindings hold
+only this new configuration capability. Legacy enrollment and planning remain compatible.
+Explicit Lifecycle Hub schema revision 2 adds the public binding/request/Plan-trust tables to
+revision 1 without reinitializing existing data; Release Hub remains at revision 1.
+This source and isolated PostgreSQL evidence does not register real keys, migrate a deployed
+database, enable Agent transport or establish ciphertext-only Hub package storage.
 
 The existing paired fixture remains available for its current state owners. It is not the default
 deployment unit. Use the independent product roots below for new preparation.

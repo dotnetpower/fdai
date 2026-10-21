@@ -43,7 +43,7 @@ class Receipt(BaseModel):
     format: Literal["fdai.hub-db-inspection.v1"] = "fdai.hub-db-inspection.v1"
     kind: Kind
     target: Target
-    revision: Literal[1] = 1
+    revision: Literal[1, 2] = 1
     database_binding: str = Field(pattern=r"^[0-9a-f]{64}$")
     host_binding: str = Field(pattern=r"^[0-9a-f]{64}$")
     tables: dict[str, TableObservation]
@@ -166,6 +166,7 @@ def observe(engine: Engine, kind: Kind, target: Target, baseline: Receipt | None
                 result = Receipt(
                     kind=kind,
                     target=target,
+                    revision=2 if kind == "target" else 1,
                     database_binding=_digest(list(binding)),
                     host_binding=_digest(engine.url.host),
                     tables=tables,
