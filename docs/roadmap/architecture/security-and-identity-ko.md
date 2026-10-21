@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 9ea618a39232721b4561bed90c6fc64c07cbabd6
-translation_revised: 2026-10-20
+translation_source_sha: 16f40b69fab2ac9fd1041bb61d51b72fff9e5715
+translation_revised: 2026-10-21
 ---
 
 # 보안과 아이덴티티
@@ -18,6 +18,11 @@ Core는 ORR 교정 게시자를 레버 맵과 함께 있을 때만 받습니다.
 운영 bootstrap은 완전한 자체 상태 및 운영 상태 exporter 레지스트리도 요구합니다. 연결되지 않은
 수집원은 정상 기본값이 아니라 인증된 읽기 변환의 unavailable 상태로 제공됩니다. 이 변환 결과는
 근거 전용이며 승인 또는 실행 권한을 부여하지 않습니다.
+공유 릴리스 채널 계약은 원래 서명을 검증한 뒤에만 인증된 메타데이터를 정규화합니다.
+신뢰 루트나 승격 권한을 제공하지 않습니다. 정식 `DEV`와 기존 `development`는 같은 패키지
+허용 범위를 유지하며, 릴리스 후보나 릴리스의 어느 이름도 그 범위를 넓히지 않습니다.
+[릴리스 채널](../deployment/lifecycle-releases-and-channels-ko.md#릴리스-채널)을 참조하세요.
+
 ## 심각도 어휘
 
 - **P0 차단 요인** - auto-execution이 활성화되기 전에 해결·검증되어야 함; shadow 모드에서의

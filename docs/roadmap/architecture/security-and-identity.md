@@ -15,6 +15,11 @@ Core accepts an ORR remediation publisher only with its lever map; this complete
 Production bootstrap also requires complete self-health and operational-state exporter registries.
 An unbound source is published as unavailable through the authenticated read projection, never as a
 healthy default. These projections are evidence only and grant no approval or execution authority.
+The shared release-channel contract normalizes authenticated metadata only after original
+signature verification. It supplies no trust root or promotion authority: canonical `DEV`
+and legacy `development` retain the same package eligibility, while neither spelling of a
+release candidate or release widens it. See [release channels](../deployment/lifecycle-releases-and-channels.md#release-channels).
+
 ## Severity Vocabulary
 
 - **P0 blocker** - must be resolved and verified before any auto-execution is enabled; blocks
