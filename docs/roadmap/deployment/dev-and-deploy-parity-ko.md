@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: b7ece58d9a1205de1a8772826bdd365aeb761c81
-translation_revised: 2026-10-21
+translation_source_sha: b2c35fa1b669b91956b58486ae47fab6cce41e6a
+translation_revised: 2026-10-22
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -33,6 +33,8 @@ Post-turn review는 로컬과 semantic transport가 구성된 경우 모두 같�
 WAF 및 CAF 평가 소비자도 같은 동등성 규칙을 따릅니다. 로컬과 배포 Operator 프로필은 같은 논리 토픽을 사용하고 같은 변경 불가능한 스냅샷을 검증하며 같은 PostgreSQL 변환 결과를 씁니다. 배포 러너에는 평가 전송자 역할이 없으므로 보호된 실제 검증 워크플로는 의도적으로 감사 전용입니다. 해당 결과물은 Operator 변환 결과를 대신하지 않습니다. 두 프로필은 실행 위치 선택을 바꾸지 않고 자격 증명 생성에 기존 adapters 공개 모듈을 사용합니다.
 AKS fleet 인벤토리는 두 프로필에서 같은 정확한 managed cluster ARM 신원과 Core 소유 수명 주기 범위 마이그레이션을 사용하며, 배포는 해당 managed cluster 리소스에만 읽기 신원 권한을 부여합니다. 검토 목록은 각 영속 키를 본문의 정확하고 불투명한 검토 신원과 대조합니다. 통제된 코호트 반입도 같은 동등성 규칙을 따릅니다. 테스트는 정규화한 합성 고정본을 사용하고 배포 환경은 묶음당 관측값을 1,000개로 제한하며 각 관측 다이제스트를 묶음과 exporter workflow에 연결한 뒤 private PostgreSQL에서 멱등 재생을 검증합니다. 산출물은 군, 리비전, 프로토콜, 출처, 승인 또는 권한을 선택할 수 없고, 빈 군별 allowlist는 exporter workflow와 정책 항목이 함께 추가될 때까지 어떤 출처도 신뢰하지 않습니다.
 Cost Governance 공개 전달도 같은 동등성 규칙을 따릅니다. 두 프로필은 비용 데이터를 반환하기 전에 내용이 없는 승인 증적을 하나 영속화하고 감사 영속화가 실패하면 응답을 차단하며, 변경할 수 없는 증적에 같은 400일 보존, 30일 삭제 유예, 법적 보존 및 tombstone 계약을 적용합니다. 비용 분석도 하나의 예약 실행 계약을 사용합니다. 로컬 실행은 원본을 명시적으로 활성화한 뒤 운영자의 기존 Azure CLI 읽기 신원만 사용하고 배포는 전용 읽기 전용 관리 ID를 사용합니다. 두 프로필은 동일한 범위가 제한된 실행 증적과 분석 스냅샷을 영속합니다. 현재 partial tick 또는 현재 snapshot을 보존한 refresh 실패는 degraded 프로세스 준비 상태를 충족하지만 누락된 facet과 실패는 명시적으로 유지합니다. snapshot이 없거나 오래되면 준비되지 않은 상태로 남고 Sample 데이터를 선택하지 않습니다. 예약 작업은 `DecisionCase`, 승인 또는 실행 요청을 만들지 않습니다. 로컬 고정본은 실제 W7 근거가 되지 않습니다.
+Console 관리형 담당 체계 후보는 로컬과 배포 환경에서 같은 영속 StateStore 레코드와 Saga 감사를 사용합니다. 선택적 GitOps 어댑터만 공급자 자격 증명이 필요합니다.
+
 ## 전수조사 - 로컬 동작 vs Azure 필요
 테스트 맥락 명령은 로컬과 배포 프로필에서 같은 영속 발신함 facade와 준비 상태 의존성을 사용합니다. import를 모아도 테스트 고정본을 활성화하거나 실행 권한을 부여하지 않습니다.
 로컬 준비는 의존성이나 프로바이더 작업 전에 OPA를 확인하며, VS Code 작업 터미널은 사용자 설치 도구를 찾도록 `~/.local/bin`을 포함합니다. 모델 파일을 선택하면 해당 파일의 정확한 `LLM_RESOLVED_MODELS_SHA256`을 Operator 환경에 전달하고, 시작 시 확인값이 없거나 파일이 변경되었으면 차단합니다. 로컬 Console 준비 과정은 Terraform 상태를 초기화하거나 읽지 않습니다. 활성 Azure CLI 구독에서 명시적인 `FDAI_LOCAL_RESOURCE_GROUP`을 검증하고, 프로세스 환경에 값이 없으면 Git에서 무시되는 `console/.env.local`에서 서버 소유 설정 하나만 읽을 수 있습니다. 키가 중복되면 안전하게 차단하며 범위를 환경 캐시 다이제스트에 포함합니다. 한 번 성공적으로 실행한 뒤에는 이전 소유자 전용 생성 범위를 재사용할 수 있습니다. PostgreSQL과 Redpanda는 로컬로 유지합니다. 범위 안에서 Function App이 정확히 하나일 때만 개발 운영 게이트웨이를 연결하고, audience는 로컬 Operator Service와 공유하는 검증된 비공개 `VITE_MSAL_API_SCOPE`에서 추출합니다. 로컬 Console에는 실행기 신원을 제공하지 않으며, Azure 변경에는 영속 승격 근거, 필요한 사람 승인, 안전조건 및 독립 효과 검증이 계속 필요합니다. HTTP 생존 확인과 `pantheon_ready`만으로 소비자 준비 상태나 대화 추론 성공을 입증할 수는 없습니다.
