@@ -447,13 +447,18 @@ def test_constraint_context_must_match_signed_plan_fields() -> None:
         _passing_context(candidate_release=_release(version="1.5.1")),
         admitted_plan=_plan(),
     )
-    unsupported_type = evaluate_lifecycle_constraints(
+    drift_reconciliation = evaluate_lifecycle_constraints(
         _passing_context(plan_type="drift-reconciliation"),
         admitted_plan=_plan(plan_type="drift-reconciliation"),
+    )
+    unsupported_type = evaluate_lifecycle_constraints(
+        _passing_context(plan_type="uninstall"),  # type: ignore[arg-type]
+        admitted_plan=_plan(plan_type="uninstall"),
     )
 
     assert {block.reason_code for block in plan_type_switch} == {"plan_context_mismatch"}
     assert {block.reason_code for block in release_swap} == {"target_release_digest_mismatch"}
+    assert drift_reconciliation == ()
     assert {block.reason_code for block in unsupported_type} == {"plan_type_unsupported"}
 
 
