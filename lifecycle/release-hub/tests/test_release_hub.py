@@ -73,6 +73,148 @@ def test_registration_publication_contribution_recall_and_restart(store: Release
     assert len(snapshot["events"]) == 5
 
 
+def test_custom_channel_creation_is_attributed_durable_and_changes_the_pin(store: ReleaseStore):
+    publish(store)
+    original, old_pin = store.export()
+    change(store, "contribute", channel="custom-pilot", channel_confirmation="custom-pilot")
+    reopened = ReleaseStore(store.path, store.key, clock=lambda: NOW)
+    snapshot = reopened.snapshot()
+    assert list(snapshot["channels"])[:3] == ["DEV", "RELEASE_CANDIDATE", "RELEASE"]
+    assert snapshot["channels"]["custom-pilot"] == ["1.6.0"]
+    assert snapshot["events"][0]["channel"] == "custom-pilot"
+    assert snapshot["events"][0]["actor"] == "local-operator"
+    assert snapshot["events"][0]["reason"] == "Local test review"
+    assert admit(reopened).channels["custom-pilot"] == frozenset({"1.6.0"})
+    assert reopened.export()[1] != old_pin
+    with pytest.raises(ValueError, match="digest"):
+        load_pinned_export(
+            reopened.export()[0], expected_sha256=old_pin, public_key=store.key.public_key, now=NOW
+        )
+    assert (
+        load_pinned_export(
+            original, expected_sha256=old_pin, public_key=store.key.public_key, now=NOW
+        ).channels.get("custom-pilot")
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "channel",
+    [
+        "",
+        "custom-",
+        "custom-Pilot",
+        "custom-a--b",
+        "custom-a-",
+        "custom- a",
+        "custom-a\n",
+        " custom-a",
+        "development",
+        "dev",
+        "CUSTOM-a",
+        "custom-\u200ba",
+    ],
+)
+def test_custom_channel_names_fail_without_creating_membership(store, channel):
+    publish(store)
+    before = store.snapshot()
+    with pytest.raises(CatalogError, match="channel"):
+        change(store, "contribute", channel=channel, channel_confirmation=channel)
+    assert store.snapshot() == before
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"channel_confirmation": None},
+        {"channel_confirmation": "custom-other"},
+        {"confirmation": "1.5.0"},
+        {"revision": 0},
+        {"reason": "   "},
+    ],
+)
+def test_custom_channel_confirmation_and_revision_are_independent(store, fields):
+    publish(store)
+    before = store.snapshot()
+    with pytest.raises(CatalogError):
+        change(
+            store,
+            "contribute",
+            **({"channel": "custom-pilot", "channel_confirmation": "custom-pilot"} | fields),
+        )
+    assert store.snapshot() == before
+
+
+def test_custom_channel_membership_keeps_draft_recall_and_duplicate_holds(store):
+    change(store, "register", manifest=(SAMPLES / "1.6.0.json").read_text())
+    custom = {"channel": "custom-pilot", "channel_confirmation": "custom-pilot"}
+    with pytest.raises(CatalogError, match="Publish"):
+        change(store, "contribute", **custom)
+    change(store, "publish")
+    change(store, "contribute", **custom)
+    before = store.snapshot()
+    with pytest.raises(CatalogError, match="already belongs"):
+        change(store, "contribute", **custom)
+    assert store.snapshot() == before
+    change(store, "recall")
+    before = store.snapshot()
+    with pytest.raises(CatalogError, match="Recalled"):
+        change(store, "contribute", channel="custom-other", channel_confirmation="custom-other")
+    assert store.snapshot() == before
+
+
+def test_custom_channel_maximum_and_typed_input_boundary(store, client):
+    publish(store)
+    channel = "custom-" + "a" * 57
+    change(store, "contribute", channel=channel, channel_confirmation=channel)
+    assert channel in admit(store).channels
+    before = store.snapshot()
+    response = client.post(
+        "/v1/releases/1.6.0/contribute",
+        json={
+            "revision": 3,
+            "confirmation": "1.6.0",
+            "reason": "Reviewed custom destination",
+            "channel": channel + "a",
+            "channel_confirmation": channel + "a",
+        },
+    )
+    assert response.status_code == 422
+    assert store.snapshot() == before
+
+
+def test_custom_channel_requires_attributed_actor(store):
+    publish(store)
+    before = store.snapshot()
+    with pytest.raises(CatalogError, match="attributed operator"):
+        store.change(
+            "contribute",
+            "1.6.0",
+            Change(
+                revision=2,
+                confirmation="1.6.0",
+                reason="Reviewed destination",
+                channel="custom-pilot",
+                channel_confirmation="custom-pilot",
+            ),
+            actor="   ",
+        )
+    assert store.snapshot() == before
+
+
+def test_custom_channel_audit_failure_rolls_back_membership(store, monkeypatch):
+    publish(store)
+    before = store.snapshot()
+
+    def fail_audit(*args, **kwargs):
+        raise CatalogError("Synthetic audit rejection", 503)
+
+    monkeypatch.setattr(store, "_record_event", fail_audit)
+    with pytest.raises(CatalogError, match="audit"):
+        change(store, "contribute", channel="custom-pilot", channel_confirmation="custom-pilot")
+    assert store.snapshot() == before
+
+
 @pytest.mark.parametrize(
     "action,fields",
     [

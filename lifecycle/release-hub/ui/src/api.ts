@@ -17,7 +17,7 @@ export type Catalog = {
 };
 export type Action = "register" | "publish" | "contribute" | "recall" | "renew";
 export type Change = {
-  revision: number; confirmation: string; reason: string; channel?: string;
+  revision: number; confirmation: string; reason: string; channel?: string; channel_confirmation?: string;
   label?: string; manifest?: string;
 };
 
@@ -40,6 +40,10 @@ export async function requestCatalog(path = "/v1/catalog", body?: Change): Promi
 export function actionsFor(release: Release): Action[] {
   if (release.state === "recalled") return [];
   return release.state === "draft" ? ["publish"] : ["contribute", "recall"];
+}
+
+export function isCustomChannel(value: string): boolean {
+  return value.length <= 64 && value === value.trim() && /^custom-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }
 
 export function artifacts(manifest: string): { component: string; digest: string; sbom: string }[] {
