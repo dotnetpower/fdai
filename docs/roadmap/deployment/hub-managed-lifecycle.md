@@ -481,6 +481,13 @@ increases per installation, a fencing generation, the target Release, the config
 the Entity set, constraint results, a narrowing envelope, and an expiry. Agents durably reject a
 Plan whose sequence, generation, or source-state digest is stale.
 
+> **Implemented admission boundary:** The Agent verifies canonical signed Plan bytes against
+> independently configured Hub trust and durable local sequence state. Stale sequence, wrong
+> audience, revoked key and an over-wide envelope are refused before cluster calls even when
+> the apply adapter is enabled. This source boundary was delivered in #1951 and remains distinct
+> from production key lifecycle, local authorization receipts, physical phase fencing and
+> operational installation qualification.
+
 A Plan runs as a fenced sequence of phases. The infrastructure agent owns the infrastructure phase,
 and the lifecycle agent owns the workload phase. A phase starts only after the previous phase's
 receipt is recorded. A failure compensates completed phases in reverse order when the Release
