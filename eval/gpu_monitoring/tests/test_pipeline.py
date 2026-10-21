@@ -1,5 +1,7 @@
 """Offline GPU monitoring evidence, with no cloud or model calls."""
 
+# ruff: noqa: S101
+
 from __future__ import annotations
 
 import asyncio
