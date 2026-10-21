@@ -686,6 +686,14 @@ Plan. The decoder rejects unknown, missing, or mistyped fields and an expiry wit
 doesn't verify the signature, so an agent trusts a decoded Plan only after `evaluate_plan_admission`
 admits it.
 
+Shared Lifecycle Plan checks read image requirements through the read-only
+`LifecycleRelease` contract. Alongside the unchanged FDAI runtime format, the
+[development-only nginx format](lifecycle-releases-and-channels.md)
+declares one pinned workload and no database. Required artifact availability, signature, version,
+expiry, source-state, and effect-envelope checks still apply. This adds no public deployment
+command, native-resource ownership, or execution authority. Normal source and offline installations
+continue to require their FDAI runtime inputs; nginx is not an FDAI service substitute.
+
 ## Standalone deployment sequence
 
 The coordinator performs these stages in order:
