@@ -306,6 +306,13 @@ revision takes traffic.
   forward migration under the same lock and never runs a Release against a shape it doesn't
   tolerate.
 
+The current Hub planner already passes the parsed Release and installation-reported schema
+revision through the shared transition validator before signing a Plan. Tolerance endpoints
+are inclusive; an upgrade also refuses a target schema below the current revision. Rollback and
+recall roll-off retain their separate direction rule. The Agent's workload validators hold
+unsupported schema changes before cluster calls. Their narrower same-schema support isn't
+permission to run unimplemented migrations or evidence of an installed rollback.
+
 ## Artifact delivery
 
 ### Connected installations
@@ -351,7 +358,9 @@ it also contains the Target Hub.
 - The production trust-root ceremony hasn't run. A vendor release key must exist before any Hub
   path can verify Releases.
 - Reproducible double-build verification of the signed bundle remains open.
-- Releases don't yet declare schema ranges, capability maximums, or downtime needs.
+- Runtime v3 Releases declare schema ranges, capability maximums and downtime metadata.
+  Local planning and pre-effect guards are implemented; physical schema migration and
+  old-binary rollback qualification remain separate operational work.
 
 ## Related docs
 

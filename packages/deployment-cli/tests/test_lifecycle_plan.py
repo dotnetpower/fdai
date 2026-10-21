@@ -614,6 +614,30 @@ def test_constraints_derive_downtime_artifacts_residency_and_schema_direction() 
     assert "schema_target_not_forward" not in {block.reason_code for block in rollback_schema}
 
 
+@pytest.mark.parametrize("plan_type", ["upgrade", "rollback", "recall-rolloff"])
+@pytest.mark.parametrize("revision", [11, 12, 15, 16, 17])
+def test_schema_tolerance_boundaries_preserve_transition_direction(
+    plan_type: str,
+    revision: int,
+) -> None:
+    context = _passing_context(plan_type=plan_type, current_schema_revision=revision)
+    release = context.candidate_release
+    assert release.schema_target == 15
+    assert release.schema_range == SchemaRange(12, 16)
+    blocks = evaluate_lifecycle_constraints(context, admitted_plan=_plan(plan_type=plan_type))
+    schema_reasons = {
+        block.reason_code
+        for block in blocks
+        if block.reason_code.startswith(("schema_", "release_manifest_missing_schema"))
+    }
+    if revision in {11, 17}:
+        assert schema_reasons == {"schema_revision_outside_tolerated_range"}
+    elif plan_type == "upgrade" and revision == 16:
+        assert schema_reasons == {"schema_target_not_forward"}
+    else:
+        assert not schema_reasons
+
+
 def _payload_document(**overrides: object) -> dict[str, object]:
     document = json.loads(canonical_plan_payload(_plan()))
     assert isinstance(document, dict)

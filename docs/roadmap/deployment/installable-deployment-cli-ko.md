@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: dba8f3f56f612da2312c5d7908c426fac57b551a
+translation_source_sha: da0608f4a4343e300ee603b61320293f544b782d
 translation_revised: 2026-10-22
 ---
 
@@ -894,6 +894,7 @@ ID, GUID, 호스트 이름, 토큰, 비밀처럼 보이는 할당을 삭제 처�
 
 | 알아볼 내용 | 참조 문서 |
 |------------|-----------|
+| 실제 마이그레이션이나 설치의 롤백과 구분되는 공유 수명 주기 스키마 거부 근거 | [Release 스키마 호환성](lifecycle-releases-and-channels-ko.md#스키마-호환성) |
 | 구현 상태와 남은 근거 | [구현 원장](../../roadmap-implementation/deployment/installable-deployment-cli.md) |
 | 단일 명령 소스 배포와 사용권 | [단일 명령 소스 배포](source-deployment-ko.md) |
 | 실행 호스트와 연결 선택 | [프로비저닝 실행 프로필](provisioning-execution-profiles-ko.md) |
