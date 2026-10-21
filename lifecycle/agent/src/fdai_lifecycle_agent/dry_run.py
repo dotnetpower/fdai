@@ -42,9 +42,13 @@ class Health(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class EntityState:
-    release_id: str
+    release_id: str | None
     artifact_digests: frozenset[str]
     health: Health = Health.UNKNOWN
+
+    def __post_init__(self) -> None:
+        if self.release_id is None and (self.artifact_digests or self.health == Health.HEALTHY):
+            raise ValueError("an uninstalled entity cannot report installed artifacts or health")
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,6 +59,7 @@ class CurrentState:
     schema_revision: int
     entities: Mapping[str, EntityState]
     observed_at: datetime
+    available_artifact_digests: frozenset[str] | None = None
 
     def __post_init__(self) -> None:
         if _STATE_DIGEST.fullmatch(self.digest) is None:
@@ -107,7 +112,7 @@ def compute_change_set(
     for entity_id in sorted(plan.entity_ids):
         observed = current.entities.get(entity_id)
         action: ChangeAction
-        if observed is None:
+        if observed is None or observed.release_id is None:
             action = "create"
         elif (
             observed.release_id == plan.target_release_id
@@ -121,7 +126,11 @@ def compute_change_set(
 
 
 def snapshot_document(
-    entities: Mapping[str, EntityState], *, schema_revision: int, observed_at: datetime
+    entities: Mapping[str, EntityState],
+    *,
+    schema_revision: int,
+    observed_at: datetime,
+    available_artifact_digests: frozenset[str] | None = None,
 ) -> dict[str, object]:
     """Return a reported-state snapshot whose ``digest`` the agent computes: the hex SHA-256 of
     the canonical JSON of every other field. The Hub echoes it into the next Plan."""
@@ -140,6 +149,8 @@ def snapshot_document(
         .isoformat(timespec="milliseconds")
         .replace("+00:00", "Z"),
     }
+    if available_artifact_digests is not None:
+        document["available_artifact_digests"] = sorted(available_artifact_digests)
     return {"digest": canonical_digest(document), **document}
 
 
@@ -154,7 +165,11 @@ def load_current_state(path: Path) -> CurrentState:
 
 
 def parse_current_state(document: object) -> CurrentState:
-    if not isinstance(document, dict) or set(document) != _STATE_KEYS:
+    if (
+        not isinstance(document, dict)
+        or not _STATE_KEYS <= document.keys()
+        or document.keys() - _STATE_KEYS - {"available_artifact_digests"}
+    ):
         raise ValueError(
             "current state MUST contain digest, schema_revision, entities, observed_at"
         )
@@ -169,6 +184,12 @@ def parse_current_state(document: object) -> CurrentState:
         raise ValueError("current state schema_revision MUST be a non-negative integer")
     if not isinstance(raw_entities, dict):
         raise ValueError("current state entities MUST be an object")
+    available = document.get("available_artifact_digests")
+    if available is not None and (
+        not isinstance(available, list)
+        or not all(isinstance(item, str) and _ARTIFACT_DIGEST.fullmatch(item) for item in available)
+    ):
+        raise ValueError("available_artifact_digests MUST be an array of sha256:<hex> strings")
     entities = {str(entity_id): _parse_entity(record) for entity_id, record in raw_entities.items()}
     observed_at = document["observed_at"]
     if not isinstance(observed_at, str):
@@ -178,7 +199,11 @@ def parse_current_state(document: object) -> CurrentState:
     except ValueError as error:
         raise ValueError("current state observed_at MUST be ISO 8601") from error
     return CurrentState(
-        digest=digest, schema_revision=revision, entities=entities, observed_at=observed
+        digest=digest,
+        schema_revision=revision,
+        entities=entities,
+        observed_at=observed,
+        available_artifact_digests=None if available is None else frozenset(available),
     )
 
 
@@ -190,7 +215,7 @@ def _parse_entity(record: object) -> EntityState:
         record["artifact_digests"],
         record["health"],
     )
-    if not isinstance(release_id, str) or not release_id:
+    if release_id is not None and (not isinstance(release_id, str) or not release_id):
         raise ValueError("current state release_id MUST be a non-empty string")
     if not isinstance(artifacts, list) or not all(
         isinstance(item, str) and _ARTIFACT_DIGEST.fullmatch(item) for item in artifacts

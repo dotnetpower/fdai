@@ -602,7 +602,33 @@ time-bound role that the customer grants in its own tenant. The Hub grants none.
    operator adds its settings. A signed Foundation creation receipt together with a Terraform state
    identity proves ownership. The `fdai:managed=true` tag alone keeps the Entity unmanaged, and the
    Hub records that reason. An installation without a managed Entity receives no Plan.
-5. The first Plan replaces any source-built images with signed images.
+5. The first Plan replaces source-built images, or installs into an explicitly empty workload
+   slot, with signed images.
+
+### Empty workload state
+
+An Entity that has never been installed reports `release_id: null`, no installed artifact
+digests, and `health: unknown`. This is explicit absence, not an invented deployed version.
+The snapshot separately reports `available_artifact_digests` for staged images. Omitting that
+optional field retains legacy inventory behavior; an explicitly empty inventory means unavailable.
+
+The planner considers every subscribed Release when a managed Entity is not installed, including
+`0.0.0` when that is a real catalog version. Ownership, separate application binding, matching
+configuration, artifact availability, signatures, windows and the local envelope remain required.
+An ordinary first-install or upgrade Plan never lowers any already installed Entity's version.
+Managing an empty slot requires `manage --initial-release <version>` to validate its override
+coverage; this does not pin a Plan or bypass candidate checks.
+
+**Critique and revision:** Missing health is not successful installation. Staged images are not
+running images, and a fake current version can skip valid first Releases. The explicit null and
+separate inventory retain these distinctions. Agent preflight still refuses an existing object
+without a recorded rollback target. A failed first apply removes only objects created by that
+attempt and independently verifies their absence. This state contract neither adopts a namespace
+nor supplies ownership evidence. Native ownership/bootstrap remains a separate prerequisite.
+
+The explicit lifecycle database migration advances its reader floor before storing null Release
+IDs or separate inventory. Existing rows and snapshot digests remain unchanged; old binaries refuse
+the newer database instead of misreading absence. Serving never migrates a database automatically.
 
 Today the Terraform application stage renders workloads. The Hub path moves the rendering of
 namespaced workload objects to the lifecycle agent, as

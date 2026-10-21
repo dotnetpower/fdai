@@ -23,7 +23,7 @@ from sqlalchemy import (
     inspect,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.engine import Dialect
+from sqlalchemy.engine import Connection, Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, WriteOnlyMapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
@@ -184,6 +184,7 @@ class StateReport(Base):
     schema_revision: Mapped[int]
     observed_at: Mapped[datetime]
     recorded_at: Mapped[datetime]
+    available_artifact_digests: Mapped[list[Any] | None]
 
     entity_states: Mapped[list[EntityReportedState]] = relationship(lazy="selectin")
 
@@ -200,7 +201,7 @@ class EntityReportedState(Base):
     report_id: Mapped[int] = mapped_column(ForeignKey(StateReport.id), primary_key=True)
     installation_id: Mapped[str] = mapped_column(Identifier)
     entity_id: Mapped[str] = mapped_column(Identifier, primary_key=True)
-    release_id: Mapped[str] = mapped_column(ReleaseId)
+    release_id: Mapped[str | None] = mapped_column(ReleaseId)
     artifact_digests: Mapped[list[Any]]
     health: Mapped[Health]
 
@@ -299,7 +300,7 @@ class AuditRecord(Base):
     record_hash: Mapped[str] = mapped_column(String(64), unique=True)
 
 
-def stale_tables(engine: Engine) -> list[str]:
+def stale_tables(engine: Engine | Connection) -> list[str]:
     """Existing Hub tables whose columns differ from this model, left by an earlier Hub."""
 
     inspector = inspect(engine)

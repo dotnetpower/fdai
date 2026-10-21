@@ -53,13 +53,15 @@ class ReleaseCatalog:
         if unknown:
             raise ValueError(f"channels name unknown Releases: {sorted(unknown)}")
 
-    def newer_than(self, channel: str, release_id: str) -> Iterator[tuple[str, LifecycleRelease]]:
-        """Yield the channel's Releases newer than `release_id`, newest first."""
+    def newer_than(
+        self, channel: str, release_id: str | None
+    ) -> Iterator[tuple[str, LifecycleRelease]]:
+        """Yield eligible newer versions, or all versions for a first installation."""
 
         newer = (
             candidate
             for candidate in self.channels.get(channel, frozenset())
-            if compare_release_ids(candidate, release_id) > 0
+            if release_id is None or compare_release_ids(candidate, release_id) > 0
         )
         for candidate in sorted(newer, key=cmp_to_key(compare_release_ids), reverse=True):
             yield candidate, self.releases[candidate]

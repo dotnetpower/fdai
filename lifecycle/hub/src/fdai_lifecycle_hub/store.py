@@ -358,10 +358,11 @@ class HubStore:
         *,
         operator: str,
         now: datetime,
+        initial_release: str | None = None,
     ) -> str:
         """Give an Entity with proven ownership its settings, which makes it managed.
 
-        Returns the override range that covers the Entity's running Release.
+        Returns the override range covering the running or explicitly selected first Release.
         """
 
         operator = schemas.actor_name.validate_python(operator)
@@ -372,9 +373,16 @@ class HubStore:
                 raise OwnershipUnprovenError(f"{entity_id}: {gap}")
             if (state := installation.reported.entities.get(entity_id)) is None:
                 raise EntityNotReportedError(entity_id)
+            release_id = state.release_id
+            if release_id is None:
+                if initial_release is None:
+                    raise EntitySettingsRejectedError("initial_release_required")
+                release_id = initial_release
+            elif initial_release is not None:
+                raise EntitySettingsRejectedError("initial_release_requires_uninstalled_entity")
             try:
                 covering = resolve_configuration_layers(
-                    release_version=state.release_id,
+                    release_version=release_id,
                     configuration_schema=installation.configuration.schema,
                     environment_config=installation.configuration.environment,
                     entity_overrides=settings.overrides,
@@ -388,6 +396,8 @@ class HubStore:
                 "settings_digest": settings.digest,
                 "covering_range": covering,
             }
+            if initial_release is not None:
+                details["initial_release"] = initial_release
             audit.append(session, now, "entity.managed", installation_id, entity_id, details)
             return covering
 
