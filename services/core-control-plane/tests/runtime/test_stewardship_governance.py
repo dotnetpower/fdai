@@ -8,7 +8,9 @@ from uuid import UUID
 import pytest
 from fdai.core.stewardship.governance import StewardshipGovernanceService
 from fdai.runtime.stewardship_governance import (
+    ConsoleStewardshipCandidatePublisher,
     StewardshipGovernanceWorker,
+    activate_console_stewardship_candidate,
     build_stewardship_governance_worker,
 )
 from fdai.shared.providers.testing.remediation_pr import RecordingRemediationPrPublisher
@@ -215,3 +217,66 @@ def test_builder_validates_bounds_and_can_be_disabled() -> None:
             publisher=publisher,
             environment={**base, "FDAI_STEWARDSHIP_GOVERNANCE_BATCH_LIMIT": "0"},
         )
+
+
+async def test_console_publisher_supports_github_app_free_draft_reuse_and_activation() -> None:
+    store = InMemoryStateStore()
+    worker = build_stewardship_governance_worker(
+        store=store,
+        environment={
+            "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED": "true",
+            "FDAI_STATE_STORE_DSN": "postgresql://example.invalid/fdai",
+        },
+    )
+    assert worker is not None
+
+    artifact = _artifact(upload_id=11)
+    await _store_artifact(store, artifact)
+    assert await worker.run_once() == 1
+
+    (receipt,) = await store.read_states("stewardship_governance:", limit=10)
+    pr_ref = str(receipt["pr_ref"])
+    assert pr_ref.startswith("console-stewardship:")
+    assert receipt["replayed"] is False
+    candidate_id = pr_ref.removeprefix("console-stewardship:")
+
+    # Retrying the same upload artifact reuses the existing Console candidate.
+    console_publisher = ConsoleStewardshipCandidatePublisher(store=store)
+    second_service = StewardshipGovernanceService(publisher=console_publisher)
+    replayed_result = await second_service.publish(artifact)
+    assert replayed_result.receipt is not None
+    assert replayed_result.receipt.pr_ref == pr_ref
+    assert replayed_result.receipt.already_existed is True
+
+    # Self-approval is rejected outside the single-operator profile.
+    with pytest.raises(ValueError, match="self-approve"):
+        await activate_console_stewardship_candidate(
+            store,
+            candidate_id=candidate_id,
+            reviewer_identity="entra:requester-oid",
+            requester_identity="entra:requester-oid",
+        )
+
+    # Independent human review activates once and suppresses duplicate delivery.
+    assert (
+        await activate_console_stewardship_candidate(
+            store,
+            candidate_id=candidate_id,
+            reviewer_identity="entra:reviewer-oid",
+            requester_identity="entra:requester-oid",
+        )
+        is True
+    )
+    assert (
+        await activate_console_stewardship_candidate(
+            store,
+            candidate_id=candidate_id,
+            reviewer_identity="entra:reviewer-oid",
+            requester_identity="entra:requester-oid",
+        )
+        is False
+    )
+    merge_record = await store.read_state(f"stewardship_merge:console-{candidate_id}")
+    assert merge_record is not None
+    assert merge_record["pr_ref"] == pr_ref
+    assert merge_record["actor_identity"] == "entra:reviewer-oid"

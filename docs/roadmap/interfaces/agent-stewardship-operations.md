@@ -7,10 +7,11 @@ This document defines the implemented runtime and governance lifecycle for FDAI 
 ownership (`stewardship`). It complements the handover-map schema and ownership concepts in
 [Agent operational ownership and ownership handover](agent-stewardship-and-handover.md).
 
-> The console's ownership projection remains read-only. Its guided form submits a handover document
-> to the ingestion boundary; ownership changes are still generated as draft pull requests, reviewed
-> through the Git host, and observed after merge through a signed webhook. Stewardship grants no
-> RBAC capability and never receives Thor's executor identity. Upload-format discovery, governed
+> FDAI Console is a governed operator surface. Its guided form submits a handover document to the
+> ingestion boundary; ownership changes are generated as content-addressed Console revision
+> candidates (or optional GitOps draft pull requests), reviewed under the active approval profile,
+> and activated as immutable revisions or observed after a signed merge webhook. Stewardship grants
+> no RBAC capability and never receives Thor's executor identity. Upload-format discovery, governed
 > preview, connectors, and cancellation reconciliation remain ingestion-owned; they grant no
 > document-read, connector, or ownership authority to the webhook. Local or Azure OCR readiness
 > changes advertised image formats, not the handover, RBAC role, or accountable owner.
@@ -69,6 +70,7 @@ The lifecycle has four independent safety boundaries:
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-22 | implemented | Added `ConsoleStewardshipCandidatePublisher` and `activate_console_stewardship_candidate` so `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true` operates in Console-governed mode without requiring a GitHub App or webhook secret, while preserving optional GitOps adapters. | `current change`; `stewardship_governance.py`; `production-gates.tf`; `test_stewardship_governance.py`; `test_stewardship_merge_effects.py`; `test_core_stewardship_gitops.py` (18 passed). | Retain a governed `dev` deployment receipt and Console-governed handover drill under #458. |
 | 2026-09-15 | implemented | Corrected current deployment guidance to the standalone exact-plan coordinator and managed host, separated injected-clock tests from live refresh, and added a bilingual speech/operational evidence protocol without runtime changes. | `current change`; [validation guide](../../user-guide/guides/validate-ownership-handover.md); [#1043 review record](../../internals/handover-operational-readiness-20260915.md); protected #1031 source and successful post-merge CI `34934077457`. | Real EN/KO speech and all current #458 operational receipts remain required. Historical source/image/map evidence is not current deployment approval. |
 | 2026-09-15 | implemented | Reconciled completed #946 source delivery and recorded #1017's local UI correction/evidence boundary. Tenant deployment uses the current standalone exact-plan coordinator and managed host, not historical GitHub workflow transport. | [PR #1014](https://github.com/dotnetpower/fdai/pull/1014), reviewed `8c1d9977c`, squash `953a17de4`, successful exact-head CI `34925881557` and post-merge CI `34926168342`; `current change`; [UI evidence and operational prerequisites](../../internals/handover-ui-evidence-20260915.md). | #458 remains open for selected release/target, independent exact-plan approval, current identities, App/ChatOps setup, source/ACL/hold evidence, independent effects, recovery drills and promotion cohorts. Real screen-reader output remains unmeasured. |
 | 2026-08-21 | implemented | Aligned the ingestion API's fallback Pantheon transport with the canonical `fdai.pantheon.objects` Event Bus topic. Terraform remains the naming authority, and the change does not alter stewardship resolution, notification ordering, RBAC, approval, or execution authority. | `current change`; ingestion composition defaults, Event Bus naming contract, and focused independent-service checks. | Retain the protected Event Bus migration and post-apply transport receipt tracked by the deployment naming owner. |

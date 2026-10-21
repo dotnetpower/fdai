@@ -110,3 +110,24 @@ def test_platform_workflow_binds_stewardship_inputs_without_exposing_secrets() -
     assert "TF_VAR_github_webhook_secret: ${{ secrets.GITHUB_WEBHOOK_SECRET }}" in _DEPLOY_WORKFLOW
     assert "TF_VAR_gitops_token: ${{ vars." not in _DEPLOY_WORKFLOW
     assert "TF_VAR_github_webhook_secret: ${{ vars." not in _DEPLOY_WORKFLOW
+
+
+def test_production_gate_supports_console_governed_mode_without_github_app() -> None:
+    from scripts.deployment.service.stewardship_tfvars import stewardship_gitops_binding
+
+    gates = (_ROOT / "infra" / "production-gates.tf").read_text(encoding="utf-8")
+    assert 'check "stewardship_governance_requires_delivery"' in gates
+    assert "Console-governed mode (no GitOps inputs)" in gates
+    assert 'trimspace(var.gitops_owner) == ""' in gates
+    assert (
+        stewardship_gitops_binding(
+            {"enabled": True, "auth_mode": "console"}, service="document-ingestion-api"
+        )
+        == {}
+    )
+    core_binding = stewardship_gitops_binding(
+        {"enabled": True, "auth_mode": "console"}, service="core-control-plane"
+    )
+    assert core_binding["auth_mode"] == "console"
+    assert core_binding["app_client_id"] == ""
+    assert core_binding["webhook_secret_id"] == ""

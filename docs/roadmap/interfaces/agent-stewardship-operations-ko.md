@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 0ef7e2f3d514f04cc59a9310d5c72ac7420433df
-translation_revised: 2026-09-15
+translation_source_sha: a2dd5cec650f3eb5725311b9e000c8b5ed0b3d00
+translation_revised: 2026-10-22
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -10,9 +10,10 @@ title: 에이전트 운영 책임 수명 주기
 인수인계 맵 스키마와 담당 체계 개념은
 [에이전트 운영 책임과 담당자 인수인계](agent-stewardship-and-handover-ko.md)를 참조하세요.
 
-> Console의 담당 체계 변환 결과는 읽기 전용입니다. 안내형 양식은 인수인계 문서를 수집
-> 경계에 제출합니다. 담당 체계 변경은 초안 PR로 만들고 Git 호스트에서 검토한 뒤 서명된
-> 웹후크로 병합을 관찰합니다. 담당 체계는 RBAC 기능을 부여하거나 Thor의 실행기 신원을
+> FDAI Console은 관리되는 운영자 작업 화면입니다. 안내형 양식은 인수인계 문서를 수집 경계에
+> 제출합니다. 담당 체계 변경은 내용 기반 Console 개정 후보(또는 선택적 GitOps 초안 PR)로 만들고
+> 활성 승인 프로필 아래에서 검토한 뒤 변경할 수 없는 개정으로 활성화하거나 서명된 웹후크로 병합을
+> 관찰합니다. 담당 체계는 RBAC 기능을 부여하거나 Thor의 실행기 신원을
 > 받지 않습니다. 업로드 형식 검색, 통제된 미리 보기, 커넥터와 취소 재조정은 수집 서비스가
 > 소유하며 웹후크에 문서 읽기, 커넥터, 담당 체계 변경 권한을 부여하지 않습니다. 로컬 또는
 > Azure OCR 준비 상태는 지원 이미지 형식만 바꾸며 인수인계, RBAC 역할, 책임 담당자를
