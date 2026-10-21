@@ -1,6 +1,6 @@
 ---
 title: Site Reliability Engineering
-description: The SRE operating model in FDAI, from signals and incidents through response, recovery, and learning.
+description: Explore the FDAI SRE operating model from signals and incidents through response, recovery, and learning.
 ---
 
 # Site Reliability Engineering

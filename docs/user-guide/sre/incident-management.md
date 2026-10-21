@@ -1,6 +1,6 @@
 ---
 title: Incident Management
-description: How FDAI creates, owns, transitions, measures, and closes a first-class incident.
+description: Learn how FDAI creates, owns, transitions, measures, and closes a first-class incident.
 ---
 
 # Incident Management

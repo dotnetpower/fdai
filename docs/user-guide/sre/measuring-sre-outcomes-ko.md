@@ -1,9 +1,9 @@
 ---
 title: SRE 성과 측정
-description: 자동화한 양을 신뢰성과 혼동하지 않고, 짝을 이룬 기준선과 비교해 FDAI의 SRE 성과를 측정하는 방법입니다.
+description: 자동화 규모를 신뢰성과 혼동하지 않고 같은 조건의 기준선과 비교해 FDAI의 SRE 성과를 측정하는 방법을 알아봅니다.
 translation_of: measuring-sre-outcomes.md
-translation_source_sha: b0fa546247f5409d2b24e8243e9c8152321f82a8
-translation_revised: 2026-08-11
+translation_source_sha: 052e492e0a0720cd567ae11a2d5cc063be666a2b
+translation_revised: 2026-10-22
 ---
 
 # SRE 성과 측정

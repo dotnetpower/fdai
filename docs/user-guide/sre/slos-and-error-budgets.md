@@ -1,6 +1,6 @@
 ---
 title: SLOs and Error Budgets
-description: How FDAI evaluates workload objectives and turns burn-rate evidence into governed incident signals.
+description: Learn how FDAI evaluates workload objectives and turns burn-rate evidence into governed incident signals.
 ---
 
 # SLOs and Error Budgets

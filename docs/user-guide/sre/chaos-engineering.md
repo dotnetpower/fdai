@@ -1,6 +1,6 @@
 ---
 title: Chaos Engineering
-description: How FDAI runs catalog-driven fault experiments with bounded targets, stop conditions, and recovery evidence.
+description: Learn how FDAI runs catalog-driven fault experiments with bounded targets, stop conditions, and recovery evidence.
 ---
 
 # Chaos Engineering

@@ -1,9 +1,9 @@
 ---
 title: 카오스 엔지니어링
-description: FDAI가 제한된 대상, 중단 조건, 복구 근거를 사용해 카탈로그에 정의된 장애 실험을 실행하는 방법입니다.
+description: FDAI가 제한된 대상, 중단 조건, 복구 근거를 사용해 카탈로그에 정의된 장애 실험을 실행하는 방법을 알아봅니다.
 translation_of: chaos-engineering.md
-translation_source_sha: 6f362d339b74b16d16e6a6ba7b572d3522a10d17
-translation_revised: 2026-08-11
+translation_source_sha: 0473956557ab7cad4ab03b0e502b08a7956b492b
+translation_revised: 2026-10-22
 ---
 
 # 카오스 엔지니어링

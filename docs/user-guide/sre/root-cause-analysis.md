@@ -1,6 +1,6 @@
 ---
 title: Root-Cause Analysis
-description: How FDAI produces tiered, cited root-cause hypotheses and holds for review when evidence is insufficient.
+description: Learn how FDAI produces tiered, cited root-cause hypotheses and holds for review when evidence is insufficient.
 ---
 
 # Root-Cause Analysis

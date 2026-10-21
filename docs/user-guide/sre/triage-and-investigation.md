@@ -1,6 +1,6 @@
 ---
 title: Triage and Investigation
-description: How FDAI gathers bounded cross-resource evidence and produces an auditable investigation report.
+description: Learn how FDAI gathers bounded cross-resource evidence and produces an auditable investigation report.
 ---
 
 # Triage and Investigation

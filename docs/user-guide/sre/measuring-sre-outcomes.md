@@ -1,6 +1,6 @@
 ---
 title: Measuring SRE Outcomes
-description: How to measure FDAI SRE outcomes against paired baselines without mistaking automation volume for reliability.
+description: Learn how to measure FDAI SRE outcomes against paired baselines without mistaking automation volume for reliability.
 ---
 
 # Measuring SRE Outcomes

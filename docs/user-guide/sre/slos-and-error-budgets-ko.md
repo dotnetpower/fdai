@@ -1,9 +1,9 @@
 ---
 title: SLO와 오류 예산
-description: FDAI가 워크로드 목표를 평가하고, 예산 소진 근거를 관리되는 인시던트 신호로 바꾸는 방법입니다.
+description: FDAI가 워크로드 목표를 평가하고 오류 예산 소진 근거를 관리되는 인시던트 신호로 바꾸는 방법을 알아봅니다.
 translation_of: slos-and-error-budgets.md
-translation_source_sha: 0d7b7deed35662e54d73a40cfe88978d83f19ce7
-translation_revised: 2026-10-15
+translation_source_sha: e6c4821891578155293ce674cf4cbebef3e6c729
+translation_revised: 2026-10-22
 ---
 
 # SLO와 오류 예산
