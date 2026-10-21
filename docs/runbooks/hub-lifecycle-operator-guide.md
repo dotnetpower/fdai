@@ -162,6 +162,28 @@ In builds containing the read-only inventory implementation:
 Older builds intentionally disable both menus. Don't add operator roles or reimport a catalog
 to enable a missing screen. Confirm which exact build is deployed before following these steps.
 
+#### Recover an expired development catalog
+
+This procedure needs a Release Hub build with **Renew catalog freshness**. If that action is
+missing, stop and arrange an approved Release Hub update. A browser refresh can't add it.
+
+1. As the vendor operator, review **Releases**, **Channels** and **Activity**, including recalls.
+   Open **Catalog trust** and check the current revision, key and export expiry.
+2. Choose **Renew catalog freshness**, enter the review reason and type `renew <revision>` using
+   that current revision. Confirm once. Manifests, signatures, channels, recalls and keys stay
+   unchanged; publication adds one revision and expires 24 hours after the renewal.
+3. Read back the new **Revision**, **Export expiry** and **Export SHA-256 pin**. If the write's
+   result is uncertain, close the dialog and use **Refresh catalog** and **Activity** before
+   another attempt. Refresh is read-only; don't automatically repeat the write.
+4. Through the approved independent trust channel, give the customer operator the reviewed
+   new revision and exact pin. In Lifecycle Hub, repeat the separate pin approval and explicit
+   import steps above. Existing accepted bytes don't change automatically.
+5. Reopen **Available releases**. It should show the newly accepted revision's valid data or a
+   specific failure, not a success-shaped empty list. Import doesn't apply an installation.
+
+Don't republish a release, add a duplicate channel membership, change signing keys, disable
+expiry checks or edit stored timestamps just to hide an expired catalog.
+
 The current development Agent can verify and stage independently signed files:
 
 ```bash

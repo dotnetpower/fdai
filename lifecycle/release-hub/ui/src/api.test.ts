@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { actionsFor, artifacts, requestCatalog, type Release } from "./api";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe("release action boundaries", () => {
   const base = { id: "1.0.0" } as Release;
   it("never offers publication or contribution for a recalled release", () => {
@@ -23,5 +23,32 @@ describe("release action boundaries", () => {
     vi.stubGlobal("fetch", fetch);
     await expect(requestCatalog("/v1/releases/1.0.0/recall", { revision: 1, confirmation: "1.0.0", reason: "withdraw" })).rejects.toThrow();
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("posts only the reviewed freshness confirmation under a bounded signal", async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ revision: 3 }) });
+    vi.stubGlobal("fetch", fetch);
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const body = { revision: 2, confirmation: "renew 2", reason: "Reviewed current eligibility" };
+    expect(await requestCatalog("/v1/catalog/renew", body)).toEqual({ revision: 3 });
+    expect(timeout).toHaveBeenCalledWith(10_000);
+    expect(fetch).toHaveBeenCalledOnce();
+    const call = fetch.mock.calls[0];
+    if (!call) throw new Error("Expected a renewal request.");
+    expect(call[0]).toBe("/v1/catalog/renew");
+    expect(call[1]).toMatchObject({ method: "POST", body: JSON.stringify(body) });
+    expect(call[1].signal).toBeInstanceOf(AbortSignal);
+  });
+  it("never retries a renewal after its request is aborted", async () => {
+    const controller = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    const fetch = vi.fn((_path: string, init: RequestInit) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener("abort", () => reject(new DOMException("Timed out", "TimeoutError")));
+    }));
+    vi.stubGlobal("fetch", fetch);
+    const request = requestCatalog("/v1/catalog/renew", { revision: 2, confirmation: "renew 2", reason: "Review" });
+    const result = expect(request).rejects.toThrow("Timed out");
+    controller.abort();
+    await result;
+    expect(fetch).toHaveBeenCalledOnce();
   });
 });

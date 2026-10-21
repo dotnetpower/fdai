@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: f9b8adc99c4f0d17a0313e606ababc65c87d5a42
+translation_source_sha: ad85b147f49ce6491feb5f5041181318cf2d1a38
 translation_revised: 2026-10-21
 ---
 # Lifecycle Release와 채널
@@ -57,6 +57,28 @@ translation_revised: 2026-10-21
 | 회수 | Release 회수는 roll-off를 시작합니다. 기능 회수는 ActionType이나 Workflow를 모든 곳에서 `shadow` 모드로 되돌립니다. |
 | 카탈로그 무결성 | 버전이 증가하는 서명된 root, snapshot, timestamp 기록과 회수 순번 |
 | 스키마 | expand/contract 방식과 전진 전용입니다. 각 Release는 허용하는 스키마 개정을 선언합니다. |
+
+## 개발용 카탈로그의 명시적 유효기간 갱신
+
+개발용 내보내기 파일은 마지막 발행 이벤트로부터 24시간 뒤에 만료됩니다.
+카탈로그 읽기, 화면 새로고침, 같은 파일의 재다운로드로는 갱신되지 않습니다.
+release 목록이 같아도 신선도를 다시 발행하려면 검토가 필요합니다.
+갱신을 위해 불필요한 채널 변경이나 회수를 만들지 않습니다.
+
+`POST /v1/catalog/renew`에는 기존 공급자 운영자 신원, 현재 카탈로그 리비전,
+공백이 아닌 사유, 정확한 확인문 `renew <revision>`이 필요합니다.
+등록, 발행, 채널 추가, 회수와 같은 발행 잠금과 리비전 검사로 직렬화합니다.
+쓰기 전에 현재 키로 발행된 모든 매니페스트 서명을 다시 검증하고 발행 시계가
+앞으로 진행했는지 확인합니다. 잘못된 서명, 이전 리비전, 다른 확인문, 시계 역행이
+있으면 발행 상태를 변경하지 않습니다.
+
+갱신은 `catalog`를 대상으로 행위자가 기록된 `renew` 이벤트를 추가합니다.
+리비전과 24시간 유효기간이 바뀌므로 내보내기 다이제스트도 달라집니다.
+매니페스트, 서명, 채널, 회수, 서명 키는 변경하지 않습니다.
+고객 Hub는 운영자가 새 고정값을 독립적으로 승인하고 명시적으로 가져오기 전까지
+기존 수락 바이트를 유지합니다. 갱신은 설치본 가져오기, 계획, 적용을 수행하지 않으며
+운영용 서명된 카탈로그 역할을 대신하지 않습니다.
+UI는 읽기 전용 **Refresh catalog**와 **Renew catalog freshness**를 구분합니다.
 
 ## Release 내용
 
