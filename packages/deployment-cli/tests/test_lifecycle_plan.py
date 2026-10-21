@@ -11,8 +11,10 @@ import pytest
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_plan import (
     DataResidencyRequirement,
+    LifecycleAuthorizationReceipt,
     LifecycleConstraintContext,
     LifecycleEffectEnvelope,
+    LifecyclePhaseCompletionReceipt,
     LifecyclePlan,
     MaintenanceWindow,
     PlanAdmissionState,
@@ -20,7 +22,10 @@ from fdai_deployment_cli.lifecycle_plan import (
     canonical_plan_payload,
     decode_canonical_plan_payload,
     evaluate_lifecycle_constraints,
+    evaluate_phase_authorization,
     evaluate_plan_admission,
+    exact_plan_digest_for,
+    issue_lifecycle_authorization_receipt,
 )
 from fdai_deployment_cli.runtime_release import RecallRecord, RuntimeRelease, SchemaRange
 
@@ -648,6 +653,101 @@ def _payload_document(**overrides: object) -> dict[str, object]:
     assert isinstance(document, dict)
     document.update(overrides)
     return document
+
+
+def test_phase_authorization_requires_bound_receipt_and_earlier_phase_completion() -> None:
+    plan = _plan()
+    infra_auth = issue_lifecycle_authorization_receipt(
+        plan,
+        phase="infrastructure",
+        window_starts_at=NOW - timedelta(minutes=5),
+        window_ends_at=NOW + timedelta(minutes=30),
+        issued_at=NOW,
+    )
+    assert evaluate_phase_authorization(
+        plan,
+        phase="infrastructure",
+        authorization_receipt=infra_auth,
+        trusted_now=NOW,
+    ).allowed
+
+    # Workload phase requiring earlier infrastructure phase waits while the receipt is absent.
+    missing_earlier = evaluate_phase_authorization(
+        plan,
+        phase="workload",
+        authorization_receipt=None,
+        trusted_now=NOW,
+        require_earlier_phase=True,
+        earlier_phase_receipt=None,
+    )
+    assert (missing_earlier.allowed, missing_earlier.reason_code) == (
+        False,
+        "earlier_phase_receipt_missing",
+    )
+
+    infra_done = LifecyclePhaseCompletionReceipt(
+        plan_id=plan.plan_id,
+        exact_plan_digest=exact_plan_digest_for(plan),
+        fencing_generation=plan.fencing_generation,
+        phase="infrastructure",
+        authorization_receipt_digest=infra_auth.digest,
+        completed_at=NOW,
+    )
+    workload_auth = issue_lifecycle_authorization_receipt(
+        plan,
+        phase="workload",
+        window_starts_at=NOW - timedelta(minutes=5),
+        window_ends_at=NOW + timedelta(minutes=30),
+        issued_at=NOW,
+        prerequisite_receipt=infra_done,
+    )
+    assert LifecycleAuthorizationReceipt.from_mapping(workload_auth.to_mapping()) == workload_auth
+    assert evaluate_phase_authorization(
+        plan,
+        phase="workload",
+        authorization_receipt=workload_auth,
+        trusted_now=NOW,
+        require_earlier_phase=True,
+        earlier_phase_receipt=infra_done,
+    ).allowed
+
+    # Mismatched plan digest, fencing generation, or closed window is rejected.
+    wrong_digest = replace(workload_auth, exact_plan_digest="sha256:" + "0" * 64)
+    assert (
+        evaluate_phase_authorization(
+            plan,
+            phase="workload",
+            authorization_receipt=wrong_digest,
+            trusted_now=NOW,
+            require_earlier_phase=True,
+            earlier_phase_receipt=infra_done,
+        ).reason_code
+        == "authorization_receipt_plan_mismatch"
+    )
+    wrong_fencing = replace(workload_auth, fencing_generation=plan.fencing_generation + 1)
+    assert (
+        evaluate_phase_authorization(
+            plan,
+            phase="workload",
+            authorization_receipt=wrong_fencing,
+            trusted_now=NOW,
+            require_earlier_phase=True,
+            earlier_phase_receipt=infra_done,
+        ).reason_code
+        == "phase_fencing_mismatch"
+    )
+    closed_window = evaluate_phase_authorization(
+        plan,
+        phase="workload",
+        authorization_receipt=workload_auth,
+        trusted_now=NOW + timedelta(minutes=35),
+        require_earlier_phase=True,
+        earlier_phase_receipt=infra_done,
+    )
+    assert (closed_window.allowed, closed_window.reason_code) == (
+        False,
+        "authorization_receipt_window_closed",
+    )
 
 
 def _encoded(document: Mapping[str, object]) -> bytes:

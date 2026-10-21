@@ -394,6 +394,14 @@ class Harness:
         if not self.state_file.exists():
             write_json_atomically(self.state_file, self.state_document())
         ticks = itertools.count()
+        apply_kwargs: dict[str, Any] = {}
+        for key in (
+            "require_infrastructure_receipt",
+            "read_infrastructure_receipt",
+            "build_authorization_receipt",
+        ):
+            if key in workload_overrides:
+                apply_kwargs[key] = workload_overrides.pop(key)
         workload: dict[str, Any] = {
             "cluster": cluster,
             "namespace": NAMESPACE,
@@ -405,6 +413,7 @@ class Harness:
             workload=Workload(**(workload | workload_overrides)),
             store=WorkloadStore(self.state_store.path.parent),
             write_current_state=lambda document: write_json_atomically(self.state_file, document),
+            **apply_kwargs,
         )
 
     def release_plan(self, version: str, image_digest: str, **overrides: Any) -> LifecyclePlan:

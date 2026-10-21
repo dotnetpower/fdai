@@ -484,9 +484,12 @@ Plan whose sequence, generation, or source-state digest is stale.
 > **Implemented admission boundary:** The Agent verifies canonical signed Plan bytes against
 > independently configured Hub trust and durable local sequence state. Stale sequence, wrong
 > audience, revoked key and an over-wide envelope are refused before cluster calls even when
-> the apply adapter is enabled. This source boundary was delivered in #1951 and remains distinct
-> from production key lifecycle, local authorization receipts, physical phase fencing and
-> operational installation qualification.
+> the apply adapter is enabled. Automatic apply additionally requires a local
+> `LifecycleAuthorizationReceipt` bound to the exact Plan digest, fencing generation, Release and
+> configuration digests, and open window, and holds the workload phase when an earlier
+> `infrastructure` phase completion receipt for the same exact Plan digest is required but absent.
+> Production key lifecycle, physical multi-host infrastructure coordination and operational
+> installation qualification remain separate.
 
 A Plan runs as a fenced sequence of phases. The infrastructure agent owns the infrastructure phase,
 and the lifecycle agent owns the workload phase. A phase starts only after the previous phase's
