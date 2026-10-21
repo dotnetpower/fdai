@@ -1,15 +1,15 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 37230ddf8c5836fd74c36d9043c50b2bd0847cc3
-translation_revised: 2026-09-28
+translation_source_sha: 2a3caf0a4438bdc67eae16259301c5fea590efcb
+translation_revised: 2026-10-22
 ---
 # 다중 채널 알림 전달
 
 이 문서는 하나의 운영 알림 또는 요약(digest)이 처음 수락한 채널에서 멈추지 않고 운영자가
 활성화하고 설정한 **모든** 알림 채널에 도달하는 방식을 소유합니다. 또한 사용 중지된 Office 365
-connector 전송을 대체하는 Microsoft Teams Workflows 웹훅 바인딩과 A2/A4 전달용 Bot Framework
-Direct Line 사용자 지정 채널 바인딩을 규정합니다.
+connector 전송을 대체하는 Microsoft Teams Workflows 웹훅 바인딩과 A2/A4 전달용 Direct Line
+호환 사용자 지정 채널 바인딩을 규정합니다.
 
 > **범위:** `NotificationChannel`이 전달하는 A2 운영 알림과 A4 요약을 포함합니다. A1 승인
 > (`HilChannel`)과 A3 대화(`ConversationChannelAdapter`)는 기존 계약을 유지하며 명시적으로
@@ -107,7 +107,7 @@ route에 없는 채널은 대상이 아니므로, 어댑터를 추가했다는 �
   바인딩에는 엔드포인트나 HTTP 클라이언트가 필요하지 않습니다. `mode: "enforce"`는 공급자
   엔드포인트가 필요하며 기존 런타임 동작을 유지합니다. 이전 버전과의 호환성을 위해 `mode`를
   생략하면 `enforce`가 기본값입니다. 단, 새로 추가된 `direct_line` 종류는 `shadow`가
-  기본값입니다([§ 9](#9-direct-line-사용자-지정-채널)).
+  기본값입니다([§ 9](#9-direct-line-호환-사용자-지정-채널)).
 - **Trust tier는 바인딩 단위로 유지합니다.** 요약 전용 채널은 A2 호출 트래픽을 받지 않습니다.
 
 ### URL만 사용하는 초기 설정
@@ -309,7 +309,7 @@ URL을 제출하여 바인딩을 교체합니다. 영속 저장 및 테스트 �
 | 7 | 전달 콜백과 `delivered` 승격 | 독립 관찰이 감사에 기록됨 |
 | 8 | 인증된 Operator ingress와 스키마 검증 Core consumer | 서명된 콜백이 브로커를 거쳐 `accepted` 하위 항목을 `delivered`로 수렴 |
 | 9 | 명시적 배포 및 로컬 활성화 | 활성화된 바인딩은 전달하고 저장만 되었거나 placeholder인 바인딩은 전달하지 않음 |
-| 10 | 리허설을 기본값으로 하는 Direct Line 사용자 지정 채널 어댑터 | 외부 전송 없는 리허설, 전송 전 의도 기록, 수락만 기록하는 증적, 실패 시 차단 테스트 |
+| 10 | 리허설을 기본값으로 하는 Direct Line 호환 사용자 지정 채널 어댑터 | 외부 전송 없는 리허설, 전송 전 의도 기록, 수락만 기록하는 증적, 실패 시 차단 테스트 |
 
 ## 8. capability-state, presentation, shadow-delivery 계약
 
@@ -417,13 +417,16 @@ Slack 기능은 shadow에 머뭅니다.
 Teams와 Slack 차단 오류에는 공급자 이름과 HTTP 상태만 남깁니다. 공급자 응답 본문은 신뢰할 수
 없고 메시지 내용을 반사할 수 있으므로 폐기하며, 라우터 감사 텍스트에 포함하지 않습니다.
 
-## 9. Direct Line 사용자 지정 채널
+## 9. Direct Line 호환 사용자 지정 채널
 
-배포는 Microsoft Bot Framework Direct Line으로 구축한 사용자 지정 채널에 A2 운영 알림과 A4
-요약을 전달할 수 있습니다. FDAI는 Direct Line 클라이언트로 동작합니다. 배포가 소유한 대화에 읽기
-전용 `message` activity 하나를 게시하고, 배포의 중계 봇이 자체 클라이언트에서 그 activity를
-사람에게 보여 줍니다. A1 승인과 A3 대화는 인증된 기존 계약을 유지하며
-[이슈 #941](https://github.com/dotnetpower/fdai/issues/941)에서 추적합니다.
+배포는 범위가 제한된 Direct Line activity 형식을 구현한 사용자 지정 중계기에 A2 운영 알림과 A4
+요약을 전달할 수 있습니다. FDAI는 배포가 소유한 대화에 읽기 전용 `message` activity 하나를
+게시하고, 중계기는 자체 클라이언트에서 그 activity를 사람에게 보여 줍니다. FDAI는 업스트림
+Microsoft Bot Framework Direct Line 환경을 프로비저닝하거나 요구하지 않습니다. 업스트림 검증
+대상은 [`examples/direct_line_relay`](../../../examples/direct_line_relay/README.md)의 loopback
+예제 CLI이며, 배포는 이를 같은 계약을 구현한 자체 중계기로 바꿀 수 있습니다. A1 승인과 A3 대화는
+인증된 기존 계약을 유지하며 [이슈 #941](https://github.com/dotnetpower/fdai/issues/941)에서
+추적합니다.
 
 ### 9.1 채널 경계
 
@@ -434,6 +437,7 @@ Teams와 Slack 차단 오류에는 공급자 이름과 HTTP 상태만 남깁니�
 | 보호된 값 | 엔드포인트, 대화 id, 시크릿은 배포 시크릿 프로바이더가 채우는 이름 있는 환경 변수 참조에서 읽습니다. |
 | 렌더링 | [`render_direct_line_payload`](../../../services/core-control-plane/src/fdai/delivery/notifications/direct_line_rendering.py)는 리허설과 governed 모드에서 같은 바이트를 만듭니다. 범위가 제한된 Markdown `text`와 함께 표준 id, `read_only: true`, 안정적인 `idempotency_key`를 담은 `channelData.fdai` 기록을 포함합니다. |
 | Core 계약 | `ChannelKind.DIRECT_LINE`과 `DirectLineChannel` Protocol입니다. 라우터와 결정 로직에는 Direct Line 분기가 없습니다. |
+| 업스트림 검증 대상 | loopback 전용 예제 CLI가 멱등성 키를 저장하고 activity 하나를 수락한 뒤 인증된 게시 증적을 제출합니다. Terraform이나 외부 Direct Line 서비스는 필요하지 않습니다. |
 
 ### 9.2 바인딩
 
@@ -458,6 +462,9 @@ Teams와 Slack 차단 오류에는 공급자 이름과 HTTP 상태만 남깁니�
 - **fan-out에서만 사용합니다.** 채널별 기록을 전송 전에 남기는 경로는 fan-out뿐이므로, 구성
   루트는 `failover` 경로에 놓인 governed Direct Line 채널을 차단합니다.
 - **URL만 사용하는 초기 설정은 없습니다.** Direct Line 채널은 명시적 바인딩으로만 만들어집니다.
+- **loopback은 테스트 전용입니다.** 런타임 바인딩 구성은 계속 HTTPS를 요구합니다. 집중 통합
+  테스트만 loopback 호스트에 한해 HTTP를 허용하는 어댑터를 명시적으로 만들 수 있으며, 이
+  스위치는 `FDAI_NOTIFICATION_BINDINGS_JSON`에 노출되지 않습니다.
 
 ### 9.3 리허설에서 governed 전달까지
 
@@ -471,7 +478,7 @@ Teams와 Slack 차단 오류에는 공급자 이름과 HTTP 상태만 남깁니�
 4. **수락을 확인합니다.** 어댑터는 Direct Line bearer 자격 증명으로 activity를 보냅니다. 유효한
    activity id가 담긴 `2xx` 응답은 시도를 `delivered`가 아니라 `accepted`로 닫습니다. Direct Line
    activity id에는 대화 id가 포함되므로 증적에는 `activity-sha256:<digest>`만 남깁니다.
-5. **게시를 확인합니다.** 중계 봇은 § 5의 인증된 증적 경로로 게시 결과를 보고합니다. 이 독립적인
+5. **게시를 확인합니다.** 중계기는 § 5의 인증된 증적 경로로 게시 결과를 보고합니다. 이 독립적인
    관찰만 기록을 `delivered`로 승격합니다.
 
 중계 봇은 반드시 `channelData.fdai.idempotency_key`로 중복을 제거해야 합니다(MUST). 하나의 논리적
@@ -490,13 +497,26 @@ Teams와 Slack 차단 오류에는 공급자 이름과 HTTP 상태만 남깁니�
 | `429` | 재시도 가능한 조절(throttling)입니다. 어댑터는 내부에서 재시도하지 않으며 `Retry-After`도 따르지 않습니다. |
 | 연결 실패 | 재시도 가능하며 요청이 Direct Line에 도달하지 않았습니다. |
 | 응답 유실 또는 유효한 activity id가 없는 `2xx` | `ambiguous`가 되며 자동으로 다시 보내지 않습니다. |
-| `500`, `502`, `504`를 포함한 그 밖의 모든 상태 | Direct Line은 중계 봇 자체의 결과를 반영하므로 봇이 activity를 받지 않았다고 증명할 수 없습니다. 따라서 `ambiguous`가 되며 자동으로 다시 보내지 않습니다. |
+| `500`, `502`, `504`를 포함한 그 밖의 모든 상태 | 중계기는 activity를 받은 뒤에도 이 상태를 반환할 수 있으므로 미수신을 증명할 수 없습니다. 따라서 `ambiguous`가 되며 자동으로 다시 보내지 않습니다. |
 
 어댑터는 전송 한 번에 최대 한 번만 요청하며 내부에서 재시도하지 않습니다. 재시도 계층은 fan-out
 라우터 하나뿐이므로, 하나의 논리적 전달에 대한 대상별 전체 요청 수의 상한은 `max_attempts`이며
 기본값은 세 번입니다. 영속 시도 횟수는 다시 dispatch하거나 재시작해도 이 상한을 유지합니다.
 재시도 가능한 경우가 상한에 도달하면 `abandoned`가 되고, `ambiguous`는 첫 요청 뒤에 멈추며,
 성공한 대상이 없는 dispatch는 사람 검토로 에스컬레이션합니다. 응답 본문은 항상 폐기합니다.
+
+### 9.5 업스트림 예제 검증
+
+[`direct_line_relay.py`](../../../examples/direct_line_relay/direct_line_relay.py)는 Terraform이나
+외부 공급자 환경 없이 업스트림 계약을 검증하는 작은 loopback 전용 CLI입니다. 범위가 제한된
+A2/A4 읽기 전용 activity만 수락하고 bearer 값을 인증합니다. activity를 수락하기 전에 멱등성
+키를 저장하며, 중복 요청에는 같은 activity id를 반환하고 게시 증적을 다시 보내지 않습니다.
+
+CLI는 요청을 수락한 뒤 § 5의 제한된 콜백 본문을 `X-FDAI-Timestamp` 및
+`X-FDAI-Signature`와 함께 제출합니다. 집중 통합 테스트는 두 방향 모두에서 실제 loopback HTTP를
+사용하고, 콜백을 `NotificationReceiptIngress`로 전달하며, Core 상태 전이를 적용하고, replay가
+activity를 다시 보내지 않는지 확인합니다. 시크릿은 이름이 있는 환경 변수로만 제공하며 CLI 인자,
+출력 또는 영속 중계기 상태에는 나타나지 않습니다.
 
 ## 관련 문서
 

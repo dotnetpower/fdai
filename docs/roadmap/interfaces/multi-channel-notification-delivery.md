@@ -6,7 +6,7 @@ title: Multi-Channel Notification Delivery
 This document owns how one outbound operational alert or digest reaches **every** notification
 channel an operator enabled and configured, instead of stopping at the first channel that accepts
 it. It also specifies the Microsoft Teams Workflows webhook binding that replaces the retired
-Office 365 connector transport, and the Bot Framework Direct Line custom-channel binding for A2/A4
+Office 365 connector transport, and the Direct Line-compatible custom-channel binding for A2/A4
 delivery.
 
 > **Scope:** A2 operational alerts and A4 digests carried by `NotificationChannel` are in scope.
@@ -106,7 +106,7 @@ Rules:
   bindings don't require an endpoint or HTTP client. `mode: "enforce"` requires the provider
   endpoint and keeps the existing runtime behavior. Omitting `mode` defaults to `enforce` for
   backward compatibility, except for the newer `direct_line` kind, which defaults to `shadow`
-  ([§ 9](#9-direct-line-custom-channel)).
+  ([§ 9](#9-direct-line-compatible-custom-channel)).
 - **Trust tiers stay per binding.** A digest-only room never receives A2 paging traffic.
 
 ### URL-only bootstrap
@@ -311,7 +311,7 @@ prepared/completed metadata.
 | 7 | Delivery callback and `delivered` promotion | Independent observation recorded in audit |
 | 8 | Authenticated Operator ingress plus schema-validated Core consumer | Signed callback converges an `accepted` child to `delivered` through the broker |
 | 9 | Explicit deployed and local activation | An activated binding delivers; a saved-only or placeholder binding does not |
-| 10 | Direct Line custom-channel adapter with a rehearsal default | Zero-send rehearsal, intent before transport, acceptance-only receipt, and fail-closed tests |
+| 10 | Direct Line-compatible custom-channel adapter with a rehearsal default | Zero-send rehearsal, intent before transport, acceptance-only receipt, and fail-closed tests |
 
 ## 8. Capability-state, presentation, and shadow-delivery contracts
 
@@ -423,13 +423,16 @@ Teams and Slack rejection errors retain only the provider name and HTTP status. 
 bodies are discarded because they are untrusted and may reflect message content; they never enter
 router audit text.
 
-## 9. Direct Line custom channel
+## 9. Direct Line-compatible custom channel
 
-A deployment can deliver A2 operational alerts and A4 digests to a custom channel that it builds on
-Microsoft Bot Framework Direct Line. FDAI acts as a Direct Line client. It posts one read-only
-`message` activity into a deployment-owned conversation, and the deployment's relay bot presents
-the activity in its own client. A1 approvals and A3 conversations stay on their authenticated
-contracts, which [issue #941](https://github.com/dotnetpower/fdai/issues/941) tracks.
+A deployment can deliver A2 operational alerts and A4 digests to a custom relay that implements the
+bounded Direct Line activity shape. FDAI posts one read-only `message` activity into a
+deployment-owned conversation, and the relay presents the activity in its own client. FDAI doesn't
+provision or require an upstream Microsoft Bot Framework Direct Line environment. The upstream
+validation target is the loopback example CLI in
+[`examples/direct_line_relay`](../../../examples/direct_line_relay/README.md); a deployment can
+replace it with its own compatible relay. A1 approvals and A3 conversations stay on their
+authenticated contracts, which [issue #941](https://github.com/dotnetpower/fdai/issues/941) tracks.
 
 ### 9.1 Channel boundary
 
@@ -440,6 +443,7 @@ contracts, which [issue #941](https://github.com/dotnetpower/fdai/issues/941) tr
 | Protected values | The endpoint, conversation id, and secret resolve from named environment references that the deployment secret provider populates. |
 | Rendering | [`render_direct_line_payload`](../../../services/core-control-plane/src/fdai/delivery/notifications/direct_line_rendering.py) produces identical bytes in rehearsal and governed modes: bounded Markdown `text` plus a `channelData.fdai` record with canonical ids, `read_only: true`, and a stable `idempotency_key`. |
 | Core contract | `ChannelKind.DIRECT_LINE` and the `DirectLineChannel` Protocol. Router and decision logic contain no Direct Line branch. |
+| Upstream validation target | The loopback-only example CLI persists the idempotency key, acknowledges one activity, and submits an authenticated publication receipt. It requires no Terraform or external Direct Line service. |
 
 ### 9.2 Binding
 
@@ -464,6 +468,9 @@ contracts, which [issue #941](https://github.com/dotnetpower/fdai/issues/941) tr
 - **Fan-out only.** Composition refuses a governed Direct Line channel on a `failover` route,
   because only fan-out writes the per-channel record before transport.
 - **No URL-only bootstrap.** A Direct Line channel exists only through an explicit binding.
+- **Loopback is test-only.** Runtime binding configuration continues to require HTTPS. A focused
+  integration test can explicitly construct an adapter that permits HTTP only for a loopback host;
+  this switch isn't exposed through `FDAI_NOTIFICATION_BINDINGS_JSON`.
 
 ### 9.3 Rehearsal to governed delivery
 
@@ -478,8 +485,8 @@ contracts, which [issue #941](https://github.com/dotnetpower/fdai/issues/941) tr
    response with a valid activity id closes the attempt as `accepted`, never `delivered`. The
    receipt keeps `activity-sha256:<digest>` because Direct Line activity ids embed the conversation
    id.
-5. **Confirm.** The relay bot reports publication through the authenticated receipt path in § 5.
-   Only that independent observation promotes the record to `delivered`.
+5. **Confirm.** The relay reports publication through the authenticated receipt path in § 5. Only
+   that independent observation promotes the record to `delivered`.
 
 The relay bot MUST deduplicate on `channelData.fdai.idempotency_key`. Every attempt for one logical
 delivery carries the same key, so a replay after an expired lease, or a retry the relay couldn't
@@ -497,7 +504,7 @@ distinguish from a new send, never becomes a second visible post.
 | `429` | Retryable throttling. The adapter doesn't retry internally or honor `Retry-After`. |
 | Connection failure | Retryable; no request reached Direct Line |
 | Lost response, or `2xx` without a valid activity id | `ambiguous`; never resent automatically |
-| Any other status, including `500`, `502`, and `504` | `ambiguous`, because Direct Line reflects the relay bot's own outcome and can't prove the bot didn't receive the activity; never resent automatically |
+| Any other status, including `500`, `502`, and `504` | `ambiguous`, because a relay can return these statuses after receiving the activity and can't prove non-receipt; never resent automatically |
 
 The adapter makes at most one request per send and never retries internally. The fan-out router is
 the only retry layer, so the total bound is `max_attempts` requests per target for one logical
@@ -505,6 +512,21 @@ delivery, three by default. The durable attempt counter keeps that bound across 
 restart. A retryable row that reaches the ceiling becomes `abandoned`, an `ambiguous` row stops
 after its first request, and a dispatch with no successful target escalates to human review.
 Response bodies are always discarded.
+
+### 9.5 Upstream example validation
+
+[`direct_line_relay.py`](../../../examples/direct_line_relay/direct_line_relay.py) is a small
+loopback-only CLI that validates the upstream contract without Terraform or an external provider
+environment. It accepts only bounded A2/A4 read-only activities, authenticates the bearer value,
+persists the idempotency key before acknowledgement, returns the same activity id for a duplicate,
+and emits no second publication receipt for that duplicate.
+
+After acknowledgement, the CLI submits the bounded callback body from § 5 with
+`X-FDAI-Timestamp` and `X-FDAI-Signature`. The focused integration check uses real loopback HTTP
+for both requests, passes the callback through `NotificationReceiptIngress`, applies the resulting
+Core transition, and proves that replay doesn't send another activity. Secrets are supplied through
+named environment variables and never appear in CLI arguments, output, or the persisted relay
+state.
 
 ## Related docs
 
