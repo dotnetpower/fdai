@@ -80,8 +80,12 @@ handoff. No timeout grants authority, changes the target, or silently restarts t
 | Rollback health also fails | Stop new work and escalate; retain the evidence | Both failure observations, retained lock/fence state and named recovery owner |
 | Offline metadata is stale or lacks a recall | Do not infer current eligibility or fetch a hidden fallback | Exact imported metadata and explicit offline limitation/hold |
 
-For a Target Hub, retain catalog floors, key epochs, enrollment/key/scope decisions, configuration
-acceptance and activation receipts, Plan sequences, and audit ancestry across slot changes.
+For a Target Hub, preserve these records across slot changes:
+
+- Catalog floors and key epochs.
+- Decisions for enrollment, public-key binding and scope.
+- Configuration acceptance and activation receipts, Plan sequences and audit ancestry.
+
 Transactions that serialize requests are not evidence that a long-lived serving-role fence exists.
 
 ## Data and rollback boundaries
