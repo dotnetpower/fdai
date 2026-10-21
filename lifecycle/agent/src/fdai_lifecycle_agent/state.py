@@ -158,10 +158,13 @@ class LocalStateStore:
 
 def write_json_atomically(path: Path, document: object) -> None:
     """Write ``document`` as owner-only JSON that a crash can't leave half-written."""
+    write_bytes_atomically(path, json.dumps(document, sort_keys=True, indent=2).encode() + b"\n")
 
+
+def write_bytes_atomically(path: Path, data: bytes) -> None:
+    """Publish exact bytes with file and directory fsync and owner-only permissions."""
     directory = path.parent
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    data = json.dumps(document, sort_keys=True, indent=2).encode() + b"\n"
     descriptor, temporary = tempfile.mkstemp(prefix=f".{path.stem}-", dir=directory)
     try:
         with os.fdopen(descriptor, "wb") as handle:

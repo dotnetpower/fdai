@@ -45,6 +45,14 @@ startup/UI preparation. A later UI/readiness-only deployment requires separate e
 authorization and isn't acceptance of anonymous management functionality. No Azure deployment
 is claimed.
 
+For a separately approved Agent-capable image, `operator_auth.agent_principals` accepts explicit
+`installation_id`, `object_id` and `client_id` bindings. The shared module forwards nonempty
+bindings to the runtime; an empty list omits the field so older images keep their existing
+configuration. Release Hub rejects Agent bindings. This input neither grants `Agent.Access` nor
+creates federation, namespace RBAC or an installation record. A bound installation's signed
+enrollment is submitted separately through the
+[operator enrollment API](../../lifecycle/hub/README.md#explicit-remote-development-profile).
+
 ## Existing installations
 
 Don't apply this root over existing resources with an empty state. First follow the backed-up,

@@ -1,5 +1,8 @@
 # FDAI Release Hub
 
+For the vendor/customer journey, information handoff and current production gaps, see the
+[Hub lifecycle operator guide](../../docs/runbooks/hub-lifecycle-operator-guide.md).
+
 The Release Hub is the vendor's independent application for registering manifests,
 publishing development signatures, contributing releases to channels, and recalling releases.
 It does not deploy FDAI, build images, publish to a registry, or grant installation authority.

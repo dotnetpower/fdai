@@ -146,6 +146,27 @@ export interface PendingEnrollment {
   schema_revision: number;
 }
 
+export interface ReleaseInventoryItem {
+  release_id: string;
+  digest: string;
+  source_commit: string;
+  platform_tag: string;
+  channels: readonly string[];
+  schema_target: number | null;
+  schema_range: { minimum: number; maximum: number } | null;
+  images: readonly { section: string; component: string; image_digest: string }[];
+  recall_notices: readonly { sequence: number; action: string; notice_digest: string }[];
+}
+
+export interface ConfigurationInventoryItem {
+  digest: string;
+  imported_at: string;
+  schema_key_count: number;
+  override_count: number;
+  installation_ids: readonly string[];
+  signature_status: "not-recorded";
+}
+
 export class HubApiError extends Error {
   constructor(
     readonly status: number,
@@ -169,7 +190,42 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function requestEnrollment(installationId: string, file: File): Promise<void> {
+  if (!/^[a-z][a-z0-9-]{0,62}$/.test(installationId)) {
+    throw new Error("Enter a valid installation ID.");
+  }
+  if (file.size === 0 || file.size > 64 * 1024) {
+    throw new Error("Choose a nonempty signed request JSON file of at most 64 KiB.");
+  }
+  let signed: unknown;
+  try {
+    signed = JSON.parse(await file.text());
+  } catch {
+    throw new Error("Could not read the signed request JSON file.");
+  }
+  const base64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+  if (typeof signed !== "object" || signed === null || Array.isArray(signed) ||
+      Object.keys(signed).length !== 2 || !("signed_payload" in signed) || !("proof" in signed) ||
+      ![signed.signed_payload, signed.proof].every(
+        value => typeof value === "string" && value.length > 0 && base64.test(value),
+      )) {
+    throw new Error("The file must contain only base64 signed_payload and proof fields. Never upload a private key.");
+  }
+  await request(`/v1/enrollments/${encodeURIComponent(installationId)}/requests`, {
+    method: "POST", body: JSON.stringify(signed), signal: AbortSignal.timeout(10_000),
+  });
+}
+
 export const hubApi = {
+  requestEnrollment,
+  listReleases: () =>
+    request<{ releases: readonly ReleaseInventoryItem[] }>("/v1/catalog/releases", {
+      signal: AbortSignal.timeout(10_000),
+    }),
+  listConfigurations: () =>
+    request<{ configurations: readonly ConfigurationInventoryItem[] }>("/v1/configurations", {
+      signal: AbortSignal.timeout(10_000),
+    }),
   listInstallations: () =>
     request<{ installations: readonly InstallationSummary[] }>("/v1/installations"),
   getInstallation: (installationId: string) =>

@@ -25,6 +25,7 @@ function EnrollmentsList() {
           <button type="button" class="btn" onClick={pending.reload} disabled={pending.status === "loading"}>Refresh</button>
         </div>
       </div>
+      <EnrollmentRequestForm onSubmitted={pending.reload} />
       <AsyncBoundary state={pending} layout="table">
         {({ enrollments }) =>
           enrollments.length === 0 ? (
@@ -58,6 +59,66 @@ function EnrollmentsList() {
         }
       </AsyncBoundary>
     </>
+  );
+}
+
+function EnrollmentRequestForm({ onSubmitted }: { onSubmitted: () => void }) {
+  const [installationId, setInstallationId] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  async function submit() {
+    if (!file || busy) return;
+    setBusy(true);
+    setError("");
+    setSubmitted(false);
+    try {
+      await hubApi.requestEnrollment(installationId.trim(), file);
+      setSubmitted(true);
+      onSubmitted();
+    } catch (cause) {
+      setError(cause instanceof HubApiError
+        ? `${cause.message}. Refresh before retrying. Check the installation binding and request freshness.`
+        : `${cause instanceof Error ? cause.message : "Submission could not be confirmed."} Refresh before retrying.`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form class="catalog-panel" onSubmit={event => {
+      event.preventDefault();
+      void submit();
+    }}>
+      <h2 class="panel-title">Submit a signed enrollment request</h2>
+      <p class="note">Remote development only. The installation must already be bound to its Agent identity.
+        Upload a request signed within five minutes, never a private key. Submission does not approve
+        enrollment, manage Entities, or apply a Plan.</p>
+      <label>Installation ID
+        <input class="input" required pattern="[a-z][a-z0-9-]{0,62}" maxLength={63}
+          disabled={busy} value={installationId} onInput={event => {
+            setInstallationId(event.currentTarget.value);
+            setSubmitted(false);
+            setError("");
+          }} />
+      </label>
+      <label>Signed request JSON
+        <input class="input" required type="file" accept=".json,application/json" disabled={busy}
+          onChange={event => {
+            setFile(event.currentTarget.files?.[0] ?? null);
+            setSubmitted(false);
+            setError("");
+          }} />
+      </label>
+      <button class="btn primary" type="submit" disabled={busy || !file || submitted}>
+        {busy ? "Submitting request..." : "Submit request"}
+      </button>
+      {error && <p class="banner fail" role="alert">{error}</p>}
+      {submitted && <p class="banner" role="status">Request submitted as pending. Verify the installation
+        key ID independently before approving enrollment.</p>}
+    </form>
   );
 }
 
