@@ -17,7 +17,13 @@ locals {
     for kind in local.kinds : kind => merge(
       { kind = kind, key_epoch = 1 },
       var.operator_auth == null ? { origin = local.origins[kind] } : {},
-      var.operator_auth == null ? {} : { auth = merge(var.operator_auth, { origin = local.origins[kind] }) },
+      var.operator_auth == null ? {} : {
+        auth = merge(
+          { for key, value in var.operator_auth : key => value if key != "agent_principals" },
+          { origin = local.origins[kind] },
+          length(var.operator_auth.agent_principals) == 0 ? {} : { agent_principals = var.operator_auth.agent_principals },
+        )
+      },
       kind == "target" && var.catalog != null ? { catalog = var.catalog } : {},
     )
   }

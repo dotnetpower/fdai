@@ -1,6 +1,6 @@
 """Scenario: no write. A dry run performs no Kubernetes or Azure write.
 
-Three independent proofs: no agent module imports an Azure or process-spawning client, only the
+Three independent proofs: only explicit federation imports Azure identity, only the
 apply-mode adapter ``kube.py`` imports a Kubernetes client, and a full dry-run poll in a fresh
 interpreter never loads one.
 """
@@ -44,6 +44,8 @@ def test_agent_sources_import_no_azure_or_process_client() -> None:
         assert "<dynamic>" not in modules, source.name
         assert "importlib" not in modules, source.name
         offending = {module for module in modules if module.split(".")[0] in FORBIDDEN_ROOTS}
+        if source.name == "remote_auth.py":
+            offending -= {"azure.identity", "azure.core.exceptions"}
         assert offending == set(), source.name
 
 

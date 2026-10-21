@@ -7,6 +7,12 @@ describe("parseRoute", () => {
     expect(parseRoute("/installations")).toEqual({ kind: "installations" });
   });
 
+  test("read-only inventory routes are distinct from catalog mutation", () => {
+    expect(parseRoute("/available-releases")).toEqual({ kind: "releases" });
+    expect(parseRoute("/configuration-packages")).toEqual({ kind: "configurations" });
+    expect(parseRoute("/catalog")).toEqual({ kind: "catalog" });
+  });
+
   test("an installation id selects the detail screen", () => {
     expect(parseRoute("/installations/prod")).toEqual({
       kind: "installation",

@@ -36,6 +36,19 @@ code,
   font-family: var(--cs-font-mono);
   font-size: var(--cs-type-label-size);
 }
+.inventory-page .inventory-value {
+  overflow-wrap: anywhere;
+}
+.inventory-page details {
+  min-width: 0;
+}
+.inventory-page summary {
+  cursor: pointer;
+  padding-block: 8px;
+}
+.inventory-page ul {
+  padding-inline-start: 20px;
+}
 h1,
 h2,
 h3 {

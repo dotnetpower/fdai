@@ -39,6 +39,11 @@ variable "operator_auth" {
     service_object_id = optional(string)
     service_client_id = optional(string)
     service_role      = optional(string, "Catalog.Read")
+    agent_principals = optional(list(object({
+      installation_id = string
+      object_id       = string
+      client_id       = string
+    })), [])
   })
   default = null
 }
