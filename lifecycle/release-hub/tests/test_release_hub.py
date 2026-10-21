@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -13,7 +14,7 @@ from starlette.testclient import TestClient
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_release_hub.api import create_app
-from fdai_release_hub.store import CatalogError, Change, ReleaseStore
+from fdai_release_hub.store import CatalogConfirmation, CatalogError, Change, ReleaseStore
 
 NOW = datetime(2026, 10, 15, 13, tzinfo=UTC)
 SAMPLES = Path(__file__).resolve().parents[2] / "hub" / "samples" / "catalog" / "releases"
@@ -302,3 +303,182 @@ def test_expired_state_is_visible(store: ReleaseStore) -> None:
     publish(store)
     store.clock = lambda: NOW + timedelta(days=2)
     assert store.snapshot()["expired"]
+
+
+def test_expired_renewal_preserves_content_and_requires_new_customer_pin(
+    store: ReleaseStore, client: TestClient
+) -> None:
+    publish(store)
+    change(store, "register", "1.5.0", manifest=(SAMPLES / "1.5.0.json").read_text())
+    change(store, "publish", "1.5.0")
+    change(store, "contribute", channel="RELEASE")
+    change(store, "recall", "1.5.0")
+    before = store.snapshot()
+    old_raw, old_pin = store.export()
+    later = NOW + timedelta(days=2)
+    store.clock = lambda: later
+    assert client.get("/v1/catalog").json()["expired"]
+    assert client.get("/v1/catalog/export").content == old_raw
+    assert store.snapshot()["revision"] == before["revision"]
+    with pytest.raises(ValueError, match="expired"):
+        load_pinned_export(
+            old_raw, expected_sha256=old_pin, public_key=store.key.public_key, now=later
+        )
+    payload = {
+        "revision": before["revision"],
+        "confirmation": f"renew {before['revision']}",
+        "reason": "Reviewed releases, channels and recalls",
+    }
+    response = client.post("/v1/catalog/renew", json=payload)
+    assert response.status_code == 200
+    after = response.json()
+    assert after["revision"] == before["revision"] + 1
+    assert not after["expired"]
+    assert after["expires_at"] == (later + timedelta(hours=24)).isoformat()
+    for field in ("releases", "channels", "key_id", "mode"):
+        assert after[field] == before[field]
+    assert after["events"][0] == {
+        "revision": after["revision"],
+        "action": "renew",
+        "release_id": "catalog",
+        "channel": None,
+        "reason": payload["reason"],
+        "occurred_at": later.isoformat(),
+        "actor": "local-operator",
+    }
+    new_raw, new_pin = store.export()
+    read_back = client.get("/v1/catalog").json()
+    assert new_pin == read_back["export_sha256"] != old_pin
+    assert read_back["revision"] == after["revision"]
+    old_export, new_export = json.loads(old_raw), json.loads(new_raw)
+    for field in old_export.keys() - {"revision", "expires_at"}:
+        assert new_export[field] == old_export[field]
+    with pytest.raises(ValueError, match="pin"):
+        load_pinned_export(
+            new_raw, expected_sha256=old_pin, public_key=store.key.public_key, now=later
+        )
+    accepted = load_pinned_export(
+        new_raw,
+        expected_sha256=new_pin,
+        public_key=store.key.public_key,
+        now=later,
+        minimum_revision=before["revision"],
+        previous_sha256=old_pin,
+    )
+    assert accepted.channels["RELEASE"] == frozenset({"1.6.0"})
+    assert accepted.recalls[0].target == "1.5.0"
+    reopened = ReleaseStore(store.path, store.key, clock=lambda: later)
+    assert reopened.export() == (new_raw, new_pin)
+    assert client.post("/v1/catalog/renew", json=payload).status_code == 409
+    assert reopened.export() == (new_raw, new_pin)
+
+
+@pytest.mark.parametrize(
+    "fields,status",
+    [
+        ({"revision": 0, "confirmation": "renew 0"}, 409),
+        ({"confirmation": "1.6.0"}, 422),
+        ({"reason": "   "}, 422),
+        ({"reason": "x" * 501}, 422),
+        ({"revision": True}, 422),
+        ({"manifest": "unexpected"}, 422),
+        ({"actor": "forged"}, 422),
+    ],
+)
+def test_invalid_renewal_is_unchanged(
+    store: ReleaseStore, client: TestClient, fields: dict, status: int
+) -> None:
+    publish(store)
+    store.clock = lambda: NOW + timedelta(days=2)
+    before = store.export()
+    payload = {"revision": 2, "confirmation": "renew 2", "reason": "Reviewed", **fields}
+    assert client.post("/v1/catalog/renew", json=payload).status_code == status
+    assert store.export() == before
+
+
+@pytest.mark.parametrize("signature", ["invalid", "AAAA", "", None])
+def test_renewal_rejects_corrupt_or_missing_signature_without_event(
+    store: ReleaseStore, client: TestClient, signature: str | None
+) -> None:
+    publish(store)
+    with store.connect() as db:
+        db.exec_driver_sql("UPDATE releases SET signature=?", (signature,))
+    store.clock = lambda: NOW + timedelta(days=2)
+    response = client.post(
+        "/v1/catalog/renew",
+        json={"revision": 2, "confirmation": "renew 2", "reason": "Reviewed"},
+    )
+    assert response.status_code == 503
+    assert "signature failed verification" in response.json()["error"]
+    with store.connect() as db:
+        assert db.exec_driver_sql("SELECT COUNT(*) FROM events").scalar_one() == 2
+        assert db.exec_driver_sql("SELECT COUNT(*) FROM release_event_actor").scalar_one() == 2
+
+
+@pytest.mark.parametrize("delta", [timedelta(0), timedelta(seconds=-1)])
+def test_renewal_rejects_nonadvancing_clock(store: ReleaseStore, delta: timedelta) -> None:
+    publish(store)
+    before = store.export()
+    store.clock = lambda: NOW + delta
+    with pytest.raises(CatalogError, match="clock must advance"):
+        store.renew(CatalogConfirmation(revision=2, confirmation="renew 2", reason="Reviewed"))
+    assert store.export() == before
+
+
+def test_concurrent_renewal_advances_once(store: ReleaseStore) -> None:
+    publish(store)
+    store.clock = lambda: NOW + timedelta(days=2)
+    confirmation = CatalogConfirmation(revision=2, confirmation="renew 2", reason="Reviewed")
+
+    def attempt() -> int:
+        try:
+            return int(store.renew(confirmation)["revision"])
+        except CatalogError as error:
+            assert error.status == 409
+            return -1
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sorted(pool.map(lambda _: attempt(), range(2))) == [-1, 3]
+    assert store.snapshot()["revision"] == 3
+
+
+def test_renewal_rejects_naive_clock(store: ReleaseStore) -> None:
+    publish(store)
+    before = store.export()
+    store.clock = lambda: NOW.replace(tzinfo=None)
+    with pytest.raises(CatalogError, match="clock must advance"):
+        store.renew(CatalogConfirmation(revision=2, confirmation="renew 2", reason="Reviewed"))
+    store.clock = lambda: NOW
+    assert store.export() == before
+
+
+@pytest.mark.parametrize("actor", ["", "   ", "x" * 161])
+def test_renewal_requires_bounded_operator_attribution(store: ReleaseStore, actor: str) -> None:
+    publish(store)
+    store.clock = lambda: NOW + timedelta(days=2)
+    before = store.export()
+    with pytest.raises(CatalogError, match="attributed operator"):
+        store.renew(
+            CatalogConfirmation(revision=2, confirmation="renew 2", reason="Reviewed"),
+            actor=actor,
+        )
+    assert store.export() == before
+
+
+def test_renewal_origin_and_bounded_body(client: TestClient) -> None:
+    payload = {"revision": 0, "confirmation": "renew 0", "reason": "Reviewed"}
+    assert (
+        client.post(
+            "/v1/catalog/renew", json=payload, headers={"Origin": "https://other.example.com"}
+        ).status_code
+        == 403
+    )
+    assert client.post("/v1/catalog/renew", content="{}").status_code == 415
+    assert (
+        client.post(
+            "/v1/catalog/renew",
+            content="x" * (2 * 1024 * 1024 + 1),
+            headers={"Content-Type": "application/json"},
+        ).status_code
+        == 413
+    )

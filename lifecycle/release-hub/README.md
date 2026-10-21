@@ -42,6 +42,16 @@ must be retained by the caller; automatic remote sync and durable consumer trust
 part of this local CLI. The explicit remote-development profile below persists customer trust
 state. Production root, snapshot, timestamp roles and key rotation remain future work.
 The default unsigned `load_catalog` development path stays unchanged.
+
+Freshness renewal has a separate boundary. A catalog GET must not silently extend an expired
+export, and repeated publication or channel contribution is not a renewal mechanism.
+The explicit `POST /v1/catalog/renew` operation reuses the publication lock, current-revision
+check and attributed audit. It verifies existing signatures before writing and requires an
+advancing clock, reason and exact `renew <revision>` confirmation. It appends one catalog event
+without changing release bytes, signatures, channels, recalls or keys. The new revision and
+24-hour expiry change the export pin. Customers must independently approve that pin and
+explicitly import; this is not production signed freshness or automatic recovery.
+
 Local export admission accepts at most 8 MiB, including JSON decoding. Each manifest still
 passes the existing manifest parser's own size and schema limits independently.
 The canonical manifest digest identifies the parsed release, while the signed payload digest
@@ -87,6 +97,18 @@ vaults, and logs, not just separate RGs. This change has not deployed or validat
 Customer pin approval is a separate authenticated operation using an independently obtained
 digest/revision. Automatic polling, production TUF metadata/root ceremony, artifact availability,
 and Agent apply remain unsupported.
+
+### Renew development catalog freshness
+
+In a build containing renewal, review Releases, Channels and Activity, then open **Catalog trust**
+and choose **Renew catalog freshness**. Supply a reason and type `renew <revision>` using the
+displayed revision. Confirm once, then read back the new revision, expiry and export pin.
+**Refresh catalog** only reads; it never renews. If the write times out, close the dialog and
+read Catalog trust and Activity before another attempt. The UI never automatically retries a write.
+The customer export-only service and installation Agent cannot renew the vendor catalog.
+Follow the [operator guide](../../docs/runbooks/hub-lifecycle-operator-guide.md) for independent
+pin approval and explicit customer import. An older deployed build needs an approved update;
+don't bypass expiry checks or edit timestamps to recover it.
 
 ## Testing
 

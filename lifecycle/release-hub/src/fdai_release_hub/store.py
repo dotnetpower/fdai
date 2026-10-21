@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from base64 import b64encode
+from base64 import b64decode, b64encode
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -42,12 +42,15 @@ class CatalogError(ValueError):
         self.status = status
 
 
-class Change(BaseModel):
+class CatalogConfirmation(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     revision: int = Field(ge=0)
     confirmation: str = Field(min_length=1, max_length=160)
     reason: str = Field(min_length=3, max_length=500)
+
+
+class Change(CatalogConfirmation):
     channel: str | None = None
     label: str = Field(default="", max_length=160)
     manifest: str | None = Field(default=None, max_length=1024 * 1024)
@@ -96,6 +99,80 @@ class ReleaseStore:
         with self.engine.begin() as db:
             yield db
 
+    def _lock_revision(self, db: Connection, expected: int) -> int:
+        if self.engine.dialect.name == "sqlite":
+            db.exec_driver_sql("BEGIN IMMEDIATE")
+        else:
+            db.execute(select(catalog_metadata).with_for_update()).all()
+        revision = db.scalar(select(func.coalesce(func.max(events.c.revision), 0)))
+        if expected != revision:
+            raise CatalogError("Catalog changed. Refresh and review before confirming again.", 409)
+        return int(revision)
+
+    def _record_event(
+        self,
+        db: Connection,
+        action: str,
+        target: str,
+        change: CatalogConfirmation,
+        actor: str,
+        now: str,
+        *,
+        channel: str | None = None,
+    ) -> None:
+        next_revision = change.revision + 1
+        db.execute(
+            events.insert().values(
+                revision=next_revision,
+                action=action,
+                release_id=target,
+                channel=channel,
+                reason=change.reason.strip(),
+                occurred_at=now,
+            )
+        )
+        db.execute(event_actors.insert().values(revision=next_revision, actor=actor))
+
+    def _verify_signature(self, manifest: str, signature: str | None) -> None:
+        try:
+            if not signature:
+                raise ValueError("Missing signature.")
+            self.key.public_key.verify(b64decode(signature, validate=True), manifest.encode())
+        except (InvalidSignature, ValueError) as error:
+            raise CatalogError("Stored Release signature failed verification.", 503) from error
+
+    def renew(
+        self, change: CatalogConfirmation, *, actor: str = "local-operator"
+    ) -> dict[str, Any]:
+        if not actor.strip() or len(actor) > 160:
+            raise CatalogError("An attributed operator is required.")
+        if change.confirmation != f"renew {change.revision}":
+            raise CatalogError("Type renew and the exact catalog revision to confirm.")
+        if not change.reason.strip():
+            raise CatalogError("A non-blank reason is required.")
+        with self.connect() as db:
+            revision = self._lock_revision(db, change.revision)
+            updated_at = db.execute(
+                select(events.c.occurred_at).where(events.c.revision == revision)
+                if revision
+                else select(catalog_metadata.c.created_at)
+            ).scalar_one()
+            now = self.clock()
+            if now.tzinfo is None or now <= datetime.fromisoformat(updated_at):
+                raise CatalogError("Publication clock must advance before renewal.", 409)
+            for manifest, signature, published_at, recalled_at in db.execute(
+                select(
+                    releases.c.manifest,
+                    releases.c.signature,
+                    releases.c.published_at,
+                    releases.c.recalled_at,
+                )
+            ):
+                if published_at is not None or recalled_at is not None or signature:
+                    self._verify_signature(manifest, signature)
+            self._record_event(db, "renew", "catalog", change, actor, now.isoformat())
+        return self.snapshot()
+
     def change(
         self,
         action: str,
@@ -113,15 +190,7 @@ class ReleaseStore:
         if not change.reason.strip():
             raise CatalogError("A non-blank reason is required.")
         with self.connect() as db:
-            if self.engine.dialect.name == "sqlite":
-                db.exec_driver_sql("BEGIN IMMEDIATE")
-            else:
-                db.execute(select(catalog_metadata).with_for_update()).all()
-            revision = db.scalar(select(func.coalesce(func.max(events.c.revision), 0)))
-            if change.revision != revision:
-                raise CatalogError(
-                    "Catalog changed. Refresh and review before confirming again.", 409
-                )
+            self._lock_revision(db, change.revision)
             now = self.clock().isoformat()
             row = db.execute(select(releases).where(releases.c.id == release_id)).mappings().first()
             if action == "register":
@@ -190,23 +259,7 @@ class ReleaseStore:
                     )
                 else:
                     raise CatalogError("Unsupported action.")
-            next_revision = revision + 1
-            db.execute(
-                events.insert().values(
-                    revision=next_revision,
-                    action=action,
-                    release_id=release_id,
-                    channel=change.channel,
-                    reason=change.reason.strip(),
-                    occurred_at=now,
-                )
-            )
-            db.execute(
-                event_actors.insert().values(
-                    revision=next_revision,
-                    actor=actor,
-                )
-            )
+            self._record_event(db, action, release_id, change, actor, now, channel=change.channel)
         return self.snapshot()
 
     @staticmethod
@@ -216,8 +269,6 @@ class ReleaseStore:
             raise CatalogError("Configuration schema does not match the exact Release version.")
 
     def snapshot(self) -> dict[str, Any]:
-        from base64 import b64decode
-
         with self.connect() as db:
             # Hold the same lock as writers so the multi-query snapshot cannot mix revisions.
             if self.engine.dialect.name == "sqlite":
@@ -254,14 +305,7 @@ class ReleaseStore:
                 record["manifest"].encode()
             ).hexdigest()
             if record["signature"]:
-                try:
-                    self.key.public_key.verify(
-                        b64decode(record["signature"], validate=True), record["manifest"].encode()
-                    )
-                except (InvalidSignature, ValueError) as error:
-                    raise CatalogError(
-                        "Stored Release signature failed verification.", 503
-                    ) from error
+                self._verify_signature(record["manifest"], record["signature"])
             record["channels"] = [m["channel"] for m in memberships if m["release_id"] == row["id"]]
             record["state"] = (
                 "recalled" if row["recalled_at"] else "published" if row["signature"] else "draft"

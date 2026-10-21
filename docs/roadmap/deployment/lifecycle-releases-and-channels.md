@@ -56,6 +56,26 @@ Agent apply, or evidence of a successful Azure deployment.
 | Catalog integrity | Signed root, snapshot, and timestamp records with increasing versions and recall sequence numbers |
 | Schema | Expand/contract and forward-only. Each Release declares the schema revisions it tolerates. |
 
+## Explicit development catalog renewal
+
+A development export expires 24 hours after its latest publication event. Reading the catalog,
+refreshing a screen or downloading the same export does not renew it. An unchanged release set
+still needs a reviewed freshness publication; don't manufacture a channel or recall change.
+
+`POST /v1/catalog/renew` requires the existing vendor operator identity, current catalog revision,
+nonblank reason and exact confirmation `renew <revision>`. The same publication lock and revision
+check serialize it with registration, publication, channel contribution and recall. Before any
+write, reverify every published manifest signature with the current key and require the publication
+clock to advance. An invalid signature, stale revision, wrong confirmation or clock regression
+leaves publication state unchanged.
+
+Renewal appends an attributed `renew` event targeting `catalog`. It advances the revision and
+24-hour expiry, changing the export digest without changing manifests, signatures, channels,
+recalls or the signing key. Customer Hubs retain their old accepted bytes until an operator
+independently approves the new exact pin and explicitly imports it. Renewal never imports,
+plans or applies an installation change and does not replace production signed catalog roles.
+The UI distinguishes read-only **Refresh catalog** from **Renew catalog freshness**.
+
 ## Release contents
 
 | Field | Content |
