@@ -24,6 +24,16 @@ For running Hubs, `app_image` retains the approved serving digest while `image` 
 After manual migration succeeds and independent schema observation passes, activate with `app_image=null` in a new reviewed, sealed plan; omission preserves single-image defaults.
 Complete Job checks, globally zero-change dispatch plans, state ownership, authentication and approval remain required.
 
+For a remote development Agent, supply explicit `operator_auth.agent_principals` bindings on
+the Lifecycle Hub root. Each binding identifies one installation, Entra object and client.
+The Hub verifies `Agent.Access` and that exact binding; this does not grant operator access.
+Release Hub rejects Agent bindings, and an omitted list preserves existing authentication.
+Terraform transports the bindings but does not create Entra role assignments, federated
+credentials or Kubernetes permissions. Configure those separately within the approved scope,
+using the Agent's namespace-only RBAC and durable state volume. Follow the
+[Hub operator guide](../../runbooks/hub-lifecycle-operator-guide.md) for enrollment and independent
+readback. Local preparation alone is not Agent deployment or permission to apply a release.
+
 The unchanged [legacy paired fixture](../../../infra/hubs-development/README.md) retains separate networks, identities/keys, migrations, Entra operator/service boundaries and catalog-pin approval for current state owners.
 Neither product requires the fixture; neither replaces an FDAI installer. Local/static checks don't prove Azure network/RBAC isolation, Entra/MI, registry architecture, replica durability or deployment.
 Use an authorized live scope for those receipts; Agent apply and full FDAI installation remain excluded.
