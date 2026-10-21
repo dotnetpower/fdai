@@ -12,7 +12,7 @@ namespace, verifies the rollout, and rolls back on failure. See [Apply mode](#ap
 - Azure identity is loaded only when workload federation is explicitly selected. It requests
   only the configured Hub API scope; no Azure management client, CLI credential, or client secret
   is used. The default dry run loads neither Azure nor Kubernetes. Only `kube.py` imports a
-  Kubernetes client and only `--apply` loads it.
+  Kubernetes client; explicit `--apply` or the read-only `reference-status` command loads it.
 - `hub_client.py` opens outbound Hub connections. Explicit federation also contacts Entra through
   the identity SDK. Bearer transport requires an exact HTTPS origin and never follows redirects.
   Plain HTTP is accepted only for the unauthenticated loopback profile.
@@ -24,7 +24,8 @@ namespace, verifies the rollout, and rolls back on failure. See [Apply mode](#ap
   SHA-256 of the decoded `signed_payload`), and a summary string with counts only. Entity ids, digests,
   installation identifiers, and secrets stay inside the installation. A rejection reports only its
   reason, with a `null` digest and an empty summary.
-- Development test keys are generated outside the repository (#1947). Only public keys are read.
+- Development test keys are generated outside the repository (#1947). Signing verification uses
+  public keys. Optional full-revision decryption uses a separate private X25519 installation input.
 
 ## Poll order
 
@@ -93,6 +94,32 @@ the first 16 hex characters of the SHA-256 of the raw public key.
 The command prints one JSON result. It exits `0` when the poll finished and every required report
 was accepted, `1` when the Hub or local state failed, a report didn't land, or the agent is halted,
 and `2` for invalid configuration.
+
+## Full signed configuration revisions and CSI reports
+
+The actual `poll-once` entry point and `DirectoryArtifactStore` also consume unchanged
+`fdai.lifecycle-configuration-file.v1` containers carrying complete signed v2 revisions.
+Add independent private `--configuration-binding` and `--installation-encryption-key` inputs;
+missing prerequisites hold the new capability without changing legacy flat artifact behavior.
+The exact Release/schema, current active digest, already-managed Entity mapping, signature,
+recipient, authenticated sealed coverage and complete historical key bindings are verified before
+prepare. The package never supplies a trusted key. Decryption is installation-local.
+
+Each Entity reaches the existing renderer with its own values. The v2 demo supports 1-3 replicas;
+the Operator profile keeps the existing same-schema gate. Configuration cannot choose a namespace,
+image repository, component ownership or capability mode. Rendered reference names can persist
+only in private installation state, never reports or public output. Existing dry-run, approval,
+fencing, expiry, report, rollback and restart safeguards remain required.
+
+The explicit read-only `reference-status` command reads exact CSI/Pod/provider metadata through
+the existing Kubernetes adapter. It reports source/version/Entity/freshness, never secret values.
+`reported-mounted` is a driver report, not independent verification of secret usability. Missing
+source bindings remain unavailable; fixtures cannot qualify a real Key Vault/CSI installation.
+
+See [Installation Agent configuration inputs](../../docs/runbooks/installation-agent-configuration.md)
+([Korean](../../docs/runbooks/installation-agent-configuration-ko.md)) for exact private formats,
+compatibility, bounds and unavailable/stale/conflict states. No live onboarding, authenticated
+artifact synchronization, Agent rollout or production trust is established by source tests.
 
 ## Apply mode
 
@@ -292,7 +319,8 @@ namespace by hand, then remove the halt file.
 
 ### Limits
 
-- The default demo remains one fixed replica. The Operator profile supports 1-3 replicas with
+- The legacy demo remains one fixed replica. Full v2 Entity values and the Operator profile
+  support 1-3 replicas with
   fixed resource bounds and reference-only configuration; neither path renders a Pod disruption
   budget, autoscaler, ConfigMap, or Secret.
 - The agent doesn't read the cluster to build the current state. It trusts `--current-state` and

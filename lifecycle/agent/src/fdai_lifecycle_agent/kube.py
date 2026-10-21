@@ -15,12 +15,14 @@ from kubernetes.client import ApiClient, Configuration  # type: ignore[import-un
 from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
 from urllib3.exceptions import HTTPError
 
+from fdai_lifecycle_agent.reference_state import is_reference_object_name
 from fdai_lifecycle_agent.workload import (
     API_VERSIONS,
     FIELD_MANAGER,
     Manifest,
     WorkloadError,
     check_scope,
+    is_dns_label,
 )
 
 
@@ -88,8 +90,50 @@ class KubernetesCluster:
             ),
         )
 
+    def read_csi_object(self, kind: str, name: str) -> Manifest | None:
+        """Read one exact object through the same SDK transport, without API discovery.
+
+        Fixed read paths avoid unbounded dynamic discovery. Secret, list and value reads
+        are unsupported. Every request has the existing mechanical transport timeout.
+        """
+        paths = {
+            "Pod": "/api/v1/namespaces/{namespace}/pods/{name}",
+            "SecretProviderClass": "/apis/secrets-store.csi.x-k8s.io/v1/namespaces/"
+            "{namespace}/secretproviderclasses/{name}",
+            "SecretProviderClassPodStatus": "/apis/secrets-store.csi.x-k8s.io/v1/namespaces/"
+            "{namespace}/secretproviderclasspodstatuses/{name}",
+        }
+        if (
+            kind not in paths
+            or not is_reference_object_name(name)
+            or not is_dns_label(self._namespace)
+        ):
+            raise WorkloadError("reference_source_outside_scope")
+        try:
+            live = self._api_client.call_api(
+                paths[kind],
+                "GET",
+                path_params={"namespace": self._namespace, "name": name},
+                header_params={"Accept": "application/json"},
+                response_types_map={200: "object"},
+                auth_settings=["BearerToken"],
+                _return_http_data_only=True,
+                _request_timeout=self._timeout,
+            )
+            return dict(live)
+        except ApiException as error:
+            if error.status == 404:
+                return None
+            raise WorkloadError("reference_source_unavailable") from error
+        except (HTTPError, OSError, TypeError, ValueError) as error:
+            raise WorkloadError("reference_source_unavailable") from error
+
     def _call(
-        self, kind: str, request: Callable[[Any, Any], Any], *, missing_ok: bool = True
+        self,
+        kind: str,
+        request: Callable[[Any, Any], Any],
+        *,
+        missing_ok: bool = True,
     ) -> Any:
         """Run one request; a read/delete ``404`` returns ``None``, not a write success."""
 

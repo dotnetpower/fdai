@@ -48,6 +48,11 @@ from fdai_deployment_cli.lifecycle_plan import (
     evaluate_plan_admission,
 )
 
+from fdai_lifecycle_agent.configuration_rendering import (
+    prepare_workload,
+    validate_entity_configuration,
+)
+from fdai_lifecycle_agent.configuration_revision import FullRevisionBinding
 from fdai_lifecycle_agent.dry_run import (
     ChangeSetCalculator,
     CurrentState,
@@ -65,12 +70,12 @@ from fdai_lifecycle_agent.hub_client import (
 from fdai_lifecycle_agent.inputs import (
     ArtifactStore,
     InputRejectedError,
+    VerifiedConfiguration,
     VerifiedRelease,
     verify_configuration,
     verify_release,
 )
 from fdai_lifecycle_agent.journal import ApplyJournal, WorkloadState, WorkloadStore
-from fdai_lifecycle_agent.operator_workload import render_operator, validate_profile
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
 from fdai_lifecycle_agent.state import (
     AgentState,
@@ -79,7 +84,7 @@ from fdai_lifecycle_agent.state import (
     PlanRecord,
     PlanResult,
 )
-from fdai_lifecycle_agent.workload import Workload, WorkloadError, object_key, render
+from fdai_lifecycle_agent.workload import Workload, WorkloadError, object_key
 
 type PollOutcome = Literal[
     "no-plan",
@@ -175,6 +180,7 @@ class AgentDependencies:
     clock: Callable[[], datetime]
     compute_change_set: ChangeSetCalculator = compute_change_set
     apply: ApplyMode | None = None
+    configuration_binding: FullRevisionBinding | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -306,7 +312,12 @@ class LifecycleAgent:
         try:
             release = verify_release(plan, deps.artifact_store, deps.verify_release_signature)
             configuration = verify_configuration(
-                plan, deps.artifact_store, deps.verify_configuration_signature
+                plan,
+                deps.artifact_store,
+                deps.verify_configuration_signature,
+                full_revision=deps.configuration_binding,
+                release=release,
+                managed_entities=settings.maximum_envelope.entity_ids,
             )
             entity_images = release.entity_images(settings.entity_components, plan.entity_ids)
         except InputRejectedError as error:
@@ -314,18 +325,16 @@ class LifecycleAgent:
         maximum = configuration.narrow(release.maximum_envelope(settings.maximum_envelope))
         if not plan.envelope.narrowed_by(maximum):
             return _rejection(AgentReason.PLAN_ENVELOPE_EXCEEDS_SIGNED_MAXIMUM)
-        if "workload_profile" in configuration.values:
-            try:
-                validate_profile(
-                    configuration.values,
-                    {entity: settings.entity_components[entity] for entity in plan.entity_ids},
-                    current_schema=current.schema_revision,
-                    target_schema=release.schema_target,
-                    schema_minimum=release.schema_minimum,
-                    schema_maximum=release.schema_maximum,
-                )
-            except WorkloadError as error:
-                return _rejection(error.reason_code)
+        try:
+            validate_entity_configuration(
+                configuration,
+                settings.entity_components,
+                current_schema=current.schema_revision,
+                release=release,
+                plan=plan,
+            )
+        except WorkloadError as error:
+            return _rejection(error.reason_code)
         change_set = deps.compute_change_set(plan, entity_images, current)
         # Admission bounded the Plan Entities; an injected calculator must stay inside them too.
         if not change_set.entity_ids <= plan.envelope.entity_ids:
@@ -338,14 +347,14 @@ class LifecycleAgent:
         )
         if deps.apply is None:
             return result
-        return self._prepare(deps.apply, plan, release, configuration.values, entity_images, result)
+        return self._prepare(deps.apply, plan, release, configuration, entity_images, result)
 
     def _prepare(
         self,
         apply: ApplyMode,
         plan: LifecyclePlan,
         release: VerifiedRelease,
-        values: Mapping[str, object],
+        configuration: VerifiedConfiguration,
         entity_images: Mapping[str, frozenset[str]],
         admitted: PlanResult,
     ) -> PlanResult:
@@ -353,36 +362,18 @@ class LifecycleAgent:
 
         settings = self._settings
         try:
-            images = {
-                (entity_id, component): f"{settings.component_repositories[component]}"
-                f"@{release.component_images[component]}"
-                for entity_id in plan.entity_ids
-                for component in settings.entity_components[entity_id]
-            }
-        except KeyError:
-            return _rejection(AgentReason.WORKLOAD_RENDER_FAILED)
-        workload_state = apply.store.load()
-        healthy = {object_key(manifest): manifest for manifest in workload_state.healthy}
-        try:
-            if "workload_profile" in values:
-                repository = settings.component_repositories.get("core-control-plane")
-                digest = release.component_images.get("core-control-plane")
-                if repository is None or digest is None:
-                    raise WorkloadError("workload_render_failed")
-                core_image = f"{repository}@{digest}"
-                desired = render_operator(
-                    apply.workload.namespace,
-                    images,
-                    core_image=core_image,
-                    values=values,
-                    plan_digest=hashlib.sha256(plan.signed_payload).hexdigest(),
-                )
-            else:
-                desired = render(apply.workload.namespace, images)
-            previous = tuple(healthy[key] for key in map(object_key, desired) if key in healthy)
-            apply.workload.preflight(desired, previous)
+            desired, previous = prepare_workload(
+                plan,
+                release,
+                configuration,
+                entity_components=settings.entity_components,
+                component_repositories=settings.component_repositories,
+                workload=apply.workload,
+                store=apply.store,
+            )
         except WorkloadError as error:
             return _rejection(error.reason_code, retryable=error.retryable)
+        workload_state = apply.store.load()
         journal = ApplyJournal(
             plan_id=plan.plan_id,
             phase="prepared",
