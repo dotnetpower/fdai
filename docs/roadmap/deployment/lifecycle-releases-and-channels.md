@@ -3,7 +3,7 @@ title: Lifecycle Releases and Channels
 ---
 # Lifecycle Releases and Channels
 
-This document defines what an FDAI Release contains and how Releases move through release
+This document defines what an application Release contains and how Releases move through release
 channels. It also defines how connected and offline installations receive Releases, and how
 recalls and database schema compatibility keep upgrades safe. It owns the Release manifest, the
 channel model, upgrade bundles, and recall.
@@ -77,7 +77,37 @@ independently approves the new exact pin and explicitly imports it. Renewal neve
 plans or applies an installation change and does not replace production signed catalog roles.
 The UI distinguishes read-only **Refresh catalog** from **Renew catalog freshness**.
 
-## Release contents
+## Application package contract
+
+The Hub engine accepts `fdai.application-release.v1` without an application-specific service list.
+FDAI is one possible application. Publication, exact pinned admission, recall and channel
+selection use the same path for every `product`; a channel does not grant production qualification.
+
+| Field | Current contract |
+|-------|------------------|
+| `schema_version` | `fdai.application-release.v1` |
+| `product` | Independent application ID: `[a-z][a-z0-9-]{0,62}` |
+| `release_version`, `source_commit`, `platform_tag` | Semantic version, exact application source revision and artifact platform |
+| `workloads` | 1-64 named HTTP components; each name is a Service-compatible DNS label starting with a lowercase letter |
+| `workloads.<component>.image_digest` | Required immutable `sha256:` image digest |
+| `workloads.<component>.port` | Integer 1-65535; default 8080 |
+| `workloads.<component>.health_path` | Bounded ASCII absolute readiness path, not a URL or `//` path; default `/` |
+| `workloads.<component>.replicas` | Integer 1-3; default 1 |
+| `configuration_schema`, `schema` | Optional existing version/digest-bound configuration schema and database compatibility metadata |
+
+Strict UTF-8 JSON rejects duplicate keys and nonfinite numbers, including exponent overflow.
+Both incoming UTF-8 and its stored canonical representation fit the same 1 MiB decoder limit;
+Unicode defaults that expand beyond that limit are rejected before publication.
+Unknown fields cannot inject templates, privileges or namespaces. Legacy workload profiles are
+blocked; application rendering produces only bounded Deployments and ClusterIP Services.
+Missing supply-chain evidence is displayed as **Not declared**, not manufactured or verified.
+The product must match both independently approved installation Settings and local Agent policy.
+Missing database metadata selects revision zero and cannot reset an existing database.
+Release versions remain globally unique within a catalog, not namespaced by product.
+The separate `fdai.runtime-release.v3` adapter preserves the existing complete FDAI inventory and
+source/offline contracts. It is not the required shape for an unrelated application.
+
+## FDAI runtime adapter contents
 
 | Field | Content |
 |-------|---------|
@@ -173,6 +203,35 @@ them, customer-local Target Hub curation and automatic promotion are outside thi
 distinct bounded namespace. Confirming only a Release would not confirm a newly typed destination,
 so require both values without changing built-in requests. Never infer approval from a new export
 digest or let a channel bypass recall, schema constraints, local Plan authority or effect checks.
+
+## Customer-local channel curation design and critique
+
+An existing authenticated Target Hub operator may add one exact imported `RELEASE` member to a
+`local-` channel, using lowercase ASCII alphanumeric segments separated by single hyphens, at
+most 64 characters. The request binds the accepted catalog digest, exact Release id/digest, local
+revision, reason and typed `add <release> to <channel>` confirmation. It cannot select or change
+an installation's subscription, source, key, maximum envelope or approval policy.
+The development store supports at most 1024 immutable local memberships; reaching the limit
+explicitly holds further additions, and an oversized retained set is unavailable, never truncated.
+
+One immutable membership row is also its attributed audit record. Explicit Hub migration adds
+that table at schema revision 4; serving never migrates. Older binaries refuse the newer schema
+rather than silently ignoring curation. Recovery preserves the table and history; no downgrade or
+destructive rollback is supplied. Existing deployments need an explicit migration before using
+the new binary, not a Hub or new trust gate for source/offline installation.
+
+Local membership is a narrowing view: the current independently verified catalog must still
+contain the same Release digest in `RELEASE`, under the same key, without an active recall.
+Unknown, changed, withdrawn or recalled members remain visible as held provenance, not eligible
+fallbacks. Vendor/local namespace collisions hold rather than overwrite either side. Import,
+curation and planning use the same catalog lock and transaction. Planning audit records the exact
+accepted pin and local revision/digest; original vendor bytes and digests are never rewritten.
+
+**Critique and revision:** Copying a channel dictionary would lose durable approval and permit
+stale membership to survive a changed source. Persist exact bindings and recheck them for each
+fresh view instead. A channel grants no installation approval, promotion or executor authority.
+This add-only development increment does not rename/delete channels or implement automatic
+recall roll-off of previously issued Plans; those keep the existing lifecycle safeguards.
 
 ## Subscriptions and automatic upgrades
 

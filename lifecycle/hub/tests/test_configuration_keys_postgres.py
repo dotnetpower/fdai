@@ -199,6 +199,13 @@ def test_postgres_explicit_additive_migration_preserves_legacy_enrollment(
     store = HubStore(engine)
     enroll(store, installation)
     before = store.load(installation.installation_id)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "ALTER TABLE lifecycle_state_report DROP COLUMN available_artifact_digests"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE lifecycle_entity_reported_state ALTER COLUMN release_id SET NOT NULL"
+        )
     with pytest.raises(ValueError, match="migrate"):
         require_schema(engine, "lifecycle_hub")
 

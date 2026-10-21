@@ -13,11 +13,13 @@ from typing import Any
 
 from cryptography.exceptions import InvalidSignature
 from fdai_deployment_cli.contracts import canonical_bytes
-from fdai_deployment_cli.runtime_release import (
-    RuntimeRelease,
-    is_release_id,
-    parse_runtime_release_manifest,
+from fdai_deployment_cli.lifecycle_release import (
+    LIFECYCLE_RELEASE_SCHEMAS,
+    ApplicationRelease,
+    LifecycleRelease,
+    parse_lifecycle_release_manifest,
 )
+from fdai_deployment_cli.runtime_release import is_release_id
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine, create_engine, event, func, select
 from sqlalchemy.engine import Connection
@@ -219,10 +221,10 @@ class ReleaseStore:
                 if row:
                     raise CatalogError("Release ids are immutable and cannot be reused.", 409)
                 if change.manifest is None:
-                    raise CatalogError("A runtime Release v3 manifest is required.")
-                release = parse_runtime_release_manifest(change.manifest.encode())
-                if release.schema_version != "fdai.runtime-release.v3":
-                    raise CatalogError("Only fdai.runtime-release.v3 manifests are supported.")
+                    raise CatalogError("A lifecycle Release manifest is required.")
+                release = parse_lifecycle_release_manifest(change.manifest.encode())
+                if release.schema_version not in LIFECYCLE_RELEASE_SCHEMAS:
+                    raise CatalogError("Only supported lifecycle Release manifests are accepted.")
                 self._validate_configuration_version(release_id, release)
                 db.execute(
                     releases.insert().values(
@@ -241,7 +243,7 @@ class ReleaseStore:
                     if row["signature"]:
                         raise CatalogError("Release is already published.", 409)
                     # Revalidate persisted draft bytes at the signing boundary, not just ingress.
-                    release = parse_runtime_release_manifest(row["manifest"].encode())
+                    release = parse_lifecycle_release_manifest(row["manifest"].encode())
                     self._validate_configuration_version(release_id, release)
                     if release.digest != row["digest"]:
                         raise CatalogError("Stored Release digest does not match the draft.", 409)
@@ -283,7 +285,9 @@ class ReleaseStore:
         return self.snapshot()
 
     @staticmethod
-    def _validate_configuration_version(release_id: str, release: RuntimeRelease) -> None:
+    def _validate_configuration_version(release_id: str, release: LifecycleRelease) -> None:
+        if isinstance(release, ApplicationRelease) and release.release_version != release_id:
+            raise CatalogError("Application version must match its exact Release id.")
         schema = release.configuration_schema
         if schema is not None and schema.release_version != release_id:
             raise CatalogError("Configuration schema does not match the exact Release version.")

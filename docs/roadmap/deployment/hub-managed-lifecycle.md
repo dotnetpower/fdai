@@ -16,8 +16,10 @@ loop, and the customer isolation boundary.
 > tracks the exact delivered boundaries. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
 >
-> **Scope:** This path manages FDAI's own lifecycle: installation, upgrade, configuration, drift,
-> and recall. It never manages customer resources, which stay with the operations loop.
+> **Scope:** The Hub deployment engine is application-neutral. FDAI is one deployable application,
+> not a required service inventory. Each installation remains restricted to its independently
+> approved application, owned Entities and local effect envelope. This does not give the FDAI
+> operations loop authority over other applications.
 > [Lifecycle Configuration](lifecycle-configuration.md) owns configuration layers and secrets, and
 > [Lifecycle Releases and Channels](lifecycle-releases-and-channels.md) owns Releases, channels,
 > bundles, and recall.
@@ -41,6 +43,41 @@ Release Hub service already exists.
 | Upgrades | Automatic inside maintenance windows. Configuration changes need an approved change request, and deleting or replacing an Azure resource needs confirmation. |
 | Data boundary | The Hub holds no customer workload credential or operational data. Its own bounded service identity and signing key do not authorize customer resource changes. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |
+
+## Application-neutral package boundary
+
+Publication, pinned import, planning, execution and reporting share `fdai.application-release.v1`.
+Its product, application source, immutable component images and HTTP metadata are data, not engine
+branches. The [Release contract](lifecycle-releases-and-channels.md#application-package-contract)
+owns field bounds and optional configuration/database schema metadata. Without database metadata,
+schema revision zero represents a stateless application, not migration or database-reset authority.
+
+The operator-bound Hub Settings and installation-local Agent policy each bind `product`.
+Enrollment cannot set this binding; neither can a package or Plan. A missing or different binding blocks the
+application package. Existing installations without this field retain only legacy runtime-package
+compatibility; explicit application bindings never fall back to that path. The legacy runtime
+parser still validates complete FDAI inventories for source/offline compatibility.
+
+For existing enrollments, operator-only `POST /v1/installations/{installation_id}/application-binding`
+requires a UUID, current Settings digest, reason and confirmation
+`bind application <installation_id> <product> <settings_digest>`. The installation row lock
+serializes scheduling and planning; open Plans, stale digests and application retargeting are
+blocked. Exact same-actor retry and attributed audit are retained without changing ownership,
+permissions, configuration or reported state. The lazy **Application** tab requires the ID twice
+and generates machine values. Uncertain results require refresh, not automatic resubmission.
+Agent local policy remains independent; see the [operator procedure](../../runbooks/hub-lifecycle-operator-guide.md).
+
+**Critique and revision:** Renaming a hardcoded application is not a shared engine. Image lists alone
+permit cross-application substitution and omit health observation. Independent product bindings,
+signed component/health metadata and strict JSON retain exact signatures, version/digest checks,
+artifact availability, recall, windows, ownership, dry-run, rollback and durable replay guards.
+Application packages reject legacy workload profiles. Packages never prove ownership or select app-specific flags or Entity kinds.
+Arbitrary Kubernetes templates, privileges, namespace creation, new ownership evidence and
+database migration execution remain outside this change.
+
+Release ids remain unique within one Release Hub catalog. This change makes that catalog usable
+for any application; it does not introduce a multi-product version namespace. Local synthetic
+checks are not Azure deployment evidence or production qualification.
 
 ## Installation Agent configuration source consumer
 
@@ -117,14 +154,18 @@ transaction. Current-Plan retrieval holds them after expiry, rotation or revocat
 public bindings remain intact; the atomic importer verifies each historical package with its exact
 accepted key version and receipt, never a replacement key. Absent or unprovable bindings hold
 only this new configuration capability. Legacy enrollment and planning remain compatible.
-Explicit Lifecycle Hub schema revision 3 upgrades revisions 1 and 2 additively, preserving
-enrollment, public key bindings and legacy raw configuration; Release Hub remains at revision 1.
+Explicit Lifecycle Hub schema revision 5 preserves the additive configuration upgrades from
+revisions 1 and 2, revision-4 customer-local channel storage, and adds explicit empty workload state.
+Enrollment, public key
+bindings and legacy raw configuration remain intact; Release Hub stays at revision 1.
 The actual authenticated source API separately requests/approves an installation-proven Entity
 scope, imports a complete signed container, approves its change request and activates its exact
 receipt. The accepted head, import record and audit share the pinned-catalog/installation owner
 transaction. Import, approval and activation are distinct and cannot grant execution or promotion.
 The [configuration owner](lifecycle-configuration.md#atomic-import-and-configured-consumption-design-and-critique)
 defines request formats, bounds, historical trust and the pre-implementation critique.
+
+The same catalog transaction now supports [customer-local channel curation](lifecycle-releases-and-channels.md#customer-local-channel-curation-design-and-critique). Existing operator approval can narrow a fresh imported `RELEASE` set into `local-` membership; exact local revision and accepted pin/digest remain in planning audit. It changes no installation settings, execution approval or vendor bytes, and serving requires the explicit current schema migration.
 
 Only this new import path stores original ciphertext containers and public metadata. Legacy raw
 configuration remains unchanged. Local HTTP/JWT and isolated PostgreSQL tests prove default
@@ -162,6 +203,42 @@ network/RBAC isolation, real Entra sign-in, registry availability, or replica du
 Those require a separately approved exact cloud preview and execution scope. This path does
 not change source/offline installation and does not implement automatic polling, production
 catalog metadata/root ceremony, cloud Agent apply, or a complete FDAI installation.
+
+## Execution scheduling preparation design and critique
+
+An authenticated customer operator can prepare daily maintenance windows and the Plan duration
+for an already enrolled installation. `GET /v1/installations/{installation_id}/execution-settings`
+returns only those scheduling fields and the digest of the complete current settings.
+`POST` requires a request UUID, that expected digest, bounded windows and duration, a reason code,
+and the exact confirmation `update execution settings <installation_id> <settings_digest>`.
+The authenticated operator comes from verified transport claims, never the request body.
+
+Windows use local wall-clock start times, IANA time zones, `duration_minutes` between 1 and
+1440, and an explicit downtime flag. Fractional minutes preserve existing subminute precision
+in the read projection. There are at most 32 windows; Plan duration is an integer from 1 to
+1440 minutes. Unknown fields and invalid values return `422`; bodies above 8192 bytes return `413`.
+
+**Critique and revision:** Updating all installation settings would also expose placement,
+channel and fencing changes. This operation changes only windows and Plan duration. It holds the
+existing installation lock and rejects an open Plan rather than silently changing its assumptions.
+The same transaction updates settings and appends the attributed hash-chained audit. Repeating
+an identical request UUID and actor returns its original applied digest without another change;
+reusing that UUID with different bytes or another actor is a conflict. The returned digest on
+a replay identifies the historical operation, not a claim that later settings remain unchanged.
+An unchanged schedule is audited with `changed: false` without refreshing the installation's
+recorded timestamp. Conflicting revisions, request reuse and open Plans return `409`.
+
+This preparation doesn't manage an Entity, accept ownership evidence, register keys, import
+artifacts, compute a Plan or authorize application. Installation Agents, catalog service identities
+and unauthenticated loopback caller names can't use the operator route. No new table or remote
+database mutation script is needed.
+
+The installation's **Execution schedule** section loads this projection only when opened.
+It provides bounded window controls, the server-read confirmation text and a browser-generated
+request UUID. Reads and writes have ten-second deadlines. A rejected or uncertain save disables
+further changes until an explicit refresh; it never retries a write or computes/applies a Plan.
+Focused source and synthetic UI checks are not live deployment evidence. Exact-source activation,
+human operational confirmation and the remaining evidence-backed workload preparation stay separate.
 
 ## Read-only input inventory
 
@@ -206,7 +283,7 @@ floor, pending report and rollback journal live with current state on a persiste
 Agent namespace, outside its workload Role. Only namespace-scoped Deployment, Service and Job
 operations are granted. See the [Agent preparation guide](../../../lifecycle/agent/README.md#remote-development-preparation).
 
-These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or nginx
+These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or workload
 effect evidence. Existing Hub images, revisions, catalog bindings and network allowlists are
 not changed by this preparation. An exact cloud plan and separate approval precede those effects.
 
@@ -529,7 +606,34 @@ time-bound role that the customer grants in its own tenant. The Hub grants none.
    operator adds its settings. A signed Foundation creation receipt together with a Terraform state
    identity proves ownership. The `fdai:managed=true` tag alone keeps the Entity unmanaged, and the
    Hub records that reason. An installation without a managed Entity receives no Plan.
-5. The first Plan replaces any source-built images with signed images.
+5. The first Plan replaces source-built images, or installs into an explicitly empty workload
+   slot, with signed images.
+
+### Empty workload state
+
+An Entity that has never been installed reports `release_id: null`, no installed artifact
+digests, and `health: unknown`. This is explicit absence, not an invented deployed version.
+The snapshot separately reports `available_artifact_digests` for staged images. Omitting that
+optional field retains legacy inventory behavior; an explicitly empty inventory means unavailable.
+
+The planner considers every subscribed Release when a managed Entity is not installed, including
+`0.0.0` when that is a real catalog version. Ownership, separate application binding, matching
+configuration, artifact availability, signatures, windows and the local envelope remain required.
+An ordinary first-install or upgrade Plan never lowers any already installed Entity's version.
+Managing an empty slot requires `manage --initial-release <version>` to validate its override
+coverage; this does not pin a Plan or bypass candidate checks.
+
+**Critique and revision:** Missing health is not successful installation. Staged images are not
+running images, and a fake current version can skip valid first Releases. The explicit null and
+separate inventory retain these distinctions. Agent preflight still refuses an existing object
+without a recorded rollback target. A failed first apply removes only objects created by that
+attempt and independently verifies their absence. This state contract neither adopts a namespace
+nor supplies ownership evidence. Native ownership/bootstrap remains a separate prerequisite.
+
+The explicit lifecycle database migration advances its reader floor to 5 before storing null Release
+IDs or separate inventory. Revision-4 local channel records, existing rows and snapshot digests remain
+unchanged; old binaries refuse the newer database instead of misreading absence.
+Serving never migrates a database automatically.
 
 Today the Terraform application stage renders workloads. The Hub path moves the rendering of
 namespaced workload objects to the lifecycle agent, as

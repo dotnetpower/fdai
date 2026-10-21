@@ -14,10 +14,10 @@ from fdai_deployment_cli.lifecycle_configuration import (
     ConfigurationValidationError,
     resolve_configuration_layers,
 )
+from fdai_deployment_cli.lifecycle_release import LIFECYCLE_IMAGE_SECTIONS, LifecycleRelease
 from fdai_deployment_cli.runtime_release import (
     RecallRecord,
     ReleaseDecision,
-    RuntimeRelease,
     evaluate_recall_candidate,
     validate_schema_transition,
 )
@@ -221,7 +221,7 @@ class LifecycleConstraintContext:
     declared_duration_minutes: int
     requires_downtime: bool
     target_release_version: str
-    candidate_release: RuntimeRelease
+    candidate_release: LifecycleRelease
     configuration_revision_digest: str
     current_schema_revision: int
     version_range: str
@@ -657,10 +657,10 @@ def _require_aware_datetime(value: datetime, field: str) -> None:
         raise ValueError(f"{field} MUST include timezone information")
 
 
-def _required_artifacts(release: RuntimeRelease) -> tuple[ArtifactRequirement, ...]:
+def _required_artifacts(release: LifecycleRelease) -> tuple[ArtifactRequirement, ...]:
     catalog = release.to_mapping()
     result: list[ArtifactRequirement] = []
-    for section in ("services", "sidecars", "installation_agents"):
+    for section in LIFECYCLE_IMAGE_SECTIONS:
         records = catalog.get(section)
         if not isinstance(records, Mapping):
             continue

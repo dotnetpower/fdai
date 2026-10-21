@@ -33,6 +33,7 @@ from fdai_lifecycle_hub.errors import (
     UnknownInstallationError,
     UnknownPlanError,
 )
+from fdai_lifecycle_hub.execution_settings_api import execution_settings_routes
 from fdai_lifecycle_hub.remote_auth import RemoteAuth, secure_app
 from fdai_lifecycle_hub.schemas import (
     ApprovalRequest,
@@ -278,6 +279,7 @@ def create_app(
         return response
 
     routes: list[BaseRoute] = [
+        *execution_settings_routes(store, clock, authenticated=remote_auth is not None),
         *key_routes(
             ConfigurationKeyStore(store.engine), clock, authenticated=remote_auth is not None
         ),

@@ -16,7 +16,7 @@ import re
 import stat
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Literal, cast
+from typing import Literal, Protocol, cast
 
 from fdai_deployment_cli import offline_kit
 from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
@@ -90,6 +90,14 @@ class SchemaRange:
 
     def contains(self, revision: int) -> bool:
         return self.minimum <= revision <= self.maximum
+
+
+class SchemaMetadata(Protocol):
+    @property
+    def schema_target(self) -> int | None: ...
+
+    @property
+    def schema_range(self) -> SchemaRange | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +178,11 @@ class RuntimeRelease:
     downtime_entities: tuple[str, ...] = ()
     installation_agent_images: tuple[str, ...] = ()
     configuration_schema: ConfigurationSchema | None = None
+
+    @property
+    def product(self) -> str | None:
+        """Legacy inventories have no independent application binding."""
+        return None
 
     def to_mapping(self) -> dict[str, object]:
         """Return a detached canonical catalog mapping, without host paths or bytes."""
@@ -306,7 +319,9 @@ def _parse_runtime_release(
         capability_maximums = _capability_maximums(catalog["capabilities"])
         downtime_entities = _downtime_entities(catalog["downtime"])
         if "configuration_schema" in catalog:
-            configuration_schema = _configuration_schema(catalog["configuration_schema"])
+            configuration_schema = parse_release_configuration_schema(
+                catalog["configuration_schema"]
+            )
     for section in ("console", "deployment_support"):
         _declare_record(catalog[section], service=False, declared=declared)
     canonical = canonical_bytes(catalog)
@@ -328,7 +343,7 @@ def _parse_runtime_release(
     return release, declared
 
 
-def _configuration_schema(value: object) -> ConfigurationSchema:
+def parse_release_configuration_schema(value: object) -> ConfigurationSchema:
     artifact = _object(value, {"format", "release_version", "schema_sha256", "keys"})
     version = artifact["release_version"]
     if artifact["format"] != "fdai.release-configuration-schema.v1":
@@ -389,7 +404,7 @@ def validate_runtime_images(root: Path, release: RuntimeRelease) -> dict[str, st
 def validate_schema_transition(
     *,
     current_schema_revision: int,
-    candidate: RuntimeRelease,
+    candidate: SchemaMetadata,
     direction: Literal["upgrade", "rollback"],
 ) -> ReleaseDecision:
     """Allow only schema-compatible upgrade and roll-back candidates."""

@@ -38,6 +38,11 @@ def to_domain(session: Session, row: models.Installation) -> domain.Installation
                 for state in latest.entity_states
             },
             observed_at=latest.observed_at,
+            available_artifact_digests=(
+                None
+                if latest.available_artifact_digests is None
+                else frozenset(latest.available_artifact_digests)
+            ),
         ),
         suppressions=schemas.suppressions_json.validate_python(row.suppressions),
         last_sequence=row.last_sequence,
@@ -181,6 +186,11 @@ def state_report_row(
         schema_revision=state.schema_revision,
         observed_at=state.observed_at,
         recorded_at=now,
+        available_artifact_digests=(
+            None
+            if state.available_artifact_digests is None
+            else sorted(state.available_artifact_digests)
+        ),
         entity_states=[
             models.EntityReportedState(
                 installation_id=installation_id,

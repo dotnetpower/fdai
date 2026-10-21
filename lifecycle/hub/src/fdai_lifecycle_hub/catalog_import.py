@@ -10,7 +10,11 @@ from typing import Annotated
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fdai_deployment_cli.contracts import load_json_object
-from fdai_deployment_cli.runtime_release import RecallRecord, parse_runtime_release_manifest
+from fdai_deployment_cli.lifecycle_release import (
+    LIFECYCLE_RELEASE_SCHEMAS,
+    parse_lifecycle_release_manifest,
+)
+from fdai_deployment_cli.runtime_release import RecallRecord
 from pydantic import BaseModel, ConfigDict, Field
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
@@ -75,9 +79,9 @@ def load_pinned_export(
             public_key.verify(b64decode(artifact.signature, validate=True), payload)
         except (InvalidSignature, ValueError) as error:
             raise ValueError("Release Hub manifest signature verification failed") from error
-        release = parse_runtime_release_manifest(payload)
-        if release.schema_version != "fdai.runtime-release.v3":
-            raise ValueError("Release Hub export requires runtime Release v3")
+        release = parse_lifecycle_release_manifest(payload)
+        if release.schema_version not in LIFECYCLE_RELEASE_SCHEMAS:
+            raise ValueError("Release Hub export requires a supported lifecycle Release")
         schema = release.configuration_schema
         if schema is not None and schema.release_version != release_id:
             raise ValueError("Configuration schema does not match the exact Release version")

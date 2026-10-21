@@ -29,6 +29,7 @@ from fdai_lifecycle_hub.configuration_import_api import configuration_routes
 from fdai_lifecycle_hub.configuration_import_store import ConfigurationImportStore
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import utc_now
+from fdai_lifecycle_hub.local_channel_api import local_channel_routes
 from fdai_lifecycle_hub.migrations import _revision, migrate, require_schema
 from fdai_lifecycle_hub.remote_auth import RemoteAuth
 from fdai_lifecycle_hub.remote_catalog import (
@@ -218,6 +219,7 @@ def target_routes(
 
     return [
         *configuration_routes(ConfigurationImportStore(store.engine), catalog, utc_now),
+        *local_channel_routes(catalog, utc_now),
         Route("/v1/catalog/trust", status),
         Route("/v1/catalog/releases", releases),
         Route("/v1/catalog/trust/approve", approve, methods=["POST"]),
@@ -283,7 +285,7 @@ def _run() -> None:
         source = config.catalog
 
         def initialize_target(connection: Connection) -> None:
-            if models.stale_tables(engine):
+            if models.stale_tables(connection):
                 raise ValueError(
                     "Earlier Lifecycle Hub schema requires an explicit data migration."
                 )

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
+from fdai_deployment_cli.lifecycle_release import LIFECYCLE_IMAGE_SECTIONS
+
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 
 
@@ -12,7 +14,7 @@ def release_inventory(catalog: ReleaseCatalog) -> dict[str, object]:
     for release_id, release in sorted(catalog.releases.items()):
         manifest = release.to_mapping()
         images = []
-        for section in ("services", "sidecars", "installation_agents"):
+        for section in LIFECYCLE_IMAGE_SECTIONS:
             components = manifest.get(section, {})
             if not isinstance(components, dict):
                 raise ValueError("Release image section must be an object.")
@@ -31,6 +33,7 @@ def release_inventory(catalog: ReleaseCatalog) -> dict[str, object]:
         releases.append(
             {
                 "release_id": release_id,
+                "product": release.product,
                 "digest": release.digest,
                 "source_commit": release.source_commit,
                 "platform_tag": release.platform_tag,

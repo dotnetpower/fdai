@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
 import inspect
 import json
@@ -200,8 +201,14 @@ def _ontology_observer_harness(
         build_release=lambda: SimpleNamespace(digest=release_digest),
     )
     monkeypatch.setattr(
-        "fdai.delivery.inventory_ontology_observer.load_ontology_catalog",
-        lambda *a, **k: catalog,
+        inventory_ontology_observer,
+        "_ontology_catalog",
+        lambda: catalog,
+    )
+    monkeypatch.setattr(
+        inventory_ontology_observer,
+        "current_ontology_release_digest",
+        lambda: release_digest,
     )
     monkeypatch.setattr(
         "fdai.delivery.inventory_ontology_observer.PostgresOntologyInstanceStore",
@@ -1942,6 +1949,35 @@ async def test_source_builder_does_not_claim_full_provider_coverage_for_subset()
     assert "unclassified-resource" not in sources[0].manifest.resource_types
     assert sources[0].inventory._scope_coverage is None  # noqa: SLF001
     assert sources[0].inventory._unmapped_resources is None  # noqa: SLF001
+
+
+async def test_ontology_observer_harness_isolates_prewarmed_release_caches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.delivery import inventory_ontology_observer
+
+    cached_release = "sha256:" + "b" * 64
+
+    @functools.cache
+    def cached_catalog():
+        return SimpleNamespace(
+            object_types=(),
+            link_types=(),
+            build_release=lambda: SimpleNamespace(digest=cached_release),
+        )
+
+    @functools.cache
+    def cached_digest():
+        return cached_catalog().build_release().digest
+
+    assert cached_digest() == cached_release
+    monkeypatch.setattr(inventory_ontology_observer, "_ontology_catalog", cached_catalog)
+    monkeypatch.setattr(
+        inventory_ontology_observer, "current_ontology_release_digest", cached_digest
+    )
+    observer, _, _, _, history, _, _, expected = _ontology_observer_harness(monkeypatch)
+    await observer(_promoted_observation("snapshot-prewarmed-cache"))
+    assert history.append.await_args.kwargs["ontology_release_digest"] == expected
 
 
 async def test_ontology_observer_publishes_durable_topology_history(

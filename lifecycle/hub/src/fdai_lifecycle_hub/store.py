@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from dataclasses import replace
-from datetime import datetime
+from dataclasses import asdict, replace
+from datetime import datetime, timedelta
 from typing import Self, assert_never
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -26,7 +26,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from fdai_lifecycle_hub import audit, domain, mapping, models, rows, schemas, signing
-from fdai_lifecycle_hub.catalog import ReleaseCatalog
+from fdai_lifecycle_hub.catalog import LocalCurationEvidence, ReleaseCatalog
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_consumer import persisted_candidate
 from fdai_lifecycle_hub.configuration_import_models import (
@@ -45,6 +45,7 @@ from fdai_lifecycle_hub.errors import (
     EntitySettingsRejectedError,
     InstallationExistsError,
     InstallationKeyMismatchError,
+    NotEnrolledError,
     NotPendingError,
     OwnershipUnprovenError,
     PlanDigestMismatchError,
@@ -52,6 +53,13 @@ from fdai_lifecycle_hub.errors import (
     SchemaMismatchError,
     StateRejectedError,
     UnknownPlanError,
+)
+from fdai_lifecycle_hub.execution_settings import (
+    ApplicationBindingRequest,
+    ExecutionSettingsError,
+    ExecutionSettingsRequest,
+    settings_digest,
+    settings_record,
 )
 from fdai_lifecycle_hub.models import PlanEventKind
 from fdai_lifecycle_hub.planning import plan_next
@@ -85,6 +93,116 @@ class HubStore:
         if stale := models.stale_tables(self.engine):
             raise SchemaMismatchError(f"recreate the Hub database; earlier schema in {stale}")
         models.Base.metadata.create_all(self.engine)
+
+    def execution_settings(self, installation_id: str) -> dict[str, object]:
+        with self._sessions.begin() as session:
+            row = rows.get_installation(session, installation_id)
+            if row.enrollment is not EnrollmentStatus.ENROLLED:
+                raise NotEnrolledError(installation_id)
+            return settings_record(schemas.settings_json.validate_python(row.settings))
+
+    def update_execution_settings(
+        self,
+        installation_id: str,
+        command: ExecutionSettingsRequest,
+        *,
+        operator: str,
+        now: datetime,
+    ) -> dict[str, object]:
+        """Change only scheduling, atomically with its audit and retry identity."""
+        return self._update_settings(installation_id, command, operator=operator, now=now)
+
+    def bind_application(
+        self,
+        installation_id: str,
+        command: ApplicationBindingRequest,
+        *,
+        operator: str,
+        now: datetime,
+    ) -> dict[str, object]:
+        """Bind an enrolled installation once, without granting ownership or issuing a Plan."""
+        return self._update_settings(installation_id, command, operator=operator, now=now)
+
+    def _update_settings(
+        self,
+        installation_id: str,
+        command: ExecutionSettingsRequest | ApplicationBindingRequest,
+        *,
+        operator: str,
+        now: datetime,
+    ) -> dict[str, object]:
+        operator = schemas.actor_name.validate_python(operator)
+        binding = isinstance(command, ApplicationBindingRequest)
+        prefix = "application_binding" if binding else "execution_settings"
+        subject = ("application-" if binding else "settings-") + command.request_id.hex
+        action = (
+            "installation.application_bound"
+            if binding
+            else "installation.execution_settings_changed"
+        )
+        with self._write() as session:
+            row = rows.lock_enrolled(session, installation_id)
+            previous = session.scalars(
+                select(models.AuditRecord).where(
+                    models.AuditRecord.installation_id == installation_id,
+                    models.AuditRecord.action == action,
+                    models.AuditRecord.subject == subject,
+                )
+            ).one_or_none()
+            if previous is not None:
+                if (
+                    previous.payload["request_digest"] != command.digest
+                    or previous.payload["operator"] != operator
+                ):
+                    raise ExecutionSettingsError(f"{prefix}_request_conflict")
+                return {
+                    "changed": False,
+                    "settings_digest": previous.payload["settings_digest"],
+                }
+            installation = mapping.to_domain(session, row)
+            before = settings_digest(installation.settings)
+            if command.expected_settings_digest != before:
+                raise ExecutionSettingsError(f"{prefix}_revision_conflict")
+            confirmation = (
+                f"bind application {installation_id} {command.product} {before}"
+                if isinstance(command, ApplicationBindingRequest)
+                else f"update execution settings {installation_id} {before}"
+            )
+            if command.confirmation != confirmation:
+                raise ExecutionSettingsError(f"{prefix}_confirmation_mismatch")
+            if installation.open_plan is not None:
+                raise ExecutionSettingsError(f"{prefix}_plan_pending")
+            if isinstance(command, ApplicationBindingRequest):
+                if installation.settings.product not in (None, command.product):
+                    raise ExecutionSettingsError("application_binding_already_bound")
+                updated = replace(installation.settings, product=command.product)
+            else:
+                updated = replace(
+                    installation.settings,
+                    windows=tuple(window.to_window() for window in command.windows),
+                    plan_duration=timedelta(minutes=command.plan_duration_minutes),
+                )
+            digest = settings_digest(updated)
+            if before != digest:
+                row.settings = schemas.settings_json.dump_python(updated, mode="json")
+                row.recorded_at = now
+            audit.append(
+                session,
+                now,
+                action,
+                installation_id,
+                subject,
+                {
+                    "operator": operator,
+                    "request_digest": command.digest,
+                    "previous_settings_digest": before,
+                    "settings_digest": digest,
+                    "product": updated.product,
+                    "reason_code": command.reason_code,
+                    "changed": before != digest,
+                },
+            )
+            return {"changed": before != digest, "settings_digest": digest}
 
     def configuration_inventory(self) -> dict[str, object]:
         """Stored revision metadata only; enrollment bodies carry no signature provenance."""
@@ -240,10 +358,11 @@ class HubStore:
         *,
         operator: str,
         now: datetime,
+        initial_release: str | None = None,
     ) -> str:
         """Give an Entity with proven ownership its settings, which makes it managed.
 
-        Returns the override range that covers the Entity's running Release.
+        Returns the override range covering the running or explicitly selected first Release.
         """
 
         operator = schemas.actor_name.validate_python(operator)
@@ -254,9 +373,16 @@ class HubStore:
                 raise OwnershipUnprovenError(f"{entity_id}: {gap}")
             if (state := installation.reported.entities.get(entity_id)) is None:
                 raise EntityNotReportedError(entity_id)
+            release_id = state.release_id
+            if release_id is None:
+                if initial_release is None:
+                    raise EntitySettingsRejectedError("initial_release_required")
+                release_id = initial_release
+            elif initial_release is not None:
+                raise EntitySettingsRejectedError("initial_release_requires_uninstalled_entity")
             try:
                 covering = resolve_configuration_layers(
-                    release_version=state.release_id,
+                    release_version=release_id,
                     configuration_schema=installation.configuration.schema,
                     environment_config=installation.configuration.environment,
                     entity_overrides=settings.overrides,
@@ -270,6 +396,8 @@ class HubStore:
                 "settings_digest": settings.digest,
                 "covering_range": covering,
             }
+            if initial_release is not None:
+                details["initial_release"] = initial_release
             audit.append(session, now, "entity.managed", installation_id, entity_id, details)
             return covering
 
@@ -453,7 +581,11 @@ class HubStore:
             )
 
         return self._recompute(
-            installation_id, evaluate, now=now, configuration_binding_version=binding_version
+            installation_id,
+            evaluate,
+            now=now,
+            configuration_binding_version=binding_version,
+            local_curation=catalog.local_curation,
         )
 
     def recompute_persisted(
@@ -495,7 +627,9 @@ class HubStore:
                 installation, now, catalog=catalog, key=key, configuration_revision=candidate
             )
 
-        return self._recompute(installation_id, evaluate, now=now)
+        return self._recompute(
+            installation_id, evaluate, now=now, local_curation=catalog.local_curation
+        )
 
     def _recompute(
         self,
@@ -504,6 +638,7 @@ class HubStore:
         *,
         now: datetime,
         configuration_binding_version: int | None = None,
+        local_curation: LocalCurationEvidence | None = None,
     ) -> domain.PlanOutcome:
         failure: KeyBindingError | None = None
         with self._write() as session:
@@ -582,7 +717,11 @@ class HubStore:
                 "plan.evaluated",
                 installation_id,
                 evaluation.plan_id or installation_id,
-                {"outcome": outcome.kind, "target": evaluation.target_release_id},
+                {
+                    "outcome": outcome.kind,
+                    "target": evaluation.target_release_id,
+                    **({"local_curation": asdict(local_curation)} if local_curation else {}),
+                },
             )
         if failure is not None:
             raise failure

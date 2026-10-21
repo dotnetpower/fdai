@@ -12,11 +12,11 @@ REVISION = 1
 
 
 def _revision(namespace: str) -> int:
-    return 3 if namespace == "lifecycle_hub" else REVISION
+    return 5 if namespace == "lifecycle_hub" else REVISION
 
 
 def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], None]) -> None:
-    from fdai_lifecycle_hub import configuration_import_models, models
+    from fdai_lifecycle_hub import configuration_import_models, local_channels, models
 
     versions = _versions(namespace)
     with engine.begin() as connection:
@@ -24,10 +24,14 @@ def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], N
             connection.execute(
                 text("SELECT pg_advisory_xact_lock(hashtext(:name))"), {"name": namespace}
             )
+        elif engine.dialect.name == "sqlite":
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
         versions.create(connection, checkfirst=True)
         revision = connection.scalar(select(versions.c.revision))
         if revision is None:
             initialize(connection)
+            if namespace == "lifecycle_hub":
+                local_channels.metadata.create_all(connection)
             connection.execute(versions.insert().values(revision=_revision(namespace)))
         elif revision == 1 and namespace == "lifecycle_hub":
             models.Base.metadata.tables["lifecycle_configuration_key_request"].create(
@@ -51,8 +55,48 @@ def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], N
             ):
                 models.Base.metadata.tables[model.__tablename__].create(connection, checkfirst=True)
             connection.execute(versions.update().values(revision=3))
-        elif revision is not None and revision != _revision(namespace):
+            revision = 3
+        if revision == 3 and namespace == "lifecycle_hub":
+            local_channels.metadata.create_all(connection)
+            connection.execute(versions.update().values(revision=4))
+            revision = 4
+        if revision == 4 and namespace == "lifecycle_hub":
+            _empty_state_migration(connection)
+            connection.execute(versions.update().values(revision=5))
+            revision = 5
+        if revision is not None and revision != _revision(namespace):
             raise ValueError("Unsupported Hub schema revision; use a compatible migration command.")
+
+
+def _empty_state_migration(connection: Connection) -> None:
+    from fdai_lifecycle_hub import models
+
+    if connection.dialect.name == "postgresql":
+        connection.exec_driver_sql(
+            "ALTER TABLE lifecycle_entity_reported_state ALTER COLUMN release_id DROP NOT NULL"
+        )
+        inventory_type = "JSONB"
+    elif connection.dialect.name == "sqlite":
+        metadata = MetaData()
+        for model in (models.Entity, models.StateReport):
+            models.Base.metadata.tables[model.__tablename__].to_metadata(metadata)
+        original = models.Base.metadata.tables[models.EntityReportedState.__tablename__]
+        replacement = original.to_metadata(metadata, name="lifecycle_entity_reported_state_v5")
+        replacement.create(connection)
+        connection.execute(
+            replacement.insert().from_select(list(original.c.keys()), select(*original.c))
+        )
+        connection.exec_driver_sql("DROP TABLE lifecycle_entity_reported_state")
+        connection.exec_driver_sql(
+            "ALTER TABLE lifecycle_entity_reported_state_v5 "
+            "RENAME TO lifecycle_entity_reported_state"
+        )
+        inventory_type = "JSON"
+    else:
+        raise ValueError("Empty-state migration supports PostgreSQL and SQLite only.")
+    connection.exec_driver_sql(
+        "ALTER TABLE lifecycle_state_report ADD COLUMN available_artifact_digests " + inventory_type
+    )
 
 
 def require_schema(engine: Engine | Connection, namespace: str) -> None:

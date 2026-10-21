@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from base64 import b64encode
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import replace
@@ -10,6 +12,7 @@ from typing import Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -115,6 +118,7 @@ def test_unenrolled_installation_accepts_no_changes(
 
 
 CORRUPTIONS: dict[str, Callable[[dict[str, Any]], None]] = {
+    "self selected application": lambda t: t["settings"].update(product="example-web"),
     "unknown timezone": lambda t: t["settings"]["windows"][0].update(timezone="No/Zone"),
     "schema revision overflow": lambda t: t["reported"].update(schema_revision=2**40),
     "release id too long": lambda t: t["reported"]["entities"]["core"].update(
@@ -153,6 +157,30 @@ def test_declared_entities_must_match_the_reported_entities(
 
     with pytest.raises(ValueError, match="exactly the reported entities"):
         sign(lacking, now)
+
+
+def test_signed_enrollment_cannot_self_select_a_permanent_application(
+    hub_store: HubStore,
+    enrollment: EnrollmentRequest,
+    installation_key: Ed25519PrivateKey,
+    now: datetime,
+) -> None:
+    document = json.loads(enrollment.signed_payload)
+    document["settings"]["product"] = "example-web"
+    payload = canonical_bytes(document)
+    client = TestClient(create_app(hub_store, clock=lambda: now))
+    response = client.post(
+        f"/v1/installations/{INSTALLATION_ID}/enrollment",
+        json={
+            "signed_payload": b64encode(payload).decode("ascii"),
+            "proof": b64encode(installation_key.sign(payload)).decode("ascii"),
+        },
+    )
+    assert response.status_code == 422
+    assert response.json() == {"error": "enrollment_invalid"}
+    with pytest.raises(UnknownInstallationError):
+        hub_store.enrollment_status(INSTALLATION_ID)
+    assert _audit(hub_store) == []
 
 
 # Scenario: approval
