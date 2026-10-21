@@ -1,7 +1,8 @@
 """Ed25519 verifiers built from public key files.
 
-Lifecycle I0 uses development test keys generated outside the repository (#1947). Only public
-keys are read here; private keys never enter the agent.
+Lifecycle I0 uses development test keys generated outside the repository (#1947). This module
+reads only public signing keys. The full-revision consumer separately reads its installation-bound
+X25519 private encryption input; no signing identity is used for decryption.
 """
 
 from __future__ import annotations
