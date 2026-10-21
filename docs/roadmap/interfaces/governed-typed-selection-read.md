@@ -127,6 +127,19 @@ disjoint `governed-read-window.v3.json` asset under unchanged thresholds and the
 `t2.ontology.council.alpha` / `gpt-5.6-sol` `2026-07-09` pin in
 `config/governed-typed-selection-read.json`.
 
+On the exact merged commit `8fec8d423ca4dfbcca2802516dd5454bb8cd0352`, the `v3` campaign completed
+all 256 decisions with zero wrong selections (pooled 95% upper bound 1.16%), 1.0 English correct
+rate (64/64 answerable, 64/64 held), 1.0 Korean correct rate (64/64 answerable, 64/64 held), zero
+unavailable decisions, p50 2.662 s, p95 4.013 s, p99 5.369 s and event-loop lag p99 0.897 ms
+(private decisions digest `sha256:66848cbeb7779b14c70082f927a299c37ac999fc116f8e6287ecf84cb6d3f45f`).
+Independent qualification admission (`DecisionEvidenceReadinessGate` ->
+`StateStoreDecisionEvidenceAdmissionRecorder`), explicit Var Owner approval, Thor registry
+promotion and Saga audit then executed in the durable PostgreSQL development state store, and an
+independent reader verified the active pointer and end-to-end answer consumption
+(receipt `sha256:72b8038ef7be188e00eac79eb718375b0a38bed85656e5f182f46da545658e4b`). Initial
+`expected_revision=0` promotion uses `write_state_with_audit_if_absent` so absent-row PostgreSQL
+stores and in-memory stores behave identically.
+
 ## Pre-implementation critique and revision
 
 The reviewed hypotheses are: hidden network calls inside Function; confusing progress with

@@ -1,6 +1,6 @@
 ---
 translation_of: governed-typed-selection-read.md
-translation_source_sha: dd6fbff12155a56ace511c68e834427d162829ed
+translation_source_sha: a371b7bd10cb6a1abad865e99a0f61a115854d8a
 translation_revised: 2026-10-21
 ---
 # 적용 승인을 거치는 타입 선택 읽기
@@ -124,6 +124,18 @@ v2 중단 이후의 진단에서 두 가지 생산자 측 원인을 확인했습
 `config/governed-typed-selection-read.json`의 동일한 `t2.ontology.council.alpha` /
 `gpt-5.6-sol` `2026-07-09` 고정값을 유지한 채 독립 작성·검토 및 중복 배제를 거친
 `governed-read-window.v3.json` 자산에 결속합니다.
+
+병합된 정확한 커밋 `8fec8d423ca4dfbcca2802516dd5454bb8cd0352`에서 실행한 `v3` 캠페인은
+256개 결정을 모두 완료하여 잘못된 선택 0건(통합 95% 상한 1.16%), 영어 정답률 1.0(답변 가능
+64/64, 보류 64/64), 한국어 정답률 1.0(답변 가능 64/64, 보류 64/64), 사용 불가 결정 0건,
+p50 2.662초, p95 4.013초, p99 5.369초, 이벤트 루프 지연 p99 0.897 ms로 통과했습니다(비공개
+결정 digest `sha256:66848cbeb7779b14c70082f927a299c37ac999fc116f8e6287ecf84cb6d3f45f`).
+이어서 영속 PostgreSQL 개발 상태 저장소에서 독립 적격성 수용(`DecisionEvidenceReadinessGate`
+-> `StateStoreDecisionEvidenceAdmissionRecorder`), 명시적 Var Owner 승인, Thor 레지스트리
+승격, Saga 감사를 실행했고 독립 리더가 활성 포인터와 종단 간 답변 소비 효과를 검증했습니다
+(증적 `sha256:72b8038ef7be188e00eac79eb718375b0a38bed85656e5f182f46da545658e4b`). 최초
+`expected_revision=0` 승격은 `write_state_with_audit_if_absent`를 사용하여 행이 없는
+PostgreSQL 저장소와 메모리 저장소가 동일하게 동작합니다.
 
 ## 구현 전 비판 검토와 수정
 
