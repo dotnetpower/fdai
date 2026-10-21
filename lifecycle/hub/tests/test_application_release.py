@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from fdai_deployment_cli.contracts import canonical_bytes
@@ -15,6 +16,7 @@ from fdai_deployment_cli.runtime_release import RuntimeReleaseError
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.domain import Installation, Issued, NoEligibleRelease, NoManagedEntity
+from fdai_lifecycle_hub.execution_settings import ApplicationBindingRequest, settings_digest
 from fdai_lifecycle_hub.inventory import release_inventory
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.schemas import settings_json
@@ -199,6 +201,7 @@ def test_application_binding_survives_store_reopen(
     hub_store: HubStore,
     installation: Installation,
     enroll: Callable[[HubStore, Installation], None],
+    now: datetime,
 ) -> None:
     settings = replace(installation.settings, product="example-web")
     raw = settings_json.dump_json(settings)
@@ -209,7 +212,20 @@ def test_application_binding_survives_store_reopen(
         ).product
         is None
     )
-    enroll(hub_store, replace(installation, settings=settings))
+    enroll(hub_store, installation)
+    digest = settings_digest(installation.settings)
+    hub_store.bind_application(
+        installation.installation_id,
+        ApplicationBindingRequest(
+            request_id=UUID(int=1),
+            expected_settings_digest=digest,
+            product="example-web",
+            reason_code="application_package_test",
+            confirmation=f"bind application {installation.installation_id} example-web {digest}",
+        ),
+        operator="operator",
+        now=now,
+    )
     assert (
         HubStore(hub_store.engine).load(installation.installation_id).settings.product
         == "example-web"

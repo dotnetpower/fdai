@@ -10,7 +10,7 @@ channel model, upgrade bundles, and recall.
 
 > **Status:** Partially implemented for local and explicit remote development; production lifecycle delivery remains
 > design work. The [local Release Hub](../../../lifecycle/release-hub/README.md) provides manifest
-> registration, development signing, manual built-in channels, recall, a vendor UI, and opt-in
+> registration, development signing, manual built-in/custom channels, recall, a vendor UI, and opt-in
 > pinned export admission by the Lifecycle Hub. It does not implement production authentication,
 > signed catalog roles, registry publication, or recall roll-off.
 > FDAI also has signed deployment bundles and offline kits, and their
@@ -181,6 +181,26 @@ New bundle producers accept canonical names only, and the package-pinned eligibl
 either eligible. Unknown names hold rather than becoming custom channels. Compatibility is
 one-way: old binaries are not claimed to accept newly signed canonical names. This change
 adds no installation gate, trust root, promotion or production qualification.
+
+## Development custom-channel curation design and critique
+
+The Release Hub's existing operator contribution route may create a nonempty custom channel
+with its first reviewed membership. Names use `custom-` followed by lowercase ASCII alphanumeric
+segments separated by single hyphens, at most 64 characters total. This avoids collisions with
+built-in and legacy names without changing signed bundle-channel spelling.
+
+The existing exact Release confirmation, catalog revision, reason and authenticated operator
+remain required. A custom contribution additionally confirms the exact destination through
+`channel_confirmation`. Both the membership and attributed event commit in one transaction.
+Drafts, recalls, duplicates, stale revisions and invalid inputs leave both unchanged. Custom
+membership survives restart and changes the exported pin; customers independently approve and
+import that exact pin before it affects their catalog. Creating empty channels, renaming/deleting
+them, customer-local Target Hub curation and automatic promotion are outside this increment.
+
+**Critique and revision:** Arbitrary strings could alias a built-in or hide whitespace, so use a
+distinct bounded namespace. Confirming only a Release would not confirm a newly typed destination,
+so require both values without changing built-in requests. Never infer approval from a new export
+digest or let a channel bypass recall, schema constraints, local Plan authority or effect checks.
 
 ## Subscriptions and automatic upgrades
 

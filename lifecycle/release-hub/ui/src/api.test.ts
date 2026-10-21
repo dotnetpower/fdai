@@ -1,9 +1,26 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { actionsFor, artifacts, releaseTitle, requestCatalog, schemaCompatibility, type Release } from "./api";
+import { actionsFor, artifacts, isCustomChannel, releaseTitle, requestCatalog, schemaCompatibility, type Release } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe("release action boundaries", () => {
   const base = { id: "1.0.0" } as Release;
+  it("keeps the custom namespace exact, bounded and separate from signed bundle channels", () => {
+    for (const name of ["custom-pilot", "custom-a1", `custom-${"a".repeat(57)}`]) {
+      expect(isCustomChannel(name)).toBe(true);
+    }
+    for (const name of ["DEV", "development", "custom-", "custom-Pilot", "custom-a--b", "custom-a\n", `custom-${"a".repeat(58)}`]) {
+      expect(isCustomChannel(name)).toBe(false);
+    }
+  });
+  it("transmits the independently reviewed destination confirmation without retry", async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ revision: 3 }) });
+    vi.stubGlobal("fetch", fetch);
+    const body = { revision: 2, confirmation: "1.0.0", reason: "Reviewed destination",
+      channel: "custom-pilot", channel_confirmation: "custom-pilot" };
+    await requestCatalog("/v1/releases/1.0.0/contribute", body);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch.mock.calls[0]?.[1]).toMatchObject({ body: JSON.stringify(body), method: "POST" });
+  });
   it("never offers publication or contribution for a recalled release", () => {
     expect(actionsFor({ ...base, state: "recalled" })).toEqual([]);
     expect(actionsFor({ ...base, state: "draft" })).toEqual(["publish"]);

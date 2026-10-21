@@ -63,6 +63,7 @@ def databases(loopback_postgres_url):
                 admin.execute(sql.SQL("DROP ROLE IF EXISTS {}").format(sql.Identifier(name)))
 
 
+@pytest.mark.parametrize("channel", ["DEV", "custom-pilot"])
 def test_postgres_two_hubs_persistence_plan_recall_and_cross_db_denial(
     databases,
     tmp_path,
@@ -71,6 +72,7 @@ def test_postgres_two_hubs_persistence_plan_recall_and_cross_db_denial(
     installation,
     enroll,
     now,
+    channel,
 ):
     from dataclasses import replace
 
@@ -101,13 +103,30 @@ def test_postgres_two_hubs_persistence_plan_recall_and_cross_db_denial(
                     else None,
                 ),
             )
+    if channel.startswith("custom-"):
+        for version in ("1.5.0", "1.6.0"):
+            vendor.change(
+                "contribute",
+                version,
+                Change(
+                    revision=vendor.snapshot()["revision"],
+                    confirmation=version,
+                    reason="Reviewed custom PostgreSQL membership",
+                    channel=channel,
+                    channel_confirmation=channel,
+                ),
+                actor="approved-vendor",
+            )
+    accepted_revision = vendor.snapshot()["revision"]
     raw = vendor.export()[0]
     target = RemoteCatalog(target_engine, source, fetch=lambda _: raw)
     approve(target, raw, now)
     target.import_once(actor="customer-operator", now=now)
     installation = replace(
         installation,
-        settings=replace(installation.settings, channel="DEV", plan_duration=timedelta(minutes=25)),
+        settings=replace(
+            installation.settings, channel=channel, plan_duration=timedelta(minutes=25)
+        ),
         reported=replace(installation.reported, observed_at=now),
     )
     enroll(hub, installation)
@@ -119,12 +138,16 @@ def test_postgres_two_hubs_persistence_plan_recall_and_cross_db_denial(
         restarted.current_plan(installation.installation_id, now=now).plan_id
         == outcome.plan.plan_id
     )
-    assert RemoteCatalog(restarted.engine, source).status()["minimum_revision"] == 4
+    assert RemoteCatalog(restarted.engine, source).status()["minimum_revision"] == accepted_revision
+    assert ReleaseStore(vendor_engine, key, initialize=False).snapshot()["channels"][channel] == [
+        "1.5.0",
+        "1.6.0",
+    ]
     vendor.change(
         "recall",
         "1.6.0",
         Change(
-            revision=4,
+            revision=accepted_revision,
             confirmation="1.6.0",
             reason="Withdraw synthetic release",
         ),
@@ -172,3 +195,59 @@ def test_postgres_publication_serializes_concurrent_revisions(databases, key, no
     with ThreadPoolExecutor(max_workers=2) as executor:
         assert sorted(executor.map(register, ["1.5.0", "1.6.0"])) == ["committed", "conflict"]
     assert vendor.snapshot()["revision"] == 1
+
+
+def test_postgres_custom_contributions_serialize_and_preserve_original_event(
+    databases, key, now, catalog
+):
+    import threading
+
+    from fdai_deployment_cli.contracts import canonical_bytes
+
+    engine = databases["release"]
+    vendor = ReleaseStore(engine, key, clock=lambda: now)
+    for action in ("register", "publish"):
+        vendor.change(
+            action,
+            "1.6.0",
+            Change(
+                revision=vendor.snapshot()["revision"],
+                confirmation="1.6.0",
+                reason="Prepare synthetic publication",
+                manifest=canonical_bytes(catalog.releases["1.6.0"].to_mapping()).decode()
+                if action == "register"
+                else None,
+            ),
+        )
+    ready = threading.Barrier(2, timeout=10)
+
+    def contribute(actor):
+        ready.wait()
+        try:
+            vendor.change(
+                "contribute",
+                "1.6.0",
+                Change(
+                    revision=2,
+                    confirmation="1.6.0",
+                    reason="Reviewed concurrent destination",
+                    channel="custom-pilot",
+                    channel_confirmation="custom-pilot",
+                ),
+                actor=actor,
+            )
+            return "committed"
+        except CatalogError as error:
+            assert error.status == 409
+            return "conflict"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        assert sorted(executor.map(contribute, ["operator-a", "operator-b"])) == [
+            "committed",
+            "conflict",
+        ]
+    original = vendor.snapshot()
+    assert original["revision"] == 3
+    assert original["channels"]["custom-pilot"] == ["1.6.0"]
+    assert original["events"][0]["actor"] in {"operator-a", "operator-b"}
+    assert ReleaseStore(engine, key, clock=lambda: now, initialize=False).snapshot() == original
