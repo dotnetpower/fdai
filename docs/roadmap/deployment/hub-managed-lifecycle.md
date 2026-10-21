@@ -726,13 +726,51 @@ It adds no namespace, RoleBinding, Azure resource, secret read, database migrati
 application-specific renderer or production authorization. Explicit Hub schema migration
 advances the reader floor to 6 before persisting native evidence; old binaries do not reinterpret it.
 For a staged cutover, the new server can serve revision 5 before that explicit migration.
-Only serving and readiness accept revisions 5 and 6; native acceptance and explicit schema
-verification still require revision 6. Missing, older and future revisions remain blocked.
-Move traffic to the compatible image and drain revision-5 readers before advancing the floor.
+Serving and readiness accept revisions 5 and 6, or explicitly prepared earlier revisions as
+described below; native acceptance and explicit schema verification still require revision 6.
+Missing, unprepared older and future revisions remain blocked.
+Move traffic to the compatible image and drain old readers before advancing the floor.
 Before migration, the old image remains a rollback option. After migration, recovery uses a
 verified revision-6-compatible image, never a lowered reader floor.
 The [implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
 separates source validation, publication, activation and installed qualification.
+
+### Preparing an older Hub without changing its reader floor
+
+**Design and critique:** Serving revision 5 before migration doesn't cover an installation
+still on revisions 1-4. Migrating its reader floor first stops the existing server. Merely
+allowing the old marker in the new server is also unsafe: required columns may be absent,
+and new writes could make rollback unreadable.
+
+**Revised contract:** An explicit Lifecycle Hub `prepare` command applies the existing
+additive migrations in one locked transaction, retains the original reader floor, and records
+`prepared_revision: 6` in the schema-version table. It never initializes an absent database,
+changes application data, accepts ownership, or advances the floor. Preparation is safe to
+repeat; interruption rolls back both its structure and preparation record.
+
+SQLite writers begin their real database write transaction before checking preparation metadata
+and hold it through the write. A borrowed transaction remains under its caller's control.
+After completion, recovery inspection validates and fingerprints both supported version-table
+layouts: revision only, or revision plus a nullable integer preparation column. Unknown columns
+and incompatible types remain blocked.
+
+Use the existing service-owned migration job for these stages, not a local remote-database DSN:
+
+1. Run `python -m fdai_lifecycle_hub.remote prepare`. Verify that the old server remains ready
+   and its reader floor is unchanged.
+2. Activate the compatible image. The new server accepts revisions 1-4 only with the preparation
+   record. Unprepared older databases remain blocked. New writers refuse configuration,
+   catalog and trusted-host writes during preparation. HTTP returns `503 schema_migration_pending`;
+   the trusted-host CLI exits unsuccessfully with the explicit migration-pending error.
+   Read-only projections and health remain available. Existing binaries retain their reader
+   floor and data. Independently verify the image and readiness, then drain old readers.
+3. Run `python -m fdai_lifecycle_hub.remote migrate`, then the strict `schema` command. This
+   completes the transition to revision 6 without repeating its DDL. Only then may native
+   acceptance and other new writes proceed.
+
+Before completion, recovery can restore the old image without lowering a marker. After completion,
+recovery uses a verified revision-6-compatible image. Release Hub, unprepared legacy trusted-host
+operations and unversioned local development keep their existing contracts.
 
 ### Local setup and acceptance
 

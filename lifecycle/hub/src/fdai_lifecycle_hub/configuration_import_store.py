@@ -46,6 +46,7 @@ from fdai_lifecycle_hub.configuration_import_trust import (
 from fdai_lifecycle_hub.configuration_key_store import resolve_binding
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.errors import ConcurrentWriteError
+from fdai_lifecycle_hub.migrations import require_writable_schema
 
 
 class ConfigurationImportStore:
@@ -69,6 +70,7 @@ class ConfigurationImportStore:
             with self._sessions.begin() as session:
                 if self._begin_sqlite:
                     session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+                require_writable_schema(session.connection())
                 installation = rows.lock_enrolled(session, installation_id)
                 try:
                     with session.begin_nested():
