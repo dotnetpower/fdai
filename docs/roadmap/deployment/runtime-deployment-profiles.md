@@ -18,6 +18,8 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > lifecycle agent. Its Lifecycle I0 skeleton in `lifecycle/agent/` only dry-runs and reports, so
 > this runtime contract doesn't change.
 
+The Core and Cost Governance images build OPA with the same pinned Go toolchain in both runtime profiles. Selecting AKS or Container Apps never changes that toolchain, its builder digest, or the image scan that gates a pull request.
+
 ## Design at a glance
 
 The [local Release Hub](../../../lifecycle/release-hub/README.md) is a separate loopback-only vendor
