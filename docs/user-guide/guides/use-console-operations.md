@@ -1,6 +1,6 @@
 ---
 title: Work in the operator console
-description: What each area of the FDAI console shows you, what you can submit from it, and why a read-only console is a security feature rather than a limitation.
+description: Learn what each FDAI Console area shows, what you can submit, and why read-only access is a security feature.
 ---
 
 # Work in the operator console

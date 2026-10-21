@@ -4,7 +4,7 @@ title: Deep DB-DR Restore Drill Runbook
 
 # Deep DB-DR restore drill runbook
 
-Operator runbook for the phase-3 Deep DB-DR drill. It turns the shipped
+Use this operator runbook to perform the phase-3 Deep DB-DR drill. It turns the shipped
 [`DbDrVerifier`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_verifier.py)
 and the delivery-owned
 [`AzurePostgresRestoreAdapter`](../../services/core-control-plane/src/fdai/delivery/azure/db_dr_restore.py)

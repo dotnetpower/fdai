@@ -1,6 +1,6 @@
 ---
 title: Chaos Game Day Runbook
-description: A template for planning, approving, running, and recovering from a bounded chaos experiment.
+description: Use this template to plan, approve, run, and recover from a bounded chaos experiment.
 ---
 
 # Chaos Game Day Runbook

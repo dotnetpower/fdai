@@ -1,6 +1,6 @@
 ---
 title: Cost Governance
-description: How FDAI detects cost anomalies, recommends right-sizing, and runs the low-risk cleanup on its own, while risky cost changes wait for approval.
+description: Learn how FDAI detects cost anomalies, recommends right-sizing, automates low-risk cleanup, and holds risky changes for approval.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
     sha: d67f4fdd18f99eb8a755286c43fb9138a41e8603

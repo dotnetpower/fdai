@@ -1,9 +1,9 @@
 ---
 title: 변경 승인(Approve a change)
-description: FDAI가 사람 승인을 기다리도록 대기열에 넣은 변경을 검토하고 승인 또는 거부하는 방법입니다.
+description: FDAI가 사람 승인을 기다리도록 대기열에 넣은 변경을 검토하고 승인하거나 거부하는 방법을 알아봅니다.
 translation_of: approve-change.md
-translation_source_sha: 9091aef653a121b49a410028d4016f1b21db1678
-translation_revised: 2026-08-11
+translation_source_sha: f4c9d913ff058dc614f1ea759be96f76d45dcce6
+translation_revised: 2026-10-22
 ---
 
 <span id="변경-승인approve-a-변경"></span>

@@ -1,6 +1,6 @@
 ---
 title: Incident Triage Runbook
-description: A customer-neutral template for confirming incident scope, severity, ownership, and investigation readiness.
+description: Use this customer-neutral template to confirm incident scope, severity, ownership, and investigation readiness.
 ---
 
 # Incident Triage Runbook

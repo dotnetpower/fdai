@@ -1,9 +1,9 @@
 ---
 title: 인시던트 완화와 롤백 런북
-description: 통제된 완화 작업을 적용하고 롤백 또는 복구 결과를 검증하는 템플릿입니다.
+description: 통제된 완화 작업을 적용하고 롤백 또는 복구 결과를 검증할 때 사용하는 템플릿입니다.
 translation_of: incident-mitigation-and-rollback.md
-translation_source_sha: 8772603075777655a74082ba938887c076e09b51
-translation_revised: 2026-10-16
+translation_source_sha: cc9924434137bd8ec7dde951610ac8f1f3e67ff8
+translation_revised: 2026-10-22
 fdai_runbook:
   schema_version: 1.0.0
   action_type_patterns:

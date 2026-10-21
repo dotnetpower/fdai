@@ -1,6 +1,6 @@
 ---
 title: SRE Runbooks
-description: Customer-neutral operator procedures and templates for incident response, recovery, and governed automation.
+description: Use customer-neutral operator procedures and templates for incident response, recovery, and governed automation.
 ---
 
 # SRE Runbooks

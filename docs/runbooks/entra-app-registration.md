@@ -4,7 +4,7 @@ title: Entra App Registration
 
 # Entra App Registration
 
-How to create the three Entra ID app registrations FDAI needs - `fdai-api`
+Learn how to create the three Entra ID app registrations FDAI needs - `fdai-api`
 (the Operator API audience), `fdai-console-spa` (the SPA sign-in client), and
 `fdai-approval-bot` (the Teams approval client) - plus the App Roles, service
 principals, and role assignments that make sign-in and Teams on-behalf-of (OBO)

@@ -1,6 +1,6 @@
 ---
 title: Validate ownership handover
-description: Collect separate accessibility, deployment, identity, and recovery evidence without treating a source check as operational approval.
+description: Learn how to collect separate accessibility, deployment, identity, and recovery evidence without treating a source check as operational approval.
 ---
 # Validate ownership handover
 

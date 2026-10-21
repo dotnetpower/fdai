@@ -1,9 +1,9 @@
 ---
 title: 인시던트 분류 런북
-description: 인시던트 범위, 심각도, 담당 체계, 조사 준비 상태를 확인하는 범용 템플릿입니다.
+description: 인시던트 범위, 심각도, 담당 체계, 조사 준비 상태를 확인할 때 사용하는 범용 템플릿입니다.
 translation_of: incident-triage.md
-translation_source_sha: 96e3fd9447f463962906d33fe02f02e03d8061cf
-translation_revised: 2026-10-16
+translation_source_sha: 3728d4293e14bb09b2b87b7a5d11fbba34663c5d
+translation_revised: 2026-10-22
 ---
 
 # 인시던트 분류 런북

@@ -1,6 +1,6 @@
 ---
 title: SLO Burn Response Runbook
-description: A template for validating a detected error-budget burn issue and routing a governed response.
+description: Use this template to validate a detected error-budget burn issue and route a governed response.
 ---
 
 # SLO Burn Response Runbook
