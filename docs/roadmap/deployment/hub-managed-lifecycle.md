@@ -42,6 +42,28 @@ Release Hub service already exists.
 | Data boundary | The Hub holds no customer workload credential or operational data. Its own bounded service identity and signing key do not authorize customer resource changes. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |
 
+## Installation Agent configuration source consumer
+
+The existing `fdai-lifecycle-agent poll-once` entry point and directory artifact store now accept
+the original full v2 signed configuration container. Independent installation-local public keys,
+X25519 private input, active revision and Entity/history bindings remain separate from Hub
+transport. The Agent verifies the Plan, exact Release/schema, package and complete history before
+decrypting and passing each Entity's values to its existing renderer. Missing prerequisites hold
+only this capability; legacy flat artifacts and default dry-run behavior remain compatible.
+The [configuration owner](lifecycle-configuration.md#installation-agent-consumer-design-and-critique)
+records the pre-implementation critique and privacy boundaries.
+
+The explicit read-only `reference-status` command uses the existing Kubernetes transport to
+inspect exact CSI/Pod/provider metadata, with Entity, source version and freshness attribution.
+Its strongest positive result is `reported-mounted`, not verified secret usability. It never
+reads Kubernetes Secret data or mounted files, and absent source bindings remain unavailable.
+See the [installation guide](../../runbooks/installation-agent-configuration.md) for local inputs.
+
+This is implemented source/local synthetic evidence only: no live onboarding, artifact delivery,
+CSI provider binding, Agent rollout, operational effect receipt or production qualification is
+claimed. Hub import, change approval, activation, signed Plan admission and local execution
+safeguards remain separate decisions.
+
 ## Legacy paired development fixture
 
 For an admitted runtime v3 Release with optional configuration-schema metadata, the existing Hub
