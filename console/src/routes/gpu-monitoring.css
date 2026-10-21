@@ -1,0 +1,322 @@
+.gpu-monitoring-route {
+  --gpu-muted: color-mix(in srgb, var(--fg) 74%, var(--bg));
+  width: min(100%, 1240px);
+  margin-inline: auto;
+}
+
+.gpu-monitoring-route .page-header-actions {
+  align-items: center;
+}
+
+.gpu-monitoring-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gpu-monitoring-route .governance-readonly-banner {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-block: 9px;
+  color: var(--gpu-muted);
+  font-size: var(--cs-type-compact-size);
+}
+
+.gpu-monitoring-route .governance-readonly-banner strong {
+  color: var(--fg);
+}
+
+.gpu-monitoring-route .kpi-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  border-block: 1px solid var(--border);
+}
+
+.gpu-monitoring-route .kpi-card {
+  min-width: 0;
+  min-height: 108px;
+  padding: 16px 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.gpu-monitoring-route .kpi-card + .kpi-card {
+  border-left: 1px solid var(--border);
+}
+
+.gpu-monitoring-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.gpu-monitoring-inventory {
+  position: sticky;
+  top: 16px;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+  padding-right: 24px;
+}
+
+.gpu-monitoring-section-head {
+  margin-bottom: 16px;
+}
+
+.gpu-monitoring-section-head h3,
+.gpu-monitoring-section-head p {
+  margin: 0;
+}
+
+.gpu-monitoring-section-head h3 {
+  font-size: var(--cs-type-section-title-size);
+  line-height: var(--cs-type-section-title-line-height);
+}
+
+.gpu-monitoring-section-head p {
+  max-width: 76ch;
+  margin-top: 6px;
+  color: var(--gpu-muted);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.gpu-device-list {
+  display: grid;
+  gap: 8px;
+}
+
+.gpu-device-button {
+  width: 100%;
+  min-height: 64px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.gpu-device-button:hover {
+  background: var(--cs-shade);
+}
+
+.gpu-device-button[aria-current="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.gpu-device-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.gpu-device-button strong,
+.gpu-device-button span {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.gpu-device-button span {
+  margin-top: 4px;
+  color: var(--gpu-muted);
+  font-size: var(--cs-type-caption-size);
+}
+
+.gpu-monitoring-detail {
+  min-width: 0;
+  gap: 48px;
+}
+
+.gpu-selected-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gpu-selected-head h3,
+.gpu-selected-head p {
+  margin: 0;
+}
+
+.gpu-selected-head p {
+  margin-top: 6px;
+  color: var(--gpu-muted);
+  overflow-wrap: anywhere;
+}
+
+.gpu-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.gpu-chart-grid .fd-metric-chart {
+  min-width: 0;
+}
+
+.gpu-chart-wide {
+  grid-column: 1 / -1;
+}
+
+.gpu-metric-list,
+.gpu-action-list,
+.gpu-provenance-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.gpu-metric-list > div,
+.gpu-action-list > div,
+.gpu-provenance-list > div {
+  min-width: 0;
+  padding: 14px 20px 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.gpu-metric-list dt,
+.gpu-action-list dt,
+.gpu-provenance-list dt {
+  color: var(--gpu-muted);
+  font-size: var(--cs-type-label-size);
+  line-height: var(--cs-type-label-line-height);
+}
+
+.gpu-metric-list dd,
+.gpu-action-list dd,
+.gpu-provenance-list dd {
+  min-width: 0;
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.gpu-findings-list,
+.gpu-pipeline {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+
+.gpu-findings-list li,
+.gpu-pipeline li {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gpu-pipeline li {
+  justify-content: flex-start;
+}
+
+.gpu-pipeline-arrow {
+  color: var(--gpu-muted);
+}
+
+.gpu-sample-boundary {
+  margin: 0;
+  color: var(--gpu-muted);
+  font-size: var(--cs-type-compact-size);
+}
+
+@media (max-width: 900px) {
+  .gpu-monitoring-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gpu-monitoring-inventory {
+    position: static;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0 0 20px;
+  }
+
+  .gpu-device-list {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .gpu-monitoring-route .page-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gpu-monitoring-route .page-header-text {
+    min-width: 0;
+  }
+
+  .gpu-monitoring-route .page-header-actions {
+    justify-content: flex-start;
+  }
+
+  .gpu-monitoring-mode {
+    flex-wrap: wrap;
+  }
+
+  .gpu-monitoring-route .kpi-grid,
+  .gpu-chart-grid,
+  .gpu-metric-list,
+  .gpu-action-list,
+  .gpu-provenance-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .gpu-monitoring-route .kpi-card:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .gpu-monitoring-route .kpi-card:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 460px) {
+  .gpu-monitoring-route .kpi-grid,
+  .gpu-chart-grid,
+  .gpu-metric-list,
+  .gpu-action-list,
+  .gpu-provenance-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gpu-chart-wide {
+    grid-column: auto;
+  }
+
+  .gpu-monitoring-route .kpi-card + .kpi-card {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .gpu-selected-head {
+    display: grid;
+  }
+
+  .gpu-findings-list li,
+  .gpu-pipeline li {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-block: 12px;
+  }
+
+  .gpu-pipeline-arrow {
+    transform: rotate(90deg);
+  }
+}

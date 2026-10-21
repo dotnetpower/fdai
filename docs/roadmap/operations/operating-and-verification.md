@@ -81,7 +81,7 @@ preserves the 600-second policy boundary.
 The observation time is the current age measurement, not a renewed canary success. Repeated reads
 therefore increase age and eventually alert instead of refreshing old evidence into Healthy.
 This source does not establish the latest attempt result, round-trip latency, complete audit history
-or execution authority. `canary_result` and the canary operational-state field remain unavailable.
+or execution authority. The age source alone cannot qualify `canary_result` or its state field.
 
 | Initial option | Critique | Source boundary |
 |---|---|---|
@@ -110,11 +110,23 @@ The controller UID or Container Apps execution name identifies one actual execut
 execution. Deriving a five-minute slot from Core's clock cannot supply that independent witness
 or distinguish a cancelled publisher from a missing execution.
 
-The reviewed boundary therefore keeps `canary_result` and the canary operational-state field
-unavailable. Completing them requires a pinned schedule/source and retry-stable scheduler
-identity, plus a bounded independently read projection that rejects missing, malformed, stale,
-truncated and cancelled evidence. Neither a recent successful consumption nor these lifecycle
-records alone satisfies that requirement. No publisher database permission is added.
+Without an independent scheduler witness, `canary_result` and the canary operational-state
+field remain unavailable. A recent success or these lifecycle records alone cannot qualify them.
+No publisher database permission is added.
+
+#### Independently witnessed AKS result
+
+The source combines independent native scheduling metadata and canonical consumption, never publisher acceptance.
+The critique and resulting boundaries are:
+
+| Boundary | Source contract |
+|---|---|
+| Native witness | Read the configured CronJob and metadata-only Job list. Its explicit UTC schedule, Kubernetes 1.32+ scheduled-timestamp annotation and current controller UID must identify exactly one latest-due Job. Missing, duplicate, suspended, malformed or truncated observations remain unavailable; older Jobs or controller generations cannot substitute. |
+| Access and transfer | A namespace-local Role grants only named-CronJob `get` and Job `list`, without workload mutation, Secret read, executor or publisher database permissions. Limit each response to 256 KiB and the complete list to 16 Jobs, without pagination or retries. |
+| Canonical sequence | Read at most 64 audit rows plus one truncation witness for that exact execution. Validate identity, hashes, increasing sequence, nondecreasing time, and each unique start/matching terminal. Unresolved or overlapping retries cannot borrow an earlier success. |
+| Result and state | Preserve original observation time. Confirmed consumption failure is nonpassing; cancellation has no numeric result and an explicit unavailable `canary_cancelled` state. Unsupported sources, including unqualified Container Apps witnesses, remain unavailable, not inferred from execution names. |
+| Critique and currentness | Re-read CronJob generation around the Job list and independent scheduler witnesses around the database read. After the final await, reject a changed occurrence or the exclusive next-slot deadline. Replayed collection times and clock regression cannot replay Healthy. Result and state share one bounded collection, including failure, without independent provider retries. |
+| Qualification | Existing freshness, read authorization, approval, promotion and execution boundaries remain unchanged. Local checks are source implementation, not installed-runtime qualification or a live drill. |
 
 #### Retry-stable publisher identity
 
@@ -206,18 +218,19 @@ Other bindings remain explicitly unavailable until their owning source can suppl
 observation. Broker queue depth still needs broker observations; first-decision lag uses only the bound Core process above.
 cold-start rate needs a complete lifecycle window and denominator; rollback,
 override, and discovery rates need time-bounded numerators and denominators. Complete adapter
-health needs the registered dependency checks, and canary result/state still needs a complete
-latest-attempt source. The new age reader does not provide that result. The existing oldest-first
+health needs the registered dependency checks. Canary result/state needs the independent AKS
+witness and complete sequence above; the age reader alone does not provide it. The oldest-first
 audit migration reader cannot establish the latest canary.
-Rule-effect, override, discovery, canary, and break-glass fields still need their owning projections.
+Rule-effect, override, discovery, and break-glass fields still need their owning projections.
 
 ### Remaining source boundaries
 
-Eight of 15 signal slots and three of eight fields have concrete, wired source implementations.
+Up to nine of 15 signal slots and four of eight fields have concrete, wired source implementations
+on eligible AKS installations; without a qualified scheduler witness the prior eight/three ceiling remains.
 Comparison observations require the native producer bindings above and a complete known window;
 source implementation is not installed qualification or a promise of Healthy. The
 indexed latest-success age reader does not establish the latest scheduled attempt or complete
-canary state. Seven other signals and five fields remain unavailable; missing observations or
+canary state. Six other signals and four fields remain unavailable on the qualified path; missing observations or
 denominators are never zero failures or a successful result. Publication counters do not prove
 broker depth, startup duration does not prove fleet cold-start rate, and promotion records do
 not prove executed rollback or per-rule override rates.
@@ -237,7 +250,7 @@ so no area is claimed as fully operationally validated.
 | Retry-stable Container Apps canary publisher identity | implemented | Official Microsoft Learn built-in Jobs variables (2026-03-31); `canary_cli.py`; `test_canary_cli.py`; focused offline canary cohort: 83 passed | Uses the automatically supplied execution name, not job definition or replica name. Exact names are bounded and namespaced; two platform keys fail closed without an explicit slot. No API, permission or Terraform change is required. |
 | Retry-stable AKS canary publisher identity | implemented | `canary_cli.py`; `aks_workload_jobs.py`; `aks_job_execution.py`; AKS workload Terraform; focused offline canary/deployment cohort: 80 passed | Explicit slots retain precedence; otherwise the Downward API supplies controller Job UID. The protected digest binds its exact field reference. Missing or malformed identity fails before provider access; no current-clock or unverified Container Apps fallback exists. |
 | Core consumed-attempt lifecycle | implemented | `_canary.py`; `test_canary_lifecycle.py`; `test_postgres_canary.py`; focused local canary cohort: 62 passed | Durable start before stages, bounded failure/cancellation persistence, separate canonical success, and no contradictory outcome after an uncertain write. These are consumption records, not a scheduler witness. |
-| Latest scheduled canary result and typed state | in-progress | `test_canary_cli.py`; `test_self_health_canary.py`; `packages/deployment-cli/src/fdai_deployment_cli/aks_workload_jobs.py` | AKS and Container Apps retry identities are stable, but independent observation of the latest scheduled attempt and a bounded sequence projection remain absent. Result/state remain unavailable; #2251 is not complete. |
+| Latest scheduled canary result and typed state | implemented | `delivery/kubernetes_canary.py`; `delivery/canary_sequence.py`; `delivery/self_health_canary_result.py`; indexed PostgreSQL sequence; default readiness binding; scoped AKS Role; 153 focused checks including actual isolated PostgreSQL | Source implementation for an independently witnessed AKS occurrence, with missing, malformed, stale, truncated, failed, cancelled, overlapping, changed-generation, replayed and over-deadline observations held or explicitly nonpassing. Unqualified sources stay unavailable; this is not installed qualification or whole-H01 completion. |
 | Scheduled creation intent replay | implemented | `creation.py`; shared schedule-store duplicate error; PostgreSQL adapter; creation/blueprint/replay checks: 108 passed, creation line/branch coverage 100% | Idempotent registration preserves run progress and stored kind normalization without accepting changed JSON/policy intent. Four new isolated PostgreSQL cases and a reviewed materialization checkpoint failure are covered. This does not register daily jobs or settle H02 operating decisions. |
 | Actual deterministic T2 verifier rate | implemented | `delivery/self_health_verifier.py`; default gate/readiness/resource ownership; 20 focused cases, 100% branch-inclusive source coverage | Complete policy-bounded process windows, exact returned outcomes, no invented denominator or learned outcome, unchanged gate decisions, typed persisted readback and shutdown. No deployment or operational quality improvement is claimed. |
 | Stabilization scheduler numeric input integrity | implemented | #2254; shared schedule model, compatibility tools and actual creation-command tests; 110 focused checks, model/tool branch-inclusive coverage 92.62%/97.63% | Invalid non-finite intervals cannot be stored or replace a valid task; valid cadence and normal due dispatch remain unchanged. This hardens a prerequisite, not daily-job registration or stabilization qualification. |
@@ -247,7 +260,7 @@ so no area is claimed as fully operationally validated.
 | Post-deploy promotion smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml); `scripts/deployment/azure/verify_canary_audit.py`; focused verifier tests | The workflow gives the publisher a deterministic slot, then requires one exact Core audit row within 30 seconds. The verifier rejects ambiguous, malformed, unsettled, future-dated, or over-budget rows without exposing database credentials. A retained live receipt, fixture replay, kill-switch cycle, and human-approval dry-run remain open. |
 | Complete self-health signal policy and routing map | implemented | `config/self-health-signals.yaml`; `core/readiness/self_health.py`; production startup binding; focused self-health and readiness tests | All 15 required signals map to one metric, threshold direction, freshness bound, generic owner lane, notification route, and fail-closed fallback. Missing coverage or route drift blocks startup. Decisions grant no execution authority. |
 | Consumed-canary age source | implemented | #2250; `delivery/self_health_canary.py`; `delivery/persistence/postgres_canary.py`; concurrent partial-index Core migration; 99 focused checks including four actual isolated PostgreSQL cases | Latest successful consumed audit, selected-row hash/time/identity checks, exact 600-second and 8192/8193-byte boundaries, indexed plan beyond a 512-row oldest prefix, default readiness composition and non-destructive index rollback are locally tested. Caller Decimal precision cannot round away a threshold breach. This is conservative age, not latest-attempt result or operational qualification. |
-| Complete self-health exporter registry, alert delivery, and operational drills | in-progress | Complete signal policy; exact 15-signal and eight-field exporter registry; runtime sources; typed model-role registration/scope; durable operational-state snapshot; authenticated Operator read route | Eight signal slots and three fields have concrete source implementations and wiring; event lag is process-owned, and the comparison source requires a qualified native group and full known window. Seven other signals and five fields remain unavailable. Canary age is not latest-attempt result/state; model API observations are not aggregate adapter health. Installed delivery/drill receipts remain open. |
+| Complete self-health exporter registry, alert delivery, and operational drills | in-progress | Complete signal policy; exact 15-signal and eight-field exporter registry; runtime sources; typed model-role registration/scope; durable operational-state snapshot; authenticated Operator read route | Up to nine signals/four fields on eligible AKS; otherwise eight/three. Six signals/four fields, additional native scheduler witnesses and installed delivery/drill receipts remain open. Event lag is process-owned; comparison requires the qualified native group and full known window. Age alone is not a canary result and model API observations are not aggregate adapter health. |
 | Correlation-based audit investigation and unified version/configuration exposure | implemented | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), `core/readiness/self_health_runtime.py`, and authenticated `GET /operations/runtime-state` | One sanitized contract now exposes version, configuration, rule effect, override, discovery, canary, kill-switch, break-glass, and all self-health states. Each field includes source, freshness, and an explicit unavailable state; the route grants no approval or execution authority. |
 | Pre-launch latency measurement and frozen-scenario replay | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), and focused tests | The primitives produce bounded measurements and release-gate results; an external load generator and deployment-specific budgets remain operator inputs. |
 | Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#verification-and-release-evidence) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
@@ -259,6 +272,7 @@ so no area is claimed as fully operationally validated.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-21 | implemented | Bound the independently observed AKS latest due occurrence to a complete canonical consumption sequence and one shared result/state observation. Added namespace-only metadata reads, explicit UTC protected templates, non-destructive concurrent index and replay/ABA/post-await deadline rejection. | `current change`; 153 focused source, actual loopback PostgreSQL, real producer/index/rollback, runtime persistence and deployment-contract checks passed; nine changed source modules passed mypy; locked signed-provider Terraform formatting/validation passed with no backend or Azure operation. Official Kubernetes CronJob and metadata-only API contracts were checked. | Additional scheduler witnesses, installed readback, complete H01 sources/delivery/drills and operational effects remain unqualified. Missing inputs never become a passing result; cancellation has no numeric measurement. No live Kubernetes/Azure/model request, deployment, promotion or execution-authority increase. |
 | 2026-10-20 | implemented | Corrected the preceding AKS-only publisher change's Container Apps scheduling regression using the documented built-in execution name. Explicit slots retain priority; ambiguous dual-platform metadata fails before provider access. | Current change; official Microsoft Learn built-in Jobs variables dated 2026-03-31; eight pre-repair ACA/ambiguity regressions failed; 83 focused offline cases, strict mypy on source/tests, and Ruff passed. | Supersedes the prior row's Container Apps identity gap only. Independent latest-scheduled-attempt observation, bounded canonical sequence projection and full result/state remain open under #2251. No live or deployment evidence is claimed. |
 | 2026-10-20 | implemented | Repaired minute-boundary retry identity changes by binding scheduled AKS canaries to the controller Job UID through the Downward API and protected template contract. Explicit `FDAI_CANARY_SLOT` inputs are unchanged; unbound scheduled publishers fail safely. | Current change; CLI, scheduled-job builder, protected template, Terraform wiring and regression tests; five pre-repair cases failed, then the focused offline canary/deployment cohort passed 80 tests. Strict mypy passed for all three touched source modules plus CLI tests; Terraform formatting passed. | Independent observation of the latest scheduled attempt, bounded canonical audit-sequence projection and full result/state remain open under #2251. Container Apps has no verified execution-identity binding here. No live or deployment evidence is claimed. |
 | 2026-10-20 | in-progress | Added canonical Core consumed-attempt starts and bounded failure/cancellation records while preserving the existing single-success audit contract and age-only runtime binding. | Current change; `_canary.py`, `test_canary_lifecycle.py`, `test_postgres_canary.py`, and `test_canary_cli.py`; four regressions failed before repair, then 62 focused offline/isolated-PostgreSQL cases passed. | #2251 still needs pinned schedule/source and independently witnessed retry-stable slots plus a bounded canonical audit-sequence projection. No live or deployment evidence is claimed. |
@@ -288,10 +302,11 @@ so no area is claimed as fully operationally validated.
 
 ### Remaining work
 
-- [ ] Complete #2251 with a pinned expected schedule/source, retry-stable scheduler identity,
-  and a bounded independently persisted audit-sequence projection; prove missing, malformed,
-  stale, truncated, failed and cancelled observations cannot reuse an earlier successful slot.
-  Keep `canary_result` and the canary operational-state field unavailable until that evidence exists.
+- [x] Implement #2251's bounded latest-result source with the pinned AKS schedule/controller
+  witness and complete canonical sequence; 153 focused checks cover every unavailable/nonpassing
+  case and prevent earlier-success reuse. Unsupported or unconfigured witnesses stay unavailable.
+- [ ] Bind and qualify additional native scheduler witnesses, including Container Apps, without
+  treating an execution name or publisher acceptance as proof of the latest due occurrence.
 - [x] Require the exact consumed canary audit entry within a 30-second numeric latency budget after
   publisher completion, rejecting ambiguous, malformed, unsettled, future-dated, or over-budget rows.
 - [ ] Retain a passing deployed canary receipt, replay the frozen shadow fixtures, exercise

@@ -22,6 +22,7 @@ from fdai.core.readiness.self_health_runtime import SelfHealthExporterRegistry
 from fdai.delivery.self_health_canary import ConsumedCanaryAgeExporter
 from fdai.delivery.self_health_exporters import unavailable_self_health_registry
 from fdai.shared.providers.self_health import (
+    OperationalStateFieldExporter,
     SelfHealthExporter,
     SelfHealthExporterUnavailableError,
     SelfHealthExportSample,
@@ -155,6 +156,8 @@ def runtime_self_health_registry(
     verifier_health_source: SelfHealthExporter | None = None,
     mixed_model_health_source: SelfHealthExporter | None = None,
     event_lag_source: SelfHealthExporter | None = None,
+    canary_result_source: SelfHealthExporter | None = None,
+    canary_state_source: OperationalStateFieldExporter | None = None,
 ) -> SelfHealthExporterRegistry:
     """Bind actual process-owned sources and retain every other unavailable binding."""
     unavailable = unavailable_self_health_registry(catalog)
@@ -170,6 +173,12 @@ def runtime_self_health_registry(
         signals[SelfHealthSignalName.MIXED_MODEL_DISAGREEMENT_RATE] = mixed_model_health_source
     if event_lag_source is not None:
         signals[SelfHealthSignalName.EVENT_LAG] = event_lag_source
+    if (canary_result_source is None) != (canary_state_source is None):
+        raise ValueError("scheduled canary result and state must share one composed observation")
+    if canary_result_source is not None:
+        signals[SelfHealthSignalName.CANARY_RESULT] = canary_result_source
+    if canary_state_source is not None:
+        fields[OperationalStateFieldName.CANARY] = canary_state_source
     signal = SelfHealthSignalName.READINESS_PROBE
     signals[signal] = RuntimeProbeSelfHealthExporter(
         signal, catalog.policies[signal].metric, "runtime:guarded-readiness", readiness

@@ -12,6 +12,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "cost-governance": ["/cost-governance/availability"],
   "aks-commerce": ["/aks-commerce/overview"],
   live: ["/live/stream"],
+  gpu: ["/live/stream"],
   incidents: ["/incidents"],
   "hil-queue": ["/hil-queue"],
   provision: ["/provision/stream"],
