@@ -104,8 +104,9 @@ class ArtifactStore(Protocol):
 class DirectoryArtifactStore:
     """Read ``releases/<digest>.json`` and ``configurations/<digest>.json`` below one root.
 
-    Each document has a sibling ``<digest>.sig`` file with the raw Ed25519 signature. A missing
-    signature file yields an unsigned artifact so the caller can reject it explicitly.
+    Legacy documents use a sibling ``<digest>.sig`` raw Ed25519 signature. A missing signature
+    yields an unsigned artifact for explicit rejection. Configuration CLI containers instead
+    carry their detached signature internally and require the existing private-file checks.
     """
 
     def __init__(self, root: Path) -> None:
@@ -122,7 +123,11 @@ class DirectoryArtifactStore:
         if payload is None:
             return None
         if kind == "configuration":
-            document = load_json(payload, label="configuration artifact")
+            try:
+                document = load_json(payload, label="configuration artifact")
+            except ValueError:
+                # A legacy artifact remains opaque until its detached signature is checked.
+                document = None
             if isinstance(document, dict) and document.get("format") == (
                 "fdai.lifecycle-configuration-file.v1"
             ):
@@ -310,7 +315,7 @@ def _verified_payload(
     store: ArtifactStore,
     verify_signature: ArtifactVerifier,
 ) -> bytes:
-    """Load the artifact and verify its signature over the exact bytes; nothing is parsed yet."""
+    """Verify exact signed payload bytes; the store may decode a bounded outer container."""
 
     try:
         artifact = store.load(kind, expected_digest)

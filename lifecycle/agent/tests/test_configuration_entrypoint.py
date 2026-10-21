@@ -16,6 +16,12 @@ from fdai_deployment_cli.contracts import canonical_digest
 
 from fdai_lifecycle_agent import cli
 from fdai_lifecycle_agent.hub_client import HttpHubClient
+from fdai_lifecycle_agent.inputs import (
+    DirectoryArtifactStore,
+    InputRejectedError,
+    verify_configuration,
+)
+from fdai_lifecycle_agent.signatures import Ed25519ArtifactVerifier
 
 if TYPE_CHECKING:
     from conftest import Harness
@@ -313,3 +319,33 @@ def test_native_entrypoint_cannot_bypass_prerequisites(
         assert json.loads(captured.out)["outcome"] == "rejected"
     else:
         assert reports == []
+
+
+@pytest.mark.parametrize(
+    ("signature", "reason"),
+    [
+        ("missing", "configuration_signature_missing"),
+        ("invalid", "configuration_signature_invalid"),
+        ("valid", "configuration_malformed"),
+    ],
+)
+def test_native_legacy_artifact_verifies_signature_before_rejecting_bad_json(
+    harness: Harness, tmp_path: Path, signature: str, reason: str
+) -> None:
+    configurations = tmp_path / "configurations"
+    configurations.mkdir()
+    payload = b"{malformed legacy JSON"
+    digest = harness.configuration_digest
+    (configurations / f"{digest}.json").write_bytes(payload)
+    if signature != "missing":
+        (configurations / f"{digest}.sig").write_bytes(
+            harness.configuration_key.sign(payload) if signature == "valid" else b"x" * 64
+        )
+    with pytest.raises(InputRejectedError) as rejected:
+        verify_configuration(
+            harness.plan(),
+            DirectoryArtifactStore(tmp_path),
+            Ed25519ArtifactVerifier(harness.configuration_key.public_key()),
+        )
+    assert rejected.value.reason_code == reason
+    assert rejected.value.retryable is False
