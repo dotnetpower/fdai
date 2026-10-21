@@ -5,7 +5,7 @@ description: Offline evidence and an integration plan for GPU monitoring through
 
 ## Scope and result
 
-FDAI can consume GPU observations as governed Events, investigate findings and propose
+FDAI can consume GPU observations as governed Events, investigate detected issues and propose
 recovery through its existing control loop. This evaluation validates the metric-to-Event
 and local report boundary, not a deployed agent system.
 
@@ -17,8 +17,8 @@ and local report boundary, not a deployed agent system.
 
 The baseline is upstream commit `f8a4208ef`, checked out on `gpu-monitoring`.
 The 54-case replay covers A10, T4 and H100 labels, two source mappings and nine scenarios:
-six healthy cases and 48 finding cases. The later synthetic observations clear the
-monitored conditions in those 48 cases; no actual remediation or hardware recovery is proven.
+six healthy cases and 48 cases with detected issues. The later synthetic observations clear the
+monitored conditions in those 48 cases; no actual recovery action or hardware recovery is proven.
 The owning suite has 54 passing tests. These are software contract tests, not physical
 certification of any GPU model.
 
@@ -26,7 +26,7 @@ certification of any GPU model.
 
 | Location | Responsibility relevant to this test |
 |----------|-------------------------------------|
-| `services/core-control-plane/src/fdai/` | Governed control loop, detection, trust routing, risk gate, agents and delivery adapters |
+| `services/core-control-plane/src/fdai/` | Governed control loop, detection, trust routing, safety checks, agents and delivery adapters |
 | `services/operator-service/` | Authenticated operator API; not executor authority |
 | `services/isolated-executor/` | Separated privileged execution service |
 | `services/document-ingestion-api/`, `services/document-processing-worker/` | Document evidence processing |
@@ -54,7 +54,7 @@ An exporter or GPU-capable agent must collect them.
 Start with the observability platform already operated by the team. Azure Monitor is a
 natural default for an Azure-only deployment; Datadog is appropriate when it already owns
 on-call monitoring. Normalize both into the same logical GPU observation contract rather
-than building two independent remediation paths.
+than building two independent recovery paths.
 
 ![GPU monitoring architecture and workflow: Azure Monitor or Datadog telemetry enters the governed FDAI sensing and decision path, then branches into advisory reporting or authorized recovery with independent effect observation, rollback and audit. The separate blue lane shows only the implemented offline replay.](gpu-monitoring-workflow.svg)
 
@@ -64,7 +64,7 @@ governed event-bus contracts, not direct agent calls.
 
 This is an integration design, not the execution trace of the replay. No new pantheon
 agent is needed. Agent cooperation stays on governed event-bus contracts. Bragi can render
-the explanation but cannot diagnose authoritatively or authorize remediation.
+the explanation but cannot diagnose authoritatively or authorize recovery actions.
 
 ### Azure Monitor path
 
@@ -103,7 +103,7 @@ The default policy is illustrative: five-minute windows, maximum 60-second sampl
 120-second freshness, utilization 95%, memory pressure 95%, temperature 85 C and allocated
 idle utilization at most 5%. Tune them by GPU/driver, workload SLO and business schedule.
 
-| Evidence | Local finding | Interpretation and safe next step |
+| Evidence | Local detected issue | Interpretation and safe next step |
 |----------|---------------|-----------------------------------|
 | Sustained utilization >=95% and rising queue depth | `gpu_util_saturated` | Capacity-pressure hypothesis; check latency SLO/quota before a scaling proposal |
 | Memory used / capacity >=95% | `alert_trigger`, memory pressure | Advisory, not OOM or a proven memory leak |
@@ -115,7 +115,7 @@ idle utilization at most 5%. Tune them by GPU/driver, workload SLO and business 
 | Allocated GPU remains <=5% busy for the complete window | `gpu_util_zero_wasted` | Idle advisory; investigate schedules, CPU/storage/network bottlenecks |
 | Empty, stale, sparse or incomplete baseline data | `insufficient_evidence` | No clean-health claim |
 
-Direct fresh XID/ECC/OOM/throttle evidence can emit a finding before a five-minute
+Direct fresh XID/ECC/OOM/throttle evidence can identify an issue before a five-minute
 utilization window exists. The report retains the coverage gap. Historical sticky XID
 codes and unchanged cumulative counters are not treated as new errors; this replay does
 not implement timestamped driver-log event ingestion or persistent edge state.
@@ -152,7 +152,7 @@ preserved in the Event, idempotency key and report, but it does not grant execut
 or turn a development diagnostic into a production collector.
 
 Follow-up verification requires a fresh, complete, non-overlapping later window for the
-same GPU/source identity and availability of the original finding's telemetry.
+same GPU/source identity and availability of the original detected issue's telemetry.
 `recovered_in_replay` means only that the monitored replay conditions cleared. Live
 development evidence uses `condition_cleared_in_followup` so it does not claim that an
 unexecuted recovery action caused the change.
@@ -191,7 +191,7 @@ Local evidence for this task:
    Confirm GPU SKU/driver/collector support, identity mapping, access and data residency.
 2. Bind the collector and secured ingress adapter. Verify named metric units, labels,
    missing-series behavior, counter resets, collection lag and duplicate/recovery messages.
-3. Register detectors/rules and accountable agent bindings in shadow mode. Verify actual
+3. Register detectors/rules and accountable agent bindings in observation mode. Verify actual
    EventBus delivery, incident lifecycle, correlation, audit and report notification.
 4. Run controlled saturation, VRAM pressure and idle workloads. Use replay or approved
    simulation for destructive GPU faults. Measure detection latency and false positives
@@ -200,7 +200,7 @@ Local evidence for this task:
    Do not issue a live model call without explicit authorization and a data-transfer review.
 6. Add only reviewed ActionTypes. Scaling, concurrency changes, restart/drain or resizing
    require current human authorization or valid standing authority, promotion, risk checks,
-   stop conditions, tested rollback, bounded blast radius, dry-run, target lock, idempotency
+   stop conditions, tested rollback, bounded impact scope, dry-run, target lock, idempotency
    and two-phase audit. GPU reset, arbitrary shell commands and deletion are not implemented.
 7. Verify effects independently after the change. Roll back or escalate failed/unknown
    outcomes. Deliver the notification and post-action report through FDAI's separately
