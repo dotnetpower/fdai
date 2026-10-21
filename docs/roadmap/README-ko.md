@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 88267e279f0bc30631670f30835f96f733e54b07
-translation_revised: 2026-10-15
+translation_source_sha: 6d03359e1ef7749705685896447aabe30bfd5336
+translation_revised: 2026-10-22
 ---
 # FDAI 로드맵
 
@@ -110,6 +110,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 20g | [source-deployment-ko.md](deployment/source-deployment-ko.md) | 클론에서 실행하는 단일 명령 소스 배포: 레지스트리 이미지 빌드, 패키지 없는 연속 실행, 키가 없을 때의 30일 Trial, 키 보유자 설치 사용권 |
 | 20h | [hub-managed-lifecycle-ko.md](deployment/hub-managed-lifecycle-ko.md) | 세 번째 설치 경로: Lifecycle Hub 배치, 설치 에이전트, Lifecycle Plan, 제약 조건, 드리프트, 고객 격리 |
 | 20i | [lifecycle-configuration-ko.md](deployment/lifecycle-configuration-ko.md) | 값 분류, 구성 계층, 고객 Git에서 만든 서명된 구성 패키지, 봉인된 식별자, 비밀 참조 |
+| 20i.1 | [lifecycle-configuration-publication-ko.md](deployment/lifecycle-configuration-publication-ko.md) | 검토나 Hub 수락을 추정하지 않는 로컬 출판 상태 보존, 정확한 재시도 증적 및 읽기 전용 검사 |
 | 20j | [lifecycle-releases-and-channels-ko.md](deployment/lifecycle-releases-and-channels-ko.md) | Release 매니페스트, release channel, 자동 업그레이드, 회수, 카탈로그 무결성, 스키마 호환성, 업그레이드 번들 |
 | 21 | [assurance-twin-ko.md](operations/assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / 평가를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, shadow 제안 |
 | 21a | [code-security-findings-ko.md](operations/code-security-findings-ko.md) | FDAI 레인, MDASH 및 기타 SARIF 생산자의 코드 보안 점검 결과: 근본 원인마다 하나의 심각도, 결정론적 우선순위, GitHub Copilot과 Claude Code용 대화형 조치 팩 |

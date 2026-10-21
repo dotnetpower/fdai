@@ -656,6 +656,7 @@ Those inputs authenticate history only and never establish current key permissio
 
 | To learn about | Read |
 |----------------|------|
+| Durable local publication without inferred Git review or Hub acceptance | [Local Configuration Publication](lifecycle-configuration-publication.md) |
 | Lifecycle architecture and Plans | [Hub-Managed Lifecycle](hub-managed-lifecycle.md) |
 | Releases, channels, and bundles | [Lifecycle Releases and Channels](lifecycle-releases-and-channels.md) |
 | Approval and admission policy | [Operator Governance Profiles](../decisioning/operator-governance-profiles.md) |

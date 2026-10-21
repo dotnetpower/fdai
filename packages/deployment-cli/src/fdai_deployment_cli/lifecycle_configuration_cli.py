@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import base64
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 from cryptography.exceptions import UnsupportedAlgorithm
@@ -13,7 +13,10 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
 
 from fdai_deployment_cli.cli_help import command, command_group
-from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.lifecycle_configuration_artifact import (
+    configuration_artifact_bytes as _encode,
+    read_configuration_artifact as _decode,
+)
 from fdai_deployment_cli.lifecycle_configuration_entities import (
     EntityConfigurationInput,
     InstallationConfigurationInput,
@@ -27,10 +30,12 @@ from fdai_deployment_cli.lifecycle_configuration_package import (
     verify_configuration_package,
     verify_installation_configuration_package,
 )
+from fdai_deployment_cli.lifecycle_configuration_publication_cli import (
+    register_publication_commands,
+)
 from fdai_deployment_cli.lifecycle_configuration_sealing import encryption_key_digest, read_object
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
 
-_FILE_FORMAT = "fdai.lifecycle-configuration-file.v1"
 _MAX_INPUT = 1024 * 1024
 _MAX_ARTIFACT = 2 * _MAX_INPUT
 _MAX_HISTORY = 256
@@ -43,7 +48,7 @@ def register_configuration_commands(
     group = command(
         commands,
         "configuration",
-        "Build or verify local signed configuration packages",
+        "Build, verify or publish local signed configuration packages",
         epilog="Local files only. No trust registration, qualified Release or deployment is created.",
     )
     operations = command_group(group)
@@ -114,6 +119,7 @@ def register_configuration_commands(
             )
         parser.add_argument("--output", choices=("text", "json"), default="text")
         parser.set_defaults(handler=_run, configuration_operation=operation)
+    register_publication_commands(operations, _execute)
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -142,7 +148,13 @@ def _run(args: argparse.Namespace) -> int:
     return 0
 
 
-def _execute(args: argparse.Namespace) -> SignedConfigurationPackage:
+def _execute(
+    args: argparse.Namespace,
+    *,
+    retained_history: Sequence[SignedConfigurationPackage] | None = None,
+    retained_package: SignedConfigurationPackage | None = None,
+    persist_output: bool = True,
+) -> SignedConfigurationPackage:
     release = read_object(_read(args.release_input))
     multi_entity = "entity_ids" in release
     _fields(
@@ -165,7 +177,13 @@ def _execute(args: argparse.Namespace) -> SignedConfigurationPackage:
         raise ValueError("configuration signing and installation encryption key types are invalid")
     if len(args.history) > _MAX_HISTORY:
         raise ValueError("configuration history exceeds its bound")
-    history = [_decode(_read(path, limit=_MAX_ARTIFACT)) for path in args.history]
+    history = (
+        list(retained_history)
+        if retained_history is not None
+        else [_decode(_read(path, limit=_MAX_ARTIFACT)) for path in args.history]
+    )
+    if len(history) > _MAX_HISTORY:
+        raise ValueError("configuration history exceeds its bound")
     head = history[-1].digest if history else None
     if args.initial_revision:
         if history:
@@ -216,7 +234,11 @@ def _execute(args: argparse.Namespace) -> SignedConfigurationPackage:
                 history=history,
             )
     else:
-        package = _decode(_read(args.package, limit=_MAX_ARTIFACT))
+        package = (
+            retained_package
+            if retained_package is not None
+            else _decode(_read(args.package, limit=_MAX_ARTIFACT))
+        )
     if multi_entity:
         verify_installation_configuration_package(
             package,
@@ -240,7 +262,7 @@ def _execute(args: argparse.Namespace) -> SignedConfigurationPackage:
         )
     if read_object(package.payload)["release_version"] != version:
         raise ValueError("package does not match the expected Release")
-    if args.configuration_operation == "build":
+    if args.configuration_operation == "build" and persist_output:
         content = _encode(package)
         write_private_bytes(args.destination, content)
         if read_private_bytes(args.destination, max_bytes=_MAX_ARTIFACT) != content:
@@ -282,27 +304,6 @@ def _entities(value: object) -> list[EntityConfigurationInput]:
             )
         )
     return result
-
-
-def _encode(package: SignedConfigurationPackage) -> bytes:
-    return canonical_bytes(
-        {
-            "format": _FILE_FORMAT,
-            "payload": base64.b64encode(package.payload).decode("ascii"),
-            "signature": base64.b64encode(package.signature).decode("ascii"),
-        }
-    )
-
-
-def _decode(content: bytes) -> SignedConfigurationPackage:
-    document = _fields(read_object(content), {"format", "payload", "signature"})
-    if document["format"] != _FILE_FORMAT:
-        raise ValueError("unsupported configuration artifact format")
-    payload = base64.b64decode(_text(document["payload"]), validate=True)
-    signature = base64.b64decode(_text(document["signature"]), validate=True)
-    if len(payload) > _MAX_INPUT or len(signature) != 64:
-        raise ValueError("configuration artifact payload or signature size is invalid")
-    return SignedConfigurationPackage(payload, signature)
 
 
 def _object(value: object) -> dict[str, object]:
