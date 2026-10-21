@@ -192,6 +192,7 @@ ignore = []
 "extensions/**/tests/**" = ["S101", "S105", "S106"]
 "lifecycle/**/tests/**" = ["S101", "S105", "S106"]
 "benchmarks/**/tests/**" = ["S101", "S104"]
+"eval/**/tests/**" = ["S101", "S105", "S106"]
 # Developer helper scripts shell out to `git` / `python3` with hardcoded
 # argument lists - the S6xx subprocess warnings assume attacker-controlled
 # input, which does not apply here.

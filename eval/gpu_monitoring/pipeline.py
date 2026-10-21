@@ -10,10 +10,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
 from uuid import NAMESPACE_URL, uuid5
 
+from eval.gpu_monitoring.models import Analysis, GpuSample, Policy
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.contracts.validation import ContractValidator
 
-from eval.gpu_monitoring.models import Analysis, GpuSample, Policy
+_DEFAULT_POLICY = Policy()
 
 
 class FindingPublisher(Protocol):
@@ -27,7 +28,9 @@ def _digest(value: object) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def analyze(samples: Sequence[GpuSample], *, now: datetime, policy: Policy = Policy()) -> Analysis:
+def analyze(
+    samples: Sequence[GpuSample], *, now: datetime, policy: Policy = _DEFAULT_POLICY
+) -> Analysis:
     """Analyze exactly one logical GPU/source window; incomplete evidence is explicit."""
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("now MUST include a timezone")

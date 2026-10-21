@@ -11,14 +11,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fdai.shared.contracts.models import Event
-from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
-from fdai.shared.contracts.validation import JsonSchemaContractValidator
-
 from eval.gpu_monitoring.models import Analysis, GpuSample, Policy
 from eval.gpu_monitoring.pipeline import analyze, publish_findings
 from eval.gpu_monitoring.providers import DCGM_METRICS, normalize_sample
 from eval.gpu_monitoring.reporting import build_report, verify_followup
+from fdai.shared.contracts.models import Event
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.contracts.validation import JsonSchemaContractValidator
 
 NOW = datetime(2026, 10, 14, tzinfo=UTC)
 
