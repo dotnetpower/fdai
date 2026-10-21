@@ -116,30 +116,17 @@ No publisher database permission is added.
 
 #### Independently witnessed AKS result
 
-The AKS source reads the exact configured CronJob and metadata-only Job list from the native
-API, not from the publisher. An explicit UTC schedule determines the latest due occurrence;
-the Kubernetes 1.32+ scheduled-timestamp annotation and current controller UID must identify
-exactly one Job for it. A missing, duplicate, suspended, malformed or truncated observation
-stays unavailable. Older Jobs and controller generations cannot supply the latest result.
-The reader bounds each response to 256 KiB and one complete list to 16 Jobs, without pagination
-or retries. A namespace-local Role permits only `get` on the named CronJob and `list` on Jobs.
-It grants no workload mutation, Secret read, executor or publisher database permission.
+The source combines independent native scheduling metadata and canonical consumption, never publisher acceptance.
+The critique and resulting boundaries are:
 
-Core reads at most 64 canonical audit rows plus one truncation witness for that exact native
-execution. Every row must have consistent identity and hash, increasing sequence and nondecreasing time; each
-retry needs one unique start followed by its matching terminal. An unresolved or overlapping
-retry cannot borrow an earlier success. Confirmed failure is a nonpassing result; cancellation
-has no numeric result and an explicit unavailable `canary_cancelled` state. Original observation
-time is preserved. Unsupported sources, including unqualified Container Apps schedule witnesses,
-remain unavailable rather than being inferred from execution names.
-
-Critique closes the gaps between metadata, audit read and publication: re-read CronJob generation
-around the Job list, compare independent scheduler witnesses before and after the database read,
-and reject a changed occurrence or the exclusive next-slot deadline after the final await.
-Result and state share one bounded collection, including its failure; they do not independently
-retry a provider failure. Replayed collection times and clock regression cannot replay a Healthy result.
-Existing freshness, read authorization, approval, promotion and execution
-boundaries remain unchanged. Local source checks do not qualify an installed runtime or live drill.
+| Boundary | Source contract |
+|---|---|
+| Native witness | Read the configured CronJob and metadata-only Job list. Its explicit UTC schedule, Kubernetes 1.32+ scheduled-timestamp annotation and current controller UID must identify exactly one latest-due Job. Missing, duplicate, suspended, malformed or truncated observations remain unavailable; older Jobs or controller generations cannot substitute. |
+| Access and transfer | A namespace-local Role grants only named-CronJob `get` and Job `list`, without workload mutation, Secret read, executor or publisher database permissions. Limit each response to 256 KiB and the complete list to 16 Jobs, without pagination or retries. |
+| Canonical sequence | Read at most 64 audit rows plus one truncation witness for that exact execution. Validate identity, hashes, increasing sequence, nondecreasing time, and each unique start/matching terminal. Unresolved or overlapping retries cannot borrow an earlier success. |
+| Result and state | Preserve original observation time. Confirmed consumption failure is nonpassing; cancellation has no numeric result and an explicit unavailable `canary_cancelled` state. Unsupported sources, including unqualified Container Apps witnesses, remain unavailable, not inferred from execution names. |
+| Critique and currentness | Re-read CronJob generation around the Job list and independent scheduler witnesses around the database read. After the final await, reject a changed occurrence or the exclusive next-slot deadline. Replayed collection times and clock regression cannot replay Healthy. Result and state share one bounded collection, including failure, without independent provider retries. |
+| Qualification | Existing freshness, read authorization, approval, promotion and execution boundaries remain unchanged. Local checks are source implementation, not installed-runtime qualification or a live drill. |
 
 #### Retry-stable publisher identity
 
