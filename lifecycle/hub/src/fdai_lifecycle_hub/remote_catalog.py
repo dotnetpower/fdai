@@ -25,6 +25,7 @@ from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES, load_pinned_expo
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import PlanOutcome
+from fdai_lifecycle_hub.migrations import require_writable_schema
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
 
@@ -185,6 +186,7 @@ class RemoteCatalog:
     def approve(self, pin: PinApproval, *, actor: str, now: datetime) -> None:
         """A customer operator supplies a pin from a separately approved channel, never an ETag."""
         with self.engine.begin() as connection:
+            require_writable_schema(connection)
             row = self._locked(connection)
             if pin.revision < max(row["floor"], row["approval_revision"]):
                 raise ValueError("Catalog approval revision moved backwards.")
@@ -210,12 +212,15 @@ class RemoteCatalog:
 
     def import_once(self, *, actor: str, now: datetime) -> dict[str, Any]:
         started = time.monotonic()
+        with self.engine.connect() as connection:
+            require_writable_schema(connection)
         # Do not make a network request without an approved trust-channel input.
         before = self.status()
         if before["approved_sha256"] is None:
             raise ValueError("Approve an independently obtained exact pin before importing.")
         raw = self.fetch(self.source)
         with self.engine.begin() as connection:
+            require_writable_schema(connection)
             row = self._locked(connection)
             if (
                 before["approved_revision"] != row["approval_revision"]
@@ -300,6 +305,7 @@ class RemoteCatalog:
     ) -> dict[str, Any]:
         started = time.monotonic()
         with self.engine.begin() as connection:
+            require_writable_schema(connection)
             row = self._local_locked(connection)
             effective_now = now + timedelta(seconds=time.monotonic() - started)
             admitted = self._accepted(row, effective_now)
@@ -366,6 +372,7 @@ class RemoteCatalog:
         failure: KeyBindingError | None = None
         result: T | None = None
         with self.engine.begin() as connection:
+            require_writable_schema(connection)
             row = self._locked(connection)
             effective_now = now + timedelta(seconds=time.monotonic() - started)
             admitted = self._curated(connection, row, effective_now)[0]
@@ -459,6 +466,7 @@ def bind_catalog(engine: Engine, source: CatalogSource, *, actor: str, reason: s
             connection.execute(text("SELECT pg_advisory_xact_lock(hashtext('lifecycle_hub'))"))
         elif engine.dialect.name == "sqlite":
             connection.exec_driver_sql("BEGIN IMMEDIATE")
+        require_writable_schema(connection)
         row = connection.execute(select(trust_state).with_for_update()).mappings().one_or_none()
         if row is not None:
             if row["key_digest"] != source.key_digest:
