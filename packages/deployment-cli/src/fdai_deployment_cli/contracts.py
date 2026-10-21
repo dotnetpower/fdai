@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -284,6 +285,7 @@ def load_json_object(
                 data.decode("utf-8"),
                 object_pairs_hook=_unique_json_object,
                 parse_constant=_reject_json_constant,
+                parse_float=_finite_json_float,
             )
             if strict
             else json.loads(data)
@@ -306,3 +308,10 @@ def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 def _reject_json_constant(value: str) -> object:
     raise ValueError("non-finite JSON number")
+
+
+def _finite_json_float(value: str) -> float:
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("non-finite JSON number")
+    return number

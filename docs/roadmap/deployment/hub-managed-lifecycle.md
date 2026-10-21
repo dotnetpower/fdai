@@ -52,8 +52,8 @@ branches. The [Release contract](lifecycle-releases-and-channels.md#application-
 owns field bounds and optional configuration/database schema metadata. Without database metadata,
 schema revision zero represents a stateless application, not migration or database-reset authority.
 
-The approved enrollment Settings and installation-local Agent policy each bind `product`.
-Neither a package nor a Plan may choose this binding. A missing or different binding blocks the
+The operator-bound Hub Settings and installation-local Agent policy each bind `product`.
+Enrollment cannot set this binding; neither can a package or Plan. A missing or different binding blocks the
 application package. Existing installations without this field retain only legacy runtime-package
 compatibility; explicit application bindings never fall back to that path. The legacy runtime
 parser still validates complete FDAI inventories for source/offline compatibility.
@@ -71,7 +71,7 @@ Agent local policy remains independent; see the [operator procedure](../../runbo
 permit cross-application substitution and omit health observation. Independent product bindings,
 signed component/health metadata and strict JSON retain exact signatures, version/digest checks,
 artifact availability, recall, windows, ownership, dry-run, rollback and durable replay guards.
-There are no application-specific flags or Entity kinds. Packages never prove ownership.
+Application packages reject legacy workload profiles. Packages never prove ownership or select app-specific flags or Entity kinds.
 Arbitrary Kubernetes templates, privileges, namespace creation, new ownership evidence and
 database migration execution remain outside this change.
 

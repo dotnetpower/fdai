@@ -6,6 +6,7 @@ import hashlib
 from collections.abc import Mapping
 
 from fdai_deployment_cli.lifecycle_plan import LifecyclePlan
+from fdai_deployment_cli.lifecycle_release import APPLICATION_RELEASE_SCHEMA
 
 from fdai_lifecycle_agent.inputs import VerifiedConfiguration, VerifiedRelease
 from fdai_lifecycle_agent.journal import WorkloadStore
@@ -22,6 +23,7 @@ def validate_entity_configuration(
     plan: LifecyclePlan,
 ) -> None:
     """Validate public workload intent with private reference inputs, independently per Entity."""
+    _validate_release_profile(release, configuration)
     if not configuration.entity_values and "workload_profile" in configuration.values:
         validate_profile(
             configuration.values,
@@ -100,6 +102,7 @@ def prepare_workload(
     store: WorkloadStore,
 ) -> tuple[tuple[Manifest, ...], tuple[Manifest, ...]]:
     """Render and dry-run the existing workload shapes before the intent journal is written."""
+    _validate_release_profile(release, configuration)
     try:
         images = {
             (entity, component): f"{component_repositories[component]}"
@@ -139,3 +142,13 @@ def prepare_workload(
     previous = tuple(healthy[key] for key in map(object_key, desired) if key in healthy)
     workload.preflight(desired, previous)
     return desired, previous
+
+
+def _validate_release_profile(
+    release: VerifiedRelease, configuration: VerifiedConfiguration
+) -> None:
+    values = (configuration.values, *configuration.entity_values.values())
+    if release.schema_version == APPLICATION_RELEASE_SCHEMA and any(
+        "workload_profile" in value for value in values
+    ):
+        raise WorkloadError("application_workload_profile_unsupported")

@@ -23,7 +23,7 @@ APPLICATION_RELEASE_SCHEMA = "fdai.application-release.v1"
 LIFECYCLE_RELEASE_SCHEMAS = frozenset({"fdai.runtime-release.v3", APPLICATION_RELEASE_SCHEMA})
 LIFECYCLE_IMAGE_SECTIONS = ("services", "sidecars", "installation_agents", "workloads")
 _IDENTIFIER = re.compile(r"[a-z][a-z0-9-]{0,62}\Z", re.ASCII)
-_COMPONENT = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\Z", re.ASCII)
+_COMPONENT = re.compile(r"[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?\Z", re.ASCII)
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z", re.ASCII)
 _FIELDS = frozenset(
     {"schema_version", "product", "release_version", "source_commit", "platform_tag", "workloads"}

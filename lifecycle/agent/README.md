@@ -104,6 +104,8 @@ local authority. An omitted product retains only legacy runtime compatibility.
 Map each already-owned Entity to its named components and approved image repositories.
 Signed `port`, `health_path` and `replicas` reach the existing Deployment/ClusterIP Service renderer.
 No application-specific flag, Entity kind, arbitrary template or permission is added.
+Application packages reject `workload_profile` in flat and per-Entity configuration before rendering;
+only a legacy runtime package can select the legacy Operator renderer and its schema-check Job.
 Absent database metadata means schema revision zero, not permission to reset a database.
 See the [package contract](../../docs/roadmap/deployment/lifecycle-releases-and-channels.md#application-package-contract)
 for bounds. Ownership, dry run, independent rollout observation, rollback and durable replay guards

@@ -241,6 +241,7 @@ this capability is unavailable, not an unbound installation.
 Binding changes only the allowed application ID and attributed audit. It does not prove namespace
 ownership, add permissions, replace configuration, compute a Plan or deploy a workload.
 Agent local policy and the package's `product` must independently match this binding.
+Enrollment requests must leave `settings.product` unset; bind it here only after enrollment approval.
 
 ### D. Plan, then apply only when the missing prerequisites are resolved
 

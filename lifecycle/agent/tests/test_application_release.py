@@ -11,8 +11,13 @@ from fdai_deployment_cli.lifecycle_release import APPLICATION_RELEASE_SCHEMA
 
 from fdai_lifecycle_agent.agent import AgentSettings, LifecycleAgent
 from fdai_lifecycle_agent.cli import LOCAL_POLICY_SCHEMA, load_local_policy
+from fdai_lifecycle_agent.configuration_rendering import (
+    prepare_workload,
+    validate_entity_configuration,
+)
 from fdai_lifecycle_agent.dry_run import EntityState, Health, load_current_state
-from fdai_lifecycle_agent.inputs import SignedArtifact
+from fdai_lifecycle_agent.inputs import SignedArtifact, verify_configuration, verify_release
+from fdai_lifecycle_agent.workload import WorkloadError
 
 if TYPE_CHECKING:
     from conftest import FakeCluster, Harness
@@ -113,6 +118,86 @@ def test_independent_local_binding_blocks_a_wrong_or_unbound_product(
     ).poll_once()
     assert (result.outcome, result.reason_code) == ("rejected", "release_product_mismatch")
     assert cluster.writes() == []
+
+
+@pytest.mark.parametrize("entity_scoped", [False, True])
+@pytest.mark.parametrize("entrypoint", ["admission", "preflight"])
+def test_verified_application_packages_never_dispatch_to_legacy_profiles(
+    harness: Harness, cluster: FakeCluster, entity_scoped: bool, entrypoint: str
+) -> None:
+    settings = prepare(harness, components=("operator-service",))
+    references = {
+        "workload_profile": "operator-service-v1",
+        "operator_config_map_name": "operator-config-v1",
+        "operator_database": {"secret_name": "operator-database-v1"},
+        "schema_database": {"secret_name": "schema-reader-v1"},
+        "replicas": 1,
+    }
+    configuration_digest = harness.add_configuration(
+        {
+            "schema": {
+                key: {
+                    "default": value,
+                    "x-fdai-axis": "installation-path",
+                    "x-fdai-owner": "customer",
+                }
+                for key, value in references.items()
+            },
+            "environment": {},
+            "entity_overrides": [{"versions": ">=1.0.0 <2.0.0", "values": {}}],
+        }
+    )
+    plan = harness.serve(
+        harness.plan(
+            entity_ids=frozenset({"application"}),
+            capability_ids=(),
+            envelope=settings.maximum_envelope,
+            target_release_digest=release(
+                harness, components=("operator-service", "core-control-plane")
+            ),
+            configuration_revision_digest=configuration_digest,
+        )
+    )
+    dependencies = harness.dependencies()
+    verified = verify_release(
+        plan, harness.store, dependencies.verify_release_signature, product="example-web"
+    )
+    configuration = verify_configuration(
+        plan, harness.store, dependencies.verify_configuration_signature
+    )
+    assert verified.schema_version == APPLICATION_RELEASE_SCHEMA
+    if entity_scoped:
+        configuration = replace(
+            configuration,
+            values={},
+            entity_values={"application": configuration.values},
+            render_values={"application": configuration.values},
+        )
+    apply = harness.apply_mode(cluster)
+    with pytest.raises(WorkloadError, match="application_workload_profile_unsupported"):
+        if entrypoint == "admission":
+            validate_entity_configuration(
+                configuration,
+                settings.entity_components,
+                current_schema=0,
+                release=verified,
+                plan=plan,
+            )
+        else:
+            prepare_workload(
+                plan,
+                verified,
+                configuration,
+                entity_components=settings.entity_components,
+                component_repositories={
+                    **settings.component_repositories,
+                    "core-control-plane": "registry.example.test/application/core",
+                },
+                workload=apply.workload,
+                store=apply.store,
+            )
+    assert cluster.calls == []
+    assert apply.store.load().journal is None
 
 
 @pytest.mark.parametrize("tamper", ["payload", "signature"])

@@ -1,7 +1,7 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: febd9ea910fb926de32679a3066dacefaa78f148
+translation_source_sha: cd47626cabd9188ffd04ed050559c0870887d6ad
 translation_revised: 2026-10-21
 ---
 # Hub 수명 주기 운영자 가이드
@@ -246,6 +246,7 @@ fdai-lifecycle-agent stage-input --kind release \
 앱 고정은 허용하는 앱 ID와 행위자가 명시된 감사 기록만 바꿉니다. 네임스페이스 소유권을
 증명하거나 권한 추가, 구성 교체, 계획 계산, 워크로드 배포를 수행하지 않습니다.
 Agent 로컬 정책과 패키지의 `product`도 이 값과 독립적으로 일치해야 합니다.
+등록 요청은 `settings.product`를 지정하지 않아야 합니다. 등록 승인 후 이 화면에서 고정하세요.
 
 ### D. 부족한 선행 조건을 해결한 뒤 계획과 적용 진행
 

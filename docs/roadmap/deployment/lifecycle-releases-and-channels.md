@@ -88,16 +88,16 @@ selection use the same path for every `product`; a channel does not grant produc
 | `schema_version` | `fdai.application-release.v1` |
 | `product` | Independent application ID: `[a-z][a-z0-9-]{0,62}` |
 | `release_version`, `source_commit`, `platform_tag` | Semantic version, exact application source revision and artifact platform |
-| `workloads` | 1-64 named HTTP components; each name is a Kubernetes DNS label |
+| `workloads` | 1-64 named HTTP components; each name is a Service-compatible DNS label starting with a lowercase letter |
 | `workloads.<component>.image_digest` | Required immutable `sha256:` image digest |
 | `workloads.<component>.port` | Integer 1-65535; default 8080 |
 | `workloads.<component>.health_path` | Bounded ASCII absolute readiness path, not a URL or `//` path; default `/` |
 | `workloads.<component>.replicas` | Integer 1-3; default 1 |
 | `configuration_schema`, `schema` | Optional existing version/digest-bound configuration schema and database compatibility metadata |
 
-Strict UTF-8 JSON rejects duplicate keys and nonfinite numbers. Unknown workload fields cannot
-inject Kubernetes templates, privileges or namespace selection. The current renderer produces
-only bounded Deployments and ClusterIP Services; this is not arbitrary application orchestration.
+Strict UTF-8 JSON rejects duplicate keys and nonfinite numbers, including exponent overflow.
+Unknown fields cannot inject templates, privileges or namespaces. Legacy workload profiles are
+blocked; application rendering produces only bounded Deployments and ClusterIP Services.
 Missing supply-chain evidence is displayed as **Not declared**, not manufactured or verified.
 The product must match both independently approved installation Settings and local Agent policy.
 Missing database metadata selects revision zero and cannot reset an existing database.

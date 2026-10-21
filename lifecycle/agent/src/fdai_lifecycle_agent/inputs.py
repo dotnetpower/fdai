@@ -176,7 +176,7 @@ def stage_artifact(
 
 @dataclass(frozen=True, slots=True)
 class VerifiedRelease:
-    """A signature-verified, fully validated ``fdai.runtime-release.v3`` manifest."""
+    """A signature-verified lifecycle manifest, retaining its renderer boundary."""
 
     digest: str
     component_images: Mapping[str, str]
@@ -186,6 +186,7 @@ class VerifiedRelease:
     schema_maximum: int | None = None
     configuration_schema: ConfigurationSchema | None = None
     workloads: Mapping[str, HttpWorkload] = field(default_factory=dict)
+    schema_version: str = "fdai.runtime-release.v3"
 
     def maximum_envelope(self, local: LifecycleEffectEnvelope) -> LifecycleEffectEnvelope:
         """Return the maximum envelope derived from local hard policy and this signed Release.
@@ -277,6 +278,7 @@ def verify_release(
         schema_maximum=None if release.schema_range is None else release.schema_range.maximum,
         configuration_schema=release.configuration_schema,
         workloads=release.workloads if isinstance(release, ApplicationRelease) else {},
+        schema_version=release.schema_version,
     )
 
 
