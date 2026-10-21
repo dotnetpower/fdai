@@ -10,7 +10,7 @@ from threading import Barrier
 import pytest
 from fdai_deployment_cli.contracts import canonical_bytes
 from lifecycle.hub.tests.test_remote_catalog import approve, source_for, vendor_for
-from sqlalchemy import create_engine, inspect, select, text
+from sqlalchemy import MetaData, create_engine, inspect, select, text
 
 from fdai_lifecycle_hub import local_channels, models
 from fdai_lifecycle_hub.domain import Issued
@@ -271,6 +271,14 @@ def test_concurrent_curation_uses_one_revision_and_preserves_one_actor(local, ca
 def test_explicit_revision_three_upgrade_is_additive_and_required(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'revision3.db'}")
     with engine.begin() as connection:
+        legacy = MetaData()
+        for table in models.Base.metadata.sorted_tables:
+            table.to_metadata(legacy)
+        legacy.tables["lifecycle_entity_reported_state"].c.release_id.nullable = False
+        legacy.create_all(connection)
+        connection.exec_driver_sql(
+            "ALTER TABLE lifecycle_state_report DROP COLUMN available_artifact_digests"
+        )
         connection.exec_driver_sql(
             "CREATE TABLE lifecycle_hub_schema_revision (revision INTEGER PRIMARY KEY)"
         )
@@ -283,7 +291,7 @@ def test_explicit_revision_three_upgrade_is_additive_and_required(tmp_path):
     require_schema(engine, "lifecycle_hub")
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT value FROM retained_marker")) == "preserved"
-        assert connection.scalar(text("SELECT revision FROM lifecycle_hub_schema_revision")) == 4
+        assert connection.scalar(text("SELECT revision FROM lifecycle_hub_schema_revision")) == 5
         assert inspect(connection).has_table(entries.name)
     migrate(engine, "lifecycle_hub", lambda _: pytest.fail("Repeated migration must be idempotent"))
 

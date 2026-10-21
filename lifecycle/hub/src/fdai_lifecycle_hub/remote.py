@@ -285,7 +285,7 @@ def _run() -> None:
         source = config.catalog
 
         def initialize_target(connection: Connection) -> None:
-            if models.stale_tables(engine):
+            if models.stale_tables(connection):
                 raise ValueError(
                     "Earlier Lifecycle Hub schema requires an explicit data migration."
                 )

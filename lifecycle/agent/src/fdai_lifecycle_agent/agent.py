@@ -486,6 +486,7 @@ class LifecycleAgent:
             entities,
             schema_revision=current.schema_revision,
             observed_at=max(self._deps.clock(), current.observed_at + _MIN_STATE_STEP),
+            available_artifact_digests=current.available_artifact_digests,
         )
         done = replace(journal, phase="done", result=result, snapshot=snapshot)
         workload_state = WorkloadState(healthy=tuple(healthy), journal=done)

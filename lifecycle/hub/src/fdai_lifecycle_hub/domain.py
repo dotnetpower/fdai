@@ -127,17 +127,21 @@ class Health(StrEnum):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EntityState:
-    release_id: str
+    release_id: str | None
     artifact_digests: frozenset[str]
     health: Health
 
     def __post_init__(self) -> None:
-        if len(self.release_id) > MAX_RELEASE_ID_LENGTH or not is_release_id(self.release_id):
+        if self.release_id is not None and (
+            len(self.release_id) > MAX_RELEASE_ID_LENGTH or not is_release_id(self.release_id)
+        ):
             raise ValueError(
                 f"release id is not canonical SemVer of at most {MAX_RELEASE_ID_LENGTH} characters:"
                 f" {self.release_id!r}"
             )
         Health(self.health)  # Rejects an unknown health value.
+        if self.release_id is None and (self.artifact_digests or self.health == Health.HEALTHY):
+            raise ValueError("an uninstalled entity cannot report installed artifacts or health")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -152,6 +156,7 @@ class ReportedState:
     schema_revision: int
     entities: Mapping[str, EntityState]
     observed_at: datetime
+    available_artifact_digests: frozenset[str] | None = None
 
     def __post_init__(self) -> None:
         if not _SHA256_HEX.fullmatch(self.digest):
@@ -160,14 +165,26 @@ class ReportedState:
             raise ValueError("schema revision is out of range")
         if self.observed_at.tzinfo is None:
             raise ValueError("observed_at must be timezone-aware")
+        if self.available_artifact_digests is not None and any(
+            re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
+            for digest in self.available_artifact_digests
+        ):
+            raise ValueError("available artifact digests must be sha256:<hex>")
 
-    def current_release(self, entity_ids: frozenset[str]) -> str:
-        """The oldest Release among `entity_ids`, so a partial upgrade plans from the laggard."""
+    def current_release(self, entity_ids: frozenset[str]) -> str | None:
+        """The oldest installed Release, or None when a selected Entity is not installed."""
 
-        releases = (self.entities[entity_id].release_id for entity_id in entity_ids)
-        return min(releases, key=cmp_to_key(compare_release_ids))
+        releases: list[str] = []
+        for entity_id in entity_ids:
+            release_id = self.entities[entity_id].release_id
+            if release_id is None:
+                return None
+            releases.append(release_id)
+        return min(releases, key=cmp_to_key(compare_release_ids), default=None)
 
     def artifact_digests(self) -> frozenset[str]:
+        if self.available_artifact_digests is not None:
+            return self.available_artifact_digests
         return frozenset().union(*(state.artifact_digests for state in self.entities.values()))
 
 
@@ -303,7 +320,7 @@ class Installation:
         return frozenset(entity.entity_id for entity in self.entities if entity.managed)
 
     @property
-    def current_release(self) -> str:
+    def current_release(self) -> str | None:
         return self.reported.current_release(self.managed_entity_ids)
 
     def maintenance_windows(self, now: datetime) -> tuple[MaintenanceWindow, ...]:
