@@ -740,6 +740,12 @@ additive migrations in one locked transaction, retains the original reader floor
 changes application data, accepts ownership, or advances the floor. Preparation is safe to
 repeat; interruption rolls back both its structure and preparation record.
 
+SQLite writers begin their real database write transaction before checking preparation metadata
+and hold it through the write. A borrowed transaction remains under its caller's control.
+After completion, recovery inspection validates and fingerprints both supported version-table
+layouts: revision only, or revision plus a nullable integer preparation column. Unknown columns
+and incompatible types remain blocked.
+
 Use the existing service-owned migration job for these stages, not a local remote-database DSN:
 
 1. Run `python -m fdai_lifecycle_hub.remote prepare`. Verify that the old server remains ready

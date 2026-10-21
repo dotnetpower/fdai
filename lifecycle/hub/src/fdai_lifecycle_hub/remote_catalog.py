@@ -25,7 +25,7 @@ from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES, load_pinned_expo
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import PlanOutcome
-from fdai_lifecycle_hub.migrations import require_writable_schema
+from fdai_lifecycle_hub.migrations import begin_sqlite_write, require_writable_schema
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
 
@@ -166,8 +166,7 @@ class RemoteCatalog:
         self.engine, self.source, self.fetch = engine, source, fetch
 
     def _locked(self, connection: Connection) -> RowMapping:
-        if self.engine.dialect.name == "sqlite":
-            connection.exec_driver_sql("BEGIN IMMEDIATE")
+        begin_sqlite_write(connection)
         row = (
             connection.execute(select(trust_state).where(trust_state.c.id == 1).with_for_update())
             .mappings()

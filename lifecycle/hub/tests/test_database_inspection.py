@@ -9,12 +9,13 @@ from uuid import uuid4
 
 import pytest
 from azure.core.exceptions import AzureError
+from lifecycle.hub.tests.test_prepared_migration import legacy_schema, no_initialization
 from sqlalchemy import MetaData, create_engine, event, inspect, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import InternalError, ProgrammingError
 
 from fdai_lifecycle_hub import database_inspection as check
-from fdai_lifecycle_hub.migrations import migrate
+from fdai_lifecycle_hub.migrations import _versions, migrate
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("FDAI_DATABASE_URL"), reason="Use with-local-test-database.py (5433)."
@@ -53,6 +54,39 @@ def initialize(engine, kind):
         metadata.create_all(connection)
 
     migrate(engine, namespace, create)
+
+
+@pytest.mark.parametrize("revision", [1, 5])
+def test_completed_preparation_remains_inspectable(database, revision):
+    engine, _, schema = database
+    initialize(engine, "target")
+    before = check.observe(engine, "target", "source")
+    with engine.begin() as connection:
+        _versions("lifecycle_hub").drop(connection)
+    legacy_schema(engine, revision)
+    migrate(engine, "lifecycle_hub", no_initialization, prepare=True)
+    migrate(engine, "lifecycle_hub", no_initialization)
+    baseline = check.observe(engine, "target", "source")
+    version = "lifecycle_hub_schema_revision"
+    assert baseline.tables[version].rows == 1
+    assert baseline.tables[version].columns_sha256 != before.tables[version].columns_sha256
+    assert baseline.tables[version].sample_sha256 != before.tables[version].sample_sha256
+    alternate = create_engine(
+        engine.url.set(host="localhost" if engine.url.host != "localhost" else "127.0.0.1"),
+        connect_args={"options": f"-csearch_path={schema}"},
+        hide_parameters=True,
+    )
+    try:
+        restored = check.observe(alternate, "target", "restored", baseline)
+        assert restored.tables == baseline.tables
+    finally:
+        alternate.dispose()
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "ALTER TABLE lifecycle_hub_schema_revision ALTER COLUMN prepared_revision TYPE BIGINT"
+        )
+    with pytest.raises(check.InspectionError, match="schema_column_type_mismatch"):
+        check.observe(engine, "target", "source")
 
 
 ROUTING_OVERRIDES = [

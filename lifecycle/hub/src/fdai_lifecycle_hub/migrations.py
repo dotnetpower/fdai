@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 from collections.abc import Callable
 from contextlib import nullcontext
 
@@ -121,6 +122,7 @@ def _prepared_revision(connection: Connection, versions: Table) -> int | None:
 
 def require_writable_schema(connection: Connection) -> None:
     """Fence new writers during preparation without changing unversioned or legacy CLI behavior."""
+    begin_sqlite_write(connection)
     versions = _versions("lifecycle_hub")
     if not inspect(connection).has_table(versions.name):
         return
@@ -134,6 +136,17 @@ def require_writable_schema(connection: Connection) -> None:
             "Hub schema migration is pending; complete explicit migrate before writes."
         )
     raise ValueError("Unsupported Hub schema revision; migrate before writing.")
+
+
+def begin_sqlite_write(connection: Connection) -> None:
+    """Hold SQLite writer admission through commit without resetting an inherited transaction."""
+    if connection.dialect.name != "sqlite":
+        return
+    driver = connection.connection.driver_connection
+    if not isinstance(driver, sqlite3.Connection):
+        raise ValueError("Hub SQLite writes require the sqlite3 driver.")
+    if not driver.in_transaction:
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
 
 
 def _empty_state_migration(connection: Connection) -> None:
