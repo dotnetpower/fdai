@@ -1,1 +1,6 @@
-vulnerabilities: []
+vulnerabilities:
+  - id: CVE-2026-111943
+    paths:
+      - usr/local/bin/opa
+    statement: Go 1.27.2 crypto/x509 finding in the OPA build. FDAI invokes OPA only as a local `opa eval --stdin-input` subprocess, and no shipped policy calls http.send, so OPA opens no outbound TLS connection. A Go 1.27.3 rebuild changes every Rule revision identity and awaits a Rule-governance decision; remove this entry when the rebuild lands (#2383).
+    expired_at: 2026-11-12
