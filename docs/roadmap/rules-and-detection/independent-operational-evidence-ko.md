@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: bb57c4d72688a94cfa3b95fc3c7984982d981acd
+translation_source_sha: def0e43c5976432321e6feb45c985e79e51255dc
 translation_revised: 2026-10-21
 ---
 # 독립 운영 근거 발급
@@ -29,6 +29,11 @@ translation_revised: 2026-10-21
 > 어떤 에이전트의 `owns`나 `subscribes`도 바꾸지 않으며, 실행 권한이나 승격 권한을 부여하지 않습니다.
 
 ## 설계 요약
+
+Core의 비공개 설치 사용권 토큰과 수락 감사 기록은 로컬 사용권 수락만 확인하며, 운영 증거나
+실행 권한을 제공하지 않습니다.
+[사용권 전달](../deployment/hub-managed-lifecycle-entitlement-ko.md)은 증거 발급자, 원본 등록,
+`DecisionEvidenceAdmission` 또는 독립적인 효과 관측을 추가하지 않습니다.
 
 Core는 비공개 의도, 계보, 게시 복구를 위해 `document_intent_projection`,
 `document_intent_transition`, `document_intent_resource`를 소유하며, 이 테이블은 독립적인

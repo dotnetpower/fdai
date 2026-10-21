@@ -15,6 +15,11 @@ The worker-owned document-intent envelope and its Core-private graph are not rep
 sources. Their migration ownership and bootstrap wiring add no report, widget, renderer or write
 route.
 
+Core's private accepted installation-entitlement token and acceptance audit are not report
+datasources. Their [licensing handoff](../deployment/hub-managed-lifecycle-entitlement.md)
+adds no report route or Operator access to either table; the existing licensing notice remains
+the presentation boundary. An acceptance receipt is not an operational result.
+
 Read-only by contract. Every route is a `GET`; no widget executes
 anything. The subsystem is the read half of the same console that never
 holds the executor identity
@@ -624,6 +629,7 @@ never crash serialization or misorder a chart. Each item is covered in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-21 | not-applicable | Distinguished Core-private installation-entitlement acceptance storage from report datasources and Operator access. No report surface changes. | Current paired owning note; #2352; licensing source commit `4975461319283d8a2d82565f6bf775eaf6fd484b`; 443 focused licensing/PG/runtime/CLI tests and 74 migration inventory checks passed. | Existing reporting exits remain unchanged; local acceptance supplies no operational result. |
 | 2026-10-19 | not-applicable | Documented the three Core-owned private intent/provenance tables as non-report storage, without changing report registries or output qualification. | Current documentation change; #2268; paired source-boundary note and scoped route/translation/ledger checks. | Existing reporting datasource and freshness gates remain; private SDK persistence/readback is not report availability or operational-outcome evidence. |
 | 2026-09-28 | implemented | Registered the five Core-owned insert-only operational evidence proof tables in the shared service-migration inventory without adding them to reporting sources, widgets, routes, or write authority. | `current change`; `tests/integration/services/test_service_migration_inventory.py` passed 73 cases, and the loopback PostgreSQL role test proved only the verifier role inserts proof records. | No reporting behavior or datasource evidence changed. |
 | 2026-09-22 | implemented | Registered the Core-owned Rule activation receipt table in the shared service-migration inventory without adding it to reporting sources, widgets, routes, or write authority. | `current change`; service migration inventory passed 73 cases and the real PostgreSQL role test proved Operator has no direct receipt-table access. | No reporting behavior or datasource evidence changed. |

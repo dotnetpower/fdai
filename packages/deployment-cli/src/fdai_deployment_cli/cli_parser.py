@@ -685,7 +685,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     license_command = command(
         subcommands,
         "license",
-        "Inspect a capability token without granting authority",
+        "Inspect or seal existing licensing bytes without granting authority",
         epilog="Next: fdaictl license inspect --help",
     )
     license_commands = command_group(license_command)
@@ -699,6 +699,42 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     license_inspect.add_argument("--installation-binding", default=None, metavar="DIGEST")
     license_inspect.add_argument("--output", choices=("text", "json"), default="text")
     license_inspect.set_defaults(handler=handlers["license_inspect"])
+    license_seal = command(
+        license_commands,
+        "seal-entitlement",
+        "Seal an existing token to an independently supplied installation recipient",
+    )
+    license_seal.add_argument(
+        "--token",
+        type=Path,
+        required=True,
+        help="Private file containing existing original token bytes",
+    )
+    license_seal.add_argument(
+        "--recipient-public-key",
+        type=Path,
+        required=True,
+        help="Private file containing the independently provisioned X25519 recipient public key",
+    )
+    license_seal.add_argument(
+        "--installation-binding",
+        required=True,
+        metavar="DIGEST",
+        help="Exact installation SHA-256 binding",
+    )
+    license_seal.add_argument(
+        "--deployment-binding",
+        required=True,
+        metavar="DIGEST",
+        help="Exact deployment SHA-256 binding",
+    )
+    license_seal.add_argument(
+        "--destination",
+        type=Path,
+        required=True,
+        help="New owner-only encrypted carrier output file",
+    )
+    license_seal.set_defaults(handler=handlers["license_seal_entitlement"])
 
     onboard = command(
         subcommands,

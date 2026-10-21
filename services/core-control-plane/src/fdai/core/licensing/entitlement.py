@@ -98,6 +98,20 @@ class Entitlement:
         }
 
 
+class EntitlementSourceUnavailableError(RuntimeError):
+    """The authoritative accepted-token record cannot be read consistently."""
+
+
+class EntitlementTokenSource(Protocol):
+    """Read original token bytes as text; resolution remains with the existing verifier.
+
+    This synchronous licensing seam runs in the same worker thread as durable
+    Trial observation. Absence is not activation, and failures must be explicit.
+    """
+
+    def read(self) -> str | None: ...
+
+
 @dataclass(frozen=True, slots=True)
 class LicenseEntitlementAuthority:
     """Resolve current capability availability without caching token validity.
@@ -115,6 +129,11 @@ class LicenseEntitlementAuthority:
     require_license: bool = True
     issuer_workstation: bool = False
     trial: TrialEntitlementSource | None = None
+    token_source: EntitlementTokenSource | None = None
+
+    def __post_init__(self) -> None:
+        if self.token is not None and self.token_source is not None:
+            raise ValueError("license environment token and accepted token source are exclusive")
 
     def resolve(self, *, now: datetime) -> Entitlement:
         """Return the availability decision that applies at ``now``."""
@@ -127,9 +146,19 @@ class LicenseEntitlementAuthority:
                 available_capability_ids=_all_ids(self.catalog),
                 reason="matching local issuer key bypasses the token requirement",
             )
+        token = self.token
+        if self.token_source is not None:
+            try:
+                token = self.token_source.read()
+            except EntitlementSourceUnavailableError:
+                return _degraded(
+                    self.catalog,
+                    LicenseStatus.UNTRUSTED,
+                    "accepted installation entitlement is unavailable",
+                )
         entitlement = resolve_entitlement(
             catalog=self.catalog,
-            token=self.token,
+            token=token,
             verifier=self.verifier,
             now=now,
             binding=self.binding,
