@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 6ac9aa90c363cdcaebd5f2e1f84bbf4d584f9dda
+translation_source_sha: 272613d5803eccd38be2f49af7f6b8dac2cdb0ad
 translation_revised: 2026-10-21
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -39,13 +39,11 @@ FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 
 
 원격 개발 Agent를 연결할 때는 Lifecycle Hub 루트의 `operator_auth.agent_principals`에
 명시적인 연결 정보를 지정합니다. 각 항목은 하나의 설치, Entra 개체와 클라이언트를 식별합니다.
-Hub는 `Agent.Access`와 이 연결 정보가 정확히 일치하는지 확인하며 운영자 권한을 부여하지 않습니다.
 Release Hub는 Agent 연결을 허용하지 않습니다. 목록을 생략하면 기존 인증 동작을 유지합니다.
-Terraform은 연결 정보를 전달할 뿐 Entra 역할 할당, 페더레이션 자격 증명이나 Kubernetes
-권한을 만들지 않습니다. 이러한 항목은 승인된 범위에서 별도로 설정하고, Agent에는 해당
-네임스페이스로 제한된 RBAC와 영속 상태 볼륨을 사용하세요. 등록과 독립적인 결과 확인은
-[Hub 운영자 안내서](../../runbooks/hub-lifecycle-operator-guide-ko.md)를 따르세요.
-로컬 준비만으로 Agent가 배포되거나 release 적용 권한이 생기지는 않습니다.
+Terraform은 `Agent.Access`, 페더레이션 자격 증명이나 Kubernetes 권한을 부여하지 않습니다.
+승인된 범위에서 별도로 설정하세요. 해당 네임스페이스로 제한된 RBAC, 영속 상태 볼륨, 등록과
+독립적인 결과 확인은 [Hub 운영자 안내서](../../runbooks/hub-lifecycle-operator-guide-ko.md)를
+따르세요. 이 설정만으로 운영자 권한이나 release 적용 권한이 생기지는 않습니다.
 
 [기존 두 Hub 검증 구성](../../../infra/hubs-development/README.md)은 기존 state 소유자를 위해
 그대로 보존합니다. 해당 안내는 별도 네트워크, 자체 관리 ID와 키, 명시적 migration,
