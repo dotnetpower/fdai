@@ -230,7 +230,9 @@ def target_routes(
 
 def _run() -> None:
     parser = argparse.ArgumentParser(prog="fdai-hub-remote")
-    parser.add_argument("command", choices=["migrate", "serve", "schema", "bind-catalog"])
+    parser.add_argument(
+        "command", choices=["prepare", "migrate", "serve", "schema", "bind-catalog"]
+    )
     parser.add_argument("--actor")
     parser.add_argument("--reason")
     parser.add_argument("--config", type=Path)
@@ -244,6 +246,8 @@ def _run() -> None:
     )
     engine = remote_engine(config.kind)
     namespace = "release_hub" if config.kind == "release" else "lifecycle_hub"
+    if args.command == "prepare" and config.kind != "target":
+        raise ValueError("Preparation is supported only for an existing Lifecycle Hub.")
     if args.command == "bind-catalog":
         if config.kind != "target" or config.catalog is None:
             raise ValueError("Catalog binding requires an explicit Lifecycle Hub catalog source.")
@@ -294,9 +298,11 @@ def _run() -> None:
             if source is not None:
                 initialize_trust(connection, source)
 
-        if args.command == "migrate":
-            migrate(engine, "lifecycle_hub", initialize_target)
-            require_schema(engine, "lifecycle_hub")
+        if args.command in {"prepare", "migrate"}:
+            prepare = args.command == "prepare"
+            migrate(engine, "lifecycle_hub", initialize_target, prepare=prepare)
+            require_schema(engine, "lifecycle_hub", allow_pre_native=prepare)
+            logger.info("hub_schema_transition_completed stage=%s", args.command)
             return
         require_schema(engine, "lifecycle_hub", allow_pre_native=True)
         hub = HubStore(engine)

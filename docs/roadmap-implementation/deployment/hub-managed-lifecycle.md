@@ -15,6 +15,7 @@ implementation states below.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Prepared legacy-reader schema bridge | implemented | `current change`; #2376; Hub `migrations.py`, `remote.py`, `cli.py`, store transaction guards, `api.py` and `database_inspection.py`; expanded review command below passed 475 cases on SQLite and isolated PostgreSQL, with one intentional SQLite row-lock skip; strict mypy passed for ten changed source files; Ruff and formatting passed | Explicit additive preparation retains reader floors 1-5 and existing rows. Compatible serving remains read-only for new writers until explicit completion to 6; writes log a static migration-pending reason and HTTP returns 503. Strict native acceptance stays at 6. Real SQLite transaction admission serializes preparation against four writer surfaces and preserves caller-owned rollback. Completed preparation remains inspectable in both supported version-table layouts; incompatible column types and ambiguous revision rows fail explicitly. Release Hub and unprepared legacy trusted-host behavior are unchanged. No live migration, activation or installed effect is claimed. |
 | Hub planning constraint matrix and per-Entity override coverage | implemented | `current change`; #2374; `lifecycle/hub/src/fdai_lifecycle_hub/planning.py`, `lifecycle/hub/tests/test_planning.py`; focused SQLite and isolated PostgreSQL command below: 143 passed | `plan_next` evaluates maintenance and suppression windows, version and schema ranges, staged artifact availability, both installation-level and per-Entity `EntitySettings.overrides` coverage, data residency, and Release/capability recalls before signing a Plan. Timing blocks hold in `Waiting` without falling back; non-timing blocks skip to the next eligible Release or return `NoEligibleRelease`. Physical phase fencing, local authorization receipts, and live installation qualification remain separate. |
 | Create-only native workload scope and UID-fenced recovery | implemented | `current change`; shared `lifecycle_native.py`; Agent `native_*.py`, `kube.py`, `cli.py`; Hub `native_ownership*.py`, `entity.py`, `migrations.py`; focused commands below: 188 passed with 14 separately exercised database skips, isolated PostgreSQL selection 70 passed, strict mypy 66 source files and Ruff passed | Selector-free newly created Service anchor, private exact local policy/approval, enrolled-key signature, separate operator UUID/Settings-CAS/confirmation/audit acceptance and new unmanaged scope Entity. Namespace stays unmanaged. Real empty-state reporting and normal manage/Plan/input/window checks remain required. Native creation never uses legacy SSA adoption; updates retain UID/resourceVersion, deletes retain UID preconditions, and uncertain creation stops for review. Synthetic Kubernetes/HTTP checks cover first install, distinct update, failed install/update recovery and restart replay. Explicit reader floor 6 retains prior database rows. No source activation, installed effect or production qualification is claimed. |
 | Signed Plan admission source boundary | implemented | Existing CLOSED #1951 / protected #1994 at `fbdbc29797f7ba43e3e0a54d1c5b6c72f758ff50`, retained in current source; `current change` adds four opted-in-apply negative cases; focused commands below: 79 and 10 cases passed | Actual canonical signature/keyring, durable sequence/rejection, audience, revocation and local/signed envelope checks precede cluster calls. Native fresh-process replay remains covered. This is source enforcement, not production key rotation, local authorization receipt, physical phase fencing or installed effects. |
@@ -62,6 +63,8 @@ implementation states below.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-22 | implemented | Corrected two #2376 review findings not exercised by the earlier 235-case selection: SQLite's virtual transaction did not fence preparation before a write, and recovery inspection rejected the nullable preparation column retained after completion. | `current change`; `migrations.py`, `remote_catalog.py`, `database_inspection.py`, `test_prepared_concurrency.py` and `test_database_inspection.py`. Both defects failed dedicated regressions before repair. The expanded command below passed 475 cases with one intentional SQLite row-lock skip, including four writer races, caller-owned rollback, actual PostgreSQL revision-1/5 completion and restored comparison, incompatible column-type denial and preserved revision-row-count diagnostics. Strict mypy passed ten source files; Ruff and formatting passed. | Obtain fresh exact-head review and CI before protected merge. Live preparation, compatible activation, explicit completion and independently observed installation effects remain unverified. |
+| 2026-10-22 | implemented | Extended the earlier 5/6 reader cutover to physical legacy revisions 1-4. A locked explicit `prepare` transaction expands the existing schema while retaining its reader floor and records preparation for 6. New writers stop during that bridge; explicit completion advances to 6 without repeating DDL. | `current change`; Hub `migrations.py`, `remote.py`, `cli.py`, `api.py`, transaction guards and `test_prepared_migration.py`; the new preparation regression failed before implementation. The focused command below passed 235 cases on SQLite and isolated PostgreSQL 5433, with crash rollback before/after preparation metadata, idempotence, preserved rows/digests, actual startup/readiness, explicit HTTP/CLI refusal, unchanged catalog projections and durable post-completion writes/audit. Strict mypy passed for nine changed source files; Ruff and formatting passed. | Obtain exact-head review/CI, then separately prepare the approved installation, verify old-reader health, activate the compatible image, drain old readers, complete migration and independently verify strict schema and HTTP effects. Preserve identity, authentication, catalog, ingress and durable application state. |
 | 2026-10-22 | implemented | Fixed #2374 per-Entity override coverage in `plan_next` when planning from stored installation state, and verified the full #1824 constraint matrix (`maintenance` and `suppression` windows, `version` and `schema` ranges, `artifact` availability, per-Entity `override` coverage, `data residency`, and `release`/`capability` recall) at the Hub planning entry point. | `current change`; #2374; `lifecycle/hub/src/fdai_lifecycle_hub/planning.py`, `lifecycle/hub/tests/test_planning.py`; pre-fix reproduction failed (2 failed, 16 passed); post-fix Hub planning/enrollment/first-install/configuration cohort passed 143 cases under SQLite and isolated loopback PostgreSQL; strict mypy and Ruff passed. | Exact-head CI and protected integration are tracked in #2374. Physical phase fencing, local authorization receipts, and connected/offline installation qualification remain separate. |
 | 2026-10-22 | implemented | Fixed exact-head CI teardown regression after wiring the CLI migrator: explicit Hub schema teardown now removes its matching revision marker in the same transaction. Repeated clean migrations therefore recreate model tables instead of retaining a current marker over deleted tables. | `current change`; Hub `store.py`, `test_native_ownership.py`; CI `39653889377`, attempt 1, head `5bfe4bb03adea676d90a3081440c643d679bcb46`, integration job `119409143601`, step 9 failed five PostgreSQL lifecycle-loop cases with missing `lifecycle_installation`. A minimal repeat-drop regression reproduced the retained marker. The combined Hub/remote/auth/actual HTTP-loop cohort passed 173 cases on SQLite and isolated loopback PostgreSQL, with no skips. | Publish the bounded repair with the pending review fix, obtain exact-head CI/review, and independently qualify operational effects. No workflow rerun, remote database use or unrelated schema repair was performed. |
 | 2026-10-22 | implemented | Addressed #2369 approval-expiry finding at the actual provider submission seam. UID-capable create/patch/delete requests invoke a required local gate after discovery, provider-owned reads and durable intent writes. Known-unsent denial clears only the new create/delete intent, while earlier uncertainty remains fenced. Bootstrap also rechecks its deadline and approval at that seam. | `current change`; Agent `native_cluster.py`, `native_bootstrap.py`, `kube.py`, `workload.py` and native/provider regressions; all six deterministic read/persistence interleavings reproduced unauthorized submission before the fix. The combined focused Agent cohort passed 180 cases, including provider discovery and owned-read pauses, renewed approval retry, bootstrap deadline/approval denial and lost-response retention. Strict mypy passed for 66 source files and Ruff passed. | Exact-head review/CI and independently verified operational activation and installation/update/recovery remain required. |
@@ -178,6 +181,48 @@ MYPYPATH=lifecycle/agent/src:lifecycle/hub/src:packages/deployment-cli/src \
 Result: passed, 66 source files. Ruff check and format pass for the task-owned Python paths.
 
 ### Remaining work
+
+- [x] Implement the prepared legacy-reader bridge and locally verify atomic preparation,
+  retained rows, read-only serving, native-write denial and explicit completion.
+
+Focused schema bridge command with the existing loopback validation profile:
+
+```bash
+.venv/bin/python scripts/automation/with-local-test-database.py .venv/bin/python -m pytest -q --no-cov \
+  lifecycle/hub/tests/test_prepared_migration.py lifecycle/hub/tests/test_first_install.py \
+  lifecycle/hub/tests/test_standalone_remote.py lifecycle/hub/tests/test_native_ownership.py \
+  lifecycle/hub/tests/test_cli.py lifecycle/hub/tests/test_configuration_keys.py \
+  lifecycle/hub/tests/test_configuration_keys_postgres.py lifecycle/hub/tests/test_configuration_import.py \
+  lifecycle/hub/tests/test_configuration_import_postgres.py lifecycle/hub/tests/test_remote_catalog.py \
+  lifecycle/hub/tests/test_remote_bootstrap.py lifecycle/hub/tests/test_remote_auth.py \
+  lifecycle/tests/test_lifecycle_loop.py
+```
+
+Result: **235 passed**, including real PostgreSQL on loopback port 5433 and 31 prepared-transition
+cases. This is source evidence, not a live deployment.
+
+Expanded review regression command using the same loopback validation profile:
+
+```bash
+.venv/bin/python scripts/automation/with-local-test-database.py .venv/bin/python -m pytest -q --no-cov \
+  lifecycle/hub/tests/test_prepared_concurrency.py lifecycle/hub/tests/test_database_inspection.py \
+  lifecycle/hub/tests/test_prepared_migration.py lifecycle/hub/tests/test_first_install.py \
+  lifecycle/hub/tests/test_standalone_remote.py lifecycle/hub/tests/test_native_ownership.py \
+  lifecycle/hub/tests/test_cli.py lifecycle/hub/tests/test_configuration_keys.py \
+  lifecycle/hub/tests/test_configuration_keys_postgres.py lifecycle/hub/tests/test_configuration_import.py \
+  lifecycle/hub/tests/test_configuration_import_postgres.py lifecycle/hub/tests/test_remote_catalog.py \
+  lifecycle/hub/tests/test_remote_bootstrap.py lifecycle/hub/tests/test_remote_auth.py \
+  lifecycle/hub/tests/test_execution_settings.py lifecycle/hub/tests/test_enrollment.py \
+  lifecycle/hub/tests/test_api.py lifecycle/hub/tests/test_suppressions.py lifecycle/hub/tests/test_store.py \
+  lifecycle/tests/test_lifecycle_loop.py --maxfail=3
+```
+
+Result: **475 passed, 1 skipped**. The skip is the SQLite variant of a PostgreSQL-only
+concurrent-row-lock test; the PostgreSQL variant passed. This is local source evidence only.
+
+- [ ] Under separate exact-source deployment approval, independently verify preparation without
+  moving the old reader floor, compatible-image readiness, drainage of old readers, explicit
+  completion to 6, strict schema verification and unchanged identity/authentication/catalog/ingress.
 
 - [x] Enforce per-Entity `EntitySettings.overrides` coverage and verify the complete #1824
   constraint matrix (`maintenance` and `suppression` windows, `version` and `schema` ranges,

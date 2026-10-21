@@ -15,6 +15,7 @@ from fdai_lifecycle_hub.configuration_keys import (
     KeyBindingError,
     SignedKeyRequest,
 )
+from fdai_lifecycle_hub.migrations import require_writable_schema
 
 
 class ConfigurationKeyStore:
@@ -48,6 +49,7 @@ class ConfigurationKeyStore:
         failure: KeyBindingError | None = None
         digest = installation_id
         with self._sessions.begin() as session:
+            require_writable_schema(session.connection())
             installation = rows.lock_enrolled(session, installation_id)
             try:
                 digest = decision(session, installation)

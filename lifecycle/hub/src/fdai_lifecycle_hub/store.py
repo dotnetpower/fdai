@@ -61,7 +61,7 @@ from fdai_lifecycle_hub.execution_settings import (
     settings_digest,
     settings_record,
 )
-from fdai_lifecycle_hub.migrations import _versions
+from fdai_lifecycle_hub.migrations import _versions, require_writable_schema
 from fdai_lifecycle_hub.models import PlanEventKind
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.reports import ROLLED_BACK, failure_suppressions
@@ -247,6 +247,7 @@ class HubStore:
     def _write(self) -> Iterator[Session]:
         try:
             with self._sessions.begin() as session:
+                require_writable_schema(session.connection())
                 yield session
         except IntegrityError as error:
             if not _is_unique_violation(error):
