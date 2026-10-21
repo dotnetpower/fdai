@@ -14,6 +14,7 @@ from fdai.core.ontology_platform.object_sets import ObjectSetService
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.core.prompts.types import PromptReplayManifest
 from fdai.delivery.azure.llm.semantic_planning import AzureOpenAISemanticPlanningModel
+from fdai.delivery.azure.llm.semantic_planning_config import strict_candidate_proposal_schema
 from fdai.delivery.catalog_search.generation import SemanticGenerationBuild
 from fdai.delivery.catalog_search.ontology_candidate_context import (
     CandidateContextError,
@@ -655,15 +656,138 @@ async def test_actual_diagnostic_adapter_consumes_the_complete_prepared_context(
     assert selected.query_receipt_digests
 
 
-async def test_large_identity_enum_remains_an_explicit_unqualified_scale_block(
+async def test_large_identity_enum_is_partitioned_into_bounded_pages_and_resolved_completely(
     source: _Source,
 ) -> None:
-    async with httpx.AsyncClient(transport=httpx.MockTransport(AsyncMock())) as http:
+    with pytest.raises(ValueError, match="structured-output enum bound"):
+        strict_candidate_proposal_schema(manifest=source.manifest, build=source.build)
+    requests: list[httpx.Request] = []
+
+    async def transport(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        body = json.loads(request.content)
+        transmitted = json.loads(body["messages"][1]["content"])["untrusted_input"]
+        page_ids = [
+            doc["content"]["id"]
+            for doc in transmitted["documents"]
+            if str(doc["document_id"]).startswith("object:Resource:")
+        ]
+        proposal = {
+            "status": "select",
+            "reason": "conditions_proposed",
+            "clauses": [
+                {
+                    "object_type": "Resource",
+                    "predicates": [],
+                    "object_ids": page_ids[:50],
+                    "quote": _QUERY,
+                }
+            ],
+        }
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"finish_reason": "stop", "message": {"content": json.dumps(proposal)}}]
+            },
+        )
+
+    config = replace(
+        _candidate_config(),
+        timeout_seconds=10.0,
+        plan_prompt_manifest=replace(
+            _candidate_config().plan_prompt_manifest,  # type: ignore[arg-type]
+            request_token_budget=200000,
+        ),
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as http:
         model = AzureOpenAISemanticPlanningModel(
             identity=_Identity(),
             http_client=http,
-            config=_candidate_config(),
+            config=config,
             owner_loop=asyncio.get_running_loop(),
         )
-        with pytest.raises(ValueError, match="structured-output enum bound"):
-            model.candidate_proposal_binding_for_manifest(source.manifest, source.build)
+        binding = model.candidate_proposal_binding_for_manifest(source.manifest, source.build)
+        inputs = {**source.inputs(), "model_binding": binding}
+        context = prepare_candidate_proposal_context(**inputs)
+        inputs.pop("model_binding")
+        proposed = await model.propose_prepared_candidate_selection(context=context, **inputs)
+    assert len(requests) == 2
+    assert proposed.selection is not None
+    assert len(proposed.selection.clauses) == 1
+    assert len(proposed.selection.clauses[0].object_ids or ()) == 100
+    selected = await resolve_candidate_selection(
+        selection=proposed.selection,
+        query=_QUERY,
+        staged=source.staged,
+        manifest=source.manifest,
+        documents=source.build.documents,
+        gateway=source.gateway,
+        as_of=_NOW,
+        deadline=asyncio.get_running_loop().time() + 5,
+        resource_type_query_terms={},
+    )
+    assert len(selected.documents) == 100
+
+
+async def test_multi_page_membership_scales_beyond_thousand_instances_without_truncation() -> None:
+    large = await _source(count=1200)
+    requests: list[httpx.Request] = []
+
+    async def transport(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        proposal = {
+            "status": "select",
+            "reason": "conditions_proposed",
+            "clauses": [
+                {
+                    "object_type": "Resource",
+                    "predicates": [],
+                    "object_ids": None,
+                    "quote": _QUERY,
+                }
+            ],
+        }
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"finish_reason": "stop", "message": {"content": json.dumps(proposal)}}]
+            },
+        )
+
+    config = replace(
+        _candidate_config(),
+        timeout_seconds=10.0,
+        plan_prompt_manifest=replace(
+            _candidate_config().plan_prompt_manifest,  # type: ignore[arg-type]
+            request_token_budget=200000,
+        ),
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as http:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),
+            http_client=http,
+            config=config,
+            owner_loop=asyncio.get_running_loop(),
+        )
+        binding = model.candidate_proposal_binding_for_manifest(large.manifest, large.build)
+        inputs = {**large.inputs(), "model_binding": binding}
+        context = prepare_candidate_proposal_context(**inputs)
+        inputs.pop("model_binding")
+        proposed = await model.propose_prepared_candidate_selection(context=context, **inputs)
+    assert len(requests) == 4
+    assert proposed.selection is not None
+    selected = await resolve_candidate_selection(
+        selection=proposed.selection,
+        query=_QUERY,
+        staged=large.staged,
+        manifest=large.manifest,
+        documents=large.build.documents,
+        gateway=large.gateway,
+        as_of=_NOW,
+        deadline=asyncio.get_running_loop().time() + 10,
+        resource_type_query_terms={},
+    )
+    assert len(selected.documents) == 1200
+    assert selected.documents[0].rule_id == "object:Resource:example-resource-00000"
+    assert selected.documents[-1].rule_id == "object:Resource:example-resource-01199"
+    assert len(selected.query_receipt_digests) == 12

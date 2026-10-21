@@ -5,8 +5,13 @@ from dataclasses import replace
 from unittest.mock import AsyncMock
 
 import pytest
+from fdai.core.ontology_platform.models import ObjectPredicate, ObjectPredicateOperator
 from fdai.core.ontology_platform.query_gateway import UnsupportedObjectSetAsOfError
 from fdai.delivery.catalog_search.ontology_candidate_proposal import OntologyCandidateProposal
+from fdai.delivery.catalog_search.ontology_candidate_selection import (
+    OntologyCandidateClause,
+    OntologyCandidateSelection,
+)
 from fdai.delivery.catalog_search.ontology_governed_selection_read import GovernedTypedSelectionRead
 from fdai.delivery.catalog_search.ontology_selection_errors import (
     GovernedReadError,
@@ -170,3 +175,47 @@ async def test_reconstructed_registry_keeps_withdrawal_and_pending_evidence_fenc
     with pytest.raises(GovernedReadError):
         await reader.prepare({"query": _QUERY, "limit": 20}, f.context)
     assert f.proposer.calls == calls
+
+
+async def test_agreed_zero_candidate_membership_holds_without_saving_evidence(monkeypatch):
+    f = await _fixture()
+    await _promote(f)
+    original = f.proposer.propose_prepared_candidate_selection
+
+    async def propose(**values):
+        result = await original(**values)
+        clause = OntologyCandidateClause(
+            object_type="Resource",
+            predicates=(
+                ObjectPredicate(
+                    property="id",
+                    operator=ObjectPredicateOperator.EQUALS,
+                    equals="absent-resource",
+                ),
+            ),
+        )
+        proposal = OntologyCandidateProposal(
+            status="select",
+            reason="conditions_proposed",
+            clauses=(clause,),
+            clause_quotes=(values["query"],),
+        )
+        return replace(
+            result,
+            proposal=proposal,
+            selection=OntologyCandidateSelection.bind(
+                query=values["query"],
+                manifest=values["manifest"],
+                staged=values["staged"],
+                clauses=(clause,),
+            ),
+        )
+
+    monkeypatch.setattr(f.proposer, "propose_prepared_candidate_selection", propose)
+    save = AsyncMock(wraps=f.registry.save_selection)
+    monkeypatch.setattr(f.registry, "save_selection", save)
+    with pytest.raises(GovernedReadError) as caught:
+        await f.reader.prepare({"query": _QUERY, "limit": 20}, f.context)
+    assert caught.value.reason is SelectionFailure.NO_CANDIDATE_MATCH
+    assert caught.value.clarification is True
+    save.assert_not_awaited()

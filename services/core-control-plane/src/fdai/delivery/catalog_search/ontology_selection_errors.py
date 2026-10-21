@@ -22,6 +22,7 @@ class SelectionFailure(StrEnum):
     UNRESOLVED_REFERENCE = "unresolved_reference"
     UNSUPPORTED_CONSTRAINT = "unsupported_constraint"
     AMBIGUOUS_REQUEST = "ambiguous_request"
+    NO_CANDIDATE_MATCH = "no_candidate_match"
     CITATION_INVALID = "citation_invalid"
     SELECTION_BOUND = "selection_bound"
     SELECTION_BINDING_CHANGED = "selection_binding_changed"
@@ -80,4 +81,5 @@ class GovernedReadError(PermissionError):
             SelectionFailure.UNRESOLVED_REFERENCE,
             SelectionFailure.UNSUPPORTED_CONSTRAINT,
             SelectionFailure.AMBIGUOUS_REQUEST,
+            SelectionFailure.NO_CANDIDATE_MATCH,
         }
