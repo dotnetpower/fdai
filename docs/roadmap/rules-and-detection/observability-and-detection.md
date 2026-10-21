@@ -3,7 +3,7 @@ title: Observability and Detection
 ---
 # Observability and Detection
 
-How FDAI turns raw telemetry into **findings** the control loop can act on:
+Learn how FDAI turns raw telemetry into **findings** the control loop can act on:
 **event correlation**, **anomaly detection**, **predictive / forecasting**, and
 **root-cause analysis (RCA)**. These are the detection signals an AIOps platform is expected to
 provide - added here **without breaking deterministic-first**: every signal emits a normalized

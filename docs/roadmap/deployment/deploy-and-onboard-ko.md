@@ -5,7 +5,10 @@ translation_source_sha: 5e8916d4e4dd468e465ed0ec8388bfb55c6cf912
 translation_revised: 2026-10-27
 ---
 # 배포와 온보딩(Deploy and Onboard)
-Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
+이 가이드를 사용해 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할
+준비를 합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의
+책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는
+[deployment-ko.md](deployment-ko.md)에서 다룹니다.
 이 문서는 Azure 구독을 대상으로 합니다. 비-Azure 공급자는 추후 검토 대상입니다 ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). 모든 식별자는 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에 따른 합성 값입니다.
 > Day-zero 서비스 계층과 수량은 [최소 Azure 리소스 인벤토리](#azure-리소스-인벤토리-최소-세트)에서 결정되어 있습니다. 배포 소유자는 배포 전에 지역, 할당량, 보존, 복제본 상한, 운영 계층 재정의를 확인합니다.
 > **실행 엔진**은 `infra/`의 `terraform apply`로 결정되어 있습니다. 운영자 진입점은
@@ -312,20 +315,10 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   인벤토리에서는 이 선택을 열어 두지 않습니다.
 ## 배포 아티팩트
 
-- `infra/`의 IaC ([project-structure-ko.md](../architecture/project-structure-ko.md) 참조)가 엔트리 포인트.
-  모든 환경은 환경별 파라미터와 환경별 격리된 상태로 같은 코드에서 동일하게 프로비저닝합니다.
-  Terraform은 기본 Event 허브 이름을 `event_bus_topics`로, 단계, 승인, 인벤토리 유입
-  auxiliary 이름을 `event_bus_auxiliary_topics`로 제공해 로컬 런타임 준비가 provision된 토픽만 연결합니다.
-- **진입 명령**: `fdaictl provision azure`는 `infra/` HCL 모듈의 Terraform을 조정합니다.
-  환경 값은 source control 밖에 유지합니다. 소스 모드의 Standalone 조정기는 `소스 스냅샷 고정
-  -> 대상 검사 -> Foundation 계획 및 적용 -> 배포 레지스트리에서 이미지 빌드 -> 애플리케이션 계획 및
-  적용 -> 배포 후 검사` 순서로 실행하며, `--offline-kit`에서는 먼저 서명된 패키지를 검증합니다. 기존 오프라인 설치의 작업 디렉터리를 더 새 패키지로 다시 실행하면 Foundation은 보존된 리비전으로 이어서 실행됩니다([오프라인 키트 업그레이드](installable-deployment-cli-ko.md#오프라인-키트-업그레이드-설계와-비평)).
-  Terraform은 실행 엔진이자 인프라 단일 기준입니다.
-- 대상 환경 배포 전송 계층은 항상 `manual`입니다. 활성 Azure 사용자가 정확한 계획을 승인하고,
-  Managed Host는 별도 workload identity로 계획을 실행합니다. 저장소 변수, 저장소 비밀,
-  GitHub Environment, workflow dispatch 또는 GitHub runner는 참여하지 않습니다.
-- 같은 서명 이미지가 `dev → staging → prod` 승격; 환경별 재빌드 없음
-  ([deployment-ko.md](deployment-ko.md)).
+- `infra/`의 IaC([project-structure-ko.md](../architecture/project-structure-ko.md) 참조)가 시작점입니다. 모든 환경은 동일한 코드에서 환경별 매개 변수와 격리된 상태를 사용해 동일한 방식으로 프로비저닝됩니다. Terraform은 기본 Event Hub 이름을 `event_bus_topics`로, 보조 단계, 승인 및 인벤토리 수신 이름을 `event_bus_auxiliary_topics`로 제공합니다. 이를 통해 로컬 런타임 준비 과정에서 프로비저닝된 토픽에만 연결하도록 합니다.
+- **진입 명령**: `fdaictl provision azure`는 `infra/`의 HCL 모듈을 사용하는 Terraform 실행을 조정합니다. 환경별 값은 소스 제어 외부에서 관리합니다. 소스 모드에서 독립 실행형 조정기는 `소스 스냅샷 고정 -> 대상 검사 -> Foundation 계획 및 적용 -> 배포 레지스트리에서 이미지 빌드 -> 애플리케이션 계획 및 적용 -> 프로비저닝 후 검사` 순서로 실행합니다. `--offline-kit`을 사용하면 먼저 서명된 패키지를 검증합니다. 기존 오프라인 설치의 작업 디렉터리에서 최신 패키지로 명령을 다시 실행하면 유지된 리비전을 기준으로 Foundation 작업을 계속 진행합니다([오프라인 키트 업그레이드](installable-deployment-cli-ko.md#오프라인-키트-업그레이드-설계와-비평)). Terraform은 계속해서 실행 엔진이자 인프라의 단일 기준 정보원으로 사용됩니다.
+- 테넌트 배포 전송 방식은 항상 `manual`입니다. 현재 활성화된 Azure 사용자가 정확한 실행 계획을 승인하고, 관리형 호스트가 별도의 워크로드 ID를 사용해 해당 계획을 실행합니다. 저장소 변수, 저장소 비밀, GitHub Environment, workflow dispatch, GitHub runner는 이 과정에 참여하지 않습니다.
+- 동일한 서명된 이미지를 `dev → staging → prod` 순서로 승격합니다. 환경별로 이미지를 다시 빌드하지 않습니다([deployment-ko.md](deployment-ko.md)).
 
 ## 리소스 명명 규약(Resource Naming Convention)
 
@@ -656,8 +649,7 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 
 ## 이벤트 소스 구독
 
-세 초기 영역이 관측할 수 있도록 부트스트랩에서 연결하는 신호입니다. 구체적인 이벤트 타입,
-구독 필터, 비율 상한은 **추후 결정**하며, 연결 구조는 일관되게 유지합니다.
+초기 세 영역에서 관측할 수 있도록 부트스트랩 시 신호를 연결합니다. 구체적인 이벤트 유형, 구독 필터, 속도 제한은 **추후 결정**할 예정이지만, 연결 구조는 확정되어 있습니다.
 
 | 버티컬 | Azure 신호 후보 | 딜리버리 |
 |--------|----------------|---------|

@@ -3,7 +3,7 @@ title: FDAI Console Conversations
 ---
 # FDAI Console Conversations
 
-The server-side [governed typed-selection read](governed-typed-selection-read.md) adds no approval
+This document's server-side [governed typed-selection read](governed-typed-selection-read.md) adds no approval
 surface or implicit permission to a conversation. Its candidate-only result requires current
 qualified registry state and exact authenticated evidence; a missing prerequisite holds. Local
 consumer tests are not Console foreground, bootstrap, database or live-model validation.

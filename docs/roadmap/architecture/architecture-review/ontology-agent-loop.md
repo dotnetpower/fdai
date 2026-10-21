@@ -3,7 +3,7 @@ title: Ontology-Grounded ARB Agent Loop
 ---
 # Ontology-Grounded ARB Agent Loop
 
-This design defines how FDAI's operating ontology and fixed 15-agent pantheon review a planned
+Use this design to understand how FDAI's operating ontology and fixed 15-agent pantheon review a planned
 change. It keeps meaning, authority, execution, observation, and learning in separate accountable
 boundaries.
 

@@ -3,7 +3,7 @@ title: Ontology-Grounded ARB Delivery Plan
 ---
 # Ontology-Grounded ARB Delivery Plan
 
-This plan sequences the smallest changes that turn the current manifest-driven review into an
+Use this plan to sequence the smallest changes that turn the current manifest-driven review into an
 ontology-grounded, agent-owned closed loop. Each work package has an executable exit condition and
 keeps authority-bearing changes behind existing FDAI gates.
 

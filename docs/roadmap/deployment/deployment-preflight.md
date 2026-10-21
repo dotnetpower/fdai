@@ -3,8 +3,8 @@ title: Deployment Preflight (feasibility and blocker collection)
 ---
 # Deployment Preflight (feasibility and blocker collection)
 
-Before a deployment runs (`terraform apply`, or a control-plane remediation PR),
-the **deploy-preflight** pass collects everything in the target environment that
+Before a deployment runs (`terraform apply`, or a control-plane remediation PR), use
+the **deploy-preflight** pass. It collects everything in the target environment that
 could block or degrade the deployment, grounds each item in the exact rule that
 produced it, and maps it to the concrete lever that clears it. It is the
 [what-if verifier](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)

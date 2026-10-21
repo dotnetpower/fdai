@@ -1,6 +1,6 @@
 ---
 title: FDAI Proposal Deck Kit
-description: Decision-oriented proposal source for presenting FDAI architecture, safety, value, and adoption.
+description: Use this decision-oriented proposal source to present FDAI architecture, safety, value, and adoption.
 ---
 
 # FDAI Proposal Deck Kit

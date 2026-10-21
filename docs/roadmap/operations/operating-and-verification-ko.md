@@ -1,14 +1,15 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 97c20e4e24188120a355170cadccc96770b66f8d
-translation_revised: 2026-10-21
+translation_source_sha: 2357a57df6b18051494a21d086dd889533ad5b8e
+translation_revised: 2026-10-22
 ---
 
 # 운영과 검증(Operating and Verification)
 
-새로 프로비저닝한 시점부터 FDAI가 **실행 중이고, 올바르게 정상 동작하는지** 확인하는
-방법을 설명합니다. 이 문서는 시스템이 자신의 상태를 보고하는 **자체 관측성(self-observability)**을
+이 가이드를 사용해 새로 프로비저닝한 시점부터 FDAI가 **실행 중이고 올바르게
+동작하는지** 확인하세요. 이 문서는 시스템이 자신의 상태를 보고하는
+**자체 관측성(self-observability)**을
 다룹니다. 시스템이 **감시 대상 환경에서 감지하는 내용**을 다루는
 [observability-and-detection-ko.md](../rules-and-detection/observability-and-detection-ko.md)와는 구별됩니다.
 표현 방식과 대시보드 배치는 이 문서의 범위 밖입니다.

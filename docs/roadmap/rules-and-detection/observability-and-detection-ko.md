@@ -1,29 +1,21 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 78156171eba2ced8160245cc814e7b819a9af5fb
-translation_revised: 2026-10-16
+translation_source_sha: c10966d72c02ee1e7ebbe94cbad38aa2333ce4ee
+translation_revised: 2026-10-22
 ---
+# 관측성 및 탐지(Observability and Detection)
 
-# 관측성과 감지(Observability and Detection)
+이 문서에서는 FDAI가 원시 텔레메트리를 제어 루프에서 처리할 수 있는
+**탐지 결과(finding)**로 변환하는 방법을 설명합니다. 주요 탐지 기능은 **이벤트
+상관관계**, **이상 탐지**, **예측 및 전망**, **근본 원인 분석(RCA)**입니다. 이러한
+기능은 AIOps 플랫폼에 요구되는 탐지 신호이며, **결정론 우선 원칙을 유지하면서** 추가됩니다.
 
-FDAI가 원시 원격측정을 컨트롤 루프에서 처리할 수 있는 **발견 사항**으로 바꾸는 방법을
-설명합니다. **이벤트 상관관계**, **이상 감지**, **예측 / 예보**, **근본원인 분석(RCA)**은
-AIOps 플랫폼에 기대되는 감지 신호이며, **결정론 우선 원칙을 유지하면서** 제공합니다.
-모든 신호는 기존 `trust-router → tiers → risk-gate → executor → audit` 경로로 전달되는
-정규화된 발견 사항을 발행합니다. 별도 우회 채널을 만들지 않으며, 리스크 게이트와
-7개 안전조건 밖에서 자동으로 실행하지 않습니다.
+모든 신호는 정규화된 탐지 결과를 생성하고, 이 결과는 기존 `trust-router → tiers → risk-gate → executor → audit` 경로를 따라 처리됩니다. 별도의 우회 경로를 사용하지 않으며, 위험 게이트와 7가지 안전장치를 거치지 않고 자동 실행되는 작업은 없습니다.
 
-참조: 컨트롤 루프, 티어, quality 게이트는
-[architecture.instructions.md](../../../.github/instructions/architecture.instructions.md);
-측정과 가드 메트릭은 [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md); 규칙/신호 소스는
-[rule-catalog-collection-ko.md](rule-catalog-collection-ko.md); 모듈 배치와 DI 경계는
-[project-structure-ko.md](../architecture/project-structure-ko.md); 프롬프트-인젝션 위협 모델은
-[security-and-identity-ko.md](../architecture/security-and-identity-ko.md). 상관관계와 out-of-band 감지는
-[phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md) 에 도입; FinOps 비용
-이상과 DR RPO/RTO 예측은
-[phase-3-integrated-loop-ko.md](../phases/phase-3-integrated-loop-ko.md) 에 도착. 고객-비종속;
-모든 예시는 합성.
+참고 자료: 제어 루프, 티어 및 품질 게이트는 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md), 측정 및 보호 지표는 [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md), 규칙 및 신호 소스는 [rule-catalog-collection-ko.md](rule-catalog-collection-ko.md), 모듈 배치 및 의존성 주입(DI) 경계는 [project-structure-ko.md](../architecture/project-structure-ko.md), 프롬프트 인젝션 위협 모델은 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)를 참조하세요.
+
+상관관계 분석과 대역 외(out-of-band) 탐지는 [phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md)에서 도입됩니다. FinOps 비용 이상 탐지와 DR RPO/RTO 예측은 [phase-3-integrated-loop-ko.md](../phases/phase-3-integrated-loop-ko.md)에서 도입됩니다. 이 문서는 특정 고객에 종속되지 않으며, 모든 예시는 합성 데이터로 구성됩니다.
 
 ## 설계 관점 (deterministic-first, not ML-first)
 
@@ -496,13 +488,9 @@ Console의 게시 부채는 게시되지 않았고 배달 실패로 확정되지
 티어 계약, 결정론적 인과사슬, 근거가 있는 reasoning, knowledge 근거 및 읽기 전용 프로젝션은
 [근본원인 분석](root-cause-analysis-ko.md)에서 소유합니다.
 
-## 컨트롤 루프에 플러그
+## 제어 루프에 통합
 
-상관관계 처리는 `event-ingest` 안에서 실행합니다. 이상과 예보 감지기는 **out-of-band 생산자**
-([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 및 phase-1
-out-of-band 감지 참조)로서 발견 사항을 버스에 게시합니다. 발견 사항은 멱등성 키와 중복 제거를
-적용하도록 **`event-ingest`에 재진입**하므로, 상태가 반복적으로 바뀌는 감지기가 중복 작업을
-주입할 수 없습니다. 어떤 감지기도 새로운 자율성 경로를 만들지 않습니다:
+상관관계 분석은 `event-ingest` 내에서 실행됩니다. 이상 탐지기와 예측 탐지기는 **대역 외(out-of-band) 생산자**로 동작하며, 탐지 결과를 버스에 게시합니다. 예를 들어 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)에 설명된 이벤트 기반 Functions와 phase-1 대역 외 탐지 방식이 이에 해당합니다. 게시된 탐지 결과는 멱등성 키를 부여받고 중복 제거 처리를 거치기 위해 **`event-ingest`로 다시 유입됩니다**. 따라서 탐지 결과가 반복적으로 바뀌는 탐지기라도 중복 작업을 발생시킬 수 없습니다. 어떤 탐지기도 새로운 자율 실행 경로를 만들지 않습니다.
 
 ```text
 telemetry / metrics
@@ -513,15 +501,12 @@ telemetry / metrics
   -> risk-gate -> auto -> executor -> delivery (PR) | HIL | abstain/deny -> audit
 ```
 
-- **발견 사항** 은 `shared/contracts` 의 일급, 버전된 이벤트 타입이며 안정 멱등성
-  키(예: `detector-id + metric + window-bucket`, 또는 인시던트 id) 를 가짐 - 반복 평가 틱이
-  쌓이지 않고 dedup.
-- 감지기는 설정 주도(베이스라인, 임계, 지평, 상관관계 키, 모델 바인딩이 구성, 하드코딩 아님),
-  shadow-before-enforce 준수, 모든 발견 사항과 결정이 감사됨.
+- **탐지 결과(finding)**는 `shared/contracts`에 정의된 독립적인 버전 관리 이벤트 형식입니다. 안정적인 멱등성 키(예: `detector-id + metric + window-bucket` 또는 인시던트 ID)를 사용하므로, 평가가 반복 실행되어도 결과가 누적되지 않고 중복 제거됩니다.
+- 탐지기는 설정을 기반으로 동작합니다. 기준선, 임계값, 예측 기간, 상관관계 키, 모델 바인딩은 코드에 하드코딩하지 않고 설정으로 관리합니다. 또한 shadow-before-enforce 원칙을 준수하며, 모든 탐지 결과와 결정은 감사 기록에 남깁니다.
 
-## AIOps 정합
+## AIOps 모델과의 정합성
 
-일반 AIOps 모델에서 채택한 것과 의도적으로 다른 곳:
+일반적인 AIOps 모델에서 채택하는 요소와 의도적으로 차별화하는 부분은 다음과 같습니다.
 
 | AIOps 능력 | 우리의 자세 |
 |------------|-------------|

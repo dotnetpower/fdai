@@ -1,6 +1,6 @@
 ---
 title: Diagram Gallery
-description: Interactive examples of the architecture, process, timeline, coordinate, radial, grid, and weighted-flow diagrams supported by FDAI.
+description: Explore interactive architecture, process, timeline, coordinate, radial, grid, and weighted-flow diagram examples supported by FDAI.
 sidebar:
   order: 3
 ---

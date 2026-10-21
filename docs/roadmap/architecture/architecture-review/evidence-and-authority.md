@@ -3,7 +3,7 @@ title: ARB Evidence and Authority
 ---
 # ARB Evidence and Authority
 
-This design defines the evidence, ownership, risk, approval, and decision-receipt contract for an
+Use this design to review the evidence, ownership, risk, approval, and decision-receipt contract for an
 architecture review. It separates machine readiness from authority to promote or execute a change.
 
 > **Scope:** This document owns evidence and authority. The

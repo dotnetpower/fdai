@@ -3,7 +3,7 @@ title: Operating and Verification
 ---
 # Operating and Verification
 
-How to know FDAI is **alive, correct, and behaving** - from a freshly provisioned
+Use this guide to verify that FDAI is **alive, correct, and behaving** from a freshly provisioned
 deployment onward. This document is **self-observability**: how the system reports on
 itself. It is distinct from
 [observability-and-detection.md](../rules-and-detection/observability-and-detection.md), which is what the system

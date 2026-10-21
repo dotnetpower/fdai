@@ -4,7 +4,7 @@ title: Agent Workflows
 
 # Agent Workflows
 
-The thirteen cross-agent workflows that the pantheon composes into product-level
+Use this guide to review the thirteen cross-agent workflows that the pantheon composes into product-level
 capabilities. Each workflow names its participating agents, its trigger,
 its end-to-end sequence, and its exit criteria. Every workflow ships in
 shadow mode first ([agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation.md#11-wave-7---cross-agent-workflows-in-shadow))

@@ -1,35 +1,31 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 091caaf1ea04960300167ea697d72c6ef7d59632
-translation_revised: 2026-10-18
+translation_source_sha: ad60ac6e6c46e1589eb1d5d2b745d5d18e33b8e1
+translation_revised: 2026-10-22
 ---
 # 온톨로지 기반 ARB 에이전트 루프
 
-이 설계는 FDAI 운영 온톨로지와 고정된 15개 에이전트가 계획된 변경을 검토하는 방식을
-정의합니다. 의미, 권한, 실행, 관측, 학습을 서로 다른 책임 경계로 유지합니다.
+이 설계에서는 FDAI의 운영 온톨로지와 고정된 15개 에이전트 체계가 계획된 변경을 검토하는
+방식을 살펴봅니다. 의미, 권한, 실행, 관측, 학습은 각각 책임이 명확히 구분된 영역으로
+유지합니다.
 
-> **범위:** 이 문서는 ARB 결정 루프를 담당합니다.
-> [근거 및 권한 계약](evidence-and-authority-ko.md)은 근거 연결, 승인, 위험, 운영 종료를
-> 담당합니다. [전달 계획](delivery-plan-ko.md)은 구현 순서를 정의합니다.
+> **범위:** 이 문서는 ARB 의사 결정 루프를 정의합니다.
+> [근거 및 권한 계약](evidence-and-authority-ko.md)은 근거 연결, 승인, 위험, 프로덕션 종료를
+> 정의합니다. [제공 계획](delivery-plan-ko.md)은 구현 순서를 정의합니다.
 >
-> **권한 경계:** 온톨로지는 식별자, 관계, 시간, 근거, 제약 조건을 검증합니다. 온톨로지
-> 자체는 판단하거나 승인하거나 실행하지 않으며 자율성도 높이지 않습니다.
+> **권한 경계:** 온톨로지는 식별 정보, 관계, 시간, 근거, 제약 조건을 검증합니다.
+> 온톨로지는 판단, 승인, 실행을 수행하거나 자율성 수준을 높이지 않습니다.
 
 ## 한눈에 보는 설계
 
-정규화된 `Change` 하나가 범위가 제한된 검토 하나를 시작합니다. Muninn은 현재 운영
-컨텍스트를 고정하고, 관련 전문 에이전트는 자신이 소유한 근거를 게시하며, Forseti는 필수
-입력을 결합해 변경할 수 없는 `DecisionCase`와 `ImpactEnvelope`를 만듭니다. Odin은 적격한
-목표 간 충돌만 해결합니다. Var는 정책이나 잔여 위험 때문에 필요한 경우에만 사람 승인을
-요청합니다.
+정규화된 `Change` 하나가 범위가 제한된 검토를 시작합니다. Muninn은 현재 운영 컨텍스트의 스냅샷을 고정하고, 관련 전문 에이전트는 각자 담당하는 근거를 게시합니다. Forseti는 필수 입력을 결합하여 변경할 수 없는 `DecisionCase`와 `ImpactEnvelope`를 생성합니다. Odin은 중재 대상에 해당하는 목표 간 충돌만 해결합니다. Var는 정책이나 잔여 위험에 따라 사람의 승인이 필요한 경우에만 승인을 요청합니다.
 
-![한눈에 보는 설계. 주요 단계는 Huginn: Change, Muninn: context snapshot, Relevant specialists, OperationalEvidenceBundle, Ontology scenario branch, Forseti: DecisionCase, Mimir: constraints and policies, Odin: arbitration, Var: approval, Decision receipt, Saga: audit and Process projection, Thor: execution입니다.](../../../diagrams/generated/fdai-roadmap-architecture-architecture-review-ontology-agent-loop-01.ko.svg)
+![한눈에 보는 설계. 주요 단계는 Huginn: Change, Muninn: 컨텍스트 스냅샷, 관련 전문 에이전트, OperationalEvidenceBundle, 온톨로지 시나리오 분기, Forseti: DecisionCase, Mimir: 제약 조건 및 정책, Odin: 중재, Var: 승인, 결정 기록, Saga: 감사 및 Process 프로젝션, Thor: 실행입니다.](../../../diagrams/generated/fdai-roadmap-architecture-architecture-review-ontology-agent-loop-01.ko.svg)
 
 ## 권위 있는 상태 모델
 
-ARB 읽기 모델은 에이전트가 소유한 레코드에서 파생됩니다. 변경 가능한 점검 상태를 두 번째
-원본으로 사용하지 않습니다.
+ARB 읽기 모델은 각 에이전트가 소유한 기록에서 파생됩니다. 변경 가능한 점검 목록의 상태를 별도의 진실 공급원으로 사용하지 않습니다.
 
 | 레코드 | 권한 | ARB 사용 방식 |
 |--------|------|---------------|

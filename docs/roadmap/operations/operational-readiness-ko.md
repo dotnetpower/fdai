@@ -1,45 +1,31 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: a8bf8c807845c7aaa1ad6b114afcce8027484f21
-translation_revised: 2026-10-18
+translation_source_sha: 62f3c05e0a06f2f493fa35b30429ed913baf7b67
+translation_revised: 2026-10-22
 ---
-# 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
+# 운영 준비 상태 검토 (dev-to-ops 인계 게이트)
 
-개발팀이 소유한 범위(리소스 그룹, 워크로드, 환경)가 운영팀의 책임이 되기
-전에 **운영 준비성 리뷰**(ORR, Operational Readiness Review)가 자동으로
-실행됩니다. 운영팀이 의존하는 거버넌스, 보안, RBAC, 신뢰성 규칙으로 범위 전체를
-평가하고, 각 발견 사항에 이를 탐지한 정확한 규칙을 근거로 연결하며,
-ownership-transfer 이벤트에 연결된 판정 하나를 반환합니다. 판정은
-`clear`, `needs_review`, `blocked` 중 하나입니다. 이는
-[deployment-preflight](../deployment/deployment-preflight-ko.md) 패스와
-[assurance-twin](assurance-twin-ko.md)의 상태 평가를 하나의 핸드오프
-게이트로 조합한 것으로, dev-to-ops 경계를 넘는 어떤 것도 리뷰되지 않은 채
-넘어가지 못하게 합니다.
+개발팀이 담당하는 범위(리소스 그룹, 워크로드, 환경)를 운영팀에 넘기기 전에 자동화된
+**운영 준비 상태 검토**(Operational Readiness Review, ORR)를 사용하세요. ORR은 운영팀에
+필요한 거버넌스, 보안, RBAC, 안정성 규칙을 기준으로 전체 범위를 평가하고, 각 발견 사항을
+해당 결과의 근거가 된 정확한 규칙과 연결합니다. 그런 다음 소유권 이전
+(ownership-transfer) 이벤트에 연결된 단일 판정인 `clear`, `needs_review`, `blocked` 중
+하나를 반환합니다. ORR은 [deployment-preflight](../deployment/deployment-preflight-ko.md)
+검사와 [assurance-twin](assurance-twin-ko.md)의 상태 평가를 하나의 인계 게이트로 결합하여,
+검토되지 않은 범위가 개발팀에서 운영팀으로 넘어가지 않도록 합니다.
 
-이는 변경별 검토가 놓치는 실패를 방지합니다. 워크로드가 병합할 때마다 개별적으로는
-규칙을 준수하더라도, 권한이 과도한 Managed Identity, Owner 역할이 있는 게스트 principal,
-진단 설정 누락, 백업 누락 상태로 운영팀에 인계될 수 있습니다. 어느 한 변경이 이 공백 전체를
-만든 것은 아니기 때문입니다. ORR은 개별 변경의 차이가 아니라 **핸드오프 시점에 범위 전체에
-누적된 상태**를 검토합니다.
+ORR은 개별 변경 검토에서 놓칠 수 있는 문제를 해결합니다. 워크로드가 병합될 때마다 개별적으로 모든 규칙을 준수하더라도, 운영팀에 인계되는 시점에는 과도한 권한이 부여된 관리 ID, Owner 역할을 보유한 게스트 보안 주체, 진단 설정 누락 또는 백업 누락과 같은 문제가 남아 있을 수 있습니다. 이러한 문제는 특정 변경 하나에서 모두 발생한 것이 아니기 때문입니다. ORR은 개별 변경 사항이 아니라 **인계 시점에 해당 범위에 누적된 전체 상태**를 검토합니다.
 
-> **고객 비종속(Customer-agnostic)**: 트리거 레이블, 필수 규칙 집합, 핸드오프를
-> 통제하는 심각도는 모두 구성 또는 포크에서 제공합니다. 업스트림은
-> 메커니즘과 범용 ReadinessReport 형식을 제공하며, 특정 고객의 핸드오프 정책은
-> 절대 담지 않습니다
+> **고객 독립적(Customer-agnostic)**: 트리거 레이블, 필수 규칙 집합, 인계 허용 여부를 결정하는 심각도 기준은 모두 구성 또는 포크에서 제공됩니다. 업스트림은 실행 메커니즘과 범용 ReadinessReport 형식만 제공하며, 특정 고객의 인계 정책은 포함하지 않습니다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
-> **위치**: ORR은 assurance twin 위에 구축한 **읽기 전용 검토**입니다. 특권
-> 신원을 보유하지 않으며 아무것도 실행하지 않습니다. 제안된 모든 수정은
-> 여전히 `risk-gate -> executor -> delivery`를 통과하여
-> [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
-> 의 읽기 전용 표면 규칙을 보존합니다.
+> **아키텍처상 위치**: ORR은 assurance twin을 기반으로 하는 **읽기 전용 검토**입니다. 높은 권한을 가진 ID를 보유하지 않으며 어떤 작업도 실행하지 않습니다. 제안된 모든 수정 사항은 여전히 `risk-gate -> executor -> delivery`를 거치므로
+> [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)에 정의된 읽기 전용 인터페이스 규칙을 유지합니다.
 
-## 왜 별도 게이트인가
+## 별도의 게이트가 필요한 이유
 
-구성 요소는 이미 존재하며, 빠져 있던 것은 **핸드오프 자체를 주요 마일스톤으로
-다루는 것**입니다. 다음 세 기능은 범위가 겹치지만 어느 것도 단독으로는 개발팀에서
-운영팀으로 인계하는 게이트가 아닙니다:
+필요한 구성 요소는 이미 존재합니다. 부족했던 것은 **인계 자체를 독립적인 주요 단계로 다루는 기능**입니다. 다음 세 기능은 서로 겹치는 부분이 있지만, 어느 것도 단독으로 개발팀에서 운영팀으로의 인계를 관리하는 게이트 역할을 하지 않습니다.
 
 | 기존 표면 | 무엇을 리뷰하는가 | 왜 핸드오프 게이트가 아닌가 |
 |-----------|-------------------|-----------------------------|

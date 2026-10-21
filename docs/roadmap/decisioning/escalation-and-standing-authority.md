@@ -3,8 +3,8 @@ title: Escalation and Standing Authority (the supervised OODA loop)
 ---
 # Escalation and Standing Authority (the supervised OODA loop)
 
-What happens to a **high-risk decision after the risk gate pauses it for a
-human** - and nobody answers. This doc specifies the **time-bounded escalation
+This document explains what happens to a **high-risk decision after the risk gate pauses it for a
+human** and nobody answers. It specifies the **time-bounded escalation
 ladder** that walks an unanswered approval up the on-call chain by impact, and
 the **standing authorization** artifact that lets an operator pre-commit a
 bounded, conditional execution for the case where waiting is more dangerous
