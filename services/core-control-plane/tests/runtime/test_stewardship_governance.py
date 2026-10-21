@@ -12,6 +12,8 @@ from fdai.runtime.stewardship_governance import (
     StewardshipGovernanceWorker,
     activate_console_stewardship_candidate,
     build_stewardship_governance_worker,
+    select_stewardship_publisher,
+    stewardship_delivery_mode,
 )
 from fdai.shared.providers.testing.remediation_pr import RecordingRemediationPrPublisher
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -280,3 +282,29 @@ async def test_console_publisher_supports_github_app_free_draft_reuse_and_activa
     assert merge_record is not None
     assert merge_record["pr_ref"] == pr_ref
     assert merge_record["actor_identity"] == "entra:reviewer-oid"
+
+
+def test_delivery_mode_is_console_only_when_explicitly_enabled_without_github() -> None:
+    enabled = {"FDAI_STEWARDSHIP_GOVERNANCE_ENABLED": "true"}
+
+    assert stewardship_delivery_mode({}, governed_execution=True) is None
+    assert stewardship_delivery_mode(enabled, governed_execution=False) is None
+    assert stewardship_delivery_mode(enabled, governed_execution=True) == "console"
+    assert (
+        stewardship_delivery_mode({"FDAI_GITOPS_TOKEN": "configured"}, governed_execution=True)
+        == "gitops"
+    )
+
+
+def test_console_mode_never_builds_the_gitops_publisher() -> None:
+    store = InMemoryStateStore()
+    gitops = RecordingRemediationPrPublisher()
+
+    def fail() -> RecordingRemediationPrPublisher:
+        raise AssertionError("Console mode MUST NOT construct a GitOps publisher")
+
+    assert isinstance(
+        select_stewardship_publisher("console", store, fail),
+        ConsoleStewardshipCandidatePublisher,
+    )
+    assert select_stewardship_publisher("gitops", store, lambda: gitops) is gitops

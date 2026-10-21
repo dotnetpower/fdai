@@ -6,10 +6,10 @@ import asyncio
 import hashlib
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from fdai_service_contracts.handover import (
     HandoverDraftArtifact,
@@ -299,6 +299,32 @@ class StewardshipGovernanceWorker:
                 continue
 
 
+def stewardship_delivery_mode(
+    environment: Mapping[str, str],
+    *,
+    governed_execution: bool,
+) -> Literal["gitops", "console"] | None:
+    """Select how stewardship drafts reach review: GitOps when credentials exist, else Console."""
+
+    if not governed_execution:
+        return None
+    if github_credentials_configured(environment):
+        return "gitops"
+    if _environment_flag(environment, "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", False):
+        return "console"
+    return None
+
+
+def select_stewardship_publisher(
+    mode: Literal["gitops", "console"],
+    store: StateStore,
+    gitops_publisher: Callable[[], RemediationPrPublisher],
+) -> RemediationPrPublisher:
+    """Return the GitOps publisher only for GitOps mode; otherwise the Console candidate store."""
+
+    return gitops_publisher() if mode == "gitops" else ConsoleStewardshipCandidatePublisher(store)
+
+
 def build_stewardship_governance_worker(
     *,
     store: StateStore,
@@ -437,4 +463,6 @@ __all__ = [
     "StewardshipGovernanceWorker",
     "activate_console_stewardship_candidate",
     "build_stewardship_governance_worker",
+    "select_stewardship_publisher",
+    "stewardship_delivery_mode",
 ]

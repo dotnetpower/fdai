@@ -79,7 +79,6 @@ from fdai.runtime.control_loop import (
 from fdai.runtime.conversation_assurance import build_runtime_pantheon_conversation_assurance
 from fdai.runtime.delivery import _build_notification_router, _build_publisher
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
-from fdai.runtime.github_auth import github_credentials_configured
 from fdai.runtime.governed_rca import bind_governed_rca_from_environment
 from fdai.runtime.handover_knowledge_lifecycle import HandoverKnowledgeLifecycleWorker
 from fdai.runtime.observation_evidence import bind_executed_action_observation_from_env
@@ -112,9 +111,10 @@ from fdai.runtime.rule_activation_transport import (
     rule_activation_source_time,
 )
 from fdai.runtime.stewardship_governance import (
-    ConsoleStewardshipCandidatePublisher,
     StewardshipGovernanceWorker,
     build_stewardship_governance_worker,
+    select_stewardship_publisher,
+    stewardship_delivery_mode,
 )
 from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
 from fdai.runtime.task_workers import bind_task_workers
@@ -166,19 +166,12 @@ async def build_core_runtime(
             ),
         )
     product_selection = _product_profile.RuntimeProductSelection.from_profile(plan.product_profile)
-    gitops_delivery_requested = (
-        product_selection.governed_execution and github_credentials_configured(environment)
-    )
-    console_stewardship_requested = (
-        product_selection.governed_execution
-        and not gitops_delivery_requested
-        and environment.get("FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", "").strip().lower()
-        in {"1", "true", "yes", "on"}
+    stewardship_mode = stewardship_delivery_mode(
+        environment, governed_execution=product_selection.governed_execution
     )
     if (
         plan.requires_channel_http_client
-        or gitops_delivery_requested
-        or console_stewardship_requested
+        or stewardship_mode is not None
         or environment.get("FDAI_OPERATIONAL_EVIDENCE_ENABLED", "").strip() == "1"
     ) and resources.http_client is None:
         resources.http_client = _new_http_client()
@@ -238,13 +231,9 @@ async def build_core_runtime(
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     scoped_publisher = None
-    if gitops_delivery_requested or console_stewardship_requested:
-        if resources.http_client is None:  # pragma: no cover - guarded above
-            raise RuntimeError("stewardship governance delivery requires an HTTP client")
-        publisher = (
-            _build_publisher(resources.http_client)
-            if gitops_delivery_requested
-            else ConsoleStewardshipCandidatePublisher(store=state_store)
+    if stewardship_mode is not None:
+        publisher = select_stewardship_publisher(
+            stewardship_mode, state_store, lambda: _build_publisher(resources.http_client)
         )
         scoped_publisher = publisher
         stewardship_governance_worker = build_stewardship_governance_worker(
