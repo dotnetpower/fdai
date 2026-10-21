@@ -164,10 +164,10 @@ def test_signed_native_first_install_update_recovery_and_restart_replay(
         provider.broken_images.add(initial_image)
     elif first_failure == "create-rejected":
 
-        def reject_service(manifest, *, dry_run=False):
+        def reject_service(manifest, *, dry_run=False, before_submit=None):
             if not dry_run and manifest["kind"] == "Service":
                 raise CreationRejectedError("kubernetes_request_rejected")
-            return create(manifest, dry_run=dry_run)
+            return create(manifest, dry_run=dry_run, before_submit=before_submit)
 
         monkeypatch.setattr(provider, "create", reject_service)
     result = poll("0.0.0", "healthy", 8)

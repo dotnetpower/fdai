@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from contextlib import contextmanager
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
@@ -51,7 +52,15 @@ class UidProvider:
             }
         return live
 
-    def create(self, manifest: Manifest, *, dry_run: bool = False) -> Manifest:
+    def create(
+        self,
+        manifest: Manifest,
+        *,
+        dry_run: bool = False,
+        before_submit: Callable[[], None] | None = None,
+    ) -> Manifest:
+        if before_submit is not None:
+            before_submit()
         self.calls.append(("create", dry_run))
         key = object_key(manifest)
         if key in self.objects:
@@ -68,12 +77,21 @@ class UidProvider:
                 raise WorkloadError("kubernetes_request_failed")
         return deepcopy(result)
 
-    def replace_owned(self, manifest: Manifest, uid: str, *, dry_run: bool = False) -> None:
-        self.calls.append(("replace", dry_run))
+    def replace_owned(
+        self,
+        manifest: Manifest,
+        uid: str,
+        *,
+        dry_run: bool = False,
+        before_submit: Callable[[], None] | None = None,
+    ) -> None:
         key = object_key(manifest)
-        current = self.objects.get(key)
+        current = self.get(*key)
         if current is None or current["metadata"]["uid"] != uid:
             raise WorkloadError("native_resource_identity_changed")
+        if before_submit is not None:
+            before_submit()
+        self.calls.append(("replace", dry_run))
         if not dry_run:
             self.counter += 1
             updated = deepcopy(dict(manifest))
@@ -83,7 +101,11 @@ class UidProvider:
             }
             self.objects[key] = updated
 
-    def delete_owned(self, kind: str, name: str, uid: str) -> None:
+    def delete_owned(
+        self, kind: str, name: str, uid: str, *, before_submit: Callable[[], None] | None = None
+    ) -> None:
+        if before_submit is not None:
+            before_submit()
         self.calls.append(("delete", False))
         current = self.objects.get((kind, name))
         if current is not None and current["metadata"]["uid"] != uid:
@@ -148,6 +170,73 @@ def manifests():
         "example-test",
         {("application", "frontend"): "example.test/frontend@sha256:" + "a" * 64},
     )
+
+
+@pytest.mark.parametrize(
+    ("operation", "pause"),
+    [
+        ("create", "read"),
+        ("create", "persist"),
+        ("replace", "read"),
+        ("replace", "provider-read"),
+        ("delete", "read"),
+        ("delete", "persist"),
+    ],
+)
+def test_expiry_during_preparation_never_submits_a_mutation(native, monkeypatch, operation, pause):
+    provider, store, approval, key = native
+    bootstrap(native)
+    manifest = manifests()[0]
+    if operation != "create":
+        wrapper(native).apply(manifest)
+    before_objects = deepcopy(provider.objects)
+    before_state = store.load()
+    before_calls = list(provider.calls)
+    clock = [NOW]
+    cluster = wrapper(native, clock=lambda: clock[0])
+    read = provider.get
+    reads = 0
+
+    def paused_read(kind, name):
+        nonlocal reads
+        result = read(kind, name)
+        if kind == "Deployment" and name == "frontend":
+            reads += 1
+            if (pause == "read" and reads == 1) or (pause == "provider-read" and reads == 2):
+                clock[0] = approval.expires_at
+        return result
+
+    save = store.save
+
+    def paused_save(state):
+        save(state)
+        if pause == "persist" and (
+            state.pending == "Deployment/frontend" or "Deployment/frontend" in state.deleting
+        ):
+            clock[0] = approval.expires_at
+
+    monkeypatch.setattr(provider, "get", paused_read)
+    monkeypatch.setattr(store, "save", paused_save)
+    with pytest.raises(WorkloadError, match="native_scope_approval_expired"):
+        if operation == "delete":
+            cluster.delete("Deployment", "frontend")
+        else:
+            cluster.apply(manifest)
+    assert provider.objects == before_objects
+    assert provider.calls == before_calls
+    assert store.load() == before_state
+    renewed = approval.model_copy(
+        update={
+            "approved_at": approval.expires_at,
+            "expires_at": approval.expires_at + timedelta(hours=1),
+        }
+    )
+    cluster = wrapper((provider, store, renewed, key), clock=lambda: approval.expires_at)
+    if operation == "delete":
+        cluster.delete("Deployment", "frontend")
+    else:
+        cluster.apply(manifest)
+    assert len(provider.calls) == len(before_calls) + 1
 
 
 def test_default_bootstrap_only_dry_runs_and_does_not_persist(native):
@@ -238,9 +327,25 @@ def test_terminating_owned_deletion_cannot_pass_rollout_verification(native):
     )._rolled_out(manifests())
 
 
-def test_deadline_before_post_clears_only_the_known_unsubmitted_intent(native):
+@pytest.mark.parametrize("pause", ["persist", "submit"])
+def test_deadline_before_post_clears_only_the_known_unsubmitted_intent(native, monkeypatch, pause):
     provider, store, approval, key = native
-    ticks = iter([0.0] * 6 + [121.0])
+    ticks = [0.0]
+    save = store.save
+    create = provider.create
+
+    def delayed_save(state):
+        save(state)
+        if pause == "persist" and state.pending is not None:
+            ticks[0] = 121.0
+
+    def delayed_create(manifest, *, dry_run=False, before_submit=None):
+        if pause == "submit" and not dry_run:
+            ticks[0] = 121.0
+        return create(manifest, dry_run=dry_run, before_submit=before_submit)
+
+    monkeypatch.setattr(store, "save", delayed_save)
+    monkeypatch.setattr(provider, "create", delayed_create)
     with pytest.raises(WorkloadError, match="native_bootstrap_deadline"):
         bootstrap_native_scope(
             provider,
@@ -250,11 +355,40 @@ def test_deadline_before_post_clears_only_the_known_unsubmitted_intent(native):
             current_state_path=store.path.parent / "current-state.json",
             clock=lambda: NOW,
             apply=True,
-            monotonic=lambda: next(ticks),
+            monotonic=lambda: ticks[0],
         )
     assert store.load().pending is None
     assert provider.calls == [("create", True)]
+    monkeypatch.setattr(store, "save", save)
+    monkeypatch.setattr(provider, "create", create)
     assert bootstrap(native) is not None
+
+
+def test_bootstrap_rechecks_approval_at_the_provider_submission_boundary(native, monkeypatch):
+    provider, store, approval, key = native
+    clock = [NOW]
+    create = provider.create
+
+    def delayed_create(manifest, *, dry_run=False, before_submit=None):
+        if not dry_run:
+            clock[0] = approval.expires_at
+        return create(manifest, dry_run=dry_run, before_submit=before_submit)
+
+    monkeypatch.setattr(provider, "create", delayed_create)
+    with pytest.raises(WorkloadError, match="native_scope_approval_expired"):
+        bootstrap_native_scope(
+            provider,
+            store,
+            approval,
+            key,
+            current_state_path=store.path.parent / "current-state.json",
+            clock=lambda: clock[0],
+            apply=True,
+        )
+    assert store.load().pending is None
+    assert store.load().anchor_uid is None
+    assert provider.calls == [("create", True)]
+    assert not provider.objects
 
 
 @pytest.mark.parametrize("operation", ["get", "apply", "delete", "bootstrap"])
@@ -283,10 +417,10 @@ def test_confirmed_anchor_create_rejection_can_retry_without_claiming_creation(n
     provider, store, _, _ = native
     create = provider.create
 
-    def reject(manifest, *, dry_run=False):
+    def reject(manifest, *, dry_run=False, before_submit=None):
         if not dry_run:
             raise CreationRejectedError("kubernetes_request_rejected")
-        return create(manifest, dry_run=dry_run)
+        return create(manifest, dry_run=dry_run, before_submit=before_submit)
 
     monkeypatch.setattr(provider, "create", reject)
     with pytest.raises(CreationRejectedError):

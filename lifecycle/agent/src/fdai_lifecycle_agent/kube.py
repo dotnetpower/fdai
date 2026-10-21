@@ -83,7 +83,13 @@ class KubernetesCluster:
         )
         return None if live is None else dict(live.to_dict())
 
-    def create(self, manifest: Manifest, *, dry_run: bool = False) -> Manifest:
+    def create(
+        self,
+        manifest: Manifest,
+        *,
+        dry_run: bool = False,
+        before_submit: Callable[[], None] | None = None,
+    ) -> Manifest:
         """POST only: an object appearing after preflight is a conflict, not an adoption."""
         check_scope((manifest,), self._namespace)
         live = self._call(
@@ -98,10 +104,18 @@ class KubernetesCluster:
             ),
             missing_ok=False,
             creating=True,
+            before_submit=before_submit,
         )
         return dict(live.to_dict())
 
-    def replace_owned(self, manifest: Manifest, uid: str, *, dry_run: bool = False) -> None:
+    def replace_owned(
+        self,
+        manifest: Manifest,
+        uid: str,
+        *,
+        dry_run: bool = False,
+        before_submit: Callable[[], None] | None = None,
+    ) -> None:
         """Atomically test UID/version and replace the spec using existing patch authority."""
         check_scope((manifest,), self._namespace)
         name = manifest["metadata"]["name"]
@@ -152,9 +166,12 @@ class KubernetesCluster:
                 _request_timeout=self._timeout,
             ),
             missing_ok=False,
+            before_submit=before_submit,
         )
 
-    def delete_owned(self, kind: str, name: str, uid: str) -> None:
+    def delete_owned(
+        self, kind: str, name: str, uid: str, *, before_submit: Callable[[], None] | None = None
+    ) -> None:
         """A same-name replacement cannot satisfy this API-server UID precondition."""
         self._call(
             kind,
@@ -169,6 +186,7 @@ class KubernetesCluster:
                 },
                 _request_timeout=self._timeout,
             ),
+            before_submit=before_submit,
         )
 
     def delete(self, kind: str, name: str) -> None:
@@ -224,6 +242,7 @@ class KubernetesCluster:
         *,
         missing_ok: bool = True,
         creating: bool = False,
+        before_submit: Callable[[], None] | None = None,
     ) -> Any:
         """Run one request; a read/delete ``404`` returns ``None``, not a write success."""
 
@@ -234,6 +253,8 @@ class KubernetesCluster:
             if self._dynamic is None:
                 self._dynamic = dynamic.DynamicClient(self._api_client)
             resource = self._dynamic.resources.get(api_version=api_version, kind=kind)
+            if before_submit is not None:
+                before_submit()
             return request(self._dynamic, resource)
         except ApiException as error:
             if error.status == 404 and missing_ok:

@@ -8,7 +8,13 @@ from kubernetes import config, dynamic  # type: ignore[import-untyped]
 from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
 
 from fdai_lifecycle_agent import kube
-from fdai_lifecycle_agent.workload import CreationRejectedError, Manifest, WorkloadError, render
+from fdai_lifecycle_agent.workload import (
+    CreationRejectedError,
+    Manifest,
+    MutationNotSubmittedError,
+    WorkloadError,
+    render,
+)
 
 
 def cluster(monkeypatch: pytest.MonkeyPatch) -> tuple[kube.KubernetesCluster, Any]:
@@ -178,3 +184,49 @@ def test_native_delete_uses_api_server_uid_precondition(monkeypatch):
     api.delete.side_effect = ApiException(status=409)
     with pytest.raises(WorkloadError, match="kubernetes_request_rejected"):
         client.delete_owned("Deployment", "operator-service", "owned")
+
+
+@pytest.mark.parametrize(
+    ("operation", "pause"),
+    [
+        ("create", "discovery"),
+        ("replace", "discovery"),
+        ("replace", "owned-read"),
+        ("delete", "discovery"),
+    ],
+)
+def test_submission_guard_runs_after_blocking_provider_preparation(monkeypatch, operation, pause):
+    client, api = cluster(monkeypatch)
+    expired = [False]
+    resource = Mock()
+    live = Mock()
+    live.to_dict.return_value = {"metadata": {"uid": "owned", "resourceVersion": "7"}}
+
+    def discover(**kwargs):
+        if pause == "discovery":
+            expired[0] = True
+        return resource
+
+    def read(*args, **kwargs):
+        if pause == "owned-read":
+            expired[0] = True
+        return live
+
+    def require_current():
+        if expired[0]:
+            raise MutationNotSubmittedError("native_scope_approval_expired")
+
+    api.resources.get.side_effect = discover
+    api.get.side_effect = read
+    with pytest.raises(MutationNotSubmittedError, match="native_scope_approval_expired"):
+        if operation == "create":
+            client.create(deployment(), before_submit=require_current)
+        elif operation == "replace":
+            client.replace_owned(deployment(), "owned", before_submit=require_current)
+        else:
+            client.delete_owned(
+                "Deployment", "operator-service", "owned", before_submit=require_current
+            )
+    api.create.assert_not_called()
+    api.patch.assert_not_called()
+    api.delete.assert_not_called()

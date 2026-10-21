@@ -30,6 +30,7 @@ from fdai_lifecycle_agent.workload import (
     MANAGED_BY_LABEL,
     CreationRejectedError,
     Manifest,
+    MutationNotSubmittedError,
     WorkloadError,
 )
 
@@ -81,6 +82,12 @@ def bootstrap_native_scope(
             except ValueError as error:
                 raise WorkloadError("native_scope_approval_expired") from error
 
+        def before_submit() -> None:
+            try:
+                require_budget()
+            except WorkloadError as error:
+                raise MutationNotSubmittedError(error.reason_code) from error
+
         require_budget()
         state = store.load()
         scope = approval.scope
@@ -119,7 +126,7 @@ def bootstrap_native_scope(
                     raise WorkloadError("native_resource_collision")
             manifest = anchor_manifest(scope)
             require_budget()
-            cluster.create(manifest, dry_run=True)
+            cluster.create(manifest, dry_run=True, before_submit=before_submit)
             if not apply:
                 return None
             state = NativeState(
@@ -135,8 +142,8 @@ def bootstrap_native_scope(
                 store.save(state.model_copy(update={"pending": None}))
                 raise
             try:
-                created = cluster.create(manifest)
-            except CreationRejectedError:
+                created = cluster.create(manifest, before_submit=before_submit)
+            except (CreationRejectedError, MutationNotSubmittedError):
                 store.save(state.model_copy(update={"pending": None}))
                 raise
             uid = live_uid(created)

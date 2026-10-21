@@ -692,6 +692,9 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
    identity, so a component label alone cannot select foreign Pods or orphan ReplicaSets.
    Health readback verifies those selectors and Pod labels again; terminating workloads cannot
    pass rollout verification even when deletion is already tracked locally.
+   UID-capable adapters recheck current local approval at each POST, PATCH and DELETE submission,
+   after blocking discovery, owned-object reads and intent persistence. A denied unsent request
+   restores only its new local intent; it never clears evidence of an earlier uncertain request.
 6. Recovery uses that retained UID history, never a name-only deletion. Uncertain creation,
    failed persistence or conflicting identity requires review rather than a success-shaped
    retry. Existing signed-input, product, window, envelope, dry-run, rollback, replay and

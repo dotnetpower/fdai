@@ -45,6 +45,10 @@ class CreationRejectedError(WorkloadError):
     """The provider confirmed rejection before creating the requested object."""
 
 
+class MutationNotSubmittedError(WorkloadError):
+    """A local submission guard denied a mutation before its request was sent."""
+
+
 class Cluster(Protocol):
     """One namespace of one cluster. Every failed call raises ``WorkloadError``."""
 

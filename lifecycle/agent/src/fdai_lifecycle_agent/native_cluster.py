@@ -17,6 +17,7 @@ from fdai_lifecycle_agent.workload import (
     Cluster,
     CreationRejectedError,
     Manifest,
+    MutationNotSubmittedError,
     WorkloadError,
     check_scope,
     object_key,
@@ -27,11 +28,22 @@ ANCHOR_LABEL = "fdai.io/native-anchor"
 
 @runtime_checkable
 class UidCluster(Cluster, Protocol):
-    def create(self, manifest: Manifest, *, dry_run: bool = False) -> Manifest: ...
+    def create(
+        self, manifest: Manifest, *, dry_run: bool = False, before_submit: Callable[[], None]
+    ) -> Manifest: ...
 
-    def replace_owned(self, manifest: Manifest, uid: str, *, dry_run: bool = False) -> None: ...
+    def replace_owned(
+        self,
+        manifest: Manifest,
+        uid: str,
+        *,
+        dry_run: bool = False,
+        before_submit: Callable[[], None],
+    ) -> None: ...
 
-    def delete_owned(self, kind: str, name: str, uid: str) -> None: ...
+    def delete_owned(
+        self, kind: str, name: str, uid: str, *, before_submit: Callable[[], None]
+    ) -> None: ...
 
 
 def live_uid(live: Manifest | None) -> str:
@@ -84,15 +96,18 @@ class NativeCluster:
             raise WorkloadError("native_scope_proof_invalid")
         return state
 
+    def _require_current(self) -> None:
+        try:
+            self._approval.require_current(self._clock())
+        except ValueError as error:
+            raise MutationNotSubmittedError("native_scope_approval_expired") from error
+
     def _guard(self, *, mutation: bool = False) -> NativeState:
         state = self._load()
         if state.scope != self._approval.scope:
             raise WorkloadError("native_scope_approval_mismatch")
         if mutation:
-            try:
-                self._approval.require_current(self._clock())
-            except ValueError as error:
-                raise WorkloadError("native_scope_approval_expired") from error
+            self._require_current()
             if state.pending is not None:
                 raise WorkloadError("native_creation_outcome_unknown")
         anchor = self._cluster.get("Service", state.scope.anchor_name)
@@ -186,13 +201,17 @@ class NativeCluster:
         if owned_uid is not None:
             if live is None:
                 raise WorkloadError("native_owned_resource_missing")
-            self._cluster.replace_owned(owned_manifest, owned_uid, dry_run=dry_run)
+            self._cluster.replace_owned(
+                owned_manifest, owned_uid, dry_run=dry_run, before_submit=self._require_current
+            )
         else:
             if not dry_run:
                 self._store.save(state.model_copy(update={"pending": key}))
             try:
-                created = self._cluster.create(owned_manifest, dry_run=dry_run)
-            except CreationRejectedError:
+                created = self._cluster.create(
+                    owned_manifest, dry_run=dry_run, before_submit=self._require_current
+                )
+            except (CreationRejectedError, MutationNotSubmittedError):
                 if not dry_run:
                     self._store.save(state.model_copy(update={"pending": None}))
                 raise
@@ -215,6 +234,10 @@ class NativeCluster:
         if uid is None:
             raise WorkloadError("native_resource_not_owned")
         self._store.save(state.model_copy(update={"deleting": state.deleting | {key}}))
-        self._cluster.delete_owned(kind, name, uid)
+        try:
+            self._cluster.delete_owned(kind, name, uid, before_submit=self._require_current)
+        except MutationNotSubmittedError:
+            self._store.save(state)
+            raise
         self._guard()
         self.get(kind, name)
