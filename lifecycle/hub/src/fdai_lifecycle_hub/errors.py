@@ -45,6 +45,10 @@ class ConcurrentWriteError(HubStoreError):
     """Another writer committed first, for example the next audit sequence. Retry."""
 
 
+class SchemaMigrationPendingError(HubStoreError):
+    """New writers wait for an explicitly prepared schema transition to finish."""
+
+
 class EnrollmentProofError(HubStoreError):
     def __init__(self, failure: ProofFailure) -> None:
         super().__init__(failure)

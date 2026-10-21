@@ -58,10 +58,11 @@ def _parser() -> argparse.ArgumentParser:
 
     def command(name: str, handler: Handler, help_text: str) -> argparse.ArgumentParser:
         sub = commands.add_parser(name, help=help_text)
-        sub.set_defaults(handler=handler)
+        sub.set_defaults(handler=handler, command=name)
         return sub
 
     command("migrate", _migrate, "create the Hub schema")
+    command("prepare", _migrate, "prepare an existing Hub without advancing its reader floor")
 
     keygen = command("dev-keygen", _dev_keygen, "write a development Hub signing key")
     keygen.add_argument("path", type=Path)
@@ -178,8 +179,9 @@ def _migrate(args: argparse.Namespace) -> int:
             raise SchemaMismatchError(f"recreate the Hub database; earlier schema in {stale}")
         models.Base.metadata.create_all(connection)
 
-    migrate(store.engine, "lifecycle_hub", initialize)
-    _print({"schema": "created"})
+    prepare = args.command == "prepare"
+    migrate(store.engine, "lifecycle_hub", initialize, prepare=prepare)
+    _print({"schema": "prepared" if prepare else "created"})
     return 0
 
 

@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: f3b9c34d44471dcb6b43f190cf9bb064a376fcf5
+translation_source_sha: 1e4098d890cf923f21f004e43ff86f4acef1efe0
 translation_revised: 2026-10-22
 ---
 # Lifecycle Release와 채널
@@ -264,6 +264,14 @@ Release Hub의 기존 운영자 기여 경로는 첫 번째 검토된 구성원 
   관계없이 즉시 강등합니다. 이후 Release가 회수를 해제할 때까지 같은 기능의 새 승격을 막으며, 이
   우선순위는 운영자 재정의 승격에도 적용됩니다.
 - 오프라인 설치는 운영자가 회수를 담은 번들을 가져올 때 회수를 적용합니다.
+
+Release Hub는 Release 범위 회수와 기능 범위 회수·해제 이벤트를 모두 기록하고 서명된
+`RecallRecord` 항목으로 내보내며, Release 자체나 선언된 `capability_maximums` 중 하나가 해제
+Release 미만의 활성 회수 상태이면 수동 채널 승격(`contribute`)을 거부합니다. 관리 대상 Entity가
+직접 회수되었거나 선언된 기능 회수에 걸린 Release를 실행 중이면 Lifecycle Hub 플래너는 구독
+채널에서 스키마, 구간, 재정의 제약을 통과하는 회수되지 않은 최신 Release로 `recall-rolloff`
+Plan을 발급합니다. 이 Plan은 열려 있는 `upgrade` Plan을 대체하고 `plan:upgrade` 억제를
+우회하되 수동 설치 및 Entity 억제는 그대로 존중합니다.
 
 ## 카탈로그 무결성
 

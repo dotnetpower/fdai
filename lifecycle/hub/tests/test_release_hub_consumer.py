@@ -16,7 +16,7 @@ from fdai_lifecycle_hub.domain import Installation, Issued
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import HubSigningKey, generate_development_key, load_signing_key
 from fdai_lifecycle_hub.store import HubStore
-from fdai_release_hub.store import Change, ReleaseStore
+from fdai_release_hub.store import CapabilityChange, Change, ReleaseStore
 
 
 def test_vendor_publication_to_lifecycle_plan_and_recall(
@@ -43,7 +43,7 @@ def test_vendor_publication_to_lifecycle_plan_and_recall(
             )
     target = replace(installation, settings=replace(installation.settings, channel="DEV"))
 
-    def compute():
+    def compute() -> domain.PlanOutcome:
         raw, digest = vendor.export()
         admitted = load_pinned_export(
             raw, expected_sha256=digest, public_key=key.public_key, now=now
@@ -66,6 +66,49 @@ def test_vendor_publication_to_lifecycle_plan_and_recall(
     assert isinstance(second, Issued)
     assert second.plan.target_release_id == "1.5.0"
     assert "release_recalled" in {b.reason_code for b in second.checks[0].blocks}
+
+    # Running recalled 1.6.0 receives a recall-rolloff Plan to 1.5.0.
+    running_160 = replace(
+        target,
+        reported=replace(
+            target.reported,
+            entities={
+                **target.reported.entities,
+                "core": replace(target.reported.entities["core"], release_id="1.6.0"),
+            },
+        ),
+    )
+    raw, digest = vendor.export()
+    admitted = load_pinned_export(raw, expected_sha256=digest, public_key=key.public_key, now=now)
+    rolloff = plan_next(running_160, now, catalog=admitted, key=key)
+    assert isinstance(rolloff, Issued)
+    assert rolloff.plan.plan_type == "recall-rolloff"
+    assert rolloff.plan.target_release_id == "1.5.0"
+
+    # Capability recall blocks 1.5.0 as well until lifted at 1.5.0.
+    vendor.change_capability(
+        "recall",
+        "action:scale-service",
+        CapabilityChange(
+            revision=vendor.snapshot()["revision"],
+            confirmation="action:scale-service",
+            reason="Capability regression",
+        ),
+    )
+    assert isinstance(compute(), domain.NoEligibleRelease)
+    vendor.change_capability(
+        "lift",
+        "action:scale-service",
+        CapabilityChange(
+            revision=vendor.snapshot()["revision"],
+            confirmation="action:scale-service",
+            reason="Verified safe in 1.5.0",
+            lifting_release_id="1.5.0",
+        ),
+    )
+    lifted = compute()
+    assert isinstance(lifted, Issued)
+    assert lifted.plan.target_release_id == "1.5.0"
 
 
 def test_recompute_pinned_cli_issues_from_verified_vendor_export(
