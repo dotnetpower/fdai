@@ -788,9 +788,10 @@ configuration tables belong to [Lifecycle Configuration](lifecycle-configuration
   previous images within the failed Plan and reports `rolled-back`. The Hub then holds each Entity
   of that Plan with a 24-hour failure suppression, which an operator can lift earlier. The
   installation-wide failure threshold isn't implemented.
-- The dual-slot self-upgrade of agents and Target Hubs needs its own failure analysis.
-- How entitlement reaches a Hub-managed installation is an open question. A Hub upgrade never
-  renews a Trial.
+- [Self-upgrade failure analysis](hub-managed-lifecycle-self-upgrade.md) defines the slot/fence,
+  data-compatibility and recovery obligations. The controllers and operational drills remain unimplemented.
+- [Entitlement continuity](hub-managed-lifecycle-entitlement.md) selects installation-local licensing
+  authority and transport-only Hub mediation. The carrier/handoff remains unimplemented; upgrades never renew a Trial.
 - Offline installations receive recalls only when an operator imports the next bundle.
 - The Hub path supports AKS only, and on-premises runtimes are out of scope.
 
@@ -799,6 +800,8 @@ configuration tables belong to [Lifecycle Configuration](lifecycle-configuration
 | To learn about | Read |
 |----------------|------|
 | Decision record | [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md) |
+| Self-upgrade failures and recovery | [Failure analysis](hub-managed-lifecycle-self-upgrade.md) |
+| Entitlement and Trial continuity | [Entitlement decision](hub-managed-lifecycle-entitlement.md) |
 | Configuration layers, packages, and secrets | [Lifecycle Configuration](lifecycle-configuration.md) |
 | Releases, channels, bundles, and recall | [Lifecycle Releases and Channels](lifecycle-releases-and-channels.md) |
 | Approval profiles and policy administration | [Operator Governance Profiles](../decisioning/operator-governance-profiles.md) |

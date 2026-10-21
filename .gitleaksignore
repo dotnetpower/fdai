@@ -7,3 +7,5 @@
 3da56c82044fe04e5348dbd9403824097d902c43:packages/deployment-cli/tests/test_lifecycle_configuration.py:github-pat:261
 # Public labeled-source input SHA-256 under dvcsharp-api; exact historical fingerprint, not a credential.
 c393cbbd4ee6c0bc86d9332ec169076e16ec70d6:rule-catalog/code-security/evaluation/managed-verifiers-1.6.0.json:generic-api-key:132
+# Public lifecycle metadata prose, rewritten as bullets; exact historical fingerprint only.
+a61f9e6d059a92e96e4aaa2ada1a1ea63726fefc:docs/roadmap/deployment/hub-managed-lifecycle-self-upgrade.md:generic-api-key:83
