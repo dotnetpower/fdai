@@ -25,7 +25,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Promotion pipeline | not-started | Design only: Release channels section | Labels, soak time, canary health, and timeouts |
 | Release and capability recall pure decisions | implemented | `packages/deployment-cli/src/fdai_deployment_cli/runtime_release.py`; `packages/deployment-cli/tests/test_runtime_release.py::test_recall_decision_blocks_repromotion_and_orders_recall_targets` and `test_recall_lift_allows_later_candidate` passed on 2026-10-04 | Local shadow-only helpers deny recalled Release and capability candidates, compute recall-target ordering, and allow a later capability lift record only for candidates at or after the lifting Release. Publication, import, runtime demotion, and roll-off Plan priority are still open. |
 | Catalog integrity metadata | not-started | Design only: Catalog integrity section | Expired metadata allows only recall roll-off and returns operator-override promotions to shadow mode |
-| Schema compatibility planner constraint | implemented | `packages/deployment-cli/src/fdai_deployment_cli/runtime_release.py`; `packages/deployment-cli/tests/test_runtime_release.py::test_schema_transition_blocks_upgrade_outside_tolerated_range` passed on 2026-10-04 | Local shadow-only validator blocks upgrade or roll-back candidates outside the tolerated schema range and blocks non-forward upgrade targets. It does not implement the Hub planner. |
+| Schema compatibility planner and pre-effect refusal | implemented | `current change`; #2367; existing `runtime_release.py`/`lifecycle_plan.py`, Hub `planning.py`, Agent `agent.py`/workload validators; new exact-boundary Hub/Agent tests and commands below | Corrects the stale Hub-unwired claim: actual planning already passes the parsed Release and reported revision to the shared validator. Inclusive bounds, non-forward upgrade refusal and separate rollback/recall directions are preserved. Native Agent tests use synthetic signed inputs/FakeCluster and prove no cluster calls; physical migrations and installed rollback are not claimed. |
 | Registry mirroring and artifact constraint | not-started | Design only: Connected installations section | Blocks a Plan until every digest is inside the boundary |
 | Upgrade bundle and Target Hub import | not-started | Design only: Offline installations section | The first-installation offline package stays unchanged |
 
@@ -55,8 +55,31 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-10-21 | implemented | Added `fdai.application-release.v1` to the existing registration, signature, publication and independently pinned import path. Display the package product, declared HTTP components and absent database/SBOM metadata honestly; FDAI inventory remains a legacy adapter. | `current change`; focused results and source paths in the scope row; generic fixtures use three unrelated products through the same consumers; strict source typing passed. | Reviewed exact-source activation, real artifacts and independent installation effect evidence remain open. This does not introduce multi-product version namespaces or production catalog roles. |
 | 2026-10-21 | implemented | Hardened strict package JSON against positive/negative exponent overflow and restricted component names to Service-compatible labels beginning with a lowercase letter. | `current change`; `contracts.py`, `lifecycle_release.py`, `test_lifecycle_release.py`; focused combined selection: 150 passed; final package parser selection: 43 passed, including schema-default canonical round trips, digest-matching overflow rejection and exact 63/64-character name boundaries. | Complete fresh review and delivery checks; approved activation, genuine artifacts and independent installation effects remain separate. |
 | 2026-10-22 | implemented | Validate the stored canonical application manifest with the same bounded decoder before accepting a package. Unicode expansion cannot publish an unreadable release; rejected registration leaves the catalog unchanged. | `current change`; `lifecycle_release.py`, `packages/deployment-cli/tests/test_lifecycle_release.py`, `lifecycle/hub/tests/test_application_release.py`; `uv run --no-sync pytest -c pyproject.toml -q --no-cov packages/deployment-cli/tests/test_lifecycle_release.py lifecycle/hub/tests/test_application_release.py lifecycle/agent/tests/test_application_release.py`: 78 passed, 1 PostgreSQL-only binding test skipped. Canonical Unicode boundary acceptance/rejection, persisted publication and independently pinned round trips passed; strict parser mypy and scoped Ruff passed. | Complete review and protected delivery; PostgreSQL binding evidence from the preceding change remains separate. No runtime activation, native ownership or installation effect is claimed. |
+| 2026-10-22 | implemented | Qualified the already-wired schema refusal path instead of adding duplicate production logic. Added exact Hub issuance boundaries, Agent pre-effect refusal and upgrade/rollback/recall-rolloff direction regressions; corrected the stale source-limit prose and scope row. | `current change`; #2367; focused seven-file command: 308 passed, 3 database prerequisites skipped; the three selectors rerun through the isolated database wrapper: 6 parametrized storage cases passed, including the skipped PostgreSQL cases. Commands below; no fixture API or runtime behavior changed. | Protected delivery is tracked in #2367. Actual schema migration, installed old-binary rollback and the remaining promotion/trust/distribution outcomes remain unqualified. |
 
 ### Remaining work
+
+- [x] Prove the actual Hub/Agent schema refusal paths and preserve existing same-schema,
+  first-install, rollback and recall constraints with the source evidence below.
+- [ ] Retain separately authorized physical migration and old-binary rollback qualification;
+  local guards and synthetic cluster adapters do not establish those operational effects.
+
+Focused schema source command:
+
+```bash
+.venv/bin/pytest -q -c pyproject.toml --no-cov lifecycle/hub/tests/test_schema_range.py lifecycle/hub/tests/test_application_release.py lifecycle/hub/tests/test_first_install.py lifecycle/agent/tests/test_schema_range.py lifecycle/agent/tests/test_operator_workload.py packages/deployment-cli/tests/test_lifecycle_plan.py packages/deployment-cli/tests/test_runtime_release.py
+```
+
+Result: **308 passed, 3 skipped** because the isolated database wasn't bound. Re-ran only those
+three selectors through the existing loopback validation wrapper:
+
+```bash
+python3 scripts/automation/with-local-test-database.py .venv/bin/pytest -q -c pyproject.toml --no-cov lifecycle/hub/tests/test_application_release.py::test_application_binding_survives_store_reopen lifecycle/hub/tests/test_first_install.py::test_empty_state_round_trips_and_requires_explicit_initial_override_coverage lifecycle/hub/tests/test_first_install.py::test_existing_installation_cannot_bypass_running_override_coverage
+```
+
+Result: **6 parametrized storage cases passed**, including the three PostgreSQL cases.
+The SQLite cases overlap the first command and aren't counted as additional unique coverage.
+No live installation, migration or Azure/model operation was run.
 
 - [x] Validate common application publication/import and preserve legacy signatures, schema,
   recall, pin and expiry behavior with the focused evidence above.
