@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: e3bf79c877520d021c09692da9cfd6b70cd94b5a
+translation_source_sha: 1754f07f3606ab701d10a6984b8cb6755a468710
 translation_revised: 2026-10-21
 ---
 # 리포팅 서브시스템
@@ -629,6 +629,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-21 | not-applicable | Core 비공개 설치 사용권 수락 저장소를 보고 데이터 원본 및 Operator 접근 권한과 구분했습니다. 보고 기능은 바뀌지 않습니다. | 현재의 영문 및 한국어 담당 문서; #2352; 사용권 소스 커밋 `4975461319283d8a2d82565f6bf775eaf6fd484b`; 사용권/PG/런타임/CLI 집중 테스트 443개와 마이그레이션 재고 검사 74개 통과. | 기존 보고 종료 조건은 유지됩니다. 로컬 수락은 운영 결과를 제공하지 않습니다. |
 | 2026-09-28 | implemented | Core 소유 삽입 전용 운영 근거 증명 테이블 다섯 개를 공유 service migration inventory에 등록했으며 reporting source, widget, 경로 또는 쓰기 권한에는 추가하지 않았습니다. | `current change`; `tests/integration/services/test_service_migration_inventory.py` 73개 통과, 루프백 PostgreSQL 역할 테스트에서 검증기 역할만 증명 기록을 삽입함을 확인했습니다. | reporting 동작이나 datasource 근거는 바뀌지 않았습니다. |
 | 2026-09-22 | implemented | Core 소유 Rule 활성화 receipt table을 공유 service migration inventory에 등록했으며 reporting source, widget, 경로 또는 쓰기 권한에는 추가하지 않았습니다. | `current change`; service migration inventory 73개 통과, 실제 PostgreSQL role 테스트에서 Operator에 receipt table 직접 접근이 없음을 확인. | Reporting 동작이나 data source 근거는 변경되지 않았습니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 선택적 PDF 구현 주장을 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 reporting core, 카탈로그, Operator, Console 및 focused 검사입니다. | 권위 있는 데이터 원본 근거를 보존하고 PDF를 표시하기 전에 선택적 delivery를 구현해야 합니다. |
