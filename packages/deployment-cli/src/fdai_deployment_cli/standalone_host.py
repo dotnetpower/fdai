@@ -2070,11 +2070,12 @@ def _capture_aks_deployments(context: dict[str, object], *, service: str | None 
     kubeconfig = Path(str(context.get("kubeconfig", "")))
     if not kubeconfig.is_file():
         raise ValueError("AKS kubeconfig is unavailable for service update readback")
+    kubectl, _kubelogin, environment = _kubernetes_tools(context)
     endpoint = f"/apis/apps/v1/namespaces/{_AKS_RUNTIME_NAMESPACE}/deployments"
     if service is not None:
         endpoint = f"{endpoint}?{urlencode({'labelSelector': f'app.kubernetes.io/name={service}'})}"
     command = [
-        "kubectl",
+        kubectl,
         "get",
         f"--raw={endpoint}",
         "--request-timeout=60s",
@@ -2085,6 +2086,7 @@ def _capture_aks_deployments(context: dict[str, object], *, service: str | None 
         cwd=kubeconfig.parent,
         timeout=90,
         reason="AKS Deployment observation failed",
+        env=environment,
     )
 
 
@@ -2092,9 +2094,10 @@ def _capture_aks_pods(context: dict[str, object], *, service: str) -> str:
     kubeconfig = Path(str(context.get("kubeconfig", "")))
     if not kubeconfig.is_file():
         raise ValueError("AKS kubeconfig is unavailable for service update readback")
+    kubectl, _kubelogin, environment = _kubernetes_tools(context)
     return _capture(
         (
-            "kubectl",
+            kubectl,
             "get",
             "pods",
             "--namespace",
@@ -2108,6 +2111,7 @@ def _capture_aks_pods(context: dict[str, object], *, service: str) -> str:
         cwd=kubeconfig.parent,
         timeout=90,
         reason="AKS Pod observation failed",
+        env=environment,
     )
 
 
@@ -3620,6 +3624,7 @@ def _prepare_aks_kubeconfig(
     """Select explicit managed-host MSI authentication before any Kubernetes operation."""
     client_id = _required_guid(context, "client_id")
     subscription_id = _required_guid(context, "subscription_id")
+    kubectl, kubelogin, environment = _kubernetes_tools(context)
     kubeconfig = work_dir / "aks.kubeconfig"
     if kubeconfig.exists() or kubeconfig.is_symlink():
         read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
@@ -3650,7 +3655,7 @@ def _prepare_aks_kubeconfig(
     read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
     _run(
         (
-            "kubelogin",
+            kubelogin,
             "convert-kubeconfig",
             "--kubeconfig",
             str(kubeconfig),
@@ -3662,11 +3667,12 @@ def _prepare_aks_kubeconfig(
         cwd=work_dir,
         timeout=60,
         reason="private AKS managed-host authentication setup failed",
+        env=environment,
     )
     read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
     rendered = _capture(
         (
-            "kubectl",
+            kubectl,
             "config",
             "view",
             "--minify",
@@ -3678,6 +3684,7 @@ def _prepare_aks_kubeconfig(
         cwd=work_dir,
         timeout=30,
         reason="private AKS authentication configuration readback failed",
+        env=environment,
     )
     configuration = load_json_object(
         rendered.encode(), label="AKS authentication configuration", max_bytes=1024 * 1024
@@ -4303,9 +4310,10 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
         kubeconfig = Path(str(context.get("kubeconfig", "")))
         if not kubeconfig.is_file():
             raise ValueError("AKS kubeconfig is unavailable for database readback")
+        kubectl, _kubelogin, environment = _kubernetes_tools(context)
         result = subprocess.run(
             (
-                "kubectl",
+                kubectl,
                 "rollout",
                 "status",
                 "statefulset/postgres",
@@ -4317,6 +4325,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
             check=False,
             capture_output=True,
             timeout=360,
+            env=environment,
         )
         return result.returncode == 0
     if stage == "runtime":
@@ -4346,6 +4355,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
         kubeconfig = Path(str(context.get("kubeconfig", "")))
         if not kubeconfig.is_file():
             raise ValueError("AKS kubeconfig is unavailable for workload readback")
+        kubectl, _kubelogin, environment = _kubernetes_tools(context)
         expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
         if "core-control-plane" not in expected:
             return False
@@ -4354,7 +4364,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
             observed.append(
                 _capture(
                     (
-                        "kubectl",
+                        kubectl,
                         "get",
                         resource,
                         "--namespace",
@@ -4367,6 +4377,7 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
                     cwd=kubeconfig.parent,
                     timeout=90,
                     reason="AKS workload observation failed",
+                    env=environment,
                 )
             )
         return aks_readiness.verify_workload_health(
@@ -4543,17 +4554,66 @@ def _terraform_json_output(infra: Path, name: str) -> object:
     )
 
 
-def _run(command: tuple[str, ...] | list[str], *, cwd: Path, timeout: int, reason: str) -> None:
-    result = subprocess.run(command, cwd=cwd, check=False, capture_output=True, timeout=timeout)
+def _kubernetes_tools(context: dict[str, object]) -> tuple[str, str, dict[str, str]]:
+    root = Path(str(context.get("kit_bin", "")))
+    tools: list[str] = []
+    for name in ("kubectl", "kubelogin"):
+        path = root / name
+        try:
+            details = path.lstat()
+        except OSError as exc:
+            raise ValueError(f"managed-host {name} is unavailable") from exc
+        if (
+            not stat.S_ISREG(details.st_mode)
+            or details.st_uid != os.geteuid()
+            or not details.st_mode & stat.S_IXUSR
+        ):
+            raise ValueError(f"managed-host {name} is unavailable")
+        tools.append(str(path))
+    environment = dict(os.environ)
+    current_path = environment.get("PATH", "")
+    environment["PATH"] = str(root) if not current_path else f"{root}{os.pathsep}{current_path}"
+    return tools[0], tools[1], environment
+
+
+def _run(
+    command: tuple[str, ...] | list[str],
+    *,
+    cwd: Path,
+    timeout: int,
+    reason: str,
+    env: dict[str, str] | None = None,
+) -> None:
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        timeout=timeout,
+        env=env,
+    )
     if result.returncode != 0:
         raise (
             _terraform_failure(reason, result) if "terraform" in command[0] else ValueError(reason)
         )
 
 
-def _capture(command: tuple[str, ...], *, cwd: Path, timeout: int, reason: str) -> str:
+def _capture(
+    command: tuple[str, ...],
+    *,
+    cwd: Path,
+    timeout: int,
+    reason: str,
+    env: dict[str, str] | None = None,
+) -> str:
     result = subprocess.run(
-        command, cwd=cwd, check=False, capture_output=True, text=True, timeout=timeout
+        command,
+        cwd=cwd,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        env=env,
     )
     if result.returncode != 0:
         raise (
