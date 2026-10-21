@@ -7,7 +7,7 @@ Core supervises post-turn review and document-intent ready intake separately fro
 Its read-only ActionBuilder rule map validates ORR citations and actual verifier/native comparison-window observations feed self-health; neither creates a channel, delivery receipt or approval route, or selects the notifications add-on.
 
 How FDAI talks to humans through Teams, Slack, email, webhooks, paging services, SMS,
-a Direct Line custom channel, and opt-in browser notifications. This file is authoritative
+a Direct Line-compatible custom channel, and opt-in browser notifications. This file is authoritative
 for the **channel abstraction, trust levels, category boundaries, routing policy, and
 channel-specific rules**. It
 resolves the placeholder "notifier interface" hinted at in
@@ -162,7 +162,7 @@ and what its authentication can prove.
 | **Generic webhook** | ✗ | HMAC-signed, timestamped, replay-guarded | **A2 only** |
 | **PagerDuty / Opsgenie** | ✗ | API key, ack from mobile app | **A2 only** (operational lane paging) |
 | **SMS** | ✗ | - | **A2 only** (minimal payload; break-glass reachability) |
-| **Direct Line custom channel** | ✗ | Direct Line secret from protected configuration; posts activities only | **A2, A4 only** - never A1 or A3 |
+| **Direct Line-compatible custom channel** | ✗ | Relay secret from protected configuration; posts activities only | **A2, A4 only** - never A1 or A3 |
 
 **Rules that keep the matrix safe (MUST)**
 
@@ -275,7 +275,7 @@ profile, and an unknown or failed renderer returns the canonical text fallback.
 | Slack | Block Kit `section`, `fields`, `context`, and `actions` | Bounded textual summary; a sparkline is allowed only from a reviewed deterministic renderer | Limitations, evidence references, authority, unavailable state, and top-level `text` fallback |
 | Custom | Injected renderer and capability profile | Renderer-declared bounded fallback | The same mandatory content and bounds as built-in renderers |
 
-Conversation assurance evaluates this projection through an independent capability profile. Canonical content, limitations, evidence references, and authority posture are always applicable. Preparing status, progress, activity records, rich presentation, thread continuity, and edit continuity apply only when the injected profile declares support. Direct Line and custom adapters use this same profile seam. This A3 presentation contract doesn't implement a Direct Line conversation transport or add a vendor branch to Core; A2/A4 Direct Line notification delivery is owned by [Multi-channel notification delivery § 9](multi-channel-notification-delivery.md#9-direct-line-custom-channel).
+Conversation assurance evaluates this projection through an independent capability profile. Canonical content, limitations, evidence references, and authority posture are always applicable. Preparing status, progress, activity records, rich presentation, thread continuity, and edit continuity apply only when the injected profile declares support. Direct Line and custom adapters use this same profile seam. This A3 presentation contract doesn't implement a Direct Line conversation transport or add a vendor branch to Core; A2/A4 Direct Line-compatible notification delivery is owned by [Multi-channel notification delivery § 9](multi-channel-notification-delivery.md#9-direct-line-compatible-custom-channel).
 
 Rendering is loss-bounded, not fact-selective. It can omit optional visual detail only after the readable fallback retains the same canonical facts. It never maps unavailable to zero, drops an approval or authority boundary, or emits raw artifact JSON as the primary answer.
 Provider byte, block, and field caps apply before transport. Exceeding a cap first removes optional visual detail, then uses the complete bounded text fallback. If mandatory content alone cannot fit, rendering fails closed before a provider call.
@@ -560,7 +560,7 @@ matrix:
 | **Generic webhook** | HMAC-SHA256 signature, monotonic timestamp, single-use nonce. Receiver failures never block; core retries per adapter policy and moves on. |
 | **PagerDuty / Opsgenie** | Deduplication key = the observability correlation id so a burst collapses. Runbook URL is required in every alert. |
 | **SMS** | Payload restricted to `<severity> <audit_id> <short-url-to-runbook>`. No secrets, no customer names, no free-form text. Break-glass reachability primarily. |
-| **Direct Line custom channel** | Send-only A2/A4 activities for a deployment-owned relay bot. Rehearsal is the default mode, provider acceptance never counts as delivery, and approvals, commands, and replies are unavailable. See [Multi-channel notification delivery § 9](multi-channel-notification-delivery.md#9-direct-line-custom-channel). |
+| **Direct Line-compatible custom channel** | Send-only A2/A4 activities for a deployment-owned relay. Rehearsal is the default mode, relay acceptance never counts as delivery, and approvals, commands, and replies are unavailable. Upstream validates the contract with a loopback example CLI, not an external Direct Line environment. See [Multi-channel notification delivery § 9](multi-channel-notification-delivery.md#9-direct-line-compatible-custom-channel). |
 
 ### 7.1 Teams readiness is reported per category
 
@@ -602,7 +602,7 @@ operator repairs the runtime that actually owns the prerequisite.
 | **Slack A1 callback and outbound** | locally implemented, including signed browser handoff and durable button delivery; default-disabled without complete bindings | workspace credentials, one approved Console origin, API-token `auth_time`, and userId↔OID mapping (required) |
 | ACS Email adapter | ✓ (A2/A4, managed identity, final-status polling) | recipient binding + enablement |
 | Webhook / PagerDuty / SMS adapters | ✓ (concrete delivery adapters) | credentials + enablement |
-| Direct Line custom-channel adapter | ✓ (A2/A4, rehearsal default, acceptance-only receipt) | relay bot, conversation, secret, and governed activation |
+| Direct Line-compatible custom-channel adapter | ✓ (A2/A4, rehearsal default, acceptance-only receipt, loopback example CLI) | production relay, conversation, secret, and governed activation |
 | Routing-config schema + startup validation | ✓ | deployment-specific bindings/overlays |
 | HIL escalation sink (`on_all_fail` fail-safe queue) | ✓ (`StateStoreHilEscalationSink` - StateStore-backed, tenant-agnostic) | own queue backend (optional) |
 | Seven default digests + audience derivation rules | ✓ | cron timezone, channel ids, on/off per digest |
