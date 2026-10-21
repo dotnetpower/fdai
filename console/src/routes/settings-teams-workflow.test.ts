@@ -90,6 +90,23 @@ describe("Teams Workflow diagnostic model", () => {
     });
   });
 
+  test("preserves a confirmed save when the provider test is rejected", () => {
+    expect(decodeTeamsWorkflowTestResult({
+      request_id: "teams-workflow-test-1",
+      saved: true,
+      binding_version: "version-1",
+      saved_at: "2026-08-27T11:59:59+00:00",
+      accepted: false,
+      provider_status: 400,
+      workflow_run_id: null,
+      tested_at: "2026-08-27T12:00:00+00:00",
+    })).toMatchObject({
+      saved: true,
+      accepted: false,
+      providerStatus: 400,
+    });
+  });
+
   test.each([
     null,
     { accepted: false, provider_status: 202, request_id: "r", tested_at: "2026-08-27T12:00:00Z" },
