@@ -12,10 +12,12 @@ REVISION = 1
 
 
 def _revision(namespace: str) -> int:
-    return 2 if namespace == "lifecycle_hub" else REVISION
+    return 3 if namespace == "lifecycle_hub" else REVISION
 
 
 def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], None]) -> None:
+    from fdai_lifecycle_hub import configuration_import_models, models
+
     versions = _versions(namespace)
     with engine.begin() as connection:
         if engine.dialect.name == "postgresql":
@@ -28,8 +30,6 @@ def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], N
             initialize(connection)
             connection.execute(versions.insert().values(revision=_revision(namespace)))
         elif revision == 1 and namespace == "lifecycle_hub":
-            from fdai_lifecycle_hub import models
-
             models.Base.metadata.tables["lifecycle_configuration_key_request"].create(
                 connection, checkfirst=True
             )
@@ -39,8 +39,19 @@ def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], N
             models.Base.metadata.tables["lifecycle_configuration_plan_trust"].create(
                 connection, checkfirst=True
             )
-            connection.execute(versions.update().values(revision=2))
-        elif revision != _revision(namespace):
+            revision = 2
+        if revision == 2 and namespace == "lifecycle_hub":
+            for model in (
+                configuration_import_models.ConfigurationScopeRequest,
+                configuration_import_models.ConfigurationScopeApproval,
+                configuration_import_models.ConfigurationImport,
+                configuration_import_models.ConfigurationHead,
+                configuration_import_models.ConfigurationChangeApproval,
+                configuration_import_models.ConfigurationPlanImport,
+            ):
+                models.Base.metadata.tables[model.__tablename__].create(connection, checkfirst=True)
+            connection.execute(versions.update().values(revision=3))
+        elif revision is not None and revision != _revision(namespace):
             raise ValueError("Unsupported Hub schema revision; use a compatible migration command.")
 
 

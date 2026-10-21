@@ -82,12 +82,21 @@ class ConfigurationPackageInput:
     sealed_keys: frozenset[str]
 
 
+@dataclass(frozen=True, slots=True)
+class ConfigurationHistoryBinding:
+    """Independent public trust for one ancestor, not current signing permission."""
+
+    configuration_key: Ed25519PublicKey
+    installation_key_digest: str
+
+
 def build_configuration_package(
     source: ConfigurationPackageInput,
     *,
     signing_key: Ed25519PrivateKey,
     installation_key: X25519PublicKey,
     history: Sequence[SignedConfigurationPackage] = (),
+    history_bindings: Sequence[ConfigurationHistoryBinding] | None = None,
 ) -> SignedConfigurationPackage:
     """Validate, seal, and sign a revision, or return its exact prior bytes on retry.
 
@@ -121,6 +130,7 @@ def build_configuration_package(
         signing_key=signing_key,
         installation_key=installation_key,
         history=history,
+        history_bindings=history_bindings,
     )
 
 
@@ -136,9 +146,10 @@ def _build_signed_revision(
     signing_key: Ed25519PrivateKey,
     installation_key: X25519PublicKey,
     history: Sequence[SignedConfigurationPackage],
+    history_bindings: Sequence[ConfigurationHistoryBinding] | None = None,
 ) -> SignedConfigurationPackage:
     recipient_digest = encryption_key_digest(installation_key)
-    chain = _verify_history(history, signing_key.public_key(), recipient_digest)
+    chain = _verify_history(history, signing_key.public_key(), recipient_digest, history_bindings)
     validate_configuration_package_for_signing(sealed_values)
     _revision(revision_id)
     _sealed_keys(sorted(sealed_keys))
@@ -190,6 +201,7 @@ def verify_configuration_package(
     configuration_schema: Mapping[str, object],
     sealed_keys: frozenset[str],
     history: Sequence[SignedConfigurationPackage] = (),
+    history_bindings: Sequence[ConfigurationHistoryBinding] | None = None,
 ) -> LayerResolution:
     """Verify an import candidate against trusted schema, recipient, and complete history.
 
@@ -197,7 +209,7 @@ def verify_configuration_package(
     The returned values are public configuration only, never decrypted identifiers.
     """
     document = _verify_candidate(
-        package, configuration_key, installation_key_digest, sealed_keys, history
+        package, configuration_key, installation_key_digest, sealed_keys, history, history_bindings
     )
     if document["format"] != _FORMAT:
         raise ValueError("single-Entity reader cannot consume an installation revision")
@@ -216,6 +228,7 @@ def decrypt_configuration_identifiers(
     configuration_schema: Mapping[str, object],
     sealed_keys: frozenset[str],
     history: Sequence[SignedConfigurationPackage] = (),
+    history_bindings: Sequence[ConfigurationHistoryBinding] | None = None,
 ) -> dict[str, object]:
     """Authenticate the package and its chain before installation-local decryption."""
     verify_configuration_package(
@@ -225,6 +238,7 @@ def decrypt_configuration_identifiers(
         configuration_schema=configuration_schema,
         sealed_keys=sealed_keys,
         history=history,
+        history_bindings=history_bindings,
     )
     return _decrypt_values(package, installation_key)
 
@@ -252,18 +266,42 @@ def _decrypt_values(
 
 
 def _verify_history(
-    history: Sequence[SignedConfigurationPackage], key: Ed25519PublicKey, recipient_digest: str
+    history: Sequence[SignedConfigurationPackage],
+    key: Ed25519PublicKey,
+    recipient_digest: str,
+    bindings: Sequence[ConfigurationHistoryBinding] | None = None,
 ) -> list[dict[str, object]]:
     if len(history) > 256:
         raise ValueError("configuration history exceeds its bound")
+    if bindings is not None and len(bindings) != len(history):
+        raise ValueError("configuration history verification bindings are incomplete")
     chain: list[dict[str, object]] = []
     predecessor: str | None = None
-    for package in history:
-        document = _verified_document(package, key, recipient_digest)
+    for index, package in enumerate(history):
+        binding = bindings[index] if bindings is not None else None
+        document = _verified_document(
+            package,
+            binding.configuration_key if binding else key,
+            binding.installation_key_digest if binding else recipient_digest,
+        )
         _check_successor(document, predecessor, chain)
         chain.append(document)
         predecessor = package.digest
     return chain
+
+
+def verify_configuration_history(
+    history: Sequence[SignedConfigurationPackage],
+    *,
+    bindings: Sequence[ConfigurationHistoryBinding],
+) -> None:
+    """Authenticate a retained chain with exact per-ancestor public trust, not current authority."""
+    if len(history) != len(bindings):
+        raise ValueError("configuration history verification bindings are incomplete")
+    if history:
+        _verify_history(
+            history, bindings[0].configuration_key, bindings[0].installation_key_digest, bindings
+        )
 
 
 def _check_successor(
@@ -322,8 +360,9 @@ def _verify_candidate(
     recipient_digest: str,
     sealed_keys: frozenset[str],
     history: Sequence[SignedConfigurationPackage],
+    history_bindings: Sequence[ConfigurationHistoryBinding] | None = None,
 ) -> dict[str, object]:
-    chain = _verify_history(history, configuration_key, recipient_digest)
+    chain = _verify_history(history, configuration_key, recipient_digest, history_bindings)
     document = _verified_document(package, configuration_key, recipient_digest)
     if _sealed_keys(document["sealed_keys"]) != sealed_keys:
         raise ValueError("sealed identifier keys do not match the trusted Release keys")
@@ -339,6 +378,7 @@ def build_installation_configuration_package(
     signing_key: Ed25519PrivateKey,
     installation_key: X25519PublicKey,
     history: Sequence[SignedConfigurationPackage] = (),
+    history_bindings: Sequence[ConfigurationHistoryBinding] | None = None,
 ) -> SignedConfigurationPackage:
     """Produce one signed full revision, checked against the independently selected Entity set."""
     configuration, sealed_values = prepare_installation_configuration(source, entity_ids=entity_ids)
@@ -353,6 +393,7 @@ def build_installation_configuration_package(
         signing_key=signing_key,
         installation_key=installation_key,
         history=history,
+        history_bindings=history_bindings,
     )
 
 
@@ -367,10 +408,11 @@ def verify_installation_configuration_package(
     release_version: str,
     release_digest: str,
     history: Sequence[SignedConfigurationPackage] = (),
+    history_bindings: Sequence[ConfigurationHistoryBinding] | None = None,
 ) -> InstallationLayerResolution:
     """Authenticate the full revision against independent Release, selection, keys and history."""
     document = _verify_candidate(
-        package, configuration_key, installation_key_digest, sealed_keys, history
+        package, configuration_key, installation_key_digest, sealed_keys, history, history_bindings
     )
     if (
         document["format"] != INSTALLATION_CONFIGURATION_FORMAT
@@ -399,6 +441,7 @@ def decrypt_installation_configuration_identifiers(
     release_version: str,
     release_digest: str,
     history: Sequence[SignedConfigurationPackage] = (),
+    history_bindings: Sequence[ConfigurationHistoryBinding] | None = None,
 ) -> dict[str, object]:
     """Verify the whole revision before returning identifiers for exactly one selected Entity."""
     verify_installation_configuration_package(
@@ -411,6 +454,7 @@ def decrypt_installation_configuration_identifiers(
         release_version=release_version,
         release_digest=release_digest,
         history=history,
+        history_bindings=history_bindings,
     )
     if entity_id not in entity_ids:
         raise ValueError("requested Entity is not selected")

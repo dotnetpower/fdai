@@ -179,6 +179,12 @@ def test_postgres_explicit_additive_migration_preserves_legacy_enrollment(
         "lifecycle_configuration_key_request",
         "lifecycle_configuration_key_binding",
         "lifecycle_configuration_plan_trust",
+        "lifecycle_configuration_scope_request",
+        "lifecycle_configuration_scope_approval",
+        "lifecycle_configuration_import",
+        "lifecycle_configuration_head",
+        "lifecycle_configuration_change_approval",
+        "lifecycle_configuration_plan_import",
     }
     versions = _versions("lifecycle_hub")
     with engine.begin() as connection:

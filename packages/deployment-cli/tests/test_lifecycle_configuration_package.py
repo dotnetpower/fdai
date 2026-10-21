@@ -14,11 +14,13 @@ from fdai_deployment_cli.lifecycle_configuration import (
     resolve_configuration_layers,
 )
 from fdai_deployment_cli.lifecycle_configuration_package import (
+    ConfigurationHistoryBinding,
     ConfigurationPackageInput,
     SignedConfigurationPackage,
     build_configuration_package,
     decrypt_configuration_identifiers,
     verify_configuration_package,
+    verify_configuration_history,
 )
 from fdai_deployment_cli.lifecycle_configuration_sealing import (
     encryption_key_digest,
@@ -151,6 +153,63 @@ def test_linear_chain_and_exact_retry_bytes(
     assert _verify(second, source, signing_key, installation_key, (first,))["region"] == "eastus"
     assert _build(second_source, signing_key, installation_key, (first, second)) == second
     assert _verify(second, source, signing_key, installation_key, (first, second))
+
+
+def test_cross_key_history_requires_exact_per_ancestor_bindings(
+    source: ConfigurationPackageInput,
+    signing_key: Ed25519PrivateKey,
+    installation_key: X25519PrivateKey,
+) -> None:
+    first = _build(source, signing_key, installation_key)
+    replacement_signer = Ed25519PrivateKey.generate()
+    replacement_recipient = X25519PrivateKey.generate()
+    binding = ConfigurationHistoryBinding(
+        signing_key.public_key(), encryption_key_digest(installation_key.public_key())
+    )
+    second = build_configuration_package(
+        replace(source, revision_id="b" * 40),
+        signing_key=replacement_signer,
+        installation_key=replacement_recipient.public_key(),
+        history=(first,),
+        history_bindings=(binding,),
+    )
+    assert verify_configuration_package(
+        second,
+        configuration_key=replacement_signer.public_key(),
+        installation_key_digest=encryption_key_digest(replacement_recipient.public_key()),
+        configuration_schema=source.configuration_schema,
+        sealed_keys=source.sealed_keys,
+        history=(first,),
+        history_bindings=(binding,),
+    ).values
+    assert (
+        decrypt_configuration_identifiers(
+            second,
+            configuration_key=replacement_signer.public_key(),
+            installation_key=replacement_recipient,
+            configuration_schema=source.configuration_schema,
+            sealed_keys=source.sealed_keys,
+            history=(first,),
+            history_bindings=(binding,),
+        )
+        == source.sealed_values
+    )
+    with pytest.raises(ValueError, match="signature"):
+        verify_configuration_package(
+            second,
+            configuration_key=replacement_signer.public_key(),
+            installation_key_digest=encryption_key_digest(replacement_recipient.public_key()),
+            configuration_schema=source.configuration_schema,
+            sealed_keys=source.sealed_keys,
+            history=(first,),
+        )
+    with pytest.raises(ValueError, match="incomplete"):
+        verify_configuration_history((first,), bindings=())
+    with pytest.raises(ValueError, match="signature"):
+        verify_configuration_history(
+            (SignedConfigurationPackage(first.payload + b" ", first.signature),),
+            bindings=(binding,),
+        )
 
 
 def test_same_revision_cannot_be_repackaged_with_changed_inputs(

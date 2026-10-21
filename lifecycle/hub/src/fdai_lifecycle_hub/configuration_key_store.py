@@ -184,6 +184,25 @@ def resolve_binding(
     binding = _head(session, installation.installation_id)
     if binding is None or binding.version != version or binding.revoked_at is not None:
         raise KeyBindingError("configuration_binding_unavailable")
+    return _verified_binding(session, installation, binding, now)
+
+
+def resolve_retained_binding(
+    session: Session, installation: models.Installation, version: int, accepted_at: datetime
+) -> ConfigurationKeyRequest:
+    """Verify historical acceptance with its exact key, without granting current permission."""
+    binding = session.get(models.ConfigurationKeyBinding, (installation.installation_id, version))
+    if binding is None or binding.revoked_at is not None:
+        raise KeyBindingError("configuration_history_binding_unavailable")
+    return _verified_binding(session, installation, binding, accepted_at)
+
+
+def _verified_binding(
+    session: Session,
+    installation: models.Installation,
+    binding: models.ConfigurationKeyBinding,
+    now: datetime,
+) -> ConfigurationKeyRequest:
     row = session.get(models.ConfigurationKeyRequest, binding.request_digest)
     if row is None:
         raise KeyBindingError("configuration_binding_unavailable")
@@ -192,12 +211,17 @@ def resolve_binding(
         request.digest != binding.request_digest
         or request.installation_id != installation.installation_id
         or request.version != binding.version
+        or request.payload != row.payload
+        or request.requester != row.requested_by
+        or request.request_id != row.request_id
     ):
         raise KeyBindingError("configuration_binding_mismatch")
     if (
         now < binding.approved_at
         or now >= request.binding_expires_at
         or row.requested_by == binding.approved_by
+        or binding.approved_at < row.recorded_at
+        or binding.approved_at >= request.approval_expires_at
     ):
         raise KeyBindingError("configuration_binding_expired")
     # Proof freshness applies to registration, not every later package.
@@ -208,6 +232,20 @@ def resolve_binding(
         actor=row.requested_by,
         now=row.recorded_at,
     )
+    approval = session.scalar(
+        select(models.AuditRecord).where(
+            models.AuditRecord.installation_id == installation.installation_id,
+            models.AuditRecord.action == "configuration.keys.approved",
+            models.AuditRecord.subject == request.digest,
+            models.AuditRecord.recorded_at == binding.approved_at,
+        )
+    )
+    if (
+        approval is None
+        or approval.payload.get("actor") != binding.approved_by
+        or approval.record_hash != audit.record_hash(approval)
+    ):
+        raise KeyBindingError("configuration_binding_unprovable")
     return request
 
 

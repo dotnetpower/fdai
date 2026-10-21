@@ -8,7 +8,6 @@ import logging
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from functools import partial
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -23,8 +22,8 @@ from sqlalchemy.engine import Connection, RowMapping
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES, load_pinned_export
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
+from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import PlanOutcome
-from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
 
@@ -275,24 +274,17 @@ class RemoteCatalog:
         configuration_key_version: int | None = None,
     ) -> PlanOutcome:
         """Serialize catalog replacement with planning, so recall cannot race a stale snapshot."""
-        started = time.monotonic()
-        with self.engine.begin() as connection:
-            row = self._locked(connection)
-            now += timedelta(seconds=time.monotonic() - started)
-            if row["payload"] is None:
-                raise ValueError("No verified catalog has been imported.")
-            admitted = load_pinned_export(
-                row["payload"],
-                expected_sha256=row["previous_digest"],
-                public_key=self.source.public_key(),
-                now=now,
-                minimum_revision=row["floor"],
-                previous_sha256=row["previous_digest"],
+
+        def evaluate(
+            admitted: ReleaseCatalog, now: datetime, connection: Connection
+        ) -> PlanOutcome:
+            bound = (
+                store.with_connection(connection) if store.engine.url == self.engine.url else store
             )
             if configuration_revision is not None:
                 if configuration_key_version is None:
                     raise ValueError("Configuration planning requires an approved binding version.")
-                return store.recompute_configuration(
+                return bound.recompute_configuration(
                     installation_id,
                     configuration_revision,
                     binding_version=configuration_key_version,
@@ -300,11 +292,47 @@ class RemoteCatalog:
                     key=key,
                     now=now,
                 )
-            return store.recompute(
+            return bound.recompute_persisted(
                 installation_id,
-                partial(plan_next, catalog=admitted, key=key),
+                catalog=admitted,
+                key=key,
                 now=now,
             )
+
+        return self.configuration_operation(evaluate, now=now)
+
+    def configuration_operation[T](
+        self,
+        operation: Callable[[ReleaseCatalog, datetime, Connection], T],
+        *,
+        now: datetime,
+    ) -> T:
+        """Keep exact pinned catalog replacement serialized with import/approval/activation."""
+        started = time.monotonic()
+        failure: KeyBindingError | None = None
+        result: T | None = None
+        with self.engine.begin() as connection:
+            row = self._locked(connection)
+            effective_now = now + timedelta(seconds=time.monotonic() - started)
+            if row["payload"] is None:
+                raise ValueError("No verified catalog has been imported.")
+            admitted = load_pinned_export(
+                row["payload"],
+                expected_sha256=row["previous_digest"],
+                public_key=self.source.public_key(),
+                now=effective_now,
+                minimum_revision=row["floor"],
+                previous_sha256=row["previous_digest"],
+            )
+            try:
+                result = operation(admitted, effective_now, connection)
+            except KeyBindingError as error:
+                failure = error
+        if failure is not None:
+            raise failure
+        if result is None:
+            raise ValueError("Configuration operation produced no outcome.")
+        return result
 
     def status(self) -> dict[str, Any]:
         with self.engine.connect() as connection:

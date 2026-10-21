@@ -67,7 +67,7 @@ Release without the schema capability is blocked rather than falling back to leg
 This API is in-memory source consumption only. It is not exposed as a remote import or enrollment
 route, does not write a configuration-head receipt, and does not claim ciphertext-only database
 storage. The [configuration owner](lifecycle-configuration.md#full-multi-entity-revision-design-and-critique)
-defines the new format, compatibility and critique. Actual key onboarding, atomic Hub import,
+defines the new format, compatibility and critique. Actual key onboarding,
 persisted same-Release configuration-change scheduling, Agent delivery/decryption, CSI reference
 resolution and production qualification remain open.
 
@@ -85,17 +85,30 @@ installation lock and passes only those keys into the actual planner/verifier. T
 catalog recompute API can consume a candidate and binding version from an explicit server-owned
 `target_routes(..., configuration_candidates=...)` composition seam, never the HTTP body.
 Entity mappings, sealed-key classification and retained accepted history remain independent
-composition inputs. Default startup does not load or import a customer package.
+composition inputs for this compatibility seam. The configured default now uses
+`HubStore.recompute_persisted`: it resolves the persisted activated revision, independently approved
+Entity mapping, classification and original accepted history without candidate injection.
+Starting the server never imports or activates a package automatically.
 
 Configuration Plans persist the exact approved binding version and request digest in the same
 transaction. Current-Plan retrieval holds them after expiry, rotation or revocation. Historical
-public bindings remain intact; cross-key historical package chains hold pending the separately
-owned atomic importer instead of being verified with a replacement key. Absent bindings hold
+public bindings remain intact; the atomic importer verifies each historical package with its exact
+accepted key version and receipt, never a replacement key. Absent or unprovable bindings hold
 only this new configuration capability. Legacy enrollment and planning remain compatible.
-Explicit Lifecycle Hub schema revision 2 adds the public binding/request/Plan-trust tables to
-revision 1 without reinitializing existing data; Release Hub remains at revision 1.
-This source and isolated PostgreSQL evidence does not register real keys, migrate a deployed
-database, enable Agent transport or establish ciphertext-only Hub package storage.
+Explicit Lifecycle Hub schema revision 3 upgrades revisions 1 and 2 additively, preserving
+enrollment, public key bindings and legacy raw configuration; Release Hub remains at revision 1.
+The actual authenticated source API separately requests/approves an installation-proven Entity
+scope, imports a complete signed container, approves its change request and activates its exact
+receipt. The accepted head, import record and audit share the pinned-catalog/installation owner
+transaction. Import, approval and activation are distinct and cannot grant execution or promotion.
+The [configuration owner](lifecycle-configuration.md#atomic-import-and-configured-consumption-design-and-critique)
+defines request formats, bounds, historical trust and the pre-implementation critique.
+
+Only this new import path stores original ciphertext containers and public metadata. Legacy raw
+configuration remains unchanged. Local HTTP/JWT and isolated PostgreSQL tests prove default
+consumption, independent approval, concurrent-fork rejection, audit rollback, restart/retry and
+cross-key history. They do not register real keys, migrate a deployed database, enable Agent
+transport, schedule same-Release configuration actions or establish production qualification.
 
 The existing paired fixture remains available for its current state owners. It is not the default
 deployment unit. Use the independent product roots below for new preparation.

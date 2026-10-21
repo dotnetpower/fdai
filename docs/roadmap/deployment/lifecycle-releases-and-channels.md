@@ -80,6 +80,13 @@ signature. Releases without it retain existing behavior but do not offer this co
 capability. This development contract neither establishes production Release qualification nor
 changes source/offline installation.
 
+The configured Lifecycle Hub now uses this same independently pinned Release/schema for its
+[atomic configuration import](lifecycle-configuration.md#atomic-import-and-configured-consumption-design-and-critique)
+and persisted activated-revision consumer. Catalog and installation decisions share a transaction,
+so replacement or recall cannot race a stale import/planning snapshot. Configuration scope,
+signature, key-version history and independent change approval remain separate from Release
+admission; neither import nor activation publishes a Release or grants execution authority.
+
 An image built from a source checkout has no vendor signature and is labeled
 `unverified-source-build`. Such an installation can enroll with a Hub. The Hub treats every Entity
 that runs an unverified image as drifted, and the first Plan replaces those images with a signed

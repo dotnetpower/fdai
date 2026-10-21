@@ -21,12 +21,18 @@ from fdai_deployment_cli.lifecycle_configuration import (
 from fdai_deployment_cli.lifecycle_configuration_sealing import encryption_key_digest
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 from sqlalchemy import Engine, create_engine, select
+from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from fdai_lifecycle_hub import audit, domain, mapping, models, rows, schemas, signing
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
+from fdai_lifecycle_hub.configuration_consumer import persisted_candidate
+from fdai_lifecycle_hub.configuration_import_models import (
+    ConfigurationImport,
+    ConfigurationPlanImport,
+)
 from fdai_lifecycle_hub.configuration_key_store import resolve_binding
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest, EnrollmentStatus, KeyProofVerifier
@@ -60,6 +66,14 @@ class HubStore:
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
         self._sessions = sessionmaker(engine, expire_on_commit=False)
+
+    def with_connection(self, connection: Connection) -> HubStore:
+        """Join an owning catalog transaction without committing it from a nested store method."""
+        bound = HubStore(self.engine)
+        bound._sessions = sessionmaker(
+            connection, expire_on_commit=False, join_transaction_mode="create_savepoint"
+        )
+        return bound
 
     @classmethod
     def connect(cls, url: str) -> Self:
@@ -402,6 +416,47 @@ class HubStore:
             installation_id, evaluate, now=now, configuration_binding_version=binding_version
         )
 
+    def recompute_persisted(
+        self,
+        installation_id: str,
+        *,
+        catalog: ReleaseCatalog,
+        key: signing.HubSigningKey,
+        now: datetime,
+    ) -> domain.PlanOutcome:
+        """The configured default: durable activation selects an upgrade input, not authority."""
+
+        def evaluate(session: Session, row: models.Installation) -> domain.PlanOutcome:
+            selected = persisted_candidate(session, row, catalog, now)
+            installation = mapping.to_domain(session, row)
+            candidate = selected[0] if selected else None
+            if selected is not None:
+                binding = resolve_binding(session, row, selected[1], now)
+                if now + installation.settings.plan_duration > binding.binding_expires_at:
+                    raise KeyBindingError("configuration_binding_expires_before_plan")
+                if (
+                    installation.open_plan is not None
+                    and installation.open_plan.configuration_digest == selected[0].package.digest
+                ):
+                    retained = session.get(ConfigurationPlanImport, installation.open_plan.plan_id)
+                    imported = session.get(ConfigurationImport, selected[0].package.digest)
+                    if (
+                        retained is None
+                        or imported is None
+                        or retained.import_digest != imported.digest
+                        or retained.receipt_digest != imported.receipt_digest
+                        or session.get(
+                            models.ConfigurationPlanTrust, installation.open_plan.plan_id
+                        )
+                        is None
+                    ):
+                        raise KeyBindingError("configuration_plan_receipt_unprovable")
+            return plan_next(
+                installation, now, catalog=catalog, key=key, configuration_revision=candidate
+            )
+
+        return self._recompute(installation_id, evaluate, now=now)
+
     def _recompute(
         self,
         installation_id: str,
@@ -435,8 +490,20 @@ class HubStore:
                     issued = mapping.plan_row(domain.IssuedPlan.from_signed(plan), now)
                     row.plans.add(issued)
                     issued.events.add(models.PlanEvent(kind=PlanEventKind.ISSUED, recorded_at=now))
-                    if configuration_binding_version is not None:
-                        binding = resolve_binding(session, row, configuration_binding_version, now)
+                    imported = session.get(ConfigurationImport, plan.configuration_revision_digest)
+                    if imported is not None:
+                        session.add(
+                            ConfigurationPlanImport(
+                                plan_id=plan.plan_id,
+                                import_digest=imported.digest,
+                                receipt_digest=imported.receipt_digest,
+                            )
+                        )
+                    selected_version = (
+                        imported.binding_version if imported else configuration_binding_version
+                    )
+                    if selected_version is not None:
+                        binding = resolve_binding(session, row, selected_version, now)
                         session.add(
                             models.ConfigurationPlanTrust(
                                 plan_id=plan.plan_id,
@@ -461,6 +528,8 @@ class HubStore:
                         or session.get(
                             models.ConfigurationPlanTrust, installation.open_plan.plan_id
                         )
+                        is not None
+                        or session.get(ConfigurationPlanImport, installation.open_plan.plan_id)
                         is not None
                     ):
                         rows.supersede(session, installation.open_plan, now)
@@ -490,6 +559,20 @@ class HubStore:
             if plan is None or now >= plan.expires_at:
                 return None
             trust = session.get(models.ConfigurationPlanTrust, plan.plan_id)
+            import_pin = session.get(ConfigurationPlanImport, plan.plan_id)
+            imported = session.get(ConfigurationImport, plan.configuration_digest)
+            if (
+                imported is not None
+                and import_pin is None
+                or import_pin is not None
+                and (
+                    trust is None
+                    or imported is None
+                    or import_pin.import_digest != plan.configuration_digest
+                    or import_pin.receipt_digest != imported.receipt_digest
+                )
+            ):
+                return None
             if trust is not None:
                 try:
                     binding = resolve_binding(session, row, trust.binding_version, now)
@@ -497,6 +580,16 @@ class HubStore:
                     return None
                 if binding.digest != trust.request_digest:
                     return None
+                if import_pin is not None:
+                    try:
+                        selected = persisted_candidate(session, row, None, now)
+                        if (
+                            selected is None
+                            or selected[0].package.digest != plan.configuration_digest
+                        ):
+                            return None
+                    except ValueError:
+                        return None
             suppressions = schemas.suppressions_json.validate_python(row.suppressions)
             return None if plan.held_by(suppressions, now) else plan
 

@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: 2efbb15f834fc7e4de05e482ddb276eae1d13635
+translation_source_sha: f9b8adc99c4f0d17a0313e606ababc65c87d5a42
 translation_revised: 2026-10-21
 ---
 # Lifecycle Release와 채널
@@ -81,6 +81,13 @@ translation_revised: 2026-10-21
 보호합니다. 객체가 없는 Release는 기존 동작을 유지하지만 이 구성 기능은 제공하지 않습니다.
 이 개발용 계약은 프로덕션 Release 적격성을 확립하지 않으며 소스 및 오프라인 설치를 바꾸지
 않습니다.
+
+구성된 Lifecycle Hub는 같은 독립 pin의 Release/스키마를
+[원자적 구성 가져오기](lifecycle-configuration-ko.md#원자적-가져오기와-구성-소비-설계와-검토)와
+영구 저장된 활성 개정 소비 경로에 사용합니다. 카탈로그와 설치의 결정은 같은 트랜잭션을
+사용하므로 교체나 회수와 오래된 가져오기/계획 스냅샷 사이의 경쟁을 막습니다. 구성 범위,
+서명, 키 버전 이력과 독립 변경 승인은 Release 수락과 별개입니다. 가져오기나 활성화는
+Release를 발행하거나 실행 권한을 부여하지 않습니다.
 
 소스 checkout에서 빌드한 이미지에는 공급업체 서명이 없으며 `unverified-source-build`로
 표시됩니다. 이런 설치도 Hub에 등록할 수 있습니다. Hub는 검증되지 않은 이미지를 실행하는 모든
