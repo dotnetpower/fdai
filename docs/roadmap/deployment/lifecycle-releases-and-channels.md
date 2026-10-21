@@ -264,6 +264,15 @@ recall roll-off of previously issued Plans; those keep the existing lifecycle sa
   override promotion.
 - Offline installations apply recalls when an operator imports the bundle that carries them.
 
+The Release Hub records both Release-scope recalls and capability-scope recall and lift events,
+exports them as signed `RecallRecord` entries, and blocks manual channel promotion (`contribute`)
+whenever a Release or one of its declared `capability_maximums` remains under an active recall
+below its lifting Release. When a managed Entity is running a Release that is recalled directly or
+through a declared capability, the Lifecycle Hub planner issues a `recall-rolloff` Plan to the
+newest non-recalled Release on the subscribed channel that passes schema, window, and override
+constraints, superseding an open `upgrade` Plan and bypassing `plan:upgrade` suppression while
+still honoring manual installation or Entity suppressions.
+
 ## Catalog integrity
 
 A signature proves who published a record, but not that the record is current. The vendor
