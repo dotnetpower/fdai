@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 2ddbb21cf3748ce555619d3f77c35e76041f4bdb
-translation_revised: 2026-10-21
+translation_source_sha: 5b3efda87ba25bbc3fba6d135c2451d3c3dd0705
+translation_revised: 2026-10-22
 ---
 
 # 설치형 배포 CLI
@@ -829,6 +829,11 @@ AzureRM 백엔드를 대상으로 helper를 실행합니다. 이전된 상태 �
 멈춥니다. 실패한 원격 단계는 식별자 없이 제한된 이유를 보고합니다.
 
 제어 코드만 수정한 경우 [서명된 배포 제어 패키지](disconnected-deployment-ko.md#배포-제어-패키지)로 검증된 키트를 재사용할 수 있습니다.
+
+관리 호스트의 모든 Kubernetes 작업은 봉인된 `kit_bin` 디렉터리에 있는 검증된 `kubectl`
+바이너리를 실행합니다. 조정기는 이 디렉터리를 `PATH` 앞에 추가하므로 kubeconfig의
+`kubelogin` exec 플러그인이 함께 검증된 바이너리를 찾습니다. source 서비스 업데이트와 복구
+readback은 SSH 사용자의 주변 `PATH`에 의존하지 않습니다.
 
 ### 개발 권한 입력
 
