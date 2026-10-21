@@ -378,7 +378,7 @@ def test_automatic_apply_requires_bound_authorization_receipt_and_waits_for_earl
 
     # 2. Recording the infrastructure phase completion receipt for the exact Plan digest unblocks
     # the workload phase on the next poll, unless the local authorization receipt is mismatched.
-    infra_auth = issue_lifecycle_authorization_receipt(
+    infra_receipt = issue_lifecycle_authorization_receipt(
         plan,
         phase="infrastructure",
         window_starts_at=plan.expires_at - timedelta(minutes=30),
@@ -390,7 +390,7 @@ def test_automatic_apply_requires_bound_authorization_receipt_and_waits_for_earl
         exact_plan_digest=exact_plan_digest_for(plan),
         fencing_generation=plan.fencing_generation,
         phase="infrastructure",
-        authorization_receipt_digest=infra_auth.digest,
+        authorization_receipt_digest=infra_receipt.digest,
         completed_at=plan.expires_at - timedelta(minutes=25),
     )
 
@@ -420,7 +420,7 @@ def test_automatic_apply_requires_bound_authorization_receipt_and_waits_for_earl
     # 3. With a valid local authorization receipt bound to the exact Plan digest and earlier phase
     # receipt, the workload phase applies automatically.
     next_plan = harness.serve(harness.release_plan("1.0.0", V1, sequence=9))
-    next_infra_auth = issue_lifecycle_authorization_receipt(
+    next_infra_receipt = issue_lifecycle_authorization_receipt(
         next_plan,
         phase="infrastructure",
         window_starts_at=next_plan.expires_at - timedelta(minutes=30),
@@ -432,7 +432,7 @@ def test_automatic_apply_requires_bound_authorization_receipt_and_waits_for_earl
         exact_plan_digest=exact_plan_digest_for(next_plan),
         fencing_generation=next_plan.fencing_generation,
         phase="infrastructure",
-        authorization_receipt_digest=next_infra_auth.digest,
+        authorization_receipt_digest=next_infra_receipt.digest,
         completed_at=next_plan.expires_at - timedelta(minutes=25),
     )
     applied = harness.apply_poll(

@@ -657,7 +657,7 @@ def _payload_document(**overrides: object) -> dict[str, object]:
 
 def test_phase_authorization_requires_bound_receipt_and_earlier_phase_completion() -> None:
     plan = _plan()
-    infra_auth = issue_lifecycle_authorization_receipt(
+    infra_receipt = issue_lifecycle_authorization_receipt(
         plan,
         phase="infrastructure",
         window_starts_at=NOW - timedelta(minutes=5),
@@ -667,7 +667,7 @@ def test_phase_authorization_requires_bound_receipt_and_earlier_phase_completion
     assert evaluate_phase_authorization(
         plan,
         phase="infrastructure",
-        authorization_receipt=infra_auth,
+        authorization_receipt=infra_receipt,
         trusted_now=NOW,
     ).allowed
 
@@ -690,10 +690,10 @@ def test_phase_authorization_requires_bound_receipt_and_earlier_phase_completion
         exact_plan_digest=exact_plan_digest_for(plan),
         fencing_generation=plan.fencing_generation,
         phase="infrastructure",
-        authorization_receipt_digest=infra_auth.digest,
+        authorization_receipt_digest=infra_receipt.digest,
         completed_at=NOW,
     )
-    workload_auth = issue_lifecycle_authorization_receipt(
+    workload_receipt = issue_lifecycle_authorization_receipt(
         plan,
         phase="workload",
         window_starts_at=NOW - timedelta(minutes=5),
@@ -701,18 +701,21 @@ def test_phase_authorization_requires_bound_receipt_and_earlier_phase_completion
         issued_at=NOW,
         prerequisite_receipt=infra_done,
     )
-    assert LifecycleAuthorizationReceipt.from_mapping(workload_auth.to_mapping()) == workload_auth
+    assert (
+        LifecycleAuthorizationReceipt.from_mapping(workload_receipt.to_mapping())
+        == workload_receipt
+    )
     assert evaluate_phase_authorization(
         plan,
         phase="workload",
-        authorization_receipt=workload_auth,
+        authorization_receipt=workload_receipt,
         trusted_now=NOW,
         require_earlier_phase=True,
         earlier_phase_receipt=infra_done,
     ).allowed
 
     # Mismatched plan digest, fencing generation, or closed window is rejected.
-    wrong_digest = replace(workload_auth, exact_plan_digest="sha256:" + "0" * 64)
+    wrong_digest = replace(workload_receipt, exact_plan_digest="sha256:" + "0" * 64)
     assert (
         evaluate_phase_authorization(
             plan,
@@ -724,7 +727,7 @@ def test_phase_authorization_requires_bound_receipt_and_earlier_phase_completion
         ).reason_code
         == "authorization_receipt_plan_mismatch"
     )
-    wrong_fencing = replace(workload_auth, fencing_generation=plan.fencing_generation + 1)
+    wrong_fencing = replace(workload_receipt, fencing_generation=99)
     assert (
         evaluate_phase_authorization(
             plan,
@@ -739,7 +742,7 @@ def test_phase_authorization_requires_bound_receipt_and_earlier_phase_completion
     closed_window = evaluate_phase_authorization(
         plan,
         phase="workload",
-        authorization_receipt=workload_auth,
+        authorization_receipt=workload_receipt,
         trusted_now=NOW + timedelta(minutes=35),
         require_earlier_phase=True,
         earlier_phase_receipt=infra_done,

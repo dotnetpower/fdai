@@ -9,3 +9,5 @@
 c393cbbd4ee6c0bc86d9332ec169076e16ec70d6:rule-catalog/code-security/evaluation/managed-verifiers-1.6.0.json:generic-api-key:132
 # Public lifecycle metadata prose, rewritten as bullets; exact historical fingerprint only.
 a61f9e6d059a92e96e4aaa2ada1a1ea63726fefc:docs/roadmap/deployment/hub-managed-lifecycle-self-upgrade.md:generic-api-key:83
+# Variable name workload_auth followed by fencing_generation expression; renamed variable and ignore only this historical PR fingerprint.
+8e0532c53092bc8b5d9b90f4bebee6320754174e:packages/deployment-cli/tests/test_lifecycle_plan.py:generic-api-key:727
