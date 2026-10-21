@@ -1,7 +1,7 @@
 ---
 title: 설치 Agent 구성 입력
 translation_of: installation-agent-configuration.md
-translation_source_sha: df813b8593a7e419ede39769e7751d8938c35ed7
+translation_source_sha: a89da3dd32841c2845b820cbe667bc30d51c72b5
 translation_revised: 2026-10-21
 ---
 # 설치 Agent 구성 입력
@@ -110,8 +110,12 @@ SecretProviderClass 공급자는 `azure`여야 합니다.
 SecretProviderClass, SecretProviderClassPodStatus만 읽습니다. 상태 리소스 버전,
 예상 객체 버전, Pod UID, 읽은 시각과 드라이버 관리자의 갱신 시각을 명시합니다.
 `binding_digest`로 대상 이름을 출력하지 않고 정확한 비공개 네임스페이스/Pod/클래스/출처
-선택과 연결합니다. 고정 SDK 읽기 경로는 검색을 피하고 요청별 제한 시간을 10초로
-설정합니다. 일괄 읽기 시작 예산인 30초가 지나면 재시도 없이 추가 읽기를 중지합니다.
+선택과 연결합니다. 고정 SDK 읽기 경로는 검색을 피하고 별도의 SDK 요청별 제한 시간인
+10초를 유지합니다. 30초 예산은 각 읽기의 호출 전과 후에 확인하는 결과 수락 기한입니다.
+기한과 같거나 늦게 완료된 읽기는 `unavailable`로 처리하고 추가 읽기나 재시도를 시작하지
+않습니다. 실행 중인 요청을 강제로 중단하거나 명령 전체가 30초 안에 끝남을 보장하는
+제한은 아닙니다. 진행 중인 요청은 기존 SDK 제한 시간에 따라 수락 기한 뒤에 돌아올 수
+있습니다.
 드라이버 시각이 없으면 `unknown`, 5분이 지나면 `stale`, 결합/버전이 충돌하면 `conflict`,
 출처가 없거나 접근이 차단되면 `unavailable`입니다. `reported-mounted`와
 `reported-unmounted`는 드라이버의 보고일 뿐 비밀값의 사용 가능성을 독립적으로 검증한

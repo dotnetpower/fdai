@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import copy
 import json
+import math
+from collections.abc import Callable
 from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import Mock
 
 import pytest
@@ -16,6 +19,7 @@ from kubernetes.client.rest import RESTResponse  # type: ignore[import-untyped]
 from urllib3.response import HTTPResponse
 
 from fdai_lifecycle_agent import cli, kube
+from fdai_lifecycle_agent.reference_cli import run_reference_command
 from fdai_lifecycle_agent.reference_state import (
     CSIReference,
     ReferenceReadBudget,
@@ -290,3 +294,68 @@ def test_generated_csi_status_name_is_not_mistaken_for_a_63_character_namespace(
     with pytest.raises(WorkloadError, match="outside_scope"):
         source.read_csi_object("Pod", "../another")
     api.call_api.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("late_read", "finished_at", "expected", "expected_calls"),
+    [
+        (3, math.nextafter(30.0, -math.inf), "reported-mounted", 3),
+        (3, 30.0, "unavailable", 3),
+        (3, math.nextafter(30.0, math.inf), "unavailable", 3),
+        (1, 30.0, "unavailable", 1),
+        (2, math.nextafter(30.0, math.inf), "unavailable", 2),
+        (0, 0.0, "unavailable", 3),
+    ],
+)
+def test_native_reference_deadline_rejects_late_completions(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    late_read: int,
+    finished_at: float,
+    expected: str,
+    expected_calls: int,
+) -> None:
+    _, api = bind(monkeypatch, documents())
+    elapsed = [0.0]
+    original = cast(Callable[..., dict[str, Any]], api.call_api.side_effect)
+
+    def complete(path: str, method: str, **kwargs: Any) -> dict[str, Any]:
+        call_number = len(api.call_api.call_args_list)
+        if late_read == 0 and call_number == 1:
+            raise ApiException(status=404)
+        result = original(path, method, **kwargs)
+        if call_number == late_read:
+            elapsed[0] = finished_at
+        return result
+
+    api.call_api.side_effect = complete
+    monkeypatch.setattr(
+        cli,
+        "run_reference_command",
+        partial(run_reference_command, monotonic=lambda: elapsed[0]),
+    )
+    path = tmp_path / "deadline-references.json"
+    path.write_text(json.dumps([asdict(REFERENCE)]))
+    path.chmod(0o600)
+    assert (
+        cli.main(
+            [
+                "reference-status",
+                "--references",
+                str(path),
+                "--kube-context",
+                "synthetic-context",
+                "--namespace",
+                REFERENCE.namespace,
+            ],
+            clock=lambda: NOW,
+        )
+        == 0
+    )
+    output = capsys.readouterr()
+    assert json.loads(output.out)["references"][0]["state"] == expected
+    calls = api.call_api.call_args_list
+    assert len(calls) == expected_calls
+    assert len({call.kwargs["path_params"]["name"] for call in calls}) == expected_calls
+    assert all(call.kwargs["_request_timeout"] == 10.0 for call in calls)

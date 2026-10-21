@@ -105,8 +105,12 @@ The bounded adapter reads exactly named Pod, SecretProviderClass and
 SecretProviderClassPodStatus objects through the existing Kubernetes transport. It attributes the
 status resource version, expected object version, Pod UID, read time and driver manager update
 time. `binding_digest` correlates the exact private namespace/Pod/class/source selection without
-printing those target names. Fixed SDK read paths avoid discovery and carry ten-second request
-timeouts; a thirty-second batch start budget stops further reads without retries.
+printing those target names. Fixed SDK read paths avoid discovery and retain the separate
+ten-second SDK request timeout. A thirty-second completion-acceptance budget is checked before
+and after each read. Results completing at or after that deadline are `unavailable`, and no
+further read or retry starts. This does not interrupt an in-flight request or guarantee that the
+whole command finishes within thirty seconds: an in-flight request may return after the
+acceptance deadline under the existing SDK timeout.
 Without the driver timestamp the report is `unknown`; after five minutes it is `stale`;
 conflicting bindings/versions are `conflict`; missing or denied sources are `unavailable`.
 `reported-mounted` and `reported-unmounted` describe driver reports only, never independently

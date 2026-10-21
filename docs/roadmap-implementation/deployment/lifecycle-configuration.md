@@ -28,6 +28,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-21 | implemented | Reproduced a #2338 completion-deadline defect through in-process public `reference-status` CLI execution: the final CSI read returning exactly at the deadline still produced `reported-mounted`. Added the same `>=` check after each source return, so late completion becomes unavailable without another request or retry. Kept the existing SDK request timeout; the acceptance budget does not interrupt in-flight requests or promise an absolute command wall time. | `current change`; `reference_state.py`, `test_reference_state.py`, paired installation Agent guide. The pre-fix equality case failed as expected; focused reference/legacy CLI/no-write selection passed (69 cases), including last representable tick before, exact equality, first representable tick after, earlier-read exhaustion, earlier unavailability and no retries. No actual Kubernetes call or cluster start. | Parent-owned protected delivery remains separate. Existing source-only onboarding/artifact/CSI binding and operational qualification boundaries are unchanged. |
 | 2026-10-21 | implemented | Hardened #2338 legacy compatibility after the source consumer commit: malformed legacy bytes remain opaque until their detached signature is checked, preserving signature-missing/signature-invalid precedence and permanent malformed rejection instead of accidental retryable unreadability. Full-container trust checks remain unchanged. | `current change`; `lifecycle/agent/src/fdai_lifecycle_agent/inputs.py`, `lifecycle/agent/tests/test_configuration_entrypoint.py`; same focused command below passed (206 cases, 1 explicit opt-in kind skip), including three actual directory-adapter legacy rejection cases; strict mypy (13 files), Ruff and format passed. | Protected delivery remains parent-owned; operational key/artifact/CSI binding, rollout, independent effects and production qualification are unchanged open boundaries. |
 | 2026-10-21 | implemented | Added #2338 installation-local full v2 revision consumption through the actual Agent CLI, original container protocol, independent signing/encryption/head/Entity/history inputs and exact manifest-bound Release schema. Connected per-Entity values and a supported decrypted reference to the existing renderers without bypassing admission, envelope, private journal, dry-run, reporting or recovery. Added concrete read-only CSI status transport and source-attributed unavailable/unknown/stale/conflict/reported states without Secret or mount reads. | `current change`; source/tests above and `docs/runbooks/installation-agent-configuration.md`; exact focused command below passed; strict mypy/Ruff passed. Synthetic keys, private files and mocked HTTP/Kubernetes mechanical transports only; no real DB, Azure, model, Kubernetes or Key Vault call. | Parent-owned protected delivery and exact-head CI remain separate. Actual key onboarding/readback, artifact synchronization, provider binding, Agent rollout, independently observed installation effects and production qualification remain open. Neither #1823 nor #1824 is complete. |
 | 2026-10-21 | implemented | Reproduced an acceptance-time defect on the actual JWT/API/PostgreSQL path: managing an already enrolled Entity and independently approving a new full successor scope still failed because an ancestor was compared with today's managed set. Retained-history scope and package coverage now use the ancestor's immutable approved mapping. Current scope checks, installation proofs, approval/audit validity, key-version receipts and exact Release/schema admission remain unchanged. | `current change`; `configuration_import_trust.py`, `test_configuration_import_postgres.py::test_postgres_historical_scope_allows_new_independently_approved_managed_entity`; the regression failed before repair with `configuration_entity_scope_mismatch`, then the exact follow-up command below passed (43, no skips). It proves legal Entity management plus new independent approval succeeds; unapproved scope, substituted package bindings and old scope as current input fail. Missing historical catalog admission still holds. Strict mypy/Ruff passed. | Actual enrollment, deployed migration, Agent/CSI delivery and production qualification remain separate. This correction does not add Entity management or Release admission authority. |
@@ -112,10 +113,30 @@ python3 scripts/automation/with-local-test-database.py \
   lifecycle/hub/tests/test_hubs_postgres.py
 ```
 
+Focused completion-deadline follow-up passed (69 local cases; no live tests selected):
+
+```bash
+.venv/bin/python -m pytest -q --no-cov --basetemp=.fdai/test-output/reference-deadline \
+  lifecycle/agent/tests/test_reference_state.py \
+  lifecycle/agent/tests/test_cli.py \
+  lifecycle/agent/tests/test_configuration_entrypoint.py \
+  lifecycle/agent/tests/test_no_write.py
+```
+
 Focused #2338 source checks passed: 203 cases for the initial consumer and 206 cases after
 legacy rejection-precedence hardening, each with one explicit opt-in kind case skipped.
 The selection includes actual locked Kubernetes SDK request serialization/deserialization with
 only HTTP transport mocked. No live provider or database was used:
+
+The full-revision producer-to-Agent test invokes both public `main(args)` functions in process.
+The Agent uses an injected Hub transport and fake cluster; this is not an Agent `python -m`
+or installed-binary process test. The separate packaging CLI subprocess suite is not included
+in this selector. Its no-write fresh-interpreter test invokes `Harness.poll`, not the Agent CLI.
+The explicitly skipped node is
+`lifecycle/agent/tests/test_cross_process_resumption.py::test_a_superseded_unreported_plan_is_abandoned_not_misapplied`.
+It runs real Agent `python -m fdai_lifecycle_agent.cli poll-once --apply` processes only when
+`FDAI_LIFECYCLE_KIND_CONTEXT` starts with `kind-` and the `kind` executable is available.
+That test was not executed, and no live cluster or operational effect is claimed.
 
 ```bash
 .venv/bin/python -m pytest -q --no-cov --basetemp=.fdai/test-output/configuration-agent \

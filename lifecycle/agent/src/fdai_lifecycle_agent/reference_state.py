@@ -33,7 +33,7 @@ class ReferenceStatusSource(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class ReferenceReadBudget:
-    """Bound a batch without retrying a source. Each underlying request also has a timeout."""
+    """Accept batch reads only before the deadline; do not interrupt or retry SDK requests."""
 
     source: ReferenceStatusSource
     deadline: float
@@ -42,7 +42,10 @@ class ReferenceReadBudget:
     def read_csi_object(self, kind: str, name: str) -> Manifest | None:
         if self.monotonic() >= self.deadline:
             raise WorkloadError("reference_read_deadline")
-        return self.source.read_csi_object(kind, name)
+        result = self.source.read_csi_object(kind, name)
+        if self.monotonic() >= self.deadline:
+            raise WorkloadError("reference_read_deadline")
+        return result
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
