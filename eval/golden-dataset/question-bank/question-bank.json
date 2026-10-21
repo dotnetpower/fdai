@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0.0",
   "catalog_version": "1.2.0",
-  "source_digest": "sha256:4270cf0d156f56c6b1c5385b5627e2c9de606a918dd913f203daa1fc1d0f6f1b",
+  "source_digest": "sha256:da760597ebf2565a37ca635b8431609891fae63f38f36fced4b9d2ebb9201b97",
   "source_files": [
     {
       "path": "console/src/i18n/messages.en.json",
-      "digest": "sha256:52bb750b88831aa612581a0ccf98e53a218a1eddef0fb8af1453927865fff561"
+      "digest": "sha256:9ec1da8197a530e9885fcc287b805fe1568de0e971229e484c4757d05886439c"
     },
     {
       "path": "console/src/i18n/messages.ko.json",
-      "digest": "sha256:c1109f72d290ba09979175bae6b6f9d6bee7e5e1c8112bb12a24a2b8bd2f266d"
+      "digest": "sha256:80f0332c7204693fe561f3aecf9de8d74fe7218e57fc2b219d3126dca2a4ba81"
     },
     {
       "path": "docs/internals/browser-session-test-prompts-q001-q120.md",

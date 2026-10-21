@@ -8,6 +8,7 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   dashboard: "/overview",
   "dashboard-v2": "/resource-dashboard",
   live: "/live",
+  gpu: "/gpu-monitoring",
   incidents: "/incidents",
   agents: "/agents",
   "hil-queue": "/approvals",

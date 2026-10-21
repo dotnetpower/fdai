@@ -190,6 +190,7 @@
     },
     "panel": {
       "live": "실시간",
+      "gpu": "GPU",
       "agents": "Fleet",
       "hilQueue": "승인",
       "provision": "프로비저닝",

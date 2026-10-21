@@ -17,7 +17,7 @@ GPU 지표에서 Event와 로컬 리포트를 만드는 경계입니다. 배포�
 
 기준 소스는 upstream `f8a4208ef`이며 작업 브랜치는 `gpu-monitoring`입니다.
 A10, T4, H100 라벨과 두 수집원 매핑, 아홉 시나리오를 조합한 54개 replay를
-실행했습니다. 정상 6개와 finding 48개입니다. 이후 합성 관측에서는 48개의
+실행했습니다. 정상 6개와 발견된 문제 48개입니다. 이후 합성 관측에서는 48개의
 모니터링 조건이 해제되었습니다. 실제 조치나 하드웨어 복구를 증명하지는 않습니다.
 소유 테스트 54개가 통과했습니다. GPU 모델에 대한 물리적 인증이 아닌 소프트웨어
 계약 검증입니다.
@@ -26,7 +26,7 @@ A10, T4, H100 라벨과 두 수집원 매핑, 아홉 시나리오를 조합한 5
 
 | 위치 | 이번 테스트와 관련된 역할 |
 |------|---------------------------|
-| `services/core-control-plane/src/fdai/` | 제어 루프, 탐지, trust routing, risk gate, Agent, delivery adapter |
+| `services/core-control-plane/src/fdai/` | 제어 루프, 탐지, trust routing, 안전성 검토(`risk-gate`), Agent, delivery adapter |
 | `services/operator-service/` | 인증된 운영자 API. 실행 권한을 소유하지 않음 |
 | `services/isolated-executor/` | 권한이 분리된 실행 서비스 |
 | `services/document-ingestion-api/`, `services/document-processing-worker/` | 문서 증거 처리 |
@@ -103,7 +103,7 @@ Azure push 경계에는
 사용률 95%, memory pressure 95%, 온도 85 C, 할당된 GPU의 idle 사용률 5% 이하를
 사용합니다. GPU/driver 특성, workload SLO, 운영 일정에 맞게 조정해야 합니다.
 
-| 관측 | 로컬 finding | 해석과 안전한 후속 단계 |
+| 관측 | 로컬 발견 사항 | 해석과 안전한 후속 단계 |
 |------|--------------|-------------------------|
 | 사용률 >=95% 지속 및 queue 증가 | `gpu_util_saturated` | capacity pressure 가설. latency SLO/quota 확인 후 증설안 제안 |
 | 사용 memory / capacity >=95% | `alert_trigger`, memory pressure | OOM이나 memory leak으로 단정하지 않음 |
@@ -116,7 +116,7 @@ Azure push 경계에는
 | 관측 없음, 오래됨, 간격 초과, baseline 부족 | `insufficient_evidence` | 정상이라고 보고하지 않음 |
 
 새 XID/ECC/OOM/throttle에 대한 직접적이고 신선한 증거는 사용률의 5분 window가
-완성되기 전에도 finding으로 남깁니다. 리포트에 coverage 부족을 함께 기록합니다.
+완성되기 전에도 발견 사항으로 남깁니다. 리포트에 coverage 부족을 함께 기록합니다.
 과거 XID가 계속 남아 있거나 누적 counter가 증가하지 않았으면 새 오류로 취급하지
 않습니다. Timestamp가 있는 driver-log ingress나 영속적 edge state는 구현하지 않았습니다.
 
@@ -152,7 +152,7 @@ publish-only 경계와 호환되는 로컬 기록 객체를 사용합니다. Kaf
 권한을 부여하지 않으며 개발 진단을 운영 수집기로 바꾸지 않습니다.
 
 후속 비교는 같은 GPU/source의 신선하고 완전한 후속 window가 기존 window와
-겹치지 않고, 원래 finding에 필요한 지표가 계속 존재할 때만 검증됩니다.
+겹치지 않고, 원래 발견 사항에 필요한 지표가 계속 존재할 때만 검증됩니다.
 `recovered_in_replay`는 합성 관측 조건이 해제되었다는 의미만 갖습니다. 실개발
 관측은 `condition_cleared_in_followup`을 사용합니다. 실행하지 않은 복구 작업이
 변화를 일으켰다고 주장하지 않기 위한 구분입니다.
@@ -191,7 +191,7 @@ gate, 사후 리포트가 포함됩니다.
    선택합니다. GPU SKU/driver/collector 지원, identity, 접근 권한, data residency를 확인합니다.
 2. Collector와 인증된 ingress를 연결합니다. 지표 단위와 label, missing series,
    counter reset, collection lag, 중복/복구 알람을 확인합니다.
-3. Detector/rule과 소유 Agent binding을 shadow mode로 등록하고 실제 EventBus,
+3. Detector/rule과 소유 Agent binding을 관찰 모드(`shadow`)로 등록하고 실제 EventBus,
    Incident lifecycle, correlation, audit, 리포트 알림을 검증합니다.
 4. 통제된 saturation, VRAM pressure, idle workload로 검증합니다. 파괴적 GPU fault는
    replay 또는 승인된 simulation으로 제한합니다. 탐지 지연과 오탐률은 실측 baseline으로
@@ -200,7 +200,7 @@ gate, 사후 리포트가 포함됩니다.
    명시적 권한과 데이터 외부 전송 검토 없이 live model을 호출하지 않습니다.
 6. 검토된 ActionType만 추가합니다. 증설, concurrency 변경, restart/drain, resize는
    현재 승인 또는 유효한 상시 권한, promotion/risk 검증, stop condition, tested rollback,
-   blast radius, dry-run, target lock, idempotency, two-phase audit가 필요합니다.
+   영향 범위(`blast radius`), dry-run, target lock, idempotency, two-phase audit가 필요합니다.
    GPU reset, 임의 shell 실행, 삭제는 구현하지 않았습니다.
 7. 변경 뒤 독립적인 관측으로 효과를 확인하고 실패/불명확 결과는 rollback 또는
    escalation합니다. Detector가 직접 메시지를 보내지 않고 FDAI의 별도 설정된
