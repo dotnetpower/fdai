@@ -19,11 +19,19 @@ from fdai_lifecycle_agent.dry_run import (
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import NativeCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore
+from fdai_lifecycle_agent.state import write_json_atomically
 from fdai_lifecycle_agent.workload import CreationRejectedError, WorkloadError
 
 
 def test_idle_legacy_agent_rechecks_mode_after_bootstrap_under_poll_lock(harness, monkeypatch):
     settings = prepare(harness)
+    harness.current_state = parse_current_state(
+        snapshot_document(
+            {"application": EntityState(None, frozenset())},
+            schema_revision=0,
+            observed_at=harness.current_state.observed_at,
+        )
+    )
     harness.hub.plan = None
     provider = UidProvider()
     apply = harness.apply_mode(provider)
@@ -49,6 +57,7 @@ def test_idle_legacy_agent_rechecks_mode_after_bootstrap_under_poll_lock(harness
         NativeStateStore(harness.state_store.path.parent),
         approval,
         Ed25519PrivateKey.generate(),
+        current_state_path=harness.state_file,
         clock=clock,
         apply=True,
     )
@@ -86,9 +95,6 @@ def test_signed_native_first_install_update_recovery_and_restart_replay(
     )
     provider = UidProvider()
     store = NativeStateStore(harness.state_store.path.parent)
-    bootstrap_native_scope(provider, store, approval, key, clock=clock, apply=True)
-    anchor_uid = store.load().anchor_uid
-    settings = replace(settings, native_scope_digest=approval.scope.digest)
     configuration = harness.add_configuration(
         {
             "schema": {},
@@ -107,6 +113,18 @@ def test_signed_native_first_install_update_recovery_and_restart_replay(
             available_artifact_digests=staged,
         )
     )
+    write_json_atomically(harness.state_file, harness.state_document())
+    bootstrap_native_scope(
+        provider,
+        store,
+        approval,
+        key,
+        current_state_path=harness.state_file,
+        clock=clock,
+        apply=True,
+    )
+    anchor_uid = store.load().anchor_uid
+    settings = replace(settings, native_scope_digest=approval.scope.digest)
 
     def poll(version, label, sequence):
         digest = release(harness, version=version, label=label)

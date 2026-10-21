@@ -306,7 +306,7 @@ class Workload:
         for manifest in manifests:
             kind, name = object_key(manifest)
             live = self.cluster.get(kind, name)
-            if live is None:
+            if live is None or live.get("metadata", {}).get("deletionTimestamp") is not None:
                 return False
             if not _contains(live.get("spec"), manifest.get("spec")):
                 return False

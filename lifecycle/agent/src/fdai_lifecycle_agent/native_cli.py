@@ -15,8 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from fdai_deployment_cli.lifecycle_native import NativeScope
 
-from fdai_lifecycle_agent.dry_run import load_current_state
-from fdai_lifecycle_agent.journal import HALT_FILE_NAME, WORKLOAD_FILE_NAME, WorkloadStore
+from fdai_lifecycle_agent.journal import HALT_FILE_NAME, WORKLOAD_FILE_NAME
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import NativeCluster, UidCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore, load_native_approval
@@ -24,7 +23,6 @@ from fdai_lifecycle_agent.signatures import load_ed25519_public_key
 from fdai_lifecycle_agent.state import (
     LOCK_FILE_NAME,
     STATE_FILE_NAME,
-    LocalStateStore,
     write_json_atomically,
 )
 from fdai_lifecycle_agent.workload import Cluster, WorkloadError
@@ -161,11 +159,6 @@ def run_native_bootstrap(
     )
     if arguments.apply and arguments.proof_output is None:
         raise WorkloadError("native_scope_private_proof_output_required")
-    current = load_current_state(arguments.current_state)
-    if set(current.entities) - {approval.scope.entity_id} or any(
-        state.release_id is not None for state in current.entities.values()
-    ):
-        raise WorkloadError("native_scope_requires_uninstalled_state")
     store = NativeStateStore(arguments.state_dir)
     if arguments.proof_output is not None:
         reserved = [
@@ -181,16 +174,6 @@ def run_native_bootstrap(
         ]
         if arguments.proof_output.resolve() in {path.resolve() for path in reserved}:
             raise WorkloadError("native_scope_proof_output_conflicts_with_input")
-    if store.load() is None:
-        workload = WorkloadStore(arguments.state_dir)
-        history = workload.load()
-        if (
-            history.healthy
-            or history.journal is not None
-            or workload.halted_plan_id() is not None
-            or LocalStateStore(arguments.state_dir).load().plans
-        ):
-            raise WorkloadError("native_scope_existing_execution_history")
     key = load_installation_identity(arguments.installation_key)
     cluster = connect(arguments.kube_context, approval.scope.namespace, arguments.in_cluster)
     if not isinstance(cluster, UidCluster):
@@ -200,6 +183,7 @@ def run_native_bootstrap(
         store,
         approval,
         key,
+        current_state_path=arguments.current_state,
         clock=clock,
         apply=arguments.apply,
         timeout_seconds=arguments.timeout_seconds,

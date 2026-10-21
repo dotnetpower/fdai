@@ -668,7 +668,8 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
    and full-authority development profile. A Hub, package, enrollment or Plan cannot supply it.
    Bootstrap is a dry run unless the customer explicitly selects apply.
 2. The Agent holds its existing exclusive state lock, checks the independent local application
-   policy, performs an API dry run, and durably records creation intent before an atomic
+   policy, re-reads current state and execution history under that lock, performs an API dry run,
+   and durably records creation intent before an atomic
    create-only request for the anchor. An existing anchor is a collision, never an adoption.
    Successful creation is independently read back and its API-assigned UID retained.
 3. The Agent signs a purpose-specific claim containing installation, Entity and application
@@ -689,12 +690,16 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
    terminating anchors and foreign objects stop execution without adoption.
    Deployment and Service selectors and Pod labels bind the Entity and actual anchor creation
    identity, so a component label alone cannot select foreign Pods or orphan ReplicaSets.
+   Health readback verifies those selectors and Pod labels again; terminating workloads cannot
+   pass rollout verification even when deletion is already tracked locally.
 6. Recovery uses that retained UID history, never a name-only deletion. Uncertain creation,
    failed persistence or conflicting identity requires review rather than a success-shaped
    retry. Existing signed-input, product, window, envelope, dry-run, rollback, replay and
    independent health checks remain required.
    Only a provider-confirmed rejection without creation clears pending intent for retry or
    UID-fenced recovery. Timeouts, lost responses and server failures retain the uncertainty fence.
+   A local deadline or approval failure before the create request is sent also clears pending
+   intent; no API request has occurred in that case.
    Every apply poll rechecks native versus legacy mode under the exclusive state lock before
    fetching a Plan or recovering a journal; a legacy client composed before bootstrap stops.
 

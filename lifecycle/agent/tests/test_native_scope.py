@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -10,12 +11,16 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
 from fdai_deployment_cli.lifecycle_native import NativeApproval, NativeScope
 
+from fdai_lifecycle_agent.dry_run import EntityState, snapshot_document
+from fdai_lifecycle_agent.journal import ApplyJournal, WorkloadState, WorkloadStore
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import ANCHOR_LABEL, NativeCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore
+from fdai_lifecycle_agent.state import LocalStateStore, write_json_atomically
 from fdai_lifecycle_agent.workload import (
     CreationRejectedError,
     Manifest,
+    Workload,
     WorkloadError,
     object_key,
     render,
@@ -111,12 +116,26 @@ def native(tmp_path: Path):
     provider = UidProvider()
     store = NativeStateStore(tmp_path)
     key = Ed25519PrivateKey.generate()
+    write_json_atomically(
+        tmp_path / "current-state.json",
+        snapshot_document(
+            {"application": EntityState(None, frozenset())}, schema_revision=0, observed_at=NOW
+        ),
+    )
     return provider, store, approval, key
 
 
 def bootstrap(native, *, apply=True):
     provider, store, approval, key = native
-    return bootstrap_native_scope(provider, store, approval, key, clock=lambda: NOW, apply=apply)
+    return bootstrap_native_scope(
+        provider,
+        store,
+        approval,
+        key,
+        current_state_path=store.path.parent / "current-state.json",
+        clock=lambda: NOW,
+        apply=apply,
+    )
 
 
 def wrapper(native, *, clock=lambda: NOW):
@@ -137,6 +156,105 @@ def test_default_bootstrap_only_dry_runs_and_does_not_persist(native):
     assert provider.calls == [("create", True)]
     assert provider.objects == {}
     assert not store.path.exists()
+
+
+@pytest.mark.parametrize("kind", ["Service", "Deployment", "PodLabels"])
+def test_readback_rejects_isolation_drift_without_a_uid_change(native, kind):
+    provider, *_ = native
+    bootstrap(native)
+    cluster = wrapper(native)
+    for manifest in manifests():
+        cluster.apply(manifest)
+    resource_kind = "Service" if kind == "Service" else "Deployment"
+    live = provider.objects[(resource_kind, "frontend")]
+    uid = live["metadata"]["uid"]
+    if kind == "Service":
+        live["spec"]["selector"].pop(ANCHOR_LABEL)
+    elif kind == "Deployment":
+        live["spec"]["selector"]["matchLabels"].pop("fdai.io/entity")
+    else:
+        live["spec"]["template"]["metadata"]["labels"].pop(ANCHOR_LABEL)
+    with pytest.raises(WorkloadError, match="native_resource_isolation_changed"):
+        Workload(cluster=cluster, namespace="example-test", health_timeout_seconds=1)._rolled_out(
+            manifests()
+        )
+    assert live["metadata"]["uid"] == uid
+
+
+@pytest.mark.parametrize("change", ["journal", "installed-state"])
+def test_bootstrap_rechecks_state_and_history_before_lock_acquisition(native, monkeypatch, change):
+    _, store, approval, _ = native
+    lock = LocalStateStore.lock
+
+    @contextmanager
+    def interleave(self):
+        journal = ApplyJournal(
+            plan_id="legacy-pending",
+            phase="prepared",
+            expires_at=approval.expires_at,
+            target_release_id="1.0.0",
+            entity_images={"application": frozenset({"sha256:" + "a" * 64})},
+            desired=manifests(),
+            previous=(),
+        )
+        if change == "journal":
+            WorkloadStore(store.path.parent).save(WorkloadState(journal=journal))
+        else:
+            write_json_atomically(
+                store.path.parent / "current-state.json",
+                snapshot_document(
+                    {"application": EntityState("1.0.0", frozenset())},
+                    schema_revision=0,
+                    observed_at=NOW,
+                ),
+            )
+        with lock(self):
+            yield
+
+    monkeypatch.setattr(LocalStateStore, "lock", interleave)
+    reason = (
+        "native_scope_existing_execution_history"
+        if change == "journal"
+        else "native_scope_requires_uninstalled_state"
+    )
+    with pytest.raises(WorkloadError, match=reason):
+        bootstrap(native)
+    assert not store.path.exists()
+    assert native[0].calls == []
+
+
+def test_terminating_owned_deletion_cannot_pass_rollout_verification(native):
+    provider, store, *_ = native
+    bootstrap(native)
+    cluster = wrapper(native)
+    for manifest in manifests():
+        cluster.apply(manifest)
+    live = provider.objects[("Deployment", "frontend")]
+    live["metadata"]["deletionTimestamp"] = NOW.isoformat()
+    state = store.load()
+    store.save(state.model_copy(update={"deleting": frozenset({"Deployment/frontend"})}))
+    assert not Workload(
+        cluster=cluster, namespace="example-test", health_timeout_seconds=1
+    )._rolled_out(manifests())
+
+
+def test_deadline_before_post_clears_only_the_known_unsubmitted_intent(native):
+    provider, store, approval, key = native
+    ticks = iter([0.0] * 6 + [121.0])
+    with pytest.raises(WorkloadError, match="native_bootstrap_deadline"):
+        bootstrap_native_scope(
+            provider,
+            store,
+            approval,
+            key,
+            current_state_path=store.path.parent / "current-state.json",
+            clock=lambda: NOW,
+            apply=True,
+            monotonic=lambda: next(ticks),
+        )
+    assert store.load().pending is None
+    assert provider.calls == [("create", True)]
+    assert bootstrap(native) is not None
 
 
 @pytest.mark.parametrize("operation", ["get", "apply", "delete", "bootstrap"])
@@ -454,6 +572,12 @@ def test_bootstrap_deadline_is_enforced_before_cluster_access(native):
     ticks = iter((0.0, 121.0))
     with pytest.raises(WorkloadError, match="native_bootstrap_deadline"):
         bootstrap_native_scope(
-            provider, store, approval, key, clock=lambda: NOW, monotonic=lambda: next(ticks)
+            provider,
+            store,
+            approval,
+            key,
+            current_state_path=store.path.parent / "current-state.json",
+            clock=lambda: NOW,
+            monotonic=lambda: next(ticks),
         )
     assert provider.calls == []

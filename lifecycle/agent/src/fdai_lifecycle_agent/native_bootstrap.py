@@ -6,6 +6,7 @@ import math
 import time
 from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -17,6 +18,8 @@ from fdai_deployment_cli.lifecycle_native import (
     sign_native_scope,
 )
 
+from fdai_lifecycle_agent.dry_run import load_current_state
+from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.native_cluster import UidCluster, live_uid, require_live_anchor
 from fdai_lifecycle_agent.native_state import NativeState, NativeStateStore
 from fdai_lifecycle_agent.state import LocalStateStore
@@ -58,6 +61,7 @@ def bootstrap_native_scope(
     approval: NativeApproval,
     key: Ed25519PrivateKey,
     *,
+    current_state_path: Path,
     clock: Callable[[], datetime],
     apply: bool = False,
     timeout_seconds: float = 120,
@@ -80,6 +84,11 @@ def bootstrap_native_scope(
         require_budget()
         state = store.load()
         scope = approval.scope
+        current = load_current_state(current_state_path)
+        if set(current.entities) - {scope.entity_id} or any(
+            entity.release_id is not None for entity in current.entities.values()
+        ):
+            raise WorkloadError("native_scope_requires_uninstalled_state")
         public = key.public_key().public_bytes(
             serialization.Encoding.Raw, serialization.PublicFormat.Raw
         )
@@ -95,6 +104,15 @@ def bootstrap_native_scope(
         if state is not None and state.anchor_uid is None and state.pending is not None:
             raise WorkloadError("native_creation_outcome_unknown")
         if state is None or state.anchor_uid is None:
+            workload = WorkloadStore(store.path.parent)
+            history = workload.load()
+            if (
+                history.healthy
+                or history.journal is not None
+                or workload.halted_plan_id() is not None
+                or LocalStateStore(store.path.parent).load().plans
+            ):
+                raise WorkloadError("native_scope_existing_execution_history")
             for kind, name in sorted(scope.resources | {("Service", scope.anchor_name)}):
                 require_budget()
                 if cluster.get(kind, name) is not None:
@@ -111,7 +129,11 @@ def bootstrap_native_scope(
                 pending=f"Service/{scope.anchor_name}",
             )
             store.save(state)
-            require_budget()
+            try:
+                require_budget()
+            except WorkloadError:
+                store.save(state.model_copy(update={"pending": None}))
+                raise
             try:
                 created = cluster.create(manifest)
             except CreationRejectedError:

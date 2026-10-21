@@ -105,6 +105,14 @@ class NativeCluster:
             raise WorkloadError("native_resource_outside_scope")
         return f"{kind}/{name}"
 
+    @staticmethod
+    def _selector(state: NativeState, name: str) -> dict[str, str]:
+        return {
+            COMPONENT_LABEL: name,
+            ENTITY_LABEL: state.scope.entity_id,
+            ANCHOR_LABEL: state.creation_receipt_digest.removeprefix("sha256:")[:32],
+        }
+
     def get(self, kind: str, name: str) -> Manifest | None:
         state = self._guard()
         key = self._resource(state, kind, name)
@@ -124,6 +132,19 @@ class NativeCluster:
             raise WorkloadError("native_creation_outcome_unknown")
         if live_uid(live) != state.resources.get(key):
             raise WorkloadError("native_resource_not_owned")
+        if key not in state.deleting and live["metadata"].get("deletionTimestamp") is not None:
+            raise WorkloadError("native_resource_terminating")
+        selector = self._selector(state, name)
+        spec = live.get("spec", {})
+        if kind == "Deployment":
+            template_labels = spec.get("template", {}).get("metadata", {}).get("labels", {})
+            isolated = spec.get("selector") == {"matchLabels": selector} and all(
+                template_labels.get(label) == value for label, value in selector.items()
+            )
+        else:
+            isolated = spec.get("selector") == selector
+        if not isolated:
+            raise WorkloadError("native_resource_isolation_changed")
         return live
 
     def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
@@ -155,13 +176,8 @@ class NativeCluster:
                 ]
             }
         }
-        anchor_label = state.creation_receipt_digest.removeprefix("sha256:")[:32]
-        owned_manifest["metadata"]["labels"] = dict(labels) | {ANCHOR_LABEL: anchor_label}
-        selector = {
-            COMPONENT_LABEL: name,
-            ENTITY_LABEL: state.scope.entity_id,
-            ANCHOR_LABEL: anchor_label,
-        }
+        selector = self._selector(state, name)
+        owned_manifest["metadata"]["labels"] = dict(labels) | selector
         if kind == "Deployment":
             owned_manifest["spec"]["selector"]["matchLabels"] = selector
             owned_manifest["spec"]["template"]["metadata"]["labels"].update(selector)
