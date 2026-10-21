@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: c60d7b845718b0019b1f2f7c0278c6a4989ce773
+translation_source_sha: f28faa06a8c15cc2bfbb32f87c35d049e92174c4
 translation_revised: 2026-10-21
 ---
 
@@ -678,20 +678,13 @@ CLI는 [Lifecycle 구성](lifecycle-configuration-ko.md) 패키지용 순수 검
 든 패키지를 거부합니다. 아직 이 검증기를 호출하는 패키저는 없으며, 배포나 적용 권한을 부여하지
 않습니다.
 
-CLI는 Hub와 [lifecycle 에이전트](../../../lifecycle/agent/README.md)가 함께 쓰는 순수 Lifecycle
-Plan 검사도 포함합니다. `canonical_plan_payload`는 Hub 키가 서명하는 정확한 바이트를 만들고,
-`decode_canonical_plan_payload`는 그 바이트를 다시 Plan으로 해석합니다. 디코더는 알 수 없거나
-빠졌거나 타입이 잘못된 필드와 시간대가 없는 만료 시각을 거부합니다. 서명은 검증하지 않으므로,
-에이전트는 `evaluate_plan_admission`이 수용한 Plan만 신뢰합니다.
+CLI는 Hub 및 [lifecycle 에이전트](../../../lifecycle/agent/README.md)와 순수 Lifecycle Plan 검사를 공유합니다.
+`canonical_plan_payload`는 서명할 정확한 바이트를 만듭니다. `decode_canonical_plan_payload`는 Plan을 해석하면서 알 수 없거나 빠졌거나 타입이 잘못된 필드와 시간대가 없는 만료 시각을 거부합니다.
+디코딩은 서명을 검증하지 않으며, 에이전트는 `evaluate_plan_admission`이 수용한 Plan만 신뢰합니다.
 
-공유 Lifecycle Plan 검사는 읽기 전용 `LifecycleRelease` 계약으로 필요한 이미지를 읽습니다.
-변경되지 않은 FDAI 런타임 형식 외에
-[개발 전용 nginx 형식](lifecycle-releases-and-channels-ko.md)은
-고정된 워크로드 하나를 선언하며 데이터베이스는 사용하지 않습니다. 필수 산출물의 가용성,
-서명, 버전, 만료 시각, 원본 상태 및 허용 효과 범위 검사는 그대로 적용합니다.
-공개 배포 명령, 기존 리소스의 소유권 또는 실행 권한은 추가하지 않습니다.
-일반 소스 및 오프라인 설치에는 계속 FDAI 런타임 입력이 필요하며 nginx를 FDAI 서비스 대신
-사용할 수 없습니다.
+`LifecycleRelease`는 변경되지 않은 FDAI 런타임 입력과 [nginx 전용 개발 형식](lifecycle-releases-and-channels-ko.md)의 읽기 전용 메타데이터를 제공합니다.
+필수 산출물에는 nginx의 고정된 워크로드가 포함되며 데이터베이스는 사용하지 않습니다. 서명, 버전, 만료 시각, 원본 상태 및 허용 효과 범위 검사는 그대로 적용합니다.
+배포 명령, 기존 리소스의 소유권 또는 실행 권한은 추가하지 않습니다. 소스 및 오프라인 설치의 FDAI 런타임 입력을 nginx로 대체할 수 없습니다.
 
 ## Standalone 배포 순서
 

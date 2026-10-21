@@ -679,20 +679,13 @@ Release defaults, environment configuration, and the most specific matching over
 reject a package that holds a literal secret value instead of a Key Vault reference before signing.
 No packager calls them yet, and they grant no deployment or apply authority.
 
-The CLI also carries the pure Lifecycle Plan checks that the Hub and the
-[lifecycle agent](../../../lifecycle/agent/README.md) share. `canonical_plan_payload` produces the
-exact bytes that the Hub key signs, and `decode_canonical_plan_payload` parses those bytes back into a
-Plan. The decoder rejects unknown, missing, or mistyped fields and an expiry without a time zone. It
-doesn't verify the signature, so an agent trusts a decoded Plan only after `evaluate_plan_admission`
-admits it.
+The CLI shares pure Lifecycle Plan checks with the Hub and [lifecycle agent](../../../lifecycle/agent/README.md).
+`canonical_plan_payload` produces the exact signing bytes. `decode_canonical_plan_payload` parses a Plan, rejecting unknown, missing or mistyped fields and expiry without a time zone.
+Decoding does not verify signatures; the agent trusts a Plan only after `evaluate_plan_admission` admits it.
 
-Shared Lifecycle Plan checks read image requirements through the read-only
-`LifecycleRelease` contract. Alongside the unchanged FDAI runtime format, the
-[development-only nginx format](lifecycle-releases-and-channels.md)
-declares one pinned workload and no database. Required artifact availability, signature, version,
-expiry, source-state, and effect-envelope checks still apply. This adds no public deployment
-command, native-resource ownership, or execution authority. Normal source and offline installations
-continue to require their FDAI runtime inputs; nginx is not an FDAI service substitute.
+`LifecycleRelease` exposes read-only metadata for unchanged FDAI runtime inputs and the [nginx-only development format](lifecycle-releases-and-channels.md).
+Required artifacts include nginx's pinned workload, with no database. Signature, version, expiry, source-state and effect-envelope checks remain required.
+This adds no deployment command, native ownership or authority; nginx cannot replace FDAI runtime inputs for source or offline installations.
 
 ## Standalone deployment sequence
 
