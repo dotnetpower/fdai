@@ -53,6 +53,7 @@ from fdai.delivery.prospective_lineage import (
 )
 from fdai.rule_catalog.schema.capacity_graduation_policy import load_capacity_graduation_policy
 from fdai.runtime import bootstrap_agent_discussion, pantheon_inputs
+from fdai.runtime import bootstrap_thor_bindings as thor_factory
 from fdai.runtime.aks_commerce import (
     ActionObservation,
     bind_acceptance_effect_resolution,
@@ -76,7 +77,6 @@ from fdai.runtime.bootstrap_support.architecture_review import build_architectur
 from fdai.runtime.bootstrap_support.learning import (
     bind_post_turn_learning as _bind_post_turn_learning,
 )
-from fdai.runtime.bootstrap_thor_bindings import build_typed_read_execution_bindings
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
     build_case_history_runtime,
@@ -102,7 +102,6 @@ from fdai.runtime.post_turn_review import (
     build_post_turn_review_runtime,
     post_turn_review_dsn,
 )
-from fdai.runtime.providers import _build_resource_lock
 from fdai.runtime.t2_route_registry import (
     T2RouteRegistry,
     bind_t2_route_selector,
@@ -322,7 +321,7 @@ async def initialize_pantheon(
     from fdai.delivery.typed_selection_read_governance import TypedSelectionReadDemoter
 
     typed_read_lifecycle, thor_bindings, typed_read_thor_execute = (
-        build_typed_read_execution_bindings(
+        thor_factory.build_typed_read_execution_bindings(
             thor_mutation_bound=thor_mutation_bound,
             t2_route_registry=t2_route_registry,
             acceptance_bindings=acceptance_bindings,
@@ -331,12 +330,7 @@ async def initialize_pantheon(
             can_approve=approver_authorizer_from_environment(config.environment),
         )
     )
-    development_bindings = pantheon_inputs.pantheon_development_bindings(config.control_loop)
-    execution_resource_lock = (
-        _build_resource_lock(config.environment)
-        if pantheon_enforce or development_bindings is not None
-        else None
-    )
+    development, execution_resource_lock = thor_factory.build_safety(config, pantheon_enforce)
     thor_safety_readiness = config.build_mutation_dependency_readiness(
         saga=config.runtime_saga,
         rollback_executors=thor_bindings.rollback_executors,
@@ -488,7 +482,7 @@ async def initialize_pantheon(
         proposal_rate_limit_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,
         approver_authorizer=approver_authorizer_from_environment(config.environment),
-        development_authority=development_bindings,
+        development_authority=development,
         approval_profile=approval_bindings,
         saga=config.runtime_saga,
         muninn_state_store=config.incident_audit_store,

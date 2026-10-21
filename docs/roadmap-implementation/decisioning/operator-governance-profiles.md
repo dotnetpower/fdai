@@ -9,7 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Development-profile logical-lock composition | implemented | `current change`; #2370; `runtime/bootstrap_pantheon.py`, new real-initializer composition matrix and commands below | A selected development binding now constructs the configured lock without enabling global enforce. The same binding instance is reused. Actual durable rollback coverage and all other safety checks still refuse unavailable execution; no live profile cycle is claimed. |
+| Development-profile logical-lock composition | implemented | `current change`; #2370; `runtime/bootstrap_pantheon.py`, `bootstrap_thor_bindings.py`, new real-initializer composition matrix and commands below | A selected development binding now constructs the configured lock without enabling global enforce. The same binding instance is reused. Actual durable rollback coverage and all other safety checks still refuse unavailable execution; no live profile cycle is claimed. |
 | Source-specific exact-diff approval/profile separation | not-applicable | #2268; [owning boundary](../../roadmap/decisioning/operator-governance-profiles.md#what-stays-the-same); canonical intent wire contracts and optional SDK | Exact source review neither revises the selected approval profile nor grants action, standing-authorization or promotion authority. SDK-local evidence does not qualify installation-profile integration. |
 | Release maximum source availability diagnostics | implemented | `current change`: `services/core-control-plane/src/fdai/runtime/policy_administration.py`; `services/core-control-plane/tests/runtime/test_policy_administration_composition.py`; focused runtime and Mimir tests listed in the 2026-10-19 history row | The unbound source returns `None`, preserving Mimir's observation-only allowance and `release_maximum_unavailable` for enforcement. Missing provenance no longer appears to be an authenticated `shadow` Release maximum. |
 | Authenticated current Release maximum source (F10-F12 A01) | not-started | `lifecycle/agent/src/fdai_lifecycle_agent/inputs.py`, `signatures.py`, and `state.py`; `lifecycle/release-hub/src/fdai_release_hub/store.py`; `packages/deployment-cli/src/fdai_deployment_cli/runtime_release.py` | Existing verification authenticates a Plan target artifact; local Plan outcomes and development catalog exports do not establish Core's installed Release or production metadata currentness and recall. The #1822 source-contract blocker remains. No reader grants authority from those incomplete inputs. |
@@ -73,6 +73,10 @@ The final four-case matrix and skipped PostgreSQL case then passed together (**5
 validated loopback-5433 URL, converting only its SQLAlchemy scheme to libpq's `postgresql` scheme
 in memory. No connection value was printed or stored. The PostgreSQL case proves actual session
 ownership receipts, release readback and reacquisition; it is not a cloud-resource action.
+
+The selector lives in the existing Thor safety-bindings factory. An initial inline version
+crossed the bootstrap's enforced 800-LOC limit (804); the cohesive extraction reduced it to
+798, with the same 35 composition cases passing. No LOC limit or debt baseline was raised.
 
 - [x] Pass the active approval profile revision through Forseti, Var, the HIL resume coordinator,
   and the Operator API HIL callback, and record focused tests in which the named operator approves
