@@ -140,18 +140,29 @@ lazy range and mapping expansion before copying, redaction or property normaliza
 existing generation/chunk limits. Large integers and unknown `default=str` leaves remain
 conservative; no arbitrary converter is called by preflight. Exact encoding still owns acceptance.
 
+The PostgreSQL snapshot store applies the same 1 MiB pre-copy byte ceiling to `canonical_json_mapping`
+for metadata, resource properties, and derived relationship properties before opening a database
+transaction, and bounds each `jsonb_to_recordset` SQL parameter batch by both `write_batch_size` and
+a 4 MiB cumulative UTF-8 wire allowance. Prepared-candidate graph digests also enforce the explicit
+projection value, character, depth, and relationship-drop ceilings before normalization, and
+`PostgresInventorySnapshotStore.promote` binds candidate source, scopes, resource types, observation
+kind, and the `started_at <= completed_at <= checked_at` interval to the locked durable snapshot row
+even when no prepared seal is present.
+
 ### Retained-concept assessment boundary
 
 The [retained-concept classification](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md#retained-concept-assessment-2111)
-remains partial. #2111 requires every retained concept to be classified as already present,
-superseded, or a reproducible residual; an unknown or deferred guarantee does not satisfy that
-criterion. Declining the historical receipt/observer API does not supersede the underlying
-independent-issuer and whole-interval authorization guarantee, whose disposition is unresolved.
-Existing custody, attempt, generation, and retained-byte checks remain authoritative, but do not
-settle the broader shared-admission or pre-materialization guarantees. Adapter-local pacing is not
-fleet admission, and declining an allocation estimator does not retire the memory guarantee.
-Source and operational qualification remain separate open caveats, not substitutes for concept
-classification. This partial assessment grants no new read, capture, promotion, or execution authority.
+now assigns every retained concept one of #2111's three required dispositions (`already present`,
+`superseded`, or `a reproducible residual`) with deterministic current-owner evidence. The historical
+receipt/observer API, caller-digest read-budget table, unverified in-memory read cache, and weighted
+`sys.getsizeof` projection estimator remain superseded implementation proposals. The underlying
+independent-issuer and whole-interval visibility witness, restart-durable shared request/byte and
+cooldown admission, pre-collection/recovery generation fencing, within-generation equivalent read
+reuse, and deployed peak-RSS envelope remain open reproducible residuals with focused deterministic
+counterexamples in `test_inventory_retained_assessment.py`, tracked to implementation and operational
+qualification in #2329, #1393, and findings 04, 13, 14, 17, and 31. Completing the #2111 spike
+classification grants no new read, capture, promotion, or execution authority and claims no live
+Azure or operational qualification.
 
 ### Durable provider-read admission design review (#2329)
 
@@ -204,11 +215,10 @@ authorization bypasses.
 The broader revised proposal therefore stops before introducing a persistent ledger or qualification
 flag. The installation/current identity owner first needs to select the independently governed
 binding and the generation rule for pre-collection and recovery reads. No substitute issuer,
-signing key, caller-selected principal handle, or accepting fallback is introduced. Tests in
-`test_inventory_retained_assessment.py` retain the cooldown evidence and configured-selector
-regressions; they do not satisfy
-#2329's shared PostgreSQL, complete wiring, or actual-installation consumption exits. #2111's
-original classification criterion remains open.
+signing key, caller-selected principal handle, or accepting fallback is introduced. Tests in `test_inventory_retained_assessment.py` retain the cooldown, cross-instance admission,
+within-generation duplicate-read, whole-interval visibility, and configured-selector regressions;
+they complete #2111's three-disposition spike classification but do not satisfy #2329's shared
+PostgreSQL, complete wiring, or actual-installation consumption exits.
 
 #### Scoped correction: configured authentication selector continuity
 
@@ -227,7 +237,7 @@ the resulting context digest, so changed configured selectors cannot reuse the o
 candidate or cursor; unchanged effective inputs remain reusable. The coordinator may start a new
 collection under its existing rules, but cannot promote or continue the mismatched retained work.
 No independent issuer, permission, admission ledger, generation rule, or operational receipt is
-created. The broader #2329 boundary and #2111 classification remain open.
+created. The broader #2329 boundary and finding 04/13/14/17/31 runtime qualifications remain open.
 
 ## Discovery universe
 

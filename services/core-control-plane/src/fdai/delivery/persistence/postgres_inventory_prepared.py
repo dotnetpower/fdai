@@ -8,14 +8,17 @@ import json
 from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import UTC, datetime
+from itertools import chain
 from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from fdai.core.ontology_platform.inventory_projection_bounds import validate_projection_allocation
 from fdai.delivery.azure.inventory_redaction import redact_runtime_environment
 from fdai.delivery.inventory_collection import collection_context_digest, collection_key
+from fdai.delivery.inventory_json_budget import inventory_json_exceeds_budget
 from fdai.delivery.inventory_sync_models import (
     InventoryProjectionSourceState,
     InventoryProjectionSourceStatus,
@@ -49,6 +52,8 @@ _MAX_SEAL_BYTES = 32 * 1024 * 1024
 
 
 def _digest(value: object) -> str:
+    if inventory_json_exceeds_budget(value, maximum_bytes=_MAX_SEAL_BYTES):
+        raise ValueError("inventory prepared content exceeds its byte bound")
     digest = hashlib.sha256()
     size = 0
     for part in json.JSONEncoder(sort_keys=True, separators=(",", ":"), allow_nan=False).iterencode(
@@ -79,6 +84,7 @@ def candidate_graph_digest(observation: PromotedInventoryObservation) -> str:
         or observation.recorded_at is None
         or len(observation.resources) > 50_000
         or len(observation.links) > 200_000
+        or len(observation.relationship_drops) > 200_000
         or len({item.resource_id for item in observation.resources}) != len(observation.resources)
         or len({(item.from_id, item.link_type, item.to_id) for item in observation.links})
         != len(observation.links)
@@ -95,6 +101,9 @@ def candidate_graph_digest(observation: PromotedInventoryObservation) -> str:
         )
     ):
         raise ValueError("inventory prepared candidate requires complete verified observations")
+    validate_projection_allocation(
+        chain(observation.resources, observation.links, observation.relationship_drops)
+    )
     resources = [
         {
             "resource_id": item.resource_id,

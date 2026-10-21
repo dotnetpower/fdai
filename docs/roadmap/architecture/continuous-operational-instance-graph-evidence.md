@@ -53,8 +53,14 @@ allowance or its 1 MiB durable chunk limit. Failure returns no partial projectio
 source, promotion, or execution authority; snapshot and derived graph ownership remain separate.
 
 The authoritative [retained-concept assessment](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md#retained-concept-assessment-2111)
-remains partial. These bounded-input repairs do not classify unresolved independent-issuer,
-whole-interval, fleet-admission, reuse, SQL-buffer, or operating-memory guarantees.
+completes the three-disposition spike classification (`already present`, `superseded`, or
+`a reproducible residual`). The snapshot store also enforces a 1 MiB pre-copy byte ceiling on
+canonical JSON mappings, a 4 MiB cumulative UTF-8 wire bound per `jsonb_to_recordset` SQL batch,
+pre-seal projection allocation admission, and locked durable candidate identity and interval checks
+during promotion. Independent-issuer and whole-interval visibility attestation, restart-durable
+shared request/byte and cooldown admission, within-generation equivalent read reuse, and deployed
+peak-RSS qualification remain open reproducible residuals tracked in #2329, #1393, and findings 04,
+13, 14, 17, and 31.
 
 ## Collection authentication configuration
 
@@ -65,7 +71,7 @@ identical effective inputs retain their original attempt. This is configuration 
 authenticated principal identity or permission. Unknown injected identity adapters remain unbound.
 The [scoped correction and critique](../interfaces/azure-resource-discovery-commands.md#scoped-correction-configured-authentication-selector-continuity)
 defines the included selectors and excluded credentials. Durable shared admission, whole-interval
-identity proof and actual installation consumption remain unqualified under #2329 and #2111.
+identity proof and actual installation consumption remain unqualified under #2329 and #1393.
 
 ## Operational state-transition ledger
 
