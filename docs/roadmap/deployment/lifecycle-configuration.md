@@ -628,7 +628,8 @@ Serving never migrates automatically. Explicit Hub schema revision 3 additively 
 `lifecycle_configuration_import`, `lifecycle_configuration_head` and
 `lifecycle_configuration_change_approval`, plus `lifecycle_configuration_plan_import` to retain
 issued Plan provenance. Revisions 1 and 2 upgrade without reinitializing legacy
-enrollment, keys or raw configuration. Accepted history is bounded to 256 packages and 16 MiB of
+enrollment, keys or raw configuration. Current revision 4 preserves these tables and adds the
+separate [local-channel metadata](lifecycle-releases-and-channels.md#customer-local-channel-curation-design-and-critique), without changing configuration approval or activation. Accepted history is bounded to 256 packages and 16 MiB of
 signed payloads; overflow holds rather than truncating. The canonical builder, reader and
 installation-local decryption API accept per-ancestor `ConfigurationHistoryBinding` inputs.
 Those inputs authenticate history only and never establish current key permission.

@@ -26,12 +26,22 @@ _RECALLS = TypeAdapter(tuple[RecallRecord, ...])
 
 
 @dataclass(frozen=True, slots=True)
+class LocalCurationEvidence:
+    revision: int
+    digest: str
+    accepted_sha256: str
+    source_revision: int
+    key_digest: str
+
+
+@dataclass(frozen=True, slots=True)
 class ReleaseCatalog:
     """Releases by SemVer id, channel membership, and recall records."""
 
     releases: Mapping[str, RuntimeRelease]
     channels: Mapping[str, frozenset[str]]
     recalls: tuple[RecallRecord, ...] = ()
+    local_curation: LocalCurationEvidence | None = None
 
     def __post_init__(self) -> None:
         if invalid := sorted(r for r in self.releases if not is_release_id(r)):

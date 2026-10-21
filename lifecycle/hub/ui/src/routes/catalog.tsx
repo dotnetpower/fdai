@@ -1,5 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { request } from "../api";
+import { LocalChannelsPanel } from "./local-channels";
 
 type Trust = {
   approved_revision: number; approved_sha256: string | null;
@@ -76,6 +77,7 @@ export function CatalogPage() {
         <button class="btn" disabled={busy || !trust.approved_sha256}
           onClick={() => void act("/v1/catalog/import", {})}>Import approved catalog</button>
       </section>
+      {trust.imported && trust.accepted_sha256 && <LocalChannelsPanel acceptedDigest={trust.accepted_sha256} />}
       <form class="catalog-panel" onSubmit={(event) => {
         event.preventDefault();
         void act(`/v1/installations/${encodeURIComponent(installation)}/recompute`, {});

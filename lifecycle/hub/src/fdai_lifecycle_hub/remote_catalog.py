@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Column, Engine, Integer, LargeBinary, MetaData, String, Table, Text, select
 from sqlalchemy.engine import Connection, RowMapping
 
+from fdai_lifecycle_hub import local_channels as local_channel_store
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES, load_pinned_export
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
@@ -249,19 +250,72 @@ class RemoteCatalog:
         return self.status()
 
     def catalog(self, now: datetime) -> ReleaseCatalog:
+        started = time.monotonic()
         with self.engine.begin() as connection:
             row = self._locked(connection)
-            if row["payload"] is None:
-                raise ValueError("No verified catalog has been imported.")
-            # New pin approval does not authorize old bytes. Planning uses the accepted pin.
-            return load_pinned_export(
-                row["payload"],
-                expected_sha256=row["previous_digest"],
-                public_key=self.source.public_key(),
-                now=now,
-                minimum_revision=row["floor"],
-                previous_sha256=row["previous_digest"],
+            return self._curated(
+                connection, row, now + timedelta(seconds=time.monotonic() - started)
+            )[0]
+
+    def _accepted(self, row: RowMapping, now: datetime) -> ReleaseCatalog:
+        if row["payload"] is None:
+            raise ValueError("No verified catalog has been imported.")
+        # A new approval does not replace accepted bytes until explicit import.
+        return load_pinned_export(
+            row["payload"],
+            expected_sha256=row["previous_digest"],
+            public_key=self.source.public_key(),
+            now=now,
+            minimum_revision=row["floor"],
+            previous_sha256=row["previous_digest"],
+        )
+
+    def _curated(
+        self, connection: Connection, row: RowMapping, now: datetime
+    ) -> tuple[ReleaseCatalog, dict[str, Any]]:
+        return local_channel_store.view(
+            connection,
+            self._accepted(row, now),
+            accepted_sha256=row["previous_digest"],
+            source_revision=row["floor"],
+            key_digest=row["key_digest"],
+        )
+
+    def local_channels(self, *, now: datetime) -> dict[str, Any]:
+        started = time.monotonic()
+        with self.engine.begin() as connection:
+            row = self._local_locked(connection)
+            return self._curated(
+                connection, row, now + timedelta(seconds=time.monotonic() - started)
+            )[1]
+
+    def _local_locked(self, connection: Connection) -> RowMapping:
+        if connection.dialect.name == "postgresql":
+            connection.exec_driver_sql("SET LOCAL lock_timeout = '3s'")
+            connection.exec_driver_sql("SET LOCAL statement_timeout = '10s'")
+        return self._locked(connection)
+
+    def add_local_channel(
+        self, request: local_channel_store.LocalChannelRequest, *, actor: str, now: datetime
+    ) -> dict[str, Any]:
+        started = time.monotonic()
+        with self.engine.begin() as connection:
+            row = self._local_locked(connection)
+            effective_now = now + timedelta(seconds=time.monotonic() - started)
+            admitted = self._accepted(row, effective_now)
+            local_channel_store.add(
+                connection,
+                request,
+                admitted,
+                accepted_sha256=row["previous_digest"],
+                source_revision=row["floor"],
+                key_digest=row["key_digest"],
+                actor=actor,
+                now=effective_now,
             )
+            return self._curated(
+                connection, row, now + timedelta(seconds=time.monotonic() - started)
+            )[1]
 
     def recompute(
         self,
@@ -314,18 +368,11 @@ class RemoteCatalog:
         with self.engine.begin() as connection:
             row = self._locked(connection)
             effective_now = now + timedelta(seconds=time.monotonic() - started)
-            if row["payload"] is None:
-                raise ValueError("No verified catalog has been imported.")
-            admitted = load_pinned_export(
-                row["payload"],
-                expected_sha256=row["previous_digest"],
-                public_key=self.source.public_key(),
-                now=effective_now,
-                minimum_revision=row["floor"],
-                previous_sha256=row["previous_digest"],
-            )
+            admitted = self._curated(connection, row, effective_now)[0]
             try:
                 result = operation(admitted, effective_now, connection)
+                if admitted.local_curation is not None:
+                    self._accepted(row, now + timedelta(seconds=time.monotonic() - started))
             except KeyBindingError as error:
                 failure = error
         if failure is not None:

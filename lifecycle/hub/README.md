@@ -51,6 +51,13 @@ floor, and approval/import audit survive restart in PostgreSQL. The existing pla
 the persisted catalog, including expiry; publishing metadata alone never proves artifact
 availability. No operation here applies a Plan or deploys FDAI.
 
+The same screen supports reviewed customer-local membership from the fresh accepted `RELEASE`
+set. It records exact catalog/key/Release bindings, operator attribution and a local revision;
+the planner retains that provenance without changing subscriptions or execution approval.
+Run the existing explicit migration before serving schema revision 4; older binaries hold on
+that schema rather than ignore curation. See the [paired channel contract](../../docs/roadmap/deployment/lifecycle-releases-and-channels.md#customer-local-channel-curation-design-and-critique)
+for bounds, expiry/recall holds, immutable history and the absence of a destructive downgrade.
+
 **Available releases** reads the accepted catalog without fetching or importing it. Every read
 revalidates its accepted pin, signatures and expiry; an unavailable catalog returns `503`, not
 an empty success. The read-only **Configuration packages** screen lists stored revision metadata
