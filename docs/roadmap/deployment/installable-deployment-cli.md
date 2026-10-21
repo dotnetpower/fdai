@@ -674,6 +674,11 @@ cancellation. Focused source tests do not replace signature verification, exact-
 checks, or fresh and resumed complete artifact acceptance in the network-isolated air-gap drill.
 See [Disconnected Deployment](disconnected-deployment.md) for the complete artifact trust boundary.
 
+New bundle signatures use the [canonical release channels](lifecycle-releases-and-channels.md#release-channels).
+The verifier maps authenticated legacy names without changing original signed bytes or their
+digest. Package-pinned eligibility remains `DEV` only, including legacy `development`; the
+name migration neither trusts release candidates/releases nor adds a production trust root.
+
 The CLI also carries pure validators for [Lifecycle Configuration](lifecycle-configuration.md)
 packages. They reject configuration keys without an allowed non-authority axis and an owner, resolve
 Release defaults, environment configuration, and the most specific matching override block, and

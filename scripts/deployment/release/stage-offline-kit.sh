@@ -339,11 +339,11 @@ download_kubernetes_tools() {
 build_bundle() {
   run_timed 900 env \
     SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1700000000}" \
-    PYTHONPATH=services/core-control-plane/src "$PYTHON" \
+    PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src "$PYTHON" \
     scripts/deployment/release/build-deployment-bundle.py \
     --destination "$OUT/bundle" --archive "$OUT/bundle.tar.gz" \
     --private-key "$BUNDLE_KEY" --public-key-output "$OUT/bundle-key.pub" \
-    --bundle-version "$BUNDLE_VERSION" --release-channel development \
+    --bundle-version "$BUNDLE_VERSION" --release-channel DEV \
     --min-cli-version 0.1.0 >/dev/null
 }
 

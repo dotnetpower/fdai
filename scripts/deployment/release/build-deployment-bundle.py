@@ -18,6 +18,11 @@ from typing import TYPE_CHECKING, Final
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fdai_service_contracts.release_channels import (
+    RELEASE_CHANNELS,
+    ReleaseChannelError,
+    current_release_channel,
+)
 
 if TYPE_CHECKING:
     from scripts.deployment.release.secure_key_file import read_key_file
@@ -62,6 +67,10 @@ def build_bundle(
     source_date_epoch: int,
 ) -> None:
     """Create one normalized signed bundle directory from explicit source paths."""
+    try:
+        release_channel = current_release_channel(release_channel)
+    except ReleaseChannelError as error:
+        raise BundleBuildError(str(error)) from error
     if source_date_epoch < 0:
         raise BundleBuildError("SOURCE_DATE_EPOCH MUST be non-negative")
     if destination.exists():
@@ -258,7 +267,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--bundle-version", required=True)
     parser.add_argument(
         "--release-channel",
-        choices=("stable", "beta", "development"),
+        choices=RELEASE_CHANNELS,
         required=True,
     )
     parser.add_argument("--min-cli-version", required=True)

@@ -113,7 +113,9 @@ def _sign_kit(kit: Path, key: Ed25519PrivateKey) -> None:
 
 
 @pytest.fixture
-def release(tmp_path: Path) -> tuple[Path, Ed25519PrivateKey, bytes]:
+def release(
+    tmp_path: Path, request: pytest.FixtureRequest
+) -> tuple[Path, Ed25519PrivateKey, bytes]:
     key = Ed25519PrivateKey.generate()
     public = key.public_key().public_bytes(
         serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
@@ -125,7 +127,7 @@ def release(tmp_path: Path) -> tuple[Path, Ed25519PrivateKey, bytes]:
     manifest = {
         "schema_version": "fdai.deployment.bundle.v1",
         "bundle_version": CLI_VERSION,
-        "release_channel": "development",
+        "release_channel": getattr(request, "param", "development"),
         "min_cli_version": CLI_VERSION,
         "max_cli_version": None,
         "sbom_path": "sbom.cdx.json",
@@ -214,6 +216,7 @@ def _prepare(
     )
 
 
+@pytest.mark.parametrize("release", ["DEV", "development"], indirect=True)
 def test_standalone_offline_kit_uses_package_roots_and_complete_runtime(
     tmp_path: Path,
     release: tuple[Path, Ed25519PrivateKey, bytes],
@@ -234,7 +237,24 @@ def test_standalone_offline_kit_uses_package_roots_and_complete_runtime(
     assert verified.source_commit == COMMIT
     assert verified.runtime.schema_version == "fdai.runtime-release.v2"
     assert verified.bundle_manifest_digest
-    assert deployment_kit.deployment_release_channel() == "development"
+    assert deployment_kit.deployment_release_channel() == "DEV"
+
+
+@pytest.mark.parametrize(
+    "release", ["RELEASE_CANDIDATE", "RELEASE", "beta", "stable"], indirect=True
+)
+def test_signed_channels_do_not_widen_package_eligibility(
+    tmp_path: Path,
+    release: tuple[Path, Ed25519PrivateKey, bytes],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kit, _key, public = release
+    monkeypatch.setattr(deployment_kit, "deployment_release_root_pem", lambda: public)
+    monkeypatch.setattr(deployment_kit, "deployment_bundle_root_pem", lambda: public)
+    work = tmp_path / "standalone"
+    work.mkdir(mode=0o700)
+    with pytest.raises(ValueError, match="release channel is not trusted"):
+        deployment_kit.acquire_deployment_kit(work_dir=work, online=False, offline_kit=kit)
 
 
 def test_standalone_rejects_bundle_outside_package_release_channel(

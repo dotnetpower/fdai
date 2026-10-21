@@ -41,7 +41,7 @@ def test_tracked_vm_sources_are_signed_and_tampering_fails(tmp_path, tamper):
         bundle,
         source_paths=PATHS,
         bundle_version="0.1.0",
-        release_channel="development",
+        release_channel="DEV",
         min_cli_version="0.1.0",
         max_cli_version=None,
         private_key_pem=private.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()),

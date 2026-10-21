@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 4da1b0e6dca8faa7571ecf7c88c717fc0dc3770f
+translation_source_sha: 500c5bf89c4c5ee5407869d5df091d02580bbe2b
 translation_revised: 2026-10-21
 ---
 
@@ -672,6 +672,11 @@ Git 상태가 깨끗하다는 사실만으로 소스 신원을 입증하지 않�
 집중 소스 테스트는 서명, 정확한 파일 목록, SBOM 검사나 네트워크가 격리된 에어갭 훈련의
 신규 및 재개 완전 산출물 수락을 대신하지 않습니다. 전체 산출물 신뢰 경계는
 [연결이 끊긴 배포](disconnected-deployment-ko.md)를 참조하세요.
+
+새 번들 서명은 [정식 릴리스 채널](lifecycle-releases-and-channels-ko.md#릴리스-채널)을 사용합니다.
+검증기는 원래 서명된 바이트나 해시를 바꾸지 않고 인증된 기존 이름을 매핑합니다.
+패키지가 허용하는 채널은 기존 `development`를 포함한 `DEV`뿐입니다. 이름 이전으로 릴리스
+후보나 릴리스를 신뢰하거나 프로덕션 신뢰 루트를 추가하지 않습니다.
 
 CLI는 [Lifecycle 구성](lifecycle-configuration-ko.md) 패키지용 순수 검증기도 포함합니다. 이
 검증기는 허용된 비권한 축과 소유자가 없는 구성 키를 거부하고, 릴리스 기본값, 환경 구성, 가장

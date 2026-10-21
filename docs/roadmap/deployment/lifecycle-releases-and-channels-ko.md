@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: ad85b147f49ce6491feb5f5041181318cf2d1a38
+translation_source_sha: e975e1804c195aa754237c1b677b78168685f83f
 translation_revised: 2026-10-21
 ---
 # Lifecycle Release와 채널
@@ -17,8 +17,9 @@ translation_revised: 2026-10-21
 > 기반 내보내기 파일 검증을 제공합니다. 프로덕션 인증, 서명된 카탈로그 역할, 레지스트리 발행,
 > 회수에 따른 실행 중 설치본의 교체는 구현하지 않습니다.
 > FDAI에는 서명된 배포 번들과 오프라인 키트도 있으며, 그
-> 서명된 매니페스트는 `development`, `beta`, `stable` 채널 이름을 사용합니다. 배포 CLI는
-> `development`만 신뢰합니다. 나머지는
+> 새 번들 서명은 `DEV`, `RELEASE_CANDIDATE`, `RELEASE`를 사용합니다. 검증 시에는 서명된 바이트를
+> 다시 쓰지 않고 기존 `development`, `beta`, `stable` 이름을 매핑합니다. 배포 CLI는 여전히
+> `DEV`와 인증된 기존 대응 이름만 허용합니다. 나머지는
 > [구현 ledger](../../roadmap-implementation/deployment/lifecycle-releases-and-channels.md)가
 > 추적합니다.
 >
@@ -147,6 +148,14 @@ Release가 적격해지기 전에 하나씩 검토하려는 규제 고객은 자
 `stable`은 `RELEASE`로 매핑됩니다. 이전 전에 서명된 산출물은 기존 이름을 유지하며, 배포 CLI는
 검증할 때만 그 이름을 매핑합니다.
 
+**이전 설계 및 검토:** 원래 서명과 정규 형식의 바이트를 검증한 뒤에만 메타데이터를 정규화합니다.
+서명된 문서를 다시 쓰면 원본 계보가 무효화됩니다. 새 번들 생산자는 정식 이름만 수락하며,
+패키지가 허용하는 채널은 인증된 기존 `development`를 포함한 `DEV`로 유지됩니다.
+`beta`나 `stable`을 매핑해도 해당 채널이 허용되지는 않습니다. 알 수 없는 이름은 사용자 지정
+채널로 간주하지 않고 보류합니다. 호환성은 한 방향입니다. 이전 바이너리가 정식 이름으로 새로
+서명된 산출물을 수락한다고 보장하지 않습니다. 설치 검사, 신뢰 루트, 승격 또는 프로덕션 검증은
+추가하지 않습니다.
+
 ## 구독과 자동 업그레이드
 
 - 설치 설정에는 채널 하나와 선택적인 버전 범위를 지정합니다. FDAI 서비스는 함께 release되므로
@@ -255,7 +264,9 @@ Target Hub도 들어 있습니다.
 
 ## 현재 한계
 
-- 서명된 배포 번들, 오프라인 키트, 기존 채널 이름 외에는 구현된 것이 없습니다.
+- 서명된 배포 번들과 오프라인 키트는 한 방향 채널 이전을 구현합니다. 로컬 Release Hub도
+  위에서 명시한 제한된 개발 기능을 제공하지만, 프로덕션 카탈로그 신뢰, 자동 승격 및 배포는
+  미완료입니다.
 - 프로덕션 신뢰 루트 절차를 아직 수행하지 않았습니다. Hub 경로가 Release를 검증하려면 먼저
   공급업체 release 키가 있어야 합니다.
 - 서명된 번들의 재현 가능한 이중 빌드 검증이 남아 있습니다.
