@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -319,3 +320,68 @@ def test_own_package_prefix_retains_child_modules(tmp_path: Path) -> None:
         "policies/network/nsg_no_inbound_any_ssh.rego",
         "policies/network/shared_child.rego",
     }
+
+
+def _write_go_builder(
+    tmp_path: Path, *, go_version: str, digest: str, opa: str = "v1.18.2"
+) -> None:
+    (tmp_path / "services/core-control-plane/docker/Dockerfile").write_text(
+        f"FROM example.invalid/library/golang@sha256:{digest} AS opa-builder\n"
+        f"ARG OPA_VERSION={opa}\n"
+        f"ARG OPA_GO_VERSION={go_version}\n"
+        "RUN echo build\n"
+        "FROM example.invalid/python@sha256:" + ("b" * 64) + " AS builder\n",
+        encoding="utf-8",
+    )
+
+
+def _violations_after(
+    module: ModuleType, tmp_path: Path, retained: tuple[object, ...]
+) -> list[str]:
+    return module.violations(
+        retained,
+        module.current_revisions(tmp_path),
+        artifact_root=tmp_path / "rule-catalog/revisions",
+    )
+
+
+def test_go_patch_release_keeps_rule_identity_but_other_toolchain_changes_do_not(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    rule_id = "network.nsg.no-inbound-any-ssh"
+    _copy_revision_inputs(tmp_path, rule_id)
+    baseline_version, baseline_digest = module._GO_IDENTITY_BASELINES["go1.27"]
+    _write_go_builder(
+        tmp_path, go_version=baseline_version, digest=baseline_digest.removeprefix("sha256:")
+    )
+    retained = _register_current(module, tmp_path)
+
+    _write_go_builder(tmp_path, go_version="go1.27.9", digest="c" * 64)
+    assert _violations_after(module, tmp_path, retained) == []
+
+    _write_go_builder(tmp_path, go_version="go1.28.0", digest="c" * 64)
+    assert _violations_after(module, tmp_path, retained) == [
+        f"{rule_id}@1.0.0: immutable Rule revision changed"
+    ]
+
+    _write_go_builder(
+        tmp_path,
+        go_version="go1.27.9",
+        digest="c" * 64,
+        opa="v1.19.0",
+    )
+    assert _violations_after(module, tmp_path, retained) == [
+        f"{rule_id}@1.0.0: immutable Rule revision changed"
+    ]
+
+
+def test_shipped_go_pin_is_a_patch_of_the_retained_baseline_series() -> None:
+    module = _load_module()
+    dockerfile = (REPO_ROOT / "services/core-control-plane/docker/Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    pin = re.search(r"^ARG OPA_GO_VERSION=(go\d+\.\d+)\.\d+$", dockerfile, re.MULTILINE)
+
+    assert pin is not None
+    assert pin.group(1) in module._GO_IDENTITY_BASELINES

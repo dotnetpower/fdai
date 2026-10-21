@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 092a5b8c0eb0cd8e53acfe92c68fcd2412b07f0f
+translation_source_sha: aa2056a867a3822797acd1f569ae63d4a668bf21
 translation_revised: 2026-10-22
 ---
 # 런타임 배포 프로파일
@@ -17,6 +17,8 @@ translation_revised: 2026-10-22
 > **Hub 관리형 경로:** Hub 관리형 수명 주기는 AKS만 지원하며 클러스터 안에 수명 주기 에이전트를
 > 추가합니다. `lifecycle/agent/`의 Lifecycle I0 골격은 모의 실행과 보고만 하므로 이 런타임 계약은
 > 바뀌지 않습니다.
+
+Core와 Cost Governance 이미지는 두 런타임 프로필에서 같은 고정 Go 툴체인으로 OPA를 빌드합니다. AKS나 Container Apps를 선택해도 이 툴체인, 빌더 digest, 풀 리퀘스트를 막는 이미지 스캔은 바뀌지 않습니다.
 
 ## 설계 개요
 
