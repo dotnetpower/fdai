@@ -11,7 +11,9 @@ layers, and the signed configuration package.
 > **Status:** Schema, layer and secret-reference validators, an offline signed package builder and
 > reader, a local single/multi-Entity packaging/verification CLI, installation-key sealing and
 > explicit in-memory Hub planning consumption are implemented, together with a placeholder repository
-> template and key-custody runbook. Operational key registration and Hub import remain open. The
+> template and key-custody runbook. Authenticated public-key registration/rotation and durable
+> key-bound Hub planning are implemented for local verification; actual onboarding and atomic
+> Hub package import remain open. The
 > [implementation ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md)
 > tracks delivery.
 >
@@ -423,6 +425,51 @@ create a package, key, signature, upload or deployment. The
 customer key custody and local packaging from independent trust registration and Hub import.
 Do not upload readable `sealed.yaml` input or treat an example schema as a trusted Release.
 
+## Approved configuration keys: design and critique
+
+This source-only increment registers public trust metadata, not actual customer keys or a
+production trust root. Existing enrollment and source/offline installation remain unchanged.
+
+1. An authenticated customer operator submits canonical `fdai.configuration-keys.v1` bytes,
+   signed by the installation's already enrolled Ed25519 identity and separately by the proposed
+   configuration Ed25519 signer. The bytes bind the installation, requester principal, unique
+   request ID, next version, predecessor binding digest, both role-labelled 32-byte public keys,
+   request time, approval deadline and binding expiry. The X25519 encryption recipient is neither
+   signing identity. Reusing public bytes across these roles is not accepted.
+2. Request proofs have a five-minute clock window; approval expires within ten minutes of the
+   request. Binding expiry is later than the deadline and at most 90 days after the request.
+   A different operator authenticated through the existing Hub access-token boundary approves
+   the exact request digest. Body actor strings, proxy headers, local unauthenticated approvals,
+   service tokens and package-supplied keys cannot establish trust.
+3. The existing installation-row lock serializes requests, approval, revocation and planning.
+   Approval rechecks enrollment identity, deadline, requester separation, next version and exact
+   predecessor. Accepted versions and their proofs remain immutable. Replayed approvals and
+   concurrent stale predecessors fail without changing trust. An authenticated operator may
+   revoke the exact current digest; revocation only removes configuration capability.
+4. Public bindings and attributed decisions use additive Hub tables and the existing hash-chained
+   audit in one transaction. Denials are committed before returning a bounded reason. Explicit
+   migrations upgrade existing databases; serving never creates tables or invents a binding.
+5. The real Hub configuration-planning store resolves the requested active version from these
+   tables under the same lock. Missing, expired, revoked, wrong-installation or mismatched bindings
+   hold configuration planning, not legacy enrollment or planning. Historical versions are retained
+   and never replaced by the current signer. Issued configuration Plans pin the approved binding
+   version and request digest; current-Plan retrieval holds them after expiry, rotation or revocation.
+   Cross-version package-chain import remains a separate
+   increment: a chain that cannot verify under its exact retained bindings holds, rather than
+   being silently reinterpreted. Configuration acceptance is not atomic package import or activation.
+
+**Critique and revision before implementation:** A caller-selected key plus an actor field is
+self-asserted trust, even when the package signature is valid. Therefore only the existing verified
+operator principal reaches approval, a second principal is required, and identity proof covers the
+complete canonical request. Merely adding a registry would leave the old consumer trusting caller
+keys, so configuration planning explicitly resolves persisted trust inside its transaction.
+Crypto-provider signature success alone can accept a small-order Ed25519 identity-point forgery.
+The new binding boundary therefore validates canonical, on-curve, non-small-order signing public
+points before either possession proof; it never derives an encryption key from a signing identity.
+Rotation cannot overwrite a row or reset a version after revocation, and schema initialization
+cannot be called a migration. Private keys, credentials and customer identifiers are not stored.
+No live enrollment, Azure operation, Agent/CSI delivery or production qualification is included.
+
 ## Honest limits
 
 - The offline builder signs real packages, checks predecessor chains, and encrypts identifiers.
@@ -431,9 +478,11 @@ Do not upload readable `sealed.yaml` input or treat an example schema as a trust
 - The example schema has annotations, but production Releases don't yet carry a qualified
   configuration-package schema. Runtime v3 development publication and independently pinned Hub
   admission now bind optional schemas to exact Release artifacts; this is not production qualification.
-- Local packaging and verification commands exist; key-registration and Hub import commands do
-  not. These commands do not register trusted keys or update a durable Hub chain head. The onboarding runbook
-  records prerequisites and the required stop condition, not a working registration path.
+- Local packaging and verification commands do not register trusted keys or update a durable Hub
+  chain head. Separate authenticated Hub public-key request/approval/revocation APIs now persist
+  trust and gate configuration planning. They require an already enrolled installation and
+  independently authenticated customer operators. No operational enrollment was performed here,
+  and no atomic package-import or Agent delivery path is claimed.
 - A customer who loses the configuration key can't publish new revisions until a key rotation
   is registered with the Hub.
 

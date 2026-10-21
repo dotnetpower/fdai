@@ -22,6 +22,7 @@ from sqlalchemy.engine import Connection, RowMapping
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES, load_pinned_export
+from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.domain import PlanOutcome
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import HubSigningKey
@@ -270,6 +271,8 @@ class RemoteCatalog:
         key: HubSigningKey,
         *,
         now: datetime,
+        configuration_revision: ConfigurationRevisionCandidate | None = None,
+        configuration_key_version: int | None = None,
     ) -> PlanOutcome:
         """Serialize catalog replacement with planning, so recall cannot race a stale snapshot."""
         started = time.monotonic()
@@ -286,6 +289,17 @@ class RemoteCatalog:
                 minimum_revision=row["floor"],
                 previous_sha256=row["previous_digest"],
             )
+            if configuration_revision is not None:
+                if configuration_key_version is None:
+                    raise ValueError("Configuration planning requires an approved binding version.")
+                return store.recompute_configuration(
+                    installation_id,
+                    configuration_revision,
+                    binding_version=configuration_key_version,
+                    catalog=admitted,
+                    key=key,
+                    now=now,
+                )
             return store.recompute(
                 installation_id,
                 partial(plan_next, catalog=admitted, key=key),

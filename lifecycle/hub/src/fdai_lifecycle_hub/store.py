@@ -6,21 +6,29 @@ appends to the hash-chained audit in the same transaction.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import datetime
 from typing import Self, assert_never
 
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
 from fdai_deployment_cli.lifecycle_configuration import (
     ConfigurationValidationError,
     resolve_configuration_layers,
 )
+from fdai_deployment_cli.lifecycle_configuration_sealing import encryption_key_digest
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from fdai_lifecycle_hub import audit, domain, mapping, models, rows, schemas, signing
+from fdai_lifecycle_hub.catalog import ReleaseCatalog
+from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
+from fdai_lifecycle_hub.configuration_key_store import resolve_binding
+from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest, EnrollmentStatus, KeyProofVerifier
 from fdai_lifecycle_hub.entity import EntitySettings, OwnershipEvidence
 from fdai_lifecycle_hub.errors import (
@@ -40,6 +48,7 @@ from fdai_lifecycle_hub.errors import (
     UnknownPlanError,
 )
 from fdai_lifecycle_hub.models import PlanEventKind
+from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.reports import ROLLED_BACK, failure_suppressions
 
 _UNIQUE_VIOLATION = "23505"
@@ -331,10 +340,94 @@ class HubStore:
     ) -> domain.PlanOutcome:
         """Plan under the installation lock and record the outcome and every check."""
 
+        return self._recompute(
+            installation_id,
+            lambda session, row: planner(mapping.to_domain(session, row), now),
+            now=now,
+        )
+
+    def recompute_configuration(
+        self,
+        installation_id: str,
+        candidate: ConfigurationRevisionCandidate,
+        *,
+        binding_version: int,
+        catalog: ReleaseCatalog,
+        key: signing.HubSigningKey,
+        now: datetime,
+    ) -> domain.PlanOutcome:
+        """Plan using durable approved keys, never the transient candidate's asserted trust.
+
+        Entity mappings, classification and retained history remain independent composition
+        inputs. This does not import a package or advance a durable configuration chain head.
+        """
+
+        def evaluate(session: Session, row: models.Installation) -> domain.PlanOutcome:
+            binding = resolve_binding(session, row, binding_version, now)
+            recipient = X25519PublicKey.from_public_bytes(
+                bytes.fromhex(binding.installation_encryption_key)
+            )
+            trusted_key = Ed25519PublicKey.from_public_bytes(
+                bytes.fromhex(binding.configuration_signing_key)
+            )
+            if (
+                candidate.installation_id != installation_id
+                or candidate.configuration_key.public_bytes_raw() != trusted_key.public_bytes_raw()
+                or candidate.installation_key_digest != encryption_key_digest(recipient)
+            ):
+                raise KeyBindingError("configuration_binding_mismatch")
+            bound = replace(
+                candidate,
+                configuration_key=trusted_key,
+                installation_key_digest=encryption_key_digest(recipient),
+            )
+            installation = mapping.to_domain(session, row)
+            if now + installation.settings.plan_duration > binding.binding_expires_at:
+                raise KeyBindingError("configuration_binding_expires_before_plan")
+            if installation.open_plan is not None:
+                previous_trust = session.get(
+                    models.ConfigurationPlanTrust, installation.open_plan.plan_id
+                )
+                if previous_trust is None or previous_trust.request_digest != binding.digest:
+                    installation = replace(installation, open_plan=None)
+            return plan_next(
+                installation,
+                now,
+                catalog=catalog,
+                key=key,
+                configuration_revision=bound,
+            )
+
+        return self._recompute(
+            installation_id, evaluate, now=now, configuration_binding_version=binding_version
+        )
+
+    def _recompute(
+        self,
+        installation_id: str,
+        evaluate: Callable[[Session, models.Installation], domain.PlanOutcome],
+        *,
+        now: datetime,
+        configuration_binding_version: int | None = None,
+    ) -> domain.PlanOutcome:
+        failure: KeyBindingError | None = None
         with self._write() as session:
             row = rows.lock_enrolled(session, installation_id)
             installation = mapping.to_domain(session, row)
-            outcome = planner(installation, now)
+            try:
+                outcome = evaluate(session, row)
+            except KeyBindingError as error:
+                failure = error
+                # Keep the denial durable without withdrawing an unrelated legacy Plan.
+                outcome = domain.NoEligibleRelease(())
+                audit.append(
+                    session,
+                    now,
+                    "configuration.keys.denied",
+                    installation_id,
+                    installation_id,
+                    {"operation": "planning", "reason": str(error)},
+                )
             evaluation = mapping.evaluation_row(outcome, now)
             match outcome:
                 case domain.Issued(plan=plan):
@@ -342,6 +435,16 @@ class HubStore:
                     issued = mapping.plan_row(domain.IssuedPlan.from_signed(plan), now)
                     row.plans.add(issued)
                     issued.events.add(models.PlanEvent(kind=PlanEventKind.ISSUED, recorded_at=now))
+                    if configuration_binding_version is not None:
+                        binding = resolve_binding(session, row, configuration_binding_version, now)
+                        session.add(
+                            models.ConfigurationPlanTrust(
+                                plan_id=plan.plan_id,
+                                installation_id=installation_id,
+                                binding_version=binding.version,
+                                request_digest=binding.digest,
+                            )
+                        )
                     row.last_sequence = plan.sequence
                     evaluation.plan_id = plan.plan_id
                     evaluation.target_release_id = plan.target_release_id
@@ -352,7 +455,15 @@ class HubStore:
                     rows.supersede(session, installation.open_plan, now)
                     evaluation.target_release_id = release_id
                 case domain.NoEligibleRelease() | domain.UpToDate() | domain.NoManagedEntity():
-                    rows.supersede(session, installation.open_plan, now)
+                    if (
+                        failure is None
+                        or installation.open_plan is None
+                        or session.get(
+                            models.ConfigurationPlanTrust, installation.open_plan.plan_id
+                        )
+                        is not None
+                    ):
+                        rows.supersede(session, installation.open_plan, now)
                 case _:
                     assert_never(outcome)
             row.evaluations.add(evaluation)
@@ -364,18 +475,28 @@ class HubStore:
                 evaluation.plan_id or installation_id,
                 {"outcome": outcome.kind, "target": evaluation.target_release_id},
             )
-            return outcome
+        if failure is not None:
+            raise failure
+        return outcome
 
     def current_plan(self, installation_id: str, *, now: datetime) -> domain.IssuedPlan | None:
-        """An enrolled installation's open Plan, unless it expired or a suppression holds it."""
+        """Read an eligible open Plan serialized with key approval, rotation and revocation."""
 
         with self._sessions() as session:
-            row = rows.get_installation(session, installation_id)
+            row = rows.lock_installation(session, installation_id)
             if row.enrollment is not EnrollmentStatus.ENROLLED:
                 return None
             plan = mapping.open_plan(session, installation_id)
             if plan is None or now >= plan.expires_at:
                 return None
+            trust = session.get(models.ConfigurationPlanTrust, plan.plan_id)
+            if trust is not None:
+                try:
+                    binding = resolve_binding(session, row, trust.binding_version, now)
+                except ValueError:
+                    return None
+                if binding.digest != trust.request_digest:
+                    return None
             suppressions = schemas.suppressions_json.validate_python(row.suppressions)
             return None if plan.held_by(suppressions, now) else plan
 
