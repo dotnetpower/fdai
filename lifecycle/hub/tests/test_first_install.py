@@ -288,7 +288,7 @@ def test_sqlite_legacy_migration_retains_rows_constraints_and_digests(
     migrate(engine, "lifecycle_hub", initialize)
     require_schema(engine, "lifecycle_hub")
     with engine.connect() as connection:
-        assert connection.scalar(select(_versions("lifecycle_hub").c.revision)) == 5
+        assert connection.scalar(select(_versions("lifecycle_hub").c.revision)) == 6
         rows = connection.execute(select(local_channels.entries)).mappings().all()
         assert [dict(row) for row in rows] == (
             [{**retained_channel, "entry_digest": canonical_digest(retained_channel)}]

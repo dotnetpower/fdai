@@ -19,6 +19,7 @@ from fdai_lifecycle_agent.reference_state import is_reference_object_name
 from fdai_lifecycle_agent.workload import (
     API_VERSIONS,
     FIELD_MANAGER,
+    CreationRejectedError,
     Manifest,
     WorkloadError,
     check_scope,
@@ -82,6 +83,112 @@ class KubernetesCluster:
         )
         return None if live is None else dict(live.to_dict())
 
+    def create(
+        self,
+        manifest: Manifest,
+        *,
+        dry_run: bool = False,
+        before_submit: Callable[[], None] | None = None,
+    ) -> Manifest:
+        """POST only: an object appearing after preflight is a conflict, not an adoption."""
+        check_scope((manifest,), self._namespace)
+        live = self._call(
+            manifest["kind"],
+            lambda client, resource: client.create(
+                resource,
+                body=dict(manifest),
+                namespace=self._namespace,
+                field_manager=FIELD_MANAGER,
+                dry_run="All" if dry_run else None,
+                _request_timeout=self._timeout,
+            ),
+            missing_ok=False,
+            creating=True,
+            before_submit=before_submit,
+        )
+        return dict(live.to_dict())
+
+    def replace_owned(
+        self,
+        manifest: Manifest,
+        uid: str,
+        *,
+        dry_run: bool = False,
+        before_submit: Callable[[], None] | None = None,
+    ) -> None:
+        """Atomically test UID/version and replace the spec using existing patch authority."""
+        check_scope((manifest,), self._namespace)
+        name = manifest["metadata"]["name"]
+        current = self.get(manifest["kind"], name)
+        metadata = (current or {}).get("metadata", {})
+        if metadata.get("uid") != uid or not isinstance(metadata.get("resourceVersion"), str):
+            raise WorkloadError("native_resource_identity_changed")
+        body = dict(manifest) | {
+            "metadata": dict(manifest["metadata"])
+            | {"uid": uid, "resourceVersion": metadata["resourceVersion"]}
+        }
+        if manifest["kind"] == "Service":
+            defaults = {
+                key: current["spec"][key]
+                for key in ("clusterIP", "clusterIPs", "ipFamilies", "ipFamilyPolicy")
+                if current is not None and key in current.get("spec", {})
+            }
+            body["spec"] = defaults | dict(manifest["spec"])
+        self._call(
+            manifest["kind"],
+            lambda client, resource: client.patch(
+                resource,
+                name=name,
+                namespace=self._namespace,
+                body=[
+                    {"op": "test", "path": "/metadata/uid", "value": uid},
+                    {
+                        "op": "test",
+                        "path": "/metadata/resourceVersion",
+                        "value": metadata["resourceVersion"],
+                    },
+                    {
+                        "op": "add",
+                        "path": "/metadata/labels",
+                        "value": dict(metadata.get("labels", {}))
+                        | dict(body["metadata"]["labels"]),
+                    },
+                    {
+                        "op": "add",
+                        "path": "/metadata/ownerReferences",
+                        "value": body["metadata"].get("ownerReferences", []),
+                    },
+                    {"op": "replace", "path": "/spec", "value": body["spec"]},
+                ],
+                content_type="application/json-patch+json",
+                field_manager=FIELD_MANAGER,
+                dry_run="All" if dry_run else None,
+                _request_timeout=self._timeout,
+            ),
+            missing_ok=False,
+            before_submit=before_submit,
+        )
+
+    def delete_owned(
+        self, kind: str, name: str, uid: str, *, before_submit: Callable[[], None] | None = None
+    ) -> None:
+        """A same-name replacement cannot satisfy this API-server UID precondition."""
+        self._call(
+            kind,
+            lambda client, resource: client.delete(
+                resource,
+                name=name,
+                namespace=self._namespace,
+                body={
+                    "apiVersion": "v1",
+                    "kind": "DeleteOptions",
+                    "preconditions": {"uid": uid},
+                },
+                _request_timeout=self._timeout,
+            ),
+            before_submit=before_submit,
+        )
+
     def delete(self, kind: str, name: str) -> None:
         self._call(
             kind,
@@ -134,6 +241,8 @@ class KubernetesCluster:
         request: Callable[[Any, Any], Any],
         *,
         missing_ok: bool = True,
+        creating: bool = False,
+        before_submit: Callable[[], None] | None = None,
     ) -> Any:
         """Run one request; a read/delete ``404`` returns ``None``, not a write success."""
 
@@ -144,10 +253,14 @@ class KubernetesCluster:
             if self._dynamic is None:
                 self._dynamic = dynamic.DynamicClient(self._api_client)
             resource = self._dynamic.resources.get(api_version=api_version, kind=kind)
+            if before_submit is not None:
+                before_submit()
             return request(self._dynamic, resource)
         except ApiException as error:
             if error.status == 404 and missing_ok:
                 return None
+            if creating and error.status in {400, 401, 403, 404, 405, 409, 413, 415, 422, 429}:
+                raise CreationRejectedError("kubernetes_request_rejected") from error
             retryable = error.status is None or error.status >= 500
             raise WorkloadError(
                 "kubernetes_unavailable" if retryable else "kubernetes_request_rejected",

@@ -154,8 +154,9 @@ transaction. Current-Plan retrieval holds them after expiry, rotation or revocat
 public bindings remain intact; the atomic importer verifies each historical package with its exact
 accepted key version and receipt, never a replacement key. Absent or unprovable bindings hold
 only this new configuration capability. Legacy enrollment and planning remain compatible.
-Explicit Lifecycle Hub schema revision 5 preserves the additive configuration upgrades from
-revisions 1 and 2, revision-4 customer-local channel storage, and adds explicit empty workload state.
+Explicit Lifecycle Hub schema revision 6 preserves the additive configuration upgrades from
+revisions 1 and 2, revision-4 customer-local channels and revision-5 empty workload state.
+It also prevents older readers from interpreting the new native ownership evidence.
 Enrollment, public key
 bindings and legacy raw configuration remain intact; Release Hub stays at revision 1.
 The actual authenticated source API separately requests/approves an installation-proven Entity
@@ -555,9 +556,11 @@ and independent readback. The installation's own kill switch route keeps its exi
 
 ## Separation from the operations loop
 
-- The lifecycle loop changes only resources that FDAI provably owns. Proof is a signed Foundation
-  creation receipt with a matching Terraform state identity. The `fdai:managed=true` tag is only a
-  discovery hint, because anyone with tag rights can set it.
+- The lifecycle loop changes only resources it provably owns. Foundation resources require a
+  signed creation receipt with a matching Terraform state identity. The
+  [native first-creation path](#native-first-creation-of-an-application-workload) separately covers
+  newly created workload objects, never their parent namespace. The `fdai:managed=true` tag is
+  only a discovery hint, because anyone with tag rights can set it.
 - The operations loop never proposes an action that targets a proven FDAI-owned resource, and the
   risk gate denies such a target. Heimdall may still report drift on those resources as advisory
   evidence.
@@ -611,8 +614,9 @@ time-bound role that the customer grants in its own tenant. The Hub grants none.
    no installation, and the Hub audits why.
 4. Entities start unmanaged. An Entity becomes managed only after its ownership is proven and the
    operator adds its settings. A signed Foundation creation receipt together with a Terraform state
-   identity proves ownership. The `fdai:managed=true` tag alone keeps the Entity unmanaged, and the
-   Hub records that reason. An installation without a managed Entity receives no Plan.
+   identity proves Foundation ownership. Native workloads use the separate first-creation and
+   operator-acceptance path below. The `fdai:managed=true` tag alone keeps the Entity unmanaged,
+   and the Hub records that reason. An installation without a managed Entity receives no Plan.
 5. The first Plan replaces source-built images, or installs into an explicitly empty workload
    slot, with signed images.
 
@@ -646,6 +650,116 @@ Today the Terraform application stage renders workloads. The Hub path moves the 
 namespaced workload objects to the lifecycle agent, as
 [Workload rendering migration](#workload-rendering-migration) defines. Terraform keeps Azure
 resources, cluster-scoped objects, and authority-granting role bindings.
+
+## Native first creation of an application workload
+
+An existing customer namespace remains unmanaged. A development installation may instead
+create and own a new workload-scope anchor, an internal Service without a selector, inside an
+independently approved namespace. This is ownership of that new object and the exact workload
+objects subsequently created by this installation, not ownership or adoption of the namespace.
+Foundation and Terraform evidence remains required for Foundation-owned resources.
+
+### Design, critique and revised boundary
+
+**Initial proposal:** Accept an installation-signed namespace claim as ownership.
+
+**Critique:** Possessing the installation key proves identity, not human approval or creation.
+A label, import, successful apply or empty namespace doesn't prove ownership. Apply can adopt
+an object created between preflight and mutation. Name-only recovery can delete another
+owner's replacement. A namespace name alone doesn't identify a namespace incarnation.
+
+**Revised development contract:**
+
+1. The customer supplies an independent, bounded local approval for the exact installation,
+   application, Entity, namespace and component names. It names its approver, validity interval
+   and full-authority development profile. A Hub, package, enrollment or Plan cannot supply it.
+   Bootstrap is a dry run unless the customer explicitly selects apply.
+2. The Agent holds its existing exclusive state lock, checks the independent local application
+   policy, re-reads current state and execution history under that lock, performs an API dry run,
+   and durably records creation intent before an atomic
+   create-only request for the anchor. An existing anchor is a collision, never an adoption.
+   Successful creation is independently read back and its API-assigned UID retained.
+3. The Agent signs a purpose-specific claim containing installation, Entity and application
+   bindings and digests of local scope, approval and actual creation evidence. Namespace names,
+   resource UIDs, credentials and private approval values stay in the installation.
+4. An authenticated customer operator separately accepts the exact claim with a request UUID,
+   current Settings digest, reason and explicit confirmation. The Hub verifies the enrolled
+   installation signature and application binding. The transaction rejects managed Entities,
+   installed state, open Plans, changed Settings or conflicting retries and appends its audit.
+   An Agent identity alone cannot grant Hub ownership.
+   Acceptance registers a new unmanaged `native-workload-scope` Entity or binds an existing empty
+   Entity of that exact kind; it never converts a namespace Entity. The Agent then reports the
+   true empty state before the operator can manage the Entity with initial override coverage.
+5. The ordinary signed Plan pipeline performs first installation. Local native execution checks
+   the original anchor UID before each operation. Every permitted workload object is created
+   atomically, and its actual UID is durably retained before further effects. Updates carry UID
+   and resource-version preconditions; deletion carries a UID precondition. Missing, replaced or
+   terminating anchors and foreign objects stop execution without adoption.
+   Deployment and Service selectors and Pod labels bind the Entity and actual anchor creation
+   identity, so a component label alone cannot select foreign Pods or orphan ReplicaSets.
+   Health readback verifies those selectors and Pod labels again; terminating workloads cannot
+   pass rollout verification even when deletion is already tracked locally.
+   UID-capable adapters recheck current local approval at each POST, PATCH and DELETE submission,
+   after blocking discovery, owned-object reads and intent persistence. A denied unsent request
+   restores only its new local intent; it never clears evidence of an earlier uncertain request.
+6. Recovery uses that retained UID history, never a name-only deletion. Uncertain creation,
+   failed persistence or conflicting identity requires review rather than a success-shaped
+   retry. Existing signed-input, product, window, envelope, dry-run, rollback, replay and
+   independent health checks remain required.
+   Only a provider-confirmed rejection without creation clears pending intent for retry or
+   UID-fenced recovery. Timeouts, lost responses and server failures retain the uncertainty fence.
+   A local deadline or approval failure before the create request is sent also clears pending
+   intent; no API request has occurred in that case.
+   Every apply poll rechecks native versus legacy mode under the exclusive state lock before
+   fetching a Plan or recovering a journal; a legacy client composed before bootstrap stops.
+
+The initial surface is limited to application-package Deployments and internal Services.
+It adds no namespace, RoleBinding, Azure resource, secret read, database migration execution,
+application-specific renderer or production authorization. Explicit Hub schema migration
+advances the reader floor to 6 before persisting native evidence; old binaries do not reinterpret it.
+For a staged cutover, the new server can serve revision 5 before that explicit migration.
+Only serving and readiness accept revisions 5 and 6; native acceptance and explicit schema
+verification still require revision 6. Missing, older and future revisions remain blocked.
+Move traffic to the compatible image and drain revision-5 readers before advancing the floor.
+Before migration, the old image remains a rollback option. After migration, recovery uses a
+verified revision-6-compatible image, never a lowered reader floor.
+The [implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
+separates source validation, publication, activation and installed qualification.
+
+### Local setup and acceptance
+
+1. Bind the installation to its application separately. Supply a private local policy with the
+   same `product`, one exact Entity/component mapping and `native_scope_digest`. The digest pins
+   the complete `NativeScope` independently of Hub requests. Older Agent binaries reject the new
+   policy key instead of silently selecting legacy apply.
+2. Supply a separate `fdai.lifecycle-native-approval.v1` file. It contains the exact scope,
+   `profile: full-authority-development`, `approved_by`, `approved_at` and `expires_at`.
+   Approval lasts at most four hours. Keep the enrolled Ed25519 identity; its private key file
+   must be owned by the running user with mode `0600`. Bootstrap never generates a key.
+3. Run `fdai-lifecycle-agent bootstrap-slot` with `--installation-id`, `--state-dir`,
+   `--local-policy`, `--current-state`, `--native-approval`, `--installation-key` and exactly one
+   of `--kube-context` or `--in-cluster`. The default only dry-runs the anchor. Explicit `--apply`
+   also requires a private `--proof-output`. It does not install the application.
+4. Explicitly migrate the trusted local Hub with `fdai-lifecycle-hub migrate`; remote deployments
+   use their explicit migration Job. Prepare a complete `NativeOwnershipAcceptance` request with a UUID, current full Settings
+   digest, signed proof, reason and exact `required_confirmation`. Submit it as an authenticated
+   operator to `POST /v1/installations/{installation_id}/native-ownership`, or from the trusted
+   Hub host with `fdai-lifecycle-hub accept-native-ownership <installation-id> <request-file>
+   --operator <actor>`. An unauthenticated loopback HTTP caller and `Agent.Access` cannot accept it.
+5. After acceptance and the Agent's empty-state report, manage the Entity with
+   `--initial-release`. Stage signed inputs and use the ordinary Plan flow. Native apply requires
+   `--native-approval` and `--installation-public-key` in addition to the pinned local policy and
+   durable native state. Missing state, missing independent inputs or an unpinned existing native
+   state stops apply without a legacy fallback.
+
+The Kubernetes identity needs namespace-scoped `get`, `create`, `patch` and `delete` for the
+approved Deployments and internal Services; server-side dry-run uses the corresponding write
+verb. Bootstrap adds no permission or role binding. Updates use a UID- and resource-version-bound
+JSON Patch rather than field-manager takeover or a new update permission. A lost create response
+requires review; a restart can
+finish proof generation only when the original API-assigned anchor UID was already persisted.
+Existing namespace-level RBAC and pre/post anchor checks are not an atomic namespace-lifetime
+transaction. A lost or replaced anchor is never reported as a healthy successful effect.
 
 ## Workload rendering migration
 

@@ -129,6 +129,30 @@ def test_lifecycle_owner_cannot_cover_unrelated_genesis_implementation() -> None
     assert any(failure[0] == "subscription-genesis-provisioning" for failure in failures)
 
 
+def test_native_lifecycle_contracts_accept_only_their_actual_owner() -> None:
+    module = _load_module()
+    manifest = json.loads(
+        (REPO_ROOT / "scripts/lib/design-routes.json").read_text(encoding="utf-8")
+    )
+    native = {
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_native.py",
+        "packages/deployment-cli/tests/test_lifecycle_native.py",
+        "lifecycle/agent/src/fdai_lifecycle_agent/native_bootstrap.py",
+        "lifecycle/agent/tests/test_native_scope.py",
+    }
+    owner = "docs/roadmap/deployment/hub-managed-lifecycle.md"
+    assert module.missing_doc_updates(native | {owner}, manifest) == []
+    assert any(
+        failure[0] == "hub-managed-lifecycle"
+        for failure in module.missing_doc_updates(native, manifest)
+    )
+    mixed = native | {owner, "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py"}
+    assert any(
+        failure[0] == "subscription-genesis-provisioning"
+        for failure in module.missing_doc_updates(mixed, manifest)
+    )
+
+
 def test_explicit_overlapping_route_doc_satisfies_only_owned_paths() -> None:
     module = _load_module()
     manifest = {

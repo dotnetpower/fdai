@@ -12,7 +12,7 @@ REVISION = 1
 
 
 def _revision(namespace: str) -> int:
-    return 5 if namespace == "lifecycle_hub" else REVISION
+    return 6 if namespace == "lifecycle_hub" else REVISION
 
 
 def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], None]) -> None:
@@ -64,6 +64,10 @@ def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], N
             _empty_state_migration(connection)
             connection.execute(versions.update().values(revision=5))
             revision = 5
+        if revision == 5 and namespace == "lifecycle_hub":
+            # Old readers cannot interpret native ownership metadata.
+            connection.execute(versions.update().values(revision=6))
+            revision = 6
         if revision is not None and revision != _revision(namespace):
             raise ValueError("Unsupported Hub schema revision; use a compatible migration command.")
 
@@ -99,12 +103,17 @@ def _empty_state_migration(connection: Connection) -> None:
     )
 
 
-def require_schema(engine: Engine | Connection, namespace: str) -> None:
+def require_schema(
+    engine: Engine | Connection, namespace: str, *, allow_pre_native: bool = False
+) -> None:
     versions = _versions(namespace)
+    allowed = {_revision(namespace)}
+    if namespace == "lifecycle_hub" and allow_pre_native:
+        allowed.add(5)
     with engine.connect() if isinstance(engine, Engine) else nullcontext(engine) as connection:
         if not inspect(connection).has_table(versions.name):
             raise ValueError("Hub schema is not migrated; run the explicit migrate command.")
-        if connection.scalar(select(versions.c.revision)) != _revision(namespace):
+        if connection.scalar(select(versions.c.revision)) not in allowed:
             raise ValueError("Unsupported Hub schema revision; migrate before serving.")
 
 

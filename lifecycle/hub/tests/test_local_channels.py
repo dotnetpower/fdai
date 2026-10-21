@@ -291,7 +291,7 @@ def test_explicit_revision_three_upgrade_is_additive_and_required(tmp_path):
     require_schema(engine, "lifecycle_hub")
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT value FROM retained_marker")) == "preserved"
-        assert connection.scalar(text("SELECT revision FROM lifecycle_hub_schema_revision")) == 5
+        assert connection.scalar(text("SELECT revision FROM lifecycle_hub_schema_revision")) == 6
         assert inspect(connection).has_table(entries.name)
     migrate(engine, "lifecycle_hub", lambda _: pytest.fail("Repeated migration must be idempotent"))
 

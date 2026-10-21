@@ -32,6 +32,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta
@@ -77,6 +78,8 @@ from fdai_lifecycle_agent.inputs import (
     verify_release,
 )
 from fdai_lifecycle_agent.journal import ApplyJournal, WorkloadState, WorkloadStore
+from fdai_lifecycle_agent.native_cluster import NativeCluster
+from fdai_lifecycle_agent.native_state import NativeStateStore
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
 from fdai_lifecycle_agent.state import (
     AgentState,
@@ -149,6 +152,7 @@ class AgentSettings:
     entity_components: Mapping[str, frozenset[str]]
     component_repositories: Mapping[str, str] = field(default_factory=dict)
     product: str | None = None
+    native_scope_digest: str | None = None
 
     def __post_init__(self) -> None:
         validate_path_segment(self.installation_id, "installation_id")
@@ -159,6 +163,11 @@ class AgentSettings:
             raise ValueError("every envelope Entity MUST name at least one Release component")
         if self.product is not None and not is_product_id(self.product):
             raise ValueError("local policy product must be an application identifier")
+        if self.native_scope_digest is not None and (
+            self.product is None
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", self.native_scope_digest) is None
+        ):
+            raise ValueError("native local policy requires a product and exact scope digest")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -216,6 +225,13 @@ class LifecycleAgent:
         """
 
         with self._deps.state_store.lock():
+            if (apply := self._deps.apply) is not None:
+                path = NativeStateStore(self._deps.state_store.path.parent).path
+                pinned = self._settings.native_scope_digest is not None
+                if pinned != isinstance(apply.workload.cluster, NativeCluster) or (
+                    not pinned and (path.exists() or path.is_symlink())
+                ):
+                    raise WorkloadError("native_scope_poll_mode_changed")
             return self._poll()
 
     def _poll(self) -> PollResult:

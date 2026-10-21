@@ -61,6 +61,7 @@ from fdai_lifecycle_hub.execution_settings import (
     settings_digest,
     settings_record,
 )
+from fdai_lifecycle_hub.migrations import _versions
 from fdai_lifecycle_hub.models import PlanEventKind
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.reports import ROLLED_BACK, failure_suppressions
@@ -238,7 +239,9 @@ class HubStore:
             }
 
     def drop_schema(self) -> None:
-        models.Base.metadata.drop_all(self.engine)
+        with self.engine.begin() as connection:
+            models.Base.metadata.drop_all(connection)
+            _versions("lifecycle_hub").drop(connection, checkfirst=True)
 
     @contextmanager
     def _write(self) -> Iterator[Session]:
@@ -336,8 +339,12 @@ class HubStore:
     ) -> None:
         """Record an unmanaged Entity's ownership evidence, who supplied it, and its shortfall."""
 
+        if evidence.native_creation_receipt_digest is not None:
+            raise ValueError("native ownership requires separate verified operator acceptance")
         operator = schemas.actor_name.validate_python(operator)
-        recorded = schemas.ownership_json.dump_python(evidence, mode="json")
+        recorded = schemas.ownership_json.dump_python(
+            evidence, mode="json", exclude={"native_creation_receipt_digest"}
+        )
         with self._write() as session:
             rows.lock_enrolled(session, installation_id)
             row = rows.entity_row(session, installation_id, entity_id)
