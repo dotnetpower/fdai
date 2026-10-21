@@ -29,11 +29,16 @@ from fdai_deployment_cli.lifecycle_plan import (
     LifecycleEffectEnvelope,
     LifecyclePlan,
 )
+from fdai_deployment_cli.lifecycle_release import (
+    LIFECYCLE_IMAGE_SECTIONS,
+    NGINX_ACCEPTANCE_SCHEMA,
+    NginxAcceptanceRelease,
+    parse_lifecycle_release_manifest,
+)
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.runtime_release import (
     ConfigurationSchema,
     RuntimeReleaseError,
-    parse_runtime_release_manifest,
 )
 
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
@@ -43,7 +48,6 @@ from fdai_lifecycle_agent.strict_json import load_json, read_limited
 LIFECYCLE_RELEASE_SCHEMA = "fdai.runtime-release.v3"
 MAX_INPUT_BYTES = 1024 * 1024
 _HEX_DIGEST = re.compile(r"[0-9a-f]{64}\Z", re.ASCII)
-_IMAGE_SECTIONS = ("services", "sidecars", "installation_agents")
 _CONFIGURATION_KEYS = frozenset({"schema", "environment", "entity_overrides"})
 # The Environment Config key that names the installation's Azure region (data residency).
 REGION_KEY = "region"
@@ -65,6 +69,7 @@ class InputProblem(StrEnum):
     LITERAL_SECRET = "literal_secret"  # noqa: S105 - a reason code, not a secret
     OVERRIDE_MISSING = "override_missing"
     COMPONENT_MISSING = "component_missing"
+    VERSION_MISMATCH = "version_mismatch"
 
 
 # Inputs that can appear later, for example after a registry or file sync, don't block a Plan.
@@ -169,7 +174,7 @@ def stage_artifact(
 
 @dataclass(frozen=True, slots=True)
 class VerifiedRelease:
-    """A signature-verified, fully validated ``fdai.runtime-release.v3`` manifest."""
+    """A signature-verified runtime or explicitly opted-in nginx acceptance manifest."""
 
     digest: str
     component_images: Mapping[str, str]
@@ -232,7 +237,11 @@ class VerifiedConfiguration:
 
 
 def verify_release(
-    plan: LifecyclePlan, store: ArtifactStore, verify_signature: ArtifactVerifier
+    plan: LifecyclePlan,
+    store: ArtifactStore,
+    verify_signature: ArtifactVerifier,
+    *,
+    allow_nginx_acceptance: bool = False,
 ) -> VerifiedRelease:
     """Verify the Plan's target Release or raise ``InputRejectedError``.
 
@@ -241,18 +250,25 @@ def verify_release(
 
     payload = _verified_payload("release", plan.target_release_digest, store, verify_signature)
     try:
-        release = parse_runtime_release_manifest(payload)
+        release = parse_lifecycle_release_manifest(payload)
     except RuntimeReleaseError as error:
         raise InputRejectedError("release", InputProblem.MALFORMED) from error
-    if release.schema_version != LIFECYCLE_RELEASE_SCHEMA:
+    if release.schema_version != LIFECYCLE_RELEASE_SCHEMA and not (
+        allow_nginx_acceptance and release.schema_version == NGINX_ACCEPTANCE_SCHEMA
+    ):
         raise InputRejectedError("release", InputProblem.SCHEMA_UNSUPPORTED)
     if release.digest != plan.target_release_digest:
         raise InputRejectedError("release", InputProblem.DIGEST_MISMATCH)
+    if (
+        isinstance(release, NginxAcceptanceRelease)
+        and release.release_version != plan.target_release_id
+    ):
+        raise InputRejectedError("release", InputProblem.VERSION_MISMATCH)
     return VerifiedRelease(
         digest=release.digest,
         component_images=_component_images(release.to_mapping()),
         # The manifest parser restricted every maximum to a CapabilityMode value.
-        capability_maximums=cast(dict[str, CapabilityMode], release.capability_maximums),
+        capability_maximums=cast(dict[str, CapabilityMode], dict(release.capability_maximums)),
         schema_target=release.schema_target,
         schema_minimum=None if release.schema_range is None else release.schema_range.minimum,
         schema_maximum=None if release.schema_range is None else release.schema_range.maximum,
@@ -356,7 +372,7 @@ def _verified_payload(
 
 def _component_images(catalog: Mapping[str, object]) -> dict[str, str]:
     images: dict[str, str] = {}
-    for section in _IMAGE_SECTIONS:
+    for section in LIFECYCLE_IMAGE_SECTIONS:
         match catalog.get(section):
             case dict(records):
                 for name, record in records.items():

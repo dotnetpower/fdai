@@ -23,7 +23,11 @@ from fdai_deployment_cli.lifecycle_plan import (
     canonical_plan_payload,
     evaluate_lifecycle_constraints,
 )
-from fdai_deployment_cli.runtime_release import RuntimeRelease
+from fdai_deployment_cli.lifecycle_release import (
+    NGINX_ACCEPTANCE_ENTITY_KIND,
+    LifecycleRelease,
+    NginxAcceptanceRelease,
+)
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
@@ -71,8 +75,28 @@ def plan_next(
         return NoManagedEntity()
     windows = installation.maintenance_windows(now)
     checks: list[CandidateCheck] = []
+    nginx_entities = {
+        entity.entity_id
+        for entity in installation.entities
+        if entity.kind == NGINX_ACCEPTANCE_ENTITY_KIND
+        and entity.entity_id in installation.managed_entity_ids
+    }
     candidates = catalog.newer_than(installation.settings.channel, installation.current_release)
     for release_id, release in candidates:
+        if nginx_entities and not isinstance(release, NginxAcceptanceRelease):
+            checks.append(
+                CandidateCheck(release_id, (ConstraintBlock("nginx_acceptance_release_required"),))
+            )
+            continue
+        if isinstance(release, NginxAcceptanceRelease) and (
+            installation.settings.channel != "DEV"
+            or len(installation.managed_entity_ids) != 1
+            or nginx_entities != installation.managed_entity_ids
+        ):
+            checks.append(
+                CandidateCheck(release_id, (ConstraintBlock("nginx_acceptance_entity_required"),))
+            )
+            continue
         schema = release.configuration_schema
         if (
             configuration_revision is None
@@ -149,7 +173,7 @@ def plan_id_for(installation_id: str, sequence: int) -> str:
 def _draft(
     installation: Installation,
     release_id: str,
-    release: RuntimeRelease,
+    release: LifecycleRelease,
     *,
     key: HubSigningKey,
     windows: tuple[MaintenanceWindow, ...],
@@ -195,7 +219,7 @@ def _draft(
 def _constraint_context(
     installation: Installation,
     draft: LifecyclePlan,
-    release: RuntimeRelease,
+    release: LifecycleRelease,
     *,
     catalog: ReleaseCatalog,
     windows: tuple[MaintenanceWindow, ...],

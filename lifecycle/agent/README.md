@@ -39,7 +39,7 @@ namespace, verifies the rollout, and rolls back on failure. See [Apply mode](#ap
 4. Refuse a sequence that the agent already rejected.
 5. Verify the Release and configuration signatures over the exact file bytes. An unsigned input is
    rejected before any change is computed. The Release then passes the full manifest validation
-   of `parse_runtime_release_manifest`, and the configuration package must resolve for the target
+   of `parse_lifecycle_release_manifest`, and the configuration package must resolve for the target
    Release through `resolve_configuration_layers` (`configuration_override_missing` otherwise).
    Each document's canonical JSON must hash to the digest that the Plan names, as the Hub computes
    it. Then the Plan envelope must fit the maximum derived from local policy and both signed inputs
@@ -94,6 +94,21 @@ the first 16 hex characters of the SHA-256 of the raw public key.
 The command prints one JSON result. It exits `0` when the poll finished and every required report
 was accepted, `1` when the Hub or local state failed, a report didn't land, or the agent is halted,
 and `2` for invalid configuration.
+
+## Nginx-only development acceptance
+
+The separate `fdai.nginx-acceptance-release.v1` format carries only a digest-pinned nginx image,
+not a replacement for an FDAI Core image. Default local policy rejects it. To prepare this
+development scenario, set `nginx_acceptance: true` in local hard policy with exactly one Entity,
+only its `nginx` component, no capability modes and no destructive allowance. The existing demo
+renderer expects a non-root nginx image serving HTTP on port 8080. Keep its exact repository in
+`component_images` and its digest in the signed manifest.
+
+The Hub also requires an already-owned, managed `nginx-acceptance` Entity on `DEV`. Signing,
+recall, expiry, exact version/digest, namespace, dry-run, durable rollback and replay checks
+remain in force. Schema revision zero denotes no database. This opt-in does not prove native
+namespace ownership or authorize execution. See the
+[acceptance input design](../../docs/roadmap/deployment/hub-managed-lifecycle.md#nginx-acceptance-input-design-and-critique).
 
 ## Full signed configuration revisions and CSI reports
 

@@ -199,6 +199,28 @@ further changes until an explicit refresh; it never retries a write or computes/
 Focused source and synthetic UI checks are not live deployment evidence. Exact-source activation,
 human operational confirmation and the remaining evidence-backed nginx preparation stay separate.
 
+## Nginx acceptance input design and critique
+
+The development acceptance scenario uses a separate `fdai.nginx-acceptance-release.v1`
+manifest, not an nginx image declared as an FDAI Core service. Its exact source, semantic
+version, Linux platform and single `workloads.nginx.image_digest` are signed through the
+existing publication and independently pinned catalog path. It has no FDAI services, database,
+installation-agent images or capability grants. Internal schema revision zero means that this
+workload has no database; it does not claim a migrated FDAI installation.
+
+**Critique and revision:** Accepting an arbitrary workload catalog would create a general app
+manager. This format accepts only nginx, only on `DEV`. Planning requires exactly one managed
+Entity of kind `nginx-acceptance`. The Agent additionally requires an explicit
+`nginx_acceptance: true` in its local hard policy, exactly one nginx Entity, no capability modes
+and no destructive allowance. Existing runtime v3 validation and default Agent denial stay intact.
+Digest, signature, recall, image availability, configuration, maintenance-window, replay,
+namespace, dry-run, rollback and effect checks still apply. Neither the manifest nor this opt-in
+proves namespace ownership or grants execution authority.
+
+Native namespace ownership acceptance, exact-source runtime activation, actual image delivery
+and independently observed installation, update and recovery remain separate work. Local parser
+or transport checks do not establish that nginx has been deployed.
+
 ## Read-only input inventory
 
 The read-only **Available releases** screen projects the already accepted catalog through

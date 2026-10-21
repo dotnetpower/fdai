@@ -20,6 +20,25 @@ export type Change = {
   revision: number; confirmation: string; reason: string; channel?: string;
   label?: string; manifest?: string;
 };
+const NGINX_ACCEPTANCE_SCHEMA = "fdai.nginx-acceptance-release.v1";
+
+export function isNginxAcceptance(manifest: string): boolean {
+  const parsed: unknown = JSON.parse(manifest);
+  return typeof parsed === "object" && parsed !== null
+    && "schema_version" in parsed && parsed.schema_version === NGINX_ACCEPTANCE_SCHEMA;
+}
+
+export function releaseTitle(release: Release): string {
+  return `${isNginxAcceptance(release.manifest) ? "nginx acceptance" : "FDAI"} ${release.id}`;
+}
+
+export function schemaCompatibility(manifest: string): string {
+  if (isNginxAcceptance(manifest)) return "Not applicable (nginx acceptance; no database)";
+  const parsed = JSON.parse(manifest) as {
+    schema: { target: number; tolerates: { minimum: number; maximum: number } };
+  };
+  return `${parsed.schema.tolerates.minimum} - ${parsed.schema.tolerates.maximum} (target ${parsed.schema.target})`;
+}
 
 export async function requestCatalog(path = "/v1/catalog", body?: Change): Promise<Catalog> {
   const response = await authenticatedFetch(path, {
@@ -39,7 +58,8 @@ export async function requestCatalog(path = "/v1/catalog", body?: Change): Promi
 
 export function actionsFor(release: Release): Action[] {
   if (release.state === "recalled") return [];
-  return release.state === "draft" ? ["publish"] : ["contribute", "recall"];
+  if (release.state === "draft") return ["publish"];
+  return isNginxAcceptance(release.manifest) ? ["recall"] : ["contribute", "recall"];
 }
 
 export function artifacts(manifest: string): { component: string; digest: string; sbom: string }[] {
@@ -47,7 +67,7 @@ export function artifacts(manifest: string): { component: string; digest: string
   if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid manifest.");
   const root = parsed as Record<string, unknown>;
   const result: { component: string; digest: string; sbom: string }[] = [];
-  for (const section of ["services", "sidecars", "installation_agents", "console", "deployment_support"]) {
+  for (const section of ["services", "sidecars", "installation_agents", "workloads", "console", "deployment_support"]) {
     const group = root[section];
     if (typeof group !== "object" || group === null) continue;
     const entries = section === "console" || section === "deployment_support"
@@ -58,7 +78,7 @@ export function artifacts(manifest: string): { component: string; digest: string
       result.push({
         component,
         digest: typeof record.image_digest === "string" ? record.image_digest : String(record.archive_sha256),
-        sbom: String(record.sbom_sha256),
+        sbom: section === "workloads" ? "Not declared for acceptance workload" : String(record.sbom_sha256),
       });
     }
   }

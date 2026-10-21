@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: ad85b147f49ce6491feb5f5041181318cf2d1a38
+translation_source_sha: f611e1d08d679459290146b5ef4c9854d5094908
 translation_revised: 2026-10-21
 ---
 # Lifecycle Release와 채널
@@ -79,6 +79,27 @@ release 목록이 같아도 신선도를 다시 발행하려면 검토가 필요
 기존 수락 바이트를 유지합니다. 갱신은 설치본 가져오기, 계획, 적용을 수행하지 않으며
 운영용 서명된 카탈로그 역할을 대신하지 않습니다.
 UI는 읽기 전용 **Refresh catalog**와 **Renew catalog freshness**를 구분합니다.
+
+## nginx 전용 개발 검증
+
+`fdai.nginx-acceptance-release.v1`은
+[nginx 검증 시나리오](hub-managed-lifecycle-ko.md#nginx-검증-입력-설계와-검토)를 위한
+별도의 개발 전용 매니페스트입니다. 필수 필드는 `schema_version`, 표준 의미적 버전인
+`release_version`, 정확한 `source_commit`, 지원하는 Linux `platform_tag`,
+`workloads: {"nginx": {"image_digest": "sha256:<64 lowercase hex characters>"}}`입니다.
+런타임 v3와 동일한 선택적 `configuration_schema`를 다이제스트로 고정하여 포함할 수 있으며,
+그 버전은 `release_version`과 일치해야 합니다. 알 수 없는 필드나 추가 워크로드는
+허용하지 않습니다. FDAI 서비스, 데이터베이스, 설치 Agent, 기능 권한은 선언하지 않습니다.
+`source_commit`은 FDAI 실행 조정 소스의 스냅샷을 가리키며, nginx 이미지의 빌드나 공급망
+증명을 뜻하지 않습니다. 기존 비루트 데모 렌더러는 8080번 포트의 HTTP 응답을 기대합니다.
+
+등록할 때 내부 버전을 변경할 수 없는 카탈로그 ID와 연결합니다. 게시와 독립적으로
+고정한 가져오기는 원본 바이트 서명, 카탈로그 만료, 리비전 하한, 회수 검증을 유지합니다.
+채널은 `DEV`만 허용합니다. 기존 FDAI 런타임 파서는 이 형식을 계속 차단하며,
+Agent의 로컬 정책에서 nginx를 명시적으로 선택하지 않으면 Kubernetes에 쓰기 전에 차단합니다.
+Release Hub의 목록과 상세 화면은 nginx 검증을 FDAI 릴리스와 구분합니다. 데이터베이스
+호환성은 해당 없음으로, 공급망 근거는 선언되지 않음으로 표시합니다.
+이 형식은 기존 리소스의 소유권을 수락하거나 프로덕션 Release의 적격성을 부여하지 않습니다.
 
 ## Release 내용
 

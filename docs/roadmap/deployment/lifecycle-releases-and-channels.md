@@ -76,6 +76,27 @@ independently approves the new exact pin and explicitly imports it. Renewal neve
 plans or applies an installation change and does not replace production signed catalog roles.
 The UI distinguishes read-only **Refresh catalog** from **Renew catalog freshness**.
 
+## Nginx-only development acceptance
+
+`fdai.nginx-acceptance-release.v1` is a separate, development-only manifest for the
+[nginx acceptance scenario](hub-managed-lifecycle.md#nginx-acceptance-input-design-and-critique).
+Its required fields are `schema_version`, canonical SemVer `release_version`, exact
+`source_commit`, supported Linux `platform_tag`, and
+`workloads: {"nginx": {"image_digest": "sha256:<64 lowercase hex characters>"}}`.
+It can carry the same optional, digest-bound `configuration_schema` as runtime v3;
+that schema's version matches `release_version`. Unknown fields and additional workloads
+are not accepted. No FDAI service, database, installation agent or capability is declared.
+`source_commit` identifies the FDAI orchestration snapshot, not an nginx image build or
+supply-chain attestation. The existing non-root demo renderer expects HTTP on port 8080.
+
+Registration binds the inner version to the immutable catalog id. Publication and independently
+pinned import retain exact-byte signatures, catalog expiry, revision floors and recall.
+Only `DEV` membership is allowed. The existing FDAI runtime parser still rejects this format,
+and an Agent without explicit local nginx opt-in refuses it before Kubernetes writes.
+Release Hub lists and details distinguish nginx acceptance from FDAI releases and show
+database compatibility as not applicable and supply-chain evidence as undeclared.
+This format neither accepts native resource ownership nor qualifies a production Release.
+
 ## Release contents
 
 | Field | Content |

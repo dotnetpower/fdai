@@ -58,7 +58,7 @@ _LOCAL_POLICY_KEYS = frozenset(
         "entity_components",
     }
 )
-_OPTIONAL_LOCAL_POLICY_KEYS = frozenset({"component_images"})
+_OPTIONAL_LOCAL_POLICY_KEYS = frozenset({"component_images", "nginx_acceptance"})
 _MAX_LOCAL_POLICY_BYTES = 64 * 1024
 _EXIT_OK = 0
 _EXIT_FAILED = 1
@@ -355,6 +355,7 @@ class LocalPolicy(TypedDict):
     maximum_envelope: LifecycleEffectEnvelope
     entity_components: dict[str, frozenset[str]]
     component_repositories: dict[str, str]
+    nginx_acceptance: bool
 
 
 def load_local_policy(path: Path) -> LocalPolicy:
@@ -371,6 +372,9 @@ def load_local_policy(path: Path) -> LocalPolicy:
         raise ValueError("local policy fields are invalid")
     if document["schema"] != LOCAL_POLICY_SCHEMA:
         raise ValueError("local policy schema is unsupported")
+    nginx_acceptance = document.get("nginx_acceptance", False)
+    if type(nginx_acceptance) is not bool:
+        raise ValueError("local policy nginx_acceptance MUST be a boolean")
     modes = document["capability_modes"]
     if not isinstance(modes, dict) or not set(modes.values()) <= set(get_args(CapabilityMode)):
         raise ValueError("local policy capability mode is unsupported")
@@ -402,6 +406,7 @@ def load_local_policy(path: Path) -> LocalPolicy:
             for entity_id, names in components.items()
         },
         component_repositories={str(name): str(repo) for name, repo in repositories.items()},
+        nginx_acceptance=nginx_acceptance,
     )
 
 

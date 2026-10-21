@@ -147,6 +147,7 @@ class AgentSettings:
     maximum_envelope: LifecycleEffectEnvelope
     entity_components: Mapping[str, frozenset[str]]
     component_repositories: Mapping[str, str] = field(default_factory=dict)
+    nginx_acceptance: bool = False
 
     def __post_init__(self) -> None:
         validate_path_segment(self.installation_id, "installation_id")
@@ -155,6 +156,16 @@ class AgentSettings:
         }
         if uncovered:
             raise ValueError("every envelope Entity MUST name at least one Release component")
+        if type(self.nginx_acceptance) is not bool:
+            raise ValueError("nginx_acceptance MUST be a boolean")
+        if self.nginx_acceptance and (
+            len(self.maximum_envelope.entity_ids) != 1
+            or set(self.entity_components) != self.maximum_envelope.entity_ids
+            or any(names != frozenset({"nginx"}) for names in self.entity_components.values())
+            or self.maximum_envelope.capability_modes
+            or self.maximum_envelope.destructive_allowed
+        ):
+            raise ValueError("nginx acceptance requires one nginx Entity without capability grants")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -310,7 +321,12 @@ class LifecycleAgent:
             return _rejection(AgentReason.PLAN_SEQUENCE_PREVIOUSLY_REJECTED)
         settings = self._settings
         try:
-            release = verify_release(plan, deps.artifact_store, deps.verify_release_signature)
+            release = verify_release(
+                plan,
+                deps.artifact_store,
+                deps.verify_release_signature,
+                allow_nginx_acceptance=settings.nginx_acceptance,
+            )
             configuration = verify_configuration(
                 plan,
                 deps.artifact_store,
