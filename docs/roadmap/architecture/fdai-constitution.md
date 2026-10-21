@@ -186,12 +186,16 @@ after evidence, validation, shadow evaluation, and promotion. Situation-specific
 calculated at decision time only by an approved, versioned algorithm. Missing, stale, conflicting,
 or unproven context can only preserve or lower autonomy.
 
-An authorized operator may also author approval and admission policy directly through the governed
-Console policy-administration surface. Each edit becomes an immutable, digest-pinned, audited
-policy revision that applies only to decisions started after its activation. Core enforces hard
-safety bounds, the seven safeguards, A4 denial, tenant and identity boundaries, the separation of
-approver and executor, and every maximum that a Release declares for an ActionType independently of
-any revision, so a revision can relax installation policy only inside them.
+FDAI Console is a governed operator surface, not a read-only viewer. An authorized operator may
+also author approval and admission policy, operational ownership (`stewardship`), and human-agent
+assignment revisions directly through governed Console surfaces without requiring an external Git
+host or GitHub App. Each edit or reviewed ownership handover becomes an immutable, digest-pinned,
+audited revision under the active approval profile, and policy revisions apply only to decisions
+started after activation. An external GitOps pull-request publisher remains an optional adapter,
+never a constitutional or installation requirement. Core enforces hard safety bounds, the seven
+safeguards, A4 denial, tenant and identity boundaries, the separation of approver and executor,
+and every maximum that a Release declares for an ActionType independently of any revision, so a
+revision can relax installation policy only inside them.
 
 Every active, candidate, or calculated threshold records its semantic type, unit, scope, allowed
 range, exact version or digest, effective interval, evidence cutoff, algorithm or model version,
@@ -373,8 +377,9 @@ inferred from silence. It is valid only when all of these conditions hold:
 - applicable service logs, incidents, and audit history were reviewed and the presence or absence
   of a precedent was recorded; when no adequate precedent exists, a current DR drill, bounded Chaos
   experiment, or simulation provides equivalent scenario evidence;
-- every ownership handover re-confirms the delegation; missing, stale, or declined confirmation
-  suspends it;
+- every ownership handover is reviewed and activated as an immutable Console-governed revision
+  under the active approval profile without requiring an external Git host or GitHub App, and
+  re-confirms the delegation; missing, stale, or declined confirmation suspends it;
 - revocation takes effect immediately and renewal creates a new immutable revision with fresh
   quorum, evidence, responder confirmation, and validity rather than extending the old record;
 - delivery through the declared channel fallback is confirmed before human silence is measured;
@@ -400,8 +405,9 @@ gate, approval, executor, recovery, or audit path.
 Every workflow declares its goal, trigger, preconditions, protected objectives, bounded steps,
 deadlines, stop conditions, expected effects, failure behavior, compensation, completion criteria,
 and anti-scope. One accountable owner advances a revisioned durable Process snapshot and
-append-only journal. Ontology and console projections are rebuildable read models; agents never
-coordinate by sharing mutable Process state.
+append-only journal. Ontology and console projections are rebuildable read models while Console
+operator actions submit typed, audited requests; agents never coordinate by sharing mutable
+Process state.
 
 A new or materially changed workflow begins in shadow mode and passes structural validation,
 simulation or dry-run, scenario regression, and explicit promotion. An attributed operator override
