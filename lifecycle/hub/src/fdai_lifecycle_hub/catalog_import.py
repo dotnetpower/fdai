@@ -81,7 +81,7 @@ def load_pinned_export(
             raise ValueError("Release Hub manifest signature verification failed") from error
         release = parse_lifecycle_release_manifest(payload)
         if release.schema_version not in LIFECYCLE_RELEASE_SCHEMAS:
-            raise ValueError("Release Hub export requires a supported lifecycle manifest")
+            raise ValueError("Release Hub export requires a supported lifecycle Release")
         schema = release.configuration_schema
         if schema is not None and schema.release_version != release_id:
             raise ValueError("Configuration schema does not match the exact Release version")

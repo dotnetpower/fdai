@@ -1,107 +1,116 @@
 from __future__ import annotations
 
-from copy import deepcopy
+import json
 
 import pytest
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_release import (
-    NGINX_ACCEPTANCE_SCHEMA,
-    NginxAcceptanceRelease,
+    APPLICATION_RELEASE_SCHEMA,
+    ApplicationRelease,
     parse_lifecycle_release_manifest,
 )
 from fdai_deployment_cli.runtime_release import RuntimeReleaseError, parse_runtime_release_manifest
 
 
-def manifest() -> dict[str, object]:
+def manifest(product: str = "example-web") -> dict[str, object]:
     return {
-        "schema_version": NGINX_ACCEPTANCE_SCHEMA,
-        "release_version": "0.1.0",
+        "schema_version": APPLICATION_RELEASE_SCHEMA,
+        "product": product,
+        "release_version": "1.5.0",
         "source_commit": "a" * 40,
         "platform_tag": "linux-x86_64",
-        "workloads": {"nginx": {"image_digest": "sha256:" + "b" * 64}},
+        "workloads": {
+            "frontend": {
+                "image_digest": "sha256:" + "b" * 64,
+                "port": 9090,
+                "health_path": "/ready",
+                "replicas": 2,
+            },
+            "backend": {"image_digest": "sha256:" + "c" * 64},
+        },
     }
 
 
-def test_nginx_is_not_disguised_as_an_fdai_runtime() -> None:
-    document = manifest()
+@pytest.mark.parametrize("product", ["example-web", "example-worker", "fdai"])
+def test_arbitrary_applications_use_the_same_validated_contract(product: str) -> None:
+    document = manifest(product)
     release = parse_lifecycle_release_manifest(canonical_bytes(document))
-    assert isinstance(release, NginxAcceptanceRelease)
+    assert isinstance(release, ApplicationRelease)
+    assert release.product == product
     assert release.digest == canonical_digest(document)
-    assert release.to_mapping() == document
+    assert release.workloads["frontend"].port == 9090
+    assert release.workloads["frontend"].health_path == "/ready"
+    assert release.workloads["frontend"].replicas == 2
+    assert release.workloads["backend"].port == 8080
     assert release.schema_target == 0
-    assert release.schema_range.minimum == release.schema_range.maximum == 0
-    assert release.capability_maximums == {}
+    assert release.schema_range.contains(0)
+    detached = release.to_mapping()
+    detached["product"] = "changed"
+    assert release.to_mapping() == document
     with pytest.raises(RuntimeReleaseError):
         parse_runtime_release_manifest(canonical_bytes(document))
 
 
 @pytest.mark.parametrize(
-    ("key", "value"),
+    ("field", "value"),
     [
-        ("source_commit", "not-a-commit"),
-        ("platform_tag", "windows-x86_64"),
+        ("product", ""),
+        ("product", "../example"),
+        ("product", True),
         ("release_version", "latest"),
-        ("release_version", "01.0.0"),
-        ("schema_version", "fdai.nginx-acceptance-release.v2"),
-        ("services", {}),
-        ("capabilities", {}),
-        ("schema", {"target": 15}),
-        ("installation_agents", {}),
-        ("workloads", {"core-control-plane": {"image_digest": "sha256:" + "b" * 64}}),
-        ("workloads", {"nginx": {"image_digest": "nginx:latest"}}),
-        ("workloads", {"nginx": {"image_digest": "sha256:" + "B" * 64}}),
-        ("workloads", {"nginx": {"image_digest": "sha256:" + "b" * 64, "command": []}}),
+        ("source_commit", "main"),
+        ("platform_tag", "unknown"),
+        ("workloads", {}),
+        ("workloads", {"unknown": {"image_digest": "latest"}}),
+        ("workloads", {"../escape": {"image_digest": "sha256:" + "b" * 64}}),
+        ("workloads", {"a": {"image_digest": "sha256:" + "b" * 64, "port": True}}),
+        ("workloads", {"a": {"image_digest": "sha256:" + "b" * 64, "port": 65536}}),
+        ("workloads", {"a": {"image_digest": "sha256:" + "b" * 64, "health_path": "//host"}}),
+        ("workloads", {"a": {"image_digest": "sha256:" + "b" * 64, "replicas": 0}}),
+        ("workloads", {"a": {"image_digest": "sha256:" + "b" * 64, "privileged": True}}),
+        ("schema", {"target": True, "tolerates": {"minimum": 0, "maximum": 2}}),
+        ("schema", {"target": 2, "tolerates": {"minimum": 3, "maximum": 4}}),
+        ("schema", None),
+        ("unknown", "not accepted"),
     ],
 )
-def test_acceptance_rejects_unbounded_or_unpinned_content(key: str, value: object) -> None:
-    document = manifest()
-    document[key] = value
+def test_invalid_application_metadata_is_rejected(field: str, value: object) -> None:
+    document = {**manifest(), field: value}
     with pytest.raises(RuntimeReleaseError):
         parse_lifecycle_release_manifest(canonical_bytes(document))
 
 
-@pytest.mark.parametrize("key", list(manifest()))
-def test_every_acceptance_field_is_required(key: str) -> None:
-    document = manifest()
-    del document[key]
+def test_declared_database_compatibility_is_preserved() -> None:
+    document = {
+        **manifest(),
+        "schema": {"target": 7, "tolerates": {"minimum": 5, "maximum": 8}},
+    }
+    release = parse_lifecycle_release_manifest(canonical_bytes(document))
+    assert release.schema_target == 7
+    assert release.schema_range is not None
+    assert release.schema_range.contains(6)
+    assert not release.schema_range.contains(4)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b'{"schema_version":"one","schema_version":"two"}',
+        b'{"schema_version":"one","workloads":{"a":{},"a":{}}}',
+        b'{"value":NaN}',
+        b'{"value":Infinity}',
+        b"[]",
+        b"{}" * 600_000,
+        '{"product":"example"}'.encode("utf-16"),
+    ],
+)
+def test_all_manifest_boundaries_use_strict_bounded_utf8(raw: bytes) -> None:
     with pytest.raises(RuntimeReleaseError):
-        parse_lifecycle_release_manifest(canonical_bytes(document))
+        parse_lifecycle_release_manifest(raw)
 
 
-def test_acceptance_metadata_is_detached_from_caller_mutation() -> None:
-    release = parse_lifecycle_release_manifest(canonical_bytes(manifest()))
-    detached = deepcopy(release.to_mapping())
-    detached["workloads"] = {}
-    assert release.to_mapping() == manifest()
-
-
-def test_duplicate_fields_and_oversized_documents_are_rejected() -> None:
-    for raw in (b'{"schema_version":"a","schema_version":"b"}', b" " * (1024 * 1024 + 1)):
-        with pytest.raises(RuntimeReleaseError):
-            parse_lifecycle_release_manifest(raw)
-
-
-@pytest.mark.parametrize("mismatch", [False, True])
-def test_acceptance_reuses_the_exact_configuration_schema_binding(mismatch: bool) -> None:
-    document = manifest()
-    keys = {
-        "replicas": {
-            "default": 1,
-            "x-fdai-axis": "Release channel subscription",
-            "x-fdai-owner": "customer",
-        }
-    }
-    document["configuration_schema"] = {
-        "format": "fdai.release-configuration-schema.v1",
-        "release_version": "0.2.0" if mismatch else "0.1.0",
-        "schema_sha256": canonical_digest(keys),
-        "keys": keys,
-    }
-    if mismatch:
-        with pytest.raises(RuntimeReleaseError):
-            parse_lifecycle_release_manifest(canonical_bytes(document))
-    else:
-        schema = parse_lifecycle_release_manifest(canonical_bytes(document)).configuration_schema
-        assert schema is not None
-        assert schema.to_mapping() == keys
+def test_duplicate_workload_fields_do_not_publish_unstaggable_artifacts() -> None:
+    raw = json.dumps(manifest()).replace('"port": 9090', '"port": 8080, "port": 9090').encode()
+    with pytest.raises(RuntimeReleaseError):
+        parse_lifecycle_release_manifest(raw)

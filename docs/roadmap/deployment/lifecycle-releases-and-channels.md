@@ -3,7 +3,7 @@ title: Lifecycle Releases and Channels
 ---
 # Lifecycle Releases and Channels
 
-This document defines what an FDAI Release contains and how Releases move through release
+This document defines what an application Release contains and how Releases move through release
 channels. It also defines how connected and offline installations receive Releases, and how
 recalls and database schema compatibility keep upgrades safe. It owns the Release manifest, the
 channel model, upgrade bundles, and recall.
@@ -76,28 +76,35 @@ independently approves the new exact pin and explicitly imports it. Renewal neve
 plans or applies an installation change and does not replace production signed catalog roles.
 The UI distinguishes read-only **Refresh catalog** from **Renew catalog freshness**.
 
-## Nginx-only development acceptance
+## Application package contract
 
-`fdai.nginx-acceptance-release.v1` is a separate, development-only manifest for the
-[nginx acceptance scenario](hub-managed-lifecycle.md#nginx-acceptance-input-design-and-critique).
-Its required fields are `schema_version`, canonical SemVer `release_version`, exact
-`source_commit`, supported Linux `platform_tag`, and
-`workloads: {"nginx": {"image_digest": "sha256:<64 lowercase hex characters>"}}`.
-It can carry the same optional, digest-bound `configuration_schema` as runtime v3;
-that schema's version matches `release_version`. Unknown fields and additional workloads
-are not accepted. No FDAI service, database, installation agent or capability is declared.
-`source_commit` identifies the FDAI orchestration snapshot, not an nginx image build or
-supply-chain attestation. The existing non-root demo renderer expects HTTP on port 8080.
+The Hub engine accepts `fdai.application-release.v1` without an application-specific service list.
+FDAI is one possible application. Publication, exact pinned admission, recall and channel
+selection use the same path for every `product`; a channel does not grant production qualification.
 
-Registration binds the inner version to the immutable catalog id. Publication and independently
-pinned import retain exact-byte signatures, catalog expiry, revision floors and recall.
-Only `DEV` membership is allowed. The existing FDAI runtime parser still rejects this format,
-and an Agent without explicit local nginx opt-in refuses it before Kubernetes writes.
-Release Hub lists and details distinguish nginx acceptance from FDAI releases and show
-database compatibility as not applicable and supply-chain evidence as undeclared.
-This format neither accepts native resource ownership nor qualifies a production Release.
+| Field | Current contract |
+|-------|------------------|
+| `schema_version` | `fdai.application-release.v1` |
+| `product` | Independent application ID: `[a-z][a-z0-9-]{0,62}` |
+| `release_version`, `source_commit`, `platform_tag` | Semantic version, exact application source revision and artifact platform |
+| `workloads` | 1-64 named HTTP components; each name is a Kubernetes DNS label |
+| `workloads.<component>.image_digest` | Required immutable `sha256:` image digest |
+| `workloads.<component>.port` | Integer 1-65535; default 8080 |
+| `workloads.<component>.health_path` | Bounded ASCII absolute readiness path, not a URL or `//` path; default `/` |
+| `workloads.<component>.replicas` | Integer 1-3; default 1 |
+| `configuration_schema`, `schema` | Optional existing version/digest-bound configuration schema and database compatibility metadata |
 
-## Release contents
+Strict UTF-8 JSON rejects duplicate keys and nonfinite numbers. Unknown workload fields cannot
+inject Kubernetes templates, privileges or namespace selection. The current renderer produces
+only bounded Deployments and ClusterIP Services; this is not arbitrary application orchestration.
+Missing supply-chain evidence is displayed as **Not declared**, not manufactured or verified.
+The product must match both independently approved installation Settings and local Agent policy.
+Missing database metadata selects revision zero and cannot reset an existing database.
+Release versions remain globally unique within a catalog, not namespaced by product.
+The separate `fdai.runtime-release.v3` adapter preserves the existing complete FDAI inventory and
+source/offline contracts. It is not the required shape for an unrelated application.
+
+## FDAI runtime adapter contents
 
 | Field | Content |
 |-------|---------|

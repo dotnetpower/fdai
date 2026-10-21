@@ -20,23 +20,17 @@ export type Change = {
   revision: number; confirmation: string; reason: string; channel?: string;
   label?: string; manifest?: string;
 };
-const NGINX_ACCEPTANCE_SCHEMA = "fdai.nginx-acceptance-release.v1";
-
-export function isNginxAcceptance(manifest: string): boolean {
-  const parsed: unknown = JSON.parse(manifest);
-  return typeof parsed === "object" && parsed !== null
-    && "schema_version" in parsed && parsed.schema_version === NGINX_ACCEPTANCE_SCHEMA;
-}
 
 export function releaseTitle(release: Release): string {
-  return `${isNginxAcceptance(release.manifest) ? "nginx acceptance" : "FDAI"} ${release.id}`;
+  const manifest = JSON.parse(release.manifest) as { product?: string };
+  return `${manifest.product ?? "Release"} ${release.id}`;
 }
 
 export function schemaCompatibility(manifest: string): string {
-  if (isNginxAcceptance(manifest)) return "Not applicable (nginx acceptance; no database)";
   const parsed = JSON.parse(manifest) as {
-    schema: { target: number; tolerates: { minimum: number; maximum: number } };
+    schema?: { target: number; tolerates: { minimum: number; maximum: number } };
   };
+  if (!parsed.schema) return "Not declared (stateless package)";
   return `${parsed.schema.tolerates.minimum} - ${parsed.schema.tolerates.maximum} (target ${parsed.schema.target})`;
 }
 
@@ -58,8 +52,7 @@ export async function requestCatalog(path = "/v1/catalog", body?: Change): Promi
 
 export function actionsFor(release: Release): Action[] {
   if (release.state === "recalled") return [];
-  if (release.state === "draft") return ["publish"];
-  return isNginxAcceptance(release.manifest) ? ["recall"] : ["contribute", "recall"];
+  return release.state === "draft" ? ["publish"] : ["contribute", "recall"];
 }
 
 export function artifacts(manifest: string): { component: string; digest: string; sbom: string }[] {
@@ -78,7 +71,7 @@ export function artifacts(manifest: string): { component: string; digest: string
       result.push({
         component,
         digest: typeof record.image_digest === "string" ? record.image_digest : String(record.archive_sha256),
-        sbom: section === "workloads" ? "Not declared for acceptance workload" : String(record.sbom_sha256),
+        sbom: typeof record.sbom_sha256 === "string" ? record.sbom_sha256 : "Not declared",
       });
     }
   }

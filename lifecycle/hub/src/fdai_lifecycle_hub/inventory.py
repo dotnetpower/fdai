@@ -33,6 +33,7 @@ def release_inventory(catalog: ReleaseCatalog) -> dict[str, object]:
         releases.append(
             {
                 "release_id": release_id,
+                "product": release.product,
                 "digest": release.digest,
                 "source_commit": release.source_commit,
                 "platform_tag": release.platform_tag,

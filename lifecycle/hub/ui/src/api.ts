@@ -57,6 +57,7 @@ export interface MaintenanceWindow {
 
 export interface ExecutionSettings {
   settings_digest: string;
+  product?: string | null;
   windows: readonly MaintenanceWindow[];
   plan_duration_minutes: number;
 }
@@ -69,6 +70,9 @@ export interface ExecutionSettingsRequest {
   reason_code: string;
   confirmation: string;
 }
+
+export type ApplicationBindingRequest =
+  Omit<ExecutionSettingsRequest, "windows" | "plan_duration_minutes"> & { product: string };
 
 export interface EntityView {
   entity_id: string;
@@ -271,6 +275,11 @@ export const hubApi = {
       {
         method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(10_000),
       },
+    ),
+  bindApplication: (installationId: string, body: ApplicationBindingRequest) =>
+    request<{ changed: boolean; settings_digest: string }>(
+      `/v1/installations/${encodeURIComponent(installationId)}/application-binding`,
+      { method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(10_000) },
     ),
   getPlan: (installationId: string, planId: string) =>
     request<PlanDetail>(

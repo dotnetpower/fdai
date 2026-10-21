@@ -3,7 +3,7 @@ import { actionsFor, artifacts, releaseTitle, requestCatalog, schemaCompatibilit
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe("release action boundaries", () => {
-  const base = { id: "1.0.0", manifest: JSON.stringify({ schema_version: "fdai.runtime-release.v3" }) } as Release;
+  const base = { id: "1.0.0" } as Release;
   it("never offers publication or contribution for a recalled release", () => {
     expect(actionsFor({ ...base, state: "recalled" })).toEqual([]);
     expect(actionsFor({ ...base, state: "draft" })).toEqual(["publish"]);
@@ -14,25 +14,17 @@ describe("release action boundaries", () => {
     expect(artifacts(JSON.stringify({ services: { core: { image_digest: digest, sbom_sha256: "b".repeat(64) } } })))
       .toEqual([{ component: "core", digest, sbom: "b".repeat(64) }]);
   });
-  it("separates nginx acceptance from FDAI services and database compatibility", () => {
-    const manifest = JSON.stringify({
-      schema_version: "fdai.nginx-acceptance-release.v1",
-      workloads: { nginx: { image_digest: `sha256:${"a".repeat(64)}` } },
-    });
-    const release = { ...base, manifest, state: "published" } as Release;
-    expect(actionsFor(release)).toEqual(["recall"]);
-    expect(releaseTitle(release)).toBe("nginx acceptance 1.0.0");
-    expect(schemaCompatibility(manifest)).toBe("Not applicable (nginx acceptance; no database)");
-    expect(artifacts(manifest)).toEqual([{
-      component: "nginx", digest: `sha256:${"a".repeat(64)}`,
-      sbom: "Not declared for acceptance workload",
-    }]);
+  it.each(["example-web", "example-worker", "fdai"])("renders %s without application branches", (product) => {
+    const digest = `sha256:${"a".repeat(64)}`;
+    const manifest = JSON.stringify({ product, workloads: { frontend: { image_digest: digest } } });
+    expect(releaseTitle({ ...base, manifest })).toBe(`${product} 1.0.0`);
+    expect(schemaCompatibility(manifest)).toBe("Not declared (stateless package)");
+    expect(artifacts(manifest)).toEqual([{ component: "frontend", digest, sbom: "Not declared" }]);
   });
-  it("preserves runtime schema information and FDAI labels", () => {
-    expect(releaseTitle(base)).toBe("FDAI 1.0.0");
-    expect(schemaCompatibility(JSON.stringify({
-      schema: { target: 15, tolerates: { minimum: 12, maximum: 16 } },
-    }))).toBe("12 - 16 (target 15)");
+  it("does not invent a product for a legacy manifest", () => {
+    const manifest = JSON.stringify({ schema: { target: 6, tolerates: { minimum: 5, maximum: 7 } } });
+    expect(releaseTitle({ ...base, manifest })).toBe("Release 1.0.0");
+    expect(schemaCompatibility(manifest)).toBe("5 - 7 (target 6)");
   });
   it("surfaces server denial without success-shaped defaults", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: "Catalog changed." }) }));

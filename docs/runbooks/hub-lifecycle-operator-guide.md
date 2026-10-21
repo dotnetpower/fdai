@@ -222,6 +222,26 @@ add permissions or edit the database.
    another request. Review the actual stored values and confirmation again. Don't automatically
    repeat a write or interpret a network failure as proof that nothing changed.
 
+#### Bind the installation to its application
+
+Use a build that includes the application-binding API and UI. An older Hub that doesn't report
+this capability is unavailable, not an unbound installation.
+
+1. Verify the application ID from the reviewed signed package and the independent local Agent
+   policy. Don't select an ID from an untrusted Plan.
+2. Open the enrolled installation's **Application** tab as a verified customer operator.
+   An existing binding is read-only. A different application cannot replace it.
+3. Resolve any open Plan through its existing procedure before proceeding. Enter **Application ID**
+   and enter it again to confirm. Review that binding is permanent.
+4. Choose **Bind application** once and reread the stored binding. The UI supplies the UUID,
+   current Settings digest and full confirmation; you don't construct machine values.
+5. If saving fails or its outcome is uncertain, choose **Refresh binding** and review the actual
+   result before another request. There is no automatic write retry.
+
+Binding changes only the allowed application ID and attributed audit. It does not prove namespace
+ownership, add permissions, replace configuration, compute a Plan or deploy a workload.
+Agent local policy and the package's `product` must independently match this binding.
+
 ### D. Plan, then apply only when the missing prerequisites are resolved
 
 The current setup should stop before apply unless all of these are independently established:

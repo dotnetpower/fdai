@@ -31,8 +31,9 @@ from fdai_deployment_cli.lifecycle_plan import (
 )
 from fdai_deployment_cli.lifecycle_release import (
     LIFECYCLE_IMAGE_SECTIONS,
-    NGINX_ACCEPTANCE_SCHEMA,
-    NginxAcceptanceRelease,
+    LIFECYCLE_RELEASE_SCHEMAS,
+    ApplicationRelease,
+    HttpWorkload,
     parse_lifecycle_release_manifest,
 )
 from fdai_deployment_cli.private_output import read_private_bytes
@@ -70,6 +71,7 @@ class InputProblem(StrEnum):
     OVERRIDE_MISSING = "override_missing"
     COMPONENT_MISSING = "component_missing"
     VERSION_MISMATCH = "version_mismatch"
+    PRODUCT_MISMATCH = "product_mismatch"
 
 
 # Inputs that can appear later, for example after a registry or file sync, don't block a Plan.
@@ -174,7 +176,7 @@ def stage_artifact(
 
 @dataclass(frozen=True, slots=True)
 class VerifiedRelease:
-    """A signature-verified runtime or explicitly opted-in nginx acceptance manifest."""
+    """A signature-verified, fully validated ``fdai.runtime-release.v3`` manifest."""
 
     digest: str
     component_images: Mapping[str, str]
@@ -183,6 +185,7 @@ class VerifiedRelease:
     schema_minimum: int | None = None
     schema_maximum: int | None = None
     configuration_schema: ConfigurationSchema | None = None
+    workloads: Mapping[str, HttpWorkload] = field(default_factory=dict)
 
     def maximum_envelope(self, local: LifecycleEffectEnvelope) -> LifecycleEffectEnvelope:
         """Return the maximum envelope derived from local hard policy and this signed Release.
@@ -241,7 +244,7 @@ def verify_release(
     store: ArtifactStore,
     verify_signature: ArtifactVerifier,
     *,
-    allow_nginx_acceptance: bool = False,
+    product: str | None = None,
 ) -> VerifiedRelease:
     """Verify the Plan's target Release or raise ``InputRejectedError``.
 
@@ -253,14 +256,14 @@ def verify_release(
         release = parse_lifecycle_release_manifest(payload)
     except RuntimeReleaseError as error:
         raise InputRejectedError("release", InputProblem.MALFORMED) from error
-    if release.schema_version != LIFECYCLE_RELEASE_SCHEMA and not (
-        allow_nginx_acceptance and release.schema_version == NGINX_ACCEPTANCE_SCHEMA
-    ):
+    if release.schema_version not in LIFECYCLE_RELEASE_SCHEMAS:
         raise InputRejectedError("release", InputProblem.SCHEMA_UNSUPPORTED)
+    if release.product != product:
+        raise InputRejectedError("release", InputProblem.PRODUCT_MISMATCH)
     if release.digest != plan.target_release_digest:
         raise InputRejectedError("release", InputProblem.DIGEST_MISMATCH)
     if (
-        isinstance(release, NginxAcceptanceRelease)
+        isinstance(release, ApplicationRelease)
         and release.release_version != plan.target_release_id
     ):
         raise InputRejectedError("release", InputProblem.VERSION_MISMATCH)
@@ -268,11 +271,12 @@ def verify_release(
         digest=release.digest,
         component_images=_component_images(release.to_mapping()),
         # The manifest parser restricted every maximum to a CapabilityMode value.
-        capability_maximums=cast(dict[str, CapabilityMode], dict(release.capability_maximums)),
+        capability_maximums=cast(dict[str, CapabilityMode], release.capability_maximums),
         schema_target=release.schema_target,
         schema_minimum=None if release.schema_range is None else release.schema_range.minimum,
         schema_maximum=None if release.schema_range is None else release.schema_range.maximum,
         configuration_schema=release.configuration_schema,
+        workloads=release.workloads if isinstance(release, ApplicationRelease) else {},
     )
 
 

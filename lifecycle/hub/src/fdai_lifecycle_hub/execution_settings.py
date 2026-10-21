@@ -38,13 +38,11 @@ class WindowRequest(BaseModel):
         return self
 
 
-class ExecutionSettingsRequest(BaseModel):
+class SettingsChangeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     request_id: UUID
     expected_settings_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
-    windows: tuple[WindowRequest, ...] = Field(max_length=32)
-    plan_duration_minutes: int = Field(ge=1, le=1440)
     reason_code: str = Field(pattern=r"^[a-z][a-z0-9_]{0,95}$")
     confirmation: str = Field(min_length=1, max_length=256)
 
@@ -53,13 +51,25 @@ class ExecutionSettingsRequest(BaseModel):
         return canonical_digest(self.model_dump(mode="json"))
 
 
+class ExecutionSettingsRequest(SettingsChangeRequest):
+    windows: tuple[WindowRequest, ...] = Field(max_length=32)
+    plan_duration_minutes: int = Field(ge=1, le=1440)
+
+
+class ApplicationBindingRequest(SettingsChangeRequest):
+    product: str = Field(pattern=r"^[a-z][a-z0-9-]{0,62}$")
+
+
 def settings_digest(settings: Settings) -> str:
-    return canonical_digest(settings_json.dump_python(settings, mode="json"))
+    fields = settings_json.dump_python(settings, mode="json")
+    fields["allowed_regions"] = sorted(settings.allowed_regions)
+    return canonical_digest(fields)
 
 
 def settings_record(settings: Settings) -> dict[str, object]:
     return {
         "settings_digest": settings_digest(settings),
+        "product": settings.product,
         "windows": [maintenance_window_record(window) for window in settings.windows],
         "plan_duration_minutes": settings.plan_duration_minutes,
     }

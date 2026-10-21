@@ -1,12 +1,12 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: f611e1d08d679459290146b5ef4c9854d5094908
+translation_source_sha: dbf21b5f82f9dc66af1d3e0d07f2ea881530b6a5
 translation_revised: 2026-10-21
 ---
 # Lifecycle Release와 채널
 
-이 문서는 FDAI Release에 무엇이 들어 있는지, Release가 release channel을 따라 어떻게 이동하는지
+이 문서는 애플리케이션 Release에 무엇이 들어 있는지, Release가 release channel을 따라 어떻게 이동하는지
 정의합니다. 또한 연결된 설치와 오프라인 설치가 Release를 받는 방법, 그리고 회수와 데이터베이스
 스키마 호환성이 업그레이드를 안전하게 유지하는 방법을 정의합니다. 이 문서는 Release 매니페스트,
 채널 모델, 업그레이드 번들, 회수를 소유합니다.
@@ -80,28 +80,35 @@ release 목록이 같아도 신선도를 다시 발행하려면 검토가 필요
 운영용 서명된 카탈로그 역할을 대신하지 않습니다.
 UI는 읽기 전용 **Refresh catalog**와 **Renew catalog freshness**를 구분합니다.
 
-## nginx 전용 개발 검증
+## 애플리케이션 패키지 계약
 
-`fdai.nginx-acceptance-release.v1`은
-[nginx 검증 시나리오](hub-managed-lifecycle-ko.md#nginx-검증-입력-설계와-검토)를 위한
-별도의 개발 전용 매니페스트입니다. 필수 필드는 `schema_version`, 표준 의미적 버전인
-`release_version`, 정확한 `source_commit`, 지원하는 Linux `platform_tag`,
-`workloads: {"nginx": {"image_digest": "sha256:<64 lowercase hex characters>"}}`입니다.
-런타임 v3와 동일한 선택적 `configuration_schema`를 다이제스트로 고정하여 포함할 수 있으며,
-그 버전은 `release_version`과 일치해야 합니다. 알 수 없는 필드나 추가 워크로드는
-허용하지 않습니다. FDAI 서비스, 데이터베이스, 설치 Agent, 기능 권한은 선언하지 않습니다.
-`source_commit`은 FDAI 실행 조정 소스의 스냅샷을 가리키며, nginx 이미지의 빌드나 공급망
-증명을 뜻하지 않습니다. 기존 비루트 데모 렌더러는 8080번 포트의 HTTP 응답을 기대합니다.
+Hub 엔진은 앱별 고정 서비스 목록 없이 `fdai.application-release.v1`을 받습니다.
+FDAI도 하나의 배포 대상입니다. 발행, 정확한 고정값을 사용한 검증, 회수와 채널 선택은 모든
+`product`에 같은 경로를 사용합니다. 채널이 프로덕션 자격 검증을 대신하지는 않습니다.
 
-등록할 때 내부 버전을 변경할 수 없는 카탈로그 ID와 연결합니다. 게시와 독립적으로
-고정한 가져오기는 원본 바이트 서명, 카탈로그 만료, 리비전 하한, 회수 검증을 유지합니다.
-채널은 `DEV`만 허용합니다. 기존 FDAI 런타임 파서는 이 형식을 계속 차단하며,
-Agent의 로컬 정책에서 nginx를 명시적으로 선택하지 않으면 Kubernetes에 쓰기 전에 차단합니다.
-Release Hub의 목록과 상세 화면은 nginx 검증을 FDAI 릴리스와 구분합니다. 데이터베이스
-호환성은 해당 없음으로, 공급망 근거는 선언되지 않음으로 표시합니다.
-이 형식은 기존 리소스의 소유권을 수락하거나 프로덕션 Release의 적격성을 부여하지 않습니다.
+| 필드 | 현재 계약 |
+|------|-----------|
+| `schema_version` | `fdai.application-release.v1` |
+| `product` | 독립적인 앱 ID: `[a-z][a-z0-9-]{0,62}` |
+| `release_version`, `source_commit`, `platform_tag` | 시맨틱 버전, 정확한 앱 소스 개정과 산출물 플랫폼 |
+| `workloads` | 이름이 있는 HTTP 구성요소 1-64개. 각 이름은 Kubernetes DNS 레이블입니다 |
+| `workloads.<component>.image_digest` | 필수 불변 `sha256:` 이미지 다이제스트 |
+| `workloads.<component>.port` | 정수 1-65535. 기본값 8080 |
+| `workloads.<component>.health_path` | 길이가 제한된 ASCII 절대 상태 확인 경로. URL과 `//` 경로는 허용하지 않으며 기본값은 `/`입니다 |
+| `workloads.<component>.replicas` | 정수 1-3. 기본값 1 |
+| `configuration_schema`, `schema` | 선택적인 기존 버전/다이제스트 연계 구성 스키마와 데이터베이스 호환성 정보 |
 
-## Release 내용
+엄격한 UTF-8 JSON 검사로 중복 키와 유한하지 않은 수를 차단합니다. 정의되지 않은 워크로드
+필드로 Kubernetes 템플릿, 권한이나 네임스페이스 선택을 주입할 수 없습니다. 현재 렌더러는
+범위가 제한된 Deployment와 ClusterIP Service만 만들며, 임의 앱의 모든 배포 방식을 지원하지는
+않습니다. 공급망 근거가 없으면 **Not declared**로 표시하며 근거를 만들거나 검증했다고
+주장하지 않습니다. 제품 ID는 독립적으로 승인된 설치 Settings 및 Agent 로컬 정책과 모두
+일치해야 합니다. 데이터베이스 정보가 없으면 개정 0을 선택하며 기존 데이터베이스를 초기화할 수
+없습니다. 릴리스 버전은 제품별로 나누지 않고 카탈로그 전체에서 고유합니다.
+별도의 `fdai.runtime-release.v3` 어댑터는 기존 FDAI 전체 서비스 목록과 소스/오프라인 계약을
+유지합니다. 관련 없는 앱에 이 형식을 요구하지는 않습니다.
+
+## FDAI 런타임 어댑터 내용
 
 | 필드 | 내용 |
 |------|------|

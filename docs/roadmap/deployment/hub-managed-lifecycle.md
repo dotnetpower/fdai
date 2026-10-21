@@ -16,8 +16,10 @@ loop, and the customer isolation boundary.
 > tracks the exact delivered boundaries. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
 >
-> **Scope:** This path manages FDAI's own lifecycle: installation, upgrade, configuration, drift,
-> and recall. It never manages customer resources, which stay with the operations loop.
+> **Scope:** The Hub deployment engine is application-neutral. FDAI is one deployable application,
+> not a required service inventory. Each installation remains restricted to its independently
+> approved application, owned Entities and local effect envelope. This does not give the FDAI
+> operations loop authority over other applications.
 > [Lifecycle Configuration](lifecycle-configuration.md) owns configuration layers and secrets, and
 > [Lifecycle Releases and Channels](lifecycle-releases-and-channels.md) owns Releases, channels,
 > bundles, and recall.
@@ -41,6 +43,41 @@ Release Hub service already exists.
 | Upgrades | Automatic inside maintenance windows. Configuration changes need an approved change request, and deleting or replacing an Azure resource needs confirmation. |
 | Data boundary | The Hub holds no customer workload credential or operational data. Its own bounded service identity and signing key do not authorize customer resource changes. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |
+
+## Application-neutral package boundary
+
+Publication, pinned import, planning, execution and reporting share `fdai.application-release.v1`.
+Its product, application source, immutable component images and HTTP metadata are data, not engine
+branches. The [Release contract](lifecycle-releases-and-channels.md#application-package-contract)
+owns field bounds and optional configuration/database schema metadata. Without database metadata,
+schema revision zero represents a stateless application, not migration or database-reset authority.
+
+The approved enrollment Settings and installation-local Agent policy each bind `product`.
+Neither a package nor a Plan may choose this binding. A missing or different binding blocks the
+application package. Existing installations without this field retain only legacy runtime-package
+compatibility; explicit application bindings never fall back to that path. The legacy runtime
+parser still validates complete FDAI inventories for source/offline compatibility.
+
+For existing enrollments, operator-only `POST /v1/installations/{installation_id}/application-binding`
+requires a UUID, current Settings digest, reason and confirmation
+`bind application <installation_id> <product> <settings_digest>`. The installation row lock
+serializes scheduling and planning; open Plans, stale digests and application retargeting are
+blocked. Exact same-actor retry and attributed audit are retained without changing ownership,
+permissions, configuration or reported state. The lazy **Application** tab requires the ID twice
+and generates machine values. Uncertain results require refresh, not automatic resubmission.
+Agent local policy remains independent; see the [operator procedure](../../runbooks/hub-lifecycle-operator-guide.md).
+
+**Critique and revision:** Renaming a hardcoded application is not a shared engine. Image lists alone
+permit cross-application substitution and omit health observation. Independent product bindings,
+signed component/health metadata and strict JSON retain exact signatures, version/digest checks,
+artifact availability, recall, windows, ownership, dry-run, rollback and durable replay guards.
+There are no application-specific flags or Entity kinds. Packages never prove ownership.
+Arbitrary Kubernetes templates, privileges, namespace creation, new ownership evidence and
+database migration execution remain outside this change.
+
+Release ids remain unique within one Release Hub catalog. This change makes that catalog usable
+for any application; it does not introduce a multi-product version namespace. Local synthetic
+checks are not Azure deployment evidence or production qualification.
 
 ## Installation Agent configuration source consumer
 
@@ -198,28 +235,6 @@ request UUID. Reads and writes have ten-second deadlines. A rejected or uncertai
 further changes until an explicit refresh; it never retries a write or computes/applies a Plan.
 Focused source and synthetic UI checks are not live deployment evidence. Exact-source activation,
 human operational confirmation and the remaining evidence-backed nginx preparation stay separate.
-
-## Nginx acceptance input design and critique
-
-The development acceptance scenario uses a separate `fdai.nginx-acceptance-release.v1`
-manifest, not an nginx image declared as an FDAI Core service. Its exact source, semantic
-version, Linux platform and single `workloads.nginx.image_digest` are signed through the
-existing publication and independently pinned catalog path. It has no FDAI services, database,
-installation-agent images or capability grants. Internal schema revision zero means that this
-workload has no database; it does not claim a migrated FDAI installation.
-
-**Critique and revision:** Accepting an arbitrary workload catalog would create a general app
-manager. This format accepts only nginx, only on `DEV`. Planning requires exactly one managed
-Entity of kind `nginx-acceptance`. The Agent additionally requires an explicit
-`nginx_acceptance: true` in its local hard policy, exactly one nginx Entity, no capability modes
-and no destructive allowance. Existing runtime v3 validation and default Agent denial stay intact.
-Digest, signature, recall, image availability, configuration, maintenance-window, replay,
-namespace, dry-run, rollback and effect checks still apply. Neither the manifest nor this opt-in
-proves namespace ownership or grants execution authority.
-
-Native namespace ownership acceptance, exact-source runtime activation, actual image delivery
-and independently observed installation, update and recovery remain separate work. Local parser
-or transport checks do not establish that nginx has been deployed.
 
 ## Read-only input inventory
 

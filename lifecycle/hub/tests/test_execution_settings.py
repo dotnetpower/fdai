@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -22,6 +25,30 @@ from fdai_lifecycle_hub.execution_settings import (
 )
 from fdai_lifecycle_hub.schemas import maintenance_window_record
 from fdai_lifecycle_hub.store import HubStore
+
+
+def test_settings_digest_is_stable_across_python_hash_seeds() -> None:
+    source = """
+from fdai_lifecycle_hub.domain import Settings
+from fdai_lifecycle_hub.execution_settings import settings_digest
+print(settings_digest(Settings(
+    channel="DEV", version_range="*", region="region-a", windows=(),
+    allowed_regions=frozenset({"region-a", "region-b", "region-c", "region-d"}),
+)))
+"""
+    results = [
+        subprocess.run(  # noqa: S603 - fixed test interpreter and synthetic source
+            [sys.executable, "-c", source],
+            env={**os.environ, "PYTHONHASHSEED": seed},
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        ).stdout.strip()
+        for seed in ("1", "2", "123")
+    ]
+    assert len(set(results)) == 1
+    assert len(results[0]) == 64
 
 
 def command_body(store: HubStore, installation_id: str) -> dict[str, object]:

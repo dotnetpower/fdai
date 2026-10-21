@@ -28,6 +28,22 @@ const command: ExecutionSettingsRequest = {
 };
 
 describe("bounded execution-settings client", () => {
+  it("posts an application binding only to its authenticated route under the same deadline", async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      changed: true, settings_digest: "b".repeat(64),
+    })));
+    vi.stubGlobal("fetch", fetcher);
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const { windows: _windows, plan_duration_minutes: _duration, ...common } = command;
+    const body = { ...common, product: "example-web" };
+    await hubApi.bindApplication("installation-alpha", body);
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledWith("/v1/installations/installation-alpha/application-binding", {
+      method: "POST", body: JSON.stringify(body),
+      headers: { "content-type": "application/json" }, signal: expect.any(AbortSignal),
+    });
+    expect(timeout).toHaveBeenCalledWith(10_000);
+  });
   it("reads only the schedule projection with a ten-second deadline", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       settings_digest: "a".repeat(64), windows: [], plan_duration_minutes: 30,

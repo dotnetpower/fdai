@@ -271,15 +271,38 @@ def _int(value: Mapping[str, object], field: str) -> int:
     return item
 
 
-def load_json_object(data: bytes, *, label: str, max_bytes: int = 1_048_576) -> dict[str, Any]:
+def load_json_object(
+    data: bytes, *, label: str, max_bytes: int = 1_048_576, strict: bool = False
+) -> dict[str, Any]:
     """Decode one bounded JSON object."""
 
     if not data or len(data) > max_bytes:
         raise ValueError(f"{label} is empty or exceeds its size limit")
     try:
-        value = json.loads(data)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        value = (
+            json.loads(
+                data.decode("utf-8"),
+                object_pairs_hook=_unique_json_object,
+                parse_constant=_reject_json_constant,
+            )
+            if strict
+            else json.loads(data)
+        )
+    except (ValueError, RecursionError) as exc:
         raise ValueError(f"{label} is not valid JSON") from exc
     if not isinstance(value, dict):
         raise ValueError(f"{label} MUST be a JSON object")
     return value
+
+
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON field")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value: str) -> object:
+    raise ValueError("non-finite JSON number")

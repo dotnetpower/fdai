@@ -179,6 +179,11 @@ class RuntimeRelease:
     installation_agent_images: tuple[str, ...] = ()
     configuration_schema: ConfigurationSchema | None = None
 
+    @property
+    def product(self) -> str | None:
+        """Legacy inventories have no independent application binding."""
+        return None
+
     def to_mapping(self) -> dict[str, object]:
         """Return a detached canonical catalog mapping, without host paths or bytes."""
 
@@ -339,7 +344,6 @@ def _parse_runtime_release(
 
 
 def parse_release_configuration_schema(value: object) -> ConfigurationSchema:
-    """Validate the same digest-bound configuration schema for either lifecycle manifest."""
     artifact = _object(value, {"format", "release_version", "schema_sha256", "keys"})
     version = artifact["release_version"]
     if artifact["format"] != "fdai.release-configuration-schema.v1":

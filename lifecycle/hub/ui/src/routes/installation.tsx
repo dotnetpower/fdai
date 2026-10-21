@@ -5,12 +5,13 @@ import { HealthBadge, OutcomeBadge } from "../components/badge";
 import { Link } from "../components/link";
 import { ConstraintResults } from "../components/constraint-results";
 import { ExecutionSettingsPanel } from "../components/execution-settings";
+import { ApplicationBindingPanel } from "../components/application-binding";
 import { formatDurationMinutes, formatRelative, formatTimestamp } from "../format";
 import { useAsync } from "../hooks/use-async";
 import { reportSeverity, reportSeverityClass } from "../report-status";
 import { installationsPath, planPath } from "../router";
 
-type Tab = "constraints" | "entities" | "schedule";
+type Tab = "constraints" | "entities" | "schedule" | "application";
 
 export function InstallationPage({ installationId }: { installationId: string }) {
   const detail = useAsync(() => hubApi.getInstallation(installationId), [installationId]);
@@ -109,12 +110,24 @@ export function InstallationPage({ installationId }: { installationId: string })
               <button type="button" disabled title="Not available yet">
                 Configuration
               </button>
+              <button type="button" class={tab === "application" ? "on" : ""}
+                aria-pressed={tab === "application"} onClick={() => setTab("application")}>
+                Application
+              </button>
             </nav>
 
             {tab === "schedule" && <ExecutionSettingsPanel
               installationId={installationId} blocked={installation.open_plan !== null}
               onSaved={() => {
                 setNotice("Execution settings saved. No Plan was computed or applied.");
+                detail.reload();
+              }}
+            />}
+
+            {tab === "application" && <ApplicationBindingPanel
+              installationId={installationId} blocked={installation.open_plan !== null}
+              onSaved={() => {
+                setNotice("Application bound. No Plan was computed or applied.");
                 detail.reload();
               }}
             />}

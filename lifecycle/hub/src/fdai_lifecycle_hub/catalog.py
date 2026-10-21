@@ -12,8 +12,8 @@ from functools import cmp_to_key
 from pathlib import Path
 
 from fdai_deployment_cli.lifecycle_release import (
+    ApplicationRelease,
     LifecycleRelease,
-    NginxAcceptanceRelease,
     parse_lifecycle_release_manifest,
 )
 from fdai_deployment_cli.runtime_release import (
@@ -37,15 +37,11 @@ class ReleaseCatalog:
     recalls: tuple[RecallRecord, ...] = ()
 
     def __post_init__(self) -> None:
-        for release_id, release in self.releases.items():
-            if isinstance(release, NginxAcceptanceRelease):
-                if release.release_version != release_id:
-                    raise ValueError("Acceptance version must match its catalog id.")
-                if any(
-                    name != "DEV" and release_id in members
-                    for name, members in self.channels.items()
-                ):
-                    raise ValueError("Nginx acceptance releases are restricted to DEV.")
+        if any(
+            isinstance(release, ApplicationRelease) and release.release_version != release_id
+            for release_id, release in self.releases.items()
+        ):
+            raise ValueError("Application version must match its catalog id.")
         if invalid := sorted(r for r in self.releases if not is_release_id(r)):
             raise ValueError(f"Release ids are not canonical SemVer: {invalid}")
         unknown = {

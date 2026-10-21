@@ -47,6 +47,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     decode_canonical_plan_payload,
     evaluate_plan_admission,
 )
+from fdai_deployment_cli.lifecycle_release import is_product_id
 
 from fdai_lifecycle_agent.configuration_rendering import (
     prepare_workload,
@@ -147,7 +148,7 @@ class AgentSettings:
     maximum_envelope: LifecycleEffectEnvelope
     entity_components: Mapping[str, frozenset[str]]
     component_repositories: Mapping[str, str] = field(default_factory=dict)
-    nginx_acceptance: bool = False
+    product: str | None = None
 
     def __post_init__(self) -> None:
         validate_path_segment(self.installation_id, "installation_id")
@@ -156,16 +157,8 @@ class AgentSettings:
         }
         if uncovered:
             raise ValueError("every envelope Entity MUST name at least one Release component")
-        if type(self.nginx_acceptance) is not bool:
-            raise ValueError("nginx_acceptance MUST be a boolean")
-        if self.nginx_acceptance and (
-            len(self.maximum_envelope.entity_ids) != 1
-            or set(self.entity_components) != self.maximum_envelope.entity_ids
-            or any(names != frozenset({"nginx"}) for names in self.entity_components.values())
-            or self.maximum_envelope.capability_modes
-            or self.maximum_envelope.destructive_allowed
-        ):
-            raise ValueError("nginx acceptance requires one nginx Entity without capability grants")
+        if self.product is not None and not is_product_id(self.product):
+            raise ValueError("local policy product must be an application identifier")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -322,10 +315,7 @@ class LifecycleAgent:
         settings = self._settings
         try:
             release = verify_release(
-                plan,
-                deps.artifact_store,
-                deps.verify_release_signature,
-                allow_nginx_acceptance=settings.nginx_acceptance,
+                plan, deps.artifact_store, deps.verify_release_signature, product=settings.product
             )
             configuration = verify_configuration(
                 plan,

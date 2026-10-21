@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: f28faa06a8c15cc2bfbb32f87c35d049e92174c4
+translation_source_sha: 3f40a3fe4b95736bcb7c2de319664857e9cc70f6
 translation_revised: 2026-10-21
 ---
 
@@ -33,6 +33,7 @@ Host에서 실행됩니다.
 | 승인 | 각 정확한 계획 digest에 연결된 현재 사람 승인 |
 | 런타임 신원 | 기본값은 범위가 제한된 읽기 전용 관찰 신원이며, 권한 있는 실행기는 명시적 `governed-execution` 추가 기능에서만 사용 |
 | GitHub 의존성 | 대상 환경 배포에는 없음 |
+| 공유 Hub 라이브러리 | 앱 파서와 기존 런타임 어댑터는 [Release 계약](lifecycle-releases-and-channels-ko.md#애플리케이션-패키지-계약)을 따르며 공개 소스/오프라인 명령은 그대로 유지합니다 |
 
 GitHub Actions는 소스를 검증하고 이미지를 빌드하며 선택적으로 서명된 release를 게시할 수 있지만, 게시는 배포 검증의 필수 조건이 아닙니다. GitHub Actions는 대상 환경을 계획, 적용, 재개 또는 제거할 수 없습니다. 읽기 전용 [관측 산출물 사전 점검](../architecture/aks-outbound-connector-ko.md#산출물-사전-점검)은 정확한 Core 이미지에 같은 고정 신뢰 루트의 오프라인 키트·OCI 검증기를 재사용하며, 제한된 프로세스 결과로 새 release 신뢰나 승인·설치 권한을 만들지 않습니다. 같은 키트는 경로, profile id, source timestamp, 파일 digest 및 전체 manifest digest에 결속된 선택적 기본 Rule 활성화 profile도 포함할 수 있습니다. 준비 단계는 결정론적 Core 환경 바인딩만 출력하며 세대를 적용하거나 대상 환경 workload를 배포하지 않습니다.
 
@@ -678,13 +679,11 @@ CLI는 [Lifecycle 구성](lifecycle-configuration-ko.md) 패키지용 순수 검
 든 패키지를 거부합니다. 아직 이 검증기를 호출하는 패키저는 없으며, 배포나 적용 권한을 부여하지
 않습니다.
 
-CLI는 Hub 및 [lifecycle 에이전트](../../../lifecycle/agent/README.md)와 순수 Lifecycle Plan 검사를 공유합니다.
-`canonical_plan_payload`는 서명할 정확한 바이트를 만듭니다. `decode_canonical_plan_payload`는 Plan을 해석하면서 알 수 없거나 빠졌거나 타입이 잘못된 필드와 시간대가 없는 만료 시각을 거부합니다.
-디코딩은 서명을 검증하지 않으며, 에이전트는 `evaluate_plan_admission`이 수용한 Plan만 신뢰합니다.
-
-`LifecycleRelease`는 변경되지 않은 FDAI 런타임 입력과 [nginx 전용 개발 형식](lifecycle-releases-and-channels-ko.md)의 읽기 전용 메타데이터를 제공합니다.
-필수 산출물에는 nginx의 고정된 워크로드가 포함되며 데이터베이스는 사용하지 않습니다. 서명, 버전, 만료 시각, 원본 상태 및 허용 효과 범위 검사는 그대로 적용합니다.
-배포 명령, 기존 리소스의 소유권 또는 실행 권한은 추가하지 않습니다. 소스 및 오프라인 설치의 FDAI 런타임 입력을 nginx로 대체할 수 없습니다.
+CLI는 Hub와 [lifecycle 에이전트](../../../lifecycle/agent/README.md)가 함께 쓰는 순수 Lifecycle
+Plan 검사도 포함합니다. `canonical_plan_payload`는 Hub 키가 서명하는 정확한 바이트를 만들고,
+`decode_canonical_plan_payload`는 그 바이트를 다시 Plan으로 해석합니다. 디코더는 알 수 없거나
+빠졌거나 타입이 잘못된 필드와 시간대가 없는 만료 시각을 거부합니다. 서명은 검증하지 않으므로,
+에이전트는 `evaluate_plan_admission`이 수용한 Plan만 신뢰합니다.
 
 ## Standalone 배포 순서
 

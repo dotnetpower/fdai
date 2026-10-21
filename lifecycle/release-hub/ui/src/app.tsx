@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { actionsFor, artifacts, isNginxAcceptance, releaseTitle, requestCatalog, schemaCompatibility, type Action, type Catalog, type Release } from "./api";
+import { actionsFor, artifacts, releaseTitle, requestCatalog, schemaCompatibility, type Action, type Catalog, type Release } from "./api";
 
 const TITLES = { register: "Register release", publish: "Publish to DEV", contribute: "Add to channel", recall: "Recall release", renew: "Renew catalog freshness" };
 type Pending = { action: Action; release: Release | null };
@@ -54,7 +54,6 @@ function Confirm({ pending, catalog, close, done }: {
         <label>Release id (SemVer)<input required value={id} onInput={(e) => setId(e.currentTarget.value)} placeholder="1.0.0" /></label>
         <label>Release label (optional)<input maxLength={160} value={label} onInput={(e) => setLabel(e.currentTarget.value)} /></label>
         <label>Lifecycle release manifest<textarea required rows={7} spellcheck={false} value={manifest} onInput={(e) => setManifest(e.currentTarget.value)} /></label>
-        <p>Runtime v3 or nginx acceptance v1. Nginx acceptance stays on DEV and installs no FDAI services.</p>
         <p>Metadata validation only. Artifact files and registry availability are not checked.</p>
       </>}
       {pending.release && <p><strong>{releaseTitle(pending.release)}</strong><code class="digest">{pending.release.digest}</code></p>}
@@ -86,8 +85,7 @@ function Status({ release }: { release: Release }) {
 function ReleaseDetail({ release, catalog, act, disabled }: {
   release: Release; catalog: Catalog; act: (action: Action, release: Release) => void; disabled: boolean;
 }) {
-  const manifest = JSON.parse(release.manifest) as { source_commit: string; platform_tag: string };
-  const acceptance = isNginxAcceptance(release.manifest);
+  const manifest = JSON.parse(release.manifest) as { source_commit: string; platform_tag: string; schema: { target: number; tolerates: { minimum: number; maximum: number } } };
   return <>
     <a href="#/releases" class="back">All releases</a>
     <div class="page-head"><div><p class="eyebrow">Release detail</p><h1>{releaseTitle(release)}</h1><p>{release.label || "No release label"}</p></div>
@@ -99,7 +97,6 @@ function ReleaseDetail({ release, catalog, act, disabled }: {
       <div><span>Schema compatibility</span><strong>{schemaCompatibility(release.manifest)}</strong></div>
       <div><span>Artifact availability</span><strong>Unverified</strong></div>
     </div>
-    {acceptance && <p>Development nginx acceptance only. No database or FDAI runtime is installed; this release stays on DEV.</p>}
     {release.state === "recalled" && <p class="warning" role="status">Recalled at {time(release.recalled_at!)}. New channel contributions are blocked. Refresh the pinned catalog before recomputing Lifecycle Plans.</p>}
     <section><h2>Channel membership</h2><div class="channel-grid">{Object.entries(catalog.channels).map(([channel, members]) =>
       <div class="channel" key={channel}><h3>{channel}</h3><p>{members.includes(release.id) ? release.state === "recalled" ? "Withdrawn by recall" : "Eligible for planning" : "Not added"}</p><a href="#/channels">Review channel</a></div>
@@ -127,7 +124,7 @@ function Activity({ catalog, releaseId }: { catalog: Catalog; releaseId?: string
   return events.length ? <ol class="activity">{events.map((event) => <li key={event.revision}>
     <div><strong>{event.action}{event.channel ? ` / ${event.channel}` : ""}</strong>{event.action === "renew"
       ? <a href="#/trust">Catalog freshness</a>
-      : <a href={`#/releases/${event.release_id}`}>FDAI {event.release_id}</a>}</div>
+      : <a href={`#/releases/${event.release_id}`}>Release {event.release_id}</a>}</div>
     <p>{event.reason}</p><small>Revision {event.revision} / {time(event.occurred_at)} / {event.actor === "local-operator" ? "local operator (unauthenticated)" : event.actor ? `operator: ${event.actor}` : "Operator attribution unavailable"}</small>
   </li>)}</ol> : <p class="empty">No recorded activity.</p>;
 }
@@ -177,15 +174,12 @@ export function App() {
           : route === "/releases" ? <>
             <div class="page-head"><div><p class="eyebrow">Release catalog</p><h1>Releases</h1><p>Publish once. Curate eligibility. Keep the evidence in view.</p></div><button class="primary" disabled={disabled} onClick={() => setPending({ action: "register", release: null })}>Register release</button></div>
             <div class="summary"><strong>{catalog.releases.length} releases</strong><span>Revision {catalog.revision}</span><span>Updated {time(catalog.updated_at)}</span></div>
-            {catalog.releases.length === 0 ? <section class="empty"><h2>No releases yet</h2><p>Register an existing runtime v3 or nginx acceptance v1 manifest to begin. No sample releases are seeded.</p></section>
+            {catalog.releases.length === 0 ? <section class="empty"><h2>No releases yet</h2><p>Register a signed application package or a legacy runtime manifest to begin. No sample releases are seeded.</p></section>
               : <div class="release-list">{catalog.releases.map((r) => <a key={r.id} href={`#/releases/${r.id}`} class="release-row"><div><strong>{releaseTitle(r)}</strong><p>{r.label || "No label"}</p></div><Status release={r} /><span>{r.channels.join(" / ") || "No channel"}</span><span class="row-next" aria-hidden="true">View details</span></a>)}</div>}
           </> : route === "/channels" ? <>
             <div class="page-head"><div><p class="eyebrow">Eligibility curation</p><h1>Channels</h1><p>Manual contributions only. Automatic promotion gates are not implemented.</p></div></div>
             <div class="channel-grid">{Object.entries(catalog.channels).map(([channel, members]) => <section class="channel" key={channel}><h2>{channel}</h2><p>{members.length} memberships (including recalled releases)</p>
-              {members.map((id) => {
-                const member = catalog.releases.find((r) => r.id === id);
-                return <p key={id}><a href={`#/releases/${id}`}>{member ? releaseTitle(member) : `Unavailable release ${id}`}</a> {member?.state === "recalled" ? " / Recalled" : ""}</p>;
-              })}
+              {members.map((id) => <p key={id}><a href={`#/releases/${id}`}>Release {id}</a> {catalog.releases.find((r) => r.id === id)?.state === "recalled" ? " / Recalled" : ""}</p>)}
               {!members.length && <p>No releases added.</p>}
             </section>)}</div><p>Channel membership is eligibility, not permission to deploy. Installation constraints remain authoritative.</p>
           </> : route === "/activity" ? <><h1>Activity</h1><p>Transactional publication changes, newest first. Development attribution is not a production audit guarantee.</p><Activity catalog={catalog} /></>

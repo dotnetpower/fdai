@@ -55,6 +55,7 @@ from fdai_lifecycle_hub.errors import (
     UnknownPlanError,
 )
 from fdai_lifecycle_hub.execution_settings import (
+    ApplicationBindingRequest,
     ExecutionSettingsError,
     ExecutionSettingsRequest,
     settings_digest,
@@ -109,9 +110,36 @@ class HubStore:
         now: datetime,
     ) -> dict[str, object]:
         """Change only scheduling, atomically with its audit and retry identity."""
+        return self._update_settings(installation_id, command, operator=operator, now=now)
+
+    def bind_application(
+        self,
+        installation_id: str,
+        command: ApplicationBindingRequest,
+        *,
+        operator: str,
+        now: datetime,
+    ) -> dict[str, object]:
+        """Bind an enrolled installation once, without granting ownership or issuing a Plan."""
+        return self._update_settings(installation_id, command, operator=operator, now=now)
+
+    def _update_settings(
+        self,
+        installation_id: str,
+        command: ExecutionSettingsRequest | ApplicationBindingRequest,
+        *,
+        operator: str,
+        now: datetime,
+    ) -> dict[str, object]:
         operator = schemas.actor_name.validate_python(operator)
-        subject = "settings-" + command.request_id.hex
-        action = "installation.execution_settings_changed"
+        binding = isinstance(command, ApplicationBindingRequest)
+        prefix = "application_binding" if binding else "execution_settings"
+        subject = ("application-" if binding else "settings-") + command.request_id.hex
+        action = (
+            "installation.application_bound"
+            if binding
+            else "installation.execution_settings_changed"
+        )
         with self._write() as session:
             row = rows.lock_enrolled(session, installation_id)
             previous = session.scalars(
@@ -126,7 +154,7 @@ class HubStore:
                     previous.payload["request_digest"] != command.digest
                     or previous.payload["operator"] != operator
                 ):
-                    raise ExecutionSettingsError("execution_settings_request_conflict")
+                    raise ExecutionSettingsError(f"{prefix}_request_conflict")
                 return {
                     "changed": False,
                     "settings_digest": previous.payload["settings_digest"],
@@ -134,16 +162,26 @@ class HubStore:
             installation = mapping.to_domain(session, row)
             before = settings_digest(installation.settings)
             if command.expected_settings_digest != before:
-                raise ExecutionSettingsError("execution_settings_revision_conflict")
-            if command.confirmation != f"update execution settings {installation_id} {before}":
-                raise ExecutionSettingsError("execution_settings_confirmation_mismatch")
-            if installation.open_plan is not None:
-                raise ExecutionSettingsError("execution_settings_plan_pending")
-            updated = replace(
-                installation.settings,
-                windows=tuple(window.to_window() for window in command.windows),
-                plan_duration=timedelta(minutes=command.plan_duration_minutes),
+                raise ExecutionSettingsError(f"{prefix}_revision_conflict")
+            confirmation = (
+                f"bind application {installation_id} {command.product} {before}"
+                if isinstance(command, ApplicationBindingRequest)
+                else f"update execution settings {installation_id} {before}"
             )
+            if command.confirmation != confirmation:
+                raise ExecutionSettingsError(f"{prefix}_confirmation_mismatch")
+            if installation.open_plan is not None:
+                raise ExecutionSettingsError(f"{prefix}_plan_pending")
+            if isinstance(command, ApplicationBindingRequest):
+                if installation.settings.product not in (None, command.product):
+                    raise ExecutionSettingsError("application_binding_already_bound")
+                updated = replace(installation.settings, product=command.product)
+            else:
+                updated = replace(
+                    installation.settings,
+                    windows=tuple(window.to_window() for window in command.windows),
+                    plan_duration=timedelta(minutes=command.plan_duration_minutes),
+                )
             digest = settings_digest(updated)
             if before != digest:
                 row.settings = schemas.settings_json.dump_python(updated, mode="json")
@@ -159,6 +197,7 @@ class HubStore:
                     "request_digest": command.digest,
                     "previous_settings_digest": before,
                     "settings_digest": digest,
+                    "product": updated.product,
                     "reason_code": command.reason_code,
                     "changed": before != digest,
                 },

@@ -14,8 +14,8 @@ from cryptography.exceptions import InvalidSignature
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_release import (
     LIFECYCLE_RELEASE_SCHEMAS,
+    ApplicationRelease,
     LifecycleRelease,
-    NginxAcceptanceRelease,
     parse_lifecycle_release_manifest,
 )
 from fdai_deployment_cli.runtime_release import is_release_id
@@ -242,9 +242,6 @@ class ReleaseStore:
                         )
                     if change.channel not in CHANNELS:
                         raise CatalogError("Choose a supported channel.")
-                    release = parse_lifecycle_release_manifest(row["manifest"].encode())
-                    if isinstance(release, NginxAcceptanceRelease) and change.channel != "DEV":
-                        raise CatalogError("Nginx acceptance releases are restricted to DEV.")
                     exists = db.execute(
                         select(membership).where(
                             membership.c.channel == change.channel,
@@ -269,8 +266,8 @@ class ReleaseStore:
 
     @staticmethod
     def _validate_configuration_version(release_id: str, release: LifecycleRelease) -> None:
-        if isinstance(release, NginxAcceptanceRelease) and release.release_version != release_id:
-            raise CatalogError("Acceptance version must match its exact Release id.")
+        if isinstance(release, ApplicationRelease) and release.release_version != release_id:
+            raise CatalogError("Application version must match its exact Release id.")
         schema = release.configuration_schema
         if schema is not None and schema.release_version != release_id:
             raise CatalogError("Configuration schema does not match the exact Release version.")
