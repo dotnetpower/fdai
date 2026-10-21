@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Development-profile logical-lock composition | implemented | `current change`; #2370; `runtime/bootstrap_pantheon.py`, `bootstrap_thor_bindings.py`, new real-initializer composition matrix and commands below | A selected development binding now constructs the configured lock without enabling global enforce. The same binding instance is reused. Actual durable rollback coverage and all other safety checks still refuse unavailable execution; no live profile cycle is claimed. |
 | Source-specific exact-diff approval/profile separation | not-applicable | #2268; [owning boundary](../../roadmap/decisioning/operator-governance-profiles.md#what-stays-the-same); canonical intent wire contracts and optional SDK | Exact source review neither revises the selected approval profile nor grants action, standing-authorization or promotion authority. SDK-local evidence does not qualify installation-profile integration. |
 | Release maximum source availability diagnostics | implemented | `current change`: `services/core-control-plane/src/fdai/runtime/policy_administration.py`; `services/core-control-plane/tests/runtime/test_policy_administration_composition.py`; focused runtime and Mimir tests listed in the 2026-10-19 history row | The unbound source returns `None`, preserving Mimir's observation-only allowance and `release_maximum_unavailable` for enforcement. Missing provenance no longer appears to be an authenticated `shadow` Release maximum. |
 | Authenticated current Release maximum source (F10-F12 A01) | not-started | `lifecycle/agent/src/fdai_lifecycle_agent/inputs.py`, `signatures.py`, and `state.py`; `lifecycle/release-hub/src/fdai_release_hub/store.py`; `packages/deployment-cli/src/fdai_deployment_cli/runtime_release.py` | Existing verification authenticates a Plan target artifact; local Plan outcomes and development catalog exports do not establish Core's installed Release or production metadata currentness and recall. The #1822 source-contract blocker remains. No reader grants authority from those incomplete inputs. |
@@ -25,6 +26,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-22 | implemented | Reproduced a real mismatch: the runtime requires a logical lock for global enforce or selected development authority, but bootstrap supplied it only for global enforce. Compose it for either condition and reuse the selected binding once; leave global mode and every durable safety guard unchanged. | `current change`; #2370; pre-fix matrix: 1 failed/3 passed; post-fix runtime composition cohort: 35 passed; existing safety/lock/layout cohort: 38 passed/1 optional DSN skip; final selected matrix and actual isolated PostgreSQL lock receipt/readback/reacquisition: 5 passed. Commands below; Ruff and strict changed-source mypy passed. | #2210 still requires configured action-specific durable rollback executors and a fresh exact-source live plan/approval cycle/removal. No no-op binding or successful operational receipt was invented. |
 | 2026-10-19 | not-applicable | Clarified that the private SDK's non-action exact-diff approval and closed wire validation do not select, revise, or qualify normal operator governance profiles. | Current documentation change; #2268; paired owning note and scoped route/translation/ledger checks. No profile code, policy, or activation changed. | Qualify profile-aware product integration separately before treating SDK-local review evidence as an installed approval surface; existing risk and approval safeguards remain authoritative. |
 | 2026-10-18 | implemented | Connected the existing full-authority development profile contract to generic source-AKS, Container Apps and protected service deployment, including an explicit clear operation. | `current change`; focused CLI, managed-host, Terraform, runtime and service-materialization checks. | Deploy one 24-hour profile in the selected disposable installation, retain one governed approval receipt, and remove the profile before expiry. |
 | 2026-10-15 | implemented | Replaced the inert Operator kill-switch proposal with a fresh-authenticated signed command topic consumed by Var. The path lowers authority without selecting an ActionType, policy profile, or executor identity. | `0398357455`; 2 contract, 60 Operator IAM, and 96 Var/runtime/layout tests passed; Ruff, strict mypy, schema, translation, roadmap, and site-contract checks passed. | Implement the authorized state read surface and retain one exact deployment engage/no-execute/disengage cycle. |
@@ -52,6 +54,29 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-10-19 | implemented | Hardened the unavailable-Release fallback without introducing Release authority: `FailClosedReleaseMaximums` returns `None` rather than fabricating a signed `shadow` ceiling. The producer/storage/verifier/currentness trace found no authenticated installed-Release consumer contract, so A01 remains blocked on #1822. | `current change`: runtime composition and owning tests; focused `pytest -q --no-cov --basetemp=.fdai/a01-validation/pytest services/core-control-plane/tests/runtime/test_policy_administration_composition.py services/core-control-plane/tests/agents/test_mimir_policy_administration.py::test_mimir_rejects_revision_above_release_maximum services/core-control-plane/tests/agents/test_mimir_policy_administration.py::test_mimir_rejects_missing_wrong_role_subject_and_stale_receipts services/core-control-plane/tests/agents/test_mimir_policy_administration.py::test_mimir_refuses_tampered_wrong_key_and_missing_policy_signatures services/core-control-plane/tests/agents/test_mimir_policy_administration.py::test_activated_admission_policy_cannot_raise_hard_constraints` passed using the existing repository virtual environment. | Bind the actual installed Release and current recall metadata through their owning authenticated contracts before consuming maximums above observation mode. No live or production evidence was collected. |
 
 ### Remaining work
+
+- [x] Bind the configured logical resource lock for an existing development profile while
+  preserving the independent global enforce flag and unchanged fail-closed safety validation.
+- [ ] Supply the actual durable rollback executor bindings and retain the separately authorized
+  governed development cycle, independent effect readback and profile removal required by #2210.
+
+Focused source commands for #2370:
+
+```bash
+.venv/bin/pytest -q -c pyproject.toml --no-cov services/core-control-plane/tests/runtime/test_development_resource_lock_composition.py services/core-control-plane/tests/runtime/test_development_authority_composition.py services/core-control-plane/tests/runtime/test_approval_profile_composition.py services/core-control-plane/tests/runtime/test_bootstrap_pantheon_product_selection.py
+.venv/bin/pytest -q -c pyproject.toml --no-cov services/core-control-plane/tests/agents/test_runtime.py::test_enforce_requires_explicit_safety_bindings services/core-control-plane/tests/agents/test_runtime.py::test_enforce_rollback_coverage_is_required_per_action_contract_pair services/core-control-plane/tests/persistence/test_postgres_resource_lock.py services/core-control-plane/tests/agents/test_framework_layout.py
+```
+
+Results: **35 passed**; **38 passed, 1 skipped** because `FDAI_TEST_RESOURCE_LOCK_DSN` wasn't set.
+The final four-case matrix and skipped PostgreSQL case then passed together (**5 passed**) under
+`with-local-test-database.py`. The child process bound the dedicated test variable from the
+validated loopback-5433 URL, converting only its SQLAlchemy scheme to libpq's `postgresql` scheme
+in memory. No connection value was printed or stored. The PostgreSQL case proves actual session
+ownership receipts, release readback and reacquisition; it is not a cloud-resource action.
+
+The selector lives in the existing Thor safety-bindings factory. An initial inline version
+crossed the bootstrap's enforced 800-LOC limit (804); the cohesive extraction reduced it to
+798, with the same 35 composition cases passing. No LOC limit or debt baseline was raised.
 
 - [x] Pass the active approval profile revision through Forseti, Var, the HIL resume coordinator,
   and the Operator API HIL callback, and record focused tests in which the named operator approves

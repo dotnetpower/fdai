@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 85bab60a7887621e4edc8c53f7daa30afe38c9a3
-translation_revised: 2026-10-20
+translation_source_sha: 1c23a3333931b3704fffc25537184e9eef4953ea
+translation_revised: 2026-10-22
 ---
 # 운영자 거버넌스 프로필
 
@@ -70,6 +70,12 @@ source AKS 배포는 비공개 검토 완료 파일 하나에서만 개발 프�
 별도 실행기 principal을 도출하며, 정확한 대상과 source 개정을 검증합니다. 입력을 생략하면
 기본 경로나 보존된 경로를 유지합니다. 보존된 프로필을 제거하려면 명시적인
 `--clear-development-profile` 애플리케이션 plan이 필요합니다.
+
+Core는 독립적인 전역 enforce 선택이 있거나 개발 바인딩이 이미 선택된 경우, 구성된 논리적
+리소스 잠금을 연결합니다. 동일한 바인딩 인스턴스를 Pantheon에 전달합니다. 이 안전 의존성을
+구성하더라도 전역 enforce를 켜거나 실행 권한을 부여하지는 않습니다. 내구성 있는 롤백
+실행기가 없거나 잠금이 분산 방식이 아닌 경우 등 필수 안전 바인딩이 누락되면 여전히
+진행을 차단합니다. 프로필 선택 자체는 통제된 작업이 성공했다는 근거가 아닙니다.
 
 개발 프로필은 [위험 분류](risk-classification-ko.md)가 소유합니다. 두 프로덕션 프로필이 쓰는
 상시 권한 계약은 [에스컬레이션 및 상시 권한](escalation-and-standing-authority-ko.md)이

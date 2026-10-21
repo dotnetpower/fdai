@@ -72,6 +72,12 @@ the distinct executor principal from that file, and validates its exact target a
 Omission preserves the ordinary or retained path. Removing a retained profile requires the
 explicit `--clear-development-profile` application plan.
 
+Core composes the configured logical resource lock for either the independent global enforce
+selection or an already-selected development binding. The same binding instance reaches the
+Pantheon. Constructing this safety dependency doesn't enable global enforce or grant execution.
+Missing durable rollback executors, a non-distributed lock or other required safety bindings
+still fail closed; a selected profile isn't evidence of a successful governed action.
+
 [Risk Classification](risk-classification.md) owns the development profile.
 [Escalation and Standing Authority](escalation-and-standing-authority.md) owns the standing
 authorization contract that both production profiles use.

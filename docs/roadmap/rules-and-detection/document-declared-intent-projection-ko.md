@@ -1,8 +1,8 @@
 ---
 title: 승인된 문서 의도 변환
 translation_of: document-declared-intent-projection.md
-translation_source_sha: d5c1f55be45eab8fb0d3c8069cfafb5630c37eaa
-translation_revised: 2026-10-20
+translation_source_sha: 36c97cc812b2e2974965e82fff865b8542d0f935
+translation_revised: 2026-10-22
 ---
 # 승인된 문서 의도 변환
 
@@ -132,6 +132,7 @@ Core는 별도의 at-least-once 그룹에서 기존 준비 이벤트를 소비�
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 문서 승인과 구분되는 공유 Core 프로필 및 내구성 있는 안전 바인딩 | [운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md) |
 | 더 넓은 제안 수명 주기 | [문서 온톨로지 증류](document-ontology-distillation-ko.md) |
 | 기존 원본 책임 | [문서 수집 에이전트 책임](../interfaces/document-ingestion-agent-ownership-ko.md) |
 | 근거와 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/document-declared-intent-projection.md) |

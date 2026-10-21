@@ -124,6 +124,7 @@ evidence, elapsed observation, and promotion remain separate gates.
 
 | To learn about | Read |
 |----------------|------|
+| Shared Core profile and durable safety bindings, distinct from document approval | [Operator governance profiles](../decisioning/operator-governance-profiles.md) |
 | Broader proposal lifecycle | [Document ontology distillation](document-ontology-distillation.md) |
 | Existing source ownership | [Document ingestion agent ownership](../interfaces/document-ingestion-agent-ownership.md) |
 | Evidence and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/document-declared-intent-projection.md) |
