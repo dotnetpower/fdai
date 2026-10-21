@@ -17,7 +17,7 @@ from fdai_deployment_cli.lifecycle_native import (
     sign_native_scope,
 )
 
-from fdai_lifecycle_agent.native_cluster import UidCluster, live_uid
+from fdai_lifecycle_agent.native_cluster import UidCluster, live_uid, require_live_anchor
 from fdai_lifecycle_agent.native_state import NativeState, NativeStateStore
 from fdai_lifecycle_agent.state import LocalStateStore
 from fdai_lifecycle_agent.workload import (
@@ -25,6 +25,7 @@ from fdai_lifecycle_agent.workload import (
     ENTITY_LABEL,
     FIELD_MANAGER,
     MANAGED_BY_LABEL,
+    CreationRejectedError,
     Manifest,
     WorkloadError,
 )
@@ -89,12 +90,11 @@ def bootstrap_native_scope(
                 raise WorkloadError("native_scope_proof_invalid")
             require_budget()
             live = cluster.get("Service", scope.anchor_name)
-            if live is None or live_uid(live) != state.anchor_uid:
-                raise WorkloadError("native_scope_anchor_changed")
+            require_live_anchor(live, state.anchor_uid)
             return state.proof
-        if state is not None and state.anchor_uid is None:
+        if state is not None and state.anchor_uid is None and state.pending is not None:
             raise WorkloadError("native_creation_outcome_unknown")
-        if state is None:
+        if state is None or state.anchor_uid is None:
             for kind, name in sorted(scope.resources | {("Service", scope.anchor_name)}):
                 require_budget()
                 if cluster.get(kind, name) is not None:
@@ -112,7 +112,11 @@ def bootstrap_native_scope(
             )
             store.save(state)
             require_budget()
-            created = cluster.create(manifest)
+            try:
+                created = cluster.create(manifest)
+            except CreationRejectedError:
+                store.save(state.model_copy(update={"pending": None}))
+                raise
             uid = live_uid(created)
             version = created.get("metadata", {}).get("resourceVersion")
             if not isinstance(version, str) or not 0 < len(version) <= 128:
@@ -120,9 +124,7 @@ def bootstrap_native_scope(
             state = state.model_copy(update={"anchor_uid": uid, "anchor_resource_version": version})
             store.save(state)
         require_budget()
-        live = cluster.get("Service", scope.anchor_name)
-        if live is None or live_uid(live) != state.anchor_uid:
-            raise WorkloadError("native_scope_anchor_changed")
+        live = require_live_anchor(cluster.get("Service", scope.anchor_name), state.anchor_uid)
         if live.get("spec", {}).get("selector"):
             raise WorkloadError("native_scope_anchor_changed")
         if not apply:

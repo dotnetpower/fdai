@@ -15,6 +15,7 @@ from fdai_lifecycle_agent.workload import (
     COMPONENT_LABEL,
     ENTITY_LABEL,
     Cluster,
+    CreationRejectedError,
     Manifest,
     WorkloadError,
     check_scope,
@@ -41,6 +42,16 @@ def live_uid(live: Manifest | None) -> str:
     ):
         raise WorkloadError("native_resource_identity_unavailable")
     return value
+
+
+def require_live_anchor(live: Manifest | None, uid: str | None) -> Manifest:
+    if (
+        live is None
+        or live_uid(live) != uid
+        or live.get("metadata", {}).get("deletionTimestamp") is not None
+    ):
+        raise WorkloadError("native_scope_anchor_changed")
+    return live
 
 
 class NativeCluster:
@@ -85,8 +96,7 @@ class NativeCluster:
             if state.pending is not None:
                 raise WorkloadError("native_creation_outcome_unknown")
         anchor = self._cluster.get("Service", state.scope.anchor_name)
-        if anchor is None or live_uid(anchor) != state.anchor_uid:
-            raise WorkloadError("native_scope_anchor_changed")
+        require_live_anchor(anchor, state.anchor_uid)
         return state
 
     @staticmethod
@@ -164,7 +174,12 @@ class NativeCluster:
         else:
             if not dry_run:
                 self._store.save(state.model_copy(update={"pending": key}))
-            created = self._cluster.create(owned_manifest, dry_run=dry_run)
+            try:
+                created = self._cluster.create(owned_manifest, dry_run=dry_run)
+            except CreationRejectedError:
+                if not dry_run:
+                    self._store.save(state.model_copy(update={"pending": None}))
+                raise
             if not dry_run:
                 uid = live_uid(created)
                 self._store.save(

@@ -685,14 +685,16 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
 5. The ordinary signed Plan pipeline performs first installation. Local native execution checks
    the original anchor UID before each operation. Every permitted workload object is created
    atomically, and its actual UID is durably retained before further effects. Updates carry UID
-   and resource-version preconditions; deletion carries a UID precondition. Missing or replaced
-   anchors and foreign objects stop execution without adoption.
+   and resource-version preconditions; deletion carries a UID precondition. Missing, replaced or
+   terminating anchors and foreign objects stop execution without adoption.
    Deployment and Service selectors and Pod labels bind the Entity and actual anchor creation
    identity, so a component label alone cannot select foreign Pods or orphan ReplicaSets.
 6. Recovery uses that retained UID history, never a name-only deletion. Uncertain creation,
    failed persistence or conflicting identity requires review rather than a success-shaped
    retry. Existing signed-input, product, window, envelope, dry-run, rollback, replay and
    independent health checks remain required.
+   Only a provider-confirmed rejection without creation clears pending intent for retry or
+   UID-fenced recovery. Timeouts, lost responses and server failures retain the uncertainty fence.
    Every apply poll rechecks native versus legacy mode under the exclusive state lock before
    fetching a Plan or recovering a journal; a legacy client composed before bootstrap stops.
 

@@ -19,6 +19,7 @@ from fdai_lifecycle_agent.reference_state import is_reference_object_name
 from fdai_lifecycle_agent.workload import (
     API_VERSIONS,
     FIELD_MANAGER,
+    CreationRejectedError,
     Manifest,
     WorkloadError,
     check_scope,
@@ -96,6 +97,7 @@ class KubernetesCluster:
                 _request_timeout=self._timeout,
             ),
             missing_ok=False,
+            creating=True,
         )
         return dict(live.to_dict())
 
@@ -221,6 +223,7 @@ class KubernetesCluster:
         request: Callable[[Any, Any], Any],
         *,
         missing_ok: bool = True,
+        creating: bool = False,
     ) -> Any:
         """Run one request; a read/delete ``404`` returns ``None``, not a write success."""
 
@@ -235,6 +238,8 @@ class KubernetesCluster:
         except ApiException as error:
             if error.status == 404 and missing_ok:
                 return None
+            if creating and error.status in {400, 401, 403, 404, 405, 409, 413, 415, 422, 429}:
+                raise CreationRejectedError("kubernetes_request_rejected") from error
             retryable = error.status is None or error.status >= 500
             raise WorkloadError(
                 "kubernetes_unavailable" if retryable else "kubernetes_request_rejected",

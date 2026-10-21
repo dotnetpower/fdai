@@ -13,7 +13,13 @@ from fdai_deployment_cli.lifecycle_native import NativeApproval, NativeScope
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import ANCHOR_LABEL, NativeCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore
-from fdai_lifecycle_agent.workload import Manifest, WorkloadError, object_key, render
+from fdai_lifecycle_agent.workload import (
+    CreationRejectedError,
+    Manifest,
+    WorkloadError,
+    object_key,
+    render,
+)
 
 NOW = datetime(2026, 10, 5, tzinfo=UTC)
 
@@ -131,6 +137,47 @@ def test_default_bootstrap_only_dry_runs_and_does_not_persist(native):
     assert provider.calls == [("create", True)]
     assert provider.objects == {}
     assert not store.path.exists()
+
+
+@pytest.mark.parametrize("operation", ["get", "apply", "delete", "bootstrap"])
+def test_terminating_anchor_stops_reads_writes_and_proof_resume(native, operation):
+    provider, _, approval, _ = native
+    bootstrap(native)
+    cluster = wrapper(native)
+    cluster.apply(manifests()[0])
+    provider.objects[("Service", approval.scope.anchor_name)]["metadata"]["deletionTimestamp"] = (
+        NOW.isoformat()
+    )
+    before = list(provider.calls)
+    with pytest.raises(WorkloadError, match="native_scope_anchor_changed"):
+        if operation == "get":
+            cluster.get("Deployment", "frontend")
+        elif operation == "apply":
+            cluster.apply(manifests()[0])
+        elif operation == "delete":
+            cluster.delete("Deployment", "frontend")
+        else:
+            bootstrap(native)
+    assert provider.calls == before
+
+
+def test_confirmed_anchor_create_rejection_can_retry_without_claiming_creation(native, monkeypatch):
+    provider, store, _, _ = native
+    create = provider.create
+
+    def reject(manifest, *, dry_run=False):
+        if not dry_run:
+            raise CreationRejectedError("kubernetes_request_rejected")
+        return create(manifest, dry_run=dry_run)
+
+    monkeypatch.setattr(provider, "create", reject)
+    with pytest.raises(CreationRejectedError):
+        bootstrap(native)
+    assert store.load().pending is None
+    assert store.load().anchor_uid is None
+    assert not provider.objects
+    monkeypatch.setattr(provider, "create", create)
+    assert bootstrap(native) is not None
 
 
 def test_native_selectors_exclude_foreign_labels_and_retain_anchor_identity(native):

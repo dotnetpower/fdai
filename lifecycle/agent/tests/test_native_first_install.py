@@ -19,7 +19,7 @@ from fdai_lifecycle_agent.dry_run import (
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import NativeCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore
-from fdai_lifecycle_agent.workload import WorkloadError
+from fdai_lifecycle_agent.workload import CreationRejectedError, WorkloadError
 
 
 def test_idle_legacy_agent_rechecks_mode_after_bootstrap_under_poll_lock(harness, monkeypatch):
@@ -63,8 +63,10 @@ def test_idle_legacy_agent_rechecks_mode_after_bootstrap_under_poll_lock(harness
     assert provider.calls == before
 
 
-@pytest.mark.parametrize("first_failure", [False, True])
-def test_signed_native_first_install_update_recovery_and_restart_replay(harness, first_failure):
+@pytest.mark.parametrize("first_failure", ["none", "health", "create-rejected"])
+def test_signed_native_first_install_update_recovery_and_restart_replay(
+    harness, first_failure, monkeypatch
+):
     settings = prepare(harness)
     clock = harness.dependencies().clock
     key = Ed25519PrivateKey.generate()
@@ -139,15 +141,26 @@ def test_signed_native_first_install_update_recovery_and_restart_replay(harness,
     initial_image = (
         f"{settings.component_repositories['frontend']}@{harness.image('frontend-healthy')}"
     )
-    if first_failure:
+    create = provider.create
+    if first_failure == "health":
         provider.broken_images.add(initial_image)
+    elif first_failure == "create-rejected":
+
+        def reject_service(manifest, *, dry_run=False):
+            if not dry_run and manifest["kind"] == "Service":
+                raise CreationRejectedError("kubernetes_request_rejected")
+            return create(manifest, dry_run=dry_run)
+
+        monkeypatch.setattr(provider, "create", reject_service)
     result = poll("0.0.0", "healthy", 8)
-    if first_failure:
+    if first_failure != "none":
         assert result.outcome == "rolled-back"
         assert harness.current_state.entities["application"].release_id is None
         assert store.load().resources == {}
+        assert store.load().pending is None
         assert set(provider.objects) == {("Service", approval.scope.anchor_name)}
         provider.broken_images.clear()
+        monkeypatch.setattr(provider, "create", create)
         assert poll("0.0.0", "healthy", 9).outcome == "applied"
     else:
         assert result.outcome == "applied"

@@ -8,7 +8,7 @@ from kubernetes import config, dynamic  # type: ignore[import-untyped]
 from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
 
 from fdai_lifecycle_agent import kube
-from fdai_lifecycle_agent.workload import Manifest, WorkloadError, render
+from fdai_lifecycle_agent.workload import CreationRejectedError, Manifest, WorkloadError, render
 
 
 def cluster(monkeypatch: pytest.MonkeyPatch) -> tuple[kube.KubernetesCluster, Any]:
@@ -101,6 +101,23 @@ def test_create_only_uses_post_and_propagates_name_conflict(monkeypatch):
     with pytest.raises(WorkloadError, match="kubernetes_request_rejected"):
         client.create(deployment())
     api.server_side_apply.assert_not_called()
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 405, 409, 413, 415, 422, 429])
+def test_create_explicit_api_rejection_confirms_no_effect(monkeypatch, status):
+    client, api = cluster(monkeypatch)
+    api.create.side_effect = ApiException(status=status)
+    with pytest.raises(CreationRejectedError, match="kubernetes_request_rejected"):
+        client.create(deployment())
+
+
+@pytest.mark.parametrize("status", [None, 408, 500, 503, 504])
+def test_create_ambiguous_failure_never_confirms_no_effect(monkeypatch, status):
+    client, api = cluster(monkeypatch)
+    api.create.side_effect = ApiException(status=status)
+    with pytest.raises(WorkloadError) as failure:
+        client.create(deployment())
+    assert not isinstance(failure.value, CreationRejectedError)
 
 
 def test_replace_binds_uid_and_resource_version_and_conflict_never_falls_back(monkeypatch):
