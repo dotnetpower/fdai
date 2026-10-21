@@ -24,6 +24,7 @@ from fdai_lifecycle_hub.domain import (
     UpToDate,
     Waiting,
 )
+from fdai_lifecycle_hub.entity import EntitySettings
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import HubSigningKey, signature_verifier
 
@@ -252,3 +253,141 @@ def test_installation_without_managed_entities_gets_no_plan(
 def test_naive_planning_time_is_rejected(installation: Installation, planner: Planner) -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
         planner(installation, datetime(2026, 10, 5, 3))
+
+
+def test_managed_entity_override_gap_skips_unmatched_release(
+    installation: Installation, planner: Planner, now: datetime
+) -> None:
+    core = next(entity for entity in installation.entities if entity.entity_id == "core")
+    console = next(entity for entity in installation.entities if entity.entity_id == "console")
+    narrowed = EntitySettings(
+        overrides=({"versions": ">=1.4.0 <1.6.0", "values": {"replicas": 3}},)
+    )
+    with_console_gap = replace(
+        installation,
+        entities=frozenset(
+            {
+                core,
+                replace(console, ownership=core.ownership, settings=narrowed),
+            }
+        ),
+    )
+
+    outcome = planner(with_console_gap, now)
+
+    assert isinstance(outcome, Issued)
+    assert outcome.plan.target_release_id == "1.5.0"
+    assert [check.release_id for check in outcome.checks] == ["1.6.0", "1.5.0"]
+    assert "override_coverage_missing" in {block.reason_code for block in outcome.checks[0].blocks}
+
+
+def test_full_constraint_matrix_enforces_waiting_vs_skipping_at_hub_entrypoint(
+    installation: Installation,
+    catalog: ReleaseCatalog,
+    key: HubSigningKey,
+    now: datetime,
+) -> None:
+    # 1. Maintenance window and 2. Suppression window hold in Waiting without falling back.
+    closed_window = _with_settings(
+        installation, windows=(DailyWindow(time(2), timedelta(hours=1), "Asia/Seoul"),)
+    )
+    maint_outcome = plan_next(closed_window, now, catalog=catalog, key=key)
+    assert isinstance(maint_outcome, Waiting) and maint_outcome.release_id == "1.6.0"
+    assert "maintenance_window_unavailable" in {
+        b.reason_code for b in maint_outcome.checks[0].blocks
+    }
+
+    suppressed = replace(
+        installation,
+        suppressions=(
+            SuppressionWindow("entity:core", now - timedelta(minutes=1), now + timedelta(hours=1)),
+        ),
+    )
+    supp_outcome = plan_next(suppressed, now, catalog=catalog, key=key)
+    assert isinstance(supp_outcome, Waiting) and supp_outcome.release_id == "1.6.0"
+    assert "suppression_window_active" in {b.reason_code for b in supp_outcome.checks[0].blocks}
+
+    # 3. Version range skips 1.6.0 and issues 1.5.0.
+    version_outcome = plan_next(
+        _with_settings(installation, version_range=">=1.4.0 <1.6.0"), now, catalog=catalog, key=key
+    )
+    assert isinstance(version_outcome, Issued) and version_outcome.plan.target_release_id == "1.5.0"
+    assert "release_version_outside_range" in {
+        b.reason_code for b in version_outcome.checks[0].blocks
+    }
+
+    # 4. Schema range blocks incompatible schema revisions.
+    schema_outcome = plan_next(
+        replace(installation, reported=replace(installation.reported, schema_revision=11)),
+        now,
+        catalog=catalog,
+        key=key,
+    )
+    assert isinstance(schema_outcome, NoEligibleRelease)
+    assert "schema_revision_outside_tolerated_range" in {
+        b.reason_code for b in schema_outcome.checks[0].blocks
+    }
+
+    # 5. Artifact availability blocks when staging inventory lacks required digests.
+    artifact_outcome = plan_next(
+        replace(
+            installation,
+            reported=replace(installation.reported, available_artifact_digests=frozenset()),
+        ),
+        now,
+        catalog=catalog,
+        key=key,
+    )
+    assert isinstance(artifact_outcome, NoEligibleRelease)
+    assert "artifact_unavailable" in {b.reason_code for b in artifact_outcome.checks[0].blocks}
+
+    # 6. Per-Entity override coverage blocks candidates not covered by a managed Entity's settings.
+    core = next(entity for entity in installation.entities if entity.entity_id == "core")
+    only_current = EntitySettings(
+        overrides=({"versions": ">=1.4.0 <1.5.0", "values": {"replicas": 2}},)
+    )
+    override_outcome = plan_next(
+        replace(
+            installation,
+            entities=frozenset(
+                {
+                    replace(core, settings=only_current) if entity.entity_id == "core" else entity
+                    for entity in installation.entities
+                }
+            ),
+        ),
+        now,
+        catalog=catalog,
+        key=key,
+    )
+    assert isinstance(override_outcome, NoEligibleRelease)
+    assert all(
+        "override_coverage_missing" in {b.reason_code for b in check.blocks}
+        for check in override_outcome.checks
+    )
+
+    # 7. Data residency blocks when the installation region is outside allowed_regions.
+    residency_outcome = plan_next(
+        _with_settings(installation, allowed_regions=frozenset({"westeurope"})),
+        now,
+        catalog=catalog,
+        key=key,
+    )
+    assert isinstance(residency_outcome, NoEligibleRelease)
+    assert "data_residency_mismatch" in {b.reason_code for b in residency_outcome.checks[0].blocks}
+
+    # 8. Capability recall blocks candidates declaring the recalled capability.
+    cap_recalled = replace(
+        catalog,
+        recalls=(
+            RecallRecord(
+                scope="capability",
+                target="action:scale-service",
+                sequence=1,
+                notice_digest="d" * 64,
+            ),
+        ),
+    )
+    recall_outcome = plan_next(installation, now, catalog=cap_recalled, key=key)
+    assert isinstance(recall_outcome, NoEligibleRelease)
+    assert "capability_recalled" in {b.reason_code for b in recall_outcome.checks[0].blocks}

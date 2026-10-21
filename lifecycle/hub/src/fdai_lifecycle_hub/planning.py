@@ -125,7 +125,14 @@ def plan_next(
         context = _constraint_context(
             installation, draft, release, catalog=catalog, windows=windows, now=now
         )
-        contexts = [context]
+        contexts = [
+            context,
+            *(
+                replace(context, entity_overrides=entity.settings.overrides)
+                for entity in sorted(installation.entities, key=lambda item: item.entity_id)
+                if entity.settings is not None
+            ),
+        ]
         if resolved is not None:
             # Every Entity was independently verified against the same catalog schema.
             if schema is None:
