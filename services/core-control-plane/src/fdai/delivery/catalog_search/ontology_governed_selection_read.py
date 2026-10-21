@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
-from dataclasses import asdict, dataclass
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import asdict, dataclass, field
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Protocol
 from uuid import uuid4
@@ -66,6 +66,7 @@ class ReadSelectionSource:
     staged: OntologyStagedProjection
     validation: OntologySnapshotValidation
     gateway: SecuredObjectSetQueryGateway
+    resource_type_query_terms: Mapping[str, Sequence[str]] = field(default_factory=dict)
 
 
 class PreparedReadProposer(Protocol):
@@ -130,7 +131,13 @@ async def typed_read_source(
         context_protocol="typed-selection-context-transport.v1",
     )
     return ReadSelectionSource(
-        binding, target.manifest, build, target.staged, validation, target.gateway
+        binding,
+        target.manifest,
+        build,
+        target.staged,
+        validation,
+        target.gateway,
+        {key: tuple(value) for key, value in workers._snapshots.resource_type_query_terms.items()},
     )
 
 
@@ -260,14 +267,17 @@ class GovernedTypedSelectionRead:
                     )
                     raise GovernedReadError(reason) from None
                 results = [task.result() for task in tasks]
-                selections = []
+                selections: list[OntologyCandidateSelection | None] = []
+                clarification_reasons: list[SelectionFailure] = []
                 for result in results:
                     if result.input_digest != packaged.context_digest:
                         raise GovernedReadError(SelectionFailure.PROPOSAL_BINDING_CHANGED)
                     if result.quote_invalid_clauses:
                         raise GovernedReadError(SelectionFailure.CITATION_INVALID)
                     if result.proposal.status != "select":
-                        raise GovernedReadError(SelectionFailure(result.proposal.reason))
+                        clarification_reasons.append(SelectionFailure(result.proposal.reason))
+                        selections.append(None)
+                        continue
                     if result.selection is None:
                         raise GovernedReadError(SelectionFailure.PROPOSAL_CONTRACT_INVALID)
                     try:
@@ -275,17 +285,35 @@ class GovernedTypedSelectionRead:
                     except ValueError:
                         raise GovernedReadError(SelectionFailure.CITATION_INVALID) from None
                     selections.append(result.selection)
+                if len(clarification_reasons) == len(results):
+                    raise GovernedReadError(clarification_reasons[0])
                 current = await self._source(context)
                 if not self._same_source(source, current):
                     raise GovernedReadError(SelectionFailure.SOURCE_DRIFT)
-                resolved = await asyncio.gather(
-                    *(self._resolve(selection, query, current) for selection in selections)
+                active_selections = [item for item in selections if item is not None]
+                resolved = list(
+                    await asyncio.gather(
+                        *(
+                            self._resolve(selection, query, current)
+                            for selection in active_selections
+                        )
+                    )
                 )
+                resolved_iter = iter(resolved)
                 memberships = tuple(
-                    tuple(document.rule_id for document in value.documents) for value in resolved
+                    ()
+                    if selection is None
+                    else tuple(document.rule_id for document in next(resolved_iter).documents)
+                    for selection in selections
                 )
                 if memberships[0] != memberships[1]:
                     raise GovernedReadError(SelectionFailure.AGREEMENT_MISMATCH)
+                if not memberships[0]:
+                    raise GovernedReadError(
+                        clarification_reasons[0]
+                        if clarification_reasons
+                        else SelectionFailure.NO_CANDIDATE_MATCH
+                    )
                 issued_at = self.registry.clock()
                 evidence = ReadSelectionEvidence(
                     binding=current.binding,
@@ -297,7 +325,7 @@ class GovernedTypedSelectionRead:
                     snapshot_digest=current.staged.snapshot_digest,
                     generation_digest=current.build.metadata.generation_digest,
                     source_projection_digest=current.staged.source_projection_digest,
-                    selection_json=selections[0].model_dump_json(),
+                    selection_json=active_selections[0].model_dump_json(),
                     agreement_digest=content_digest({"memberships": memberships}),
                     issued_at=issued_at,
                     expires_at=issued_at + timedelta(seconds=30),
@@ -337,7 +365,7 @@ class GovernedTypedSelectionRead:
                 gateway=source.gateway,
                 as_of=self.registry.clock(),
                 deadline=asyncio.get_running_loop().time() + 5,
-                resource_type_query_terms={},
+                resource_type_query_terms=source.resource_type_query_terms,
             )
         except (CandidateSelectionError, CandidateSelectionDeniedError) as exc:
             raise GovernedReadError(exc.reason) from None
@@ -391,6 +419,8 @@ class GovernedTypedSelectionRead:
         selected = await self._resolve(
             OntologyCandidateSelection.model_validate_json(evidence.selection_json), query, source
         )
+        if not selected.documents:
+            raise GovernedReadError(SelectionFailure.NO_CANDIDATE_MATCH)
         current = await self._source(context)
         if not self._same_source(source, current):
             raise GovernedReadError(SelectionFailure.SOURCE_DRIFT)

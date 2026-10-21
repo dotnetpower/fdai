@@ -71,6 +71,9 @@ def _candidate_config() -> AzureOpenAISemanticPlanningModelConfig:
         "instance-holdout.v5a.json",
         "instance-holdout.v5b.json",
         "instance-runtime-window.v1.json",
+        "governed-read-window.v1.json",
+        "governed-read-window.v2.json",
+        "governed-read-window.v3.json",
     ],
 )
 def test_all_semantic_evaluation_cases_fit_diagnostic_request_budget(asset_name: str) -> None:

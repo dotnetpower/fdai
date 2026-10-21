@@ -50,7 +50,10 @@ The new deterministic Function performs no model call. It checks the current poi
 principal, query, source, model, code revision and expiry again, verifies current secured membership,
 and consumes the evidence once. Demotion between preparation and consumption therefore wins.
 Results remain candidate-only, non-exhaustive and carry no execution authority. Raw vector ranking
-is not enabled, and the existing 500-total-enum and 1,000-row membership limits remain explicit.
+is not enabled. Each individual structured-output request retains the 500-total-enum ceiling and
+each individual ObjectSet read retains the 1,000-row ceiling, while larger scopes partition
+instances into deterministic proposal pages and 100-identity membership batches without truncation
+or lexical prefiltering.
 
 ## Pre-registered live qualification
 
@@ -111,9 +114,18 @@ Evaluation activation creates a separate disposable in-memory registry, never a 
 source harness or installation store. Its permissive test approval and admission are bound to the
 exact evaluation tuple and carry no independent qualification, current Owner approval or persistent
 promotion evidence. An actor string or evaluation report cannot establish those authorities.
-The driver rejects live reuse of v1/v2 before runtime or provider setup. A future live attempt needs
-a revised hypothesis and a fresh independently authored, separately reviewed, deduplicated protocol
-that fixes the exact source, model, prompt, scope and unchanged acceptance requirements.
+The driver rejects live reuse of v1/v2 before runtime or provider setup.
+
+Diagnostic inspection after the v2 stop identified two producer-side causes: `ReadSelectionSource`
+omitted the snapshot store's `resource_type_query_terms` when re-evaluating `Resource` membership
+(producing `source_drift` on every `Resource` case), and `GovernedTypedSelectionRead.prepare`
+persisted candidate evidence when both passes agreed on zero matching documents instead of holding
+with `no_candidate_match`. With both producer defects repaired and multi-page proposal/membership
+partitioning in place, protocol `governed-typed-selection-answer-window.v3` and
+`governed-typed-selection-answer-latency.v3` bind the fresh, independently authored, reviewed and
+disjoint `governed-read-window.v3.json` asset under unchanged thresholds and the same exact
+`t2.ontology.council.alpha` / `gpt-5.6-sol` `2026-07-09` pin in
+`config/governed-typed-selection-read.json`.
 
 ## Pre-implementation critique and revision
 

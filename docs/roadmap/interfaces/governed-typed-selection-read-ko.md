@@ -1,7 +1,7 @@
 ---
 translation_of: governed-typed-selection-read.md
-translation_source_sha: 3c312b8114140667b206138a02a2dd72b3077caa
-translation_revised: 2026-10-20
+translation_source_sha: dd6fbff12155a56ace511c68e834427d162829ed
+translation_revised: 2026-10-21
 ---
 # 적용 승인을 거치는 타입 선택 읽기
 
@@ -50,8 +50,10 @@ principal 범위, 모델/요청/프롬프트 식별 정보, 문맥 프로토콜,
 새 결정적 Function은 모델을 호출하지 않습니다. 현재 포인터와 정확한 principal, 질의,
 소스, 모델, 코드 리비전, 만료를 다시 확인하고 현재 보안 멤버십을 검증한 뒤 근거를 한 번
 소비합니다. 준비와 소비 사이에 적용을 해제하면 해제가 우선합니다. 결과는 비완전한 후보로
-유지하며 실행 권한을 갖지 않습니다. 원시 벡터 순위 지정을 켜지 않으며 전체 enum 값 500개와
-멤버십 1,000행이라는 기존 한도도 명시적으로 유지합니다.
+유지하며 실행 권한을 갖지 않습니다. 원시 벡터 순위 지정을 켜지 않습니다. 개별 구조화 출력
+요청의 enum 값 500개 한도와 개별 ObjectSet 조회의 1,000행 한도는 그대로 유지하고,
+더 큰 범위는 잘라내거나 어휘 사전 필터링을 하지 않고 결정론적 제안 페이지와 100개 단위
+멤버십 배치로 나누어 모두 처리합니다.
 
 ## 사전 등록한 실제 적격성 검증
 
@@ -110,9 +112,18 @@ HTTP 503 또는 기한 초과가 발생하면 부분 기록을 보존하고 재�
 포인터를 만들지 않습니다. 시험용 승인과 허용 검증은 정확한 평가 결속으로 제한하며, 독립
 적격성, 현재 Owner 승인 또는 영구 승격 증적을 제공하지 않습니다. 행위자 문자열이나 평가
 보고서로 이러한 권한을 입증할 수 없습니다. driver는 런타임이나 provider를 준비하기 전에
-v1/v2의 실제 재사용을 차단합니다. 다음 실제 시도에는 수정한 가설과 새로운 프로토콜이
-필요합니다. 프로토콜은 독립 작성, 별도 검토와 중복 검사를 거쳐 정확한 소스, 모델, 프롬프트,
-범위와 기존 합격 기준에 고정해야 합니다.
+v1/v2의 실제 재사용을 차단합니다.
+
+v2 중단 이후의 진단에서 두 가지 생산자 측 원인을 확인했습니다. `ReadSelectionSource`가
+`Resource` 멤버십을 재검증할 때 스냅샷 저장소의 `resource_type_query_terms`를 누락해 모든
+`Resource` 사례에서 `source_drift`가 발생했고, `GovernedTypedSelectionRead.prepare`는 두
+호출이 모두 일치하는 문서 0건에 합의했을 때 `no_candidate_match`로 보류하는 대신 빈 후보
+근거를 저장했습니다. 이 두 결함을 수정하고 다중 페이지 제안 및 멤버십 분할 처리를 적용한 뒤,
+`governed-typed-selection-answer-window.v3` 및
+`governed-typed-selection-answer-latency.v3` 프로토콜은 기존 임계값과
+`config/governed-typed-selection-read.json`의 동일한 `t2.ontology.council.alpha` /
+`gpt-5.6-sol` `2026-07-09` 고정값을 유지한 채 독립 작성·검토 및 중복 배제를 거친
+`governed-read-window.v3.json` 자산에 결속합니다.
 
 ## 구현 전 비판 검토와 수정
 
