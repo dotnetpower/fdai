@@ -168,6 +168,61 @@ def test_layer_resolution_uses_most_specific_matching_version_range() -> None:
     }
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("inclusive", [False, True])
+@pytest.mark.parametrize(
+    "version,position",
+    [
+        ("1500000000.0.0", "before"),
+        ("2000000000.0.0", "at"),
+        ("2000000000.0.1", "after"),
+    ],
+)
+def test_unbounded_upper_is_less_specific_than_any_finite_upper(
+    reverse: bool, inclusive: bool, version: str, position: str
+) -> None:
+    finite = f">=0.0.0 {'<=' if inclusive else '<'}2000000000.0.0"
+    blocks = [
+        {"versions": ">=0.0.0", "values": {"replicas": 2}},
+        {"versions": finite, "values": {"replicas": 4}},
+    ]
+    result = resolve_configuration_layers(
+        release_version=version,
+        configuration_schema=_schema(),
+        environment_config={},
+        entity_overrides=list(reversed(blocks)) if reverse else blocks,
+    )
+    finite_matches = position == "before" or (position == "at" and inclusive)
+    assert result.version_range == (finite if finite_matches else ">=0.0.0")
+    assert result.values["replicas"] == (4 if finite_matches else 2)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize(
+    "upper",
+    [
+        "1000000000.1000000000.999999999",
+        "1000000000.1000000000.1000000000",
+        "1000000000.1000000000.1000000001",
+        "100000000000000000000000000000000000000.0.0",
+    ],
+)
+def test_finite_upper_order_has_no_numeric_sentinel(upper: str, reverse: bool) -> None:
+    finite = f">=0.0.0 <={upper}"
+    blocks = [
+        {"versions": ">=0.0.0", "values": {"replicas": 2}},
+        {"versions": finite, "values": {"replicas": 4}},
+    ]
+    result = resolve_configuration_layers(
+        release_version=upper,
+        configuration_schema=_schema(),
+        environment_config={},
+        entity_overrides=list(reversed(blocks)) if reverse else blocks,
+    )
+    assert result.version_range == finite
+    assert result.values["replicas"] == 4
+
+
 def test_layer_resolution_requires_matching_override_block() -> None:
     with pytest.raises(ConfigurationValidationError) as exc_info:
         resolve_configuration_layers(

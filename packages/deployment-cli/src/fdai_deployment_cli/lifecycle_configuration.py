@@ -195,16 +195,15 @@ class _VersionRange:
         return True
 
     @property
-    def specificity(self) -> tuple[Version, int, Version, int, int]:
+    def specificity(self) -> tuple[Version, int, int, Version, int, int]:
         """Order overlapping ranges by the most constrained matching interval."""
 
         lower = self.lower if self.lower is not None else (-1, -1, -1)
-        upper = (
-            self.upper if self.upper is not None else (1_000_000_000, 1_000_000_000, 1_000_000_000)
-        )
+        upper = self.upper if self.upper is not None else (0, 0, 0)
         return (
             lower,
             0 if self.lower_inclusive else 1,
+            1 if self.upper is not None else 0,
             (-upper[0], -upper[1], -upper[2]),
             1 if not self.upper_inclusive else 0,
             len(self.constraints),
@@ -324,6 +323,12 @@ def resolve_configuration_layers(
     selected_range, selected_values, _index = max(
         matching, key=lambda item: (item[0].specificity, -item[2])
     )
+    if any(not _contains_range(other, selected_range) for other, _values, _i in matching):
+        raise ConfigurationValidationError(
+            "ambiguous_override_range",
+            ("entity_overrides",),
+            "matching override ranges have no unique most-specific interval",
+        )
     _validate_values(
         values, schema=configuration_schema, sealed_keys=sealed_keys, path=("defaults",)
     )
@@ -335,6 +340,22 @@ def resolve_configuration_layers(
         path=("entity_overrides", selected_range.source, "values"),
     )
     return LayerResolution(values=values, version_range=selected_range.source)
+
+
+def _contains_range(outer: _VersionRange, inner: _VersionRange) -> bool:
+    if outer.lower is not None and (
+        inner.lower is None
+        or inner.lower < outer.lower
+        or (inner.lower == outer.lower and inner.lower_inclusive and not outer.lower_inclusive)
+    ):
+        return False
+    return outer.upper is None or (
+        inner.upper is not None
+        and (
+            inner.upper < outer.upper
+            or (inner.upper == outer.upper and (outer.upper_inclusive or not inner.upper_inclusive))
+        )
+    )
 
 
 def validate_configuration_package_for_signing(package: Mapping[str, object]) -> None:

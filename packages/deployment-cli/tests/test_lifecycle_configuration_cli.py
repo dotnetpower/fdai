@@ -161,6 +161,87 @@ def _refused(result: subprocess.CompletedProcess[str]) -> None:
     assert "PRIVATE KEY" not in result.stderr
 
 
+def _multi_entity(case: Case) -> None:
+    entity_ids = ["1" * 64, "2" * 64]
+    case.release["entity_ids"] = entity_ids
+    case.release["release_digest"] = "f" * 64
+    overrides = case.source.pop("entity_overrides")
+    case.source["entities"] = [
+        {
+            "entity_id": entity_id,
+            "entity_overrides": overrides,
+            "sealed": {"endpoint": f"https://example.com/{index}-private-identifier"},
+        }
+        for index, entity_id in enumerate(entity_ids)
+    ]
+    _write(case.root / "release.json", case.release)
+    _write(case.root / "source.json", case.source)
+
+
+def test_actual_multi_entity_cli_producer_consumer_and_retry(case: Case) -> None:
+    _multi_entity(case)
+    first = case.build("multi.json")
+    artifact = json.loads(first.read_bytes())
+    document = json.loads(base64.b64decode(artifact["payload"]))
+    assert document["format"] == "fdai.lifecycle-configuration-package.v2"
+    assert [entry["entity_id"] for entry in document["configuration"]["entities"]] == [
+        "1" * 64,
+        "2" * 64,
+    ]
+    assert b"private-identifier" not in base64.b64decode(artifact["payload"])
+    verified = case.run("verify", "--package", first, "--initial-revision")
+    assert verified.returncode == 0, verified.stderr
+    result = json.loads(verified.stdout)
+    assert result["production_release_eligibility"] == "unverified"
+    assert not result["trust_registered"] and not result["deployment_activated"]
+    retried = case.build("retry.json", first)
+    assert retried.read_bytes() == first.read_bytes()
+
+
+@pytest.mark.parametrize(
+    "problem",
+    ["missing", "duplicate", "coverage", "unknown-key", "secret", "plaintext-id", "mixed-legacy"],
+)
+def test_multi_entity_cli_blocks_incomplete_or_mixed_inputs(case: Case, problem: str) -> None:
+    _multi_entity(case)
+    entities = case.source["entities"]
+    assert isinstance(entities, list)
+    if problem == "missing":
+        entities.pop()
+    elif problem == "duplicate":
+        entities.append(entities[0])
+    elif problem == "plaintext-id":
+        entities[0]["entity_id"] = "example-customer-resource"
+    elif problem == "mixed-legacy":
+        case.source["entity_overrides"] = []
+    elif problem == "coverage":
+        entities[1]["entity_overrides"] = [{"versions": ">=2.0.0 <3.0.0", "values": {}}]
+    else:
+        key = "password" if problem == "secret" else "unknown"
+        entities[1]["entity_overrides"] = [
+            {"versions": ">=1.0.0 <2.0.0", "values": {key: "private-identifier"}}
+        ]
+    _write(case.root / "source.json", case.source)
+    destination = case.root / "refused.json"
+    _refused(case.run("build", "--destination", destination, "--initial-revision"))
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize("field", ["entity_ids", "release_version", "release_digest"])
+def test_multi_entity_cli_requires_independent_selection_and_release(
+    case: Case, field: str
+) -> None:
+    _multi_entity(case)
+    package = case.build("multi.json")
+    case.release[field] = (
+        ["1" * 64]
+        if field == "entity_ids"
+        else ("1.5.1" if field == "release_version" else "e" * 64)
+    )
+    _write(case.root / "release.json", case.release)
+    _refused(case.run("verify", "--package", package, "--initial-revision"))
+
+
 def test_actual_cli_build_verify_seal_privacy_and_retry(case: Case) -> None:
     first = case.build("first.json")
     artifact = json.loads(first.read_bytes())
