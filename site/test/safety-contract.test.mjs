@@ -29,5 +29,5 @@ test("landing pages and shared components publish all seven safeguards", async (
   }
   assert.doesNotMatch(combined, /four invariants|all four|네 가지|네 개/);
   assert.match(combined, /Missing any one blocks execution/);
-  assert.match(combined, /하나라도 빠지면 실행이 차단/);
+  assert.match(combined, /7개 보호장치 중 하나라도 충족하지 못하면 실행을 차단/);
 });
