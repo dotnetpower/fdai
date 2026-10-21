@@ -244,7 +244,7 @@ def test_postgres_revision_two_upgrade_is_additive_and_preserves_legacy(postgres
     migrate(h.engine, "lifecycle_hub", never_initialize)
     require_schema(h.engine, "lifecycle_hub")
     with h.engine.connect() as connection:
-        assert connection.scalar(select(_versions("lifecycle_hub").c.revision)) == 3
+        assert connection.scalar(select(_versions("lifecycle_hub").c.revision)) == 4
         assert all(inspect(connection).has_table(model.__tablename__) for model in additions)
     with Session(h.engine) as session:
         installation = session.get(models.Installation, h.iid)

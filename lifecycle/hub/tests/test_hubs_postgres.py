@@ -251,3 +251,74 @@ def test_postgres_custom_contributions_serialize_and_preserve_original_event(
     assert original["channels"]["custom-pilot"] == ["1.6.0"]
     assert original["events"][0]["actor"] in {"operator-a", "operator-b"}
     assert ReleaseStore(engine, key, clock=lambda: now, initialize=False).snapshot() == original
+
+
+def test_postgres_customer_local_curation_restart_plan_audit_and_concurrency(
+    databases, tmp_path, key, now, catalog, installation, enroll
+):
+    from dataclasses import replace
+    from threading import Barrier
+
+    from lifecycle.hub.tests.test_local_channels import prepare, request_for
+    from sqlalchemy import select
+
+    from fdai_lifecycle_hub.local_channels import LocalChannelError
+
+    _vendor, target, store = prepare(tmp_path, key, catalog, now, engine=databases["target"])
+    change = request_for(target, catalog, now)
+    ready = Barrier(2, timeout=10)
+
+    def add(actor):
+        ready.wait()
+        try:
+            target.add_local_channel(change, actor=actor, now=now)
+            return "committed"
+        except LocalChannelError as error:
+            assert error.status == 409
+            return "conflict"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        assert sorted(executor.map(add, ("operator-a", "operator-b"))) == ["committed", "conflict"]
+    retained = target.local_channels(now=now)
+    reopened = RemoteCatalog(databases["target"], target.source)
+    assert reopened.local_channels(now=now) == retained
+    selected = replace(
+        installation,
+        settings=replace(
+            installation.settings, channel="local-reviewed", plan_duration=timedelta(minutes=25)
+        ),
+    )
+    enroll(store, selected)
+    outcome = reopened.recompute(store, selected.installation_id, key, now=now)
+    assert outcome.plan.target_release_id == "1.6.0"
+    with store.engine.connect() as connection:
+        record = (
+            connection.execute(
+                select(models.AuditRecord).where(models.AuditRecord.action == "plan.evaluated")
+            )
+            .mappings()
+            .one()
+        )
+        assert record["payload"]["local_curation"]["digest"] == retained["digest"]
+
+
+def test_postgres_local_curation_lock_wait_is_bounded_without_partial_audit(
+    databases, tmp_path, key, now, catalog
+):
+    from lifecycle.hub.tests.test_local_channels import prepare, request_for
+    from sqlalchemy import select
+    from sqlalchemy.exc import OperationalError
+
+    from fdai_lifecycle_hub.local_channels import entries
+    from fdai_lifecycle_hub.remote_catalog import trust_state
+
+    _vendor, target, _store = prepare(tmp_path, key, catalog, now, engine=databases["target"])
+    change = request_for(target, catalog, now)
+    with target.engine.begin() as locked:
+        locked.execute(select(trust_state).with_for_update()).all()
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            pending = executor.submit(target.add_local_channel, change, actor="operator", now=now)
+            with pytest.raises(OperationalError, match="lock timeout"):
+                pending.result(timeout=8)
+    with target.engine.connect() as connection:
+        assert connection.execute(select(entries)).first() is None

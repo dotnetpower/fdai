@@ -117,14 +117,17 @@ transaction. Current-Plan retrieval holds them after expiry, rotation or revocat
 public bindings remain intact; the atomic importer verifies each historical package with its exact
 accepted key version and receipt, never a replacement key. Absent or unprovable bindings hold
 only this new configuration capability. Legacy enrollment and planning remain compatible.
-Explicit Lifecycle Hub schema revision 3 upgrades revisions 1 and 2 additively, preserving
-enrollment, public key bindings and legacy raw configuration; Release Hub remains at revision 1.
+Explicit Lifecycle Hub schema revision 4 preserves the additive configuration upgrades from
+revisions 1 and 2 and adds customer-local channel storage to revision 3. Enrollment, public key
+bindings and legacy raw configuration remain intact; Release Hub stays at revision 1.
 The actual authenticated source API separately requests/approves an installation-proven Entity
 scope, imports a complete signed container, approves its change request and activates its exact
 receipt. The accepted head, import record and audit share the pinned-catalog/installation owner
 transaction. Import, approval and activation are distinct and cannot grant execution or promotion.
 The [configuration owner](lifecycle-configuration.md#atomic-import-and-configured-consumption-design-and-critique)
 defines request formats, bounds, historical trust and the pre-implementation critique.
+
+The same catalog transaction now supports [customer-local channel curation](lifecycle-releases-and-channels.md#customer-local-channel-curation-design-and-critique). Existing operator approval can narrow a fresh imported `RELEASE` set into `local-` membership; exact local revision and accepted pin/digest remain in planning audit. It changes no installation settings, execution approval or vendor bytes, and serving requires the explicit revision-4 migration.
 
 Only this new import path stores original ciphertext containers and public metadata. Legacy raw
 configuration remains unchanged. Local HTTP/JWT and isolated PostgreSQL tests prove default

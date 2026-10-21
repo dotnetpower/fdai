@@ -730,6 +730,77 @@ def test_release_catalog_renewal_requires_attributed_vendor_operator(
             assert response.json()["channels"]["custom-pilot"] == ["1.6.0"]
 
 
+def test_target_local_curation_requires_current_operator_and_exact_request(
+    auth, protected, tmp_path, key, catalog, now, monkeypatch
+):
+    from lifecycle.hub.tests.test_local_channels import prepare, request_for
+
+    from fdai_lifecycle_hub.api import create_app
+    from fdai_lifecycle_hub.remote import target_routes
+
+    _vendor, target, store = prepare(tmp_path, key, catalog, now)
+    original, token = protected
+    monkeypatch.setattr("fdai_lifecycle_hub.remote.utc_now", lambda: now)
+    app = create_app(store, remote_auth=auth)
+    app.routes[0:0] = target_routes(store, target, key)
+    app.state.entra_verifier._keys = original.state.entra_verifier._keys
+    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    target.fetch = lambda _: pytest.fail("Local curation must not fetch or import a source.")
+    route = "/v1/catalog/local-channels"
+    payload = request_for(target, catalog, now).model_dump()
+    with TestClient(app, base_url=auth.origin) as client:
+        assert client.post(route, json=payload).status_code == 401
+        for identity in (
+            dict(oid="other-human"),
+            dict(
+                oid="customer-service",
+                azp="customer-client",
+                idtyp="app",
+                scp=None,
+                roles=["Catalog.Read"],
+            ),
+            dict(oid="agent", azp="agent-client", idtyp="app", scp=None, roles=["Agent.Access"]),
+        ):
+            assert client.post(route, headers=token(**identity), json=payload).status_code == 403
+        assert (
+            client.post(
+                route, headers={**token(), "Origin": "https://other.example.com"}, json=payload
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(
+                route, headers=token(), json={**payload, "confirmation": "unreviewed"}
+            ).status_code
+            == 422
+        )
+        assert (
+            client.post(
+                route, headers={**token(), "Content-Type": "application/json"}, content=b"x" * 4097
+            ).status_code
+            == 413
+        )
+        assert target.local_channels(now=now)["revision"] == 0
+        response = client.post(route, headers=token(), json=payload)
+        assert response.status_code == 200
+        assert response.json()["entries"][0]["actor"] == "approved-human"
+        assert response.json()["execution_authority"] is False
+        assert client.post(route, headers=token(), json=payload).status_code == 409
+        assert client.get(route, headers=token()).json()["revision"] == 1
+        from sqlalchemy.exc import OperationalError
+
+        def unavailable(*args, **kwargs):
+            raise OperationalError("synthetic metadata operation", {}, RuntimeError("synthetic"))
+
+        monkeypatch.setattr(target, "add_local_channel", unavailable)
+        uncertain = client.post(route, headers=token(), json=payload)
+        assert uncertain.status_code == 503
+        assert "not confirmed" in uncertain.json()["error"]
+        assert "refresh retained evidence" in uncertain.json()["error"]
+        monkeypatch.setattr(target, "local_channels", unavailable)
+        assert client.get(route, headers=token()).status_code == 503
+
+
 def test_cross_origin_mutation_and_wrong_signature_are_denied(protected):
     app, token = protected
     with TestClient(app, base_url="https://hub.example.com") as client:
