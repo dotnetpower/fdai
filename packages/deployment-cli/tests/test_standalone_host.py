@@ -2129,6 +2129,12 @@ def test_planned_registry_name_includes_the_foundation_workload() -> None:
 @pytest.mark.parametrize("existing", [False, True])
 def test_aks_kubeconfig_uses_explicit_host_identity(tmp_path, monkeypatch, existing):
     tmp_path.chmod(0o700)
+    kit_bin = tmp_path / "bin"
+    kit_bin.mkdir()
+    for name in ("kubectl", "kubelogin"):
+        tool = kit_bin / name
+        tool.write_text(name)
+        tool.chmod(0o700)
     kubeconfig = tmp_path / "aks.kubeconfig"
     if existing:
         kubeconfig.write_text("prior kubeconfig")
@@ -2136,6 +2142,7 @@ def test_aks_kubeconfig_uses_explicit_host_identity(tmp_path, monkeypatch, exist
     context = {
         "client_id": "00000000-0000-0000-0000-000000000001",
         "subscription_id": "00000000-0000-0000-0000-000000000002",
+        "kit_bin": str(kit_bin),
     }
     commands = []
 
@@ -2147,12 +2154,14 @@ def test_aks_kubeconfig_uses_explicit_host_identity(tmp_path, monkeypatch, exist
         kubeconfig.write_text("generated kubeconfig")
 
     monkeypatch.setattr(standalone_host, "_run", run)
+    monkeypatch.setattr(standalone_host, "_run_env", run)
     reads = []
 
     def capture(command, **kwargs):
         reads.append(command)
-        assert command[:3] == ("kubectl", "config", "view")
+        assert command[:3] == (str(kit_bin / "kubectl"), "config", "view")
         assert "--minify" in command and "--raw" not in command
+        assert kwargs["env"]["PATH"].split(os.pathsep)[0] == str(kit_bin)
         return json.dumps(
             {
                 "users": [
@@ -2174,7 +2183,7 @@ def test_aks_kubeconfig_uses_explicit_host_identity(tmp_path, monkeypatch, exist
             }
         )
 
-    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(standalone_host, "_capture_env", capture)
     assert (
         standalone_host._prepare_aks_kubeconfig(
             context, tmp_path, resource_group="example-group", cluster_name="example-cluster"
@@ -2185,7 +2194,7 @@ def test_aks_kubeconfig_uses_explicit_host_identity(tmp_path, monkeypatch, exist
     assert "--admin" not in commands[0]
     assert len(reads) == 1
     assert commands[1] == (
-        "kubelogin",
+        str(kit_bin / "kubelogin"),
         "convert-kubeconfig",
         "--kubeconfig",
         str(kubeconfig),
@@ -2199,6 +2208,12 @@ def test_aks_kubeconfig_uses_explicit_host_identity(tmp_path, monkeypatch, exist
 @pytest.mark.parametrize("failure", ["link", "public-file", "missing-client", "convert"])
 def test_aks_kubeconfig_fails_closed(tmp_path, monkeypatch, failure):
     tmp_path.chmod(0o700)
+    kit_bin = tmp_path / "bin"
+    kit_bin.mkdir()
+    for name in ("kubectl", "kubelogin"):
+        tool = kit_bin / name
+        tool.write_text(name)
+        tool.chmod(0o700)
     kubeconfig = tmp_path / "aks.kubeconfig"
     if failure == "link":
         kubeconfig.symlink_to(tmp_path / "missing")
@@ -2208,16 +2223,18 @@ def test_aks_kubeconfig_fails_closed(tmp_path, monkeypatch, failure):
     context = {
         "client_id": "" if failure == "missing-client" else "00000000-0000-0000-0000-000000000001",
         "subscription_id": "00000000-0000-0000-0000-000000000002",
+        "kit_bin": str(kit_bin),
     }
     commands = []
 
     def run(command, **_kwargs):
         commands.append(command)
-        if command[0] == "kubelogin":
+        if Path(command[0]).name == "kubelogin":
             raise ValueError("conversion failed")
         kubeconfig.write_text("generated")
 
     monkeypatch.setattr(standalone_host, "_run", run)
+    monkeypatch.setattr(standalone_host, "_run_env", run)
     with pytest.raises((ValueError, OSError)):
         standalone_host._prepare_aks_kubeconfig(
             context, tmp_path, resource_group="example-group", cluster_name="example-cluster"
@@ -2232,8 +2249,18 @@ def test_aks_kubeconfig_readback_rejects_wrong_authentication(
     tmp_path, monkeypatch, authentication
 ):
     tmp_path.chmod(0o700)
+    kit_bin = tmp_path / "bin"
+    kit_bin.mkdir()
+    for name in ("kubectl", "kubelogin"):
+        tool = kit_bin / name
+        tool.write_text(name)
+        tool.chmod(0o700)
     client = "00000000-0000-0000-0000-000000000001"
-    context = {"client_id": client, "subscription_id": "00000000-0000-0000-0000-000000000002"}
+    context = {
+        "client_id": client,
+        "subscription_id": "00000000-0000-0000-0000-000000000002",
+        "kit_bin": str(kit_bin),
+    }
     user = {
         "exec": {
             "command": "kubelogin",
@@ -2257,7 +2284,12 @@ def test_aks_kubeconfig_readback_rejects_wrong_authentication(
         lambda *_args, **_kwargs: (tmp_path / "aks.kubeconfig").write_text("config"),
     )
     monkeypatch.setattr(
-        standalone_host, "_capture", lambda *_args, **_kwargs: json.dumps({"users": users})
+        standalone_host,
+        "_run_env",
+        lambda *_args, **_kwargs: (tmp_path / "aks.kubeconfig").write_text("config"),
+    )
+    monkeypatch.setattr(
+        standalone_host, "_capture_env", lambda *_args, **_kwargs: json.dumps({"users": users})
     )
     with pytest.raises(ValueError, match="AKS authentication"):
         standalone_host._prepare_aks_kubeconfig(
@@ -2697,6 +2729,12 @@ def test_aks_operational_evidence_verifier_rejects_shared_identity() -> None:
 def test_aks_application_readback_requires_core_and_checks_the_rendered_profile_set(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_service: str | None
 ) -> None:
+    kit_bin = tmp_path / "bin"
+    kit_bin.mkdir()
+    for name in ("kubectl", "kubelogin"):
+        tool = kit_bin / name
+        tool.write_text(name)
+        tool.chmod(0o700)
     kubeconfig = tmp_path / "aks.kubeconfig"
     kubeconfig.write_text("test configuration", encoding="utf-8")
     expected = {
@@ -2726,11 +2764,12 @@ def test_aks_application_readback_requires_core_and_checks_the_rendered_profile_
         health_checks.append(kwargs)
         return True
 
-    monkeypatch.setattr(standalone_host, "_capture", capture)
+    monkeypatch.setattr(standalone_host, "_capture_env", capture)
     monkeypatch.setattr(standalone_host.aks_readiness, "verify_workload_health", verify_health)
     context = {
         "runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-flex"},
         "kubeconfig": str(kubeconfig),
+        "kit_bin": str(kit_bin),
         "expected_workloads": expected,
         "source_commit": "c" * 40,
     }
@@ -2904,6 +2943,12 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
 def test_aks_deployment_capture_uses_typed_apps_collection(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    kit_bin = tmp_path / "bin"
+    kit_bin.mkdir()
+    for name in ("kubectl", "kubelogin"):
+        tool = kit_bin / name
+        tool.write_text(name)
+        tool.chmod(0o700)
     kubeconfig = tmp_path / "kubeconfig"
     kubeconfig.write_text("synthetic kubeconfig", encoding="utf-8")
     calls: list[tuple[tuple[str, ...], dict[str, object]]] = []
@@ -2912,8 +2957,8 @@ def test_aks_deployment_capture_uses_typed_apps_collection(
         calls.append((command, kwargs))
         return '{"kind":"DeploymentList","items":[]}'
 
-    monkeypatch.setattr(standalone_host, "_capture", capture)
-    context = {"kubeconfig": str(kubeconfig)}
+    monkeypatch.setattr(standalone_host, "_capture_env", capture)
+    context = {"kubeconfig": str(kubeconfig), "kit_bin": str(kit_bin)}
 
     assert json.loads(standalone_host._capture_aks_deployments(context))["kind"] == (
         "DeploymentList"
@@ -2927,7 +2972,7 @@ def test_aks_deployment_capture_uses_typed_apps_collection(
     assert calls == [
         (
             (
-                "kubectl",
+                str(kit_bin / "kubectl"),
                 "get",
                 "--raw=/apis/apps/v1/namespaces/fdai-runtime/deployments",
                 *common_tail,
@@ -2936,11 +2981,15 @@ def test_aks_deployment_capture_uses_typed_apps_collection(
                 "cwd": tmp_path,
                 "timeout": 90,
                 "reason": "AKS Deployment observation failed",
+                "env": {
+                    **os.environ,
+                    "PATH": f"{kit_bin}{os.pathsep}{os.environ.get('PATH', '')}",
+                },
             },
         ),
         (
             (
-                "kubectl",
+                str(kit_bin / "kubectl"),
                 "get",
                 (
                     "--raw=/apis/apps/v1/namespaces/fdai-runtime/deployments?"
@@ -2952,6 +3001,10 @@ def test_aks_deployment_capture_uses_typed_apps_collection(
                 "cwd": tmp_path,
                 "timeout": 90,
                 "reason": "AKS Deployment observation failed",
+                "env": {
+                    **os.environ,
+                    "PATH": f"{kit_bin}{os.pathsep}{os.environ.get('PATH', '')}",
+                },
             },
         ),
     ]

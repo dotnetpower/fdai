@@ -9,8 +9,25 @@ from fdai_deployment_cli import cli, source_service_update
 from fdai_deployment_cli.source_service_update import deploy_source_service_update
 
 
+@pytest.mark.parametrize(
+    ("service", "active_update"),
+    [
+        ("operator-service", None),
+        (
+            "core-control-plane",
+            {
+                "service": "core-control-plane",
+                "image": "example.azurecr.io/core-control-plane@sha256:" + "9" * 64,
+                "source_commit": "9" * 40,
+            },
+        ),
+    ],
+)
 def test_source_service_update_builds_imports_plans_and_verifies(
-    tmp_path: Path, monkeypatch
+    tmp_path: Path,
+    monkeypatch,
+    service: str,
+    active_update: dict[str, str] | None,
 ) -> None:
     source_root = tmp_path / "source"
     source_root.mkdir(mode=0o700)
@@ -39,9 +56,9 @@ def test_source_service_update_builds_imports_plans_and_verifies(
         "fdai_deployment_cli.source_service_update._build_image",
         lambda **_: {
             "state": "built",
-            "service": "operator-service",
+            "service": service,
             "source_commit": "c" * 40,
-            "archive_ref": "operator-service.oci.tar",
+            "archive_ref": f"{service}.oci.tar",
             "archive_sha256": "a" * 64,
             "image_digest": "sha256:" + "b" * 64,
         },
@@ -65,19 +82,19 @@ def test_source_service_update_builds_imports_plans_and_verifies(
             return {
                 "schema_version": "fdai.source-service-update-context.v1",
                 "state": "verified",
-                "service": "operator-service",
+                "service": service,
                 "target_binding": "d" * 64,
-                "active_service_update": None,
+                "active_service_update": active_update,
             }
         if command == "import-source-image":
             return {
-                "image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+                "image": f"example.azurecr.io/{service}@sha256:" + "b" * 64,
                 "receipt_digest": "e" * 64,
             }
         if command == "prepare-service-update":
             return {
-                "service": "operator-service",
-                "image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+                "service": service,
+                "image": f"example.azurecr.io/{service}@sha256:" + "b" * 64,
                 "source_commit": "c" * 40,
             }
         if command == "recover-apply":
@@ -87,14 +104,14 @@ def test_source_service_update_builds_imports_plans_and_verifies(
         if command == "finalize-service-update":
             return {
                 "state": "finalized",
-                "service": "operator-service",
+                "service": service,
                 "apply_receipt_digest": "1" * 64,
                 "mutation_performed": False,
                 "receipt_digest": "2" * 64,
             }
         assert command == "apply"
         return {
-            "operation": "service-update-operator-service-aaaaaaaaaaaa",
+            "operation": f"service-update-{service}-aaaaaaaaaaaa",
             "receipt_digest": "1" * 64,
             "control_plane_readback_verified": True,
             "peer_state_unchanged_verified": True,
@@ -116,7 +133,7 @@ def test_source_service_update_builds_imports_plans_and_verifies(
         source_root=source_root,
         application_work_dir=application,
         work_dir=work,
-        service="operator-service",
+        service=service,
         timeout_seconds=14400,
         adopt_historical_binding=adoption[0],
         adopt_historical_state=adoption[1],
