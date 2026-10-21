@@ -96,6 +96,8 @@ selection use the same path for every `product`; a channel does not grant produc
 | `configuration_schema`, `schema` | Optional existing version/digest-bound configuration schema and database compatibility metadata |
 
 Strict UTF-8 JSON rejects duplicate keys and nonfinite numbers, including exponent overflow.
+Both incoming UTF-8 and its stored canonical representation fit the same 1 MiB decoder limit;
+Unicode defaults that expand beyond that limit are rejected before publication.
 Unknown fields cannot inject templates, privileges or namespaces. Legacy workload profiles are
 blocked; application rendering produces only bounded Deployments and ClusterIP Services.
 Missing supply-chain evidence is displayed as **Not declared**, not manufactured or verified.

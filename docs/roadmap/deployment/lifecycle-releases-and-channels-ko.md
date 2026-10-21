@@ -1,8 +1,8 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: c8efe920f17fa42bd0faa77ab0275734140f2724
-translation_revised: 2026-10-21
+translation_source_sha: 58c37ea54a4425f03824535afde0bfbfb9fce03f
+translation_revised: 2026-10-22
 ---
 # Lifecycle Release와 채널
 
@@ -99,7 +99,9 @@ FDAI도 하나의 배포 대상입니다. 발행, 정확한 고정값을 사용�
 | `workloads.<component>.replicas` | 정수 1-3. 기본값 1 |
 | `configuration_schema`, `schema` | 선택적인 기존 버전/다이제스트 연계 구성 스키마와 데이터베이스 호환성 정보 |
 
-엄격한 UTF-8 JSON 검사로 중복 키, 유한하지 않은 수와 지수 오버플로를 차단합니다. 정의되지 않은
+엄격한 UTF-8 JSON 검사로 중복 키, 유한하지 않은 수와 지수 오버플로를 차단합니다.
+들어오는 UTF-8 입력과 저장할 정규화 표현 모두 같은 디코더의 1 MiB 제한을 지켜야 합니다.
+정규화하면서 이 제한을 넘는 유니코드 기본값은 발행 전에 거부합니다. 정의되지 않은
 필드로 템플릿, 권한이나 네임스페이스를 주입할 수 없습니다. 기존 워크로드 프로필은 차단하며,
 앱 렌더러는 범위가 제한된 Deployment와 ClusterIP Service만 만듭니다. 임의 앱의 모든 배포 방식을 지원하지는
 않습니다. 공급망 근거가 없으면 **Not declared**로 표시하며 근거를 만들거나 검증했다고
