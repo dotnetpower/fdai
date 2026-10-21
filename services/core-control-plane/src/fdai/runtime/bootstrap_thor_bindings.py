@@ -4,21 +4,40 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fdai.agents import CompositeThorPreflightSimulator, ThorPreflightSimulator
+from fdai.agents import (
+    CompositeThorPreflightSimulator,
+    DevelopmentRuntimeBindings,
+    ThorPreflightSimulator,
+)
 from fdai.agents.vidar import RollbackExecutor
 from fdai.core.ontology_platform.typed_selection_contracts import READ_PROMOTION_ACTION
 from fdai.delivery.persistence.state_store_typed_selection_read import StateStoreTypedSelectionRead
 from fdai.delivery.typed_selection_read_governance import READ_QUALIFIED_EVENT
+from fdai.runtime import pantheon_inputs
 from fdai.runtime.aks_commerce import AcceptanceRuntimeBindings
+from fdai.runtime.providers import _build_resource_lock
 from fdai.runtime.t2_route_registry import T2RoutePreflightSimulator, T2RouteRegistry
 from fdai.runtime.typed_selection_read_lifecycle import (
     FinalizedTypedReadApproval,
     TypedReadLifecycle,
 )
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
+from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
+
+if TYPE_CHECKING:
+    from fdai.runtime.bootstrap_pantheon_models import PantheonInitialization
+
+
+def build_safety(
+    config: PantheonInitialization, enforce: bool
+) -> tuple[DevelopmentRuntimeBindings | None, ResourceLock | None]:
+    """Compose required safety dependencies without selecting action mode or authority."""
+    development = pantheon_inputs.pantheon_development_bindings(config.control_loop)
+    lock = _build_resource_lock(config.environment) if enforce or development is not None else None
+    return development, lock
 
 
 @dataclass(frozen=True, slots=True)
