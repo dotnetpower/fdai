@@ -1,6 +1,6 @@
 ---
 title: Approvals and channels
-description: How FDAI reaches you for high-risk approvals and alerts. Covers the channels it uses, why the console never executes, and what happens when nobody answers.
+description: Learn how FDAI requests high-risk approvals and sends alerts, why the console never executes changes, and what happens when nobody responds.
 sidebar:
   order: 7
 ---

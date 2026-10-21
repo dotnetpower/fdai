@@ -199,7 +199,7 @@ CLI를 설치했다면 `fdaictl provision azure --source <checkout>`도 사용�
    Hub 모드에서는 서명된 카탈로그와 Release를 검증하고 소스 일치를 확인하며,
    Azure 배포 효과 전에 선택한 구독의 최소 배포 요청을 기록합니다.
 3. clone의 `secrets/` 디렉터리를 보고 Trial 또는 전체 사용권 모드를 선택합니다.
-4. 정책, 할당량, 프로바이더 및 대상을 읽기 전용으로 검사합니다.
+4. 정책, 할당량, 공급자 및 대상을 읽기 전용으로 검사합니다.
 5. Foundation 계획을 표시하고 적용합니다. 비공개 상태 경계, Virtual Network, Bastion 액세스,
    배포 신원 및 Managed Host를 만듭니다.
 6. 서명된 이미지 다이제스트를 자신의 레지스트리에 가져오고 다시 조회합니다.
@@ -222,7 +222,7 @@ CLI를 설치했다면 `fdaictl provision azure --source <checkout>`도 사용�
 고객 구성은 포함하지 않습니다. 구독 소유권도 증명하지 않습니다.
 
 정확한 Foundation 복구는 복구 논리에 더 새로운 깨끗한 checkout을 사용할 수 있습니다. 검증된
-상태 인계 후에도 애플리케이션 배포는 원래 보존된 소스 스냅샷과 원래 런타임 프로파일을 사용합니다.
+상태 인계 후에도 애플리케이션 배포는 원래 보존된 소스 스냅샷과 원래 런타임 프로필을 사용합니다.
 복구는 애플리케이션 바이트를 자동으로 업그레이드하거나 서명된 키트를 선택하지 않습니다.
 
 명시적 소스 모드에서 Azure 접근 없이 스냅샷만 고정하려면 `--prepare-only`를, 리소스를 바꾸지
@@ -231,7 +231,7 @@ CLI를 설치했다면 `fdaictl provision azure --source <checkout>`도 사용�
 
 새 대화형 실행은 시작할 때 한 번 설치 설정을 보여 줍니다. 구축 예상 비용 한도는
 `--setup-cost-ceiling <USD>`로 지정하거나 그 검토 중에 입력합니다. 선택적 화면은 `--add-on`으로,
-선택적 관찰 출처는 `--observation-source`로 고르며, 기본값은 헤드리스 관찰 우선 프로파일입니다.
+선택적 관찰 출처는 `--observation-source`로 고르며, 기본값은 헤드리스 관찰 우선 프로필입니다.
 AKS 컴퓨트 부분 비용 검토는 `--monthly-cost-ceiling <USD>`를 지정하지 않으면 월 1500 USD 한도를
 사용합니다. 이 설정만으로 리소스를 배포하지는 않습니다.
 `notifications` 추가 기능에는 `--notification-recipients <path>`도 필요합니다. 이 비공개 JSON 파일

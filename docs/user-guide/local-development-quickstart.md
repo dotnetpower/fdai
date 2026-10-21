@@ -1,6 +1,6 @@
 ---
 title: Local Development Quickstart
-description: Configure Docker, local state, authentication, and the complete FDAI Console stack on a Linux or WSL workstation.
+description: Learn how to configure Docker, local state, authentication, and the complete FDAI Console stack on a Linux or WSL workstation.
 ---
 
 # Local Development Quickstart

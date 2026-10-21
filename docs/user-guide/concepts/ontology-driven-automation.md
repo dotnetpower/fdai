@@ -1,6 +1,6 @@
 ---
 title: Agent-driven automation
-description: How FDAI agents use typed operational truth and ActionType safety contracts to automate cloud operations.
+description: Learn how FDAI agents use typed operational truth and ActionType safety contracts to automate cloud operations.
 sidebar:
   order: 4
 ---

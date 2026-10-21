@@ -1,6 +1,6 @@
 ---
 title: FDAI Functional Specification
-description: A hierarchical definition of FDAI's operating functions, shared automation, governance, and product capabilities, separate from execution flow and implementation status.
+description: Explore a hierarchical definition of FDAI's operating functions, shared automation, governance, and product capabilities, separate from execution flow and implementation status.
 ---
 
 # FDAI Functional Specification

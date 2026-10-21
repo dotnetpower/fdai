@@ -1,6 +1,6 @@
 ---
 title: SRE foundations
-description: The core SRE functions FDAI automates, and how each one maps to the control loop, the agents, and the three verticals.
+description: Explore the core SRE functions FDAI automates and how each maps to the control loop, the agents, and the three operating areas.
 sidebar:
   order: 1
 ---
