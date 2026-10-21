@@ -61,6 +61,7 @@ from fdai_lifecycle_hub.execution_settings import (
     settings_digest,
     settings_record,
 )
+from fdai_lifecycle_hub.migrations import _versions
 from fdai_lifecycle_hub.models import PlanEventKind
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.reports import ROLLED_BACK, failure_suppressions
@@ -238,7 +239,9 @@ class HubStore:
             }
 
     def drop_schema(self) -> None:
-        models.Base.metadata.drop_all(self.engine)
+        with self.engine.begin() as connection:
+            models.Base.metadata.drop_all(connection)
+            _versions("lifecycle_hub").drop(connection, checkfirst=True)
 
     @contextmanager
     def _write(self) -> Iterator[Session]:

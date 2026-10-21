@@ -12,7 +12,7 @@ from fdai_deployment_cli.lifecycle_native import (
     NativeScopeClaim,
     sign_native_scope,
 )
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
 from fdai_lifecycle_hub import audit, models
@@ -74,6 +74,20 @@ def acceptance(store, key, *, entity_id="application", product="example-app"):
         confirmation="",
     )
     return command.model_copy(update={"confirmation": command.required_confirmation})
+
+
+def test_explicit_drop_resets_cli_migration_marker(native_store, monkeypatch, capsys):
+    from fdai_lifecycle_hub import cli
+
+    store = native_store
+    monkeypatch.setattr(cli, "_store", lambda: store)
+    for _ in range(2):
+        store.drop_schema()
+        assert not inspect(store.engine).has_table(_versions("lifecycle_hub").name)
+        assert cli.main(["migrate"]) == 0
+        capsys.readouterr()
+        require_schema(store.engine, "lifecycle_hub")
+        assert inspect(store.engine).has_table(models.Installation.__tablename__)
 
 
 def test_acceptance_registers_only_unmanaged_scope_and_audits_once(
