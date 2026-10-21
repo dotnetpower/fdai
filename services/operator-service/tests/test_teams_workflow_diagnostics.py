@@ -153,6 +153,33 @@ async def test_saves_and_verifies_before_sending_the_test_card() -> None:
     assert URL not in repr(store.values)
 
 
+async def test_save_survives_a_provider_rejection() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+
+    async def reject(_: str, __: object) -> TeamsWorkflowProviderResponse:
+        return TeamsWorkflowProviderResponse(400)
+
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        post=reject,
+        clock=lambda: NOW,
+    )
+
+    result = await tester.save_and_test(_command())
+    described = await tester.describe_binding(actor_id="owner-1")
+
+    assert result.saved is True
+    assert result.accepted is False
+    assert result.provider_status == 400
+    assert described is not None
+    assert described["binding_version"] == "version-1"
+    assert described["saved_at"] == NOW.isoformat()
+    assert bindings.values == [URL]
+    assert URL not in repr(store.values)
+
+
 async def test_save_and_test_requires_injected_secret_storage() -> None:
     tester = TeamsWorkflowDiagnosticTester(store=MemoryStore(), clock=lambda: NOW)
 

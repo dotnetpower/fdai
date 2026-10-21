@@ -212,6 +212,42 @@ async def test_endpoint_accepts_an_explicit_api_suffix_once(endpoint: str) -> No
     assert requests[0].url.path == f"/.bot/v3/directline/conversations/{CONVERSATION}/activities"
 
 
+async def test_insecure_http_is_limited_to_explicit_loopback_development_mode() -> None:
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(ValueError, match="absolute https URL"):
+            _channel(
+                client,
+                endpoint="http://127.0.0.1:8787",
+            )
+
+        with pytest.raises(ValueError, match="absolute https URL"):
+            DirectLineNotificationChannel(
+                config=DirectLineConfig(
+                    channel_id=CHANNEL,
+                    endpoint="http://relay.example.com:8787",
+                    conversation_id=CONVERSATION,
+                    trust_tiers=A2_A4,
+                    allow_insecure_loopback=True,
+                ),
+                http_client=client,
+                credential_provider=_provider(),
+            )
+
+        channel = DirectLineNotificationChannel(
+            config=DirectLineConfig(
+                channel_id=CHANNEL,
+                endpoint="http://127.0.0.1:8787",
+                conversation_id=CONVERSATION,
+                trust_tiers=A2_A4,
+                allow_insecure_loopback=True,
+            ),
+            http_client=client,
+            credential_provider=_provider(),
+        )
+
+        assert channel.channel_id == CHANNEL
+
+
 @pytest.mark.parametrize(
     ("endpoint", "netloc"),
     [

@@ -62,6 +62,10 @@ class TeamsWorkflowTestConflictError(RuntimeError):
 class TeamsWorkflowTestProviderError(RuntimeError):
     """The bounded provider request was rejected or could not be observed."""
 
+    def __init__(self, message: str, *, status_code: int = 0) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
 
 class TeamsWorkflowBindingUnavailableError(RuntimeError):
     """The deployment did not compose a writable secret binding."""
@@ -153,13 +157,25 @@ class TeamsWorkflowDiagnosticTester:
                 "actor_id": command.actor_id,
             },
         )
-        tested = await self.test(
-            TeamsWorkflowTestCommand(
-                actor_id=command.actor_id,
-                request_id=command.request_id,
-                webhook_url=saved.webhook_url,
+        try:
+            tested = await self.test(
+                TeamsWorkflowTestCommand(
+                    actor_id=command.actor_id,
+                    request_id=command.request_id,
+                    webhook_url=saved.webhook_url,
+                )
             )
-        )
+        except TeamsWorkflowTestProviderError as exc:
+            return TeamsWorkflowTestResult(
+                request_id=command.request_id,
+                saved=True,
+                binding_version=saved.version,
+                saved_at=saved_at,
+                accepted=False,
+                provider_status=exc.status_code,
+                workflow_run_id=None,
+                tested_at=self.clock().astimezone(UTC),
+            )
         return TeamsWorkflowTestResult(
             request_id=tested.request_id,
             saved=True,
@@ -297,7 +313,8 @@ class TeamsWorkflowDiagnosticTester:
                 },
             )
             raise TeamsWorkflowTestProviderError(
-                f"Teams Workflow rejected the synthetic card with HTTP {response.status_code}"
+                f"Teams Workflow rejected the synthetic card with HTTP {response.status_code}",
+                status_code=response.status_code,
             )
 
         completed_at = self.clock().astimezone(UTC)

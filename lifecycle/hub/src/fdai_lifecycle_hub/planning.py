@@ -23,6 +23,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     PlanType,
     canonical_plan_payload,
     evaluate_lifecycle_constraints,
+    required_artifact_digests,
 )
 from fdai_deployment_cli.lifecycle_release import LifecycleRelease
 from fdai_deployment_cli.runtime_release import compare_release_ids, evaluate_recall_candidate
@@ -31,6 +32,8 @@ from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.domain import (
     CandidateCheck,
+    EntityState,
+    Health,
     Installation,
     Issued,
     NoEligibleRelease,
@@ -73,6 +76,11 @@ def plan_next(
         return NoManagedEntity()
     windows = installation.maintenance_windows(now)
     checks: list[CandidateCheck] = []
+    managed_states = [
+        state
+        for entity_id, state in installation.reported.entities.items()
+        if entity_id in installation.managed_entity_ids
+    ]
     rolloff_required = any(
         state.release_id is not None
         and not evaluate_recall_candidate(
@@ -84,19 +92,32 @@ def plan_next(
             ),
             recall_records=catalog.recalls,
         ).allowed
-        for entity_id, state in installation.reported.entities.items()
-        if entity_id in installation.managed_entity_ids
+        for state in managed_states
     )
-    plan_type: PlanType = "recall-rolloff" if rolloff_required else "upgrade"
-    candidates = catalog.newer_than(
-        installation.settings.channel,
-        None if rolloff_required else installation.current_release,
+    drift_detected = not rolloff_required and any(
+        _entity_has_drift(state, catalog) for state in managed_states
     )
+    current_release = installation.current_release
+    if rolloff_required:
+        candidates = list(catalog.newer_than(installation.settings.channel, None))
+    elif drift_detected and current_release is not None:
+        candidates = [
+            (release_id, release)
+            for release_id, release in catalog.newer_than(installation.settings.channel, None)
+            if compare_release_ids(release_id, current_release) >= 0
+        ]
+    else:
+        candidates = list(catalog.newer_than(installation.settings.channel, current_release))
     for release_id, release in candidates:
+        if rolloff_required:
+            plan_type: PlanType = "recall-rolloff"
+        elif drift_detected and release_id == current_release:
+            plan_type = "drift-reconciliation"
+        else:
+            plan_type = "upgrade"
         if not rolloff_required and any(
             state.release_id is not None and compare_release_ids(release_id, state.release_id) < 0
-            for entity_id, state in installation.reported.entities.items()
-            if entity_id in installation.managed_entity_ids
+            for state in managed_states
         ):
             checks.append(
                 CandidateCheck(release_id, (ConstraintBlock("release_would_downgrade_entity"),))
@@ -242,6 +263,18 @@ def _draft(
     )
 
 
+def _entity_has_drift(state: EntityState, catalog: ReleaseCatalog) -> bool:
+    if state.release_id is None:
+        return False
+    if state.health is not Health.HEALTHY:
+        return True
+    release = catalog.releases.get(state.release_id)
+    if release is not None and state.artifact_digests:
+        if not state.artifact_digests <= required_artifact_digests(release):
+            return True
+    return False
+
+
 def _constraint_context(
     installation: Installation,
     draft: LifecyclePlan,
@@ -252,6 +285,12 @@ def _constraint_context(
     now: datetime,
 ) -> LifecycleConstraintContext:
     settings, configuration = installation.settings, installation.configuration
+    available_artifacts = installation.reported.artifact_digests()
+    if (
+        installation.reported.available_artifact_digests is None
+        and draft.plan_type == "drift-reconciliation"
+    ):
+        available_artifacts = available_artifacts | required_artifact_digests(release)
     return LifecycleConstraintContext(
         now=now,
         plan_id=draft.plan_id,
@@ -267,7 +306,7 @@ def _constraint_context(
         configuration_schema=configuration.schema,
         environment_config=configuration.environment,
         entity_overrides=configuration.entity_overrides,
-        available_artifact_digests=installation.reported.artifact_digests(),
+        available_artifact_digests=available_artifacts,
         data_residency=DataResidencyRequirement(
             allowed_regions=settings.allowed_regions, release_regions=draft.release_regions
         ),

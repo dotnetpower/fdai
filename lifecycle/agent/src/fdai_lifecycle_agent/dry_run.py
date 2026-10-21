@@ -115,8 +115,10 @@ def compute_change_set(
         if observed is None or observed.release_id is None:
             action = "create"
         elif (
-            observed.release_id == plan.target_release_id
+            plan.plan_type != "drift-reconciliation"
+            and observed.release_id == plan.target_release_id
             and observed.artifact_digests == entity_images[entity_id]
+            and observed.health == Health.HEALTHY
         ):
             action = "unchanged"
         else:
