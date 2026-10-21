@@ -11,6 +11,10 @@ from sqlalchemy.engine import Connection
 REVISION = 1
 
 
+def _revision(namespace: str) -> int:
+    return 2 if namespace == "lifecycle_hub" else REVISION
+
+
 def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], None]) -> None:
     versions = _versions(namespace)
     with engine.begin() as connection:
@@ -22,8 +26,21 @@ def migrate(engine: Engine, namespace: str, initialize: Callable[[Connection], N
         revision = connection.scalar(select(versions.c.revision))
         if revision is None:
             initialize(connection)
-            connection.execute(versions.insert().values(revision=REVISION))
-        elif revision != REVISION:
+            connection.execute(versions.insert().values(revision=_revision(namespace)))
+        elif revision == 1 and namespace == "lifecycle_hub":
+            from fdai_lifecycle_hub import models
+
+            models.Base.metadata.tables["lifecycle_configuration_key_request"].create(
+                connection, checkfirst=True
+            )
+            models.Base.metadata.tables["lifecycle_configuration_key_binding"].create(
+                connection, checkfirst=True
+            )
+            models.Base.metadata.tables["lifecycle_configuration_plan_trust"].create(
+                connection, checkfirst=True
+            )
+            connection.execute(versions.update().values(revision=2))
+        elif revision != _revision(namespace):
             raise ValueError("Unsupported Hub schema revision; use a compatible migration command.")
 
 
@@ -32,7 +49,7 @@ def require_schema(engine: Engine | Connection, namespace: str) -> None:
     with engine.connect() if isinstance(engine, Engine) else nullcontext(engine) as connection:
         if not inspect(connection).has_table(versions.name):
             raise ValueError("Hub schema is not migrated; run the explicit migrate command.")
-        if connection.scalar(select(versions.c.revision)) != REVISION:
+        if connection.scalar(select(versions.c.revision)) != _revision(namespace):
             raise ValueError("Unsupported Hub schema revision; migrate before serving.")
 
 

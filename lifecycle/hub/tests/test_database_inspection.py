@@ -154,7 +154,7 @@ def test_empty_product_and_same_state_compare_in_readonly_transaction(database, 
 
     before = inspect(engine).get_table_names()
     baseline = check.observe(engine, kind, "source")
-    assert baseline.revision == 1
+    assert baseline.revision == (2 if kind == "target" else 1)
     assert sum(table.rows for table in baseline.tables.values()) == 1
     assert states and all(value == "on" for value in states)
     alternate = create_engine(

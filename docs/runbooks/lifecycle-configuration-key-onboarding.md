@@ -2,19 +2,21 @@
 
 Use this runbook to prepare customer ownership, key custody and the public verification binding
 for lifecycle configuration packages. It separates those prerequisites from the implemented local
-packager and the unimplemented operational key registration and Hub import paths.
+packager and authenticated public-key source APIs. Actual operational onboarding and atomic Hub
+package import remain separate acceptance work.
 
 > **Stop condition:** This runbook does not register, generate, rotate or export a key, and it
 > provides no Hub import command. The [local CLI](../roadmap/deployment/lifecycle-configuration.md#local-packaging-and-verification-commands)
 > signs and verifies explicit private files; it does not establish key trust or qualify a Release.
-> Do not publish real configuration until operational key binding, qualified Release inputs and
-> Hub import are implemented and independently verified.
+> The source APIs below have only synthetic local verification. Do not publish real configuration
+> until actual key onboarding, qualified Release inputs and Hub import are independently verified.
 
 ## What this runbook covers
 
 The customer configuration key authenticates a reviewed desired-configuration revision. It is
-different from the vendor Release key and from the installation key that protects sealed
-identifiers. None of these keys grants operational approval, promotion or executor authority.
+different from the vendor Release key, the enrolled Ed25519 installation identity and the X25519
+installation key that protects sealed identifiers. None of these keys grants operational approval,
+promotion or executor authority.
 
 ## 1. Prepare the private repository
 
@@ -57,8 +59,33 @@ Before onboarding can complete, the implementation needs to demonstrate all of t
 - Secret values are rejected before signing; Key Vault references are not dereferenced by the Hub.
 - Changing configuration cannot change policy, promotion state or execution authority.
 
-These are operational acceptance requirements. Local package signing and verification implement
-only the offline boundary; they do not establish installation trust or implement Hub import.
+These are operational acceptance requirements. Local package signing and verification alone do
+not establish installation trust or implement Hub import.
+
+### Source-only authenticated public-key workflow
+
+The existing authenticated Hub now exposes these routes for an already enrolled installation.
+They accept public metadata and proofs only, never private keys or credentials:
+
+| Route below `/v1/installations/{installation_id}/configuration-keys` | Input or result |
+|------------------------------------------------------------------|-----------------|
+| `POST /request` | Canonical request bytes, installation identity proof and separate configuration-signer proof |
+| `GET /requests/{request_digest}` | Exact public request and digest for independent review |
+| `POST /approve` | Exact `request_digest`; the authenticated operator differs from the signed requester |
+| `POST /revoke` | Exact current `request_digest`; removes configuration trust without deleting history |
+| `GET` | Current version, approved digest, approver and revocation state |
+
+The [owner design](../roadmap/deployment/lifecycle-configuration.md#approved-configuration-keys-design-and-critique)
+defines canonical fields, separate algorithms, five-minute proof freshness, ten-minute approval
+expiry, bounded binding expiry and predecessor/version comparison. Actor fields and package keys
+are not approval. Unauthenticated loopback calls cannot register or approve this trust. The
+explicit Lifecycle Hub revision 1-to-2 migration is additive; serving does not migrate data.
+
+The real planning store resolves persisted approved bindings. A server-owned configuration
+candidate can reach the existing remote recompute API through its explicit composition seam;
+there is no customer-package upload/import command or durable accepted-chain head. Rotation
+retains old public metadata and holds old pending Plans. Historical packages are not reinterpreted
+with the replacement signer; cross-key accepted-chain import remains separate work.
 
 ## 4. Check the placeholder structure offline
 
@@ -78,7 +105,8 @@ result separately from any later connected acceptance.
 Document who can approve a key rotation and how the installation will authenticate the new
 verification key through an independent trust channel. Preserve predecessor history; replacing
 a key does not authorize a fork or a history reset. If the private key is lost or its custody is
-uncertain, hold new publication until reviewed rotation and readback are implemented.
+uncertain, hold new publication until reviewed operational rotation and independent readback
+succeed. The source-only API and synthetic tests do not perform that ceremony.
 
 ## Next steps
 
