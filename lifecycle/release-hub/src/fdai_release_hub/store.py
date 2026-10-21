@@ -19,7 +19,11 @@ from fdai_deployment_cli.lifecycle_release import (
     LifecycleRelease,
     parse_lifecycle_release_manifest,
 )
-from fdai_deployment_cli.runtime_release import is_release_id
+from fdai_deployment_cli.runtime_release import (
+    RecallRecord,
+    evaluate_recall_candidate,
+    is_release_id,
+)
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine, create_engine, event, func, select
 from sqlalchemy.engine import Connection
@@ -66,6 +70,10 @@ class Change(CatalogConfirmation):
     channel_confirmation: str | None = Field(default=None, max_length=64)
     label: str = Field(default="", max_length=160)
     manifest: str | None = Field(default=None, max_length=1024 * 1024)
+
+
+class CapabilityChange(CatalogConfirmation):
+    lifting_release_id: str | None = Field(default=None, max_length=64)
 
 
 class ReleaseStore:
@@ -262,6 +270,22 @@ class ReleaseStore:
                         raise CatalogError(
                             "Publish the Release before adding it to a channel.", 409
                         )
+                    release = parse_lifecycle_release_manifest(row["manifest"].encode())
+                    prior_events = [
+                        dict(event_row)
+                        for event_row in db.execute(
+                            select(events).order_by(events.c.revision.asc())
+                        ).mappings()
+                    ]
+                    decision = evaluate_recall_candidate(
+                        release_id=release_id,
+                        capability_ids=tuple(sorted(release.capability_maximums)),
+                        recall_records=self._recall_records_from_events(prior_events),
+                    )
+                    if not decision.allowed:
+                        raise CatalogError(
+                            "Releases with an active recalled capability cannot be promoted.", 409
+                        )
                     exists = db.execute(
                         select(membership).where(
                             membership.c.channel == change.channel,
@@ -282,6 +306,74 @@ class ReleaseStore:
                 else:
                     raise CatalogError("Unsupported action.")
             self._record_event(db, action, release_id, change, actor, now, channel=change.channel)
+        return self.snapshot()
+
+    def change_capability(
+        self,
+        action: str,
+        capability_id: str,
+        change: CapabilityChange,
+        *,
+        actor: str = "local-operator",
+    ) -> dict[str, Any]:
+        if not actor.strip() or len(actor) > 160:
+            raise CatalogError("An attributed operator is required.")
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", capability_id) is None:
+            raise CatalogError("Capability id is invalid.")
+        if change.confirmation != capability_id:
+            raise CatalogError("Type the exact capability id to confirm.")
+        if not change.reason.strip():
+            raise CatalogError("A non-blank reason is required.")
+        with self.connect() as db:
+            self._lock_revision(db, change.revision)
+            now = self.clock().isoformat()
+            prior_events = [
+                dict(event_row)
+                for event_row in db.execute(
+                    select(events)
+                    .where(
+                        events.c.release_id == capability_id,
+                        events.c.action.in_(("recall_capability", "lift_capability")),
+                    )
+                    .order_by(events.c.revision.asc())
+                ).mappings()
+            ]
+            active_recall = bool(prior_events and prior_events[-1]["action"] == "recall_capability")
+            if action == "recall":
+                if change.lifting_release_id is not None:
+                    raise CatalogError("A capability recall cannot name a lifting Release.")
+                if active_recall:
+                    raise CatalogError("Capability is already actively recalled.", 409)
+                self._record_event(db, "recall_capability", capability_id, change, actor, now)
+            elif action == "lift":
+                if change.lifting_release_id is None or not is_release_id(
+                    change.lifting_release_id
+                ):
+                    raise CatalogError("Lifting Release id must be canonical SemVer.")
+                if not active_recall:
+                    raise CatalogError("Capability is not actively recalled.", 409)
+                lifting_row = (
+                    db.execute(select(releases).where(releases.c.id == change.lifting_release_id))
+                    .mappings()
+                    .first()
+                )
+                if (
+                    lifting_row is None
+                    or not lifting_row["signature"]
+                    or lifting_row["recalled_at"]
+                ):
+                    raise CatalogError("Lifting Release must be published and not recalled.", 409)
+                self._record_event(
+                    db,
+                    "lift_capability",
+                    capability_id,
+                    change,
+                    actor,
+                    now,
+                    channel=change.lifting_release_id,
+                )
+            else:
+                raise CatalogError("Unsupported capability action.")
         return self.snapshot()
 
     @staticmethod
@@ -363,23 +455,37 @@ class ReleaseStore:
         return self.export_snapshot(self.snapshot())
 
     @staticmethod
-    def export_snapshot(snapshot: dict[str, Any]) -> tuple[bytes, str]:
-        recalls = [
-            {
-                "scope": "release",
-                "target": event["release_id"],
-                "sequence": event["revision"],
-                "notice_digest": hashlib.sha256(
-                    canonical_bytes(
-                        {name: value for name, value in event.items() if name != "actor"}
-                    )
-                ).hexdigest(),
-                "action": "recall",
-                "lifting_release_id": None,
-            }
-            for event in reversed(snapshot["events"])
-            if event["action"] == "recall"
-        ]
+    def _recall_dicts(events_asc: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        recalls: list[dict[str, Any]] = []
+        for entry in events_asc:
+            action = entry["action"]
+            if action not in ("recall", "recall_capability", "lift_capability"):
+                continue
+            recalls.append(
+                {
+                    "scope": "release" if action == "recall" else "capability",
+                    "target": entry["release_id"],
+                    "sequence": entry["revision"],
+                    "notice_digest": hashlib.sha256(
+                        canonical_bytes(
+                            {name: value for name, value in entry.items() if name != "actor"}
+                        )
+                    ).hexdigest(),
+                    "action": "lift" if action == "lift_capability" else "recall",
+                    "lifting_release_id": entry["channel"] if action == "lift_capability" else None,
+                }
+            )
+        return recalls
+
+    @classmethod
+    def _recall_records_from_events(
+        cls, events_asc: list[dict[str, Any]]
+    ) -> tuple[RecallRecord, ...]:
+        return tuple(RecallRecord(**item) for item in cls._recall_dicts(events_asc))
+
+    @classmethod
+    def export_snapshot(cls, snapshot: dict[str, Any]) -> tuple[bytes, str]:
+        recalls = cls._recall_dicts(list(reversed(snapshot["events"])))
         body = canonical_bytes(
             {
                 "revision": snapshot["revision"],

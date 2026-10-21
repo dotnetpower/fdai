@@ -20,11 +20,12 @@ from fdai_deployment_cli.lifecycle_plan import (
     LifecycleEffectEnvelope,
     LifecyclePlan,
     MaintenanceWindow,
+    PlanType,
     canonical_plan_payload,
     evaluate_lifecycle_constraints,
 )
 from fdai_deployment_cli.lifecycle_release import LifecycleRelease
-from fdai_deployment_cli.runtime_release import compare_release_ids
+from fdai_deployment_cli.runtime_release import compare_release_ids, evaluate_recall_candidate
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
@@ -72,9 +73,27 @@ def plan_next(
         return NoManagedEntity()
     windows = installation.maintenance_windows(now)
     checks: list[CandidateCheck] = []
-    candidates = catalog.newer_than(installation.settings.channel, installation.current_release)
+    rolloff_required = any(
+        state.release_id is not None
+        and not evaluate_recall_candidate(
+            release_id=state.release_id,
+            capability_ids=(
+                tuple(sorted(catalog.releases[state.release_id].capability_maximums))
+                if state.release_id in catalog.releases
+                else ()
+            ),
+            recall_records=catalog.recalls,
+        ).allowed
+        for entity_id, state in installation.reported.entities.items()
+        if entity_id in installation.managed_entity_ids
+    )
+    plan_type: PlanType = "recall-rolloff" if rolloff_required else "upgrade"
+    candidates = catalog.newer_than(
+        installation.settings.channel,
+        None if rolloff_required else installation.current_release,
+    )
     for release_id, release in candidates:
-        if any(
+        if not rolloff_required and any(
             state.release_id is not None and compare_release_ids(release_id, state.release_id) < 0
             for entity_id, state in installation.reported.entities.items()
             if entity_id in installation.managed_entity_ids
@@ -117,7 +136,15 @@ def plan_next(
                     CandidateCheck(release_id, (ConstraintBlock("configuration_revision_invalid"),))
                 )
                 continue
-        draft = _draft(installation, release_id, release, key=key, windows=windows, now=now)
+        draft = _draft(
+            installation,
+            release_id,
+            release,
+            key=key,
+            windows=windows,
+            now=now,
+            plan_type=plan_type,
+        )
         if configuration_revision is not None:
             draft = replace(
                 draft, configuration_revision_digest=configuration_revision.package.digest
@@ -176,6 +203,7 @@ def _draft(
     key: HubSigningKey,
     windows: tuple[MaintenanceWindow, ...],
     now: datetime,
+    plan_type: PlanType = "upgrade",
 ) -> LifecyclePlan:
     settings = installation.settings
     sequence = installation.last_sequence + 1
@@ -192,7 +220,7 @@ def _draft(
         source_state_digest=installation.reported.digest,
         sequence=sequence,
         fencing_generation=settings.fencing_generation,
-        plan_type="upgrade",
+        plan_type=plan_type,
         target_release_id=release_id,
         target_release_digest=release.digest,
         configuration_revision_digest=installation.configuration.digest,
