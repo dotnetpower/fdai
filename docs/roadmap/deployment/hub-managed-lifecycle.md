@@ -513,7 +513,11 @@ allows it, and otherwise holds the installation for the operator.
 
 The lifecycle agent, the infrastructure agent, and a Target Hub upgrade themselves through two
 slots. The new version starts beside the old one, passes health checks, and then takes over. The
-old slot stays as the rollback target.
+old slot stays as the rollback target. `InfrastructureAgent` enforces the Plan envelope and holds
+any Azure resource deletion or replacement for an operator `DestructiveChangeConfirmation` bound to
+the exact Plan digest before calling the exact-plan coordinator, and `DualSlotUpgradeController`
+starts the candidate slot without write authority, rolls back to the old slot on a failed health
+check, and transfers fenced write authority only after health and post-handoff readback checks pass.
 
 ### Constraints
 
@@ -596,6 +600,10 @@ and independent readback. The installation's own kill switch route keeps its exi
   evidence.
 - Lifecycle agents never publish authority-bearing events. Saga may cite lifecycle receipts as
   evidence references only.
+- `ProvenFoundationOwnershipRegistry` admits only resources backed by a verified signed Foundation
+  creation receipt and matching Terraform state digest, supplying the `deny` signal to `RiskGate`
+  for operations-loop targets while keeping manually tagged customer resources (`fdai:managed=true`
+  without a signed Foundation receipt) outside FDAI ownership.
 
 ## Customer isolation and data residency
 

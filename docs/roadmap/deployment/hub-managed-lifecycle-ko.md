@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 935049f021faab848613246194c7865a2e7ef4f4
+translation_source_sha: d77fc77dfaf0c6ffbaf2c059e9f845cca2c8baa6
 translation_revised: 2026-10-22
 ---
 # Hub 관리형 수명 주기
@@ -512,7 +512,11 @@ Release가 허용하는 경우 완료된 단계를 역순으로 보상하고, �
 
 수명 주기 에이전트, 인프라 에이전트, Target Hub는 두 개의 슬롯으로 스스로 업그레이드합니다. 새
 버전이 이전 버전 옆에서 시작해 상태 검사를 통과한 뒤 역할을 넘겨받습니다. 이전 슬롯은 롤백
-대상으로 남습니다.
+대상으로 남습니다. `InfrastructureAgent`는 Plan 효과 경계를 강제하고 기존 Azure 리소스의 삭제나
+교체를 정확한 Plan 다이제스트에 결속된 운영자 `DestructiveChangeConfirmation`이 있을 때까지
+보류한 뒤 정확한 계획 조정기를 호출하며, `DualSlotUpgradeController`는 후보 슬롯을 쓰기 권한 없이
+시작해 상태 검사가 실패하면 이전 슬롯으로 롤백하고 상태 및 인계 후 재확인 검사를 통과한 뒤에만
+펜싱된 쓰기 권한을 이전합니다.
 
 ### 제약 조건
 
@@ -591,6 +595,10 @@ Apollo에는 런타임 재정의 계층이 없습니다. 가장 가까운 개념
   그런 대상을 차단합니다. Heimdall은 여전히 그 리소스의 드리프트를 참고 증거로 보고할 수 있습니다.
 - 수명 주기 에이전트는 권한이 있는 이벤트를 게시하지 않습니다. Saga는 수명 주기 증적을 증거
   참조로만 인용할 수 있습니다.
+- `ProvenFoundationOwnershipRegistry`는 검증된 서명 Foundation 생성 증적과 일치하는 Terraform 상태
+  다이제스트가 있는 리소스만 수락하여 운영 루프 대상에 대해 `RiskGate`에 `deny` 신호를 전달하며,
+  수동 태그만 붙은 고객 리소스(서명된 Foundation 증적이 없는 `fdai:managed=true`)는 FDAI 소유로
+  채택하지 않습니다.
 
 ## 고객 격리와 데이터 상주
 
