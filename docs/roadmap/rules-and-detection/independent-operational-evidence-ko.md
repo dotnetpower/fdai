@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: df5e1636e4fbc1056159e0b76e87016c3530d4f5
+translation_source_sha: a63948e47f19e3b6028c92e9c5f6dca20e060a04
 translation_revised: 2026-10-22
 ---
 # 독립 운영 근거 발급
@@ -198,7 +198,11 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준이며, 그 밖의 
 검증기 HTTP 읽기는 본문 전체를 저장하거나 압축 해제하기 전에 원시 스트리밍과 기존 응답 크기
 검사기를 사용합니다. 발급 응답의 압축 해제 후 상한은 4 KiB, 준비 상태 응답은 8 KiB이며
 연결 환경 인계에도 같은 제한을 적용합니다. gzip/deflate의 네이티브 출력은 저장 전에 제한하고,
-200이 아닌 응답은 본문을 읽지 않고 닫습니다. 기한에는 본문 읽기도 포함하며 취소는 계속
+200이 아닌 응답은 본문을 읽지 않고 닫습니다. 호출자 토큰 인증이 구성되면(배포 실행 환경에서는 필수)
+`HttpOperationalEvidenceTransport`는 동일한 2초 발급 기한 안에서
+`FDAI_OPERATIONAL_EVIDENCE_CALLER_TOKEN_AUDIENCE`에 대한 생산자의 단기 `WorkloadIdentity`
+bearer 토큰을 획득해 토큰을 보관하거나 로그에 남기지 않고 `Authorization: Bearer <token>`을 전송하며,
+토큰 획득 누락이나 실패는 `unavailable`로 처리합니다. 기한에는 본문 읽기도 포함하며 취소는 계속
 호출자에게 전달합니다. 재시도는 추가하지 않습니다. 정확히 상한에 도달한 응답은 유효하며,
 준비 상태를 읽을 수 없으면 인계 단계가 실패합니다. 이를 대체 증명이나 정상 기본값으로
 취급하지 않습니다.

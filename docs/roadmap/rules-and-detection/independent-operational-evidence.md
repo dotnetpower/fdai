@@ -201,9 +201,14 @@ invalid-input responses remain explicit. This transport bound grants no authenti
 Verifier HTTP reads use raw streaming and the existing bounded response reader before retaining
 or decompressing a complete body. Issuance keeps its 4 KiB decoded limit and readiness its 8 KiB
 limit, including the connected handoff. Native gzip/deflate output is capped before retention;
-non-200 responses close without reading their bodies. Deadlines include body reading, cancellation
-still propagates, and no retry is introduced. Exact-limit responses remain valid. An unavailable
-readiness result is a failed handoff stage, never a replacement proof or a healthy default.
+non-200 responses close without reading their bodies. When caller-token authentication is configured
+(required in the deployed venue), `HttpOperationalEvidenceTransport` acquires the producer's
+short-lived `WorkloadIdentity` bearer token for `FDAI_OPERATIONAL_EVIDENCE_CALLER_TOKEN_AUDIENCE`
+within the same two-second issuance bound and sends `Authorization: Bearer <token>` without
+retaining or logging the token; missing or failed token acquisition degrades to `unavailable`.
+Deadlines include body reading, cancellation still propagates, and no retry is introduced.
+Exact-limit responses remain valid. An unavailable readiness result is a failed handoff stage,
+never a replacement proof or a healthy default.
 
 Each owner records the class in a record it already writes and cites the rejection digest: Forseti's hold
 reason, Thor's dispatch hold, Mimir's refused-transition audit, Heimdall's scoring exclusion (in a new
