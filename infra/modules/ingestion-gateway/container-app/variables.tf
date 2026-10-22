@@ -60,6 +60,7 @@ variable "github_webhook_secret_id" {
 variable "chatops_webhook_url_secret_id" {
   type      = string
   sensitive = true
+  # Empty selects Console-only notification; a Key Vault reference adds the ChatOps channel.
 }
 variable "stewardship_maintainers" { type = string }
 variable "stewardship_agent_bindings" { type = map(string) }

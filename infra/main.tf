@@ -3647,7 +3647,7 @@ module "ingestion_gateway" {
     local.stewardship_gitops_configured ? azurerm_key_vault_secret.github_webhook_secret[0].id : ""
   )
   chatops_webhook_url_secret_id = (
-    var.enable_stewardship_governance ? azurerm_key_vault_secret.chatops_webhook_url[0].id : ""
+    var.enable_stewardship_governance && var.enable_chatops_hil ? azurerm_key_vault_secret.chatops_webhook_url[0].id : ""
   )
   stewardship_maintainers             = var.stewardship_maintainers
   stewardship_agent_bindings          = var.stewardship_agent_bindings
