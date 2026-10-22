@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: f8bb7c11236d2426372d3ced72f002a1284f20c1
-translation_revised: 2026-10-22
+translation_source_sha: 4a75d7f2182d995e42531865fd92779711056599
+translation_revised: 2026-10-23
 ---
 
 # 개발 워크플로 보증
@@ -41,7 +41,7 @@ Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory e
 Outcome Assurance 읽기 패널도 Operator 경로 패밀리 조립 방식을 사용하지만, 인증된 읽기 전용
 변환 결과로 남습니다. 이 추가는 개발자 워크플로 소켓, 검증 대기열 동작, 로컬 진단 우회 경로
 또는 로컬 실행 권한을 변경하지 않습니다.
-이미지 스캔 결과를 해결하는 의존성 갱신은 패키지 유지보수입니다. 매니페스트와 lock을 갱신할 뿐이며 로컬 검증, 대기열 진단 또는 개발 도구를 권위 있는 근거로 만들지 않습니다.
+이미지 스캔 결과를 해결하는 의존성 갱신은 패키지 유지보수입니다. 매니페스트와 lock을 갱신할 뿐이며 로컬 검증, 대기열 진단 또는 개발 도구를 권위 있는 근거로 만들지 않습니다. 두 소유 매니페스트의 수정 버전 하한과 루트 lock 회귀 검사는 알려진 취약점이 있는 원격 분석 릴리스가 컨테이너 검사 전에 다시 들어오는 것을 차단합니다.
 의미 결과 핸들 저장과 재생은 일반 Operator/Core 의미 요청 경로를 사용합니다. 개발자 워크플로
 소켓, 검증 대기열 동작 또는 로컬 실행 권한을 추가하지 않습니다.
 통제된 Chaos 프로바이더 작업 영역 패키지도 보호된 시나리오 랩 실행기를 위한 설치 산출물입니다.
