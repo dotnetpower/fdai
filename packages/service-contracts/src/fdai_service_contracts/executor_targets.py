@@ -11,6 +11,7 @@ _ACTION_OPERATIONS = {
     "ops.deallocate-vm": "azure.compute.vm.deallocate",
     "ops.upsert-network-rule": "azure.network.nsg.rule.upsert",
     "ops.delete-network-rule": "azure.network.nsg.rule.delete",
+    "remediate.subscription-tag-add": "azure.subscription.tags.merge",
     "remediate.tag-add": "azure.resource.tags.merge",
 }
 _TARGET_SEGMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}$")
@@ -21,6 +22,16 @@ _LOGICAL_RESOURCE_REF = re.compile(
     r"[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}"
     r"(?:/providers(?:/[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}){3,15})?$",
     re.IGNORECASE,
+)
+_LOGICAL_SUBSCRIPTION_REF = re.compile(
+    r"^scope-[a-f0-9]{16,64}/subscription$",
+    re.IGNORECASE,
+)
+_TAG_OPERATIONS = frozenset(
+    {
+        "azure.resource.tags.merge",
+        "azure.subscription.tags.merge",
+    }
 )
 
 
@@ -55,8 +66,8 @@ def _normalize_arguments(
     raw: Mapping[str, object],
 ) -> dict[str, object]:
     required: tuple[str, ...]
-    if operation_id == "azure.resource.tags.merge":
-        target_resource_ref = _tag_resource_ref(raw)
+    if operation_id in _TAG_OPERATIONS:
+        target_resource_ref = _tag_resource_ref(operation_id, raw)
         tag_name = _tag_text(raw, "tag_name", _TAG_NAME)
         tag_value = _tag_text(raw, "tag_value", _TAG_VALUE)
         return {
@@ -82,8 +93,8 @@ def _canonical_resource_ref(
     operation_id: str,
     arguments: Mapping[str, object],
 ) -> str:
-    if operation_id == "azure.resource.tags.merge":
-        return _tag_resource_ref(arguments)
+    if operation_id in _TAG_OPERATIONS:
+        return _tag_resource_ref(operation_id, arguments)
     resource_group = _target_segment(arguments, "resource_group")
     if operation_id.startswith("azure.compute.vm."):
         vm_name = _target_segment(arguments, "vm_name")
@@ -106,12 +117,22 @@ def _target_segment(arguments: Mapping[str, object], name: str) -> str:
     return value.casefold()
 
 
-def _tag_resource_ref(arguments: Mapping[str, object]) -> str:
+def _tag_resource_ref(
+    operation_id: str,
+    arguments: Mapping[str, object],
+) -> str:
     value = arguments.get("target_resource_ref")
-    if not isinstance(value, str) or _LOGICAL_RESOURCE_REF.fullmatch(value) is None:
+    pattern = (
+        _LOGICAL_SUBSCRIPTION_REF
+        if operation_id == "azure.subscription.tags.merge"
+        else _LOGICAL_RESOURCE_REF
+    )
+    if not isinstance(value, str) or pattern.fullmatch(value) is None:
         raise ValueError(
             "gateway target_resource_ref MUST identify one bounded logical Azure resource"
         )
+    if operation_id == "azure.subscription.tags.merge":
+        return value.casefold()
     parts = value.split("/")
     if "providers" in (part.casefold() for part in parts):
         provider_index = next(

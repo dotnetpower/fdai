@@ -466,6 +466,8 @@ P1 population counts, E12 lineage limitations, and semantic answer output reserv
 typed query and presentation evidence. They do not issue or admit independent operational evidence.
 Projection-only ontology vocabulary can refresh that corpus manifest's source digests without
 changing the release digest or any operational-evidence lookup authority.
+An ActionType catalog addition can refresh the same repository provenance. It neither issues an
+operational proof nor admits an earlier proof for the new action.
 
 P2 traversal population counts, E12 per-anchor coverage rows, E11 recipe thresholds, and P3 metric
 read continuations are also typed query evidence. They neither issue nor admit independent

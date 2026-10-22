@@ -1,8 +1,8 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: 0c344ec8e9cae2d8522f042126f9677804ea1432
-translation_revised: 2026-10-02
+translation_source_sha: a4032440f41ffeea7ae2658dbdc0c1350cb22f2d
+translation_revised: 2026-10-23
 ---
 
 # 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
@@ -83,14 +83,12 @@ ActionType 범주 차원(영향 범위, 파괴성, 가역성, 롤백 경로 또�
 않고, 현재 근거에 충돌이 없으며, 개발 경로의 모든 안전 및 근거 전제 조건이 충족될 때만 범주
 전용입니다. 상류 테이블에서는 `deny-subscription-blast`만 이에 해당합니다. 결속이
 결정적인 direct-API dry-run 영수증을 기록하므로 Core는 등록된 direct-API
-ActionType만, 프로필이 유효한 동안에만 보류하며 워크플로 단계는 보류하지 않습니다. 제공되는 구독
-범위 ActionType인 `governance.retire-rule`은 `pr_native`이므로 거부가
-유지됩니다. 결속 범위는 대상 위치를 선언된 영향 범위까지 넓힌 범위입니다. 영향 범위가 구독 전체이거나,
-선언되지 않았거나, 그래프에서 파생되면 전용 구독 전체가 필요하며, 리소스 그룹만 결속한 프로필은 이를
-포함하지 않습니다. 허용 단계는 더 좁은 결속을 거부합니다. 블록은 원래 `deny`, 범주 사실, 평가에
-사용한 이벤트를 기록하고, 범주 규칙을 제외했을 때 테이블이 요구하는 정족수를 원래 정족수로 기록하며,
-보류를 Owner 전용으로 표시합니다. Operator, 결정 트랜잭션 및 Core는 각각 Owner의
-증명된 자기 승인 외의 모든 승인을 거부합니다. 반려는 권한을 부여하지 않으므로 요청한 Owner를 포함한
+ActionType만, 프로필이 유효한 동안에만 보류하며 워크플로 단계는 보류하지 않습니다. 제공되는 `remediate.subscription-tag-add` ActionType은 이 경로에서 사용하는 범위가 제한된 direct-API 구독 작업입니다. 이 작업은 항상 shadow로 시작하며, 별도의 구독 작업을 통해 태그 하나만 추가합니다. 또한 snapshot rollback과 reader 신원을 사용한 효과 검증을 적용합니다. 구독 범위
+`governance.retire-rule` ActionType은 `pr_native`이므로 거부가 유지됩니다. 결속 범위는 대상 위치를
+선언된 영향 범위까지 넓힌 범위입니다. 영향 범위가 구독 전체이거나, 선언되지 않았거나, 그래프에서 파생되면 전용 구독 전체가 필요하며, 리소스 그룹만 결속한 프로필은 이를 포함하지 않습니다. 허용 단계는
+더 좁은 결속을 거부합니다. 블록은 원래 `deny`, 범주 사실, 평가에 사용한 이벤트를 기록하고, 범주
+규칙을 제외했을 때 테이블이 요구하는 정족수를 원래 정족수로 기록하며, 보류를 Owner 전용으로
+표시합니다. Operator, 결정 트랜잭션 및 Core는 각각 Owner의 증명된 자기 승인 외의 모든 승인을 거부합니다. 반려는 권한을 부여하지 않으므로 요청한 Owner를 포함한
 모든 권한 있는 승인자는 이를 반려할 수 있으며, 응답이 없는 보류는 만료됩니다. 일반 재개 claim이
 허용된 자기 승인을 디스패치하기 전에 ControlLoop는 전체 현재 평가를 다시 실행합니다. 현재
 인벤토리, 실행 권한 부여, 킬 스위치, 성능 저하, 승격 상태, 근거 충돌, 사전 조건, live

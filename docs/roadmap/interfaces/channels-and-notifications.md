@@ -74,7 +74,8 @@ durable delivery, and the Teams Workflows webhook binding are owned by
   before acting. Adapters never authorize decisions themselves. A channel approval never becomes a
   full-authority development confirmation. Only the FDAI Console decision route can attach one, as a
   token-free fresh-sign-in attestation that the HIL decision payload carries to Core for
-  revalidation; Slack and Teams decisions never carry it.
+  revalidation; Slack and Teams decisions never carry it. The subscription tag pilot keeps this
+  Console-only boundary whether the isolated Executor uses a gateway or its direct Azure adapter.
 - A1 approval parks may carry the active single-operator production approval-profile metadata:
   profile revision, policy digest, original quorum, effective quorum, operator principal, and
   executor principal. Core pins the digest-verified revision at decision start from the active

@@ -12,6 +12,7 @@ from delivery.dev_operations_gateway.gateway_contracts import (
     _COMPUTE_API_VERSION,
     _IDENTIFIER,
     _LOGICAL_RESOURCE_REF,
+    _LOGICAL_SUBSCRIPTION_REF,
     _NETWORK_API_VERSION,
     _TAG_NAME,
     _TAG_VALUE,
@@ -44,6 +45,11 @@ class GatewayResourceOperations:
         if operation_id == "azure.resource.tags.merge":
             subscription, group, target_path = self._tag_target(payload)
             target = f"tags/{target_path.lstrip('/')}"
+        elif operation_id == "azure.subscription.tags.merge":
+            target_path = self._subscription_tag_extension_path(payload)
+            subscription = self._config.subscription_id
+            group = "subscription"
+            target = f"tags/{target_path.lstrip('/')}"
         else:
             subscription, group = self._scope(payload)
         if operation_id == "azure.compute.vmss.scale":
@@ -51,7 +57,10 @@ class GatewayResourceOperations:
             target = f"vmss/{vmss_name}"
         elif operation_id.startswith("azure.compute.vm."):
             target = f"vm/{_identifier(payload, 'vm_name')}"
-        elif operation_id != "azure.resource.tags.merge":
+        elif operation_id not in {
+            "azure.resource.tags.merge",
+            "azure.subscription.tags.merge",
+        }:
             target = (
                 f"nsg/{_identifier(payload, 'nsg_name')}/rule/{_identifier(payload, 'rule_name')}"
             )
@@ -65,7 +74,10 @@ class GatewayResourceOperations:
         self._mutation_resource_key(operation_id, payload)
         if operation_id == "azure.network.nsg.rule.upsert":
             _nsg_rule_body(payload)
-        elif operation_id == "azure.resource.tags.merge":
+        elif operation_id in {
+            "azure.resource.tags.merge",
+            "azure.subscription.tags.merge",
+        }:
             _tag_argument(payload, "tag_name", _TAG_NAME)
             _tag_argument(payload, "tag_value", _TAG_VALUE)
         elif operation_id == "azure.compute.vmss.scale":
@@ -78,7 +90,10 @@ class GatewayResourceOperations:
         payload: Mapping[str, object],
     ) -> None:
         if operation_id == "azure.resource.tags.merge":
-            await self._read_tag_document(payload)
+            await self._read_tag_document(self._tag_extension_path(payload))
+            return
+        if operation_id == "azure.subscription.tags.merge":
+            await self._read_tag_document(self._subscription_tag_extension_path(payload))
             return
         subscription, group = self._scope(payload)
         if operation_id == "azure.compute.vmss.scale":
@@ -287,19 +302,38 @@ class GatewayResourceOperations:
         )
 
     async def _read_resource_tag(self, payload: Mapping[str, object]) -> object:
+        return await self._read_tag(payload, self._tag_extension_path(payload))
+
+    async def _read_subscription_tag(self, payload: Mapping[str, object]) -> object:
+        return await self._read_tag(payload, self._subscription_tag_extension_path(payload))
+
+    async def _read_tag(
+        self,
+        payload: Mapping[str, object],
+        target_path: str,
+    ) -> object:
         tag_name = _tag_argument(payload, "tag_name", _TAG_NAME)
         expected = _tag_argument(payload, "tag_value", _TAG_VALUE)
-        tags = await self._read_tag_document(payload)
+        tags = await self._read_tag_document(target_path)
         return {
             "matches": tags.get(tag_name) == expected,
             "present": tag_name in tags,
         }
 
     async def _merge_resource_tag(self, payload: Mapping[str, object]) -> object:
+        return await self._merge_tag(payload, self._tag_extension_path(payload))
+
+    async def _merge_subscription_tag(self, payload: Mapping[str, object]) -> object:
+        return await self._merge_tag(payload, self._subscription_tag_extension_path(payload))
+
+    async def _merge_tag(
+        self,
+        payload: Mapping[str, object],
+        target_path: str,
+    ) -> object:
         tag_name = _tag_argument(payload, "tag_name", _TAG_NAME)
         tag_value = _tag_argument(payload, "tag_value", _TAG_VALUE)
-        prior = await self._read_tag_document(payload)
-        target_path = self._tag_extension_path(payload)
+        prior = await self._read_tag_document(target_path)
         mutation = await self._arm_client.request(
             "PATCH",
             target_path,
@@ -316,10 +350,10 @@ class GatewayResourceOperations:
                 "azure_response_invalid",
                 "Azure tag merge unexpectedly returned an asynchronous operation",
             )
-        observed = await self._read_tag_document(payload)
+        observed = await self._read_tag_document(target_path)
         if observed.get(tag_name) == tag_value:
             return {"verified": True}
-        await self._restore_tag_snapshot(payload, prior)
+        await self._restore_tag_snapshot(target_path, prior)
         raise GatewayError(
             502,
             "effect_verification_failed",
@@ -328,10 +362,9 @@ class GatewayResourceOperations:
 
     async def _restore_tag_snapshot(
         self,
-        payload: Mapping[str, object],
+        target_path: str,
         prior: Mapping[str, str],
     ) -> None:
-        target_path = self._tag_extension_path(payload)
         restored = await self._arm_client.request(
             "PATCH",
             target_path,
@@ -348,17 +381,17 @@ class GatewayResourceOperations:
                 "tag_rollback_failed",
                 "Azure tag rollback unexpectedly returned an asynchronous operation",
             )
-        if await self._read_tag_document(payload) != dict(prior):
+        if await self._read_tag_document(target_path) != dict(prior):
             raise GatewayError(
                 500,
                 "tag_rollback_failed",
                 "Azure tag rollback could not restore the prior snapshot",
             )
 
-    async def _read_tag_document(self, payload: Mapping[str, object]) -> dict[str, str]:
+    async def _read_tag_document(self, target_path: str) -> dict[str, str]:
         raw = await self._arm_client.request(
             "GET",
-            self._tag_extension_path(payload),
+            target_path,
             api_version=_TAGS_API_VERSION,
         )
         if not isinstance(raw, Mapping):
@@ -383,6 +416,19 @@ class GatewayResourceOperations:
         subscription, _group, target_path = self._tag_target(payload)
         return (
             f"/subscriptions/{subscription}{target_path}/providers/Microsoft.Resources/tags/default"
+        )
+
+    def _subscription_tag_extension_path(self, payload: Mapping[str, object]) -> str:
+        target_ref = _bounded(payload, "target_resource_ref", maximum=2048)
+        if _LOGICAL_SUBSCRIPTION_REF.fullmatch(target_ref) is None:
+            raise GatewayError(
+                400,
+                "argument_invalid",
+                "target_resource_ref MUST identify the bounded logical Azure subscription",
+            )
+        return (
+            f"/subscriptions/{self._config.subscription_id}/"
+            "providers/Microsoft.Resources/tags/default"
         )
 
     def _tag_target(self, payload: Mapping[str, object]) -> tuple[str, str, str]:

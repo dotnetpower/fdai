@@ -174,6 +174,7 @@ EXPECTED_RUNTIME_MODULES = {
     "stewardship_governance.py",
     "stewardship_identity_health.py",
     "stewardship_merge_effects.py",
+    "tag_effect.py",
     "t2_recovery.py",
     "t2_route_registry.py",
     "task_workers.py",
