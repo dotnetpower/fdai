@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test, vi } from "vitest";
 import {
   canSubmitTeamsWorkflow,
@@ -6,7 +7,27 @@ import {
   newTeamsWorkflowTestRequestId,
 } from "./settings-teams-workflow.model";
 
+const diagnosticStyles = readFileSync(
+  new URL("./settings-webhook-diagnostic.css", import.meta.url),
+  "utf8",
+);
+
 describe("Teams Workflow binding view", () => {
+  test("keeps the URL and action aligned until the form is genuinely narrow", () => {
+    expect(diagnosticStyles).toMatch(
+      /@container \(max-width: 520px\)[\s\S]*?\.settings-webhook-diagnostic-form\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/,
+    );
+    expect(diagnosticStyles).not.toMatch(
+      /@container \(max-width: 620px\)\s*\{(?:(?!@container)[\s\S])*?\.settings-webhook-diagnostic-form\s*\{/,
+    );
+    expect(diagnosticStyles).toMatch(
+      /\.settings-teams-workflow-setup \.settings-webhook-diagnostic-form > \.btn\s*\{[\s\S]*?grid-column: 2;[\s\S]*?grid-row: 1;/,
+    );
+    expect(diagnosticStyles).toMatch(
+      /\.settings-webhook-diagnostic-help\s*\{[\s\S]*?grid-column: 1 \/ -1;[\s\S]*?grid-row: 2;/,
+    );
+  });
+
   test("allows an Owner to retest a saved binding without exposing its URL", () => {
     expect(canSubmitTeamsWorkflow("", true)).toBe(true);
     expect(canSubmitTeamsWorkflow("", false)).toBe(false);

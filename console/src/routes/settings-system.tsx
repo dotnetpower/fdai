@@ -794,9 +794,10 @@ function TeamsWorkflowTestPanel({
                   onInput={(event) => setWebhookUrl(event.currentTarget.value)}
                 />
                 {!canManage ? (
-                  <small>{settingsIntegrationsText("contributorReadOnly")}</small>
+                  <small class="settings-webhook-diagnostic-help">
+                    {settingsIntegrationsText("contributorReadOnly")}
+                  </small>
                 ) : null}
-                <small>{settingsIntegrationsText("bindingNeverReturned")}</small>
                 </label>
                 {canManage ? (
                 <button
@@ -814,6 +815,9 @@ function TeamsWorkflowTestPanel({
                       : settingsIntegrationsText("testSaved")}
                 </button>
                 ) : null}
+                <small class="settings-webhook-diagnostic-help">
+                  {settingsIntegrationsText("bindingNeverReturned")}
+                </small>
               </form>
             ) : bindingVisibility === "loading" ? (
               <div class="state-block" role="status">
