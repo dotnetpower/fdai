@@ -139,7 +139,7 @@ def snapshot_foundation_input(
     retention = values.get("state_retention_days", 30)
     if type(retention) is not int or not 1 <= retention <= 365:
         raise ValueError("foundation plan retention MUST be an integer from 1 through 365")
-    size = values.get("runner_vm_size", "Standard_D4ds_v5")
+    size = values.get("runner_vm_size", "Standard_D8ds_v5")
     if not isinstance(size, str) or re.fullmatch(r"Standard_[A-Za-z0-9_]{1,64}", size) is None:
         raise ValueError("foundation plan runner size is invalid")
     username = values.get("runner_admin_username", "fdairunner")

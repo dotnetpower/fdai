@@ -55,7 +55,7 @@ Unavailable CLI contexts fail before provider reads without exposing private pat
 
 | Role | CPU and memory | OS disk |
 |------|----------------|---------|
-| Foundation host | Sustained 4 vCPU, 8-16 GiB | Ephemeral Local ResourceDisk large enough for the exact Marketplace image |
+| Foundation host | Sustained 8 vCPU, 16-32 GiB | Ephemeral Local ResourceDisk large enough for the exact Marketplace image |
 
 ARM, GPU, confidential, constrained-core, and incompatible storage variants aren't substitutes.
 Catalog reads stay within one exact subscription/region, four pages, 4096 rows, 8 MiB, and 90

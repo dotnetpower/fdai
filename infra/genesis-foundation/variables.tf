@@ -320,7 +320,7 @@ variable "runner_image_receipt_digest" {
 variable "runner_vm_size" {
   description = "Reviewed runner size with quota and enough local ResourceDisk capacity for the pinned image."
   type        = string
-  default     = "Standard_D4ds_v5"
+  default     = "Standard_D8ds_v5"
   nullable    = false
 }
 
