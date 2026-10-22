@@ -43,7 +43,7 @@ def parse_vm_policy(raw: bytes) -> VmPolicy:
     if (
         set(value)
         != {"schema_version", "architecture", "hyper_v_generation", "os_disk_gib", "roles"}
-        or value["schema_version"] != "fdai.deployment-vm-sku-policy.v2"
+        or value["schema_version"] != "fdai.deployment-vm-sku-policy.v3"
         or value["architecture"] != "x64"
         or value["hyper_v_generation"] != "V2"
         or type(value["os_disk_gib"]) is not int
@@ -56,7 +56,7 @@ def parse_vm_policy(raw: bytes) -> VmPolicy:
     for name, cpu, low, high, series, disk in (
         ("builder", 2, 8, 8, {"D", "F"}, "managed"),
         ("verifier", 2, 4, 8, {"B", "D", "F"}, "managed"),
-        ("foundation", 4, 8, 16, {"D", "F"}, "resource-disk"),
+        ("foundation", 8, 16, 32, {"D", "F"}, "resource-disk"),
     ):
         entry = value["roles"][name]
         if not isinstance(entry, dict) or set(entry) != {

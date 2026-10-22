@@ -1,5 +1,5 @@
 {
-  "schema_version": "fdai.deployment-vm-sku-policy.v2",
+  "schema_version": "fdai.deployment-vm-sku-policy.v3",
   "architecture": "x64",
   "hyper_v_generation": "V2",
   "os_disk_gib": 64,
@@ -21,12 +21,12 @@
       "preferred": ["Standard_B2s", "Standard_D2ds_v5", "Standard_D2s_v5"]
     },
     "foundation": {
-      "vcpus": 4,
-      "min_memory_gib": 8,
-      "max_memory_gib": 16,
+      "vcpus": 8,
+      "min_memory_gib": 16,
+      "max_memory_gib": 32,
       "series": ["D", "F"],
       "disk_mode": "resource-disk",
-      "preferred": ["Standard_D4ds_v5", "Standard_D4ads_v5", "Standard_D4ds_v4"]
+      "preferred": ["Standard_D8ds_v5", "Standard_D8ads_v5", "Standard_D8ds_v4"]
     }
   }
 }

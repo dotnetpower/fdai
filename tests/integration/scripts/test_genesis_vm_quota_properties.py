@@ -21,7 +21,7 @@ from tests.integration.scripts.test_genesis_vm_sku_choice import (  # noqa: E402
 )
 
 
-@pytest.mark.parametrize("regional,dd,b", list(product([7, 8, 9], [5, 6, 7, 8], [0, 1, 2])))
+@pytest.mark.parametrize("regional,dd,b", list(product([11, 12, 13], [9, 10, 11, 12], [0, 1, 2])))
 def test_three_role_quota_never_counts_family_budgets_independently(regional, dd, b):
     catalog = [*rows(), sku("Standard_B2s", memory=4, family="standardBSFamily")]
     quota = [
@@ -29,13 +29,13 @@ def test_three_role_quota_never_counts_family_budgets_independently(regional, dd
         {"name": "standardDDSv4Family", "current": 2, "limit": 2 + dd},
         {"name": "standardBSFamily", "current": 1, "limit": 1 + b},
     ]
-    possible = regional >= 8 and (dd >= 8 or (dd >= 6 and b >= 2))
+    possible = regional >= 12 and (dd >= 12 or (dd >= 10 and b >= 2))
     if not possible:
         with pytest.raises(CheckError, match="combined_quota_insufficient"):
             choose_deployment_vms(policy(), region="eastus", rows=catalog, usages=quota)
         return
     selected = choose_deployment_vms(policy(), region="eastus", rows=catalog, usages=quota)
-    assert selected.builder.vcpus + selected.verifier.vcpus + selected.foundation.vcpus == 8
+    assert selected.builder.vcpus + selected.verifier.vcpus + selected.foundation.vcpus == 12
     assert selected.verifier.size == ("Standard_B2s" if b >= 2 else "Standard_D2ds_v4")
     assert (
         choose_deployment_vms(policy(), region="eastus", rows=catalog[::-1], usages=quota[::-1])

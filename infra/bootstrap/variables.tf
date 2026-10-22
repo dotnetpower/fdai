@@ -125,7 +125,7 @@ variable "state_storage_account_name" {
 variable "runner_vm_size" {
   description = "Runner VM size. The default provides sustained CPU and a local resource SSD for the ephemeral OS disk."
   type        = string
-  default     = "Standard_D4ds_v5"
+  default     = "Standard_D8ds_v5"
 }
 
 variable "runner_vm_name" {

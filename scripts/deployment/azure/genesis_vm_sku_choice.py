@@ -117,7 +117,7 @@ def choose_deployment_vms(
         raise CheckError(ALL_RESTRICTED if options.restricted == options.total else NO_HARDWARE, 3)
     families = {item.family for item in (*options.builder, *options.verifier, *hosts)}
     headroom = _quota_headroom(usages, families=families)
-    if headroom["cores"] < 8:
+    if headroom["cores"] < policy.builder.vcpus + policy.verifier.vcpus + policy.foundation.vcpus:
         raise CheckError(NO_QUOTA, 3)
     # Keep the deployment host stable first, then prefer the reviewed image pair. Provider order
     # never participates; every role has the same fixed CPU count inside this policy version.
@@ -224,7 +224,14 @@ def _hardware(row: dict[str, object], policy: VmPolicy) -> VmCandidate | None:
         _number(caps.get("vCPUsAvailable")),
         _number(caps.get("MemoryGB")),
     )
-    if cpu not in (2, 4) or cpu != available or not 4 <= memory <= 16:
+    roles = (policy.builder, policy.verifier, policy.foundation)
+    if (
+        cpu not in {role.vcpus for role in roles}
+        or cpu != available
+        or not min(role.min_memory_gib for role in roles)
+        <= memory
+        <= max(role.max_memory_gib for role in roles)
+    ):
         return None
     if _number(caps.get("OSVhdSizeMB")) < policy.os_disk_gib * 1024:
         return None
@@ -237,7 +244,7 @@ def _hardware(row: dict[str, object], policy: VmPolicy) -> VmCandidate | None:
         raise CheckError(EVIDENCE_INVALID, 3)
     disk = Decimal(0)
     ephemeral = False
-    if cpu == 4:
+    if cpu == policy.foundation.vcpus:
         supported = caps.get("EphemeralOSDiskSupported")
         if supported not in ("True", "False"):
             raise CheckError(EVIDENCE_INVALID, 3)
