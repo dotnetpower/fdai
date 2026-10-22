@@ -6,7 +6,11 @@ from typing import Any
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from fdai_deployment_cli.lifecycle_plan import SuppressionWindow, canonical_plan_payload
+from fdai_deployment_cli.lifecycle_plan import (
+    LifecycleCommand,
+    SuppressionWindow,
+    canonical_plan_payload,
+)
 from fdai_deployment_cli.runtime_release import RecallRecord
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
@@ -474,3 +478,101 @@ def test_manual_deployment_change_waits_outside_window_and_reconciles_in_next_ma
     assert isinstance(reconciled, Issued)
     assert reconciled.plan.plan_type == "drift-reconciliation"
     assert reconciled.plan.target_release_id == "1.6.0"
+
+
+def test_break_glass_command_reconciles_to_approved_revision_at_expiry_and_rejects_authority_raise(
+    installation: Installation,
+    catalog: ReleaseCatalog,
+    key: HubSigningKey,
+    now: datetime,
+) -> None:
+    running_latest = _with_core_release(installation, "1.6.0")
+
+    # 1. Authority-raising commands and commands without expiry are rejected on the installation.
+    with pytest.raises(ValueError, match="command_raises_authority"):
+        running_latest.with_command(
+            LifecycleCommand(
+                command_id="cmd-raise",
+                kind="authority-lowering",
+                actor="operator-alice",
+                reason="Forbidden promote",
+                starts_at=now,
+                expires_at=now + timedelta(hours=1),
+                target_action_type="action:scale-service",
+                target_mode="enforce",
+            ),
+            now,
+        )
+    with pytest.raises(ValueError, match="command_expiry_required"):
+        running_latest.with_command(
+            LifecycleCommand(
+                command_id="cmd-no-expiry",
+                kind="suppression-window",
+                actor="operator-alice",
+                reason="Missing expiry",
+                starts_at=now,
+                expires_at=None,
+            ),
+            now,
+        )
+
+    # 2. An active break-glass command can apply an emergency scale-out override and bypass
+    # maintenance/suppression windows while preserving recall and schema constraints.
+    emergency_override = ({"versions": ">=1.0.0 <2.0.0", "values": {"replicas": 5}},)
+    break_glass = LifecycleCommand(
+        command_id="cmd-bg-scaleout",
+        kind="break-glass",
+        actor="break-glass-operator",
+        reason="Incident traffic spike",
+        starts_at=now - timedelta(minutes=30),
+        expires_at=now + timedelta(minutes=30),
+        bypass_scopes=frozenset({"maintenance-window", "suppression-window"}),
+        emergency_overrides=emergency_override,
+    )
+    with_bg = replace(
+        running_latest.with_command(break_glass, now),
+        suppressions=(
+            SuppressionWindow("installation", now - timedelta(minutes=5), now + timedelta(hours=2)),
+        ),
+    )
+    outside_window = now - timedelta(minutes=15)
+    active_outcome = plan_next(with_bg, outside_window, catalog=catalog, key=key)
+    assert isinstance(active_outcome, Issued)
+    assert active_outcome.plan.plan_type == "configuration-change"
+    assert active_outcome.plan.target_release_id == "1.6.0"
+    assert active_outcome.plan.configuration_revision_digest != running_latest.configuration.digest
+
+    # Even with break-glass active, a recalled Release is still blocked.
+    recalled_catalog = replace(catalog, recalls=(_recall("1.6.0"),))
+    recalled_outcome = plan_next(with_bg, outside_window, catalog=recalled_catalog, key=key)
+    assert isinstance(recalled_outcome, Issued)
+    assert recalled_outcome.plan.plan_type == "recall-rolloff"
+    assert recalled_outcome.plan.target_release_id == "1.5.0"
+
+    # 3. At expiry, if the approved configuration revision did not adopt the emergency change,
+    # the Hub issues a drift-reconciliation Plan back to the approved configuration revision.
+    expired_bg = replace(
+        break_glass,
+        starts_at=now - timedelta(hours=2),
+        expires_at=now - timedelta(minutes=5),
+    )
+    unadopted_after_expiry = replace(running_latest, commands=(expired_bg,))
+    reconciled_at_expiry = plan_next(unadopted_after_expiry, now, catalog=catalog, key=key)
+    assert isinstance(reconciled_at_expiry, Issued)
+    assert reconciled_at_expiry.plan.plan_type == "drift-reconciliation"
+    assert reconciled_at_expiry.plan.target_release_id == "1.6.0"
+    assert (
+        reconciled_at_expiry.plan.configuration_revision_digest
+        == running_latest.configuration.digest
+    )
+
+    # If a merged change adopted the emergency override into the approved configuration,
+    # the installation is UpToDate at expiry.
+    adopted_after_expiry = replace(
+        unadopted_after_expiry,
+        configuration=replace(
+            running_latest.configuration,
+            entity_overrides=emergency_override,
+        ),
+    )
+    assert plan_next(adopted_after_expiry, now, catalog=catalog, key=key) == UpToDate()

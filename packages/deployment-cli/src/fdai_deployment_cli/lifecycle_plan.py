@@ -751,39 +751,18 @@ def _deny(reason_code: str, *details: str) -> PlanAdmissionDecision:
 
 
 from fdai_deployment_cli.lifecycle_authorization import (  # noqa: E402
-    LifecycleAuthorizationReceipt,
-    LifecyclePhase,
-    LifecyclePhaseCompletionReceipt,
-    evaluate_phase_authorization,
-    exact_plan_digest_for,
-    issue_lifecycle_authorization_receipt,
+    LifecycleAuthorizationReceipt as LifecycleAuthorizationReceipt,
+    LifecyclePhase as LifecyclePhase,
+    LifecyclePhaseCompletionReceipt as LifecyclePhaseCompletionReceipt,
+    evaluate_phase_authorization as evaluate_phase_authorization,
+    exact_plan_digest_for as exact_plan_digest_for,
+    issue_lifecycle_authorization_receipt as issue_lifecycle_authorization_receipt,
 )
-
-__all__ = [
-    "ArtifactRequirement",
-    "CapabilityMode",
-    "ConstraintBlock",
-    "DataResidencyRequirement",
-    "LifecycleAuthorizationReceipt",
-    "LifecycleConstraintContext",
-    "LifecycleEffectEnvelope",
-    "LifecyclePhase",
-    "LifecyclePhaseCompletionReceipt",
-    "LifecyclePlan",
-    "MaintenanceWindow",
-    "PlanAdmissionDecision",
-    "PlanAdmissionState",
-    "PlanType",
-    "SchemaDirection",
-    "SignatureVerifier",
-    "SuppressionOrigin",
-    "SuppressionWindow",
-    "canonical_plan_payload",
-    "decode_canonical_plan_payload",
-    "evaluate_lifecycle_constraints",
-    "evaluate_phase_authorization",
-    "evaluate_plan_admission",
-    "exact_plan_digest_for",
-    "issue_lifecycle_authorization_receipt",
-    "required_artifact_digests",
-]
+from fdai_deployment_cli.lifecycle_commands import (  # noqa: E402
+    BreakGlassBypass as BreakGlassBypass,
+    LifecycleCommand as LifecycleCommand,
+    LifecycleCommandKind as LifecycleCommandKind,
+    overrides_adopted as overrides_adopted,
+    require_valid_lifecycle_command as require_valid_lifecycle_command,
+    validate_lifecycle_command as validate_lifecycle_command,
+)
