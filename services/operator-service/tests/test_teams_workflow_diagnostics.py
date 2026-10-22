@@ -9,6 +9,7 @@ import pytest
 from fdai_operator_service.families.iam.contracts import TeamsWorkflowTestCommand
 from fdai_operator_service.teams_workflow_binding import LoadedTeamsWorkflowBinding
 from fdai_operator_service.teams_workflow_diagnostics import (
+    TeamsWorkflowBindingUnavailableError,
     TeamsWorkflowDiagnosticTester,
     TeamsWorkflowProviderResponse,
     TeamsWorkflowTestConflictError,
@@ -178,6 +179,56 @@ async def test_save_survives_a_provider_rejection() -> None:
     assert described["saved_at"] == NOW.isoformat()
     assert bindings.values == [URL]
     assert URL not in repr(store.values)
+
+
+async def test_empty_url_retests_the_saved_binding_without_replacing_it() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+    calls: list[str] = []
+
+    async def post(url: str, _: object) -> TeamsWorkflowProviderResponse:
+        calls.append(url)
+        return TeamsWorkflowProviderResponse(202, "run-2")
+
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        post=post,
+        clock=lambda: NOW,
+    )
+    await tester.save_and_test(_command("teams-save-1"))
+    calls.clear()
+
+    result = await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="teams-retest-1",
+            webhook_url="",
+        )
+    )
+
+    assert result.saved is True
+    assert result.accepted is True
+    assert result.binding_version == "version-1"
+    assert calls == [URL]
+    assert bindings.values == [URL]
+
+
+async def test_empty_url_requires_an_existing_saved_binding() -> None:
+    tester = TeamsWorkflowDiagnosticTester(
+        store=MemoryStore(),
+        binding_store=MemoryBindingStore(),
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(TeamsWorkflowBindingUnavailableError, match="not configured"):
+        await tester.save_and_test(
+            TeamsWorkflowTestCommand(
+                actor_id="owner-1",
+                request_id="teams-retest-1",
+                webhook_url="",
+            )
+        )
 
 
 async def test_save_and_test_requires_injected_secret_storage() -> None:
