@@ -180,6 +180,12 @@ def test_summarize_by_outcome_uses_profile_locale_family_and_disposition() -> No
 
     assert summary[0].key.endswith("|ko|resource_inventory|answered")
     assert summary[0].usage.total_tokens == 1200
+    assert summary[0].cached_prompt_tokens == 400
+    assert summary[0].total_duration_ms == 123
+
+    row = summaries_as_mapping(summary)[0]
+    assert row["cached_prompt_tokens"] == 400
+    assert row["total_duration_ms"] == 123
 
 
 def test_cost_precision_is_capped() -> None:

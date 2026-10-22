@@ -48,6 +48,8 @@ class UsageSummary:
     usage: TokenUsage
     cost: Decimal
     currency: str
+    cached_prompt_tokens: int
+    total_duration_ms: int
 
     @property
     def has_unpriced(self) -> bool:
@@ -70,10 +72,14 @@ def _summarize_group(key: str, records: Iterable[LlmInvocation]) -> UsageSummary
     cost = Decimal(0)
     invocations = 0
     priced = 0
+    cached_prompt_tokens = 0
+    total_duration_ms = 0
     currencies: set[str] = set()
     for record in records:
         invocations += 1
         usage = usage + record.usage
+        cached_prompt_tokens += record.cached_prompt_tokens
+        total_duration_ms += record.duration_ms
         if record.cost is not None:
             cost += record.cost
             priced += 1
@@ -92,6 +98,8 @@ def _summarize_group(key: str, records: Iterable[LlmInvocation]) -> UsageSummary
         usage=usage,
         cost=cost,
         currency=currency,
+        cached_prompt_tokens=cached_prompt_tokens,
+        total_duration_ms=total_duration_ms,
     )
 
 
@@ -192,6 +200,8 @@ def summaries_as_mapping(summaries: Iterable[UsageSummary]) -> tuple[Mapping[str
             "total_tokens": s.usage.total_tokens,
             "cost": _format_cost(s.cost),
             "currency": s.currency,
+            "cached_prompt_tokens": s.cached_prompt_tokens,
+            "total_duration_ms": s.total_duration_ms,
             "has_unpriced": s.has_unpriced,
             "has_mixed_currency": s.has_mixed_currency,
         }
