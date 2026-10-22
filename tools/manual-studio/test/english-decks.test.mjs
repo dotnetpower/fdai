@@ -63,26 +63,26 @@ test("L100 pitch cover identifies its internal-development status in both locale
 
   assert.equal(koreanSlide.eyebrow, "MICROSOFT KOREA CSU · INTERNAL DEVELOPMENT");
   assert.equal(englishSlide.eyebrow, koreanSlide.eyebrow);
-  assert.match(koreanSlide.lead, /사람이 목표와 권한을 정하고/);
+  assert.match(koreanSlide.lead, /사람이 목표와 실행 권한을 정하고/);
   assert.match(koreanSlide.lead, /실제 효과를 확인/);
-  assert.match(koreanSlide.content, /Microsoft 공식 제품이나 Azure 서비스가 아닙니다/);
+  assert.match(koreanSlide.content, /Microsoft 공식 제품이나 Azure 서비스는 아닙니다/);
   assert.match(englishSlide.content, /not an official Microsoft product or Azure service/);
-  assert.match(englishSlide.content, /validated internally by Microsoft Korea CSU/);
+  assert.match(englishSlide.content, /internal development and validation by Microsoft Korea CSU/);
 });
 
 test("L100 operating challenge names the context-connection bottleneck directly", () => {
   assert.equal(
     koreanL100PitchDeckSlides[1].title,
-    "운영자는 흩어진 정보를 모으고 대조해야 합니다",
+    "운영 대응은 흩어진 정보를 연결하는 일에서 시작합니다",
   );
   assert.match(koreanL100PitchDeckSlides[1].content, /최근 배포 때문인지 DB 문제인지/);
   assert.match(koreanL100PitchDeckSlides[1].content, /설명용 예시/);
-  assert.match(l100PitchDeckSlides[1].title, /scattered information/);
+  assert.match(l100PitchDeckSlides[1].title, /fragmented evidence/);
   assert.match(l100PitchDeckSlides[1].content, /Illustrative example/);
 });
 
 test("L100 product identity separates product value from delivery status", () => {
-  assert.match(koreanL100PitchDeckSlides[2].lead, /컨트롤 플레인, 즉/);
+  assert.match(koreanL100PitchDeckSlides[2].lead, /비용 거버넌스[\s\S]*컨트롤 플레인/);
   assert.match(koreanL100PitchDeckSlides[2].content, /RESILIENCE/);
   assert.match(koreanL100PitchDeckSlides[2].content, /CHANGE SAFETY/);
   assert.match(koreanL100PitchDeckSlides[2].content, /COST GOVERNANCE/);
@@ -92,14 +92,14 @@ test("L100 product identity separates product value from delivery status", () =>
 
 test("L100 remaining story uses direct actor-action language", () => {
   const korean = koreanL100PitchDeckSlides;
-  assert.match(korean[3].title, /설계와 현재 관측 사실은 다릅니다/);
-  assert.match(korean[5].title, /비슷한 이름만으로/);
-  assert.match(korean[7].title, /가설을 비교/);
+  assert.match(korean[3].title, /근거의 종류를 구분/);
+  assert.match(korean[5].title, /이름이 비슷해도/);
+  assert.match(korean[7].title, /경쟁 가설을 검증/);
   assert.match(korean[8].content, /경량 모델/);
   assert.match(korean[10].content, /일곱|기계가 평가할 중단 조건/);
   assert.match(korean[11].content, /등록된 복구 절차/);
   assert.match(korean[12].content, /표준 답변 경로에서 비활성/);
-  assert.match(korean[13].content, /모든 연계의 데이터 상주를 보장하지는 않습니다/);
+  assert.match(korean[13].content, /모든 데이터가 구독 내부에 머무르는 것은 아닙니다/);
   assert.match(korean[14].lead, /관찰 종료를 실행 허용으로 간주하지 않습니다/);
   assert.match(l100PitchDeckSlides[12].content, /Disabled in the standard answer path/);
   assert.match(l100PitchDeckSlides[14].lead, /does not authorize execution/);

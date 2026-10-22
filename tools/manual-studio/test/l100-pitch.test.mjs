@@ -33,8 +33,8 @@ test("L100 keeps models, authority, observation, and implementation state separa
   assert.equal([...korean[10].content.matchAll(/<li>/g)].length, 7);
   assert.equal([...english[10].content.matchAll(/<li>/g)].length, 7);
   assert.match(korean[11].content, /독립된 관측|별도 관측/);
-  assert.match(korean[11].content, /원인이 자동으로 확정되는 것은 아닙니다/);
-  assert.match(english[11].content, /does not automatically establish the cause/);
+  assert.match(korean[11].content, /원인 가설이 입증되는 것은 아닙니다/);
+  assert.match(english[11].content, /does not prove the causal hypothesis/);
   assert.match(korean[12].content, /실환경 동작 검증 결과가 아닙니다/);
   const runtime = await readFile(new URL("services/core-control-plane/src/fdai/runtime/ontology_index_runtime.py", repository), "utf8");
   assert.match(runtime, /semantic_search_available=False/);
@@ -57,8 +57,8 @@ test("L100 relation copy names concrete usage without claiming the incident caus
   assert.match(english[4].content, /class="lp-edge-label">Uses database</);
   assert.match(korean[4].content, /API가 사용하는 데이터베이스/);
   assert.match(korean[4].content, /확인한 시점과 출처/);
-  assert.match(korean[4].content, /원인이 DB라고 단정하지는 않습니다/);
-  assert.match(english[4].content, /does not establish the cause/);
+  assert.match(korean[4].content, /원인이라고 판단하지는 않습니다/);
+  assert.match(english[4].content, /does not prove the DB caused/);
   assert.match(korean[4].content, /data-lp-relation="depends_on"/);
   assert.doesNotMatch(korean[4].content, /의존합니다|API가 사용하는 데이터</);
   assert.doesNotMatch(korean[4].content, /<code>depends_on<\/code>/);
@@ -78,12 +78,11 @@ test("L100 styles are deck-scoped and preserve fixed print geometry", async () =
 test("latest L100 rendering evidence is bound to the current bilingual deck", async () => {
   const evidence = JSON.parse(await readFile(new URL("../validation-evidence.json", import.meta.url), "utf8"));
   const record = evidence.draftValidations.filter(item => item.id === "l100-pitch-deck").at(-1);
-  assert.equal(record.reviewId, "l100-human-completion-2026-10-20");
-  assert.equal(record.status, "complete");
+  assert.equal(record.reviewId, "l100-copy-and-story-refresh-2026-10-22");
+  assert.equal(record.status, "draft");
   assert.equal(record.wipOverlays, 0);
-  assert.equal(record.geometryEvidenceReusedFrom, "l100-human-draft-removal-2026-10-20");
-  assert.equal(record.humanReview, true);
-  assert.equal(record.draftOverlays, 0);
+  assert.equal(record.humanReview, false);
+  assert.equal(record.draftOverlays, 1);
   assert.equal(record.slideModeChecks, 150);
   assert.deepEqual(record.locales, ["ko", "en"]);
   assert.equal(record.minimumPrimaryFontPx, 24);
