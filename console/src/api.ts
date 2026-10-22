@@ -65,6 +65,11 @@ import {
   type IamSelfStatus,
   type IdentityRosterItem,
 } from "./routes/settings-iam.model";
+import {
+  decodeStewardshipCandidates,
+  type StewardshipActivationBody,
+  type StewardshipCandidate,
+} from "./api-stewardship";
 import type {
   BackgroundTaskCreateReceipt,
   BackgroundTaskCreateRequest,
@@ -175,6 +180,29 @@ export class OperatorApiClient {
     const receipt = raw as { request_id?: unknown; dispatch_status?: unknown };
     if (typeof receipt.request_id !== "string" || typeof receipt.dispatch_status !== "string") {
       throw new OperatorApiError(502, "repository change receipt is malformed");
+    }
+    return { request_id: receipt.request_id, dispatch_status: receipt.dispatch_status };
+  }
+
+  /** Read the Core-written Owner-only list of Console stewardship revision candidates. */
+  async stewardshipCandidates(): Promise<readonly StewardshipCandidate[]> {
+    return decodeStewardshipCandidates(await this.panel<unknown>("/stewardship/candidates"));
+  }
+
+  /**
+   * Queue one Owner activation (`POST /stewardship/candidates/activate`) bound to the exact
+   * candidate digest. Core rechecks the Owner role and the digest; acceptance is not activation.
+   */
+  async activateStewardshipCandidate(
+    body: StewardshipActivationBody,
+    idempotencyKey: string,
+  ): Promise<{ readonly request_id: string; readonly dispatch_status: string }> {
+    const raw = await this.#transport.postJson<unknown>(
+      "/stewardship/candidates/activate", { ...body }, idempotencyKey,
+    );
+    const receipt = raw as { request_id?: unknown; dispatch_status?: unknown };
+    if (typeof receipt.request_id !== "string" || typeof receipt.dispatch_status !== "string") {
+      throw new OperatorApiError(502, "stewardship activation receipt is malformed");
     }
     return { request_id: receipt.request_id, dispatch_status: receipt.dispatch_status };
   }

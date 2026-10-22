@@ -18,6 +18,7 @@ import { HandoverProposalEditor } from "./handover-editor";
 import { ownershipText } from "./ownership-copy";
 import { ScopedDutyWorkspace } from "./scoped-duty-workspace";
 import { ReportLinesWorkspace } from "./report-lines";
+import { StewardshipCandidates } from "./stewardship-candidates";
 import type {
   CurrentOwnershipAgentDto,
   FindingDto,
@@ -679,7 +680,7 @@ function MappingReviewsSession({ client, auth, contextCurrent }: {
   }, [client]);
   if (state.status === "loading") return <LoadingState label={t("handover.mappingReviewsLoading")} />;
   if (state.status === "error") return <UnavailableView title={t("handover.view.mapping-reviews")} message={state.message} />;
-  return <><SettingsIamAssignments client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} />
+  return <>{state.overview.authority.isOwner ? <StewardshipCandidates client={client} /> : null}<SettingsIamAssignments client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} />
     <ScopedDutyWorkspace client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} /></>;
 }
 
