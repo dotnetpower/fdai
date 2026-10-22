@@ -11,7 +11,10 @@ from uuid import UUID
 
 import pytest
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
-from fdai_deployment_cli.lifecycle_release import APPLICATION_RELEASE_SCHEMA
+from fdai_deployment_cli.lifecycle_release import (
+    APPLICATION_COMPONENT_RELEASE_SCHEMA,
+    APPLICATION_RELEASE_SCHEMA,
+)
 from fdai_deployment_cli.runtime_release import RuntimeReleaseError
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
@@ -101,6 +104,36 @@ def test_publication_import_and_signed_plan_are_application_neutral(
     change(vendor, "contribute", channel="RELEASE_CANDIDATE")
     change(vendor, "contribute", channel="RELEASE")
     assert "1.5.0" in catalog_from(vendor, now).channels["RELEASE"]
+
+
+@pytest.mark.parametrize("product", ["example-web", "example-worker", "fdai"])
+def test_component_release_uses_existing_publication_pin_and_planning_path(
+    tmp_path: Path, key: HubSigningKey, now: datetime, installation: Installation, product: str
+) -> None:
+    document = manifest(product)
+    document.pop("workloads")
+    document.update(
+        schema_version=APPLICATION_COMPONENT_RELEASE_SCHEMA,
+        components={"frontend": {"image_digest": "sha256:" + "b" * 64}},
+    )
+    vendor = ReleaseStore(tmp_path / "vendor.db", key, clock=lambda: now)
+    change(vendor, "register", manifest=canonical_bytes(document).decode())
+    change(vendor, "publish")
+    catalog = catalog_from(vendor, now)
+    outcome = plan_next(target(installation, product), now, catalog=catalog, key=key)
+    assert isinstance(outcome, Issued)
+    assert outcome.plan.target_release_digest == canonical_digest(document)
+    key.public_key.verify(outcome.plan.signature, outcome.plan.signed_payload)
+    [inventory] = release_inventory(catalog)["releases"]
+    assert inventory["images"] == [
+        {"section": "components", "component": "frontend", "image_digest": "sha256:" + "b" * 64}
+    ]
+    change(vendor, "recall")
+    recalled = plan_next(
+        target(installation, product), now, catalog=catalog_from(vendor, now), key=key
+    )
+    assert isinstance(recalled, NoEligibleRelease)
+    assert "release_recalled" in {block.reason_code for block in recalled.checks[0].blocks}
 
 
 @pytest.mark.parametrize("product", [None, "different-application"])

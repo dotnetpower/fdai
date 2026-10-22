@@ -1,4 +1,4 @@
-"""Per-Entity dispatch to existing renderers without new namespaces or workload shapes."""
+"""Dispatch signed configuration to independently approved workload renderers."""
 
 from __future__ import annotations
 
@@ -6,11 +6,15 @@ import hashlib
 from collections.abc import Mapping
 
 from fdai_deployment_cli.lifecycle_plan import LifecyclePlan
-from fdai_deployment_cli.lifecycle_release import APPLICATION_RELEASE_SCHEMA
+from fdai_deployment_cli.lifecycle_release import (
+    APPLICATION_COMPONENT_RELEASE_SCHEMA,
+    APPLICATION_RELEASE_SCHEMAS,
+)
 
 from fdai_lifecycle_agent.inputs import VerifiedConfiguration, VerifiedRelease
 from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.operator_workload import render_operator, validate_profile
+from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
 from fdai_lifecycle_agent.workload import Manifest, Workload, WorkloadError, object_key, render
 
 
@@ -21,9 +25,30 @@ def validate_entity_configuration(
     current_schema: int,
     release: VerifiedRelease,
     plan: LifecyclePlan,
+    runtime_bundle: RuntimeBundle | None = None,
 ) -> None:
     """Validate public workload intent with private reference inputs, independently per Entity."""
     _validate_release_profile(release, configuration)
+    if release.schema_version == APPLICATION_COMPONENT_RELEASE_SCHEMA:
+        if runtime_bundle is None:
+            raise WorkloadError("runtime_bundle_unavailable")
+        if release.schema_target != current_schema:
+            raise WorkloadError("schema_transition_unsupported")
+        for entity in plan.entity_ids:
+            values = (
+                configuration.entity_values[entity]
+                if configuration.entity_values
+                else configuration.values
+            )
+            if values.get("runtime_bundle_digest") != runtime_bundle.digest:
+                raise WorkloadError("runtime_bundle_digest_mismatch")
+            if set(values) - {"runtime_bundle_digest", "region"}:
+                raise WorkloadError("runtime_bundle_configuration_unsupported")
+            if runtime_bundle.components(entity) != components[entity]:
+                raise WorkloadError("runtime_bundle_component_mismatch")
+        return
+    if runtime_bundle is not None:
+        raise WorkloadError("runtime_bundle_release_unsupported")
     if not configuration.entity_values and "workload_profile" in configuration.values:
         validate_profile(
             configuration.values,
@@ -100,8 +125,9 @@ def prepare_workload(
     component_repositories: Mapping[str, str],
     workload: Workload,
     store: WorkloadStore,
+    runtime_bundle: RuntimeBundle | None = None,
 ) -> tuple[tuple[Manifest, ...], tuple[Manifest, ...]]:
-    """Render and dry-run the existing workload shapes before the intent journal is written."""
+    """Render and server-dry-run approved workloads before writing the intent journal."""
     _validate_release_profile(release, configuration)
     try:
         images = {
@@ -116,7 +142,12 @@ def prepare_workload(
     repository = component_repositories.get("core-control-plane")
     digest = release.component_images.get("core-control-plane")
     core_image = f"{repository}@{digest}" if repository and digest else None
-    if configuration.entity_values:
+    if release.schema_version == APPLICATION_COMPONENT_RELEASE_SCHEMA:
+        if runtime_bundle is None:
+            raise WorkloadError("runtime_bundle_unavailable")
+        store.require_private()
+        desired = runtime_bundle.render(workload.namespace, plan.entity_ids, images)
+    elif configuration.entity_values:
         store.require_private()
         desired = render_entity_configuration(
             workload.namespace,
@@ -139,6 +170,12 @@ def prepare_workload(
     else:
         desired = render(workload.namespace, images, specifications=release.workloads or None)
     healthy = {object_key(manifest): manifest for manifest in store.load().healthy}
+    if runtime_bundle is not None and any(
+        item["metadata"]["labels"].get("fdai.io/entity") in plan.entity_ids
+        and key not in {object_key(manifest) for manifest in desired}
+        for key, item in healthy.items()
+    ):
+        raise WorkloadError("runtime_bundle_topology_removal_unsupported")
     previous = tuple(healthy[key] for key in map(object_key, desired) if key in healthy)
     workload.preflight(desired, previous)
     return desired, previous
@@ -148,7 +185,7 @@ def _validate_release_profile(
     release: VerifiedRelease, configuration: VerifiedConfiguration
 ) -> None:
     values = (configuration.values, *configuration.entity_values.values())
-    if release.schema_version == APPLICATION_RELEASE_SCHEMA and any(
+    if release.schema_version in APPLICATION_RELEASE_SCHEMAS and any(
         "workload_profile" in value for value in values
     ):
         raise WorkloadError("application_workload_profile_unsupported")

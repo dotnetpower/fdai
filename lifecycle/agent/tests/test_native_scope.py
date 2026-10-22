@@ -120,7 +120,7 @@ class UidProvider:
 
 
 @pytest.fixture
-def native(tmp_path: Path):
+def native(tmp_path: Path, request: pytest.FixtureRequest):
     approval = NativeApproval(
         schema_version="fdai.lifecycle-native-approval.v1",
         scope=NativeScope(
@@ -129,6 +129,7 @@ def native(tmp_path: Path):
             product="example-app",
             namespace="example-test",
             components=("frontend",),
+            scheduled_components=getattr(request, "param", ()),
         ),
         profile="full-authority-development",
         approved_by="operator",
@@ -170,6 +171,79 @@ def manifests():
         "example-test",
         {("application", "frontend"): "example.test/frontend@sha256:" + "a" * 64},
     )
+
+
+def scheduled_manifest():
+    deployment = manifests()[0]
+    return {
+        "apiVersion": "batch/v1",
+        "kind": "CronJob",
+        "metadata": dict(deployment["metadata"])
+        | {
+            "name": "analyzer",
+            "labels": dict(deployment["metadata"]["labels"]) | {"fdai.io/component": "analyzer"},
+        },
+        "spec": {
+            "schedule": "*/5 * * * *",
+            "suspend": True,
+            "concurrencyPolicy": "Forbid",
+            "jobTemplate": {"spec": {"template": deepcopy(deployment["spec"]["template"])}},
+        },
+    }
+
+
+@pytest.mark.parametrize("native", [("analyzer",)], indirect=True)
+def test_scheduled_object_retains_uid_and_scope_across_restart_and_deletion(native):
+    provider, store, approval, _ = native
+    bootstrap(native)
+    cluster = wrapper(native)
+    manifest = scheduled_manifest()
+    cluster.apply(manifest, dry_run=True)
+    assert "CronJob/analyzer" not in store.load().resources
+    cluster.apply(manifest)
+    uid = store.load().resources["CronJob/analyzer"]
+    live = cluster.get("CronJob", "analyzer")
+    assert live["spec"]["jobTemplate"]["spec"]["template"]["metadata"]["labels"][ANCHOR_LABEL]
+    manifest["spec"]["schedule"] = "*/10 * * * *"
+    resumed = wrapper(native)
+    resumed.apply(manifest)
+    assert resumed.get("CronJob", "analyzer")["metadata"]["uid"] == uid
+    assert store.load().scope == approval.scope
+    resumed.delete("CronJob", "analyzer")
+    assert resumed.get("CronJob", "analyzer") is None
+    assert ("CronJob", "analyzer") not in provider.objects
+
+
+@pytest.mark.parametrize("native", [("analyzer",)], indirect=True)
+@pytest.mark.parametrize("corruption", ["uid", "isolation"])
+def test_scheduled_uid_or_template_replacement_stops_without_mutation(native, corruption):
+    provider, _, _, _ = native
+    bootstrap(native)
+    cluster = wrapper(native)
+    cluster.apply(scheduled_manifest())
+    live = provider.objects["CronJob", "analyzer"]
+    if corruption == "uid":
+        live["metadata"]["uid"] = "foreign-uid"
+    else:
+        del live["spec"]["jobTemplate"]["spec"]["template"]["metadata"]["labels"][ANCHOR_LABEL]
+    before = list(provider.calls)
+    with pytest.raises(WorkloadError, match="native_resource_(not_owned|isolation_changed)"):
+        wrapper(native).apply(scheduled_manifest())
+    assert provider.calls == before
+
+
+@pytest.mark.parametrize("native", [("analyzer",)], indirect=True)
+def test_scheduled_unknown_creation_is_not_adopted_or_retried(native):
+    provider, store, _, _ = native
+    bootstrap(native)
+    provider.lose_create_response = True
+    with pytest.raises(WorkloadError, match="kubernetes_request_failed"):
+        wrapper(native).apply(scheduled_manifest())
+    assert store.load().pending == "CronJob/analyzer"
+    before = list(provider.calls)
+    with pytest.raises(WorkloadError, match="native_creation_outcome_unknown"):
+        wrapper(native).apply(scheduled_manifest())
+    assert provider.calls == before
 
 
 @pytest.mark.parametrize(

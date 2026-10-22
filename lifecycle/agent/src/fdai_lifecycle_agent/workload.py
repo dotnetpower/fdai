@@ -1,7 +1,7 @@
-"""Namespace-scoped apply and recovery for the demo and same-schema Operator profile.
+"""Namespace-scoped apply and recovery for approved workload profiles.
 
-The demo renderer remains available. ``operator_workload`` supplies the actual Operator
-shape and a read-only schema Job. Every manifest passes the scope guard before cluster writes.
+The legacy renderer and read-only Operator schema Job remain available. Private runtime bundles
+add bounded workloads and schedules. Every manifest passes the scope guard before cluster writes.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ FIELD_MANAGER = "fdai-lifecycle-agent"
 MANAGED_BY_LABEL = "app.kubernetes.io/managed-by"
 ENTITY_LABEL = "fdai.io/entity"
 COMPONENT_LABEL = "fdai.io/component"
-API_VERSIONS = {"Deployment": "apps/v1", "Service": "v1", "Job": "batch/v1"}
+API_VERSIONS = {"Deployment": "apps/v1", "Service": "v1", "Job": "batch/v1", "CronJob": "batch/v1"}
 CONTAINER_PORT = 8080
 
 _DNS_LABEL = re.compile(r"[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\Z", re.ASCII)
@@ -180,7 +180,7 @@ def _service(metadata: Mapping[str, object], selector: Mapping[str, str]) -> Man
 
 
 def check_scope(manifests: Iterable[Manifest], namespace: str) -> None:
-    """Require agent-managed Deployments, internal Services, or Jobs in ``namespace``."""
+    """Require agent-managed Deployments, internal Services, Jobs or CronJobs in ``namespace``."""
 
     for manifest in manifests:
         metadata = manifest.get("metadata")
@@ -254,6 +254,10 @@ class Workload:
 
         check_scope(desired, self.namespace)
         jobs = tuple(item for item in desired if item["kind"] == "Job")
+        scheduled = tuple(item for item in desired if item["kind"] == "CronJob")
+        for item in scheduled:
+            _check_deadline(can_continue)
+            self.cluster.apply(_suspended_schedule(item))
         for job in jobs:
             _check_deadline(can_continue)
             self.cluster.apply(job)
@@ -262,11 +266,19 @@ class Workload:
         ):
             raise WorkloadError("schema_check_failed")
         for manifest in desired:
-            if manifest["kind"] != "Job":
+            if manifest["kind"] not in {"Job", "CronJob"}:
                 _check_deadline(can_continue)
                 self.cluster.apply(manifest)
-        if not self._wait_until(lambda: self._rolled_out(desired), can_continue=can_continue):
+        immediate = tuple(item for item in desired if item["kind"] != "CronJob")
+        if not self._wait_until(lambda: self._rolled_out(immediate), can_continue=can_continue):
             return False
+        for item in scheduled:
+            _check_deadline(can_continue)
+            self.cluster.apply(item)
+        if scheduled and not self._wait_until(
+            lambda: self._rolled_out(scheduled), can_continue=can_continue
+        ):
+            raise WorkloadError("scheduled_activation_unverified")
         for job in jobs:
             self.cluster.delete(*object_key(job))
         if jobs and not self._wait_until(
@@ -280,6 +292,18 @@ class Workload:
         return whether that state was verified in time."""
 
         check_scope([*desired, *previous], self.namespace)
+        # A suspended/missing template cannot prove that an earlier activation never ran.
+        unproved_scheduled_effect = any(
+            item["kind"] == "CronJob" and item.get("spec", {}).get("suspend") is not True
+            for item in (*desired, *previous)
+        )
+        for item in desired:
+            if item["kind"] != "CronJob":
+                continue
+            live = self.cluster.get(*object_key(item))
+            if live is not None:
+                unproved_scheduled_effect |= live.get("spec", {}).get("suspend") is not True
+                self.cluster.apply(_suspended_schedule(item))
         recorded = {object_key(manifest) for manifest in previous}
         created = [key for key in map(object_key, desired) if key not in recorded]
         for kind, name in created:
@@ -293,16 +317,28 @@ class Workload:
         ):
             return False
         for manifest in previous:
-            self.cluster.apply(manifest)
+            self.cluster.apply(
+                _suspended_schedule(manifest)
+                if manifest["kind"] == "CronJob" and unproved_scheduled_effect
+                else manifest
+            )
         for kind, name in created:
             if kind != "Job":
                 self.cluster.delete(kind, name)
-        return self._wait_until(
+        restored = self._wait_until(
             lambda: (
-                self._rolled_out(previous)
+                self._rolled_out(
+                    tuple(
+                        _suspended_schedule(item)
+                        if item["kind"] == "CronJob" and unproved_scheduled_effect
+                        else item
+                        for item in previous
+                    )
+                )
                 and all(self.cluster.get(kind, name) is None for kind, name in created)
             )
         )
+        return restored and not unproved_scheduled_effect
 
     def _rolled_out(self, manifests: Sequence[Manifest]) -> bool:
         """Whether every object exists and, for a Deployment, its rollout is complete."""
@@ -333,7 +369,7 @@ class Workload:
         live_digests: dict[str, set[str]] = {}
         expected_digests: set[str] = set()
         for manifest in expected:
-            if manifest.get("kind") != "Deployment":
+            if manifest.get("kind") not in {"Deployment", "CronJob"}:
                 continue
             metadata = manifest.get("metadata") or {}
             labels = metadata.get("labels") or {}
@@ -342,7 +378,7 @@ class Workload:
             if not isinstance(entity_id, str) or not isinstance(name, str):
                 continue
             expected_digests.update(_deployment_image_digests(manifest))
-            live = self.cluster.get("Deployment", name)
+            live = self.cluster.get(manifest["kind"], name)
             if (
                 live is None
                 or (live.get("metadata") or {}).get("deletionTimestamp") is not None
@@ -408,10 +444,16 @@ def _check_deadline(can_continue: Callable[[], bool] | None) -> None:
         raise WorkloadError("plan_expired")
 
 
+def _suspended_schedule(manifest: Manifest) -> Manifest:
+    return dict(manifest) | {"spec": dict(manifest["spec"]) | {"suspend": True}}
+
+
 def _deployment_image_digests(manifest: Manifest) -> tuple[str, ...]:
-    containers = (((manifest.get("spec") or {}).get("template") or {}).get("spec") or {}).get(
-        "containers"
-    ) or []
+    spec = manifest.get("spec") or {}
+    if manifest.get("kind") == "CronJob":
+        spec = spec.get("jobTemplate", {}).get("spec", {})
+    pod = (spec.get("template") or {}).get("spec") or {}
+    containers = [*pod.get("containers", []), *pod.get("initContainers", [])]
     if not isinstance(containers, Sequence):
         return ()
     digests: list[str] = []

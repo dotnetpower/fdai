@@ -19,6 +19,7 @@ from fdai_lifecycle_agent.journal import HALT_FILE_NAME, WORKLOAD_FILE_NAME
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import NativeCluster, UidCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore, load_native_approval
+from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
 from fdai_lifecycle_agent.signatures import load_ed25519_public_key
 from fdai_lifecycle_agent.state import (
     LOCK_FILE_NAME,
@@ -57,14 +58,34 @@ def validate_native_policy(
     entity_components: Mapping[str, frozenset[str]],
     entity_ids: frozenset[str],
     native_scope_digest: str | None,
+    runtime_bundle: RuntimeBundle | None = None,
 ) -> None:
+    if runtime_bundle is not None:
+        objects = {
+            (item.kind, item.name)
+            for item in runtime_bundle.objects
+            if item.entity_id == scope.entity_id
+        }
+        expected = {scope.entity_id: runtime_bundle.components(scope.entity_id)}
+        matches = (
+            runtime_bundle.namespace == namespace
+            and runtime_bundle.product == product
+            and objects == scope.resources
+            and dict(entity_components) == expected
+        )
+    else:
+        matches = (
+            not scope.scheduled_components
+            and scope.service_components in (None, scope.components)
+            and dict(entity_components) == {scope.entity_id: frozenset(scope.components)}
+        )
     if (
         scope.installation_id != installation_id
         or scope.namespace != namespace
         or scope.product != product
         or native_scope_digest != scope.digest
         or entity_ids != frozenset({scope.entity_id})
-        or dict(entity_components) != {scope.entity_id: frozenset(scope.components)}
+        or not matches
     ):
         raise WorkloadError("native_scope_local_policy_mismatch")
 
@@ -82,6 +103,7 @@ def compose_native_cluster(
     entity_components: Mapping[str, frozenset[str]],
     entity_ids: frozenset[str],
     clock: Callable[[], datetime],
+    runtime_bundle: RuntimeBundle | None = None,
 ) -> Cluster:
     store = NativeStateStore(state_dir)
     if native_scope_digest is None:
@@ -104,6 +126,7 @@ def compose_native_cluster(
         entity_components=entity_components,
         entity_ids=entity_ids,
         native_scope_digest=native_scope_digest,
+        runtime_bundle=runtime_bundle,
     )
     if not isinstance(cluster, UidCluster):
         raise WorkloadError("native_scope_uid_provider_required")
@@ -146,6 +169,7 @@ def run_native_bootstrap(
     native_scope_digest: str | None,
     clock: Callable[[], datetime],
     connect: Callable[[str | None, str, bool], Cluster],
+    runtime_bundle: RuntimeBundle | None = None,
 ) -> int:
     approval = load_native_approval(arguments.native_approval)
     validate_native_policy(
@@ -156,6 +180,7 @@ def run_native_bootstrap(
         entity_components=entity_components,
         entity_ids=entity_ids,
         native_scope_digest=native_scope_digest,
+        runtime_bundle=runtime_bundle,
     )
     if arguments.apply and arguments.proof_output is None:
         raise WorkloadError("native_scope_private_proof_output_required")
