@@ -53,6 +53,38 @@ def aks_core_environment(
     if profile:
         environment["FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON"] = profile
         environment["FDAI_FULL_AUTHORITY_DEVELOPMENT_EXECUTOR_PRINCIPAL"] = executor
+    if stewardship_governance_selected(application_values):
+        environment["FDAI_STEWARDSHIP_GOVERNANCE_ENABLED"] = "true"
+        environment.update(_stewardship_bindings_environment(application_values))
+    return environment
+
+
+def stewardship_governance_selected(application_values: dict[str, object]) -> bool:
+    """Report whether the selected product surfaces already carry the handover lifecycle.
+
+    The Console, the Operator API with enterprise identity bindings, and document ingestion are each
+    explicit selections. Together they produce handover drafts and name the accountable stewards, so
+    Core then runs the Console-governed candidate worker. The worker stays inert: an Owner activates
+    a candidate in the Console, and no GitHub credential is involved.
+    """
+
+    return (
+        application_values.get("enable_operator_api") is True
+        and application_values.get("enable_document_ingestion") is True
+        and bool(str(application_values.get("stewardship_maintainers", "")).strip())
+    )
+
+
+def _stewardship_bindings_environment(application_values: dict[str, object]) -> dict[str, object]:
+    bindings = application_values["stewardship_agent_bindings"]
+    if not isinstance(bindings, dict):
+        raise ValueError("stewardship bindings are invalid")
+    environment: dict[str, object] = {
+        "FDAI_MAINTAINERS": application_values["stewardship_maintainers"]
+    }
+    environment.update(
+        {f"FDAI_STEWARD_{name.upper()}": binding for name, binding in bindings.items()}
+    )
     return environment
 
 
