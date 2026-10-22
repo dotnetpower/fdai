@@ -117,11 +117,16 @@ export const l100PitchDeckSlides = [
   }),
   slide({
     id: "authority", chapter: "10 / 실행 전에 확인", kind: "safeguards",
-    title: "원인을 확인해도 실행 권한이 생기지는 않습니다",
-    lead: "원인 판단과 실행 승인은 별도 단계입니다. 등록된 작업마다 필요한 승인과 일곱 가지 안전 조건을 모두 확인한 후에만 실행할 수 있습니다.",
-    visual: `<div class="lp-authority-band"><strong>제안</strong><span>실행 권한 아님</span><strong>유효한 승인</strong><span>안전 조건 재확인</span><strong>격리된 실행기</strong></div>
+    title: "원인을 알아도 실행 권한은 별도입니다",
+    lead: "원인 판단과 실행 권한은 별개입니다. 필요한 권한을 확인하고 7개 안전장치를 모두 충족한 작업만 실행합니다.",
+    visual: `<div class="lp-authority-flow" role="group" aria-label="제안에서 격리된 실행기까지 권한과 안전 조건을 확인하는 흐름">
+      <section><strong>제안</strong><span>실행 권한 아님</span></section><i aria-hidden="true"></i>
+      <section><strong>권한 확인</strong><span>필요 시 사람 승인</span></section><i aria-hidden="true"></i>
+      <section><strong>7개 안전장치</strong><span>모든 조건 재확인</span></section><i aria-hidden="true"></i>
+      <section><strong>격리된 실행기</strong><span>승인된 작업만 실행</span></section>
+    </div>
       <ol class="lp-safeguards"><li>기계가 평가할 중단 조건</li><li>검증된 롤백·복구 경로</li><li>영향 범위와 상한</li><li>성공한 예행 실행</li><li>정확한 대상의 잠금</li><li>중복 실행 방지 키</li><li>실행 전·후 감사 기록</li></ol>`,
-    takeaway: "승인이나 안전 조건을 충족하지 못하면 실행하지 않습니다. 대신 부족한 근거와 실행 준비 요건을 계속 진단할 수 있습니다.",
+    takeaway: "권한이나 안전 조건이 부족하면 실행하지 않습니다. FDAI는 부족한 근거와 준비 작업을 운영자에게 제시합니다.",
     sources: ["constitution", "execution"],
   }),
   slide({

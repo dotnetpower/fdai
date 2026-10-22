@@ -315,6 +315,55 @@
         "test/l100-pitch.test.mjs": "c9bc63b2d218baf4b314d0432280db39c640bc7304571bd59159aea1c3e5cd49",
         "test/english-decks.test.mjs": "cc7d67ce66fd46f46c7c52a1d7fbb9defa889aa4e12071964914e4a3d22ca78d"
       }
+    },
+    {
+      "id": "l100-pitch-deck",
+      "reviewId": "l100-authority-slide-redesign-2026-10-22",
+      "status": "draft",
+      "humanReview": false,
+      "validatedAt": "2026-10-22T03:53:43.050Z",
+      "scope": "Slide 11 was redesigned in Korean and English to separate a proposal, authority check, seven safeguards, and the isolated executor as four explicit gates. Human approval is shown as conditional rather than universal. The safeguards now use a four-column, two-row reading order with the final audit item spanning the remaining two columns. All 15 slides were rechecked in both locales after the focused change. This receipt is rendering and editorial evidence, not human review, live product validation, promotion, or execution authority.",
+      "browser": "145.0.7632.6",
+      "viewports": ["1440x900", "993x641", "390x844", "fullscreen-1440x900", "print-1536x864"],
+      "locales": ["ko", "en"],
+      "wipOverlays": 0,
+      "draftOverlays": 1,
+      "slideModeChecks": 150,
+      "findings": 0,
+      "failedRequests": 0,
+      "pageErrors": 0,
+      "minimumPrimaryFontPx": 24,
+      "minimumTextContrast": 5.1554731544118555,
+      "connectorsChecked": 30,
+      "maximumConnectorGapPx": 0.0078125,
+      "connectorSelfTests": 4,
+      "geometry": "Every slide was checked for canvas bounds, horizontal overflow, visual-region containment and overlap. Desktop passed first; tablet, mobile, fullscreen, and print then passed in both locales. The deck's three existing geometry-checked connectors passed in five modes and two locales; the authority flow also retains visible directional links that do not encode state by color alone.",
+      "editorial": "Reviewed the actual-size Korean and English slide 11 captures. The revised language distinguishes execution authority from causal assessment, requires all seven safeguards independently of approval, and states that only authorized work reaches the isolated executor.",
+      "artifacts": "Session-local PNG, PDF, and measurement evidence is stored outside the repository under l100-slide11-redesign.",
+      "pdf": {
+        "ko": {"pages": 15, "mediaBoxesChecked": 15, "mediaBoxPoints": [1152, 648], "draftOverlays": 1, "draftFirstPageOnly": true},
+        "en": {"pages": 15, "mediaBoxesChecked": 15, "mediaBoxPoints": [1152, 648], "draftOverlays": 1, "draftFirstPageOnly": true}
+      },
+      "deckDigests": {
+        "ko": "e6492595a45c72ffbb40b092b8921720c0b05eaa5fac716eb67ed139f4de8e30",
+        "en": "66fc15318d681f85f8d8ad695b720cb3c25dd678d6dc5fcc7ef97248389f0d70"
+      },
+      "sourceDigests": {
+        "catalog.json": "8773f77494e242589a6a6f6aeda9788da1b447c8338189d78b703aef863541ff",
+        "l100-pitch-deck.js": "d9b65a37c63541cb7eef5a084490fe8a6b7322cdb10725147d75046169b1710d",
+        "l100-pitch-deck.en.js": "9328940106d35fe2579fff244154fdb6c5cee01abe1aaf104095c621e352fa44",
+        "l100-pitch-kit.js": "d50e9c107997d50b83721081031d880913a79ae61ca00b088a65f387fbc7e3b2",
+        "l100-pitch-deck.css": "75807d3f8e7f719584a7e94773bbe65fc84b00631d80bf6ac84e4c105ae5a30f",
+        "app.js": "45267657a701c2036bccd25032542235b11310d37e213ceccf908c04acb60b1b",
+        "styles.css": "ffe76d055cd5057bd4f69cd6c3bf6d91ecd231f34bb460766adfeced6f3b2817",
+        "english-layout.css": "2da7771765a8fd6b7e02dbc75a30450ece28c6ca67d04cf0f1cce1d57aac3276",
+        "presentation-standard.css": "04f6cb8ca70e945f81be14c5cd76eb3111ad4fa68a78552dfedb1f06468bb4d6",
+        "test/l100-pitch-visual.mjs": "ce5d0f891447ed9ea9feb1c0f0861edb8b353aab983c66213b5ca8c45a336e60",
+        "test/slide-layout-geometry.mjs": "e95b53850580a2720b1d90ab3f738f5d37e12b932ccb044ddd5ae4d68943b8a2",
+        "test/target-architecture-text-geometry.mjs": "8d48f80dea2718900624bbcfe0468075f7ee02a57d88f0c0f49b8020615018de",
+        "test/l100-pitch.test.mjs": "694650a4a638bb3125ac42bf3f1da6de240a05da9e534f006647b91cd4a550e2",
+        "test/english-decks.test.mjs": "cc7d67ce66fd46f46c7c52a1d7fbb9defa889aa4e12071964914e4a3d22ca78d"
+      }
     }
   ],
   "manuals": [

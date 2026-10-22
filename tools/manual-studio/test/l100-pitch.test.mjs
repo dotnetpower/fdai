@@ -30,6 +30,8 @@ test("L100 keeps models, authority, observation, and implementation state separa
   assert.match(english[3].content, /proposal needs review; it is not a current fact/);
   assert.match(korean[8].content, /모델 없이[\s\S]*경량 모델[\s\S]*서로 다른 모델/);
   assert.match(english[8].content, /No model[\s\S]*lightweight models[\s\S]*distinct-model/);
+  assert.match(korean[10].content, /lp-authority-flow[\s\S]*제안[\s\S]*권한 확인[\s\S]*7개 안전장치[\s\S]*격리된 실행기/);
+  assert.match(english[10].content, /lp-authority-flow[\s\S]*Proposal[\s\S]*Authority check[\s\S]*Seven safeguards[\s\S]*Isolated executor/);
   assert.equal([...korean[10].content.matchAll(/<li>/g)].length, 7);
   assert.equal([...english[10].content.matchAll(/<li>/g)].length, 7);
   assert.match(korean[11].content, /독립된 관측|별도 관측/);
@@ -78,7 +80,7 @@ test("L100 styles are deck-scoped and preserve fixed print geometry", async () =
 test("latest L100 rendering evidence is bound to the current bilingual deck", async () => {
   const evidence = JSON.parse(await readFile(new URL("../validation-evidence.json", import.meta.url), "utf8"));
   const record = evidence.draftValidations.filter(item => item.id === "l100-pitch-deck").at(-1);
-  assert.equal(record.reviewId, "l100-copy-and-story-refresh-2026-10-22");
+  assert.equal(record.reviewId, "l100-authority-slide-redesign-2026-10-22");
   assert.equal(record.status, "draft");
   assert.equal(record.wipOverlays, 0);
   assert.equal(record.humanReview, false);

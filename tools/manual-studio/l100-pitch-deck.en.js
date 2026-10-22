@@ -117,11 +117,16 @@ export const l100PitchDeckSlides = [
   }),
   slide({
     id: "authority", chapter: "10 / BEFORE EXECUTION", kind: "safeguards",
-    title: "Knowing the cause does not authorize execution",
-    lead: "Causal assessment and execution approval are separate. Every registered action must satisfy its required approval and all seven safeguards before execution.",
-    visual: `<div class="lp-authority-band"><strong>Proposal</strong><span>Not authority</span><strong>Valid approval</strong><span>Recheck safeguards</span><strong>Isolated executor</strong></div>
+    title: "Knowing the cause does not grant execution authority",
+    lead: "Causal assessment and execution authority are separate. Execute only after checking authority and all seven safeguards.",
+    visual: `<div class="lp-authority-flow" role="group" aria-label="Authority and safeguard checks from proposal to isolated executor">
+      <section><strong>Proposal</strong><span>Not execution authority</span></section><i aria-hidden="true"></i>
+      <section><strong>Authority check</strong><span>Human approval when required</span></section><i aria-hidden="true"></i>
+      <section><strong>Seven safeguards</strong><span>Recheck every condition</span></section><i aria-hidden="true"></i>
+      <section><strong>Isolated executor</strong><span>Approved work only</span></section>
+    </div>
       <ol class="lp-safeguards"><li>Machine-evaluable stop condition</li><li>Tested rollback or recovery</li><li>Impact scope and limit</li><li>Successful dry run</li><li>Exact logical-target lock</li><li>Stable deduplication key</li><li>Audit before and after effects</li></ol>`,
-    takeaway: "If approval or any safeguard is missing, execution is blocked. FDAI can still identify evidence gaps and readiness requirements.",
+    takeaway: "Do not execute when authority or a safeguard is missing. FDAI can still show the operator the missing evidence and readiness work.",
     sources: ["constitution", "execution"],
   }),
   slide({
