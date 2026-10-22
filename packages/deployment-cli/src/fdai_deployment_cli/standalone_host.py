@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import copy
 import hashlib
 import json
 import os
@@ -30,24 +31,31 @@ from fdai_deployment_cli import (
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli import operational_evidence_verifier_input as oev
 from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
-from fdai_deployment_cli.standalone_service_update_finalization import (
-    add_finalization_parser,
-)
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     secret_binding_reordered,
-    single_block as _single,
     validate_reconciliation_plan,
+)
+from fdai_deployment_cli.aks_historical_reconciliation import (
+    single_block as _single,
 )
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
+)
+from fdai_deployment_cli.aks_service_update import (
     deployment_snapshot,
     peers_unchanged,
-    service_update_review as _service_update_review,
-    service_update_target as _service_update_target,
-    validated_secret_environment as _validated_secret_env,
     validate_plan_scope,
     validate_update_request,
+)
+from fdai_deployment_cli.aks_service_update import (
+    service_update_review as _service_update_review,
+)
+from fdai_deployment_cli.aks_service_update import (
+    service_update_target as _service_update_target,
+)
+from fdai_deployment_cli.aks_service_update import (
+    validated_secret_environment as _validated_secret_env,
 )
 from fdai_deployment_cli.aks_workload_jobs import (
     aks_kubernetes_direct_api_environment as _aks_kubernetes_direct_api_environment,
@@ -63,12 +71,6 @@ from fdai_deployment_cli.runtime_profile import (
     RuntimeDeploymentProfile,
     legacy_full_product_matches,
     legacy_runtime_profile_digest,
-)
-from fdai_deployment_cli.standalone_development_authority import (
-    apply_initial_development_authority,
-    apply_service_update_development_authority,
-    development_authority_from_args,
-    reconcile_retained_development_authority,
 )
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
@@ -96,6 +98,12 @@ from fdai_deployment_cli.standalone_checkpoint_failure import (
     terraform_failure as _terraform_failure,
 )
 from fdai_deployment_cli.standalone_database_principals import database_reader_principals
+from fdai_deployment_cli.standalone_development_authority import (
+    apply_initial_development_authority,
+    apply_service_update_development_authority,
+    development_authority_from_args,
+    reconcile_retained_development_authority,
+)
 from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
@@ -179,6 +187,9 @@ from fdai_deployment_cli.standalone_residual_apply import (
 )
 from fdai_deployment_cli.standalone_residual_successor import (
     successor_prerequisite_verified as _residual_successor_prerequisite,
+)
+from fdai_deployment_cli.standalone_service_update_finalization import (
+    add_finalization_parser,
 )
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
@@ -369,6 +380,8 @@ def main(argv: list[str] | None = None) -> int:
     license_command.add_argument("--deployment-binding", required=True)
     license_command.add_argument("--installation-binding", default=None)
     license_command.set_defaults(handler=_install_license)
+
+    subcommands.add_parser("bind-installed-license").set_defaults(handler=_bind_installed_license)
 
     verify = subcommands.add_parser("verify")
     verify.set_defaults(handler=_verify)
@@ -1216,12 +1229,19 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     workloads_path = work_dir / "workloads.auto.tfvars.json"
     if workloads_path.exists():
         retained_values = _private_json(workloads_path, "workloads.auto.tfvars.json")
+        license_binding_changed = _reconcile_retained_aks_license_binding(
+            retained_values,
+            values,
+        )
+        input_rebind_changed = False
         if retained_values != values:
-            bind_authoritative_backend_nsg(
+            input_rebind_changed = bind_authoritative_backend_nsg(
                 work_dir=work_dir,
                 retained=retained_values,
                 current=values,
             )
+        if license_binding_changed and not input_rebind_changed:
+            _replace_private_json(workloads_path, retained_values)
     else:
         _replace_or_verify_private_json(workloads_path, values)
     _replace_private_json(work_dir / "context.json", context)
@@ -1236,6 +1256,113 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "mutation_performed": False,
         "subscription_ready": False,
     }
+
+
+def _reconcile_retained_aks_license_binding(
+    retained_values: dict[str, object],
+    current_values: dict[str, object],
+) -> bool:
+    """Admit only the first verified license binding into a retained Core workload."""
+    retained_workloads = retained_values.get("workloads")
+    current_workloads = current_values.get("workloads")
+    if not isinstance(retained_workloads, dict) or not isinstance(current_workloads, dict):
+        raise TypeError("retained AKS workload inventory is invalid")
+    retained_core = retained_workloads.get("core-control-plane")
+    current_core = current_workloads.get("core-control-plane")
+    if not isinstance(retained_core, dict) or not isinstance(current_core, dict):
+        raise TypeError("retained Core workload is invalid")
+    environment_keys = {"FDAI_LICENSE_IMAGE_DIGEST", "FDAI_LICENSE_TOKEN_REVISION"}
+    secret_keys = {"FDAI_LICENSE_TOKEN"}
+    changed = False
+    for field, allowed in (
+        ("environment", environment_keys),
+        ("secret_environment", secret_keys),
+    ):
+        retained = retained_core.get(field)
+        current = current_core.get(field)
+        if not isinstance(retained, dict) or not isinstance(current, dict):
+            raise TypeError("retained Core license binding is invalid")
+        previous = {key: retained.get(key) for key in allowed if key in retained}
+        selected = {key: current.get(key) for key in allowed if key in current}
+        if previous and previous != selected:
+            raise ValueError("retained Core license binding differs")
+        if not previous and selected:
+            retained.update(selected)
+            changed = True
+    if changed:
+        image_digest = retained_core["environment"].get("FDAI_LICENSE_IMAGE_DIGEST")
+        revision = retained_core["environment"].get("FDAI_LICENSE_TOKEN_REVISION")
+        token_secret = retained_core["secret_environment"].get("FDAI_LICENSE_TOKEN")
+        if (
+            not isinstance(image_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", image_digest) is None
+            or not isinstance(revision, str)
+            or re.fullmatch(r"[0-9a-f]{64}", revision) is None
+            or token_secret != "fdai-capability-license"
+        ):
+            raise ValueError("new Core license binding is invalid")
+    return changed
+
+
+def _bind_installed_license(
+    _args: argparse.Namespace,
+    work_dir: Path,
+) -> dict[str, object]:
+    """Bind an already verified entitlement to the retained Core workload contract."""
+    application_values = _private_json(
+        work_dir / "application.auto.tfvars.json",
+        "application variables",
+    )
+    environment, secrets = aks_license_environment(application_values)
+    if not environment or secrets != {"FDAI_LICENSE_TOKEN": "fdai-capability-license"}:
+        raise ValueError("verified installed license binding is unavailable")
+    workloads_path = work_dir / "workloads.auto.tfvars.json"
+    context_path = work_dir / "context.json"
+    retained_values = _private_json(workloads_path, "AKS workload variables")
+    current_values = copy.deepcopy(retained_values)
+    current_workloads = current_values.get("workloads")
+    if not isinstance(current_workloads, dict):
+        raise TypeError("AKS workload inventory is invalid")
+    current_core = current_workloads.get("core-control-plane")
+    if not isinstance(current_core, dict):
+        raise TypeError("Core workload is invalid")
+    current_environment = current_core.get("environment")
+    current_secrets = current_core.get("secret_environment")
+    if not isinstance(current_environment, dict) or not isinstance(current_secrets, dict):
+        raise TypeError("Core workload environment is invalid")
+    current_environment.update(environment)
+    current_secrets.update(secrets)
+    changed = _reconcile_retained_aks_license_binding(retained_values, current_values)
+
+    context = _private_json(context_path, "standalone host context")
+    expected = context.get("expected_workloads")
+    if not isinstance(expected, dict):
+        raise TypeError("expected AKS workload inventory is invalid")
+    expected_core = expected.get("core-control-plane")
+    if not isinstance(expected_core, dict):
+        raise TypeError("expected Core workload is invalid")
+    expected_secrets = expected_core.get("secret_environment")
+    if not isinstance(expected_secrets, dict):
+        raise TypeError("expected Core secret environment is invalid")
+    retained_secret = expected_secrets.get("FDAI_LICENSE_TOKEN")
+    if retained_secret not in {None, secrets["FDAI_LICENSE_TOKEN"]}:
+        raise ValueError("expected Core license binding differs")
+    expected_secrets.update(secrets)
+
+    if changed:
+        _replace_private_json(workloads_path, retained_values)
+    _replace_private_json(context_path, context)
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.aks-license-workload-binding.v1",
+        "state": "bound",
+        "workloads_digest": canonical_digest(retained_values),
+        "expected_workloads_digest": canonical_digest(expected),
+        "mutation_performed": changed,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    _replace_private_json(work_dir / "license-workload-binding-receipt.json", receipt)
+    return receipt
 
 
 def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
@@ -2063,7 +2190,34 @@ def _application_operation(
     )
     if reconciliation is not None:
         return str(reconciliation["operation"]), reconciliation
+    if stage == "application" and service is None and update is None:
+        license_operation = _license_application_operation(context, work_dir)
+        if license_operation is not None:
+            return license_operation, None
     return (str(update["operation"]) if update is not None else stage), None
+
+
+def _license_application_operation(
+    context: dict[str, object],
+    work_dir: Path,
+) -> str | None:
+    path = work_dir / "license-workload-binding-receipt.json"
+    if not path.is_file() or path.is_symlink():
+        return None
+    receipt = _private_json(path, "license workload binding receipt")
+    digest = receipt.pop("receipt_digest", None)
+    expected = context.get("expected_workloads")
+    workloads = _private_json(work_dir / "workloads.auto.tfvars.json", "AKS workload variables")
+    if (
+        canonical_digest(receipt) != digest
+        or receipt.get("schema_version") != "fdai.aks-license-workload-binding.v1"
+        or receipt.get("state") != "bound"
+        or receipt.get("workloads_digest") != canonical_digest(workloads)
+        or not isinstance(expected, dict)
+        or receipt.get("expected_workloads_digest") != canonical_digest(expected)
+    ):
+        raise ValueError("license workload binding receipt is invalid")
+    return "license-application-update"
 
 
 def _capture_aks_deployments(context: dict[str, object], *, service: str | None = None) -> str:

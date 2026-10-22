@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from fdai_deployment_cli import license_issue, standalone_host
 from fdai_deployment_cli import standalone_license_installation as installation
 from fdai_deployment_cli.license import signed_token_schema
@@ -165,6 +166,149 @@ def test_aks_core_mounts_an_installed_token_only_once_installed() -> None:
         "FDAI_LICENSE_TOKEN_REVISION": "4" * 64,
     }
     assert secrets == {"FDAI_LICENSE_TOKEN": "fdai-capability-license"}
+
+
+def test_retained_aks_workload_admits_only_the_first_complete_license_binding() -> None:
+    retained = {
+        "workloads": {
+            "core-control-plane": {
+                "environment": {"RUNTIME_ENV": "dev"},
+                "secret_environment": {"FDAI_STATE_STORE_DSN": "fdai-state-store-dsn"},
+            }
+        }
+    }
+    current = {
+        "workloads": {
+            "core-control-plane": {
+                "environment": {
+                    "RUNTIME_ENV": "dev",
+                    "FDAI_LICENSE_IMAGE_DIGEST": _IMAGE,
+                    "FDAI_LICENSE_TOKEN_REVISION": "4" * 64,
+                },
+                "secret_environment": {
+                    "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+                    "FDAI_LICENSE_TOKEN": "fdai-capability-license",
+                },
+            }
+        }
+    }
+
+    assert standalone_host._reconcile_retained_aks_license_binding(retained, current) is True
+    assert retained == current
+    assert standalone_host._reconcile_retained_aks_license_binding(retained, current) is False
+
+
+@pytest.mark.parametrize(
+    ("field", "key", "value"),
+    [
+        ("environment", "FDAI_LICENSE_IMAGE_DIGEST", "sha256:invalid"),
+        ("environment", "FDAI_LICENSE_TOKEN_REVISION", "invalid"),
+        ("secret_environment", "FDAI_LICENSE_TOKEN", "another-secret"),
+    ],
+)
+def test_retained_aks_workload_rejects_invalid_license_binding(
+    field: str,
+    key: str,
+    value: str,
+) -> None:
+    retained = {
+        "workloads": {
+            "core-control-plane": {
+                "environment": {"RUNTIME_ENV": "dev"},
+                "secret_environment": {"FDAI_STATE_STORE_DSN": "fdai-state-store-dsn"},
+            }
+        }
+    }
+    current = {
+        "workloads": {
+            "core-control-plane": {
+                "environment": {
+                    "RUNTIME_ENV": "dev",
+                    "FDAI_LICENSE_IMAGE_DIGEST": _IMAGE,
+                    "FDAI_LICENSE_TOKEN_REVISION": "4" * 64,
+                },
+                "secret_environment": {
+                    "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+                    "FDAI_LICENSE_TOKEN": "fdai-capability-license",
+                },
+            }
+        }
+    }
+    current["workloads"]["core-control-plane"][field][key] = value
+
+    with pytest.raises(ValueError, match="license binding"):
+        standalone_host._reconcile_retained_aks_license_binding(retained, current)
+
+
+def test_bind_installed_license_updates_only_retained_core_contract(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    application_values = {
+        "license": {
+            "token_secret_id": _SECRET_ID,
+            "image_digest": _IMAGE,
+            "deployment_digest": _DEPLOYMENT,
+            "token_revision": "4" * 64,
+        }
+    }
+    workloads = {
+        "workloads": {
+            "core-control-plane": {
+                "environment": {"RUNTIME_ENV": "dev"},
+                "secret_environment": {"FDAI_STATE_STORE_DSN": "fdai-state-store-dsn"},
+            },
+            "operator-service": {
+                "environment": {"RUNTIME_ENV": "dev"},
+                "secret_environment": {"FDAI_DATABASE_URL": "fdai-state-store-dsn"},
+            },
+        }
+    }
+    context = {
+        "expected_workloads": {
+            name: {"secret_environment": dict(value["secret_environment"])}
+            for name, value in workloads["workloads"].items()
+        }
+    }
+    standalone_host._replace_private_json(
+        tmp_path / "application.auto.tfvars.json",
+        application_values,
+    )
+    standalone_host._replace_private_json(
+        tmp_path / "workloads.auto.tfvars.json",
+        workloads,
+    )
+    standalone_host._replace_private_json(tmp_path / "context.json", context)
+
+    receipt = standalone_host._bind_installed_license(argparse.Namespace(), tmp_path)
+
+    assert receipt["state"] == "bound"
+    assert receipt["mutation_performed"] is True
+    updated = standalone_host._private_json(
+        tmp_path / "workloads.auto.tfvars.json",
+        "AKS workload variables",
+    )
+    core = updated["workloads"]["core-control-plane"]
+    assert core["environment"]["FDAI_LICENSE_IMAGE_DIGEST"] == _IMAGE
+    assert core["environment"]["FDAI_LICENSE_TOKEN_REVISION"] == "4" * 64
+    assert core["secret_environment"]["FDAI_LICENSE_TOKEN"] == "fdai-capability-license"
+    assert updated["workloads"]["operator-service"] == workloads["workloads"]["operator-service"]
+    expected = standalone_host._private_json(
+        tmp_path / "context.json",
+        "standalone host context",
+    )["expected_workloads"]
+    assert (
+        expected["core-control-plane"]["secret_environment"]["FDAI_LICENSE_TOKEN"]
+        == "fdai-capability-license"
+    )
+    assert (
+        standalone_host._license_application_operation(
+            standalone_host._private_json(
+                tmp_path / "context.json",
+                "standalone host context",
+            ),
+            tmp_path,
+        )
+        == "license-application-update"
+    )
 
 
 def test_the_binding_step_reports_the_installation_binding_before_runtime_outputs(

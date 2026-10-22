@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_review import validate_plan_review
 
@@ -47,6 +48,7 @@ def _service_update(service: str = "operator-service") -> dict[str, str]:
         ("runtime", "runtime-cluster"),
         ("database", "database"),
         ("application", "application"),
+        ("application", "license-application-update"),
     ],
 )
 def test_host_operation_matching_the_stage_is_accepted(stage: str, operation: str) -> None:

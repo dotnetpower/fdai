@@ -11,10 +11,11 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from fdai_service_contracts.product_profile import ProductAddOn
+
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest, load_json_object
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
-from fdai_service_contracts.product_profile import ProductAddOn
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,9 +100,10 @@ def confirm_installation_scope(
             )
         confirmed = _timestamp(retained["confirmed_at"])
         expires = _timestamp(retained["expires_at"])
-        if not confirmed <= moment < expires or not timedelta(0) < expires - confirmed <= timedelta(
-            days=1
-        ):
+        valid_window = confirmed <= moment < expires and timedelta(
+            0
+        ) < expires - confirmed <= timedelta(days=1)
+        if not valid_window and not _matching_started_installation(work_dir, binding):
             return _result("installation_scope_expired")
         return _result("installation_scope_confirmed", str(retained["digest"]))
     if (work_dir / "foundation/status.json").exists():
@@ -181,6 +183,31 @@ def _result(reason: str, digest: str | None = None) -> dict[str, object]:
     }
 
 
+def _matching_started_installation(
+    work_dir: Path,
+    binding: dict[str, object],
+) -> bool:
+    """Let an effected installation reuse its immutable preferences after their initial window."""
+    try:
+        status = load_json_object(
+            read_private_bytes(work_dir / "foundation/status.json", max_bytes=1024 * 1024),
+            label="Foundation status",
+        )
+        profile = load_json_object(
+            read_private_bytes(work_dir / "foundation/profile.json", max_bytes=16384),
+            label="Foundation profile",
+        )
+    except (FileNotFoundError, OSError, ValueError):
+        return False
+    return (
+        status.get("schema_version") == "fdai.genesis-orchestration-status.v2"
+        and status.get("mutation_performed") is True
+        and status.get("source_commit") == binding["source_commit"]
+        and profile.get("schema_version") == "fdai.provision-profile.v1"
+        and profile.get("target_binding") == binding["target_binding"]
+    )
+
+
 def _validate_product_options(
     runtime_profile: RuntimeDeploymentProfile,
     options: InstallationOptions,
@@ -228,7 +255,7 @@ def _utc(value: datetime) -> None:
 
 def _timestamp(value: object) -> datetime:
     if not isinstance(value, str):
-        raise ValueError("installation scope timestamp is invalid")
+        raise TypeError("installation scope timestamp is invalid")
     result = datetime.fromisoformat(value)
     _utc(result)
     return result
