@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: b712278a1fb60d058e18a73adea4c7ca4ca48316
-translation_revised: 2026-10-20
+translation_source_sha: bc65511d77fb3946db27d5dda8fd82f1c823d69f
+translation_revised: 2026-10-23
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -80,14 +80,15 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 확인 경로로 들어가지 않습니다. 이 런타임 배치는 인시던트의 소유자, 상태 전환
 또는 승인을 변경하지 않습니다.
 의미 계획의 타입 제약 슬롯은 읽기 전용 계획 제약이며 인시던트 초안 생성, 확인,
-수명 주기 소유권 또는 Operator 권한을 바꾸지 않습니다.
+수명 주기 소유권 또는 Operator 권한을 바꾸지 않습니다. 의미 계획은 공급자 I/O 전에
+후보 배포마다 전체 요청을 계산하고 가장 엄격한 결과를 구성된 요청 예산에 적용합니다.
+예산을 넘는 요청은 Incident, ActionProposal, 승인 또는 실행 권한을 만들지 않고 보류됩니다.
 
 ![설계 요약. 주요 단계는 오퍼레이터 요청, 문제 대응인가?, Correlation ID 및 선택적 Process ID, Incident registry, Typed ActionProposal, Trust 및 risk gate, 판단, journal, audit, 승격된 executor adapter, 승인 후 재개, Stage stream입니다.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.ko.svg)
 
 ## 구현 상태
 
 ### 구현 범위
-
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 인시던트 추적 신원 및 상관관계 제외 | implemented | `fdai/shared/contracts/models/event.py`, `fdai/core/event_ingest/correlator.py`, `fdai/core/scheduler/service.py`와 `fdai/delivery/inventory_delta.py`의 정기 생산자, `tests/core/event_ingest/test_correlator.py` | `incident_correlation=none`이 인시던트 생성을 억제해도 `correlation_id`는 유지됩니다. |
@@ -97,15 +98,16 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 | 서명된 action confirmation 및 poison-halt clear | implemented | `fdai_operator_service/action_confirmation_runtime.py`, `fdai_operator_service/operator_request_receipt.py`, `fdai_operator_service/bus_poison_halt_clear.py`, 집중 Operator route 테스트 | Action confirmation은 범위가 제한된 서명된 operator-request 증적을 첨부하며, 증적 발급기가 구성된 경우에만 권한이 있는 `operator_request` 이벤트를 게시합니다. 그렇지 않으면 readiness가 준비되지 않음으로 보고되고 proposal은 재시도를 위해 게시되지 않은 상태로 남습니다. Owner-only poison-halt clear route는 Core 검증을 위한 수락을 대기열에 넣고, 증적 발급기가 없으면 `503`을 반환하며, Core가 parked-record 근거를 검증하기 전에는 완료를 주장하지 않습니다. |
 | 런타임 작업 격리 | implemented | `fdai/runtime/bootstrap_tasks.py`, 집중 HIL 부하 제어, 런타임 구성 및 부트스트랩 검사 | 인시던트 생성과 채널 독립 승인 만료 처리는 별도의 감독 작업으로 실행됩니다. 어느 작업도 다른 작업에 승인 또는 실행 권한을 부여하지 않습니다. |
 | Assurance Twin 시작 조립 격리 | implemented | `fdai/runtime/bootstrap_core.py`, Assurance Twin 생산자 및 시작 조립 검사 | Core 시작 조립은 Heimdall의 읽기 전용 자세 생산자도 구성합니다. 이 생산자는 별도의 인벤토리, Rule, 정책, 원본 및 작성기 보호 경계를 사용하며 Operator가 확인한 인시던트 요청, 감사, 승인 또는 실행 경로를 변경하지 않습니다. |
+| 의미 계획 요청 예산 보호 경계 | implemented | `semantic_planning_support.py`, `request_context_fit.py`, `token_metrics.py`, 의미 계획 및 요청 예산 테스트 | Core는 공급자 I/O 전에 가장 엄격한 후보 모델 계산으로 전체 요청을 평가합니다. 보류는 읽기 전용이며 Incident나 작업을 만들거나 확인하지 않습니다. |
 | 통합 오퍼레이터 SRE 작업 및 진행 상황 계약 | in-progress | `fdai/core/incident/sre_request.py`, `fdai/shared/providers/operator_request.py`, 프로세스 내부 집중 Core 검사 | 프로세스 내부 조정기는 인시던트와 조사 작업 동작을 입증합니다. 배포된 관리 리소스 의미 기반 작업 확인에는 독립적으로 검토된 원본과 요청부터 감사까지의 증적이 더 필요합니다. |
 | ARB 준비 상태, 운영 게이트 및 선언적 검토 변환 결과 | implemented | `fdai/core/architecture_review/readiness.py`, `fdai/core/architecture_review/projection.py`, `fdai/runtime/control_loop.py`, `rule-catalog/workflows/architecture-review.yaml`, `tests/core/architecture_review/` | 오퍼레이터 표면은 `/workflow-apps/architecture-review`와 `/processes/{process_id}`입니다. `/arb/status` 엔드포인트는 없습니다. |
 | 오퍼레이터 작업 흐름 제출 | implemented | `fdai_operator_service/families/workflow/routes.py`, `services/operator-service/tests/test_operator_workflow_family.py` | `POST /workflows/run`은 멱등성 및 revision이 적용된 shadow 제안을 받고 `mode=enforce`를 거부합니다. |
 | 권한을 수반하는 작업 흐름 강제 적용 및 로컬/배포 운영 동등성 | in-progress | `fdai/core/workflow/workflow_step_executor.py`에는 거버넌스가 적용되는 강제 적용 액션 전달이 있지만 Operator API는 제안 전용 및 shadow 우선으로 유지됩니다. | 문서에 정의된 Owner 권한 end-to-end 강제 적용 경로나 로컬/배포 동등성을 입증하는 거버넌스 런타임 증거가 없습니다. |
 
 ### 구현 이력
-
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-22 | implemented | 의미 계획에 모델별 후보 중 가장 엄격한 요청 예산 계산을 추가하고 모든 예산 보류를 Incident 및 작업 권한 밖에 유지했습니다. | `current change`, 의미 계획 지원 코드와 Azure LLM 요청 보호 경계, 집중 어댑터 테스트 49개, strict mypy, 강제 파일 크기 검사. | 필수 exact-head CI는 별도의 전달 근거로 남습니다. |
 | 2026-10-01 | implemented | Operator Incident 생성에 서명을 적용했습니다. Operator는 principal id, 역할, 대상, 인자, 원본 요청 id를 결속하는 서명된 operator-request 증적이 있을 때만 `IncidentCreationRequest`를 게시하고, 증적 발급기가 구성되지 않으면 보낼 편지함을 재시도 가능한 상태로 유지합니다. Core는 Incident를 열거나 재사용하기 전에 신뢰하는 키, 만료, 정확한 결속, replay 차단 장치를 검증하고, 서명이 없거나 검증할 수 없는 요청을 구별되는 사유로 dead-letter로 보내며, Incident를 연 뒤 차단 장치 확정이 실패하면 적용되었지만 확정되지 않은 결과로 기록합니다. | `current change`; `packages/service-contracts/src/fdai_service_contracts/incident_creation.py`; `services/operator-service/src/fdai_operator_service/action_confirmation_runtime.py`; `services/core-control-plane/src/fdai_core_service/incident_creation_consumer.py`; `fdai/runtime/bootstrap_incidents.py`; `test_incident_creation_consumer.py`; `test_incident_creation_confirmation.py`. | 서명된 Incident 확인에 대한 배포 환경의 요청부터 감사까지의 근거를 보존합니다. |
 | 2026-10-01 | implemented | 증적 발급기가 없을 때 서명된 action confirmation이 실패를 드러내도록 했습니다. 권한이 있는 `operator_request` 이벤트는 operator-request 증적 발급기가 구성된 경우에만 게시됩니다. 그렇지 않으면 confirmation bridge는 동작하는 경로가 아니고, Operator readiness는 준비되지 않음으로 보고되며, 수락된 proposal은 재시도를 위해 게시되지 않은 상태로 남습니다. 같은 경우 ordered poison-halt clear route는 `503`을 반환합니다. | `current change`; `fdai_operator_service/composition.py`; `fdai_operator_service/composition_readiness.py`; `fdai_operator_service/action_confirmation_runtime.py`; `test_action_confirmation_composition.py`; `test_bus_poison_halt_clear.py`. | 서명된 관리형 리소스 action confirmation에 대한 배포 환경의 요청부터 감사까지의 근거를 보존합니다. |
 | 2026-09-27 | implemented | 인시던트 런타임 옆에 Heimdall의 읽기 전용 Assurance Twin 자세 생산자를 추가하되 인시던트 생성 소유권, 토픽, 스키마, 준비 상태 및 권한은 변경하지 않았습니다. | `current change`, Assurance Twin 런타임 및 서비스 소유권 집중 검사. | 인시던트 런타임 근거는 이 문서에서 계속 추적하고 제안 IaC 검토 근거는 #350에서 추적합니다. |
