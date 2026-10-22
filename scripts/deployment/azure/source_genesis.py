@@ -328,14 +328,6 @@ def _advance_locked(
             reason_code=exc.reason_code,
             next_action=exc.next_action,
         )
-        if exc.stage == "application-plan":
-            source.reverify()
-            store.update(
-                stage=exc.stage,
-                state="waiting",
-                reason_code="prebuilt_runtime_artifacts_required",
-                next_action="resume_with_signed_kit_and_foundation_adoption",
-            )
         return _progress_result(store, source.commit)
     except (CheckError, PrivateExecutionError) as exc:
         store.update(
