@@ -10,6 +10,7 @@ import tomllib
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -177,14 +178,19 @@ def test_core_source_build_has_pinned_matching_java_grammar_header() -> None:
     grammar = next(package for package in lock["package"] if package["name"] == "tree-sitter-java")
 
     assert grammar["version"] == "0.23.5", "review the source header pin with grammar updates"
-    header = (
-        "ADD --checksum=sha256:"
-        "a1f6ef161fbaf48a0e10fca90ef5290a062462b307b3898aa562993853b9f80a --chmod=0644 \\\n"
-        "    https://raw.githubusercontent.com/tree-sitter/tree-sitter-java/"
-        "94703d5a6bed02b98e438d7cad1136c01a60ba2c/src/tree_sitter/parser.h \\\n"
-        "    /usr/local/include/tree_sitter/parser.h"
+    digest = "a1f6ef161fbaf48a0e10fca90ef5290a062462b307b3898aa562993853b9f80a"
+    url = (
+        "https://raw.githubusercontent.com/tree-sitter/tree-sitter-java/"
+        "94703d5a6bed02b98e438d7cad1136c01a60ba2c/src/tree_sitter/parser.h"
     )
+    header = "RUN mkdir -p /usr/local/include/tree_sitter"
     assert header in builder
+    # Exact URL and digest, failing closed on a mismatch, and no BuildKit-only ADD flags.
+    assert f"urlopen('{url}'" in builder
+    assert f"hexdigest() == '{digest}'" in builder
+    assert "digest mismatch" in builder
+    assert "chmod 0644 /usr/local/include/tree_sitter/parser.h" in builder
+    assert not re.search(r"^\s*ADD\s", builder, re.M)
     assert builder.index(header) < builder.index("uv sync --frozen")
     assert "tree_sitter/parser.h" not in runtime
     assert "--chown=65532:65532 /app/.venv /app/.venv" in runtime
@@ -382,3 +388,25 @@ def test_supply_chain_pr_triggers_for_every_image_and_scan_input() -> None:
 
     for path in IMAGE_AFFECTING_PATHS:
         assert text.count(f'- "{path}"') == 1, path
+
+
+_BUILDKIT_ONLY = (
+    re.compile(r"^\s*(ADD|COPY)\s+[^\n]*--(checksum|chmod|link|exclude|parents)\b", re.M),
+    re.compile(r"--mount=", re.M),
+    re.compile(r"<<-?\s*['\"]?[A-Za-z_]+['\"]?\s*$", re.M),
+    re.compile(r"^\s*#\s*syntax\s*=", re.M | re.I),
+)
+
+
+@pytest.mark.parametrize(
+    "service",
+    sorted(
+        path.parent.parent.name for path in (REPO_ROOT / "services").glob("*/docker/Dockerfile")
+    ),
+)
+def test_service_dockerfiles_build_on_the_registry_build_service(service: str) -> None:
+    """Source installations build with ACR Tasks, whose classic builder rejects BuildKit syntax."""
+
+    text = _dockerfile(service).read_text(encoding="utf-8")
+    offenders = [pattern.pattern for pattern in _BUILDKIT_ONLY if pattern.search(text)]
+    assert not offenders, f"{service} uses BuildKit-only Dockerfile syntax: {offenders}"

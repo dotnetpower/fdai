@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 205b462e0c209543f803a8c0394dc3177387f25e
+translation_source_sha: 7320ef7cf76d81f3cc9e9e8da88fa827010c219a
 translation_revised: 2026-10-22
 ---
 # 런타임 배포 프로파일
@@ -505,7 +505,7 @@ FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니
 Dockerfile에 걸쳐 고정합니다. 수정된 패키지 revision이 공개되면 공유 고정값과 저장소 계약을
 함께 갱신하고, 이미지를 게시하기 전에 이미지 검사가 빌드 결과를 확인합니다.
 
-Core의 Alpine ARM64 빌더는 잠금 파일에 고정된 `tree-sitter-java` 0.23.5를 소스에서 빌드할 때 빠진 `tree_sitter/parser.h`를 해당 버전의 업스트림 커밋에서 가져오고 SHA-256으로 고정합니다. 이 헤더는 빌더에만 두며 런타임 의존성, 워크로드 명세, 신원, 권한을 바꾸지 않습니다. 네이티브 컴파일과 구문 분석 근거는 전체 이미지 빌드나 배포를 입증하지 않습니다.
+Core의 Alpine ARM64 빌더는 잠금 파일에 고정된 `tree-sitter-java` 0.23.5를 소스에서 빌드할 때 빠진 `tree_sitter/parser.h`를 해당 버전의 업스트림 커밋에서 가져오고 SHA-256으로 고정합니다. 이 헤더는 빌더에만 두며 런타임 의존성, 워크로드 명세, 신원, 권한을 바꾸지 않습니다. 네이티브 컴파일과 구문 분석 근거는 전체 이미지 빌드나 배포를 입증하지 않습니다. 내려받은 파일은 `ADD --checksum`이 아니라 일반 `RUN`에서 검증하며 다이제스트가 다르면 실패합니다. 소스 설치는 레지스트리 빌드 서비스로 이미지를 빌드하는데 그 클래식 빌더가 BuildKit 전용 문법을 거부하기 때문이며, 테스트가 모든 서비스 Dockerfile에서 그 문법을 막습니다.
 
 Core, Cost Governance 프로필, SRE 벤치마크는 OPA 1.18.2를 유지하되 다이제스트로 고정한
 Go 1.27.2와 `golang.org/x/net` 0.60.0으로 빌드합니다. 이 모듈이 요구하는
