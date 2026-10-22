@@ -139,7 +139,7 @@ class StateTransitionForecastHistorySliceSource:
             target_digest=request.target_digest,
             horizon_started_at=request.horizon_started_at,
             horizon_ended_at=request.horizon_ended_at,
-            recorded_at=request.as_of,
+            recorded_at=coverage.recorded_at,
             valid_until=expires,
             complete=True,
             source_revision=content_digest(

@@ -338,3 +338,172 @@ async def test_proof_store_outage_is_unavailable_not_an_error() -> None:
         record_digest="sha256:" + "8" * 64,
     )
     assert await provider.outcome(response, lookup=OperationalEvidenceLookup(**_LOOKUP)) is None
+
+
+async def test_http_transport_attaches_caller_bearer_token_for_workload_authenticator() -> None:
+    from datetime import UTC, datetime
+
+    import jwt
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from fdai.delivery.operational_evidence_caller_auth import (
+        StaticJwksBearerTokenValidator,
+        WorkloadCallerAuthenticator,
+    )
+    from fdai.shared.providers.workload_identity import IdentityToken
+
+    issuer = "https://login.example.invalid/tenant/v2.0"
+    audience = "api://fdai-operational-evidence-verifier"
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    jwk = jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key(), as_dict=True)
+    jwk.update(kid="kid-transport", use="sig", alg="RS256")
+    jwks_json = jwt.api_jwk.PyJWKSet([jwk]).keys[0]
+    import json
+
+    jwks_str = json.dumps({"keys": [jwk]}, sort_keys=True)
+    _ = jwks_json
+    signed_token = jwt.encode(
+        {
+            "iss": issuer,
+            "aud": audience,
+            "oid": "fdai_core",
+            "exp": int(datetime.now(UTC).timestamp()) + 300,
+        },
+        key,
+        algorithm="RS256",
+        headers={"kid": "kid-transport"},
+    )
+
+    class _Identity:
+        def __init__(self, value: str | Exception) -> None:
+            self.value = value
+            self.audiences: list[str] = []
+
+        async def get_token(self, requested_audience: str) -> IdentityToken:
+            self.audiences.append(requested_audience)
+            if isinstance(self.value, Exception):
+                raise self.value
+            return IdentityToken(
+                token=self.value,
+                expires_at=datetime.now(UTC) + timedelta(minutes=5),
+                audience=requested_audience,
+            )
+
+    outbox = OperatorOutbox()
+    row = outbox.add(
+        "propose",
+        principal=REQUESTER,
+        group=REQUESTER_GROUP,
+        roles=("Contributor",),
+        accepted_at=NOW - timedelta(minutes=1),
+        expected_revision=0,
+    )
+    store = MemoryProofStore()
+    registry = history()
+    engine = OperationalEvidenceVerifierEngine(
+        identity=VerifierIdentity("operational-evidence-verifier", "1.0.0"),
+        history=lambda: registry,
+        anchors=anchors(),
+        readbacks=(OperatorTestContextCommandReadback(commands=outbox),),
+        writer=store,
+        clock=lambda: NOW,
+    )
+    authenticator = WorkloadCallerAuthenticator(
+        expected_issuer=issuer,
+        expected_audience=audience,
+        registered_producer_principal="fdai_core",
+        validator=StaticJwksBearerTokenValidator(
+            issuer=issuer,
+            audience=audience,
+            jwks_json=jwks_str,
+        ),
+    )
+    readiness = VerifierReadiness(state="ready", reasons=())
+    app = build_verifier_app(engine, caller=authenticator, readiness=lambda: readiness)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    host, port = runner.addresses[0][:2]
+    base = f"http://{host}:{port}"
+    command = command_from_row(row).model_dump(mode="json")
+    lookup = {**_LOOKUP, "evidence_digest": content_digest(command)}
+    locator = {"idempotency_key": row.record["idempotency_key"]}
+    try:
+        async with httpx.AsyncClient() as client:
+            unauthenticated = _requester(
+                BoundedOperationalEvidenceIssuer(
+                    HttpOperationalEvidenceTransport(client, base_url=base)
+                ),
+                store,
+            )
+            denied = await request_operational_evidence(
+                unauthenticated, **lookup, locator=locator, clock=lambda: NOW
+            )
+            assert denied.status is OperationalEvidenceIssuanceStatus.UNAVAILABLE
+            assert store.admissions == []
+
+            failing_identity = _Identity(RuntimeError("AKS workload identity token failed"))
+            failing_requester = _requester(
+                BoundedOperationalEvidenceIssuer(
+                    HttpOperationalEvidenceTransport(
+                        client,
+                        base_url=base,
+                        identity=failing_identity,
+                        audience=audience,
+                    )
+                ),
+                store,
+            )
+            failed_token = await request_operational_evidence(
+                failing_requester, **lookup, locator=locator, clock=lambda: NOW
+            )
+            assert failed_token.status is OperationalEvidenceIssuanceStatus.UNAVAILABLE
+            assert failing_identity.audiences == [audience]
+
+            valid_identity = _Identity(signed_token)
+            authenticated = _requester(
+                BoundedOperationalEvidenceIssuer(
+                    HttpOperationalEvidenceTransport(
+                        client,
+                        base_url=base,
+                        identity=valid_identity,
+                        audience=audience,
+                    )
+                ),
+                store,
+            )
+            issued = await request_operational_evidence(
+                authenticated, **lookup, locator=locator, clock=lambda: NOW
+            )
+            assert issued.status is OperationalEvidenceIssuanceStatus.ISSUED
+            assert valid_identity.audiences == [audience]
+            assert await _provider(store).admit(**lookup) is not None
+    finally:
+        await runner.cleanup()
+
+
+async def test_http_transport_requires_caller_token_configuration_in_deployed_venue() -> None:
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(ValueError, match="configured together"):
+            HttpOperationalEvidenceTransport(
+                client,
+                base_url="https://verifier.internal",
+                audience="api://fdai-operational-evidence-verifier",
+            )
+        with pytest.raises(ValueError, match="FDAI_OPERATIONAL_EVIDENCE_CALLER_TOKEN_AUDIENCE"):
+            HttpOperationalEvidenceTransport(
+                client,
+                base_url="https://verifier.internal",
+                env={"FDAI_EXECUTION_VENUE": "deployed"},
+            )
+        with pytest.raises(ValueError, match="caller identity is unavailable"):
+            HttpOperationalEvidenceTransport(
+                client,
+                base_url="https://verifier.internal",
+                env={
+                    "FDAI_EXECUTION_VENUE": "deployed",
+                    "FDAI_OPERATIONAL_EVIDENCE_CALLER_TOKEN_AUDIENCE": (
+                        "api://fdai-operational-evidence-verifier"
+                    ),
+                },
+            )

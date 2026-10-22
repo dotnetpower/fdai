@@ -136,6 +136,18 @@ def test_static_jwks_validator_accepts_valid_token_and_refuses_invalid_cases() -
                 issuer=issuer, audience=audience, jwks_json=source
             ).validate(candidate)
         assert candidate not in str(exc.value)
+    app_id = "00000000-0000-0000-0000-000000000000"
+    v2_token, v2_jwks_raw, _ = _jwt_fixture(issuer=issuer, audience=app_id)
+    v2_jwks_obj = json.loads(v2_jwks_raw)
+    v2_jwks_obj["keys"][0]["x5c"] = ["cert-metadata"]
+    v2_validator = StaticJwksBearerTokenValidator(
+        issuer=issuer,
+        audience=f"api://{app_id}",
+        jwks_json=json.dumps(v2_jwks_obj),
+    )
+    validated = v2_validator.validate(v2_token)
+    assert validated.oid == "producer-principal"
+    assert validated.audience == f"api://{app_id}"
 
 
 def _deployed_env(tmp_path: Path, **values: str) -> dict[str, str]:

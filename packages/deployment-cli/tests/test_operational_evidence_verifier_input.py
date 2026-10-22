@@ -6,10 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from fdai_deployment_cli import cli
+from fdai_deployment_cli import cli, standalone_stage_targets
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     apply_operational_evidence_verifier_input,
     load_operational_evidence_verifier_input,
+    reconcile_retained_operational_evidence_verifier_input,
 )
 from fdai_deployment_cli.standalone_operational_evidence import (
     aks_operational_evidence_verifier_workload,
@@ -221,6 +222,150 @@ def test_public_cli_exposes_private_input_path() -> None:
     )
 
     assert args.operational_evidence_verifier_input == Path("verifier.json")
+
+
+def test_aks_substrate_targets_include_verifier_identity_and_role_assignments() -> None:
+    root = Path(__file__).resolve().parents[3]
+    source = (root / "infra/main.tf").read_text(encoding="utf-8")
+    role_addresses = {
+        f"azurerm_role_assignment.{match.group(1)}"
+        for match in re.finditer(
+            r'resource "azurerm_role_assignment" "(operational_evidence_verifier_[^"]+)"',
+            source,
+        )
+    }
+    assert role_addresses == {
+        "azurerm_role_assignment.operational_evidence_verifier_acr_pull",
+        "azurerm_role_assignment.operational_evidence_verifier_state_store_secret_reader",
+        "azurerm_role_assignment.operational_evidence_verifier_monitoring_reader",
+    }
+
+    flex_targets = set(
+        standalone_stage_targets.substrate_targets(
+            {"runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-flex"}}
+        )
+    )
+    aks_db_targets = set(
+        standalone_stage_targets.substrate_targets(
+            {"runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-aks"}}
+        )
+    )
+
+    assert "module.operational_evidence_verifier_identity" in flex_targets
+    assert role_addresses <= flex_targets
+    assert "module.operational_evidence_verifier_identity" in aks_db_targets
+    assert {
+        "azurerm_role_assignment.operational_evidence_verifier_acr_pull",
+        "azurerm_role_assignment.operational_evidence_verifier_monitoring_reader",
+    } <= aks_db_targets
+    assert (
+        "azurerm_role_assignment.operational_evidence_verifier_state_store_secret_reader"
+        not in aks_db_targets
+    )
+
+
+def test_reconcile_retained_verifier_input_binds_once_and_rejects_drift(tmp_path: Path) -> None:
+    profile = load_operational_evidence_verifier_input(_write(tmp_path / "verifier.json", _input()))
+    other_payload = _input()
+    other_payload["trust_registry_pin"] = _digest("c")
+    other = load_operational_evidence_verifier_input(_write(tmp_path / "other.json", other_payload))
+    retained: dict[str, object] = {"oev_input_digest": ""}
+    values: dict[str, object] = {"env": "dev"}
+
+    assert (
+        reconcile_retained_operational_evidence_verifier_input(
+            None, retained=retained, values=values
+        )
+        is False
+    )
+    assert retained == {"oev_input_digest": ""}
+    assert values == {"env": "dev"}
+
+    assert (
+        reconcile_retained_operational_evidence_verifier_input(
+            profile, retained=retained, values=values
+        )
+        is True
+    )
+    assert retained["oev_input_digest"] == profile.input_digest
+    assert values["enable_operational_evidence_verifier"] is True
+    assert isinstance(values["operational_evidence_verifier"], dict)
+
+    assert (
+        reconcile_retained_operational_evidence_verifier_input(
+            profile, retained=retained, values=values
+        )
+        is False
+    )
+
+    with pytest.raises(ValueError, match="retained context differs"):
+        reconcile_retained_operational_evidence_verifier_input(
+            None, retained=retained, values=values
+        )
+
+    with pytest.raises(ValueError, match="retained context differs"):
+        reconcile_retained_operational_evidence_verifier_input(
+            other, retained=retained, values=values
+        )
+
+
+def test_observation_first_workload_resolves_isolated_executor_anchor_and_optional_bindings(
+    tmp_path: Path,
+) -> None:
+    payload = _input()
+    payload["anchors"] = {
+        "schema_version": "1.0.0",
+        "venue": "deployed",
+        "anchors": [
+            {
+                "anchor_id": "anchor:operational-evidence-verifier",
+                "principal_id": _guid(11),
+                "evidence_class": "live",
+            },
+            {
+                "anchor_id": "anchor:core-runtime",
+                "principal_id": _guid(21),
+                "evidence_class": "live",
+            },
+            {
+                "anchor_id": "anchor:isolated-executor",
+                "principal_id": _guid(31),
+                "evidence_class": "live",
+            },
+        ],
+    }
+    payload["grant_registry_json"] = '{"schema_version":"1.0.0"}'
+    payload["observation_metric_workspace_id"] = _guid(50)
+    payload["observation_metric_queries_json"] = '{"cpu_percent":{"kql":"Perf","value_column":"V"}}'
+    payload["observation_scope_rows_json"] = "[]"
+    payload["forecast_history_sources_json"] = "[]"
+    profile = load_operational_evidence_verifier_input(_write(tmp_path / "verifier.json", payload))
+    values: dict[str, object] = {"env": "dev"}
+    apply_operational_evidence_verifier_input(values, profile)
+    workload = aks_operational_evidence_verifier_workload(
+        refs={"core-control-plane": "registry.invalid/fdai/core@sha256:" + _digest("c")},
+        verifier_identity={
+            "resource_id": "/identities/verifier",
+            "client_id": _guid(10),
+            "principal_id": _guid(11),
+        },
+        core_identity={
+            "resource_id": "/identities/core",
+            "client_id": _guid(20),
+            "principal_id": _guid(21),
+        },
+        executor_identity=None,
+        deploy_runner_principal=_guid(40),
+        application_values=values,
+        postgres_fqdn="postgres.fdai.invalid",
+        postgres_database="fdai",
+    )
+    assert workload is not None
+    env = workload["environment"]
+    assert env["FDAI_OPERATIONAL_EVIDENCE_ISOLATED_EXECUTOR_PRINCIPAL_ID"] == _guid(31)
+    assert env["FDAI_OPERATIONAL_EVIDENCE_GRANT_REGISTRY_JSON"] == '{"schema_version":"1.0.0"}'
+    assert env["FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_METRIC_WORKSPACE_ID"] == _guid(50)
+    assert env["FDAI_FORECAST_HISTORY_SOURCES_JSON"] == "[]"
 
 
 def _verifier_role_assignment_scope_shapes() -> dict[str, list[str]]:

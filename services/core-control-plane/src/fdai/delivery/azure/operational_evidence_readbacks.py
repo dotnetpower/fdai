@@ -7,6 +7,8 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Protocol
 
+from fdai_service_contracts.ontology_query import content_digest
+
 from fdai.shared.providers.metric import MetricProvider, MetricQuery
 
 
@@ -77,7 +79,7 @@ class AzureMonitorTestObservationProvider:
         value = sample.get("value")
         if not isinstance(value, (int, float)) or isinstance(value, bool):
             raise ValueError("Azure Monitor sample value is invalid")
-        return {
+        result: dict[str, object] = {
             "target_ref": target_ref,
             "access_scope_digest": str(scope["access_scope_digest"]),
             "signal_code": signal_code,
@@ -93,6 +95,13 @@ class AzureMonitorTestObservationProvider:
             "policy_revision": str(scope.get("policy_revision", "")),
             "source_anchor": self._source_anchor,
         }
+        conflicting_samples = sample.get("conflicting_samples")
+        if conflicting_samples is not None:
+            result["conflicting_samples"] = conflicting_samples
+        conflicting_health = scope.get("conflicting_health_sources")
+        if conflicting_health is not None:
+            result["conflicting_health_sources"] = conflicting_health
+        return result
 
 
 class MetricProviderSampleClient:
@@ -130,7 +139,14 @@ class MetricProviderSampleClient:
         result: dict[str, object] = {"value": points[0].value}
         if len(values) > 1:
             result["conflicting_samples"] = [
-                f"{point.metric_name}:{point.at.isoformat()}:{point.value}" for point in points
+                content_digest(
+                    {
+                        "metric_name": point.metric_name,
+                        "observed_at": point.at.isoformat(),
+                        "value": point.value,
+                    }
+                )
+                for point in points
             ]
         return result
 
