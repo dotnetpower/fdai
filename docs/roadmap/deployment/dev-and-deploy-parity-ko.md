@@ -1,10 +1,17 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: b2c35fa1b669b91956b58486ae47fab6cce41e6a
+translation_source_sha: 34124efc85cecfad8c37c95e1c1fa2dc2e36a4de
 translation_revised: 2026-10-22
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
+
+명시적으로 선택하는 VS Code 작업 `lifecycle: serve example hub (8090)`과
+`lifecycle: serve example release hub (8091)`은
+`~/.local/state/fdai/lifecycle-preview`에 이미 준비된 로컬 Lifecycle Hub 및 Release Hub
+상태를 미리 보여 줍니다. 두 CLI는 `127.0.0.1`에만 바인딩합니다.
+각각 한 인스턴스만 허용하는 이 선택적 작업은 Console 전체 스택 시작에 포함되지 않으며,
+서명 키를 초기화하거나 배포 대상을 선택하거나 실행 권한을 부여하지 않습니다.
 
 [GitHub 지식 소스](../../runbooks/knowledge-github-sources-ko.md)는 로컬과 배포 환경에서 같은
 Operator 경로, Owner 재검증, 버전 검사, 자격 증명 참조 및 제한된 Core 판독기를 사용합니다.
