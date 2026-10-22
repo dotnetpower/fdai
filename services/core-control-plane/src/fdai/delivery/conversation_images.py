@@ -7,6 +7,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Final, Protocol, runtime_checkable
 
 MAX_CONVERSATION_IMAGE_BYTES: Final[int] = 4 * 1024 * 1024
@@ -16,6 +17,89 @@ DEFAULT_CONVERSATION_IMAGE_RETENTION_DAYS: Final[int] = 90
 PENDING_CONVERSATION_IMAGE_RETENTION_MINUTES: Final[int] = 15
 _ALLOWED_MEDIA_TYPES: Final = frozenset({"image/png", "image/jpeg", "image/gif", "image/webp"})
 _IMAGE_ID: Final = re.compile(r"att-[A-Za-z0-9-]{1,124}")
+MAX_CONVERSATION_IMAGES_PER_TURN: Final[int] = 4
+LOW_DETAIL_IMAGE_TOKENS: Final[int] = 85
+HIGH_DETAIL_BASE_TOKENS: Final[int] = 85
+HIGH_DETAIL_TILE_TOKENS: Final[int] = 170
+MAX_IMAGE_TOKEN_RESERVATION: Final[int] = 8_192
+
+
+class ConversationImageDetail(StrEnum):
+    LOW = "low"
+    HIGH = "high"
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationImageTokenDescriptor:
+    image_id: str
+    width: int
+    height: int
+    detail: ConversationImageDetail
+
+    def __post_init__(self) -> None:
+        if _IMAGE_ID.fullmatch(self.image_id) is None:
+            raise ValueError("conversation image token descriptor id is invalid")
+        if not isinstance(self.detail, ConversationImageDetail):
+            raise TypeError("conversation image detail MUST be one ConversationImageDetail")
+        if type(self.width) is not int or type(self.height) is not int:
+            raise TypeError("conversation image dimensions MUST be integers")
+        if not 1 <= self.width <= 16_384 or not 1 <= self.height <= 16_384:
+            raise ValueError("conversation image dimensions MUST be positive and bounded")
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationImageTokenReservation:
+    image_count: int
+    reserved_tokens: int
+    detail_counts: tuple[tuple[str, int], ...]
+    execution_authority: bool = False
+
+    def __post_init__(self) -> None:
+        if type(self.image_count) is not int or not (
+            1 <= self.image_count <= MAX_CONVERSATION_IMAGES_PER_TURN
+        ):
+            raise ValueError("conversation image reservation count is invalid")
+        if (
+            type(self.reserved_tokens) is not int
+            or not 1 <= self.reserved_tokens <= MAX_IMAGE_TOKEN_RESERVATION
+        ):
+            raise ValueError("conversation image reserved tokens are invalid")
+        expected_keys = tuple(sorted(detail.value for detail in ConversationImageDetail))
+        if tuple(key for key, _ in self.detail_counts) != expected_keys:
+            raise ValueError("conversation image detail counts are not canonical")
+        if any(type(count) is not int or count < 0 for _, count in self.detail_counts):
+            raise ValueError("conversation image detail counts are invalid")
+        if sum(count for _, count in self.detail_counts) != self.image_count:
+            raise ValueError("conversation image detail counts MUST match the image count")
+        if self.execution_authority is not False:
+            raise ValueError("conversation image reservation cannot grant execution authority")
+
+
+def reserve_conversation_image_tokens(
+    images: tuple[ConversationImageTokenDescriptor, ...],
+) -> ConversationImageTokenReservation:
+    """Reserve image tokens from server-resolved dimensions before provider I/O."""
+
+    if not 1 <= len(images) <= MAX_CONVERSATION_IMAGES_PER_TURN:
+        raise ValueError("conversation image count exceeds the per-turn limit")
+    if len({image.image_id for image in images}) != len(images):
+        raise ValueError("conversation image ids MUST be unique")
+    counts = {detail.value: 0 for detail in ConversationImageDetail}
+    total = 0
+    for image in images:
+        counts[image.detail.value] += 1
+        if image.detail is ConversationImageDetail.LOW:
+            total += LOW_DETAIL_IMAGE_TOKENS
+        else:
+            tiles = ((image.width + 511) // 512) * ((image.height + 511) // 512)
+            total += HIGH_DETAIL_BASE_TOKENS + tiles * HIGH_DETAIL_TILE_TOKENS
+    if total > MAX_IMAGE_TOKEN_RESERVATION:
+        raise ValueError("conversation image token reservation exceeds the turn budget")
+    return ConversationImageTokenReservation(
+        image_count=len(images),
+        reserved_tokens=total,
+        detail_counts=tuple((key, counts[key]) for key in sorted(counts)),
+    )
 
 
 class ConversationImageConflictError(RuntimeError):
@@ -241,12 +325,18 @@ __all__ = [
     "ConversationImage",
     "ConversationImageBatchResult",
     "ConversationImageConflictError",
+    "ConversationImageDetail",
     "ConversationImageQuotaError",
     "ConversationImageStore",
+    "ConversationImageTokenDescriptor",
+    "ConversationImageTokenReservation",
     "DEFAULT_CONVERSATION_IMAGE_RETENTION_DAYS",
     "DEFAULT_MAX_IMAGE_BYTES_PER_PRINCIPAL",
     "DEFAULT_MAX_IMAGES_PER_PRINCIPAL",
     "PENDING_CONVERSATION_IMAGE_RETENTION_MINUTES",
     "InMemoryConversationImageStore",
     "MAX_CONVERSATION_IMAGE_BYTES",
+    "MAX_CONVERSATION_IMAGES_PER_TURN",
+    "MAX_IMAGE_TOKEN_RESERVATION",
+    "reserve_conversation_image_tokens",
 ]

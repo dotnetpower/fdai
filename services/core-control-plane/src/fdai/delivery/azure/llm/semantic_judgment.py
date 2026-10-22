@@ -31,7 +31,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentObservation,
 )
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
-from fdai.core.prompts import PromptAssembler, PromptReplayManifest, estimate_chat_request_tokens
+from fdai.core.prompts import PromptAssembler, PromptReplayManifest
 from fdai.core.prompts.types import PromptLayer
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
@@ -42,6 +42,10 @@ from fdai.delivery.azure.llm.model_trace import (
 )
 from fdai.delivery.azure.llm.request_context_fit import fit_context_to_budget
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
+from fdai.delivery.azure.llm.token_metrics import (
+    estimate_and_record_request_tokens,
+    record_provider_usage,
+)
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
@@ -238,6 +242,7 @@ class AzureOpenAISemanticJudgmentModel:
                 reserved_output_tokens=self._config.max_tokens,
                 budget=prompt_manifest.request_token_budget if prompt_manifest else None,
                 call_kind="semantic-judgment",
+                models=tuple(target.deployment for target in self._config.candidates),
             )
             encoded = _encoded_input(payload, fitted)
         except (TypeError, ValueError):
@@ -304,6 +309,7 @@ class AzureOpenAISemanticJudgmentModel:
                 reserved_output_tokens=min(self._config.max_tokens, _MAX_PREFLIGHT_TOKENS),
                 budget=preflight_manifest.request_token_budget if preflight_manifest else None,
                 call_kind="conversation-preflight",
+                models=tuple(target.deployment for target in self._config.candidates),
             )
             encoded = _encoded_input(payload, fitted)
         except (TypeError, ValueError):
@@ -480,16 +486,21 @@ class AzureOpenAISemanticJudgmentModel:
                 )
             ).messages
         )
-        request_token_estimate = estimate_chat_request_tokens(
+        candidates = (
+            self._config.candidates if allow_candidate_failover else self._config.candidates[:1]
+        )
+        request_budget = (
+            prompt_manifest.request_token_budget if prompt_manifest is not None else None
+        )
+        request_token_estimate, request_exceeded = estimate_and_record_request_tokens(
+            call_kind=call_kind,
             messages=messages,
             response_format=response_format,
             reserved_output_tokens=max_tokens,
+            models=tuple(target.deployment for target in candidates),
+            budget=request_budget,
         )
-        if (
-            prompt_manifest is not None
-            and prompt_manifest.request_token_budget is not None
-            and request_token_estimate > prompt_manifest.request_token_budget
-        ):
+        if prompt_manifest is not None and request_exceeded:
             _LOGGER.warning(
                 "semantic_judgment_request_token_budget_exceeded",
                 extra={
@@ -500,9 +511,6 @@ class AzureOpenAISemanticJudgmentModel:
                 },
             )
             return None
-        candidates = (
-            self._config.candidates if allow_candidate_failover else self._config.candidates[:1]
-        )
         candidate_timeout = timeout_seconds / len(candidates)
         for index, target in enumerate(candidates):
             try:
@@ -559,6 +567,7 @@ class AzureOpenAISemanticJudgmentModel:
                         trace_call=trace_call,
                         prompt_replay_manifest=prompt_manifest,
                     )
+                    record_provider_usage(call_kind=call_kind, usage=observation.usage)
                     if reservation is not None:
                         reservation.record(observation)
                     return SemanticJudgmentModelResponse(

@@ -460,6 +460,28 @@ def test_default_stage_limits_match_the_parent_output_reservation() -> None:
         _config(max_tokens=4097)
 
 
+async def test_stage_output_limit_requires_explicit_configuration() -> None:
+    def respond(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["max_tokens"] == 3072
+        return httpx.Response(200, json=_envelope())
+
+    assert (
+        await _call(
+            respond,
+            config=_config(stage_max_tokens={"answer": 3072}),
+        )
+        is not None
+    )
+
+
+def test_stage_output_limit_rejects_unknown_stage_or_parent_overrun() -> None:
+    with pytest.raises(ValueError, match="stage token budgets"):
+        _config(stage_max_tokens={"unknown": 512})
+    with pytest.raises(ValueError, match="stage token budgets"):
+        _config(stage_max_tokens={"answer": 4097})
+
+
 def test_provenance_whitespace_does_not_manufacture_independence() -> None:
     with pytest.raises(ValueError, match="independent"):
         _config(primary=_target("alias", " REVIEWER "))

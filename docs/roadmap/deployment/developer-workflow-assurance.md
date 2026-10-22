@@ -358,7 +358,7 @@ A developer can check a working tree for security issues before committing with
 feedback only: its snapshot revision has no commit, so it can't certify a commit or serve as the
 base of a remediation pack. Local and deployed Operator data-source registries declare the same
 code-security review, repository, and scan-request projections.
-Core quantity/accounting checks use the root development extra's locked Kubernetes utility without contacting a cluster. Its untyped import exception is limited to `kubernetes.utils.quantity`; the adapter validates returned Decimal values. Dependency changes retain focused ownership and Core-wheel checks and do not enable the diagnostic channel or live collection.
+Core quantity/accounting checks use the root development extra's locked Kubernetes utility without contacting a cluster. Its untyped import exception is limited to `kubernetes.utils.quantity`; the adapter validates returned Decimal values. Model-aware conversation token accounting follows the same dependency rule: the root development extra and both owning service manifests declare `tiktoken`, and the shared `uv.lock` fixes one version for Core and Operator validation. Dependency changes retain focused ownership and Core-wheel checks and do not enable the diagnostic channel or live collection.
 When root CI collects service sources, its `dev` extra mirrors every third-party package imported by
 those sources. Service manifests remain authoritative for runtime images and package ownership.
 Root CI also collects the standalone `lifecycle/` distributions: the root pytest, ruff, and mypy

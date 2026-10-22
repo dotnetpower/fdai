@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 4a75d7f2182d995e42531865fd92779711056599
+translation_source_sha: 03c3c810e672ed41ef72c2723b495af606015164
 translation_revised: 2026-10-23
 ---
 
@@ -352,7 +352,7 @@ staged 카탈로그에서 출처 집합을 파생하므로 새 출처를 등록�
 트리의 보안 문제를 점검할 수 있습니다. 이 스캔은 로컬 피드백일 뿐입니다. 스냅샷 리비전에는 커밋이
 없으므로 커밋을 증명하거나 조치 팩의 기준이 될 수 없습니다. 로컬과 배포 환경의 Operator 데이터 출처
 목록은 같은 코드 보안 검토, 저장소, 스캔 요청 프로젝션을 선언합니다.
-Core 수량·리소스 계산 검사는 클러스터에 접속하지 않고 루트 개발 의존성의 잠긴 Kubernetes 도구를 사용합니다. 타입 선언 부재에 대한 예외는 `kubernetes.utils.quantity`에만 적용하며 어댑터는 반환된 Decimal 값을 검증합니다. 의존성 변경은 소유 범위와 Core wheel 검사를 유지하며 진단 채널이나 실제 수집을 활성화하지 않습니다.
+Core 수량·리소스 계산 검사는 클러스터에 접속하지 않고 루트 개발 의존성의 잠긴 Kubernetes 도구를 사용합니다. 타입 선언 부재에 대한 예외는 `kubernetes.utils.quantity`에만 적용하며 어댑터는 반환된 Decimal 값을 검증합니다. 모델별 대화 토큰 계산에도 같은 의존성 규칙을 적용합니다. 루트 개발 extra와 담당 서비스 매니페스트 두 곳에서 `tiktoken`을 선언하고, 공유 `uv.lock`이 Core와 Operator 검증에 사용하는 버전을 하나로 고정합니다. 의존성 변경은 소유 범위와 Core wheel 검사를 유지하며 진단 채널이나 실제 수집을 활성화하지 않습니다.
 루트 CI가 서비스 소스를 수집할 때는 해당 소스가 가져오는 모든 서드파티 패키지를 `dev`
 extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비스 매니페스트가 계속 담당합니다.
 루트 CI는 독립 배포 단위인 `lifecycle/`도 수집합니다. 루트 pytest, ruff, mypy 설정과 변경 경로 테스트

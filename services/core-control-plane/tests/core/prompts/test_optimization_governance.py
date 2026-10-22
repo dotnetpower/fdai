@@ -1,0 +1,184 @@
+"""Prompt optimization promotion and rollback evidence tests."""
+
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta, tzinfo
+
+import pytest
+from fdai.core.prompts.optimization_governance import (
+    PromptCohortEvidence,
+    PromptPromotionAction,
+    PromptPromotionDecision,
+    evaluate_prompt_promotion,
+)
+
+_D = "sha256:" + ("a" * 64)
+_MODEL = "sha256:" + ("b" * 64)
+_COHORT = "sha256:" + ("c" * 64)
+_SHAPE = "sha256:" + ("d" * 64)
+
+
+def _evidence(profile: str, *, quality: int = 100, safety: int = 100, tokens: int = 1000):
+    return PromptCohortEvidence(
+        profile_id=profile,
+        profile_digest=_D,
+        model_binding_digest=_MODEL,
+        cohort_digest=_COHORT,
+        sample_count=100,
+        quality_passed=quality,
+        safety_passed=safety,
+        prompt_tokens=tokens,
+        completion_tokens=100,
+        planning_shapes_digest=_SHAPE,
+    )
+
+
+def test_promotes_exact_safe_non_regressing_token_reduction() -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    decision = evaluate_prompt_promotion(
+        baseline=_evidence("baseline"),
+        treatment=_evidence("treatment", tokens=700),
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    assert decision.action is PromptPromotionAction.PROMOTE
+    assert decision.reason_codes == ()
+    assert decision.execution_authority is False
+
+
+def test_safety_or_quality_regression_rolls_back() -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    decision = evaluate_prompt_promotion(
+        baseline=_evidence("baseline"),
+        treatment=_evidence("treatment", quality=99, safety=99, tokens=700),
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    assert decision.action is PromptPromotionAction.ROLLBACK
+    assert decision.reason_codes == ("quality_regression", "safety_regression")
+
+
+def test_unreviewed_small_cohort_holds() -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    treatment = _evidence("treatment", tokens=700)
+    treatment = replace(treatment, sample_count=25, quality_passed=25, safety_passed=25)
+    decision = evaluate_prompt_promotion(
+        baseline=treatment,
+        treatment=treatment,
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    assert decision.action is PromptPromotionAction.HOLD
+    assert decision.reason_codes == ("cohort_too_small", "no_prompt_token_reduction")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("sample_count", True),
+        ("quality_passed", 100.0),
+        ("safety_passed", "100"),
+        ("prompt_tokens", 1000.0),
+        ("completion_tokens", False),
+    ],
+)
+def test_evidence_rejects_non_integer_measurements(field: str, value: object) -> None:
+    with pytest.raises(TypeError, match=f"{field} MUST be one integer"):
+        replace(_evidence("treatment"), **{field: value})
+
+
+def test_decision_rejects_untyped_action_and_authority() -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    baseline = _evidence("baseline")
+    treatment = _evidence("treatment", tokens=700)
+    decision = evaluate_prompt_promotion(
+        baseline=baseline,
+        treatment=treatment,
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    with pytest.raises(TypeError, match="PromptPromotionAction"):
+        replace(decision, action="promote")
+    with pytest.raises(TypeError, match="one boolean"):
+        replace(decision, execution_authority=0)
+
+    assert isinstance(decision, PromptPromotionDecision)
+
+
+def test_sample_count_mismatch_holds_even_when_counts_look_non_regressing() -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    decision = evaluate_prompt_promotion(
+        baseline=_evidence("baseline"),
+        treatment=replace(
+            _evidence("treatment", tokens=700),
+            sample_count=200,
+            quality_passed=150,
+            safety_passed=200,
+        ),
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    assert decision.action is PromptPromotionAction.HOLD
+    assert decision.reason_codes == ("sample_count_mismatch",)
+
+
+def test_decision_rejects_timezone_without_utc_offset() -> None:
+    class _UndefinedOffset(tzinfo):
+        def utcoffset(self, dt: datetime | None) -> None:
+            return None
+
+        def dst(self, dt: datetime | None) -> None:
+            return None
+
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    decision = evaluate_prompt_promotion(
+        baseline=_evidence("baseline"),
+        treatment=_evidence("treatment", tokens=700),
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        replace(decision, decided_at=now.replace(tzinfo=_UndefinedOffset()))
+
+
+@pytest.mark.parametrize("reason_code", ["", "quality regression", "quality|regression", "UPPER"])
+def test_decision_rejects_noncanonical_reason_codes(reason_code: str) -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    decision = evaluate_prompt_promotion(
+        baseline=_evidence("baseline"),
+        treatment=_evidence("treatment", tokens=700),
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    with pytest.raises(ValueError, match="bounded machine tokens"):
+        replace(decision, action=PromptPromotionAction.HOLD, reason_codes=(reason_code,))
+
+
+def test_decision_rejects_action_reason_inconsistency() -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    promote = evaluate_prompt_promotion(
+        baseline=_evidence("baseline"),
+        treatment=_evidence("treatment", tokens=700),
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    with pytest.raises(ValueError, match="MUST NOT carry rejection reasons"):
+        replace(promote, reason_codes=("cohort_too_small",))
+    with pytest.raises(ValueError, match="MUST carry at least one reason"):
+        replace(promote, action=PromptPromotionAction.ROLLBACK)
+
+
+@pytest.mark.parametrize(
+    "profile_id",
+    ["", "contains prompt text", "profile|alternate", "line\nfeed"],
+)
+def test_evidence_rejects_noncanonical_profile_id(profile_id: str) -> None:
+    with pytest.raises(ValueError, match="bounded machine token"):
+        replace(_evidence("treatment"), profile_id=profile_id)

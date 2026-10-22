@@ -233,21 +233,38 @@ profiles:
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/continuous-question-space.md]
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
-  - id: shadow.semantic-judgment-compact
-    version: 3
+  - id: active.semantic-judgment-compact
+    version: 4
     capability_id: semantic.judgment
-    mode: shadow
+    mode: active
     root: {id: semantic-judgment-common, version: 1, layer: base}
     packs:
-      - {id: semantic-judgment-compact, version: 1, layer: pack}
-      - {id: semantic-incident-action-guidance, version: 1, layer: pack}
-      - {id: semantic-resource-name-filter, version: 1, layer: pack}
-      - {id: semantic-sre-diagnostic, version: 1, layer: pack}
-    system_token_budget: 8192
+      - {id: semantic-judgment-compact, version: 2, layer: pack}
+      - {id: semantic-incident-action-guidance, version: 1, layer: pack, when_any: [topic:action_request, topic:incident]}
+      - {id: semantic-resource-name-filter, version: 1, layer: pack, when_any: [topic:resource_inventory]}
+      - {id: semantic-sre-diagnostic, version: 1, layer: pack, when_any: [topic:change_activity, topic:resource_diagnostics]}
+      - id: semantic-topic-ontology-schema
+        version: 2
+        layer: pack
+        when_any: [topic:ontology_schema]
+        covers: [intent:query.manifest, intent:query.ontology_declaration, intent:query.ontology_relationships, intent:query.resource_class_closure]
+      - id: semantic-topic-action-request
+        version: 2
+        layer: pack
+        when_any: [topic:action_request, topic:incident]
+        covers: [intent:action_request, posture:draft_only]
+      - id: semantic-topic-conversation
+        version: 1
+        layer: pack
+        when_any: [topic:conversation]
+        covers: [intent:greeting, intent:self_introduction]
+    system_token_budget: 16384
     request_token_budget: 32768
     reserved_output_tokens: 2048
-    promotion_evidence: []
-    provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
+    promotion_evidence:
+      - docs/roadmap-implementation/decisioning/prompt-composition.md
+      - docs/roadmap/decisioning/prompt-composition.md
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: shadow.conversation-preflight-static
     version: 1
     capability_id: conversation.preflight
@@ -278,10 +295,10 @@ profiles:
       - docs/roadmap-implementation/decisioning/prompt-composition.md
       - docs/roadmap/decisioning/prompt-composition.md
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
-  - id: active.semantic-judgment
+  - id: shadow.semantic-judgment-dynamic-v8
     version: 8
     capability_id: semantic.judgment
-    mode: active
+    mode: shadow
     root: {id: semantic-judgment-core, version: 2, layer: base}
     packs:
       - id: semantic-topic-resource-inventory
@@ -445,10 +462,10 @@ profiles:
     reserved_output_tokens: 2048
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
-  - id: active.semantic-query-frame
+  - id: shadow.semantic-query-frame-dynamic-v2
     version: 2
     capability_id: semantic.query.frame
-    mode: active
+    mode: shadow
     root: {id: semantic-query-frame-core, version: 1, layer: base}
     packs:
       - id: semantic-query-frame-gateway-config
@@ -498,18 +515,25 @@ profiles:
       - docs/roadmap-implementation/decisioning/prompt-composition.md
       - docs/roadmap/decisioning/prompt-composition.md
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
-  - id: shadow.semantic-query-frame-compact
-    version: 1
+  - id: active.semantic-query-frame-compact
+    version: 3
     capability_id: semantic.query.frame
-    mode: shadow
+    mode: active
     root: {id: semantic-query-frame-common, version: 1, layer: base}
     packs:
       - {id: semantic-query-frame, version: 41, layer: pack}
+      - id: semantic-query-frame-compact-inventory
+        version: 1
+        layer: pack
+        when_any: [intent:inventory.select_resources]
+        covers: [shape:resource_list]
     system_token_budget: 16384
     request_token_budget: 32768
     reserved_output_tokens: 2048
-    promotion_evidence: []
-    provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
+    promotion_evidence:
+      - docs/roadmap-implementation/decisioning/prompt-composition.md
+      - docs/roadmap/decisioning/prompt-composition.md
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.semantic-query-frame-operational
     version: 1
     capability_id: semantic.query.frame.operational
@@ -543,10 +567,10 @@ profiles:
     reserved_output_tokens: 2048
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
-  - id: active.semantic-query-plan
+  - id: shadow.semantic-query-plan-dynamic-v2
     version: 2
     capability_id: semantic.query.plan
-    mode: active
+    mode: shadow
     root: {id: semantic-query-plan-core, version: 1, layer: base}
     packs:
       - id: semantic-query-plan-target
@@ -608,17 +632,23 @@ profiles:
       - docs/roadmap-implementation/decisioning/prompt-composition.md
       - docs/roadmap/decisioning/prompt-composition.md
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
-  - id: shadow.semantic-query-plan-compact
-    version: 1
+  - id: active.semantic-query-plan-compact
+    version: 3
     capability_id: semantic.query.plan
-    mode: shadow
+    mode: active
     root: {id: semantic-query-plan-common, version: 1, layer: base}
-    packs: []
+    packs:
+      - id: semantic-query-plan-resource-list
+        version: 1
+        layer: pack
+        when_any: [shape:resource_list]
     system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 2048
-    promotion_evidence: []
-    provenance: {source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md}
+    promotion_evidence:
+      - docs/roadmap-implementation/decisioning/prompt-composition.md
+      - docs/roadmap/decisioning/prompt-composition.md
+    provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.semantic-question-form
     version: 1
     capability_id: semantic.question_form

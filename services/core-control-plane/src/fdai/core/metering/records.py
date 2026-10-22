@@ -14,6 +14,7 @@ or month bucket of ``occurred_at`` yields the daily / monthly cost.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -34,6 +35,17 @@ class InvocationScope(StrEnum):
 
     CONTROL_PLANE = "control_plane"
     OPERATOR_CHAT = "operator_chat"
+
+
+class InvocationDisposition(StrEnum):
+    """Terminal outcome of the logical turn that owns this model call."""
+
+    ANSWERED = "answered"
+    HELD = "held"
+    CLARIFICATION = "clarification"
+    UNAVAILABLE = "unavailable"
+    REGENERATED = "regenerated"
+    UNKNOWN = "unknown"
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,9 +74,15 @@ class LlmInvocation:
     usage_scope: InvocationScope = InvocationScope.CONTROL_PLANE
     cost: Decimal | None = None
     currency: str | None = None
+    cached_prompt_tokens: int = 0
+    duration_ms: int = 0
+    profile_digest: str | None = None
+    locale: str = "und"
+    turn_family: str = "unknown"
+    disposition: InvocationDisposition = InvocationDisposition.UNKNOWN
 
     def __post_init__(self) -> None:
-        if self.occurred_at.tzinfo is None:
+        if self.occurred_at.tzinfo is None or self.occurred_at.utcoffset() is None:
             raise ValueError("occurred_at MUST be timezone-aware")
         if not self.correlation_id:
             raise ValueError("correlation_id MUST NOT be empty")
@@ -74,10 +92,36 @@ class LlmInvocation:
             raise ValueError("model_key MUST NOT be empty")
         if not self.tier:
             raise ValueError("tier MUST NOT be empty")
-        if self.cost is not None and self.cost < 0:
-            raise ValueError("cost MUST be >= 0 when present")
-        if self.currency is not None and not self.currency:
-            raise ValueError("currency MUST NOT be empty when present")
+        if not isinstance(self.mode, InvocationMode):
+            raise TypeError("mode MUST be one InvocationMode")
+        if not isinstance(self.usage_scope, InvocationScope):
+            raise TypeError("usage_scope MUST be one InvocationScope")
+        if not isinstance(self.disposition, InvocationDisposition):
+            raise TypeError("disposition MUST be one InvocationDisposition")
+        if self.cost is not None and (
+            not isinstance(self.cost, Decimal) or not self.cost.is_finite() or self.cost < 0
+        ):
+            raise ValueError("cost MUST be one finite non-negative Decimal when present")
+        if self.currency is not None and re.fullmatch(r"[A-Z]{3}", self.currency) is None:
+            raise ValueError("currency MUST be one ISO 4217 alphabetic code when present")
+        if (self.cost is None) != (self.currency is None):
+            raise ValueError("cost and currency MUST both be present or both be absent")
+        if type(self.cached_prompt_tokens) is not int:
+            raise TypeError("cached_prompt_tokens MUST be one integer")
+        if self.cached_prompt_tokens < 0 or self.cached_prompt_tokens > self.usage.prompt_tokens:
+            raise ValueError("cached_prompt_tokens MUST be within measured prompt tokens")
+        if type(self.duration_ms) is not int:
+            raise TypeError("duration_ms MUST be one integer")
+        if self.duration_ms < 0:
+            raise ValueError("duration_ms MUST NOT be negative")
+        if (
+            self.profile_digest is not None
+            and re.fullmatch(r"sha256:[a-f0-9]{64}", self.profile_digest) is None
+        ):
+            raise ValueError("profile_digest MUST be one sha256 digest")
+        for label, value in (("locale", self.locale), ("turn_family", self.turn_family)):
+            if re.fullmatch(r"[A-Za-z0-9._:-]{1,64}", value) is None:
+                raise ValueError(f"{label} MUST be one bounded machine token")
 
     @property
     def day_bucket(self) -> str:
@@ -93,4 +137,9 @@ class LlmInvocation:
         return self.occurred_at.astimezone(UTC)
 
 
-__all__ = ["InvocationMode", "InvocationScope", "LlmInvocation"]
+__all__ = [
+    "InvocationDisposition",
+    "InvocationMode",
+    "InvocationScope",
+    "LlmInvocation",
+]

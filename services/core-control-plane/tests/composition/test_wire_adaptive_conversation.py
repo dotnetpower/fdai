@@ -14,6 +14,7 @@ import httpx
 import pytest
 from fdai.agents import PANTHEON_SPECS
 from fdai.composition import semantic_query_azure_composition, wire_semantic_query
+from fdai.composition.adaptive_model_targets import resolved_model_config
 from fdai.composition.wire_adaptive_conversation import (
     build_adaptive_conversation_dependencies,
     build_adaptive_conversation_service,
@@ -90,6 +91,21 @@ def _resolved() -> ResolvedModels:
 
 def _composer() -> DefaultPromptComposer:
     return DefaultPromptComposer(registry=FileSystemPromptRegistry(CATALOG))
+
+
+def test_resolved_adaptive_config_keeps_conservative_stage_output_ceiling() -> None:
+    config = resolved_model_config(
+        _resolved(),
+        endpoint="https://example.com",
+        endpoint_resolver=None,
+        held_capabilities=frozenset(),
+        timeout_seconds=20,
+        max_tokens=4096,
+    )
+
+    assert config is not None
+    assert dict(config.stage_max_tokens) == {}
+    assert all(config.max_tokens == 4096 for _stage in ADAPTIVE_STAGES)
 
 
 async def _build(**overrides: Any) -> Any:

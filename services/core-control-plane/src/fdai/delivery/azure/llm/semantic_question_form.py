@@ -40,7 +40,7 @@ from fdai.core.conversation.semantic_reasoning_proposal import (
 from fdai.core.conversation.semantic_reasoning_repair import FormRepair
 from fdai.core.conversation.semantic_reasoning_review import extraction_schema
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
-from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
+from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.identity_masking import IdentityMask
 from fdai.delivery.azure.llm.input_detection import (
@@ -59,8 +59,15 @@ from fdai.delivery.azure.llm.model_trace import (
     prepare_model_messages,
     start_model_trace,
 )
+from fdai.delivery.azure.llm.model_trace import (
+    content_free_model_trace as _content_free,
+)
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_judgment import _strict_response_format
+from fdai.delivery.azure.llm.token_metrics import (
+    estimate_and_record_request_tokens,
+    record_provider_usage,
+)
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
@@ -540,13 +547,19 @@ class AzureOpenAIQuestionFormModel:
             return None
         messages = list(prepared.messages)
         response_format = _strict_response_format(schema, name=name)
-        estimate = estimate_chat_request_tokens(
-            messages=messages, response_format=response_format, reserved_output_tokens=max_tokens
-        )
+        request_candidates = candidates or self._config.candidates
         ceiling = self._config.max_request_tokens
         if manifest is not None and manifest.request_token_budget is not None:
             ceiling = min(ceiling, manifest.request_token_budget)
-        if estimate > ceiling:
+        estimate, exceeded = estimate_and_record_request_tokens(
+            call_kind=name,
+            messages=messages,
+            response_format=response_format,
+            reserved_output_tokens=max_tokens,
+            models=tuple(target.deployment for target in request_candidates),
+            budget=ceiling,
+        )
+        if exceeded:
             _held("request_budget_exceeded", name=name, raise_error=require_verbatim)
             return None
 
@@ -557,7 +570,7 @@ class AzureOpenAIQuestionFormModel:
                 name=name,
                 max_tokens=max_tokens,
                 manifest=manifest,
-                candidates=candidates or self._config.candidates,
+                candidates=request_candidates,
             )
 
         return await run_scoped_model(attempt)
@@ -607,11 +620,13 @@ class AzureOpenAIQuestionFormModel:
                     )
                     response.raise_for_status()
                     payload, content, usage = _content_object(response)
+                    observed = observed_usage(usage)
+                    record_provider_usage(call_kind=name, usage=observed)
                     if reservation is not None:
                         reservation.record(
                             ConversationModelObservation(
                                 model=target.deployment,
-                                usage=observed_usage(usage),
+                                usage=observed,
                                 trace_call=_content_free(
                                     complete_model_trace(
                                         trace_start,
@@ -753,26 +768,6 @@ def _held(reason: str, *, name: str, raise_error: bool) -> None:
     _LOGGER.warning("question_form_call_held", extra={"call_kind": name, "reason": reason})
     if raise_error:
         raise FormInputHeldError(reason)
-
-
-def _content_free(trace: Mapping[str, object]) -> dict[str, object]:
-    """Keep hashes, usage, timing, and redaction counts; drop every message and reply text."""
-
-    request = trace.get("request")
-    response = trace.get("response")
-    return {
-        **trace,
-        "content_omitted": True,
-        "request": {
-            "messages": [],
-            "sha256": request.get("sha256") if isinstance(request, Mapping) else None,
-        },
-        "response": {
-            "role": "assistant",
-            "content": "",
-            "sha256": response.get("sha256") if isinstance(response, Mapping) else None,
-        },
-    }
 
 
 def _content_object(

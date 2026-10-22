@@ -7,13 +7,78 @@ import pytest
 from fdai.delivery.conversation_images import (
     ConversationImage,
     ConversationImageConflictError,
+    ConversationImageDetail,
     ConversationImageQuotaError,
+    ConversationImageTokenDescriptor,
+    ConversationImageTokenReservation,
     InMemoryConversationImageStore,
+    reserve_conversation_image_tokens,
 )
 
 # Fixture images are created on 2026-08-05 and expire 90 days later, so each store reads them at
 # one fixed time instead of the wall clock, which passes that expiry on 2026-11-03.
 _READ_AT = datetime(2026, 8, 6, tzinfo=UTC)
+
+
+def test_image_token_reservation_uses_server_dimensions_and_detail() -> None:
+    receipt = reserve_conversation_image_tokens(
+        (
+            ConversationImageTokenDescriptor("att-low", 2048, 2048, ConversationImageDetail.LOW),
+            ConversationImageTokenDescriptor("att-high", 1024, 512, ConversationImageDetail.HIGH),
+        )
+    )
+
+    assert receipt.reserved_tokens == 85 + 85 + 2 * 170
+    assert receipt.detail_counts == (("high", 1), ("low", 1))
+    assert receipt.execution_authority is False
+
+
+def test_image_token_reservation_rejects_unbounded_high_detail() -> None:
+    with pytest.raises(ValueError, match="turn budget"):
+        reserve_conversation_image_tokens(
+            (
+                ConversationImageTokenDescriptor(
+                    "att-huge", 8192, 8192, ConversationImageDetail.HIGH
+                ),
+            )
+        )
+
+
+def test_image_token_descriptor_rejects_untyped_detail() -> None:
+    with pytest.raises(TypeError, match="ConversationImageDetail"):
+        ConversationImageTokenDescriptor("att-untyped", 512, 512, "low")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(("width", "height"), [(True, 512), (512, 512.0)])
+def test_image_token_descriptor_rejects_non_integer_dimensions(
+    width: object, height: object
+) -> None:
+    with pytest.raises(TypeError, match="dimensions MUST be integers"):
+        ConversationImageTokenDescriptor(  # type: ignore[arg-type]
+            "att-untyped-dimension",
+            width,
+            height,
+            ConversationImageDetail.HIGH,
+        )
+
+
+def test_image_token_reservation_receipt_rejects_forged_authority() -> None:
+    with pytest.raises(ValueError, match="cannot grant execution authority"):
+        ConversationImageTokenReservation(
+            image_count=1,
+            reserved_tokens=85,
+            detail_counts=(("high", 0), ("low", 1)),
+            execution_authority=True,
+        )
+
+
+def test_image_token_reservation_receipt_rejects_inconsistent_counts() -> None:
+    with pytest.raises(ValueError, match="MUST match the image count"):
+        ConversationImageTokenReservation(
+            image_count=2,
+            reserved_tokens=170,
+            detail_counts=(("high", 0), ("low", 1)),
+        )
 
 
 def _read_clock() -> datetime:

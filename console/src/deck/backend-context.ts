@@ -42,9 +42,9 @@ function viewContextWithUser(
 }
 
 function toBackendHistory(history: readonly BackendTurn[]): BackendTurn[] {
-  return history.slice(-8).map((turn) => ({
+  return history.slice(-12).map((turn) => ({
     role: turn.role,
-    content: turn.adaptiveAnswer ? turn.content.slice(0, 8_000) : turn.content,
+    content: turn.content.slice(0, 8_000),
   }));
 }
 
@@ -137,6 +137,7 @@ export function createBackendRequestPayload(
       ...(conversationModelTier ? { conversation_model_tier: conversationModelTier } : {}),
       ...(semanticPlanningProfile && semanticPlanningProfile !== "interactive"
         ? { semantic_planning_profile: semanticPlanningProfile } : {}),
+      history_total_count: history.length,
       history: toBackendHistory(history),
     };
   }
@@ -187,6 +188,7 @@ export function createBackendRequestPayload(
         }
       : (selectedContext ? { conversation_context: selectedContext } : {})),
     view_context: viewContextWithUser(snapshot, locale),
+    history_total_count: history.length,
     history: toBackendHistory(history),
   };
 }

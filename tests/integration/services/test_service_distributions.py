@@ -11,10 +11,11 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SERVICE_ROOT = REPO_ROOT / "services"
-SECURE_OPENTELEMETRY_FLOOR = (1, 45, 1)
 
 EXPECTED = {
     "core-control-plane": ("fdai-core-control-plane", "fdai-core-control-plane"),
@@ -73,6 +74,7 @@ EXPECTED_DEPENDENCIES = {
         "python-snappy",
         "pyyaml",
         "sqlalchemy",
+        "tiktoken",
         "tree-sitter",
         "tree-sitter-java",
     },
@@ -90,6 +92,7 @@ EXPECTED_DEPENDENCIES = {
         "pydantic",
         "pyjwt",
         "starlette",
+        "tiktoken",
         "uvicorn",
     },
     "document-ingestion-api": {
@@ -183,6 +186,7 @@ IMPORT_DISTRIBUTIONS = {
     "starlette": "starlette",
     "tree_sitter": "tree-sitter",
     "tree_sitter_java": "tree-sitter-java",
+    "tiktoken": "tiktoken",
     "uvicorn": "uvicorn",
     "weasyprint": "weasyprint",
 }
@@ -190,11 +194,6 @@ IMPORT_DISTRIBUTIONS = {
 
 def _requirement_name(requirement: str) -> str:
     return re.split(r"[\s<>=!~;\[]", requirement, maxsplit=1)[0].lower()
-
-
-def _version_tuple(value: str) -> tuple[int, int, int]:
-    major, minor, patch = value.split(".", maxsplit=2)
-    return int(major), int(minor), int(patch)
 
 
 def _direct_import_distributions(source_root: Path) -> set[str]:
@@ -260,39 +259,37 @@ def test_service_distributions_declare_only_owned_runtime_dependencies() -> None
         assert actual == expected, service_id
 
 
-def test_opentelemetry_dependency_floor_blocks_known_tracestate_vulnerability() -> None:
-    required = {
-        f"opentelemetry-api>={'.'.join(map(str, SECURE_OPENTELEMETRY_FLOOR))},<2",
-        (
-            "opentelemetry-exporter-otlp-proto-grpc>="
-            f"{'.'.join(map(str, SECURE_OPENTELEMETRY_FLOOR))},<2"
-        ),
-        f"opentelemetry-sdk>={'.'.join(map(str, SECURE_OPENTELEMETRY_FLOOR))},<2",
-    }
-    root_project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    core_project = tomllib.loads(
-        (SERVICE_ROOT / "core-control-plane" / "pyproject.toml").read_text(encoding="utf-8")
+def test_opentelemetry_dependencies_hold_the_image_scan_fixed_floor() -> None:
+    fixed = Version("1.45.1")
+    manifests = (
+        tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"][
+            "optional-dependencies"
+        ]["dev"],
+        tomllib.loads((SERVICE_ROOT / "core-control-plane" / "pyproject.toml").read_text())[
+            "project"
+        ]["dependencies"],
     )
-    assert required <= set(root_project["project"]["optional-dependencies"]["dev"])
-    assert required <= set(core_project["project"]["dependencies"])
-
-    lock = tomllib.loads((REPO_ROOT / "uv.lock").read_text(encoding="utf-8"))
-    versions = {
-        package["name"]: _version_tuple(package["version"])
-        for package in lock["package"]
-        if package["name"]
-        in {
-            "opentelemetry-api",
-            "opentelemetry-exporter-otlp-proto-grpc",
-            "opentelemetry-sdk",
-        }
-    }
-    assert set(versions) == {
+    package_names = (
         "opentelemetry-api",
         "opentelemetry-exporter-otlp-proto-grpc",
         "opentelemetry-sdk",
-    }
-    assert all(version >= SECURE_OPENTELEMETRY_FLOOR for version in versions.values())
+    )
+    for dependencies in manifests:
+        requirements = {
+            requirement.name: requirement
+            for value in dependencies
+            if (requirement := Requirement(value)).name in package_names
+        }
+        assert set(requirements) == set(package_names)
+        assert all(fixed in requirement.specifier for requirement in requirements.values())
+
+    lock = (REPO_ROOT / "uv.lock").read_text(encoding="utf-8")
+    match = re.search(
+        r'\[\[package\]\]\nname = "opentelemetry-api"\nversion = "([^"]+)"',
+        lock,
+    )
+    assert match is not None
+    assert Version(match.group(1)) >= fixed
 
 
 def test_service_distributions_declare_owned_optional_dependencies() -> None:
