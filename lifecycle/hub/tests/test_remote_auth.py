@@ -255,6 +255,93 @@ def test_configuration_inventory_requires_operator_identity(enrollment_remote):
         assert client.get("/v1/configurations", headers=agent).status_code == 403
 
 
+def test_native_proof_transport_is_agent_only_and_never_accepts_ownership(
+    enrollment_remote, enrolled_store, installation, installation_key, now
+):
+    from lifecycle.hub.tests.test_application_binding import command
+    from lifecycle.hub.tests.test_native_ownership import acceptance
+
+    from fdai_lifecycle_hub import models
+    from fdai_lifecycle_hub.migrations import migrate
+
+    identifier = installation.installation_id
+    migrate(enrolled_store.engine, "lifecycle_hub", models.Base.metadata.create_all)
+    enrolled_store.bind_application(
+        identifier,
+        command(enrolled_store, identifier, "example-app"),
+        operator="owner",
+        now=now,
+    )
+    proof = acceptance(enrolled_store, installation_key).proof
+    body = json.loads(proof.model_dump_json())
+    before = enrolled_store.load(identifier)
+    factory, token = enrollment_remote
+    path = f"/v1/installations/{identifier}/native-proofs"
+    service = dict(
+        oid="agent-object", azp="agent-client", scp=None, idtyp="app", roles=["Agent.Access"]
+    )
+    with factory(target_store=enrolled_store) as client:
+        assert client.post(path, json=body).status_code == 401
+        assert client.post(path, headers=token(), json=body).status_code == 403
+        agent = token(**service)
+        assert client.get(path, headers=agent).status_code == 403
+        for changes in (
+            {"oid": "other"},
+            {"azp": "other"},
+            {"idtyp": None},
+            {"roles": []},
+        ):
+            assert (
+                client.post(path, headers=token(**(service | changes)), json=body).status_code
+                == 403
+            )
+        assert (
+            client.post(
+                "/v1/installations/other/native-proofs", headers=agent, json=body
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(path, headers=agent, json=body | {"operator": "forged"}).status_code == 422
+        )
+        assert (
+            client.post(
+                path,
+                headers=agent | {"Content-Type": "application/json"},
+                content=b"x" * 8193,
+            ).status_code
+            == 413
+        )
+        duplicate = proof.model_dump_json()[:-1] + ',"signature":"duplicate"}'
+        assert (
+            client.post(
+                path, headers=agent | {"Content-Type": "application/json"}, content=duplicate
+            ).status_code
+            == 422
+        )
+        first = client.post(path, headers=agent, json=body)
+        assert first.status_code == 202
+        assert first.json() == {"received": True, "changed": True}
+        exact_limit = proof.model_dump_json().encode().ljust(8192, b" ")
+        assert (
+            client.post(
+                path, headers=agent | {"Content-Type": "application/json"}, content=exact_limit
+            ).status_code
+            == 202
+        )
+        assert client.post(path, headers=agent, json=body).json() == {
+            "received": True,
+            "changed": False,
+        }
+        assert (
+            client.post(
+                f"/v1/installations/{identifier}/native-ownership", headers=agent, json={}
+            ).status_code
+            == 403
+        )
+    assert enrolled_store.load(identifier) == before
+
+
 @pytest.fixture
 def enrollment_remote(auth, protected, store, now):
     from fdai_lifecycle_hub.api import create_app

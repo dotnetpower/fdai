@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import stat
+import subprocess
+import sys
 from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -10,12 +13,60 @@ from typing import Any
 import pytest
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 
-from fdai_lifecycle_hub import domain
+from fdai_lifecycle_hub import cli, domain
 from fdai_lifecycle_hub.catalog import load_catalog
 from fdai_lifecycle_hub.cli import DATABASE_URL_ENV, main
 from fdai_lifecycle_hub.domain import Installation
 from fdai_lifecycle_hub.schemas import entity_settings_json, ownership_json, reported_state_json
 from fdai_lifecycle_hub.store import HubStore
+
+
+@pytest.mark.parametrize(
+    "configuration", ["", "invalid", '{"kind":"target"}', '{"kind":"release"}']
+)
+def test_remote_cli_rejects_unauthenticated_serve(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    configuration: str,
+) -> None:
+    def forbidden(*args: object) -> int:
+        pytest.fail("Remote local-server handler must never be dispatched")
+
+    monkeypatch.setenv("FDAI_HUB_REMOTE_CONFIG", configuration)
+    monkeypatch.setattr(cli, "_serve", forbidden)
+    assert main(["serve"]) == 1
+    output = capsys.readouterr()
+    assert "fdai-hub-remote serve" in output.err
+    assert output.out == ""
+
+
+def test_local_cli_migrates_without_azure_dependencies(tmp_path: Path) -> None:
+    environment = os.environ.copy()
+    environment.pop("FDAI_HUB_REMOTE_CONFIG", None)
+    environment[DATABASE_URL_ENV] = f"sqlite:///{tmp_path / 'local.sqlite'}"
+    environment["PYTHONPATH"] = os.pathsep.join(path for path in sys.path if path)
+    script = """
+import sys
+
+class DenyAzure:
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "azure" or fullname.startswith("azure."):
+            raise ModuleNotFoundError("Azure dependencies are unavailable")
+
+sys.meta_path.insert(0, DenyAzure())
+from fdai_lifecycle_hub.cli import main
+raise SystemExit(main(["migrate"]))
+"""
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and local import-isolation probe.
+        [sys.executable, "-c", script],
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {"schema": "created"}
 
 
 def _run(capsys: pytest.CaptureFixture[str], *argv: str) -> dict[str, Any]:
