@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -797,3 +798,35 @@ def test_complete_bounded_readback_requires_all_five_existing_group_assignments(
         genesis_entra_readback.read_entra_effects(
             plan=plan,
         )
+
+
+def _completed(returncode: int, stderr: str = "") -> object:
+    return subprocess.CompletedProcess(args=["az"], returncode=returncode, stdout="", stderr=stderr)
+
+
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        'ERROR: Forbidden({"error":{"code":"Authorization_RequestDenied","message":"x"}})',
+        "Insufficient privileges to complete the operation.",
+    ],
+)
+def test_a_directory_authorization_denial_is_named_without_echoing_the_response(
+    monkeypatch, stderr: str
+) -> None:
+    monkeypatch.setattr(genesis_entra.subprocess, "run", lambda *_a, **_k: _completed(1, stderr))
+
+    with pytest.raises(ValueError, match="lacks the active directory role") as failure:
+        genesis_entra._az(("rest", "--method", "POST"))
+
+    assert "Authorization_RequestDenied" not in str(failure.value)
+    assert "request-id" not in str(failure.value)
+
+
+def test_any_other_azure_cli_failure_keeps_the_generic_message(monkeypatch) -> None:
+    monkeypatch.setattr(
+        genesis_entra.subprocess, "run", lambda *_a, **_k: _completed(1, "ERROR: timeout")
+    )
+
+    with pytest.raises(ValueError, match="^Entra command failed$"):
+        genesis_entra._az(("ad", "app", "list"))

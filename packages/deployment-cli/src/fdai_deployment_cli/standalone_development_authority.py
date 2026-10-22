@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
@@ -15,6 +15,7 @@ from fdai_deployment_cli.development_authority_profile import (
     staged_development_authority_profile_from_path,
     validate_deployment_target,
 )
+from fdai_deployment_cli.standalone_operational_evidence import bind_service_database_role
 
 _PROFILE_ENV = "FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON"
 _EXECUTOR_ENV = "FDAI_FULL_AUTHORITY_DEVELOPMENT_EXECUTOR_PRINCIPAL"
@@ -40,6 +41,8 @@ def development_authority_from_args(
     """Load the staged profile and reject an ambiguous select-and-clear request."""
 
     path = getattr(args, "development_authority_profile", None)
+    if path is not None and not isinstance(path, Path):
+        raise TypeError("development authority profile path is invalid")
     profile = staged_development_authority_profile_from_path(
         absolute(path) if path is not None else None
     )
@@ -113,7 +116,15 @@ def apply_service_update_development_authority(
 ) -> tuple[str, str]:
     """Apply one explicit Core select/clear operation to retained workload variables."""
 
+    component = workload.get("component")
+    environment = workload.get("environment")
+    if component is not None:
+        if not isinstance(component, str) or not isinstance(environment, dict):
+            raise TypeError("service workload database-role inputs are invalid")
+        workload["environment"] = bind_service_database_role(component, environment)
     path = getattr(args, "development_authority_profile", None)
+    if path is not None and not isinstance(path, Path):
+        raise TypeError("development authority profile path is invalid")
     clear = bool(getattr(args, "clear_development_authority_profile", False))
     if path is not None and clear:
         raise ValueError("development authority profile and clear request are mutually exclusive")
@@ -121,14 +132,16 @@ def apply_service_update_development_authority(
         return "preserve", ""
     environment = workload.get("environment")
     if not isinstance(environment, dict):
-        raise ValueError("Core workload environment is invalid")
+        raise TypeError("Core workload environment is invalid")
     if clear:
         changed = environment.pop(_PROFILE_ENV, None) is not None
         changed = environment.pop(_EXECUTOR_ENV, None) is not None or changed
         if not changed:
             raise ValueError("Core workload has no retained development profile to clear")
         return "clear", ""
-    profile = load_development_authority_profile(Path(path).absolute())
+    if path is None:
+        raise RuntimeError("development authority profile is unavailable")
+    profile = load_development_authority_profile(path.absolute())
     validate_deployment_target(
         profile,
         tenant_id=str(context["tenant_id"]),

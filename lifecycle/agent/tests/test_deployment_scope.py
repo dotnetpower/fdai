@@ -37,3 +37,19 @@ def test_durable_journal_volume_is_outside_workload_namespace() -> None:
     assert volume["metadata"]["namespace"] == "fdai-agent-system"
     assert volume["spec"]["accessModes"] == ["ReadWriteOnce"]
     assert volume["spec"]["resources"]["requests"]["storage"] == "4Gi"
+
+
+def test_scheduled_permissions_are_opt_in_namespace_only_and_existing_names_are_fenced() -> None:
+    documents = list(yaml.safe_load_all((DEPLOY / "scheduled-runtime-rbac.yaml").read_text()))
+    assert [document["kind"] for document in documents] == ["Role", "RoleBinding"]
+    role, binding = documents
+    assert role["metadata"]["namespace"] == binding["metadata"]["namespace"] == "example-test"
+    assert binding["roleRef"]["kind"] == "Role"
+    for rule in role["rules"]:
+        assert rule["apiGroups"] == ["batch"]
+        assert rule["resources"] == ["cronjobs"]
+        assert not set(rule["verbs"]) - {"get", "create", "patch", "delete"}
+        if "create" in rule["verbs"]:
+            assert rule["verbs"] == ["create"]
+        else:
+            assert rule["resourceNames"] == ["analyzer", "inventory", "self-review"]

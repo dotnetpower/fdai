@@ -459,6 +459,7 @@ function TeamsWorkflowTestPanel({
         // new URL.
         setBindingSaved({
           bindingVersion: binding.bindingVersion,
+          endpointIdentifier: binding.endpointIdentifier,
           savedAt: binding.savedAt,
           observedAt: binding.observedAt,
         });
@@ -493,8 +494,13 @@ function TeamsWorkflowTestPanel({
         submittedUrl,
         newTeamsWorkflowTestRequestId(),
       );
+      const refreshedBinding = await loadTeamsWorkflowBinding(auth, operatorApiBaseUrl);
+      if (!refreshedBinding.visible || !refreshedBinding.configured) {
+        throw new Error("Saved Teams Workflow binding metadata is unavailable");
+      }
       setBindingSaved({
         bindingVersion: saved.bindingVersion,
+        endpointIdentifier: refreshedBinding.endpointIdentifier,
         savedAt: saved.savedAt,
         observedAt: saved.testedAt,
       });
@@ -781,13 +787,17 @@ function TeamsWorkflowTestPanel({
                   value={webhookUrl}
                   readOnly={!canManage}
                   disabled={testing}
-                  placeholder={t("settings.teamsWorkflowTest.urlPlaceholder")}
+                  placeholder={
+                    bindingSaved?.endpointIdentifier
+                    ?? t("settings.teamsWorkflowTest.urlPlaceholder")
+                  }
                   onInput={(event) => setWebhookUrl(event.currentTarget.value)}
                 />
                 {!canManage ? (
-                  <small>{settingsIntegrationsText("contributorReadOnly")}</small>
+                  <small class="settings-webhook-diagnostic-help">
+                    {settingsIntegrationsText("contributorReadOnly")}
+                  </small>
                 ) : null}
-                <small>{settingsIntegrationsText("bindingNeverReturned")}</small>
                 </label>
                 {canManage ? (
                 <button
@@ -805,6 +815,9 @@ function TeamsWorkflowTestPanel({
                       : settingsIntegrationsText("testSaved")}
                 </button>
                 ) : null}
+                <small class="settings-webhook-diagnostic-help">
+                  {settingsIntegrationsText("bindingNeverReturned")}
+                </small>
               </form>
             ) : bindingVisibility === "loading" ? (
               <div class="state-block" role="status">
@@ -820,19 +833,28 @@ function TeamsWorkflowTestPanel({
               </div>
             )}
             {bindingSaved ? (
-              <p class="settings-teams-workflow-binding-state">
-                <StatusPill kind="success" label={settingsIntegrationsText("bindingSavedPill")} />
-                <small class="muted">
-                  {bindingSaved.savedAt
-                    ? settingsIntegrationsText("bindingSavedDetail", {
-                        version: bindingSaved.bindingVersion,
-                        time: new Date(bindingSaved.savedAt).toLocaleString(),
-                      })
-                    : settingsIntegrationsText("bindingSavedVersionOnly", {
-                        version: bindingSaved.bindingVersion,
-                      })}
-                </small>
-              </p>
+              <>
+                <p class="settings-teams-workflow-binding-state">
+                  <StatusPill kind="success" label={settingsIntegrationsText("bindingSavedPill")} />
+                  <small class="muted">
+                    {bindingSaved.savedAt
+                      ? settingsIntegrationsText("bindingSavedDetail", {
+                          version: bindingSaved.bindingVersion,
+                          time: new Date(bindingSaved.savedAt).toLocaleString(),
+                        })
+                      : settingsIntegrationsText("bindingSavedVersionOnly", {
+                          version: bindingSaved.bindingVersion,
+                        })}
+                  </small>
+                </p>
+                <p class="settings-teams-workflow-binding-state">
+                  <small class="muted">
+                    {settingsIntegrationsText("bindingIdentifier", {
+                      identifier: bindingSaved.endpointIdentifier,
+                    })}
+                  </small>
+                </p>
+              </>
             ) : null}
             {bindingError ? <div class="error" role="alert">{bindingError}</div> : null}
           </div>

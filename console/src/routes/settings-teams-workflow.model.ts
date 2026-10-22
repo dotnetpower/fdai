@@ -23,6 +23,7 @@ export type TeamsWorkflowBindingView =
       readonly visible: true;
       readonly configured: true;
       readonly bindingVersion: string;
+      readonly endpointIdentifier: string;
       readonly observedAt: string;
       readonly savedAt: string | null;
     };
@@ -30,6 +31,7 @@ export type TeamsWorkflowBindingView =
 /** Secret-free saved-binding facts the setup panel renders. */
 export interface TeamsWorkflowSavedBinding {
   readonly bindingVersion: string;
+  readonly endpointIdentifier: string;
   readonly savedAt: string | null;
   readonly observedAt: string;
 }
@@ -60,6 +62,10 @@ export function decodeTeamsWorkflowBindingView(value: unknown): TeamsWorkflowBin
     bindingVersion: nonEmptyString(
       item["binding_version"],
       "Teams Workflow binding.binding_version",
+    ),
+    endpointIdentifier: nonEmptyString(
+      item["endpoint_identifier"],
+      "Teams Workflow binding.endpoint_identifier",
     ),
     observedAt: isoTimestamp(item["observed_at"], "Teams Workflow binding.observed_at"),
     savedAt:

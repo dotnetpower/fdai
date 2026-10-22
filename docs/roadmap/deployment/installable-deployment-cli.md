@@ -627,6 +627,8 @@ archive, runs the environment-isolated offline Console build, packages the allow
 content under `/manuals`, and writes a deterministic archive plus a mode-`0600` source manifest.
 Ignored files such as `console/.env.local` cannot enter that snapshot. Build the candidate from
 current protected `origin/main` and the rollback from a distinct known-good ancestor.
+A source deployment builds its Console from its own pinned checkout commit and does not require
+that commit to be on `origin/main`.
 
 The `plan` command reads a mode-`0600` target manifest supplied outside source control. The manifest
 contains the existing Static Web App resource ID and hostname, API origins, and public Entra

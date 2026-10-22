@@ -1,0 +1,28 @@
+# Optional namespace-only permissions. Review separately; the HTTP template stays unchanged.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: fdai-lifecycle-scheduled-runtime
+  namespace: example-test
+rules:
+  - apiGroups: ["batch"]
+    resources: ["cronjobs"]
+    verbs: ["create"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs"]
+    resourceNames: ["analyzer", "inventory", "self-review"]
+    verbs: ["get", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: fdai-lifecycle-scheduled-runtime
+  namespace: example-test
+subjects:
+  - kind: ServiceAccount
+    name: fdai-lifecycle-agent
+    namespace: fdai-agent-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: fdai-lifecycle-scheduled-runtime

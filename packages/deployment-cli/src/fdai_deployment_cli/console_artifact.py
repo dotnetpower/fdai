@@ -23,8 +23,13 @@ def build_console_update_artifact(
     revision: str,
     output_dir: Path,
     timeout_seconds: int = 900,
+    require_protected_revision: bool = True,
 ) -> dict[str, object]:
-    """Build one preconfigured-placeholder Console archive without Azure access."""
+    """Build one preconfigured-placeholder Console archive without Azure access.
+
+    A source deployment pins its own verified checkout commit and needs no protected branch, so it
+    passes `require_protected_revision=False`; the Console update command keeps the default.
+    """
 
     if not 60 <= timeout_seconds <= 1800:
         raise ValueError("Console artifact timeout MUST be between 60 and 1800 seconds")
@@ -34,7 +39,12 @@ def build_console_update_artifact(
         raise ValueError("Console artifact output MUST be a new absolute directory")
     parent = _open_private_parent(output_dir)
     os.close(parent)
-    source_commit = _resolve_revision(source_root, revision, timeout_seconds=60)
+    source_commit = _resolve_revision(
+        source_root,
+        revision,
+        timeout_seconds=60,
+        require_protected_revision=require_protected_revision,
+    )
     epoch = _git(
         source_root,
         "show",
@@ -143,7 +153,13 @@ def build_console_update_artifact(
     }
 
 
-def _resolve_revision(source_root: Path, revision: str, *, timeout_seconds: int) -> str:
+def _resolve_revision(
+    source_root: Path,
+    revision: str,
+    *,
+    timeout_seconds: int,
+    require_protected_revision: bool,
+) -> str:
     source_commit = _git(
         source_root,
         "rev-parse",
@@ -153,6 +169,8 @@ def _resolve_revision(source_root: Path, revision: str, *, timeout_seconds: int)
     ).stdout.strip()
     if _COMMIT.fullmatch(source_commit) is None:
         raise ValueError("Console artifact revision is invalid")
+    if not require_protected_revision:
+        return source_commit
     protected_head = _git(
         source_root,
         "rev-parse",

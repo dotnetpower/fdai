@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 20dd009a95332f2f06827bc963036da3118007e2
-translation_revised: 2026-10-22
+translation_source_sha: 45649ba48c700c7291fcca065b1382324cf54a8c
+translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
 
@@ -15,8 +15,11 @@ translation_revised: 2026-10-22
 > Event Hubs Kafka 엔드포인트, Key Vault, 워크로드 신원, PostgreSQL 스키마를 사용합니다.
 >
 > **Hub 관리형 경로:** Hub 관리형 수명 주기는 AKS만 지원하며 클러스터 안에 수명 주기 에이전트를
-> 추가합니다. `lifecycle/agent/`의 Lifecycle I0 골격은 모의 실행과 보고만 하므로 이 런타임 계약은
-> 바뀌지 않습니다.
+> 추가합니다. 개발용 Agent는 기본적으로 dry-run과 보고를 수행합니다. 명시적으로 선택한
+> 유한 적용에서는 기존 HTTP·이전 호환 프로필과 독립적으로 고정한
+> [비공개 실행 묶음 확장](lifecycle-runtime-bundles-ko.md)을 지원합니다.
+> 기반 시설·신원 생성이나 FDAI 전체 설치 완료를 제공하지는 않습니다.
+> 네임스페이스 권한, 동일 스키마 사전 준비와 운영 검증은 별도로 유지합니다.
 
 담당 체계 거버넌스는 런타임 프로필과 무관합니다. `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true`이고 GitHub 자격 증명이 없으면 AKS와 Container Apps 모두 Console 관리형 후보 게시기와 병합 효과 워커를 조립하며, Terraform은 웹후크 시크릿, GitHub 시크릿 참조, Git 호스트 바인딩을 만들지 않습니다. GitOps 대상을 선택하면 이 항목이 추가됩니다. 어느 선택도 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다. Console 모드에서는 Owner가 Operator API와 Core 거버넌스 워커를 통해 후보를 활성화하며, 두 프로필 모두 추가 런타임 바인딩이 필요하지 않습니다. 이 모드에서 ChatOps는 선택 사항입니다. 수집 게이트웨이는 ChatOps 참조가 있을 때만 웹후크를 바인딩하며, GitOps 대상을 선택하면 계속 필요합니다. 소스 AKS 설치에서는 명시적 선택을 따릅니다. Console, 엔터프라이즈 ID 바인딩, 문서 인제스트를 모두 선택하면 AKS 호스트 값이 Core에 `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED`, `FDAI_MAINTAINERS`, 담당자 바인딩을 설정합니다.
 
@@ -505,7 +508,7 @@ FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니
 Dockerfile에 걸쳐 고정합니다. 수정된 패키지 revision이 공개되면 공유 고정값과 저장소 계약을
 함께 갱신하고, 이미지를 게시하기 전에 이미지 검사가 빌드 결과를 확인합니다.
 
-Core의 Alpine ARM64 빌더는 잠금 파일에 고정된 `tree-sitter-java` 0.23.5를 소스에서 빌드할 때 빠진 `tree_sitter/parser.h`를 해당 버전의 업스트림 커밋에서 가져오고 SHA-256으로 고정합니다. 이 헤더는 빌더에만 두며 런타임 의존성, 워크로드 명세, 신원, 권한을 바꾸지 않습니다. 네이티브 컴파일과 구문 분석 근거는 전체 이미지 빌드나 배포를 입증하지 않습니다.
+Core의 Alpine ARM64 빌더는 잠금 파일에 고정된 `tree-sitter-java` 0.23.5를 소스에서 빌드할 때 빠진 `tree_sitter/parser.h`를 해당 버전의 업스트림 커밋에서 가져오고 SHA-256으로 고정합니다. 이 헤더는 빌더에만 두며 런타임 의존성, 워크로드 명세, 신원, 권한을 바꾸지 않습니다. 네이티브 컴파일과 구문 분석 근거는 전체 이미지 빌드나 배포를 입증하지 않습니다. 내려받은 파일은 `ADD --checksum`이 아니라 일반 `RUN`에서 검증하며 다이제스트가 다르면 실패합니다. 소스 설치는 레지스트리 빌드 서비스로 이미지를 빌드하는데 그 클래식 빌더가 BuildKit 전용 문법을 거부하기 때문이며, 테스트가 모든 서비스 Dockerfile에서 그 문법을 막습니다.
 
 Core, Cost Governance 프로필, SRE 벤치마크는 OPA 1.18.2를 유지하되 다이제스트로 고정한
 Go 1.27.2와 `golang.org/x/net` 0.60.0으로 빌드합니다. 이 모듈이 요구하는
@@ -652,9 +655,12 @@ command 교체를 거부합니다. ConfigMap이 현재 상태 외부에 존재�
 content hash 재조회로 정확히 그 객체만 채택해야 하며, 객체를 암묵적으로 다시 만들거나 덮어쓰지 않습니다.
 이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
 검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
-검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
-문서 Worker에 각각 `fdai_operator`, `fdai_executor`, `fdai_ingestion_api`,
+검증합니다. 워크로드 생성기는 Core, Operator, 격리된 Executor, 문서 API,
+문서 Worker에 각각 `fdai_core`, `fdai_operator`, `fdai_executor`, `fdai_ingestion_api`,
 `fdai_ingestion_worker` 역할을 `FDAI_DATABASE_ROLE`과 일치하는 `PGOPTIONS`로 설정합니다.
+선택한 서비스의 업데이트를 계획하기 전에 조정기는 현재 workload renderer에서 해당 서비스의
+정확한 데이터베이스 역할을 다시 적용합니다. 따라서 peer를 변경하거나 데이터베이스 guard를
+약화하지 않고 역할 binding을 복구하며, 그 밖의 일반 환경값은 기존 값을 유지합니다.
 호출자의 환경은 변경하지 않습니다. 생성되는 모든 서비스는 배포된 실행 위치를 명시적으로
 선택합니다. 역할 선택은 데이터베이스 역할의 구성원 자격이나 서비스별 DSN을 제공하지 않으며,
 Executor 실행 권한 전환을 활성화하지 않습니다.
@@ -790,7 +796,7 @@ quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로�
 제한된 구독은 오류 대신 빈 버전 목록을 받으므로 사전 검증은 `postgres_flex_region_restricted`를
 보고합니다. 증거가 없거나 형식이 잘못된 경우에도 차단합니다. 서명된 offline 패키지는 새 AKS
 설치의 첫 Azure 변경 전에 이 사전 검증을 실행합니다. 재개한 설치는 이 검증을 건너뛰므로 설치가
-이미 사용하는 노드가 자체 quota 판단에 포함되지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
+이미 사용하는 노드가 자체 quota 판단에 포함되지 않습니다. 이 사전 검증에 앞서 Console을 선택한 소스 설치는 활성 사람 대상을 한 번 읽어 테넌트 로컬 Console SPA 이름 검사에 쓸 대상 바인딩을 도출합니다. 준비 영수증에는 바인딩이 없으며, 이 조회는 용량, quota, 카탈로그를 읽지 않습니다. 지원하지 않는 대상에서 암호화를 비활성화하지 않습니다.
 할당 가능한 워크로드 범위 검증은 구현 원장에 미완료 항목으로 남아 있습니다. Container Insights는 Managed Identity를 사용하는 `oms_agent` 추가 기능과 Terraform이 소유하는 데이터 수집 규칙(DCR) 및 클러스터 연결을 함께 사용합니다. 이 연결은 관리되는 클러스터 리소스에 의존하지 않고 인증된 구독 및 검토된 배포 입력에서 정확한 클러스터 Resource ID를 재구성하므로, 모니터링 전용 플랜이 관련 없는 클러스터 변경을 포함할 수 없습니다. 이 규칙은 `Microsoft-ContainerInsights-Group-Default` 스트림을 1분마다 선택한 Log Analytics workspace로 보내고 `ContainerLogV2`를 활성화합니다. 실행 중인 agent Pod에 이 연결이 없으면 모니터링 준비 상태가 아닙니다. DCR이 존재하고 workspace 테이블에 현재 레코드가 수집될 때까지 메트릭 및 로그 소스는 사용 불가 상태로 유지됩니다. 애플리케이션 원격 분석에는 Core의 Python Azure Monitor OpenTelemetry Distro를 사용합니다. 공유 기반 구성은 workspace 기반 Application Insights 연결 문자열을 Key Vault 비밀로 저장하고, Core 워크로드 신원에만 이 비밀의 읽기 권한을 부여하며, 별도 상태를 사용하는 AKS 렌더러에는 비밀 이름만 전달합니다. Key Vault CSI는 값을 `APPLICATIONINSIGHTS_CONNECTION_STRING`으로 주입합니다. Core는 비밀이 있을 때만 이 내보내기를 선택하며, `OTEL_EXPORTER_OTLP_ENDPOINT`를 동시에 설정하면 원격 분석을 중복 전송하지 않고 시작을 차단합니다. Application Insights 비밀이 없으면 로컬 프로파일과 명시적인 벤더 중립 OTLP 프로파일은 기존 내보내기를 유지합니다. AKS 워크로드 재확인은 배포된 각 컨테이너가 보존된 워크로드 계약이 요구하는 비밀 기반 환경 바인딩을 정확히 선언하는지 검증합니다. 따라서 `APPLICATIONINSIGHTS_CONNECTION_STRING`을 포함해 바인딩을 외부에서 제거하거나 추가하면 정상 롤아웃으로 보고하지 않고 차단합니다. 이 재확인은 `kubectl get --raw`가 반환하는 형식화된 컬렉션과 `kubectl get --output json`이 반환하는 일반 `v1.List`를 모두 읽되, 일반 형태는 모든 항목이 기대하는 단수 kind를 선언할 때만 허용합니다. 실행 중인 컨테이너의 이미지 신원은 정확한 `imageID` digest로 증명합니다. 컨테이너 런타임이 `image` 필드에 로컬 config digest를 보고할 수 있기 때문입니다. 저장소 전체 CI는 루트 테스트 수집이 Core 소유 원격 분석 어댑터를 가져올 수 있도록 `azure-monitor-opentelemetry`를 루트 `dev` 추가 의존성에만 미러링합니다. 런타임 의존성 소유자는 계속 Core 서비스 매니페스트이며 저장소 루트는 설치할 수 없는 상태를 유지합니다.
 
 독립 운영 근거 검증기는 AKS 전용 선택적 내부 워크로드입니다. 런타임 렌더러는 독립 실행형

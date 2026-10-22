@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 4b654d773761b66a1eefc305d036cfdea7d1a737
-translation_revised: 2026-10-22
+translation_source_sha: cd9fa0ec024d68a2c535f56ba39c209056b542c7
+translation_revised: 2026-10-23
 ---
 # Hub 관리형 수명 주기
 
@@ -45,6 +45,14 @@ Lifecycle Hub가 사용하는 릴리스 목록, 데이터 또는 피드인 **Rel
 | 기록 | cell이나 Target Hub마다 Hub PostgreSQL을 두고, 설치 증적은 Foundation 스토리지에 추가 전용으로 남깁니다. |
 
 ## 애플리케이션에 종속되지 않는 패키지 경계
+
+선택적인 `fdai.application-release.v2` 확장은 서명된 구성 요소 이미지와 고객이 독립적으로
+검토한 비공개 실행 묶음을 분리합니다.
+[실행 묶음 계약](lifecycle-runtime-bundles-ko.md)이 지원 객체 종류, 서명된 설정의 정확한
+고정 해시, 보안 한도와 주기 작업 효과를 입증하지 못했을 때의 복구 보류를 정의합니다.
+아래 게시·검증·소유권 순서는 유지하며 FDAI 전체 설치 검증을 뜻하지 않습니다.
+[배포 인수인계](../../runbooks/hub-lifecycle-deployment-handoff-ko.md)에서 단계별 담당자와
+수동 작업·자동화 가능한 경계를 확인할 수 있습니다.
 
 발행, 고정된 다이제스트를 통한 가져오기, 계획, 실행, 보고는 `fdai.application-release.v1`을
 공유합니다. 제품, 앱 소스, 불변 구성요소 이미지와 HTTP 정보는 엔진의 분기 조건이 아니라

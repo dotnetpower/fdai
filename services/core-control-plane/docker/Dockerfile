@@ -44,10 +44,12 @@ ENV UV_LINK_MODE=copy \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 RUN apk add --no-cache build-base zlib-dev
-# The locked Java grammar sdist omits this header; ARM64 musl builds it from source.
-ADD --checksum=sha256:a1f6ef161fbaf48a0e10fca90ef5290a062462b307b3898aa562993853b9f80a --chmod=0644 \
-    https://raw.githubusercontent.com/tree-sitter/tree-sitter-java/94703d5a6bed02b98e438d7cad1136c01a60ba2c/src/tree_sitter/parser.h \
-    /usr/local/include/tree_sitter/parser.h
+# The locked Java grammar sdist omits this header; ARM64 musl builds it from source. The download
+# is verified in a plain RUN because ADD --checksum needs BuildKit, which the registry build
+# service used by source installations does not provide.
+RUN mkdir -p /usr/local/include/tree_sitter \
+    && python -c "import hashlib, urllib.request; data = urllib.request.urlopen('https://raw.githubusercontent.com/tree-sitter/tree-sitter-java/94703d5a6bed02b98e438d7cad1136c01a60ba2c/src/tree_sitter/parser.h', timeout=60).read(); assert hashlib.sha256(data).hexdigest() == 'a1f6ef161fbaf48a0e10fca90ef5290a062462b307b3898aa562993853b9f80a', 'tree-sitter-java header digest mismatch'; open('/usr/local/include/tree_sitter/parser.h', 'wb').write(data)" \
+    && chmod 0644 /usr/local/include/tree_sitter/parser.h
 RUN pip install --no-cache-dir uv==0.11.32
 
 WORKDIR /build

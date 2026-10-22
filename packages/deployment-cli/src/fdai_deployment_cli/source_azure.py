@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 from fdai_service_contracts.product_profile import ProductAddOn
 
-from fdai_deployment_cli.aks_preflight import inspect_aks_target
+from fdai_deployment_cli.aks_preflight import current_target_binding, inspect_aks_target
 from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.deployment_cost import inspect_aks_compute_cost
@@ -153,7 +153,7 @@ def plan_source_installation(
         _require_unique_entra_display_names(
             runtime_profile,
             source.root / "scripts/deployment/azure",
-            target_binding=str(prepared["target_binding"]),
+            target_binding=current_target_binding(timeout_seconds=deadline.remaining(60)),
         )
     with installer_activity("Checking AKS SKU, quota, and PostgreSQL availability"):
         preflight = inspect_aks_target(

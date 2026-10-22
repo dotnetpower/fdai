@@ -90,7 +90,15 @@ def test_a_rerun_rebuilds_the_source_console_artifact(
 ) -> None:
     from fdai_deployment_cli import console_artifact
 
-    def build(*, source_root: Path, revision: str, output_dir: Path, timeout_seconds: int):
+    def build(
+        *,
+        source_root: Path,
+        revision: str,
+        output_dir: Path,
+        timeout_seconds: int,
+        require_protected_revision: bool,
+    ):
+        assert require_protected_revision is False
         if output_dir.exists():
             raise ValueError("Console artifact output MUST be a new absolute directory")
         output_dir.mkdir()

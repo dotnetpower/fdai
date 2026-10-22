@@ -269,6 +269,7 @@ def build_source_console(
         revision=source_commit,
         output_dir=output,
         timeout_seconds=timeout_seconds,
+        require_protected_revision=False,
     )
     return Path(str(artifact["artifact_directory"])) / "console.tar.gz", str(
         artifact["archive_sha256"]

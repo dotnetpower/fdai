@@ -104,6 +104,7 @@ async function installFixture(page: Page): Promise<{
           visible: true,
           configured: true,
           binding_version: "version-1",
+          endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
           observed_at: "2026-09-04T07:00:00Z",
           saved_at: "2026-09-04T06:00:00Z",
         }),
@@ -166,7 +167,7 @@ async function installFixture(page: Page): Promise<{
   };
 }
 
-test("separates approval, notification, and conversation readiness without leaking the saved URL", async ({ page }) => {
+test("separates approval, notification, and conversation readiness without leaking the saved URL", async ({ page }, testInfo) => {
   if (process.env["FDAI_SETTINGS_VIEWPORT"] === "constrained") {
     await page.setViewportSize({ width: 993, height: 641 });
   }
@@ -185,7 +186,29 @@ test("separates approval, notification, and conversation readiness without leaki
   await expect(page.getByText("Binding saved")).toBeVisible();
 
   const teamsInput = page.getByLabel("Teams Workflows HTTP URL");
+  const teamsButton = page.getByRole("button", { name: "Test saved binding" });
   await expect(teamsInput).toHaveValue("");
+  await expect(teamsInput).toHaveAttribute(
+    "placeholder",
+    "workflow ...da483a70 / sha256:123456789abc",
+  );
+  const inputBox = await teamsInput.boundingBox();
+  const buttonBox = await teamsButton.boundingBox();
+  expect(inputBox).not.toBeNull();
+  expect(buttonBox).not.toBeNull();
+  if (testInfo.project.name === "mobile-chromium") {
+    expect(buttonBox?.y ?? 0).toBeGreaterThan(
+      (inputBox?.y ?? 0) + (inputBox?.height ?? 0),
+    );
+  } else {
+    expect(Math.abs(
+      (inputBox?.y ?? 0) + (inputBox?.height ?? 0) / 2
+      - ((buttonBox?.y ?? 0) + (buttonBox?.height ?? 0) / 2),
+    )).toBeLessThanOrEqual(4);
+    expect(buttonBox?.x ?? 0).toBeGreaterThan(
+      (inputBox?.x ?? 0) + (inputBox?.width ?? 0),
+    );
+  }
   await expect(teamsInput).toHaveAttribute("autocomplete", "off");
   await expect(page.getByText(/FDAI never returns the saved URL/)).toBeVisible();
   await teamsInput.fill(webhookUrl);

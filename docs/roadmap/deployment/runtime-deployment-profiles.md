@@ -15,8 +15,11 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > OCI images, Event Hubs Kafka endpoints, Key Vault, workload identities, and PostgreSQL schema.
 >
 > **Hub-managed path:** The Hub-managed lifecycle supports AKS only and adds an in-cluster
-> lifecycle agent. Its Lifecycle I0 skeleton in `lifecycle/agent/` only dry-runs and reports, so
-> this runtime contract doesn't change.
+> lifecycle agent. The development Agent defaults to dry-run and reporting; explicit bounded
+> apply supports the existing HTTP/legacy profiles and the independently pinned
+> [private runtime-bundle extension](lifecycle-runtime-bundles.md).
+> This supplies neither infrastructure/identity creation nor a completed FDAI installation.
+> Namespace permissions, same-schema prerequisites and operational qualification remain separate.
 
 Stewardship governance is runtime-profile neutral. With `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true` and no GitHub credentials, AKS and Container Apps both compose the Console-governed candidate publisher and merge-effects worker, and Terraform creates no webhook secret, GitHub secret reference, or Git host binding. Selecting a GitOps target adds them. Neither selection grants merge, IAM, approval, or execution authority. In Console mode an Owner activates a candidate through the Operator API and Core's governance worker, which needs no extra runtime binding in either profile. ChatOps is optional there: the ingestion gateway binds its webhook only when a ChatOps reference exists, and a GitOps target still requires it. On a source AKS installation the same mode follows the explicit selections: when the Console, enterprise identity bindings, and document ingestion are all selected, the AKS host values set `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED`, `FDAI_MAINTAINERS`, and the steward bindings on Core.
 
@@ -514,7 +517,7 @@ Every shipped Alpine runtime image also pins security-sensitive runtime package 
 all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
 contract together; image scanning verifies the built result before publication.
 
-Core's Alpine ARM64 builder supplies the missing `tree_sitter/parser.h` for source builds of locked `tree-sitter-java` 0.23.5 from the matching upstream commit, pinned by SHA-256. The builder-only header changes no runtime dependency, workload specification, identity, or authority. Native compile/parse evidence is not a complete image build or deployment.
+Core's Alpine ARM64 builder supplies the missing `tree_sitter/parser.h` for source builds of locked `tree-sitter-java` 0.23.5 from the matching upstream commit, pinned by SHA-256. The builder-only header changes no runtime dependency, workload specification, identity, or authority. Native compile/parse evidence is not a complete image build or deployment. The download is verified in a plain `RUN` that fails closed on a digest mismatch, not with `ADD --checksum`: source installations build images with the registry's build service, whose classic builder rejects BuildKit-only syntax, and a test keeps every service Dockerfile free of it.
 
 Core, the Cost Governance profile, and the SRE benchmark retain OPA 1.18.2 but build it with
 digest-pinned Go 1.27.2 and `golang.org/x/net` 0.60.0, including its required
@@ -615,9 +618,13 @@ If the retained workload state predates the standalone application receipt, sele
 The source-service coordinator owns that reconciliation lifecycle: it returns the strict runtime-profile-bound review, checks verification-only recovery before any new effect, requires current exact approval when no claim exists, revalidates the saved binary plan, writes the claim before one Managed Identity apply, and resumes adoption only from receipt-bound refreshed state, typed Deployment readback, healthy workloads, and a complete full-scope zero-change plan. The validator canonicalizes only provider-equivalent omitted, null, or empty `sub_path` and `sub_path_expr` values. Every non-empty subpath remains a contract change and is denied. This workload readback does not establish Kafka round trips, scheduled-job success, Console
 authentication, or full deployment readiness. The separate browser publication gate verifies the
 Console and API edge after workload convergence.
-The workload factory binds Operator, isolated Executor, Document API and Document Worker to
-`fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and `fdai_ingestion_worker`, respectively,
-through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It leaves the caller's environment unchanged.
+The workload factory binds Core, Operator, isolated Executor, Document API and Document Worker to
+`fdai_core`, `fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and
+`fdai_ingestion_worker`, respectively, through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It
+leaves the caller's environment unchanged.
+Before a selected-service update is planned, the coordinator reapplies the selected service's
+exact database role from the current workload renderer. This permits a role-binding repair without
+changing peers or weakening database guards; other ordinary environment values remain retained.
 All rendered services explicitly select the deployed execution venue. Role selection neither grants
 database membership nor supplies service-owned DSNs, and never enables Executor authority cutover.
 
@@ -754,7 +761,9 @@ subscription that is restricted from a region gets an empty version list instead
 the preflight reports `postgres_flex_region_restricted`. Missing or malformed evidence blocks as
 well. The signed offline package runs this preflight before the first Azure change of a new AKS
 installation. A resumed installation skips it, so the installation's own nodes don't count against
-its quota. Unsupported targets do not disable
+its quota. Before this preflight, a source install that selects the Console reads the active human
+target once to derive the target binding for the tenant-local Console SPA name check; the
+preparation receipt carries no binding, and the lookup reads no capacity, quota, or catalog. Unsupported targets do not disable
 encryption. Allocatable workload-envelope validation remains open in the implementation ledger. Container Insights combines the managed-identity `oms_agent` addon with a Terraform-owned Data Collection Rule (DCR) and cluster association. The association reconstructs the exact cluster Resource ID from the authenticated subscription and reviewed deployment inputs instead of depending on the managed cluster resource, so a monitoring-only plan cannot admit unrelated cluster drift. It sends the default stream each minute with `ContainerLogV2`; without the association and current workspace records, monitoring is unavailable. Application telemetry uses the Python Azure Monitor OpenTelemetry Distro in Core. The shared substrate stores the workspace-based Application Insights connection string as a Key Vault secret, grants only the Core workload identity read access to that secret, and exposes only the secret name to the separately stateful AKS renderer. Key Vault CSI injects the value as `APPLICATIONINSIGHTS_CONNECTION_STRING`. Core selects this exporter only when the secret is present and rejects simultaneous `OTEL_EXPORTER_OTLP_ENDPOINT` configuration instead of duplicating telemetry. Local and explicit vendor-neutral OTLP profiles keep their existing exporters when the Application Insights secret is absent. The AKS workload readback verifies that each deployed container declares exactly the secret-backed environment bindings its retained workload contract requires, so an out-of-band edit that drops or adds one - including `APPLICATIONINSIGHTS_CONNECTION_STRING` - fails closed instead of reporting a healthy rollout. That readback reads Deployment and Pod observations from either the typed collection returned by `kubectl get --raw` or the generic `v1.List` returned by `kubectl get --output json`, accepting the generic envelope only when every item declares the expected singular kind. A running container's image identity is proven by the exact `imageID` digest, because container runtimes may report a local config digest in the sibling `image` field. Repository-wide CI mirrors `azure-monitor-opentelemetry` in the root `dev` extra only so root test collection can import the Core-owned telemetry adapter. The Core service manifest remains the runtime dependency owner, and the repository root remains non-installable.
 
 The independent operational evidence verifier is an AKS-only optional internal workload. The
