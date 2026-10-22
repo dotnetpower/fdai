@@ -120,7 +120,7 @@ def test_new_preparation_selects_host_and_preserves_private_replay(tmp_path, iso
         target_binding="b" * 64,
         capture=capture,
     )
-    assert size == "Standard_D4ds_v4"
+    assert size == "Standard_D8ds_v4"
     assert len(calls) == 2
     folder = next(tmp_path.glob("vm-discovery-*"))
     result = json.loads((folder / "result.json").read_bytes())
@@ -135,7 +135,7 @@ def test_connected_preparation_reserves_only_foundation_host_quota(
     tmp_path,
     isolated_environment,
 ):
-    capture, calls = capture_for(rows(), quota=usages(limit=4))
+    capture, calls = capture_for(rows(), quota=usages(limit=8))
 
     size = preflight.discover_foundation_vm_size(
         repository_root=ROOT,
@@ -148,7 +148,7 @@ def test_connected_preparation_reserves_only_foundation_host_quota(
         create_runner_image=False,
     )
 
-    assert size == "Standard_D4ds_v4"
+    assert size == "Standard_D8ds_v4"
     assert len(calls) == 2
     result = json.loads(next(tmp_path.glob("vm-discovery-*/result.json")).read_bytes())
     assert result["runner_image_creation"] is False
@@ -223,7 +223,7 @@ def test_incomplete_hardware_snapshot_records_unknown_counts(tmp_path, isolated_
 
 def selected_image(tmp_path):
     inputs, destination = _inputs(tmp_path)
-    inputs = replace(inputs, foundation_vm_size="Standard_D4ds_v4")
+    inputs = replace(inputs, foundation_vm_size="Standard_D8ds_v4")
     terraform_root = tmp_path / "root"
     terraform_root.mkdir(mode=0o700)
     path = terraform_root / preflight.POLICY_NAME
@@ -248,7 +248,7 @@ def test_image_review_v2_seals_the_discovered_pair_and_prepared_host(tmp_path):
     assert len(calls) == 2
     assert selected.sku_selection["schema_version"] == "fdai.runner-image-sku-selection.v2"
     assert selection_sizes(selected.sku_selection) == ("Standard_D2ds_v4", "Standard_D2ds_v4")
-    assert selected.sku_selection["foundation_vm_size"] == "Standard_D4ds_v4"
+    assert selected.sku_selection["foundation_vm_size"] == "Standard_D8ds_v4"
     assert selected.sku_selection["image_disk_gib"] == 64
     assert selected.toolchain_digest == inputs.toolchain_digest
     assert json.loads(destination.read_bytes()) == selected.terraform_values
@@ -258,7 +258,7 @@ def test_image_review_v2_seals_the_discovered_pair_and_prepared_host(tmp_path):
 @pytest.mark.parametrize("fault", [None, "host_quota", "host_restricted", "changed_plan"])
 def test_apply_rechecks_triplet_without_reselection(tmp_path, monkeypatch, fault):
     inputs, selected, _path, root, catalog, _calls = selected_image(tmp_path)
-    quota = usages(limit=7 if fault == "host_quota" else 8)
+    quota = usages(limit=11 if fault == "host_quota" else 12)
     if fault == "host_restricted":
         restrict(catalog[1])
     projection = _plan_projection(selected.terraform_values)
@@ -292,12 +292,12 @@ def test_apply_rechecks_triplet_without_reselection(tmp_path, monkeypatch, fault
             recheck_image_vm_inputs(json.dumps(projection).encode(), **kwargs)
 
 
-@pytest.mark.parametrize("disk", [None, 64, 256])
+@pytest.mark.parametrize("disk", [None, 64, 512])
 def test_host_preflight_reads_actual_image_disk(tmp_path, isolated_environment, disk):
     inputs, _destination = _inputs(tmp_path)
     path = tmp_path / "foundation.json"
     values = json.loads(path.read_bytes())
-    values["runner_vm_size"] = "Standard_D4ds_v4"
+    values["runner_vm_size"] = "Standard_D8ds_v4"
     path.write_text(json.dumps(values))
     capture, calls = capture_for(rows(inputs.region), image_disk=disk)
     kwargs = {
@@ -323,7 +323,7 @@ def test_online_host_preflight_reads_exact_marketplace_image(
     path = tmp_path / "foundation.json"
     values = json.loads(path.read_bytes())
     values.update(
-        runner_vm_size="Standard_D4ds_v4",
+        runner_vm_size="Standard_D8ds_v4",
         runner_bootstrap_mode="online",
         runner_marketplace_image_version="24.04.202509010",
         runner_source_image_id="",

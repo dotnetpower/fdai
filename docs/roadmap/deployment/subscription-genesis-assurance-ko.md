@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 8faae576c68b49e2df2bdc76ddaac1b6c484463b
-translation_revised: 2026-10-02
+translation_source_sha: 5658a879d3e8db4de0df568041b90e9d477a4d4d
+translation_revised: 2026-10-22
 ---
 # 구독 초기 구성 보증
 
@@ -58,7 +58,7 @@ Marketplace 버전 하나를 확인합니다.
 
 | 역할 | CPU와 메모리 | OS 디스크 |
 |------|--------------|-----------|
-| 기반 호스트 | 지속형 4 vCPU, 8-16 GiB | 정확한 Marketplace 이미지를 담을 수 있는 임시 Local ResourceDisk |
+| 기반 호스트 | 지속형 8 vCPU, 16-32 GiB | 정확한 Marketplace 이미지를 담을 수 있는 임시 Local ResourceDisk |
 
 ARM, GPU, 기밀 컴퓨팅, 제한된 코어, 호환되지 않는 저장소 변형은 대체하지 않습니다.
 카탈로그 조회는 정확한 구독과 지역 하나에서 4페이지, 4096개 행, 8 MiB, 90초로 제한합니다. 다음 페이지가 누적 한도를 초기화하거나 같은 페이지를 반복할 수 없습니다.

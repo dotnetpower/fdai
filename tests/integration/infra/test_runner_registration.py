@@ -105,7 +105,7 @@ def test_runner_uses_sustained_compute_and_an_ephemeral_resource_disk() -> None:
     variables = (bootstrap_root / "variables.tf").read_text(encoding="utf-8")
     main = (bootstrap_root / "main.tf").read_text(encoding="utf-8")
 
-    assert 'default     = "Standard_D4ds_v5"' in variables
+    assert 'default     = "Standard_D8ds_v5"' in variables
     assert 'variable "runner_vm_name"' in variables
     assert 'runner_vm_name  = var.runner_vm_name != ""' in main
     assert "name                = local.runner_vm_name" in main

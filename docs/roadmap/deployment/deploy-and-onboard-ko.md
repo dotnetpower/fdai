@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 36c0d19bef4e6769e7fb5cc86fbc2bf87f5378ca
+translation_source_sha: d47bb532e1a5d3bde76e495b7c132c11c8d68d50
 translation_revised: 2026-10-22
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -114,7 +114,7 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
 - 비공개로 잠긴 **terraform remote-state 저장소 계정**, ops VNet에 링크된
   `privatelink.blob.core.windows.net` 블롭 비공개 엔드포인트로 프론트;
 - 현재 및 후보 실행기 VM과 수명 주기가 분리된 **안정적인 배포용 사용자 할당 Managed Identity(UAMI)**. Bootstrap은 정확한 역할 매니페스트를 소유하며 client ID와 principal ID를 별도로 출력합니다.
-- 공개 IP 없이 지속형 `Standard_D4ds_v5`와 `Local` `ResourceDisk` 임시 OS에서 실행기 자리 1-5개를 등록하는 **자체 호스팅 배포 실행기 VM**.
+- 공개 IP 없이 지속형 `Standard_D8ds_v5`(로컬 SSD가 있는 8 vCPU이며, 지역에 v5가 없으면 `Standard_D8ads_v5` 또는 `Standard_D8ds_v4`)와 `Local` `ResourceDisk` 임시 OS에서 실행기 자리 1-5개를 등록하는 **자체 호스팅 배포 실행기 VM**.
   VM-side Bash가 자리 경로를 확장하며, 할당 해제는 차단되고 예약 drift는 관리형 OS 디스크나 배치 변경을 거부합니다. 자리는 안정적인 UAMI를 공유합니다. 계획과 읽기 전용 검사는 서비스별 잠금을 사용하고 적용과 상태 이행은 환경별 단일 writer 잠금을 공유합니다. 플랫폼 및 시나리오 Terraform은 deployer 역할을 해당 principal에 고정하고 인증된 principal이 다르면 중단합니다.
   UAMI는 앱 RG에 `Contributor` + `User Access Administrator`, ops RG에 `Network Contributor`, 상태 계정에 `Storage Blob Data Contributor`, 구독에 `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`를 보유합니다.
   조건부 `Role Based Access Control Administrator` 할당은 서비스 주체에 `Reader`, `Monitoring Reader`, `Cost Management Reader`만 할당할 수 있습니다.

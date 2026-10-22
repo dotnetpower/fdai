@@ -91,7 +91,7 @@ gallery-version ID and disables marketplace selection, cloud-init, and GitHub re
 - a **terraform remote-state storage account** locked to private, fronted by a blob private
   endpoint on `privatelink.blob.core.windows.net` linked to the ops VNet;
 - a **stable deploy user-assigned managed identity (UAMI)** whose lifecycle is independent of the current and candidate runner VMs. Bootstrap owns its exact role manifest and outputs separate client and principal IDs;
-- a **self-hosted deploy runner VM** (no public IP) with one to five slots on sustained `Standard_D4ds_v5` compute and a `Local` `ResourceDisk` ephemeral OS.
+- a **self-hosted deploy runner VM** (no public IP) with one to five slots on sustained `Standard_D8ds_v5` compute (8 vCPU with a local SSD; `Standard_D8ads_v5` or `Standard_D8ds_v4` where the region offers no v5) and a `Local` `ResourceDisk` ephemeral OS.
   VM-side Bash expands slot paths; deallocation is blocked, and scheduled drift rejects managed OS disks or placement changes. Slots share the stable UAMI. Plans and read-only checks use service-specific locks, while apply and state migration share one environment writer lock. Platform and scenario Terraform pin deployer roles to that principal and stop when the authenticated principal differs.
   The UAMI holds `Contributor` + `User Access Administrator` on the app RG, `Network Contributor` on the ops RG, `Storage Blob Data Contributor` on state, and subscription `Reader` + `EventGrid Contributor` + `Cognitive Services Contributor`.
   Its conditional `Role Based Access Control Administrator` grant can assign only `Reader`, `Monitoring Reader`, and `Cost Management Reader` to service principals.

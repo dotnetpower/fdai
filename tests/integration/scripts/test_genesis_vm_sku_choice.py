@@ -70,7 +70,7 @@ def capabilities(row):
 def rows(region="eastus"):
     return [
         sku(region=region),
-        sku("Standard_D4ds_v4", cpu=4, memory=16, disk=153600, region=region),
+        sku("Standard_D8ds_v4", cpu=8, memory=32, disk=307200, region=region),
     ]
 
 
@@ -96,7 +96,7 @@ def test_unlisted_compatible_skus_are_selected_and_inputs_are_immutable():
     before = copy.deepcopy((catalog, quota))
     selected = choose_deployment_vms(policy(), region="eastus", rows=catalog, usages=quota)
     assert selected.builder.size == selected.verifier.size == "Standard_D2ds_v4"
-    assert selected.foundation.size == "Standard_D4ds_v4"
+    assert selected.foundation.size == "Standard_D8ds_v4"
     assert (catalog, quota) == before
     assert (
         choose_deployment_vms(policy(), region="eastus", rows=catalog[::-1], usages=quota)
@@ -122,8 +122,8 @@ def test_image_pair_does_not_require_the_hosts_local_disk():
 
 def test_aggregate_quota_counts_all_three_vms_in_one_family():
     with pytest.raises(CheckError, match=NO_QUOTA):
-        choose_deployment_vms(policy(), region="eastus", rows=rows(), usages=usages(limit=7))
-    choose_deployment_vms(policy(), region="eastus", rows=rows(), usages=usages(limit=8))
+        choose_deployment_vms(policy(), region="eastus", rows=rows(), usages=usages(limit=11))
+    choose_deployment_vms(policy(), region="eastus", rows=rows(), usages=usages(limit=12))
 
 
 def test_regional_quota_does_not_become_three_independent_checks():
@@ -254,7 +254,7 @@ def test_actual_image_disk_must_fit_the_sealed_host():
             rows=[host],
             usages=usages(),
             size=host["name"],
-            image_disk_gib=256,
+            image_disk_gib=512,
         )
 
 
@@ -265,7 +265,7 @@ def test_explicit_host_is_not_silently_replaced_and_apply_never_reranks():
             region="eastus",
             rows=rows(),
             usages=usages(),
-            foundation_size="Standard_D4ds_v5",
+            foundation_size="Standard_D8ds_v5",
         )
     require_deployment_vms(
         policy(),
@@ -274,7 +274,7 @@ def test_explicit_host_is_not_silently_replaced_and_apply_never_reranks():
         usages=usages(),
         builder="Standard_D2ds_v4",
         verifier="Standard_D2ds_v4",
-        foundation="Standard_D4ds_v4",
+        foundation="Standard_D8ds_v4",
     )
     with pytest.raises(CheckError, match=NO_HARDWARE):
         require_deployment_vms(
@@ -284,8 +284,37 @@ def test_explicit_host_is_not_silently_replaced_and_apply_never_reranks():
             usages=usages(),
             builder="Standard_D2ds_v5",
             verifier="Standard_D2ds_v4",
-            foundation="Standard_D4ds_v4",
+            foundation="Standard_D8ds_v4",
         )
+
+
+def test_foundation_runner_is_an_eight_vcpu_local_ssd_host():
+    foundation = policy().foundation
+    assert (foundation.vcpus, foundation.min_memory_gib, foundation.max_memory_gib) == (8, 16, 32)
+    assert foundation.disk_mode == "resource-disk"
+    assert foundation.preferred[0] == "Standard_D8ds_v5"
+
+
+def test_a_four_vcpu_host_is_never_selected_as_the_foundation_runner():
+    catalog = [sku(), sku("Standard_D4ds_v4", cpu=4, memory=16, disk=153600)]
+    with pytest.raises(CheckError, match=NO_HARDWARE):
+        choose_deployment_vms(policy(), region="eastus", rows=catalog, usages=usages())
+
+
+def test_the_newer_generation_wins_when_both_eight_vcpu_hosts_are_available():
+    catalog = [
+        *rows(),
+        sku(
+            "Standard_D8ds_v5",
+            cpu=8,
+            memory=32,
+            disk=307200,
+            family="standardDDSv5Family",
+        ),
+    ]
+    quota = [*usages(), {"name": "standardDDSv5Family", "current": "0", "limit": "100"}]
+    selected = choose_deployment_vms(policy(), region="eastus", rows=catalog, usages=quota)
+    assert selected.foundation.size == "Standard_D8ds_v5"
 
 
 def test_zone_only_restriction_does_not_forbid_unzoned_regional_selection():
