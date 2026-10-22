@@ -78,6 +78,13 @@ Before you start, confirm the following requirements:
   Console SPA from the exact target binding, so another FDAI installation doesn't own its
   redirects. Duplicate exact shared or derived names stop the run before Azure resources are
   created.
+- If you select the Console or enterprise identity add-on, an active Microsoft Entra
+  `Privileged Role Administrator` or `Global Administrator` role on the signed-in account. The
+  installer grants the deployment identity the Microsoft Graph `Application.ReadWrite.OwnedBy`
+  application permission, which no lesser role can assign. Activate the role first when it is
+  eligible through Privileged Identity Management. Without it the Foundation completes and the
+  Application identity stage stops with a directory-role denial; rerunning the same command
+  resumes after the role is active.
 - Capacity in the selected Azure region for the required resource types.
 - An interactive Azure session for the intended subscription.
 
