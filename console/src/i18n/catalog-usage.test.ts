@@ -23,6 +23,7 @@ import ontologyCatalog from "../routes/i18n/ontology.en.json";
 import processesCatalog from "../routes/i18n/processes.en.json";
 import agentTrajectoryCatalog from "../routes/i18n/agent-trajectory.en.json";
 import provisionCatalog from "../routes/i18n/provision.en.json";
+import stewardshipCandidatesCatalog from "../routes/i18n/stewardship-candidates.en.json";
 import workflowCatalog from "../routes/i18n/workflow.en.json";
 import investigationCatalog from "../deck/i18n/investigation.en.json";
 import conversationLayerCatalog from "../deck/i18n/conversation-layer.en.json";
@@ -149,6 +150,7 @@ describe("console static translation keys", () => {
     const processesKeys = catalogKeys({ processesView: processesCatalog });
     const agentTrajectoryKeys = catalogKeys({ agentActivity: { trajectory: agentTrajectoryCatalog } });
     const provisionKeys = catalogKeys({ provision: provisionCatalog });
+    const stewardshipCandidatesKeys = catalogKeys({ handover: { candidates: stewardshipCandidatesCatalog } });
     const ontologyKeys = new Set([
       ...catalogKeys(ontologyCatalog),
       ...catalogKeys({ ontology: ontologyCatalog }),
@@ -210,6 +212,8 @@ describe("console static translation keys", () => {
             ? agentTrajectoryKeys
           : catalogImport.includes("i18n/provision")
             ? provisionKeys
+          : catalogImport.includes("i18n/stewardship-candidates")
+            ? stewardshipCandidatesKeys
           : catalogImport.includes('from "./i18n/investigation"')
             ? investigationKeys
           : catalogImport.includes('i18n/conversation-layer"')

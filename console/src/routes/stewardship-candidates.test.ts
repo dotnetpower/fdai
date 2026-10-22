@@ -31,9 +31,9 @@ describe("stewardship activation", () => {
     const calls: Array<{ body: unknown; key: string }> = [];
     const result = await submitActivation(
       {
-        activateStewardshipCandidate: async (body, key) => {
+        postJson: async <T,>(_path: string, body: Record<string, unknown>, key: string) => {
           calls.push({ body, key });
-          return { request_id: "operator-1", dispatch_status: "pending" };
+          return { request_id: "operator-1", dispatch_status: "pending" } as T;
         },
       },
       candidate,
@@ -53,7 +53,7 @@ describe("stewardship activation", () => {
 
   it("classifies a 403 as forbidden and any other failure as failed", async () => {
     const reject = (status: number) => ({
-      activateStewardshipCandidate: async () => { throw new OperatorApiError(status, "denied"); },
+      postJson: async <T,>(): Promise<T> => { throw new OperatorApiError(status, "denied"); },
     });
     expect(await submitActivation(reject(403), candidate, "n")).toBe("forbidden");
     expect(await submitActivation(reject(503), candidate, "n")).toBe("failed");

@@ -2,23 +2,25 @@ import { useEffect, useState } from "preact/hooks";
 import { OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
 import {
+  decodeStewardshipCandidates,
+  queueActivation,
   stewardshipActivationIdempotencyKey,
   type StewardshipCandidate,
 } from "../api-stewardship";
-import { t } from "../i18n";
+import { t } from "./i18n/stewardship-candidates";
 
-type CandidateClient = Pick<OperatorApiClient, "stewardshipCandidates" | "activateStewardshipCandidate">;
+type CandidateClient = Pick<OperatorApiClient, "panel" | "postJson">;
 export type ActivationFeedback = "queued" | "forbidden" | "failed";
 
 /** Queue one digest-bound activation and classify the result for the Owner. */
 export async function submitActivation(
-  client: Pick<OperatorApiClient, "activateStewardshipCandidate">,
+  client: Pick<OperatorApiClient, "postJson">,
   candidate: StewardshipCandidate,
   nonce: string,
 ): Promise<ActivationFeedback> {
   const body = { candidate_id: candidate.candidate_id, candidate_digest: candidate.candidate_digest };
   try {
-    await client.activateStewardshipCandidate(body, stewardshipActivationIdempotencyKey(body, nonce));
+    await queueActivation(client, body, stewardshipActivationIdempotencyKey(body, nonce));
     return "queued";
   } catch (error) {
     return error instanceof OperatorApiError && error.status === 403 ? "forbidden" : "failed";
@@ -34,7 +36,7 @@ export function StewardshipCandidates({ client }: { readonly client: CandidateCl
 
   useEffect(() => {
     let cancelled = false;
-    client.stewardshipCandidates().then(
+    client.panel<unknown>("/stewardship/candidates").then(decodeStewardshipCandidates).then(
       (next) => { if (!cancelled) setItems(next); },
       () => { if (!cancelled) setError(true); },
     );

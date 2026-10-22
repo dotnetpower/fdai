@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "preact/compat";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
@@ -18,7 +19,6 @@ import { HandoverProposalEditor } from "./handover-editor";
 import { ownershipText } from "./ownership-copy";
 import { ScopedDutyWorkspace } from "./scoped-duty-workspace";
 import { ReportLinesWorkspace } from "./report-lines";
-import { StewardshipCandidates } from "./stewardship-candidates";
 import type {
   CurrentOwnershipAgentDto,
   FindingDto,
@@ -680,9 +680,13 @@ function MappingReviewsSession({ client, auth, contextCurrent }: {
   }, [client]);
   if (state.status === "loading") return <LoadingState label={t("handover.mappingReviewsLoading")} />;
   if (state.status === "error") return <UnavailableView title={t("handover.view.mapping-reviews")} message={state.message} />;
-  return <>{state.overview.authority.isOwner ? <StewardshipCandidates client={client} /> : null}<SettingsIamAssignments client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} />
+  return <>{state.overview.authority.isOwner ? <Suspense fallback={<LoadingState label={t("handover.mappingReviewsLoading")} />}><StewardshipCandidates client={client} /></Suspense> : null}<SettingsIamAssignments client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} />
     <ScopedDutyWorkspace client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} /></>;
 }
+
+const StewardshipCandidates = lazy(async () => ({
+  default: (await import("./stewardship-candidates")).StewardshipCandidates,
+}));
 
 function UnavailableView({ title, message }: { readonly title: string; readonly message: string }) {
   return <section class="state-block state-unavailable" role="status"><strong>{title}</strong><p>{message}</p></section>;

@@ -1,3 +1,6 @@
+import { OperatorApiError } from "./api-transport";
+import type { OperatorApiClient } from "./api";
+
 export interface StewardshipCandidate {
   readonly candidate_id: string;
   readonly candidate_digest: string;
@@ -50,4 +53,23 @@ export function decodeStewardshipCandidates(value: unknown): readonly Stewardshi
 /** A fresh key per deliberate activation; retries of one activation reuse it. */
 export function stewardshipActivationIdempotencyKey(body: StewardshipActivationBody, nonce: string): string {
   return `stewardship-activation:${body.candidate_id}:${body.candidate_digest.slice(0, 16)}:${nonce}`;
+}
+
+/**
+ * Queue one Owner activation (`POST /stewardship/candidates/activate`). Core rechecks the Owner
+ * role and the digest; acceptance is not activation.
+ */
+export async function queueActivation(
+  client: Pick<OperatorApiClient, "postJson">,
+  body: StewardshipActivationBody,
+  idempotencyKey: string,
+): Promise<{ readonly request_id: string; readonly dispatch_status: string }> {
+  const raw = await client.postJson<unknown>(
+    "/stewardship/candidates/activate", { ...body }, idempotencyKey,
+  );
+  const receipt = raw as { request_id?: unknown; dispatch_status?: unknown };
+  if (typeof receipt.request_id !== "string" || typeof receipt.dispatch_status !== "string") {
+    throw new OperatorApiError(502, "stewardship activation receipt is malformed");
+  }
+  return { request_id: receipt.request_id, dispatch_status: receipt.dispatch_status };
 }
