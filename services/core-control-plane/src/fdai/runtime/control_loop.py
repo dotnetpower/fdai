@@ -683,6 +683,7 @@ def _build_control_loop(
     gateway_url = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()
     gateway_audience = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "").strip()
     tag_effect_identity = (execution_identities or {}).get("identity/change") or identity
+    tag_effect_verifier = None
     if (
         governed_execution_enabled
         and expected_effect_provider is None
@@ -700,6 +701,30 @@ def _build_control_loop(
             identity=tag_effect_identity,
             http_client=http_client,
         )
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    if (
+        governed_execution_enabled
+        and expected_effect_provider is None
+        and effect_observer is None
+        and subscription_id
+        and identity is not None
+        and http_client is not None
+    ):
+        from fdai.delivery.azure.subscription_tag_effect import (
+            AzureSubscriptionTagEffectVerifier,
+            TagEffectVerifierRouter,
+        )
+
+        subscription_tag_verifier = AzureSubscriptionTagEffectVerifier(
+            subscription_id=subscription_id,
+            identity=identity,
+            http_client=http_client,
+        )
+        tag_effect_verifier = TagEffectVerifierRouter(
+            subscription_tag_verifier,
+            tag_effect_verifier,
+        )
+    if expected_effect_provider is None and effect_observer is None and tag_effect_verifier:
         expected_effect_provider = tag_effect_verifier.expected
         effect_observer = tag_effect_verifier.observe
 

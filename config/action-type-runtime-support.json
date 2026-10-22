@@ -87,6 +87,24 @@
         "symbol": "_ACTION_OPERATIONS"
       }
     },
+    "isolated-subscription-tag-direct-api": {
+      "runtime_surface": "isolated_executor",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "conditional"
+      },
+      "activation_conditions": [
+        "The isolated Executor authority cutover, exact subscription id, change identity, temporary tag-only role, promotion, and authorization must all be available.",
+        "Independent effect observation requires a distinct Core reader identity with current subscription read scope."
+      ],
+      "source_assertion": {
+        "kind": "constant_value",
+        "path": "services/isolated-executor/src/fdai_executor_service/adapters/subscription_tag_direct_api.py",
+        "symbol": "_ACTION_TYPE",
+        "value": "remediate.subscription-tag-add"
+      }
+    },
     "core-action-promotion": {
       "runtime_surface": "core",
       "route_status": "conditional",
@@ -464,6 +482,38 @@
           },
           {
             "path": "services/isolated-executor/tests/test_effect_safety.py"
+          }
+        ]
+      }
+    },
+    "isolated-subscription-tag": {
+      "delivery_status": "executable",
+      "effect_observation": {
+        "status": "wired",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/azure/subscription_tag_effect.py",
+            "symbol": "_ACTION_TYPE"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "wired",
+        "refs": [
+          {
+            "path": "services/isolated-executor/src/fdai_executor_service/adapters/subscription_tag_direct_api.py",
+            "symbol": "_ACTION_TYPE"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/isolated-executor/tests/test_subscription_tag_direct_api.py"
+          },
+          {
+            "path": "services/core-control-plane/tests/delivery/azure/test_subscription_tag_effect.py"
           }
         ]
       }
@@ -1012,9 +1062,10 @@
     "remediate.subscription-tag-add@1.0.0": {
       "bindings": {
         "core-azure-gateway": "core-gateway",
-        "isolated-azure-gateway": "isolated-gateway"
+        "isolated-azure-gateway": "isolated-gateway",
+        "isolated-subscription-tag-direct-api": "isolated-subscription-tag"
       },
-      "note": "Development-profile subscription tag support requires exact logical scope, temporary tag-only RBAC, promotion, Owner approval, snapshot rollback, and reader-identity effect verification."
+      "note": "Development-profile subscription tag support uses the isolated Executor change identity and a distinct Core reader. It requires exact logical scope, temporary tag-only RBAC, promotion, Owner approval, snapshot rollback, and independent effect verification."
     },
     "remediate.tag-add@1.1.0": {
       "bindings": {
