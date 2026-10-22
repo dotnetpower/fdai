@@ -1,5 +1,8 @@
 ---
 title: ADR-0004 개발 권한을 위한 로컬 격리 executor 주체
+translation_of: 0004-local-isolated-executor-principal.md
+translation_source_sha: 40d10f962f54606f8728f5bd4c599d2b3e3a1d3b
+translation_revised: 2026-10-22
 ---
 # ADR-0004: 개발 권한을 위한 로컬 격리 executor 주체
 

@@ -1,8 +1,8 @@
 ---
 title: Architecture Decision Record
 translation_of: README.md
-translation_source_sha: 816a5a7b117d380c640d930fc05de8458b562fa0
-translation_revised: 2026-10-02
+translation_source_sha: 5e6095da31bc953c9ece370307d6bd4fe8c59616
+translation_revised: 2026-10-22
 ---
 # 아키텍처 결정 기록
 
