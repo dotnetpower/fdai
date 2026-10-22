@@ -30,31 +30,24 @@ from fdai_deployment_cli import (
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli import operational_evidence_verifier_input as oev
 from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
+from fdai_deployment_cli.standalone_service_update_finalization import (
+    add_finalization_parser,
+)
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     secret_binding_reordered,
-    validate_reconciliation_plan,
-)
-from fdai_deployment_cli.aks_historical_reconciliation import (
     single_block as _single,
+    validate_reconciliation_plan,
 )
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
-)
-from fdai_deployment_cli.aks_service_update import (
     deployment_snapshot,
     peers_unchanged,
+    service_update_review as _service_update_review,
+    service_update_target as _service_update_target,
+    validated_secret_environment as _validated_secret_env,
     validate_plan_scope,
     validate_update_request,
-)
-from fdai_deployment_cli.aks_service_update import (
-    service_update_review as _service_update_review,
-)
-from fdai_deployment_cli.aks_service_update import (
-    service_update_target as _service_update_target,
-)
-from fdai_deployment_cli.aks_service_update import (
-    validated_secret_environment as _validated_secret_env,
 )
 from fdai_deployment_cli.aks_workload_jobs import (
     aks_kubernetes_direct_api_environment as _aks_kubernetes_direct_api_environment,
@@ -70,6 +63,12 @@ from fdai_deployment_cli.runtime_profile import (
     RuntimeDeploymentProfile,
     legacy_full_product_matches,
     legacy_runtime_profile_digest,
+)
+from fdai_deployment_cli.standalone_development_authority import (
+    apply_initial_development_authority,
+    apply_service_update_development_authority,
+    development_authority_from_args,
+    reconcile_retained_development_authority,
 )
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
@@ -97,12 +96,6 @@ from fdai_deployment_cli.standalone_checkpoint_failure import (
     terraform_failure as _terraform_failure,
 )
 from fdai_deployment_cli.standalone_database_principals import database_reader_principals
-from fdai_deployment_cli.standalone_development_authority import (
-    apply_initial_development_authority,
-    apply_service_update_development_authority,
-    development_authority_from_args,
-    reconcile_retained_development_authority,
-)
 from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
@@ -167,9 +160,6 @@ from fdai_deployment_cli.standalone_operational_evidence import (
     add_aks_operational_evidence_verifier_workload as _add_aks_operational_evidence_verifier_workload,
 )
 from fdai_deployment_cli.standalone_operational_evidence import aks_workload as _aks_workload
-from fdai_deployment_cli.standalone_operational_evidence import (
-    bind_service_database_role,
-)
 from fdai_deployment_cli.standalone_private_access_probe import wait_for_private_data_planes
 from fdai_deployment_cli.standalone_product_profile import (
     context_selects_add_on as _selects_add_on,
@@ -189,9 +179,6 @@ from fdai_deployment_cli.standalone_residual_apply import (
 )
 from fdai_deployment_cli.standalone_residual_successor import (
     successor_prerequisite_verified as _residual_successor_prerequisite,
-)
-from fdai_deployment_cli.standalone_service_update_finalization import (
-    add_finalization_parser,
 )
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
@@ -1282,10 +1269,6 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
         workloads[name] = workload
         expected[name] = contract
     selected = _mapping(workloads[service], f"AKS workload {service}")
-    selected["environment"] = bind_service_database_role(
-        service,
-        _mapping(selected.get("environment"), f"AKS workload {service} environment"),
-    )
     current_image = selected.get("image")
     if not isinstance(current_image, str):
         raise TypeError("AKS service update current image is invalid")

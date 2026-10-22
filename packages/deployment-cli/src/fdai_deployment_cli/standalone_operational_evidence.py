@@ -11,10 +11,15 @@ _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _OPERATIONAL_EVIDENCE_PORT = 8791
 _OPERATIONAL_EVIDENCE_READINESS_PATH = "/v1/operational-evidence/readiness"
 _SERVICE_DATABASE_ROLES = {
+    "core": "fdai_core",
     "core-control-plane": "fdai_core",
+    "operator": "fdai_operator",
     "operator-service": "fdai_operator",
+    "executor": "fdai_executor",
     "isolated-executor": "fdai_executor",
+    "ingestion": "fdai_ingestion_api",
     "document-ingestion-api": "fdai_ingestion_api",
+    "worker": "fdai_ingestion_worker",
     "document-processing-worker": "fdai_ingestion_worker",
 }
 
