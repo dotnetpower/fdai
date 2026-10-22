@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Mapping
 from typing import Protocol
 
 import httpx
 
-from fdai.core.mscp_profile import ExpectedEffect, ObservedEffect
+from fdai.core.mscp_profile import (
+    ExpectedEffect,
+    ExpectedEffectProvider,
+    IndependentEffectObserver,
+    ObservedEffect,
+)
 from fdai.shared.contracts.models import Action
 from fdai.shared.providers.workload_identity import WorkloadIdentity
-
-ExpectedEffectProvider = Callable[[Action], Awaitable[ExpectedEffect | None]]
-EffectObserver = Callable[[Action, ExpectedEffect], Awaitable[ObservedEffect | None]]
 
 
 class _TagEffectVerifier(Protocol):
@@ -30,11 +32,11 @@ def build_default_tag_effect_bindings(
     environment: Mapping[str, str],
     governed_execution_enabled: bool,
     expected_effect_provider: ExpectedEffectProvider | None,
-    effect_observer: EffectObserver | None,
+    effect_observer: IndependentEffectObserver | None,
     execution_identities: Mapping[str, WorkloadIdentity] | None,
     identity: WorkloadIdentity | None,
     http_client: httpx.AsyncClient | None,
-) -> tuple[ExpectedEffectProvider | None, EffectObserver | None]:
+) -> tuple[ExpectedEffectProvider | None, IndependentEffectObserver | None]:
     """Compose built-in tag observers without overriding injected providers."""
 
     if (
@@ -80,7 +82,5 @@ def build_default_tag_effect_bindings(
 
 
 __all__ = [
-    "EffectObserver",
-    "ExpectedEffectProvider",
     "build_default_tag_effect_bindings",
 ]
