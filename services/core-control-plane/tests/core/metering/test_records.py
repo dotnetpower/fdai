@@ -68,6 +68,20 @@ def test_cost_may_be_none() -> None:
 
 
 @pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("locale", "en|ko"),
+        ("locale", "ko\n"),
+        ("turn_family", "resource inventory"),
+        ("turn_family", "resource|inventory"),
+    ],
+)
+def test_outcome_dimensions_reject_ambiguous_values(field: str, value: str) -> None:
+    with pytest.raises(ValueError, match=f"{field} MUST be one bounded machine token"):
+        _invocation(**{field: value})
+
+
+@pytest.mark.parametrize(
     ("field", "value", "match"),
     [
         ("correlation_id", "", "correlation_id"),

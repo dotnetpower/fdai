@@ -106,8 +106,8 @@ class LlmInvocation:
         ):
             raise ValueError("profile_digest MUST be one sha256 digest")
         for label, value in (("locale", self.locale), ("turn_family", self.turn_family)):
-            if not value or len(value) > 64:
-                raise ValueError(f"{label} MUST be non-empty and bounded")
+            if re.fullmatch(r"[A-Za-z0-9._:-]{1,64}", value) is None:
+                raise ValueError(f"{label} MUST be one bounded machine token")
 
     @property
     def day_bucket(self) -> str:
