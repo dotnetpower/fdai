@@ -132,6 +132,10 @@ class RuntimeBundle(BaseModel):
         deployments = {
             (item.entity_id, item.name): item for item in self.objects if item.kind == "Deployment"
         }
+        if {name for _, name in deployments} & {
+            item.name for item in self.objects if item.kind == "CronJob"
+        }:
+            raise ValueError("runtime workload names must be disjoint")
         for item in self.objects:
             if item.kind == "Service" and (item.entity_id, item.name) not in deployments:
                 raise ValueError("runtime Service requires its own Entity's named Deployment")
@@ -170,6 +174,9 @@ class RuntimeBundle(BaseModel):
                 COMPONENT_LABEL: item.name,
             }
             spec = deepcopy(item.spec)
+            if item.kind == "CronJob":
+                spec.setdefault("timeZone", "Etc/UTC")
+                spec.setdefault("startingDeadlineSeconds", 60)
             selector = {COMPONENT_LABEL: item.name}
             if item.kind == "Service":
                 spec["selector"] = selector
@@ -177,6 +184,7 @@ class RuntimeBundle(BaseModel):
                 workload = spec if item.kind == "Deployment" else spec["jobTemplate"]["spec"]
                 template = workload["template"]
                 template.setdefault("metadata", {}).setdefault("labels", {}).update(labels)
+                _canonical_pod_quantities(template["spec"])
                 if item.kind == "Deployment":
                     spec["selector"] = {"matchLabels": selector}
                 for key in ("containers", "initContainers"):
@@ -201,6 +209,26 @@ class RuntimeBundle(BaseModel):
         if not desired:
             raise WorkloadError("runtime_bundle_entity_mismatch")
         return tuple(desired)
+
+
+def _canonical_pod_quantities(pod: dict[str, Any]) -> None:
+    """Render supported quantities in the same units Kubernetes returns on readback."""
+    for key in ("containers", "initContainers"):
+        for container in pod.get(key, []):
+            for tier in ("requests", "limits"):
+                resources = container["resources"][tier]
+                cpu = int(resources["cpu"][:-1])
+                if cpu % 1000 == 0:
+                    resources["cpu"] = str(cpu // 1000)
+                resources["memory"] = _canonical_memory(resources["memory"])
+    for volume in pod.get("volumes", []):
+        if "emptyDir" in volume:
+            volume["emptyDir"]["sizeLimit"] = _canonical_memory(volume["emptyDir"]["sizeLimit"])
+
+
+def _canonical_memory(value: str) -> str:
+    memory = int(value[:-2])
+    return f"{memory // 1024}Gi" if memory % 1024 == 0 else value
 
 
 def _fields(value: Any, required: set[str], optional: set[str]) -> None:

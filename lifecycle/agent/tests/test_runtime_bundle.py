@@ -126,15 +126,21 @@ def parse(document: dict[str, Any]) -> RuntimeBundle:
 
 
 def prepare(
-    harness: Harness, document: dict[str, Any], *, version: str = "1.5.0", sequence: int = 8
+    harness: Harness,
+    document: dict[str, Any],
+    *,
+    version: str = "1.5.0",
+    sequence: int = 8,
+    entity_id: str = "application",
+    configuration_values: dict[str, Any] | None = None,
 ):
     bundle = parse(document)
-    components = bundle.components("application")
+    components = bundle.components(entity_id)
     if sequence == 8:
         harness.current_state = replace(
             harness.current_state,
             schema_revision=0,
-            entities={"application": EntityState(None, frozenset(), Health.UNKNOWN)},
+            entities={entity_id: EntityState(None, frozenset(), Health.UNKNOWN)},
         )
     else:
         harness.current_state = load_current_state(harness.state_file)
@@ -158,15 +164,25 @@ def prepare(
                     "x-fdai-axis": "installation-path",
                     "x-fdai-owner": "customer",
                 },
+                **{
+                    key: {
+                        "default": value,
+                        "x-fdai-axis": "installation-path",
+                        "x-fdai-owner": "customer",
+                    }
+                    for key, value in (configuration_values or {}).items()
+                },
             },
             "environment": {},
-            "entity_overrides": [{"versions": ">=1.0.0 <2.0.0", "values": {}}],
+            "entity_overrides": [
+                {"versions": ">=1.0.0 <2.0.0", "values": configuration_values or {}}
+            ],
         }
     )
-    maximum = harness.maximum_envelope(entity_ids=frozenset({"application"}), capability_modes={})
+    maximum = harness.maximum_envelope(entity_ids=frozenset({entity_id}), capability_modes={})
     harness.serve(
         harness.plan(
-            entity_ids=frozenset({"application"}),
+            entity_ids=frozenset({entity_id}),
             capability_ids=(),
             envelope=maximum,
             target_release_digest=digest,
@@ -180,7 +196,7 @@ def prepare(
         maximum_envelope=maximum,
         product=bundle.product,
         runtime_bundle=bundle,
-        entity_components={"application": components},
+        entity_components={entity_id: components},
         component_repositories={
             name: f"registry.example.test/application/{name}" for name in components
         },
@@ -264,7 +280,7 @@ def test_applications_change_only_inputs_not_the_execution_path(
         pod = deployment["spec"]["template"]["spec"]
         assert pod["serviceAccountName"] == component
         assert pod["containers"][0]["image"].endswith(harness.image(f"{component}-1.5.0"))
-        assert pod["containers"][0]["resources"]["limits"]["memory"] == "1024Mi"
+        assert pod["containers"][0]["resources"]["limits"]["memory"] == "1Gi"
     if scheduled:
         assert cluster.objects["CronJob", "analyzer"]["spec"]["suspend"] is False
         applications = [call for call in cluster.calls if call[0] == "apply"]
@@ -528,6 +544,135 @@ def test_component_release_cannot_authorize_a_schema_transition(
     ).poll_once()
     assert (result.outcome, result.reason_code) == ("rejected", "schema_transition_unsupported")
     assert cluster.calls == []
+
+
+@pytest.mark.parametrize("region", [None, 1, False, [], {}])
+def test_runtime_bundle_rejects_non_string_region_before_cluster_access(
+    harness: Harness, cluster: FakeCluster, region: Any
+) -> None:
+    settings = prepare(harness, bundle_document(), configuration_values={"region": region})
+    result = LifecycleAgent(
+        settings, harness.dependencies(apply=harness.apply_mode(cluster))
+    ).poll_once()
+    assert (result.outcome, result.reason_code) == ("rejected", "workload_region_invalid")
+    assert cluster.calls == []
+
+
+def test_runtime_bundle_cannot_reassign_healthy_objects_between_entities(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    document = bundle_document()
+    settings = prepare(harness, document)
+    apply = harness.apply_mode(cluster)
+    assert (
+        LifecycleAgent(settings, harness.dependencies(apply=apply)).poll_once().outcome == "applied"
+    )
+    before = deepcopy(cluster.objects)
+    healthy = apply.store.load().healthy
+    for item in document["objects"]:
+        item["entity_id"] = "other"
+    settings = prepare(harness, document, version="1.6.0", sequence=9, entity_id="other")
+    harness.current_state = replace(
+        harness.current_state,
+        entities={
+            **harness.current_state.entities,
+            "other": EntityState(None, frozenset(), Health.UNKNOWN),
+        },
+    )
+    cluster.calls.clear()
+    result = LifecycleAgent(settings, harness.dependencies(apply=apply)).poll_once()
+    assert (result.outcome, result.reason_code) == (
+        "rejected",
+        "runtime_bundle_entity_reassignment_unsupported",
+    )
+    assert cluster.calls == []
+    assert cluster.objects == before
+    assert apply.store.load().healthy == healthy
+    assert load_current_state(harness.state_file).entities["application"].release_id == "1.5.0"
+
+
+def test_runtime_bundle_rejects_deployment_and_schedule_name_overlap() -> None:
+    document = bundle_document(scheduled=True)
+    document["objects"][-1]["name"] = "frontend"
+    with pytest.raises(ValidationError, match="runtime workload names must be disjoint"):
+        parse(document)
+
+
+def test_rendered_schedule_emits_validated_defaults_without_changing_the_pin() -> None:
+    document = bundle_document(scheduled=True)
+    document["objects"][-1]["spec"].pop("timeZone")
+    bundle = parse(document)
+    digest = bundle.digest
+    desired = bundle.render(
+        bundle.namespace,
+        frozenset({"application"}),
+        {("application", "frontend"): "registry.example.test/frontend@sha256:" + "a" * 64},
+    )
+    assert desired[-1]["spec"]["timeZone"] == "Etc/UTC"
+    assert desired[-1]["spec"]["startingDeadlineSeconds"] == 60
+    assert bundle.digest == digest
+    assert "timeZone" not in bundle.objects[-1].spec
+    assert "startingDeadlineSeconds" not in bundle.objects[-1].spec
+
+
+@pytest.mark.parametrize("scheduled", [False, True])
+def test_canonical_quantity_readback_verifies_rollout_drift_and_recovery(
+    harness: Harness,
+    cluster: FakeCluster,
+    monkeypatch: pytest.MonkeyPatch,
+    scheduled: bool,
+) -> None:
+    document = bundle_document(scheduled=scheduled)
+    for item in document["objects"]:
+        if item["kind"] == "Service":
+            continue
+        spec = item["spec"]
+        if item["kind"] == "CronJob":
+            spec["suspend"] = True
+            spec = spec["jobTemplate"]["spec"]
+        pod = spec["template"]["spec"]
+        initializer = dict(container("frontend"), name="initialize")
+        initializer.pop("readinessProbe")
+        pod["initContainers"] = [initializer]
+        pod["volumes"][0]["emptyDir"]["sizeLimit"] = "1024Mi"
+    original_get = cluster.get
+
+    def canonical_readback(kind: str, name: str):
+        live = original_get(kind, name)
+        if live is None or kind == "Service":
+            return live
+        spec = live["spec"] if kind == "Deployment" else live["spec"]["jobTemplate"]["spec"]
+        pod = spec["template"]["spec"]
+        for container_type in ("containers", "initContainers"):
+            for entry in pod[container_type]:
+                for tier in ("requests", "limits"):
+                    resources = entry["resources"][tier]
+                    if resources["cpu"] == "1000m":
+                        resources["cpu"] = "1"
+                    if resources["memory"] == "1024Mi":
+                        resources["memory"] = "1Gi"
+        pod["volumes"][0]["emptyDir"]["sizeLimit"] = "1Gi"
+        return live
+
+    monkeypatch.setattr(cluster, "get", canonical_readback)
+    settings = prepare(harness, document)
+    apply = harness.apply_mode(cluster)
+    result = LifecycleAgent(settings, harness.dependencies(apply=apply)).poll_once()
+    assert result.outcome == "applied"
+    healthy = apply.store.load().healthy
+    assert apply.workload.drifted_entities(healthy)[0] == {}
+    assert apply.workload.roll_back(healthy, healthy)
+    for manifest in healthy:
+        if manifest["kind"] == "Service":
+            continue
+        spec = manifest["spec"]
+        if manifest["kind"] == "CronJob":
+            spec = spec["jobTemplate"]["spec"]
+        pod = spec["template"]["spec"]
+        for key in ("containers", "initContainers"):
+            assert pod[key][0]["resources"]["limits"] == {"cpu": "1", "memory": "1Gi"}
+            assert pod[key][0]["resources"]["requests"] == {"cpu": "250m", "memory": "512Mi"}
+        assert pod["volumes"][0]["emptyDir"]["sizeLimit"] == "1Gi"
 
 
 def _replay_in_process(settings, plan, state_dir, cluster, public_keys, sending) -> None:

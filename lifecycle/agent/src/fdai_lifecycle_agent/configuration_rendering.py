@@ -15,7 +15,14 @@ from fdai_lifecycle_agent.inputs import VerifiedConfiguration, VerifiedRelease
 from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.operator_workload import render_operator, validate_profile
 from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
-from fdai_lifecycle_agent.workload import Manifest, Workload, WorkloadError, object_key, render
+from fdai_lifecycle_agent.workload import (
+    ENTITY_LABEL,
+    Manifest,
+    Workload,
+    WorkloadError,
+    object_key,
+    render,
+)
 
 
 def validate_entity_configuration(
@@ -44,6 +51,8 @@ def validate_entity_configuration(
                 raise WorkloadError("runtime_bundle_digest_mismatch")
             if set(values) - {"runtime_bundle_digest", "region"}:
                 raise WorkloadError("runtime_bundle_configuration_unsupported")
+            if "region" in values and not isinstance(values["region"], str):
+                raise WorkloadError("workload_region_invalid")
             if runtime_bundle.components(entity) != components[entity]:
                 raise WorkloadError("runtime_bundle_component_mismatch")
         return
@@ -170,12 +179,15 @@ def prepare_workload(
     else:
         desired = render(workload.namespace, images, specifications=release.workloads or None)
     healthy = {object_key(manifest): manifest for manifest in store.load().healthy}
-    if runtime_bundle is not None and any(
-        item["metadata"]["labels"].get("fdai.io/entity") in plan.entity_ids
-        and key not in {object_key(manifest) for manifest in desired}
-        for key, item in healthy.items()
-    ):
-        raise WorkloadError("runtime_bundle_topology_removal_unsupported")
+    if runtime_bundle is not None:
+        desired_by_key = {object_key(manifest): manifest for manifest in desired}
+        for key, item in healthy.items():
+            entity = item["metadata"]["labels"].get(ENTITY_LABEL)
+            if key in desired_by_key:
+                if entity != desired_by_key[key]["metadata"]["labels"].get(ENTITY_LABEL):
+                    raise WorkloadError("runtime_bundle_entity_reassignment_unsupported")
+            elif entity in plan.entity_ids:
+                raise WorkloadError("runtime_bundle_topology_removal_unsupported")
     previous = tuple(healthy[key] for key in map(object_key, desired) if key in healthy)
     workload.preflight(desired, previous)
     return desired, previous
