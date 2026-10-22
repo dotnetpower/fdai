@@ -4,6 +4,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from fdai_deployment_cli import console_artifact
 
 
@@ -51,3 +53,36 @@ def test_build_console_update_artifact_uses_clean_git_snapshot(tmp_path, monkeyp
     assert any(command[0] == "npm" and command[-1] == "build:offline" for command in calls)
     assert any("build_manual_studio_artifact.py" in command[1] for command in calls)
     assert result["azure_mutation_performed"] is False
+
+
+def _git_stub(source: Path, commit: str, *, ancestor: bool):
+    def run(command: tuple[str, ...], **_: object) -> subprocess.CompletedProcess[str]:
+        if command[:3] == ("git", "-C", str(source)) and "--is-ancestor" in command:
+            return subprocess.CompletedProcess(command, 0 if ancestor else 1, "", "")
+        return subprocess.CompletedProcess(command, 0, stdout=f"{commit}\n", stderr="")
+
+    return run
+
+
+def test_protected_revision_is_required_by_default(tmp_path, monkeypatch) -> None:
+    commit = "b" * 40
+    monkeypatch.setattr(
+        console_artifact.subprocess, "run", _git_stub(tmp_path, commit, ancestor=False)
+    )
+    with pytest.raises(ValueError, match="could not be verified"):
+        console_artifact._resolve_revision(
+            tmp_path, "HEAD", timeout_seconds=60, require_protected_revision=True
+        )
+
+
+def test_source_deployment_does_not_require_a_protected_branch(tmp_path, monkeypatch) -> None:
+    commit = "b" * 40
+    monkeypatch.setattr(
+        console_artifact.subprocess, "run", _git_stub(tmp_path, commit, ancestor=False)
+    )
+    assert (
+        console_artifact._resolve_revision(
+            tmp_path, "HEAD", timeout_seconds=60, require_protected_revision=False
+        )
+        == commit
+    )
