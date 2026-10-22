@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 694b39370f6959aa3651777e80e8deb9337156e7
-translation_revised: 2026-10-22
+translation_source_sha: d0bc0b520ecf3d0cb6c0e5f82c9d6651438cc878
+translation_revised: 2026-10-23
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -77,6 +77,8 @@ Teams Workflows 웹훅 바인딩은
   어댑터 자체는 결정 권한을 부여하지 않습니다. 채널 승인은 전권 개발 프로필의 확인이 될 수
   없습니다. FDAI Console 결정 경로만 토큰을 담지 않은 새 로그인 증명을 첨부할 수 있으며, HIL 결정
   페이로드가 이를 Core로 전달해 다시 검증합니다. Slack과 Teams 결정은 이 증명을 담지 않습니다.
+  구독 태그 pilot은 독립 Executor가 gateway 또는 직접 Azure 어댑터 중 어느 경로를 사용해도 이
+  Console 전용 경계를 유지합니다.
 - A1 승인 보류 항목은 활성 단독 운영자 프로덕션 승인 프로필 메타데이터를 담을 수 있습니다.
   여기에는 프로필 개정, 정책 다이제스트, 원래 정족수, 유효 정족수, 운영자 principal, 실행기
   principal이 포함됩니다. Core는 결정 시작 시 활성 Mimir 승인 정책 포인터에서, 활성화 전에는
