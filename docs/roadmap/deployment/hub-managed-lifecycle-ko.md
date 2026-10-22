@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: d77fc77dfaf0c6ffbaf2c059e9f845cca2c8baa6
+translation_source_sha: 4b654d773761b66a1eefc305d036cfdea7d1a737
 translation_revised: 2026-10-22
 ---
 # Hub 관리형 수명 주기
@@ -797,6 +797,40 @@ SQLite 쓰기는 실제 DB 쓰기 트랜잭션을 시작한 뒤 준비 기록을
 완료 전에는 버전 기록을 낮추지 않고 이전 이미지로 복구할 수 있습니다. 완료 후에는 검증된
 버전 6 호환 이미지로 복구합니다. Release Hub, 아직 준비하지 않은 이전 DB에 대한 신뢰하는
 호스트의 작업, 버전 기록이 없는 로컬 개발의 계약은 바꾸지 않습니다.
+
+### 신뢰하는 Hub 호스트로 비공개 증명 전달
+
+**설계와 검토:** 설치 내부의 비공개 증명 파일을 원격 운영자가 바로 읽을 수는 없습니다.
+로그에 출력하거나, 설치 키를 복사하거나, `Agent.Access`를 운영자로 취급하거나,
+브라우저 애플리케이션 대신 Azure CLI 토큰을 사용하면 기존 경계가 약해집니다.
+
+**수정된 계약:** 등록된 에이전트는 기존 `SignedNativeScope`를
+`/v1/installations/{installation_id}/native-proofs`에 POST할 수 있습니다.
+이는 전달일 뿐 소유권 수락이 아닙니다. Hub는 정확한 에이전트 연결, 8 KiB의 엄격한 JSON
+제한, 등록된 서명, 애플리케이션 연결과 완료된 스키마 6을 확인한 뒤 변경 불가능한 감사
+기록을 추가합니다. Entity마다 제출된 주장은 하나이며 같은 내용의 재시도는 안전하지만
+다른 주장은 충돌로 차단됩니다. Entity, 소유권, Settings, Plan, 보고 상태는 바뀌지 않습니다.
+익명 호출자와 다른 설치는 제출할 수 없으며 에이전트는 증명 조회나 소유권 수락을 할 수 없습니다.
+
+`fdai-lifecycle-agent submit-native-proof`는 기존 비공개 `--proof` 파일을
+워크로드 신원으로 인증하는 HTTPS 경로로 전송합니다. 리소스 초기 생성, 키 읽기, Plan 수락이나
+증명 출력은 하지 않습니다. 전달이 실패하면 비공개 파일을 유지하여 나중에 제한된 재시도를
+할 수 있습니다. 신뢰하는 Hub CLI는 주장 다이제스트로 `--submitted-proof`를 선택하여
+운영자가 별도로 수락할 수 있습니다. 파일 요청과 같은 UUID, Settings 다이제스트, 사유와
+정확한 확인 문구가 필요합니다. 수락할 때는 현재 등록과 애플리케이션 상태를 기준으로
+보관된 증명을 다시 검증합니다.
+`--request-id`, `--settings-digest`, `--reason`, `--confirmation`, `--operator`를
+제공합니다. 파일 요청과 제출된 증명 선택을 함께 사용할 수는 없습니다. 신뢰하는 호스트의
+`bind-application <installation-id> <private-request-file> --operator <actor>` 명령은
+API와 같은 엄격한 요청 형식, 영구 제품 연결, Settings 버전 비교 후 갱신과 감사 기록을 사용합니다.
+
+`FDAI_HUB_REMOTE_CONFIG`가 원격 Target을 명시적으로 선택하면 신뢰하는 호스트의 CLI는
+기존 TLS 검증 및 Managed Identity DB 연결을 사용합니다. Release Hub 설정이나 미완료
+스키마는 로컬 저장소나 비밀번호로 대체하지 않고 차단합니다. 이 변수가 없으면 기존 로컬
+DB 경로는 바뀌지 않습니다. 원격 모드의 `serve`는 처리 함수를 호출하기 전에 차단하며,
+인증된 서버는 `fdai-hub-remote serve`로 실행합니다. 콘솔 접근은 독립적인 Azure 권한 경계로 유지되며 에이전트의
+제출은 콘솔 접근이나 운영자 권한을 부여하지 않습니다. 새 역할, 공개 증명 조회 API, 서명 키,
+DB 테이블이나 최소 읽기 버전 변경은 추가하지 않습니다.
 
 ### 로컬 준비와 수락
 
