@@ -17,6 +17,11 @@ product control plane or its execution authority.
 
 ## Design at a glance
 
+You can explicitly run the Lifecycle Hub and Release Hub example-server tasks on loopback ports
+8090 and 8091 after preparing their private local state. Each task permits one instance and
+reports readiness from its own Uvicorn loopback URL. Neither task runs on folder open, starts
+the Console stack, initializes signing keys, or changes diagnostic or execution authority.
+
 [GitHub connector validation](../../runbooks/knowledge-github-sources.md) separates test-only
 API/identity fixtures from a separately authorized live public-repository probe. Tests prove
 connection, rejection, and UI mechanics; the public probe checks the exact changed reader and

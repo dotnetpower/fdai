@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 47789f5b66e67df8fe2e023c5d34e16657dc5d01
-translation_revised: 2026-10-19
+translation_source_sha: f8bb7c11236d2426372d3ced72f002a1284f20c1
+translation_revised: 2026-10-22
 ---
 
 # 개발 워크플로 보증
@@ -23,6 +23,12 @@ Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory e
 > 존재 여부로 선택할 수 없습니다.
 
 ## 설계 개요
+
+비공개 로컬 상태를 준비한 뒤 Lifecycle Hub 및 Release Hub 예제 서버 작업을 명시적으로
+실행할 수 있습니다. 두 작업은 각각 루프백 포트 8090과 8091을 사용합니다.
+각 작업은 한 인스턴스만 허용하며 해당 Uvicorn 루프백 URL로 준비 상태를 보고합니다.
+어느 작업도 폴더를 열 때 자동 실행되거나 Console 스택을 시작하거나 서명 키를
+초기화하지 않으며, 진단 권한이나 실행 권한도 변경하지 않습니다.
 
 [GitHub 연결기 검증](../../runbooks/knowledge-github-sources-ko.md)은 테스트 전용 API 및 신원
 고정본과 별도로 승인된 공개 저장소 실시간 검사를 분리합니다. 테스트는 연결, 차단 및 UI

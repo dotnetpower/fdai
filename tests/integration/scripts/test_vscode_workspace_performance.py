@@ -75,7 +75,7 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == len(tasks["tasks"]) == 32
+    assert len(tasks_by_label) == len(tasks["tasks"]) == 34
     allowed_instance_policies = {
         "terminateNewest",
         "terminateOldest",
@@ -175,6 +175,8 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
         "console: Playwright quick (desktop)",
         "docs site: serve (4321)",
         "design mocks: serve (5373)",
+        "lifecycle: serve example hub (8090)",
+        "lifecycle: serve example release hub (8091)",
         "console: prepare full stack",
         "console: start core runtime",
         "console: restart core runtime",
@@ -414,6 +416,58 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert "fdai.delivery.observation_campaign_cli" in service_script
     assert 'FDAI_OBSERVATION_DSN="$FDAI_STATE_STORE_DSN"' in service_script
     assert 'FDAI_OBSERVATION_SCOPES="$AZURE_SUBSCRIPTION_ID"' in service_script
+
+
+def test_workspace_exposes_explicit_local_lifecycle_previews() -> None:
+    tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
+    assert isinstance(tasks, dict)
+    tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
+    for label, module, source, port, state_argument in (
+        (
+            "lifecycle: serve example hub (8090)",
+            "fdai_lifecycle_hub.cli",
+            "hub",
+            8090,
+            "",
+        ),
+        (
+            "lifecycle: serve example release hub (8091)",
+            "fdai_release_hub",
+            "release-hub",
+            8091,
+            " ${env:HOME}/.local/state/fdai/lifecycle-preview/release-hub",
+        ),
+    ):
+        task = tasks_by_label[label]
+        assert task["type"] == "shell"
+        assert task["command"] == (
+            f"${{workspaceFolder}}/.venv/bin/python -m {module} serve{state_argument} --port {port}"
+        )
+        python_paths = [
+            "${workspaceFolder}/lifecycle/hub/src",
+            "${workspaceFolder}/packages/deployment-cli/src",
+        ]
+        expected_env = {"PYTHONPATH": ":".join(python_paths)}
+        if source == "hub":
+            expected_env["FDAI_LIFECYCLE_HUB_DATABASE_URL"] = (
+                "sqlite+pysqlite:///${env:HOME}/.local/state/fdai/lifecycle-preview/hub/hub.db"
+            )
+        else:
+            expected_env["PYTHONPATH"] = ":".join(
+                [f"${{workspaceFolder}}/lifecycle/{source}/src", *python_paths]
+            )
+        assert task["options"] == {"cwd": "${workspaceFolder}", "env": expected_env}
+        assert task["isBackground"] is True
+        assert task["runOptions"] == {"instanceLimit": 1}
+        assert "dependsOn" not in task
+        background = task["problemMatcher"]["background"]
+        assert background["activeOnStart"] is True
+        assert re.search(background["beginsPattern"], "Started server process [123]")
+        readiness = background["endsPattern"]
+        assert re.search(readiness, f"Uvicorn running on http://127.0.0.1:{port}")
+        assert not re.search(readiness, f"Uvicorn running on http://0.0.0.0:{port}")
+        assert not re.search(readiness, f"Uvicorn running on http://127.0.0.1:{port + 2}")
+        assert task["presentation"]["panel"] == "dedicated"
 
 
 def test_workspace_exposes_explicit_local_development_diagnostics() -> None:

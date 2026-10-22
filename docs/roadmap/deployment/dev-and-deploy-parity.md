@@ -3,6 +3,12 @@ title: Runtime Parity - Authoritative Local Development and Test Fixtures
 ---
 # Runtime Parity - Authoritative Local Development and Test Fixtures
 
+The explicit `lifecycle: serve example hub (8090)` and
+`lifecycle: serve example release hub (8091)` VS Code tasks preview already prepared local
+Lifecycle Hub and Release Hub state under `~/.local/state/fdai/lifecycle-preview`.
+Both CLIs bind only to `127.0.0.1`. These optional singleton tasks do not join Console full-stack
+startup, initialize signing keys, select a deployment, or grant execution authority.
+
 [GitHub knowledge sources](../../runbooks/knowledge-github-sources.md) use the same Operator
 routes, Owner revalidation, revision checks, credential references, and bounded Core reader
 locally and when deployed. Operator reads the existing repository ledger without GitHub

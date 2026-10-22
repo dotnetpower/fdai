@@ -142,6 +142,61 @@
       }
     },
     {
+      "label": "lifecycle: serve example hub (8090)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python -m fdai_lifecycle_hub.cli serve --port 8090",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/lifecycle/hub/src:${workspaceFolder}/packages/deployment-cli/src",
+          "FDAI_LIFECYCLE_HUB_DATABASE_URL": "sqlite+pysqlite:///${env:HOME}/.local/state/fdai/lifecycle-preview/hub/hub.db"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "lifecycle-hub",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Started server process",
+          "endsPattern": "Uvicorn running on http://127\\.0\\.0\\.1:8090"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "lifecycle-preview"
+      },
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
+      "label": "lifecycle: serve example release hub (8091)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/python -m fdai_release_hub serve ${env:HOME}/.local/state/fdai/lifecycle-preview/release-hub --port 8091",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/lifecycle/release-hub/src:${workspaceFolder}/lifecycle/hub/src:${workspaceFolder}/packages/deployment-cli/src"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "release-hub",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Started server process",
+          "endsPattern": "Uvicorn running on http://127\\.0\\.0\\.1:8091"
+        }
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "group": "lifecycle-preview"
+      },
+      "runOptions": { "instanceLimit": 1 }
+    },
+    {
       "label": "console: prepare full stack",
       "type": "shell",
       "command": "bash scripts/deployment/local/prepare-console-full-stack.sh --defer-authoritative-inventory --auth-mode browser-entra",
