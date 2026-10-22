@@ -10,6 +10,7 @@ from fdai.delivery.conversation_images import (
     ConversationImageDetail,
     ConversationImageQuotaError,
     ConversationImageTokenDescriptor,
+    ConversationImageTokenReservation,
     InMemoryConversationImageStore,
     reserve_conversation_image_tokens,
 )
@@ -58,6 +59,25 @@ def test_image_token_descriptor_rejects_non_integer_dimensions(
             width,
             height,
             ConversationImageDetail.HIGH,
+        )
+
+
+def test_image_token_reservation_receipt_rejects_forged_authority() -> None:
+    with pytest.raises(ValueError, match="cannot grant execution authority"):
+        ConversationImageTokenReservation(
+            image_count=1,
+            reserved_tokens=85,
+            detail_counts=(("high", 0), ("low", 1)),
+            execution_authority=True,
+        )
+
+
+def test_image_token_reservation_receipt_rejects_inconsistent_counts() -> None:
+    with pytest.raises(ValueError, match="MUST match the image count"):
+        ConversationImageTokenReservation(
+            image_count=2,
+            reserved_tokens=170,
+            detail_counts=(("high", 0), ("low", 1)),
         )
 
 

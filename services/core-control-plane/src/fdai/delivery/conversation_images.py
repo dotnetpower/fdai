@@ -54,6 +54,26 @@ class ConversationImageTokenReservation:
     detail_counts: tuple[tuple[str, int], ...]
     execution_authority: bool = False
 
+    def __post_init__(self) -> None:
+        if type(self.image_count) is not int or not (
+            1 <= self.image_count <= MAX_CONVERSATION_IMAGES_PER_TURN
+        ):
+            raise ValueError("conversation image reservation count is invalid")
+        if (
+            type(self.reserved_tokens) is not int
+            or not 1 <= self.reserved_tokens <= MAX_IMAGE_TOKEN_RESERVATION
+        ):
+            raise ValueError("conversation image reserved tokens are invalid")
+        expected_keys = tuple(sorted(detail.value for detail in ConversationImageDetail))
+        if tuple(key for key, _ in self.detail_counts) != expected_keys:
+            raise ValueError("conversation image detail counts are not canonical")
+        if any(type(count) is not int or count < 0 for _, count in self.detail_counts):
+            raise ValueError("conversation image detail counts are invalid")
+        if sum(count for _, count in self.detail_counts) != self.image_count:
+            raise ValueError("conversation image detail counts MUST match the image count")
+        if self.execution_authority is not False:
+            raise ValueError("conversation image reservation cannot grant execution authority")
+
 
 def reserve_conversation_image_tokens(
     images: tuple[ConversationImageTokenDescriptor, ...],
