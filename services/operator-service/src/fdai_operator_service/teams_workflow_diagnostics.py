@@ -18,6 +18,7 @@ from fdai_operator_service.families.iam.contracts import (
     TeamsWorkflowTestResult,
 )
 from fdai_operator_service.teams_workflow_binding import (
+    LoadedTeamsWorkflowBinding,
     TeamsWorkflowBindingError,
     TeamsWorkflowBindingStore,
 )
@@ -84,7 +85,6 @@ class TeamsWorkflowDiagnosticTester:
         self,
         command: TeamsWorkflowTestCommand,
     ) -> TeamsWorkflowTestResult:
-        endpoint_digest = validate_teams_workflow_url(command.webhook_url)
         if not command.actor_id.strip():
             raise ValueError("Teams Workflow test actor_id MUST be non-empty")
         if not _REQUEST_ID.fullmatch(command.request_id):
@@ -93,6 +93,18 @@ class TeamsWorkflowDiagnosticTester:
             raise TeamsWorkflowBindingUnavailableError(
                 "Teams Workflow binding storage is not configured"
             )
+        if not command.webhook_url.strip():
+            saved = await self.binding_store.load()
+            if saved is None:
+                raise TeamsWorkflowBindingUnavailableError(
+                    "Teams Workflow binding is not configured"
+                )
+            return await self._test_saved_binding(
+                actor_id=command.actor_id,
+                request_id=command.request_id,
+                saved=saved,
+            )
+        endpoint_digest = validate_teams_workflow_url(command.webhook_url)
         now = self.clock()
         if now.tzinfo is None:
             raise RuntimeError("Teams Workflow test clock MUST be timezone-aware")
@@ -157,34 +169,10 @@ class TeamsWorkflowDiagnosticTester:
                 "actor_id": command.actor_id,
             },
         )
-        try:
-            tested = await self.test(
-                TeamsWorkflowTestCommand(
-                    actor_id=command.actor_id,
-                    request_id=command.request_id,
-                    webhook_url=saved.webhook_url,
-                )
-            )
-        except TeamsWorkflowTestProviderError as exc:
-            return TeamsWorkflowTestResult(
-                request_id=command.request_id,
-                saved=True,
-                binding_version=saved.version,
-                saved_at=saved_at,
-                accepted=False,
-                provider_status=exc.status_code,
-                workflow_run_id=None,
-                tested_at=self.clock().astimezone(UTC),
-            )
-        return TeamsWorkflowTestResult(
-            request_id=tested.request_id,
-            saved=True,
-            binding_version=saved.version,
-            saved_at=saved_at,
-            accepted=tested.accepted,
-            provider_status=tested.provider_status,
-            workflow_run_id=tested.workflow_run_id,
-            tested_at=tested.tested_at,
+        return await self._test_saved_binding(
+            actor_id=command.actor_id,
+            request_id=command.request_id,
+            saved=saved,
         )
 
     async def describe_binding(
@@ -219,6 +207,56 @@ class TeamsWorkflowDiagnosticTester:
             if isinstance(saved_at, str):
                 metadata["saved_at"] = saved_at
         return metadata
+
+    async def _test_saved_binding(
+        self,
+        *,
+        actor_id: str,
+        request_id: str,
+        saved: LoadedTeamsWorkflowBinding,
+    ) -> TeamsWorkflowTestResult:
+        metadata = await self.store.read_state(_ACTIVE_BINDING_METADATA_KEY)
+        if metadata is None or metadata.get("binding_version") != saved.version:
+            raise TeamsWorkflowBindingError(
+                "Teams Workflow binding metadata does not match the saved version"
+            )
+        saved_at = metadata.get("saved_at")
+        if not isinstance(saved_at, str):
+            raise TeamsWorkflowBindingError("Teams Workflow binding saved timestamp is unavailable")
+        parsed_saved_at = datetime.fromisoformat(saved_at)
+        if parsed_saved_at.tzinfo is None:
+            raise TeamsWorkflowBindingError(
+                "Teams Workflow binding saved timestamp is timezone-naive"
+            )
+        try:
+            tested = await self.test(
+                TeamsWorkflowTestCommand(
+                    actor_id=actor_id,
+                    request_id=request_id,
+                    webhook_url=saved.webhook_url,
+                )
+            )
+        except TeamsWorkflowTestProviderError as exc:
+            return TeamsWorkflowTestResult(
+                request_id=request_id,
+                saved=True,
+                binding_version=saved.version,
+                saved_at=parsed_saved_at,
+                accepted=False,
+                provider_status=exc.status_code,
+                workflow_run_id=None,
+                tested_at=self.clock().astimezone(UTC),
+            )
+        return TeamsWorkflowTestResult(
+            request_id=tested.request_id,
+            saved=True,
+            binding_version=saved.version,
+            saved_at=parsed_saved_at,
+            accepted=tested.accepted,
+            provider_status=tested.provider_status,
+            workflow_run_id=tested.workflow_run_id,
+            tested_at=tested.tested_at,
+        )
 
     async def _existing_saved_result(
         self,

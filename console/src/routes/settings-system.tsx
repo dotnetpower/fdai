@@ -39,6 +39,7 @@ import {
   testTeamsWorkflowWebhook,
 } from "./settings-teams-workflow.command";
 import {
+  canSubmitTeamsWorkflow,
   newTeamsWorkflowTestRequestId,
   type TeamsWorkflowSavedBinding,
   type TeamsWorkflowTestResult,
@@ -475,7 +476,11 @@ function TeamsWorkflowTestPanel({
 
   const submit = async (event: SubmitEvent) => {
     event.preventDefault();
-    if (!canManage || testing || !webhookUrl.trim()) return;
+    if (
+      !canManage
+      || testing
+      || !canSubmitTeamsWorkflow(webhookUrl, bindingSaved !== null)
+    ) return;
     const submittedUrl = webhookUrl.trim();
     setWebhookUrl("");
     setTesting(true);
@@ -488,7 +493,6 @@ function TeamsWorkflowTestPanel({
         submittedUrl,
         newTeamsWorkflowTestRequestId(),
       );
-      setResult(saved);
       setBindingSaved({
         bindingVersion: saved.bindingVersion,
         savedAt: saved.savedAt,
@@ -789,11 +793,16 @@ function TeamsWorkflowTestPanel({
                 <button
                   type="submit"
                   class="btn primary"
-                  disabled={testing || !webhookUrl.trim()}
+                  disabled={
+                    testing
+                    || !canSubmitTeamsWorkflow(webhookUrl, bindingSaved !== null)
+                  }
                 >
                   {testing
                     ? settingsIntegrationsText("savingAndTesting")
-                    : settingsIntegrationsText("saveAndTest")}
+                    : webhookUrl.trim()
+                      ? settingsIntegrationsText("saveAndTest")
+                      : settingsIntegrationsText("testSaved")}
                 </button>
                 ) : null}
               </form>
