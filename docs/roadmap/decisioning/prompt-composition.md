@@ -66,6 +66,15 @@ time and call capacity for independent verification. Short review stages may use
 supported low-effort provider settings (`low` for GPT-5 mini and GPT-5.4 mini review/verify calls);
 authoring, other families, and T2 reasoning settings remain unchanged.
 
+Provider-bound request accounting uses the tokenizer for the selected model family. Startup checks
+that do not yet have a deployment identity and unrecognized deployment families keep the
+conservative UTF-8 byte upper bound. Prior-turn
+context is selected newest first against the complete request budget; the current utterance, schema,
+protected prompt layers, and reserved output never yield to history. Adaptive model configuration
+can declare a lower output ceiling for an exact stage, but the default remains the active profile's
+4,096-token reserve. A lower stage ceiling is selected only after a model-backed profile comparison
+supports the configuration and profile-digest change.
+
 Content-free stage logs report elapsed time, remaining time, status, and reserved call attempts.
 An attempted or reserved stage is not proof that a provider accepted a physical request.
 Prompt composition logs total, Operator Memory, and skill-disclosure duration with layer and token
@@ -78,6 +87,21 @@ Schema text and prepared-validator caches are bounded and contain no user input;
 still runs through both its original and configured provider schema. Existing credential caching remains authoritative rather than
 adding another token cache. Offline request-count and clock tests prove mechanism changes, not
 live model quality or a production speedup. New live comparisons require explicit authorization.
+
+Content-free metrics record estimated request tokens, budget holds, omitted context items, dynamic
+prompt fallbacks, provider-reported prompt/completion/total tokens, and provider-reported cached
+prompt tokens. Cached-token observations measure an existing provider behavior; they do not enable
+an unsupported cache-control field or make cached output operational evidence. Post-turn review has
+its own call kind and budget measurements, so background learning usage does not appear as an
+interactive answer call.
+
+Outcome metering can bind each invocation to an exact prompt digest, locale, turn family, terminal
+disposition, cached prompt-token count, and duration. Pure rollups then separate answered, held,
+clarification, unavailable, and regenerated turns without retaining prompt or answer text.
+Automatic prompt promotion uses a content-free exact-digest decision contract. It requires at least
+100 reviewed cases, equal cohort and model bindings, complete safety, non-regressing quality and
+planning shapes, and lower prompt tokens. Safety, quality, or shape regression selects rollback;
+an incomplete or mismatched cohort holds without changing the active profile.
 
 ### Ten-round latency review (2026-09-06)
 
@@ -197,6 +221,20 @@ bias judgment and widen intent grounding. Partial-match fallback was replaced by
 coverage because an OR-only selector cannot prove that the chosen meaning had its guidance. Trust,
 grounding, document-mode, posture, and ambiguity rules stay in the protected root because packs are
 ablation-eligible. A 2026-09-28 reasoning probe showed that the remaining relation, change-attribution, and verification failures come from contracts and compilers rather than guidance, so the proposed [Ontology Reasoning Compiler](../interfaces/ontology-reasoning-compiler.md) narrows judgment to a closed logical form and retires frame and plan prompts only for compiled families.
+
+An explicit operator override on 2026-10-22 first attempted to activate compact judgment and static
+compact frame/plan profiles. The first bounded live cohort triggered rollback because compact
+planning changed both English and Korean resource lists into contextual function plans. FDAI added
+typed `inventory.select_resources -> resource_list` and `resource_list -> object_set` shadow
+guidance and replaced full-proposal equality with a reviewed semantic-preservation rubric that
+still requires every authority and source-span invariant. The second exact-digest cohort passed:
+compact quality was 4/25 versus 2/25, both arms were safety-clean 25/25, and EN/KO planning matched
+2/2. Compact judgment, frame, and plan are active again. Their preceding dynamic profiles remain
+exact shadow rollback treatments. A separate bilingual adaptive cohort exercised plan, answer, and
+independent review. Both arms were valid and safe 6/6, but the lower-ceiling English treatment
+dropped one of three required knowledge goals and used more completion tokens. Lower ceilings
+therefore remain inactive and the default stays at 4,096 tokens. Refinement and verification were
+not invoked because the resolved deployment has no independent third model.
 
 ## Layer catalog
 

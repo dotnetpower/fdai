@@ -29,11 +29,12 @@ from fdai_operator_service.adapters.narrator_latency import (
     NarratorTarget,
 )
 from fdai_operator_service.adapters.narrator_payloads import (
+    NARRATOR_RESERVED_OUTPUT_TOKENS,
     has_images,
     is_reasoning_model,
-    narrator_messages,
+    narrator_message_plan,
     narrator_targets,
-    stream_delta,
+    stream_payload,
     vision_probe_content,
     vision_targets,
 )
@@ -242,7 +243,7 @@ class LocalAzureNarratorAdapters:
                 "invalid_prompt",
                 "prompt MUST be non-empty and bounded",
             )
-        answer, model = await self._answer(prompt.strip(), request.body)
+        answer, model, usage, context_receipt = await self._answer(prompt.strip(), request.body)
         verification: JsonObject = {
             "status": "unverified",
             "authority": "model-knowledge",
@@ -265,12 +266,16 @@ class LocalAzureNarratorAdapters:
                         "model": model,
                         "source": f"llm:{model}",
                         "verification": verification,
+                        "usage": cast(JsonObject | None, usage),
+                        "context_selection": context_receipt,
                     },
                 ),
             )
         )
 
-    async def _answer(self, prompt: str, body: Mapping[str, Any]) -> tuple[str, str]:
+    async def _answer(
+        self, prompt: str, body: Mapping[str, Any]
+    ) -> tuple[str, str, dict[str, int] | None, JsonObject]:
         vision = has_images(body)
         if vision:
             raise ConversationBoundaryError(
@@ -280,15 +285,22 @@ class LocalAzureNarratorAdapters:
             )
         try:
             async with asyncio.timeout(self.timeout_seconds):
-                token = await self._token()
-                messages = narrator_messages(prompt, body)
                 targets = self._pool.ranked(vision=False)
                 failures: list[int] = []
+                budget_failures = 0
+                token: str | None = None
                 for target in targets:
-                    status, answer, ttft_ms, latency_ms = await self._stream_answer(
+                    try:
+                        plan = narrator_message_plan(prompt, body, model=target.deployment)
+                    except ValueError:
+                        budget_failures += 1
+                        continue
+                    if token is None:
+                        token = await self._token()
+                    status, answer, ttft_ms, latency_ms, usage = await self._stream_answer(
                         target=target,
                         token=token,
-                        messages=messages,
+                        messages=plan.messages,
                     )
                     if answer is not None and ttft_ms is not None:
                         self._pool.record(
@@ -297,9 +309,32 @@ class LocalAzureNarratorAdapters:
                             latency_ms=latency_ms,
                             ttft_ms=ttft_ms,
                         )
-                        return answer, target.deployment
+                        return (
+                            answer,
+                            target.deployment,
+                            usage,
+                            cast(
+                                JsonObject,
+                                {
+                                    "request_token_estimate": plan.receipt.request_token_estimate,
+                                    "request_token_budget": plan.receipt.request_token_budget,
+                                    "reserved_output_tokens": plan.receipt.reserved_output_tokens,
+                                    "source_history_items": plan.receipt.source_history_items,
+                                    "included_history_items": plan.receipt.included_history_items,
+                                    "omitted_history_items": plan.receipt.omitted_history_items,
+                                    "shortened_history_items": plan.receipt.shortened_history_items,
+                                    "context_shortened": plan.receipt.context_shortened,
+                                },
+                            ),
+                        )
                     self._record_failure(target=target, vision=vision, elapsed_ms=latency_ms)
                     failures.append(status)
+                if targets and budget_failures == len(targets):
+                    raise ConversationBoundaryError(
+                        400,
+                        "narrator_prompt_token_budget_exceeded",
+                        "prompt and required context exceed the narrator token budget",
+                    )
         except TimeoutError as exc:
             raise ConversationBoundaryError(
                 504,
@@ -351,7 +386,7 @@ class LocalAzureNarratorAdapters:
             {"role": "system", "content": "Return OK."},
             {"role": "user", "content": vision_probe_content() if vision else "OK"},
         ]
-        _status, answer, ttft_ms, latency_ms = await self._stream_answer(
+        _status, answer, ttft_ms, latency_ms, _usage = await self._stream_answer(
             target=target,
             token=token,
             messages=messages,
@@ -372,12 +407,16 @@ class LocalAzureNarratorAdapters:
         target: NarratorTarget,
         token: str,
         messages: list[dict[str, Any]],
-    ) -> tuple[int, str | None, float | None, float]:
-        request_body: dict[str, Any] = {"messages": messages, "stream": True}
+    ) -> tuple[int, str | None, float | None, float, dict[str, int] | None]:
+        request_body: dict[str, Any] = {
+            "messages": messages,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
         if is_reasoning_model(target.deployment):
-            request_body["max_completion_tokens"] = 2048
+            request_body["max_completion_tokens"] = NARRATOR_RESERVED_OUTPUT_TOKENS
         else:
-            request_body.update({"temperature": 0.2, "max_tokens": 2048})
+            request_body.update({"temperature": 0.2, "max_tokens": NARRATOR_RESERVED_OUTPUT_TOKENS})
         url = (
             f"{target.endpoint}/openai/deployments/{quote(target.deployment, safe='')}"
             f"/chat/completions?api-version={quote(target.api_version, safe='')}"
@@ -387,6 +426,7 @@ class LocalAzureNarratorAdapters:
         answer_chars = 0
         answer_bytes = 0
         ttft_ms: float | None = None
+        usage: dict[str, int] | None = None
         status = 502
         try:
             async with self.http_client.stream(
@@ -406,10 +446,12 @@ class LocalAzureNarratorAdapters:
                         status,
                         extra={"status_code": status},
                     )
-                    return status, None, None, max(0.0, (self.clock() - started) * 1000)
+                    return status, None, None, max(0.0, (self.clock() - started) * 1000), None
                 async for line in response.aiter_lines():
                     try:
-                        delta = stream_delta(line)
+                        delta, observed_usage = stream_payload(line)
+                        if observed_usage is not None:
+                            usage = observed_usage
                     except ValueError as exc:
                         _LOGGER.warning(
                             "narrator_stream_frame_invalid reason_code=%s",
@@ -424,6 +466,7 @@ class LocalAzureNarratorAdapters:
                                 0.0,
                                 (self.clock() - started) * 1000,
                             ),
+                            usage,
                         )
                     if delta is None:
                         continue
@@ -440,10 +483,11 @@ class LocalAzureNarratorAdapters:
                                 0.0,
                                 (self.clock() - started) * 1000,
                             ),
+                            usage,
                         )
                     chunks.append(delta)
         except httpx.HTTPError:
-            return 502, None, None, max(0.0, (self.clock() - started) * 1000)
+            return 502, None, None, max(0.0, (self.clock() - started) * 1000), usage
         latency_ms = max(0.0, (self.clock() - started) * 1000)
         answer = "".join(chunks).strip()
         if not answer:
@@ -451,10 +495,10 @@ class LocalAzureNarratorAdapters:
                 "narrator_stream_answer_invalid reason_code=empty_answer",
                 extra={"reason_code": "empty_answer"},
             )
-            return 502, None, ttft_ms, latency_ms
+            return 502, None, ttft_ms, latency_ms, usage
         if len(answer) > _MAX_ANSWER_CHARS:
-            return 502, None, ttft_ms, latency_ms
-        return status, answer, ttft_ms, latency_ms
+            return 502, None, ttft_ms, latency_ms, usage
+        return status, answer, ttft_ms, latency_ms, usage
 
     def _record_failure(
         self,
@@ -463,13 +507,8 @@ class LocalAzureNarratorAdapters:
         vision: bool,
         elapsed_ms: float,
     ) -> None:
-        penalty_ms = max(elapsed_ms, self.timeout_seconds * 1000)
-        self._pool.record(
-            deployment=target.deployment,
-            vision=vision,
-            latency_ms=penalty_ms,
-            ttft_ms=penalty_ms,
-        )
+        del elapsed_ms
+        self._pool.record_failure(deployment=target.deployment, vision=vision)
 
 
 @dataclass(slots=True)

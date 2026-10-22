@@ -24,6 +24,7 @@ from fdai.delivery.azure.llm.request_target import (
     COGNITIVE_SERVICES_SCOPE,
     ModelRequestTarget,
 )
+from fdai.delivery.azure.llm.token_metrics import record_provider_usage, record_request_tokens
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle, ModelRouteKind
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -113,13 +114,18 @@ class AzureOpenAIPostTurnModel:
             messages=messages,
             response_format={"type": "json_object"},
             reserved_output_tokens=self._config.max_tokens,
+            model=self._config.model_family,
         )
         manifest = self._config.prompt_manifest
-        if (
-            manifest is not None
-            and manifest.request_token_budget is not None
-            and request_tokens > manifest.request_token_budget
-        ):
+        request_budget = manifest.request_token_budget if manifest is not None else None
+        request_exceeded = request_budget is not None and request_tokens > request_budget
+        record_request_tokens(
+            call_kind="post-turn-review",
+            estimate=request_tokens,
+            budget=request_budget,
+            exceeded=request_exceeded,
+        )
+        if manifest is not None and request_exceeded:
             raise RuntimeError("post-turn reviewer request exceeds its prompt profile budget")
         token = await self._identity.get_token(self._target.auth_audience)
         request = self._target.operation("chat/completions")
@@ -145,6 +151,12 @@ class AzureOpenAIPostTurnModel:
             response.raise_for_status()
         except httpx.HTTPError as exc:
             raise RuntimeError(f"post-turn reviewer request failed: {type(exc).__name__}") from exc
+        envelope = response.json()
+        usage = envelope.get("usage") if isinstance(envelope, Mapping) else None
+        record_provider_usage(
+            call_kind="post-turn-review",
+            usage=usage if isinstance(usage, Mapping) else None,
+        )
         return _parse_response(response)
 
 
