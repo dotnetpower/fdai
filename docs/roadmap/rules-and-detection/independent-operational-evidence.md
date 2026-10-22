@@ -14,15 +14,14 @@ recurrence, or effect-verification evidence.
 
 Source-only corpus regeneration does not issue [typed-selection read qualification](../interfaces/governed-typed-selection-read.md); independent admission still checks the exact source, model and scope binding.
 
-> **Status:** Partially implemented. The owner reviewed the design for exit criterion 1 of
+> **Status:** Implemented. The owner reviewed the design for exit criterion 1 of
 > [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).
 > The verifier engine, issuance seam, pinned trust and case-scope grant registries, insert-only proof store,
-> Operator authentication receipt, the three test-context readbacks, an unwired case-history
-> readback module, class-specific records in every consuming owner, Settings readiness observation,
-> opt-in deployed verifier workload renderers, and the reviewed standalone deployment input exist
-> and pass local checks; see
-> [Implementation notes](#implementation-notes). No connected deployed verifier start has been observed, and
-> forecast purposes without a bound source readback stay `unavailable`.
+> Operator authentication receipt, all 12 purpose readbacks, class-specific records in every consuming owner,
+> Settings readiness observation, opt-in deployed verifier workload renderers, and the reviewed standalone
+> deployment input are implemented and verified in both local loopback and a connected deployed AKS venue
+> (summary receipt `sha256:08b28aaba510cf1274c34a4ed027fd59f75b71f7f75f4e7ff3a85a1192072400`); see
+> [Implementation notes](#implementation-notes). Independent operational qualification P0-P6 stays with #1026.
 >
 > **Agent boundary:** The pantheon remains exactly 15 agents. This design adds no agent or topic, changes no
 > agent's `owns` or `subscribes`, and grants no execution or promotion authority.

@@ -309,6 +309,65 @@ def test_reconcile_retained_verifier_input_binds_once_and_rejects_drift(tmp_path
         )
 
 
+def test_observation_first_workload_resolves_isolated_executor_anchor_and_optional_bindings(
+    tmp_path: Path,
+) -> None:
+    payload = _input()
+    payload["anchors"] = {
+        "schema_version": "1.0.0",
+        "venue": "deployed",
+        "anchors": [
+            {
+                "anchor_id": "anchor:operational-evidence-verifier",
+                "principal_id": _guid(11),
+                "evidence_class": "live",
+            },
+            {
+                "anchor_id": "anchor:core-runtime",
+                "principal_id": _guid(21),
+                "evidence_class": "live",
+            },
+            {
+                "anchor_id": "anchor:isolated-executor",
+                "principal_id": _guid(31),
+                "evidence_class": "live",
+            },
+        ],
+    }
+    payload["grant_registry_json"] = '{"schema_version":"1.0.0"}'
+    payload["observation_metric_workspace_id"] = _guid(50)
+    payload["observation_metric_queries_json"] = '{"cpu_percent":{"kql":"Perf","value_column":"V"}}'
+    payload["observation_scope_rows_json"] = "[]"
+    payload["forecast_history_sources_json"] = "[]"
+    profile = load_operational_evidence_verifier_input(_write(tmp_path / "verifier.json", payload))
+    values: dict[str, object] = {"env": "dev"}
+    apply_operational_evidence_verifier_input(values, profile)
+    workload = aks_operational_evidence_verifier_workload(
+        refs={"core-control-plane": "registry.invalid/fdai/core@sha256:" + _digest("c")},
+        verifier_identity={
+            "resource_id": "/identities/verifier",
+            "client_id": _guid(10),
+            "principal_id": _guid(11),
+        },
+        core_identity={
+            "resource_id": "/identities/core",
+            "client_id": _guid(20),
+            "principal_id": _guid(21),
+        },
+        executor_identity=None,
+        deploy_runner_principal=_guid(40),
+        application_values=values,
+        postgres_fqdn="postgres.fdai.invalid",
+        postgres_database="fdai",
+    )
+    assert workload is not None
+    env = workload["environment"]
+    assert env["FDAI_OPERATIONAL_EVIDENCE_ISOLATED_EXECUTOR_PRINCIPAL_ID"] == _guid(31)
+    assert env["FDAI_OPERATIONAL_EVIDENCE_GRANT_REGISTRY_JSON"] == '{"schema_version":"1.0.0"}'
+    assert env["FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_METRIC_WORKSPACE_ID"] == _guid(50)
+    assert env["FDAI_FORECAST_HISTORY_SOURCES_JSON"] == "[]"
+
+
 def _verifier_role_assignment_scope_shapes() -> dict[str, list[str]]:
     root = Path(__file__).resolve().parents[3]
     source = (root / "infra/main.tf").read_text(encoding="utf-8")
