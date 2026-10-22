@@ -98,10 +98,12 @@ class LlmInvocation:
             raise TypeError("usage_scope MUST be one InvocationScope")
         if not isinstance(self.disposition, InvocationDisposition):
             raise TypeError("disposition MUST be one InvocationDisposition")
-        if self.cost is not None and self.cost < 0:
-            raise ValueError("cost MUST be >= 0 when present")
-        if self.currency is not None and not self.currency:
-            raise ValueError("currency MUST NOT be empty when present")
+        if self.cost is not None and (
+            not isinstance(self.cost, Decimal) or not self.cost.is_finite() or self.cost < 0
+        ):
+            raise ValueError("cost MUST be one finite non-negative Decimal when present")
+        if self.currency is not None and re.fullmatch(r"[A-Z]{3}", self.currency) is None:
+            raise ValueError("currency MUST be one ISO 4217 alphabetic code when present")
         if (self.cost is None) != (self.currency is None):
             raise ValueError("cost and currency MUST both be present or both be absent")
         if type(self.cached_prompt_tokens) is not int:

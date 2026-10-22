@@ -59,9 +59,16 @@ def test_negative_cost_rejected() -> None:
         _invocation(cost=Decimal("-0.01"))
 
 
-def test_empty_currency_rejected() -> None:
-    with pytest.raises(ValueError, match="currency"):
-        _invocation(currency="")
+@pytest.mark.parametrize("cost", [Decimal("NaN"), Decimal("Infinity"), "0.5"])
+def test_nonfinite_or_untyped_cost_rejected(cost: object) -> None:
+    with pytest.raises(ValueError, match="finite non-negative Decimal"):
+        _invocation(cost=cost)
+
+
+@pytest.mark.parametrize("currency", ["", "usd", "US", "USDT"])
+def test_noncanonical_currency_rejected(currency: str) -> None:
+    with pytest.raises(ValueError, match="ISO 4217"):
+        _invocation(currency=currency)
 
 
 def test_cost_may_be_none() -> None:
