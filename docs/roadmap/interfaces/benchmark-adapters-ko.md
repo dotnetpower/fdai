@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 11e0eef05a6af9e7db2a07c8cb2b750dfda14067
+translation_source_sha: 7cc0ffdc706dd15f69f5fd992ecfd4fe7a43cdbc
 translation_revised: 2026-10-22
 ---
 
@@ -18,7 +18,7 @@ FDAI에 연결하는 방법을 정의합니다. 독립 SDK는 중립 계약과 �
 > 상태를 유지합니다. `EvaluationHost`, 평가 런타임 진입점, 집중 호스트 테스트 모음, 이전 버전
 > 호환성 파사드는 2026-08-08 서비스 분해 과정에서 제거됐고 현재 트리에 대체 구현이 없습니다.
 
-SREGym 벤치마크 이미지는 Core와 Cost Governance 이미지와 같은 고정 Go 툴체인으로 OPA를 빌드합니다. 툴체인을 바꾸면 이 이미지들과 고정 테스트가 함께 바뀝니다.
+SREGym 벤치마크 이미지는 Core와 Cost Governance 이미지와 같은 고정 Go 툴체인과 `github.com/klauspost/compress@v1.18.7` 모듈 재정의로 OPA를 빌드합니다. 툴체인을 바꾸면 이 이미지들과 고정 테스트가 함께 바뀝니다.
 
 ## 설계 요약
 
