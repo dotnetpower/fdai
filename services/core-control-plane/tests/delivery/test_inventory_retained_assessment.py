@@ -280,6 +280,10 @@ def test_canonical_json_mapping_refuses_oversized_and_expanded_inputs_with_bound
         UserDict({"blob": "x" * (4 * 1024 * 1024)}),
         UserDict({"items": range(600_000)}),
     ):
+        # Warm the refusal path so first-execution costs (such as coverage line
+        # bookkeeping on a cold worker) are not counted as payload allocation.
+        with pytest.raises(ValueError, match="exceeds its byte bound"):
+            canonical_json_mapping(payload, "snapshot resource props")
         tracemalloc.start()
         try:
             with pytest.raises(ValueError, match="exceeds its byte bound"):

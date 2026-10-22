@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: da0608f4a4343e300ee603b61320293f544b782d
+translation_source_sha: d3f5fcd37965e3acdef2785c17a7adf472af88c2
 translation_revised: 2026-10-22
 ---
 
@@ -627,6 +627,8 @@ dispatch하지 않습니다.
 `/manuals` 아래에 패키징한 뒤 결정론적 archive와 mode-`0600` 소스 매니페스트를 기록합니다.
 `console/.env.local` 같은 무시된 파일은 해당 스냅샷에 들어갈 수 없습니다. 현재 보호된
 `origin/main`에서 후보를 빌드하고, 별도의 검증된 조상에서 롤백 산출물을 빌드합니다.
+소스 배포는 고정된 자체 체크아웃 커밋에서 Console을 빌드하며, 그 커밋이 `origin/main`에 있을
+필요는 없습니다.
 
 `plan` 명령은 소스 제어 밖에서 제공한 mode-`0600` 대상 매니페스트를 읽습니다. 매니페스트에는
 기존 Static Web App 리소스 ID와 호스트 이름, API 원본, 공개 Entra SPA client 및 별도로

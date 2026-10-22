@@ -13,11 +13,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 
 from fdai_deployment_cli import (
     aks_workload_jobs,
     runtime_support_installation,
+    source_application_inputs,
     standalone_aks_inventory,
     standalone_aks_nodepool_guard,
     standalone_application,
@@ -29,11 +29,11 @@ from fdai_deployment_cli import (
     standalone_operational_evidence,
     standalone_stage_targets,
     standalone_terraform_environment,
-    source_application_inputs,
 )
 from fdai_deployment_cli.aks_job_execution import AksOneShotJob
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.source_image_stage import UNAVAILABLE, SourceImageStageStopped
+from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 from fdai_deployment_cli.standalone_review import validate_plan_review
 
 
@@ -2588,6 +2588,7 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
 @pytest.mark.parametrize(
     ("component", "service", "role"),
     [
+        ("core", "core-control-plane", "fdai_core"),
         ("operator", "operator-service", "fdai_operator"),
         ("executor", "isolated-executor", "fdai_executor"),
         ("ingestion", "document-ingestion-api", "fdai_ingestion_api"),
@@ -2816,6 +2817,7 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
             "image": image,
             "replicas": 2,
             "max_replicas": 3,
+            "environment": {"RUNTIME_ENV": "dev"},
             **(
                 {
                     "secret_environment": {
@@ -2885,6 +2887,11 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
     values = json.loads((tmp_path / "workloads.auto.tfvars.json").read_text(encoding="utf-8"))
     assert values["workloads"]["core-control-plane"]["image"] == new_image
     assert values["workloads"]["core-control-plane"]["source_commit"] == new_source
+    assert values["workloads"]["core-control-plane"]["environment"] == {
+        "FDAI_DATABASE_ROLE": "fdai_core",
+        "PGOPTIONS": "-c role=fdai_core",
+        "RUNTIME_ENV": "dev",
+    }
     retained_context = json.loads((tmp_path / "context.json").read_text(encoding="utf-8"))
     assert (
         retained_context["expected_workloads"]["core-control-plane"]["secret_environment"]

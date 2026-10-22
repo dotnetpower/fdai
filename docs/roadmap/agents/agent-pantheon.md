@@ -337,8 +337,10 @@ identities. Older pending or claimed audits are never evicted by newer completed
 Saga's inner audit chain uses a closed, content-hashed schema-v2 journal at the existing
 verified-head key. Every append verifies the shared revision and atomically commits the next
 head with its audit row through StateStore CAS-with-audit, rather than trusting an instance-local
-head. Eight attempts and a two-second deadline bound contention. Failure or cancellation never
-exposes an uncommitted mirror entry. The journal retains at most 512 digest-only entries within
+head. Eight attempts and a two-second deadline bound lock admission and retries. An atomic
+CAS-with-audit admitted before the deadline runs to an unambiguous commit or rollback instead of
+being cancelled during transaction cleanup. Failure or cancellation never exposes an uncommitted
+mirror entry. The journal retains at most 512 digest-only entries within
 512 KiB and a verified prefix anchor. Local correlation lookup covers that retained window only;
 full-history verification is explicitly unavailable after the prefix leaves the local projection.
 

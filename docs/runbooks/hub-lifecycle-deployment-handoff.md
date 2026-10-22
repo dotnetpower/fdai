@@ -1,0 +1,190 @@
+---
+title: Hub deployment handoff
+---
+# Hub deployment handoff
+
+Use this checklist to repeat an application deployment without relying on an engineer's terminal
+history. It identifies the responsible person, the input to preserve, the observable result, and
+the mechanics that can be automated.
+
+> **Scope:** The bounded nginx rehearsal and the local generic-engine tests are different evidence.
+> The runtime-bundle extension is not installed in existing Hubs or Agents by this change.
+> A full FDAI cloud qualification remains separate. No command here grants deployment permission.
+
+## What this covers
+
+The order is the same for nginx and FDAI: prepare infrastructure, publish images, independently
+approve the catalog, enroll, accept ownership, sign configuration, stage inputs, approve a Plan,
+run the Agent, and independently observe the result. Application-specific data changes; the
+execution engine and trust boundaries do not.
+
+Use the [operator guide](hub-lifecycle-operator-guide.md) for the complete existing command/API
+reference. Use [runtime bundles](../roadmap/deployment/lifecycle-runtime-bundles.md) for the extended
+input contract. Do not substitute a renamed HTTP manifest for the full FDAI topology.
+
+## Who does each previously manual step?
+
+| Step / responsible person | Required input and action | Preserve privately / completion evidence | Automation opportunity |
+|---------------------------|---------------------------|------------------------------------------|------------------------|
+| 1. Customer infrastructure owner | Approve the exact target, cost, retention and cleanup; prepare namespace, storage, database and identities | Reviewed infrastructure plan, initialized schema, namespace and identity references | Existing infrastructure tooling can generate references; it cannot approve its own changes |
+| 2. Hub network owner | Verify operator reachability separately from Agent-to-Hub and Lifecycle-to-Release catalog reachability | Approved source ranges, outbound origin, ingress readback and both product/build identities | Preflight DNS, route, ingress and API separately; never widen roles to fix network denial |
+| 3. Customer identity owner | Bind user sign-in separately from Agent federation and `Agent.Access`; keep existing identity keys | Exact application/scope binding, federation subject and namespace ServiceAccount | Generate a reviewed setup record; no administrator role or broad Graph grant |
+| 4. Vendor release operator | Build immutable images, sign the exact manifest bytes, register/publish and maintain recall state | Source/image digests, signature verification, channel/catalog revision and pin | Build/sign/publish pipeline; no customer approval |
+| 5. Customer catalog approver | Obtain publisher key and exact catalog pin independently; approve, then import | Accepted key ID, revision, pin, freshness and import result | Transfer and compare public metadata without retyping; never trust a downloaded pin merely because it downloaded |
+| 6. Customer setup operator | Preserve installation ID/key, submit fresh enrollment, then obtain separate human acceptance | Public key ID, enrollment decision and durable installation identity | Supported enrollment commands; resumable UI handoff is still needed |
+| 7. Customer ownership approver | Review exact native object scope; run `bootstrap-slot` dry-run, then approved creation; submit and separately accept proof | Approval, scope digest, anchor UID and signed proof in private storage | `bootstrap-slot` and `submit-native-proof`; proof creation never approves ownership |
+| 8. Customer runtime/configuration owner | Review private bundle, existing references and image repositories; pin its digest in signed configuration | Owner-only local policy, signed configuration bytes, key ID and exact digests | Schema validation and digest generation; a guided private bundle editor is not shipped |
+| 9. Installation input operator | Transfer verified release/configuration document and detached signature pairs; mirror images | Atomic staged files and independent signature/digest checks | `stage-inputs`; there is no automatic file transfer merely because a Plan exists |
+| 10. Customer execution approver | Set explicit execution window, current Settings/constraints and exact Plan approval | Actor, source-state digest, Plan expiry and confirmation | Existing forms generate IDs/digests; preserve approval |
+| 11. Installation runtime owner | Start one approved bounded Agent run with persistent state and in-cluster authentication | Agent contact, reports, journal, healthy state and any halt marker | A reviewed finite Job template; permanent scheduling is not implied by enrollment |
+| 12. Application owner | Independently inspect expected workload and application effects; handle recall/holds separately | Installed version, controller readiness, independent application result and recovery outcome | Read-only checks and a timeline; never invent success from dispatch or Pod existence |
+| 13. Customer environment owner | Remove only approved temporary Jobs/resources, retain the agreed cluster/state/identity, acknowledge ongoing cost | UID-fenced absence checks, retained-resource inventory and responsible owner | Cleanup plan and retention summary; do not erase recovery state or identity |
+
+Separate catalog metadata, signed input delivery, image availability and Agent scheduling.
+Completing one does not complete the others. A healthy cluster is not proof that an Agent runs.
+
+## Private runtime input example
+
+This synthetic bundle illustrates one Deployment and internal Service. Store it as the
+`runtime_bundle` object inside the existing `fdai.lifecycle-local-policy.v1` document.
+Keep that file in a current-user-owned private directory as a single-link mode-0600 regular file.
+It is not a public release manifest or a Hub upload.
+
+```json
+{
+  "format": "fdai.application-runtime-bundle.v1",
+  "product": "example-web",
+  "namespace": "example-test",
+  "objects": [
+    {
+      "entity_id": "application",
+      "kind": "Deployment",
+      "name": "frontend",
+      "spec": {
+        "replicas": 1,
+        "template": {
+          "spec": {
+            "serviceAccountName": "frontend",
+            "automountServiceAccountToken": false,
+            "securityContext": {
+              "runAsNonRoot": true,
+              "seccompProfile": {"type": "RuntimeDefault"}
+            },
+            "containers": [{
+              "name": "frontend",
+              "image_component": "frontend",
+              "ports": [{"name": "http", "containerPort": 8080}],
+              "readinessProbe": {"httpGet": {"path": "/healthz", "port": "http"}},
+              "resources": {
+                "requests": {"cpu": "100m", "memory": "128Mi"},
+                "limits": {"cpu": "1000m", "memory": "512Mi"}
+              },
+              "securityContext": {
+                "runAsNonRoot": true,
+                "allowPrivilegeEscalation": false,
+                "readOnlyRootFilesystem": true,
+                "capabilities": {"drop": ["ALL"]}
+              }
+            }]
+          }
+        }
+      }
+    },
+    {
+      "entity_id": "application",
+      "kind": "Service",
+      "name": "frontend",
+      "spec": {"ports": [{"port": 80, "targetPort": "http"}]}
+    }
+  ]
+}
+```
+
+Also bind `product`, `entity_ids`, `entity_components`, `component_images`, and the approved
+`native_scope_digest` in local policy. The Entity's image-component set includes sidecars and
+initialization containers. Native `components` instead names Deployment objects.
+Optional `service_components` selects only Deployments that need a Service; omitted means all
+Deployments, preserving old scopes. `scheduled_components` explicitly names CronJob objects.
+The bundle's complete kind/name inventory must equal that separately approved native scope.
+
+To compute the bundle pin without displaying private contents, use the installed Agent's parser:
+
+```bash
+python -c 'import sys; from pathlib import Path; from fdai_lifecycle_agent.cli import load_local_policy; print(load_local_policy(Path(sys.argv[1]))["runtime_bundle"].digest)' "$LOCAL_POLICY"
+```
+
+Set the resulting `sha256:<hex>` as `runtime_bundle_digest` in each selected Entity's signed
+configuration. This v2 execution path accepts only that pin and optional `region` as resolved
+configuration values. Runtime settings and connection values belong in pre-existing
+ConfigMaps/Secret references, not unconsumed configuration keys or literal environment values.
+Review and re-sign a new pin when private templates or reference names change.
+
+The vendor's `fdai.application-release.v2` uses `components.<name>.image_digest`, not `workloads`.
+It carries immutable images, product/version/source/platform and optional existing schema metadata,
+not private templates. Preserve detached signatures over exact bytes and the existing canonical
+digest convention when publishing and staging.
+
+## Execute without an invisible helper
+
+1. Follow the existing guide to enroll and accept installation identity. Do not regenerate the
+   installation key to repair an incomplete setup.
+2. Prepare a current private native approval. Run `fdai-lifecycle-agent bootstrap-slot` with
+   `--installation-id`, `--state-dir`, `--local-policy`, `--current-state`, `--native-approval`,
+   `--installation-key`, and either `--in-cluster` or an explicitly selected `--kube-context`.
+   The default is dry-run. Only the separately authorized creation adds `--apply` and
+   `--proof-output`. Transfer public proof through `submit-native-proof` and obtain human acceptance.
+3. Stage signed inputs using the guide's `stage-inputs` command. Verify mirrored image digests.
+4. Obtain a fresh exact Plan. A default `poll-once` validates admission without loading Kubernetes
+   or creating a journal; it is not a server-side Kubernetes dry-run.
+5. Start the approved bounded run using `poll --apply --in-cluster`, the approved namespace and
+   persistent state, `--hub-auth workload-identity`, and the exact `--hub-scope`. Supply the
+   required existing trust/input/native approval flags. `poll --help` documents finite poll and
+   total-duration limits. Apply mode performs server dry-run before intent/report and mutation.
+6. Read back Agent and workload results independently. Do not reissue a different Plan just
+   because the first response was lost. Resume the same persistent journal and pending report.
+
+The existing HTTP RBAC template does not grant CronJob access. Scheduled bundles need a separately
+reviewed namespace Role for `batch/cronjobs`, available in the
+[optional template](../../lifecycle/agent/deploy/scheduled-runtime-rbac.yaml).
+It grants no Secret reads, identity writes or cluster-wide permissions. Applying it is a separate
+permission change, not a step this document silently performs.
+
+## What changes for FDAI?
+
+Only the approved inputs change: product binding, immutable image set, private runtime bundle,
+references, native object inventory, signed configuration pin, and independent effect checks.
+The existing AKS topology is expressed with backend/Console Deployments, selected internal
+Services, ClamAV sidecar/initialization, CSI/ConfigMap/PVC references and bounded scheduled tasks.
+Database substrate, existing workload identities and initialized same-schema databases remain
+prerequisites. Schema-changing migrations and unsupported topology deletion stop for review.
+
+The synthetic tests establish shared execution and recovery behavior, not that real FDAI
+integrations, models, inventory or application health have passed in Azure.
+Prepare and verify actual references and application observations before that separate rehearsal.
+If actual input needs an unsupported resource/security/authority effect, stop and review the
+gap rather than changing a product name or expanding permission as a workaround.
+
+## Failure, interruption and retention
+
+- Distinguish network ingress denial, API 401/403, expired login and backend failure. A raw
+  ingress denial can occur before the UI loads. Fix the approved source/network path, not roles.
+- A v2 image or configuration failure restores recorded templates when safely verifiable.
+  Schema changes and removal of previously healthy selected objects are blocked before writes.
+- Any recovery involving a potentially active CronJob remains held: suspend scheduling, restore
+  bounded templates, mark recovery unverified and halt subsequent applies. A suspended or absent
+  template cannot prove that a task never ran. Inspect existing tasks and persistent effects
+  independently before an authorized repair. Do not delete a halt marker merely to retry.
+- Unknown native creation is not adoption permission. Preserve UID evidence and pending state.
+  Resume with the same installation key and state; do not overwrite an existing object by name.
+- Environment retention, the execution schedule, local native approval validity and Plan expiry
+  are separate limits. Keeping AKS online does not authorize unlimited ongoing changes.
+- Retain durable Agent storage, installation identity and exact evidence. Cleanup requires an
+  explicit target/UID list and independent absence checks; verify cost for retained infrastructure.
+
+## Next steps
+
+| To learn about | Read |
+|---------------|------|
+| Supported command/API sequence | [Hub operator guide](hub-lifecycle-operator-guide.md) |
+| Contract, critique and implementation status | [Application runtime bundles](../roadmap/deployment/lifecycle-runtime-bundles.md) |
+| Prioritized UI/process design backlog | [Operator experience improvements](hub-lifecycle-operator-experience.md) |

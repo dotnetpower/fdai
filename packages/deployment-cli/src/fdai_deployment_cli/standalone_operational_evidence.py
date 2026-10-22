@@ -10,6 +10,29 @@ from typing import Any
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _OPERATIONAL_EVIDENCE_PORT = 8791
 _OPERATIONAL_EVIDENCE_READINESS_PATH = "/v1/operational-evidence/readiness"
+_SERVICE_DATABASE_ROLES = {
+    "core": "fdai_core",
+    "core-control-plane": "fdai_core",
+    "operator": "fdai_operator",
+    "operator-service": "fdai_operator",
+    "executor": "fdai_executor",
+    "isolated-executor": "fdai_executor",
+    "ingestion": "fdai_ingestion_api",
+    "document-ingestion-api": "fdai_ingestion_api",
+    "worker": "fdai_ingestion_worker",
+    "document-processing-worker": "fdai_ingestion_worker",
+}
+
+
+def bind_service_database_role(service: str, environment: Mapping[str, object]) -> dict[str, str]:
+    """Return one workload environment with its service-owned PostgreSQL role."""
+
+    runtime_environment = {name: str(value) for name, value in environment.items()}
+    database_role = _SERVICE_DATABASE_ROLES.get(service)
+    if database_role is not None:
+        runtime_environment["FDAI_DATABASE_ROLE"] = database_role
+        runtime_environment["PGOPTIONS"] = f"-c role={database_role}"
+    return runtime_environment
 
 
 def aks_workload(
@@ -46,17 +69,8 @@ def aks_workload(
         "ingestion": ("500m", "1Gi"),
         "worker": ("500m", "1Gi"),
     }[component]
-    runtime_environment = {name: str(value) for name, value in environment.items()}
+    runtime_environment = bind_service_database_role(image_name, environment)
     runtime_environment["FDAI_EXECUTION_VENUE"] = "deployed"
-    database_role = {
-        "operator": "fdai_operator",
-        "executor": "fdai_executor",
-        "ingestion": "fdai_ingestion_api",
-        "worker": "fdai_ingestion_worker",
-    }.get(component)
-    if database_role is not None:
-        runtime_environment["FDAI_DATABASE_ROLE"] = database_role
-        runtime_environment["PGOPTIONS"] = f"-c role={database_role}"
     return {
         "component": component,
         "image": refs[image_name],

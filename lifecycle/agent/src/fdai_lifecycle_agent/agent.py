@@ -84,6 +84,7 @@ from fdai_lifecycle_agent.inputs import (
 from fdai_lifecycle_agent.journal import ApplyJournal, WorkloadState, WorkloadStore
 from fdai_lifecycle_agent.native_cluster import NativeCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore
+from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
 from fdai_lifecycle_agent.state import (
     AgentState,
@@ -163,6 +164,7 @@ class AgentSettings:
     component_repositories: Mapping[str, str] = field(default_factory=dict)
     product: str | None = None
     native_scope_digest: str | None = None
+    runtime_bundle: RuntimeBundle | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         validate_path_segment(self.installation_id, "installation_id")
@@ -173,6 +175,18 @@ class AgentSettings:
             raise ValueError("every envelope Entity MUST name at least one Release component")
         if self.product is not None and not is_product_id(self.product):
             raise ValueError("local policy product must be an application identifier")
+        if self.runtime_bundle is not None:
+            if (
+                self.runtime_bundle.product != self.product
+                or {item.entity_id for item in self.runtime_bundle.objects}
+                != self.maximum_envelope.entity_ids
+            ):
+                raise ValueError("local runtime bundle product or Entity binding differs")
+            if any(
+                self.runtime_bundle.components(entity) != self.entity_components[entity]
+                for entity in self.maximum_envelope.entity_ids
+            ):
+                raise ValueError("local runtime bundle component binding differs")
         if self.native_scope_digest is not None and (
             self.product is None
             or re.fullmatch(r"sha256:[0-9a-f]{64}", self.native_scope_digest) is None
@@ -377,6 +391,7 @@ class LifecycleAgent:
                 current_schema=current.schema_revision,
                 release=release,
                 plan=plan,
+                runtime_bundle=settings.runtime_bundle,
             )
         except WorkloadError as error:
             return _rejection(error.reason_code)
@@ -448,6 +463,7 @@ class LifecycleAgent:
                 component_repositories=settings.component_repositories,
                 workload=apply.workload,
                 store=apply.store,
+                runtime_bundle=settings.runtime_bundle,
             )
         except WorkloadError as error:
             return _rejection(error.reason_code, retryable=error.retryable)

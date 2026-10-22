@@ -15,8 +15,11 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > OCI images, Event Hubs Kafka endpoints, Key Vault, workload identities, and PostgreSQL schema.
 >
 > **Hub-managed path:** The Hub-managed lifecycle supports AKS only and adds an in-cluster
-> lifecycle agent. Its Lifecycle I0 skeleton in `lifecycle/agent/` only dry-runs and reports, so
-> this runtime contract doesn't change.
+> lifecycle agent. The development Agent defaults to dry-run and reporting; explicit bounded
+> apply supports the existing HTTP/legacy profiles and the independently pinned
+> [private runtime-bundle extension](lifecycle-runtime-bundles.md).
+> This supplies neither infrastructure/identity creation nor a completed FDAI installation.
+> Namespace permissions, same-schema prerequisites and operational qualification remain separate.
 
 Stewardship governance is runtime-profile neutral. With `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true` and no GitHub credentials, AKS and Container Apps both compose the Console-governed candidate publisher and merge-effects worker, and Terraform creates no webhook secret, GitHub secret reference, or Git host binding. Selecting a GitOps target adds them. Neither selection grants merge, IAM, approval, or execution authority. In Console mode an Owner activates a candidate through the Operator API and Core's governance worker, which needs no extra runtime binding in either profile. ChatOps is optional there: the ingestion gateway binds its webhook only when a ChatOps reference exists, and a GitOps target still requires it. On a source AKS installation the same mode follows the explicit selections: when the Console, enterprise identity bindings, and document ingestion are all selected, the AKS host values set `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED`, `FDAI_MAINTAINERS`, and the steward bindings on Core.
 
@@ -514,7 +517,7 @@ Every shipped Alpine runtime image also pins security-sensitive runtime package 
 all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
 contract together; image scanning verifies the built result before publication.
 
-Core's Alpine ARM64 builder supplies the missing `tree_sitter/parser.h` for source builds of locked `tree-sitter-java` 0.23.5 from the matching upstream commit, pinned by SHA-256. The builder-only header changes no runtime dependency, workload specification, identity, or authority. Native compile/parse evidence is not a complete image build or deployment.
+Core's Alpine ARM64 builder supplies the missing `tree_sitter/parser.h` for source builds of locked `tree-sitter-java` 0.23.5 from the matching upstream commit, pinned by SHA-256. The builder-only header changes no runtime dependency, workload specification, identity, or authority. Native compile/parse evidence is not a complete image build or deployment. The download is verified in a plain `RUN` that fails closed on a digest mismatch, not with `ADD --checksum`: source installations build images with the registry's build service, whose classic builder rejects BuildKit-only syntax, and a test keeps every service Dockerfile free of it.
 
 Core, the Cost Governance profile, and the SRE benchmark retain OPA 1.18.2 but build it with
 digest-pinned Go 1.27.2 and `golang.org/x/net` 0.60.0, including its required
@@ -615,9 +618,13 @@ If the retained workload state predates the standalone application receipt, sele
 The source-service coordinator owns that reconciliation lifecycle: it returns the strict runtime-profile-bound review, checks verification-only recovery before any new effect, requires current exact approval when no claim exists, revalidates the saved binary plan, writes the claim before one Managed Identity apply, and resumes adoption only from receipt-bound refreshed state, typed Deployment readback, healthy workloads, and a complete full-scope zero-change plan. The validator canonicalizes only provider-equivalent omitted, null, or empty `sub_path` and `sub_path_expr` values. Every non-empty subpath remains a contract change and is denied. This workload readback does not establish Kafka round trips, scheduled-job success, Console
 authentication, or full deployment readiness. The separate browser publication gate verifies the
 Console and API edge after workload convergence.
-The workload factory binds Operator, isolated Executor, Document API and Document Worker to
-`fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and `fdai_ingestion_worker`, respectively,
-through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It leaves the caller's environment unchanged.
+The workload factory binds Core, Operator, isolated Executor, Document API and Document Worker to
+`fdai_core`, `fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and
+`fdai_ingestion_worker`, respectively, through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It
+leaves the caller's environment unchanged.
+Before a selected-service update is planned, the coordinator reapplies the selected service's
+exact database role from the current workload renderer. This permits a role-binding repair without
+changing peers or weakening database guards; other ordinary environment values remain retained.
 All rendered services explicitly select the deployed execution venue. Role selection neither grants
 database membership nor supplies service-owned DSNs, and never enables Executor authority cutover.
 

@@ -1,8 +1,8 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: cd47626cabd9188ffd04ed050559c0870887d6ad
-translation_revised: 2026-10-21
+translation_source_sha: d3004cdc1a52dc29087dc2fbf166ad25c4f4e352
+translation_revised: 2026-10-23
 ---
 # Hub 수명 주기 운영자 가이드
 
@@ -15,6 +15,11 @@ translation_revised: 2026-10-21
 > 설치 경로를 사용하세요. 이 문서는 클라우드 변경, 발행, 키 반출, 워크로드 적용을 승인하지 않습니다.
 
 ## 이 문서에서 다루는 내용
+
+담당자별 반복 실행 점검표와 비공개 실행 묶음 확장은
+[배포 인수인계](hub-lifecycle-deployment-handoff-ko.md)를 참조하세요.
+[운영 경험 개선 목록](hub-lifecycle-operator-experience-ko.md)은 현재 수동 단계와
+앞으로 추가할 UI 자동화를 구분합니다.
 
 FDAI Release Hub는 공급자용입니다. Lifecycle Hub는 설치본 운영자용입니다.
 수명 주기 에이전트는 설치본의 AKS 클러스터 안에서 실행하며, 허용된 워크로드
