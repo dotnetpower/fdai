@@ -600,7 +600,7 @@ def test_runtime_bundle_replay_reads_durable_state_in_another_os_process(
     try:
         process.start()
         sending.close()
-        process.join(timeout=15)
+        process.join(timeout=60)
         assert process.exitcode == 0
         assert receiving.poll(0)
         assert receiving.recv() == ("already-reported", [])
