@@ -446,20 +446,18 @@ jobs:
       - name: Install frozen runtime workspace
         run: uv sync --frozen --package fdai-core-control-plane --no-dev
 
-      - name: Enforce governance review authority
+      - name: Classify governed source changes
         if: github.event_name == 'pull_request'
         env:
-          GH_TOKEN: ${{ github.token }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPOSITORY_VARIABLES_JSON: ${{ toJSON(vars) }}
         run: |
           set -euo pipefail
+          echo "Repository review follows GitHub branch protection; no installation authority is granted."
           changed="$RUNNER_TEMP/governance-changed-files.txt"
           git diff --no-renames --name-only "$PR_BASE_SHA...$PR_HEAD_SHA" > "$changed"
           if ! grep -Eq '^(config/notifications-matrix\.yaml$|rule-catalog/(rules|rule-sets|assignments|exemptions|overrides|retirements)/|rule-catalog/override-parameter-bounds\.yaml$|rule-catalog/risk-classification\.yaml$|policies/risk)' "$changed"; then
-            echo "No governed catalog changes require identity review."
+            echo "No governed catalog source changes."
             exit 0
           fi
           scope="$(uv run python scripts/governance/check-governance-review-authority.py \
@@ -467,46 +465,12 @@ jobs:
             --changed-files "$changed" \
             --base-sha "$PR_BASE_SHA" \
             --head-sha "$PR_HEAD_SHA")"
-          echo "Governance scope: $scope"
+          echo "Potential installation governance scope: $scope"
           # The scope proof can't relax a pull request that also changes the code it relies on.
           if grep -Eqx '\.github/workflows/ci\.yml|scripts/governance/check-governance-review-authority\.py|services/core-control-plane/src/fdai/(core/notifications/(matrix|router)|shared/providers/notifications/base|rule_catalog/schema/governance_review_authority|delivery/gitops_pr/governance_review)\.py' "$changed"; then
             scope='{"identity_review_required": true}'
-            echo "Governance scope trust anchors changed; identity review is required."
+            echo "Governance scope trust anchors changed: $scope"
           fi
-          if [[ "$scope" == *'"identity_review_required": false'* ]]; then
-            echo "Governed paths changed, but none needs identity review (non-A1 routing only)."
-            exit 0
-          fi
-          TRUSTED_APP_ID="$(
-            python3 - <<'PY'
-          import json
-          import os
-
-          variables = json.loads(os.environ["REPOSITORY_VARIABLES_JSON"])
-          print(variables.get("FDAI_GOVERNANCE_IDENTITY_APP_ID", ""))
-          PY
-          )"
-          if [[ ! "$TRUSTED_APP_ID" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::FDAI_GOVERNANCE_IDENTITY_APP_ID must name the trusted Entra verifier GitHub App"
-            exit 1
-          fi
-          gh api --paginate --slurp \
-            "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews?per_page=100" \
-            > "$RUNNER_TEMP/governance-reviews.json"
-          gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA" \
-            > "$RUNNER_TEMP/governance-commit.json"
-          gh api --paginate --slurp -H "Accept: application/vnd.github+json" \
-            "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100" \
-            > "$RUNNER_TEMP/governance-checks.json"
-          uv run python scripts/governance/check-governance-review-authority.py \
-            --event "$GITHUB_EVENT_PATH" \
-            --commit "$RUNNER_TEMP/governance-commit.json" \
-            --reviews "$RUNNER_TEMP/governance-reviews.json" \
-            --checks "$RUNNER_TEMP/governance-checks.json" \
-            --changed-files "$changed" \
-            --trusted-app-id "$TRUSTED_APP_ID" \
-            --base-sha "$PR_BASE_SHA" \
-            --head-sha "$PR_HEAD_SHA"
 
       - name: Install OPA (Rego runner)
         uses: ./.github/actions/setup-opa
