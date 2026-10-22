@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: aac4f2287ef451c30ab790acc9c02334d0b976b6
+translation_source_sha: 6c6dd47532a9e13edf5479660ee0a9d551f34ec0
 translation_revised: 2026-10-22
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -292,8 +292,10 @@ GitHub 로그인은 `github:<login>`처럼 공급자를 명시한 감사 신원�
 
 ## 배포 구성
 
-문서 인제스트, Operator API, ChatOps를 활성화한 후에만
-`enable_stewardship_governance=true`를 설정하세요. Terraform은 다음 배포 소유 값을
+문서 인제스트와 Operator API를 활성화한 후에만
+`enable_stewardship_governance=true`를 설정하세요. Console 관리형 모드에서는 Console이 검토 화면이므로
+ChatOps가 선택 사항이며, 메신저가 없으면 병합 효과 알림은 `no_eligible_channels`로 기록됩니다.
+GitOps 대상을 선택하면 ChatOps는 계속 필요합니다. Terraform은 다음 배포 소유 값을
 요구합니다.
 
 | 입력 | 런타임 연결 | 저장 위치 |

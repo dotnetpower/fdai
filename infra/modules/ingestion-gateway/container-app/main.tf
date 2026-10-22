@@ -1,3 +1,7 @@
+locals {
+  chatops_configured = var.stewardship_governance_enabled && nonsensitive(var.chatops_webhook_url_secret_id) != ""
+}
+
 resource "azurerm_container_app" "ingestion" {
   count                        = 0
   name                         = var.name
@@ -44,7 +48,7 @@ resource "azurerm_container_app" "ingestion" {
   }
 
   dynamic "secret" {
-    for_each = var.stewardship_governance_enabled ? [1] : []
+    for_each = local.chatops_configured ? [1] : []
     content {
       name                = "chatops-webhook-url"
       identity            = var.identity_id
@@ -145,7 +149,7 @@ resource "azurerm_container_app" "ingestion" {
         }
       }
       dynamic "env" {
-        for_each = var.stewardship_governance_enabled ? [1] : []
+        for_each = local.chatops_configured ? [1] : []
         content {
           name        = "FDAI_CHATOPS_WEBHOOK_URL"
           secret_name = "chatops-webhook-url"
@@ -420,7 +424,7 @@ resource "azurerm_container_app" "worker" {
   }
 
   dynamic "secret" {
-    for_each = var.stewardship_governance_enabled ? [1] : []
+    for_each = local.chatops_configured ? [1] : []
     content {
       name                = "chatops-webhook-url"
       identity            = var.worker_identity_id
@@ -603,7 +607,7 @@ resource "azurerm_container_app" "worker" {
         }
       }
       dynamic "env" {
-        for_each = var.stewardship_governance_enabled ? [1] : []
+        for_each = local.chatops_configured ? [1] : []
         content {
           name        = "FDAI_CHATOPS_WEBHOOK_URL"
           secret_name = "chatops-webhook-url"

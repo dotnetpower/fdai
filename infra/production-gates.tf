@@ -104,9 +104,10 @@ check "stewardship_governance_requires_delivery" {
     condition = !var.enable_stewardship_governance || (
       var.enable_document_ingestion &&
       var.enable_operator_api &&
-      var.enable_chatops_hil &&
       (
         (
+          # Console-governed mode (no GitOps inputs): the Console is the review and notification
+          # surface, so ChatOps is optional and adds a messenger channel when configured.
           trimspace(var.gitops_owner) == "" &&
           trimspace(var.gitops_repo) == "" &&
           trimspace(nonsensitive(var.gitops_token)) == "" &&
@@ -132,7 +133,8 @@ check "stewardship_governance_requires_delivery" {
               trimspace(nonsensitive(var.github_app_private_key)) != ""
             )
           ) &&
-          length(nonsensitive(var.github_webhook_secret)) >= 32
+          length(nonsensitive(var.github_webhook_secret)) >= 32 &&
+          var.enable_chatops_hil
         )
       ) &&
       trimspace(var.stewardship_maintainers) != "" &&
@@ -141,7 +143,7 @@ check "stewardship_governance_requires_delivery" {
         contains(keys(var.stewardship_agent_bindings), agent)
       ])
     )
-    error_message = "stewardship governance requires document ingestion, Operator API, ChatOps, complete stewardship bindings, and either Console-governed mode (no GitOps inputs) or a complete GitOps credential and 32+ character webhook secret set."
+    error_message = "stewardship governance requires document ingestion, Operator API, complete stewardship bindings, and either Console-governed mode (no GitOps inputs, ChatOps optional) or a complete GitOps credential, 32+ character webhook secret, and ChatOps set."
   }
 }
 
