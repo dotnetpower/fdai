@@ -9,6 +9,10 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.lifecycle_promotion import (
+    CanaryObservation,
+    PromotionStageCriteria,
+)
 from starlette.testclient import TestClient
 
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
@@ -692,3 +696,127 @@ def test_capability_recall_blocks_repromotion_until_lifted_and_exports_records(
         ("capability", "action:scale-service", "recall", None),
         ("capability", "action:scale-service", "lift", "1.6.0"),
     ]
+
+
+def test_promotion_pipeline_enforces_labels_soak_canary_health_and_timeouts(
+    store: ReleaseStore,
+) -> None:
+    publish(store)
+    rc_stage = PromotionStageCriteria(
+        source_channel="DEV",
+        target_channel="RELEASE_CANDIDATE",
+        required_labels=frozenset({"security-reviewed", "qa-passed"}),
+        min_soak_seconds=3600,
+        min_healthy_canaries=2,
+        max_stage_timeout_seconds=7200,
+    )
+    rev = store.snapshot()["revision"]
+    base_change = Change(revision=rev, confirmation="1.6.0", reason="Pipeline stage promotion")
+    healthy_canaries = (
+        CanaryObservation(
+            installation_id="canary-1", release_id="1.6.0", healthy=True, soak_seconds=4000
+        ),
+        CanaryObservation(
+            installation_id="canary-2", release_id="1.6.0", healthy=True, soak_seconds=3600
+        ),
+    )
+
+    # 1. Missing required label is blocked.
+    with pytest.raises(CatalogError, match="promotion_labels_missing"):
+        store.promote_stage(
+            "1.6.0",
+            rc_stage,
+            base_change,
+            labels=frozenset({"security-reviewed"}),
+            canary_observations=healthy_canaries,
+            elapsed_stage_seconds=4000,
+        )
+
+    # 2. Unhealthy canary is blocked.
+    with pytest.raises(CatalogError, match="promotion_canary_unhealthy"):
+        store.promote_stage(
+            "1.6.0",
+            rc_stage,
+            base_change,
+            labels=frozenset({"security-reviewed", "qa-passed"}),
+            canary_observations=(
+                healthy_canaries[0],
+                CanaryObservation(
+                    installation_id="canary-2",
+                    release_id="1.6.0",
+                    healthy=False,
+                    soak_seconds=4000,
+                ),
+            ),
+            elapsed_stage_seconds=4000,
+        )
+
+    # 3. Insufficient soak time is blocked.
+    with pytest.raises(CatalogError, match="promotion_soak_incomplete"):
+        store.promote_stage(
+            "1.6.0",
+            rc_stage,
+            base_change,
+            labels=frozenset({"security-reviewed", "qa-passed"}),
+            canary_observations=(
+                healthy_canaries[0],
+                CanaryObservation(
+                    installation_id="canary-2",
+                    release_id="1.6.0",
+                    healthy=True,
+                    soak_seconds=1800,
+                ),
+            ),
+            elapsed_stage_seconds=4000,
+        )
+
+    # 4. Stage timeout exceeded is blocked.
+    with pytest.raises(CatalogError, match="promotion_stage_timed_out"):
+        store.promote_stage(
+            "1.6.0",
+            rc_stage,
+            base_change,
+            labels=frozenset({"security-reviewed", "qa-passed"}),
+            canary_observations=healthy_canaries,
+            elapsed_stage_seconds=7201,
+        )
+
+    # 5. All criteria satisfied advances 1.6.0 to RELEASE_CANDIDATE, then to RELEASE.
+    store.promote_stage(
+        "1.6.0",
+        rc_stage,
+        base_change,
+        labels=frozenset({"security-reviewed", "qa-passed"}),
+        canary_observations=healthy_canaries,
+        elapsed_stage_seconds=4000,
+    )
+    release_stage = PromotionStageCriteria(
+        source_channel="RELEASE_CANDIDATE",
+        target_channel="RELEASE",
+        required_labels=frozenset({"security-reviewed", "release-approved"}),
+        min_soak_seconds=7200,
+        min_healthy_canaries=2,
+        max_stage_timeout_seconds=14400,
+    )
+    store.promote_stage(
+        "1.6.0",
+        release_stage,
+        Change(
+            revision=store.snapshot()["revision"],
+            confirmation="1.6.0",
+            reason="Promote to RELEASE",
+        ),
+        labels=frozenset({"security-reviewed", "release-approved"}),
+        canary_observations=(
+            CanaryObservation(
+                installation_id="canary-1", release_id="1.6.0", healthy=True, soak_seconds=7500
+            ),
+            CanaryObservation(
+                installation_id="canary-2", release_id="1.6.0", healthy=True, soak_seconds=7200
+            ),
+        ),
+        elapsed_stage_seconds=7500,
+    )
+    admitted = admit(store)
+    assert admitted.channels["RELEASE_CANDIDATE"] == frozenset({"1.6.0"})
+    assert admitted.channels["RELEASE"] == frozenset({"1.6.0"})

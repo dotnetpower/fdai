@@ -166,6 +166,9 @@ such as a completed security review, soak time with healthy canary installations
 maintenance windows, and bounded timeouts. A channel contributor can also add a Release manually,
 for example to ship an incident fix, as in
 [Apollo channel promotion](https://www.palantir.com/docs/apollo/core/release-channels).
+`evaluate_promotion_stage` and `ReleaseStore.promote_stage` enforce source-channel presence,
+required labels, canary health, minimum soak seconds, bounded stage timeouts, and active
+Release/capability recall checks before advancing a Release to its target channel.
 
 A regulated customer that reviews each Release before it becomes eligible can create a custom
 channel in its Target Hub and add Releases from `RELEASE` by hand. Channel membership is
@@ -329,6 +332,9 @@ permission to run unimplemented migrations or evidence of an installed rollback.
 The installation imports each Release's images into its own container registry inside the
 boundary. The artifacts-missing constraint blocks a Plan until every required digest is present,
 as in [Apollo constraints](https://www.palantir.com/docs/apollo/core/plans-and-constraints).
+`BoundaryRegistryMirror` tracks mirrored immutable `sha256:<hex>` digests inside the boundary and
+feeds `available_artifact_digests` so `plan_next` blocks a Release with `artifact_unavailable`
+until every required image digest is mirrored.
 
 ### Offline installations
 
