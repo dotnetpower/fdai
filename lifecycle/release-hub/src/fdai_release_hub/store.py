@@ -13,6 +13,12 @@ from typing import Any
 
 from cryptography.exceptions import InvalidSignature
 from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.lifecycle_promotion import (
+    CanaryObservation,
+    PromotionStageCriteria,
+    PromotionStageInput,
+    evaluate_promotion_stage,
+)
 from fdai_deployment_cli.lifecycle_release import (
     LIFECYCLE_RELEASE_SCHEMAS,
     ApplicationRelease,
@@ -375,6 +381,51 @@ class ReleaseStore:
             else:
                 raise CatalogError("Unsupported capability action.")
         return self.snapshot()
+
+    def promote_stage(
+        self,
+        release_id: str,
+        criteria: PromotionStageCriteria,
+        change: Change,
+        *,
+        labels: frozenset[str] = frozenset(),
+        canary_observations: tuple[CanaryObservation, ...] = (),
+        elapsed_stage_seconds: int = 0,
+        actor: str = "local-operator",
+    ) -> dict[str, Any]:
+        """Promote ``release_id`` to ``criteria.target_channel`` only when pipeline checks pass."""
+
+        current = self.snapshot()
+        release_entries = {item["id"]: item for item in current["releases"]}
+        if release_id not in release_entries:
+            raise CatalogError("Release was not found.", 404)
+        release = parse_lifecycle_release_manifest(release_entries[release_id]["manifest"].encode())
+        present_in_source = release_id in current["channels"].get(criteria.source_channel, [])
+        events_asc = list(reversed(current["events"]))
+        stage_input = PromotionStageInput(
+            release_id=release_id,
+            present_in_source_channel=present_in_source,
+            labels=labels,
+            canary_observations=canary_observations,
+            elapsed_stage_seconds=elapsed_stage_seconds,
+            capability_ids=tuple(sorted(release.capability_maximums)),
+            recall_records=self._recall_records_from_events(events_asc),
+        )
+        decision = evaluate_promotion_stage(criteria, stage_input)
+        if not decision.allowed:
+            raise CatalogError(f"Promotion stage blocked ({decision.reason_code}).", 409)
+        return self.change(
+            "contribute",
+            release_id,
+            Change(
+                revision=change.revision,
+                confirmation=change.confirmation,
+                reason=change.reason,
+                channel=criteria.target_channel,
+                channel_confirmation=change.channel_confirmation,
+            ),
+            actor=actor,
+        )
 
     @staticmethod
     def _validate_configuration_version(release_id: str, release: LifecycleRelease) -> None:
