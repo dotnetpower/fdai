@@ -181,6 +181,8 @@ Default forwarding (`default` or route-only `0.0.0.0/0`) reserves no address spa
 from routes; declared VNet, peer, gateway ranges and non-default routes remain constraints.
 Missing/malformed evidence blocks selection. Fewer than two candidates reports only available and
 required counts with a review action. Selection never edits routes/firewalls or proves reachability.
+The reviewed pool is seven networks followed by `172.31.0.0/16` and `172.26.0.0/16`; the appended
+ranges are chosen only when every earlier one is occupied, and they obey the same overlap rules.
 
 Standalone uses the verified bundle, not the checkout. Its exact policy/module file set rejects changed, missing, or extra bytes. Fixes need a rebuilt signed kit;
 editing extracted sources or disabling verification is unsupported.

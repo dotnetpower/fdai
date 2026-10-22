@@ -136,3 +136,47 @@ def test_real_exhaustion_reports_counts_without_network_values(
     assert "required=2" in str(error.value)
     assert "review" in str(error.value)
     assert all(prefix not in str(error.value) for prefix in prefixes)
+
+
+def test_appended_ranges_are_chosen_only_after_the_original_pool_is_occupied(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = [
+        "172.29.0.0/16",
+        "172.30.0.0/16",
+        "172.27.0.0/16",
+        "172.28.0.0/16",
+        "10.237.0.0/16",
+        "10.238.0.0/16",
+        "192.168.240.0/20",
+    ]
+
+    free = _layout(monkeypatch)
+    assert str(free[0]) == "172.29.0.0/16"
+
+    layout = _layout(monkeypatch, vnets=[{"local": original, "peers": []}])
+    assert str(layout[0]) == "172.31.0.0/16"
+    assert str(layout[4]) == "172.26.0.0/16"
+    # A later installation still stops cleanly once the extended pool is occupied too.
+    with pytest.raises(ValueError, match="available=0"):
+        _layout(
+            monkeypatch,
+            vnets=[{"local": [*original, "172.31.0.0/16", "172.26.0.0/16"], "peers": []}],
+        )
+
+
+def test_an_occupied_appended_range_is_skipped_like_any_other(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    occupied = [
+        "172.29.0.0/16",
+        "172.30.0.0/16",
+        "172.27.0.0/16",
+        "172.28.0.0/16",
+        "10.237.0.0/16",
+        "10.238.0.0/16",
+        "172.31.0.0/16",
+    ]
+    layout = _layout(monkeypatch, vnets=[{"local": occupied, "peers": []}])
+    assert str(layout[0]) == "192.168.240.0/20"
+    assert str(layout[4]) == "172.26.0.0/16"

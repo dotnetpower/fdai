@@ -278,6 +278,10 @@ def network_layout(
         "10.237.0.0/16",
         "10.238.0.0/16",
         "192.168.240.0/20",
+        # Appended so existing selections keep their order; a subscription that hosts several
+        # earlier installations can otherwise exhaust the pool while every range is unconnected.
+        "172.31.0.0/16",
+        "172.26.0.0/16",
     )
     available = [
         ipaddress.IPv4Network(candidate)
