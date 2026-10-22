@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 49b8a71e96d1db9bda82e61cb71284f920ce5212
-translation_revised: 2026-10-21
+translation_source_sha: 019e5add4bc0882d1b3357f368a60232301b7ca7
+translation_revised: 2026-10-22
 ---
 
 # 코드 보안 스캔
@@ -22,6 +22,12 @@ translation_revised: 2026-10-21
 > Java·C#용 선택 입증 레인, 보고서를 만드는 로컬 폴더 스캔, 등록된 저장소에 대한 Console 스캔
 > 요청, FDAI 자체 Python 함수 간 SQL 삽입 레인이 구현되었습니다.
 > [구현 원장](../../roadmap-implementation/operations/code-security-scanning.md)을 참조하세요.
+
+> **개발 검증:** 스캐너 동작과 배포 전 준비 상태는 로컬 개발환경에서 수용합니다. Container Apps와
+> AKS는 계속 지원하는 배포 형태이지만 개발 이슈를 닫는 필수 조건은 아닙니다. 로컬 수용 검증은
+> 예약된 저장소 선택, 정확한 리비전과 중복 건너뛰기, 제한된 처리 용량, 독립 결과 수용, worker
+> 격리 구성, 커버리지 처리를 실행해야 합니다. 이후 배포 환경에서 얻은 증적은 별도의 운영
+> 검증이며 로컬 테스트로부터 추론해서는 안 됩니다.
 
 ## 설계 개요
 

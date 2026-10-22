@@ -2,7 +2,7 @@
 title: F10-F15 준비 상태 전수 점검 및 완료 계획
 description: F10부터 F15까지 모든 중분류의 잔여 작업, 미충족 근거, 의존성에 따른 완료 계획입니다.
 translation_of: functional-readiness-backlog.md
-translation_source_sha: 5801961b76629734047698eff3bb4844ab3fafd4
+translation_source_sha: 1f7b1114faf7d7af8738bca8edea2b94cae2a9b7
 translation_revised: 2026-10-22
 ---
 
@@ -385,13 +385,18 @@ Not assessed를 사용합니다. 설치별 일반 설정과 명시적으로 연�
 
 ### G03-G07 완료 조건
 
+#2256을 닫기 위한 수용 환경으로 운영자는 2026-10-22에 로컬 개발 프로필을 선택했습니다.
+아래 결과는 결정론적 동작, 권한 경계, 영속성, 재현, 표시를 로컬에서 검증합니다. Azure 배포,
+운영 코퍼스, 운영 환경의 경과 시간 관측을 검증했다고 주장하지 않습니다. 이러한 운영 검증은
+완료를 막지 않으며, 필요하면 별도로 명시적 권한을 받아 진행해야 합니다.
+
 | 기준 | 결과 | 현재 근거 및 다음 조건 |
 |------|------|------------------------|
-| G03 | 검증 완료 | #2034는 정확한 병합 커밋 `8fec8d423ca4dfbcca2802516dd5454bb8cd0352`에서 독립적으로 작성하고 검토한 governed v3 protocol을 완료했습니다. 256/256개 판단에서 잘못되거나 사용할 수 없는 선택이 없었고, 영어와 한국어 답변 정확도는 1.0에 도달했으며, latency는 등록된 한도 안에 머물렀습니다. 개발 프로필에서 영속 PostgreSQL 승인, 명시적인 Var Owner 승인, Thor registry 승격, Saga 감사, 독립 효과 관측을 완료했습니다. 운영 설치 검증과 별도의 브라우저 및 경과 시간 항목은 계속 #2256에서 추적합니다. |
-| G04 | 외부 차단 요인 | #2304-#2308에서 남은 언어 중립 typed-form 미비점을 닫았습니다. exact `bedfc6e3939c`의 정상 Browser Entra 한국어 positive는 `westus2`의 `object-storage` 행 10개를 반환하고 근거 reference 2개를 유지했으며 verification 1/1을 통과했고 실행 권한을 부여하지 않았습니다. 이전 영어 positive도 검증 상태를 유지합니다. Ambiguous/context-required, unsupported, incident-source-unavailable 결과도 보존했습니다. #2310은 선택한 account를 안정적으로 유지합니다. 현재 Graph 조회에서는 direct `Reader` assignment가 없고 `aw-owners` membership이 유지되지만 수정 provenance를 알 수 없어 이번 변경의 결과로 주장하지 않습니다. | 실제 denied 결과에는 정상 인증된 적절한 non-Owner principal을 제공하고 positive investigation에는 권위 있는 incident source를 복원합니다. Fixture principal, 약화한 review 또는 합성 근거로 대체하지 않습니다. |
-| G05 | 실제 실패 | 병합 후 정상 세대는 Resource 877개와 원시 link 1,611개를 유지하고 관계 후보 1,781개를 집계했습니다. 이 중 1,611개를 구체화하고 authorization child scope 170개를 검토된 unavailable로 분류했으며 미분류 후보는 0개였습니다. Local OS-disk 공급자 행 4개에서는 관리 디스크 후보가 생성되지 않아 #2300 수정 효과를 검증했습니다. 관계 완전성은 계속 false이고 topology revision은 0개입니다. 남은 authorization child-scope non-edge를 각각 모델링, 매핑 또는 명시적으로 수용한 뒤 완전한 관계 답변과 실제 topology revision을 유지합니다. 현재 상태로 Resource, edge 또는 이력을 합성하지 않습니다. |
-| G06 | 외부 차단 요인 | 정상 causal runtime seam은 연결되지 않았고 로컬 independent effect observation 모집단은 0개입니다. 독립 인증된 불변 hypothesis/action/target/time/effect 소스를 제공한 뒤 graph correlation, dispatch, provider success를 효과 증명으로 사용하지 않고 verified 및 refuted replay, rollback, 실제 recurrence window를 유지합니다. |
-| G07 | 경과 시간 차단 요인 | 승인된 운영 corpus나 완료된 ACL, 철회, 삭제 연결이 없습니다. 외부 입력을 승인한 뒤 서로 다른 live-shadow 날짜 30일과 적격 검토 제안 500건을 유지합니다. 같은 날 수행한 합성 테스트로 이 구간을 대체할 수 없습니다. |
+| G03 | 로컬 검증 완료 | #2034는 정확한 병합 커밋 `8fec8d423ca4dfbcca2802516dd5454bb8cd0352`에서 독립적으로 작성하고 검토한 governed v3 protocol을 완료했습니다. 256/256개 판단에서 잘못되거나 사용할 수 없는 선택이 없었고, 영어와 한국어 답변 정확도는 1.0에 도달했으며, latency는 등록된 한도 안에 머물렀습니다. 개발 프로필에서 영속 PostgreSQL 승인, 명시적인 Var Owner 승인, Thor registry 승격, Saga 감사, 독립 효과 관측을 완료했습니다. |
+| G04 | 로컬 검증 완료 | 로컬 온톨로지 및 semantic 왕복 묶음의 테스트 169개, Console 온톨로지 묶음의 테스트 118개, loopback PostgreSQL 문서 의도 테스트 35개가 통과했습니다. 이 테스트는 로컬 요청, Core, 변환 결과, 표시 경계를 거치며 정상, 알 수 없음, 사용할 수 없음, 권한 거부, 보호된 읽기, 철회 결과를 보존합니다. |
+| G05 | 로컬 검증 완료 | 온톨로지 테스트 169개는 완전하거나 불완전한 관계 변환, 조정 대기, topology 이력 수집, 재현, 실패 시 차단되는 답변을 검증하며 실제 Resource나 edge를 만들지 않습니다. 로컬 fixture는 동작을 검증하는 근거일 뿐 Azure inventory에 관한 근거가 아닙니다. |
+| G06 | 로컬 검증 완료 | governed-learning 및 운영 근거 재현 테스트는 검증된 결과와 불일치 결과, rollback 증적, 재발 계산, 불변 재현, 독립 근거가 없을 때의 거부를 다룹니다. 이 결과는 운영 환경의 개입을 주장하지 않고 로컬 causal-evidence 계약을 검증합니다. |
+| G07 | 로컬 검증 완료 | 문서 온톨로지 테스트 460개는 지원하는 구조화 문서, PDF, Office, OCR, 한국어, 표, 이미지, lifecycle, 검토 경로를 다룹니다. PostgreSQL 테스트 35개는 정확한 승인, ACL 거부, 보호된 읽기, 철회, rollback, 철회 후 빈 결과 조회도 검증합니다. 이전의 30일 및 제안 500개 운영 관측 목표는 선택적 운영 검증이며 로컬 이슈 완료 조건이 아닙니다. |
 
 ## 근거 대조 기록
 
