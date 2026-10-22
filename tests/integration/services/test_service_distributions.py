@@ -186,6 +186,7 @@ IMPORT_DISTRIBUTIONS = {
     "starlette": "starlette",
     "tree_sitter": "tree-sitter",
     "tree_sitter_java": "tree-sitter-java",
+    "tiktoken": "tiktoken",
     "uvicorn": "uvicorn",
     "weasyprint": "weasyprint",
 }
