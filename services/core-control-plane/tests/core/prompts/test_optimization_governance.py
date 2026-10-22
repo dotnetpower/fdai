@@ -106,3 +106,21 @@ def test_decision_rejects_untyped_action_and_authority() -> None:
         replace(decision, execution_authority=0)
 
     assert isinstance(decision, PromptPromotionDecision)
+
+
+def test_sample_count_mismatch_holds_even_when_counts_look_non_regressing() -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    decision = evaluate_prompt_promotion(
+        baseline=_evidence("baseline"),
+        treatment=replace(
+            _evidence("treatment", tokens=700),
+            sample_count=200,
+            quality_passed=150,
+            safety_passed=200,
+        ),
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    assert decision.action is PromptPromotionAction.HOLD
+    assert decision.reason_codes == ("sample_count_mismatch",)

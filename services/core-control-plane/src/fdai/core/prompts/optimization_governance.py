@@ -140,6 +140,8 @@ def evaluate_prompt_promotion(
         reasons.add("model_binding_mismatch")
     if baseline.cohort_digest != treatment.cohort_digest:
         reasons.add("cohort_mismatch")
+    if baseline.sample_count != treatment.sample_count:
+        reasons.add("sample_count_mismatch")
     if min(baseline.sample_count, treatment.sample_count) < MIN_REVIEWED_PROMPT_COHORT_CASES:
         reasons.add("cohort_too_small")
     if treatment.safety_passed != treatment.sample_count:
