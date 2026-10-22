@@ -119,6 +119,7 @@ from fdai.delivery.persistence.postgres_operational_evidence import (
     PostgresOperationalEvidenceConfig,
     PostgresOperationalProofReader,
     PostgresOperationalProofWriter,
+    role_bound_connection,
 )
 from fdai.delivery.persistence.postgres_operational_evidence_grants import (
     read_proof_store_grants,
@@ -324,6 +325,29 @@ def build_verifier_workload(
     observation_provider = (
         _configured_observation_provider(env, settings, verifier_principal) if deployed else None
     )
+    forecast_sources = env.get("FDAI_FORECAST_HISTORY_SOURCES_JSON", "").strip()
+    forecast_producers = env.get("FDAI_FORECAST_HISTORY_PRODUCERS_JSON", "").strip()
+    forecast_slice_source: StateTransitionForecastHistorySliceSource | None = None
+    if forecast_sources:
+        try:
+            forecast_configuration = parse_forecast_history_configuration(
+                bindings_json=forecast_sources,
+                producers_json=forecast_producers or None,
+            )
+        except ValueError as exc:
+            raise RuntimeError(
+                "operational evidence forecast history bindings are invalid"
+            ) from exc
+        forecast_slice_source = StateTransitionForecastHistorySliceSource(
+            store=PostgresStateTransitionStore(
+                config=PostgresStateTransitionStoreConfig(
+                    dsn=settings.verifier_dsn,
+                    statement_timeout_ms=1_000,
+                    connect_timeout_s=1,
+                )
+            ),
+            bindings=forecast_configuration.bindings,
+        )
 
     async def probe() -> VerifierReadiness:
         state = "unavailable"
@@ -381,6 +405,8 @@ def build_verifier_workload(
         if observation_provider is not None:
             source_health[METRIC_SOURCE] = OperationalEvidenceSourceHealth.HEALTHY
             source_health[DEPENDENCY_HEALTH_SOURCE] = OperationalEvidenceSourceHealth.HEALTHY
+        if forecast_slice_source is not None:
+            source_health.update(await _forecast_source_health(store))
         readiness.state = state
         readiness.reasons = reasons
         readiness.source_health = source_health
@@ -400,28 +426,7 @@ def build_verifier_workload(
     ]
     if observation_provider is not None:
         readbacks.append(OperationalTestObservationReadback(provider=observation_provider))
-    forecast_sources = env.get("FDAI_FORECAST_HISTORY_SOURCES_JSON", "").strip()
-    forecast_producers = env.get("FDAI_FORECAST_HISTORY_PRODUCERS_JSON", "").strip()
-    if forecast_sources:
-        try:
-            forecast_configuration = parse_forecast_history_configuration(
-                bindings_json=forecast_sources,
-                producers_json=forecast_producers or None,
-            )
-        except ValueError as exc:
-            raise RuntimeError(
-                "operational evidence forecast history bindings are invalid"
-            ) from exc
-        forecast_slice_source = StateTransitionForecastHistorySliceSource(
-            store=PostgresStateTransitionStore(
-                config=PostgresStateTransitionStoreConfig(
-                    dsn=settings.verifier_dsn,
-                    statement_timeout_ms=1_000,
-                    connect_timeout_s=1,
-                )
-            ),
-            bindings=forecast_configuration.bindings,
-        )
+    if forecast_slice_source is not None:
         readbacks.extend(
             (
                 ForecastHistorySliceReadback(source=forecast_slice_source),
@@ -643,6 +648,44 @@ def _metric_templates(raw: str) -> dict[str, MetricKqlTemplate]:
             label_columns=tuple(label_columns),
         )
     return templates
+
+
+_FORECAST_SOURCE_IDS = (
+    "azure.activity-log",
+    "azure.resource-existence",
+    "azure.resource-graph-changes",
+    "core-control-plane.action-audit",
+    "core-control-plane.change-window-history",
+    "inventory.incarnation-ledger",
+    "inventory.observation-journal",
+    "operating-intent.source-revisions",
+)
+
+
+async def _forecast_source_health(
+    store: PostgresOperationalEvidenceConfig,
+) -> dict[str, OperationalEvidenceSourceHealth]:
+    now = datetime.now(UTC)
+    try:
+        async with role_bound_connection(store) as connection:
+            await (
+                await connection.execute(
+                    "SELECT count(*) AS rows "
+                    "FROM public.operational_state_transition_coverage WHERE FALSE"
+                )
+            ).fetchone()
+            await (
+                await connection.execute(
+                    "SELECT count(*) AS rows "
+                    "FROM public.fdai_forecast_action_history_audit(%s, %s, %s, %s)",
+                    ("fdai-readiness-probe", now, now, 1),
+                )
+            ).fetchone()
+    except (OSError, PermissionError, RuntimeError, ValueError, psycopg.Error):
+        status = OperationalEvidenceSourceHealth.UNAVAILABLE
+    else:
+        status = OperationalEvidenceSourceHealth.HEALTHY
+    return {source_id: status for source_id in _FORECAST_SOURCE_IDS}
 
 
 def _allowed_role_scopes(raw: str) -> dict[str, tuple[str, ...]]:

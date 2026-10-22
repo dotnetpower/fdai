@@ -43,6 +43,7 @@ from fdai.delivery.repo_assets import repo_asset_root
 
 BOUND_READBACK_PURPOSES = frozenset(
     {
+        "agent-discussion-read",
         "case-history-read",
         "current-case-reuse",
         "forecast-history-actions",

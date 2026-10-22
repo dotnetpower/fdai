@@ -79,7 +79,6 @@ async def retain_current_case_reuse_source(
 
     scope_digest = current_reuse_scope_digest(event=event, action=action, context=context)
     record: dict[str, object] = {
-        "schema_version": "1.0.0",
         "verification": _verification(verification),
         "case_scope_digest": "sha256:" + (context.access_scope_digest or context.graph_digest),
         "target_scope_digest": scope_digest,
@@ -87,10 +86,6 @@ async def retain_current_case_reuse_source(
         "inventory_generation": verification.graph_digest,
         "safety_receipts": list(_safety_receipts(verification)),
         "scope_digest": scope_digest,
-        "case_ref": context.case_ref,
-        "resource_ref": resource_ref,
-        "event_id": str(event.event_id),
-        "recorded_at": verification.observed_at.isoformat(),
     }
     await store.write_state(_key(context.case_ref, resource_ref, str(event.event_id)), record)
     return record

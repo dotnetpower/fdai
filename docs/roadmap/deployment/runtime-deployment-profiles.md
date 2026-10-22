@@ -769,8 +769,11 @@ encryption. Allocatable workload-envelope validation remains open in the impleme
 The independent operational evidence verifier is an AKS-only optional internal workload. The
 runtime renderer receives it only when the standalone deployment input has already enabled the
 dedicated identity and supplied reviewed registry pins, deployed anchors, caller-token validation
-data, writer membership, role-readback scopes, and executor principals. This input changes neither
-runtime profile selection nor execution authority.
+data, writer membership, role-readback scopes, and executor principals. The AKS substrate target
+set includes the verifier's `Monitoring Reader` assignment alongside image pull and the state-store
+DSN secret, and a retained host context that started without a verifier input can bind a newly
+selected input on resume while rejecting any later omission or digest change. This input changes
+neither runtime profile selection nor execution authority.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

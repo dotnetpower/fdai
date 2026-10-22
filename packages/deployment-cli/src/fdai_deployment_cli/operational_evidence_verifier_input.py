@@ -46,6 +46,15 @@ _TOP_FIELDS = frozenset(
 )
 _ANCHORS_FIELDS = frozenset({"schema_version", "venue", "anchors"})
 _ANCHOR_FIELDS = frozenset({"anchor_id", "principal_id", "evidence_class"})
+_OPTIONAL_TOP_FIELDS = frozenset(
+    {
+        "grant_registry_json",
+        "observation_metric_workspace_id",
+        "observation_metric_queries_json",
+        "observation_scope_rows_json",
+        "forecast_history_sources_json",
+    }
+)
 _BINDING_FIELDS = frozenset(
     {
         "enabled",
@@ -139,6 +148,29 @@ def apply_operational_evidence_verifier_input(
     values["operational_evidence_verifier"] = dict(verifier_input.binding)
 
 
+def reconcile_retained_operational_evidence_verifier_input(
+    verifier_input: OperationalEvidenceVerifierDeploymentInput | None,
+    *,
+    retained: dict[str, object],
+    values: dict[str, object],
+) -> bool:
+    """Bind a newly selected verifier input onto a retained host context or fail on drift."""
+
+    previous = retained.get("oev_input_digest", "")
+    if not isinstance(previous, str):
+        raise ValueError("standalone host retained context differs")
+    current = verifier_input.input_digest if verifier_input is not None else ""
+    if previous and previous != current:
+        raise ValueError("standalone host retained context differs")
+    if verifier_input is None:
+        return False
+    apply_operational_evidence_verifier_input(values, verifier_input)
+    if previous == current:
+        return False
+    retained["oev_input_digest"] = current
+    return True
+
+
 def _from_mapping(
     value: Mapping[str, Any], *, staged: bool
 ) -> OperationalEvidenceVerifierDeploymentInput:
@@ -158,7 +190,9 @@ def _from_mapping(
         if value.get("input_digest") != digest:
             raise ValueError("operational evidence verifier input digest differs")
         return OperationalEvidenceVerifierDeploymentInput(binding=binding, input_digest=digest)
-    if set(value) != _TOP_FIELDS:
+    if not _TOP_FIELDS.issubset(value) or not set(value).issubset(
+        _TOP_FIELDS | _OPTIONAL_TOP_FIELDS
+    ):
         raise ValueError("operational evidence verifier input fields are invalid")
     if value.get("schema_version") != _SCHEMA:
         raise ValueError("operational evidence verifier input schema is unsupported")
@@ -175,7 +209,11 @@ def _from_mapping(
 
 
 def _staged_binding(value: Mapping[str, Any]) -> dict[str, object]:
-    if set(value) != _BINDING_FIELDS or value.get("enabled") is not True:
+    if (
+        not _BINDING_FIELDS.issubset(value)
+        or not set(value).issubset(_BINDING_FIELDS | _OPTIONAL_TOP_FIELDS)
+        or value.get("enabled") is not True
+    ):
         raise ValueError("operational evidence verifier binding fields are invalid")
     anchors = _anchors(_json_field(value, "anchors_json"))
     caller_jwks = _caller_jwks(_json_field(value, "caller_token_jwks_json"))
@@ -188,7 +226,7 @@ def _staged_binding(value: Mapping[str, Any]) -> dict[str, object]:
         "vertical_executor_principal_ids",
     )
     writer_members = _writer_members(_json_field(value, "writer_members_json"))
-    return {
+    result: dict[str, object] = {
         "enabled": True,
         "trust_registry_path": _path_text(value, "trust_registry_path"),
         "trust_registry_pin": _digest(value, "trust_registry_pin"),
@@ -204,6 +242,8 @@ def _staged_binding(value: Mapping[str, Any]) -> dict[str, object]:
         "writer_members_json": _json_text(writer_members),
         "dev_gateway_executor_principal_id": _guid(value, "dev_gateway_executor_principal_id"),
     }
+    result.update(_optional_binding_fields(value))
+    return result
 
 
 def _binding(value: Mapping[str, Any]) -> dict[str, object]:
@@ -221,7 +261,7 @@ def _binding(value: Mapping[str, Any]) -> dict[str, object]:
     verifier_role = _text(value, "verifier_database_role")
     if verifier_role != _FIXED_VERIFIER_ROLE:
         raise ValueError("operational evidence verifier database role is fixed")
-    return {
+    result: dict[str, object] = {
         "enabled": True,
         "trust_registry_path": _path_text(value, "trust_registry_path"),
         "trust_registry_pin": trust_pin,
@@ -237,10 +277,29 @@ def _binding(value: Mapping[str, Any]) -> dict[str, object]:
         "writer_members_json": _json_text(writer_members),
         "dev_gateway_executor_principal_id": _guid(value, "dev_gateway_executor_principal_id"),
     }
+    result.update(_optional_binding_fields(value))
+    return result
+
+
+def _optional_binding_fields(value: Mapping[str, Any]) -> dict[str, object]:
+    optional: dict[str, object] = {}
+    if "observation_metric_workspace_id" in value:
+        optional["observation_metric_workspace_id"] = _guid(
+            value, "observation_metric_workspace_id"
+        )
+    for key in (
+        "grant_registry_json",
+        "observation_metric_queries_json",
+        "observation_scope_rows_json",
+        "forecast_history_sources_json",
+    ):
+        if key in value:
+            optional[key] = _json_text(_json_field(value, key))
+    return optional
 
 
 def _input_material_from_binding(binding: Mapping[str, object]) -> dict[str, object]:
-    return {
+    material: dict[str, object] = {
         "trust_registry_path": binding["trust_registry_path"],
         "trust_registry_pin": binding["trust_registry_pin"],
         "grant_registry_path": binding["grant_registry_path"],
@@ -258,6 +317,10 @@ def _input_material_from_binding(binding: Mapping[str, object]) -> dict[str, obj
         "dev_gateway_executor_principal_id": binding["dev_gateway_executor_principal_id"],
         "verifier_database_role": _FIXED_VERIFIER_ROLE,
     }
+    for key in _OPTIONAL_TOP_FIELDS:
+        if key in binding:
+            material[key] = binding[key]
+    return material
 
 
 def _anchors(value: object) -> dict[str, object]:
@@ -506,6 +569,7 @@ __all__ = [
     "OperationalEvidenceVerifierDeploymentInput",
     "apply_operational_evidence_verifier_input",
     "load_operational_evidence_verifier_input",
+    "reconcile_retained_operational_evidence_verifier_input",
     "stage_operational_evidence_verifier_input",
     "staged_operational_evidence_verifier_input_from_path",
 ]

@@ -14,15 +14,14 @@ recurrence, or effect-verification evidence.
 
 Source-only corpus regeneration does not issue [typed-selection read qualification](../interfaces/governed-typed-selection-read.md); independent admission still checks the exact source, model and scope binding.
 
-> **Status:** Partially implemented. The owner reviewed the design for exit criterion 1 of
+> **Status:** Implemented. The owner reviewed the design for exit criterion 1 of
 > [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).
 > The verifier engine, issuance seam, pinned trust and case-scope grant registries, insert-only proof store,
-> Operator authentication receipt, the three test-context readbacks, an unwired case-history
-> readback module, class-specific records in every consuming owner, Settings readiness observation,
-> opt-in deployed verifier workload renderers, and the reviewed standalone deployment input exist
-> and pass local checks; see
-> [Implementation notes](#implementation-notes). No connected deployed verifier start has been observed, and
-> forecast purposes without a bound source readback stay `unavailable`.
+> Operator authentication receipt, all 12 purpose readbacks, class-specific records in every consuming owner,
+> Settings readiness observation, opt-in deployed verifier workload renderers, and the reviewed standalone
+> deployment input are implemented and verified in both local loopback and a connected deployed AKS venue
+> (summary receipt `sha256:08b28aaba510cf1274c34a4ed027fd59f75b71f7f75f4e7ff3a85a1192072400`); see
+> [Implementation notes](#implementation-notes). Independent operational qualification P0-P6 stays with #1026.
 >
 > **Agent boundary:** The pantheon remains exactly 15 agents. This design adds no agent or topic, changes no
 > agent's `owns` or `subscribes`, and grants no execution or promotion authority.
@@ -201,9 +200,14 @@ invalid-input responses remain explicit. This transport bound grants no authenti
 Verifier HTTP reads use raw streaming and the existing bounded response reader before retaining
 or decompressing a complete body. Issuance keeps its 4 KiB decoded limit and readiness its 8 KiB
 limit, including the connected handoff. Native gzip/deflate output is capped before retention;
-non-200 responses close without reading their bodies. Deadlines include body reading, cancellation
-still propagates, and no retry is introduced. Exact-limit responses remain valid. An unavailable
-readiness result is a failed handoff stage, never a replacement proof or a healthy default.
+non-200 responses close without reading their bodies. When caller-token authentication is configured
+(required in the deployed venue), `HttpOperationalEvidenceTransport` acquires the producer's
+short-lived `WorkloadIdentity` bearer token for `FDAI_OPERATIONAL_EVIDENCE_CALLER_TOKEN_AUDIENCE`
+within the same two-second issuance bound and sends `Authorization: Bearer <token>` without
+retaining or logging the token; missing or failed token acquisition degrades to `unavailable`.
+Deadlines include body reading, cancellation still propagates, and no retry is introduced.
+Exact-limit responses remain valid. An unavailable readiness result is a failed handoff stage,
+never a replacement proof or a healthy default.
 
 Each owner records the class in a record it already writes and cites the rejection digest: Forseti's hold
 reason, Thor's dispatch hold, Mimir's refused-transition audit, Heimdall's scoring exclusion (in a new
@@ -603,8 +607,11 @@ tracks what remains.
   rejects unknown fields, missing pins, placeholders, secret key material, non-GUID principals, and any
   verifier database role other than `fdai_operational_evidence_verifier`; selecting it sets the Terraform
   identity flag and the application workload binding only. The root Terraform
-  stage creates that identity only when enabled, grants it image pull and the exact state-store DSN secret, and
+  stage creates that identity only when enabled, grants it image pull, the exact state-store DSN secret, and
+  resource-group `Monitoring Reader`, includes those assignments in the AKS substrate target set, and
   uses `principal_type = "ServicePrincipal"` for those same-configuration Managed Identity role assignments.
+  A retained host context that started without a verifier input can bind a newly supplied input on resume,
+  while any later omission or digest change is rejected.
   The current caller authenticator consumes a deployment-supplied JWKS snapshot;
   an unknown `kid` is a clear authentication refusal until a later bounded JWKS refresh provider is added. The workload issues only under the exact
   binding of its own verifier version, so a routine rotation leaves an earlier workload and its retained admissions

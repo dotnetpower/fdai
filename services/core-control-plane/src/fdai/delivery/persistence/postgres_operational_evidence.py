@@ -19,6 +19,7 @@ from fdai_service_contracts.operational_evidence import (
     OperationalEvidenceIssuanceStatus,
     OperationalEvidenceRejectionRecord,
 )
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
@@ -76,8 +77,15 @@ async def role_bound_connection(
 ) -> AsyncIterator[psycopg.AsyncConnection[dict[str, Any]]]:
     """Open one bounded transaction that refuses any role other than the configured one."""
 
+    dsn = config.dsn
+    try:
+        parsed = conninfo_to_dict(dsn)
+    except psycopg.ProgrammingError:
+        parsed = {}
+    if parsed and "options" not in parsed:
+        dsn = make_conninfo(dsn, options=f"-c role={config.expected_role}")
     async with await psycopg.AsyncConnection.connect(
-        config.dsn, row_factory=dict_row, connect_timeout=config.connect_timeout_s
+        dsn, row_factory=dict_row, connect_timeout=config.connect_timeout_s
     ) as connection:
         async with connection.transaction():
             await connection.execute(

@@ -39,8 +39,12 @@ async def read_proof_store_grants(
         members = await (
             await connection.execute(
                 "SELECT pg_get_userbyid(m.member) AS member FROM pg_auth_members m "
-                "WHERE m.roleid = (SELECT oid FROM pg_roles WHERE rolname = %s)",
-                (VERIFIER_ROLE,),
+                "WHERE m.roleid = (SELECT oid FROM pg_roles WHERE rolname = %s) "
+                "AND m.member NOT IN ("
+                "SELECT c.relowner FROM pg_class c "
+                "WHERE c.relnamespace = 'public'::regnamespace AND c.relname = ANY(%s)"
+                ")",
+                (VERIFIER_ROLE, list(PROOF_TABLES)),
             )
         ).fetchall()
         guards = await (

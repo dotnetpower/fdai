@@ -261,6 +261,65 @@ async def test_metric_provider_sample_client_requires_exact_observed_bin() -> No
     assert sample == {"value": 80.0}
 
 
+async def test_metric_provider_sample_client_surfaces_sha256_conflicting_samples() -> None:
+    provider = MetricProviderSampleClient(
+        StaticMetricProvider(
+            (
+                MetricPoint(
+                    metric_name="cpu_percent",
+                    at=_NOW,
+                    value=80.0,
+                    labels={"resource_id": _RESOURCE, "dim": "node"},
+                ),
+                MetricPoint(
+                    metric_name="cpu_percent",
+                    at=_NOW,
+                    value=90.0,
+                    labels={"resource_id": _RESOURCE, "dim": "node"},
+                ),
+            )
+        )
+    )
+    sample = await provider.sample(
+        target_ref=_RESOURCE,
+        metric_name="cpu_percent",
+        dimensions={"dim": "node"},
+        aggregation="avg",
+        observed_at=_NOW,
+    )
+    assert sample is not None
+    conflicts = sample.get("conflicting_samples")
+    assert isinstance(conflicts, list) and len(conflicts) == 2
+    assert all(isinstance(item, str) and item.startswith("sha256:") for item in conflicts)
+
+    class _Scope:
+        async def scope_state(self, **values):  # type: ignore[no-untyped-def]
+            assert values["policy_revision"] == "policy:test:1"
+            return {
+                "access_scope_digest": "a" * 64,
+                "metric_name": "cpu_percent",
+                "dimensions": {"dim": "node"},
+                "aggregation": "avg",
+                "service_impact": "none",
+                "protected_signal": False,
+                "operating_scope_coverage": "complete",
+                "dependency_health": "healthy",
+                "policy_revision": "policy:test:1",
+            }
+
+    obs_provider = AzureMonitorTestObservationProvider(
+        metrics=provider, scope=_Scope(), source_anchor="anchor:azure-platform"
+    )
+    record = await obs_provider.observation(
+        target_ref=_RESOURCE,
+        signal_code="cpu_percent",
+        observed_at=_NOW.isoformat(),
+        policy_revision="policy:test:1",
+    )
+    assert record is not None
+    assert record["conflicting_samples"] == conflicts
+
+
 async def test_current_reuse_adapter_requests_exact_independent_admission() -> None:
     from fdai.core.tiers.t1_lightweight.contextual_reuse import (
         current_reuse_evidence_digest,
