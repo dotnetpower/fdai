@@ -619,6 +619,9 @@ The workload factory binds Core, Operator, isolated Executor, Document API and D
 `fdai_core`, `fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and
 `fdai_ingestion_worker`, respectively, through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It
 leaves the caller's environment unchanged.
+Before a selected-service update is planned, the coordinator reapplies the selected service's
+exact database role from the current workload renderer. This permits a role-binding repair without
+changing peers or weakening database guards; other ordinary environment values remain retained.
 All rendered services explicitly select the deployed execution venue. Role selection neither grants
 database membership nor supplies service-owned DSNs, and never enables Executor authority cutover.
 
