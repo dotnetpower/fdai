@@ -314,7 +314,6 @@ class StewardshipGovernanceWorker:
 
 def stewardship_delivery_mode(
     environment: Mapping[str, str],
-    *,
     governed_execution: bool,
     enterprise_identity: bool = False,
 ) -> Literal["gitops", "console"] | None:
