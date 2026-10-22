@@ -139,6 +139,29 @@ def apply_operational_evidence_verifier_input(
     values["operational_evidence_verifier"] = dict(verifier_input.binding)
 
 
+def reconcile_retained_operational_evidence_verifier_input(
+    verifier_input: OperationalEvidenceVerifierDeploymentInput | None,
+    *,
+    retained: dict[str, object],
+    values: dict[str, object],
+) -> bool:
+    """Bind a newly selected verifier input onto a retained host context or fail on drift."""
+
+    previous = retained.get("oev_input_digest", "")
+    if not isinstance(previous, str):
+        raise ValueError("standalone host retained context differs")
+    current = verifier_input.input_digest if verifier_input is not None else ""
+    if previous and previous != current:
+        raise ValueError("standalone host retained context differs")
+    if verifier_input is None:
+        return False
+    apply_operational_evidence_verifier_input(values, verifier_input)
+    if previous == current:
+        return False
+    retained["oev_input_digest"] = current
+    return True
+
+
 def _from_mapping(
     value: Mapping[str, Any], *, staged: bool
 ) -> OperationalEvidenceVerifierDeploymentInput:
@@ -506,6 +529,7 @@ __all__ = [
     "OperationalEvidenceVerifierDeploymentInput",
     "apply_operational_evidence_verifier_input",
     "load_operational_evidence_verifier_input",
+    "reconcile_retained_operational_evidence_verifier_input",
     "stage_operational_evidence_verifier_input",
     "staged_operational_evidence_verifier_input_from_path",
 ]

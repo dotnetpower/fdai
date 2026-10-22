@@ -518,13 +518,17 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or retained.get("entra_binding_digest") != entra_binding_digest
             or retained.get("application_state_adoption_digest", "") != adoption_digest
             or retained.get("catalog_review_profile_digest") != catalog_profile.profile_digest
-            or retained.get("oev_input_digest", "") != verifier_input_digest
             or retained.get("initial_inventory_binding") != initial_inventory_binding
             or retained.get("key_vault_name") != key_vault_name
             or retained.get("document_storage_account_name") != document_storage_account_name
             or not _runtime_profile_matches(retained, runtime_profile)
         ):
             raise ValueError("standalone host retained context differs")
+        oev_changed = oev.reconcile_retained_operational_evidence_verifier_input(
+            verifier_input,
+            retained=retained,
+            values=retained_values,
+        )
         foundation.adoption.require_context(retained)
         source_changed = source_application_inputs.rebind_source_tree(retained, work_dir)
         authority_changed = reconcile_retained_development_authority(
@@ -535,7 +539,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             subscription_id=foundation.subscription_id,
             resource_groups=(str(app["name"]), str(ops["resource_group_name"])),
         )
-        if posture_changed or source_changed or authority_changed:
+        if posture_changed or oev_changed or source_changed or authority_changed:
             _replace_private_json(retained_context, retained)
             _replace_private_json(retained_variables, retained_values)
         _terraform_init(work_dir, retained)

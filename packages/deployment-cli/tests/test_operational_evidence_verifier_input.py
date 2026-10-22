@@ -6,10 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from fdai_deployment_cli import cli
+from fdai_deployment_cli import cli, standalone_stage_targets
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     apply_operational_evidence_verifier_input,
     load_operational_evidence_verifier_input,
+    reconcile_retained_operational_evidence_verifier_input,
 )
 from fdai_deployment_cli.standalone_operational_evidence import (
     aks_operational_evidence_verifier_workload,
@@ -221,6 +222,91 @@ def test_public_cli_exposes_private_input_path() -> None:
     )
 
     assert args.operational_evidence_verifier_input == Path("verifier.json")
+
+
+def test_aks_substrate_targets_include_verifier_identity_and_role_assignments() -> None:
+    root = Path(__file__).resolve().parents[3]
+    source = (root / "infra/main.tf").read_text(encoding="utf-8")
+    role_addresses = {
+        f"azurerm_role_assignment.{match.group(1)}"
+        for match in re.finditer(
+            r'resource "azurerm_role_assignment" "(operational_evidence_verifier_[^"]+)"',
+            source,
+        )
+    }
+    assert role_addresses == {
+        "azurerm_role_assignment.operational_evidence_verifier_acr_pull",
+        "azurerm_role_assignment.operational_evidence_verifier_state_store_secret_reader",
+        "azurerm_role_assignment.operational_evidence_verifier_monitoring_reader",
+    }
+
+    flex_targets = set(
+        standalone_stage_targets.substrate_targets(
+            {"runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-flex"}}
+        )
+    )
+    aks_db_targets = set(
+        standalone_stage_targets.substrate_targets(
+            {"runtime_profile": {"runtime_platform": "aks", "database_placement": "postgres-aks"}}
+        )
+    )
+
+    assert "module.operational_evidence_verifier_identity" in flex_targets
+    assert role_addresses <= flex_targets
+    assert "module.operational_evidence_verifier_identity" in aks_db_targets
+    assert {
+        "azurerm_role_assignment.operational_evidence_verifier_acr_pull",
+        "azurerm_role_assignment.operational_evidence_verifier_monitoring_reader",
+    } <= aks_db_targets
+    assert (
+        "azurerm_role_assignment.operational_evidence_verifier_state_store_secret_reader"
+        not in aks_db_targets
+    )
+
+
+def test_reconcile_retained_verifier_input_binds_once_and_rejects_drift(tmp_path: Path) -> None:
+    profile = load_operational_evidence_verifier_input(_write(tmp_path / "verifier.json", _input()))
+    other_payload = _input()
+    other_payload["trust_registry_pin"] = _digest("c")
+    other = load_operational_evidence_verifier_input(_write(tmp_path / "other.json", other_payload))
+    retained: dict[str, object] = {"oev_input_digest": ""}
+    values: dict[str, object] = {"env": "dev"}
+
+    assert (
+        reconcile_retained_operational_evidence_verifier_input(
+            None, retained=retained, values=values
+        )
+        is False
+    )
+    assert retained == {"oev_input_digest": ""}
+    assert values == {"env": "dev"}
+
+    assert (
+        reconcile_retained_operational_evidence_verifier_input(
+            profile, retained=retained, values=values
+        )
+        is True
+    )
+    assert retained["oev_input_digest"] == profile.input_digest
+    assert values["enable_operational_evidence_verifier"] is True
+    assert isinstance(values["operational_evidence_verifier"], dict)
+
+    assert (
+        reconcile_retained_operational_evidence_verifier_input(
+            profile, retained=retained, values=values
+        )
+        is False
+    )
+
+    with pytest.raises(ValueError, match="retained context differs"):
+        reconcile_retained_operational_evidence_verifier_input(
+            None, retained=retained, values=values
+        )
+
+    with pytest.raises(ValueError, match="retained context differs"):
+        reconcile_retained_operational_evidence_verifier_input(
+            other, retained=retained, values=values
+        )
 
 
 def _verifier_role_assignment_scope_shapes() -> dict[str, list[str]]:

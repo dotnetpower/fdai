@@ -601,8 +601,11 @@ tracks what remains.
   rejects unknown fields, missing pins, placeholders, secret key material, non-GUID principals, and any
   verifier database role other than `fdai_operational_evidence_verifier`; selecting it sets the Terraform
   identity flag and the application workload binding only. The root Terraform
-  stage creates that identity only when enabled, grants it image pull and the exact state-store DSN secret, and
+  stage creates that identity only when enabled, grants it image pull, the exact state-store DSN secret, and
+  resource-group `Monitoring Reader`, includes those assignments in the AKS substrate target set, and
   uses `principal_type = "ServicePrincipal"` for those same-configuration Managed Identity role assignments.
+  A retained host context that started without a verifier input can bind a newly supplied input on resume,
+  while any later omission or digest change is rejected.
   The current caller authenticator consumes a deployment-supplied JWKS snapshot;
   an unknown `kid` is a clear authentication refusal until a later bounded JWKS refresh provider is added. The workload issues only under the exact
   binding of its own verifier version, so a routine rotation leaves an earlier workload and its retained admissions

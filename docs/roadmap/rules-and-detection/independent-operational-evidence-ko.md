@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 124ed687538e8292911eade3c3480dd05e7ce05c
+translation_source_sha: df5e1636e4fbc1056159e0b76e87016c3530d4f5
 translation_revised: 2026-10-22
 ---
 # 독립 운영 근거 발급
@@ -589,8 +589,10 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   비공개 검토 JSON 파일에서만 받습니다. 알 수 없는 필드, 누락된 고정값, 자리 표시자, 시크릿 키 자료,
   GUID가 아닌 principal, `fdai_operational_evidence_verifier` 이외의 검증기 데이터베이스 역할을 거부합니다.
   이를 선택해도 Terraform 신원 플래그와 애플리케이션 워크로드 바인딩만 설정합니다. 루트 Terraform 단계는 사용 설정된 경우에만 그 신원을 만들고, 이미지
-  pull과 정확한 상태 저장소 DSN 시크릿만 부여하며, 같은 구성에서 만든 Managed Identity 역할 할당에
-  `principal_type = "ServicePrincipal"`을 사용합니다. 현재 호출자 인증기는 배포가 제공한 JWKS 스냅샷을 사용합니다. 알 수 없는
+  pull, 정확한 상태 저장소 DSN 시크릿, 리소스 그룹 `Monitoring Reader`를 부여하며, 이 할당들을 AKS 기반
+  대상 집합에 포함하고, 같은 구성에서 만든 Managed Identity 역할 할당에
+  `principal_type = "ServicePrincipal"`을 사용합니다. 검증기 입력 없이 시작한 보존 호스트 컨텍스트는 재개 시
+  새로 제공한 입력을 바인딩할 수 있으며, 이후의 누락이나 digest 변경은 거부합니다. 현재 호출자 인증기는 배포가 제공한 JWKS 스냅샷을 사용합니다. 알 수 없는
   `kid`는 나중에 제한된 JWKS 갱신 provider가 추가될 때까지 명확한 인증 거부입니다. 워크로드는 자신의 검증기 버전에
   해당하는 정확한 바인딩으로만 발급하므로, 일상적 교체 후에도 이전 워크로드와 이미 보관된 발급 기록은 만료될 때까지 유효하고, 철회 개정은 이를 폐기합니다. 재실행된
   시도는 동시에 실행된 작성자가 먼저 삽입한 경우에도 저장된 결과를 반환하며, 다른 조회에 다시 사용된 시도 ID는
