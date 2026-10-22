@@ -484,9 +484,12 @@ Plan whose sequence, generation, or source-state digest is stale.
 > **Implemented admission boundary:** The Agent verifies canonical signed Plan bytes against
 > independently configured Hub trust and durable local sequence state. Stale sequence, wrong
 > audience, revoked key and an over-wide envelope are refused before cluster calls even when
-> the apply adapter is enabled. This source boundary was delivered in #1951 and remains distinct
-> from production key lifecycle, local authorization receipts, physical phase fencing and
-> operational installation qualification.
+> the apply adapter is enabled. Automatic apply additionally requires a local
+> `LifecycleAuthorizationReceipt` bound to the exact Plan digest, fencing generation, Release and
+> configuration digests, and open window, and holds the workload phase when an earlier
+> `infrastructure` phase completion receipt for the same exact Plan digest is required but absent.
+> Production key lifecycle, physical multi-host infrastructure coordination and operational
+> installation qualification remain separate.
 
 A Plan runs as a fenced sequence of phases. The infrastructure agent owns the infrastructure phase,
 and the lifecycle agent owns the workload phase. A phase starts only after the previous phase's
@@ -510,7 +513,11 @@ allows it, and otherwise holds the installation for the operator.
 
 The lifecycle agent, the infrastructure agent, and a Target Hub upgrade themselves through two
 slots. The new version starts beside the old one, passes health checks, and then takes over. The
-old slot stays as the rollback target.
+old slot stays as the rollback target. `InfrastructureAgent` enforces the Plan envelope and holds
+any Azure resource deletion or replacement for an operator `DestructiveChangeConfirmation` bound to
+the exact Plan digest before calling the exact-plan coordinator, and `DualSlotUpgradeController`
+starts the candidate slot without write authority, rolls back to the old slot on a failed health
+check, and transfers fenced write authority only after health and post-handoff readback checks pass.
 
 ### Constraints
 
@@ -570,6 +577,17 @@ suppression windows, and version ranges. It still passes signature checks, the l
 exact plan, the lock, idempotency, audit intent, recall, destructive-change confirmation, recovery,
 and independent readback. The installation's own kill switch route keeps its existing behavior.
 
+> **Implemented command expiry and break-glass boundary:** `LifecycleCommand` and
+> `validate_lifecycle_command` require an explicit expiry on every command (`suppression-window`,
+> `authority-lowering`, and `break-glass`) and reject any authority-raising request (`target_mode`
+> above `shadow`, `target_autonomy` above `hil`, kill-switch disengagement, or bypasses outside
+> `maintenance-window`, `suppression-window`, and `version-range`). While active, a break-glass
+> command applies its secret-scanned emergency overrides (`configuration-change` Plan) and bypasses
+> only its declared window or version-range constraints while preserving recall, schema, artifact,
+> and residency checks. At expiry, `plan_next` reconciles unadopted emergency overrides back to the
+> approved configuration revision with a `drift-reconciliation` Plan. Dedicated Hub command HTTP/UI
+> routes remain separate.
+
 ## Separation from the operations loop
 
 - The lifecycle loop changes only resources it provably owns. Foundation resources require a
@@ -582,6 +600,10 @@ and independent readback. The installation's own kill switch route keeps its exi
   evidence.
 - Lifecycle agents never publish authority-bearing events. Saga may cite lifecycle receipts as
   evidence references only.
+- `ProvenFoundationOwnershipRegistry` admits only resources backed by a verified signed Foundation
+  creation receipt and matching Terraform state digest, supplying the `deny` signal to `RiskGate`
+  for operations-loop targets while keeping manually tagged customer resources (`fdai:managed=true`
+  without a signed Foundation receipt) outside FDAI ownership.
 
 ## Customer isolation and data residency
 
@@ -779,6 +801,39 @@ Use the existing service-owned migration job for these stages, not a local remot
 Before completion, recovery can restore the old image without lowering a marker. After completion,
 recovery uses a verified revision-6-compatible image. Release Hub, unprepared legacy trusted-host
 operations and unversioned local development keep their existing contracts.
+
+### Private proof handoff to a trusted Hub host
+
+**Design and critique:** A private proof file inside an installation isn't accessible to a remote
+operator. Printing it in logs, copying installation keys, accepting `Agent.Access` as an operator,
+or substituting an Azure CLI token for the browser application would weaken existing boundaries.
+
+**Revised contract:** An enrolled Agent may POST its existing `SignedNativeScope` to
+`/v1/installations/{installation_id}/native-proofs`. This is transport, not ownership acceptance.
+The Hub checks the exact Agent binding, an 8 KiB strict-JSON limit, enrolled signature, application
+binding and completed schema 6 before appending an immutable audit entry. Each Entity has one
+submitted claim; an identical retry is safe, while a different claim is a conflict. No Entity,
+ownership, Settings, Plan or reported state changes. Anonymous callers and other installations
+cannot submit, and the Agent cannot read proofs or accept ownership.
+
+`fdai-lifecycle-agent submit-native-proof` sends an existing private `--proof` file over the
+workload-identity HTTPS transport. It doesn't bootstrap resources, read keys, accept a Plan or
+print the proof. A failed delivery leaves the private file available for a bounded later retry.
+The trusted Hub CLI can select `--submitted-proof` by its claim digest for separate operator
+acceptance, with the same UUID, Settings digest, reason and exact confirmation as a file request.
+Acceptance rechecks the retained proof against current enrollment and application state.
+Supply `--request-id`, `--settings-digest`, `--reason`, `--confirmation` and `--operator`;
+a file request and a submitted-proof selection cannot be combined. The trusted-host
+`bind-application <installation-id> <private-request-file> --operator <actor>` command uses the
+same strict request, permanent product binding, Settings compare-and-swap and audit as the API.
+
+When `FDAI_HUB_REMOTE_CONFIG` explicitly selects a remote target, the trusted-host CLI uses the
+existing verified-TLS Managed Identity database engine. It rejects a Release Hub configuration or
+incomplete schema rather than falling back to a local store or a password. Without that variable,
+the existing local database path is unchanged. Remote-mode `serve` is rejected before handler
+dispatch; use `fdai-hub-remote serve` for the authenticated server. Console access remains an independent Azure
+authorization boundary; an Agent submission never grants console access or operator authority.
+No new role, public proof-read endpoint, signing key, database table or reader-floor change is added.
 
 ### Local setup and acceptance
 

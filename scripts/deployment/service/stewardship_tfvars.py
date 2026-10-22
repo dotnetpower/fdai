@@ -12,6 +12,20 @@ def stewardship_gitops_binding(binding: dict[str, Any] | None, *, service: str) 
     if not binding:
         return {}
     materialized = copy.deepcopy(binding)
+    if materialized.get("auth_mode") == "console":
+        if service == "document-ingestion-api":
+            return {}
+        return {
+            "enabled": bool(materialized.get("enabled", True)),
+            "auth_mode": "console",
+            "owner": "",
+            "repo": "",
+            "token_secret_id": "",
+            "app_client_id": "",
+            "app_installation_id": "",
+            "app_private_key_secret_id": "",
+            "webhook_secret_id": "",
+        }
     if "auth_mode" in materialized:
         return materialized
     if service == "document-ingestion-api":

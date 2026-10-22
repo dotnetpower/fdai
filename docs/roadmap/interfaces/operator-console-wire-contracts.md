@@ -6,6 +6,8 @@ title: Operator Console - Data and Wire Contracts
 
 > Focused owner document extracted from [operator-console.md](operator-console.md) section 13 (13.1-13.3, 13.6-13.9).
 
+Console-governed ownership candidates add no Operator wire contract yet. An Owner-only typed activation request remains open under #458. Until it lands, candidates stay inert and grant no ownership, RBAC, approval, or execution authority.
+
 ## 13. Data + wire contracts
 The existing runtime-state projection can include process-owned first-tier-decision lag with its
 source and unavailable state; this adds no Incident command, approval or execution authority.
@@ -53,6 +55,15 @@ It rejects credential bytes and scan-permission fields, requires `Idempotency-Ke
 `code_security.repository_change` without a new topic. HTTP `202` is durable intent, not source
 verification. This [connection contract](../../runbooks/knowledge-github-sources.md) changes no
 Incident creation, approval callback, semantic confirmation, or managed-resource write authority.
+
+`GET /stewardship/candidates` returns the newest Console ownership revision candidates (id, digest,
+title, body, YAML, state) from an Owner-only projection that Core writes. Owner-only
+`POST /stewardship/candidates/activate` accepts exactly `candidate_id` and `candidate_digest`,
+requires `Idempotency-Key`, and stores one inert `stewardship.candidate_activation` proposal without
+a new topic. HTTP `202` is durable intent: Core rechecks the stored Owner role, reads the candidate
+again, rejects a digest mismatch, and writes one `stewardship_activation:*` receipt, so redelivery
+changes nothing. The request carries no YAML, role, or approval claim and grants no IAM,
+deployment, or Azure authority.
 
 The existing numeric `usage` map may include `model_calls` beside token totals. This is
 recorded conversation-call telemetry, not detailed prompt capture, action authority, or

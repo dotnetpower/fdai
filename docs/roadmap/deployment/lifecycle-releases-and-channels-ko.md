@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: 1e4098d890cf923f21f004e43ff86f4acef1efe0
+translation_source_sha: a9e8847b1c14b5ed9eee8b90cdba8a86e764e781
 translation_revised: 2026-10-22
 ---
 # Lifecycle Release와 채널
@@ -168,6 +168,9 @@ Entity를 드리프트 상태로 취급하며, 첫 Plan이 구독한 채널의 �
 라벨, 정상적인 카나리 설치에서의 안정화 시간, 제품 유지 관리 구간, 범위가 정해진 시간 제한이
 있습니다. [Apollo 채널 승격](https://www.palantir.com/docs/apollo/core/release-channels)처럼
 채널 기여자가 인시던트 수정을 배포하기 위해 Release를 수동으로 추가할 수도 있습니다.
+`evaluate_promotion_stage`와 `ReleaseStore.promote_stage`는 Release를 목표 채널로 승격하기 전에
+원본 채널 포함 여부, 필수 라벨, 카나리 정상 여부, 최소 안정화 시간, 단계 시간 제한 및 활성
+Release/기능 회수 여부를 검증합니다.
 
 Release가 적격해지기 전에 하나씩 검토하려는 규제 고객은 자기 Target Hub에 사용자 지정 채널을
 만들고 `RELEASE`의 Release를 수동으로 추가할 수 있습니다. 채널 구성원 관리는 적격성을 선별하는
@@ -290,6 +293,9 @@ Plan을 발급합니다. 이 Plan은 열려 있는 `upgrade` Plan을 대체하�
 timestamp 기록이 만료되면 설치는 회수 roll-off Plan만 받아들이고 알림을 보냅니다. 또한 운영자
 재정의 승격은 회수를 안전망으로 삼으므로, 새 메타데이터가 도착할 때까지 이를 `shadow` 모드로
 되돌립니다. 오프라인 Target Hub는 번들 주기에 맞춰 만료 간격을 정합니다.
+`evaluate_catalog_integrity`는 임계값 root 서명, 단조 증가 버전 및 회수 순번 연속성
+(`recall_sequence_gap`)을 검증하며, `StateStoreActionPromotionRegistry.set_catalog_timestamp_expired`는
+timestamp 메타데이터가 만료된 동안 운영자 재정의 승격을 `shadow` 모드로 되돌립니다.
 
 ## 스키마 호환성
 
@@ -326,6 +332,9 @@ timestamp 기록이 만료되면 설치는 회수 roll-off Plan만 받아들이�
 설치는 각 Release의 이미지를 경계 안의 자체 컨테이너 레지스트리로 가져옵니다.
 [Apollo 제약 조건](https://www.palantir.com/docs/apollo/core/plans-and-constraints)처럼 산출물 누락
 제약 조건은 필요한 모든 다이제스트가 있을 때까지 Plan을 차단합니다.
+`BoundaryRegistryMirror`는 경계 안에 미러링된 변경 불가능한 `sha256:<hex>` 다이제스트를 추적하여
+`available_artifact_digests`에 반영하며, 필요한 모든 이미지 다이제스트가 미러링될 때까지
+`plan_next`가 `artifact_unavailable`로 해당 Release를 차단합니다.
 
 ### 오프라인 설치
 
@@ -338,6 +347,10 @@ timestamp 기록이 만료되면 설치는 회수 roll-off Plan만 받아들이�
 2. Target Hub는 서명과 모든 체크섬을 검증하고, 이미지를 경계 안의 레지스트리에 게시하며,
    카탈로그를 갱신합니다.
 3. Plan은 일반적인 제약 조건 아래에서 진행됩니다.
+
+`verify_and_import_upgrade_bundle`은 정규 체크섬 매니페스트의 공급업체 서명을 검증하고, 카탈로그
+내보내기와 모든 최소 이미지 레이어의 다이제스트를 대조하며, 함께 첨부된 각 고객 구성 패키지 서명을
+개별적으로 검증한 뒤 검증된 레이어 다이제스트를 `BoundaryRegistryMirror`에 게시합니다.
 
 첫 설치용 오프라인 패키지는 현재 계약을 유지합니다. Hub 관리형 오프라인 사이트에서는 이 패키지에
 Target Hub도 들어 있습니다.

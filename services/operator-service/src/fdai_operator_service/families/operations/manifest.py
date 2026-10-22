@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Final, Literal
 
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.stewardship_activation import STEWARDSHIP_ACTIVATION_OPERATION
 
 RouteKind = Literal["projection", "proposal", "stream", "webhook"]
 
@@ -151,6 +152,24 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
     OperationRoute("/audit/{correlation_id}/what-if", "GET", "handler", "audit.what_if"),
     OperationRoute("/scope", "GET", "handler", "scope.effective"),
     OperationRoute("/stewardship", "GET", "handler", "stewardship.coverage"),
+    OperationRoute(
+        "/stewardship/candidates",
+        "GET",
+        "handler",
+        "stewardship.candidates",
+        "projection",
+        OWNER_ROLES,
+    ),
+    # Activating an ownership revision candidate changes who is accountable for an agent, so
+    # only the Owner role may queue it. Core rechecks the role and the candidate digest.
+    OperationRoute(
+        "/stewardship/candidates/activate",
+        "POST",
+        "handler",
+        STEWARDSHIP_ACTIVATION_OPERATION,
+        "proposal",
+        OWNER_ROLES,
+    ),
     OperationRoute("/assurance-twin/posture", "GET", "handler", "assurance_twin.posture"),
     OperationRoute("/assurance-twin/reviews", "GET", "handler", "assurance_twin.reviews"),
     # The review identity is opaque twin evidence that may contain a slash

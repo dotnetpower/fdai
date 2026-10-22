@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: a35bb20eddf287f26df64e5aec2d4e08a5f53a42
-translation_revised: 2026-10-20
+translation_source_sha: de64b27397d716a3c0584cf8dc90814d57a6b120
+translation_revised: 2026-10-22
 ---
 # 온톨로지 구조 모델
 
@@ -92,7 +92,9 @@ LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원�
 정상 값으로 바꾸지 않습니다. 공유 Operator 워크플로 어댑터는 서버에 기록된 개수 또는 명시적인 `evaluated: false`를 포함하는 선택적 `rule.findings-summary` 변환 결과를 노출할 수 있습니다. 이 운영 요약은 온톨로지 선언, 관계, 근거 승인 또는 권한 출처가 아닙니다. 같은 어댑터는 WAF 컨트롤 세부 정보에 서버 소유의 범위별 규칙 커버리지 수치를 붙일 수 있으며, 이 수치도 같은 제한을 받는 운영 읽기 모델입니다.
 Operator 온톨로지 변환 결과와 역할 선택은 이제 목적별 운영 계열 어댑터가 소유하고, Rule,
 모범 사례, CAF, MCSB 및 WARA 카탈로그 렌더링은 각각 별도의 순수 변환 소유자가 담당합니다.
-이 소유권 분리는 선언 신원, 관계 방향, 변환 리비전, 근거 승인 또는 권한을 바꾸지 않습니다.
+이 소유권 분리는 선언 신원, 관계 방향, 변환 리비전, 근거 승인 또는 권한을 바꾸지 않습니다. 같은
+매니페스트에는 Owner 전용 담당 체계 후보 목록과 활성화 경로도 있으며, 이들은 온톨로지 인스턴스가
+아니라 담당 체계 개정을 읽고 요청하므로 ObjectType, LinkType, 온톨로지 관계를 추가하지 않습니다.
 WARA `t0_rule` 바인딩 overlay는 카탈로그 스키마의 평가기 바인딩이며 온톨로지 관계가 아닙니다. 따라서
 규칙과 권고 사이의 링크를 추가하거나 매핑 상태를 바꿀 수 없습니다.
 `azure-mcsb` 프레임워크 평가 카탈로그도 마찬가지로 검토된 규칙 요구 사항 역할을 추가할 뿐 온톨로지

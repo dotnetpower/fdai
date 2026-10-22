@@ -26,7 +26,7 @@ resource "azurerm_container_app" "ingestion" {
   }
 
   dynamic "secret" {
-    for_each = var.stewardship_governance_enabled ? [1] : []
+    for_each = nonsensitive(var.gitops_token_secret_id) != "" ? [1] : []
     content {
       name                = "gitops-token"
       identity            = var.identity_id
@@ -35,7 +35,7 @@ resource "azurerm_container_app" "ingestion" {
   }
 
   dynamic "secret" {
-    for_each = var.stewardship_governance_enabled ? [1] : []
+    for_each = nonsensitive(var.github_webhook_secret_id) != "" ? [1] : []
     content {
       name                = "github-webhook-secret"
       identity            = var.identity_id
@@ -131,14 +131,14 @@ resource "azurerm_container_app" "ingestion" {
         }
       }
       dynamic "env" {
-        for_each = var.stewardship_governance_enabled ? [1] : []
+        for_each = nonsensitive(var.gitops_token_secret_id) != "" ? [1] : []
         content {
           name        = "FDAI_GITOPS_TOKEN"
           secret_name = "gitops-token"
         }
       }
       dynamic "env" {
-        for_each = var.stewardship_governance_enabled ? [1] : []
+        for_each = nonsensitive(var.github_webhook_secret_id) != "" ? [1] : []
         content {
           name        = "FDAI_GITHUB_WEBHOOK_SECRET"
           secret_name = "github-webhook-secret"
@@ -402,7 +402,7 @@ resource "azurerm_container_app" "worker" {
   }
 
   dynamic "secret" {
-    for_each = var.stewardship_governance_enabled ? [1] : []
+    for_each = nonsensitive(var.gitops_token_secret_id) != "" ? [1] : []
     content {
       name                = "gitops-token"
       identity            = var.worker_identity_id
@@ -411,7 +411,7 @@ resource "azurerm_container_app" "worker" {
   }
 
   dynamic "secret" {
-    for_each = var.stewardship_governance_enabled ? [1] : []
+    for_each = nonsensitive(var.github_webhook_secret_id) != "" ? [1] : []
     content {
       name                = "github-webhook-secret"
       identity            = var.worker_identity_id
@@ -589,14 +589,14 @@ resource "azurerm_container_app" "worker" {
         }
       }
       dynamic "env" {
-        for_each = var.stewardship_governance_enabled ? [1] : []
+        for_each = nonsensitive(var.gitops_token_secret_id) != "" ? [1] : []
         content {
           name        = "FDAI_GITOPS_TOKEN"
           secret_name = "gitops-token"
         }
       }
       dynamic "env" {
-        for_each = var.stewardship_governance_enabled ? [1] : []
+        for_each = nonsensitive(var.github_webhook_secret_id) != "" ? [1] : []
         content {
           name        = "FDAI_GITHUB_WEBHOOK_SECRET"
           secret_name = "github-webhook-secret"

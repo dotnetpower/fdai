@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "preact/compat";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
@@ -679,9 +680,13 @@ function MappingReviewsSession({ client, auth, contextCurrent }: {
   }, [client]);
   if (state.status === "loading") return <LoadingState label={t("handover.mappingReviewsLoading")} />;
   if (state.status === "error") return <UnavailableView title={t("handover.view.mapping-reviews")} message={state.message} />;
-  return <><SettingsIamAssignments client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} />
+  return <>{state.overview.authority.isOwner ? <Suspense fallback={<LoadingState label={t("handover.mappingReviewsLoading")} />}><StewardshipCandidates client={client} /></Suspense> : null}<SettingsIamAssignments client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} />
     <ScopedDutyWorkspace client={client} auth={auth} canManage={state.overview.principal.capabilities.includes("manage-group-membership")} principalOid={state.overview.principal.oid} /></>;
 }
+
+const StewardshipCandidates = lazy(async () => ({
+  default: (await import("./stewardship-candidates")).StewardshipCandidates,
+}));
 
 function UnavailableView({ title, message }: { readonly title: string; readonly message: string }) {
   return <section class="state-block state-unavailable" role="status"><strong>{title}</strong><p>{message}</p></section>;

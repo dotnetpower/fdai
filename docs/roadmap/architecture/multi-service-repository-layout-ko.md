@@ -1,8 +1,8 @@
 ---
 title: 다중 서비스 저장소 레이아웃
 translation_of: multi-service-repository-layout.md
-translation_source_sha: 79ed3be73d5eca94071f0c54e57a6111ebfc5300
-translation_revised: 2026-10-20
+translation_source_sha: cd06f069aab74fb3d129ef0f6866b564774d794d
+translation_revised: 2026-10-22
 ---
 # 다중 서비스 저장소 레이아웃
 
@@ -10,6 +10,8 @@ FDAI는 하나의 개발 저장소에 독립적으로 패키징하고 검증한 
 읽기 전용 서비스 후보 1개 및 공유 서비스 계약 SDK를 둡니다. 루트는 도구와 통합 테스트를
 조정하지만 모놀리식 런타임 distribution이 아니며 어떤 서비스도 다른 서비스의 구현을 가져오지
 않습니다.
+
+Pillow 같은 공유 런타임 의존성 제약은 루트 매니페스트와 이를 소유한 모든 서비스 매니페스트에서 함께 바뀝니다. 그러면 단일 루트 잠금 파일이 각 서비스 이미지에 같은 버전을 공급하므로, 의존성 수정이 그 의존성을 포함한 모든 이미지에 반영됩니다.
 
 ## 패키징 계약
 

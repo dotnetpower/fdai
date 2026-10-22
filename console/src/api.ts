@@ -101,6 +101,10 @@ export class OperatorApiClient {
   readonly authorizationHeader = (): Promise<string | null> =>
     this.#transport.authorizationHeader();
 
+  /** Idempotent Operator POST for lazily loaded Owner-only workspaces; the transport keeps its guards. */
+  readonly postJson = <T,>(path: string, body: Record<string, unknown>, idempotencyKey: string): Promise<T> =>
+    this.#transport.postJson<T>(path, body, idempotencyKey);
+
   async listAudit(options: AuditQuery = {}): Promise<AuditPage> {
     await this.#requireAuthoritativeSource("/audit");
     return this.#operations.listAudit(options);

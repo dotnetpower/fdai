@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fdai_deployment_cli.contracts import load_json_object
-from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance
+from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance, SignedNativeScope
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -11,10 +11,37 @@ from starlette.routing import Route
 
 from fdai_lifecycle_hub.domain import Clock
 from fdai_lifecycle_hub.native_ownership import NativeOwnershipError, NativeOwnershipStore
+from fdai_lifecycle_hub.native_proofs import NativeProofStore
 from fdai_lifecycle_hub.store import HubStore
 
 
 def native_ownership_routes(store: HubStore, clock: Clock, *, authenticated: bool) -> list[Route]:
+    async def submit(request: Request) -> Response:
+        from fdai_lifecycle_hub.api import _read_limited
+
+        principal = getattr(request.state, "principal", None)
+        if not authenticated or not principal or getattr(request.state, "operator", None):
+            return JSONResponse({"error": "authenticated_agent_required"}, status_code=403)
+        body = await _read_limited(request, 8192)
+        if body is None:
+            return JSONResponse({"error": "native_proof_too_large"}, status_code=413)
+        try:
+            load_json_object(body, label="native proof", max_bytes=8192, strict=True)
+            proof = SignedNativeScope.model_validate_json(body)
+        except ValueError:
+            return JSONResponse({"error": "native_proof_invalid"}, status_code=422)
+        try:
+            changed = await run_in_threadpool(
+                NativeProofStore(store).submit,
+                request.path_params["installation_id"],
+                proof,
+                principal=principal,
+                now=clock(),
+            )
+        except NativeOwnershipError as error:
+            return JSONResponse({"error": str(error)}, status_code=409)
+        return JSONResponse({"received": True, "changed": changed}, status_code=202)
+
     async def accept(request: Request) -> Response:
         from fdai_lifecycle_hub.api import _read_limited
 
@@ -42,8 +69,13 @@ def native_ownership_routes(store: HubStore, clock: Clock, *, authenticated: boo
 
     return [
         Route(
+            "/v1/installations/{installation_id}/native-proofs",
+            submit,
+            methods=["POST"],
+        ),
+        Route(
             "/v1/installations/{installation_id}/native-ownership",
             accept,
             methods=["POST"],
-        )
+        ),
     ]

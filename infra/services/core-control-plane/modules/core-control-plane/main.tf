@@ -146,6 +146,7 @@ module "container_app" {
     { name = local.teams_notification_endpoint_env, secret_name = "teams-notification-endpoint" },
     ], !local.stewardship_gitops_enabled ? [] : [
     { name = "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", value = "true" },
+    ], var.stewardship_gitops.auth_mode == "console" ? [] : [
     { name = "FDAI_GITOPS_OWNER", value = var.stewardship_gitops.owner },
     { name = "FDAI_GITOPS_REPO", value = var.stewardship_gitops.repo },
     { name = "FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE", value = local.github_workflow_tools_enforce ? "1" : "0" },

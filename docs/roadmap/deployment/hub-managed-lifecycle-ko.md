@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: a7cba0726b1686cc3e242f1cf1a736cf7741d71b
+translation_source_sha: 4b654d773761b66a1eefc305d036cfdea7d1a737
 translation_revised: 2026-10-22
 ---
 # Hub 관리형 수명 주기
@@ -483,9 +483,12 @@ Plan 유형은 설치, 업그레이드, 구성 변경, 회수 roll-off(회수된
 
 > **구현된 수락 경계:** 에이전트는 독립적으로 구성된 Hub 신뢰와 내구성 있는 로컬 순번 상태를
 > 바탕으로 정규화된 Plan 서명 바이트를 검증합니다. apply 어댑터가 켜져 있어도 오래된 순번,
-> 잘못된 대상, 폐기된 키와 지나치게 넓은 효과 경계는 클러스터 호출 전에 차단됩니다.
-> 이 소스 경계는 #1951에서 제공됐으며, 프로덕션 키 수명 주기, 로컬 승인 증적, 물리적 단계
-> 펜싱 및 실제 설치 검증과 구분됩니다.
+> 잘못된 대상, 폐기된 키와 지나치게 넓은 효과 경계는 클러스터 호출 전에 차단됩니다. 또한 자동
+> 적용은 정확한 Plan 다이제스트, 펜싱 세대, Release 및 구성 다이제스트, 열린 구간에 결속된 로컬
+> `LifecycleAuthorizationReceipt`를 요구하며, 같은 정확한 Plan 다이제스트에 대한 선행
+> `infrastructure` 단계 완료 증적이 요구되지만 아직 없을 때는 워크로드 단계를 대기 상태로
+> 보류합니다. 프로덕션 키 수명 주기, 다중 호스트 인프라 조정기 실행 및 실제 설치 검증은 별도로
+> 유지됩니다.
 
 Plan은 펜싱된 단계 순서로 실행됩니다. 인프라 에이전트가 인프라 단계를, 수명 주기 에이전트가
 워크로드 단계를 소유합니다. 각 단계는 이전 단계의 증적이 기록된 뒤에만 시작합니다. 실패하면
@@ -509,7 +512,11 @@ Release가 허용하는 경우 완료된 단계를 역순으로 보상하고, �
 
 수명 주기 에이전트, 인프라 에이전트, Target Hub는 두 개의 슬롯으로 스스로 업그레이드합니다. 새
 버전이 이전 버전 옆에서 시작해 상태 검사를 통과한 뒤 역할을 넘겨받습니다. 이전 슬롯은 롤백
-대상으로 남습니다.
+대상으로 남습니다. `InfrastructureAgent`는 Plan 효과 경계를 강제하고 기존 Azure 리소스의 삭제나
+교체를 정확한 Plan 다이제스트에 결속된 운영자 `DestructiveChangeConfirmation`이 있을 때까지
+보류한 뒤 정확한 계획 조정기를 호출하며, `DualSlotUpgradeController`는 후보 슬롯을 쓰기 권한 없이
+시작해 상태 검사가 실패하면 이전 슬롯으로 롤백하고 상태 및 인계 후 재확인 검사를 통과한 뒤에만
+펜싱된 쓰기 권한을 이전합니다.
 
 ### 제약 조건
 
@@ -567,6 +574,16 @@ Apollo에는 런타임 재정의 계층이 없습니다. 가장 가까운 개념
 변경 확인, 복구, 독립적인 재확인은 그대로 거칩니다. 설치 자체의 kill switch 경로는 기존 동작을
 유지합니다.
 
+> **구현된 명령 만료 및 비상 해제 경계:** `LifecycleCommand`와 `validate_lifecycle_command`는 모든
+> 명령(`suppression-window`, `authority-lowering`, `break-glass`)에 명시적 만료 시각을 요구하며,
+> 권한을 높이는 요청(`shadow`를 넘는 `target_mode`, `hil`을 넘는 `target_autonomy`, kill switch
+> 해제, 또는 `maintenance-window`, `suppression-window`, `version-range` 밖의 우회)을 거부합니다.
+> 비상 해제 명령이 활성 상태인 동안에는 시크릿 검사를 통과한 비상 재정의(`configuration-change`
+> Plan)를 적용하고 선언된 구간·버전 범위 제약만 우회하되 회수, 스키마, 산출물, 데이터 상주 검사는
+> 그대로 유지합니다. 만료 시점에는 병합된 변경이 비상 재정의를 채택하지 않은 경우 `plan_next`가
+> 승인된 구성 개정으로 되돌리는 `drift-reconciliation` Plan을 발급합니다. 전용 Hub 명령 HTTP/UI
+> 경로는 별도로 유지됩니다.
+
 ## 운영 루프와의 분리
 
 - 수명 주기 루프는 소유함을 증명할 수 있는 리소스만 변경합니다. Foundation 리소스에는
@@ -578,6 +595,10 @@ Apollo에는 런타임 재정의 계층이 없습니다. 가장 가까운 개념
   그런 대상을 차단합니다. Heimdall은 여전히 그 리소스의 드리프트를 참고 증거로 보고할 수 있습니다.
 - 수명 주기 에이전트는 권한이 있는 이벤트를 게시하지 않습니다. Saga는 수명 주기 증적을 증거
   참조로만 인용할 수 있습니다.
+- `ProvenFoundationOwnershipRegistry`는 검증된 서명 Foundation 생성 증적과 일치하는 Terraform 상태
+  다이제스트가 있는 리소스만 수락하여 운영 루프 대상에 대해 `RiskGate`에 `deny` 신호를 전달하며,
+  수동 태그만 붙은 고객 리소스(서명된 Foundation 증적이 없는 `fdai:managed=true`)는 FDAI 소유로
+  채택하지 않습니다.
 
 ## 고객 격리와 데이터 상주
 
@@ -776,6 +797,40 @@ SQLite 쓰기는 실제 DB 쓰기 트랜잭션을 시작한 뒤 준비 기록을
 완료 전에는 버전 기록을 낮추지 않고 이전 이미지로 복구할 수 있습니다. 완료 후에는 검증된
 버전 6 호환 이미지로 복구합니다. Release Hub, 아직 준비하지 않은 이전 DB에 대한 신뢰하는
 호스트의 작업, 버전 기록이 없는 로컬 개발의 계약은 바꾸지 않습니다.
+
+### 신뢰하는 Hub 호스트로 비공개 증명 전달
+
+**설계와 검토:** 설치 내부의 비공개 증명 파일을 원격 운영자가 바로 읽을 수는 없습니다.
+로그에 출력하거나, 설치 키를 복사하거나, `Agent.Access`를 운영자로 취급하거나,
+브라우저 애플리케이션 대신 Azure CLI 토큰을 사용하면 기존 경계가 약해집니다.
+
+**수정된 계약:** 등록된 에이전트는 기존 `SignedNativeScope`를
+`/v1/installations/{installation_id}/native-proofs`에 POST할 수 있습니다.
+이는 전달일 뿐 소유권 수락이 아닙니다. Hub는 정확한 에이전트 연결, 8 KiB의 엄격한 JSON
+제한, 등록된 서명, 애플리케이션 연결과 완료된 스키마 6을 확인한 뒤 변경 불가능한 감사
+기록을 추가합니다. Entity마다 제출된 주장은 하나이며 같은 내용의 재시도는 안전하지만
+다른 주장은 충돌로 차단됩니다. Entity, 소유권, Settings, Plan, 보고 상태는 바뀌지 않습니다.
+익명 호출자와 다른 설치는 제출할 수 없으며 에이전트는 증명 조회나 소유권 수락을 할 수 없습니다.
+
+`fdai-lifecycle-agent submit-native-proof`는 기존 비공개 `--proof` 파일을
+워크로드 신원으로 인증하는 HTTPS 경로로 전송합니다. 리소스 초기 생성, 키 읽기, Plan 수락이나
+증명 출력은 하지 않습니다. 전달이 실패하면 비공개 파일을 유지하여 나중에 제한된 재시도를
+할 수 있습니다. 신뢰하는 Hub CLI는 주장 다이제스트로 `--submitted-proof`를 선택하여
+운영자가 별도로 수락할 수 있습니다. 파일 요청과 같은 UUID, Settings 다이제스트, 사유와
+정확한 확인 문구가 필요합니다. 수락할 때는 현재 등록과 애플리케이션 상태를 기준으로
+보관된 증명을 다시 검증합니다.
+`--request-id`, `--settings-digest`, `--reason`, `--confirmation`, `--operator`를
+제공합니다. 파일 요청과 제출된 증명 선택을 함께 사용할 수는 없습니다. 신뢰하는 호스트의
+`bind-application <installation-id> <private-request-file> --operator <actor>` 명령은
+API와 같은 엄격한 요청 형식, 영구 제품 연결, Settings 버전 비교 후 갱신과 감사 기록을 사용합니다.
+
+`FDAI_HUB_REMOTE_CONFIG`가 원격 Target을 명시적으로 선택하면 신뢰하는 호스트의 CLI는
+기존 TLS 검증 및 Managed Identity DB 연결을 사용합니다. Release Hub 설정이나 미완료
+스키마는 로컬 저장소나 비밀번호로 대체하지 않고 차단합니다. 이 변수가 없으면 기존 로컬
+DB 경로는 바뀌지 않습니다. 원격 모드의 `serve`는 처리 함수를 호출하기 전에 차단하며,
+인증된 서버는 `fdai-hub-remote serve`로 실행합니다. 콘솔 접근은 독립적인 Azure 권한 경계로 유지되며 에이전트의
+제출은 콘솔 접근이나 운영자 권한을 부여하지 않습니다. 새 역할, 공개 증명 조회 API, 서명 키,
+DB 테이블이나 최소 읽기 버전 변경은 추가하지 않습니다.
 
 ### 로컬 준비와 수락
 

@@ -1,13 +1,15 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 190b80b120f3018512f4919b5d0222d10e928e09
-translation_revised: 2026-10-20
+translation_source_sha: bdd3d3a20271a2da282880211bf3cad3ca6ad4a9
+translation_revised: 2026-10-22
 ---
 
 # Operator Console - 데이터 and Wire Contracts
 
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
+
+Console 관리형 담당 체계 후보는 아직 Operator 와이어 계약을 추가하지 않습니다. Owner 전용 형식화 활성화 요청은 #458에서 열려 있습니다. 이것이 들어오기 전까지 후보는 비활성 상태이며 담당 체계, RBAC, 승인 또는 실행 권한을 부여하지 않습니다.
 
 ## 13. 데이터 + wire 계약
 기존 런타임 상태 변환 결과에는 프로세스가 관측한 최초 계층 판정 지연과 그 출처 및
@@ -56,6 +58,15 @@ Core는 실제 수신기 생존 상태, 보호된 준비 상태, 저장된 비�
 `code_security.repository_change`를 재사용합니다. HTTP `202`는 영속 요청이지 소스 검증
 완료가 아닙니다. 이 [연결 계약](../../runbooks/knowledge-github-sources-ko.md)은 Incident
 생성, 승인 콜백, 의미 확인 또는 관리 리소스 쓰기 권한을 바꾸지 않습니다.
+
+`GET /stewardship/candidates`는 Core가 기록하는 Owner 전용 프로젝션에서 최신 Console 담당 체계
+개정 후보(ID, 다이제스트, 제목, 본문, YAML, 상태)를 반환합니다. Owner 전용
+`POST /stewardship/candidates/activate`는 `candidate_id`와 `candidate_digest`만 받고
+`Idempotency-Key`를 요구하며, 새 토픽 없이 비활성 `stewardship.candidate_activation` 제안 하나를
+저장합니다. HTTP `202`는 영속 요청입니다. Core가 저장된 Owner 역할을 다시 확인하고 후보를 다시
+읽어 다이제스트가 다르면 거부하며 `stewardship_activation:*` 수신 기록을 하나만 남기므로 재전달은
+아무것도 바꾸지 않습니다. 요청은 YAML, 역할, 승인 주장을 담지 않으며 IAM, 배포, Azure 권한을
+부여하지 않습니다.
 
 기존 숫자 `usage` 맵은 토큰 합계와 함께 `model_calls`를 포함할 수 있습니다. 이는 기록된
 대화 호출 계측이며, 상세 프롬프트 수집, 행동 권한, 독립 운영 근거가 아닙니다. 없는 값은

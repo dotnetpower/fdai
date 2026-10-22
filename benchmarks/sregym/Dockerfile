@@ -1,15 +1,16 @@
-FROM docker.io/library/golang@sha256:85dc1069ac644ea3c527b177303a406eb3358192816cd7f9e5848eb658851673 AS opa-builder
+FROM docker.io/library/golang@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f1c58525ec9d8170fd AS opa-builder
 
 ENV GOTOOLCHAIN=local \
 	GOEXPERIMENT=nojsonv2
 
 ARG OPA_VERSION=v1.18.2
-ARG OPA_GO_VERSION=go1.27.2
+ARG OPA_GO_VERSION=go1.27.3
 ARG OPA_GRPC_VERSION=v1.83.2
 ARG OPA_X_CRYPTO_VERSION=v0.57.0
 ARG OPA_X_TEXT_VERSION=v0.42.0
 ARG OPA_X_NET_VERSION=v0.60.0
 ARG OPA_ORAS_VERSION=v2.6.2
+ARG OPA_KLAUSPOST_COMPRESS_VERSION=v1.18.7
 RUN test "$(/usr/local/go/bin/go env GOVERSION)" = "${OPA_GO_VERSION}" \
 	&& /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VERSION}" \
 	&& opa_dir="$(/usr/local/go/bin/go env GOPATH)/pkg/mod/github.com/open-policy-agent/opa@${OPA_VERSION}" \
@@ -20,11 +21,13 @@ RUN test "$(/usr/local/go/bin/go env GOVERSION)" = "${OPA_GO_VERSION}" \
 	&& /usr/local/go/bin/go mod edit -require="golang.org/x/text@${OPA_X_TEXT_VERSION}" \
 	&& /usr/local/go/bin/go mod edit -require="golang.org/x/net@${OPA_X_NET_VERSION}" \
 	&& /usr/local/go/bin/go mod edit -require="oras.land/oras-go/v2@${OPA_ORAS_VERSION}" \
+	&& /usr/local/go/bin/go mod edit -require="github.com/klauspost/compress@${OPA_KLAUSPOST_COMPRESS_VERSION}" \
 	&& CGO_ENABLED=0 /usr/local/go/bin/go build -mod=mod -o /go/bin/opa . \
 	&& test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "google.golang.org/grpc" {print $3}')" = "${OPA_GRPC_VERSION}" \
 	&& test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "golang.org/x/crypto" {print $3}')" = "${OPA_X_CRYPTO_VERSION}" \
 	&& test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "golang.org/x/text" {print $3}')" = "${OPA_X_TEXT_VERSION}" \
 	&& test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "oras.land/oras-go/v2" {print $3}')" = "${OPA_ORAS_VERSION}" \
+	&& test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "github.com/klauspost/compress" {print $3}')" = "${OPA_KLAUSPOST_COMPRESS_VERSION}" \
 	&& test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "golang.org/x/net" {print $3}')" = "${OPA_X_NET_VERSION}"
 
 FROM sregym-agent-base@sha256:e59f24847cbafdd86f33ded2ca4e9f79fbda3e8737810cf6816af99a255bb441

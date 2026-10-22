@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 383786420dd484044b4328f1dd5c8273f9f6d80e
+translation_source_sha: 982a8cffa9119651cee99f3c78ed4974670d7904
 translation_revised: 2026-10-22
 ---
 # FDAI Console 대화
@@ -637,6 +637,11 @@ principal 범위로 제한합니다. Python 작업 기능은 Operator 조립 구
 담당 구성 요소가 연결되지 않은 동안에는 명시적인 사용 불가 상태를 보고합니다.
 [Console 읽기 경계](../deployment/console-read-boundary-ko.md#워크플로-정의-및-python-작업-기능)가
 두 출처 결정을 모두 소유합니다.
+
+Agent oversight 매핑 검토 화면은 Console 담당 체계 개정 후보를 Owner에게만 보여 줍니다. 각 후보는
+정확한 다이제스트와 YAML을 표시하며, 활성화는 후보 ID와 그 다이제스트만 전송합니다. Core가 담당
+체계를 바꾸기 전에 Owner 역할과 다이제스트를 다시 확인하므로 Console은 승인이나 IAM 권한을 얻지
+않으며 GitHub 앱도 필요하지 않습니다.
 
 focused 소유자 문서로 분리했습니다:
 

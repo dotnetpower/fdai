@@ -39,6 +39,32 @@ _PYTHON_BUILDER = re.compile(
     r"^FROM\s+(.+python@sha256:[a-f0-9]{64})\s+AS\s+builder$", re.MULTILINE
 )
 _REGISTRY_PATH = "rule-catalog/rule-revision-identities.json"
+_OPA_GO_VERSION = re.compile(r"^(ARG OPA_GO_VERSION=)(go\d+\.\d+)\.\d+$")
+_OPA_GO_BUILDER = re.compile(r"^(FROM\s+\S*golang@)sha256:[0-9a-f]{64}(\s+AS\s+opa-builder)$")
+# A Go patch release does not change how Rego evaluates, so the identity hashes the Go pin of a
+# minor series as the baseline that the retained revisions recorded. A Go minor series that has no
+# entry here is hashed as written, so adopting it changes every Rule identity and requires a Rule
+# version bump. Add an entry only together with that bump, using the pin that was actually built.
+_GO_IDENTITY_BASELINES = {
+    "go1.27": (
+        "go1.27.2",
+        "sha256:85dc1069ac644ea3c527b177303a406eb3358192816cd7f9e5848eb658851673",
+    ),
+}
+_OPA_SECURITY_OVERRIDE_LINES = frozenset(
+    {
+        "ARG OPA_KLAUSPOST_COMPRESS_VERSION=v1.18.7",
+        (
+            '    && /usr/local/go/bin/go mod edit -require="github.com/klauspost/compress@'
+            '${OPA_KLAUSPOST_COMPRESS_VERSION}" \\'
+        ),
+        (
+            '    && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '
+            '\'$2 == "github.com/klauspost/compress" {print $3}\')" = '
+            '"${OPA_KLAUSPOST_COMPRESS_VERSION}" \\'
+        ),
+    }
+)
 _NORMALIZATION_SOURCES = (
     "services/core-control-plane/src/fdai/rule_catalog/schema/revision_identity.py",
     "services/core-control-plane/src/fdai/shared/contracts/models/rule.py",
@@ -183,7 +209,31 @@ def _opa_toolchain(root: Path) -> tuple[str, str]:
             stage.append(line.rstrip())
     if not stage:
         raise SystemExit("Core Dockerfile does not define the OPA builder stage")
+    stage = _normalize_go_patch_pin(stage)
     return match.group(1), _digest_bytes(("\n".join(stage) + "\n").encode("utf-8"))
+
+
+def _normalize_go_patch_pin(stage: list[str]) -> list[str]:
+    """Map a Go patch pin to its minor series baseline so patch releases keep the identity."""
+
+    series = next(
+        (match.group(2) for line in stage if (match := _OPA_GO_VERSION.match(line))),
+        None,
+    )
+    baseline = _GO_IDENTITY_BASELINES.get(series) if series is not None else None
+    if baseline is None:
+        return stage
+    version, digest = baseline
+    normalized: list[str] = []
+    for line in stage:
+        if line in _OPA_SECURITY_OVERRIDE_LINES:
+            continue
+        if _OPA_GO_VERSION.match(line):
+            line = f"ARG OPA_GO_VERSION={version}"
+        elif (builder := _OPA_GO_BUILDER.match(line)) is not None:
+            line = f"{builder.group(1)}{digest}{builder.group(2)}"
+        normalized.append(line)
+    return normalized
 
 
 def _normalization_source_digest(root: Path) -> str:
