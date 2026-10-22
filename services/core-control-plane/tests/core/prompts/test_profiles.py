@@ -47,8 +47,8 @@ def test_shipped_active_profiles_pin_exact_versions() -> None:
     assert judgment.profile.dynamic
     assert (frame.root.id, frame.root.version) == ("semantic-query-frame-common", 1)
     assert (plan.root.id, plan.root.version) == ("semantic-query-plan-common", 1)
-    assert frame.profile is not None and frame.profile.dynamic is False
-    assert plan.profile is not None and plan.profile.dynamic is False
+    assert frame.profile is not None and frame.profile.dynamic
+    assert plan.profile is not None and plan.profile.dynamic
 
 
 @pytest.mark.parametrize(

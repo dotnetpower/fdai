@@ -93,7 +93,7 @@ def _composer() -> DefaultPromptComposer:
     return DefaultPromptComposer(registry=FileSystemPromptRegistry(CATALOG))
 
 
-def test_resolved_adaptive_config_activates_stage_output_ceilings() -> None:
+def test_resolved_adaptive_config_keeps_conservative_stage_output_ceiling() -> None:
     config = resolved_model_config(
         _resolved(),
         endpoint="https://example.com",
@@ -104,13 +104,8 @@ def test_resolved_adaptive_config_activates_stage_output_ceilings() -> None:
     )
 
     assert config is not None
-    assert dict(config.stage_max_tokens) == {
-        "plan": 2048,
-        "answer": 3072,
-        "review": 1024,
-        "refine": 3072,
-        "verify": 768,
-    }
+    assert dict(config.stage_max_tokens) == {}
+    assert all(config.max_tokens == 4096 for _stage in ADAPTIVE_STAGES)
 
 
 async def _build(**overrides: Any) -> Any:

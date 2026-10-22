@@ -214,13 +214,19 @@ coverage because an OR-only selector cannot prove that the chosen meaning had it
 grounding, document-mode, posture, and ambiguity rules stay in the protected root because packs are
 ablation-eligible. A 2026-09-28 reasoning probe showed that the remaining relation, change-attribution, and verification failures come from contracts and compilers rather than guidance, so the proposed [Ontology Reasoning Compiler](../interfaces/ontology-reasoning-compiler.md) narrows judgment to a closed logical form and retires frame and plan prompts only for compiled families.
 
-An explicit operator override on 2026-10-22 activates the compact judgment and static compact frame
-and plan profiles. The preceding dynamic profiles remain immutable shadow rollback treatments with their
-original promotion evidence. The override changes prompt selection and budgets, not capability,
-scope, verification, or execution authority. Local profile and semantic regression checks establish
-mechanical compatibility only. They do not establish live answer quality, token savings, or latency;
-a bounded post-activation model cohort must compare the exact active and rollback digests and trigger
-rollback on a safety, grounding, or quality regression.
+An explicit operator override on 2026-10-22 first attempted to activate compact judgment and static
+compact frame/plan profiles. The first bounded live cohort triggered rollback because compact
+planning changed both English and Korean resource lists into contextual function plans. FDAI added
+typed `inventory.select_resources -> resource_list` and `resource_list -> object_set` shadow
+guidance and replaced full-proposal equality with a reviewed semantic-preservation rubric that
+still requires every authority and source-span invariant. The second exact-digest cohort passed:
+compact quality was 4/25 versus 2/25, both arms were safety-clean 25/25, and EN/KO planning matched
+2/2. Compact judgment, frame, and plan are active again. Their preceding dynamic profiles remain
+exact shadow rollback treatments. A separate bilingual adaptive cohort exercised plan, answer, and
+independent review. Both arms were valid and safe 6/6, but the lower-ceiling English treatment
+dropped one of three required knowledge goals and used more completion tokens. Lower ceilings
+therefore remain inactive and the default stays at 4,096 tokens. Refinement and verification were
+not invoked because the resolved deployment has no independent third model.
 
 ## Layer catalog
 

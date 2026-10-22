@@ -239,7 +239,7 @@ profiles:
     mode: active
     root: {id: semantic-judgment-common, version: 1, layer: base}
     packs:
-      - {id: semantic-judgment-compact, version: 1, layer: pack}
+      - {id: semantic-judgment-compact, version: 2, layer: pack}
       - {id: semantic-incident-action-guidance, version: 1, layer: pack, when_any: [topic:action_request, topic:incident]}
       - {id: semantic-resource-name-filter, version: 1, layer: pack, when_any: [topic:resource_inventory]}
       - {id: semantic-sre-diagnostic, version: 1, layer: pack, when_any: [topic:change_activity, topic:resource_diagnostics]}
@@ -516,12 +516,17 @@ profiles:
       - docs/roadmap/decisioning/prompt-composition.md
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.semantic-query-frame-compact
-    version: 2
+    version: 3
     capability_id: semantic.query.frame
     mode: active
     root: {id: semantic-query-frame-common, version: 1, layer: base}
     packs:
       - {id: semantic-query-frame, version: 41, layer: pack}
+      - id: semantic-query-frame-compact-inventory
+        version: 1
+        layer: pack
+        when_any: [intent:inventory.select_resources]
+        covers: [shape:resource_list]
     system_token_budget: 16384
     request_token_budget: 32768
     reserved_output_tokens: 2048
@@ -628,11 +633,15 @@ profiles:
       - docs/roadmap/decisioning/prompt-composition.md
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.semantic-query-plan-compact
-    version: 2
+    version: 3
     capability_id: semantic.query.plan
     mode: active
     root: {id: semantic-query-plan-common, version: 1, layer: base}
-    packs: []
+    packs:
+      - id: semantic-query-plan-resource-list
+        version: 1
+        layer: pack
+        when_any: [shape:resource_list]
     system_token_budget: 4096
     request_token_budget: 32768
     reserved_output_tokens: 2048
@@ -699,7 +708,7 @@ profiles:
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
     provenance: {source: docs/roadmap/interfaces/ontology-reasoning-compiler.md}
   - id: active.adaptive-plan
-    version: 2
+    version: 1
     capability_id: conversation.adaptive.plan
     mode: active
     root: {id: adaptive-common, version: 1, layer: base}
@@ -707,11 +716,11 @@ profiles:
       - {id: adaptive-plan, version: 4, layer: pack}
     system_token_budget: 8192
     request_token_budget: 32768
-    reserved_output_tokens: 2048
+    reserved_output_tokens: 4096
     promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.adaptive-answer
-    version: 2
+    version: 1
     capability_id: conversation.adaptive.answer
     mode: active
     root: {id: adaptive-common, version: 1, layer: base}
@@ -719,11 +728,11 @@ profiles:
       - {id: adaptive-answer, version: 2, layer: pack}
     system_token_budget: 4096
     request_token_budget: 32768
-    reserved_output_tokens: 3072
+    reserved_output_tokens: 4096
     promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.adaptive-review
-    version: 2
+    version: 1
     capability_id: conversation.adaptive.review
     mode: active
     root: {id: adaptive-common, version: 1, layer: base}
@@ -731,11 +740,11 @@ profiles:
       - {id: adaptive-review, version: 2, layer: pack}
     system_token_budget: 4096
     request_token_budget: 32768
-    reserved_output_tokens: 1024
+    reserved_output_tokens: 4096
     promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.adaptive-refine
-    version: 2
+    version: 1
     capability_id: conversation.adaptive.refine
     mode: active
     root: {id: adaptive-common, version: 1, layer: base}
@@ -743,11 +752,11 @@ profiles:
       - {id: adaptive-refine, version: 1, layer: pack}
     system_token_budget: 4096
     request_token_budget: 32768
-    reserved_output_tokens: 3072
+    reserved_output_tokens: 4096
     promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.adaptive-verify
-    version: 2
+    version: 1
     capability_id: conversation.adaptive.verify
     mode: active
     root: {id: adaptive-common, version: 1, layer: base}
@@ -755,7 +764,7 @@ profiles:
       - {id: adaptive-verify, version: 1, layer: pack}
     system_token_budget: 4096
     request_token_budget: 32768
-    reserved_output_tokens: 768
+    reserved_output_tokens: 4096
     promotion_evidence: [docs/roadmap/decisioning/prompt-composition.md]
     provenance: {source: docs/roadmap/decisioning/prompt-composition.md}
   - id: active.question-generation

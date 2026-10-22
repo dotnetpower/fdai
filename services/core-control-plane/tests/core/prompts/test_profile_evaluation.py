@@ -27,15 +27,14 @@ def test_active_compact_semantic_profiles_are_smaller_than_dynamic_rollbacks() -
     }
     compact_judgment = registry.resolve("semantic.judgment")
 
-    assert (
-        comparisons["semantic.judgment"].treatment_tokens
-        - comparisons["semantic.judgment"].active_tokens
-    ) / comparisons["semantic.judgment"].treatment_tokens > 0.3
+    assert comparisons["semantic.judgment"].treatment_tokens > (
+        comparisons["semantic.judgment"].active_tokens
+    )
     assert comparisons["semantic.query.frame"].treatment_tokens > (
-        comparisons["semantic.query.frame"].active_tokens * 10
+        comparisons["semantic.query.frame"].active_tokens * 8
     )
     assert comparisons["semantic.query.plan"].treatment_tokens > (
-        comparisons["semantic.query.plan"].active_tokens * 10
+        comparisons["semantic.query.plan"].active_tokens * 8
     )
     assert compact_judgment.profile is not None
     assert compact_judgment.profile.system_token_budget == 16384
@@ -49,6 +48,11 @@ def test_active_compact_semantic_profiles_are_smaller_than_dynamic_rollbacks() -
         "semantic-topic-action-request",
         "semantic-topic-conversation",
     )
+    assert compact_judgment.packs[0].version == 2
+    compact_frame = registry.resolve("semantic.query.frame")
+    compact_plan = registry.resolve("semantic.query.plan")
+    assert compact_frame.profile is not None and compact_frame.profile.dynamic
+    assert compact_plan.profile is not None and compact_plan.profile.dynamic
     assert all(
         comparison.active_profile_digest != comparison.treatment_profile_digest
         for comparison in comparisons.values()

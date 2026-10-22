@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 7b76d52b3c2f43237ba3a98264929d1b74ee418b
+translation_source_sha: fcf1326210d557aef34377b52909d08e066b4760
 translation_revised: 2026-10-22
 ---
 
@@ -204,13 +204,19 @@ frame 형태로 선택하며, compact operational frame 경로는 검토된 의�
 동작을 결과 키 포함 검사로 바꾸었습니다. 묶음은 ablation 대상이므로 신뢰, 근거, 문서 모드,
 작업 자세, 모호성 규칙은 보호된 루트에 둡니다. 2026-09-28 추론 탐침에서 남은 관계, 변경 주체, 검증 실패는 지침이 아니라 계약과 컴파일러에서 비롯된다는 사실이 드러났습니다. 그래서 제안된 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)는 판단을 닫힌 논리 형식으로 좁히고, 컴파일되는 계열에 한해서만 프레임과 계획 프롬프트를 없앱니다.
 
-2026-10-22의 명시적 운영자 재정의로 compact 판단과 정적 compact frame 및 plan 프로필을
-활성화합니다.
-이전 동적 프로필은 기존 승격 근거와 함께 변경할 수 없는 shadow rollback 대상으로 유지합니다.
-이 재정의는 프롬프트 선택과 예산만 바꾸며 기능, 범위, 검증 또는 실행 권한은 바꾸지 않습니다.
-로컬 프로필 및 의미 회귀 검사는 기계적 호환성만 확인하며 실제 답변 품질, 토큰 절감 또는 지연
-개선을 입증하지 않습니다. 범위가 제한된 활성화 후 모델 집합에서 정확한 활성 및 rollback
-digest를 비교하고 안전성, 근거 또는 품질 회귀가 나타나면 rollback해야 합니다.
+2026-10-22의 명시적 운영자 재정의로 compact 판단과 정적 compact frame/plan 프로필 활성화를
+처음 시도했습니다. 첫 번째 실제 모델 집합에서 compact 계획이 영어와 한국어 리소스 목록을 모두
+맥락 기반 함수 계획으로 바꿔 rollback했습니다. FDAI는 형식이 정해진
+`inventory.select_resources -> resource_list` 및 `resource_list -> object_set` shadow 지침을
+추가하고, 모든 권한 및 source-span 불변식을 계속 요구하면서 전체 proposal 동일성 대신 검토된
+의미 보존 rubric을 적용했습니다. 두 번째 exact-digest 집합은 통과했습니다. Compact 품질은
+4/25, 기준 프로필은 2/25였고 두 경로 모두 안전성 25/25를 충족했으며 영어/한국어 계획은 2/2로
+일치했습니다. Compact 판단, frame 및 plan을 다시 활성화하고 이전 동적 프로필은 정확한 shadow
+rollback 대상으로 유지합니다. 별도의 이중 언어 적응형 집합에서 계획, 답변 및 독립 검토를
+실행했습니다. 두 경로 모두 6/6으로 유효하고 안전했지만, 낮은 상한을 적용한 영어 treatment는
+필수 knowledge goal 3개 중 1개를 누락했고 completion token도 더 많이 사용했습니다. 따라서 낮은
+상한은 비활성 상태로 두고 기본값을 4,096 토큰으로 유지합니다. 확인된 배포에 독립적인 세 번째
+모델이 없으므로 보강과 재검증은 실행하지 않았습니다.
 
 ## 레이어 카탈로그
 

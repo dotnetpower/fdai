@@ -6,7 +6,6 @@ import logging
 from collections.abc import Callable
 
 from fdai.delivery.azure.llm.adaptive_answer import (
-    DEFAULT_ADAPTIVE_STAGE_MAX_TOKENS,
     AdaptiveModelTarget,
     AzureOpenAIAdaptiveModelConfig,
 )
@@ -79,7 +78,6 @@ def resolved_model_config(
         escalation=escalation,
         timeout_seconds=timeout_seconds,
         max_tokens=max_tokens,
-        stage_max_tokens=DEFAULT_ADAPTIVE_STAGE_MAX_TOKENS,
     )
 
 
