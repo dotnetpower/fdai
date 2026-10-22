@@ -296,6 +296,26 @@ def test_delivery_mode_is_console_only_when_explicitly_enabled_without_github() 
     )
 
 
+def test_enterprise_identity_alone_enables_only_the_console_path() -> None:
+    enabled = {"FDAI_STEWARDSHIP_GOVERNANCE_ENABLED": "true"}
+    github = {**enabled, "FDAI_GITOPS_TOKEN": "configured"}
+
+    assert (
+        stewardship_delivery_mode(enabled, governed_execution=False, enterprise_identity=True)
+        == "console"
+    )
+    assert stewardship_delivery_mode({}, governed_execution=False, enterprise_identity=True) is None
+    # Publishing a pull request is an effect, so GitOps never starts without governed execution.
+    assert (
+        stewardship_delivery_mode(github, governed_execution=False, enterprise_identity=True)
+        == "console"
+    )
+    assert (
+        stewardship_delivery_mode(github, governed_execution=True, enterprise_identity=True)
+        == "gitops"
+    )
+
+
 def test_console_mode_never_builds_the_gitops_publisher() -> None:
     store = InMemoryStateStore()
     gitops = RecordingRemediationPrPublisher()
