@@ -199,6 +199,7 @@ class TeamsWorkflowDiagnosticTester:
         observed_at = self.clock().astimezone(UTC)
         metadata: dict[str, object] = {
             "binding_version": saved.version,
+            "endpoint_identifier": _endpoint_identifier(saved.webhook_url),
             "observed_at": observed_at.isoformat(),
         }
         record = await self.store.read_state(_ACTIVE_BINDING_METADATA_KEY)
@@ -409,6 +410,15 @@ def validate_teams_workflow_url(webhook_url: str) -> str:
     ):
         raise ValueError("Teams Workflow webhook URL query values are invalid")
     return hashlib.sha256(webhook_url.encode("utf-8")).hexdigest()
+
+
+def _endpoint_identifier(webhook_url: str) -> str:
+    """Return a secret-free workflow suffix and endpoint fingerprint."""
+
+    parsed = urlsplit(webhook_url)
+    workflow_id = parsed.path.split("/workflows/", maxsplit=1)[1].split("/", maxsplit=1)[0]
+    digest = hashlib.sha256(webhook_url.encode("utf-8")).hexdigest()
+    return f"workflow ...{workflow_id[-8:]} / sha256:{digest[:12]}"
 
 
 async def _post_workflow(

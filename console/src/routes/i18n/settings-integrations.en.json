@@ -51,6 +51,7 @@
   "bindingSavedPill": "Binding saved",
   "bindingSavedDetail": "Version {version} was saved and verified at {time}. Saving is not activation; a deployment still decides when A2 delivery uses this binding.",
   "bindingSavedVersionOnly": "Version {version} is saved. FDAI has no local save record for this version, and saving is not activation.",
+  "bindingIdentifier": "Saved endpoint identifier: {identifier}",
   "testSaved": "Test saved binding",
   "groupApprovals": "A1 human approvals",
   "groupApprovalsHint": "Authenticated, action-bound approval delivery and callback. A notification webhook can never satisfy this path.",

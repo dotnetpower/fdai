@@ -22,12 +22,14 @@ describe("Teams Workflow binding view", () => {
       visible: true,
       configured: true,
       binding_version: "version-1",
+      endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
       observed_at: "2026-09-01T04:00:00Z",
       saved_at: "2026-09-01T03:00:00Z",
     })).toEqual({
       visible: true,
       configured: true,
       bindingVersion: "version-1",
+      endpointIdentifier: "workflow ...da483a70 / sha256:123456789abc",
       observedAt: "2026-09-01T04:00:00Z",
       savedAt: "2026-09-01T03:00:00Z",
     });
@@ -38,11 +40,13 @@ describe("Teams Workflow binding view", () => {
       visible: true,
       configured: true,
       binding_version: "version-1",
+      endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
       observed_at: "2026-09-01T04:00:00Z",
     })).toEqual({
       visible: true,
       configured: true,
       bindingVersion: "version-1",
+      endpointIdentifier: "workflow ...da483a70 / sha256:123456789abc",
       observedAt: "2026-09-01T04:00:00Z",
       savedAt: null,
     });
@@ -53,6 +57,7 @@ describe("Teams Workflow binding view", () => {
       visible: true,
       configured: true,
       binding_version: "version-1",
+      endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
       observed_at: "2026-09-01T04:00:00Z",
       webhook_url: "https://example.environment.api.powerplatform.com/signed",
     })).toThrow("MUST NOT return the saved endpoint value");
@@ -67,8 +72,8 @@ describe("Teams Workflow binding view", () => {
 
   test.each([
     { visible: true, configured: true, binding_version: "", observed_at: "2026-09-01T04:00:00Z" },
-    { visible: true, configured: true, binding_version: "v", observed_at: "not-a-time" },
-    { visible: true, configured: true, binding_version: "v" },
+    { visible: true, configured: true, binding_version: "v", endpoint_identifier: "id", observed_at: "not-a-time" },
+    { visible: true, configured: true, binding_version: "v", endpoint_identifier: "id" },
   ])("rejects malformed binding metadata %#", (value) => {
     expect(() => decodeTeamsWorkflowBindingView(value)).toThrow();
   });
