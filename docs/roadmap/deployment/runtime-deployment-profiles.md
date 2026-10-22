@@ -15,8 +15,11 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > OCI images, Event Hubs Kafka endpoints, Key Vault, workload identities, and PostgreSQL schema.
 >
 > **Hub-managed path:** The Hub-managed lifecycle supports AKS only and adds an in-cluster
-> lifecycle agent. Its Lifecycle I0 skeleton in `lifecycle/agent/` only dry-runs and reports, so
-> this runtime contract doesn't change.
+> lifecycle agent. The development Agent defaults to dry-run and reporting; explicit bounded
+> apply supports the existing HTTP/legacy profiles and the independently pinned
+> [private runtime-bundle extension](lifecycle-runtime-bundles.md).
+> This supplies neither infrastructure/identity creation nor a completed FDAI installation.
+> Namespace permissions, same-schema prerequisites and operational qualification remain separate.
 
 Stewardship governance is runtime-profile neutral. With `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true` and no GitHub credentials, AKS and Container Apps both compose the Console-governed candidate publisher and merge-effects worker, and Terraform creates no webhook secret, GitHub secret reference, or Git host binding. Selecting a GitOps target adds them. Neither selection grants merge, IAM, approval, or execution authority. In Console mode an Owner activates a candidate through the Operator API and Core's governance worker, which needs no extra runtime binding in either profile. ChatOps is optional there: the ingestion gateway binds its webhook only when a ChatOps reference exists, and a GitOps target still requires it. On a source AKS installation the same mode follows the explicit selections: when the Console, enterprise identity bindings, and document ingestion are all selected, the AKS host values set `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED`, `FDAI_MAINTAINERS`, and the steward bindings on Core.
 

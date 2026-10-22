@@ -6,6 +6,7 @@ import pytest
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_release import (
+    APPLICATION_COMPONENT_RELEASE_SCHEMA,
     APPLICATION_RELEASE_SCHEMA,
     ApplicationRelease,
     parse_lifecycle_release_manifest,
@@ -50,6 +51,60 @@ def test_arbitrary_applications_use_the_same_validated_contract(product: str) ->
     assert release.to_mapping() == document
     with pytest.raises(RuntimeReleaseError):
         parse_runtime_release_manifest(canonical_bytes(document))
+
+
+@pytest.mark.parametrize("product", ["example-web", "example-worker", "fdai"])
+def test_component_releases_do_not_fabricate_http_metadata(product: str) -> None:
+    document = manifest(product)
+    document.pop("workloads")
+    document.update(
+        schema_version=APPLICATION_COMPONENT_RELEASE_SCHEMA,
+        components={"worker": {"image_digest": "sha256:" + "b" * 64}},
+    )
+    release = parse_lifecycle_release_manifest(canonical_bytes(document))
+    assert isinstance(release, ApplicationRelease)
+    assert release.schema_version == APPLICATION_COMPONENT_RELEASE_SCHEMA
+    assert release.components == {"worker": "sha256:" + "b" * 64}
+    assert release.workloads == {}
+    assert release.digest == canonical_digest(document)
+    assert release.to_mapping() == document
+    assert parse_lifecycle_release_manifest(canonical_bytes(release.to_mapping())) == release
+    with pytest.raises(TypeError):
+        release.components["worker"] = "sha256:" + "c" * 64  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    "components",
+    [
+        {},
+        {"worker": {"image_digest": "latest"}},
+        {"../worker": {"image_digest": "sha256:" + "b" * 64}},
+        {"worker": {"image_digest": "sha256:" + "b" * 64, "port": 8080}},
+        {"worker": {"image_digest": "sha256:" + "b" * 64, "privileged": True}},
+        {f"worker-{i}": {"image_digest": "sha256:" + "b" * 64} for i in range(65)},
+    ],
+)
+def test_component_contract_rejects_unbounded_or_executable_fields(
+    components: dict[str, object],
+) -> None:
+    document = manifest()
+    document.pop("workloads")
+    document.update(schema_version=APPLICATION_COMPONENT_RELEASE_SCHEMA, components=components)
+    with pytest.raises(RuntimeReleaseError):
+        parse_lifecycle_release_manifest(canonical_bytes(document))
+
+
+def test_component_and_http_inventory_formats_cannot_be_mixed() -> None:
+    document = {
+        **manifest(),
+        "schema_version": APPLICATION_COMPONENT_RELEASE_SCHEMA,
+        "components": {"worker": {"image_digest": "sha256:" + "b" * 64}},
+    }
+    with pytest.raises(RuntimeReleaseError):
+        parse_lifecycle_release_manifest(canonical_bytes(document))
+    document["schema_version"] = APPLICATION_RELEASE_SCHEMA
+    with pytest.raises(RuntimeReleaseError):
+        parse_lifecycle_release_manifest(canonical_bytes(document))
 
 
 @pytest.mark.parametrize(

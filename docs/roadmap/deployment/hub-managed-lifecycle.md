@@ -46,6 +46,14 @@ Release Hub service already exists.
 
 ## Application-neutral package boundary
 
+The optional `fdai.application-release.v2` extension separates signed component images from the
+customer's independently reviewed private runtime bundle. The
+[runtime-bundle contract](lifecycle-runtime-bundles.md) owns its supported kinds, exact signed
+configuration pin, security bounds and conservative scheduled-effect recovery holds.
+It preserves the publication/admission/ownership sequence below and does not qualify a complete
+FDAI installation. The [deployment handoff](../../runbooks/hub-lifecycle-deployment-handoff.md)
+identifies each operator and manual/automatable boundary.
+
 Publication, pinned import, planning, execution and reporting share `fdai.application-release.v1`.
 Its product, application source, immutable component images and HTTP metadata are data, not engine
 branches. The [Release contract](lifecycle-releases-and-channels.md#application-package-contract)

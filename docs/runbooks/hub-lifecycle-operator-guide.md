@@ -14,6 +14,11 @@ workflow so you don't mistake a successful registration for a working deployment
 
 ## What this guide covers
 
+For a role-by-role repeatable checklist and the private runtime-bundle extension, use the
+[deployment handoff](hub-lifecycle-deployment-handoff.md). The
+[operator experience backlog](hub-lifecycle-operator-experience.md) distinguishes current manual
+steps from proposed UI automation.
+
 The FDAI Release Hub serves the vendor. The Lifecycle Hub serves the installation operator.
 The lifecycle agent runs inside the installation's AKS cluster and changes only its permitted
 workload namespace. A separate infrastructure agent is part of the design for Azure changes;

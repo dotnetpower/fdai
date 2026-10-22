@@ -156,6 +156,15 @@ class NativeCluster:
             isolated = spec.get("selector") == {"matchLabels": selector} and all(
                 template_labels.get(label) == value for label, value in selector.items()
             )
+        elif kind == "CronJob":
+            template_labels = (
+                spec.get("jobTemplate", {})
+                .get("spec", {})
+                .get("template", {})
+                .get("metadata", {})
+                .get("labels", {})
+            )
+            isolated = all(template_labels.get(label) == value for label, value in selector.items())
         else:
             isolated = spec.get("selector") == selector
         if not isolated:
@@ -196,6 +205,10 @@ class NativeCluster:
         if kind == "Deployment":
             owned_manifest["spec"]["selector"]["matchLabels"] = selector
             owned_manifest["spec"]["template"]["metadata"]["labels"].update(selector)
+        elif kind == "CronJob":
+            owned_manifest["spec"]["jobTemplate"]["spec"]["template"]["metadata"]["labels"].update(
+                selector
+            )
         else:
             owned_manifest["spec"]["selector"] = selector
         if owned_uid is not None:
