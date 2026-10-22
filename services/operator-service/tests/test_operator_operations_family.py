@@ -89,6 +89,8 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/audit/{correlation_id}/what-if", "handler"),
     (("GET", "HEAD"), "/scope", "handler"),
     (("GET", "HEAD"), "/stewardship", "handler"),
+    (("GET", "HEAD"), "/stewardship/candidates", "handler"),
+    (("POST",), "/stewardship/candidates/activate", "handler"),
     (("GET", "HEAD"), "/assurance-twin/posture", "handler"),
     (("GET", "HEAD"), "/assurance-twin/reviews", "handler"),
     (("GET", "HEAD"), "/assurance-twin/review", "handler"),
@@ -316,7 +318,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 54
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 56
 
 
 def test_observer_proposals_require_authentication_and_never_submit_actions() -> None:
@@ -1542,3 +1544,52 @@ def test_code_security_repository_change_is_an_owner_only_validated_proposal() -
         )
     ]
     assert dependencies.queries == []
+
+
+def test_stewardship_candidate_list_is_an_owner_only_projection_read() -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+
+    reader = client.get("/stewardship/candidates", headers=HEADERS)
+    owner = client.get("/stewardship/candidates", headers={"Authorization": "Bearer " + "owner"})
+
+    assert reader.status_code == 403
+    assert owner.status_code == 200
+    assert [query.operation for query in dependencies.queries] == ["stewardship.candidates"]
+
+
+def test_stewardship_candidate_activation_is_an_owner_only_digest_bound_proposal() -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+    path = "/stewardship/candidates/activate"
+    body = {"candidate_id": "0123456789abcdef", "candidate_digest": "a" * 64}
+    contributor = client.post(
+        path,
+        headers={"Authorization": "Bearer " + "contributor", "Idempotency-Key": "steward-1"},
+        json=body,
+    )
+    owner = {"Authorization": "Bearer " + "owner", "Idempotency-Key": "steward-1"}
+    malformed = [
+        client.post(path, headers=owner, json=invalid)
+        for invalid in (
+            {"candidate_id": "0123456789abcdef"},
+            {**body, "candidate_digest": "short"},
+            {**body, "candidate_id": "../candidate"},
+            {**body, "yaml": "agents: []"},
+        )
+    ]
+    accepted = client.post(path, headers=owner, json=body)
+
+    assert contributor.status_code == 403
+    assert [response.status_code for response in malformed] == [400] * 4
+    assert accepted.status_code == 202
+    assert dependencies.proposals == [
+        EventProposal(
+            operation="stewardship.candidate_activation",
+            principal_id="owner-oid",
+            idempotency_key="steward-1",
+            correlation_id=None,
+            payload=body,
+            principal_roles=("Owner",),
+        )
+    ]

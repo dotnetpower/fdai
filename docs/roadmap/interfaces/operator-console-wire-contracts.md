@@ -56,6 +56,15 @@ It rejects credential bytes and scan-permission fields, requires `Idempotency-Ke
 verification. This [connection contract](../../runbooks/knowledge-github-sources.md) changes no
 Incident creation, approval callback, semantic confirmation, or managed-resource write authority.
 
+`GET /stewardship/candidates` returns the newest Console ownership revision candidates (id, digest,
+title, body, YAML, state) from an Owner-only projection that Core writes. Owner-only
+`POST /stewardship/candidates/activate` accepts exactly `candidate_id` and `candidate_digest`,
+requires `Idempotency-Key`, and stores one inert `stewardship.candidate_activation` proposal without
+a new topic. HTTP `202` is durable intent: Core rechecks the stored Owner role, reads the candidate
+again, rejects a digest mismatch, and writes one `stewardship_activation:*` receipt, so redelivery
+changes nothing. The request carries no YAML, role, or approval claim and grants no IAM,
+deployment, or Azure authority.
+
 The existing numeric `usage` map may include `model_calls` beside token totals. This is
 recorded conversation-call telemetry, not detailed prompt capture, action authority, or
 independent operational evidence. Missing values remain unavailable; older consumers may

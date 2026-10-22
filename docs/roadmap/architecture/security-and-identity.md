@@ -136,6 +136,10 @@ approved grant, and fresh effective-access evidence is required before the actio
   least-privilege probe, and access recertification is scheduled.
 - **Access recertification**: role assignments are reviewed on a fixed cadence; unused or
   over-broad grants are revoked. Recertification outcomes are audited.
+- **Console-governed ownership activation**: only the Owner role may queue the activation of an
+  ownership revision candidate, and the request is bound to the candidate digest the Owner
+  reviewed. Core rechecks the stored role and digest, records one receipt per request, and grants
+  no IAM, deployment, or Azure authority.
 - Autonomous deployments must respect platform policy (e.g. Azure Policy `deny`); provide a
   **policy-exemption workflow** (requestable, time-boxed, audited, owner-approved) rather than
   bypassing controls.

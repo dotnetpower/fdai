@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: f0d9ad78ba233cbad77199c02bbf803cfa1112b6
-translation_revised: 2026-10-21
+translation_source_sha: b00a14fb6022959e2e5bd6af766e4cdb527a7704
+translation_revised: 2026-10-22
 ---
 
 # 보안과 아이덴티티
@@ -137,6 +137,9 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
   ↔ Managed Identity). 이 매핑을 **P0 차단 요인** 로 취급; 종단 경로가 프로비저닝되고
   최소권한 프로브로 테스트되고 접근 재인증이 스케줄될 때만 해결됨.
 - **접근 재인증**: 롤 할당은 고정 주기로 리뷰; 미사용/과광범위 부여는 취소. 재인증 결과는 감사.
+- **Console 관리형 담당 체계 활성화**: Owner 역할만 담당 체계 개정 후보의 활성화를 요청할 수 있으며,
+  요청은 Owner가 검토한 후보 다이제스트에 묶입니다. Core가 저장된 역할과 다이제스트를 다시 확인하고
+  요청마다 수신 기록 하나를 남기며 IAM, 배포, Azure 권한은 부여하지 않습니다.
 - 자율 배포는 플랫폼 정책(예: Azure Policy `deny`) 을 존중해야 함; 컨트롤을 우회하는 대신
   **정책 예외 워크플로**(요청 가능, time-boxed, 감사, 소유자 승인) 제공.
 
