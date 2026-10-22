@@ -220,6 +220,8 @@ def usage_summaries_as_mapping(
             "prompt_tokens": summary.usage.prompt_tokens,
             "completion_tokens": summary.usage.completion_tokens,
             "total_tokens": summary.usage.total_tokens,
+            "cached_prompt_tokens": summary.cached_prompt_tokens,
+            "total_duration_ms": summary.total_duration_ms,
         }
         for summary in summaries
     )

@@ -13,6 +13,7 @@ from fdai.core.metering.aggregate import (
     summarize_by_month,
     summarize_by_outcome,
     summarize_total,
+    usage_summaries_as_mapping,
 )
 from fdai.core.metering.records import InvocationDisposition, InvocationMode, LlmInvocation
 from fdai.core.metering.usage import TokenUsage
@@ -186,6 +187,10 @@ def test_summarize_by_outcome_uses_profile_locale_family_and_disposition() -> No
     row = summaries_as_mapping(summary)[0]
     assert row["cached_prompt_tokens"] == 400
     assert row["total_duration_ms"] == 123
+
+    usage_row = usage_summaries_as_mapping(summary)[0]
+    assert usage_row["cached_prompt_tokens"] == 400
+    assert usage_row["total_duration_ms"] == 123
 
 
 def test_cost_precision_is_capped() -> None:
