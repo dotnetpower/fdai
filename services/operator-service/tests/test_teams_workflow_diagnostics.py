@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 
 import httpx
@@ -302,9 +303,14 @@ async def test_describe_returns_metadata_only_and_never_the_saved_url() -> None:
     assert "webhook_url" not in described
     assert URL not in repr(described)
     assert described["binding_version"] == "version-1"
+    digest = hashlib.sha256(URL.encode("utf-8")).hexdigest()
+    assert described["endpoint_identifier"] == (f"workflow ...da483a70 / sha256:{digest[:12]}")
     assert described["observed_at"] == NOW.isoformat()
     # No save record exists for this version, so no saved_at is claimed.
     assert "saved_at" not in described
+    assert "sig=" not in repr(described)
+    assert "environment.api.powerplatform.com" not in repr(described)
+    assert URL not in repr(described)
 
 
 async def test_describe_reports_saved_at_only_for_the_recorded_version() -> None:
