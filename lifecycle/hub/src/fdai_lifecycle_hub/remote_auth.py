@@ -287,7 +287,7 @@ def secure_app(
 def _agent_allowed(config: RemoteAuth, claims: dict[str, Any], method: str, path: str) -> bool:
     match = re.fullmatch(
         r"/v1/installations/([A-Za-z0-9][A-Za-z0-9._-]{0,127})/"
-        r"(plan|state|plans/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/reports)",
+        r"(plan|state|native-proofs|plans/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/reports)",
         path,
         flags=re.ASCII,
     )

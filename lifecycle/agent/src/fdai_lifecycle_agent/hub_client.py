@@ -36,6 +36,7 @@ from typing import Literal, Protocol, Self
 from urllib.parse import quote, urlsplit
 
 import httpx
+from fdai_deployment_cli.lifecycle_native import SignedNativeScope
 
 from fdai_lifecycle_agent.strict_json import load_json
 
@@ -195,6 +196,12 @@ class HttpHubClient:
     def submit_state(self, installation_id: str, snapshot: Mapping[str, object]) -> None:
         path = f"/v1/installations/{_segment(installation_id, 'installation_id')}/state"
         self._post(path, snapshot, label="state")
+
+    def submit_native_proof(self, installation_id: str, proof: SignedNativeScope) -> None:
+        if proof.claim.installation_id != installation_id:
+            raise ValueError("Native proof installation binding does not match.")
+        path = f"/v1/installations/{_segment(installation_id, 'installation_id')}/native-proofs"
+        self._post(path, proof.model_dump(mode="json"), label="native proof")
 
     def _post(self, path: str, body: Mapping[str, object], *, label: str) -> None:
         """POST ``body``; resend it after ``503 concurrent_write``, otherwise raise unless 202."""
