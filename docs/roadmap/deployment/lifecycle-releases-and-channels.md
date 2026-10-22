@@ -293,7 +293,10 @@ therefore signs catalog metadata in separate roles, following
 When the timestamp record expires, the installation accepts only recall roll-off Plans and raises
 an alert. It also returns operator-override promotions to shadow mode until fresh metadata arrives,
 because those promotions rely on recall as their safety net. An offline Target Hub sets the expiry
-interval to match its bundle cadence.
+interval to match its bundle cadence. `evaluate_catalog_integrity` verifies threshold root
+signatures, monotonic versions, and recall-sequence continuity (`recall_sequence_gap`), and
+`StateStoreActionPromotionRegistry.set_catalog_timestamp_expired` returns operator-override
+promotions to shadow mode while timestamp metadata is expired.
 
 ## Schema compatibility
 
@@ -347,6 +350,11 @@ and the Target Hub verifies each package signature separately.
 2. The Target Hub verifies the signature and every checksum, publishes images into the registry
    inside the boundary, and updates its catalog.
 3. Plans proceed under the normal constraints.
+
+`verify_and_import_upgrade_bundle` verifies the vendor signature over the canonical checksum
+manifest, checks the catalog export and every minimal image layer digest, verifies each attached
+customer configuration package signature independently, and publishes the verified layer digests
+into `BoundaryRegistryMirror`.
 
 The first-installation offline package keeps its current contract. For a Hub-managed offline site,
 it also contains the Target Hub.

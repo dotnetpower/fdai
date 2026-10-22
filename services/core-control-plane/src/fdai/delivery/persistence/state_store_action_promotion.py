@@ -163,10 +163,23 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
         self._observed_absent: set[str] = set()
         self._metadata: dict[str, _PromotionMetadata] = {}
         self._recalls: dict[str, CapabilityRecallRecord] = {}
+        self._catalog_timestamp_expired: bool = False
+
+    def set_catalog_timestamp_expired(self, expired: bool) -> None:
+        """Return operator-override promotions to shadow mode while catalog metadata is expired."""
+
+        self._catalog_timestamp_expired = bool(expired)
 
     def mode_of(self, action_type: str) -> Mode:
         recall = self._recalls.get(action_type)
         if recall is not None and recall.active:
+            return Mode.SHADOW
+        metadata = self._metadata.get(action_type)
+        if (
+            self._catalog_timestamp_expired
+            and metadata is not None
+            and metadata.kind is PromotionKind.OPERATOR_OVERRIDE
+        ):
             return Mode.SHADOW
         return super().mode_of(action_type)
 
@@ -203,6 +216,11 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
         """Apply an attributed operator override as an enforce upper bound."""
 
         self._raise_if_recalled(action_type.name)
+        if self._catalog_timestamp_expired:
+            raise PromotionRefusedError(
+                action_type=action_type.name,
+                reason="catalog_timestamp_expired",
+            )
         override = OperatorOverrideAttribution(
             gate_status=PromotionGateStatus(gate_status),
             gate_evidence_digest=gate_evidence_digest,
