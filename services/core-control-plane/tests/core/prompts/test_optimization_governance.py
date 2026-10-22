@@ -158,3 +158,18 @@ def test_decision_rejects_noncanonical_reason_codes(reason_code: str) -> None:
 
     with pytest.raises(ValueError, match="bounded machine tokens"):
         replace(decision, action=PromptPromotionAction.HOLD, reason_codes=(reason_code,))
+
+
+def test_decision_rejects_action_reason_inconsistency() -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    promote = evaluate_prompt_promotion(
+        baseline=_evidence("baseline"),
+        treatment=_evidence("treatment", tokens=700),
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    with pytest.raises(ValueError, match="MUST NOT carry rejection reasons"):
+        replace(promote, reason_codes=("cohort_too_small",))
+    with pytest.raises(ValueError, match="MUST carry at least one reason"):
+        replace(promote, action=PromptPromotionAction.ROLLBACK)

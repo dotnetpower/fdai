@@ -116,6 +116,10 @@ class PromptPromotionDecision:
             raise ValueError("promotion reason codes MUST be sorted and unique")
         if any(re.fullmatch(r"[a-z][a-z0-9_]{0,63}", code) is None for code in self.reason_codes):
             raise ValueError("promotion reason codes MUST be bounded machine tokens")
+        if self.action is PromptPromotionAction.PROMOTE and self.reason_codes:
+            raise ValueError("promote decisions MUST NOT carry rejection reasons")
+        if self.action is not PromptPromotionAction.PROMOTE and not self.reason_codes:
+            raise ValueError("non-promote decisions MUST carry at least one reason")
         if self.execution_authority:
             raise ValueError("prompt promotion evidence cannot grant execution authority")
 
