@@ -49,6 +49,7 @@ def aks_workload(
     runtime_environment = {name: str(value) for name, value in environment.items()}
     runtime_environment["FDAI_EXECUTION_VENUE"] = "deployed"
     database_role = {
+        "core": "fdai_core",
         "operator": "fdai_operator",
         "executor": "fdai_executor",
         "ingestion": "fdai_ingestion_api",

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7320ef7cf76d81f3cc9e9e8da88fa827010c219a
+translation_source_sha: e0c3017d7544c84751937c6c826d0348e1bbf423
 translation_revised: 2026-10-22
 ---
 # 런타임 배포 프로파일
@@ -652,8 +652,8 @@ command 교체를 거부합니다. ConfigMap이 현재 상태 외부에 존재�
 content hash 재조회로 정확히 그 객체만 채택해야 하며, 객체를 암묵적으로 다시 만들거나 덮어쓰지 않습니다.
 이 워크로드 재조회만으로 Kafka 왕복, 예약 작업 성공, Console 인증 또는 전체 배포 준비가
 검증되지는 않습니다. 별도의 브라우저 게시 게이트가 워크로드 수렴 뒤 Console과 API 경계를
-검증합니다. 워크로드 생성기는 Operator, 격리된 Executor, 문서 API,
-문서 Worker에 각각 `fdai_operator`, `fdai_executor`, `fdai_ingestion_api`,
+검증합니다. 워크로드 생성기는 Core, Operator, 격리된 Executor, 문서 API,
+문서 Worker에 각각 `fdai_core`, `fdai_operator`, `fdai_executor`, `fdai_ingestion_api`,
 `fdai_ingestion_worker` 역할을 `FDAI_DATABASE_ROLE`과 일치하는 `PGOPTIONS`로 설정합니다.
 호출자의 환경은 변경하지 않습니다. 생성되는 모든 서비스는 배포된 실행 위치를 명시적으로
 선택합니다. 역할 선택은 데이터베이스 역할의 구성원 자격이나 서비스별 DSN을 제공하지 않으며,

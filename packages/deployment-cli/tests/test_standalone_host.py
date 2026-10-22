@@ -13,11 +13,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 
 from fdai_deployment_cli import (
     aks_workload_jobs,
     runtime_support_installation,
+    source_application_inputs,
     standalone_aks_inventory,
     standalone_aks_nodepool_guard,
     standalone_application,
@@ -29,11 +29,11 @@ from fdai_deployment_cli import (
     standalone_operational_evidence,
     standalone_stage_targets,
     standalone_terraform_environment,
-    source_application_inputs,
 )
 from fdai_deployment_cli.aks_job_execution import AksOneShotJob
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.source_image_stage import UNAVAILABLE, SourceImageStageStopped
+from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 from fdai_deployment_cli.standalone_review import validate_plan_review
 
 
@@ -2588,6 +2588,7 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
 @pytest.mark.parametrize(
     ("component", "service", "role"),
     [
+        ("core", "core-control-plane", "fdai_core"),
         ("operator", "operator-service", "fdai_operator"),
         ("executor", "isolated-executor", "fdai_executor"),
         ("ingestion", "document-ingestion-api", "fdai_ingestion_api"),
