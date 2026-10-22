@@ -95,6 +95,14 @@ an unsupported cache-control field or make cached output operational evidence. P
 its own call kind and budget measurements, so background learning usage does not appear as an
 interactive answer call.
 
+Outcome metering can bind each invocation to an exact prompt digest, locale, turn family, terminal
+disposition, cached prompt-token count, and duration. Pure rollups then separate answered, held,
+clarification, unavailable, and regenerated turns without retaining prompt or answer text.
+Automatic prompt promotion uses a content-free exact-digest decision contract. It requires at least
+100 reviewed cases, equal cohort and model bindings, complete safety, non-regressing quality and
+planning shapes, and lower prompt tokens. Safety, quality, or shape regression selects rollback;
+an incomplete or mismatched cohort holds without changing the active profile.
+
 ### Ten-round latency review (2026-09-06)
 
 | Round | Change | Focused evidence |

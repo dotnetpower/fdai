@@ -32,6 +32,13 @@ from fdai.core.prompts.composer import (
     DefaultPromptComposer,
     PromptComposer,
 )
+from fdai.core.prompts.optimization_governance import (
+    MIN_REVIEWED_PROMPT_COHORT_CASES,
+    PromptCohortEvidence,
+    PromptPromotionAction,
+    PromptPromotionDecision,
+    evaluate_prompt_promotion,
+)
 from fdai.core.prompts.profile_evaluation import (
     PromptProfileComparison,
     compare_prompt_profiles,
@@ -96,6 +103,9 @@ __all__ = [
     "PromptMode",
     "PromptProfile",
     "PromptProfileMode",
+    "PromptCohortEvidence",
+    "PromptPromotionAction",
+    "PromptPromotionDecision",
     "PromptRequestBudgetExceededError",
     "PromptProfileEvidence",
     "PromptRegistry",
@@ -105,6 +115,8 @@ __all__ = [
     "resolve_prompt_selection",
     "compare_prompt_profiles",
     "estimate_prompt_tokens",
+    "evaluate_prompt_promotion",
+    "MIN_REVIEWED_PROMPT_COHORT_CASES",
     "estimate_serialized_request_tokens",
     "fit_prompt_to_token_budget",
     "estimate_chat_request_tokens",

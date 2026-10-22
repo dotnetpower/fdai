@@ -7,13 +7,40 @@ import pytest
 from fdai.delivery.conversation_images import (
     ConversationImage,
     ConversationImageConflictError,
+    ConversationImageDetail,
     ConversationImageQuotaError,
+    ConversationImageTokenDescriptor,
     InMemoryConversationImageStore,
+    reserve_conversation_image_tokens,
 )
 
 # Fixture images are created on 2026-08-05 and expire 90 days later, so each store reads them at
 # one fixed time instead of the wall clock, which passes that expiry on 2026-11-03.
 _READ_AT = datetime(2026, 8, 6, tzinfo=UTC)
+
+
+def test_image_token_reservation_uses_server_dimensions_and_detail() -> None:
+    receipt = reserve_conversation_image_tokens(
+        (
+            ConversationImageTokenDescriptor("att-low", 2048, 2048, ConversationImageDetail.LOW),
+            ConversationImageTokenDescriptor("att-high", 1024, 512, ConversationImageDetail.HIGH),
+        )
+    )
+
+    assert receipt.reserved_tokens == 85 + 85 + 2 * 170
+    assert receipt.detail_counts == (("high", 1), ("low", 1))
+    assert receipt.execution_authority is False
+
+
+def test_image_token_reservation_rejects_unbounded_high_detail() -> None:
+    with pytest.raises(ValueError, match="turn budget"):
+        reserve_conversation_image_tokens(
+            (
+                ConversationImageTokenDescriptor(
+                    "att-huge", 8192, 8192, ConversationImageDetail.HIGH
+                ),
+            )
+        )
 
 
 def _read_clock() -> datetime:

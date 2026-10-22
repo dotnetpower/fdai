@@ -131,6 +131,12 @@ FDAI as a product name rather than inventing an acronym expansion. Image turns r
 without a server-owned resolver from an opaque conversation-image id to validated bounded bytes;
 client-provided image fields cannot supply that authority.
 
+The unavailable boundary now includes a provider-neutral image-token reservation contract. A
+server-owned resolver may submit at most four unique image ids with validated dimensions and
+reviewed `low` or `high` detail. Low detail reserves 85 tokens; high detail reserves 85 base tokens
+plus 170 per 512-pixel tile, with an 8,192-token turn ceiling. The reservation grants no image
+availability or execution authority and cannot be created from client-declared dimensions.
+
 The legacy narrator now applies an 8,192-token request budget with a 1,024-token output reserve.
 It serializes screen context deterministically, fits that context to 2,048 tokens, and then admits
 the newest valid history turns until the complete request fits. Console sends at most 12 turns,
@@ -539,6 +545,7 @@ The implementation session reported the following bounded evidence for the curre
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-22 | implemented | Added a provider-neutral image-token reservation over server-resolved ids, dimensions, and detail, with a four-image and 8,192-token turn ceiling. | `current change`; `delivery/conversation_images.py`; focused image repository tests. | Bind the existing server-owned image resolver before any vision provider call; client dimensions remain inadmissible. |
 | 2026-10-22 | implemented | Replaced fixed-character local narrator context slicing with model-aware request fitting, added explicit history omission accounting and provider usage capture, aligned Console history with the semantic 12-turn and 8,000-character item bounds, and excluded failed candidates until a successful probe. | `current change`; Operator narrator and Console backend-context paths; focused Python cohort (`712 passed`), Console checks (`31 passed`), Console typecheck, strict mypy, and Ruff. | Retain authorized local and deployed receipts before claiming live token, cost, cache-hit, or latency improvement. Image-token reservations remain blocked on the server-owned image resolver. |
 | 2026-10-15 | implemented | Bound the signed global kill-switch publisher in shared IAM composition without changing narrator preference, candidate selection, T1/T2 routing, prompts, model calls, or timing evidence. | `0398357455`; Operator IAM focused tests passed 60. | No narrator work remains for this safety-command binding; deployed kill-switch evidence stays in the security ledger. |
 | 2026-10-06 | implemented | Added call start offsets and cached prompt tokens to Core diagnostics, a bounded concept shard setting, and a speculative form-path start beside the preflight. The local launcher enables 32 KiB shards and the speculative start. A bounded authenticated local comparison of eight Korean turns per variant cut answered list turns from about 10 s to about 5 s and answered count turns from 11.7 to 27.4 s to 5.4 to 9.9 s, with identical answers. | `current change`; focused Core suites (`4920 passed`); mypy and ruff on changed modules; [measured evidence](#speculative-form-start-and-single-shard-concept-catalogs-2026-10-06) | The question form's value reading of a name fragment still holds two or three of five list turns per variant. |

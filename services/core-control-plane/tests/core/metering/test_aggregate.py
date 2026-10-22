@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -10,9 +11,10 @@ from fdai.core.metering.aggregate import (
     summarize_by_conversation,
     summarize_by_day,
     summarize_by_month,
+    summarize_by_outcome,
     summarize_total,
 )
-from fdai.core.metering.records import InvocationMode, LlmInvocation
+from fdai.core.metering.records import InvocationDisposition, InvocationMode, LlmInvocation
 from fdai.core.metering.usage import TokenUsage
 
 _UTC = UTC
@@ -161,6 +163,23 @@ def test_summarize_by_mode_splits_shadow_and_enforce() -> None:
     assert modes["enforce"].cost == Decimal("1.0")
     assert modes["shadow"].cost == Decimal("0.75")
     assert modes["shadow"].invocations == 2
+
+
+def test_summarize_by_outcome_uses_profile_locale_family_and_disposition() -> None:
+    record = replace(
+        _RECORDS[0],
+        profile_digest="sha256:" + ("a" * 64),
+        locale="ko",
+        turn_family="resource_inventory",
+        disposition=InvocationDisposition.ANSWERED,
+        cached_prompt_tokens=400,
+        duration_ms=123,
+    )
+
+    summary = summarize_by_outcome((record,))
+
+    assert summary[0].key.endswith("|ko|resource_inventory|answered")
+    assert summary[0].usage.total_tokens == 1200
 
 
 def test_cost_precision_is_capped() -> None:

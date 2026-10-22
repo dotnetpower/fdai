@@ -14,6 +14,7 @@ or month bucket of ``occurred_at`` yields the daily / monthly cost.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -34,6 +35,17 @@ class InvocationScope(StrEnum):
 
     CONTROL_PLANE = "control_plane"
     OPERATOR_CHAT = "operator_chat"
+
+
+class InvocationDisposition(StrEnum):
+    """Terminal outcome of the logical turn that owns this model call."""
+
+    ANSWERED = "answered"
+    HELD = "held"
+    CLARIFICATION = "clarification"
+    UNAVAILABLE = "unavailable"
+    REGENERATED = "regenerated"
+    UNKNOWN = "unknown"
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +74,12 @@ class LlmInvocation:
     usage_scope: InvocationScope = InvocationScope.CONTROL_PLANE
     cost: Decimal | None = None
     currency: str | None = None
+    cached_prompt_tokens: int = 0
+    duration_ms: int = 0
+    profile_digest: str | None = None
+    locale: str = "und"
+    turn_family: str = "unknown"
+    disposition: InvocationDisposition = InvocationDisposition.UNKNOWN
 
     def __post_init__(self) -> None:
         if self.occurred_at.tzinfo is None:
@@ -78,6 +96,18 @@ class LlmInvocation:
             raise ValueError("cost MUST be >= 0 when present")
         if self.currency is not None and not self.currency:
             raise ValueError("currency MUST NOT be empty when present")
+        if self.cached_prompt_tokens < 0 or self.cached_prompt_tokens > self.usage.prompt_tokens:
+            raise ValueError("cached_prompt_tokens MUST be within measured prompt tokens")
+        if self.duration_ms < 0:
+            raise ValueError("duration_ms MUST NOT be negative")
+        if (
+            self.profile_digest is not None
+            and re.fullmatch(r"sha256:[a-f0-9]{64}", self.profile_digest) is None
+        ):
+            raise ValueError("profile_digest MUST be one sha256 digest")
+        for label, value in (("locale", self.locale), ("turn_family", self.turn_family)):
+            if not value or len(value) > 64:
+                raise ValueError(f"{label} MUST be non-empty and bounded")
 
     @property
     def day_bucket(self) -> str:
@@ -93,4 +123,9 @@ class LlmInvocation:
         return self.occurred_at.astimezone(UTC)
 
 
-__all__ = ["InvocationMode", "InvocationScope", "LlmInvocation"]
+__all__ = [
+    "InvocationDisposition",
+    "InvocationMode",
+    "InvocationScope",
+    "LlmInvocation",
+]
