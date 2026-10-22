@@ -3,6 +3,7 @@
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai.core.prompts.optimization_governance import (
     PromptCohortEvidence,
     PromptPromotionAction,
@@ -70,3 +71,18 @@ def test_unreviewed_small_cohort_holds() -> None:
 
     assert decision.action is PromptPromotionAction.HOLD
     assert decision.reason_codes == ("cohort_too_small", "no_prompt_token_reduction")
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("sample_count", True),
+        ("quality_passed", 100.0),
+        ("safety_passed", "100"),
+        ("prompt_tokens", 1000.0),
+        ("completion_tokens", False),
+    ],
+)
+def test_evidence_rejects_non_integer_measurements(field: str, value: object) -> None:
+    with pytest.raises(TypeError, match=f"{field} MUST be one integer"):
+        replace(_evidence("treatment"), **{field: value})

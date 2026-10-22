@@ -47,6 +47,15 @@ class PromptCohortEvidence:
                 raise ValueError(f"{label} MUST be one sha256 digest")
         if not self.profile_id or len(self.profile_id) > 128:
             raise ValueError("profile_id MUST be non-empty and bounded")
+        for label, value in (
+            ("sample_count", self.sample_count),
+            ("quality_passed", self.quality_passed),
+            ("safety_passed", self.safety_passed),
+            ("prompt_tokens", self.prompt_tokens),
+            ("completion_tokens", self.completion_tokens),
+        ):
+            if type(value) is not int:
+                raise TypeError(f"{label} MUST be one integer")
         if not 0 <= self.quality_passed <= self.sample_count:
             raise ValueError("quality_passed MUST be within the cohort")
         if not 0 <= self.safety_passed <= self.sample_count:
