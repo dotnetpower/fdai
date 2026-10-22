@@ -48,15 +48,15 @@ class PromptCohortEvidence:
                 raise ValueError(f"{label} MUST be one sha256 digest")
         if re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", self.profile_id) is None:
             raise ValueError("profile_id MUST be one bounded machine token")
-        for label, value in (
+        for metric_label, metric_value in (
             ("sample_count", self.sample_count),
             ("quality_passed", self.quality_passed),
             ("safety_passed", self.safety_passed),
             ("prompt_tokens", self.prompt_tokens),
             ("completion_tokens", self.completion_tokens),
         ):
-            if type(value) is not int:
-                raise TypeError(f"{label} MUST be one integer")
+            if type(metric_value) is not int:
+                raise TypeError(f"{metric_label} MUST be one integer")
         if not 0 <= self.quality_passed <= self.sample_count:
             raise ValueError("quality_passed MUST be within the cohort")
         if not 0 <= self.safety_passed <= self.sample_count:
