@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: b63592d2dfbdcbf8270308da42964a8f444c3324
-translation_revised: 2026-10-15
+translation_source_sha: 3ea0b0e5a55154426c3ca8ede301ca60ec780ca8
+translation_revised: 2026-10-22
 ---
 
 # 콘솔 운영
@@ -40,7 +40,7 @@ Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 
 
 Operator API는 에이전트 직접 호출 대신 타입 지정 이벤트를 중계합니다. 기능별 조립 모듈은 요청 상태와 감독되는 작업자를 연결할 뿐 실행기나 작업 흐름 권한을 갖지 않습니다.
 테스트 맥락의 제안, 검토, 철회 컨트롤도 이 경계를 따릅니다. Operator는 principal을 인증하고 Operator 프로세스가 로드한 검토된 사례 범위 grant registry에서 도출한 선택지만 반환하며, 선택한 수명 주기 명령을 발신함에 보존하고 전달, 감사된 정책 적용, 현재 승인 상태를 별도 상태로 보고합니다. 브라우저는 사례 범위나 실행 권한을 계산하지 않습니다.
-출처 필터는 합계를 보존하며 알림 표 머리글은 읽기 쉬운 텍스트 토큰을 사용합니다. [알림 과다 수신 요청](../operations/alert-noise-governance-ko.md)은 원래 접수와 서명된 결과를 표시합니다.
+출처 필터는 합계를 보존하며 알림 표 머리글은 읽기 쉬운 텍스트 토큰을 사용합니다. [알림 과다 수신 요청](../operations/alert-noise-governance-ko.md)은 원래 접수와 서명된 결과를 표시합니다. 라이브 경로 목록은 등록된 63개 콘솔 패널과 동기화 상태를 유지하며, Browser Entra 세션 부트스트랩은 샌드박스된 하위 iframe을 건너뛰고 격리된 라이브 E2E 슬롯에서 구성되지 않은 수집 화면은 명시적 사용 불가 상태로 표시합니다.
 코드 보안의 저장소 스캔 영역은 등록 목록이 비어 있으면 범위가 제한된 설정 작업으로 보여
 줍니다. 등록, 스캔, 검토를 하나의 순서로 연결하고 GitHub 저장소 입력란 하나와 대기열 요청임을
 정확히 나타내는 동작을 먼저 보여 줍니다. HTTPS GitHub URL은 `owner/repository`로 정규화하고,

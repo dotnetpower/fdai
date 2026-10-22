@@ -37,7 +37,7 @@ Console operations use four boundaries:
 
 The Operator API relays typed events, never direct agent calls; its feature composition binds request state and supervised workers, not executor or workflow authority.
 Test-context proposal, review, and revocation controls follow that boundary. Operator authenticates the principal, returns only reviewed choices derived from the reviewed case-scope grant registry that the Operator process loaded, persists the chosen lifecycle command in its outbox, and reports delivery, audited policy application, and current authorization as separate states. The browser never derives case scope or execution authority.
-Source facets preserve totals; alert table headers use readable text tokens. Isolated fixtures never establish authenticated accessibility.
+Source facets preserve totals; alert table headers use readable text tokens. Isolated fixtures never establish authenticated accessibility, and the live route inventory stays synchronized with all 63 registered Console panels while Browser Entra session bootstrap skips sandboxed child iframes and isolated live-E2E slots render unconfigured ingestion surfaces as explicit unavailable states.
 [Alert noise requests](../operations/alert-noise-governance.md) expose original acceptances and signed results.
 The Code security Repository scans section treats an empty registry as a bounded setup task. It
 connects Register, Scan, and Review as one visible sequence and leads with one GitHub repository
