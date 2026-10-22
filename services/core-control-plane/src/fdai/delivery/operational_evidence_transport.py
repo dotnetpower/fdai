@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+from collections.abc import Mapping
 from typing import Protocol
 
 import httpx
@@ -18,10 +20,21 @@ from fdai_service_contracts.operational_evidence import (
     OperationalEvidenceIssuanceResponse,
     OperationalEvidenceVerifierReadiness,
 )
+from fdai_service_contracts.venue import (
+    ExecutionVenue,
+    ExecutionVenueError,
+    resolve_execution_venue,
+)
 from pydantic import ValidationError
 
 from fdai.core.operational_evidence.issuance import OperationalEvidenceVerifierEngine
+from fdai.delivery.azure.workload_identity import (
+    ManagedIdentityConfigurationError,
+    ManagedIdentityWorkloadIdentity,
+)
 from fdai.delivery.http_response import BOUNDED_ACCEPT_ENCODING, read_bounded_response
+from fdai.delivery.operational_evidence_configuration import CALLER_TOKEN_AUDIENCE_ENV
+from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 ISSUANCE_PATH = "/v1/operational-evidence/issuance"
 READINESS_PATH = "/v1/operational-evidence/readiness"
@@ -90,7 +103,14 @@ class BoundedOperationalEvidenceIssuer:
         try:
             async with asyncio.timeout(self._timeout):
                 return await self._transport.send(request)
-        except (TimeoutError, OSError, httpx.HTTPError, ValidationError, ValueError) as exc:
+        except (
+            TimeoutError,
+            OSError,
+            httpx.HTTPError,
+            ValidationError,
+            ValueError,
+            RuntimeError,
+        ) as exc:
             _LOGGER.warning(
                 "operational_evidence_issuance_unavailable",
                 extra={"purpose_id": request.lookup.purpose_id, "error_type": type(exc).__name__},
@@ -101,21 +121,71 @@ class BoundedOperationalEvidenceIssuer:
 class HttpOperationalEvidenceTransport:
     """POST one request to the internal verifier endpoint; every non-200 is unavailable."""
 
-    def __init__(self, client: httpx.AsyncClient, *, base_url: str) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        *,
+        base_url: str,
+        identity: WorkloadIdentity | None = None,
+        audience: str | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> None:
         self._client = client
         self._url = str(verifier_endpoint(base_url).join(ISSUANCE_PATH))
+        if identity is not None or audience is not None:
+            normalized_audience = (audience or "").strip()
+            if identity is None or not normalized_audience:
+                raise ValueError(
+                    "operational evidence caller token identity and audience "
+                    "must be configured together"
+                )
+            self._identity: WorkloadIdentity | None = identity
+            self._audience: str | None = normalized_audience
+            return
+        if env is not None:
+            try:
+                venue = resolve_execution_venue(env)
+            except ExecutionVenueError:
+                venue = None
+            configured_audience = env.get(CALLER_TOKEN_AUDIENCE_ENV, "").strip()
+            if venue is ExecutionVenue.DEPLOYED and not configured_audience:
+                raise ValueError(f"{CALLER_TOKEN_AUDIENCE_ENV} is required in deployed venue")
+            source_env: Mapping[str, str] = env
+        else:
+            source_env = os.environ
+            configured_audience = source_env.get(CALLER_TOKEN_AUDIENCE_ENV, "").strip()
+        if configured_audience:
+            try:
+                self._identity = ManagedIdentityWorkloadIdentity.from_env(
+                    http_client=client,
+                    env=source_env,
+                )
+            except ManagedIdentityConfigurationError as exc:
+                raise ValueError(
+                    "deployed operational evidence caller identity is unavailable"
+                ) from exc
+            self._audience = configured_audience
+        else:
+            self._identity = None
+            self._audience = None
 
     async def send(
         self, request: OperationalEvidenceIssuanceRequest
     ) -> OperationalEvidenceIssuanceResponse:
+        headers = {
+            "content-type": "application/json",
+            "accept-encoding": BOUNDED_ACCEPT_ENCODING,
+        }
+        if self._identity is not None and self._audience is not None:
+            token = (await self._identity.get_token(self._audience)).token.strip()
+            if not token or " " in token:
+                raise ValueError("operational evidence caller token is invalid")
+            headers["authorization"] = f"Bearer {token}"
         async with self._client.stream(
             "POST",
             self._url,
             content=request.model_dump_json().encode(),
-            headers={
-                "content-type": "application/json",
-                "accept-encoding": BOUNDED_ACCEPT_ENCODING,
-            },
+            headers=headers,
         ) as response:
             if response.status_code != 200:
                 return OperationalEvidenceIssuanceResponse.unavailable(request)

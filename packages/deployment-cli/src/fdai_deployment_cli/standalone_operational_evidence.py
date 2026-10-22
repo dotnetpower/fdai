@@ -115,15 +115,20 @@ def aks_operational_evidence_verifier_workload(
         raise ValueError("operational evidence verifier binding is invalid")
     if not isinstance(verifier_identity, dict):
         raise TypeError("operational evidence verifier identity is unavailable")
-    if not isinstance(executor_identity, dict):
-        raise TypeError("operational evidence verifier requires the isolated executor anchor")
 
     verifier = _identity_binding(verifier_identity, "operational evidence verifier identity")
     core = _identity_binding(core_identity, "Core runtime identity")
-    executor = _identity_binding(executor_identity, "isolated executor identity")
+    if isinstance(executor_identity, dict):
+        executor_principal = _identity_binding(executor_identity, "isolated executor identity")[
+            "principal_id"
+        ]
+    else:
+        executor_principal = _anchor_principal(
+            binding.get("anchors_json"), "anchor:isolated-executor"
+        )
     if verifier["principal_id"] in {
         core["principal_id"],
-        executor["principal_id"],
+        executor_principal,
         deploy_runner_principal,
     }:
         raise ValueError("operational evidence verifier identity overlaps an independent anchor")
@@ -137,6 +142,17 @@ def aks_operational_evidence_verifier_workload(
             "FDAI_OPERATIONAL_EVIDENCE_VERTICAL_EXECUTOR_PRINCIPALS_JSON"
         ),
         "writer_members_json": "FDAI_OPERATIONAL_EVIDENCE_WRITER_MEMBERS_JSON",
+    }
+    optional_fields = {
+        "grant_registry_json": "FDAI_OPERATIONAL_EVIDENCE_GRANT_REGISTRY_JSON",
+        "observation_metric_workspace_id": (
+            "FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_METRIC_WORKSPACE_ID"
+        ),
+        "observation_metric_queries_json": (
+            "FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_METRIC_QUERIES_JSON"
+        ),
+        "observation_scope_rows_json": "FDAI_OPERATIONAL_EVIDENCE_OBSERVATION_SCOPE_ROWS_JSON",
+        "forecast_history_sources_json": "FDAI_FORECAST_HISTORY_SOURCES_JSON",
     }
     environment: dict[str, object] = {
         "AZURE_CLIENT_ID": verifier["client_id"],
@@ -166,7 +182,7 @@ def aks_operational_evidence_verifier_workload(
         ),
         "FDAI_OPERATIONAL_EVIDENCE_READER_ROLE": "fdai_core",
         "FDAI_OPERATIONAL_EVIDENCE_CORE_EXECUTOR_PRINCIPAL_ID": core["principal_id"],
-        "FDAI_OPERATIONAL_EVIDENCE_ISOLATED_EXECUTOR_PRINCIPAL_ID": executor["principal_id"],
+        "FDAI_OPERATIONAL_EVIDENCE_ISOLATED_EXECUTOR_PRINCIPAL_ID": executor_principal,
         "FDAI_OPERATIONAL_EVIDENCE_DEV_GATEWAY_EXECUTOR_PRINCIPAL_ID": _required_text(
             binding, "dev_gateway_executor_principal_id"
         ),
@@ -180,6 +196,13 @@ def aks_operational_evidence_verifier_workload(
     }
     for key, env_name in json_fields.items():
         environment[env_name] = _required_json_text(binding, key)
+    for key, env_name in optional_fields.items():
+        if key in binding:
+            environment[env_name] = (
+                _required_text(binding, key)
+                if key == "observation_metric_workspace_id"
+                else _required_json_text(binding, key)
+            )
     vertical_principals = json.loads(
         str(environment["FDAI_OPERATIONAL_EVIDENCE_VERTICAL_EXECUTOR_PRINCIPALS_JSON"])
     )
@@ -316,3 +339,18 @@ def _required_json_text(value: Mapping[str, Any], key: str) -> str:
     except json.JSONDecodeError as exc:
         raise ValueError(f"{key} must be valid JSON") from exc
     return item
+
+
+def _anchor_principal(anchors_json: object, anchor_id: str) -> str:
+    if isinstance(anchors_json, str) and anchors_json.strip():
+        try:
+            parsed = json.loads(anchors_json)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict) and isinstance(parsed.get("anchors"), list):
+            for entry in parsed["anchors"]:
+                if isinstance(entry, dict) and entry.get("anchor_id") == anchor_id:
+                    principal = entry.get("principal_id")
+                    if isinstance(principal, str) and _GUID.fullmatch(principal) is not None:
+                        return principal
+    raise TypeError("operational evidence verifier requires the isolated executor anchor")
