@@ -43,6 +43,11 @@ def test_image_token_reservation_rejects_unbounded_high_detail() -> None:
         )
 
 
+def test_image_token_descriptor_rejects_untyped_detail() -> None:
+    with pytest.raises(TypeError, match="ConversationImageDetail"):
+        ConversationImageTokenDescriptor("att-untyped", 512, 512, "low")  # type: ignore[arg-type]
+
+
 def _read_clock() -> datetime:
     return _READ_AT
 

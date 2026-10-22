@@ -39,6 +39,8 @@ class ConversationImageTokenDescriptor:
     def __post_init__(self) -> None:
         if _IMAGE_ID.fullmatch(self.image_id) is None:
             raise ValueError("conversation image token descriptor id is invalid")
+        if not isinstance(self.detail, ConversationImageDetail):
+            raise TypeError("conversation image detail MUST be one ConversationImageDetail")
         if not 1 <= self.width <= 16_384 or not 1 <= self.height <= 16_384:
             raise ValueError("conversation image dimensions MUST be positive and bounded")
 
