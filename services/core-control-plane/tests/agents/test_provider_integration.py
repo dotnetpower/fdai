@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, replace
 
 import pytest
-from fdai.agents._framework import audit_chain_journal
+from fdai.agents._framework import audit_chain_journal, audit_chain_rehydrate
 from fdai.agents._framework.adapters import AuditChainError, AuditEntry, _digest
 from fdai.agents._framework.audit_chain_journal import AUDIT_CHECKPOINT_KEY, entry_hash
 from fdai.agents._framework.bus_bridge import AgentHandlerPhase, EventBusBridge
@@ -1148,19 +1148,45 @@ async def test_state_store_audit_chain_conflict_budget_holds_without_local_fallb
 
 
 async def test_state_store_audit_chain_deadline_holds_without_local_fallback(monkeypatch) -> None:
-    class _BlockedStore(InMemoryStateStore):
-        async def compare_and_set_state_with_audit(self, *args, **kwargs) -> bool:
-            await asyncio.Event().wait()
-            raise AssertionError("blocked transaction must time out")
-
-    original_timeout = asyncio.timeout
-    monkeypatch.setattr(asyncio, "timeout", lambda seconds: original_timeout(0))
-    store = _BlockedStore()
+    monkeypatch.setattr(audit_chain_rehydrate, "_APPEND_DEADLINE_SECONDS", 0.01)
+    store = InMemoryStateStore()
     chain = StateStoreAuditChainAdapter(store)
-    with pytest.raises(AuditChainError, match="deadline exceeded"):
-        await _append_saga_entry(chain)
-    assert chain.entries == []
-    assert tuple(store.audit_entries) == ()
+    await chain._append_lock.acquire()  # noqa: SLF001 - hold the exact bounded admission seam.
+    try:
+        with pytest.raises(AuditChainError, match="deadline exceeded"):
+            await _append_saga_entry(chain)
+        assert chain.entries == []
+        assert tuple(store.audit_entries) == ()
+    finally:
+        chain._append_lock.release()  # noqa: SLF001
+
+
+async def test_state_store_audit_chain_does_not_cancel_an_admitted_atomic_append(
+    monkeypatch,
+) -> None:
+    class _SlowCommittedStore(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.started = asyncio.Event()
+            self.release = asyncio.Event()
+
+        async def compare_and_set_state_with_audit(self, *args, **kwargs) -> bool:
+            self.started.set()
+            await self.release.wait()
+            return await super().compare_and_set_state_with_audit(*args, **kwargs)
+
+    monkeypatch.setattr(audit_chain_rehydrate, "_APPEND_DEADLINE_SECONDS", 0.01)
+    store = _SlowCommittedStore()
+    chain = StateStoreAuditChainAdapter(store)
+    task = asyncio.create_task(_append_saga_entry(chain))
+    await store.started.wait()
+    await asyncio.sleep(0.02)
+    store.release.set()
+
+    entry = await task
+
+    assert chain.entries == [entry]
+    assert len(tuple(store.audit_entries)) == 1
 
 
 async def test_state_store_audit_chain_byte_budget_holds_without_head_advance() -> None:

@@ -17,6 +17,8 @@ from fdai.agents._framework.audit_chain_journal import (
 )
 from fdai.shared.providers.state_store import StateStore
 
+_APPEND_DEADLINE_SECONDS = 2.0
+
 
 async def rehydrate_audit_entries(store: StateStore) -> list[AuditEntry]:
     """Restore the retained verified window, not complete historical replay."""
@@ -60,46 +62,55 @@ class StateStoreAuditChainAdapter:
         """
         snapshot = deepcopy(payload)
         payload_digest = _digest(snapshot)
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _APPEND_DEADLINE_SECONDS
         try:
-            async with asyncio.timeout(2):
-                async with self._append_lock:
-                    for _ in range(8):
-                        journal = await load_journal(self.store)
-                        if journal is None:
-                            continue
-                        entry = AuditEntry(
-                            seq=journal.length,
-                            prev_hash=journal.head_hash,
-                            entry_hash="",
-                            principal=principal,
-                            topic=topic,
-                            correlation_id=correlation_id,
-                            payload_digest=payload_digest,
-                        )
-                        entry = replace(entry, entry_hash=entry_hash(entry))
-                        advanced = journal.advanced(entry)
-                        committed = await self.store.compare_and_set_state_with_audit(
-                            AUDIT_CHECKPOINT_KEY,
-                            advanced.encode(),
-                            expected_revision=journal.revision,
-                            audit_entry={
-                                "actor": "Saga",
-                                "action_kind": "audit.record",
-                                "seq": entry.seq,
-                                "prev_hash": entry.prev_hash,
-                                "entry_hash": entry.entry_hash,
-                                "principal": principal,
-                                "topic": topic,
-                                "correlation_id": correlation_id,
-                                "payload_digest": payload_digest,
-                                "payload": snapshot,
-                            },
-                        )
-                        if committed:
-                            self._install(advanced)
-                            return entry
+            async with asyncio.timeout(_APPEND_DEADLINE_SECONDS):
+                await self._append_lock.acquire()
         except TimeoutError as exc:
             raise AuditChainError("durable audit append deadline exceeded") from exc
+        try:
+            for _ in range(8):
+                if loop.time() >= deadline:
+                    raise AuditChainError("durable audit append deadline exceeded")
+                journal = await load_journal(self.store)
+                if journal is None:
+                    continue
+                entry = AuditEntry(
+                    seq=journal.length,
+                    prev_hash=journal.head_hash,
+                    entry_hash="",
+                    principal=principal,
+                    topic=topic,
+                    correlation_id=correlation_id,
+                    payload_digest=payload_digest,
+                )
+                entry = replace(entry, entry_hash=entry_hash(entry))
+                advanced = journal.advanced(entry)
+                if loop.time() >= deadline:
+                    raise AuditChainError("durable audit append deadline exceeded")
+                committed = await self.store.compare_and_set_state_with_audit(
+                    AUDIT_CHECKPOINT_KEY,
+                    advanced.encode(),
+                    expected_revision=journal.revision,
+                    audit_entry={
+                        "actor": "Saga",
+                        "action_kind": "audit.record",
+                        "seq": entry.seq,
+                        "prev_hash": entry.prev_hash,
+                        "entry_hash": entry.entry_hash,
+                        "principal": principal,
+                        "topic": topic,
+                        "correlation_id": correlation_id,
+                        "payload_digest": payload_digest,
+                        "payload": snapshot,
+                    },
+                )
+                if committed:
+                    self._install(advanced)
+                    return entry
+        finally:
+            self._append_lock.release()
         raise AuditChainError("durable audit append contention budget exhausted")
 
     def _install(self, journal: AuditJournal) -> None:
