@@ -82,7 +82,7 @@ class LlmInvocation:
     disposition: InvocationDisposition = InvocationDisposition.UNKNOWN
 
     def __post_init__(self) -> None:
-        if self.occurred_at.tzinfo is None:
+        if self.occurred_at.tzinfo is None or self.occurred_at.utcoffset() is None:
             raise ValueError("occurred_at MUST be timezone-aware")
         if not self.correlation_id:
             raise ValueError("correlation_id MUST NOT be empty")

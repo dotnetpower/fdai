@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone, tzinfo
 from decimal import Decimal
 
 import pytest
@@ -39,6 +39,18 @@ def test_day_and_month_buckets_use_utc() -> None:
 def test_naive_datetime_rejected() -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
         _invocation(occurred_at=datetime(2026, 7, 10, 12, 0))  # noqa: DTZ001
+
+
+def test_timezone_without_utc_offset_rejected() -> None:
+    class _UndefinedOffset(tzinfo):
+        def utcoffset(self, dt: datetime | None) -> None:
+            return None
+
+        def dst(self, dt: datetime | None) -> None:
+            return None
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        _invocation(occurred_at=datetime(2026, 7, 10, 12, 0, tzinfo=_UndefinedOffset()))
 
 
 def test_negative_cost_rejected() -> None:
