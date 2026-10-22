@@ -81,6 +81,15 @@ def test_cost_and_currency_must_be_present_together(
 
 @pytest.mark.parametrize(
     ("field", "value"),
+    [("cached_prompt_tokens", True), ("duration_ms", 1.5)],
+)
+def test_usage_metadata_rejects_non_integer_values(field: str, value: object) -> None:
+    with pytest.raises(TypeError, match=f"{field} MUST be one integer"):
+        _invocation(**{field: value})
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
     [
         ("locale", "en|ko"),
         ("locale", "ko\n"),

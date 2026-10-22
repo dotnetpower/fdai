@@ -104,8 +104,12 @@ class LlmInvocation:
             raise ValueError("currency MUST NOT be empty when present")
         if (self.cost is None) != (self.currency is None):
             raise ValueError("cost and currency MUST both be present or both be absent")
+        if type(self.cached_prompt_tokens) is not int:
+            raise TypeError("cached_prompt_tokens MUST be one integer")
         if self.cached_prompt_tokens < 0 or self.cached_prompt_tokens > self.usage.prompt_tokens:
             raise ValueError("cached_prompt_tokens MUST be within measured prompt tokens")
+        if type(self.duration_ms) is not int:
+            raise TypeError("duration_ms MUST be one integer")
         if self.duration_ms < 0:
             raise ValueError("duration_ms MUST NOT be negative")
         if (
