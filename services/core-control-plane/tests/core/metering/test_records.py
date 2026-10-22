@@ -23,6 +23,7 @@ def _invocation(**overrides: object) -> LlmInvocation:
         "mode": InvocationMode.ENFORCE,
         "usage": _USAGE,
         "cost": Decimal("0.5"),
+        "currency": "USD",
     }
     base.update(overrides)
     return LlmInvocation(**base)  # type: ignore[arg-type]
@@ -64,7 +65,18 @@ def test_empty_currency_rejected() -> None:
 
 
 def test_cost_may_be_none() -> None:
-    assert _invocation(cost=None).cost is None
+    assert _invocation(cost=None, currency=None).cost is None
+
+
+@pytest.mark.parametrize(
+    ("cost", "currency"),
+    [(Decimal("0.5"), None), (None, "USD")],
+)
+def test_cost_and_currency_must_be_present_together(
+    cost: Decimal | None, currency: str | None
+) -> None:
+    with pytest.raises(ValueError, match="both be present or both be absent"):
+        _invocation(cost=cost, currency=currency)
 
 
 @pytest.mark.parametrize(

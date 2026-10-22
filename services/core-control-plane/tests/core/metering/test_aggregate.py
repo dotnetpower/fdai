@@ -38,6 +38,7 @@ def _inv(
         mode=InvocationMode.ENFORCE,
         usage=TokenUsage(prompt_tokens=prompt, completion_tokens=completion),
         cost=cost,
+        currency="USD" if cost is not None else None,
     )
 
 
