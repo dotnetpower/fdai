@@ -48,6 +48,19 @@ def test_image_token_descriptor_rejects_untyped_detail() -> None:
         ConversationImageTokenDescriptor("att-untyped", 512, 512, "low")  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize(("width", "height"), [(True, 512), (512, 512.0)])
+def test_image_token_descriptor_rejects_non_integer_dimensions(
+    width: object, height: object
+) -> None:
+    with pytest.raises(TypeError, match="dimensions MUST be integers"):
+        ConversationImageTokenDescriptor(  # type: ignore[arg-type]
+            "att-untyped-dimension",
+            width,
+            height,
+            ConversationImageDetail.HIGH,
+        )
+
+
 def _read_clock() -> datetime:
     return _READ_AT
 
