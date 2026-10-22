@@ -615,9 +615,10 @@ If the retained workload state predates the standalone application receipt, sele
 The source-service coordinator owns that reconciliation lifecycle: it returns the strict runtime-profile-bound review, checks verification-only recovery before any new effect, requires current exact approval when no claim exists, revalidates the saved binary plan, writes the claim before one Managed Identity apply, and resumes adoption only from receipt-bound refreshed state, typed Deployment readback, healthy workloads, and a complete full-scope zero-change plan. The validator canonicalizes only provider-equivalent omitted, null, or empty `sub_path` and `sub_path_expr` values. Every non-empty subpath remains a contract change and is denied. This workload readback does not establish Kafka round trips, scheduled-job success, Console
 authentication, or full deployment readiness. The separate browser publication gate verifies the
 Console and API edge after workload convergence.
-The workload factory binds Operator, isolated Executor, Document API and Document Worker to
-`fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and `fdai_ingestion_worker`, respectively,
-through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It leaves the caller's environment unchanged.
+The workload factory binds Core, Operator, isolated Executor, Document API and Document Worker to
+`fdai_core`, `fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and
+`fdai_ingestion_worker`, respectively, through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It
+leaves the caller's environment unchanged.
 All rendered services explicitly select the deployed execution venue. Role selection neither grants
 database membership nor supplies service-owned DSNs, and never enables Executor authority cutover.
 
