@@ -167,7 +167,7 @@ async def build_core_runtime(
         )
     product_selection = _product_profile.RuntimeProductSelection.from_profile(plan.product_profile)
     stewardship_mode = stewardship_delivery_mode(
-        environment, governed_execution=product_selection.governed_execution
+        environment, product_selection.governed_execution, product_selection.enterprise_identity
     )
     if (
         plan.requires_channel_http_client

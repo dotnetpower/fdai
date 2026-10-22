@@ -57,7 +57,7 @@ verification. This [connection contract](../../runbooks/knowledge-github-sources
 Incident creation, approval callback, semantic confirmation, or managed-resource write authority.
 
 `GET /stewardship/candidates` returns the newest Console ownership revision candidates (id, digest,
-title, body, YAML, state) from an Owner-only projection that Core writes. Owner-only
+title, body, YAML, state) from an Owner-only projection that Core writes. Core writes it when the enterprise-identity add-on is selected, even without governed execution; until the first write the route answers `503`. Owner-only
 `POST /stewardship/candidates/activate` accepts exactly `candidate_id` and `candidate_digest`,
 requires `Idempotency-Key`, and stores one inert `stewardship.candidate_activation` proposal without
 a new topic. HTTP `202` is durable intent: Core rechecks the stored Owner role, reads the candidate
