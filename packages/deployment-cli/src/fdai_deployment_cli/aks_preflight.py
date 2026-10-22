@@ -18,6 +18,30 @@ from fdai_deployment_cli.target import compute_target_binding
 POSTGRES_FLEX_MAJOR_VERSION = "16"
 
 
+def _active_human_target(deadline: DeploymentDeadline) -> tuple[str, str]:
+    account = _json(
+        ("account", "show", "--query", "{id:id,tenantId:tenantId,state:state,userType:user.type}"),
+        deadline,
+    )
+    if (
+        not isinstance(account, dict)
+        or account.get("state") != "Enabled"
+        or account.get("userType") != "user"
+    ):
+        raise ValueError("AKS preflight requires an enabled subscription and active human identity")
+    subscription, tenant = account.get("id"), account.get("tenantId")
+    if not isinstance(subscription, str) or not isinstance(tenant, str):
+        raise ValueError("AKS preflight target binding is incomplete")  # noqa: TRY004
+    return subscription, tenant
+
+
+def current_target_binding(*, timeout_seconds: int = 60) -> str:
+    """Bind the active human Azure target before any provider read, without retaining either id."""
+
+    subscription, tenant = _active_human_target(DeploymentDeadline(timeout_seconds))
+    return compute_target_binding(subscription_id=subscription, tenant_id=tenant)
+
+
 def inspect_aks_target(
     *,
     profile: RuntimeDeploymentProfile,
@@ -34,19 +58,7 @@ def inspect_aks_target(
     if profile.runtime_platform.value != "aks" or re.fullmatch(r"[a-z][a-z0-9]+", region) is None:
         raise ValueError("AKS preflight requires an AKS profile and valid region")
     deadline = DeploymentDeadline(timeout_seconds)
-    account = _json(
-        ("account", "show", "--query", "{id:id,tenantId:tenantId,state:state,userType:user.type}"),
-        deadline,
-    )
-    if (
-        not isinstance(account, dict)
-        or account.get("state") != "Enabled"
-        or account.get("userType") != "user"
-    ):
-        raise ValueError("AKS preflight requires an enabled subscription and active human identity")
-    subscription, tenant = account.get("id"), account.get("tenantId")
-    if not isinstance(subscription, str) or not isinstance(tenant, str):
-        raise ValueError("AKS preflight target binding is incomplete")  # noqa: TRY004
+    subscription, tenant = _active_human_target(deadline)
     target_binding = compute_target_binding(subscription_id=subscription, tenant_id=tenant)
     skus = _selected_skus(
         subscription=subscription,
