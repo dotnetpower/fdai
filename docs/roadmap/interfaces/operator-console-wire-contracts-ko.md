@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: bdd3d3a20271a2da282880211bf3cad3ca6ad4a9
-translation_revised: 2026-10-22
+translation_source_sha: bc31357f7636a16ad5baa9bcd4762dc7f10cba4a
+translation_revised: 2026-10-23
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -60,7 +60,7 @@ Core는 실제 수신기 생존 상태, 보호된 준비 상태, 저장된 비�
 생성, 승인 콜백, 의미 확인 또는 관리 리소스 쓰기 권한을 바꾸지 않습니다.
 
 `GET /stewardship/candidates`는 Core가 기록하는 Owner 전용 프로젝션에서 최신 Console 담당 체계
-개정 후보(ID, 다이제스트, 제목, 본문, YAML, 상태)를 반환합니다. Owner 전용
+개정 후보(ID, 다이제스트, 제목, 본문, YAML, 상태)를 반환합니다. Core는 `governed-execution` 없이도 엔터프라이즈 ID 추가 기능을 선택하면 이 프로젝션을 기록하며, 첫 기록 전에는 `503`으로 응답합니다. Owner 전용
 `POST /stewardship/candidates/activate`는 `candidate_id`와 `candidate_digest`만 받고
 `Idempotency-Key`를 요구하며, 새 토픽 없이 비활성 `stewardship.candidate_activation` 제안 하나를
 저장합니다. HTTP `202`는 영속 요청입니다. Core가 저장된 Owner 역할을 다시 확인하고 후보를 다시

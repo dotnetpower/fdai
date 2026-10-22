@@ -314,14 +314,18 @@ class StewardshipGovernanceWorker:
 
 def stewardship_delivery_mode(
     environment: Mapping[str, str],
-    *,
     governed_execution: bool,
+    enterprise_identity: bool = False,
 ) -> Literal["gitops", "console"] | None:
-    """Select how stewardship drafts reach review: GitOps when credentials exist, else Console."""
+    """Select how stewardship drafts reach review: GitOps when credentials exist, else Console.
 
-    if not governed_execution:
+    Ownership governance belongs to the enterprise-identity add-on, so the Console path does not
+    need governed execution. GitOps publishes a pull request and still requires it.
+    """
+
+    if not (governed_execution or enterprise_identity):
         return None
-    if github_credentials_configured(environment):
+    if governed_execution and github_credentials_configured(environment):
         return "gitops"
     if _environment_flag(environment, "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", False):
         return "console"
