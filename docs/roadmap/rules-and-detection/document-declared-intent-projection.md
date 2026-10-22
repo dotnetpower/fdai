@@ -18,7 +18,7 @@ ontology records, current source-aware queries, and recovery.
 > No new agent, execution identity, ActionType, authority registry, or provider mutation is added.
 > Existing ingestion/indexing approval keeps its original meaning.
 
-Console-governed stewardship composition in `bootstrap_core.py` binds no document-intent SDK, source principal, or approval. It reads only inert handover drafts and creates review-only ownership candidates.
+Console-governed stewardship composition in `bootstrap_core.py` binds no document-intent SDK, source principal, or approval. It reads only inert handover drafts and creates review-only ownership candidates. The composition starts under the `enterprise-identity-governance` add-on without `governed-execution`.
 
 ## Design at a glance
 

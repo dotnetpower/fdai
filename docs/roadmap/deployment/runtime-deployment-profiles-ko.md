@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9165211e45aaef1e09caee49e5ce743bd0a5b499
+translation_source_sha: 07b7213d79d3dec9163913875e4ca4c6a731ec40
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -215,7 +215,7 @@ Deployment의 새 plan과 승인을 요구하며, repair 자체는 다시 대체
 자율성을 높이지 않습니다.
 
 런타임, 데이터베이스, 환경, 포크 상태 및 패키지 존재 여부는 제품 추가 기능을 선택하지 않습니다. 공유 불변 프로필은 명시적 선택과 `authority_granted: false`만 포함합니다. 제품 프로필 이전에 만든 런타임 기록은 원래 추가 기능 네 개를 명시적으로 선택한 레거시 선택과만 일치하므로, 이후 추가된 기능이 이 일치 여부를 바꾸지 않습니다.
-기본값은 Graph, 승인, enforce 승격, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않으며, 선택했지만 불완전한 추가 기능은 안전하게 차단됩니다. `read-only-console`과 `governed-execution`은 `enterprise-identity-governance`를 요구하고, 모든 런타임은 컴파일된 프로필을 자신의 워크로드까지 전달하므로 조립이 선택과 어긋나지 않습니다. full-authority 개발 프로필은 정확한 폐기 가능 범위를 위한 별도의 선택적 권한 입력이며 이 제품 축에서 상속되지 않습니다. 선택적 dev operations gateway는 인증을 사용하므로 명시적인 Operator API audience가 필요하며 없으면 계획을 거부합니다.
+기본값은 Graph, 승인, enforce 승격, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않으며, 선택했지만 불완전한 추가 기능은 안전하게 차단됩니다. `read-only-console`과 `governed-execution`은 `enterprise-identity-governance`를 요구하고, 모든 런타임은 컴파일된 프로필을 자신의 워크로드까지 전달하므로 조립이 선택과 어긋나지 않습니다. full-authority 개발 프로필은 정확한 폐기 가능 범위를 위한 별도의 선택적 권한 입력이며 이 제품 축에서 상속되지 않습니다. 선택적 dev operations gateway는 인증을 사용하므로 명시적인 Operator API audience가 필요하며 없으면 계획을 거부합니다. Console 관리형 담당 체계는 `enterprise-identity-governance`에 속하므로 `governed-execution` 없이 시작하며, GitOps 게시는 계속 `governed-execution`을 요구합니다.
 source AKS와 Container Apps 배포는 검토된 동일 개발 프로필과 프로필에서 도출한 실행기
 principal을 Core에 전달합니다. 두 값은 함께 선택하거나 모두 선택하지 않습니다. 배포는 plan
 전에 대상과 source 개정을 검증하고, 런타임 시작 시 현재 유효기간과 정확한 실행기 일치를

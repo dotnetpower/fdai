@@ -1,8 +1,8 @@
 ---
 title: 승인된 문서 의도 변환
 translation_of: document-declared-intent-projection.md
-translation_source_sha: 4e9ed59675223c6bfa4c4cdbcaff76e342db641c
-translation_revised: 2026-10-22
+translation_source_sha: aa7039d16b5697a71a4ed0ea8e1fb639f0c54091
+translation_revised: 2026-10-23
 ---
 # 승인된 문서 의도 변환
 
@@ -21,7 +21,7 @@ translation_revised: 2026-10-22
 > 새 에이전트, 실행 식별자, ActionType, 권한 레지스트리, 프로바이더 변경을 추가하지
 > 않습니다. 기존 수집/인덱싱 승인은 원래 의미를 유지합니다.
 
-`bootstrap_core.py`의 Console 관리형 담당 체계 조립은 문서 의도 SDK, 원본 주체, 승인을 연결하지 않습니다. 비활성 인수인계 초안만 읽고 검토 전용 담당 체계 후보를 만듭니다.
+`bootstrap_core.py`의 Console 관리형 담당 체계 조립은 문서 의도 SDK, 원본 주체, 승인을 연결하지 않습니다. 비활성 인수인계 초안만 읽고 검토 전용 담당 체계 후보를 만듭니다. 이 조립은 `governed-execution` 없이 `enterprise-identity-governance` 추가 기능만으로 시작합니다.
 
 ## 설계 한눈에 보기
 
