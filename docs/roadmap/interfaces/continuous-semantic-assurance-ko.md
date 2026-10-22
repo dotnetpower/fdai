@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: 835f483ccfbe2be898520b53d54bcf40dbf85bb9
-translation_revised: 2026-10-19
+translation_source_sha: 2b4d868fe2cb1f86cf83cf576a3ad8bc75e93ddb
+translation_revised: 2026-10-23
 ---
 # 지속형 의미 보증
 
@@ -63,8 +63,9 @@ governed release 신원이 안정적으로 유지되더라도 매니페스트 �
 답변 전용 대기 상태 보완 원본도 원본에 결속된 온톨로지 다이제스트를 바꿉니다. 매니페스트
 재생성은 릴리스와 자료 목록 다이제스트만 갱신하며 질문, 측정된 커버리지, 프로바이더 근거,
 자격 또는 운영 근거 검증 증적을 추가하지 않습니다.
-`governance.override-promote-action-type` 추가는 구조 카탈로그 변경이므로 같은 빌더가 live 보증
-증적을 만들지 않고도 corpus manifest 분모와 원본 다이제스트를 갱신합니다.
+`governance.override-promote-action-type` 또는 `remediate.subscription-tag-add` 추가는 구조
+카탈로그 변경이므로 같은 빌더가 live 보증 증적을 만들지 않고도 corpus manifest 분모와 원본
+다이제스트를 갱신합니다.
 
 이어받기 참조를 받는 함수 버전 1.3.0의 메트릭 컬렉션 판독기와 검토된 정성 메트릭 레시피도 원본에
 결속된 릴리스를 다시 바꿉니다. 다시 생성된 매니페스트는 그 릴리스를 기록하며, 사례 수는 출처 정보로만

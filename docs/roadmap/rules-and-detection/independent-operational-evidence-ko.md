@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 124ed687538e8292911eade3c3480dd05e7ce05c
-translation_revised: 2026-10-22
+translation_source_sha: edac36a9e84ee2d136d4f931d3a938b5f3cba0d3
+translation_revised: 2026-10-23
 ---
 # 독립 운영 근거 발급
 
@@ -456,6 +456,8 @@ P1 모집단 개수, E12 계보 제한, 의미 답변 출력 예약은 타입이
 유지됩니다. 독립 운영 근거를 발급하거나 허용하지 않습니다.
 변환 전용 온톨로지 어휘는 릴리스 digest나 운영 근거 조회 권한을 바꾸지 않고도 해당 corpus
 매니페스트의 원본 다이제스트를 갱신할 수 있습니다.
+ActionType 카탈로그 항목을 추가해도 같은 리포지토리 출처 정보가 갱신될 수 있습니다. 이 변경은
+운영 증명을 발급하지 않으며 이전 증명을 새 작업에 허용하지도 않습니다.
 
 P2 traversal 모집단 개수, E12 앵커별 커버리지 행, E11 레시피 기준값, P3 메트릭 읽기 이어받기도 타입이
 지정된 조회 근거입니다. 독립 운영 근거를 발급하거나 허용하지 않습니다.
