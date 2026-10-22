@@ -40,7 +40,9 @@ _INGESTION_MODULE = (
 
 def test_platform_exports_review_only_stewardship_gitops_binding() -> None:
     assert 'output "stewardship_gitops_binding"' in _PLATFORM_OUTPUTS
-    assert "auth_mode                 = trimspace(" in _PLATFORM_OUTPUTS
+    assert 'trimspace(nonsensitive(var.github_app_private_key)) != "" ? "github_app"' in (
+        _PLATFORM_OUTPUTS
+    )
     assert "azurerm_key_vault_secret.gitops_token[0].resource_versionless_id" in _PLATFORM_OUTPUTS
     assert (
         "azurerm_key_vault_secret.github_app_private_key[0].resource_versionless_id"
@@ -110,3 +112,36 @@ def test_platform_workflow_binds_stewardship_inputs_without_exposing_secrets() -
     assert "TF_VAR_github_webhook_secret: ${{ secrets.GITHUB_WEBHOOK_SECRET }}" in _DEPLOY_WORKFLOW
     assert "TF_VAR_gitops_token: ${{ vars." not in _DEPLOY_WORKFLOW
     assert "TF_VAR_github_webhook_secret: ${{ vars." not in _DEPLOY_WORKFLOW
+
+
+def test_production_gate_supports_console_governed_mode_without_github_app() -> None:
+    from scripts.deployment.service.stewardship_tfvars import stewardship_gitops_binding
+
+    gates = (_ROOT / "infra" / "production-gates.tf").read_text(encoding="utf-8")
+    assert 'check "stewardship_governance_requires_delivery"' in gates
+    assert "Console-governed mode (no GitOps inputs)" in gates
+    assert 'trimspace(var.gitops_owner) == ""' in gates
+    assert (
+        stewardship_gitops_binding(
+            {"enabled": True, "auth_mode": "console"}, service="document-ingestion-api"
+        )
+        == {}
+    )
+    core_binding = stewardship_gitops_binding(
+        {"enabled": True, "auth_mode": "console"}, service="core-control-plane"
+    )
+    assert core_binding["auth_mode"] == "console"
+    assert core_binding["app_client_id"] == ""
+    assert core_binding["webhook_secret_id"] == ""
+
+
+def test_console_mode_creates_no_github_secret_or_webhook_resources() -> None:
+    assert "stewardship_gitops_configured" in _PLATFORM_MAIN
+    assert (
+        'resource "azurerm_key_vault_secret" "github_webhook_secret" {\n'
+        "  count        = local.stewardship_gitops_configured ? 1 : 0" in _PLATFORM_MAIN
+    )
+    assert "local.stewardship_gitops_configured && var.enable_document_ingestion" in _PLATFORM_MAIN
+    assert '!local.stewardship_gitops_configured ? "console"' in _PLATFORM_OUTPUTS
+    assert 'var.stewardship_gitops.auth_mode == "console"' in _SERVICE_VARIABLES
+    assert 'var.stewardship_gitops.auth_mode == "console" ? []' in _SERVICE_MODULE

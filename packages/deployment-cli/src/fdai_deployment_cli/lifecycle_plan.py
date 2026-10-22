@@ -748,3 +748,21 @@ def _append_if_blocked(blocks: list[ConstraintBlock], decision: ReleaseDecision)
 
 def _deny(reason_code: str, *details: str) -> PlanAdmissionDecision:
     return PlanAdmissionDecision(False, reason_code, tuple(details))
+
+
+from fdai_deployment_cli.lifecycle_authorization import (  # noqa: E402
+    LifecycleAuthorizationReceipt as LifecycleAuthorizationReceipt,
+    LifecyclePhase as LifecyclePhase,
+    LifecyclePhaseCompletionReceipt as LifecyclePhaseCompletionReceipt,
+    evaluate_phase_authorization as evaluate_phase_authorization,
+    exact_plan_digest_for as exact_plan_digest_for,
+    issue_lifecycle_authorization_receipt as issue_lifecycle_authorization_receipt,
+)
+from fdai_deployment_cli.lifecycle_commands import (  # noqa: E402
+    BreakGlassBypass as BreakGlassBypass,
+    LifecycleCommand as LifecycleCommand,
+    LifecycleCommandKind as LifecycleCommandKind,
+    overrides_adopted as overrides_adopted,
+    require_valid_lifecycle_command as require_valid_lifecycle_command,
+    validate_lifecycle_command as validate_lifecycle_command,
+)

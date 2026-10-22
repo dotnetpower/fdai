@@ -97,12 +97,16 @@ REQUIRED_PHRASES: Mapping[str, tuple[str, ...]] = {
         "at least two normalized, distinct humans",
         "single-operator development profile",
         "full-authority development profile",
+        "FDAI Console is a governed operator surface, not a read-only viewer.",
+        "without requiring an external Git host or GitHub App",
         "renewal creates a new immutable revision",
         "Dependency loss preserves only paths",
     ),
     "docs/roadmap/architecture/fdai-constitution-ko.md": (
         "FDAI 핵심 원칙",
         "원칙의 의미를 변경하는 것은\n헌법 개정",
+        "FDAI Console은 읽기 전용 조회 화면이 아니라 관리되는 운영자 작업 화면입니다.",
+        "외부 Git 호스트나 GitHub App 없이",
     ),
     "docs/roadmap/architecture/goals-and-metrics.md": (
         "Current coverage gap",

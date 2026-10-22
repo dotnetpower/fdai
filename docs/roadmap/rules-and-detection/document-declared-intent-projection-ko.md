@@ -1,7 +1,7 @@
 ---
 title: 승인된 문서 의도 변환
 translation_of: document-declared-intent-projection.md
-translation_source_sha: 36c97cc812b2e2974965e82fff865b8542d0f935
+translation_source_sha: 4e9ed59675223c6bfa4c4cdbcaff76e342db641c
 translation_revised: 2026-10-22
 ---
 # 승인된 문서 의도 변환
@@ -20,6 +20,8 @@ translation_revised: 2026-10-22
 > **권한 경계:** 의도는 프로바이더 사실, 텔레메트리, 정책, 실행 권한이 아닙니다.
 > 새 에이전트, 실행 식별자, ActionType, 권한 레지스트리, 프로바이더 변경을 추가하지
 > 않습니다. 기존 수집/인덱싱 승인은 원래 의미를 유지합니다.
+
+`bootstrap_core.py`의 Console 관리형 담당 체계 조립은 문서 의도 SDK, 원본 주체, 승인을 연결하지 않습니다. 비활성 인수인계 초안만 읽고 검토 전용 담당 체계 후보를 만듭니다.
 
 ## 설계 한눈에 보기
 

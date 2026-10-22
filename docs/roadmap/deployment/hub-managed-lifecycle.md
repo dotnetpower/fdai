@@ -484,9 +484,12 @@ Plan whose sequence, generation, or source-state digest is stale.
 > **Implemented admission boundary:** The Agent verifies canonical signed Plan bytes against
 > independently configured Hub trust and durable local sequence state. Stale sequence, wrong
 > audience, revoked key and an over-wide envelope are refused before cluster calls even when
-> the apply adapter is enabled. This source boundary was delivered in #1951 and remains distinct
-> from production key lifecycle, local authorization receipts, physical phase fencing and
-> operational installation qualification.
+> the apply adapter is enabled. Automatic apply additionally requires a local
+> `LifecycleAuthorizationReceipt` bound to the exact Plan digest, fencing generation, Release and
+> configuration digests, and open window, and holds the workload phase when an earlier
+> `infrastructure` phase completion receipt for the same exact Plan digest is required but absent.
+> Production key lifecycle, physical multi-host infrastructure coordination and operational
+> installation qualification remain separate.
 
 A Plan runs as a fenced sequence of phases. The infrastructure agent owns the infrastructure phase,
 and the lifecycle agent owns the workload phase. A phase starts only after the previous phase's
@@ -569,6 +572,17 @@ No command raises authority. A break-glass command can bypass only maintenance w
 suppression windows, and version ranges. It still passes signature checks, the local envelope, the
 exact plan, the lock, idempotency, audit intent, recall, destructive-change confirmation, recovery,
 and independent readback. The installation's own kill switch route keeps its existing behavior.
+
+> **Implemented command expiry and break-glass boundary:** `LifecycleCommand` and
+> `validate_lifecycle_command` require an explicit expiry on every command (`suppression-window`,
+> `authority-lowering`, and `break-glass`) and reject any authority-raising request (`target_mode`
+> above `shadow`, `target_autonomy` above `hil`, kill-switch disengagement, or bypasses outside
+> `maintenance-window`, `suppression-window`, and `version-range`). While active, a break-glass
+> command applies its secret-scanned emergency overrides (`configuration-change` Plan) and bypasses
+> only its declared window or version-range constraints while preserving recall, schema, artifact,
+> and residency checks. At expiry, `plan_next` reconciles unadopted emergency overrides back to the
+> approved configuration revision with a `drift-reconciliation` Plan. Dedicated Hub command HTTP/UI
+> routes remain separate.
 
 ## Separation from the operations loop
 

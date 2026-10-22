@@ -16,10 +16,12 @@ from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.lifecycle_configuration import validate_configuration_package_for_signing
 from fdai_deployment_cli.lifecycle_plan import (
     ConstraintBlock,
+    LifecycleCommand,
     LifecyclePlan,
     MaintenanceWindow,
     PlanType,
     SuppressionWindow,
+    require_valid_lifecycle_command,
 )
 from fdai_deployment_cli.lifecycle_release import is_product_id
 from fdai_deployment_cli.runtime_release import compare_release_ids, is_release_id
@@ -266,12 +268,21 @@ class Installation:
     configuration: Configuration
     reported: ReportedState
     suppressions: tuple[SuppressionWindow, ...] = ()
+    commands: tuple[LifecycleCommand, ...] = ()
     last_sequence: int = 0
     open_plan: IssuedPlan | None = None
 
     def __post_init__(self) -> None:
         if missing := self.managed_entity_ids - self.reported.entities.keys():
             raise ValueError(f"reported state lacks managed entities: {sorted(missing)}")
+        for command in self.commands:
+            require_valid_lifecycle_command(command)
+
+    def with_command(self, command: LifecycleCommand, now: datetime) -> Self:
+        """Validate ``command`` (including expiry and authority bounds) and append it."""
+
+        require_valid_lifecycle_command(command, trusted_now=now)
+        return replace(self, commands=(*self.commands, command))
 
     def with_reported(self, state: ReportedState) -> Self:
         """Return this installation with a newer snapshot. Raises on a stale or partial one."""

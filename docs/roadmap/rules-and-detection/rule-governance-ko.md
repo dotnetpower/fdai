@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 6488485eb00189fa9a6f07816b646a00d025b9df
-translation_revised: 2026-10-17
+translation_source_sha: 525229d042dd100914a36efc7ec9d0d9dae95314
+translation_revised: 2026-10-22
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -25,6 +25,8 @@ shadow-before-enforce 및 안전 불변식을 유지합니다.
 > 고객-비종속: 아래 모든 식별자, 스코프, 값은
 > [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md) 에
 > 따라 합성 자리 표시자.
+
+OPA 빌더 스테이지는 모든 규칙 리비전 신원에 포함되지만 Go 패치 릴리스는 정책 변경이 아닙니다. 신원 게이트는 마이너 시리즈의 Go 핀을 보존된 리비전이 기록한 기준선으로 해시하므로, 패치 릴리스는 모든 신원을 그대로 유지합니다. 새 Go 마이너 시리즈, OPA 버전 변경, 그 밖의 빌더 변경은 여전히 규칙 버전 증가가 필요하며, 새 시리즈는 그 증가와 함께 기준선 표에 추가합니다.
 
 ## 카탈로그 검색
 

@@ -6,29 +6,159 @@ import asyncio
 import hashlib
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
-from fdai_service_contracts.handover import HandoverDraftArtifact
+from fdai_service_contracts.handover import (
+    HandoverDraftArtifact,
+    StewardshipMergeRecord,
+)
 from pydantic import ValidationError
 
 from fdai.core.stewardship.governance import (
     StewardshipGovernanceError,
     StewardshipGovernanceService,
     stewardship_idempotency_key,
+    validate_stewardship_candidate,
 )
 from fdai.runtime.github_auth import github_credentials_configured
-from fdai.shared.providers.remediation_pr import RemediationPrPublisher
+from fdai.shared.providers.remediation_pr import (
+    PublishReceipt,
+    RemediationPr,
+    RemediationPrPublisher,
+)
 from fdai.shared.providers.state_store import StateStore
 
 _DRAFT_PREFIX = "handover_draft:"
+_CANDIDATE_PREFIX = "stewardship_revision_candidate:"
+_MERGE_PREFIX = "stewardship_merge:"
 _RECEIPT_PREFIX = "stewardship_governance:"
 _FAILURE_PREFIX = "stewardship_governance_failure:"
 _LOGGER = logging.getLogger("fdai.stewardship.governance")
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
+
+
+@dataclass(frozen=True, slots=True)
+class ConsoleStewardshipCandidatePublisher:
+    """Publish handover drafts as Console-governed revision candidates without GitHub App."""
+
+    store: StateStore
+
+    async def publish(self, pr: RemediationPr) -> PublishReceipt:
+        """Persist or reuse one content-addressed Console ownership candidate."""
+
+        candidate_id = hashlib.sha256(pr.idempotency_key.encode()).hexdigest()[:16]
+        pr_ref = f"console-stewardship:{candidate_id}"
+        url = f"/agent-oversight/mapping-reviews/{candidate_id}"
+        candidate_key = f"{_CANDIDATE_PREFIX}{candidate_id}"
+        existing = await self.store.read_state(candidate_key)
+        if existing is not None:
+            digest = str(existing.get("candidate_digest", "")).strip() or None
+            state_value = str(existing.get("state", "open")).strip() or "open"
+            return PublishReceipt(
+                pr_ref=pr_ref,
+                url=url,
+                already_existed=True,
+                state=state_value,
+                head_sha=digest,
+            )
+
+        candidate_digest = hashlib.sha256(pr.patch.encode("utf-8")).hexdigest()
+        recorded_at = datetime.now(UTC).isoformat()
+        state = {
+            "candidate_id": candidate_id,
+            "pr_ref": pr_ref,
+            "idempotency_key": pr.idempotency_key,
+            "title": pr.title,
+            "body": pr.body,
+            "patch_path": pr.patch_path,
+            "yaml": pr.patch,
+            "candidate_digest": candidate_digest,
+            "state": "open",
+            "metadata": dict(pr.metadata),
+            "recorded_at": recorded_at,
+        }
+        inserted = await self.store.write_state_with_audit_if_absent(
+            candidate_key,
+            state,
+            {
+                "actor": "Saga",
+                "action_kind": "stewardship.console_candidate_opened",
+                "candidate_id": candidate_id,
+                "pr_ref": pr_ref,
+                "idempotency_key": pr.idempotency_key,
+                "candidate_digest": candidate_digest,
+                "recorded_at": recorded_at,
+            },
+        )
+        return PublishReceipt(
+            pr_ref=pr_ref,
+            url=url,
+            already_existed=not inserted,
+            state="open",
+            head_sha=candidate_digest,
+        )
+
+
+async def activate_console_stewardship_candidate(
+    store: StateStore,
+    *,
+    candidate_id: str,
+    reviewer_identity: str,
+    requester_identity: str | None = None,
+    single_operator_allowed: bool = False,
+    validation_environ: Mapping[str, str] | None = None,
+) -> bool:
+    """Record a reviewed Console ownership revision activation for downstream merge effects."""
+
+    normalized_reviewer = reviewer_identity.strip()
+    if not normalized_reviewer:
+        raise ValueError("reviewer_identity MUST be non-empty")
+    if (
+        requester_identity is not None
+        and requester_identity.strip().casefold() == normalized_reviewer.casefold()
+        and not single_operator_allowed
+    ):
+        raise ValueError(
+            "requester cannot self-approve a stewardship revision outside single-operator profile"
+        )
+
+    candidate_key = f"{_CANDIDATE_PREFIX}{candidate_id}"
+    candidate = await store.read_state(candidate_key)
+    if candidate is None:
+        raise LookupError(f"unknown console stewardship candidate: {candidate_id}")
+    merged_yaml = str(candidate.get("yaml", ""))
+    validate_stewardship_candidate(merged_yaml, environ=validation_environ or {})
+    candidate_digest = str(
+        candidate.get("candidate_digest") or hashlib.sha256(merged_yaml.encode("utf-8")).hexdigest()
+    )
+    delivery_id = f"console-{candidate_id}"
+    pr_ref = str(candidate.get("pr_ref") or f"console-stewardship:{candidate_id}")
+    merge = StewardshipMergeRecord(
+        delivery_id=delivery_id,
+        pr_ref=pr_ref,
+        actor_identity=normalized_reviewer,
+        merge_commit_sha=candidate_digest[:40],
+        merged_yaml=merged_yaml,
+    )
+    recorded_at = datetime.now(UTC).isoformat()
+    return await store.write_state_with_audit_if_absent(
+        f"{_MERGE_PREFIX}{delivery_id}",
+        merge.model_dump(mode="json"),
+        {
+            "actor": "Saga",
+            "action_kind": "stewardship.console_candidate_activated",
+            "delivery_id": delivery_id,
+            "candidate_id": candidate_id,
+            "pr_ref": pr_ref,
+            "reviewer_identity": normalized_reviewer,
+            "candidate_digest": candidate_digest,
+            "recorded_at": recorded_at,
+        },
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,27 +299,59 @@ class StewardshipGovernanceWorker:
                 continue
 
 
+def stewardship_delivery_mode(
+    environment: Mapping[str, str],
+    *,
+    governed_execution: bool,
+) -> Literal["gitops", "console"] | None:
+    """Select how stewardship drafts reach review: GitOps when credentials exist, else Console."""
+
+    if not governed_execution:
+        return None
+    if github_credentials_configured(environment):
+        return "gitops"
+    if _environment_flag(environment, "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", False):
+        return "console"
+    return None
+
+
+def select_stewardship_publisher(
+    mode: Literal["gitops", "console"],
+    store: StateStore,
+    gitops_publisher: Callable[[], RemediationPrPublisher],
+) -> RemediationPrPublisher:
+    """Return the GitOps publisher only for GitOps mode; otherwise the Console candidate store."""
+
+    return gitops_publisher() if mode == "gitops" else ConsoleStewardshipCandidatePublisher(store)
+
+
 def build_stewardship_governance_worker(
     *,
     store: StateStore,
-    publisher: RemediationPrPublisher,
+    publisher: RemediationPrPublisher | None = None,
     environment: Mapping[str, str],
 ) -> StewardshipGovernanceWorker | None:
-    """Compose governance delivery only when its durable GitOps prerequisites exist."""
+    """Compose governance delivery for Console-governed or optional GitOps prerequisites."""
 
     if not _environment_flag(environment, "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", True):
         return None
-    if not github_credentials_configured(environment):
+    explicitly_enabled = _environment_flag(
+        environment, "FDAI_STEWARDSHIP_GOVERNANCE_ENABLED", False
+    )
+    if not github_credentials_configured(environment) and not explicitly_enabled:
         return None
     if not environment.get("FDAI_STATE_STORE_DSN", "").strip():
         raise RuntimeError(
             "stewardship governance delivery requires FDAI_STATE_STORE_DSN "
-            "when GitHub credentials are configured"
+            "when governance or GitHub credentials are configured"
         )
+    effective_publisher = (
+        publisher if publisher is not None else ConsoleStewardshipCandidatePublisher(store=store)
+    )
     return StewardshipGovernanceWorker(
         store=store,
         governance=StewardshipGovernanceService(
-            publisher=publisher,
+            publisher=effective_publisher,
             validation_environ=environment,
         ),
         interval_seconds=_positive_float(
@@ -297,6 +459,10 @@ def _failure_key(raw: Mapping[str, Any]) -> str:
 
 
 __all__ = [
+    "ConsoleStewardshipCandidatePublisher",
     "StewardshipGovernanceWorker",
+    "activate_console_stewardship_candidate",
     "build_stewardship_governance_worker",
+    "select_stewardship_publisher",
+    "stewardship_delivery_mode",
 ]

@@ -6,6 +6,11 @@ from types import SimpleNamespace
 
 from fdai.core.human_assignment import AssignmentCaseService, AssignmentOwnershipCoordinator
 from fdai.core.stewardship import load_stewardship_from_yaml
+from fdai.core.stewardship.governance import StewardshipGovernanceService
+from fdai.runtime.stewardship_governance import (
+    ConsoleStewardshipCandidatePublisher,
+    activate_console_stewardship_candidate,
+)
 from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
 from fdai.shared.providers.notifications import NotificationMessage
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
@@ -138,3 +143,72 @@ async def test_malformed_matching_assignment_is_quarantined_after_one_notificati
     assert len(notifications.messages) == 1
     failures = await store.read_states("stewardship_merge_effect_failure:", limit=10)
     assert failures[0]["failure_kind"] == "assignment_merge_mismatch"
+
+
+async def test_console_activated_candidate_triggers_merge_effects_without_github() -> None:
+    from uuid import UUID
+
+    from fdai_service_contracts.handover import (
+        HandoverDraftArtifact,
+        HandoverDraftOutcome,
+        HandoverMapping,
+        HandoverPerson,
+        HandoverSourceSpan,
+        StewardResponsibility,
+        StewardshipDraft,
+    )
+
+    store = InMemoryStateStore()
+    publisher = ConsoleStewardshipCandidatePublisher(store=store)
+    service = StewardshipGovernanceService(publisher=publisher)
+    updated_yaml = _CONFIG.read_text(encoding="utf-8").replace(
+        "00000000-0000-0000-0000-000000000000",
+        "00000000-0000-0000-0000-000000000001",
+    )
+    artifact = HandoverDraftArtifact(
+        upload_id=UUID(int=21, version=4),
+        document_id=UUID(int=22, version=4),
+        version_id=UUID(int=23, version=4),
+        draft=StewardshipDraft(
+            outcome=HandoverDraftOutcome.DRAFTED,
+            mappings=(
+                HandoverMapping(
+                    agent_name="Freyr",
+                    person=HandoverPerson(
+                        display_name="Steward One",
+                        oid="00000000-0000-0000-0000-000000000001",
+                    ),
+                    responsibility=StewardResponsibility.ACCOUNTABLE,
+                    confidence=0.95,
+                    citations=(HandoverSourceSpan(doc_id="doc-1", line=1, quote="Freyr"),),
+                ),
+            ),
+        ),
+        yaml=updated_yaml,
+    )
+    result = await service.publish(artifact)
+    assert result.receipt is not None
+    candidate_id = result.receipt.pr_ref.removeprefix("console-stewardship:")
+
+    assert (
+        await activate_console_stewardship_candidate(
+            store,
+            candidate_id=candidate_id,
+            reviewer_identity="entra:maintainer-2",
+            requester_identity="entra:maintainer-1",
+        )
+        is True
+    )
+
+    notifications = RecordingNotifications([])
+    worker = StewardshipMergeEffectsWorker(
+        store=store,
+        base=load_stewardship_from_yaml(_CONFIG),
+        notifications=notifications,
+    )
+    assert await worker.run_once() == 1
+    assert await worker.run_once() == 0
+    assert len(notifications.messages) == 1
+    effect_receipt = await store.read_state(f"stewardship_merge_effect:console-{candidate_id}")
+    assert effect_receipt is not None
+    assert effect_receipt["pr_ref"] == f"console-stewardship:{candidate_id}"
