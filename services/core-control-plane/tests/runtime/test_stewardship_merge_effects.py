@@ -212,3 +212,27 @@ async def test_console_activated_candidate_triggers_merge_effects_without_github
     effect_receipt = await store.read_state(f"stewardship_merge_effect:console-{candidate_id}")
     assert effect_receipt is not None
     assert effect_receipt["pr_ref"] == f"console-stewardship:{candidate_id}"
+
+
+async def test_console_governed_merge_effects_record_a_notification_without_chatops(
+    monkeypatch,
+) -> None:
+    from fdai.runtime.delivery import _build_notification_router
+
+    for name in ("FDAI_CHATOPS_WEBHOOK_URL", "FDAI_TEAMS_APPROVAL_ACTIVITY_URL"):
+        monkeypatch.delenv(name, raising=False)
+    store = InMemoryStateStore()
+    merge = _merge("console-no-chatops")
+    await store.write_state(f"stewardship_merge:{merge.delivery_id}", merge.model_dump(mode="json"))
+    worker = StewardshipMergeEffectsWorker(
+        store=store,
+        base=load_stewardship_from_yaml(_CONFIG),
+        notifications=_build_notification_router(store),
+    )
+
+    assert await worker.run_once() == 1
+    receipt = await store.read_state(f"stewardship_merge_effect:{merge.delivery_id}")
+    assert receipt is not None
+    assert receipt["recipient_count"] == 1
+    # No messenger is configured, so the outcome is recorded explicitly rather than lost or errored.
+    assert receipt["notification_outcome"] == "no_eligible_channels"

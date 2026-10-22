@@ -135,6 +135,27 @@ def test_production_gate_supports_console_governed_mode_without_github_app() -> 
     assert core_binding["webhook_secret_id"] == ""
 
 
+def test_chatops_is_optional_in_console_mode_and_required_for_the_gitops_target() -> None:
+    gates = (_ROOT / "infra" / "production-gates.tf").read_text(encoding="utf-8")
+    gate = gates[gates.index('check "stewardship_governance_requires_delivery"') :]
+    console_branch, gitops_branch = gate.split(
+        "length(nonsensitive(var.github_webhook_secret)) >= 32"
+    )
+    assert "var.enable_chatops_hil" not in console_branch
+    assert gitops_branch.lstrip().startswith("&&\n          var.enable_chatops_hil")
+    assert (
+        "var.enable_stewardship_governance && var.enable_chatops_hil ? "
+        "azurerm_key_vault_secret.chatops_webhook_url[0].id" in _PLATFORM_MAIN
+    )
+    module = (
+        _ROOT / "infra" / "modules" / "ingestion-gateway" / "container-app" / "main.tf"
+    ).read_text(encoding="utf-8")
+    assert 'nonsensitive(var.chatops_webhook_url_secret_id) != ""' in module
+    # Every ChatOps secret and environment binding follows the configured reference.
+    assert module.count("for_each = local.chatops_configured ? [1] : []") == 4
+    assert module.count('name        = "FDAI_CHATOPS_WEBHOOK_URL"') == 2
+
+
 def test_console_mode_creates_no_github_secret_or_webhook_resources() -> None:
     assert "stewardship_gitops_configured" in _PLATFORM_MAIN
     assert (

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9b41b1b51648590f8ca610bf0ed428c9a7c37212
+translation_source_sha: b4c03475bb32492ec56ee7c375a1a2a6204855d0
 translation_revised: 2026-10-22
 ---
 # 런타임 배포 프로파일
@@ -18,7 +18,7 @@ translation_revised: 2026-10-22
 > 추가합니다. `lifecycle/agent/`의 Lifecycle I0 골격은 모의 실행과 보고만 하므로 이 런타임 계약은
 > 바뀌지 않습니다.
 
-담당 체계 거버넌스는 런타임 프로필과 무관합니다. `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true`이고 GitHub 자격 증명이 없으면 AKS와 Container Apps 모두 Console 관리형 후보 게시기와 병합 효과 워커를 조립하며, Terraform은 웹후크 시크릿, GitHub 시크릿 참조, Git 호스트 바인딩을 만들지 않습니다. GitOps 대상을 선택하면 이 항목이 추가됩니다. 어느 선택도 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다. Console 모드에서는 Owner가 Operator API와 Core 거버넌스 워커를 통해 후보를 활성화하며, 두 프로필 모두 추가 런타임 바인딩이 필요하지 않습니다.
+담당 체계 거버넌스는 런타임 프로필과 무관합니다. `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true`이고 GitHub 자격 증명이 없으면 AKS와 Container Apps 모두 Console 관리형 후보 게시기와 병합 효과 워커를 조립하며, Terraform은 웹후크 시크릿, GitHub 시크릿 참조, Git 호스트 바인딩을 만들지 않습니다. GitOps 대상을 선택하면 이 항목이 추가됩니다. 어느 선택도 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다. Console 모드에서는 Owner가 Operator API와 Core 거버넌스 워커를 통해 후보를 활성화하며, 두 프로필 모두 추가 런타임 바인딩이 필요하지 않습니다. 이 모드에서 ChatOps는 선택 사항입니다. 수집 게이트웨이는 ChatOps 참조가 있을 때만 웹후크를 바인딩하며, GitOps 대상을 선택하면 계속 필요합니다.
 
 Core와 Cost Governance 이미지는 두 런타임 프로필에서 같은 고정 Go 툴체인과 `github.com/klauspost/compress@v1.18.7` 모듈 재정의로 OPA를 빌드합니다. AKS나 Container Apps를 선택해도 이 툴체인, 빌더 digest, 풀 리퀘스트를 막는 이미지 스캔은 바뀌지 않습니다.
 
