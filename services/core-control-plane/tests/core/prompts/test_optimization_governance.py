@@ -7,6 +7,7 @@ import pytest
 from fdai.core.prompts.optimization_governance import (
     PromptCohortEvidence,
     PromptPromotionAction,
+    PromptPromotionDecision,
     evaluate_prompt_promotion,
 )
 
@@ -86,3 +87,22 @@ def test_unreviewed_small_cohort_holds() -> None:
 def test_evidence_rejects_non_integer_measurements(field: str, value: object) -> None:
     with pytest.raises(TypeError, match=f"{field} MUST be one integer"):
         replace(_evidence("treatment"), **{field: value})
+
+
+def test_decision_rejects_untyped_action_and_authority() -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    baseline = _evidence("baseline")
+    treatment = _evidence("treatment", tokens=700)
+    decision = evaluate_prompt_promotion(
+        baseline=baseline,
+        treatment=treatment,
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    with pytest.raises(TypeError, match="PromptPromotionAction"):
+        replace(decision, action="promote")
+    with pytest.raises(TypeError, match="one boolean"):
+        replace(decision, execution_authority=0)
+
+    assert isinstance(decision, PromptPromotionDecision)

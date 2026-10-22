@@ -94,6 +94,10 @@ class PromptPromotionDecision:
     execution_authority: bool = False
 
     def __post_init__(self) -> None:
+        if not isinstance(self.action, PromptPromotionAction):
+            raise TypeError("promotion action MUST be one PromptPromotionAction")
+        if type(self.execution_authority) is not bool:
+            raise TypeError("execution_authority MUST be one boolean")
         if not _valid_digest(self.baseline_evidence_digest) or not _valid_digest(
             self.treatment_evidence_digest
         ):
