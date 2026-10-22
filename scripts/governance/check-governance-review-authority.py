@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Validate governance PR authority from GitHub facts and a trusted Check Run.
+"""Classify source changes or validate installation review through a trusted App.
 
 The trusted GitHub App performs Entra identity, role, and authentication-assurance
 verification outside this repository. Its exact-head Check Run carries a bounded JSON
-attestation in ``output.summary``. This consumer cross-checks that attestation against
+attestation in ``output.summary``. This optional installation integration cross-checks it against
 GitHub's PR, commit, and review records before invoking the pure authority decision.
 
 A change to the notification matrix is A1 routing, and needs that attestation, only when it can
-change decision-bearing routing. ``--scope-only`` reports that scope before CI requires the
-trusted App, so ordinary A2 to A4 route additions follow normal review while every A1 routing
-change still fails closed without the App.
+change decision-bearing routing. ``--scope-only`` reports installation review requirements
+without consuming identity evidence. Every A1 routing change still fails closed without
+the App when this installation trust path is selected.
+Source CI uses classification only; GitHub branch protection owns repository review.
+Classification neither loads an installation profile nor grants operational authority.
 """
 
 from __future__ import annotations
