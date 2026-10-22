@@ -46,8 +46,8 @@ class PromptCohortEvidence:
         ):
             if not _valid_digest(value):
                 raise ValueError(f"{label} MUST be one sha256 digest")
-        if not self.profile_id or len(self.profile_id) > 128:
-            raise ValueError("profile_id MUST be non-empty and bounded")
+        if re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", self.profile_id) is None:
+            raise ValueError("profile_id MUST be one bounded machine token")
         for label, value in (
             ("sample_count", self.sample_count),
             ("quality_passed", self.quality_passed),

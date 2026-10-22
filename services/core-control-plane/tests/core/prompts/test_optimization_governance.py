@@ -173,3 +173,12 @@ def test_decision_rejects_action_reason_inconsistency() -> None:
         replace(promote, reason_codes=("cohort_too_small",))
     with pytest.raises(ValueError, match="MUST carry at least one reason"):
         replace(promote, action=PromptPromotionAction.ROLLBACK)
+
+
+@pytest.mark.parametrize(
+    "profile_id",
+    ["", "contains prompt text", "profile|alternate", "line\nfeed"],
+)
+def test_evidence_rejects_noncanonical_profile_id(profile_id: str) -> None:
+    with pytest.raises(ValueError, match="bounded machine token"):
+        replace(_evidence("treatment"), profile_id=profile_id)
