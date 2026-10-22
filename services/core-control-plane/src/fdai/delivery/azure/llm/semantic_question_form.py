@@ -40,7 +40,7 @@ from fdai.core.conversation.semantic_reasoning_proposal import (
 from fdai.core.conversation.semantic_reasoning_repair import FormRepair
 from fdai.core.conversation.semantic_reasoning_review import extraction_schema
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
-from fdai.core.prompts import PromptReplayManifest, estimate_chat_request_tokens
+from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.identity_masking import IdentityMask
 from fdai.delivery.azure.llm.input_detection import (
@@ -59,9 +59,15 @@ from fdai.delivery.azure.llm.model_trace import (
     prepare_model_messages,
     start_model_trace,
 )
+from fdai.delivery.azure.llm.model_trace import (
+    content_free_model_trace as _content_free,
+)
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_judgment import _strict_response_format
-from fdai.delivery.azure.llm.token_metrics import record_provider_usage, record_request_tokens
+from fdai.delivery.azure.llm.token_metrics import (
+    estimate_and_record_request_tokens,
+    record_provider_usage,
+)
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
@@ -542,25 +548,18 @@ class AzureOpenAIQuestionFormModel:
         messages = list(prepared.messages)
         response_format = _strict_response_format(schema, name=name)
         request_candidates = candidates or self._config.candidates
-        estimate = max(
-            estimate_chat_request_tokens(
-                messages=messages,
-                response_format=response_format,
-                reserved_output_tokens=max_tokens,
-                model=target.deployment,
-            )
-            for target in request_candidates
-        )
         ceiling = self._config.max_request_tokens
         if manifest is not None and manifest.request_token_budget is not None:
             ceiling = min(ceiling, manifest.request_token_budget)
-        record_request_tokens(
+        estimate, exceeded = estimate_and_record_request_tokens(
             call_kind=name,
-            estimate=estimate,
+            messages=messages,
+            response_format=response_format,
+            reserved_output_tokens=max_tokens,
+            models=tuple(target.deployment for target in request_candidates),
             budget=ceiling,
-            exceeded=estimate > ceiling,
         )
-        if estimate > ceiling:
+        if exceeded:
             _held("request_budget_exceeded", name=name, raise_error=require_verbatim)
             return None
 
@@ -769,26 +768,6 @@ def _held(reason: str, *, name: str, raise_error: bool) -> None:
     _LOGGER.warning("question_form_call_held", extra={"call_kind": name, "reason": reason})
     if raise_error:
         raise FormInputHeldError(reason)
-
-
-def _content_free(trace: Mapping[str, object]) -> dict[str, object]:
-    """Keep hashes, usage, timing, and redaction counts; drop every message and reply text."""
-
-    request = trace.get("request")
-    response = trace.get("response")
-    return {
-        **trace,
-        "content_omitted": True,
-        "request": {
-            "messages": [],
-            "sha256": request.get("sha256") if isinstance(request, Mapping) else None,
-        },
-        "response": {
-            "role": "assistant",
-            "content": "",
-            "sha256": response.get("sha256") if isinstance(response, Mapping) else None,
-        },
-    }
 
 
 def _content_object(

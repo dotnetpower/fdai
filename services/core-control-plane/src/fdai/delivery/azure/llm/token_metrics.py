@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
+from fdai.core.prompts import estimate_chat_request_tokens
 from fdai.shared.telemetry.metrics import get_meter
 
 _METER = get_meter("fdai.conversation.tokens")
@@ -55,6 +56,38 @@ def record_request_tokens(
         )
 
 
+def estimate_and_record_request_tokens(
+    *,
+    call_kind: str,
+    messages: Sequence[Mapping[str, object]],
+    response_format: Mapping[str, object],
+    reserved_output_tokens: int,
+    models: Sequence[str],
+    budget: int | None,
+) -> tuple[int, bool]:
+    """Estimate the strictest candidate request and record its budget outcome."""
+
+    if not models:
+        raise ValueError("at least one model is required for request token estimation")
+    estimate = max(
+        estimate_chat_request_tokens(
+            messages=messages,
+            response_format=response_format,
+            reserved_output_tokens=reserved_output_tokens,
+            model=model,
+        )
+        for model in models
+    )
+    exceeded = budget is not None and estimate > budget
+    record_request_tokens(
+        call_kind=call_kind,
+        estimate=estimate,
+        budget=budget,
+        exceeded=exceeded,
+    )
+    return estimate, exceeded
+
+
 def record_context_fit(
     *,
     call_kind: str,
@@ -96,6 +129,7 @@ def record_provider_usage(*, call_kind: str, usage: Mapping[str, Any] | None) ->
 
 
 __all__ = [
+    "estimate_and_record_request_tokens",
     "record_assembly_fallback",
     "record_context_fit",
     "record_provider_usage",

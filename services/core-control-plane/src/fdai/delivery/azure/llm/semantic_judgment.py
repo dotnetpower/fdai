@@ -31,7 +31,7 @@ from fdai.core.conversation.semantic_judgment import (
     SemanticJudgmentObservation,
 )
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
-from fdai.core.prompts import PromptAssembler, PromptReplayManifest, estimate_chat_request_tokens
+from fdai.core.prompts import PromptAssembler, PromptReplayManifest
 from fdai.core.prompts.types import PromptLayer
 from fdai.delivery.azure.llm.completion_body import completion_body_params
 from fdai.delivery.azure.llm.model_trace import (
@@ -42,7 +42,10 @@ from fdai.delivery.azure.llm.model_trace import (
 )
 from fdai.delivery.azure.llm.request_context_fit import fit_context_to_budget
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
-from fdai.delivery.azure.llm.token_metrics import record_provider_usage, record_request_tokens
+from fdai.delivery.azure.llm.token_metrics import (
+    estimate_and_record_request_tokens,
+    record_provider_usage,
+)
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
@@ -486,24 +489,16 @@ class AzureOpenAISemanticJudgmentModel:
         candidates = (
             self._config.candidates if allow_candidate_failover else self._config.candidates[:1]
         )
-        request_token_estimate = max(
-            estimate_chat_request_tokens(
-                messages=messages,
-                response_format=response_format,
-                reserved_output_tokens=max_tokens,
-                model=target.deployment,
-            )
-            for target in candidates
-        )
         request_budget = (
             prompt_manifest.request_token_budget if prompt_manifest is not None else None
         )
-        request_exceeded = request_budget is not None and request_token_estimate > request_budget
-        record_request_tokens(
+        request_token_estimate, request_exceeded = estimate_and_record_request_tokens(
             call_kind=call_kind,
-            estimate=request_token_estimate,
+            messages=messages,
+            response_format=response_format,
+            reserved_output_tokens=max_tokens,
+            models=tuple(target.deployment for target in candidates),
             budget=request_budget,
-            exceeded=request_exceeded,
         )
         if prompt_manifest is not None and request_exceeded:
             _LOGGER.warning(

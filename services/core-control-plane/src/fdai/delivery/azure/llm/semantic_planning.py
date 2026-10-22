@@ -36,7 +36,7 @@ from fdai.core.conversation.semantic_planning_models import (
 )
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
 from fdai.core.ontology_platform import QueryManifest
-from fdai.core.prompts import estimate_chat_request_tokens, estimate_prompt_tokens
+from fdai.core.prompts import estimate_prompt_tokens
 from fdai.core.prompts.types import (
     LayerRef,
     PromptAssemblyReceipt,
@@ -52,6 +52,9 @@ from fdai.delivery.azure.llm.model_trace import (
 )
 from fdai.delivery.azure.llm.semantic_candidate_proposal import CandidateProposalDiagnostics
 from fdai.delivery.azure.llm.semantic_planning_bounds import bounded_input
+from fdai.delivery.azure.llm.semantic_planning_candidates import (
+    frame_descriptor_candidates as _frame_descriptor_candidates,
+)
 from fdai.delivery.azure.llm.semantic_planning_config import (
     MAX_SYSTEM_PROMPT_CHARS as _MAX_SYSTEM_PROMPT_CHARS,
 )
@@ -80,9 +83,9 @@ from fdai.delivery.azure.llm.semantic_planning_response import (
     validated_content,
 )
 from fdai.delivery.azure.llm.token_metrics import (
+    estimate_and_record_request_tokens,
     record_assembly_fallback,
     record_provider_usage,
-    record_request_tokens,
 )
 from fdai.delivery.catalog_search.generation import SemanticGenerationBuild
 from fdai.delivery.catalog_search.ontology_candidate_context import (
@@ -548,24 +551,16 @@ class AzureOpenAISemanticPlanningModel:
                 },
             )
             return None
-        request_token_estimate = max(
-            estimate_chat_request_tokens(
-                messages=messages,
-                response_format=response_format,
-                reserved_output_tokens=self._config.max_tokens,
-                model=target.deployment,
-            )
-            for target in self._config.candidates
-        )
         request_budget = (
             prompt_manifest.request_token_budget if prompt_manifest is not None else None
         )
-        request_exceeded = request_budget is not None and request_token_estimate > request_budget
-        record_request_tokens(
+        request_token_estimate, request_exceeded = estimate_and_record_request_tokens(
             call_kind=f"semantic-planning-{operation}",
-            estimate=request_token_estimate,
+            messages=messages,
+            response_format=response_format,
+            reserved_output_tokens=self._config.max_tokens,
+            models=tuple(target.deployment for target in self._config.candidates),
             budget=request_budget,
-            exceeded=request_exceeded,
         )
         if prompt_manifest is not None and request_exceeded:
             if operation == "candidate_selection_prepared":
@@ -779,33 +774,6 @@ def _recovery_prompt(base_prompt: str) -> str | None:
         )
         return None
     return prompt
-
-
-def _frame_descriptor_candidates(
-    descriptors: tuple[dict[str, Any], ...],
-) -> tuple[dict[str, Any], ...]:
-    """Project exact manifest declarations into bounded frame-selection candidates."""
-
-    candidates: list[dict[str, Any]] = []
-    for descriptor in descriptors:
-        kind = descriptor.get("kind")
-        if kind == "action":
-            continue
-        candidate = {key: descriptor[key] for key in ("kind", "name") if key in descriptor}
-        if kind == "link":
-            for key in ("from_type", "to_type"):
-                if key in descriptor:
-                    candidate[key] = descriptor[key]
-        elif kind == "function":
-            if "read_sets" in descriptor:
-                candidate["read_sets"] = descriptor["read_sets"]
-            output_schema = descriptor.get("output_schema")
-            if isinstance(output_schema, Mapping):
-                measure_concepts = output_schema.get("x-fdai-measure-concepts")
-                if measure_concepts is not None:
-                    candidate["measure_concepts"] = measure_concepts
-        candidates.append(candidate)
-    return tuple(candidates)
 
 
 __all__ = [
