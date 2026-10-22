@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 52e0ee9e701f1a0be3db9d9df79a23a758bc03ed
+translation_source_sha: 92d4c569db4f25a64390083f1cbf6f2c3a2f0877
 translation_revised: 2026-10-22
 ---
 # FDAI Console 대화
@@ -637,6 +637,8 @@ principal 범위로 제한합니다. Python 작업 기능은 Operator 조립 구
 담당 구성 요소가 연결되지 않은 동안에는 명시적인 사용 불가 상태를 보고합니다.
 [Console 읽기 경계](../deployment/console-read-boundary-ko.md#워크플로-정의-및-python-작업-기능)가
 두 출처 결정을 모두 소유합니다.
+
+Console을 선택한 배포는 Console SPA 리디렉션을 설정할 수 있도록 배포 신원에 Microsoft Graph `Application.ReadWrite.OwnedBy` 권한을 부여합니다. 이를 부여하는 운영자에게는 활성 상태의 `Privileged Role Administrator` 또는 `Global Administrator` 디렉터리 역할이 필요하며, 설치 관리자는 디렉터리 권한 거부를 활성 역할 부재로 보고합니다.
 
 Agent oversight 매핑 검토 화면은 Console 담당 체계 개정 후보를 Owner에게만 보여 줍니다. 각 후보는
 정확한 다이제스트와 YAML을 표시하며, 활성화는 후보 ID와 그 다이제스트만 전송합니다. Core가 담당

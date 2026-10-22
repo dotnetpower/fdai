@@ -647,6 +647,8 @@ Operator composition, which reports an explicit unavailable state while no Pytho
 bound. [Console Read Boundary](../deployment/console-read-boundary.md#workflow-definitions-and-python-task-capability)
 owns both source decisions.
 
+A deployment that selects the Console grants its deployment identity the Microsoft Graph `Application.ReadWrite.OwnedBy` permission so it can set the Console SPA redirect. The operator performing that grant needs an active `Privileged Role Administrator` or `Global Administrator` directory role; the installer reports a directory authorization denial as a missing active role.
+
 The Agent oversight mapping-reviews view lists Console ownership revision candidates for an Owner
 only. Each candidate shows its exact digest and YAML, and activation sends only the candidate id and
 that digest. Core rechecks the Owner role and the digest before any ownership change, so the Console
