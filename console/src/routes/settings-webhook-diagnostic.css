@@ -43,6 +43,22 @@
   font-weight: 650;
 }
 
+.settings-teams-workflow-setup .settings-webhook-diagnostic-field {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.settings-teams-workflow-setup .settings-webhook-diagnostic-form > .btn {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.settings-webhook-diagnostic-help {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  color: var(--fg-muted);
+}
+
 .settings-webhook-diagnostic-result {
   display: flex;
   flex-wrap: wrap;
@@ -298,6 +314,14 @@
 }
 
 @container (max-width: 620px) {
+  .settings-teams-workflow-identities,
+  .settings-teams-workflow-account-control,
+  .settings-teams-a1-onboarding-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container (max-width: 520px) {
   .settings-webhook-diagnostic-form {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -307,9 +331,8 @@
     min-height: 44px;
   }
 
-  .settings-teams-workflow-identities,
-  .settings-teams-workflow-account-control,
-  .settings-teams-a1-onboarding-columns {
-    grid-template-columns: minmax(0, 1fr);
+  .settings-teams-workflow-setup .settings-webhook-diagnostic-form > .btn {
+    grid-column: 1;
+    grid-row: 3;
   }
 }
