@@ -170,6 +170,7 @@ EXPECTED_RUNTIME_MODULES = {
     "scoped_duty_projection.py",
     "semantic_model_identity.py",
     "startup_observation.py",
+    "stewardship_activation.py",
     "stewardship_governance.py",
     "stewardship_identity_health.py",
     "stewardship_merge_effects.py",
