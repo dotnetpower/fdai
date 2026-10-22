@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:4cb3797d6cbc8416df25aac1ef03002710dac7e7aae78e8ad0c6ffdf0a55bcc9",
+  "catalog_digest": "sha256:9e3e8df7519f63e1d17caf56bebc9a65430312922ac2b7894b12f822f115c8f2",
   "execution_authority": false,
-  "generated_at": "2026-10-20T17:57:38.177535Z",
+  "generated_at": "2026-10-21T21:43:41.764602Z",
   "records": [
     {
       "designed_behavior": [
@@ -21,7 +21,7 @@
         "How does FDAI keep actions safe?",
         "FDAI는 작업을 어떻게 안전하게 실행하나요?"
       ],
-      "record_digest": "sha256:569cbe874b0193d92090acd3a61587b151516feec0d25bd4119815afc7946c23",
+      "record_digest": "sha256:4aa7a3d6c73fbf66ea6f383af4f6e599ea48d53db2e21990c2454cab3420c649",
       "sources": [
         {
           "authority_role": "design",
@@ -34,7 +34,7 @@
         },
         {
           "authority_role": "design",
-          "blob_sha": "6e4db423739759b2e0ab92c18b5092a855ad58a8",
+          "blob_sha": "e45f713d39a83876f44b9cbafa28c502aa379d01",
           "line_end": 141,
           "line_start": 141,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
@@ -235,11 +235,11 @@
         "What accuracy does FDAI guarantee?",
         "FDAI는 어떤 정확성을 보장하나요?"
       ],
-      "record_digest": "sha256:0368eed279944cdebeefb116f07c93eb4d443991d062e1bc2d1355be3f23d80f",
+      "record_digest": "sha256:36036d714f66947cf3eb5628c54e610a26df34a3700d6b1825a805feca7a12cb",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "6e4db423739759b2e0ab92c18b5092a855ad58a8",
+          "blob_sha": "e45f713d39a83876f44b9cbafa28c502aa379d01",
           "line_end": 114,
           "line_start": 114,
           "path": "docs/roadmap/architecture/fdai-constitution.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "179cd907c30396aa79ff7ab6528babe1a80c1ad6"
+  "source_revision": "1ea8c114d2f9d6b49e98d233666092a381ff5445"
 }

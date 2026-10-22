@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: aa2056a867a3822797acd1f569ae63d4a668bf21
+translation_source_sha: 1defe25f87343c6c50a61437e87998d9b8fa1a43
 translation_revised: 2026-10-22
 ---
 # 런타임 배포 프로파일
@@ -17,6 +17,8 @@ translation_revised: 2026-10-22
 > **Hub 관리형 경로:** Hub 관리형 수명 주기는 AKS만 지원하며 클러스터 안에 수명 주기 에이전트를
 > 추가합니다. `lifecycle/agent/`의 Lifecycle I0 골격은 모의 실행과 보고만 하므로 이 런타임 계약은
 > 바뀌지 않습니다.
+
+담당 체계 거버넌스는 런타임 프로필과 무관합니다. `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true`이고 GitHub 자격 증명이 없으면 AKS와 Container Apps 모두 Console 관리형 후보 게시기와 병합 효과 워커를 조립하며, Terraform은 웹후크 시크릿, GitHub 시크릿 참조, Git 호스트 바인딩을 만들지 않습니다. GitOps 대상을 선택하면 이 항목이 추가됩니다. 어느 선택도 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다.
 
 Core와 Cost Governance 이미지는 두 런타임 프로필에서 같은 고정 Go 툴체인으로 OPA를 빌드합니다. AKS나 Container Apps를 선택해도 이 툴체인, 빌더 digest, 풀 리퀘스트를 막는 이미지 스캔은 바뀌지 않습니다.
 

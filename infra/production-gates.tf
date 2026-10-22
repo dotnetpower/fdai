@@ -105,30 +105,43 @@ check "stewardship_governance_requires_delivery" {
       var.enable_document_ingestion &&
       var.enable_operator_api &&
       var.enable_chatops_hil &&
-      trimspace(var.gitops_owner) != "" &&
-      trimspace(var.gitops_repo) != "" &&
       (
         (
-          trimspace(nonsensitive(var.gitops_token)) != "" &&
+          trimspace(var.gitops_owner) == "" &&
+          trimspace(var.gitops_repo) == "" &&
+          trimspace(nonsensitive(var.gitops_token)) == "" &&
           trimspace(var.github_app_client_id) == "" &&
           trimspace(var.github_app_installation_id) == "" &&
-          trimspace(nonsensitive(var.github_app_private_key)) == ""
+          trimspace(nonsensitive(var.github_app_private_key)) == "" &&
+          trimspace(nonsensitive(var.github_webhook_secret)) == ""
         ) ||
         (
-          trimspace(nonsensitive(var.gitops_token)) == "" &&
-          trimspace(var.github_app_client_id) != "" &&
-          trimspace(var.github_app_installation_id) != "" &&
-          trimspace(nonsensitive(var.github_app_private_key)) != ""
+          trimspace(var.gitops_owner) != "" &&
+          trimspace(var.gitops_repo) != "" &&
+          (
+            (
+              trimspace(nonsensitive(var.gitops_token)) != "" &&
+              trimspace(var.github_app_client_id) == "" &&
+              trimspace(var.github_app_installation_id) == "" &&
+              trimspace(nonsensitive(var.github_app_private_key)) == ""
+            ) ||
+            (
+              trimspace(nonsensitive(var.gitops_token)) == "" &&
+              trimspace(var.github_app_client_id) != "" &&
+              trimspace(var.github_app_installation_id) != "" &&
+              trimspace(nonsensitive(var.github_app_private_key)) != ""
+            )
+          ) &&
+          length(nonsensitive(var.github_webhook_secret)) >= 32
         )
       ) &&
-      length(nonsensitive(var.github_webhook_secret)) >= 32 &&
       trimspace(var.stewardship_maintainers) != "" &&
       alltrue([
         for agent in ["Odin", "Thor", "Forseti", "Huginn", "Heimdall", "Vidar", "Var", "Bragi", "Saga", "Mimir", "Muninn", "Norns", "Njord", "Freyr"] :
         contains(keys(var.stewardship_agent_bindings), agent)
       ])
     )
-    error_message = "stewardship governance requires document ingestion, Operator API, ChatOps, exactly one static or GitHub App credential set, a 32+ character webhook secret, and complete stewardship bindings."
+    error_message = "stewardship governance requires document ingestion, Operator API, ChatOps, complete stewardship bindings, and either Console-governed mode (no GitOps inputs) or a complete GitOps credential and 32+ character webhook secret set."
   }
 }
 

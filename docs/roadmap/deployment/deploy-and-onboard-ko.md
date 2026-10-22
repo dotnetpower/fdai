@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 272613d5803eccd38be2f49af7f6b8dac2cdb0ad
-translation_revised: 2026-10-21
+translation_source_sha: 36c0d19bef4e6769e7fb5cc86fbc2bf87f5378ca
+translation_revised: 2026-10-22
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
@@ -595,7 +595,7 @@ Incident 자동 열기 설정도 시작 시 적용됩니다. 구체화 과정은
 | `FDAI_GITOPS_API_BASE` / `FDAI_GITOPS_DEFAULT_BRANCH` / `FDAI_GITOPS_BRANCH_PREFIX` / `FDAI_GITOPS_TIMEOUT_SECONDS` | env | 배포 | `gitops-pr` 어댑터 대상 repo 설정 (GitHub App / Azure DevOps). 인증 시크릿 은 플랫폼 App installation 을 통해 흐르고 env var 아님. |
 | `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV 참조 + env | 배포 | fix/release/security/인시던트/IRP 산출물용 GitHub 변경 피드 및 작업 흐름 도구 연결입니다. 플랫폼은 활성화된 담당 체계 대상과 토큰 시크릿 ID를 `stewardship_gitops_binding`으로 내보냅니다. 보호된 서비스 워크플로는 이 객체를 검증하고 독립 Core 서비스에는 Key Vault 참조만 주입합니다. 강제 적용 플래그는 ActionType 승격 및 risk/HIL 게이트를 우회하지 않습니다. |
 | `FDAI_RBAC_READERS_GROUP_ID` / `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` / `FDAI_RBAC_APPROVERS_GROUP_ID` / `FDAI_RBAC_OWNERS_GROUP_ID` / `FDAI_RBAC_BREAK_GLASS_GROUP_ID` | env | 배포 | 5개 human 역할 의 Entra ID 그룹 객체 id ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md) 참조). 미설정 그룹 = 역할 미할당. |
-| `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` / `FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS` / `FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS` | env | 배포 / 업스트림 | 자리 표시자 신원이 시작을 차단하도록 `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`로 설정합니다. 보호된 워크플로는 저장소 Variables에서 `ENABLE_STEWARDSHIP_GOVERNANCE`, `GITOPS_OWNER`, `GITOPS_REPO`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_INSTALLATION_ID`를 읽습니다. 저장소 Secrets에서는 `GITHUB_APP_PRIVATE_KEY`와 `GITHUB_WEBHOOK_SECRET`을 읽으며 `GITOPS_TOKEN`은 상호 배타적인 호환 시크릿으로 남습니다. GitHub가 App key 중첩과 installation token 만료를 제어하므로 Key Vault 항목은 독립적인 고정 만료 대신 검토된 조정 회전 예외를 사용합니다. Terraform은 `FDAI_MAINTAINERS`, `FDAI_STEWARD_<AGENT>`, Key Vault 참조와 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 준비 상태 기반 Entra 상태 및 내용이 없는 인수인계 수명 주기 간격도 공급합니다. 간격 기본값은 3600초와 60초이며 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다. |
+| `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` / `FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS` / `FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS` | env | 배포 / 업스트림 | 자리 표시자 신원이 시작을 차단하도록 `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`로 설정합니다. `ENABLE_STEWARDSHIP_GOVERNANCE`는 기본적으로 GitHub App이나 웹후크 시크릿 없이 Console 관리형 모드로 동작하며, 선택적 GitOps 어댑터는 조정 회전 Key Vault 예외와 함께 `GITOPS_OWNER`, `GITOPS_REPO`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` 또는 호환 `GITOPS_TOKEN`을 매핑합니다. Terraform은 `FDAI_MAINTAINERS`, `FDAI_STEWARD_<AGENT>`, Key Vault 참조와 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 준비 상태 기반 Entra 상태 및 내용이 없는 인수인계 수명 주기 간격도 공급합니다. 간격 기본값은 3600초와 60초이며 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다. |
 | `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | 배포 | 프로덕션 Operator API Entra JWT 검증기 (`EntraJwtVerifier`) 필수: 배포 테넌트 id와 `fdai-api` 애플리케이션(클라이언트) ID이며, v2 액세스 토큰은 이 값을 `aud`로 전달합니다. [user-rbac-and-identity-ko.md#102-api-토큰-검증](../interfaces/user-rbac-and-identity-ko.md#102-api-토큰-검증) 참조. |
 | `FDAI_ENTRA_ISSUER` / `FDAI_ENTRA_JWKS_URI` | env | 배포 | 선택 검증기 오버라이드; 기본값은 테넌트 의 v2 발급자 + 공개 키 셋. v1-토큰 앱은 `ISSUER` 를 `https://sts.windows.net/<tenant>/` 로; `JWKS_URI` 는 소버린 / 에어갭 클라우드에서만 오버라이드. |
 | `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | 업스트림 | Operator API onboarding 탐색 입력. ARG를 사용해 프로비저닝된 리소스 집합 및 실행기 Event Hubs / Key Vault 역할을 검증합니다. |

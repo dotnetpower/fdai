@@ -272,3 +272,25 @@ def test_autonomy_namespace_and_safeguards_are_structural() -> None:
 
     assert any("expected exact autonomy machine-value set" in error for error in errors)
     assert any("missing safeguard" in error for error in errors)
+
+
+def test_console_governed_operator_surface_and_github_app_independence_are_required() -> None:
+    module = _load_module()
+    texts = _valid_texts(module)
+    texts[module.ENGLISH_CONSTITUTION] = texts[module.ENGLISH_CONSTITUTION].replace(
+        "FDAI Console is a governed operator surface, not a read-only viewer.", ""
+    )
+    texts[module.KOREAN_CONSTITUTION] = texts[module.KOREAN_CONSTITUTION].replace(
+        "외부 Git 호스트나 GitHub App 없이", ""
+    )
+
+    errors = module.validate_texts(texts)
+
+    assert any(
+        module.ENGLISH_CONSTITUTION in error and "missing required constitutional phrase" in error
+        for error in errors
+    )
+    assert any(
+        module.KOREAN_CONSTITUTION in error and "missing required constitutional phrase" in error
+        for error in errors
+    )
