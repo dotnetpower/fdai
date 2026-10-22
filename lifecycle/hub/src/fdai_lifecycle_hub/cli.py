@@ -16,7 +16,6 @@ from functools import partial
 from pathlib import Path
 from uuid import UUID
 
-from azure.core.exceptions import AzureError
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
@@ -49,12 +48,17 @@ type Handler = Callable[[argparse.Namespace], int]
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     handler: Handler = args.handler
+    provider_errors: tuple[type[Exception], ...] = (SQLAlchemyError,)
+    if "FDAI_HUB_REMOTE_CONFIG" in os.environ:
+        from azure.core.exceptions import AzureError
+
+        provider_errors += (AzureError,)
     try:
         return handler(args)
     except (HubStoreError, ValueError) as error:  # ValueError covers pydantic and domain checks.
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
         return 1
-    except (AzureError, SQLAlchemyError) as error:
+    except provider_errors as error:
         print(
             f"{type(error).__name__}: Hub operation failed; verify storage, identity and inputs.",
             file=sys.stderr,

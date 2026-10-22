@@ -313,3 +313,17 @@ def test_cli_sanitizes_remote_storage_failures(monkeypatch, capsys):
     output = capsys.readouterr()
     assert "verify storage, identity and inputs" in output.err
     assert "private-" not in output.out + output.err
+
+
+def test_cli_sanitizes_remote_identity_failures(monkeypatch, capsys):
+    azure_errors = pytest.importorskip("azure.core.exceptions")
+
+    def unavailable():
+        raise azure_errors.AzureError("private-identity-marker")
+
+    monkeypatch.setenv("FDAI_HUB_REMOTE_CONFIG", '{"kind":"target"}')
+    monkeypatch.setattr(cli, "_store", unavailable)
+    assert cli.main(["show", "installation-alpha"]) == 1
+    output = capsys.readouterr()
+    assert "verify storage, identity and inputs" in output.err
+    assert "private-" not in output.out + output.err
