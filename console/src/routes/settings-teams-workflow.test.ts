@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test, vi } from "vitest";
 import {
   canSubmitTeamsWorkflow,
@@ -6,7 +7,27 @@ import {
   newTeamsWorkflowTestRequestId,
 } from "./settings-teams-workflow.model";
 
+const diagnosticStyles = readFileSync(
+  new URL("./settings-webhook-diagnostic.css", import.meta.url),
+  "utf8",
+);
+
 describe("Teams Workflow binding view", () => {
+  test("keeps the URL and action aligned until the form is genuinely narrow", () => {
+    expect(diagnosticStyles).toMatch(
+      /@container \(max-width: 520px\)[\s\S]*?\.settings-webhook-diagnostic-form\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\)/,
+    );
+    expect(diagnosticStyles).not.toMatch(
+      /@container \(max-width: 620px\)\s*\{(?:(?!@container)[\s\S])*?\.settings-webhook-diagnostic-form\s*\{/,
+    );
+    expect(diagnosticStyles).toMatch(
+      /\.settings-teams-workflow-setup \.settings-webhook-diagnostic-form > \.btn\s*\{[\s\S]*?grid-column: 2;[\s\S]*?grid-row: 1;/,
+    );
+    expect(diagnosticStyles).toMatch(
+      /\.settings-webhook-diagnostic-help\s*\{[\s\S]*?grid-column: 1 \/ -1;[\s\S]*?grid-row: 2;/,
+    );
+  });
+
   test("allows an Owner to retest a saved binding without exposing its URL", () => {
     expect(canSubmitTeamsWorkflow("", true)).toBe(true);
     expect(canSubmitTeamsWorkflow("", false)).toBe(false);
@@ -22,12 +43,14 @@ describe("Teams Workflow binding view", () => {
       visible: true,
       configured: true,
       binding_version: "version-1",
+      endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
       observed_at: "2026-09-01T04:00:00Z",
       saved_at: "2026-09-01T03:00:00Z",
     })).toEqual({
       visible: true,
       configured: true,
       bindingVersion: "version-1",
+      endpointIdentifier: "workflow ...da483a70 / sha256:123456789abc",
       observedAt: "2026-09-01T04:00:00Z",
       savedAt: "2026-09-01T03:00:00Z",
     });
@@ -38,11 +61,13 @@ describe("Teams Workflow binding view", () => {
       visible: true,
       configured: true,
       binding_version: "version-1",
+      endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
       observed_at: "2026-09-01T04:00:00Z",
     })).toEqual({
       visible: true,
       configured: true,
       bindingVersion: "version-1",
+      endpointIdentifier: "workflow ...da483a70 / sha256:123456789abc",
       observedAt: "2026-09-01T04:00:00Z",
       savedAt: null,
     });
@@ -53,6 +78,7 @@ describe("Teams Workflow binding view", () => {
       visible: true,
       configured: true,
       binding_version: "version-1",
+      endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
       observed_at: "2026-09-01T04:00:00Z",
       webhook_url: "https://example.environment.api.powerplatform.com/signed",
     })).toThrow("MUST NOT return the saved endpoint value");
@@ -67,8 +93,8 @@ describe("Teams Workflow binding view", () => {
 
   test.each([
     { visible: true, configured: true, binding_version: "", observed_at: "2026-09-01T04:00:00Z" },
-    { visible: true, configured: true, binding_version: "v", observed_at: "not-a-time" },
-    { visible: true, configured: true, binding_version: "v" },
+    { visible: true, configured: true, binding_version: "v", endpoint_identifier: "id", observed_at: "not-a-time" },
+    { visible: true, configured: true, binding_version: "v", endpoint_identifier: "id" },
   ])("rejects malformed binding metadata %#", (value) => {
     expect(() => decodeTeamsWorkflowBindingView(value)).toThrow();
   });
