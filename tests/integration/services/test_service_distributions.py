@@ -11,6 +11,8 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from packaging.requirements import Requirement
+from packaging.version import Version
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SERVICE_ROOT = REPO_ROOT / "services"
@@ -72,6 +74,7 @@ EXPECTED_DEPENDENCIES = {
         "python-snappy",
         "pyyaml",
         "sqlalchemy",
+        "tiktoken",
         "tree-sitter",
         "tree-sitter-java",
     },
@@ -89,6 +92,7 @@ EXPECTED_DEPENDENCIES = {
         "pydantic",
         "pyjwt",
         "starlette",
+        "tiktoken",
         "uvicorn",
     },
     "document-ingestion-api": {
@@ -252,6 +256,39 @@ def test_service_distributions_declare_only_owned_runtime_dependencies() -> None
         project = tomllib.loads((SERVICE_ROOT / service_id / "pyproject.toml").read_text())
         actual = {_requirement_name(value) for value in project["project"]["dependencies"]}
         assert actual == expected, service_id
+
+
+def test_opentelemetry_dependencies_hold_the_image_scan_fixed_floor() -> None:
+    fixed = Version("1.45.1")
+    manifests = (
+        tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"][
+            "optional-dependencies"
+        ]["dev"],
+        tomllib.loads((SERVICE_ROOT / "core-control-plane" / "pyproject.toml").read_text())[
+            "project"
+        ]["dependencies"],
+    )
+    package_names = (
+        "opentelemetry-api",
+        "opentelemetry-exporter-otlp-proto-grpc",
+        "opentelemetry-sdk",
+    )
+    for dependencies in manifests:
+        requirements = {
+            requirement.name: requirement
+            for value in dependencies
+            if (requirement := Requirement(value)).name in package_names
+        }
+        assert set(requirements) == set(package_names)
+        assert all(fixed in requirement.specifier for requirement in requirements.values())
+
+    lock = (REPO_ROOT / "uv.lock").read_text(encoding="utf-8")
+    match = re.search(
+        r'\[\[package\]\]\nname = "opentelemetry-api"\nversion = "([^"]+)"',
+        lock,
+    )
+    assert match is not None
+    assert Version(match.group(1)) >= fixed
 
 
 def test_service_distributions_declare_owned_optional_dependencies() -> None:
