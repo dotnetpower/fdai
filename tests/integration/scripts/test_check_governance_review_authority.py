@@ -9,6 +9,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from fdai_service_contracts.approval_profile import approval_profile_policy_digest
 
 _ROOT = Path(__file__).parents[3]
 _SCRIPT = _ROOT / "scripts/governance/check-governance-review-authority.py"
@@ -80,7 +81,11 @@ def _write_inputs(
         "schema_version": "1.0.0",
         "head_revision": _HEAD,
         "principals": [
-            _principal(author_login, "oid-author", "Contributor"),
+            *(
+                [_principal(author_login, "oid-author", "Contributor")]
+                if author_login not in {login for login, _, _ in reviewers}
+                else []
+            ),
             *[_principal(login, oid, role) for login, oid, role in reviewers],
         ],
         "co_author_oids": list(co_author_oids),
@@ -221,7 +226,9 @@ def test_trusted_check_run_can_arrive_on_a_later_page(
     assert gate.main(argv) == 0
 
 
-def test_author_self_approval_is_rejected(gate: ModuleType, tmp_path: Path) -> None:
+def test_author_self_approval_is_rejected(
+    gate: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     argv = _write_inputs(
         tmp_path,
         changed_path="rule-catalog/rules/example.yaml",
@@ -229,6 +236,52 @@ def test_author_self_approval_is_rejected(gate: ModuleType, tmp_path: Path) -> N
     )
 
     assert gate.main(argv) == 1
+    assert "MUST NOT approve a governance change they authored" in capsys.readouterr().err
+
+
+def test_selected_installation_profile_reduces_quorum_but_never_replaces_attestation(
+    gate: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    profile = {
+        "revision_id": "installation-policy-r1",
+        "approval_profile": "single-operator-production",
+        "executor_principal": "oid-executor",
+        "operator_principal": "oid-author",
+        "effective_from": _COMMITTED.isoformat(),
+    }
+    profile["policy_digest"] = approval_profile_policy_digest(profile)
+    monkeypatch.setenv("FDAI_APPROVAL_PROFILE_JSON", json.dumps(profile))
+    argv = _write_inputs(
+        tmp_path,
+        changed_path="rule-catalog/overrides/example.yaml",
+        reviewers=(("author", "oid-author", "Owner"),),
+    )
+
+    assert gate.main(argv) == 0
+    checks_path = tmp_path / "checks.json"
+    checks = json.loads(checks_path.read_text(encoding="utf-8"))
+    checks["check_runs"][0]["head_sha"] = "b" * 40
+    checks_path.write_text(json.dumps(checks), encoding="utf-8")
+    assert gate.main(argv) == 1
+    checks["check_runs"][0]["head_sha"] = _HEAD
+    checks["check_runs"][0]["app"]["id"] = _APP_ID + 1
+    checks_path.write_text(json.dumps(checks), encoding="utf-8")
+    assert gate.main(argv) == 1
+
+
+def test_installation_review_without_explicit_trusted_app_fails_closed(
+    gate: ModuleType, tmp_path: Path
+) -> None:
+    argv = _write_inputs(
+        tmp_path,
+        changed_path="rule-catalog/overrides/example.yaml",
+        reviewers=(("reviewer", "oid-reviewer", "Owner"),),
+    )
+    index = argv.index("--trusted-app-id")
+    del argv[index : index + 2]
+
+    with pytest.raises(SystemExit, match="2"):
+        gate.main(argv)
 
 
 @pytest.mark.parametrize(
@@ -399,12 +452,23 @@ def test_scope_only_compares_the_merge_base_with_the_head(
     assert json.loads(capsys.readouterr().out)["classes"] == ["rule-authoring"]
 
 
-def test_ci_decides_scope_before_requiring_the_trusted_app() -> None:
+def test_source_ci_classifies_without_importing_installation_authority() -> None:
     workflow = _CI_WORKFLOW.read_text(encoding="utf-8")
-    step = workflow.split("- name: Enforce governance review authority", 1)[1].split(
+    step = workflow.split("- name: Classify governed source changes", 1)[1].split(
         "\n      - name:", 1
     )[0]
-    assert step.index("--scope-only") < step.index("FDAI_GOVERNANCE_IDENTITY_APP_ID must name")
+    assert "--scope-only" in step
+    assert "GitHub branch protection" in step
+    assert "no installation authority is granted" in step
+    for forbidden in (
+        "FDAI_GOVERNANCE_IDENTITY_APP_ID",
+        "FDAI_APPROVAL_PROFILE",
+        "REPOSITORY_VARIABLES_JSON",
+        "GH_TOKEN",
+        "--trusted-app-id",
+        "gh api",
+    ):
+        assert forbidden not in step
     assert '--base-sha "$PR_BASE_SHA"' in step
     assert '--head-sha "$PR_HEAD_SHA"' in step
 
@@ -462,7 +526,7 @@ def test_changing_a_scope_trust_anchor_removes_the_non_a1_relaxation(
 
     assert anchor in gate.SCOPE_TRUST_ANCHORS
     step = _CI_WORKFLOW.read_text(encoding="utf-8").split(
-        "- name: Enforce governance review authority", 1
+        "- name: Classify governed source changes", 1
     )[1]
     shell_pattern = re.search(r"grep -Eqx '([^']+)' \"\$changed\"", step)
     assert shell_pattern is not None and re.fullmatch(shell_pattern.group(1), anchor)
@@ -474,3 +538,27 @@ def test_changing_a_scope_trust_anchor_removes_the_non_a1_relaxation(
     changed.write_text("config/notifications-matrix.yaml\n", encoding="utf-8")
     assert gate.main(["--scope-only", "--changed-files", str(changed)]) == 0
     assert json.loads(capsys.readouterr().out)["identity_review_required"] is False
+
+
+def test_source_classification_neither_loads_profiles_nor_verifies_approvals(
+    gate: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def reject_authority_access(*args: object, **kwargs: object) -> None:
+        pytest.fail("source classification must not access installation authority")
+
+    monkeypatch.setenv("FDAI_APPROVAL_PROFILE_JSON", '{"approval_profile": "forged"}')
+    monkeypatch.setenv("FDAI_GOVERNANCE_IDENTITY_APP_ID", "not-an-app")
+    monkeypatch.setattr(gate, "load_approval_profile", reject_authority_access)
+    monkeypatch.setattr(gate, "_attestation", reject_authority_access)
+    changed = tmp_path / "changed.txt"
+    changed.write_text("rule-catalog/overrides/example.yaml\n", encoding="utf-8")
+
+    assert gate.main(["--scope-only", "--changed-files", str(changed)]) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "identity_review_required": True,
+        "classes": ["override"],
+        "matrix_a1_routing": False,
+    }
