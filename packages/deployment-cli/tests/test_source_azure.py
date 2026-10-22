@@ -15,6 +15,16 @@ from fdai_deployment_cli.private_output import write_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
 
+_TARGET_BINDING = "a" * 64
+
+
+@pytest.fixture(autouse=True)
+def no_live_target(monkeypatch):
+    """Keep the active-account lookup offline; the real one reads the Azure CLI."""
+
+    monkeypatch.setattr(source_azure, "current_target_binding", lambda **_: _TARGET_BINDING)
+
+
 @pytest.fixture(autouse=True)
 def no_live_prices(monkeypatch):
     monkeypatch.setattr(
@@ -67,7 +77,6 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
             "source_commit": source.commit,
             "source_snapshot_digest": "e" * 64,
             "receipt_digest": "d" * 64,
-            "target_binding": "a" * 64,
         },
     )
     monkeypatch.setattr(
@@ -279,7 +288,7 @@ def test_source_orchestration_stops_before_foundation_on_capacity_block(
     monkeypatch.setattr(
         source_azure,
         "prepare_source_deployment",
-        lambda **_: {"source_commit": "c" * 40, "target_binding": "a" * 64},
+        lambda **_: {"source_commit": "c" * 40},
     )
     monkeypatch.setattr(
         source_azure,
@@ -322,7 +331,6 @@ def test_source_identity_preflight_runs_before_aks_preflight(tmp_path, monkeypat
             "source_commit": source.commit,
             "source_snapshot_digest": "e" * 64,
             "receipt_digest": "d" * 64,
-            "target_binding": "a" * 64,
         },
     )
     monkeypatch.setattr(
@@ -358,11 +366,55 @@ def test_source_identity_preflight_runs_before_aks_preflight(tmp_path, monkeypat
     assert events == ["entra"]
 
 
+def test_entra_check_binds_the_active_target_not_the_preparation_receipt(
+    tmp_path, monkeypatch
+) -> None:
+    """The preparation receipt carries no target binding; the active account supplies it."""
+
+    root = tmp_path / "checkout"
+    root.mkdir()
+    source = SimpleNamespace(root=root, commit="c" * 40, reverify=lambda: None)
+    monkeypatch.setattr(source_azure, "inspect_source", lambda *_, **__: source)
+    monkeypatch.setattr(
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: {"source_commit": source.commit, "receipt_digest": "d" * 64},
+    )
+    monkeypatch.setattr(source_azure, "current_target_binding", lambda **_: "b" * 64)
+    bindings: list[str] = []
+    monkeypatch.setattr(
+        source_azure,
+        "_require_unique_entra_display_names",
+        lambda *_args, **kwargs: bindings.append(kwargs["target_binding"]),
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_target",
+        lambda **_: {"state": "blocked", "blockers": ["stop"], "deployment_ready": False},
+    )
+
+    result = source_azure.plan_source_installation(
+        source_root=root,
+        work_dir=tmp_path / "work",
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks",
+            database_placement="postgres-flex",
+            product_add_ons=("read-only-console", "enterprise-identity-governance"),
+        ),
+        region="eastus",
+        monthly_cost_ceiling=1000,
+        timeout_seconds=1800,
+    )
+
+    assert bindings == ["b" * 64]
+    assert result["stage"] == "aks-preflight"
+
+
 def test_over_budget_source_stops_before_foundation(tmp_path, monkeypatch):
     monkeypatch.setattr(
         source_azure,
         "prepare_source_deployment",
-        lambda **_: {"source_commit": "c" * 40, "target_binding": "a" * 64},
+        lambda **_: {"source_commit": "c" * 40},
     )
     monkeypatch.setattr(
         source_azure,
@@ -592,7 +644,6 @@ def test_initial_confirmation_precedes_foundation_and_does_not_enable_interactiv
         lambda **_: {
             "source_commit": source.commit,
             "receipt_digest": "d" * 64,
-            "target_binding": "a" * 64,
         },
     )
     monkeypatch.setattr(source_azure, "inspect_source", lambda *_, **__: source)
@@ -735,7 +786,6 @@ def test_unpinned_path_terraform_fetches_the_committed_release(tmp_path, monkeyp
         lambda **_: {
             "source_commit": source.commit,
             "receipt_digest": "d" * 64,
-            "target_binding": "a" * 64,
         },
     )
     monkeypatch.setattr(source_azure, "inspect_source", lambda *_, **__: source)
