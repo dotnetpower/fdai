@@ -10,6 +10,7 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
+from types import MappingProxyType
 from typing import Any, cast
 
 import httpx
@@ -44,6 +45,15 @@ from fdai.delivery.azure.llm.token_metrics import record_provider_usage, record_
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
+DEFAULT_ADAPTIVE_STAGE_MAX_TOKENS: Mapping[str, int] = MappingProxyType(
+    {
+        "plan": 2_048,
+        "answer": 3_072,
+        "review": 1_024,
+        "refine": 3_072,
+        "verify": 768,
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +162,13 @@ class AzureOpenAIAdaptiveModel:
         """
 
         return self._config.escalation is not None
+
+    def output_tokens_for_stage(self, stage: str) -> int:
+        """Return the active provider output ceiling for one adaptive stage."""
+
+        if stage not in ADAPTIVE_STAGES:
+            raise ValueError("adaptive stage is unsupported")
+        return self._config.stage_max_tokens.get(stage, self._config.max_tokens)
 
     def for_conversation_tier(
         self,
@@ -263,7 +280,7 @@ class AzureOpenAIAdaptiveModel:
             ).messages
         )
         request = selected.target.operation("chat/completions")
-        stage_output_tokens = self._config.stage_max_tokens.get(stage, self._config.max_tokens)
+        stage_output_tokens = self.output_tokens_for_stage(stage)
         body: dict[str, Any] = {
             "messages": messages,
             **completion_body_params(

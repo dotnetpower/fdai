@@ -214,6 +214,14 @@ coverage because an OR-only selector cannot prove that the chosen meaning had it
 grounding, document-mode, posture, and ambiguity rules stay in the protected root because packs are
 ablation-eligible. A 2026-09-28 reasoning probe showed that the remaining relation, change-attribution, and verification failures come from contracts and compilers rather than guidance, so the proposed [Ontology Reasoning Compiler](../interfaces/ontology-reasoning-compiler.md) narrows judgment to a closed logical form and retires frame and plan prompts only for compiled families.
 
+An explicit operator override on 2026-10-22 activates the compact judgment and static compact frame
+and plan profiles. The preceding dynamic profiles remain immutable shadow rollback treatments with their
+original promotion evidence. The override changes prompt selection and budgets, not capability,
+scope, verification, or execution authority. Local profile and semantic regression checks establish
+mechanical compatibility only. They do not establish live answer quality, token savings, or latency;
+a bounded post-activation model cohort must compare the exact active and rollback digests and trigger
+rollback on a safety, grounding, or quality regression.
+
 ## Layer catalog
 
 Each layer has a fixed job and a fixed storage tier.

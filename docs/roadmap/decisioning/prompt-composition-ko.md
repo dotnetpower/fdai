@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 63cd6547be23ffd4e75a71819f591ef55ad32477
+translation_source_sha: 7b76d52b3c2f43237ba3a98264929d1b74ee418b
 translation_revised: 2026-10-22
 ---
 
@@ -203,6 +203,14 @@ frame 형태로 선택하며, compact operational frame 경로는 검토된 의�
 않았습니다. OR 전용 선택기로는 고른 의미에 지침이 있었음을 증명할 수 없으므로 부분 일치 대체
 동작을 결과 키 포함 검사로 바꾸었습니다. 묶음은 ablation 대상이므로 신뢰, 근거, 문서 모드,
 작업 자세, 모호성 규칙은 보호된 루트에 둡니다. 2026-09-28 추론 탐침에서 남은 관계, 변경 주체, 검증 실패는 지침이 아니라 계약과 컴파일러에서 비롯된다는 사실이 드러났습니다. 그래서 제안된 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)는 판단을 닫힌 논리 형식으로 좁히고, 컴파일되는 계열에 한해서만 프레임과 계획 프롬프트를 없앱니다.
+
+2026-10-22의 명시적 운영자 재정의로 compact 판단과 정적 compact frame 및 plan 프로필을
+활성화합니다.
+이전 동적 프로필은 기존 승격 근거와 함께 변경할 수 없는 shadow rollback 대상으로 유지합니다.
+이 재정의는 프롬프트 선택과 예산만 바꾸며 기능, 범위, 검증 또는 실행 권한은 바꾸지 않습니다.
+로컬 프로필 및 의미 회귀 검사는 기계적 호환성만 확인하며 실제 답변 품질, 토큰 절감 또는 지연
+개선을 입증하지 않습니다. 범위가 제한된 활성화 후 모델 집합에서 정확한 활성 및 rollback
+digest를 비교하고 안전성, 근거 또는 품질 회귀가 나타나면 rollback해야 합니다.
 
 ## 레이어 카탈로그
 

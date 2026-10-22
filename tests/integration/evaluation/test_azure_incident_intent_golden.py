@@ -177,7 +177,7 @@ def test_shadow_prompts_encode_the_measured_failure_boundaries() -> None:
 
 
 @pytest.mark.asyncio
-async def test_shadow_intent_packs_require_explicit_composition_opt_in() -> None:
+async def test_active_compact_and_shadow_intent_prompts_preserve_safety_contracts() -> None:
     prompts = FileSystemPromptRegistry(_CATALOG)
     default_prompt = await DefaultPromptComposer(registry=prompts).compose(
         capability_id="semantic.judgment"
@@ -187,7 +187,7 @@ async def test_shadow_intent_packs_require_explicit_composition_opt_in() -> None
         profile_id="shadow.semantic-judgment-v17",
     )
 
-    assert "forbidden_actions" not in default_prompt.system_text
+    assert "forbidden_actions" in default_prompt.system_text
     assert "Keep incident mitigation requirements separate" in default_prompt.system_text
     assert "forbidden_actions" in shadow_prompt.system_text
     assert "Keep incident mitigation requirements separate" in shadow_prompt.system_text
