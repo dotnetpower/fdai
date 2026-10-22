@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: e0c3017d7544c84751937c6c826d0348e1bbf423
+translation_source_sha: 14917fde60faa50c265ce832c497ff98438d2028
 translation_revised: 2026-10-22
 ---
 # 런타임 배포 프로파일
@@ -655,6 +655,9 @@ content hash 재조회로 정확히 그 객체만 채택해야 하며, 객체를
 검증합니다. 워크로드 생성기는 Core, Operator, 격리된 Executor, 문서 API,
 문서 Worker에 각각 `fdai_core`, `fdai_operator`, `fdai_executor`, `fdai_ingestion_api`,
 `fdai_ingestion_worker` 역할을 `FDAI_DATABASE_ROLE`과 일치하는 `PGOPTIONS`로 설정합니다.
+선택한 서비스의 업데이트를 계획하기 전에 조정기는 현재 workload renderer에서 해당 서비스의
+정확한 데이터베이스 역할을 다시 적용합니다. 따라서 peer를 변경하거나 데이터베이스 guard를
+약화하지 않고 역할 binding을 복구하며, 그 밖의 일반 환경값은 기존 값을 유지합니다.
 호출자의 환경은 변경하지 않습니다. 생성되는 모든 서비스는 배포된 실행 위치를 명시적으로
 선택합니다. 역할 선택은 데이터베이스 역할의 구성원 자격이나 서비스별 DSN을 제공하지 않으며,
 Executor 실행 권한 전환을 활성화하지 않습니다.

@@ -2817,6 +2817,7 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
             "image": image,
             "replicas": 2,
             "max_replicas": 3,
+            "environment": {"RUNTIME_ENV": "dev"},
             **(
                 {
                     "secret_environment": {
@@ -2886,6 +2887,11 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
     values = json.loads((tmp_path / "workloads.auto.tfvars.json").read_text(encoding="utf-8"))
     assert values["workloads"]["core-control-plane"]["image"] == new_image
     assert values["workloads"]["core-control-plane"]["source_commit"] == new_source
+    assert values["workloads"]["core-control-plane"]["environment"] == {
+        "FDAI_DATABASE_ROLE": "fdai_core",
+        "PGOPTIONS": "-c role=fdai_core",
+        "RUNTIME_ENV": "dev",
+    }
     retained_context = json.loads((tmp_path / "context.json").read_text(encoding="utf-8"))
     assert (
         retained_context["expected_workloads"]["core-control-plane"]["secret_environment"]
