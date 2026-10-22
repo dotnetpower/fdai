@@ -9,7 +9,7 @@ import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, Protocol
 
 from fdai_service_contracts.handover import (
     HandoverDraftArtifact,
@@ -32,7 +32,7 @@ from fdai.shared.providers.remediation_pr import (
 from fdai.shared.providers.state_store import StateStore
 
 _DRAFT_PREFIX = "handover_draft:"
-_CANDIDATE_PREFIX = "stewardship_revision_candidate:"
+CANDIDATE_PREFIX = "stewardship_revision_candidate:"
 _MERGE_PREFIX = "stewardship_merge:"
 _RECEIPT_PREFIX = "stewardship_governance:"
 _FAILURE_PREFIX = "stewardship_governance_failure:"
@@ -53,7 +53,7 @@ class ConsoleStewardshipCandidatePublisher:
         candidate_id = hashlib.sha256(pr.idempotency_key.encode()).hexdigest()[:16]
         pr_ref = f"console-stewardship:{candidate_id}"
         url = f"/agent-oversight/mapping-reviews/{candidate_id}"
-        candidate_key = f"{_CANDIDATE_PREFIX}{candidate_id}"
+        candidate_key = f"{CANDIDATE_PREFIX}{candidate_id}"
         existing = await self.store.read_state(candidate_key)
         if existing is not None:
             digest = str(existing.get("candidate_digest", "")).strip() or None
@@ -126,7 +126,7 @@ async def activate_console_stewardship_candidate(
             "requester cannot self-approve a stewardship revision outside single-operator profile"
         )
 
-    candidate_key = f"{_CANDIDATE_PREFIX}{candidate_id}"
+    candidate_key = f"{CANDIDATE_PREFIX}{candidate_id}"
     candidate = await store.read_state(candidate_key)
     if candidate is None:
         raise LookupError(f"unknown console stewardship candidate: {candidate_id}")
@@ -161,6 +161,10 @@ async def activate_console_stewardship_candidate(
     )
 
 
+class _ActivationDrain(Protocol):
+    async def run_once(self) -> int: ...
+
+
 @dataclass(frozen=True, slots=True)
 class StewardshipGovernanceWorker:
     """Publish stored handover drafts and durably record one outcome per candidate."""
@@ -169,6 +173,7 @@ class StewardshipGovernanceWorker:
     governance: StewardshipGovernanceService
     interval_seconds: float = 60.0
     batch_limit: int = 100
+    activation: _ActivationDrain | None = None
 
     def __post_init__(self) -> None:
         if self.interval_seconds <= 0:
@@ -177,6 +182,14 @@ class StewardshipGovernanceWorker:
             raise ValueError("stewardship governance batch limit MUST be between 1 and 1000")
 
     async def run_once(self) -> int:
+        """Publish drafts, then apply Owner-queued Console candidate activations."""
+
+        processed = await self._publish_drafts()
+        if self.activation is not None:
+            processed += await self.activation.run_once()
+        return processed
+
+    async def _publish_drafts(self) -> int:
         """Publish each unseen candidate and atomically persist its Saga audit receipt."""
 
         processed = 0
@@ -345,6 +358,9 @@ def build_stewardship_governance_worker(
             "stewardship governance delivery requires FDAI_STATE_STORE_DSN "
             "when governance or GitHub credentials are configured"
         )
+    # Imported here because the activation processor imports this module's activation helper.
+    from fdai.runtime.stewardship_activation import StewardshipActivationProcessor
+
     effective_publisher = (
         publisher if publisher is not None else ConsoleStewardshipCandidatePublisher(store=store)
     )
@@ -354,6 +370,7 @@ def build_stewardship_governance_worker(
             publisher=effective_publisher,
             validation_environ=environment,
         ),
+        activation=StewardshipActivationProcessor(store=store, validation_environ=environment),
         interval_seconds=_positive_float(
             environment,
             "FDAI_STEWARDSHIP_GOVERNANCE_INTERVAL_SECONDS",

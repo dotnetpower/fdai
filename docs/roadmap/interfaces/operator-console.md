@@ -647,6 +647,11 @@ Operator composition, which reports an explicit unavailable state while no Pytho
 bound. [Console Read Boundary](../deployment/console-read-boundary.md#workflow-definitions-and-python-task-capability)
 owns both source decisions.
 
+The Agent oversight mapping-reviews view lists Console ownership revision candidates for an Owner
+only. Each candidate shows its exact digest and YAML, and activation sends only the candidate id and
+that digest. Core rechecks the Owner role and the digest before any ownership change, so the Console
+grants no approval or IAM authority and needs no GitHub App.
+
 Split into focused owner documents:
 
 - [operator-console-wire-contracts.md](operator-console-wire-contracts.md) - audit entry, CLI REPL, approval callback (13.1-13.3), semantic Incident creation, managed-action submission status, Python VM workbench, grounded code, and ontology projection (13.6-13.9).

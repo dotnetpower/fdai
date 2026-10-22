@@ -55,6 +55,10 @@ from fdai_service_contracts.read_investigation import (
     ReadInvestigationProposalBody,
     read_investigation_task_id,
 )
+from fdai_service_contracts.stewardship_activation import (
+    STEWARDSHIP_ACTIVATION_OPERATION,
+    StewardshipCandidateActivationBody,
+)
 from pydantic import ValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
@@ -309,6 +313,11 @@ async def _proposal(
             )
         except ValidationError:
             return _error(400, "invalid code-security repository change")
+    if entry.operation == STEWARDSHIP_ACTIVATION_OPERATION:
+        try:
+            body = StewardshipCandidateActivationBody.model_validate(body).model_dump(mode="json")
+        except ValidationError:
+            return _error(400, "invalid stewardship candidate activation")
     idempotency_key = request.headers.get("idempotency-key", "").strip()
     if not idempotency_key or len(idempotency_key) > 256:
         return _error(400, "Idempotency-Key MUST contain 1 to 256 characters")
