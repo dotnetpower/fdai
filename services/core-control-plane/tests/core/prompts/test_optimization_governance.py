@@ -1,7 +1,7 @@
 """Prompt optimization promotion and rollback evidence tests."""
 
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 
 import pytest
 from fdai.core.prompts.optimization_governance import (
@@ -124,3 +124,23 @@ def test_sample_count_mismatch_holds_even_when_counts_look_non_regressing() -> N
 
     assert decision.action is PromptPromotionAction.HOLD
     assert decision.reason_codes == ("sample_count_mismatch",)
+
+
+def test_decision_rejects_timezone_without_utc_offset() -> None:
+    class _UndefinedOffset(tzinfo):
+        def utcoffset(self, dt: datetime | None) -> None:
+            return None
+
+        def dst(self, dt: datetime | None) -> None:
+            return None
+
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    decision = evaluate_prompt_promotion(
+        baseline=_evidence("baseline"),
+        treatment=_evidence("treatment", tokens=700),
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        replace(decision, decided_at=now.replace(tzinfo=_UndefinedOffset()))

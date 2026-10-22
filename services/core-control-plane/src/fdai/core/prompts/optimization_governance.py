@@ -102,7 +102,12 @@ class PromptPromotionDecision:
             self.treatment_evidence_digest
         ):
             raise ValueError("promotion evidence digests MUST be sha256 values")
-        if self.decided_at.tzinfo is None or self.expires_at.tzinfo is None:
+        if (
+            self.decided_at.tzinfo is None
+            or self.decided_at.utcoffset() is None
+            or self.expires_at.tzinfo is None
+            or self.expires_at.utcoffset() is None
+        ):
             raise ValueError("promotion decision timestamps MUST be timezone-aware")
         if self.expires_at <= self.decided_at:
             raise ValueError("promotion decision expiry MUST follow its decision time")
