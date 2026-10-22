@@ -34,6 +34,13 @@ export interface TeamsWorkflowSavedBinding {
   readonly observedAt: string;
 }
 
+export function canSubmitTeamsWorkflow(
+  webhookUrl: string,
+  hasSavedBinding: boolean,
+): boolean {
+  return Boolean(webhookUrl.trim()) || hasSavedBinding;
+}
+
 export function decodeTeamsWorkflowBindingView(value: unknown): TeamsWorkflowBindingView {
   const item = record(value, "Teams Workflow binding");
   if (item["visible"] === false) return { visible: false };

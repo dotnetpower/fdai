@@ -51,6 +51,7 @@
   "bindingSavedPill": "바인딩 저장됨",
   "bindingSavedDetail": "버전 {version}이(가) {time}에 저장되고 검증되었습니다. 저장은 활성화가 아니며, A2 전달에 이 바인딩을 사용할 시점은 배포가 결정합니다.",
   "bindingSavedVersionOnly": "버전 {version}이(가) 저장되어 있습니다. 이 버전에 대한 로컬 저장 기록이 없으며, 저장은 활성화가 아닙니다.",
+  "testSaved": "저장된 바인딩 테스트",
   "groupApprovals": "A1 사람 승인",
   "groupApprovalsHint": "인증되고 작업에 바인딩된 승인 전달 및 callback입니다. 알림 웹훅은 이 경로를 충족할 수 없습니다.",
   "groupNotifications": "A2 알림 및 A4 다이제스트",

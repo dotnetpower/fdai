@@ -1,11 +1,18 @@
 import { describe, expect, test, vi } from "vitest";
 import {
+  canSubmitTeamsWorkflow,
   decodeTeamsWorkflowBindingView,
   decodeTeamsWorkflowTestResult,
   newTeamsWorkflowTestRequestId,
 } from "./settings-teams-workflow.model";
 
 describe("Teams Workflow binding view", () => {
+  test("allows an Owner to retest a saved binding without exposing its URL", () => {
+    expect(canSubmitTeamsWorkflow("", true)).toBe(true);
+    expect(canSubmitTeamsWorkflow("", false)).toBe(false);
+    expect(canSubmitTeamsWorkflow("https://example.invalid", false)).toBe(true);
+  });
+
   test("keeps Reader state secret-free", () => {
     expect(decodeTeamsWorkflowBindingView({ visible: false })).toEqual({ visible: false });
   });
