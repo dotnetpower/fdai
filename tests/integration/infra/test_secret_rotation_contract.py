@@ -32,6 +32,19 @@ def test_aks_dsn_requires_coordinated_rotation_without_independent_expiry() -> N
     assert "depends_on = [kubernetes_stateful_set_v1.postgres]" in block
 
 
+def test_postgres_aks_keeps_azure_tags_out_of_kubernetes_labels() -> None:
+    root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
+    variables = (ROOT / "infra/runtimes/aks/database/variables.tf").read_text(encoding="utf-8")
+
+    assert "labels = merge(var.tags" not in root
+    assert '"fdai.io/runtime"              = "aks"' in root
+    assert root.count("tags         = var.tags") == 3
+    assert (
+        'description = "Azure resource tags applied to the published Key Vault secrets."'
+        in variables
+    )
+
+
 def test_postgres_aks_publishes_role_scoped_ingestion_dsns() -> None:
     root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
     variables = (ROOT / "infra/runtimes/aks/database/variables.tf").read_text(encoding="utf-8")
