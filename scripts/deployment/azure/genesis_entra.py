@@ -881,6 +881,9 @@ def _roles_valid(value: object) -> bool:
     )
 
 
+_DENIAL_MARKERS = ("Authorization_RequestDenied", "Insufficient privileges")
+
+
 def _az(arguments: tuple[str, ...]) -> str:
     completed = subprocess.run(
         ["az", *arguments, "--only-show-errors"],
@@ -890,6 +893,12 @@ def _az(arguments: tuple[str, ...]) -> str:
         timeout=90,
     )
     if completed.returncode != 0:
+        if any(marker in completed.stderr for marker in _DENIAL_MARKERS):
+            # Name the cause without echoing the provider response, which carries request ids.
+            raise ValueError(
+                "Entra command denied: the signed-in operator lacks the active directory role "
+                "this identity change needs"
+            )
         raise ValueError("Entra command failed")
     return completed.stdout.strip()
 

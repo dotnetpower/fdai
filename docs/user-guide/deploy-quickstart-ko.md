@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 복제한 저장소에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 3e21fecba64be3b89e9274a46f784d74b631cf81
+translation_source_sha: 0bd37f9747d7a6696c206c876e738a1b4939a6d2
 translation_revised: 2026-10-22
 ---
 
@@ -73,6 +73,12 @@ GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에�
   승인 봇, 역할 그룹의 표시 이름이 고유해야 합니다. 설치 관리자는 정확한 대상 바인딩에서
   별도 Console SPA를 파생하므로 다른 FDAI 설치가 해당 리디렉션을 소유하지 않습니다. 정확한
   공유 이름이나 파생 이름이 중복되면 Azure 리소스를 만들기 전에 실행이 멈춥니다.
+- Console 또는 기업 신원 연동 추가 기능을 선택하는 경우 로그인한 계정에 활성 상태의 Microsoft Entra
+  `Privileged Role Administrator` 또는 `Global Administrator` 역할이 필요합니다. 설치 관리자는 배포
+  신원에 Microsoft Graph `Application.ReadWrite.OwnedBy` 애플리케이션 권한을 부여하는데, 더 낮은
+  역할로는 이를 할당할 수 없습니다. Privileged Identity Management로 자격만 있는 경우 먼저
+  활성화하세요. 역할이 없으면 Foundation은 완료되고 애플리케이션 신원 단계가 디렉터리 역할 거부로
+  멈추며, 역할을 활성화한 뒤 같은 명령을 다시 실행하면 이어서 진행합니다.
 - 선택한 Azure 리전에서 필요한 리소스 형식의 사용 가능한 용량
 - 의도한 구독을 선택한 대화형 Azure 세션
 
