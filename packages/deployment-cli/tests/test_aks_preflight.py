@@ -355,3 +355,74 @@ def test_postgres_aks_profile_does_not_read_the_flexible_server_catalog(monkeypa
     assert result["state"] == "feasible"
     assert "database" not in result
     assert all(command[1] != "postgres" for command in calls)
+
+
+def _constrained(remaining: int) -> dict:
+    inputs = _inputs()
+    inputs["usage"] = [
+        {"name": {"value": name}, "currentValue": 100 - remaining, "limit": 100}
+        for name in ("standardDASv5Family", "cores")
+    ]
+    return inputs
+
+
+def test_resumed_installation_does_not_count_its_own_pools_as_new_demand() -> None:
+    inputs = _constrained(remaining=24)
+
+    assert aks_preflight.assess_aks_capacity(**inputs)["state"] == "blocked"
+    result = aks_preflight.assess_aks_capacity(
+        **inputs, owned_vcpus={"standarddasv5family": 24, "cores": 24}
+    )
+    assert result["state"] == "feasible"
+    assert all(quota["remaining_vcpus"] == 48 for quota in result["quotas"])
+
+
+def test_owned_credit_never_hides_a_real_shortfall() -> None:
+    result = aks_preflight.assess_aks_capacity(
+        **_constrained(remaining=10), owned_vcpus={"standarddasv5family": 24, "cores": 24}
+    )
+    assert result["state"] == "blocked"
+
+
+def _owned_provider(pools: object, *, fail: bool = False):
+    base = _provider([], [])
+
+    def provider(command, **kwargs):
+        if command[1:3] == ("aks", "list"):
+            assert command[command.index("--resource-group") + 1] == "rg-fdai-dev-eus"
+            if fail:
+                return subprocess.CompletedProcess(command, 3, stdout=b"", stderr=b"")
+            return subprocess.CompletedProcess(
+                command, 0, stdout=json.dumps(pools).encode(), stderr=b""
+            )
+        return base(command, **kwargs)
+
+    return provider
+
+
+def test_inspect_credits_pools_in_the_retained_resource_group(monkeypatch) -> None:
+    pools = [
+        {"size": "Standard_D4as_v5", "count": 3},
+        {"size": "Standard_D4as_v5", "count": 3},
+        {"size": "Standard_Other", "count": 9},
+    ]
+    monkeypatch.setattr(aks_preflight.subprocess, "run", _owned_provider(pools))
+
+    owned = aks_preflight._owned_pool_vcpus(
+        "sub",
+        "rg-fdai-dev-eus",
+        _inputs()["skus"],
+        aks_preflight.DeploymentDeadline(60),
+    )
+
+    assert owned == {"standarddasv5family": 24, "cores": 24}
+
+
+def test_unreadable_retained_group_earns_no_credit(monkeypatch) -> None:
+    monkeypatch.setattr(aks_preflight.subprocess, "run", _owned_provider([], fail=True))
+    deadline = aks_preflight.DeploymentDeadline(60)
+
+    assert (
+        aks_preflight._owned_pool_vcpus("sub", "rg-fdai-dev-eus", _inputs()["skus"], deadline) == {}
+    )
+    assert aks_preflight._owned_pool_vcpus("sub", "bad group;", _inputs()["skus"], deadline) == {}

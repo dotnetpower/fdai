@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7b13b38b27c238b98d1dcd4e036337fadda9ad67
+translation_source_sha: 6e9c5480e21a83775b48a48458d04ec037347c8b
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -417,6 +417,8 @@ Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸
 문자열을 허용합니다. 불리언, 소수, 부호나 공백이 붙은 값, 크기 한도를 넘은 표현은 계속
 차단합니다. 할당량이 남아 있어도 SKU 제한, 가용 영역 누락, 지원하지 않는 아키텍처 또는
 호스트 암호화 미지원 조건을 무시하지 않습니다. 대상이 바뀌면 새 검토가 필요합니다.
+재개하는 설치는 자신의 AKS 풀이 이미 사용 중인 vCPU를 새 수요로 세지 않습니다. 사전 점검은 보존된
+리소스 그룹에서 해당 vCPU를 되돌려 계산하며, 읽을 수 없는 그룹에는 크레딧을 주지 않습니다.
 
 소스 실행은 초기 설정 확인 이후, Foundation 계획 이전에 [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)를 별도로
 조회합니다. 선택한 VM SKU와 리전별로 기본 USD 시간 단위 Linux 종량제 계량기 하나만
