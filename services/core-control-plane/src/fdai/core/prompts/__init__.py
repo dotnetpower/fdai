@@ -26,6 +26,7 @@ from fdai.core.prompts.budget import (
     estimate_chat_request_tokens,
     estimate_prompt_tokens,
     estimate_serialized_request_tokens,
+    fit_prompt_to_token_budget,
 )
 from fdai.core.prompts.composer import (
     DefaultPromptComposer,
@@ -105,6 +106,7 @@ __all__ = [
     "compare_prompt_profiles",
     "estimate_prompt_tokens",
     "estimate_serialized_request_tokens",
+    "fit_prompt_to_token_budget",
     "estimate_chat_request_tokens",
     "SkillDisclosureRequest",
     "SkillBundleMemberReplayRecord",

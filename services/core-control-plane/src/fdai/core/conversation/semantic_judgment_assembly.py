@@ -15,6 +15,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from fdai.core.prompts.types import PromptAssemblyMode, PromptAssemblyReceipt
+from fdai.shared.telemetry.metrics import get_meter
 
 from .conversation_preflight import ConversationPreflightResult
 
@@ -26,6 +27,11 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 _MIN_ROUTE_CONFIDENCE = 0.7
 _KEY_VALUE = re.compile(r"^[a-z0-9][a-z0-9_.\-]{0,127}$")
+_ASSEMBLY_FALLBACK = get_meter("fdai.conversation.tokens").create_counter(
+    "fdai.prompt.assembly.fallback",
+    unit="requests",
+    description="Dynamic prompt selections retried with the complete prompt.",
+)
 
 
 def judgment_assembly_keys(
@@ -109,6 +115,7 @@ def judge_with_prompt_assembly(
         "semantic_judgment_assembly_fallback",
         extra={"route_keys": list(keys), "uncovered_keys": list(uncovered)},
     )
+    _ASSEMBLY_FALLBACK.add(1, attributes={"stage": "judgment"})
     second = boundary.judge(**arguments)
     return replace(second, observations=(*first.observations, *second.observations))
 

@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 3998a8f0c75edf7c82cded9dfa762f94f3b56429
-translation_revised: 2026-10-15
+translation_source_sha: 00c5e451d3c73219083ac1e578df02c32446807b
+translation_revised: 2026-10-22
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -119,7 +119,7 @@ Console은 지속적으로 보이는 연결 배지를 간결하게 유지하고 
 [LLM 전략](../architecture/llm-strategy-ko.md#t2-기본-라우팅-및-통제된-복구)에서 정의합니다.
 
 `LocalAzureNarratorAdapters`는 별도의 기존 로컬 서술기이며 의미 Kafka 경로가 아닙니다. 이 서술기의
-정렬된 대체 후보, 텍스트 및 비전 탐색, 최근 p50/TTFT 구간, 실패 벌점 및 Operator 소유 주기
+정렬된 대체 후보, 텍스트 및 비전 탐색, 최근 p50/TTFT 구간, 실패 후보 제외 및 Operator 소유 주기
 스케줄러는 Core mini 라우팅의 구현이 아닙니다. 모델 측정값을 얻으려고 기존 서술기와 의미 Kafka를
 함께 활성화하지 않습니다. 어댑터는 주입된 HTTP 스트림을 명시적 `POST` 메서드로 호출합니다.
 답변 텍스트가 없는 Azure 프롬프트 필터, 통과한 콘텐츠 필터, 종료 및 사용량 메타데이터 프레임은
@@ -129,6 +129,15 @@ Console은 지속적으로 보이는 연결 배지를 간결하게 유지하고 
 약어가 아닌 제품 이름으로 취급합니다. 불투명한 대화 이미지 식별자를 검증된 크기 제한 바이트로
 변환하는 서버 소유 해석기가 없으면 이미지 턴은 계속 사용 불가입니다. 클라이언트 이미지 필드는
 그 권한을 대신할 수 없습니다.
+
+기존 서술기는 이제 출력 예약 1,024 토큰을 포함한 8,192 토큰 요청 예산을 적용합니다. 화면 맥락을
+결정적으로 직렬화하고 2,048 토큰에 맞춘 다음, 전체 요청이 예산에 들어오는 동안 최신의 유효한 대화
+이력을 추가합니다. Console은 최대 12개 턴을 보내고 모든 턴을 의미 계약의 항목별 8,000자 상한으로
+제한하며 원래 턴 수도 함께 전달합니다. 최종 이벤트에는 포함, 제외, 축약한 이력 수, 화면 맥락 축약
+여부, 요청 예상값과 예산을 본문 없이 기록합니다. 스트리밍 요청은 Azure의 최종 사용량 프레임을
+요청하며 음수가 아닌 프롬프트, 완성, 전체 및 캐시 토큰 수만 보존합니다. 실패한 후보는 이후 합성
+탐색이 성공해 복구할 때까지 운영자 요청에서 제외합니다. 이 제어는 반복 과금 작업을 줄이지만 기존
+서술기를 의미 경로나 검증된 운영 근거로 바꾸지 않습니다.
 
 ## 대화형 의미 계획 지연 시간
 
@@ -498,7 +507,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 | 로컬 정렬 narrator 후보 fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py`; 집중 배포 수명 주기 테스트 | Service 내부 어댑터는 파일 또는 계획에 봉인된 인라인 JSON을 읽고 선택적 배포 SHA를 검증하며, 수명이 짧은 토큰을 얻어 정렬된 후보를 시도하고 Core를 가져오거나 실행 권한을 받지 않은 채 정제된 상태를 노출합니다. |
 | 해석된 narrator 후보 수집 | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; 모델 해석기 및 레지스트리 | Focused 검사는 검토된 모델 해석 입력에서 `narrator_candidates` 수집을 다룹니다. |
 | 직접 Key Vault 해석 모델 출처 어댑터 | implemented | `adapters/resolved_models_key_vault.py`; 집중 Operator 테스트 | 비동기 어댑터는 주입된 토큰 공급자와 HTTP 클라이언트를 사용하고 신뢰할 수 없는 origin, redirect, 불일치 secret 신원, 비활성 또는 만료 값, 과도한 크기나 중첩, secret을 포함한 표현을 거부합니다. 시작 조립과 통제된 런타임 근거는 열려 있습니다. |
-| 이동 text p50/TTFT, 범위가 제한된 refresh 및 장애 조치 | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `narrator_latency.py`; `narrator_payloads.py`; focused Operator 테스트 | 독립 service는 샘플 8개짜리 latency 및 TTFT 창을 유지하고 비어 있지 않은 첫 SSE token을 측정하며 범위가 제한된 probe를 coalescing하고 text 후보를 정렬하며 unanimous 429/503 상태를 보존하고 malformed 또는 oversized 출력을 fail closed로 처리합니다. |
+| 이동 text p50/TTFT, 범위가 제한된 refresh 및 장애 조치 | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `narrator_latency.py`; `narrator_payloads.py`; `narrator_token_budget.py`; focused Operator 테스트 | 독립 service는 샘플 8개짜리 latency 및 TTFT 창을 유지하고 비어 있지 않은 첫 SSE token을 측정하며 범위가 제한된 probe를 coalescing하고 text 후보를 정렬하며 unanimous 429/503 상태를 보존하고 malformed 또는 oversized 출력을 fail closed로 처리합니다. 요청은 화면과 최근 턴 맥락을 모델 인식 8,192 토큰 예산에 맞추고 본문 없는 제외 수를 제공하며, 공급자 사용량을 제한된 형태로 캡처하고 합성 탐색이 성공할 때까지 실패 후보를 제외합니다. |
 | 기존 서술기의 주기적 갱신 소유자 | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; 집중 스케줄러 및 조립 테스트 | Operator 수명 주기는 기존 로컬 Azure 서술기에서만 즉시 및 주기적 실행 하나를 소유하며, 의미 Kafka와 함께 실행하지 않습니다. 이 검사는 새 Core mini 탐색 소유자를 검증하지 않습니다. |
 | 비전 후보 probe 및 이미지 턴 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe 및 image-unavailable 테스트 | 비전 후보는 독립된 측정 probe 창을 갖습니다. 서버 소유 image resolver가 검증되고 범위가 제한된 byte를 공급할 때까지 이미지 턴은 사용 불가 상태이며 text binding을 빌리지 않습니다. |
 | 사용자별 라우팅 선호 설정 및 런타임 지연 시간 변환 결과 | implemented | `services/operator-service/src/fdai_operator_service/{postgres_iam_configuration,model_lifecycle_startup}.py`; `services/operator-service/tests/test_narrator_preference_persistence.py`; `tests/integration/services/test_narrator_preference_postgres.py`; `scripts/lib/design-routes.json`; 로컬 PostgreSQL 재시작 및 동시 쓰기 검사 | 인증된 설정 경로는 시작 시 다이제스트가 고정된 해석 모델의 서술기 후보로 선택을 검증하고, principal별 상태와 실행 권한이 없는 제안을 하나의 개정 번호 보호 PostgreSQL 트랜잭션으로 기록합니다. 어댑터를 다시 만들어도 저장된 선택을 읽으며 배포가 제거되면 선택을 지우지 않고 실효 선택을 `Auto`로 되돌립니다. 집중 경로 및 원자적 상태 검사가 통과했고 서비스 소유 loopback PostgreSQL fixture가 새 연결을 통한 감사 영속성과 재시작 readback을 검증했습니다. T2 연결은 시스템이 관리하며 배포 및 지연 시간 근거는 남아 있습니다. |
@@ -516,6 +525,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-22 | implemented | 고정 문자 수로 자르던 로컬 서술기 맥락을 모델 인식 요청 맞춤으로 바꾸고, 명시적인 대화 이력 제외 수와 공급자 사용량 캡처를 추가했습니다. Console 대화 이력을 의미 계약의 12개 턴 및 항목별 8,000자 제한에 맞추고, 실패 후보는 탐색이 성공할 때까지 제외합니다. | `current change`; Operator 서술기 및 Console backend-context 경로; 집중 Python 집합 `712 passed`, Console 검사 `31 passed`, Console typecheck, strict mypy 및 Ruff. | 실제 토큰, 비용, 캐시 적중 또는 지연 개선을 주장하기 전에 승인된 로컬 및 배포 증적을 보존합니다. 이미지 토큰 예약은 서버 소유 이미지 해석기가 구현될 때까지 보류합니다. |
 | 2026-10-15 | implemented | 공유 IAM 조립에 서명된 전역 비상 정지 게시자를 연결했습니다. narrator 선호, 후보 선택, T1/T2 라우팅, 프롬프트, 모델 호출, timing 근거는 바꾸지 않았습니다. | `0398357455`; 집중 Operator IAM 테스트 60개 통과. | 이 안전 명령 연결에는 남은 narrator 작업이 없습니다. 배포된 비상 정지 근거는 보안 원장에서 계속 추적합니다. |
 | 2026-10-06 | implemented | Core 진단에 호출 시작 오프셋과 캐시된 프롬프트 토큰을 추가하고, 개념 샤드 크기 설정과 사전 분류 옆에서 시작하는 추측 기반 질문 구조화 경로를 추가했습니다. 로컬 실행기는 32KiB 샤드와 추측 시작을 켭니다. 변형마다 한국어 턴 여덟 개를 인증된 로컬 환경에서 제한적으로 비교한 결과, 답변된 목록 턴은 약 10초에서 약 5초로, 답변된 개수 턴은 11.7~27.4초에서 5.4~9.9초로 줄었고 답변은 같았습니다. | `current change`; 집중 Core 테스트(`4920 passed`); 변경 모듈의 mypy와 ruff; [측정 근거](#추측-기반-질문-구조화-시작과-단일-샤드-개념-카탈로그-2026-10-06) | 질문 구조화가 이름 조각을 값으로 읽는 문제로 변형마다 목록 턴 다섯 개 중 두세 개가 여전히 보류됩니다. |
 | 2026-10-02 | implemented | 확인된 `typed_only` 읽기 재사용, 불투명한 전체 카탈로그 표현, 기록된 호출 계측, 제한된 두 샤드 동시 처리를 완료하고 고정 질문 네 개와 최종 이중 언어 목록 한 쌍을 재평가했습니다. | `0cd7ab82c1`, `32833c7dea`; 최종 측정 소스 `66a49cb735`; [제한된 결과](#제한된-최적화-근거-2026-10-02); 집중 런타임 918개와 Console 계측 66개 검사 통과. | 한글 전체 지연은 변동이 있고 영문 개수의 개념 불일치는 보류 상태입니다. 일괄 속도, 금액, SLO 개선을 주장하기 전에 통제된 전후 비교 집합을 보존합니다. |

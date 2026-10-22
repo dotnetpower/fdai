@@ -17,6 +17,7 @@ from fdai_operator_service.adapters.local_narrator import (
     NarratorLatencyPool,
     NarratorTarget,
 )
+from fdai_operator_service.adapters.narrator_payloads import narrator_message_plan
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
 )
@@ -120,6 +121,11 @@ def _stream_response(*, status: int = 200, answer: str = "OK") -> httpx.Response
     content = "\n".join(
         (
             f'data: {{"choices":[{{"delta":{{"content":{json.dumps(answer)}}}}}]}}',
+            (
+                'data: {"choices":[],"usage":{"prompt_tokens":120,'
+                '"completion_tokens":24,"total_tokens":144,'
+                '"prompt_tokens_details":{"cached_tokens":96}}}'
+            ),
             "data: [DONE]",
             "",
         )
@@ -243,6 +249,15 @@ async def test_local_narrator_calls_provider_and_emits_canonical_turn(tmp_path: 
     assert [event.event for event in events] == ["token", "done"]
     assert events[1].data["answer"] == "Grounded local narrator answer."
     assert events[1].data["source"] == "llm:narrator-gpt-5-mini"
+    assert events[1].data["usage"] == {
+        "prompt_tokens": 120,
+        "completion_tokens": 24,
+        "total_tokens": 144,
+        "cached_tokens": 96,
+    }
+    context_selection = events[1].data["context_selection"]
+    assert isinstance(context_selection, dict)
+    assert context_selection["request_token_estimate"] <= context_selection["request_token_budget"]
     verification = events[1].data["verification"]
     assert isinstance(verification, dict)
     assert verification["status"] == "unverified"
@@ -257,6 +272,56 @@ async def test_local_narrator_calls_provider_and_emits_canonical_turn(tmp_path: 
     assert "do not invent or expand an acronym" in system_prompt
     assert "max_completion_tokens" in kwargs["json"]  # type: ignore[operator]
     assert "temperature" not in kwargs["json"]  # type: ignore[operator]
+    assert kwargs["json"]["stream_options"] == {"include_usage": True}  # type: ignore[index]
+
+
+def test_narrator_context_selection_is_token_aware_and_accounts_omissions() -> None:
+    plan = narrator_message_plan(
+        "Continue with the latest evidence.",
+        {
+            "view_context": {"headline": "Dashboard", "body": "가" * 20_000},
+            "history_total_count": 20,
+            "history": [
+                {"role": "user" if index % 2 == 0 else "assistant", "content": "나" * 8_000}
+                for index in range(12)
+            ],
+        },
+        model="gpt-5-mini",
+    )
+
+    assert plan.receipt.request_token_estimate <= plan.receipt.request_token_budget
+    assert plan.receipt.source_history_items == 20
+    assert plan.receipt.omitted_history_items > 0
+    assert plan.receipt.context_shortened is True
+    assert plan.messages[-1]["content"] == "Continue with the latest evidence."
+
+
+async def test_narrator_rejects_prompt_over_token_budget_before_identity(
+    tmp_path: Path,
+) -> None:
+    async def forbidden_token(_audience: str) -> str:
+        raise AssertionError("over-budget prompt MUST fail before credential acquisition")
+
+    fallback = FallbackAdapters()
+    adapter = LocalAzureNarratorAdapters.from_environment(
+        {"LLM_RESOLVED_MODELS_PATH": str(_artifact(tmp_path / "models.json"))},
+        fallback_projections=fallback,
+        fallback_streams=fallback,
+        token_provider=forbidden_token,
+        http_client=RecordingHttpClient(),
+    )
+
+    with pytest.raises(ConversationBoundaryError) as raised:
+        await adapter.open(
+            ConversationStreamRequest(
+                operation="chat.stream",
+                scope=PrincipalScope("operator-1"),
+                body={"prompt": "가" * 32_000},
+            )
+        )
+
+    assert raised.value.status_code == 400
+    assert raised.value.code == "narrator_prompt_token_budget_exceeded"
 
 
 async def test_local_narrator_uses_real_httpx_stream_contract(tmp_path: Path) -> None:
@@ -542,6 +607,35 @@ async def test_narrator_failure_penalty_fails_over_and_reorders_pool(tmp_path: P
     assert "narrator-first" in client.calls[0][0]
     assert "narrator-second" in client.calls[1][0]
     assert "narrator-second" in client.calls[2][0]
+
+
+async def test_failed_candidate_stays_excluded_until_successful_probe(tmp_path: Path) -> None:
+    client = ScriptedHttpClient([500, 200, 200, 200, 200, 200])
+    fallback = FallbackAdapters()
+    adapter = LocalAzureNarratorAdapters.from_environment(
+        {"LLM_RESOLVED_MODELS_PATH": str(_pool_artifact(tmp_path / "models.json"))},
+        fallback_projections=fallback,
+        fallback_streams=fallback,
+        token_provider=lambda _audience: _token(),
+        http_client=client,
+    )
+    request = ConversationStreamRequest(
+        operation="chat.stream",
+        scope=PrincipalScope("operator-1"),
+        body={"prompt": "Summarize."},
+    )
+
+    await adapter.open(request)
+    assert [target.deployment for target in adapter._pool.ranked(vision=False)] == [  # noqa: SLF001
+        "narrator-second"
+    ]
+
+    await adapter.refresh()
+
+    assert {target.deployment for target in adapter._pool.ranked(vision=False)} == {  # noqa: SLF001
+        "narrator-first",
+        "narrator-second",
+    }
 
 
 @pytest.mark.parametrize("field", ("image_ids", "images", "attachments"))

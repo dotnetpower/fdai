@@ -23,6 +23,7 @@ from fdai_service_contracts.ontology_query import (
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentDisposition
 
 from fdai.core.ontology_platform import QueryManifest
+from fdai.core.prompts import estimate_prompt_tokens, fit_prompt_to_token_budget
 
 from .conversation_preflight import SocialAct
 from .semantic_investigation import VerifiedInvestigationIntent
@@ -39,8 +40,8 @@ from .semantic_planning_models import (
 )
 from .session import Principal, Turn
 
-_MAX_CONTEXT_TURNS = 8
-_MAX_CONTEXT_CHARS = 12_000
+_MAX_CONTEXT_TURNS = 12
+_MAX_CONTEXT_TOKENS = 12_000
 _MAX_DESCRIPTORS = 512
 _MAX_DESCRIPTOR_BYTES = 524_288
 _MAX_LOGGED_PLAN_NODES = 8
@@ -315,13 +316,21 @@ def _validated_metric_concepts(values: Sequence[str]) -> tuple[str, ...]:
 def _bounded_context(prior_turns: Sequence[Turn]) -> tuple[str, ...]:
     selected = prior_turns[-_MAX_CONTEXT_TURNS:]
     result: list[str] = []
-    remaining = _MAX_CONTEXT_CHARS
+    remaining = _MAX_CONTEXT_TOKENS
     for turn in reversed(selected):
-        content = turn.content[:remaining]
+        prefix = f"{turn.direction}:"
+        prefix_tokens = estimate_prompt_tokens(prefix)
+        if prefix_tokens >= remaining:
+            break
+        content, _shortened = fit_prompt_to_token_budget(
+            turn.content,
+            token_budget=remaining - prefix_tokens,
+        )
         if not content:
             break
-        result.append(f"{turn.direction}:{content}")
-        remaining -= len(content)
+        rendered = f"{prefix}{content}"
+        result.append(rendered)
+        remaining -= estimate_prompt_tokens(rendered)
         if remaining == 0:
             break
     return tuple(reversed(result))

@@ -18,6 +18,7 @@ import {
 import { parseRouter } from "./backend-normalizers";
 import { setChatAuth } from "./auth";
 import { resetConsolePreferences, setConsolePreference } from "../preferences";
+import type { BackendTurn } from "./backend-types";
 
 async function callAskAndCaptureBody(
   snap: ViewSnapshot | null,
@@ -234,6 +235,21 @@ describe("viewContextWithUser wiring", () => {
   test("sends the stable backend session id", async () => {
     const parsed = await callAskAndCaptureBody(liveSnap(), "session-42");
     expect((parsed as Record<string, unknown>).session_id).toBe("session-42");
+  });
+
+  test("sends a bounded recent history window with explicit source accounting", () => {
+    const history = Array.from({ length: 14 }, (_, index): BackendTurn => ({
+      role: index % 2 === 0 ? "user" : "assistant",
+      content: `${index}:` + "x".repeat(8_100),
+    }));
+
+    const payload = createBackendRequestPayload("Continue.", null, history, "session-42");
+    const sent = payload.history as BackendTurn[];
+
+    expect(payload.history_total_count).toBe(14);
+    expect(sent).toHaveLength(12);
+    expect(sent[0]?.content.startsWith("2:")).toBe(true);
+    expect(sent.every((turn) => turn.content.length === 8_000)).toBe(true);
   });
 
   test("binds a supplied request UUID to Operator idempotency", () => {

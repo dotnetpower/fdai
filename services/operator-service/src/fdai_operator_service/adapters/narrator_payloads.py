@@ -4,14 +4,41 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
 from fdai_operator_service.adapters.narrator_latency import NarratorTarget
+from fdai_operator_service.adapters.narrator_token_budget import (
+    NarratorContextReceipt,
+    bounded_json,
+    chat_request_tokens,
+    fit_text,
+)
 from fdai_operator_service.families.conversation.inline_images import inline_images_present
 
 _MAX_CANDIDATES = 8
 _MAX_SSE_LINE_CHARS = 131_072
+NARRATOR_REQUEST_TOKEN_BUDGET = 8_192
+NARRATOR_RESERVED_OUTPUT_TOKENS = 1_024
+_CONTEXT_TOKEN_BUDGET = 2_048
+_MIN_HISTORY_TOKENS = 32
+_SYSTEM_PROMPT = (
+    "You are Bragi, the FDAI presentation narrator. Answer the operator directly. "
+    "FDAI is the autonomous cloud-operations control plane for Resilience, Change "
+    "Safety, and Cost Governance; SRE/SLO is its operating model. Treat FDAI as the "
+    "product name and do not invent or expand an acronym. "
+    "Use only supplied screen context or clearly label general model knowledge. "
+    "Never claim current cloud state without evidence and never approve or execute actions."
+)
+
+
+@dataclass(frozen=True, slots=True)
+class NarratorMessagePlan:
+    """Bounded messages and content-free selection accounting for one model."""
+
+    messages: list[dict[str, Any]]
+    receipt: NarratorContextReceipt
 
 
 def narrator_targets(payload: object) -> tuple[NarratorTarget, ...]:
@@ -32,34 +59,109 @@ def vision_targets(payload: object) -> tuple[NarratorTarget, ...]:
 def narrator_messages(prompt: str, body: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Build bounded narrator messages without adding evidence or authority."""
 
+    return narrator_message_plan(prompt, body, model="gpt-5").messages
+
+
+def narrator_message_plan(
+    prompt: str,
+    body: Mapping[str, Any],
+    *,
+    model: str,
+) -> NarratorMessagePlan:
+    """Fit screen context and newest history into the narrator request budget."""
+
     context = body.get("view_context")
     history = body.get("history")
-    context_text = json.dumps(context, ensure_ascii=False, sort_keys=True)[:24_000]
+    declared_history_count = body.get("history_total_count")
+    context_text, context_shortened = bounded_json(
+        context,
+        model=model,
+        token_budget=_CONTEXT_TOKEN_BUDGET,
+    )
     messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are Bragi, the FDAI presentation narrator. Answer the operator directly. "
-                "FDAI is the autonomous cloud-operations control plane for Resilience, Change "
-                "Safety, and Cost Governance; SRE/SLO is its operating model. Treat FDAI as the "
-                "product name and do not invent or expand an acronym. "
-                "Use only supplied screen context or clearly label general model knowledge. "
-                "Never claim current cloud state without evidence and never approve or execute "
-                "actions."
-            ),
-        },
+        {"role": "system", "content": _SYSTEM_PROMPT},
         {"role": "system", "content": f"Current screen context: {context_text}"},
     ]
+    valid_history: list[tuple[str, str]] = []
     if isinstance(history, list):
-        for item in history[-12:]:
+        for item in history:
             if not isinstance(item, dict):
                 continue
             role = item.get("role")
             content = item.get("content")
             if role in {"user", "assistant"} and isinstance(content, str) and content:
-                messages.append({"role": role, "content": content[:8_000]})
-    messages.append({"role": "user", "content": prompt})
-    return messages
+                valid_history.append((role, content))
+    prompt_message = {"role": "user", "content": prompt}
+    if (
+        chat_request_tokens(
+            [*messages, prompt_message],
+            model=model,
+            reserved_output_tokens=NARRATOR_RESERVED_OUTPUT_TOKENS,
+        )
+        > NARRATOR_REQUEST_TOKEN_BUDGET
+    ):
+        raise ValueError("narrator prompt and required context exceed the request token budget")
+    selected: list[dict[str, Any]] = []
+    shortened = 0
+    for role, content in reversed(valid_history[-12:]):
+        candidate = {"role": role, "content": content}
+        trial = [*messages, candidate, *selected, prompt_message]
+        if (
+            chat_request_tokens(
+                trial,
+                model=model,
+                reserved_output_tokens=NARRATOR_RESERVED_OUTPUT_TOKENS,
+            )
+            <= NARRATOR_REQUEST_TOKEN_BUDGET
+        ):
+            selected.insert(0, candidate)
+            continue
+        base_tokens = chat_request_tokens(
+            [*messages, *selected, prompt_message],
+            model=model,
+            reserved_output_tokens=NARRATOR_RESERVED_OUTPUT_TOKENS,
+        )
+        empty_message_tokens = (
+            chat_request_tokens(
+                [*messages, {"role": role, "content": ""}, *selected, prompt_message],
+                model=model,
+                reserved_output_tokens=NARRATOR_RESERVED_OUTPUT_TOKENS,
+            )
+            - base_tokens
+        )
+        remaining = NARRATOR_REQUEST_TOKEN_BUDGET - base_tokens - empty_message_tokens
+        fitted, was_shortened = fit_text(content, model=model, token_budget=max(remaining, 0))
+        if was_shortened and len(fitted) >= _MIN_HISTORY_TOKENS:
+            selected.insert(0, {"role": role, "content": fitted})
+            shortened += 1
+        break
+    messages.extend(selected)
+    messages.append(prompt_message)
+    estimate = chat_request_tokens(
+        messages,
+        model=model,
+        reserved_output_tokens=NARRATOR_RESERVED_OUTPUT_TOKENS,
+    )
+    source_history_items = (
+        declared_history_count
+        if isinstance(declared_history_count, int)
+        and not isinstance(declared_history_count, bool)
+        and len(valid_history) <= declared_history_count <= 1_000_000
+        else len(valid_history)
+    )
+    return NarratorMessagePlan(
+        messages=messages,
+        receipt=NarratorContextReceipt(
+            request_token_estimate=estimate,
+            request_token_budget=NARRATOR_REQUEST_TOKEN_BUDGET,
+            reserved_output_tokens=NARRATOR_RESERVED_OUTPUT_TOKENS,
+            source_history_items=source_history_items,
+            included_history_items=len(selected),
+            omitted_history_items=max(source_history_items - len(selected), 0),
+            shortened_history_items=shortened,
+            context_shortened=context_shortened,
+        ),
+    )
 
 
 def has_images(body: Mapping[str, Any]) -> bool:
@@ -86,19 +188,26 @@ def vision_probe_content() -> list[dict[str, Any]]:
 def stream_delta(line: str) -> str | None:
     """Decode one non-empty Azure chat-completion SSE text delta."""
 
+    return stream_payload(line)[0]
+
+
+def stream_payload(line: str) -> tuple[str | None, dict[str, int] | None]:
+    """Decode one SSE text delta and bounded provider token usage."""
+
     if len(line) > _MAX_SSE_LINE_CHARS:
         raise ValueError("narrator SSE line exceeds the size limit")
     if not line.startswith("data:"):
-        return None
+        return None, None
     raw = line.removeprefix("data:").strip()
     if not raw or raw == "[DONE]":
-        return None
+        return None, None
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise ValueError("narrator SSE data is malformed") from exc
     if not isinstance(payload, dict):
         raise ValueError("narrator SSE data MUST be an object")
+    usage = _bounded_usage(payload.get("usage"))
     choices = payload.get("choices")
     if choices == [] and any(
         isinstance(payload.get(key), expected_type)
@@ -108,7 +217,7 @@ def stream_delta(line: str) -> str | None:
             ("usage", dict),
         )
     ):
-        return None
+        return None, usage
     if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
         raise ValueError("narrator SSE choices are malformed")
     choice = choices[0]
@@ -117,15 +226,30 @@ def stream_delta(line: str) -> str | None:
         isinstance(choice.get("content_filter_results"), dict)
         or choice.get("finish_reason") == "stop"
     ):
-        return None
+        return None, usage
     if not isinstance(delta, dict):
         raise ValueError("narrator SSE delta is malformed")
     content = delta.get("content")
     if content is None:
-        return None
+        return None, usage
     if not isinstance(content, str):
         raise ValueError("narrator SSE content MUST be text")
-    return content if content else None
+    return content if content else None, usage
+
+
+def _bounded_usage(value: object) -> dict[str, int] | None:
+    if not isinstance(value, Mapping):
+        return None
+    result = {
+        key: item
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens")
+        if isinstance((item := value.get(key)), int) and not isinstance(item, bool) and item >= 0
+    }
+    details = value.get("prompt_tokens_details")
+    cached = details.get("cached_tokens") if isinstance(details, Mapping) else None
+    if isinstance(cached, int) and not isinstance(cached, bool) and cached >= 0:
+        result["cached_tokens"] = cached
+    return result or None
 
 
 def is_reasoning_model(deployment: str) -> bool:
@@ -189,11 +313,15 @@ def _is_allowed_endpoint(endpoint: str) -> bool:
 
 
 __all__ = [
+    "NARRATOR_REQUEST_TOKEN_BUDGET",
+    "NARRATOR_RESERVED_OUTPUT_TOKENS",
     "has_images",
     "is_reasoning_model",
+    "narrator_message_plan",
     "narrator_messages",
     "narrator_targets",
     "stream_delta",
+    "stream_payload",
     "vision_probe_content",
     "vision_targets",
 ]

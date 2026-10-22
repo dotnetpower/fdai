@@ -19,10 +19,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 
-from fdai.core.conversation.adaptive_prompt import (
-    ADAPTIVE_STAGES,
-    MAX_ADAPTIVE_SYSTEM_TOKENS,
-)
+from fdai.core.conversation.adaptive_prompt import ADAPTIVE_STAGES, MAX_ADAPTIVE_SYSTEM_TOKENS
 from fdai.core.conversation.model_observation import (
     ConversationModelObservation,
     ConversationModelResponse,
@@ -43,6 +40,7 @@ from fdai.delivery.azure.llm.model_trace import (
 )
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_judgment import _strict_response_format
+from fdai.delivery.azure.llm.token_metrics import record_provider_usage, record_request_tokens
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger(__name__)
@@ -90,6 +88,7 @@ class AzureOpenAIAdaptiveModelConfig:
     max_request_bytes: int = 262_144
     max_response_bytes: int = 65_536
     max_system_tokens: int = MAX_ADAPTIVE_SYSTEM_TOKENS
+    stage_max_tokens: Mapping[str, int] = field(default_factory=dict)
     stage_prompt_manifests: Mapping[str, PromptReplayManifest] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -106,14 +105,22 @@ class AzureOpenAIAdaptiveModelConfig:
         ):
             if type(value) is not int or not 1 <= value <= upper:
                 raise ValueError("adaptive request and response budgets MUST be bounded integers")
+        if any(
+            stage not in ADAPTIVE_STAGES
+            or type(value) is not int
+            or not 256 <= value <= self.max_tokens
+            for stage, value in self.stage_max_tokens.items()
+        ):
+            raise ValueError("adaptive stage token budgets are invalid")
         if set(self.stage_prompt_manifests) - set(ADAPTIVE_STAGES):
             raise ValueError("adaptive prompt manifests contain an unknown stage")
         for stage, manifest in self.stage_prompt_manifests.items():
+            stage_limit = self.stage_max_tokens.get(stage, self.max_tokens)
             if (
                 manifest.reserved_output_tokens is not None
-                and manifest.reserved_output_tokens < self.max_tokens
+                and manifest.reserved_output_tokens < stage_limit
             ):
-                raise ValueError(f"adaptive {stage} output reserve is below max_tokens")
+                raise ValueError(f"adaptive {stage} output reserve is below its stage limit")
 
 
 class AzureOpenAIAdaptiveModel:
@@ -256,10 +263,11 @@ class AzureOpenAIAdaptiveModel:
             ).messages
         )
         request = selected.target.operation("chat/completions")
+        stage_output_tokens = self._config.stage_max_tokens.get(stage, self._config.max_tokens)
         body: dict[str, Any] = {
             "messages": messages,
             **completion_body_params(
-                selected.family, temperature=0.0, max_tokens=self._config.max_tokens
+                selected.family, temperature=0.0, max_tokens=stage_output_tokens
             ),
         }
         if stage in {"review", "verify"} and selected.family.strip().lower() in {
@@ -274,15 +282,28 @@ class AzureOpenAIAdaptiveModel:
         encoded = _dump_json(body).encode("utf-8")
         if len(encoded) > self._config.max_request_bytes:
             raise ValueError("adaptive request exceeds byte budget")
-        if (
-            prompt_manifest is not None
-            and prompt_manifest.request_token_budget is not None
-            and estimate_serialized_request_tokens(
-                body,
-                reserved_output_tokens=self._config.max_tokens,
-            )
-            > prompt_manifest.request_token_budget
-        ):
+        budgeted_output_tokens = max(
+            stage_output_tokens,
+            prompt_manifest.reserved_output_tokens
+            if prompt_manifest is not None and prompt_manifest.reserved_output_tokens is not None
+            else 0,
+        )
+        request_estimate = estimate_serialized_request_tokens(
+            body,
+            reserved_output_tokens=budgeted_output_tokens,
+            model=selected.target.deployment,
+        )
+        request_budget = (
+            prompt_manifest.request_token_budget if prompt_manifest is not None else None
+        )
+        request_exceeded = request_budget is not None and request_estimate > request_budget
+        record_request_tokens(
+            call_kind=f"adaptive-{stage}",
+            estimate=request_estimate,
+            budget=request_budget,
+            exceeded=request_exceeded,
+        )
+        if request_exceeded:
             raise ValueError("adaptive request exceeds its prompt profile budget")
         token = await self._identity.get_token(selected.target.auth_audience)
         trace_start = start_model_trace(messages)
@@ -317,11 +338,13 @@ class AzureOpenAIAdaptiveModel:
             response_content=content,
             usage=usage,
         )
+        bounded = bounded_usage(usage)
+        record_provider_usage(call_kind=f"adaptive-{stage}", usage=bounded)
         return ConversationModelResponse(
             proposal=proposal,
             observation=ConversationModelObservation(
                 model=selected.target.deployment,
-                usage=bounded_usage(usage),
+                usage=bounded,
                 trace_call=trace_call,
                 prompt_replay_manifest=prompt_manifest,
             ),

@@ -15,6 +15,7 @@ from typing import Any
 
 from fdai.core.prompts import estimate_chat_request_tokens
 from fdai.delivery.azure.llm.model_trace import prepare_model_messages
+from fdai.delivery.azure.llm.token_metrics import record_context_fit
 
 _LOGGER = logging.getLogger(__name__)
 _MIN_KEPT_CHARS = 64
@@ -29,6 +30,7 @@ def fit_context_to_budget(
     reserved_output_tokens: int,
     budget: int | None,
     call_kind: str,
+    models: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
     """Return the newest context whose complete request fits ``budget``."""
 
@@ -39,11 +41,16 @@ def fit_context_to_budget(
                 {"role": "user", "content": encode(candidate)},
             )
         ).messages
-        estimate = estimate_chat_request_tokens(
-            messages=list(messages),
-            response_format=response_format,
-            reserved_output_tokens=reserved_output_tokens,
+        estimates = (
+            estimate_chat_request_tokens(
+                messages=list(messages),
+                response_format=response_format,
+                reserved_output_tokens=reserved_output_tokens,
+                model=model,
+            )
+            for model in (models or (None,))
         )
+        estimate = max(estimates)
         return estimate <= budget if budget is not None else True
 
     if budget is None or not context or fits(context):
@@ -72,6 +79,12 @@ def fit_context_to_budget(
             "kept_items": len(fitted),
             "shortened": len(fitted) > len(kept),
         },
+    )
+    record_context_fit(
+        call_kind=call_kind,
+        source_items=len(context),
+        kept_items=len(fitted),
+        shortened=len(fitted) > len(kept),
     )
     return fitted
 

@@ -34,6 +34,7 @@ class NarratorLatencyStats:
 class _TimingWindow:
     latency_ms: list[float] = field(default_factory=list)
     ttft_ms: list[float] = field(default_factory=list)
+    blocked: bool = False
 
     def add(self, *, latency_ms: float, ttft_ms: float) -> None:
         if (
@@ -46,6 +47,7 @@ class _TimingWindow:
             raise ValueError("narrator timing sample is invalid")
         self.latency_ms.append(latency_ms)
         self.ttft_ms.append(ttft_ms)
+        self.blocked = False
         del self.latency_ms[:-_MAX_LATENCY_SAMPLES]
         del self.ttft_ms[:-_MAX_LATENCY_SAMPLES]
 
@@ -58,6 +60,11 @@ class _TimingWindow:
             ttft_p50_ms=_percentile(self.ttft_ms, 0.50),
             ttft_p95_ms=_percentile(self.ttft_ms, 0.95),
         )
+
+    def fail(self) -> None:
+        self.latency_ms.clear()
+        self.ttft_ms.clear()
+        self.blocked = True
 
 
 @dataclass(slots=True)
@@ -84,7 +91,7 @@ class NarratorLatencyPool:
         windows = self._vision_windows if vision else self._text_windows
         return tuple(
             sorted(
-                targets,
+                (target for target in targets if not windows[target.deployment].blocked),
                 key=lambda target: _rank_key(windows[target.deployment]),
             )
         )
@@ -102,6 +109,15 @@ class NarratorLatencyPool:
         if window is None:
             raise ValueError("narrator timing target is not registered in the selected pool")
         window.add(latency_ms=latency_ms, ttft_ms=ttft_ms)
+
+    def record_failure(self, *, deployment: str, vision: bool) -> None:
+        """Exclude a failed candidate until a later successful synthetic probe."""
+
+        windows = self._vision_windows if vision else self._text_windows
+        window = windows.get(deployment)
+        if window is None:
+            raise ValueError("narrator timing target is not registered in the selected pool")
+        window.fail()
 
     def snapshot(self, *, vision: bool = False) -> tuple[NarratorLatencyStats, ...]:
         targets = self.vision_targets if vision else self.text_targets

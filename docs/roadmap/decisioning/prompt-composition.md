@@ -66,6 +66,15 @@ time and call capacity for independent verification. Short review stages may use
 supported low-effort provider settings (`low` for GPT-5 mini and GPT-5.4 mini review/verify calls);
 authoring, other families, and T2 reasoning settings remain unchanged.
 
+Provider-bound request accounting uses the tokenizer for the selected model family. Startup checks
+that do not yet have a deployment identity and unrecognized deployment families keep the
+conservative UTF-8 byte upper bound. Prior-turn
+context is selected newest first against the complete request budget; the current utterance, schema,
+protected prompt layers, and reserved output never yield to history. Adaptive model configuration
+can declare a lower output ceiling for an exact stage, but the default remains the active profile's
+4,096-token reserve. A lower stage ceiling is selected only after a model-backed profile comparison
+supports the configuration and profile-digest change.
+
 Content-free stage logs report elapsed time, remaining time, status, and reserved call attempts.
 An attempted or reserved stage is not proof that a provider accepted a physical request.
 Prompt composition logs total, Operator Memory, and skill-disclosure duration with layer and token
@@ -78,6 +87,13 @@ Schema text and prepared-validator caches are bounded and contain no user input;
 still runs through both its original and configured provider schema. Existing credential caching remains authoritative rather than
 adding another token cache. Offline request-count and clock tests prove mechanism changes, not
 live model quality or a production speedup. New live comparisons require explicit authorization.
+
+Content-free metrics record estimated request tokens, budget holds, omitted context items, dynamic
+prompt fallbacks, provider-reported prompt/completion/total tokens, and provider-reported cached
+prompt tokens. Cached-token observations measure an existing provider behavior; they do not enable
+an unsupported cache-control field or make cached output operational evidence. Post-turn review has
+its own call kind and budget measurements, so background learning usage does not appear as an
+interactive answer call.
 
 ### Ten-round latency review (2026-09-06)
 
