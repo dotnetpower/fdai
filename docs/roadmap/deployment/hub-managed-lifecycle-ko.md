@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: d5cd9c177b4870fe298179a11ccbf42fb07d8d7f
+translation_source_sha: 0a0a7cb7c50dd4ddf5676c9a1c05312491144712
 translation_revised: 2026-10-22
 ---
 # Hub 관리형 수명 주기
@@ -819,7 +819,8 @@ API와 같은 엄격한 요청 형식, 영구 제품 연결, Settings 버전 비
 `FDAI_HUB_REMOTE_CONFIG`가 원격 Target을 명시적으로 선택하면 신뢰하는 호스트의 CLI는
 기존 TLS 검증 및 Managed Identity DB 연결을 사용합니다. Release Hub 설정이나 미완료
 스키마는 로컬 저장소나 비밀번호로 대체하지 않고 차단합니다. 이 변수가 없으면 기존 로컬
-DB 경로는 바뀌지 않습니다. 콘솔 접근은 독립적인 Azure 권한 경계로 유지되며 에이전트의
+DB 경로는 바뀌지 않습니다. 원격 모드의 `serve`는 처리 함수를 호출하기 전에 차단하며,
+인증된 서버는 `fdai-hub-remote serve`로 실행합니다. 콘솔 접근은 독립적인 Azure 권한 경계로 유지되며 에이전트의
 제출은 콘솔 접근이나 운영자 권한을 부여하지 않습니다. 새 역할, 공개 증명 조회 API, 서명 키,
 DB 테이블이나 최소 읽기 버전 변경은 추가하지 않습니다.
 

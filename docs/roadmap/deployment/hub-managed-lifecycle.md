@@ -822,7 +822,8 @@ same strict request, permanent product binding, Settings compare-and-swap and au
 When `FDAI_HUB_REMOTE_CONFIG` explicitly selects a remote target, the trusted-host CLI uses the
 existing verified-TLS Managed Identity database engine. It rejects a Release Hub configuration or
 incomplete schema rather than falling back to a local store or a password. Without that variable,
-the existing local database path is unchanged. Console access remains an independent Azure
+the existing local database path is unchanged. Remote-mode `serve` is rejected before handler
+dispatch; use `fdai-hub-remote serve` for the authenticated server. Console access remains an independent Azure
 authorization boundary; an Agent submission never grants console access or operator authority.
 No new role, public proof-read endpoint, signing key, database table or reader-floor change is added.
 

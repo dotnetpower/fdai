@@ -49,11 +49,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     handler: Handler = args.handler
     provider_errors: tuple[type[Exception], ...] = (SQLAlchemyError,)
-    if "FDAI_HUB_REMOTE_CONFIG" in os.environ:
-        from azure.core.exceptions import AzureError
-
-        provider_errors += (AzureError,)
     try:
+        if "FDAI_HUB_REMOTE_CONFIG" in os.environ:
+            if args.command == "serve":
+                raise ValueError(
+                    "Remote storage cannot use the local server; use fdai-hub-remote serve."
+                )
+            from azure.core.exceptions import AzureError
+
+            provider_errors += (AzureError,)
         return handler(args)
     except (HubStoreError, ValueError) as error:  # ValueError covers pydantic and domain checks.
         print(f"{type(error).__name__}: {error}", file=sys.stderr)

@@ -13,12 +13,31 @@ from typing import Any
 import pytest
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 
-from fdai_lifecycle_hub import domain
+from fdai_lifecycle_hub import cli, domain
 from fdai_lifecycle_hub.catalog import load_catalog
 from fdai_lifecycle_hub.cli import DATABASE_URL_ENV, main
 from fdai_lifecycle_hub.domain import Installation
 from fdai_lifecycle_hub.schemas import entity_settings_json, ownership_json, reported_state_json
 from fdai_lifecycle_hub.store import HubStore
+
+
+@pytest.mark.parametrize(
+    "configuration", ["", "invalid", '{"kind":"target"}', '{"kind":"release"}']
+)
+def test_remote_cli_rejects_unauthenticated_serve(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    configuration: str,
+) -> None:
+    def forbidden(*args: object) -> int:
+        pytest.fail("Remote local-server handler must never be dispatched")
+
+    monkeypatch.setenv("FDAI_HUB_REMOTE_CONFIG", configuration)
+    monkeypatch.setattr(cli, "_serve", forbidden)
+    assert main(["serve"]) == 1
+    output = capsys.readouterr()
+    assert "fdai-hub-remote serve" in output.err
+    assert output.out == ""
 
 
 def test_local_cli_migrates_without_azure_dependencies(tmp_path: Path) -> None:
