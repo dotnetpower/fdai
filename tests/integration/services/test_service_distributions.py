@@ -14,6 +14,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SERVICE_ROOT = REPO_ROOT / "services"
+SECURE_OPENTELEMETRY_FLOOR = (1, 45, 1)
 
 EXPECTED = {
     "core-control-plane": ("fdai-core-control-plane", "fdai-core-control-plane"),
@@ -191,6 +192,11 @@ def _requirement_name(requirement: str) -> str:
     return re.split(r"[\s<>=!~;\[]", requirement, maxsplit=1)[0].lower()
 
 
+def _version_tuple(value: str) -> tuple[int, int, int]:
+    major, minor, patch = value.split(".", maxsplit=2)
+    return int(major), int(minor), int(patch)
+
+
 def _direct_import_distributions(source_root: Path) -> set[str]:
     local_packages = {path.name for path in source_root.iterdir() if path.is_dir()}
     distributions: set[str] = set()
@@ -252,6 +258,41 @@ def test_service_distributions_declare_only_owned_runtime_dependencies() -> None
         project = tomllib.loads((SERVICE_ROOT / service_id / "pyproject.toml").read_text())
         actual = {_requirement_name(value) for value in project["project"]["dependencies"]}
         assert actual == expected, service_id
+
+
+def test_opentelemetry_dependency_floor_blocks_known_tracestate_vulnerability() -> None:
+    required = {
+        f"opentelemetry-api>={'.'.join(map(str, SECURE_OPENTELEMETRY_FLOOR))},<2",
+        (
+            "opentelemetry-exporter-otlp-proto-grpc>="
+            f"{'.'.join(map(str, SECURE_OPENTELEMETRY_FLOOR))},<2"
+        ),
+        f"opentelemetry-sdk>={'.'.join(map(str, SECURE_OPENTELEMETRY_FLOOR))},<2",
+    }
+    root_project = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    core_project = tomllib.loads(
+        (SERVICE_ROOT / "core-control-plane" / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    assert required <= set(root_project["project"]["optional-dependencies"]["dev"])
+    assert required <= set(core_project["project"]["dependencies"])
+
+    lock = tomllib.loads((REPO_ROOT / "uv.lock").read_text(encoding="utf-8"))
+    versions = {
+        package["name"]: _version_tuple(package["version"])
+        for package in lock["package"]
+        if package["name"]
+        in {
+            "opentelemetry-api",
+            "opentelemetry-exporter-otlp-proto-grpc",
+            "opentelemetry-sdk",
+        }
+    }
+    assert set(versions) == {
+        "opentelemetry-api",
+        "opentelemetry-exporter-otlp-proto-grpc",
+        "opentelemetry-sdk",
+    }
+    assert all(version >= SECURE_OPENTELEMETRY_FLOOR for version in versions.values())
 
 
 def test_service_distributions_declare_owned_optional_dependencies() -> None:
