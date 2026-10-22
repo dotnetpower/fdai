@@ -40,6 +40,10 @@ _LOGICAL_RESOURCE_REF = re.compile(
     r"(?P<provider_path>/providers(?:/[A-Za-z0-9][A-Za-z0-9_.()-]{0,127}){3,15})?$",
     re.IGNORECASE,
 )
+_LOGICAL_SUBSCRIPTION_REF = re.compile(
+    r"^scope-[a-f0-9]{16,64}/subscription$",
+    re.IGNORECASE,
+)
 
 _MUTATION_OPERATIONS = frozenset(
     {
@@ -49,6 +53,7 @@ _MUTATION_OPERATIONS = frozenset(
         "azure.compute.vm.deallocate",
         "azure.compute.vmss.scale",
         "azure.resource.tags.merge",
+        "azure.subscription.tags.merge",
     }
 )
 
@@ -61,6 +66,7 @@ _OPERATION_VERTICALS = {
     "azure.compute.vm.deallocate": "finops",
     "azure.compute.vmss.scale": "finops",
     "azure.resource.tags.merge": "change",
+    "azure.subscription.tags.merge": "change",
 }
 
 

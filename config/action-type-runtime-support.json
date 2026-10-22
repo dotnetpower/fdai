@@ -1009,6 +1009,13 @@
       },
       "note": "Generic PR-native shadow path only."
     },
+    "remediate.subscription-tag-add@1.0.0": {
+      "bindings": {
+        "core-azure-gateway": "core-gateway",
+        "isolated-azure-gateway": "isolated-gateway"
+      },
+      "note": "Development-profile subscription tag support requires exact logical scope, temporary tag-only RBAC, promotion, Owner approval, snapshot rollback, and reader-identity effect verification."
+    },
     "remediate.tag-add@1.1.0": {
       "bindings": {
         "core-azure-gateway": "core-gateway",

@@ -89,14 +89,13 @@ already admits human approval, the runtime gate itself does not deny, current ev
 conflict, and every development safety and evidence prerequisite holds. The upstream table's
 `deny-subscription-blast` is the only such rule. Core parks it only for a registered direct-API
 ActionType, because the binding records the deterministic direct-API dry-run receipt, only while the
-profile is valid, and never for a workflow step; the shipped subscription-bucket ActionType
-`governance.retire-rule` is `pr_native` and keeps its denial. The binding scope is the target
-location widened to the declared blast radius; a subscription-wide, undeclared, or graph-derived
-blast radius needs the whole dedicated subscription, which a profile that binds only resource groups
-never covers, and admission refuses a narrower binding. The block records the original `deny`, the
-category facts, the evaluated event, and, as the original quorum, the quorum the table requires once
-the category rule is lifted, and it marks the park Owner-only. Operator, the decision transaction,
-and Core each refuse every approval except the Owner's attested self-approval. Any authorized
+profile is valid, and never for a workflow step. The shipped `remediate.subscription-tag-add` ActionType is the bounded direct-API subscription action used for this path. It remains shadow-first and adds one tag through a separate subscription operation with snapshot rollback and reader-identity effect verification. The subscription-bucket
+`governance.retire-rule` ActionType is `pr_native` and keeps its denial. The binding scope is the target
+location widened to the declared blast radius; a subscription-wide, undeclared, or graph-derived blast radius needs the whole dedicated subscription, which a profile that binds only
+resource groups never covers, and admission refuses a narrower binding. The block records the
+original `deny`, the category facts, the evaluated event, and, as the original quorum, the quorum
+the table requires once the category rule is lifted, and it marks the park Owner-only. Operator,
+the decision transaction, and Core each refuse every approval except the Owner's attested self-approval. Any authorized
 approver, including the requesting Owner, may reject it, because a rejection grants nothing; an
 unanswered park expires. Before the ordinary resume claim dispatches an admitted self-approval, the
 ControlLoop reruns the full current evaluation: current inventory, execution authorization, kill
