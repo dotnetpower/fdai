@@ -2069,15 +2069,17 @@ def test_ci_partitions_database_and_provider_checks_across_two_shards() -> None:
     )
 
 
-def test_ci_resolves_optional_governance_variable_without_static_context_access() -> None:
+def test_ci_source_classification_does_not_consume_installation_identity_settings() -> None:
     workflow = (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    governance_step = workflow.split("- name: Enforce governance review authority", 1)[1].split(
+    governance_step = workflow.split("- name: Classify governed source changes", 1)[1].split(
         "\n      - name:", 1
     )[0]
 
-    assert "REPOSITORY_VARIABLES_JSON: ${{ toJSON(vars) }}" in governance_step
-    assert 'variables.get("FDAI_GOVERNANCE_IDENTITY_APP_ID", "")' in governance_step
-    assert "${{ vars.FDAI_GOVERNANCE_IDENTITY_APP_ID }}" not in workflow
+    assert "--scope-only" in governance_step
+    assert "GitHub branch protection" in governance_step
+    assert "REPOSITORY_VARIABLES_JSON" not in governance_step
+    assert "FDAI_GOVERNANCE_IDENTITY_APP_ID" not in workflow
+    assert "FDAI_APPROVAL_PROFILE" not in governance_step
     assert "${{ env.FDAI_SERVICE_DATABASE_URL }}" not in workflow
 
 

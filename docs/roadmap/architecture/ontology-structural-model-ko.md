@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: de64b27397d716a3c0584cf8dc90814d57a6b120
-translation_revised: 2026-10-22
+translation_source_sha: 176ea122e2b06e74554357916f89c4087a74aba9
+translation_revised: 2026-10-23
 ---
 # 온톨로지 구조 모델
 
@@ -15,7 +15,9 @@ translation_revised: 2026-10-22
 > 카탈로그 스키마와 같은 위치에 있는 거버넌스 검토 등급 토큰은 변경 통제 메타데이터일 뿐,
 > 온톨로지 타입이나 자율성 축이 아닙니다. `standing-authority-promotion`은 ActionType
 > 모드를 바꾸거나 A3-E 권한을 부여할 수 없으며, `operator-override-promotion`도 통제된 승격 요청 하나를 위한 같은 종류의 변경 통제 메타데이터입니다.
-> 단독 운영자 프로덕션 프로필은 지정된 Owner가 이 등급들의 검토 정족수를 혼자 충족하게 할 뿐입니다. Operator promotion-gate 화면은 온톨로지 식별자 및 분류 외부의 읽기 전용 레지스트리 메타데이터입니다. [관측 구성 표시 데이터](aks-outbound-connector-ko.md#operator-전달-계약)도 기존 중립 클러스터 식별자를 참조할 뿐 Resource, ObjectType, LinkType이나 설치 권한을 만들지 않습니다.
+> 활성 단일 운영자 운영 프로필은 필요한 역할과 인증을 유지하면서 지정된 사람이 설치의
+> 거버넌스 검토 요건을 유효 정족수 1로 충족하게 합니다. 저장소 검토 정책을 선택하거나
+> 온톨로지 권한을 바꾸지는 않습니다. Operator promotion-gate 화면은 온톨로지 식별자 및 분류 외부의 읽기 전용 레지스트리 메타데이터입니다. [관측 구성 표시 데이터](aks-outbound-connector-ko.md#operator-전달-계약)도 기존 중립 클러스터 식별자를 참조할 뿐 Resource, ObjectType, LinkType이나 설치 권한을 만들지 않습니다.
 > 코드 보안 작업자 heartbeat를 포함한 비온톨로지 Operator 경로는 운영 변환 결과로 유지합니다.
 > 공유 경로 매니페스트에 이를 등록해도 온톨로지 타입, 관계, 쿼리 권한 또는 구조 모델 의존성을
 > 만들지 않습니다.

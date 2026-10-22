@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai.core.rbac.roles import Role
 from fdai.rule_catalog.schema.governance_review_authority import (
     GovernanceApproval,
@@ -304,10 +305,13 @@ def test_standing_authority_promotion_requires_owner_tier_quorum_of_two() -> Non
     assert with_owner.grants_execution_authority is False
 
 
-def test_single_operator_profile_accepts_named_owner_for_standing_authority_promotion() -> None:
+@pytest.mark.parametrize("change_class", list(GovernanceChangeClass))
+def test_single_operator_profile_accepts_named_owner_for_every_installation_change(
+    change_class: GovernanceChangeClass,
+) -> None:
     decision = validate_governance_review(
         _request(
-            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            change_class,
             _approval(_OWNER),
             author=_OWNER,
             approval_profile=_profile(_OWNER),
@@ -316,7 +320,7 @@ def test_single_operator_profile_accepts_named_owner_for_standing_authority_prom
 
     assert decision.allowed is True
     assert decision.required_quorum == 1
-    assert decision.original_quorum == 2
+    assert decision.original_quorum == requirement_for(change_class).quorum
     assert decision.effective_quorum == 1
     assert decision.counted_approver_oids == (_OWNER.oid,)
     assert decision.approval_profile == "single-operator-production"
@@ -325,7 +329,7 @@ def test_single_operator_profile_accepts_named_owner_for_standing_authority_prom
     assert decision.grants_execution_authority is False
 
 
-def test_single_operator_profile_accepts_named_operator_for_override_promotion_only() -> None:
+def test_single_operator_profile_accepts_named_operator_for_override_promotion() -> None:
     decision = validate_governance_review(
         _request(
             GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION,
@@ -345,10 +349,13 @@ def test_single_operator_profile_accepts_named_operator_for_override_promotion_o
     assert decision.self_review is True
 
 
-def test_single_operator_profile_refuses_unnamed_and_executor_principals() -> None:
+@pytest.mark.parametrize("change_class", list(GovernanceChangeClass))
+def test_single_operator_profile_refuses_unnamed_and_executor_principals(
+    change_class: GovernanceChangeClass,
+) -> None:
     unnamed = validate_governance_review(
         _request(
-            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            change_class,
             _approval(_APPROVER_ONE),
             author=_OWNER,
             approval_profile=_profile(_OWNER),
@@ -356,7 +363,7 @@ def test_single_operator_profile_refuses_unnamed_and_executor_principals() -> No
     )
     executor = validate_governance_review(
         _request(
-            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            change_class,
             _approval(_EXECUTOR),
             author=_OWNER,
             approval_profile=_profile(_OWNER),
@@ -394,44 +401,52 @@ def test_single_operator_profile_still_requires_owner_role_and_phishing_resistan
     assert "approval_not_phishing_resistant" in _codes(weak_auth)
 
 
-def test_multi_operator_and_other_classes_ignore_the_single_operator_profile() -> None:
+@pytest.mark.parametrize("change_class", list(GovernanceChangeClass))
+@pytest.mark.parametrize("profile", [None, _multi_profile()])
+def test_unselected_or_multi_operator_profile_never_accepts_self_review(
+    change_class: GovernanceChangeClass,
+    profile: ApprovalProfileRevision | None,
+) -> None:
     multi_self = validate_governance_review(
         _request(
-            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
+            change_class,
             _approval(_OWNER),
             author=_OWNER,
-            approval_profile=_multi_profile(),
-        )
-    )
-    enforce_promotion = validate_governance_review(
-        _request(
-            GovernanceChangeClass.ENFORCE_PROMOTION,
-            _approval(_OWNER),
-            author=_OWNER,
-            approval_profile=_profile(_OWNER),
-        )
-    )
-    ordinary_override = validate_governance_review(
-        _request(
-            GovernanceChangeClass.OVERRIDE,
-            _approval(_OWNER),
-            author=_OWNER,
-            approval_profile=_profile(_OWNER),
+            approval_profile=profile,
         )
     )
 
     assert multi_self.allowed is False
-    assert _codes(multi_self) == {"owner_review_missing", "quorum_not_met", "self_approval"}
-    assert multi_self.required_quorum == 2
+    assert {"quorum_not_met", "self_approval"} <= _codes(multi_self)
+    assert multi_self.required_quorum == requirement_for(change_class).quorum
     assert multi_self.approval_profile is None
-    assert enforce_promotion.allowed is False
-    assert _codes(enforce_promotion) == {"self_approval", "quorum_not_met"}
-    assert enforce_promotion.required_quorum == 2
-    assert enforce_promotion.approval_profile is None
-    assert ordinary_override.allowed is False
-    assert _codes(ordinary_override) == {"self_approval", "quorum_not_met"}
-    assert ordinary_override.required_quorum == 2
-    assert ordinary_override.approval_profile is None
+
+
+@pytest.mark.parametrize("change_class", list(GovernanceChangeClass))
+@pytest.mark.parametrize(
+    ("approval", "code"),
+    [
+        (_approval(_OWNER, revision="b" * 40), "approval_stale"),
+        (
+            _approval(_OWNER, approved_at=_COMMITTED_AT - timedelta(seconds=1)),
+            "approval_precedes_head",
+        ),
+        (_approval(_OWNER, phishing_resistant=False), "approval_not_phishing_resistant"),
+        (_approval(_OWNER, dismissed=True), "quorum_not_met"),
+    ],
+)
+def test_single_operator_profile_preserves_revision_freshness_and_authentication(
+    change_class: GovernanceChangeClass,
+    approval: GovernanceApproval,
+    code: str,
+) -> None:
+    decision = validate_governance_review(
+        _request(change_class, approval, author=_OWNER, approval_profile=_profile())
+    )
+
+    assert decision.allowed is False
+    assert code in _codes(decision)
+    assert decision.grants_execution_authority is False
 
 
 def test_dismissed_approval_is_silently_uncounted() -> None:
