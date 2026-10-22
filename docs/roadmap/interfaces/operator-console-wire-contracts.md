@@ -6,6 +6,8 @@ title: Operator Console - Data and Wire Contracts
 
 > Focused owner document extracted from [operator-console.md](operator-console.md) section 13 (13.1-13.3, 13.6-13.9).
 
+Console-governed ownership candidates add no Operator wire contract yet. An Owner-only typed activation request remains open under #458. Until it lands, candidates stay inert and grant no ownership, RBAC, approval, or execution authority.
+
 ## 13. Data + wire contracts
 The existing runtime-state projection can include process-owned first-tier-decision lag with its
 source and unavailable state; this adds no Incident command, approval or execution authority.

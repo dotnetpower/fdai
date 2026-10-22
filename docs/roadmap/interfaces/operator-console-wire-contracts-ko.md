@@ -1,13 +1,15 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 190b80b120f3018512f4919b5d0222d10e928e09
-translation_revised: 2026-10-20
+translation_source_sha: b44b6ea54d604182c37ba0b0441eeb6b38ce1487
+translation_revised: 2026-10-22
 ---
 
 # Operator Console - 데이터 and Wire Contracts
 
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
+
+Console 관리형 담당 체계 후보는 아직 Operator 와이어 계약을 추가하지 않습니다. Owner 전용 형식화 활성화 요청은 #458에서 열려 있습니다. 이것이 들어오기 전까지 후보는 비활성 상태이며 담당 체계, RBAC, 승인 또는 실행 권한을 부여하지 않습니다.
 
 ## 13. 데이터 + wire 계약
 기존 런타임 상태 변환 결과에는 프로세스가 관측한 최초 계층 판정 지연과 그 출처 및

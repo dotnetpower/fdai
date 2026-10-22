@@ -244,6 +244,13 @@ variable "stewardship_gitops" {
 
   validation {
     condition = !var.stewardship_gitops.enabled || (
+      var.stewardship_gitops.auth_mode == "console" &&
+      trimspace(var.stewardship_gitops.owner) == "" &&
+      trimspace(var.stewardship_gitops.repo) == "" &&
+      trimspace(var.stewardship_gitops.token_secret_id) == "" &&
+      trimspace(var.stewardship_gitops.app_private_key_secret_id) == "" &&
+      trimspace(var.stewardship_gitops.webhook_secret_id) == ""
+      ) || (
       trimspace(var.stewardship_gitops.owner) != "" &&
       trimspace(var.stewardship_gitops.repo) != "" &&
       (
@@ -261,7 +268,7 @@ variable "stewardship_gitops" {
         )
       )
     )
-    error_message = "Enabled stewardship GitOps requires owner, repo, and exactly one static-token or GitHub App credential binding."
+    error_message = "Enabled stewardship delivery requires either Console-governed mode with no Git host inputs, or owner, repo, and exactly one static-token or GitHub App credential binding."
   }
   validation {
     condition     = !var.stewardship_gitops.workflow_tools_enforce || var.stewardship_gitops.enabled
