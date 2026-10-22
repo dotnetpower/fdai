@@ -111,6 +111,7 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
         assert "ARG OPA_X_TEXT_VERSION=v0.42.0" in content, path
         assert "ARG OPA_GO_VERSION=go1.27.3" in content, path
         assert "ARG OPA_X_NET_VERSION=v0.60.0" in content, path
+        assert "ARG OPA_KLAUSPOST_COMPRESS_VERSION=v1.18.7" in content, path
         assert "ENV GOTOOLCHAIN=local" in content, path
         assert "GOEXPERIMENT=nojsonv2" in content, path
         assert (
@@ -118,7 +119,12 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
             in content
         )
         assert 'go mod edit -require="golang.org/x/net@${OPA_X_NET_VERSION}"' in content
+        assert (
+            'go mod edit -require="github.com/klauspost/compress@${OPA_KLAUSPOST_COMPRESS_VERSION}"'
+            in content
+        )
         assert "awk '$2 == \"golang.org/x/net\" {print $3}'" in content
+        assert "awk '$2 == \"github.com/klauspost/compress\" {print $3}'" in content
         assert "awk '$2 == \"golang.org/x/crypto\" {print $3}'" in content
         assert "awk '$2 == \"golang.org/x/text\" {print $3}'" in content
         assert 'test "$(/usr/local/go/bin/go env GOVERSION)" = "${OPA_GO_VERSION}"' in content

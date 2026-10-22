@@ -51,6 +51,20 @@ _GO_IDENTITY_BASELINES = {
         "sha256:85dc1069ac644ea3c527b177303a406eb3358192816cd7f9e5848eb658851673",
     ),
 }
+_OPA_SECURITY_OVERRIDE_LINES = frozenset(
+    {
+        "ARG OPA_KLAUSPOST_COMPRESS_VERSION=v1.18.7",
+        (
+            '    && /usr/local/go/bin/go mod edit -require="github.com/klauspost/compress@'
+            '${OPA_KLAUSPOST_COMPRESS_VERSION}" \\'
+        ),
+        (
+            '    && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '
+            '\'$2 == "github.com/klauspost/compress" {print $3}\')" = '
+            '"${OPA_KLAUSPOST_COMPRESS_VERSION}" \\'
+        ),
+    }
+)
 _NORMALIZATION_SOURCES = (
     "services/core-control-plane/src/fdai/rule_catalog/schema/revision_identity.py",
     "services/core-control-plane/src/fdai/shared/contracts/models/rule.py",
@@ -212,6 +226,8 @@ def _normalize_go_patch_pin(stage: list[str]) -> list[str]:
     version, digest = baseline
     normalized: list[str] = []
     for line in stage:
+        if line in _OPA_SECURITY_OVERRIDE_LINES:
+            continue
         if _OPA_GO_VERSION.match(line):
             line = f"ARG OPA_GO_VERSION={version}"
         elif (builder := _OPA_GO_BUILDER.match(line)) is not None:
