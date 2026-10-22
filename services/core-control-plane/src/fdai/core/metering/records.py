@@ -92,6 +92,12 @@ class LlmInvocation:
             raise ValueError("model_key MUST NOT be empty")
         if not self.tier:
             raise ValueError("tier MUST NOT be empty")
+        if not isinstance(self.mode, InvocationMode):
+            raise TypeError("mode MUST be one InvocationMode")
+        if not isinstance(self.usage_scope, InvocationScope):
+            raise TypeError("usage_scope MUST be one InvocationScope")
+        if not isinstance(self.disposition, InvocationDisposition):
+            raise TypeError("disposition MUST be one InvocationDisposition")
         if self.cost is not None and self.cost < 0:
             raise ValueError("cost MUST be >= 0 when present")
         if self.currency is not None and not self.currency:

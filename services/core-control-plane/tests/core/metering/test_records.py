@@ -84,6 +84,19 @@ def test_outcome_dimensions_reject_ambiguous_values(field: str, value: str) -> N
 @pytest.mark.parametrize(
     ("field", "value", "match"),
     [
+        ("mode", "enforce", "InvocationMode"),
+        ("usage_scope", "operator_chat", "InvocationScope"),
+        ("disposition", "answered", "InvocationDisposition"),
+    ],
+)
+def test_enum_metadata_rejects_untyped_strings(field: str, value: str, match: str) -> None:
+    with pytest.raises(TypeError, match=match):
+        _invocation(**{field: value})
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
         ("correlation_id", "", "correlation_id"),
         ("capability_id", "", "capability_id"),
         ("model_key", "", "model_key"),
