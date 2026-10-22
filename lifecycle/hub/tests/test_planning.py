@@ -10,7 +10,9 @@ from fdai_deployment_cli.lifecycle_plan import (
     LifecycleCommand,
     SuppressionWindow,
     canonical_plan_payload,
+    required_artifact_digests,
 )
+from fdai_deployment_cli.lifecycle_promotion import BoundaryRegistryMirror
 from fdai_deployment_cli.runtime_release import RecallRecord
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
@@ -576,3 +578,43 @@ def test_break_glass_command_reconciles_to_approved_revision_at_expiry_and_rejec
         ),
     )
     assert plan_next(adopted_after_expiry, now, catalog=catalog, key=key) == UpToDate()
+
+
+def test_boundary_registry_mirror_blocks_plan_until_every_required_digest_is_mirrored(
+    installation: Installation,
+    catalog: ReleaseCatalog,
+    key: HubSigningKey,
+    now: datetime,
+) -> None:
+    target_release = catalog.releases["1.6.0"]
+    mirror = BoundaryRegistryMirror()
+    assert mirror.missing_for(target_release) == required_artifact_digests(target_release)
+
+    # While the boundary registry lacks the required digest, the Plan is blocked.
+    unmirrored = replace(
+        installation,
+        reported=replace(
+            installation.reported,
+            available_artifact_digests=mirror.mirrored_digests,
+        ),
+    )
+    blocked = plan_next(unmirrored, now, catalog=catalog, key=key)
+    assert isinstance(blocked, NoEligibleRelease)
+    assert "artifact_unavailable" in {b.reason_code for b in blocked.checks[0].blocks}
+
+    # Mirroring the Release's required digests into the boundary registry unblocks planning.
+    mirrored = mirror.mirror_release(
+        target_release,
+        available_upstream_digests=required_artifact_digests(target_release),
+    )
+    assert mirrored.missing_for(target_release) == frozenset()
+    ready = replace(
+        installation,
+        reported=replace(
+            installation.reported,
+            available_artifact_digests=mirrored.mirrored_digests,
+        ),
+    )
+    issued = plan_next(ready, now, catalog=catalog, key=key)
+    assert isinstance(issued, Issued)
+    assert issued.plan.target_release_id == "1.6.0"

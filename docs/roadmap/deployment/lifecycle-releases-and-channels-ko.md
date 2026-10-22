@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: 1e4098d890cf923f21f004e43ff86f4acef1efe0
+translation_source_sha: 23b7e388fee775342031b1aa8a6b0c0c0b553207
 translation_revised: 2026-10-22
 ---
 # Lifecycle Release와 채널
@@ -168,6 +168,9 @@ Entity를 드리프트 상태로 취급하며, 첫 Plan이 구독한 채널의 �
 라벨, 정상적인 카나리 설치에서의 안정화 시간, 제품 유지 관리 구간, 범위가 정해진 시간 제한이
 있습니다. [Apollo 채널 승격](https://www.palantir.com/docs/apollo/core/release-channels)처럼
 채널 기여자가 인시던트 수정을 배포하기 위해 Release를 수동으로 추가할 수도 있습니다.
+`evaluate_promotion_stage`와 `ReleaseStore.promote_stage`는 Release를 목표 채널로 승격하기 전에
+원본 채널 포함 여부, 필수 라벨, 카나리 정상 여부, 최소 안정화 시간, 단계 시간 제한 및 활성
+Release/기능 회수 여부를 검증합니다.
 
 Release가 적격해지기 전에 하나씩 검토하려는 규제 고객은 자기 Target Hub에 사용자 지정 채널을
 만들고 `RELEASE`의 Release를 수동으로 추가할 수 있습니다. 채널 구성원 관리는 적격성을 선별하는
@@ -326,6 +329,9 @@ timestamp 기록이 만료되면 설치는 회수 roll-off Plan만 받아들이�
 설치는 각 Release의 이미지를 경계 안의 자체 컨테이너 레지스트리로 가져옵니다.
 [Apollo 제약 조건](https://www.palantir.com/docs/apollo/core/plans-and-constraints)처럼 산출물 누락
 제약 조건은 필요한 모든 다이제스트가 있을 때까지 Plan을 차단합니다.
+`BoundaryRegistryMirror`는 경계 안에 미러링된 변경 불가능한 `sha256:<hex>` 다이제스트를 추적하여
+`available_artifact_digests`에 반영하며, 필요한 모든 이미지 다이제스트가 미러링될 때까지
+`plan_next`가 `artifact_unavailable`로 해당 Release를 차단합니다.
 
 ### 오프라인 설치
 
