@@ -21,6 +21,13 @@ results feed the canonical issue model, severity, priority, and remediation pack
 > interprocedural SQL-injection lane are implemented. See the
 > [implementation ledger](../../roadmap-implementation/operations/code-security-scanning.md).
 
+> **Development validation:** Local development is the acceptance venue for scanner behavior and
+> pre-deployment readiness. Container Apps and AKS remain supported deployment shapes, but neither
+> is required to close a development issue. Local acceptance must exercise scheduled repository
+> selection, exact-revision and duplicate-skip behavior, bounded capacity, independent result
+> acceptance, worker isolation configuration, and coverage handling. A later deployed receipt is
+> separate operational qualification and must not be inferred from local tests.
+
 ## Design at a glance
 
 A scan job turns one repository revision into SARIF (Static Analysis Results Interchange Format)
