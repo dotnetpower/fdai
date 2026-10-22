@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 558dc86067f772dea16baa65454aebf1e7bbcecb
+translation_source_sha: 935049f021faab848613246194c7865a2e7ef4f4
 translation_revised: 2026-10-22
 ---
 # Hub 관리형 수명 주기
@@ -569,6 +569,16 @@ Apollo에는 런타임 재정의 계층이 없습니다. 가장 가까운 개념
 수 있습니다. 서명 검사, 로컬 효과 경계, 정확한 계획, 잠금, 멱등성, 감사 의도, 회수, 파괴적
 변경 확인, 복구, 독립적인 재확인은 그대로 거칩니다. 설치 자체의 kill switch 경로는 기존 동작을
 유지합니다.
+
+> **구현된 명령 만료 및 비상 해제 경계:** `LifecycleCommand`와 `validate_lifecycle_command`는 모든
+> 명령(`suppression-window`, `authority-lowering`, `break-glass`)에 명시적 만료 시각을 요구하며,
+> 권한을 높이는 요청(`shadow`를 넘는 `target_mode`, `hil`을 넘는 `target_autonomy`, kill switch
+> 해제, 또는 `maintenance-window`, `suppression-window`, `version-range` 밖의 우회)을 거부합니다.
+> 비상 해제 명령이 활성 상태인 동안에는 시크릿 검사를 통과한 비상 재정의(`configuration-change`
+> Plan)를 적용하고 선언된 구간·버전 범위 제약만 우회하되 회수, 스키마, 산출물, 데이터 상주 검사는
+> 그대로 유지합니다. 만료 시점에는 병합된 변경이 비상 재정의를 채택하지 않은 경우 `plan_next`가
+> 승인된 구성 개정으로 되돌리는 `drift-reconciliation` Plan을 발급합니다. 전용 Hub 명령 HTTP/UI
+> 경로는 별도로 유지됩니다.
 
 ## 운영 루프와의 분리
 

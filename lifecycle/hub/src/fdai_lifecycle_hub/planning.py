@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime
-from typing import cast
+from typing import Any, cast
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.lifecycle_plan import (
@@ -21,8 +21,10 @@ from fdai_deployment_cli.lifecycle_plan import (
     LifecyclePlan,
     MaintenanceWindow,
     PlanType,
+    SuppressionWindow,
     canonical_plan_payload,
     evaluate_lifecycle_constraints,
+    overrides_adopted,
     required_artifact_digests,
 )
 from fdai_deployment_cli.lifecycle_release import LifecycleRelease
@@ -81,6 +83,37 @@ def plan_next(
         for entity_id, state in installation.reported.entities.items()
         if entity_id in installation.managed_entity_ids
     ]
+    active_break_glass = tuple(
+        cmd for cmd in installation.commands if cmd.kind == "break-glass" and cmd.is_active(now)
+    )
+    bypass_scopes: frozenset[str] = frozenset().union(
+        *(cmd.bypass_scopes for cmd in active_break_glass)
+    )
+    active_emergency_overrides = tuple(
+        block for cmd in active_break_glass for block in cmd.emergency_overrides
+    )
+    expired_unadopted_break_glass = any(
+        cmd.kind == "break-glass"
+        and cmd.is_expired(now)
+        and not overrides_adopted(
+            cmd.emergency_overrides, installation.configuration.entity_overrides
+        )
+        for cmd in installation.commands
+    )
+    effective_installation = (
+        replace(
+            installation,
+            configuration=replace(
+                installation.configuration,
+                entity_overrides=_merge_emergency_overrides(
+                    installation.configuration.entity_overrides,
+                    active_emergency_overrides,
+                ),
+            ),
+        )
+        if active_emergency_overrides
+        else installation
+    )
     rolloff_required = any(
         state.release_id is not None
         and not evaluate_recall_candidate(
@@ -94,13 +127,14 @@ def plan_next(
         ).allowed
         for state in managed_states
     )
-    drift_detected = not rolloff_required and any(
-        _entity_has_drift(state, catalog) for state in managed_states
+    drift_detected = not rolloff_required and (
+        any(_entity_has_drift(state, catalog) for state in managed_states)
+        or expired_unadopted_break_glass
     )
     current_release = installation.current_release
     if rolloff_required:
         candidates = list(catalog.newer_than(installation.settings.channel, None))
-    elif drift_detected and current_release is not None:
+    elif (drift_detected or bool(active_emergency_overrides)) and current_release is not None:
         candidates = [
             (release_id, release)
             for release_id, release in catalog.newer_than(installation.settings.channel, None)
@@ -113,6 +147,8 @@ def plan_next(
             plan_type: PlanType = "recall-rolloff"
         elif drift_detected and release_id == current_release:
             plan_type = "drift-reconciliation"
+        elif active_emergency_overrides and release_id == current_release:
+            plan_type = "configuration-change"
         else:
             plan_type = "upgrade"
         if not rolloff_required and any(
@@ -158,7 +194,7 @@ def plan_next(
                 )
                 continue
         draft = _draft(
-            installation,
+            effective_installation,
             release_id,
             release,
             key=key,
@@ -171,12 +207,24 @@ def plan_next(
                 draft, configuration_revision_digest=configuration_revision.package.digest
             )
         context = _constraint_context(
-            installation, draft, release, catalog=catalog, windows=windows, now=now
+            effective_installation,
+            draft,
+            release,
+            catalog=catalog,
+            windows=windows,
+            now=now,
+            bypass_scopes=bypass_scopes,
         )
         contexts = [
             context,
             *(
-                replace(context, entity_overrides=entity.settings.overrides)
+                replace(
+                    context,
+                    entity_overrides=_merge_emergency_overrides(
+                        entity.settings.overrides,
+                        active_emergency_overrides,
+                    ),
+                )
                 for entity in sorted(installation.entities, key=lambda item: item.entity_id)
                 if entity.settings is not None
             ),
@@ -275,6 +323,25 @@ def _entity_has_drift(state: EntityState, catalog: ReleaseCatalog) -> bool:
     return False
 
 
+def _merge_emergency_overrides(
+    base_overrides: tuple[dict[str, object] | object, ...],
+    emergency_overrides: tuple[dict[str, object] | object, ...],
+) -> tuple[Any, ...]:
+    if not emergency_overrides:
+        return base_overrides
+    emergency_versions = {
+        block.get("versions")
+        for block in emergency_overrides
+        if isinstance(block, dict) and "versions" in block
+    }
+    retained = [
+        block
+        for block in base_overrides
+        if not (isinstance(block, dict) and block.get("versions") in emergency_versions)
+    ]
+    return (*retained, *emergency_overrides)
+
+
 def _constraint_context(
     installation: Installation,
     draft: LifecyclePlan,
@@ -283,14 +350,33 @@ def _constraint_context(
     catalog: ReleaseCatalog,
     windows: tuple[MaintenanceWindow, ...],
     now: datetime,
+    bypass_scopes: frozenset[str] = frozenset(),
 ) -> LifecycleConstraintContext:
     settings, configuration = installation.settings, installation.configuration
     available_artifacts = installation.reported.artifact_digests()
-    if (
-        installation.reported.available_artifact_digests is None
-        and draft.plan_type == "drift-reconciliation"
-    ):
+    if installation.reported.available_artifact_digests is None and draft.plan_type in {
+        "drift-reconciliation",
+        "configuration-change",
+    }:
         available_artifacts = available_artifacts | required_artifact_digests(release)
+    effective_windows = (
+        (*windows, MaintenanceWindow(now, now + settings.plan_duration, allows_downtime=True))
+        if "maintenance-window" in bypass_scopes
+        else windows
+    )
+    command_suppressions = tuple(
+        SuppressionWindow(scope=cmd.scope, starts_at=cmd.starts_at, ends_at=cmd.expires_at)
+        for cmd in installation.commands
+        if cmd.kind == "suppression-window" and cmd.expires_at is not None and cmd.is_active(now)
+    )
+    effective_suppressions = (
+        ()
+        if "suppression-window" in bypass_scopes
+        else (*installation.suppressions, *command_suppressions)
+    )
+    effective_version_range = (
+        ">=0.0.0" if "version-range" in bypass_scopes else settings.version_range
+    )
     return LifecycleConstraintContext(
         now=now,
         plan_id=draft.plan_id,
@@ -302,7 +388,7 @@ def _constraint_context(
         candidate_release=release,
         configuration_revision_digest=draft.configuration_revision_digest,
         current_schema_revision=installation.reported.schema_revision,
-        version_range=settings.version_range,
+        version_range=effective_version_range,
         configuration_schema=configuration.schema,
         environment_config=configuration.environment,
         entity_overrides=configuration.entity_overrides,
@@ -310,8 +396,8 @@ def _constraint_context(
         data_residency=DataResidencyRequirement(
             allowed_regions=settings.allowed_regions, release_regions=draft.release_regions
         ),
-        maintenance_windows=windows,
-        suppression_windows=installation.suppressions,
+        maintenance_windows=effective_windows,
+        suppression_windows=effective_suppressions,
         entity_ids=draft.entity_ids,
         capability_ids=draft.capability_ids,
         recall_records=catalog.recalls,
