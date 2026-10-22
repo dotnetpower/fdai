@@ -614,3 +614,42 @@ async def test_demotion_is_visible_after_restart() -> None:
     second = StateStoreActionPromotionRegistry(store=store, allow_legacy_metrics=True)
     await second.refresh(action_type.name)
     assert second.mode_of(action_type.name) is Mode.SHADOW
+
+
+@pytest.mark.asyncio
+async def test_expired_catalog_timestamp_returns_operator_override_to_shadow_until_fresh() -> None:
+    store = InMemoryStateStore()
+    registry = StateStoreActionPromotionRegistry(
+        store=store,
+        allow_legacy_metrics=True,
+        override_authority_verifier=_OverrideVerifier(),
+    )
+    action_type = _action_type()
+    await registry.refresh_for_update(action_type.name)
+    await registry.consider_operator_override(
+        action_type=action_type,
+        gate_status=PromotionGateStatus.FAILED,
+        gate_evidence_digest="e" * 64,
+        approval_receipt_digest=_APPROVAL,
+        operator_principal="operator@example.com",
+        reason="Operator accepted bounded risk.",
+        recorded_at=_NOW,
+    )
+    assert registry.mode_of(action_type.name) is Mode.ENFORCE
+
+    registry.set_catalog_timestamp_expired(True)
+    assert registry.mode_of(action_type.name) is Mode.SHADOW
+    assert registry.read_model(action_type.name)["mode"] == "shadow"
+    with pytest.raises(PromotionRefusedError, match="catalog_timestamp_expired"):
+        await registry.consider_operator_override(
+            action_type=action_type,
+            gate_status=PromotionGateStatus.FAILED,
+            gate_evidence_digest="e" * 64,
+            approval_receipt_digest=_APPROVAL,
+            operator_principal="operator@example.com",
+            reason="Operator accepted bounded risk.",
+            recorded_at=_NOW,
+        )
+
+    registry.set_catalog_timestamp_expired(False)
+    assert registry.mode_of(action_type.name) is Mode.ENFORCE
