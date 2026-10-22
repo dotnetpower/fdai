@@ -144,3 +144,17 @@ def test_decision_rejects_timezone_without_utc_offset() -> None:
 
     with pytest.raises(ValueError, match="timezone-aware"):
         replace(decision, decided_at=now.replace(tzinfo=_UndefinedOffset()))
+
+
+@pytest.mark.parametrize("reason_code", ["", "quality regression", "quality|regression", "UPPER"])
+def test_decision_rejects_noncanonical_reason_codes(reason_code: str) -> None:
+    now = datetime(2026, 10, 22, tzinfo=UTC)
+    decision = evaluate_prompt_promotion(
+        baseline=_evidence("baseline"),
+        treatment=_evidence("treatment", tokens=700),
+        decided_at=now,
+        expires_at=now + timedelta(days=7),
+    )
+
+    with pytest.raises(ValueError, match="bounded machine tokens"):
+        replace(decision, action=PromptPromotionAction.HOLD, reason_codes=(reason_code,))

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -113,6 +114,8 @@ class PromptPromotionDecision:
             raise ValueError("promotion decision expiry MUST follow its decision time")
         if tuple(sorted(set(self.reason_codes))) != self.reason_codes:
             raise ValueError("promotion reason codes MUST be sorted and unique")
+        if any(re.fullmatch(r"[a-z][a-z0-9_]{0,63}", code) is None for code in self.reason_codes):
+            raise ValueError("promotion reason codes MUST be bounded machine tokens")
         if self.execution_authority:
             raise ValueError("prompt promotion evidence cannot grant execution authority")
 
