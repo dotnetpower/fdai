@@ -157,7 +157,10 @@ def plan_source_installation(
         )
     with installer_activity("Checking AKS SKU, quota, and PostgreSQL availability"):
         preflight = inspect_aks_target(
-            profile=runtime_profile, region=region, timeout_seconds=deadline.remaining(180)
+            profile=runtime_profile,
+            region=region,
+            timeout_seconds=deadline.remaining(180),
+            owned_resource_group=_retained_application_group(work_dir, foundation_workload),
         )
     if preflight["state"] != "feasible":
         return {**preflight, "stage": "aks-preflight"}
@@ -430,6 +433,29 @@ def plan_source_installation(
         )
         if prompt.returncode != 0:
             raise ValueError("source Foundation exact approval was not granted")
+
+
+def _retained_application_group(work_dir: Path, workload: str) -> str | None:
+    """Name the resource group a resumed run already owns, from its retained variables."""
+
+    path = work_dir.absolute() / "foundation" / "foundation-variables.json"
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        values = load_json_object(
+            read_private_bytes(path, max_bytes=65536), label="retained Foundation variables"
+        )
+    except (OSError, ValueError):
+        return None
+    region_short = values.get("region_short")
+    if (
+        values.get("workload") != workload
+        or not isinstance(region_short, str)
+        or re.fullmatch(r"[a-z][a-z0-9]{1,11}", region_short) is None
+        or re.fullmatch(r"[a-z][a-z0-9-]{1,30}", workload) is None
+    ):
+        return None
+    return f"rg-{workload}-dev-{region_short}"
 
 
 def _capture(

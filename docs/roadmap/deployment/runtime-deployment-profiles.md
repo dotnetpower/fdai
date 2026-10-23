@@ -425,6 +425,8 @@ The read-only capacity preflight accepts nonnegative integer quota values and ca
 integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-padded or oversized
 representations remain blocked. Available quota never overrides a SKU restriction, missing zone,
 unsupported architecture or missing host encryption; a different target requires a fresh review.
+A resumed installation does not count the vCPUs that its own AKS pools already use as new demand: the
+preflight credits them back from the retained resource group, and an unreadable group earns no credit.
 
 Source execution separately reads the [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)
 after initial settings confirmation and before Foundation planning. It selects exactly one primary
