@@ -289,6 +289,8 @@ def materialize_cronjob_execution(
         raise ValueError("AKS one-shot Job template source revision is not exact")
     job_spec = copy.deepcopy(_mapping(job_template.get("spec"), "AKS CronJob Job spec"))
     _validate_job_bounds(job_spec)
+    if purpose == "inventory" and args == ("--initial",):
+        job_spec["backoffLimit"] = 0
     pod_template = _mapping(job_spec.get("template"), "AKS one-shot Pod template")
     pod_metadata = _mapping(pod_template.get("metadata"), "AKS one-shot Pod metadata")
     pod_labels = _string_mapping(pod_metadata.get("labels"), "AKS one-shot Pod labels")

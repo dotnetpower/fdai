@@ -281,6 +281,8 @@ def test_materializes_exact_read_only_inventory_job() -> None:
     execution = _materialize()
     assert execution.name.startswith("fdai-inventory-")
     assert len(execution.execution_digest) == 64
+    assert execution.manifest["spec"]["backoffLimit"] == 0
+    assert _cronjob()["spec"]["jobTemplate"]["spec"]["backoffLimit"] == 1
     metadata = execution.manifest["metadata"]
     assert metadata["annotations"]["fdai.io/target-binding"] == _TARGET
     assert metadata["annotations"]["fdai.io/template-digest"] == _template_digest()

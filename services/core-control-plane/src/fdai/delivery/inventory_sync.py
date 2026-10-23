@@ -340,6 +340,14 @@ class InventorySyncCoordinator:
                 raise
             except Exception as exc:  # noqa: BLE001 - source boundary, classified and retained
                 failure = classify_inventory_failure(exc)
+                _LOG.warning(
+                    "inventory_source_failed",
+                    extra={
+                        "source": source.name,
+                        "reason_code": failure.code.value,
+                        "reason": failure.message,
+                    },
+                )
                 await self._store.fail(attempt_id, failure)
                 failures.append(failure)
                 continue
