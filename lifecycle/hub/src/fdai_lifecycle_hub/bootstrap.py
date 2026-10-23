@@ -119,7 +119,7 @@ def initialize(config: BootstrapConfig) -> None:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT pg_advisory_lock(hashtext('fdai_hub_bootstrap'))")
                 cursor.execute(
-                    'SELECT "objectId" FROM pg_catalog.pgaadauth_list_principals(false) '
+                    "SELECT objectid FROM pg_catalog.pgaadauth_list_principals(false) "
                     "WHERE rolename = %s",
                     (config.runtime_name,),
                 )
@@ -141,7 +141,7 @@ def initialize(config: BootstrapConfig) -> None:
                         (config.runtime_name, config.runtime_object_id),
                     )
                     cursor.execute(
-                        'SELECT "objectId" FROM pg_catalog.pgaadauth_list_principals(false) '
+                        "SELECT objectid FROM pg_catalog.pgaadauth_list_principals(false) "
                         "WHERE rolename = %s",
                         (config.runtime_name,),
                     )

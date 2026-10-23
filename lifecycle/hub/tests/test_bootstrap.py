@@ -97,6 +97,8 @@ def test_fresh_bootstrap_creates_only_app_data(config, backend):
     assert isinstance(key, Ed25519PrivateKey)
     statements = [str(call.args[0]) for call in backend.cursor.execute.call_args_list]
     assert any("pgaadauth_create_principal_with_oid" in statement for statement in statements)
+    assert sum("SELECT objectid FROM" in statement for statement in statements) == 2
+    assert not any('"objectId"' in statement for statement in statements)
     grants = [str(call.args[0]) for call in backend.database_cursor.execute.call_args_list]
     assert any("GRANT USAGE, CREATE" in statement for statement in grants)
     assert not any("DROP" in statement or "ALTER ROLE" in statement for statement in statements)
