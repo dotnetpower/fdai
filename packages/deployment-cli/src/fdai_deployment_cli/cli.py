@@ -196,11 +196,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
     from fdai_deployment_cli.operational_evidence_verifier_input import (
         load_operational_evidence_verifier_input,
     )
-    from fdai_deployment_cli.notification_recipients_input import (
-        load_notification_recipients,
-        require_recipients_for_notifications,
-    )
-    from fdai_service_contracts.product_profile import ProductAddOn
+    from fdai_deployment_cli.notification_recipients_input import selected_notification_recipients
 
     catalog_review_profile = (
         CatalogReviewDeploymentProfile.unselected()
@@ -220,30 +216,13 @@ def _provision_azure(args: argparse.Namespace) -> int:
             else Path.cwd() / args.operational_evidence_verifier_input
         )
     )
-    notification_recipients = (
-        None
-        if args.notification_recipients is None
-        else load_notification_recipients(
-            args.notification_recipients
-            if args.notification_recipients.is_absolute()
-            else Path.cwd() / args.notification_recipients
-        )
-    )
     development_authority_profile, clear_development_authority_profile = (
         selected_development_authority(args, cwd=Path.cwd())
     )
     runtime_profile = RuntimeDeploymentProfile.from_cli_arguments(args)
-    if notification_recipients is not None and (args.runtime != "aks" or args.source is None):
-        raise ValueError(
-            "--notification-recipients requires a source deployment with --runtime aks"
-        )
-    if args.source is not None and not (args.prepare_only or args.preflight_only or args.teardown):
-        require_recipients_for_notifications(
-            notifications_selected=runtime_profile.product_profile.selects(
-                ProductAddOn.NOTIFICATIONS
-            ),
-            value=notification_recipients,
-        )
+    notification_recipients = selected_notification_recipients(
+        args, runtime_profile=runtime_profile, cwd=Path.cwd()
+    )
     if catalog_review_profile.selected and args.runtime != "aks":
         raise ValueError("selected catalog review profile requires --runtime aks")
     if operational_evidence_verifier_input is not None and args.runtime != "aks":

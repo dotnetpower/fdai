@@ -129,6 +129,33 @@ def reconcile_retained_notification_recipients(
     return True
 
 
+def selected_notification_recipients(
+    args: Any, *, runtime_profile: Any, cwd: Path
+) -> NotificationRecipientsDeploymentInput | None:
+    """Load the operator's recipient file and require it to match the add-on selection."""
+
+    from fdai_service_contracts.product_profile import ProductAddOn
+
+    selected = getattr(args, "notification_recipients", None)
+    value = (
+        None
+        if selected is None
+        else load_notification_recipients(selected if selected.is_absolute() else cwd / selected)
+    )
+    if value is not None and (args.runtime != "aks" or args.source is None):
+        raise ValueError(
+            "--notification-recipients requires a source deployment with --runtime aks"
+        )
+    if args.source is not None and not (args.prepare_only or args.preflight_only or args.teardown):
+        require_recipients_for_notifications(
+            notifications_selected=runtime_profile.product_profile.selects(
+                ProductAddOn.NOTIFICATIONS
+            ),
+            value=value,
+        )
+    return value
+
+
 def context_digest(value: NotificationRecipientsDeploymentInput | None) -> str:
     """Return the digest retained in the private managed-host context."""
 
@@ -189,6 +216,7 @@ __all__ = [
     "load_notification_recipients",
     "reconcile_retained_notification_recipients",
     "require_recipients_for_notifications",
+    "selected_notification_recipients",
     "stage_notification_recipients",
     "staged_notification_recipients_from_path",
 ]

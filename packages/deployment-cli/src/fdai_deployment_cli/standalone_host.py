@@ -219,6 +219,7 @@ _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _mapping = standalone_host_values.mapping
 _required_guid = standalone_host_values.required_guid
 _selected_identity = standalone_host_values.selected_identity
+_aks_core_conversation_environment = standalone_host_values.aks_core_conversation_environment
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
 _AKS_RUNTIME_NAMESPACE = "fdai-runtime"
 _STAGES: Final = ("access", "substrate", "runtime", "database", "application")
@@ -889,75 +890,6 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
         "mutation_performed": False,
         "subscription_ready": False,
     }
-
-
-def _aks_core_conversation_environment(
-    *,
-    application_values: dict[str, Any],
-    substrate_outputs: dict[str, object],
-    semantic_topics: list[object],
-) -> dict[str, str]:
-    """Build a complete Core semantic binding or reject incomplete model outputs."""
-
-    if len(semantic_topics) < 3:
-        raise ValueError("AKS semantic topic output contract is incomplete")
-
-    def required_text(value: object, label: str) -> str:
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"AKS {label} output is unavailable")
-        return value.strip()
-
-    environment = {
-        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": required_text(
-            semantic_topics[0], "semantic request topic"
-        ),
-        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": required_text(
-            semantic_topics[1], "semantic projection topic"
-        ),
-        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": required_text(
-            semantic_topics[2], "read investigation topic"
-        ),
-        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": required_text(
-            substrate_outputs.get("semantic_physical"), "semantic physical topic"
-        ),
-    }
-    enable_llm = application_values.get("enable_llm")
-    if not isinstance(enable_llm, bool):
-        raise TypeError("AKS enable_llm setting MUST be a boolean")
-    if not enable_llm:
-        return environment
-
-    endpoint = required_text(substrate_outputs.get("llm_endpoint"), "LLM endpoint")
-    digest = required_text(substrate_outputs.get("resolved_models_sha256"), "resolved-model digest")
-    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
-        raise ValueError("AKS resolved-model digest MUST be a lowercase SHA-256 digest")
-    model_endpoints = substrate_outputs.get("llm_model_endpoints")
-    if (
-        not isinstance(model_endpoints, dict)
-        or not model_endpoints
-        or any(
-            not isinstance(reference, str)
-            or not reference.strip()
-            or not isinstance(model_endpoint, str)
-            or not model_endpoint.strip()
-            for reference, model_endpoint in model_endpoints.items()
-        )
-    ):
-        raise ValueError("AKS LLM model endpoint outputs are incomplete")
-    environment.update(
-        {
-            "LLM_MODE": "azure",
-            "LLM_RESOLVED_MODELS_PATH": "/app/resolved-models.json",
-            "LLM_RESOLVED_MODELS_SHA256": digest,
-            "FDAI_LLM_ENDPOINT": endpoint,
-            "FDAI_MODEL_ENDPOINTS_JSON": json.dumps(
-                model_endpoints,
-                separators=(",", ":"),
-                sort_keys=True,
-            ),
-        }
-    )
-    return environment
 
 
 def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
