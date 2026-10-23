@@ -33,6 +33,7 @@ from genesis_foundation_recovery import (  # noqa: E402
     validate_recovery_plan,
 )
 from genesis_foundation_recovery_plan import (  # noqa: E402
+    _recovery_variables,
     prepare_recovery_plan,
     require_ip_policy_only,
     require_naming_only,
@@ -324,6 +325,46 @@ def test_recovery_selects_retained_foundation_variables(
         write_private_bytes(root / "foundation-variables.json", b"{}")
 
     assert recovery_planner._foundation_variables(root).name == expected_name
+
+
+def test_recovery_variables_bind_supported_runner_patch_selection() -> None:
+    state = {
+        "version": 4,
+        "serial": 1,
+        "lineage": "example",
+        "resources": [
+            {
+                "module": "module.bootstrap",
+                "mode": "managed",
+                "type": "azurerm_linux_virtual_machine",
+                "name": "runner",
+                "instances": [
+                    {
+                        "index_key": 0,
+                        "attributes": {
+                            "id": "/subscriptions/example/virtualMachines/runner",
+                            "patch_mode": "AutomaticByPlatform",
+                            "bypass_platform_safety_checks_on_user_schedule_enabled": True,
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    variables = _recovery_variables(
+        {"workload": "example"},
+        state,
+        application_workload="exampleaks",
+    )
+
+    assert variables == {
+        "workload": "example",
+        "application_workload": "exampleaks",
+        "operations_public_ip_tags": {},
+        "runner_patch_mode": "AutomaticByPlatform",
+        "runner_bypass_platform_safety_checks": True,
+    }
 
 
 def test_recovery_requires_original_lock_before_any_planning(tmp_path):

@@ -31,6 +31,7 @@ from fdai_deployment_cli.source_input import inspect_source
 from fdai_deployment_cli.source_snapshot import verify_source_snapshot
 from fdai_deployment_cli.standalone_deploy import active_azure_target
 from fdai_deployment_cli.target import compute_target_binding
+from genesis_foundation_apply import _observed_runner_patch_selection
 from genesis_foundation_apply_contract import load_apply_claim
 from genesis_foundation_recovery import select_public_ip_tags, validate_recovery_plan
 from genesis_foundation_recovery_successor import (
@@ -117,6 +118,19 @@ def _foundation_variables(root: Path) -> Path:
         if augmented.exists() or augmented.is_symlink()
         else root / "foundation-variables.json"
     )
+
+
+def _recovery_variables(
+    retained: dict[str, object],
+    state: dict[str, object],
+    *,
+    application_workload: str,
+) -> dict[str, object]:
+    variables = dict(retained)
+    variables["application_workload"] = application_workload
+    variables["operations_public_ip_tags"] = select_public_ip_tags(state)
+    variables.update(_observed_runner_patch_selection(state))
+    return variables
 
 
 def _without_variable(content: bytes, name: str) -> bytes:
@@ -330,11 +344,14 @@ def _prepare_locked(
         expected_region=profile.region,
         expected_environment=profile.environment,
     )
-    variables = _json(normalized)
-    if canonical_digest(variables) != context["variables_digest"]:
+    retained_variables = _json(normalized)
+    if canonical_digest(retained_variables) != context["variables_digest"]:
         raise ValueError("Foundation recovery original variables changed")
-    variables["application_workload"] = application_workload
-    variables["operations_public_ip_tags"] = select_public_ip_tags(state)
+    variables = _recovery_variables(
+        retained_variables,
+        state,
+        application_workload=application_workload,
+    )
     if (
         predecessor is not None
         and canonical_digest(variables) != predecessor[0]["variables_digest"]
