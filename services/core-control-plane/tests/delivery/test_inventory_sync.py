@@ -171,6 +171,26 @@ async def test_coordinator_resumes_prepared_without_provider_reads_or_reenrichme
     assert store.promoted == [observation.generation]
 
 
+async def test_coordinator_recovers_collection_under_externally_held_run_lock() -> None:
+    store = _Store()
+    source = _source("arg", _Inventory([InventoryBatch(final=True)]))
+    loaded: list[InventoryCoverageManifest] = []
+
+    async def load(manifest):
+        loaded.append(manifest)
+        return None
+
+    result = await InventorySyncCoordinator(
+        store=store,
+        collection_loader=load,
+        run_lock_already_held=True,
+    ).run((source,))
+
+    assert loaded == [source.manifest]
+    assert result.attempt_id == "attempt-1"
+    assert store.promoted == ["attempt-1"]
+
+
 def _source(name: str, inventory: Any) -> InventorySource:
     return InventorySource(
         name=name,

@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: bfa23c54f8cb458c23e31a7633e09c78117cd4ed
-translation_revised: 2026-10-23
+translation_source_sha: d6ac863af5c486cc793d35247b2d72e3c04da759
+translation_revised: 2026-10-24
 ---
 # 런타임 배포 프로파일
 
@@ -128,6 +128,9 @@ archive 컨테이너 형식은 불변 소스 스냅샷의 수신기를 따릅니
 AKS 초기 인벤토리는 실패한 content-addressed Job checkpoint를 보존합니다. 이후 invocation은
 같은 보호된 template과 identity binding으로 재시도를 정확히 한 번 실행할 수 있습니다. 두 번째
 실패 또는 모호한 최종 증적이 있으면 추가 자동 시도 없이 중단합니다.
+초기 경로는 수집, 승격, 독립 closure가 끝날 때까지 인벤토리 advisory lock을 유지합니다. 조정기에
+진입할 때 이 lock을 이미 보유했다고 표시하므로 `.retry1`은 같은 lock을 다시 획득하거나 두 번째
+세대를 시작하지 않고 정확한 미완료 수집을 재개할 수 있습니다.
 Foundation에 정확한 복구가 필요했다면 검증된 상태 인계가 같은 순서로 들어갑니다. 복구 checkout은
 현재 복구 코드만 제공하며, 런타임 산출물은 원래 소스 스냅샷에 계속 고정되고 복구는 선택된
 런타임 프로파일을 바꿀 수 없습니다.
