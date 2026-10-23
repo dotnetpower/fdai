@@ -8,6 +8,7 @@ import pytest
 
 from fdai_deployment_cli import cli, source_service_update
 from fdai_deployment_cli.source_service_update import deploy_source_service_update
+from fdai_deployment_cli.contracts import canonical_digest
 
 
 @pytest.fixture(autouse=True)
@@ -32,6 +33,24 @@ def _built_image(work_dir: Path, service: str) -> dict[str, object]:
         "archive_sha256": "a" * 64,
         "image_digest": "sha256:" + "b" * 64,
     }
+
+
+def _imported_image(service: str) -> dict[str, object]:
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.source-service-image-import-receipt.v1",
+        "state": "imported",
+        "service": service,
+        "source_commit": "c" * 40,
+        "archive_sha256": "a" * 64,
+        "image_digest": "sha256:" + "b" * 64,
+        "image": f"example.azurecr.io/{service}@sha256:" + "b" * 64,
+        "claim_digest": "d" * 64,
+        "effect_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    return receipt
 
 
 def test_legacy_full_snapshot_remains_eligible_for_recovery_timing(tmp_path: Path) -> None:
@@ -59,6 +78,161 @@ def test_legacy_full_snapshot_remains_eligible_for_recovery_timing(tmp_path: Pat
         1,
         10,
     )
+
+
+def test_completed_service_update_receipt_is_reused_only_after_current_readback(
+    tmp_path: Path,
+) -> None:
+    work = tmp_path / "update"
+    work.mkdir(mode=0o700)
+    result: dict[str, object] = {
+        "schema_version": "fdai.source-service-update.v1",
+        "state": "applied",
+        "service": "operator-service",
+        "source_commit": "c" * 40,
+        "image_digest": "sha256:" + "b" * 64,
+        "target_binding": "d" * 64,
+        "image_import_receipt_digest": "e" * 64,
+        "application_receipt_digest": "1" * 64,
+        "effect_verified": True,
+        "peer_state_unchanged_verified": True,
+        "terraform_zero_change_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+        "finalization_receipt_digest": "2" * 64,
+    }
+    result["receipt_digest"] = canonical_digest(result)
+    receipt = work / "source-service-update-receipt.json"
+    receipt.write_text(json.dumps(result), encoding="utf-8")
+    receipt.chmod(0o600)
+    context = {
+        "current_source_commit": "c" * 40,
+        "current_image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+        "active_service_update": None,
+    }
+
+    assert (
+        source_service_update._verified_completed_receipt(
+            work,
+            source_commit="c" * 40,
+            service="operator-service",
+            target_binding="d" * 64,
+            context=context,
+        )
+        == result
+    )
+
+    context["current_source_commit"] = "a" * 40
+    with pytest.raises(ValueError, match="not currently verified"):
+        source_service_update._verified_completed_receipt(
+            work,
+            source_commit="c" * 40,
+            service="operator-service",
+            target_binding="d" * 64,
+            context=context,
+        )
+
+
+def test_source_service_update_pins_the_expected_source_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "source"
+    application = tmp_path / "application"
+    source_root.mkdir(mode=0o700)
+    application.mkdir(mode=0o700)
+    observed: list[str | None] = []
+
+    def inspect(_root: Path, *, expected_commit: str | None = None):
+        observed.append(expected_commit)
+        raise ValueError("stop after source admission")
+
+    monkeypatch.setattr("fdai_deployment_cli.source_service_update.inspect_source", inspect)
+
+    with pytest.raises(ValueError, match="stop after source admission"):
+        deploy_source_service_update(
+            source_root=source_root,
+            application_work_dir=application,
+            work_dir=tmp_path / "update",
+            service="operator-service",
+            timeout_seconds=60,
+            expected_source_commit="c" * 40,
+        )
+
+    assert observed == ["c" * 40]
+
+
+def test_source_service_update_rejects_a_changed_update_base_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "source"
+    application = tmp_path / "application"
+    source_root.mkdir(mode=0o700)
+    application.mkdir(mode=0o700)
+    source = SimpleNamespace(
+        root=source_root,
+        commit="c" * 40,
+        to_mapping=lambda: {},
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.inspect_source", lambda *_args, **_kwargs: source
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update._host_json",
+        lambda *_args, **_kwargs: {
+            "schema_version": "fdai.source-service-update-context.v1",
+            "state": "verified",
+            "service": "operator-service",
+            "target_binding": "d" * 64,
+            "current_source_commit": "a" * 40,
+            "current_image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+            "active_service_update": None,
+        },
+    )
+
+    with pytest.raises(ValueError, match="differs from the changed-update base"):
+        deploy_source_service_update(
+            source_root=source_root,
+            application_work_dir=application,
+            work_dir=tmp_path / "update",
+            service="operator-service",
+            timeout_seconds=60,
+            expected_current_source_commit="b" * 40,
+        )
+
+
+def test_source_service_update_rejects_unbound_image_import_receipt() -> None:
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.source-service-image-import-receipt.v1",
+        "state": "imported",
+        "service": "operator-service",
+        "source_commit": "c" * 40,
+        "archive_sha256": "a" * 64,
+        "image_digest": "sha256:" + "b" * 64,
+        "image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+        "claim_digest": "d" * 64,
+        "effect_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+
+    source_service_update._validate_import_receipt(
+        receipt,
+        service="operator-service",
+        source_commit="c" * 40,
+        archive_sha256="a" * 64,
+        image_digest="sha256:" + "b" * 64,
+    )
+
+    receipt["image"] = "example.azurecr.io/isolated-executor@sha256:" + "b" * 64
+    with pytest.raises(ValueError, match="image import receipt is invalid"):
+        source_service_update._validate_import_receipt(
+            receipt,
+            service="operator-service",
+            source_commit="c" * 40,
+            archive_sha256="a" * 64,
+            image_digest="sha256:" + "b" * 64,
+        )
 
 
 @pytest.mark.parametrize(
@@ -136,10 +310,7 @@ def test_source_service_update_builds_imports_plans_and_verifies(
                 "active_service_update": active_update,
             }
         if command == "import-source-image":
-            return {
-                "image": f"example.azurecr.io/{service}@sha256:" + "b" * 64,
-                "receipt_digest": "e" * 64,
-            }
+            return _imported_image(service)
         if command == "prepare-service-update":
             return {
                 "service": service,
@@ -399,10 +570,7 @@ def test_source_service_update_reconciles_historical_baseline_before_import(
                 "active_service_update": None,
             }
         if command == "import-source-image":
-            return {
-                "image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
-                "receipt_digest": "e" * 64,
-            }
+            return _imported_image("operator-service")
         if command == "prepare-service-update":
             return {
                 "service": "operator-service",
