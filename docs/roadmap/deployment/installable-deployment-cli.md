@@ -234,6 +234,8 @@ the backend. Missing local state alone grants no authority. Live recovery accept
 
 ### Explicit source recovery
 Resume with `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`.
+The recovery directory is one named `foundation-recovery-attempt-<n>` child of the original
+Foundation directory; sibling or unrelated paths are rejected before transfer.
 Original snapshot, profile, region and budget remain immutable; execution source is separate. Missing
 success returns review. Separate exact approvals advance enrollment/migration; claims allow verification
 only, never repeated apply or scope changes. Completed migration observes the backend without reenrollment.
