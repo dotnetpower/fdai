@@ -51,6 +51,7 @@ def deploy_source_service_update(
     approve_plan: Callable[[Path, dict[str, Any]], Path] | None = None,
     development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
     clear_development_authority_profile: bool = False,
+    expected_source_commit: str | None = None,
 ) -> dict[str, object]:
     """Build, import, plan, approve, apply, and verify one dev AKS service update."""
 
@@ -66,7 +67,11 @@ def deploy_source_service_update(
     if development_authority_profile is not None and clear_development_authority_profile:
         raise ValueError("development authority select and clear are mutually exclusive")
     deadline = DeploymentDeadline(timeout_seconds)
-    source = inspect_source(source_root)
+    source = (
+        inspect_source(source_root)
+        if expected_source_commit is None
+        else inspect_source(source_root, expected_commit=expected_source_commit)
+    )
     application = application_work_dir.absolute()
     _require_private_directory(application, create=False)
     work = work_dir.absolute()

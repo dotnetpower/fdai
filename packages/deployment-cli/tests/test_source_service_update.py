@@ -115,6 +115,34 @@ def test_completed_service_update_receipt_is_reused_only_after_current_readback(
         )
 
 
+def test_source_service_update_pins_the_expected_source_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "source"
+    application = tmp_path / "application"
+    source_root.mkdir(mode=0o700)
+    application.mkdir(mode=0o700)
+    observed: list[str | None] = []
+
+    def inspect(_root: Path, *, expected_commit: str | None = None):
+        observed.append(expected_commit)
+        raise ValueError("stop after source admission")
+
+    monkeypatch.setattr("fdai_deployment_cli.source_service_update.inspect_source", inspect)
+
+    with pytest.raises(ValueError, match="stop after source admission"):
+        deploy_source_service_update(
+            source_root=source_root,
+            application_work_dir=application,
+            work_dir=tmp_path / "update",
+            service="operator-service",
+            timeout_seconds=60,
+            expected_source_commit="c" * 40,
+        )
+
+    assert observed == ["c" * 40]
+
+
 @pytest.mark.parametrize(
     ("service", "active_update"),
     [

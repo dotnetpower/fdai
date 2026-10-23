@@ -12,6 +12,8 @@ def _plan(lane: str, services: list[str]) -> dict[str, object]:
         "lane": lane,
         "reason_code": "fixture",
         "plan_digest": "a" * 64,
+        "base_commit": "b" * 40,
+        "head_commit": "c" * 40,
         "services": services,
         "mutation_performed": False,
         "deployment_ready": False,
@@ -99,6 +101,7 @@ def test_multi_service_update_runs_existing_guarded_updates_serially(
     assert [call["service"] for call in calls] == services
     assert calls[0]["work_dir"] == (tmp_path / "work/operator-service").absolute()
     assert calls[1]["work_dir"] == (tmp_path / "work/isolated-executor").absolute()
+    assert all(call["expected_source_commit"] == "c" * 40 for call in calls)
     assert result["effect_verified"] is True
 
 
