@@ -107,7 +107,9 @@ Inspection is read-only. Mutation-enabled preflight registers only missing names
 namespace back under one cumulative deadline, and retains registrations on rollback.
 The application profile includes `Microsoft.AlertsManagement` for smart-detection rules and
 `Microsoft.ContainerService` for AKS, so a new subscription does not depend on prior manual
-registration.
+registration. The source coordinator passes one explicit mutation-enabled provider-registration
+binding only after the operator confirms the complete installation scope; direct Foundation
+preparation remains read-only.
 Missing or malformed target axes return exit code `64` before the first Azure command.
 Network discovery treats Azure's `Connected`, `Initiated`, and `Disconnected` VNet peering states
 as complete only when each peer still reports canonical remote prefixes. All reported prefixes,

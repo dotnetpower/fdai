@@ -94,6 +94,7 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         if len(calls) == 1:
             assert Path(command[1]).name == "source_genesis.py"
             assert command[command.index("--workload") + 1] == "fdai"
+            assert "--register-providers" in command
             foundation = work_dir / "foundation"
             foundation.mkdir(mode=0o700)
             if mode == "ambient":
@@ -108,6 +109,7 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
         assert Path(command[1]).name == "source_genesis.py"
         assert "--advance" in command
         assert command[command.index("--workload") + 1] == "fdai"
+        assert "--register-providers" in command
         assert ("--approval-file" in command) == (approval_file is not None or len(calls) > 2)
         if approval_file is not None:
             assert command[command.index("--approval-file") + 1] == str(approval_file)

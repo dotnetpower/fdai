@@ -241,10 +241,11 @@ def _advance_locked(
             store.update(stage=stage, state="running", completed=True)
             checks.prepare_access_tools(timeout=min(600, store.remaining_seconds()))
         stage = "providers"
+        register_providers = bool(getattr(args, "register_providers", False))
         providers = reconcile_resource_providers(
             subscription_id=target.subscription_id,
-            profile="foundation",
-            apply=False,
+            profile="complete" if register_providers else "foundation",
+            apply=register_providers,
             timeout_seconds=min(180, store.remaining_seconds()),
         )
         store.provider_report = providers.to_mapping()
@@ -367,6 +368,7 @@ def main() -> int:
     parser.add_argument("--region", required=True)
     parser.add_argument("--monthly-cost-ceiling", type=int, required=True)
     parser.add_argument("--workload", default="fdai")
+    parser.add_argument("--register-providers", action="store_true")
     parser.add_argument("--advance", action="store_true")
     parser.add_argument("--source-snapshot", type=Path)
     parser.add_argument("--source-snapshot-digest")
