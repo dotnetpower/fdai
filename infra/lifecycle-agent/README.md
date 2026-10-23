@@ -20,6 +20,9 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
   does not mount the Kubernetes Secret and reads only those owner-only state files.
 - Pod volume ownership uses `fsGroupChangePolicy=OnRootMismatch`. Once the PVC root has the Agent
   group, kubelet does not recursively broaden the initializer's private file modes.
+- The main Agent bind-mounts only the required PVC files by `subPath` beneath the image's
+  UID-owned mode-`0700` `/config/private` directory. It never treats the group-managed PVC root as
+  a private-input parent.
 - The installation identity private key is never a Terraform input. Native bootstrap runs
   separately and supplies only the installation public key to the running Agent.
 - `enable_agent=false` prepares identity, RBAC, state, and inputs without starting a poller.

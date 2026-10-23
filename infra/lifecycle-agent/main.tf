@@ -277,7 +277,7 @@ resource "kubernetes_deployment_v1" "agent" {
               "--configuration-public-key", "/config/public/configuration-public.pem",
               "--artifact-source", "hub",
               "--current-state", "/state/current-state.json",
-              "--local-policy", "/state/private/local-policy.json",
+              "--local-policy", "/config/private/local-policy.json",
               "--apply",
               "--in-cluster",
               "--namespace", var.installation.target_namespace,
@@ -286,8 +286,8 @@ resource "kubernetes_deployment_v1" "agent" {
               "--max-duration-seconds", "3600",
             ],
             local.native ? [
-              "--native-approval", "/state/private/native-approval.json",
-              "--installation-public-key", "/state/private/installation-public.pem",
+              "--native-approval", "/config/private/native-approval.json",
+              "--installation-public-key", "/config/private/installation-public.pem",
             ] : [],
           )
           env {
@@ -320,6 +320,24 @@ resource "kubernetes_deployment_v1" "agent" {
             name       = "public-inputs"
             mount_path = "/config/public"
             read_only  = true
+          }
+          volume_mount {
+            name       = "state"
+            mount_path = "/config/private/local-policy.json"
+            sub_path   = "private/local-policy.json"
+            read_only  = true
+          }
+          dynamic "volume_mount" {
+            for_each = local.native ? toset([
+              "native-approval.json",
+              "installation-public.pem",
+            ]) : toset([])
+            content {
+              name       = "state"
+              mount_path = "/config/private/${volume_mount.value}"
+              sub_path   = "private/${volume_mount.value}"
+              read_only  = true
+            }
           }
         }
         volume {

@@ -16,5 +16,6 @@ def test_lifecycle_agent_image_is_pinned_and_non_root() -> None:
     assert "COPY lifecycle/agent lifecycle/agent" in text
     assert "COPY . " not in text
     assert "USER 65532:65532" in text
+    assert "install -d -m 0700 -o 65532 -g 65532 /config/private" in text
     assert 'ENTRYPOINT ["fdai-lifecycle-agent"]' in text
     assert "--frozen --no-dev --no-editable" in text

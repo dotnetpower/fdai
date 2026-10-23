@@ -72,7 +72,11 @@ run "enable_single_writer_agent" {
       ) &&
       contains(
         kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].args,
-        "/state/private/local-policy.json",
+        "/config/private/local-policy.json",
+      ) &&
+      contains(
+        kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].volume_mount[*].sub_path,
+        "private/local-policy.json",
       ) &&
       !contains(
         kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].volume_mount[*].name,

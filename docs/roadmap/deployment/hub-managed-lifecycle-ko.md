@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: fdbbe77ea7291456419f4067afd875d0287c8cc7
+translation_source_sha: cb4dbb08ee7e049db1c349544b4307c645ee8020
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -328,7 +328,9 @@ UTF-8 텍스트로 디코딩하거나 Terraform 명령 인수로 노출하지 �
 owner-only `0600` 파일로 복사합니다. main Agent는 Kubernetes Secret을 mount하지 않고
 이 비공개 상태 파일만 읽습니다. PVC root에 Agent group이 이미 설정된 뒤에는
 `fsGroupChangePolicy=OnRootMismatch`가 kubelet이 해당 mode를 재귀적으로 다시 넓히지
-않도록 합니다.
+않도록 합니다. main Agent는 필요한 PVC 파일만 `subPath`로 이미지의 UID 소유 mode-`0700`
+`/config/private` 디렉터리 아래에 bind mount합니다. 따라서 group이 관리하는 PVC root를
+비공개 입력 parent로 취급하지 않습니다.
 
 `fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
 깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,
