@@ -287,9 +287,9 @@ Four top-level categories. New categories require a doc PR plus a short-form ent
 
 ### 3.1 `remediation.*`
 
-Rule-fired, config-drift-style. Currently shipped:
+Remediation and configuration-drift actions. Most are rule-fired; reviewed pilot actions may use an operator request. Currently shipped:
 
-- `remediate.tag-add`
+- `remediate.tag-add` and `remediate.subscription-tag-add`
 - `remediate.disable-public-access`
 - `remediate.right-size`
 - `remediate.rotate-secret`

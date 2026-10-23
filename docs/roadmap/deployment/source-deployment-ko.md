@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: d8980873e1c9d0a35d520788053ff0c885891605
-translation_revised: 2026-10-18
+translation_source_sha: 7cd8f45d17f2816985ace50ab656e6eddecc5426
+translation_revised: 2026-10-23
 ---
 
 # 단일 명령 소스 배포
@@ -159,11 +159,16 @@ source AKS 개발 설치에서는 `--development-authority-profile <path>`로 �
 철회하지 않습니다. `--clear-development-profile`은 별도의 정확한 plan을 통해
 프로필을 제거합니다.
 
+소스 AKS 설치의 `notifications` add-on에는 `--notification-recipients <path>`가 필요합니다. 이 옵션은 최대 20개 주소를 담은 소유자 전용 비공개 JSON 파일 `{"recipients": ["name@domain"]}`입니다. 이 옵션이 없거나, 반대로 `notifications` add-on 없이 이 옵션만 주면 Azure 효과 전에 실행이 중단됩니다. 주소는 관리형 호스트에 비공개 staged 파일 하나로 전달되어 Terraform `notification_email_recipients` 입력으로만 쓰입니다. 런타임 프로파일, 그 digest, plan review, receipt, 로그에는 들어가지 않습니다. 정규 목록의 digest만 비공개 보존 호스트 컨텍스트에 합류하므로, 이후 실행에서 목록이 달라지면 드리프트로 실패합니다. 자리 표시자 도메인은 거부합니다. 이 옵션은 준비, 사전 점검, teardown, 서명 키트, 비 AKS 경로와 소스 복구에서 사용할 수 없습니다.
+
 대화형 소스 배포는 추가 전용 설치 진행 스트림을 사용합니다. 각 전환은 번호가 있는 단계 제목,
 정확한 완료/건너뜀/남은 단계 수, 출력이 없는 장기 하위 작업의 경과 시간 활동 신호를 기록합니다.
 출력이 없는 각 작업 경계는 시작 줄, 10초 주기의 `still working` 활동 신호, 명시적인 완료 또는
 실패 줄을 기록합니다. 스트림은 터미널을 지우거나 다시 그리지 않으므로 scrollback이 전체 표시
 기록으로 남습니다. 공급자 완료를 추정하지 않으며 진행 표시를 준비 상태 근거로 바꾸지 않습니다.
+각 일반 소스 invocation은 전체 및 단계별 경과 시간을 밀리초로 기록한 비공개 content-addressed
+timing 증적도 작성합니다. 이 timing 기록은 적용 권한을 부여하거나 배포 준비 상태를 보고하지
+않습니다.
 
 작업 스테이션에는 Bash, `git`, Azure CLI, `uv`가 필요합니다. Console 추가 기능을 선택하면 커밋된
 lockfile로 Console을 빌드할 Node.js와 npm도 필요합니다. 컨테이너 엔진, GitHub 계정, 저장소
@@ -213,7 +218,7 @@ Trial이 끝나면 Core는 재시작 없이 다음 결정부터 새 변경 작�
 
 | 입력 | 소스 경로 동작 |
 |------|----------------|
-| 서비스 이미지 | 정확한 커밋의 `git archive`를 배포 자체 레지스트리의 빌드 서비스가 빌드하고, `sha-<commit>` 태그를 붙여 다이제스트로 배포 |
+| 서비스 이미지 | 정확한 커밋의 검증된 스냅샷을 배포 자체 레지스트리에서 최대 세 개의 동시 작업으로 빌드하고, `sha-<commit>` 태그를 붙여 다이제스트로 배포 |
 | 의존 이미지 | 고정된 다이제스트로 배포 레지스트리에 가져옴 |
 | Console | Console 추가 기능을 선택한 경우에만 checkout에서 빌드하고 게시 |
 | Terraform | `PATH`의 `terraform`이 커밋된 바이너리 다이제스트와 일치할 때만 사용하고, 그렇지 않으면 고정된 `linux_amd64` 릴리스를 한 번 내려받아 `infra/genesis-runner-image/toolchain.json`의 아카이브 다이제스트와 바이너리 다이제스트가 모두 일치할 때만 보관 |

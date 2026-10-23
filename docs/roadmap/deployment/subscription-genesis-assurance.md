@@ -179,7 +179,7 @@ scoped CLI types, list bounded subscription-wide IDs, then read each exact ID co
 
 Default forwarding (`default` or route-only `0.0.0.0/0`) reserves no address space. Exclude it only
 from routes; declared VNet, peer, gateway ranges and non-default routes remain constraints.
-Missing/malformed evidence blocks selection. Fewer than two candidates reports only available and
+Missing/malformed evidence blocks selection. A peering in the `Disconnected` state, which a deleted remote network leaves behind in another team's VNet, is not missing evidence: its remote range stays reserved, so unrelated leftovers never stop an installation. An unrecognized peering state still blocks. Fewer than two candidates reports only available and
 required counts with a review action. Selection never edits routes/firewalls or proves reachability.
 The reviewed pool is seven networks followed by `172.31.0.0/16` and `172.26.0.0/16`; the appended
 ranges are chosen only when every earlier one is occupied, and they obey the same overlap rules.

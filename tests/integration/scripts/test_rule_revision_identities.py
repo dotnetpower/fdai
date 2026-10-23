@@ -79,6 +79,22 @@ def test_shipped_rule_revisions_match_the_registry() -> None:
     assert module.violations(module._load_registry(), module.current_revisions()) == []
 
 
+def test_dependency_builder_stage_preserves_normalization_digest(tmp_path: Path) -> None:
+    module = _load_module()
+    _copy_revision_inputs(tmp_path, "network.nsg.no-inbound-any-ssh")
+    baseline = module._normalization_source_digest(tmp_path)
+    dockerfile = tmp_path / "services/core-control-plane/docker/Dockerfile"
+    dockerfile.write_text(
+        dockerfile.read_text(encoding="utf-8").replace(
+            " AS builder\n",
+            " AS dependency-builder\n",
+        ),
+        encoding="utf-8",
+    )
+
+    assert module._normalization_source_digest(tmp_path) == baseline
+
+
 def test_definition_policy_and_toolchain_changes_require_a_version_bump(
     tmp_path: Path,
 ) -> None:

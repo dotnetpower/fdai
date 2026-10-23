@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 9408992d5dc74fcde8e2ade61827787575a56a41
-translation_revised: 2026-10-22
+translation_source_sha: 6a52bb9693add92fce2576e2fcd4758fc15d9d8e
+translation_revised: 2026-10-23
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -295,7 +295,7 @@ GitHub 로그인은 `github:<login>`처럼 공급자를 명시한 감사 신원�
 문서 인제스트와 Operator API를 활성화한 후에만
 `enable_stewardship_governance=true`를 설정하세요. Console 관리형 모드에서는 Console이 검토 화면이므로
 ChatOps가 선택 사항이며, 메신저가 없으면 병합 효과 알림은 `no_eligible_channels`로 기록됩니다.
-GitOps 대상을 선택하면 ChatOps는 계속 필요합니다. 소스 AKS 설치는 별도 옵션이 필요하지 않습니다. Console, 엔터프라이즈 ID 바인딩이 있는 Operator API, 문서 인제스트를 모두 선택하면 배포가 Core에 `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true`와 `FDAI_MAINTAINERS`, `FDAI_STEWARD_<AGENT>` 바인딩을 설정하며 GitHub 자격 증명은 도입하지 않습니다. Terraform은 다음 배포 소유 값을
+GitOps 대상을 선택하면 ChatOps는 계속 필요합니다. 소스 AKS 설치는 별도 옵션이 필요하지 않습니다. Console, 엔터프라이즈 ID 바인딩이 있는 Operator API, 문서 인제스트를 모두 선택하면 배포가 Core에 `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true`와 `FDAI_MAINTAINERS`, `FDAI_STEWARD_<AGENT>` 바인딩을 설정하며 GitHub 자격 증명은 도입하지 않습니다. Console 거버넌스 모드는 엔터프라이즈 ID 애드온에 속하므로 Core는 governed-execution 애드온 없이도 이를 시작하며, GitOps 모드는 풀 리퀘스트를 게시하므로 계속 governed execution을 요구합니다. Terraform은 다음 배포 소유 값을
 요구합니다.
 
 | 입력 | 런타임 연결 | 저장 위치 |

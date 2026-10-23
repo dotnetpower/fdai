@@ -114,9 +114,12 @@ authorization contract that both production profiles use.
   installation.
 - Approve a standing authorization when they hold the service-owner and Owner roles. The
   `standing-authority-promotion` change class accepts their single Owner approval as a recorded
-  self-review with original quorum two and effective quorum one. Other governance change classes
-  keep their existing quorum, role, phishing-resistant authentication, and no-self-approval rules
-  unless this design explicitly changes them later.
+  self-review with original quorum two and effective quorum one. Every installation governance
+  change class follows the same named-operator and effective-quorum-one rule, while retaining
+  its required capabilities, Owner-tier checks, exact revision, fresh phishing-resistant
+  authentication, and a distinct executor. The active installation policy supplies the profile;
+  a proposed policy cannot authorize its own transition. Repository source review instead
+  follows GitHub branch protection, not an installation profile or mandatory Entra verifier App.
 - Promote with an attributed override and administer policy, as described in the next sections.
 
 ### What stays the same

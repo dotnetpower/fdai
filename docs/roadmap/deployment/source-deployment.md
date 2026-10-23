@@ -159,12 +159,16 @@ same installation.
 
 For a source AKS development installation, `--development-authority-profile <path>` selects one private reviewed profile for the application plan. The coordinator derives its executor, validates the exact target and source revision, and stages neither value until application deployment. The option is unavailable for preparation, preflight, teardown, signed-kit, and non-AKS paths. Omitting it on a rerun preserves a retained profile instead of silently revoking authority; `--clear-development-profile` removes it through a separate exact plan.
 
+The `notifications` add-on on a source AKS installation requires `--notification-recipients <path>`, a private owner-only JSON file `{"recipients": ["name@domain"]}` with at most 20 addresses. Without it, or with it and no `notifications` add-on, the run stops before any Azure effect. The addresses reach the managed host as one private staged file and become only the Terraform `notification_email_recipients` input. They never enter the runtime profile, its digest, a plan review, a receipt, or a log. Only the digest of the canonical list joins the private retained host context, so a later run with a different list fails as drift. Placeholder domains are rejected. The option is unavailable for preparation, preflight, teardown, signed-kit, and non-AKS paths, and for source recovery.
+
 Interactive source deployment uses an append-only installer stream. Each transition writes a
 numbered stage heading, exact completed/skipped/remaining counts, and elapsed heartbeats for a
 silent long-running operation. Every quiet boundary records a start line, a 10-second
 `still working` heartbeat, and an explicit completion or failure line. The stream never clears or
 redraws the terminal, so scrollback remains the complete presentation record. It doesn't estimate
-provider completion or turn progress into readiness evidence.
+provider completion or turn progress into readiness evidence. Each normal source invocation also
+writes a private, content-addressed timing receipt with total and per-stage elapsed milliseconds.
+The timing record grants no apply authority and never reports deployment readiness.
 
 The workstation needs Bash, `git`, Azure CLI, and `uv`. Selecting the Console add-on also needs
 Node.js and npm to build the Console from the committed lockfile. No container engine, GitHub
@@ -216,7 +220,7 @@ owns the exact contract.
 
 | Input | Source path behavior |
 |-------|----------------------|
-| Service images | Built from a `git archive` of the exact commit by the registry build service of the deployment's own registry, tagged `sha-<commit>`, and deployed by digest |
+| Service images | Built from a verified snapshot of the exact commit by up to three concurrent operations in the deployment's own registry, tagged `sha-<commit>`, and deployed by digest |
 | Dependency images | Imported by pinned digest into the deployment's registry |
 | Console | Built from the checkout and published only when the Console add-on is selected |
 | Terraform | Uses `terraform` on `PATH` only when it matches the committed binary digest; otherwise downloads the pinned `linux_amd64` release once and keeps it only when both the archive and binary digests in `infra/genesis-runner-image/toolchain.json` match |

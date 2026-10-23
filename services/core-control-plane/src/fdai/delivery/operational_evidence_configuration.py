@@ -9,6 +9,7 @@ value read here is echoed back by the Settings projection.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,6 +36,7 @@ ENABLED_ENV = "FDAI_OPERATIONAL_EVIDENCE_ENABLED"
 TRUST_PATH_ENV = "FDAI_OPERATIONAL_EVIDENCE_TRUST_REGISTRY_PATH"
 TRUST_PIN_ENV = "FDAI_OPERATIONAL_EVIDENCE_TRUST_REGISTRY_PIN"
 GRANT_PATH_ENV = "FDAI_OPERATIONAL_EVIDENCE_GRANT_REGISTRY_PATH"
+GRANT_JSON_ENV = "FDAI_OPERATIONAL_EVIDENCE_GRANT_REGISTRY_JSON"
 GRANT_PIN_ENV = "FDAI_OPERATIONAL_EVIDENCE_GRANT_REGISTRY_PIN"
 HISTORY_ENV = "FDAI_OPERATIONAL_EVIDENCE_REGISTRY_HISTORY_JSON"
 ANCHORS_ENV = "FDAI_OPERATIONAL_EVIDENCE_ANCHORS_JSON"
@@ -64,6 +66,14 @@ VERIFIER_VERSION = "1.0.0"
 PRODUCER_ID = "core-control-plane"
 PRODUCER_VERSION = "1.0.0"
 _MAX_HISTORY = 16
+_HEX_PIN = re.compile(r"[0-9a-f]{64}")
+
+
+def _normalize_pin(raw: str) -> str:
+    value = raw.strip()
+    if _HEX_PIN.fullmatch(value) is not None:
+        return f"sha256:{value}"
+    return value
 
 
 class OperationalEvidenceConfigurationError(ValueError):
@@ -102,6 +112,7 @@ class OperationalEvidenceSettings:
     observation_metric_queries_json: str
     observation_scope_rows_json: str
     execution_venue: ExecutionVenue | None
+    grant_json: str = ""
 
     @classmethod
     def from_environment(cls, env: Mapping[str, str]) -> OperationalEvidenceSettings:
@@ -114,13 +125,17 @@ class OperationalEvidenceSettings:
         return cls(
             enabled=env.get(ENABLED_ENV, "").strip() == "1",
             trust_path=env.get(TRUST_PATH_ENV, "").strip() or DEFAULT_TRUST_REGISTRY,
-            trust_pin=env.get(TRUST_PIN_ENV, "").strip(),
+            trust_pin=_normalize_pin(env.get(TRUST_PIN_ENV, "")),
             grant_path=env.get(GRANT_PATH_ENV, "").strip(),
-            grant_pin=env.get(GRANT_PIN_ENV, "").strip(),
+            grant_pin=_normalize_pin(env.get(GRANT_PIN_ENV, "")),
             history_json=env.get(HISTORY_ENV, "").strip(),
             anchors_json=env.get(ANCHORS_ENV, "").strip(),
             verifier_url=env.get(VERIFIER_URL_ENV, "").strip(),
-            reader_dsn=env.get(READER_DSN_ENV, "").strip() or env.get("FDAI_STATE_STORE_DSN", ""),
+            reader_dsn=(
+                env.get(READER_DSN_ENV, "").strip()
+                or env.get("FDAI_STATE_STORE_DSN", "").strip()
+                or env.get(VERIFIER_DSN_ENV, "").strip()
+            ),
             reader_role=env.get(READER_ROLE_ENV, "").strip() or "fdai_core",
             verifier_dsn=env.get(VERIFIER_DSN_ENV, "").strip(),
             executor_principals_json=env.get(EXECUTOR_PRINCIPALS_ENV, "").strip(),
@@ -140,6 +155,7 @@ class OperationalEvidenceSettings:
             observation_metric_queries_json=env.get(OBSERVATION_METRIC_QUERIES_ENV, "").strip(),
             observation_scope_rows_json=env.get(OBSERVATION_SCOPE_ROWS_ENV, "").strip(),
             execution_venue=venue,
+            grant_json=env.get(GRANT_JSON_ENV, "").strip(),
         )
 
     def prerequisites(self) -> dict[str, bool]:
@@ -147,7 +163,7 @@ class OperationalEvidenceSettings:
 
         return {
             TRUST_PIN_ENV: bool(self.trust_pin),
-            GRANT_PATH_ENV: bool(self.grant_path),
+            GRANT_PATH_ENV: bool(self.grant_path or self.grant_json),
             GRANT_PIN_ENV: bool(self.grant_pin),
             ANCHORS_ENV: bool(self.anchors_json),
             VERIFIER_URL_ENV: bool(self.verifier_url),
@@ -172,9 +188,13 @@ class OperationalEvidenceSettings:
 def load_registry_history(settings: OperationalEvidenceSettings, *, root: Path) -> RegistryHistory:
     """Load every pinned revision oldest first; the configured pins are the current revision."""
 
-    if not settings.trust_pin or not settings.grant_path or not settings.grant_pin:
+    if (
+        not settings.trust_pin
+        or not (settings.grant_path or settings.grant_json)
+        or not settings.grant_pin
+    ):
         raise RegistryUnavailableError("operational evidence registry pins are not configured")
-    revisions: list[tuple[str, str, str, str]] = []
+    revisions: list[tuple[str, str, str, str, str]] = []
     if settings.history_json:
         try:
             raw = json.loads(settings.history_json)
@@ -193,21 +213,31 @@ def load_registry_history(settings: OperationalEvidenceSettings, *, root: Path) 
             revisions.append(
                 (
                     str(item["trust_path"]),
-                    str(item["trust_pin"]),
+                    _normalize_pin(str(item["trust_pin"])),
                     str(item["grant_path"]),
-                    str(item["grant_pin"]),
+                    _normalize_pin(str(item["grant_pin"])),
+                    "",
                 )
             )
     revisions.append(
-        (settings.trust_path, settings.trust_pin, settings.grant_path, settings.grant_pin)
+        (
+            settings.trust_path,
+            settings.trust_pin,
+            settings.grant_path,
+            settings.grant_pin,
+            settings.grant_json,
+        )
     )
     return RegistryHistory(
         tuple(
             RegistryRevision(
                 trust=load_trust_registry(_read(root, trust_path), expected_pin=trust_pin),
-                grants=load_grant_registry(_read(root, grant_path), expected_pin=grant_pin),
+                grants=load_grant_registry(
+                    _read(root, grant_path, inline_json=grant_json),
+                    expected_pin=grant_pin,
+                ),
             )
-            for trust_path, trust_pin, grant_path, grant_pin in revisions
+            for trust_path, trust_pin, grant_path, grant_pin, grant_json in revisions
         )
     )
 
@@ -240,7 +270,11 @@ def string_list(raw: str, *, label: str) -> tuple[str, ...]:
     return tuple(sorted(set(value)))
 
 
-def _read(root: Path, reference: str) -> bytes:
+def _read(root: Path, reference: str, *, inline_json: str = "") -> bytes:
+    if inline_json:
+        return inline_json.encode("utf-8")
+    if reference.lstrip().startswith("{"):
+        return reference.encode("utf-8")
     path = Path(reference)
     if not path.is_absolute():
         path = root / path
@@ -259,6 +293,7 @@ __all__ = [
     "DEPLOY_RUNNER_PRINCIPAL_ENV",
     "DEV_GATEWAY_EXECUTOR_PRINCIPAL_ENV",
     "ENABLED_ENV",
+    "GRANT_JSON_ENV",
     "ISOLATED_EXECUTOR_PRINCIPAL_ENV",
     "OWN_ROLE_ASSIGNMENTS_ENV",
     "OWN_ROLE_ALLOWED_SCOPES_ENV",

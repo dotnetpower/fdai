@@ -177,6 +177,11 @@ source migration again. Any other source difference remains blocked.
 Recovery reads the image-augmented Foundation variables when an artifact-offline image was used,
 or the base Foundation variables for an image-free connected run. It never fabricates an image
 receipt or changes bootstrap mode while selecting the retained input.
+The planner also reads the retained runner's supported guest-patch mode and platform-safety bypass
+from authoritative Terraform state. If provider refresh exposes a newer tenant-enforced selection,
+it validates the runner's `before` values, pins that exact pair in the recovery variables, and plans
+once more. Unsupported or inconsistent values stop planning instead of letting recovery revert the
+setting.
 When the application group already exists in the original state, policy-only recovery preserves
 its exact state ID and requires a no-op. It never renames or adopts that group. A missing
 application group still follows the distinct-name and verified-absence contract.
@@ -238,12 +243,17 @@ the backend. Missing local state alone grants no authority. Live recovery accept
 
 ### Explicit source recovery
 Resume with `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`.
+The recovery directory is one named `foundation-recovery-attempt-<n>` child of the original
+Foundation directory; sibling or unrelated paths are rejected before transfer.
 Original snapshot, profile, region and budget remain immutable; execution source is separate. Missing
 success returns review. Separate exact approvals advance enrollment/migration; claims allow verification
 only, never repeated apply or scope changes. Completed migration observes the backend without reenrollment.
 Recovery apply, enrollment, and state migration admit the current clean operator-selected checkout
 without requiring protected-branch CI. Historical execution revisions remain authenticated by their
 immutable receipts and original snapshot rather than being re-admitted as current source.
+Both recovery preparation and the shared state-handoff stage validate that current
+operator-selected source; the state-handoff does not perform a second maintainer-CI check against
+the historical handoff revision.
 When the enterprise identity add-on is selected, recovered continuation supplies the verified
 recovery handoff to the Entra stage so runner-principal readback does not depend on a superseded
 original apply handoff file.
@@ -269,9 +279,10 @@ loads the original state-handoff receipt through its bounded plan reference. It 
 digest, source, target, host attestation, remote-backend authority, zero-change plan and transient
 cleanup. Portable status is a projection, not the original receipt to rehash.
 
-The coordinator then prepares `source-transfer.tar` and an immutable local transfer receipt.
-The uncompressed archive contains the canonical source manifest plus numbered regular blobs,
-not archive-selected destination paths or links. The receiver reconstructs only manifest-owned
+For a snapshot whose receiver advertises gzip support, the coordinator prepares
+`source-transfer.tar.gz`; retained older snapshots continue with `source-transfer.tar`. Both forms
+are deterministic and carry the canonical source manifest plus numbered regular blobs, not
+archive-selected destination paths or links. The receiver reconstructs only manifest-owned
 files and internal links into a fresh private snapshot, checking independently supplied archive
 and snapshot digests before source execution. It rejects duplicate, missing, extra, absolute,
 traversal, hardlink and conflicting file/directory records. Limits are 65536 files, 64 MiB per file,
@@ -328,7 +339,16 @@ fdaictl provision source-service-update \
   --application-work-dir <retained-application-work-dir>
 ```
 
-The command snapshots tracked source, builds one Linux OCI archive with the exact Git revision,
+Use `source-change-plan` to classify an exact Git range without contacting Azure. For a
+service-only result, `source-changed-update` runs the existing guarded update once for each affected
+baseline service. Documentation and test-only changes return `no-deploy`; Console, migration,
+infrastructure, optional-image, and unclassified changes stop with their required higher lane
+instead of guessing.
+
+The service command derives a projected snapshot from the selected Dockerfile's tracked `COPY`
+inputs and fixed build helpers. The projection retains the complete checkout identity while
+excluding unrelated products, docs, and ordinary service tests. It builds one Linux OCI archive
+with the exact Git revision,
 validates its archive and manifest digests, and requests current human approval before registry
 import. The retained deployment Managed Identity performs the import and reads back the digest.
 The coordinator then produces a Terraform plan limited to the selected Deployment, requests the
@@ -453,7 +473,9 @@ build service with only Azure CLI and one verified snapshot of one commit:
 - Before the first effect, an immutable claim binds the commit, snapshot digest, subscription,
   registry, service list, and dependency pins. A claim or receipt for different inputs stops with
   `source_image_stage_inputs_changed`.
-- The five baseline services build in canonical order with `az acr build`, tagged `sha-<commit>`.
+- The five baseline services and two dependency imports use at most three concurrent registry
+  operations. Results return to canonical service order before receipt creation. Each service
+  uses `az acr build` and the `sha-<commit>` tag.
   Each digest comes from the run record's output image for exactly that repository, tag, and
   registry. ClamAV and pgvector are imported with `az acr import` by the digests that the offline
   kit builder also pins.
@@ -786,6 +808,10 @@ coordinator then rebuilds a no-effect Foundation adoption receipt from that reta
 chain and binds it to the newer kit, so the managed host accepts the kit only through that
 evidence. It does not approve a plan computed from the newer kit while that plan carries the
 retained revision as provenance.
+The adoption input accepts exactly one terminal Foundation evidence pair: either the governed
+recovery handoff and receipt, or the ordinary source Foundation handoff and applied receipt.
+Ambiguous directories containing both pairs and incomplete directories containing neither pair
+are rejected before any application planning.
 
 **Transition design:** The coordinator first compares precise Foundation inputs before it decides
 whether a transition exists. The trigger set is the Terraform root content used by Foundation, the

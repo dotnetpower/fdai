@@ -38,6 +38,7 @@ class _Connection:
     def __init__(self, progress: dict[str, object], active: dict[str, object]) -> None:
         self.progress = progress
         self.active = active
+        self.retained: dict[str, object] | None = None
 
     async def __aenter__(self) -> _Connection:
         return self
@@ -56,6 +57,13 @@ class _Connection:
             return _Cursor([])
         if "FROM inventory_progress_event" in statement:
             return _Cursor([{"payload": self.progress}])
+        if "SELECT value FROM state_kv WHERE key=" in statement:
+            return _Cursor([] if self.retained is None else [{"value": self.retained}])
+        if statement.startswith("INSERT INTO state_kv"):
+            assert isinstance(_parameters, tuple)
+            if self.retained is None:
+                self.retained = _parameters[1].obj
+            return _Cursor([])
         if "FROM inventory_active" in statement:
             return _Cursor([self.active])
         raise AssertionError(statement)
@@ -186,6 +194,29 @@ async def test_closure_verifier_binds_exact_active_generation(
 
     connection.progress = _progress("sha256:" + "f" * 64).model_dump(mode="json")
     with pytest.raises(ValueError, match="active_generation"):
+        await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
+    connection.active["overlay_count"] = 1
+    with pytest.raises(ValueError, match="active_generation,overlay_closed"):
+        await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
+    connection.active["overlay_count"] = 0
+
+    connection.progress = progress.model_dump(mode="json")
+    retained = await verifier.retain(run_id=progress.run_id, attempt_id=progress.attempt_id)
+    assert await verifier.retain(run_id=progress.run_id, attempt_id=progress.attempt_id) == retained
+    connection.active = {"id": "newer-scheduled-generation"}
+    replayed = await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
+    assert replayed == retained
+    assert replayed.generation_digest == digest
+    assert replayed.resource_count == 4
+    assert replayed.observed_at == retained.observed_at
+
+    connection.progress = _progress("sha256:" + "e" * 64).model_dump(mode="json")
+    with pytest.raises(ValueError, match="retained closure binding"):
+        await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
+    connection.progress = progress.model_dump(mode="json")
+    assert connection.retained is not None
+    connection.retained["resource_count"] = 100
+    with pytest.raises(ValueError, match="digest does not match"):
         await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
 
 

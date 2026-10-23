@@ -130,8 +130,18 @@ def build_direct_api_effect_executor(
             identities=identities,
             http_client=http_client,
         )
+    subscription_tag = _build_subscription_tag_direct_api(
+        identities=identities,
+        http_client=http_client,
+    )
     kubernetes = _build_kubernetes_direct_api(identities=identities)
     executor: DirectApiExecutor | None = gateway
+    if subscription_tag is not None:
+        from fdai_executor_service.adapters.subscription_tag_direct_api import (
+            SubscriptionTagDirectApiRouter,
+        )
+
+        executor = SubscriptionTagDirectApiRouter(subscription_tag, executor)
     if kubernetes is not None:
         from fdai_executor_service.adapters.kubernetes_direct_api import (
             KubernetesDirectApiRouter,
@@ -170,6 +180,27 @@ def build_direct_api_effect_executor(
         resource_lock=resource_lock,
         idempotency=idempotency,
         allow_enforce=True,
+    )
+
+
+def _build_subscription_tag_direct_api(
+    *,
+    identities: Mapping[str, WorkloadIdentity],
+    http_client: httpx.AsyncClient,
+) -> DirectApiExecutor | None:
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    identity = identities.get("identity/change")
+    if not subscription_id or identity is None:
+        return None
+    from fdai_executor_service.adapters.subscription_tag_direct_api import (
+        AzureSubscriptionTagConfig,
+        AzureSubscriptionTagDirectApiExecutor,
+    )
+
+    return AzureSubscriptionTagDirectApiExecutor(
+        config=AzureSubscriptionTagConfig(subscription_id=subscription_id),
+        identity=identity,
+        http_client=http_client,
     )
 
 

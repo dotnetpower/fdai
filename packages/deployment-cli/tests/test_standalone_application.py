@@ -33,8 +33,8 @@ def test_source_recovery_uses_recovered_private_handoff(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     foundation = tmp_path / "foundation"
-    recovery = tmp_path / "foundation-recovery-attempt-5"
     foundation.mkdir()
+    recovery = foundation / "foundation-recovery-attempt-5"
     recovery.mkdir()
     captured: dict[str, Path] = {}
 
@@ -364,20 +364,12 @@ def test_approval_actor_is_bound_to_current_azure_target(monkeypatch) -> None:
     tenant = "00000000-0000-0000-0000-000000000000"
     subscription = "00000000-0000-0000-0000-000000000001"
     binding = compute_target_binding(tenant_id=tenant, subscription_id=subscription)
-    payload = [
-        {
-            "subscription_id": "00000000-0000-0000-0000-000000000002",
-            "tenant_id": tenant,
-            "user_name": "operator@example.com",
-            "user_type": "user",
-        },
-        {
-            "subscription_id": subscription,
-            "tenant_id": tenant,
-            "user_name": "operator@example.com",
-            "user_type": "user",
-        },
-    ]
+    payload = {
+        "subscription_id": subscription,
+        "tenant_id": tenant,
+        "user_name": "operator@example.com",
+        "user_type": "user",
+    }
     monkeypatch.setattr(
         standalone_application.subprocess,
         "run",
@@ -392,14 +384,12 @@ def test_approval_actor_is_bound_to_current_azure_target(monkeypatch) -> None:
 
 
 def test_approval_actor_rejects_changed_azure_target(monkeypatch) -> None:
-    payload = [
-        {
-            "subscription_id": "00000000-0000-0000-0000-000000000001",
-            "tenant_id": "00000000-0000-0000-0000-000000000000",
-            "user_name": "operator@example.com",
-            "user_type": "user",
-        }
-    ]
+    payload = {
+        "subscription_id": "00000000-0000-0000-0000-000000000001",
+        "tenant_id": "00000000-0000-0000-0000-000000000000",
+        "user_name": "operator@example.com",
+        "user_type": "user",
+    }
     monkeypatch.setattr(
         standalone_application.subprocess,
         "run",

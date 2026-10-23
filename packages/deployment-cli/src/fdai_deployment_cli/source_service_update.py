@@ -9,6 +9,7 @@ import re
 import stat
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -22,6 +23,7 @@ from fdai_deployment_cli.development_authority_profile import (
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
 from fdai_deployment_cli.source_input import inspect_source
+from fdai_deployment_cli.source_projection import service_source_projection
 from fdai_deployment_cli.source_snapshot import materialize_source, verify_source_snapshot
 from fdai_deployment_cli.standalone_application import (
     _approval_input,
@@ -51,6 +53,9 @@ def deploy_source_service_update(
 ) -> dict[str, object]:
     """Build, import, plan, approve, apply, and verify one dev AKS service update."""
 
+    operation_started = time.monotonic()
+    phase_started = operation_started
+    phase_timings: list[dict[str, object]] = []
     if service not in SERVICES:
         raise ValueError("source service update names an unsupported service")
     if (
@@ -206,11 +211,18 @@ def deploy_source_service_update(
             if any(path.name != "source-service-update.lock" for path in work.iterdir()):
                 raise ValueError("source service update cannot adopt existing work state")
             write_private_bytes(intent_path, canonical_bytes(intent))
-            snapshot_digest = materialize_source(source, snapshot)
+            snapshot_digest = materialize_source(
+                source,
+                snapshot,
+                selected_paths=service_source_projection(source, service),
+                purpose=f"service-image:{service}",
+            )
             write_private_bytes(
                 work / "source-snapshot-receipt.json",
                 canonical_bytes({"snapshot_digest": snapshot_digest}),
             )
+        snapshot_schema, projection_files, projection_bytes = _projection_facts(snapshot)
+        phase_started = _record_timing(phase_timings, "source-projection", phase_started)
         if development_authority_profile is not None:
             development_authority_profile_path = work / "development-authority-profile.json"
             profile_bytes = development_authority_profile.profile_json.encode("utf-8")
@@ -239,6 +251,7 @@ def deploy_source_service_update(
             or image.get("service") != service
         ):
             raise ValueError("source service image build did not produce exact evidence")
+        phase_started = _record_timing(phase_timings, "image-build", phase_started)
         import_review = {
             "schema_version": "fdai.source-service-image-import-review.v1",
             "service": service,
@@ -275,6 +288,7 @@ def deploy_source_service_update(
             ),
             timeout=deadline.remaining(2400),
         )
+        phase_started = _record_timing(phase_timings, "image-import", phase_started)
         expected_update = {
             "service": service,
             "image": imported.get("image"),
@@ -351,6 +365,7 @@ def deploy_source_service_update(
                 ),
                 timeout=deadline.remaining(7500),
             )
+        phase_started = _record_timing(phase_timings, "plan-apply-verify", phase_started)
         result: dict[str, object] = {
             "schema_version": "fdai.source-service-update.v1",
             "state": "applied",
@@ -397,15 +412,79 @@ def deploy_source_service_update(
             raise ValueError("source service update finalization is incomplete")
         result["finalization_receipt_digest"] = finalized["receipt_digest"]
         result["receipt_digest"] = canonical_digest(result)
+        _record_timing(phase_timings, "finalization", phase_started)
         receipt_path = work / "source-service-update-receipt.json"
         if receipt_path.exists() or receipt_path.is_symlink():
             if _read(receipt_path) != result:
                 raise ValueError("retained source service update receipt differs")
         else:
             write_private_bytes(receipt_path, canonical_bytes(result))
+            timing: dict[str, object] = {
+                "schema_version": "fdai.deployment-timing.v1",
+                "lane": "source-service-update",
+                "service": service,
+                "source_commit": source.commit,
+                "outcome": "applied",
+                "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                "total_elapsed_ms": round((time.monotonic() - operation_started) * 1000),
+                "phases": phase_timings,
+                "source_snapshot_schema": snapshot_schema,
+                "source_projection_file_count": projection_files,
+                "source_projection_bytes": projection_bytes,
+                "image_archive_bytes": archive.stat().st_size,
+                "effect_receipt_digest": result["receipt_digest"],
+                "timing_evidence_only": True,
+                "apply_authorized": False,
+                "deployment_ready": False,
+            }
+            timing["receipt_digest"] = canonical_digest(timing)
+            timing_directory = work / "timing"
+            timing_directory.mkdir(mode=0o700)
+            write_private_bytes(
+                timing_directory / f"{timing['receipt_digest']}.json",
+                canonical_bytes(timing),
+            )
         return result
     finally:
         os.close(lock)
+
+
+def _record_timing(
+    timings: list[dict[str, object]],
+    name: str,
+    started: float,
+) -> float:
+    now = time.monotonic()
+    timings.append({"name": name, "elapsed_ms": max(0, round((now - started) * 1000))})
+    return now
+
+
+def _projection_facts(snapshot: Path) -> tuple[str, int, int]:
+    manifest = load_json_object(
+        read_private_bytes(snapshot / "source-input.json", max_bytes=16 * 1024 * 1024),
+        label="source service projection",
+        max_bytes=16 * 1024 * 1024,
+    )
+    projection = manifest.get("projection")
+    records = manifest.get("files")
+    schema = manifest.get("schema_version")
+    if not isinstance(records, list) or schema not in {
+        "fdai.source-snapshot.v1",
+        "fdai.source-snapshot.v2",
+    }:
+        raise ValueError("source service update snapshot inventory is invalid")
+    if schema == "fdai.source-snapshot.v2" and (
+        not isinstance(projection, dict) or projection.get("file_count") != len(records)
+    ):
+        raise ValueError("source service projection inventory is invalid")
+    total = 0
+    for record in records:
+        if not isinstance(record, dict) or not isinstance(record.get("path"), str):
+            raise TypeError("source service projection inventory is invalid")
+        path = snapshot / "tree" / record["path"]
+        if not path.is_symlink():
+            total += path.stat().st_size
+    return schema, len(records), total
 
 
 def _approve_import(root: Path, review: dict[str, Any], deadline: DeploymentDeadline) -> Path:
@@ -515,8 +594,8 @@ def _read(path: Path) -> dict[str, object]:
 
 def _parse(value: object) -> datetime:
     if not isinstance(value, str):
-        raise ValueError("source image import review expiry is invalid")
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        raise TypeError("source image import review expiry is invalid")
+    return datetime.fromisoformat(value)
 
 
 def _moment(value: datetime) -> str:

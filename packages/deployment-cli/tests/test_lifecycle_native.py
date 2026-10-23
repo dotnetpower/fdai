@@ -6,6 +6,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from pydantic import ValidationError
 
+from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_native import (
     NativeApproval,
     NativeScope,
@@ -45,6 +46,47 @@ def test_anchor_is_stable_but_approval_scope_binds_every_private_target():
     assert original.resources == frozenset({("Deployment", "frontend"), ("Service", "frontend")})
     with pytest.raises(ValidationError):
         scope(components=(original.anchor_name,))
+
+
+def test_empty_scheduled_scope_preserves_existing_canonical_bytes_and_digest():
+    original = scope()
+    legacy = {
+        "installation_id": "installation-alpha",
+        "entity_id": "application",
+        "product": "example-web",
+        "namespace": "example-test",
+        "components": ["frontend"],
+    }
+    assert canonical_bytes(original.model_dump(mode="json")) == canonical_bytes(legacy)
+    assert original.digest == "sha256:" + canonical_digest(legacy)
+    assert scope(scheduled_components=()).digest == original.digest
+
+
+def test_scheduled_scope_explicitly_binds_only_named_cronjobs():
+    original = scope()
+    scheduled = scope(scheduled_components=("analyzer",))
+    assert scheduled.resources == original.resources | {("CronJob", "analyzer")}
+    assert scheduled.digest != original.digest
+    assert scheduled.model_dump(mode="json")["scheduled_components"] == ["analyzer"]
+
+
+def test_workers_need_no_placeholder_service_or_different_execution_path():
+    original = scope()
+    worker = scope(service_components=())
+    assert worker.resources == frozenset({("Deployment", "frontend")})
+    assert worker.digest != original.digest
+    assert worker.model_dump(mode="json")["service_components"] == []
+    with pytest.raises(ValidationError):
+        scope(service_components=("other",))
+
+
+@pytest.mark.parametrize(
+    "scheduled",
+    [("b", "a"), ("a", "a"), ("frontend",), ("invalid.name",)],
+)
+def test_scheduled_scope_rejects_ambiguous_or_overlapping_resources(scheduled):
+    with pytest.raises(ValidationError):
+        scope(scheduled_components=scheduled)
 
 
 @pytest.mark.parametrize("hours", [0, -1, 4.01])

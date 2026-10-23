@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone, tzinfo
 from decimal import Decimal
 
 import pytest
@@ -23,6 +23,7 @@ def _invocation(**overrides: object) -> LlmInvocation:
         "mode": InvocationMode.ENFORCE,
         "usage": _USAGE,
         "cost": Decimal("0.5"),
+        "currency": "USD",
     }
     base.update(overrides)
     return LlmInvocation(**base)  # type: ignore[arg-type]
@@ -41,18 +42,84 @@ def test_naive_datetime_rejected() -> None:
         _invocation(occurred_at=datetime(2026, 7, 10, 12, 0))  # noqa: DTZ001
 
 
+def test_timezone_without_utc_offset_rejected() -> None:
+    class _UndefinedOffset(tzinfo):
+        def utcoffset(self, dt: datetime | None) -> None:
+            return None
+
+        def dst(self, dt: datetime | None) -> None:
+            return None
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        _invocation(occurred_at=datetime(2026, 7, 10, 12, 0, tzinfo=_UndefinedOffset()))
+
+
 def test_negative_cost_rejected() -> None:
     with pytest.raises(ValueError, match="cost"):
         _invocation(cost=Decimal("-0.01"))
 
 
-def test_empty_currency_rejected() -> None:
-    with pytest.raises(ValueError, match="currency"):
-        _invocation(currency="")
+@pytest.mark.parametrize("cost", [Decimal("NaN"), Decimal("Infinity"), "0.5"])
+def test_nonfinite_or_untyped_cost_rejected(cost: object) -> None:
+    with pytest.raises(ValueError, match="finite non-negative Decimal"):
+        _invocation(cost=cost)
+
+
+@pytest.mark.parametrize("currency", ["", "usd", "US", "USDT"])
+def test_noncanonical_currency_rejected(currency: str) -> None:
+    with pytest.raises(ValueError, match="ISO 4217"):
+        _invocation(currency=currency)
 
 
 def test_cost_may_be_none() -> None:
-    assert _invocation(cost=None).cost is None
+    assert _invocation(cost=None, currency=None).cost is None
+
+
+@pytest.mark.parametrize(
+    ("cost", "currency"),
+    [(Decimal("0.5"), None), (None, "USD")],
+)
+def test_cost_and_currency_must_be_present_together(
+    cost: Decimal | None, currency: str | None
+) -> None:
+    with pytest.raises(ValueError, match="both be present or both be absent"):
+        _invocation(cost=cost, currency=currency)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("cached_prompt_tokens", True), ("duration_ms", 1.5)],
+)
+def test_usage_metadata_rejects_non_integer_values(field: str, value: object) -> None:
+    with pytest.raises(TypeError, match=f"{field} MUST be one integer"):
+        _invocation(**{field: value})
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("locale", "en|ko"),
+        ("locale", "ko\n"),
+        ("turn_family", "resource inventory"),
+        ("turn_family", "resource|inventory"),
+    ],
+)
+def test_outcome_dimensions_reject_ambiguous_values(field: str, value: str) -> None:
+    with pytest.raises(ValueError, match=f"{field} MUST be one bounded machine token"):
+        _invocation(**{field: value})
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
+        ("mode", "enforce", "InvocationMode"),
+        ("usage_scope", "operator_chat", "InvocationScope"),
+        ("disposition", "answered", "InvocationDisposition"),
+    ],
+)
+def test_enum_metadata_rejects_untyped_strings(field: str, value: str, match: str) -> None:
+    with pytest.raises(TypeError, match=match):
+        _invocation(**{field: value})
 
 
 @pytest.mark.parametrize(

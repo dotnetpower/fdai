@@ -7,6 +7,12 @@ computes the change it would make, and reports the result. By default it never a
 With `--apply`, it applies a bounded HTTP application or the legacy same-schema Operator profile to one
 namespace, verifies the rollout, and rolls back on failure. See [Apply mode](#apply-mode).
 
+The optional [private runtime-bundle extension](../../docs/roadmap/deployment/lifecycle-runtime-bundles.md)
+uses `fdai.application-release.v2` component images for independently reviewed Deployment,
+internal Service and bounded CronJob templates. It preserves the default dry run, native UID
+fencing and same-schema boundary. See the [deployment handoff](../../docs/runbooks/hub-lifecycle-deployment-handoff.md)
+for setup ownership, exact input pins, optional CronJob RBAC and unverified scheduled-effect holds.
+
 ## Boundary
 
 - Azure identity is loaded only when workload federation is explicitly selected. It requests

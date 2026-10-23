@@ -521,7 +521,7 @@ def source_transfer(tmp_path, monkeypatch):
         "prepare_source_transport",
         lambda *_args, **_kwargs: {
             **local,
-            "archive_ref": "source-transfer.tar",
+            "archive_ref": "source-transfer.tar.gz",
             "state": "prepared",
             "remote_transfer_verified": False,
             "receipt_digest": "f" * 64,

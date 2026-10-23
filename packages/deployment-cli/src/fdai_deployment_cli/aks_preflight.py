@@ -6,13 +6,18 @@ import json
 import math
 import re
 import subprocess
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any, cast
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
-from fdai_deployment_cli.target import compute_target_binding
+from fdai_deployment_cli.target import (
+    azure_target_selection_arguments,
+    compute_target_binding,
+    require_selected_azure_target,
+)
 
 # Major version created by infra/modules/state-store/postgres-flex; a parity test keeps them equal.
 POSTGRES_FLEX_MAJOR_VERSION = "16"
@@ -20,7 +25,13 @@ POSTGRES_FLEX_MAJOR_VERSION = "16"
 
 def _active_human_target(deadline: DeploymentDeadline) -> tuple[str, str]:
     account = _json(
-        ("account", "show", "--query", "{id:id,tenantId:tenantId,state:state,userType:user.type}"),
+        (
+            "account",
+            "show",
+            *azure_target_selection_arguments(),
+            "--query",
+            "{id:id,tenantId:tenantId,state:state,userType:user.type}",
+        ),
         deadline,
     )
     if (
@@ -32,6 +43,7 @@ def _active_human_target(deadline: DeploymentDeadline) -> tuple[str, str]:
     subscription, tenant = account.get("id"), account.get("tenantId")
     if not isinstance(subscription, str) or not isinstance(tenant, str):
         raise ValueError("AKS preflight target binding is incomplete")  # noqa: TRY004
+    require_selected_azure_target(subscription_id=subscription, tenant_id=tenant)
     return subscription, tenant
 
 
@@ -47,11 +59,14 @@ def inspect_aks_target(
     profile: RuntimeDeploymentProfile,
     region: str,
     timeout_seconds: int = 180,
+    owned_resource_group: str | None = None,
 ) -> dict[str, object]:
     """Inspect the current human target once, returning sanitized feasibility evidence.
 
     Quota covers both pools at autoscaler maximum plus simultaneous 33-percent surge,
-    not Foundation or other future resources. A ``postgres-flex`` profile also requires the
+    not Foundation or other future resources. When a resumed installation already owns AKS
+    pools in ``owned_resource_group``, the vCPUs those pools use are not new demand and are
+    credited back; an unreadable group earns no credit. A ``postgres-flex`` profile also requires the
     regional Flexible Server catalog to offer the deployed major version. The report never
     claims full readiness, reserves capacity, logs target IDs, or retries a failed provider call.
     """
@@ -69,7 +84,14 @@ def inspect_aks_target(
     usage = _json(
         ("vm", "list-usage", "--subscription", subscription, "--location", region), deadline
     )
-    assessment = assess_aks_capacity(profile=profile, region=region, skus=skus, usage=usage)
+    owned = (
+        _owned_pool_vcpus(subscription, owned_resource_group, skus, deadline)
+        if owned_resource_group is not None
+        else {}
+    )
+    assessment = assess_aks_capacity(
+        profile=profile, region=region, skus=skus, usage=usage, owned_vcpus=owned
+    )
     if profile.database_placement.value == "postgres-flex":
         capabilities = _json(
             (
@@ -152,8 +174,12 @@ def assess_aks_capacity(
     region: str,
     skus: object,
     usage: object,
+    owned_vcpus: Mapping[str, int] | None = None,
 ) -> dict[str, object]:
-    """Evaluate complete provider observations and report missing evidence as a blocker."""
+    """Evaluate complete provider observations and report missing evidence as a blocker.
+
+    ``owned_vcpus`` maps a lower-case quota family to vCPUs already consumed by this
+    installation's own pools, so a resumed run does not count them as new demand."""
     if not isinstance(skus, list) or not isinstance(usage, list):
         raise ValueError("AKS feasibility observations must be lists")  # noqa: TRY004
     blockers: list[str] = []
@@ -250,7 +276,7 @@ def assess_aks_capacity(
         if current is None or limit is None:
             blockers.append(f"quota_{family}_invalid")
             continue
-        remaining = limit - current
+        remaining = limit - current + (owned_vcpus or {}).get(family, 0)
         quotas.append({"family": family, "required_vcpus": required, "remaining_vcpus": remaining})
         if required > remaining:
             blockers.append(f"quota_{family}_insufficient")
@@ -305,6 +331,66 @@ def assess_postgres_flex_region(
             else "postgres_flex_version_unavailable"
         )
     return {**evidence, "offered_versions": sorted(offered), "blockers": blockers}
+
+
+def _owned_pool_vcpus(
+    subscription: str,
+    resource_group: str,
+    skus: object,
+    deadline: DeploymentDeadline,
+) -> dict[str, int]:
+    """Return vCPUs this installation's existing AKS pools already use, by quota family."""
+
+    if re.fullmatch(r"[A-Za-z0-9._()-]{1,90}", resource_group) is None or not isinstance(
+        skus, list
+    ):
+        return {}
+    try:
+        pools = _json(
+            (
+                "aks",
+                "list",
+                "--subscription",
+                subscription,
+                "--resource-group",
+                resource_group,
+                "--query",
+                "[].agentPoolProfiles[].{size:vmSize,count:count}",
+            ),
+            deadline,
+        )
+    except ValueError:
+        return {}
+    if not isinstance(pools, list):
+        return {}
+    by_size: dict[str, tuple[str, int]] = {}
+    for sku in skus:
+        if not isinstance(sku, dict) or not isinstance(sku.get("family"), str):
+            continue
+        capabilities = sku.get("capabilities")
+        values = {
+            entry.get("name"): entry.get("value")
+            for entry in capabilities or []
+            if isinstance(entry, dict)
+        }
+        try:
+            by_size[str(sku.get("name"))] = (
+                str(sku["family"]).casefold(),
+                int(str(values["vCPUs"])),
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    owned: dict[str, int] = {}
+    for pool in pools:
+        if not isinstance(pool, dict) or pool.get("size") not in by_size:
+            continue
+        count = _quota_integer(pool.get("count"))
+        if count is None:
+            continue
+        family, cores = by_size[str(pool["size"])]
+        owned[family] = owned.get(family, 0) + count * cores
+        owned["cores"] = owned.get("cores", 0) + count * cores
+    return owned
 
 
 def _quota_integer(value: object) -> int | None:

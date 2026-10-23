@@ -275,6 +275,73 @@ async def test_tag_merge_preserves_existing_tags_and_verifies_with_reader() -> N
     )
 
 
+async def test_subscription_tag_merge_is_separate_and_verifies_with_reader() -> None:
+    requests: list[httpx.Request] = []
+    reads = iter(
+        (
+            {"properties": {"tags": {"owner": "platform"}}},
+            {"properties": {"tags": {"owner": "platform"}}},
+            {"properties": {"tags": {"owner": "platform", "fdai-live-check": "issue-1623"}}},
+        )
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "GET":
+            return httpx.Response(200, json=next(reads))
+        return httpx.Response(200, json={"properties": {"tags": {}}})
+
+    payload = {
+        "target_resource_ref": "scope-0123456789abcdef/subscription",
+        "tag_name": "fdai-live-check",
+        "tag_value": "issue-1623",
+        "safety": _safety("operation:subscription-tag-one"),
+    }
+    principal = GatewayPrincipal("principal-change", frozenset())
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        gateway = OperationsGateway(
+            config=_config(),
+            reader_token_provider=_Tokens(),
+            executor_token_provider=_Tokens(),
+            http_client=client,
+            idempotency_ledger=_Ledger(),
+        )
+        plan = await gateway.invoke(
+            "azure.operation.plan",
+            {
+                "operation_id": "azure.subscription.tags.merge",
+                "arguments": {
+                    key: payload[key]
+                    for key in (
+                        "target_resource_ref",
+                        "tag_name",
+                        "tag_value",
+                    )
+                },
+                "safety": payload["safety"],
+            },
+            principal,
+        )
+        receipt = plan["result"]["dry_run_receipt"]
+        result = await gateway.invoke(
+            "azure.subscription.tags.merge",
+            {
+                **payload,
+                "safety": {**payload["safety"], "dry_run_receipt": receipt},
+            },
+            principal,
+        )
+
+    assert result["status"] == "succeeded"
+    assert result["result"] == {"verified": True}
+    assert [request.method for request in requests] == ["GET", "GET", "PATCH", "GET"]
+    assert all(
+        request.url.path
+        == ("/subscriptions/sub-example/providers/Microsoft.Resources/tags/default")
+        for request in requests
+    )
+
+
 async def test_tag_merge_restores_snapshot_when_reader_does_not_confirm_effect() -> None:
     requests: list[httpx.Request] = []
     reads = iter(

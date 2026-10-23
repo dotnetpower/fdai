@@ -48,10 +48,14 @@ fdaictl provision azure --source /path/to/fdai
 fdaictl provision azure --offline-kit /media/fdai/fdai-kit.tar
 ```
 
-Both commands derive the tenant and subscription only from the active Azure CLI user context.
-Source mode uses one clean checkout. Offline mode reads the complete kit from a local path and
-blocks every public artifact fallback. Neither mode requires a GitHub account, required CI check,
-workflow dispatch, or GitHub runner registration. Offline means artifact-offline,
+By default, both commands derive the tenant and subscription from the active Azure CLI human
+context. A shared or unattended shell can set the non-secret `AZURE_SUBSCRIPTION_ID` and
+`AZURE_TENANT_ID`; target reads then pass the selected subscription explicitly and reject a
+different returned tenant. This pins one invocation without granting authority or replacing the
+authenticated human identity. Source mode uses one clean checkout. Offline mode reads the complete
+kit from a local path and blocks every public artifact fallback. Neither mode requires a GitHub
+account, required CI check, workflow dispatch, or GitHub runner registration. Offline means
+artifact-offline,
 not disconnected from the selected Azure control plane or Bastion endpoint.
 Offline retries reread the supplied source, reverify the retained snapshot, and use a fresh
 execution copy without replacing earlier state. Changed or incomplete bytes stop the retry.
@@ -67,6 +71,9 @@ Foundation network discovery reads existing route tables and local network gatew
 selected subscription using the stable Network API `2024-05-01`. It does not let Azure CLI select
 a newer version that may be unavailable in an existing resource's region. A failed read still
 blocks discovery; it never drops a reservation, registers a provider, or retries another version.
+A `Disconnected` VNet peering with complete remote address prefixes remains an address reservation,
+not connectivity evidence. Discovery includes those prefixes when selecting non-overlapping
+networks, while a disconnected peering without complete prefixes still stops the run.
 
 Basic deployment verifies the prebuilt signed image set, creates the AKS substrate with API Server
 VNet Integration, deploys the five baseline services, installs the deployment-bound license, runs

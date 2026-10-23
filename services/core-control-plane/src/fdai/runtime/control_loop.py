@@ -140,6 +140,7 @@ from fdai.runtime.providers import (
     _build_safeguard_lifecycle_coordinator,
 )
 from fdai.runtime.rule_profile import bind_rule_profile
+from fdai.runtime.tag_effect import build_default_tag_effect_bindings
 from fdai.shared.contracts.models import ResponseOutcome, Rule
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.event_bus import EventBus
@@ -680,28 +681,15 @@ def _build_control_loop(
     )
     expected_effect_provider = container.mscp_expected_effect_provider
     effect_observer = container.mscp_effect_observer
-    gateway_url = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip()
-    gateway_audience = os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE", "").strip()
-    tag_effect_identity = (execution_identities or {}).get("identity/change") or identity
-    if (
-        governed_execution_enabled
-        and expected_effect_provider is None
-        and effect_observer is None
-        and gateway_url
-        and gateway_audience
-        and tag_effect_identity is not None
-        and http_client is not None
-    ):
-        from fdai.delivery.azure.gateway_tag_effect import GatewayTagEffectVerifier
-
-        tag_effect_verifier = GatewayTagEffectVerifier(
-            base_url=gateway_url,
-            audience=gateway_audience,
-            identity=tag_effect_identity,
-            http_client=http_client,
-        )
-        expected_effect_provider = tag_effect_verifier.expected
-        effect_observer = tag_effect_verifier.observe
+    expected_effect_provider, effect_observer = build_default_tag_effect_bindings(
+        environment=os.environ,
+        governed_execution_enabled=governed_execution_enabled,
+        expected_effect_provider=expected_effect_provider,
+        effect_observer=effect_observer,
+        execution_identities=execution_identities,
+        identity=identity,
+        http_client=http_client,
+    )
 
     development_kwargs = development_control_loop_kwargs(
         os.environ, store=audit_store, identity=identity, http_client=http_client

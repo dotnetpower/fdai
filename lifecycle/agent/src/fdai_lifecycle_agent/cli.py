@@ -15,9 +15,12 @@ from functools import partial
 from pathlib import Path
 from typing import TypedDict, cast, get_args
 
+from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_native import SignedNativeScope
 from fdai_deployment_cli.lifecycle_plan import CapabilityMode, LifecycleEffectEnvelope
 from fdai_deployment_cli.lifecycle_release import is_product_id
+from fdai_deployment_cli.private_output import read_private_bytes
+from pydantic import ValidationError
 
 from fdai_lifecycle_agent.agent import (
     AgentDependencies,
@@ -45,6 +48,7 @@ from fdai_lifecycle_agent.native_cli import (
 from fdai_lifecycle_agent.polling import PollLimits, poll_bounded
 from fdai_lifecycle_agent.reference_cli import register_reference_command, run_reference_command
 from fdai_lifecycle_agent.reference_state import ReferenceStatusSource
+from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
 from fdai_lifecycle_agent.signatures import (
     Ed25519ArtifactVerifier,
     Ed25519HubKeyring,
@@ -72,7 +76,9 @@ _LOCAL_POLICY_KEYS = frozenset(
         "entity_components",
     }
 )
-_OPTIONAL_LOCAL_POLICY_KEYS = frozenset({"component_images", "product", "native_scope_digest"})
+_OPTIONAL_LOCAL_POLICY_KEYS = frozenset(
+    {"component_images", "product", "native_scope_digest", "runtime_bundle"}
+)
 _MAX_LOCAL_POLICY_BYTES = 64 * 1024
 _EXIT_OK = 0
 _EXIT_FAILED = 1
@@ -266,6 +272,7 @@ def main(
                 native_scope_digest=policy["native_scope_digest"],
                 clock=clock,
                 connect=connect_native,
+                runtime_bundle=policy["runtime_bundle"],
             )
         except (ValueError, OSError, WorkloadError, AgentStateError) as error:
             logging.error(
@@ -384,6 +391,7 @@ def main(
                     entity_components=settings.entity_components,
                     entity_ids=settings.maximum_envelope.entity_ids,
                     clock=clock,
+                    runtime_bundle=settings.runtime_bundle,
                 )
             except (ValueError, WorkloadError) as error:
                 print(f"fdai-lifecycle-agent: configuration error: {error}", file=sys.stderr)
@@ -439,6 +447,8 @@ def main(
 def _check_apply_settings(settings: AgentSettings, namespace: str, timeout: float) -> None:
     if not is_dns_label(namespace):
         raise ValueError("--namespace is not a valid Kubernetes namespace")
+    if settings.runtime_bundle is not None and settings.runtime_bundle.namespace != namespace:
+        raise ValueError("--namespace differs from the independent local runtime bundle")
     if not math.isfinite(timeout) or timeout <= 0:
         raise ValueError("--health-timeout-seconds MUST be positive and finite")
     components = set().union(*settings.entity_components.values())
@@ -452,6 +462,7 @@ class LocalPolicy(TypedDict):
     component_repositories: dict[str, str]
     product: str | None
     native_scope_digest: str | None
+    runtime_bundle: RuntimeBundle | None
 
 
 def load_local_policy(path: Path) -> LocalPolicy:
@@ -468,6 +479,20 @@ def load_local_policy(path: Path) -> LocalPolicy:
         raise ValueError("local policy fields are invalid")
     if document["schema"] != LOCAL_POLICY_SCHEMA:
         raise ValueError("local policy schema is unsupported")
+    runtime_bundle = None
+    if "runtime_bundle" in document:
+        try:
+            private = read_private_bytes(path, max_bytes=_MAX_LOCAL_POLICY_BYTES)
+        except OSError:
+            raise ValueError("private runtime policy requires owner-only regular storage") from None
+        if private != raw:
+            raise ValueError("private local runtime policy changed while reading")
+        try:
+            runtime_bundle = RuntimeBundle.model_validate_json(
+                canonical_bytes(document["runtime_bundle"])
+            )
+        except ValidationError:
+            raise ValueError("private local runtime bundle is invalid") from None
     product = document.get("product")
     if product is not None and not is_product_id(product):
         raise ValueError("local policy product must be an application identifier")
@@ -511,6 +536,7 @@ def load_local_policy(path: Path) -> LocalPolicy:
         component_repositories={str(name): str(repo) for name, repo in repositories.items()},
         product=product,
         native_scope_digest=native_pin,
+        runtime_bundle=runtime_bundle,
     )
 
 

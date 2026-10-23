@@ -552,6 +552,30 @@ def test_network_layout_rejects_incomplete_peer_evidence(monkeypatch) -> None:
         genesis_prepare_inputs.network_layout(ROOT, subscription_id=SUBSCRIPTION)
 
 
+def test_network_layout_reserves_disconnected_peer_prefixes(monkeypatch) -> None:
+    def capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
+        del cwd
+        if arguments[:3] == ("/usr/bin/az", "network", "vnet"):
+            return (
+                '[{"local":["172.29.0.0/16"],"peers":'
+                '[{"state":"Disconnected","prefixes":["172.30.0.0/16"]}]}]'
+            )
+        if arguments[:4] == ("/usr/sbin/ip", "-j", "-4", "route"):
+            return "[]"
+        raise AssertionError(arguments)
+
+    monkeypatch.setattr(genesis_prepare_inputs, "_capture", capture)
+    monkeypatch.setattr(
+        genesis_prepare_inputs,
+        "_subscription_resource_values",
+        lambda **_kwargs: [],
+    )
+
+    layout = genesis_prepare_inputs.network_layout(ROOT, subscription_id=SUBSCRIPTION)
+
+    assert str(layout[0]) == "172.27.0.0/16"
+
+
 @pytest.mark.parametrize(
     ("vnets", "routes", "gateways"),
     [

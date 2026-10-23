@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from fdai.delivery.persistence.postgres_audit_fields import json_object
+from fdai.shared.providers.state_store import AUDIT_CHAIN_ENTRY_FIELDS
 
 if TYPE_CHECKING:
     from fdai.delivery.persistence.postgres import PostgresStateStore
@@ -21,6 +22,31 @@ async def read_audit_entries(
             await store._set_statement_timeout(conn)
             cursor = await conn.execute(
                 "SELECT entry FROM audit_log ORDER BY seq ASC LIMIT %s", (limit + 1,)
+            )
+            rows = await cursor.fetchall()
+    return tuple(dict(json_object(row["entry"])) for row in rows[:limit]), len(rows) > limit
+
+
+async def read_audit_chain_entries(
+    store: PostgresStateStore, *, limit: int
+) -> tuple[tuple[dict[str, Any], ...], bool]:
+    """Return the Saga chain's own records, filtered before the limit.
+
+    The audit table is shared by every writer, so a plain bounded read stops being a valid
+    view of the chain once unrelated rows pass the limit. The condition mirrors
+    ``is_audit_chain_record``.
+    """
+    if type(limit) is not int or not 1 <= limit <= 512:
+        raise ValueError("audit history limit must be between 1 and 512")
+    async with store._connection() as conn:
+        async with conn.transaction():
+            await store._set_statement_timeout(conn)
+            cursor = await conn.execute(
+                "SELECT entry FROM audit_log "
+                "WHERE jsonb_exists_all(entry::jsonb, %s) "
+                "OR (entry->>'actor' = 'Saga' AND entry->>'action_kind' = 'audit.record') "
+                "ORDER BY seq ASC LIMIT %s",
+                (sorted(AUDIT_CHAIN_ENTRY_FIELDS), limit + 1),
             )
             rows = await cursor.fetchall()
     return tuple(dict(json_object(row["entry"])) for row in rows[:limit]), len(rows) > limit

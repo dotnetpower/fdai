@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 복제한 저장소에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 5ea5f2886527d288b9d703087aeeacf7ac4ac2b6
+translation_source_sha: 1b6d17f4793100a348448d6cf12b6cebade4e7bf
 translation_revised: 2026-10-23
 ---
 
@@ -202,6 +202,8 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 선택적 관찰 출처는 `--observation-source`로 고르며, 기본값은 헤드리스 관찰 우선 프로파일입니다.
 AKS 컴퓨트 부분 비용 검토는 `--monthly-cost-ceiling <USD>`를 지정하지 않으면 월 1500 USD 한도를
 사용합니다. 이 설정만으로 리소스를 배포하지는 않습니다.
+`notifications` 추가 기능에는 `--notification-recipients <path>`도 필요합니다. 이 비공개 JSON 파일
+`{"recipients": ["name@domain"]}`은 런타임 프로파일과 receipt에 들어가지 않습니다.
 
 Foundation 계획 전에 Genesis는 지역 VM 카탈로그를 읽고 할당량 안에서 호환되는 Managed Host
 크기를 선택합니다. 선택은 승인 전에 봉인하며 적용 중에는 바꾸지 않습니다. 호환되는 크기가

@@ -1,6 +1,8 @@
 .git/
 .github/
 .venv/
+**/.venv/
+**/venv/
 .fdai/
 secrets/
 logs/
@@ -52,10 +54,16 @@ scripts/
 *.tfvars
 *.tfplan
 __pycache__/
+**/__pycache__/
 *.pyc
 .pytest_cache/
+**/.pytest_cache/
 .ruff_cache/
+**/.ruff_cache/
 .mypy_cache/
+**/.mypy_cache/
+**/.uv_cache/
+**/.cache/
 **/dist/
 .coverage
 htmlcov/

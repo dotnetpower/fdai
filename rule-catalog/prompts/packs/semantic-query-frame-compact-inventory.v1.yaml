@@ -1,0 +1,11 @@
+id: semantic-query-frame-compact-inventory
+version: 1
+layer: pack
+applies_to: [semantic.query.frame]
+token_budget: 256
+default_mode: shadow
+body: |-
+  For accepted primary_intent inventory.select_resources with no trusted bound collection and no stated property filter, use operation select, subject_constraints exactly ["Resource"], output_shape resource_list, and no unresolved terms. Do not reinterpret an unbound request as contextual_resource_list. Preserve stated type, location, state, grouping, relationship, time, and count constraints instead of using this unfiltered shape when any is present.
+provenance:
+  source: docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md
+  notes: Exact typed compact-frame guidance for the post-activation resource-list regression.

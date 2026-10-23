@@ -107,6 +107,18 @@ def test_catalog_yaml_preserves_safe_mapping_values_and_rereads_changes(
     assert catalog_yaml_module._yaml_mapping(path) == {"revision": 2}
 
 
+def test_sqlalchemy_psycopg_dsn_is_normalized_for_direct_connections() -> None:
+    module = _module()
+
+    assert (
+        module._psycopg_dsn("postgresql+psycopg://user@example/fdai?sslmode=require")
+        == "postgresql://user@example/fdai?sslmode=require"
+    )
+    assert module._psycopg_dsn("postgresql://user@example/fdai") == (
+        "postgresql://user@example/fdai"
+    )
+
+
 @pytest.mark.parametrize(
     ("source", "expected_error"),
     [

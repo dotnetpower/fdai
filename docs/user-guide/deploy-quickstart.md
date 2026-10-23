@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 82e0d17fa56b76307af3077e44ed3524ccfe5538 }, { source: docs/roadmap/deployment/source-deployment.md, sha: d8980873e1c9d0a35d520788053ff0c885891605 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 82e0d17fa56b76307af3077e44ed3524ccfe5538 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 7cd8f45d17f2816985ace50ab656e6eddecc5426 }]
 ---
 
 # Deploy Quickstart
@@ -214,6 +214,8 @@ with `--add-on` and optional observation sources with `--observation-source`; th
 headless observation-first profile. The partial AKS compute cost review uses a 1500 USD monthly
 ceiling unless you pass `--monthly-cost-ceiling <USD>`. These settings do not deploy resources by
 themselves.
+The `notifications` add-on also needs `--notification-recipients <path>`: a private JSON file
+`{"recipients": ["name@domain"]}` that stays out of the runtime profile and receipts.
 
 Before the Foundation plan, Genesis reads the regional VM catalog and chooses a compatible managed
 host size within the quota budget. The choice is sealed before approval and never changed during

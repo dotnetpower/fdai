@@ -53,6 +53,10 @@ from fdai.delivery.inventory_change_acceleration import (
 )
 from fdai.delivery.inventory_change_acceleration import workload_identity as _workload_identity
 from fdai.delivery.inventory_configuration_events import publish_promoted_resource_events
+from fdai.delivery.inventory_initial_closure import (
+    initial_context,
+    retain_initial_inventory_closure,
+)
 from fdai.delivery.inventory_job_config import InventoryJobConfig
 from fdai.delivery.inventory_ontology_observer import (
     build_ontology_observer,
@@ -105,10 +109,6 @@ from fdai.delivery.persistence.postgres_inventory_resume import load_unfinished_
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
-)
-from fdai.delivery.persistence.postgres_resource_lock import (
-    PostgresAdvisoryResourceLock,
-    PostgresAdvisoryResourceLockConfig,
 )
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_call_inventory import (
@@ -334,6 +334,7 @@ async def run(
     *,
     promotion_enricher: InventoryPromotionEnricher | None = None,
     run_lock_timeout_ms: int = inventory_sync_cli_support.RUN_LOCK_TIMEOUT_MS,
+    retain_initial_closure: bool = False,
 ) -> InventoryJobResult:
     """Run ordered source fallback and optional verified pre-promotion enrichment."""
     vocabulary = _load_resource_type_registry()
@@ -345,7 +346,8 @@ async def run(
             freshness_budget_seconds=config.freshness_budget_seconds,
         )
     )
-    async with AsyncExitStack() as stack:
+    async with initial_context(config, run_lock_timeout_ms, retain_initial_closure) as context:
+        stack, run_lock = context
         client = await stack.enter_async_context(httpx.AsyncClient())
         identity = _workload_identity(http_client=client)
         progress_recorder = await build_inventory_progress_recorder(
@@ -398,12 +400,7 @@ async def run(
                 collection_loader=partial(
                     load_unfinished_collection, PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
                 ),
-                run_lock=PostgresAdvisoryResourceLock(
-                    config=PostgresAdvisoryResourceLockConfig(
-                        dsn=config.dsn,
-                        lock_timeout_ms=run_lock_timeout_ms,
-                    )
-                ),
+                run_lock=run_lock,
                 relationship_mapping_catalog=relationship_catalog,
                 progress_deadline_seconds=float(config.progress_deadline_seconds),
                 attempt_deadline_seconds=float(config.attempt_deadline_seconds),
@@ -453,6 +450,8 @@ async def run(
                     ),
                     logger=_LOGGER,
                 )
+            if retain_initial_closure:
+                await retain_initial_inventory_closure(config)
             await progress_recorder.complete()
         except Exception:
             try:
@@ -743,7 +742,11 @@ async def _main(argv: list[str]) -> None:
     while True:
         config = await _load_job_config()
         if initial:
-            await run(config, run_lock_timeout_ms=inventory_sync_cli_support.INITIAL_LOCK_MS)
+            await run(
+                config,
+                run_lock_timeout_ms=inventory_sync_cli_support.INITIAL_LOCK_MS,
+                retain_initial_closure=True,
+            )
             return
         try:
             await _run_due_once(config)

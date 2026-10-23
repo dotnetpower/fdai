@@ -13,7 +13,9 @@ or a second source of provider truth. Optional source admission fences reads wit
 > Governance review-class tokens colocated with catalog schemas remain change-control metadata,
 > not ontology types or autonomy axes. `standing-authority-promotion` cannot change an ActionType
 > mode or grant A3-E authority, and `operator-override-promotion` is the same kind of change-control metadata for one governed promotion request;
-> the single-operator production profile only lets its named Owner meet those classes' review quorum alone. The Operator promotion-gate view is read-only registry metadata outside ontology identity and classification. [Observer setup projections](aks-outbound-connector.md#operator-delivery-contract) likewise reference an existing neutral cluster identity without creating Resource, ObjectType, LinkType or installation authority.
+> an active single-operator production profile lets its named human meet installation governance
+> review requirements with effective quorum one, while retaining required roles and authentication.
+> This does not select repository review policy or change ontology authority. The Operator promotion-gate view is read-only registry metadata outside ontology identity and classification. [Observer setup projections](aks-outbound-connector.md#operator-delivery-contract) likewise reference an existing neutral cluster identity without creating Resource, ObjectType, LinkType or installation authority.
 > Additive non-ontology Operator routes, including the code-security worker heartbeat, remain
 > operational projections. Registering them in the shared route manifest creates no ontology type,
 > relationship, query authority, or structural-model dependency.

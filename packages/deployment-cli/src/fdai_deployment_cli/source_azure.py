@@ -32,6 +32,9 @@ from fdai_deployment_cli.installation_scope import (
     confirm_installation_scope,
     started_installation_matches,
 )
+from fdai_deployment_cli.notification_recipients_input import (
+    NotificationRecipientsDeploymentInput,
+)
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     OperationalEvidenceVerifierDeploymentInput,
 )
@@ -63,6 +66,7 @@ def plan_source_installation(
     confirm_initial: bool = False,
     foundation_recovery_directory: Path | None = None,
     operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
+    notification_recipients: NotificationRecipientsDeploymentInput | None = None,
     development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
     clear_development_authority_profile: bool = False,
 ) -> dict[str, object]:
@@ -85,6 +89,8 @@ def plan_source_installation(
             raise ValueError("source recovery cannot replace the retained initial scope or prompt")
         if operational_evidence_verifier_input is not None:
             raise ValueError("source recovery cannot add a new operational evidence verifier input")
+        if notification_recipients is not None:
+            raise ValueError("source recovery cannot add notification recipients")
         if development_authority_profile is not None:
             raise ValueError("source recovery cannot add a development authority profile")
         if clear_development_authority_profile:
@@ -161,7 +167,10 @@ def plan_source_installation(
         )
     with installer_activity("Checking AKS SKU, quota, and PostgreSQL availability"):
         preflight = inspect_aks_target(
-            profile=runtime_profile, region=region, timeout_seconds=deadline.remaining(180)
+            profile=runtime_profile,
+            region=region,
+            timeout_seconds=deadline.remaining(180),
+            owned_resource_group=_retained_application_group(work_dir, foundation_workload),
         )
     work_dir = work_dir.absolute()
     retained_binding = {
@@ -420,6 +429,7 @@ def plan_source_installation(
                 foundation_state_receipt_digest=str(expected_handoff_digest),
                 catalog_review_profile=CatalogReviewDeploymentProfile.unselected(),
                 operational_evidence_verifier_input=operational_evidence_verifier_input,
+                notification_recipients=notification_recipients,
                 development_authority_profile=development_authority_profile,
                 clear_development_authority_profile=clear_development_authority_profile,
                 current_operator_object_id=current_operator_object_id,
@@ -453,6 +463,29 @@ def plan_source_installation(
         )
         if prompt.returncode != 0:
             raise ValueError("source Foundation exact approval was not granted")
+
+
+def _retained_application_group(work_dir: Path, workload: str) -> str | None:
+    """Name the resource group a resumed run already owns, from its retained variables."""
+
+    path = work_dir.absolute() / "foundation" / "foundation-variables.json"
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        values = load_json_object(
+            read_private_bytes(path, max_bytes=65536), label="retained Foundation variables"
+        )
+    except (OSError, ValueError):
+        return None
+    region_short = values.get("region_short")
+    if (
+        values.get("workload") != workload
+        or not isinstance(region_short, str)
+        or re.fullmatch(r"[a-z][a-z0-9]{1,11}", region_short) is None
+        or re.fullmatch(r"[a-z][a-z0-9-]{1,30}", workload) is None
+    ):
+        return None
+    return f"rg-{workload}-dev-{region_short}"
 
 
 def _capture(

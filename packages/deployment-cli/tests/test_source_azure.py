@@ -905,3 +905,16 @@ def test_unpinned_path_terraform_fetches_the_committed_release(tmp_path, monkeyp
             confirm_initial=True,
         )
     assert fetched == [{"terraform_binary_sha256": "e" * 64}]
+
+
+def test_retained_group_comes_only_from_matching_private_variables(tmp_path) -> None:
+    foundation = tmp_path / "foundation"
+    foundation.mkdir(mode=0o700)
+    assert source_azure._retained_application_group(tmp_path, "fdaix") is None
+
+    variables = foundation / "foundation-variables.json"
+    variables.write_text('{"workload":"fdaix","region_short":"wus3"}', encoding="utf-8")
+    variables.chmod(0o600)
+
+    assert source_azure._retained_application_group(tmp_path, "fdaix") == "rg-fdaix-dev-wus3"
+    assert source_azure._retained_application_group(tmp_path, "other") is None

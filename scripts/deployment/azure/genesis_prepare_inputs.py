@@ -392,6 +392,9 @@ def _ipv4_networks(value: object) -> list[ipaddress.IPv4Network]:
     return [network] if isinstance(network, ipaddress.IPv4Network) else []
 
 
+_PEERING_STATES = frozenset({"Connected", "Initiated", "Disconnected"})
+
+
 def _require_complete_network_evidence(
     vnets: object, route_tables: object, local_gateways: object, local_routes: object
 ) -> None:
@@ -410,11 +413,10 @@ def _require_complete_network_evidence(
         if not isinstance(peers, list):
             raise ValueError("Azure peering evidence is incomplete")
         for peer in peers:
-            if not isinstance(peer, dict) or peer.get("state") not in {
-                "Connected",
-                "Disconnected",
-                "Initiated",
-            }:
+            # A peering whose remote network was deleted stays `Disconnected` and keeps the
+            # remote address space. It is another team's leftover, not missing evidence, so its
+            # range remains an overlap constraint instead of stopping every installation.
+            if not isinstance(peer, dict) or peer.get("state") not in _PEERING_STATES:
                 raise ValueError("Azure peering evidence is incomplete")
             _require_prefix_list(peer.get("prefixes"), label="Azure peering")
     for route in route_tables:

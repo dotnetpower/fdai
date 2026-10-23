@@ -78,6 +78,10 @@ fdaictl provision azure --offline-kit /private/fdai-offline/fdai-deployment-kit-
 - Secrets and signing keys never enter the repository, logs, command-line values, or chat. Pass
   key files by path only.
 - Do not use GitHub Actions as the tenant deployment transport.
+- Operator default: do not create, deploy, or bind a GitHub App for an installation. Omit
+  `--catalog-review-profile` and use the Console-governed approval path. Select an App-backed
+  integration only on a new explicit operator request. This is a selection default, not an
+  installation gate, and it never blocks a run.
 - Do not repeat an apply whose outcome is ambiguous. Read back state and plan again instead.
 - Articles 7 and 8 govern FDAI's own runtime actions on managed resources. They are not
   installation gates.

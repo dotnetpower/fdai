@@ -1844,6 +1844,238 @@ class SimpleUpload:
         self.upload_id = upload_id
 
 
+@pytest.mark.parametrize("state", [DocumentState.RECEIVED, DocumentState.PROTECTION_CHECK])
+async def test_gated_replay_remains_repeatable_without_advancing_state(state, caplog) -> None:
+    metadata, session, _version = await _effect_fixture(
+        state=state,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key="quarantine/private-source",
+    )
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=RecordingEventBus(),
+        worker=_effect_worker(metadata, MemoryObjects()),
+        metadata=metadata,
+        activity=Activity(),
+        topic="object.audit-entry",
+    )
+    caplog.set_level(logging.INFO)
+    for _ in range(3):
+        assert await consumer._reconcile_cycle()
+    assert len(metadata.events) == 3
+    assert len({event.idempotency_key for event in metadata.events}) == 1
+    assert metadata.uploads[session.upload_id].state is state
+    assert all(
+        claim.status is DocumentWorkerClaimStatus.RELEASED for claim in metadata.claims.values()
+    )
+    assert (
+        sum(record.message == "document_worker_stage_completed" for record in caplog.records) == 3
+    )
+    assert "private-source" not in str([record.__dict__ for record in caplog.records])
+
+
+def test_worker_log_output_exposes_stage_metadata_without_raw_payload_or_traceback() -> None:
+    from fdai_document_worker_service.supervisor import WorkerLogFormatter
+
+    record = logging.LogRecord(
+        "fdai_document_worker_service.consumer",
+        logging.INFO,
+        "",
+        0,
+        "document_worker_stage_started",
+        (),
+        None,
+    )
+    record.upload_id = str(uuid4())
+    record.stage = "inspection"
+    record.payload = {"content": "private document body"}
+    record.key = "private broker identity"
+    record.actor_id = "private actor"
+    rendered = WorkerLogFormatter().format(record)
+    decoded = json.loads(rendered)
+    assert decoded["stage"] == "inspection" and decoded["upload_id"] == record.upload_id
+    assert "private" not in rendered
+
+
+async def test_structured_handover_received_to_ready_and_draft_through_agent_gates(caplog) -> None:
+    from fdai.agents import Forseti, Heimdall, Saga
+    from fdai.agents._framework.bus import InMemoryBus
+    from fdai.agents._framework.registry import load_pantheon
+    from fdai.agents.muninn import Muninn
+    from fdai.agents.var import Var
+    from fdai_document_worker_service.handover import _AGENT_NAMES, HandoverBootstrapConsumer
+    from fdai_service_contracts import (
+        MalwareVerdict,
+        ProtectionInspection,
+        ResolvedStewardIdentity,
+        StewardDuty,
+        StewardKind,
+        StewardResponsibility,
+        StewardshipAgentInput,
+        StewardshipInput,
+        StewardshipSubject,
+        StructuralUnit,
+    )
+
+    text = "Agent: Njord; responsibility: accountable; subject: user; identity: Jane Kim"
+    metadata, session, version = await _effect_fixture(
+        state=DocumentState.RECEIVED,
+        storage_mode=SourceStorageMode.MANAGED_COPY,
+        object_key="quarantine/private-source",
+    )
+    purpose = (DocumentPurpose.HANDOVER_BOOTSTRAP,)
+    session = session.model_copy(
+        update={
+            "purposes": purpose,
+            "expected_size": len(text),
+            "expected_sha256": hashlib.sha256(text.encode()).hexdigest(),
+        }
+    )
+    version = version.model_copy(
+        update={
+            "purposes": purpose,
+            "size_bytes": len(text),
+            "source_sha256": session.expected_sha256,
+        }
+    )
+    await metadata.create(session, version)
+    objects = MemoryObjects()
+    objects.content[session.object_key] = text.encode()
+
+    class Scanner:
+        async def scan(self, _chunks):
+            return MalwareVerdict.CLEAN
+
+    class Protection:
+        async def inspect(self, **_kwargs):
+            return ProtectionInspection(
+                state=ProtectionState.NONE, observed_format="text", media_type="text/plain"
+            )
+
+    class Extractor(StaticExtractor):
+        async def extract(self, **kwargs):
+            envelope = await super().extract(**kwargs)
+            return envelope.model_copy(
+                update={
+                    "units": (
+                        StructuralUnit(
+                            unit_id="line-1", kind="paragraph", locator="paragraph:1", text=text
+                        ),
+                    )
+                }
+            )
+
+    class Directory:
+        async def resolve(self, _name):
+            return ResolvedStewardIdentity(oid="example-owner", kind=StewardKind.USER)
+
+    class DraftStore:
+        artifact = None
+
+        async def get(self, _upload_id):
+            return self.artifact
+
+        async def put(self, artifact):
+            self.artifact = artifact
+
+    drafts = DraftStore()
+    worker = DocumentIngestionWorker(
+        metadata=metadata,
+        objects=objects,
+        malware=Scanner(),
+        protection=Protection(),
+        extractor=Extractor(),
+        artifacts=ArtifactRecorder(),
+        index=IndexRecorder(),
+        purge_verifier=ZeroResidueVerifier(),
+        consumers=(
+            HandoverBootstrapConsumer(
+                directory=Directory(),
+                store=drafts,
+                stewardship=StewardshipInput(
+                    version=2,
+                    revision="example",
+                    maintainers=("reviewer",),
+                    agents=tuple(
+                        StewardshipAgentInput(
+                            agent_name=name,
+                            stewards=(
+                                StewardshipSubject(
+                                    kind=StewardKind.USER,
+                                    oid="example-owner",
+                                    responsibility=StewardResponsibility.ACCOUNTABLE,
+                                    duty=StewardDuty.PRIMARY,
+                                ),
+                            ),
+                        )
+                        for name in _AGENT_NAMES
+                    ),
+                ),
+            ),
+        ),
+    )
+    bus = InMemoryBus(registry=load_pantheon())
+    heimdall, forseti, saga, var, muninn = (
+        Heimdall(bus=bus),
+        Forseti(bus=bus),
+        Saga(),
+        Var(bus=bus),
+        Muninn(),
+    )
+    saga.bind_bus(bus)
+    muninn.bind_bus(bus)
+    for topic, name, agent in (
+        ("object.event", "Forseti", forseti),
+        ("object.event", "Heimdall", heimdall),
+        ("object.anomaly", "Forseti", forseti),
+        ("object.verdict", "Saga", saga),
+        ("object.audit-entry", "Var", var),
+        ("object.audit-entry", "Muninn", muninn),
+        ("object.approval", "Saga", saga),
+    ):
+        bus.subscribe(topic, name, agent.on_typed_message)
+    worker_bus = CommitTrackingCandidateEventBus(())
+    consumer = DocumentIngestionEventConsumer(
+        event_bus=worker_bus,
+        worker=worker,
+        metadata=metadata,
+        activity=Activity(),
+        topic="object.audit-entry",
+    )
+    caplog.set_level(logging.INFO)
+    await worker.republish_received(session.upload_id)
+    event = metadata.events[-1]
+    await bus.publish("Huginn", event.topic, dict(event.payload))
+
+    async def consume_command(command, operation):
+        worker_bus._events = (
+            EventEnvelope(topic=command.topic, key=command.key, payload=command.payload, offset=1),
+        )
+        worker_bus.committed.clear()
+        task = asyncio.create_task(operation())
+        try:
+            await asyncio.wait_for(worker_bus.committed.wait(), timeout=2)
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        assert worker_bus.dead_letters == []
+
+    await consume_command(bus.messages_on("object.audit-entry")[-1], consumer.run)
+    assert metadata.uploads[session.upload_id].state is DocumentState.PROTECTION_CHECK
+    event = metadata.events[-1]
+    await bus.publish("Huginn", event.topic, dict(event.payload))
+    assert var.pending_tickets()
+    assert not bus.messages_on("object.context-index")
+    await var.decide(str(session.upload_id), approver="reviewer", decision="approve")
+    await consume_command(bus.messages_on("object.context-index")[-1], consumer.run_index_commands)
+    assert metadata.uploads[session.upload_id].state is DocumentState.READY
+    assert drafts.artifact is not None and drafts.artifact.draft.mappings[0].agent_name == "Njord"
+    assert not bus.messages_on("object.action-run")
+    assert not bus.dead_letters
+    logs = str([record.__dict__ for record in caplog.records])
+    assert "Jane Kim" not in logs and "private-source" not in logs
+    assert any(record.message == "document_worker_audit_received" for record in caplog.records)
+
+
 class SimpleWorker:
     def __init__(self, *, inspect: object, index: object) -> None:
         self.inspect = inspect

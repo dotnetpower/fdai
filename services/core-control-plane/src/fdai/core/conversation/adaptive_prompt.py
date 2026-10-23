@@ -32,6 +32,16 @@ class AdaptiveModel(Protocol):
         escalated: bool = False,
     ) -> ConversationModelResponse | None:
         """Return measured output, or ``None`` when this single attempt is unavailable."""
+        ...
+
+
+@runtime_checkable
+class AdaptiveStageTokenBudget(Protocol):
+    """Expose a model's active per-stage provider output ceiling."""
+
+    def output_tokens_for_stage(self, stage: str) -> int:
+        """Return the active provider output ceiling for one stage."""
+        ...
 
 
 @runtime_checkable

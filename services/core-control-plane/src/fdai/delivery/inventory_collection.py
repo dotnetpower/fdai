@@ -113,6 +113,9 @@ def _internal_inventory_failure_reason(exc: Exception) -> str | None:
             "dangling_relationship_endpoint"
         ),
         "inventory candidate violates contains parent cardinality": "ambiguous_containment_parent",
+        "mapped resource identities do not reconcile with provider coverage": (
+            "provider_coverage_changed"
+        ),
     }
     if reason := exact.get(text):
         return reason

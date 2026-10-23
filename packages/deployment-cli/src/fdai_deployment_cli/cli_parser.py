@@ -23,6 +23,7 @@ from fdai_deployment_cli.foundation_plan import register_foundation_plan_command
 from fdai_deployment_cli.lifecycle_configuration_cli import register_configuration_commands
 from fdai_deployment_cli.runtime_profile import DATABASE_SKUS
 from fdai_deployment_cli.state_handoff import register_state_handoff_command
+from fdai_deployment_cli import source_change_parser
 
 CommandHandler = Callable[[argparse.Namespace], int]
 
@@ -255,6 +256,16 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         ),
     )
     settings.add_argument(
+        "--notification-recipients",
+        type=Path,
+        metavar="PATH",
+        dest="notification_recipients",
+        help=(
+            'Private JSON file {"recipients": ["name@domain"]} for the notifications add-on '
+            "on a source AKS installation; required with that add-on, never stored in the profile"
+        ),
+    )
+    settings.add_argument(
         "--development-authority-profile",
         type=Path,
         metavar="PATH",
@@ -439,6 +450,12 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     )
     entra.add_argument("--output", choices=("text", "json"), default="text")
     entra.set_defaults(handler=handlers["provision_entra"])
+
+    source_change_parser.register(
+        provision_commands,
+        command=command,
+        handlers=handlers,
+    )
 
     source_update = command(
         provision_commands,

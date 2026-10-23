@@ -14,7 +14,15 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    StringConstraints,
+    model_serializer,
+    model_validator,
+)
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 
@@ -34,6 +42,8 @@ class NativeScope(BaseModel):
     product: ProductId
     namespace: DnsName
     components: Annotated[tuple[DnsName, ...], Field(min_length=1, max_length=64)]
+    service_components: Annotated[tuple[DnsName, ...], Field(max_length=64)] | None = None
+    scheduled_components: Annotated[tuple[DnsName, ...], Field(max_length=64)] = ()
 
     @model_validator(mode="after")
     def validate_components(self) -> Self:
@@ -41,7 +51,28 @@ class NativeScope(BaseModel):
             raise ValueError("native components must be unique and sorted")
         if self.anchor_name in self.components:
             raise ValueError("a workload component conflicts with the native anchor")
+        if self.service_components is not None and (
+            tuple(sorted(set(self.service_components))) != self.service_components
+            or not set(self.service_components) <= set(self.components)
+        ):
+            raise ValueError("native Services must be a canonical subset of Deployments")
+        if (
+            tuple(sorted(set(self.scheduled_components))) != self.scheduled_components
+            or set(self.components) & set(self.scheduled_components)
+            or self.anchor_name in self.scheduled_components
+            or len(self.components) + len(self.scheduled_components) > 64
+        ):
+            raise ValueError("native scheduled components must be distinct and canonical")
         return self
+
+    @model_serializer(mode="wrap")
+    def preserve_original_scope(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        document: dict[str, object] = handler(self)
+        if not self.scheduled_components:
+            document.pop("scheduled_components", None)
+        if self.service_components is None:
+            document.pop("service_components", None)
+        return document
 
     @property
     def digest(self) -> str:
@@ -56,8 +87,11 @@ class NativeScope(BaseModel):
 
     @property
     def resources(self) -> frozenset[tuple[str, str]]:
-        return frozenset(
-            (kind, component) for component in self.components for kind in ("Deployment", "Service")
+        services = self.components if self.service_components is None else self.service_components
+        return (
+            frozenset(("Deployment", component) for component in self.components)
+            | frozenset(("Service", component) for component in services)
+            | frozenset(("CronJob", component) for component in self.scheduled_components)
         )
 
 

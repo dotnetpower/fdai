@@ -162,11 +162,47 @@ mapfile -t services < <(
   exit 3
 }
 
-for service in "${services[@]}"; do
-  [[ -f "$repo_root/services/$service/docker/Dockerfile" ]] || {
-    echo "build-standalone-kit: runtime service Dockerfile is unavailable" >&2
-    exit 3
-  }
+release_parallelism=3
+release_jobs=()
+
+stop_release_jobs() {
+  local pid
+  for pid in "${release_jobs[@]}"; do
+    kill -TERM "$pid" >/dev/null 2>&1 || true
+  done
+  for pid in "${release_jobs[@]}"; do
+    wait "$pid" >/dev/null 2>&1 || true
+  done
+  release_jobs=()
+}
+
+trap stop_release_jobs EXIT
+trap 'stop_release_jobs; exit 130' INT
+trap 'stop_release_jobs; exit 143' TERM
+
+wait_release_batch() {
+  local status=0 current=0 pid
+  for pid in "${release_jobs[@]}"; do
+    wait "$pid" || current=$?
+    if ((status == 0 && current != 0)); then
+      status="$current"
+    fi
+    current=0
+  done
+  release_jobs=()
+  return "$status"
+}
+
+start_release_job() {
+  "$@" &
+  release_jobs+=("$!")
+  if ((${#release_jobs[@]} == release_parallelism)); then
+    wait_release_batch
+  fi
+}
+
+build_service_image() {
+  local service="$1"
   echo "-- build OCI image: $service"
   bounded_stage "image-$service" 1800 300 docker buildx build \
     --progress=plain \
@@ -178,41 +214,53 @@ for service in "${services[@]}"; do
     --output "type=oci,dest=$release_input/images/$service.oci.tar" \
     "$repo_root"
   source_boundary "source-after-$service"
+}
+
+build_dependency_image() {
+  local name="$1"
+  echo "-- build OCI image: $name"
+  bounded_stage "image-$name" 1800 300 docker buildx build \
+    --progress=plain \
+    --platform linux/amd64 \
+    --provenance=false \
+    --sbom=false \
+    --file "$release_input/metadata/$name.Dockerfile" \
+    --output "type=oci,dest=$release_input/images/$name.oci.tar" \
+    "$release_input/metadata"
+}
+
+build_console_artifact() {
+  echo "-- build Console artifact"
+  bounded_stage console-dependencies 600 180 npm --prefix "$repo_root/console" ci --ignore-scripts
+  bounded_stage console-build 900 300 npm --prefix "$repo_root/console" run build:offline
+  bounded_stage console-archive 120 120 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
+    --transform='s,^offline,dist,' \
+    -czf "$release_input/console.tar.gz" -C "$repo_root/console/dist" offline
+  source_boundary source-after-console
+}
+
+start_release_job build_console_artifact
+for service in "${services[@]}"; do
+  [[ -f "$repo_root/services/$service/docker/Dockerfile" ]] || {
+    echo "build-standalone-kit: runtime service Dockerfile is unavailable" >&2
+    exit 3
+  }
+  start_release_job build_service_image "$service"
 done
 
 cat >"$release_input/metadata/clamav.Dockerfile" <<'EOF'
 FROM clamav/clamav@sha256:0af8760cd96f9ab67d07977af36e155431581a9fe9f0ec8b256c9f855fda183e
 EOF
-echo "-- build OCI image: clamav"
-bounded_stage image-clamav 1800 300 docker buildx build \
-  --progress=plain \
-  --platform linux/amd64 \
-  --provenance=false \
-  --sbom=false \
-  --file "$release_input/metadata/clamav.Dockerfile" \
-  --output "type=oci,dest=$release_input/images/clamav.oci.tar" \
-  "$release_input/metadata"
-
 cat >"$release_input/metadata/pgvector.Dockerfile" <<'EOF'
 FROM pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
 EOF
-echo "-- build OCI image: pgvector"
-bounded_stage image-pgvector 1800 300 docker buildx build \
-  --progress=plain \
-  --platform linux/amd64 \
-  --provenance=false \
-  --sbom=false \
-  --file "$release_input/metadata/pgvector.Dockerfile" \
-  --output "type=oci,dest=$release_input/images/pgvector.oci.tar" \
-  "$release_input/metadata"
 
-echo "-- build Console artifact"
-bounded_stage console-dependencies 600 180 npm --prefix "$repo_root/console" ci --ignore-scripts
-bounded_stage console-build 900 300 npm --prefix "$repo_root/console" run build:offline
-bounded_stage console-archive 120 120 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \
-  --transform='s,^offline,dist,' \
-  -czf "$release_input/console.tar.gz" -C "$repo_root/console/dist" offline
-source_boundary source-after-console
+start_release_job build_dependency_image clamav
+start_release_job build_dependency_image pgvector
+if ((${#release_jobs[@]} > 0)); then
+  wait_release_batch
+fi
+
 printf '{"schema_version":"fdai.deployment-support.v1","source_commit":"%s"}\n' \
   "$source_commit" >"$release_input/metadata/deployment-support.json"
 bounded_stage support-archive 120 120 tar --sort=name --mtime="@$source_epoch" --owner=0 --group=0 --numeric-owner \

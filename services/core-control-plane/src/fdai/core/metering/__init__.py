@@ -29,6 +29,7 @@ from fdai.core.metering.aggregate import (
     summarize_by_mode,
     summarize_by_model,
     summarize_by_month,
+    summarize_by_outcome,
     summarize_by_scope,
     summarize_total,
     usage_summaries_as_mapping,
@@ -36,13 +37,19 @@ from fdai.core.metering.aggregate import (
 from fdai.core.metering.context import current_invocation_scope, with_invocation_scope
 from fdai.core.metering.emitter import MeteringEmitter
 from fdai.core.metering.pricing import ModelPricing, PricingTable
-from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
+from fdai.core.metering.records import (
+    InvocationDisposition,
+    InvocationMode,
+    InvocationScope,
+    LlmInvocation,
+)
 from fdai.core.metering.sink import InMemoryMeteringSink, MeteringReader, MeteringSink
 from fdai.core.metering.usage import TokenUsage
 
 __all__ = [
     "InMemoryMeteringSink",
     "InvocationMode",
+    "InvocationDisposition",
     "InvocationScope",
     "LlmInvocation",
     "MeteringEmitter",
@@ -60,6 +67,7 @@ __all__ = [
     "summarize_by_model",
     "summarize_by_mode",
     "summarize_by_month",
+    "summarize_by_outcome",
     "summarize_by_scope",
     "summarize_total",
     "usage_summaries_as_mapping",

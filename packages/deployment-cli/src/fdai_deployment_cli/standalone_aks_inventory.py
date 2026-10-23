@@ -13,12 +13,42 @@ from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_aks_job_execution import execute_aks_cronjob_once
-from fdai_deployment_cli.standalone_host_state import replace_private_json
+from fdai_deployment_cli.standalone_host_state import private_json, replace_private_json
 from fdai_deployment_cli.standalone_host_values import vault_name
 
 _GUID = re.compile(r"^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$")
 _CLOSURE_CLOCK_SKEW = timedelta(seconds=60)
 _INITIAL_INVENTORY_SOURCES = ("arg", "arm")
+_ATTEMPT_SCHEMA = "fdai.aks-initial-inventory-attempt.v1"
+_MAX_ATTEMPTS = 3
+_CLOSURE_FAILURE = re.compile(r"inventory closure verification failed: ([a-z_]+(?:,[a-z_]+)*)")
+_CLOSURE_CONDITIONS = frozenset(
+    {
+        "verified_progress",
+        "active",
+        "active_generation",
+        "observed",
+        "source",
+        "subscription_scope",
+        "full_scope",
+        "provider_coverage",
+        "unmapped_reconciled",
+        "overlay_closed",
+        "child_sources",
+        "projection",
+        "fresh_generation",
+    }
+)
+# Without retained independent closure, a superseded Job generation needs a new bounded attempt.
+_SUPERSEDED_CLOSURE_CONDITIONS = frozenset({"active_generation"})
+
+
+class _CapturedFailure(ValueError):
+    """A captured command failed; the bounded stderr stays available for classification."""
+
+    def __init__(self, reason: str, stderr: str) -> None:
+        super().__init__(reason)
+        self.stderr = stderr
 
 
 def initial_inventory_binding(subscription_id: str) -> dict[str, object]:
@@ -49,32 +79,40 @@ def run_initial_aks_inventory(
     binding = _validated_initial_inventory_binding(context)
     sources = binding["sources"]
     if not isinstance(sources, list):
-        raise TypeError("initial inventory source binding is invalid")
+        raise ValueError(  # noqa: TRY004 - normalize untrusted deployment state
+            "initial inventory source binding is invalid"
+        )
     progress_url = str(context.get("inventory_progress_container_url", ""))
     if not progress_url.startswith("https://"):
         raise ValueError("initial inventory progress endpoint is invalid")
     image_refs = _mapping(context.get("image_refs"), "runtime image references")
     core_image = str(image_refs.get("core-control-plane", ""))
     run_id = f"genesis.{source_revision}"
+    attempt = _begin_inventory_attempt(
+        work_dir,
+        source_revision=source_revision,
+        target_binding=target_binding,
+    )
     attempt_id = (
         "attempt."
         + hashlib.sha256(
-            f"{source_revision}:{target_binding}:initial-inventory".encode()
+            f"{source_revision}:{target_binding}:initial-inventory:{attempt}".encode()
         ).hexdigest()[:32]
     )
     retry_attempt_id = (
         "attempt."
         + hashlib.sha256(
-            f"{source_revision}:{target_binding}:initial-inventory:retry-1".encode()
+            f"{source_revision}:{target_binding}:initial-inventory:{attempt}:retry-1".encode()
         ).hexdigest()[:32]
     )
     second_retry_attempt_id = (
         "attempt."
         + hashlib.sha256(
-            f"{source_revision}:{target_binding}:initial-inventory:retry-2".encode()
+            f"{source_revision}:{target_binding}:initial-inventory:{attempt}:retry-2".encode()
         ).hexdigest()[:32]
     )
     execution_environment = {
+        "FDAI_INVENTORY_EXECUTION_ATTEMPT": str(attempt),
         "FDAI_INVENTORY_RESOURCE_TYPES": "",
         "FDAI_INVENTORY_SCOPES": str(context["subscription_id"]),
         "FDAI_INVENTORY_SOURCES": ",".join(str(source) for source in sources),
@@ -83,30 +121,48 @@ def run_initial_aks_inventory(
         "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
         "FDAI_INVENTORY_PROGRESS_RUN_ID": run_id,
     }
-    execution = execute_aks_cronjob_once(
-        context,
+    try:
+        execution = execute_aks_cronjob_once(
+            context,
+            work_dir,
+            template_name="inventory",
+            purpose="inventory",
+            expected_container_name="inventory",
+            expected_image=core_image,
+            expected_command=("python", "-m", "fdai.delivery.inventory_sync_cli"),
+            expected_service_account="inventory-job",
+            args=("--initial",),
+            environment=execution_environment,
+            require_suspended=False,
+            timeout_seconds=960,
+            failed_successor_limit=2,
+            retry_environments=(
+                {
+                    **execution_environment,
+                    "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": retry_attempt_id,
+                },
+                {
+                    **execution_environment,
+                    "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": second_retry_attempt_id,
+                },
+            ),
+        )
+    except ValueError as exc:
+        if str(exc) == "AKS inventory Job failed":
+            _write_inventory_attempt(
+                work_dir,
+                source_revision=source_revision,
+                target_binding=target_binding,
+                attempt=attempt,
+                state="failed",
+            )
+        raise
+    _write_inventory_attempt(
         work_dir,
-        template_name="inventory",
-        purpose="inventory",
-        expected_container_name="inventory",
-        expected_image=core_image,
-        expected_command=("python", "-m", "fdai.delivery.inventory_sync_cli"),
-        expected_service_account="inventory-job",
-        args=("--initial",),
-        environment=execution_environment,
-        require_suspended=False,
-        timeout_seconds=960,
-        failed_successor_limit=2,
-        retry_environments=(
-            {
-                **execution_environment,
-                "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": retry_attempt_id,
-            },
-            {
-                **execution_environment,
-                "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": second_retry_attempt_id,
-            },
-        ),
+        source_revision=source_revision,
+        target_binding=target_binding,
+        attempt=attempt,
+        state="succeeded",
     )
     if execution.name.startswith("fdai-inventory-retry-1-"):
         attempt_id = retry_attempt_id
@@ -158,15 +214,40 @@ def run_initial_aks_inventory(
             )
         ),
     }
-    closure_started_at = datetime.now(tz=UTC)
-    closure = _verified_closure(
-        _capture_env(
+    attempt_record = private_json(work_dir / "initial-inventory-attempt.json", "inventory attempt")
+    closure_started_at = _parse_observed_at(attempt_record.get("started_at"))
+    if closure_started_at is None:
+        raise ValueError("initial inventory attempt start time is invalid")
+    try:
+        closure_output = _capture_env(
             (str(runtime_python), "-m", "fdai.delivery.inventory_closure_cli"),
             cwd=bundle,
             env=closure_environment,
             timeout=300,
             reason="initial inventory independent closure failed",
-        ),
+        )
+    except _CapturedFailure as exc:
+        conditions = _failed_closure_conditions(exc.stderr)
+        if conditions and conditions <= _SUPERSEDED_CLOSURE_CONDITIONS:
+            _write_inventory_attempt(
+                work_dir,
+                source_revision=source_revision,
+                target_binding=target_binding,
+                attempt=attempt,
+                state="failed",
+            )
+            raise ValueError(
+                "initial inventory independent closure failed: the Job generation was "
+                "superseded by a newer active generation; the next invocation starts a new "
+                f"attempt ({','.join(sorted(conditions))})"
+            ) from None
+        if conditions:
+            raise ValueError(
+                f"initial inventory independent closure failed: {','.join(sorted(conditions))}"
+            ) from None
+        raise
+    closure = _verified_closure(
+        closure_output,
         expected_attempt_id=attempt_id,
         expected_run_id=run_id,
         expected_scope_digest=str(binding["scope_digest"]),
@@ -206,6 +287,78 @@ def run_initial_aks_inventory(
     receipt["receipt_digest"] = canonical_digest(receipt)
     replace_private_json(receipt_path, receipt)
     return receipt
+
+
+def _begin_inventory_attempt(
+    work_dir: Path,
+    *,
+    source_revision: str,
+    target_binding: str,
+) -> int:
+    path = work_dir / "initial-inventory-attempt.json"
+    if not path.exists():
+        _write_inventory_attempt(
+            work_dir,
+            source_revision=source_revision,
+            target_binding=target_binding,
+            attempt=1,
+            state="active",
+        )
+        return 1
+    value = private_json(path, "initial inventory attempt")
+    digest = value.pop("record_digest", None)
+    attempt = value.get("attempt")
+    state = value.get("state")
+    if (
+        digest != canonical_digest(value)
+        or value.get("schema_version") != _ATTEMPT_SCHEMA
+        or value.get("source_revision") != source_revision
+        or value.get("target_binding") != target_binding
+        or type(attempt) is not int
+        or not 1 <= attempt <= _MAX_ATTEMPTS
+        or state not in {"active", "failed", "succeeded"}
+        or ("started_at" in value and _parse_observed_at(value["started_at"]) is None)
+    ):
+        raise ValueError("initial inventory attempt is invalid")
+    if state != "failed":
+        return attempt
+    if attempt >= _MAX_ATTEMPTS:
+        raise ValueError("initial inventory attempts are exhausted")
+    next_attempt = attempt + 1
+    _write_inventory_attempt(
+        work_dir,
+        source_revision=source_revision,
+        target_binding=target_binding,
+        attempt=next_attempt,
+        state="active",
+    )
+    return next_attempt
+
+
+def _write_inventory_attempt(
+    work_dir: Path,
+    *,
+    source_revision: str,
+    target_binding: str,
+    attempt: int,
+    state: str,
+) -> None:
+    path = work_dir / "initial-inventory-attempt.json"
+    started_at = datetime.now(tz=UTC).isoformat()
+    if path.exists():
+        previous = private_json(path, "initial inventory attempt")
+        if previous.get("attempt") == attempt and "started_at" in previous:
+            started_at = str(previous["started_at"])
+    value: dict[str, object] = {
+        "schema_version": _ATTEMPT_SCHEMA,
+        "source_revision": source_revision,
+        "target_binding": target_binding,
+        "attempt": attempt,
+        "state": state,
+        "started_at": started_at,
+    }
+    value["record_digest"] = canonical_digest(value)
+    replace_private_json(path, value)
 
 
 def require_initial_inventory_receipt(
@@ -261,7 +414,9 @@ def _verified_closure(
     except json.JSONDecodeError as exc:
         raise ValueError("initial inventory closure receipt is invalid") from exc
     if not isinstance(value, dict):
-        raise TypeError("initial inventory closure receipt is invalid")
+        raise ValueError(  # noqa: TRY004 - normalize untrusted receipt JSON
+            "initial inventory closure receipt is invalid"
+        )
     required_true = (
         "subscription_root",
         "final_fence",
@@ -376,8 +531,18 @@ def _capture_env(
         timeout=timeout,
     )
     if result.returncode != 0:
-        raise ValueError(reason)
+        raise _CapturedFailure(reason, result.stderr)
     return result.stdout
+
+
+def _failed_closure_conditions(stderr: str) -> frozenset[str]:
+    """Return only the named verifier conditions, never free-form process output."""
+
+    matches = _CLOSURE_FAILURE.findall(stderr)
+    if not matches:
+        return frozenset()
+    names = frozenset(matches[-1].split(","))
+    return names if names <= _CLOSURE_CONDITIONS else frozenset()
 
 
 def _mapping(value: object, label: str) -> dict[str, Any]:

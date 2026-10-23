@@ -498,6 +498,19 @@ not apparent activity. Overall 100 percent requires the terminal readiness recei
 
 ## Initial inventory progress
 
+The initial AKS process holds the existing inventory single-writer lock until a separate
+read-only observer verifies its exact active generation and retains the canonical count-only
+closure receipt in PostgreSQL. Scheduled inventory can then promote newer generations. Host
+resume reuses only that independently verified receipt for the same run, attempt, and generation,
+with its original observation time; it does not claim that the historical generation is still
+current. Missing or mismatched evidence fails closed rather than accepting an unverified
+superseded snapshot. The host binds freshness to the retained attempt start, not the resume time.
+
+One initial Job has no pod-level retry: the host owns at most three content-addressed attempts,
+each with a distinct progress chain. A failed attempt and its evidence are retained; resuming
+starts the next attempt without deleting progress. Source failures expose reviewed, secret-free
+reason codes, including provider coverage changing during collection, never raw provider errors.
+
 The initial scan is an explicit onboarding stage. It does not wait for the next scheduled cron.
 Progress uses one durable schema shared by the CLI, workflow summary, Operator API, and Console:
 

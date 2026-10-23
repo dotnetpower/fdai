@@ -15,14 +15,24 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > OCI images, Event Hubs Kafka endpoints, Key Vault, workload identities, and PostgreSQL schema.
 >
 > **Hub-managed path:** The Hub-managed lifecycle supports AKS only and adds an in-cluster
-> lifecycle agent. Its Lifecycle I0 skeleton in `lifecycle/agent/` only dry-runs and reports, so
-> this runtime contract doesn't change.
+> lifecycle agent. The development Agent defaults to dry-run and reporting; explicit bounded
+> apply supports the existing HTTP/legacy profiles and the independently pinned
+> [private runtime-bundle extension](lifecycle-runtime-bundles.md).
+> This supplies neither infrastructure/identity creation nor a completed FDAI installation.
+> Namespace permissions, same-schema prerequisites and operational qualification remain separate.
 
 Stewardship governance is runtime-profile neutral. With `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true` and no GitHub credentials, AKS and Container Apps both compose the Console-governed candidate publisher and merge-effects worker, and Terraform creates no webhook secret, GitHub secret reference, or Git host binding. Selecting a GitOps target adds them. Neither selection grants merge, IAM, approval, or execution authority. In Console mode an Owner activates a candidate through the Operator API and Core's governance worker, which needs no extra runtime binding in either profile. ChatOps is optional there: the ingestion gateway binds its webhook only when a ChatOps reference exists, and a GitOps target still requires it. On a source AKS installation the same mode follows the explicit selections: when the Console, enterprise identity bindings, and document ingestion are all selected, the AKS host values set `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED`, `FDAI_MAINTAINERS`, and the steward bindings on Core.
 
 The Core and Cost Governance images build OPA with the same pinned Go toolchain and `github.com/klauspost/compress@v1.18.7` module override in both runtime profiles. Selecting AKS or Container Apps never changes that toolchain, its builder digest, or the image scan that gates a pull request.
 
 ## Design at a glance
+
+The source AKS initial-inventory Job disables pod retries because the managed host already owns
+three distinct, retained attempts. It holds the existing inventory writer lock through a separate
+observer's exact-generation closure capture, then permits scheduled promotion to continue. Host
+resume can replay that historical receipt without redispatching the successful Job; it cannot
+certify an unverified superseded generation or claim current graph freshness. Container Apps and
+ordinary scheduled Job retry contracts are unchanged.
 
 The [local Release Hub](../../../lifecycle/release-hub/README.md) is a separate loopback-only vendor
 development tool, not an installed runtime component in either profile. Registering its source
@@ -110,6 +120,15 @@ signed kit archive, installs `fdaictl` from that snapshot, uses Terraform roots 
 support from the snapshot, and resolves providers directly from public registries under the
 committed lock files. Image references still enter the runtime profile only as read-back digests
 after the deployment registry build stage completes.
+The observation-first profile disables the browser gateway because it creates neither the external
+Operator nor document-ingestion Service. Selecting the Console add-on enables the gateway together
+with those exact browser-facing workloads.
+The archive container follows the immutable snapshot receiver: current receivers use gzip, while
+older retained receivers keep their original tar format. Runtime selection, host state, and retry
+timing cannot silently switch that format.
+The AKS initial inventory keeps a failed content-addressed Job checkpoint. A later invocation may
+run exactly one `.retry1` attempt with the same protected template and identity binding; a second
+failure or ambiguous terminal evidence stops without another automatic attempt.
 If the Foundation needed exact recovery, verified state handoff enters this same sequence. The
 recovery checkout supplies only current recovery code; runtime artifacts remain pinned to the
 original source snapshot, and recovery cannot change the selected runtime profile.
@@ -138,6 +157,8 @@ instead proves bounded residual changes, the coordinator preserves the original 
 distinct residual review bound to the original claim, current state, target, source, runtime
 profile, and residual binary plan. It requires a new exact `<stage>-residual-apply` approval and a
 new residual claim before one effect. Destructive residuals retain the second confirmation.
+A fresh AKS runtime is claimed as `runtime-cluster` until it receives a receipt, so its residual
+review and apply read that retained review and claim rather than the ordinary `runtime` records.
 Residual apply ambiguity is verification-first and never repeats the saved plan. If authoritative
 replanning proves that only create actions remain after the focused private-access stage has
 converged, the coordinator may emit one fresh residual-successor plan. It requires another exact
@@ -199,8 +220,8 @@ satisfy an approval, or raise autonomy.
 
 Runtime, database, environment, fork status, and package presence do not select product add-ons. The shared immutable profile contains only explicit selections and `authority_granted: false`. A runtime record created before product profiles matches only the explicit legacy selection of the four original add-ons, so a later add-on never changes that match.
 The default constructs no Graph, approval, promotion-to-enforce, rollback, or privileged executor binding. A selected but incomplete add-on fails closed: `read-only-console` and
-`governed-execution` require `enterprise-identity-governance`, and every runtime carries the compiled profile to its own workloads so composition never diverges from the selection.
-The full-authority development profile remains a separate optional authority input for an exact disposable scope and never inherits from this product axis. The optional dev operations gateway is authenticated, so it requires an explicit Operator API audience and refuses to plan without one. Source AKS and Container Apps deployment pass the same reviewed profile and its profile-derived executor principal to Core together. Deployment validates the target and source revision before planning; runtime startup still revalidates the current interval and exact executor match.
+`governed-execution` require `enterprise-identity-governance`, and every runtime carries the compiled profile to its own workloads so composition never diverges from the selection. Console-governed stewardship belongs to `enterprise-identity-governance` and starts without `governed-execution`; GitOps publication still requires `governed-execution`.
+The full-authority development profile remains a separate optional authority input for an exact disposable scope and never inherits from this product axis. The optional dev operations gateway is authenticated, so it requires an explicit Operator API audience and refuses to plan without one. The subscription tag pilot instead runs in the isolated Executor with its change identity and uses a distinct Core reader for effect observation; it remains shadow-first and requires the profile's exact subscription scope before approval. Source AKS and Container Apps deployment pass the same reviewed profile and its profile-derived executor principal to Core together. Deployment validates the target and source revision before planning; runtime startup still revalidates the current interval and exact executor match.
 Azure observation requires only scoped `Reader`. Explicit source selection derives the minimum extra role: Azure Monitor, Log Analytics, Cost Management, AKS read-only
 (Cluster User plus RBAC Reader), or evidence-store `Storage Blob Data Reader`. No role can be selected directly or silently bundled. Missing source access reports unsupported.
 The base profile requires no Azure Policy assignment and uses Reader-visible resource metadata for policy evaluation; it grants no write, `User Access Administrator`, or Microsoft Graph permission.
@@ -239,7 +260,10 @@ Browser -> Static Web Apps -> API Management -> AKS LoadBalancer Service -> Pod
 
 Static Web Apps hosts the prebuilt Console. API Management (APIM) provides the public HTTPS API
 edge: the Operator API is routed at the APIM origin root, and Document Ingestion is routed at
-`/ingestion`. The Kubernetes Services listen on port 80 and forward to the existing container port.
+`/ingestion`. The Console calls ingestion with absolute paths, so the gateway keeps the `/ingestion`
+prefix on every ingestion route except the readiness probe and sends the root-level `/documents`
+routes to the ingestion backend; a regression test compares the gateway with the ingestion service's
+routes. API Management answers `412` when two writes to the same service overlap, so the two policies are written after the APIs and operations and one after the other. The Kubernetes Services listen on port 80 and forward to the existing container port.
 The workload state owns APIM because its backend addresses come from those Services. The shared
 substrate does not create Azure Front Door for this path.
 APIM tags derive from the stable workload labels under Azure-safe names. For example,
@@ -402,6 +426,7 @@ can create secrets, filesystems, or paths. A retained context may tighten either
 `false` to `true` after partial-substrate readback proves the private posture; loosening `true` to
 `false` is rejected as a context mismatch. An ambiguous access apply follows the same
 verification-first and bounded residual rules as every other stage.
+On AKS, the `notifications` add-on applies the same targeted substrate stage to the Azure Communication Services Email resources, the managed sender domain, the notification identity, and its sender role. Core then receives `FDAI_EMAIL_ENDPOINT`, `FDAI_EMAIL_SENDER_ADDRESS`, `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON`, and `FDAI_NOTIFICATION_MI_CLIENT_ID`, and its service account is federated to the notification identity as an additional identity. No new secret is created, delivery is informational, and the add-on grants no approval, promotion, or execution authority. A missing recipient list or incomplete binding fails the application plan closed.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
@@ -418,6 +443,8 @@ The read-only capacity preflight accepts nonnegative integer quota values and ca
 integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-padded or oversized
 representations remain blocked. Available quota never overrides a SKU restriction, missing zone,
 unsupported architecture or missing host encryption; a different target requires a fresh review.
+A resumed installation does not count the vCPUs that its own AKS pools already use as new demand: the
+preflight credits them back from the retained resource group, and an unreadable group earns no credit.
 
 Source execution separately reads the [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)
 after initial settings confirmation and before Foundation planning. It selects exactly one primary
@@ -509,6 +536,10 @@ streams immediately and clients resume from their last event id within the termi
 Every shipped Alpine runtime image also pins security-sensitive runtime package revisions across
 all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
 contract together; image scanning verifies the built result before publication.
+The five baseline service images install locked third-party dependencies before copying application
+source. Their runtime stages keep that stable environment separate from the service wheel layer.
+A source-only rebuild can therefore reuse dependency blobs and publish only the changed application
+layer, without changing package versions, entry points, health checks, identity, or authority.
 
 Core's Alpine ARM64 builder supplies the missing `tree_sitter/parser.h` for source builds of locked `tree-sitter-java` 0.23.5 from the matching upstream commit, pinned by SHA-256. The builder-only header changes no runtime dependency, workload specification, identity, or authority. Native compile/parse evidence is not a complete image build or deployment. The download is verified in a plain `RUN` that fails closed on a digest mismatch, not with `ADD --checksum`: source installations build images with the registry's build service, whose classic builder rejects BuildKit-only syntax, and a test keeps every service Dockerfile free of it.
 
@@ -611,9 +642,13 @@ If the retained workload state predates the standalone application receipt, sele
 The source-service coordinator owns that reconciliation lifecycle: it returns the strict runtime-profile-bound review, checks verification-only recovery before any new effect, requires current exact approval when no claim exists, revalidates the saved binary plan, writes the claim before one Managed Identity apply, and resumes adoption only from receipt-bound refreshed state, typed Deployment readback, healthy workloads, and a complete full-scope zero-change plan. The validator canonicalizes only provider-equivalent omitted, null, or empty `sub_path` and `sub_path_expr` values. Every non-empty subpath remains a contract change and is denied. This workload readback does not establish Kafka round trips, scheduled-job success, Console
 authentication, or full deployment readiness. The separate browser publication gate verifies the
 Console and API edge after workload convergence.
-The workload factory binds Operator, isolated Executor, Document API and Document Worker to
-`fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and `fdai_ingestion_worker`, respectively,
-through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It leaves the caller's environment unchanged.
+The workload factory binds Core, Operator, isolated Executor, Document API and Document Worker to
+`fdai_core`, `fdai_operator`, `fdai_executor`, `fdai_ingestion_api` and
+`fdai_ingestion_worker`, respectively, through `FDAI_DATABASE_ROLE` and matching `PGOPTIONS`. It
+leaves the caller's environment unchanged.
+Before a selected-service update is planned, the coordinator reapplies the selected service's
+exact database role from the current workload renderer. This permits a role-binding repair without
+changing peers or weakening database guards; other ordinary environment values remain retained.
 All rendered services explicitly select the deployed execution venue. Role selection neither grants
 database membership nor supplies service-owned DSNs, and never enables Executor authority cutover.
 
@@ -745,10 +780,10 @@ blocks recovery rather than deriving ownership from a failed substrate output.
 Each later runtime approval resolves the same exact tenant/subscription binding from enabled
 authenticated accounts and is independent of the workstation Azure CLI's mutable default
 subscription.
-The AKS workload plan emits a browser-facing APIM gateway input only when the read-only Console
+The AKS workload plan enables the browser-facing APIM gateway only when the read-only Console
 add-on is selected. The default observation-first profile deploys Core without inventing external
-Operator or document-ingestion Services; an absent Console selection therefore keeps the gateway
-input null.
+Operator or document-ingestion Services; an absent Console selection therefore retains the
+validated gateway shape with `enabled=false`.
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected
@@ -772,8 +807,11 @@ encryption. Allocatable workload-envelope validation remains open in the impleme
 The independent operational evidence verifier is an AKS-only optional internal workload. The
 runtime renderer receives it only when the standalone deployment input has already enabled the
 dedicated identity and supplied reviewed registry pins, deployed anchors, caller-token validation
-data, writer membership, role-readback scopes, and executor principals. This input changes neither
-runtime profile selection nor execution authority.
+data, writer membership, role-readback scopes, and executor principals. The AKS substrate target
+set includes the verifier's `Monitoring Reader` assignment alongside image pull and the state-store
+DSN secret, and a retained host context that started without a verifier input can bind a newly
+selected input on resume while rejecting any later omission or digest change. This input changes
+neither runtime profile selection nor execution authority.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner
@@ -818,9 +856,16 @@ internal load balancer used by the migration host. The generated DSN is stored i
 read by workloads through managed CSI. Client traffic requires TLS with a state-owned certificate.
 The minimum four user nodes make this profile schedulable
 but do not claim database high availability, backup, or point-in-time recovery.
+Azure resource tags remain on Azure resources and are not reused as Kubernetes labels. The
+PostgreSQL `StatefulSet` uses only its explicit `app.kubernetes.io/*` and `fdai.io/*` labels so
+Azure tag punctuation cannot invalidate the Kubernetes object. Both the Pod and PostgreSQL
+container explicitly require UID/GID 999 and `runAsNonRoot=true`; the container also drops all
+capabilities and disables privilege escalation for the AKS restricted Pod Security profile.
 
 The in-cluster database stage writes the shared state-store DSN plus the role-scoped
 `fdai-ingestion-api-dsn` and `fdai-ingestion-worker-dsn` secrets that AKS document ingestion reads.
+It stores the standard `postgresql://` scheme so both SQLAlchemy and direct psycopg consumers can
+use the same secret; SQLAlchemy adds its driver selection at its own boundary.
 Each ingestion secret grants `Key Vault Secrets User` only to the matching workload identity, and
 only when the selected product profile creates that identity. The shared DSN is granted to Core,
 inventory, and whichever Operator and executor identities the profile creates, so an
@@ -828,6 +873,11 @@ observation-first installation prepares its database without them. The substrate
 roles when `postgres-aks` is selected. Terraform `-target` keeps every configuration dependency of a
 target, even at count 0, so including those root secrets would otherwise plan the Flexible Server
 through `module.state_store`.
+
+The database root applies Azure ownership tags only to Key Vault secrets and uses DNS-safe keys for
+Kubernetes metadata labels. Shared and role-scoped DSNs use the standard `postgresql://` scheme
+with URL-encoded credentials, so direct psycopg migration and catalog tools and SQLAlchemy clients
+can consume the same secret.
 
 The Key Vault DSN has no independent fixed expiration. Credential rotation requires coordinated
 database and workload updates; expiring only the secret would interrupt access without rotating
@@ -857,6 +907,18 @@ for that opt-in so Incident, Agent Activity, Trace, and optional cost-package ro
 its scan cost.
 
 On AKS, the substrate-targeted `terraform_data.installation` anchor uses the plan timestamp with ignored input changes and keeps the installation identifier and first-apply time in Terraform state, so no rerun or upgrade changes them while later plans remain fully known. The runtime stage applies the Container Insights association only after `azurerm_kubernetes_cluster.runtime` exists in state: the first fresh-cluster review targets every runtime resource except that association, then a second ordinary full-root runtime review creates the association. Each ordinary review names its managed-host `operation`: `runtime-cluster` or `runtime` here, and otherwise the stage or the bound service update. The controller approves a review only when that operation matches its stage. The Terraform configuration still rebuilds the association target ID instead of depending on the cluster resource, because monitoring-only targeted plans must not pull managed-cluster drift into scope. The application stage gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial writer once with the Key Vault state-store DSN and records a digest-bound receipt. The writer keeps a retained window unchanged, so a keyless installation keeps the 30-day window that started at its first apply ([capability licensing](../fork-and-sequencing/capability-licensing.md#durable-keyless-trial-target)). The deployment receipt reports `license_mode=trial` only while that read-back window is open under a trusted clock.
+
+Each initial-inventory one-shot uses a content-addressed attempt. A terminal failure remains
+immutable and is never redispatched in the same invocation. Only a later explicit source invocation
+can advance to the next attempt, with at most three attempts; an active or ambiguous attempt keeps
+the same identity for verification-only recovery.
+
+If the independent closure fails only because a scheduled reconciliation promoted a newer
+generation after the one-shot Job finished (`active_generation`), the Job's own generation is
+healthy but no longer the active one, so it cannot be bound. That attempt is recorded as failed and
+the next invocation starts a new attempt. The closure is never relaxed. Any other failed verifier
+condition keeps the attempt and is reported by name; only names from the fixed verifier set are
+ever echoed.
 
 When the deploying operator holds the upstream integrity signing key, the deployment binding step
 also returns the installation binding. The capability stage then issues a no-expiry installation

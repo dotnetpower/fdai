@@ -43,10 +43,10 @@ def test_shipped_active_profiles_pin_exact_versions() -> None:
 
     assert judgment.profile is not None
     assert judgment.profile.mode is PromptProfileMode.ACTIVE
-    assert (judgment.root.id, judgment.root.version) == ("semantic-judgment-core", 2)
+    assert (judgment.root.id, judgment.root.version) == ("semantic-judgment-common", 1)
     assert judgment.profile.dynamic
-    assert (frame.root.id, frame.root.version) == ("semantic-query-frame-core", 1)
-    assert (plan.root.id, plan.root.version) == ("semantic-query-plan-core", 1)
+    assert (frame.root.id, frame.root.version) == ("semantic-query-frame-common", 1)
+    assert (plan.root.id, plan.root.version) == ("semantic-query-plan-common", 1)
     assert frame.profile is not None and frame.profile.dynamic
     assert plan.profile is not None and plan.profile.dynamic
 
@@ -162,21 +162,21 @@ def test_prompt_replay_rejects_invalid_or_oversized_layer_manifest() -> None:
         )
 
 
-def test_shadow_profile_requires_explicit_id_and_preserves_active_selection() -> None:
+def test_dynamic_rollback_requires_explicit_id_and_preserves_compact_active_selection() -> None:
     registry = FileSystemPromptRegistry(_CATALOG)
 
     active = registry.resolve("semantic.query.frame")
     treatment = registry.resolve(
         "semantic.query.frame",
-        profile_id="shadow.semantic-query-frame-compact",
+        profile_id="shadow.semantic-query-frame-dynamic-v2",
     )
 
     assert active.profile is not None
     assert treatment.profile is not None
     assert active.profile.mode is PromptProfileMode.ACTIVE
     assert treatment.profile.mode is PromptProfileMode.SHADOW
-    assert active.root.id == "semantic-query-frame-core"
-    assert treatment.root.id == "semantic-query-frame-common"
+    assert active.root.id == "semantic-query-frame-common"
+    assert treatment.root.id == "semantic-query-frame-core"
 
 
 def test_profile_cannot_bind_a_different_capability() -> None:
@@ -185,7 +185,7 @@ def test_profile_cannot_bind_a_different_capability() -> None:
     with pytest.raises(LookupError, match="does not bind capability"):
         registry.resolve(
             "semantic.query.plan",
-            profile_id="shadow.semantic-query-frame-compact",
+            profile_id="active.semantic-query-frame-compact",
         )
 
 
@@ -265,9 +265,9 @@ def test_static_composition_enforces_profile_system_budget(tmp_path: Path) -> No
     shutil.copytree(_CATALOG / "prompts", catalog / "prompts")
     profile_path = catalog / "prompts" / "profiles" / "catalog.yaml"
     text = profile_path.read_text()
-    start = text.index("  - id: active.semantic-query-frame\n")
+    start = text.index("  - id: active.semantic-query-frame-compact\n")
     end = text.index("\n  - id: ", start + 10)
-    block = text[start:end].replace("system_token_budget: 65536", "system_token_budget: 1", 1)
+    block = text[start:end].replace("system_token_budget: 16384", "system_token_budget: 1", 1)
     profile_path.write_text(text[:start] + block + text[end:])
     registry = FileSystemPromptRegistry(catalog)
 

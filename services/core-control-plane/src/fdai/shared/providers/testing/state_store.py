@@ -21,6 +21,7 @@ from fdai.shared.providers.state_store import (
     StateStore,
     classify_incident_append,
     incident_number_for,
+    is_audit_chain_record,
     state_field_path,
     state_retention_path,
     workflow_approval_decisions_from_state,
@@ -660,6 +661,17 @@ class InMemoryStateStore(InMemoryStateAtomicMixin, StateStore):
                 tuple(deepcopy(record["entry"]) for record in self._audit[:limit]),
                 len(self._audit) > limit,
             )
+
+    async def read_audit_chain_entries(
+        self, *, limit: int
+    ) -> tuple[tuple[Mapping[str, Any], ...], bool]:
+        if type(limit) is not int or not 1 <= limit <= 512:
+            raise ValueError("audit history limit must be between 1 and 512")
+        with self._lock:
+            chain = [
+                record["entry"] for record in self._audit if is_audit_chain_record(record["entry"])
+            ]
+            return tuple(deepcopy(entry) for entry in chain[:limit]), len(chain) > limit
 
     # ---- Test helpers --------------------------------------------------------
 

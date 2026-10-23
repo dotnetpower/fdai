@@ -208,3 +208,37 @@ def test_aks_browser_gateway_scanner_exceptions_name_compensating_controls() -> 
     assert "APIM Consumption has no VNet integration" in gateway
     assert "checkov:skip=CKV_AZURE_160" in gateway
     assert "two exact API LoadBalancer frontend addresses" in gateway
+
+
+def test_aks_browser_gateway_routes_every_ingestion_path_to_the_ingestion_backend() -> None:
+    gateway = (ROOT / "infra/runtimes/aks/workloads/browser_gateway.tf").read_text(encoding="utf-8")
+    routes = (
+        ROOT / "services/document-ingestion-api/src/fdai_ingestion_api_service/http.py"
+    ).read_text(encoding="utf-8")
+    paths = sorted(set(re.findall(r'Route\(\s*"(/[^"]*)"', routes)))
+
+    # The Console uses absolute paths, so the gateway must serve exactly these three families.
+    assert paths
+    assert all(
+        path == "/healthz" or path.startswith(("/ingestion/", "/documents")) for path in paths
+    )
+    # `/ingestion/...` keeps its prefix (the API path strips it) except the readiness probe.
+    assert 'rewrite-uri template="@(&quot;/ingestion&quot; + context.Request.Url.Path)"' in gateway
+    assert "EndsWith(&quot;/healthz&quot;)" in gateway
+    # `/documents...` would otherwise reach the Operator API, which has no such routes.
+    assert "context.Request.Url.Path.StartsWith(&quot;/documents/&quot;)" in gateway
+    assert (
+        'set-backend-service base-url="http://${local.browser_gateway_addresses.ingestion}"'
+        in gateway
+    )
+
+
+def test_aks_browser_gateway_policies_are_written_after_the_apis_and_one_at_a_time() -> None:
+    gateway = (ROOT / "infra/runtimes/aks/workloads/browser_gateway.tf").read_text(encoding="utf-8")
+    ingestion = gateway.split('"browser_gateway_ingestion" {', 1)[1].split("xml_content", 1)[0]
+    documents = gateway.split('"browser_gateway_documents" {', 1)[1].split("xml_content", 1)[0]
+
+    # APIM answers 412 when two writes to the same service overlap.
+    for block in (ingestion, documents):
+        assert "azurerm_api_management_api_operation.browser_gateway" in block
+    assert "azurerm_api_management_api_policy.browser_gateway_ingestion" in documents

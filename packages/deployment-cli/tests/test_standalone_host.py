@@ -470,24 +470,6 @@ def test_prepare_persists_foundation_adoption_binding() -> None:
     assert '"resource_group_name": str(app["name"])' in source
 
 
-def test_browser_gateway_input_requires_console_selection() -> None:
-    values = {
-        "resource_group_name": "rg-fdai-dev-wus3",
-        "location": "westus3",
-        "workload": "fdai",
-        "environment": "dev",
-        "region_short": "wus3",
-        "resource_name_suffix": "abcdef",
-        "backend_nsg_id": "",
-    }
-
-    assert standalone_host._browser_gateway_input(enabled=False, **values) is None
-    assert standalone_host._browser_gateway_input(enabled=True, **values) == {
-        "enabled": True,
-        **values,
-    }
-
-
 def test_refresh_private_access_rebinds_only_authoritative_posture(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1815,6 +1797,12 @@ def test_aks_operational_history_job_is_shadow_and_uses_inventory_identity() -> 
     assert job["retry_limit"] == 0
 
 
+def test_aks_browser_gateway_follows_console_selection() -> None:
+    source = inspect.getsource(standalone_host._prepare_aks_application)
+
+    assert '"enabled": console_selected' in source
+
+
 def test_aks_job_rejects_missing_core_image() -> None:
     with pytest.raises(TypeError, match="image is unavailable"):
         aks_workload_jobs.build_aks_scheduled_job(
@@ -2685,6 +2673,7 @@ def test_aks_document_workloads_bind_complete_service_contracts() -> None:
 @pytest.mark.parametrize(
     ("component", "service", "role"),
     [
+        ("core", "core-control-plane", "fdai_core"),
         ("operator", "operator-service", "fdai_operator"),
         ("executor", "isolated-executor", "fdai_executor"),
         ("ingestion", "document-ingestion-api", "fdai_ingestion_api"),
@@ -2913,6 +2902,7 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
             "image": image,
             "replicas": 2,
             "max_replicas": 3,
+            "environment": {"RUNTIME_ENV": "dev"},
             **(
                 {
                     "secret_environment": {
@@ -2982,6 +2972,11 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
     values = json.loads((tmp_path / "workloads.auto.tfvars.json").read_text(encoding="utf-8"))
     assert values["workloads"]["core-control-plane"]["image"] == new_image
     assert values["workloads"]["core-control-plane"]["source_commit"] == new_source
+    assert values["workloads"]["core-control-plane"]["environment"] == {
+        "FDAI_DATABASE_ROLE": "fdai_core",
+        "PGOPTIONS": "-c role=fdai_core",
+        "RUNTIME_ENV": "dev",
+    }
     retained_context = json.loads((tmp_path / "context.json").read_text(encoding="utf-8"))
     assert (
         retained_context["expected_workloads"]["core-control-plane"]["secret_environment"]
@@ -3990,7 +3985,7 @@ def test_initial_aks_inventory_runs_job_and_requires_independent_complete_readba
     infra = bundle / "infra"
     infra.mkdir(parents=True)
     work_dir = tmp_path / "work"
-    work_dir.mkdir()
+    work_dir.mkdir(mode=0o700)
     for name in ("migration-receipt.json", "application-receipt.json"):
         (work_dir / name).write_text("{}", encoding="utf-8")
     source_revision = "c" * 40
@@ -4063,10 +4058,14 @@ def test_initial_aks_inventory_runs_job_and_requires_independent_complete_readba
     monkeypatch.setattr(standalone_aks_inventory, "vault_name", lambda *_: "vault")
     monkeypatch.setattr(standalone_aks_inventory, "_capture", lambda *_args, **_kwargs: "dsn")
     monkeypatch.setattr(standalone_aks_inventory, "_capture_env", capture_env)
-    monkeypatch.setattr(standalone_aks_inventory, "replace_private_json", lambda *_: None)
 
     result = standalone_host._initial_inventory(SimpleNamespace(), work_dir)
 
+    attempt_path = work_dir / "initial-inventory-attempt.json"
+    attempt = json.loads(attempt_path.read_text(encoding="utf-8"))
+    assert attempt["state"] == "succeeded"
+    assert datetime.fromisoformat(attempt["started_at"]).tzinfo is not None
+    assert attempt_path.stat().st_mode & 0o777 == 0o600
     assert len(execution_calls) == 1
     request = execution_calls[0]
     assert request["template_name"] == "inventory"

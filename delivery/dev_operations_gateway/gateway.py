@@ -95,6 +95,8 @@ class OperationsGateway:
             "azure.compute.vmss.scale": self._resources._scale_vmss,
             "azure.resource.tags.read": self._resources._read_resource_tag,
             "azure.resource.tags.merge": self._resources._merge_resource_tag,
+            "azure.subscription.tags.read": self._resources._read_subscription_tag,
+            "azure.subscription.tags.merge": self._resources._merge_subscription_tag,
         }
         handler = handlers.get(operation_id)
         if handler is None:

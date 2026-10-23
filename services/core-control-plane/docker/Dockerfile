@@ -35,7 +35,7 @@ RUN test "$(/usr/local/go/bin/go env GOVERSION)" = "${OPA_GO_VERSION}" \
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "github.com/klauspost/compress" {print $3}')" = "${OPA_KLAUSPOST_COMPRESS_VERSION}" \
     && /go/bin/opa version
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS builder
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS dependency-builder
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
@@ -64,6 +64,19 @@ COPY services/document-ingestion-api/pyproject.toml ./services/document-ingestio
 COPY services/document-processing-worker/pyproject.toml ./services/document-processing-worker/pyproject.toml
 COPY services/isolated-executor/pyproject.toml ./services/isolated-executor/pyproject.toml
 COPY services/system-knowledge-service/pyproject.toml ./services/system-knowledge-service/pyproject.toml
+COPY packages/github-app-auth/pyproject.toml ./packages/github-app-auth/pyproject.toml
+COPY packages/service-contracts/pyproject.toml ./packages/service-contracts/pyproject.toml
+COPY packages/runtime-diagnostics/pyproject.toml ./packages/runtime-diagnostics/pyproject.toml
+COPY services/core-control-plane/pyproject.toml ./services/core-control-plane/pyproject.toml
+RUN uv sync --frozen --package fdai-core-control-plane --no-dev --no-editable \
+        --no-install-package fdai \
+        --no-install-package fdai-github-app-auth \
+        --no-install-package fdai-service-contracts \
+        --no-install-package fdai-runtime-diagnostics \
+        --no-install-package fdai-core-control-plane
+
+FROM dependency-builder AS builder
+
 COPY packages/github-app-auth/ ./packages/github-app-auth/
 COPY packages/service-contracts/ ./packages/service-contracts/
 COPY packages/runtime-diagnostics/ ./packages/runtime-diagnostics/
@@ -72,19 +85,13 @@ RUN uv build --wheel --package fdai-github-app-auth --out-dir /wheels \
     && uv build --wheel --package fdai-service-contracts --out-dir /wheels \
     && uv build --wheel --package fdai-runtime-diagnostics --out-dir /wheels \
     && uv build --wheel --package fdai-core-control-plane --out-dir /wheels \
-    && uv sync --frozen --package fdai-core-control-plane --no-dev --no-editable \
-        --no-install-package fdai \
-        --no-install-package fdai-github-app-auth \
-        --no-install-package fdai-service-contracts \
-        --no-install-package fdai-runtime-diagnostics \
-        --no-install-package fdai-core-control-plane \
-    && uv pip install --python /app/.venv/bin/python --no-deps \
+    && uv pip install --python /app/.venv/bin/python --prefix /app/application --no-deps \
         /wheels/fdai_github_app_auth-*.whl \
         /wheels/fdai_service_contracts-*.whl \
         /wheels/fdai_runtime_diagnostics-*.whl \
         /wheels/fdai_core_control_plane-*.whl \
-    && test -x /app/.venv/bin/fdai-core-control-plane \
-    && test "$(head -n 1 /app/.venv/bin/fdai-core-control-plane)" = "#!/app/.venv/bin/python"
+    && test -x /app/application/bin/fdai-core-control-plane \
+    && test "$(head -n 1 /app/application/bin/fdai-core-control-plane)" = "#!/app/.venv/bin/python"
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
 
@@ -109,11 +116,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     AZURE_MCP_COLLECT_TELEMETRY=false \
     FDAI_HEALTH_PORT=8000 \
     HOME=/tmp/fdai \
-    PATH="/app/.venv/bin:${PATH}" \
+    PATH="/app/application/bin:/app/.venv/bin:${PATH}" \
+    PYTHONPATH=/app/application/lib/python3.13/site-packages \
     XDG_CACHE_HOME=/tmp/fdai/.cache
 
 WORKDIR /app
-COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
+COPY --from=dependency-builder --chown=65532:65532 /app/.venv /app/.venv
+COPY --from=builder --chown=65532:65532 /app/application /app/application
 COPY --from=opa-builder /go/bin/opa /usr/local/bin/opa
 COPY --chown=65532:65532 rule-catalog/ /app/rule-catalog/
 COPY --chown=65532:65532 provider-schema-catalog/ /app/provider-schema-catalog/
@@ -128,7 +137,7 @@ COPY --chown=65532:65532 alembic.ini /app/alembic.ini
 COPY --chown=65532:65532 scripts/deployment/azure/run_inventory_network_certification_migrations.py /app/scripts/deployment/azure/run_inventory_network_certification_migrations.py
 COPY --chown=65532:65532 scripts/deployment/local/materialize-authoritative-catalogs.py /app/scripts/deployment/local/materialize-authoritative-catalogs.py
 USER 65532
-RUN test -x /app/.venv/bin/fdai-core-control-plane \
+RUN test -x /app/application/bin/fdai-core-control-plane \
     && git --version \
     && /app/.venv/bin/python -c "import fdai.runtime.bootstrap"
 EXPOSE 8000

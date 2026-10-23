@@ -1,14 +1,15 @@
-"""Governance pull-request review-authority validation.
+"""Installation governance review-authority validation.
 
 rule-governance.md delivers every governance change as a reviewed catalog-as-code pull
-request: an operator authors the draft, separate approvers review it, high-risk classes
-need a quorum of two phishing-resistant approvals, and nobody may approve their own
-change. This module is the pure decision core of that gate. A thin CI boundary supplies
-the review context (author, approvals, reviewed revision) and reports the decision.
+request: the multi-operator default requires separate approvers and high-risk quorum two.
+An active single-operator production profile lets its named human satisfy every class
+with effective quorum one and phishing-resistant self-review. A deployment-owned
+boundary supplies verified identities, the active profile, and revision-bound approvals.
+Repository source review instead follows GitHub branch protection.
 
 Pure and I/O-free. The decision is review-only: it never merges, mutates a catalog, or
 grants policy, approval, or execution authority. Role bags come from the shared
-``fdai.core.rbac.roles`` matrix so the PR gate and the runtime gate cannot drift.
+``fdai.core.rbac.roles`` matrix so installation review and runtime checks cannot drift.
 
 Fail-closed rules:
 
@@ -16,10 +17,10 @@ Fail-closed rules:
   exact pull-request head revision, was recorded after that revision, carries the
   capability required by the change class, and satisfies the phishing-resistant
   requirement of a high-risk class.
-- Self-approval by the author, a recorded co-author, or the committer blocks the change
-  even when other approvals already satisfy the quorum.
-- Repeated approvals from one operator count once, so one operator can never satisfy a
-  quorum of two.
+- Under the multi-operator profile, self-approval by the author, a recorded co-author,
+  or the committer blocks the change even when other approvals satisfy the quorum.
+- Repeated approvals from one operator count once. Single-operator self-review requires
+  the named human, a distinct executor, and fresh phishing-resistant authentication.
 """
 
 from __future__ import annotations
@@ -351,11 +352,16 @@ def _count_approval(
             )
         )
         return
-    if requirement.phishing_resistant and not approval.phishing_resistant:
+    if (
+        requirement.phishing_resistant or profile_decision is not None
+    ) and not approval.phishing_resistant:
         issues.append(
             ReviewAuthorityIssue(
                 code="approval_not_phishing_resistant",
-                message="high-risk governance approval MUST be phishing-resistant and action-bound",
+                message=(
+                    "high-risk or single-operator governance approval MUST be "
+                    "phishing-resistant and action-bound"
+                ),
                 blocking=False,
                 subject_oid=approver_oid,
             )
@@ -381,15 +387,7 @@ def _approval_profile_decision_for(
     requirement: ChangeClassRequirement,
 ) -> ApprovalProfileDecision | None:
     profile = request.approval_profile
-    if (
-        profile is None
-        or not profile.is_single_operator
-        or request.change_class
-        not in {
-            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
-            GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION,
-        }
-    ):
+    if profile is None or not profile.is_single_operator:
         return None
     return evaluate_profile_approval(
         profile,
@@ -425,18 +423,7 @@ def validate_governance_review(
     """
 
     requirement = _REQUIREMENTS[request.change_class]
-    effective_quorum = effective_quorum_for(
-        request.approval_profile
-        if request.change_class
-        in {
-            GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
-            GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION,
-        }
-        and request.approval_profile is not None
-        and request.approval_profile.is_single_operator
-        else None,
-        requirement.quorum,
-    )
+    effective_quorum = effective_quorum_for(request.approval_profile, requirement.quorum)
     issues: list[ReviewAuthorityIssue] = []
     head_committed_at: datetime | None = request.head_committed_at
     if not _is_revision(request.head_revision):
@@ -519,24 +506,12 @@ def validate_governance_review(
         issues=tuple(issues),
         approval_profile=(
             request.approval_profile.approval_profile.value
-            if request.approval_profile is not None
-            and request.approval_profile.is_single_operator
-            and request.change_class
-            in {
-                GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
-                GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION,
-            }
+            if request.approval_profile is not None and request.approval_profile.is_single_operator
             else None
         ),
         operator_principal=(
             request.approval_profile.operator_principal
-            if request.approval_profile is not None
-            and request.approval_profile.is_single_operator
-            and request.change_class
-            in {
-                GovernanceChangeClass.STANDING_AUTHORITY_PROMOTION,
-                GovernanceChangeClass.OPERATOR_OVERRIDE_PROMOTION,
-            }
+            if request.approval_profile is not None and request.approval_profile.is_single_operator
             else None
         ),
         self_review=self_review,

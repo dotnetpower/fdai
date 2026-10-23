@@ -237,6 +237,28 @@ async def test_temporal_state_pair_linearizes_before_expiry(saga_database: str) 
         await store.aclose()
 
 
+async def test_saga_postgres_chain_starts_after_unrelated_audit_rows_exceed_the_bound(
+    saga_database: str,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    try:
+        for index in range(600):
+            await store.append_audit_entry({"action_kind": "unrelated.record", "index": index})
+        # A plain bounded read is truncated by other writers' rows, the chain reader is not.
+        assert (await store.read_audit_entries(limit=512))[1] is True
+        assert await store.read_audit_chain_entries(limit=512) == ((), False)
+        entry = await StateStoreAuditChainAdapter(store).append(
+            principal="Saga", topic="object.audit-entry", correlation_id="first", payload={}
+        )
+        assert entry.seq == 0 and entry.prev_hash == "0" * 64
+        assert await store.read_state(AUDIT_CHECKPOINT_KEY) is not None
+        chain_rows, truncated = await store.read_audit_chain_entries(limit=512)
+        assert [row["seq"] for row in chain_rows] == [0] and truncated is False
+        assert await store.verify_chain()
+    finally:
+        await store.aclose()
+
+
 @pytest.mark.parametrize("checkpoint", [False, True])
 async def test_saga_postgres_migrates_complete_legacy_without_rewriting_audit(
     saga_database: str, checkpoint: bool

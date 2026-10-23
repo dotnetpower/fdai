@@ -1,0 +1,63 @@
+schema_version: 1.0.0
+name: remediate.subscription-tag-add
+version: 1.0.0
+operation: tag
+interfaces:
+- ControlPlane
+- IdempotentByKey
+rollback_contract: snapshot_restore
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 7
+  min_samples: 20
+  min_accuracy: 1.0
+  max_policy_escapes: 0
+preconditions:
+- kind: graph_fresh_within_seconds
+  value: 300
+stop_conditions:
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 120
+blast_radius:
+  computation: static_enum
+  static_bucket: subscription
+description: Attach one bounded tag to the selected subscription through a reviewed,
+  reversible development-profile action.
+category: remediation
+trigger_kind:
+  kind: operator_request
+execution_path: direct_api
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: owner
+  t1:
+    max_autonomy: shadow_only
+    min_role: owner
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - tag_name
+  - tag_value
+  properties:
+    tag_name:
+      type: string
+      pattern: ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$
+      x-fdai-audit-safe: true
+    tag_value:
+      type: string
+      pattern: ^[A-Za-z0-9][A-Za-z0-9_.:@ -]{0,255}$
+      x-fdai-audit-safe: true
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.subscription-tag-add@1.0.0
+  content_hash: sha256:195d8fd24266c6db67b7f696b45dd7b7b73dce0d981545b437c0a167d4aeb813
+  license: MIT
+  retrieved_at: "2026-10-23T00:00:00Z"

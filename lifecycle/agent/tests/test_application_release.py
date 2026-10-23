@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from fdai_deployment_cli.lifecycle_release import APPLICATION_RELEASE_SCHEMA
+from fdai_deployment_cli.lifecycle_release import (
+    APPLICATION_COMPONENT_RELEASE_SCHEMA,
+    APPLICATION_RELEASE_SCHEMA,
+)
 
 from fdai_lifecycle_agent.agent import AgentSettings, LifecycleAgent
 from fdai_lifecycle_agent.cli import LOCAL_POLICY_SCHEMA, load_local_policy
@@ -118,6 +121,35 @@ def test_independent_local_binding_blocks_a_wrong_or_unbound_product(
     ).poll_once()
     assert (result.outcome, result.reason_code) == ("rejected", "release_product_mismatch")
     assert cluster.writes() == []
+
+
+def test_component_release_never_falls_back_to_the_http_renderer(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    settings = prepare(harness)
+    digest = harness.add_release(
+        {
+            "schema_version": APPLICATION_COMPONENT_RELEASE_SCHEMA,
+            "product": "example-web",
+            "release_version": "1.5.0",
+            "source_commit": "a" * 40,
+            "platform_tag": "linux-x86_64",
+            "components": {"frontend": {"image_digest": harness.image("frontend-healthy")}},
+        }
+    )
+    harness.serve(
+        harness.plan(
+            entity_ids=frozenset({"application"}),
+            capability_ids=(),
+            envelope=settings.maximum_envelope,
+            target_release_digest=digest,
+        )
+    )
+    result = LifecycleAgent(
+        settings, harness.dependencies(apply=harness.apply_mode(cluster))
+    ).poll_once()
+    assert (result.outcome, result.reason_code) == ("rejected", "runtime_bundle_unavailable")
+    assert cluster.calls == []
 
 
 @pytest.mark.parametrize("entity_scoped", [False, True])

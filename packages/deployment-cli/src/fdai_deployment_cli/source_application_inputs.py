@@ -79,6 +79,7 @@ def add_prepare_source_parser(subcommands: Subparsers, handler: object) -> None:
     prepare_source.add_argument("--catalog-review-profile", type=Path)
     prepare_source.add_argument("--catalog-review-private-key", type=Path)
     prepare_source.add_argument("--operational-evidence-verifier-input", type=Path)
+    prepare_source.add_argument("--notification-recipients", type=Path)
     prepare_source.add_argument("--development-authority-profile", type=Path)
     prepare_source.add_argument(
         "--clear-development-profile",
@@ -209,7 +210,7 @@ def source_transfer_inputs(
         snapshot_digest=source_snapshot_digest,
     )
     return SourceTransferInputs(
-        archive=prepared_root / "source-transfer.tar",
+        archive=prepared_root / str(transfer["archive_ref"]),
         archive_digest=str(transfer["archive_digest"]),
         receiver=prepared_root / "source-receiver.pyz",
         receiver_digest=receiver_digest,
