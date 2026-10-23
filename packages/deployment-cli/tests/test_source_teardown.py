@@ -192,6 +192,52 @@ def _build_recovery(source_run: Path) -> Path:
     return recovery
 
 
+def _convert_to_claimed_partial(source_run: Path) -> None:
+    foundation = source_run / "foundation"
+    plan_directory = foundation / "foundation-plan-attempt-1"
+    (plan_directory / "foundation-apply-receipt.json").unlink()
+    (plan_directory / "foundation-state-handoff-receipt.json").unlink()
+    variables = {
+        "workload": "fdai",
+        "region_short": "eus",
+        "source_commit": SOURCE_COMMIT,
+        "run_digest": RUN,
+        "target_binding": TARGET,
+        "subscription_id": SUBSCRIPTION,
+    }
+    _write_plain(foundation / "foundation-variables.json", variables)
+    plan = {
+        "schema_version": "fdai.foundation-saved-source-plan.v1",
+        "state": "review",
+        "plan_digest": "1" * 64,
+        "context": {
+            "source_commit": SOURCE_COMMIT,
+            "target_binding": TARGET,
+            "run_digest": RUN,
+            "variables_digest": canonical_digest(variables),
+        },
+    }
+    plan["review_digest"] = canonical_digest(plan)
+    _write_plain(plan_directory / "foundation-plan.json", plan)
+    _write_plain(
+        plan_directory / "foundation-apply-claim.json",
+        {
+            "schema_version": "fdai.genesis-foundation-apply-claim.v1",
+            "state": "applying",
+            "review_digest": plan["review_digest"],
+            "plan_digest": plan["plan_digest"],
+            "target_binding": TARGET,
+            "idempotency_key": canonical_digest(
+                {"target_binding": TARGET, "plan_digest": plan["plan_digest"]}
+            ),
+            "mutation_performed": False,
+        },
+    )
+    status = json.loads((foundation / "status.json").read_text())
+    status["foundation_report"].pop("state_handoff")
+    _write_plain(foundation / "status.json", status)
+
+
 def test_teardown_plans_only_proven_owned_groups(source_run: Path) -> None:
     plan = plan_source_teardown(
         work_dir=source_run,
@@ -217,6 +263,21 @@ def test_teardown_accepts_verified_recovered_foundation(source_run: Path) -> Non
         region="eastus",
         monthly_cost_ceiling=1000,
         recovery_directory=recovery,
+    )
+
+    assert plan.resource_groups == ("rg-fdai-dev-eus", "rg-fdai-ops-eus")
+
+
+def test_teardown_accepts_exact_claimed_partial_foundation(source_run: Path) -> None:
+    _convert_to_claimed_partial(source_run)
+
+    plan = plan_source_teardown(
+        work_dir=source_run,
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-flex"
+        ),
+        region="eastus",
+        monthly_cost_ceiling=1000,
     )
 
     assert plan.resource_groups == ("rg-fdai-dev-eus", "rg-fdai-ops-eus")

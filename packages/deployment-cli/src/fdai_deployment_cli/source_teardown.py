@@ -90,37 +90,53 @@ def plan_source_teardown(
             target_binding=target_binding,
             run_binding=run_binding,
         )
+        partial_claimed = False
     else:
-        handoff_digest = _text(
-            _object(report.get("state_handoff"), "Foundation handoff reference"),
-            "receipt_digest",
-            pattern=r"[0-9a-f]{64}",
-        )
-        handoff = _verified(
-            foundation / plan_ref / "foundation-state-handoff-receipt.json",
-            "Foundation handoff",
-            handoff_digest,
-        )
-        apply = _verified(
-            foundation / plan_ref / "foundation-apply-receipt.json",
-            "Foundation apply",
-            _text(handoff, "foundation_receipt_digest", pattern=r"[0-9a-f]{64}"),
-        )
-        if (
-            apply.get("schema_version") != "fdai.genesis-foundation-apply-receipt.v1"
-            or apply.get("state") != "applied"
-            or apply.get("source_commit") != source_commit
-            or apply.get("target_binding") != target_binding
-        ):
-            raise ValueError("source teardown Foundation apply proof differs")
-        located = _plain_json(foundation / plan_ref / "foundation-private-handoff.json", "handoff")
-        if (
-            canonical_digest(located) != apply.get("handoff_digest")
-            or located.get("source_commit") != source_commit
-            or located.get("run_digest") != run_binding
-        ):
-            raise ValueError("source teardown Foundation location proof differs")
-    if (
+        state_handoff = report.get("state_handoff")
+        if isinstance(state_handoff, dict):
+            handoff_digest = _text(
+                state_handoff,
+                "receipt_digest",
+                pattern=r"[0-9a-f]{64}",
+            )
+            handoff = _verified(
+                foundation / plan_ref / "foundation-state-handoff-receipt.json",
+                "Foundation handoff",
+                handoff_digest,
+            )
+            apply = _verified(
+                foundation / plan_ref / "foundation-apply-receipt.json",
+                "Foundation apply",
+                _text(handoff, "foundation_receipt_digest", pattern=r"[0-9a-f]{64}"),
+            )
+            if (
+                apply.get("schema_version") != "fdai.genesis-foundation-apply-receipt.v1"
+                or apply.get("state") != "applied"
+                or apply.get("source_commit") != source_commit
+                or apply.get("target_binding") != target_binding
+            ):
+                raise ValueError("source teardown Foundation apply proof differs")
+            located = _plain_json(
+                foundation / plan_ref / "foundation-private-handoff.json", "handoff"
+            )
+            if (
+                canonical_digest(located) != apply.get("handoff_digest")
+                or located.get("source_commit") != source_commit
+                or located.get("run_digest") != run_binding
+            ):
+                raise ValueError("source teardown Foundation location proof differs")
+            partial_claimed = False
+        else:
+            located = _claimed_partial_foundation_ownership(
+                foundation=foundation,
+                plan_ref=plan_ref,
+                source_commit=source_commit,
+                target_binding=target_binding,
+                run_binding=run_binding,
+            )
+            handoff = {}
+            partial_claimed = True
+    if not partial_claimed and (
         handoff.get("schema_version") != "fdai.genesis-foundation-state-handoff-receipt.v1"
         or handoff.get("source_commit") != source_commit
         or handoff.get("target_binding") != target_binding
@@ -163,6 +179,64 @@ def plan_source_teardown(
         subscription_id=_text(located, "subscription_id"),
         resource_groups=groups,
     )
+
+
+def _claimed_partial_foundation_ownership(
+    *,
+    foundation: Path,
+    plan_ref: str,
+    source_commit: str,
+    target_binding: str,
+    run_binding: str,
+) -> dict[str, object]:
+    """Verify a claimed partial Foundation without inventing effect completion."""
+    plan_directory = foundation / plan_ref
+    plan = _verified_full(
+        plan_directory / "foundation-plan.json",
+        "Foundation saved plan",
+        digest_field="review_digest",
+    )
+    claim = _plain_json(plan_directory / "foundation-apply-claim.json", "Foundation apply claim")
+    variables = _plain_json(foundation / "foundation-variables.json", "Foundation variables")
+    context = _object(plan.get("context"), "Foundation saved plan context")
+    expected_idempotency = canonical_digest(
+        {
+            "target_binding": target_binding,
+            "plan_digest": plan.get("plan_digest"),
+        }
+    )
+    if (
+        (plan_directory / "foundation-apply-receipt.json").exists()
+        or plan.get("schema_version") != "fdai.foundation-saved-source-plan.v1"
+        or plan.get("state") != "review"
+        or context.get("source_commit") != source_commit
+        or context.get("target_binding") != target_binding
+        or context.get("run_digest") != run_binding
+        or context.get("variables_digest") != canonical_digest(variables)
+        or claim.get("schema_version") != "fdai.genesis-foundation-apply-claim.v1"
+        or claim.get("state") != "applying"
+        or claim.get("review_digest") != plan.get("review_digest")
+        or claim.get("plan_digest") != plan.get("plan_digest")
+        or claim.get("target_binding") != target_binding
+        or claim.get("idempotency_key") != expected_idempotency
+        or claim.get("mutation_performed") is not False
+    ):
+        raise ValueError("source teardown claimed Foundation proof differs")
+    workload = _text(variables, "workload", pattern=r"[a-z][a-z0-9]{1,15}")
+    region_short = _text(variables, "region_short", pattern=r"[a-z][a-z0-9]{1,7}")
+    located = _plain_json(plan_directory / "foundation-private-handoff.json", "handoff")
+    app = _object(located.get("app_resource_group"), "application resource group")
+    ops = _object(located.get("ops"), "operations resource group")
+    if (
+        located.get("source_commit") != source_commit
+        or located.get("run_digest") != run_binding
+        or located.get("subscription_id") != variables.get("subscription_id")
+        or _text(app, "name", pattern=_GROUP.pattern) != f"rg-{workload}-dev-{region_short}"
+        or _text(ops, "resource_group_name", pattern=_GROUP.pattern)
+        != f"rg-{workload}-ops-{region_short}"
+    ):
+        raise ValueError("source teardown claimed Foundation location differs")
+    return located
 
 
 def _recovered_foundation_ownership(
