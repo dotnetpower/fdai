@@ -115,6 +115,14 @@ preview and waits for an exact approved plan. A private result waits for the sep
 Foundation plan and VNet runner. Neither result falls back to another route, applies an unsealed
 preview, or sets subscription readiness.
 
+A failed source Foundation that crossed the exact apply-claim boundary but produced neither an
+apply receipt nor a state-handoff receipt can be torn down only from the retained reviewed plan.
+The teardown verifies the saved plan, its approved Terraform binary and projection, normalized
+variables, immutable apply claim, source/run/target bindings, deterministic resource-group names,
+and private handoff before requesting a separate typed confirmation. It deletes only those two
+FDAI-owned groups and independently reads back their absence; it never relabels the failed apply as
+successful.
+
 ### Safe bounded concurrency
 
 The one-command path runs independent work concurrently inside a dependency-ordered stage. Local

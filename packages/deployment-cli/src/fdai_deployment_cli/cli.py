@@ -322,6 +322,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         if args.teardown:
             result = apply_source_teardown(
                 work_dir=work_dir,
+                source_root=args.source,
                 runtime_profile=runtime_profile,
                 region=args.region,
                 monthly_cost_ceiling=args.monthly_cost_ceiling,

@@ -1,8 +1,8 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: b1bec37ad38bf0fadd175958b3df13efa5b135ed
-translation_revised: 2026-10-22
+translation_source_sha: 97c2feae2a5ff7b0bef5c93aa05dbb6c67fab840
+translation_revised: 2026-10-23
 ---
 # 구독 초기 프로비저닝
 
@@ -117,6 +117,13 @@ scripts/deployment/azure/genesis-up.sh \
 정확히 승인된 계획을 기다립니다. 비공개 결과는 별도로 검토한 기반 계층 계획과 VNet 실행기를
 기다립니다. 어떤 결과도 다른 경로로 자동 전환하거나 봉인되지 않은 미리 보기를 적용하거나
 구독 준비 상태를 설정하지 않습니다.
+
+정확한 적용 claim 경계를 통과했지만 적용 영수증과 상태 인계 영수증을 모두 만들지 못한
+소스 기반 계층은 보관된 검토 계획으로 소유권을 증명한 경우에만 철거할 수 있습니다. 철거
+경로는 별도의 입력 확인을 요구하기 전에 저장 계획, 승인된 Terraform 바이너리와 계획
+projection, 정규화된 변수, 변경 불가능한 적용 claim, 소스/실행/대상 바인딩, 결정적 리소스
+그룹 이름, 비공개 인계를 검증합니다. 정확히 두 개의 FDAI 소유 그룹만 삭제하고 독립적으로
+부재를 다시 확인하며, 실패한 적용을 성공으로 다시 표시하지 않습니다.
 
 ### 안전하고 범위가 제한된 병렬 실행
 

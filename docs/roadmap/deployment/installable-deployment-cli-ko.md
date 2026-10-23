@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 30543ac15861dddce260a94741cd40ba5e893463
+translation_source_sha: 44e69f279f27306eab05645116d17ad8fee78371
 translation_revised: 2026-10-23
 ---
 
@@ -120,6 +120,11 @@ Managed Host가 초기 구성 산출물을 내려받을 수 없는 아티팩트 
 요구한 뒤 삭제 후 부재를 다시 조회합니다. Azure는 리소스 그룹을 비동기로 삭제하므로 부분 실패로
 보고하기 전에 최대 30분 동안 다시 조회하며, 재실행하면 이미 부재로 확인된 그룹은 건너뜁니다.
 소유권 근거가 없거나 증명되지 않은 리소스 이름이 있으면 삭제 호출 전에 명령이 멈춥니다.
+정확한 적용 claim은 있지만 적용 영수증이나 상태 인계 영수증이 없는 실패한 소스 Foundation의
+경우, 같은 명령은 검토된 저장 계획만 허용하고 Terraform 바이너리, 정확한 projection,
+정규화된 변수, 변경 불가능한 claim, 소스/실행/대상 바인딩, 결정적 그룹 이름, 비공개 인계를
+검증합니다. 이 근거는 정확히 두 그룹의 정리만 승인하며 성공한 Foundation 영수증을 만들어
+내지 않습니다.
 
 소스 조정기는 비공개 관리 호스트 경로에서 Foundation provider 등록과 상속된 정책을 변경 없이
 읽습니다. 정책 조회는 규정 준수나 배포 성공 근거가 아닙니다. 배타적 실행 잠금이 체크포인트를

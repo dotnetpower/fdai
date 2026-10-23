@@ -120,6 +120,11 @@ evidence, binds them to the target binding and source run binding, requires one 
 resource groups asynchronously, readback waits up to 30 minutes before it reports a partial
 failure, and a rerun skips groups that already read back absent. If any ownership proof is missing
 or names an unproven resource, the command stops before any delete call.
+For a failed source Foundation with an exact apply claim but no apply or state-handoff receipt, the
+same command accepts only the reviewed saved plan and verifies its Terraform binary, exact
+projection, normalized variables, immutable claim, source/run/target bindings, deterministic group
+names, and private handoff. This proof authorizes cleanup of only those two groups; it does not
+fabricate a successful Foundation receipt.
 
 The source coordinator uses the private managed-host route and reads Foundation provider
 registrations and inherited policy without changing either. Policy visibility is not a compliance

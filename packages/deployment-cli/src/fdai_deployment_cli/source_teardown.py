@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
+import stat
 import subprocess
 import time
 from collections.abc import Callable
@@ -42,6 +45,7 @@ class SourceTeardownPlan:
 def plan_source_teardown(
     *,
     work_dir: Path,
+    source_root: Path | None = None,
     runtime_profile: RuntimeDeploymentProfile,
     region: str,
     monthly_cost_ceiling: int,
@@ -133,6 +137,7 @@ def plan_source_teardown(
                 source_commit=source_commit,
                 target_binding=target_binding,
                 run_binding=run_binding,
+                source_root=(source_root or Path.cwd()).resolve(),
             )
             handoff = {}
             partial_claimed = True
@@ -188,6 +193,7 @@ def _claimed_partial_foundation_ownership(
     source_commit: str,
     target_binding: str,
     run_binding: str,
+    source_root: Path,
 ) -> dict[str, object]:
     """Verify a claimed partial Foundation without inventing effect completion."""
     plan_directory = foundation / plan_ref
@@ -197,8 +203,32 @@ def _claimed_partial_foundation_ownership(
         digest_field="review_digest",
     )
     claim = _plain_json(plan_directory / "foundation-apply-claim.json", "Foundation apply claim")
-    variables = _plain_json(foundation / "foundation-variables.json", "Foundation variables")
+    current_variables = _plain_json(
+        foundation / "foundation-variables.json", "Foundation variables"
+    )
     context = _object(plan.get("context"), "Foundation saved plan context")
+    located = _plain_json(plan_directory / "foundation-private-handoff.json", "handoff")
+    terraform_root = _text(located, "terraform_root")
+    if terraform_root != "infra/genesis-foundation":
+        raise ValueError("source teardown Terraform root differs")
+    terraform_directory = (source_root / terraform_root).resolve()
+    try:
+        terraform_directory.relative_to(source_root)
+    except ValueError as exc:
+        raise ValueError("source teardown Terraform root escapes the selected source") from exc
+    if not terraform_directory.is_dir():
+        raise ValueError("source teardown Terraform root is unavailable")
+    normalized_variables = {
+        key: value for key, value in current_variables.items() if key != "target_binding"
+    }
+    normalized_variables["env"] = "dev"
+    variables = _approved_plan_variables(
+        plan_directory=plan_directory,
+        plan=plan,
+        context=context,
+        terraform_directory=terraform_directory,
+        expected_variables=normalized_variables,
+    )
     expected_idempotency = canonical_digest(
         {
             "target_binding": target_binding,
@@ -213,6 +243,17 @@ def _claimed_partial_foundation_ownership(
         or context.get("target_binding") != target_binding
         or context.get("run_digest") != run_binding
         or context.get("variables_digest") != canonical_digest(variables)
+        or any(
+            current_variables.get(key) != variables.get(key)
+            for key in (
+                "workload",
+                "region_short",
+                "source_commit",
+                "run_digest",
+                "subscription_id",
+            )
+        )
+        or current_variables.get("target_binding") != target_binding
         or claim.get("schema_version") != "fdai.genesis-foundation-apply-claim.v1"
         or claim.get("state") != "applying"
         or claim.get("review_digest") != plan.get("review_digest")
@@ -224,7 +265,6 @@ def _claimed_partial_foundation_ownership(
         raise ValueError("source teardown claimed Foundation proof differs")
     workload = _text(variables, "workload", pattern=r"[a-z][a-z0-9]{1,15}")
     region_short = _text(variables, "region_short", pattern=r"[a-z][a-z0-9]{1,7}")
-    located = _plain_json(plan_directory / "foundation-private-handoff.json", "handoff")
     app = _object(located.get("app_resource_group"), "application resource group")
     ops = _object(located.get("ops"), "operations resource group")
     if (
@@ -237,6 +277,63 @@ def _claimed_partial_foundation_ownership(
     ):
         raise ValueError("source teardown claimed Foundation location differs")
     return located
+
+
+def _approved_plan_variables(
+    *,
+    plan_directory: Path,
+    plan: dict[str, object],
+    context: dict[str, object],
+    terraform_directory: Path,
+    expected_variables: dict[str, object],
+) -> dict[str, object]:
+    saved_plan = plan_directory / "foundation.tfplan"
+    plan_bytes = read_private_bytes(saved_plan, max_bytes=64 * 1024 * 1024)
+    if hashlib.sha256(plan_bytes).hexdigest() != plan.get("plan_digest"):
+        raise ValueError("source teardown saved Foundation plan differs")
+    terraform = plan_directory / "terraform"
+    terraform_details = terraform.lstat()
+    if (
+        not stat.S_ISREG(terraform_details.st_mode)
+        or stat.S_IMODE(terraform_details.st_mode) != 0o700
+        or terraform_details.st_uid != os.geteuid()
+        or terraform_details.st_nlink != 1
+        or not 0 < terraform_details.st_size <= 128 * 1024 * 1024
+    ):
+        raise PermissionError("saved Terraform MUST be a current-UID mode-0700 executable")
+    terraform_bytes = terraform.read_bytes()
+    if hashlib.sha256(terraform_bytes).hexdigest() != context.get("terraform_digest"):
+        raise ValueError("source teardown saved Terraform differs")
+    completed = subprocess.run(
+        (str(terraform), "show", "-json", str(saved_plan)),
+        cwd=terraform_directory,
+        env={
+            **os.environ,
+            "TF_CLI_CONFIG_FILE": str(plan_directory / "source.tfrc"),
+            "TF_DATA_DIR": str(plan_directory / "terraform-data"),
+        },
+        check=False,
+        capture_output=True,
+        timeout=300,
+        umask=0o077,
+    )
+    if (
+        completed.returncode != 0
+        or len(completed.stdout) > 16 * 1024 * 1024
+        or hashlib.sha256(completed.stdout).hexdigest() != plan.get("plan_json_digest")
+    ):
+        raise ValueError("source teardown saved Foundation plan projection differs")
+    projection = load_json_object(
+        completed.stdout,
+        label="saved Foundation plan projection",
+        max_bytes=16 * 1024 * 1024,
+    )
+    raw_variables = projection.get("variables")
+    if not isinstance(raw_variables, dict) or any(
+        raw_variables.get(key) != {"value": value} for key, value in expected_variables.items()
+    ):
+        raise ValueError("source teardown saved Foundation variables are invalid")
+    return expected_variables
 
 
 def _recovered_foundation_ownership(
@@ -307,6 +404,7 @@ def _recovered_foundation_ownership(
 def apply_source_teardown(
     *,
     work_dir: Path,
+    source_root: Path | None = None,
     runtime_profile: RuntimeDeploymentProfile,
     region: str,
     monthly_cost_ceiling: int,
@@ -321,6 +419,7 @@ def apply_source_teardown(
 
     plan = plan_source_teardown(
         work_dir=work_dir,
+        source_root=source_root,
         runtime_profile=runtime_profile,
         region=region,
         monthly_cost_ceiling=monthly_cost_ceiling,
