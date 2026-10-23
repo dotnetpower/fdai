@@ -1,7 +1,7 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: ec39e695db4833d50a193de4689978f7cce48231
+translation_source_sha: f4144651a4e1d775ecfa1a179284e5d75af8714b
 translation_revised: 2026-10-23
 ---
 
@@ -357,6 +357,25 @@ CI는 `--scope-only`로 거버넌스 소스 변경을 분류합니다. 출력은
 GitHub 검토, 커밋, 정확한 헤드의 Check Run 정보를 제공합니다. 성공 결과는 검토 전용이며
 활성화, 승격, 실행 권한이 아닙니다. 이 연동을 선택한 경우 App 설정이나 신뢰할 수 있는
 근거가 없으면 설치별 검토는 계속 차단됩니다.
+
+## 검증 증거
+
+설치는 거버넌스 롤아웃을 검토 전용 기록 하나로 검증합니다. 기록은
+`fdai.core.governance_qualification`과 `scripts/governance/build-governance-qualification.py`가
+만듭니다. 기록은 수집 전에 설치, 관리 범위, 환경 등급, Rule 세대 digest, 온톨로지 릴리스 digest,
+고정한 provider 리비전, 증거 기준 시각을 묶습니다.
+
+- **소스.** 필요한 provider 소스는 사용 가능하고, 기준 시각 이후에 관찰되지 않았고, 기준 시각에
+  신선할 때만 인정합니다. 사용 불가, 오래됨, 불완전, 폐기, 충돌, 누락, 기준 이후 관찰, 충돌하는
+  중복 소스는 각각 이름이 있는 보류가 됩니다.
+- **고정 코호트.** 오탐, 미탐, 보류, 커버리지는 digest로 고정한 코호트에서 측정합니다. 케이스 집합이
+  바뀌면 닫힌 채 실패합니다. 보류 케이스는 정답으로 세지 않고, 최악의 미탐률은 보류된 위반을
+  놓친 것으로 셉니다. 분모가 0이면 0이 아니라 값이 없으며, 모든 비율은 Wilson 95% 구간과 독립 그룹
+  수를 함께 담습니다.
+- **기록.** 보류된 소스가 없고 코호트가 보류 없이 측정됐을 때만 `ready_for_review`입니다. 그렇지
+  않으면 모든 차단 사유를 이름으로 남깁니다. 기록은 `authority: none`이며 승인, 승격, 실행을 하지
+  않고 모드도 바꾸지 않습니다. 기록 digest, 소스 digest, 측정 digest가 구현 원장이 인용해야 하는
+  증거 digest입니다.
 
 ## RBAC (누가 무엇을 할 수 있는가)
 
