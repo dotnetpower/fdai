@@ -125,6 +125,7 @@ def plan_git_changes(source_root: Path, base: str, head: str = "HEAD") -> dict[s
             "-C",
             str(root),
             "diff",
+            "--no-renames",
             "--name-only",
             "-z",
             "--diff-filter=ACMRD",

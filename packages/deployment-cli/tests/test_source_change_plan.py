@@ -131,3 +131,55 @@ def test_git_plan_and_cli_are_read_only(tmp_path: Path, capsys) -> None:
     assert result["lane"] == "single-service-update"
     assert exit_code == 0
     assert '"mutation_performed":false' in capsys.readouterr().out
+
+
+def test_git_plan_routes_both_sides_of_a_cross_service_rename(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    subprocess.run(["git", "init"], cwd=repository, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "user@example.com"],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(["git", "config", "user.name", "Example"], cwd=repository, check=True)
+    original = repository / "services/operator-service/src/example.py"
+    original.parent.mkdir(parents=True)
+    original.write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=repository, check=True)
+    subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "commit", "-m", "base"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+    )
+    base = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    moved = repository / "services/isolated-executor/src/example.py"
+    moved.parent.mkdir(parents=True)
+    subprocess.run(
+        [
+            "git",
+            "mv",
+            "services/operator-service/src/example.py",
+            "services/isolated-executor/src/example.py",
+        ],
+        cwd=repository,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-c", "commit.gpgsign=false", "commit", "-m", "rename"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+    )
+
+    result = plan_git_changes(repository, base)
+
+    assert result["lane"] == "multi-service-update"
+    assert result["services"] == ["operator-service", "isolated-executor"]
