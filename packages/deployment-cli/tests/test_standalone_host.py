@@ -469,6 +469,66 @@ def test_prepare_persists_foundation_adoption_binding() -> None:
     assert '"document_storage_private_access": document_storage_private_access' in source
 
 
+def test_refresh_private_access_rebinds_only_authoritative_posture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = {
+        "subscription_id": "subscription",
+        "resource_group_name": "resource-group",
+        "key_vault_name": "key-vault",
+        "document_storage_account_name": "storage",
+    }
+    variables = {"enable_aks_key_vault_private_access": False}
+    records = {
+        "context.json": context,
+        "application.auto.tfvars.json": variables,
+    }
+    writes: dict[str, dict[str, object]] = {}
+    monkeypatch.setattr(
+        standalone_host,
+        "_private_json",
+        lambda path, _label: records[path.name],
+    )
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host.standalone_terraform_environment,
+        "requires_aks_key_vault_private_access",
+        lambda **_: True,
+    )
+    monkeypatch.setattr(
+        standalone_host.standalone_terraform_environment,
+        "requires_aks_document_storage_private_access",
+        lambda **_: True,
+    )
+
+    def reconcile(
+        selected_context: dict[str, object],
+        selected_variables: dict[str, object],
+        key_vault: bool,
+        document_storage: bool,
+    ) -> bool:
+        assert selected_context is context and selected_variables is variables
+        assert key_vault is True and document_storage is True
+        context["key_vault_private_access"] = True
+        context["document_storage_private_access"] = True
+        return True
+
+    monkeypatch.setattr(standalone_host, "_reconcile_retained_private_access", reconcile)
+    monkeypatch.setattr(
+        standalone_host,
+        "_replace_private_json",
+        lambda path, value: writes.update({path.name: value}),
+    )
+    monkeypatch.setattr(standalone_host, "_focused_private_access", lambda _: True)
+
+    result = standalone_host._refresh_private_access(SimpleNamespace(), tmp_path)
+
+    assert result["state"] == "refreshed"
+    assert result["focused_private_access"] is True
+    assert set(writes) == {"context.json", "application.auto.tfvars.json"}
+
+
 def test_retained_private_access_accepts_partial_apply_tightening() -> None:
     retained = {"key_vault_private_access": False, "document_storage_private_access": False}
     retained_values: dict[str, object] = {}

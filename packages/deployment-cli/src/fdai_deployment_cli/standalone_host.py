@@ -284,6 +284,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     prepare.set_defaults(handler=_prepare)
 
+    subcommands.add_parser("refresh-private-access").set_defaults(handler=_refresh_private_access)
+
     source_application_inputs.add_prepare_source_parser(subcommands, _prepare)
 
     prepare_runtime = subcommands.add_parser("prepare-runtime")
@@ -1362,6 +1364,50 @@ def _bind_installed_license(
     receipt["receipt_digest"] = canonical_digest(receipt)
     _replace_private_json(work_dir / "license-workload-binding-receipt.json", receipt)
     return receipt
+
+
+def _refresh_private_access(
+    _args: argparse.Namespace,
+    work_dir: Path,
+) -> dict[str, object]:
+    """Refresh only policy-forced private-access selectors after a claimed substrate failure."""
+    context_path = work_dir / "context.json"
+    variables_path = work_dir / "application.auto.tfvars.json"
+    context = _private_json(context_path, "standalone host context")
+    variables = _private_json(variables_path, "standalone host Terraform variables")
+    _managed_identity_login_from_context(context, work_dir)
+    key_vault_private_access = (
+        standalone_terraform_environment.requires_aks_key_vault_private_access(
+            subscription_id=str(context["subscription_id"]),
+            resource_group_name=str(context["resource_group_name"]),
+            vault_name=str(context["key_vault_name"]),
+            work_dir=work_dir,
+        )
+    )
+    document_storage_private_access = (
+        standalone_terraform_environment.requires_aks_document_storage_private_access(
+            subscription_id=str(context["subscription_id"]),
+            resource_group_name=str(context["resource_group_name"]),
+            account_name=str(context["document_storage_account_name"]),
+            work_dir=work_dir,
+        )
+    )
+    changed = _reconcile_retained_private_access(
+        context,
+        variables,
+        key_vault_private_access,
+        document_storage_private_access,
+    )
+    if changed:
+        _replace_private_json(context_path, context)
+        _replace_private_json(variables_path, variables)
+    return {
+        "schema_version": "fdai.standalone-private-access-refresh.v1",
+        "state": "refreshed",
+        "focused_private_access": _focused_private_access(context),
+        "mutation_performed": False,
+        "subscription_ready": False,
+    }
 
 
 def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:

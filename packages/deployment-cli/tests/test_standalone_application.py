@@ -71,11 +71,13 @@ def test_source_recovery_uses_recovered_private_handoff(
 
 def test_focused_access_converges_before_substrate() -> None:
     source = inspect.getsource(standalone_application.deploy_standalone_application)
+    access_source = inspect.getsource(standalone_application._converge_focused_private_access)
 
     assert source.index('host_preparation.get("focused_private_access")') < source.index(
         'begin_stage("substrate")'
     )
-    assert 'stage="access"' in source
+    assert 'stage="access"' in access_source
+    assert source.index('"refresh-private-access"') < source.index("_recover_failed_exact_apply(")
 
 
 def test_failed_exact_apply_uses_only_a_separate_residual(
