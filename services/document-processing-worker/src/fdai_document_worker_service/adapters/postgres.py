@@ -362,10 +362,10 @@ class PostgresDocumentMetadataStore:
             await _enqueue_outbox(connection, event)
 
     async def enqueue_event(self, event: DocumentLifecycleEvent) -> None:
-        """Persist one replay fact outside a lifecycle transition."""
+        """Rearm an already-published replay fact without replacing its original bytes."""
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
-            await _enqueue_outbox(connection, event)
+            await _enqueue_outbox(connection, event, replay=True)
 
     async def prepare_worker_effect(
         self,
@@ -552,7 +552,10 @@ class PostgresDocumentMetadataStore:
                 raise RuntimeError("document worker claim disappeared during acquisition")
             current = _claim(current_row)
             server_now = current_row["server_now"]
-            if current.status is DocumentWorkerClaimStatus.COMPLETED:
+            if current.status is DocumentWorkerClaimStatus.COMPLETED and stage not in {
+                DocumentWorkerStage.RECEIVED_REPLAY,
+                DocumentWorkerStage.PROTECTION_REPLAY,
+            }:
                 return None
             if current.status is DocumentWorkerClaimStatus.ACTIVE:
                 if (
@@ -803,12 +806,21 @@ def _validate_claim(owner: str, lease_seconds: int) -> None:
 
 
 async def _enqueue_outbox(
-    connection: psycopg.AsyncConnection[Any], event: DocumentLifecycleEvent
+    connection: psycopg.AsyncConnection[Any],
+    event: DocumentLifecycleEvent,
+    *,
+    replay: bool = False,
 ) -> None:
+    conflict = (
+        "DO UPDATE SET published_at = NULL, next_attempt_at = clock_timestamp() "
+        "WHERE document_worker_outbox.published_at IS NOT NULL"
+        if replay
+        else "DO NOTHING"
+    )
     await connection.execute(
         "INSERT INTO document_worker_outbox "
         "(event_id, idempotency_key, topic, partition_key, payload, created_at) "
-        "VALUES (%s, %s, %s, %s, %s::jsonb, %s) ON CONFLICT (idempotency_key) DO NOTHING",
+        "VALUES (%s, %s, %s, %s, %s::jsonb, %s) ON CONFLICT (idempotency_key) " + conflict,
         (
             event.event_id,
             event.idempotency_key,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import socket
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -101,6 +100,7 @@ from fdai_document_worker_service.report_lines import (
 from fdai_document_worker_service.supervisor import (
     DependencyReadinessError,
     IngestionWorkerSupervisor,
+    configure_worker_logging,
 )
 
 _COMMON_REQUIRED_ENV = (
@@ -537,7 +537,7 @@ def run_production_worker(environ: Mapping[str, str]) -> int:
         raise ProductionConfigurationError(
             "FDAI_INGESTION_WORKER_HEALTH_PORT MUST be an integer"
         ) from exc
-    logging.basicConfig(level=logging.INFO)
+    configure_worker_logging()
     try:
         return asyncio.run(IngestionWorkerSupervisor(runtime=runtime, health_port=port).run())
     except KeyboardInterrupt:

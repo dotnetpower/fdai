@@ -1149,7 +1149,7 @@ async def test_state_store_audit_chain_conflict_budget_holds_without_local_fallb
 
 
 async def test_state_store_audit_chain_deadline_holds_without_local_fallback(monkeypatch) -> None:
-    monkeypatch.setattr(audit_chain_rehydrate, "_APPEND_DEADLINE_SECONDS", 0.01)
+    monkeypatch.setattr(audit_chain_rehydrate, "_APPEND_QUEUE_WAIT_SECONDS", 0.01)
     store = InMemoryStateStore()
     chain = StateStoreAuditChainAdapter(store)
     await chain._append_lock.acquire()  # noqa: SLF001 - hold the exact bounded admission seam.
