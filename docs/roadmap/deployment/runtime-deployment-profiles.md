@@ -141,6 +141,8 @@ instead proves bounded residual changes, the coordinator preserves the original 
 distinct residual review bound to the original claim, current state, target, source, runtime
 profile, and residual binary plan. It requires a new exact `<stage>-residual-apply` approval and a
 new residual claim before one effect. Destructive residuals retain the second confirmation.
+A fresh AKS runtime is claimed as `runtime-cluster` until it receives a receipt, so its residual
+review and apply read that retained review and claim rather than the ordinary `runtime` records.
 Residual apply ambiguity is verification-first and never repeats the saved plan. If authoritative
 replanning proves that only create actions remain after the focused private-access stage has
 converged, the coordinator may emit one fresh residual-successor plan. It requires another exact
