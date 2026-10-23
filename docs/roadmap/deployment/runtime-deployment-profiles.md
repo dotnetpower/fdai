@@ -838,6 +838,8 @@ capabilities and disables privilege escalation for the AKS restricted Pod Securi
 
 The in-cluster database stage writes the shared state-store DSN plus the role-scoped
 `fdai-ingestion-api-dsn` and `fdai-ingestion-worker-dsn` secrets that AKS document ingestion reads.
+It stores the standard `postgresql://` scheme so both SQLAlchemy and direct psycopg consumers can
+use the same secret; SQLAlchemy adds its driver selection at its own boundary.
 Each ingestion secret grants `Key Vault Secrets User` only to the matching workload identity, and
 only when the selected product profile creates that identity. The shared DSN is granted to Core,
 inventory, and whichever Operator and executor identities the profile creates, so an

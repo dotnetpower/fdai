@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 001b3516b2591fd777b391639ba2b9a7946eb225
+translation_source_sha: b68e9f6e46199aba620befd1ab5a80007f8ae3a0
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -869,7 +869,10 @@ Azure 태그의 문장 부호 때문에 Kubernetes 객체가 유효하지 않게
 제한된 Pod Security 프로파일에 맞게 모든 capability를 제거하고 권한 상승을 비활성화합니다.
 
 클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN과 AKS 문서 수집이 읽는 역할 범위
-`fdai-ingestion-api-dsn`, `fdai-ingestion-worker-dsn` 비밀을 기록합니다. 각 수집 비밀은 일치하는
+`fdai-ingestion-api-dsn`, `fdai-ingestion-worker-dsn` 비밀을 기록합니다.
+SQLAlchemy와 직접 psycopg consumer가 같은 비밀을 사용할 수 있도록 표준 `postgresql://`
+scheme을 저장합니다. SQLAlchemy는 자체 경계에서 driver 선택을 추가합니다.
+각 수집 비밀은 일치하는
 워크로드 신원에만, 그리고 선택한 제품 프로파일이 그 신원을 만들 때만 `Key Vault Secrets User`를
 부여합니다. 공유 DSN은 Core, 인벤토리, 그리고 프로파일이 만드는 Operator와 실행기 신원에 부여하므로,
 관찰 우선 설치는 이 신원들 없이도 데이터베이스를 준비합니다. `postgres-aks`를 선택하면 기반 구성

@@ -31,6 +31,8 @@ def test_aks_dsn_requires_coordinated_rotation_without_independent_expiry() -> N
     assert "checkov:skip=CKV_AZURE_41:Credential rotation requires coordinated" in block
     assert "azurerm_key_vault_secret.state_store_dsn.resource_versionless_id" in root
     assert "depends_on = [kubernetes_stateful_set_v1.postgres]" in block
+    assert 'dsn                  = "postgresql://' in root
+    assert "postgresql+psycopg://" not in root
 
 
 def test_postgres_stateful_set_does_not_reuse_azure_tag_keys_as_labels() -> None:
