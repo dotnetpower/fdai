@@ -222,20 +222,106 @@ def test_initial_inventory_receipt_digest_is_not_trusted_after_tamper() -> None:
         )
 
 
-def test_failed_initial_inventory_allows_one_later_retry(tmp_path: Path) -> None:
-    checkpoint = {
-        "schema_version": "fdai.aks-one-shot-execution-checkpoint.v1",
-        "state": "terminal",
-        "outcome": "failed",
-    }
-    path = tmp_path / "fdai-inventory-0123456789abcdef.terminal.json"
-    path.write_text(json.dumps(checkpoint), encoding="utf-8")
-    path.chmod(0o600)
+def _closure_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stderr: str, attempts: list[str] | None = None
+) -> Path:
+    bundle = tmp_path / "bundle"
+    infra = bundle / "infra"
+    infra.mkdir(parents=True)
+    names = attempts if attempts is not None else []
 
-    assert standalone_aks_inventory._retry_index(tmp_path) == 1
+    def execute(*_args: object, **kwargs: object) -> AksOneShotJob:
+        environment = kwargs["environment"]
+        assert isinstance(environment, dict)
+        names.append(environment["FDAI_INVENTORY_EXECUTION_ATTEMPT"])
+        return AksOneShotJob(
+            name="fdai-inventory-0123456789abcdef", execution_digest="e" * 64, manifest={}
+        )
 
-    second = tmp_path / "fdai-inventory-fedcba9876543210.terminal.json"
-    second.write_text(json.dumps(checkpoint), encoding="utf-8")
-    second.chmod(0o600)
-    with pytest.raises(ValueError, match="ambiguous"):
-        standalone_aks_inventory._retry_index(tmp_path)
+    def capture_env(_command: tuple[str, ...], **_kwargs: object) -> str:
+        raise standalone_aks_inventory._CapturedFailure(
+            "initial inventory independent closure failed", stderr
+        )
+
+    monkeypatch.setattr(standalone_aks_inventory, "execute_aks_cronjob_once", execute)
+    monkeypatch.setattr(standalone_aks_inventory, "_terraform_output", lambda *_: "unused")
+    monkeypatch.setattr(standalone_aks_inventory, "vault_name", lambda *_: "vault")
+    monkeypatch.setattr(standalone_aks_inventory, "_capture", lambda *_args, **_kwargs: "dsn")
+    monkeypatch.setattr(standalone_aks_inventory, "_capture_env", capture_env)
+    return infra
+
+
+def test_superseded_closure_fails_the_attempt_and_the_next_invocation_starts_a_new_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    attempts: list[str] = []
+    infra = _closure_run(
+        tmp_path,
+        monkeypatch,
+        "Traceback\nValueError: inventory closure verification failed: active_generation\n",
+        attempts,
+    )
+    context = _context(infra)
+
+    for _ in range(2):
+        with pytest.raises(ValueError, match="superseded by a newer active generation"):
+            standalone_aks_inventory.run_initial_aks_inventory(
+                context, tmp_path, receipt_path=tmp_path / "receipt.json"
+            )
+
+    assert attempts == ["1", "2"]
+
+
+@pytest.mark.parametrize(
+    ("stderr", "message"),
+    [
+        (
+            "ValueError: inventory closure verification failed: projection",
+            "closure failed: projection",
+        ),
+        (
+            "ValueError: inventory closure verification failed: active_generation,projection",
+            "closure failed: active_generation,projection",
+        ),
+        (
+            "ValueError: inventory closure verification failed: dsn=secret",
+            "^initial inventory independent closure failed$",
+        ),
+        ("unrelated failure", "^initial inventory independent closure failed$"),
+    ],
+)
+def test_other_closure_failures_are_named_but_never_retried_or_echoed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stderr: str, message: str
+) -> None:
+    attempts: list[str] = []
+    infra = _closure_run(tmp_path, monkeypatch, stderr, attempts)
+
+    with pytest.raises(ValueError, match=message) as caught:
+        standalone_aks_inventory.run_initial_aks_inventory(
+            _context(infra), tmp_path, receipt_path=tmp_path / "receipt.json"
+        )
+
+    assert "secret" not in str(caught.value)
+    state = json.loads((tmp_path / "initial-inventory-attempt.json").read_text())
+    assert state["state"] == "succeeded"
+
+
+def test_exhausted_superseded_attempts_stop_instead_of_looping(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    infra = _closure_run(
+        tmp_path,
+        monkeypatch,
+        "ValueError: inventory closure verification failed: active_generation",
+    )
+    context = _context(infra)
+
+    for _ in range(3):
+        with pytest.raises(ValueError, match="superseded"):
+            standalone_aks_inventory.run_initial_aks_inventory(
+                context, tmp_path, receipt_path=tmp_path / "receipt.json"
+            )
+    with pytest.raises(ValueError, match="attempts are exhausted"):
+        standalone_aks_inventory.run_initial_aks_inventory(
+            context, tmp_path, receipt_path=tmp_path / "receipt.json"
+        )
