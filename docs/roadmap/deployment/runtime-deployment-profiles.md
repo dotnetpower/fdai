@@ -876,6 +876,13 @@ immutable and is never redispatched in the same invocation. Only a later explici
 can advance to the next attempt, with at most three attempts; an active or ambiguous attempt keeps
 the same identity for verification-only recovery.
 
+If the independent closure fails only because a scheduled reconciliation promoted a newer
+generation after the one-shot Job finished (`active_generation`), the Job's own generation is
+healthy but no longer the active one, so it cannot be bound. That attempt is recorded as failed and
+the next invocation starts a new attempt. The closure is never relaxed. Any other failed verifier
+condition keeps the attempt and is reported by name; only names from the fixed verifier set are
+ever echoed.
+
 When the deploying operator holds the upstream integrity signing key, the deployment binding step
 also returns the installation binding. The capability stage then issues a no-expiry installation
 entitlement bound to that installation and deployment, instead of the 30-day token. The managed
