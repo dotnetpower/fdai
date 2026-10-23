@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b9c458180c77252b8f845d34e5eb563f447220fd
+translation_source_sha: 001b3516b2591fd777b391639ba2b9a7946eb225
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -112,6 +112,9 @@ Container Apps는 거부합니다. 이 배포가 standalone 애플리케이션 �
 스냅샷에서 `fdaictl`을 설치하며, 스냅샷의 Terraform 루트와 마이그레이션 지원을 사용합니다.
 공급자는 커밋된 lock 파일 기준으로 공개 레지스트리에서 직접 해석합니다. 이미지 참조는 배포
 레지스트리 빌드 단계가 끝난 뒤 다시 읽은 다이제스트로만 런타임 프로파일에 들어갑니다.
+관찰 우선 프로파일은 외부 Operator와 문서 수집 Service를 만들지 않으므로 브라우저 gateway를
+비활성화합니다. Console add-on을 선택하면 이 두 브라우저 대상 워크로드와 함께 gateway를
+활성화합니다.
 archive 컨테이너 형식은 불변 소스 스냅샷의 수신기를 따릅니다. 현재 수신기는 gzip을 사용하고,
 보존된 이전 수신기는 기존 tar 형식을 유지합니다. 런타임 선택, 호스트 상태 또는 재시도 시점이
 이 형식을 암묵적으로 바꿀 수 없습니다.

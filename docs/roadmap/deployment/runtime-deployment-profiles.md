@@ -113,6 +113,9 @@ signed kit archive, installs `fdaictl` from that snapshot, uses Terraform roots 
 support from the snapshot, and resolves providers directly from public registries under the
 committed lock files. Image references still enter the runtime profile only as read-back digests
 after the deployment registry build stage completes.
+The observation-first profile disables the browser gateway because it creates neither the external
+Operator nor document-ingestion Service. Selecting the Console add-on enables the gateway together
+with those exact browser-facing workloads.
 The archive container follows the immutable snapshot receiver: current receivers use gzip, while
 older retained receivers keep their original tar format. Runtime selection, host state, and retry
 timing cannot silently switch that format.

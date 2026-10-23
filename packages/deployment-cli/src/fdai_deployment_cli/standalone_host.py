@@ -1194,6 +1194,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "workloads": workloads,
         "scheduled_jobs": scheduled_jobs,
         "browser_gateway": {
+            "enabled": console_selected,
             "resource_group_name": resource_group,
             "location": application_values["region"],
             "workload": application_values["workload"],
