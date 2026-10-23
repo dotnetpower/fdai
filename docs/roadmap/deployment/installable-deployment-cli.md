@@ -169,8 +169,10 @@ Recovery reads the image-augmented Foundation variables when an artifact-offline
 or the base Foundation variables for an image-free connected run. It never fabricates an image
 receipt or changes bootstrap mode while selecting the retained input.
 The planner also reads the retained runner's supported guest-patch mode and platform-safety bypass
-from authoritative Terraform state and pins that exact pair in the recovery variables. Unsupported
-or inconsistent values stop planning instead of letting recovery revert a tenant-enforced setting.
+from authoritative Terraform state. If provider refresh exposes a newer tenant-enforced selection,
+it validates the runner's `before` values, pins that exact pair in the recovery variables, and plans
+once more. Unsupported or inconsistent values stop planning instead of letting recovery revert the
+setting.
 When the application group already exists in the original state, policy-only recovery preserves
 its exact state ID and requires a no-op. It never renames or adopts that group. A missing
 application group still follows the distinct-name and verified-absence contract.
