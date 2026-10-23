@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import re
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,8 @@ from fdai_deployment_cli.source_change_plan import plan_git_changes
 from fdai_deployment_cli.source_service_update import deploy_source_service_update
 
 _SUPPORTED_LANES = frozenset({"single-service-update", "multi-service-update"})
+_DIGEST = re.compile(r"[0-9a-f]{64}")
+_IMAGE_DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 
 
 def deploy_changed_source(
@@ -76,11 +79,11 @@ def deploy_changed_source(
             expected_current_source_commit=str(plan["base_commit"]),
         )
         receipts.append(
-            {
-                "service": service,
-                "receipt_digest": receipt["receipt_digest"],
-                "image_digest": receipt["image_digest"],
-            }
+            _service_receipt_summary(
+                receipt,
+                expected_service=service,
+                expected_source_commit=str(plan["head_commit"]),
+            )
         )
     result = {
         "schema_version": "fdai.source-changed-update.v1",
@@ -95,3 +98,38 @@ def deploy_changed_source(
     }
     result["receipt_digest"] = canonical_digest(result)
     return result
+
+
+def _service_receipt_summary(
+    receipt: dict[str, object],
+    *,
+    expected_service: str,
+    expected_source_commit: str,
+) -> dict[str, object]:
+    receipt_digest = receipt.get("receipt_digest")
+    image_digest = receipt.get("image_digest")
+    if (
+        receipt.get("schema_version") != "fdai.source-service-update.v1"
+        or receipt.get("state") != "applied"
+        or receipt.get("service") != expected_service
+        or receipt.get("source_commit") != expected_source_commit
+        or not isinstance(receipt_digest, str)
+        or _DIGEST.fullmatch(receipt_digest) is None
+        or not isinstance(image_digest, str)
+        or _IMAGE_DIGEST.fullmatch(image_digest) is None
+        or any(
+            receipt.get(key) is not True
+            for key in (
+                "effect_verified",
+                "peer_state_unchanged_verified",
+                "terraform_zero_change_verified",
+            )
+        )
+    ):
+        raise ValueError("source changed update received incomplete service effect evidence")
+    return {
+        "service": expected_service,
+        "source_commit": expected_source_commit,
+        "receipt_digest": receipt_digest,
+        "image_digest": image_digest,
+    }

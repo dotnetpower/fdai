@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from fdai_deployment_cli import cli
 from fdai_deployment_cli.source_changed_update import deploy_changed_source
 
@@ -79,8 +81,15 @@ def test_multi_service_update_runs_existing_guarded_updates_serially(
         calls.append(kwargs)
         service = kwargs["service"]
         return {
-            "receipt_digest": service[0] * 64,
-            "image_digest": "sha256:" + service[-1] * 64,
+            "schema_version": "fdai.source-service-update.v1",
+            "state": "applied",
+            "service": service,
+            "source_commit": "c" * 40,
+            "receipt_digest": "a" * 64,
+            "image_digest": "sha256:" + "b" * 64,
+            "effect_verified": True,
+            "peer_state_unchanged_verified": True,
+            "terraform_zero_change_verified": True,
         }
 
     monkeypatch.setattr(
@@ -104,6 +113,42 @@ def test_multi_service_update_runs_existing_guarded_updates_serially(
     assert all(call["expected_source_commit"] == "c" * 40 for call in calls)
     assert all(call["expected_current_source_commit"] == "b" * 40 for call in calls)
     assert result["effect_verified"] is True
+
+
+def test_changed_update_rejects_incomplete_service_effect_evidence(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    application = tmp_path / "application"
+    application.mkdir()
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_changed_update.plan_git_changes",
+        lambda *_args: _plan("single-service-update", ["operator-service"]),
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_changed_update.deploy_source_service_update",
+        lambda **_kwargs: {
+            "schema_version": "fdai.source-service-update.v1",
+            "state": "applied",
+            "service": "operator-service",
+            "source_commit": "c" * 40,
+            "receipt_digest": "a" * 64,
+            "image_digest": "sha256:" + "b" * 64,
+            "effect_verified": True,
+            "peer_state_unchanged_verified": False,
+            "terraform_zero_change_verified": True,
+        },
+    )
+
+    with pytest.raises(ValueError, match="incomplete service effect evidence"):
+        deploy_changed_source(
+            source_root=source,
+            base="HEAD~1",
+            application_work_dir=application,
+            work_dir=tmp_path / "work",
+            timeout_seconds=60,
+        )
 
 
 def test_cli_returns_review_exit_for_non_service_lane(tmp_path: Path, monkeypatch, capsys) -> None:
