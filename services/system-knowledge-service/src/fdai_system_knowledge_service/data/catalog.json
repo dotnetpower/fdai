@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:2bdb38b55fb651c5c96b802b80b7cc345033d1f9c2afb1db65b7d64d0de81bc9",
+  "catalog_digest": "sha256:dca415e0c61f44319ffc7074c54cd7bed0e37a4a348a0f15e9a594437aef8722",
   "execution_authority": false,
-  "generated_at": "2026-10-23T12:29:58.158429Z",
+  "generated_at": "2026-10-23T12:36:43.842094Z",
   "records": [
     {
       "designed_behavior": [

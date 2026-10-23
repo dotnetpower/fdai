@@ -1,6 +1,6 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: d460718f5bf64ca717a02c022b843145b768915b
+translation_source_sha: e0b83b59007ae7f869150f3267d5ad1998cff04f
 translation_revised: 2026-10-23
 ---
 
@@ -174,44 +174,11 @@ judgment, 승인, 감사, memory 또는 실행기 권한을 얻지 않습니다.
 각 프로세스는 연결된 user-assigned 신원 클라이언트 id도 `FDAI_MI_CLIENT_ID`로 받습니다. Storage,
 Event Hubs, 모델, 선택적 OCR 및 stewardship 어댑터는 해당 exact 신원을 선택하며 주변 또는
 system-assigned principal로 대체 경로하지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 정확한 기존 정책 참조 적용 | implemented | #2217; API 정책 및 요청 입력, Var 영속 조회, Saga 감사, 워커 최종 공개 검사; 수명 주기 원장의 집중 검사 670개와 실제 PostgreSQL 검사 24개 | 기존 에이전트 및 토픽 역할을 유지합니다. 수동 기본값, 실제 사람 정책, 서비스 권한, 승격을 구분합니다. |
-| Huginn, Heimdall, Forseti, Saga, Var 및 Muninn 게이트 체인 | implemented | `services/core-control-plane/tests/agents/test_document_ingestion_agent_chain.py`; `services/core-control-plane/src/fdai/agents/`; document worker 감사 및 인덱스 계약 | Focused agent-chain 테스트는 내용이 없는 ingress, 판정, 감사, 승인 및 인덱스 명령 소유권을 입증하며 Thor는 non-action 문서 결정을 무시합니다. |
-| 독립 ingestion API 및 처리 worker | implemented | `services/document-ingestion-api/`; `services/document-processing-worker/`; `packages/service-contracts/src/fdai_service_contracts/document.py` | 별도 패키지, 진입점, 계약, 어댑터 및 focused service 테스트가 기계적 프로세스 역할을 보존합니다. |
-| 격리된 native PDF 구문 분석 | implemented | `services/document-processing-worker/src/fdai_document_worker_service/adapters/pdf_isolation.py`; 집중 격리 및 구문 분석기 동등성 검사 | 기계적 worker는 신뢰할 수 없는 native PDF 구문 분석을 리소스 상한이 있는 별도 프로세스에 위임합니다. 구문 분석기 실패는 타입이 지정된 안전하지 않은 패키지 결과를 반환하며 수명 주기 또는 에이전트 권한을 부여하지 않습니다. |
-| 영속 worker 점유 fencing 및 복구 | implemented | `services/core-control-plane/src/fdai/core/document_ingestion/`; `services/core-control-plane/tests/core/document_ingestion/`; service-owned worker 테스트 | Focused 테스트는 gated 상태 재생, 임차 기간과 점유 소유권, 중복 전달 및 결정 이후 복구 동작을 다룹니다. |
-| 배포 신원, topic RBAC 및 재시작 근거 | in-progress | `config/independent-service-live-evidence-manifest.json`; `infra/`; 독립 service 패키지 | 토폴로지와 연결이 선언되고 service 검사가 있지만 이 owner 문서에는 현재 이미지 신원, topic 권한, 재시작 및 실행기 접근 부재 탐색에 대한 정확한 관리 증적이 없습니다. |
-| 정책 기반 요청자 적용 | not-started | [수명 주기 목표](cloud-resource-knowledge-lifecycle-ko.md#요청자-직접-적용-목표) | 같은 고정 담당 체계로 기존 사람 승인을 검증해야 하며 런타임 승인이나 권한 변경은 포함하지 않습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-10-18 | implemented | 기존 Var, Saga, Muninn 담당 체계를 통해 정확한 이전 정책 권한을 연결하고 자기 승인 차단과 수동 기본값을 유지했습니다. | `current change`; #2217; 수명 주기 원장의 집중 및 실제 PostgreSQL 근거, 엄격한 소스 타입 검사와 레이아웃 검사입니다. | 실제 정책 및 검토자, 읽기 권한, 브로커, 독립 운영 승격 증적을 보존합니다. |
-| 2026-10-15 | not-applicable | Forseti 반입 판정 옆의 제한된 비동기 품질 입력 보관을 명확히 했습니다. 저장소 오류는 원래 판정을 보존하며 문서 승인·감사·색인을 대체하지 않습니다. | `23b1573756`; 보관·판정 파이프라인 집중 검사 176개, 네 소스 mypy와 Ruff 통과. | 문서 권한은 바뀌지 않았습니다. 배포 신원·전송·복구 근거는 아직 남아 있습니다. |
-| 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 agent-chain, core ingestion, service 패키지 및 계약 근거입니다. | 정확한 배포 신원, 전송, 재시작 및 권한 상한 근거를 보존해야 합니다. |
-| 2026-08-27 | implemented | 서버가 소유하는 벽시계, CPU, 주소 공간, 페이지 및 문자 상한을 적용해 native PDF 구문 분석을 장기 실행 문서 worker와 격리했습니다. | `current change`; 문서 worker 격리 및 구문 분석기 동등성 검사입니다. | 배포 신원, 전송, 재시작 및 엔드투엔드 에이전트 근거는 아래 열린 작업으로 유지합니다. |
-| 2026-09-15 | not-started | 현재 문서별 승인과 기존 독립 내용 정책에 따른 요청자 적용 목표를 구분했습니다. | `current change`; 이 담당 문서와 연결된 클라우드 수명 주기 설계입니다. 문서만 변경하며 런타임 검사나 승인을 주장하지 않습니다. | 기존 에이전트로 정확한 정책 승인 검증, 철회 시 이전 작업 차단 및 요청자 기록을 구현하고 집중 검증과 독립적인 승격 근거를 보존해야 합니다. |
-
-### 남은 작업
-
-- [ ] 적격 요청자 적용이 Var와 Saga를 통해 사전 독립 정책 권한을 사용하고 자기 부여 또는 철회된 권한을 차단하며, Muninn과 독립적인 저장 재조회 이후에만 공개됨을 입증합니다. [수명 주기 목표](cloud-resource-knowledge-lifecycle-ko.md#요청자-직접-적용-목표)에서 추적합니다.
-  #2217에서 이 경로를 구현하고 로컬 검증했습니다. 실제 독립 승인 운영 정책,
-  계정 및 브로커 연결, 승격 증적은 남아 있습니다.
-- [ ] API가 worker group을 소비할 수 없고 worker에는 선언된 수신 및 전송 topic만 있으며 어느 service도 Thor 신원이나 실행기 역할을 얻을 수 없음을 입증하는 정확한 이미지 기반 관리 증적을 보존합니다.
-- [ ] Gated 상태가 사실만 재생하고 결정 이후 작업이 하나의 영속 stage 점유로 수렴함을 보여주는 재시작, 중복, 순서 변경, 임차 기간 만료 및 조정 근거를 보존합니다.
-- [ ] 내용이 전송 또는 감사 레코드에 복사되지 않은 상태로 Huginn ingress에서 Saga 감사를 거쳐 Var 승인 또는 Muninn 인덱싱까지 이어지는 protected 문서 흐름과 clear 문서 흐름을 각각 하나씩 기록합니다.
-
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/document-ingestion-agent-ownership.md) |
 | 투입 구역, 저장소, 수명 주기 및 event 계약 | [문서 인제스트](document-ingestion-ko.md) |
 | Slack, Teams, web chat, protected fetch 및 이미지 OCR | [대화 첨부 파일](conversation-attachments-ko.md) |
 | Pantheon 역할 경계 | [에이전트 Pantheon](../agents/agent-pantheon-ko.md) |

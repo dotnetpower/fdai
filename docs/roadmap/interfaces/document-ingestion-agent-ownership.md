@@ -168,44 +168,11 @@ grant in split mode. Operational progress remains separate on `fdai.pipeline.sta
 Each process also receives its attached user-assigned identity client id through
 `FDAI_MI_CLIENT_ID`. Storage, Event Hubs, model, optional OCR, and stewardship adapters select that
 exact identity and do not fall back to an ambient or system-assigned principal.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Exact prior-policy reference application | implemented | #2217; API policy/request inputs, Var persisted read, Saga audit and worker final visibility tests; lifecycle ledger's 670 focused and 24 actual PostgreSQL passes | Existing agent/topic roles are unchanged. Manual remains default; live human policy, service grants and promotion remain separate. |
-| Huginn, Heimdall, Forseti, Saga, Var, and Muninn gate chain | implemented | `services/core-control-plane/tests/agents/test_document_ingestion_agent_chain.py`; `services/core-control-plane/src/fdai/agents/`; document worker audit and index contracts | Focused agent-chain tests prove content-free ingress, verdict, audit, approval, and index-command ownership while Thor ignores non-action document decisions. |
-| Independent ingestion API and processing worker | implemented | `services/document-ingestion-api/`; `services/document-processing-worker/`; `packages/service-contracts/src/fdai_service_contracts/document.py` | Separate packages, entry points, contracts, adapters, and focused service tests preserve mechanical process roles. |
-| Isolated native-PDF parsing | implemented | `services/document-processing-worker/src/fdai_document_worker_service/adapters/pdf_isolation.py`; focused isolation and parser-parity checks | The mechanical worker delegates untrusted native-PDF parsing to a spawned process with resource ceilings. Parser failure returns a typed unsafe-package result and grants no lifecycle or agent authority. |
-| Durable worker claim fencing and recovery | implemented | `services/core-control-plane/src/fdai/core/document_ingestion/`; `services/core-control-plane/tests/core/document_ingestion/`; service-owned worker tests | Focused tests cover gated-state replay, lease and claim ownership, duplicate delivery, and post-decision recovery behavior. |
-| Deployed identity, topic RBAC, and restart evidence | in-progress | `config/independent-service-live-evidence-manifest.json`; `infra/`; independent service packages | The topology and bindings are declared and service checks exist, but this owner document has no exact governed receipt for current image identity, topic grants, restart, and no-executor-access probes. |
-| Policy-backed requester application | not-started | [Lifecycle target](cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target) | Prior human authorization must be verified through the same fixed owners; no runtime approval or permission changes are included. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-10-18 | implemented | Added exact prior-policy authorization through existing Var, Saga and Muninn ownership, preserving no-self-approval and the default manual lane. | `current change`; #2217; lifecycle ledger's focused and real PostgreSQL evidence; strict source typing and layout tests. | Retain actual policy/reviewer, read grants, broker and independent operational promotion receipts. |
-| 2026-10-15 | not-applicable | Clarified bounded asynchronous quality-input retention beside Forseti admission; storage faults preserve the original verdict and never replace document approval, audit or indexing. | `23b1573756`; 176 focused retention and primary-pipeline checks, four-source mypy and Ruff passed. | No document authority changed; deployed identity, transport and recovery evidence remain open. |
-| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; agent-chain, core ingestion, service package, and contract evidence listed in the scope table. | Retain exact deployed identity, transport, restart, and authority-ceiling evidence. |
-| 2026-08-27 | implemented | Isolated native-PDF parsing from the long-lived document worker with server-owned wall-time, CPU, address-space, page, and character ceilings. | `current change`; document worker isolation and parser-parity checks. | Deployed identity, transport, restart, and end-to-end agent evidence remain open below. |
-| 2026-09-15 | not-started | Distinguished current per-document approval from the requester application target under prior independent content policy. | `current change`; this owner and the linked cloud lifecycle design. Documentation only; no runtime check or approval is claimed. | Implement exact policy authorization, revocation fencing and actor attribution through the existing agents; retain focused and independent promotion evidence. |
-
-### Remaining work
-
-- [ ] Prove eligible requester application consumes prior independent policy authority through Var and Saga, rejects self-granted or revoked authority, and reaches Muninn plus independent persisted readback before visibility; track the [lifecycle target](cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target).
-  #2217 implements and locally verifies that chain; the remaining evidence is the actual
-  independently approved operating policy, identity/broker binding and promotion receipt.
-- [ ] Retain a governed exact-image receipt proving the API cannot consume worker groups, the worker has only declared receive/send topics, and neither service can obtain Thor's identity or executor roles.
-- [ ] Retain restart, duplicate, reorder, lease-expiry, and reconciliation evidence showing that gated states replay facts only and post-decision work converges on one durable stage claim.
-- [ ] Record one end-to-end protected and one clear document flow from Huginn ingress through Saga audit and either Var approval or Muninn indexing, with no content copied into transport or audit records.
-
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/document-ingestion-agent-ownership.md) |
 | Drop-zone, storage, lifecycle, and event contracts | [Document ingestion](document-ingestion.md) |
 | Slack, Teams, web chat, protected fetch, and image OCR | [Conversation attachments](conversation-attachments.md) |
 | Pantheon role boundaries | [Agent pantheon](../agents/agent-pantheon.md) |
