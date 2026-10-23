@@ -434,4 +434,14 @@ def _override_parameter_relaxation_issues(
     return issues
 
 
-__all__ = ["GovernanceCatalog", "load_governance_catalog"]
+def load_catalog_exemptions(root: Path) -> tuple[Exemption, ...]:
+    """Load only the exemptions under ``root`` with the same per-file validation as the catalog."""
+    issues: list[GovernanceLoadIssue] = []
+    exemptions = _load_exemptions(root / _EXEMPTIONS_DIR, issues)
+    issues.extend(_duplicate_active_exemption_issues(exemptions))
+    if issues:
+        raise GovernanceLoadError(issues)
+    return exemptions
+
+
+__all__ = ["GovernanceCatalog", "load_catalog_exemptions", "load_governance_catalog"]
