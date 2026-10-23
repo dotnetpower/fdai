@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 8570c6af523540d987d583070991769e061da494
+translation_source_sha: f587d46e3fce6d96cca4ab0bf3352bc434285372
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -866,6 +866,12 @@ CSI를 통해 읽습니다. 클라이언트 트래픽에는 상태가 소유하�
 `-target`은 count가 0인 대상이라도 구성 의존성을 모두 유지하므로, 루트 비밀이 포함되면
 `module.state_store`를 통해 Flexible Server가 플랜에 들어가기 때문입니다.
 
+데이터베이스 루트는 Azure 소유권 태그를 Key Vault 비밀에만 적용하고, Kubernetes
+metadata에는 DNS 규칙을 만족하는 라벨 키만 사용합니다. 공유 및 역할 범위 DSN은 URL로
+인코딩한 자격 증명과 표준 `postgresql://` scheme을 사용합니다. 따라서 psycopg를 직접
+호출하는 마이그레이션 및 카탈로그 도구와 SQLAlchemy 클라이언트가 같은 비밀을 사용할 수
+있습니다.
+
 Key Vault DSN에는 별도의 고정 만료일을 두지 않습니다. 자격 증명을 교체하려면 데이터베이스와
 워크로드를 함께 갱신해야 합니다. 비밀 값만 만료시키면 데이터베이스 자격 증명은 바뀌지 않은 채
 접근이 중단됩니다. 이 리소스 단위 예외가 자동 교체 검증 근거를 의미하지는 않습니다.
@@ -907,6 +913,11 @@ drift를 범위 안으로 끌어오지 않아야 하기 때문입니다. 애플�
 ([기능 라이선싱](../fork-and-sequencing/capability-licensing-ko.md#영속적인-무키-trial-목표)).
 배포 영수증은 다시 읽은 기간이 신뢰할 수 있는 시계 기준으로 열려 있을 때만
 `license_mode=trial`을 보고합니다.
+
+초기 인벤토리 one-shot은 content-addressed attempt를 사용합니다. 최종 실패는 변경하지 않고
+보존하며 같은 호출 안에서는 다시 실행하지 않습니다. 이후 명시적인 소스 호출만 다음 attempt로
+진행할 수 있고, attempt는 최대 3회로 제한됩니다. 진행 중이거나 결과가 불명확한 attempt는 같은
+식별자를 유지한 채 검증 전용 복구를 수행합니다.
 
 배포 운영자가 업스트림 무결성 서명 키를 보유하면 배포 바인딩 단계가 설치 바인딩도 함께
 반환합니다. 그러면 기능 단계는 30일 토큰 대신, 해당 설치와 배포에 묶인 만료 없는 설치

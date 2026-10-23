@@ -221,6 +221,7 @@ def test_default_aks_workloads_carry_the_profile_and_omit_unselected_surfaces(
 
     assert set(workloads) == {"core-control-plane"}
     assert workloads["core-control-plane"]["env"]["FDAI_PRODUCT_PROFILE_JSON"] == _PROFILE_JSON
+    assert values["browser_gateway"]["enabled"] is False
 
 
 def test_explicit_add_ons_restore_every_aks_workload(
@@ -233,6 +234,7 @@ def test_explicit_add_ons_restore_every_aks_workload(
     assert {"core-control-plane", "operator-service", "isolated-executor"} <= set(workloads)
     assert "document-ingestion-api" in workloads
     assert workloads["core-control-plane"]["env"]["FDAI_PRODUCT_PROFILE_JSON"] == _PROFILE_JSON
+    assert values["browser_gateway"]["enabled"] is True
     operator_env = workloads["operator-service"]["env"]
     assert operator_env["FDAI_RBAC_APPROVERS_GROUP_ID"] == "approvers"
     assert operator_env["FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"].startswith("https://")

@@ -116,6 +116,7 @@ def test_initial_inventory_overrides_mutable_template_and_retains_closure_eviden
     assert overrides["FDAI_INVENTORY_SCOPES"] == _SUBSCRIPTION
     assert overrides["FDAI_INVENTORY_SOURCES"] == "arg,arm"
     assert overrides["FDAI_INVENTORY_RESOURCE_TYPES"] == ""
+    assert overrides["FDAI_INVENTORY_EXECUTION_ATTEMPT"] == "1"
     # The in-cluster Job cannot reach the operations-private progress container.
     assert "FDAI_INVENTORY_PROGRESS_CONTAINER_URL" not in overrides
     assert closure_environment["FDAI_INVENTORY_PROGRESS_CONTAINER_URL"].startswith("https://")
@@ -131,6 +132,35 @@ def test_initial_inventory_overrides_mutable_template_and_retains_closure_eviden
     assert result["coverage_gap_count"] == 1
     assert result["closure_receipt_verified"] is True
     standalone_aks_inventory.require_initial_inventory_receipt(result, runtime_platform="aks")
+
+
+def test_failed_inventory_attempt_advances_only_on_next_invocation(tmp_path: Path) -> None:
+    first = standalone_aks_inventory._begin_inventory_attempt(
+        tmp_path,
+        source_revision=_REVISION,
+        target_binding=_TARGET,
+    )
+    standalone_aks_inventory._write_inventory_attempt(
+        tmp_path,
+        source_revision=_REVISION,
+        target_binding=_TARGET,
+        attempt=first,
+        state="failed",
+    )
+    second = standalone_aks_inventory._begin_inventory_attempt(
+        tmp_path,
+        source_revision=_REVISION,
+        target_binding=_TARGET,
+    )
+    retained = standalone_aks_inventory._begin_inventory_attempt(
+        tmp_path,
+        source_revision=_REVISION,
+        target_binding=_TARGET,
+    )
+
+    assert first == 1
+    assert second == 2
+    assert retained == 2
 
 
 @pytest.mark.parametrize("tamper", ["scope", "stale", "digest"])
