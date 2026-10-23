@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: c57e1dfb621045cdd92ee866d5cc0828d41d629b
+translation_source_sha: b4d862a6c19112c470428ccfcb26a1e8ad1d434b
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -306,6 +306,15 @@ Agent는 각 서명과 정규 다이제스트를 검증한 뒤 바이트를 비�
 재시도 가능한 입력 보류 상태가 되고 Kubernetes 호출은 수행하지 않습니다. 공급업체와 고객의
 공개 키, 비공개 런타임 묶음, 설치 정책 및 복호화 자료는 계속 독립적인 설치본 입력으로
 제공합니다. 이 전송은 이미지를 미러링하거나 적용 권한을 부여하지 않습니다.
+
+독립 [Lifecycle Agent 배포 루트](../../../infra/lifecycle-agent/README.md)는 source/offline
+워크로드 루트를 변경하지 않고 AKS Agent 하나를 준비합니다. 전용 User-assigned Managed
+Identity, workload federation 연결 하나, 정확한 `Agent.Access` 앱 역할 할당, Agent
+네임스페이스와 영구 상태, 워크로드 네임스페이스에 한정된 Role을 만듭니다. Azure 관리
+리소스 쓰기 역할은 부여하지 않습니다. `enable_agent=false`는 poller를 시작하지 않고
+필수 조건만 준비합니다. 등록, 소유권, 보고 상태, 서명된 입력과 Plan이 모두 준비된 뒤
+정확한 후속 plan에서 Recreate 전략의 Agent 하나만 시작합니다. 설치본 신원 개인 키는
+Terraform 입력으로 사용하지 않습니다.
 
 이 선택 기능의 근거는 집중 로컬 테스트입니다. 실제 Entra 인증, 이미지, AKS, 볼륨 재연결,
 워크로드 변경 효과를 입증하지 않습니다. 이 준비 작업은 기존 Hub의 이미지, revision,

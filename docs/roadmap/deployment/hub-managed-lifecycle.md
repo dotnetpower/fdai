@@ -305,6 +305,15 @@ remain retryable input holds and cause no Kubernetes call. Vendor and customer p
 private runtime bundle, installation policy, and decryption material remain independently
 provisioned installation inputs. This transport does not mirror images or grant apply authority.
 
+The independent [Lifecycle Agent deployment root](../../../infra/lifecycle-agent/README.md) prepares
+one AKS Agent without changing the source/offline workload root. It creates a dedicated
+user-assigned Managed Identity, one workload-federation binding, the exact `Agent.Access` app-role
+assignment, an Agent namespace and persistent state, and a namespace-scoped workload Role. It
+grants no Azure managed-resource role. `enable_agent=false` prepares these prerequisites without
+starting a poller; an exact later plan starts one Recreate-strategy Agent only after enrollment,
+ownership, reported state, signed inputs and a Plan exist. The installation identity private key
+is never a Terraform input.
+
 These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or workload
 effect evidence. Existing Hub images, revisions, catalog bindings and network allowlists are
 not changed by this preparation. An exact cloud plan and separate approval precede those effects.
