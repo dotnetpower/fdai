@@ -5,15 +5,19 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import inspect
+import logging
 from collections.abc import Awaitable, Mapping
+from copy import deepcopy
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Protocol
+from uuid import uuid4
 
 from fdai.agents._framework.adapters import (
     AuditEntry,
     canonical_json_digest,
 )
+from fdai.agents._framework.audit_chain_rehydrate import AuditAppendDeferredError
 from fdai.agents._framework.outbox_publication import (
     PublicationClaim,
     claim_expired,
@@ -77,6 +81,9 @@ if TYPE_CHECKING:
 else:
     _AgentMixinBase = object
 
+_LOG = logging.getLogger(__name__)
+_AUDIT_INBOX_PREFIX = "saga:audit-inbox:"
+
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
@@ -128,6 +135,7 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
         _materialize_handoff: Any
         _mutate_github_issue: Any
         _publish_issue: Any
+        _process_audited_message: Any
         _put_fingerprint_index: Any
         _republish_document_approval: Any
         _republish_document_decision: Any
@@ -145,6 +153,7 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
 
         if self._durable_state_store is None or self.bus is None:
             return 0
+        await self._recover_audit_inbox(limit=limit)
         published = 0
         attempted = 0
         attempted_keys: set[str] = set()
@@ -193,6 +202,103 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
         self._audit_outbox_pending = max(0, self._audit_outbox_pending - published)
         return published
 
+    async def _defer_audit_message(self, topic: str, payload: dict[str, Any]) -> None:
+        """Durably retain authenticated backpressure before acknowledging delivery."""
+        store = self._durable_state_store
+        if store is None:
+            raise AuditAppendDeferredError("audit recovery requires durable state")
+        snapshot = deepcopy(payload)
+        key = _audit_inbox_key(topic, snapshot)
+        record = {
+            "revision": 1,
+            "status": "pending",
+            "topic": topic,
+            "payload": snapshot,
+        }
+        if not await store.write_state_if_absent(key, record):
+            current = await store.read_state(key)
+            if current is None:
+                raise RuntimeError("Saga audit recovery row disappeared")
+            if current["status"] == "recovered":
+                await store.compare_and_set_state(
+                    key,
+                    {**record, "revision": current["revision"] + 1},
+                    expected_revision=current["revision"],
+                )
+        self.record_behavior("audit_inbox:deferred")
+        _LOG.warning(
+            "saga_audit_append_deferred",
+            extra={"topic": topic, "recovery_id": key.removeprefix(_AUDIT_INBOX_PREFIX)},
+        )
+
+    async def _recover_audit_inbox(self, *, limit: int) -> None:
+        """Retry oldest retained messages under a fenced lease, never a cached seal."""
+        store = self._durable_state_store
+        if store is None:
+            return
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 30
+        for status in ("pending", "recovering"):
+            rows, total = await store.read_state_page(
+                _AUDIT_INBOX_PREFIX, limit=limit, field="status", value=status
+            )
+            if total > limit:
+                rows, _ = await store.read_state_page(
+                    _AUDIT_INBOX_PREFIX,
+                    limit=limit,
+                    offset=total - limit,
+                    field="status",
+                    value=status,
+                )
+            for row in reversed(rows):
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    return
+                now = self._clock()
+                if status == "recovering" and datetime.fromisoformat(row["lease_until"]) > now:
+                    continue
+                topic, payload = row["topic"], row["payload"]
+                key = _audit_inbox_key(topic, payload)
+                revision = row["revision"]
+                claimed = {
+                    **row,
+                    "revision": revision + 1,
+                    "status": "recovering",
+                    "owner": uuid4().hex,
+                    "lease_until": (now + timedelta(seconds=120)).isoformat(),
+                }
+                if not await store.compare_and_set_state(key, claimed, expected_revision=revision):
+                    continue
+                try:
+                    async with asyncio.timeout(remaining):
+                        await self._process_audited_message(topic, dict(payload))
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - retain failed audit, never seal it
+                    await store.compare_and_set_state(
+                        key,
+                        {**claimed, "revision": revision + 2, "status": "pending"},
+                        expected_revision=revision + 1,
+                    )
+                    _LOG.warning(
+                        "saga_audit_recovery_pending",
+                        extra={
+                            "recovery_id": key.removeprefix(_AUDIT_INBOX_PREFIX),
+                            "topic": topic,
+                            "exception_type": type(exc).__name__,
+                        },
+                    )
+                    return
+                await store.compare_and_set_state(
+                    key,
+                    {"revision": revision + 2, "status": "recovered"},
+                    expected_revision=revision + 1,
+                )
+                self.record_behavior("audit_inbox:recovered")
+        await store.delete_states_beyond(
+            _AUDIT_INBOX_PREFIX, retain_newest=2048, field="status", value="recovered"
+        )
+
     async def _append_audit(
         self,
         *,
@@ -218,10 +324,37 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
             await self.bus.publish("Saga", "object.audit-entry", payload)
             return
         await self._checkpoint_audit_outbox(payload)
+        if payload.get("kind") == "document_ingestion":
+            await self._rearm_document_audit(payload)
         if self.bus is None:
             self.record_behavior("audit_outbox:publication_pending")
             return
         await self._publish_claimed_audit_outbox(payload)
+
+    async def _rearm_document_audit(self, payload: dict[str, Any]) -> None:
+        """Redeliver an identical seal when gated-state source reconciliation retries."""
+        store = self._durable_state_store
+        if store is None:
+            return
+        key = _audit_outbox_key(payload)
+        stored = await store.read_state(key)
+        if stored is None or stored["status"] != "published":
+            return
+        if stored.get("payload_digest") != _payload_digest(payload):
+            raise RuntimeError("Saga audit outbox idempotency collision")
+        revision = stored["revision"]
+        await store.compare_and_set_state(
+            key,
+            {
+                "schema_version": "1.0.0",
+                "revision": revision + 1,
+                "status": "pending",
+                "correlation_id": str(payload["correlation_id"]),
+                "idempotency_key": str(payload["idempotency_key"]),
+                "payload": deepcopy(payload),
+            },
+            expected_revision=revision,
+        )
 
     async def _publish_claimed_audit_outbox(self, payload: dict[str, Any]) -> bool:
         bus = self.bus
@@ -385,6 +518,10 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
             field="status",
             value="published",
         )
+
+
+def _audit_inbox_key(topic: str, payload: Mapping[str, Any]) -> str:
+    return _AUDIT_INBOX_PREFIX + canonical_json_digest({"topic": topic, "payload": dict(payload)})
 
 
 def _audit_outbox_key(payload: Mapping[str, Any]) -> str:
