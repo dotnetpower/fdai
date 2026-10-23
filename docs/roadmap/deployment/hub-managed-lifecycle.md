@@ -318,7 +318,9 @@ is never a Terraform input. A pre-staged customer configuration signature remain
 through Terraform and uses the Kubernetes provider's binary-secret field; it is never decoded as
 UTF-8 text or exposed as a Terraform command argument. The disabled stage creates its
 `WaitForFirstConsumer` PVC without waiting for `Bound`; binding and independent readiness are
-verified only after the Agent Pod is scheduled.
+verified only after the Agent Pod is scheduled. The state initializer mounts public and private
+inputs read-only so an optional pre-staged configuration and signature can reach the persistent
+verified cache before the Agent process starts.
 
 `fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
 remote effect. From a clean source revision, digest-pinned component images, a reviewed private

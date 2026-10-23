@@ -65,9 +65,13 @@ run "enable_single_writer_agent" {
       length(kubernetes_deployment_v1.agent) == 1 &&
       kubernetes_deployment_v1.agent[0].spec[0].replicas == "1" &&
       kubernetes_deployment_v1.agent[0].spec[0].strategy[0].type == "Recreate" &&
+      contains(
+        kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].init_container[0].volume_mount[*].name,
+        "private-inputs",
+      ) &&
       output.deployment.enabled == true
     )
-    error_message = "Enabled deployment must keep one Recreate Agent writer."
+    error_message = "Enabled deployment must keep one Recreate Agent writer with private cache inputs."
   }
 }
 

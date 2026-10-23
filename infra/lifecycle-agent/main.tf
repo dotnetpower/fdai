@@ -236,6 +236,11 @@ resource "kubernetes_deployment_v1" "agent" {
             mount_path = "/config/public"
             read_only  = true
           }
+          volume_mount {
+            name       = "private-inputs"
+            mount_path = "/config/private"
+            read_only  = true
+          }
         }
         container {
           name    = "agent"
