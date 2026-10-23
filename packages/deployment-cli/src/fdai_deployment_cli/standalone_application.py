@@ -37,6 +37,12 @@ from fdai_deployment_cli.operational_evidence_verifier_input import (
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.standalone_application_recovery import (
+    converge_focused_private_access as _converge_focused_private_access,
+)
+from fdai_deployment_cli.standalone_application_recovery import (
+    recover_failed_exact_apply as _recover_failed_exact_apply,
+)
 from fdai_deployment_cli.source_application_inputs import (
     build_source_console,
     prepare_source_recovery_host,
@@ -261,6 +267,10 @@ def deploy_standalone_application(
                 prepared_root=prepared.root,
                 remote_approval=remote_approval,
                 deadline=deadline,
+                remote_json=_remote_json,
+                plan_after_recovery=_plan_after_recovery,
+                approve_plan=_approve_plan,
+                require_receipt=_require_receipt,
             )
         begin_stage("substrate")
         progress_detail("Recovering by verification, or planning private infrastructure")
@@ -324,6 +334,10 @@ def deploy_standalone_application(
                         prepared_root=prepared.root,
                         remote_approval=remote_approval,
                         deadline=deadline,
+                        remote_json=_remote_json,
+                        plan_after_recovery=_plan_after_recovery,
+                        approve_plan=_approve_plan,
+                        require_receipt=_require_receipt,
                     )
                 progress_detail(
                     "Recovering the failed infrastructure apply without repeating its effect"
@@ -336,6 +350,9 @@ def deploy_standalone_application(
                     remote_approval=remote_approval,
                     stage="substrate",
                     deadline=deadline,
+                    remote_json=_remote_json,
+                    plan_after_recovery=_plan_after_recovery,
+                    approve_plan=_approve_plan,
                 )
             else:
                 substrate_approval.unlink(missing_ok=True)
@@ -749,113 +766,6 @@ def _plan_after_recovery(
         ),
         "apply",
     )
-
-
-def _converge_focused_private_access(
-    tunnel: Any,
-    *,
-    remote_root: str,
-    app_work: str,
-    prepared_root: Path,
-    remote_approval: str,
-    deadline: DeploymentDeadline,
-) -> dict[str, Any]:
-    recovery = _remote_json(
-        tunnel,
-        remote_root,
-        app_work,
-        ("recover-apply", "--stage", "access"),
-        timeout=deadline.remaining(3600),
-    )
-    if recovery.get("state") == "applied":
-        _require_receipt(recovery, "access")
-        return recovery
-    review, command = _plan_after_recovery(
-        tunnel,
-        remote_root,
-        app_work,
-        recovery,
-        stage="access",
-        timeout=deadline.remaining(3600),
-    )
-    approval = _approve_plan(prepared_root, review, deadline=deadline)
-    tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
-    tunnel.copy_to(approval, remote_approval, timeout=120)
-    try:
-        receipt = _remote_json(
-            tunnel,
-            remote_root,
-            app_work,
-            (
-                command,
-                "--stage",
-                "access",
-                "--approval",
-                remote_approval,
-            ),
-            timeout=deadline.remaining(7200),
-        )
-    finally:
-        approval.unlink(missing_ok=True)
-        tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
-    _require_receipt(receipt, "access")
-    return receipt
-
-
-def _recover_failed_exact_apply(
-    tunnel: Any,
-    *,
-    remote_root: str,
-    app_work: str,
-    prepared_root: Path,
-    remote_approval: str,
-    stage: str,
-    deadline: DeploymentDeadline,
-) -> dict[str, Any]:
-    """Verify a failed exact apply, then apply only its separately approved residual."""
-    for phase in range(2):
-        recovery = _remote_json(
-            tunnel,
-            remote_root,
-            app_work,
-            ("recover-apply", "--stage", stage),
-            timeout=deadline.remaining(3600),
-        )
-        if recovery.get("state") == "applied":
-            return recovery
-        review, command = _plan_after_recovery(
-            tunnel,
-            remote_root,
-            app_work,
-            recovery,
-            stage=stage,
-            timeout=deadline.remaining(3600),
-        )
-        if command != "apply-residual":
-            raise ValueError("failed exact apply did not produce bounded residual recovery")
-        approval = _approve_plan(prepared_root, review, deadline=deadline)
-        tunnel.copy_to(approval, remote_approval, timeout=120)
-        try:
-            return _remote_json(
-                tunnel,
-                remote_root,
-                app_work,
-                (
-                    command,
-                    "--stage",
-                    stage,
-                    "--approval",
-                    remote_approval,
-                ),
-                timeout=deadline.remaining(7200),
-            )
-        except ValueError:
-            if phase == 1:
-                raise
-        finally:
-            approval.unlink(missing_ok=True)
-            tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
-    raise ValueError("failed exact apply exceeded its bounded residual recovery")
 
 
 def _remote_json(

@@ -24,6 +24,7 @@ from fdai_deployment_cli import (
     standalone_catalog_review,
     standalone_checkpoint_failure,
     standalone_host,
+    standalone_host_rebind,
     standalone_host_state,
     standalone_host_values,
     standalone_operational_evidence,
@@ -487,18 +488,17 @@ def test_refresh_private_access_rebinds_only_authoritative_posture(
     }
     writes: dict[str, dict[str, object]] = {}
     monkeypatch.setattr(
-        standalone_host,
-        "_private_json",
+        standalone_host_rebind,
+        "private_json",
         lambda path, _label: records[path.name],
     )
-    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
     monkeypatch.setattr(
-        standalone_host.standalone_terraform_environment,
+        standalone_host_rebind.standalone_terraform_environment,
         "requires_aks_key_vault_private_access",
         lambda **_: True,
     )
     monkeypatch.setattr(
-        standalone_host.standalone_terraform_environment,
+        standalone_host_rebind.standalone_terraform_environment,
         "requires_aks_document_storage_private_access",
         lambda **_: True,
     )
@@ -515,15 +515,19 @@ def test_refresh_private_access_rebinds_only_authoritative_posture(
         context["document_storage_private_access"] = True
         return True
 
-    monkeypatch.setattr(standalone_host, "_reconcile_retained_private_access", reconcile)
+    monkeypatch.setattr(standalone_host_rebind, "reconcile_retained_private_access", reconcile)
     monkeypatch.setattr(
-        standalone_host,
-        "_replace_private_json",
+        standalone_host_rebind,
+        "replace_private_json",
         lambda path, value: writes.update({path.name: value}),
     )
-    monkeypatch.setattr(standalone_host, "_focused_private_access", lambda _: True)
+    monkeypatch.setattr(standalone_host_rebind, "focused_private_access", lambda _: True)
 
-    result = standalone_host._refresh_private_access(SimpleNamespace(), tmp_path)
+    result = standalone_host_rebind.refresh_private_access(
+        SimpleNamespace(),
+        tmp_path,
+        login=lambda *_: None,
+    )
 
     assert result["state"] == "refreshed"
     assert result["focused_private_access"] is True

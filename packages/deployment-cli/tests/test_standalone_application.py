@@ -138,6 +138,9 @@ def test_failed_exact_apply_uses_only_a_separate_residual(
         remote_approval="/remote/approval.json",
         stage="substrate",
         deadline=DeploymentDeadline(600),
+        remote_json=standalone_application._remote_json,
+        plan_after_recovery=standalone_application._plan_after_recovery,
+        approve_plan=standalone_application._approve_plan,
     )
 
     assert result["state"] == "applied"
@@ -210,6 +213,9 @@ def test_failed_residual_apply_uses_one_separate_successor(
         remote_approval="/remote/approval.json",
         stage="substrate",
         deadline=DeploymentDeadline(600),
+        remote_json=standalone_application._remote_json,
+        plan_after_recovery=standalone_application._plan_after_recovery,
+        approve_plan=standalone_application._approve_plan,
     )
 
     assert result["operation"] == "substrate-residual-successor"
