@@ -207,7 +207,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         default=None,
         choices=DATABASE_SKUS,
         metavar="SKU",
-        help="PostgreSQL Flexible Server SKU for postgres-flex (default: B_Standard_B2s)",
+        help="PostgreSQL Flexible Server SKU for postgres-flex (default: GP_Standard_D4ads_v5)",
     )
     settings.add_argument(
         "--monthly-cost-ceiling",

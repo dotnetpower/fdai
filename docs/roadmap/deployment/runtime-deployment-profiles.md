@@ -276,7 +276,7 @@ Static readback hashes only files that Static Web Apps serves; host-consumed con
 | AKS user nodes with `postgres-aks` | At least 4. | 4 for non-production compact use |
 | System node SKU | At least 4 vCPUs and 4 GB memory; available in the selected region and subscription. | `Standard_D4ds_v4` |
 | User node SKU | Region and subscription must report it available. | `Standard_D4ds_v4` |
-| PostgreSQL Flexible Server SKU (`--database-sku`) | `postgres-flex` only. One of `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, or `GP_Standard_D4ds_v5`. | Unset keeps `B_Standard_B2s`; a General Purpose size such as `GP_Standard_D2ds_v5` for AKS |
+| PostgreSQL Flexible Server SKU (`--database-sku`) | `postgres-flex` only. One of `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, `GP_Standard_D4ds_v5`, or `GP_Standard_D4ads_v5`. | Unset keeps the regional-catalog General Purpose default `GP_Standard_D4ads_v5` |
 | Availability zones | Every requested zone must exist for both selected SKUs. | Three zones in production |
 
 The database size enters the runtime profile only when it is selected, so an unset size keeps the

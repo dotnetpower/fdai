@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 4a02767317b59a3c73d7f3db019bb3be7348ed0a
+translation_source_sha: 016e5c37b913f9298838b4c5e5c2a964b0d1ef97
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -301,7 +301,7 @@ Studio를 포함하지 않은 기존 롤백 산출물도 계속 읽을 수 있�
 | `postgres-aks` 사용 시 AKS 사용자 노드 | 최소 4개입니다. | 비프로덕션 소형 구성에서 4 |
 | 시스템 노드 SKU | 최소 4 vCPU와 4 GB 메모리이며 선택한 지역과 구독에서 사용 가능해야 합니다. | `Standard_D4ds_v4` |
 | 사용자 노드 SKU | 지역과 구독에서 사용 가능해야 합니다. | `Standard_D4ds_v4` |
-| PostgreSQL Flexible Server SKU(`--database-sku`) | `postgres-flex`에서만 사용합니다. `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, `GP_Standard_D4ds_v5` 중 하나여야 합니다. | 지정하지 않으면 `B_Standard_B2s`를 유지합니다. AKS에는 `GP_Standard_D2ds_v5` 같은 General Purpose 크기를 권장합니다. |
+| PostgreSQL Flexible Server SKU(`--database-sku`) | `postgres-flex`에서만 사용합니다. `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, `GP_Standard_D4ds_v5`, `GP_Standard_D4ads_v5` 중 하나여야 합니다. | 지정하지 않으면 지역 카탈로그의 General Purpose 기본값인 `GP_Standard_D4ads_v5`를 유지합니다. |
 | 가용성 영역 | 요청한 각 영역을 두 SKU에서 모두 사용할 수 있어야 합니다. | 프로덕션에서 3개 영역 |
 
 데이터베이스 크기는 선택한 경우에만 런타임 프로파일에 들어갑니다. 따라서 지정하지 않으면 기존

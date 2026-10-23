@@ -42,9 +42,9 @@ variable "enable_ohl_scale_out_evidence_target" {
 }
 
 variable "postgres_sku_name" {
-  description = "PostgreSQL Flexible Server SKU. The deployment profile selects a larger size explicitly; the default uses the broadly available Burstable B2s."
+  description = "PostgreSQL Flexible Server SKU. The default uses the selected region catalog's General Purpose recommendation."
   type        = string
-  default     = "B_Standard_B2s"
+  default     = "GP_Standard_D4ads_v5"
 
   validation {
     condition = contains([
@@ -53,6 +53,7 @@ variable "postgres_sku_name" {
       "B_Standard_B2ms",
       "GP_Standard_D2ds_v5",
       "GP_Standard_D4ds_v5",
+      "GP_Standard_D4ads_v5",
     ], var.postgres_sku_name)
     error_message = "postgres_sku_name must be a supported PostgreSQL Flexible Server SKU."
   }

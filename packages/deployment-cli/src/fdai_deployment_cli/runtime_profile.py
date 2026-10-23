@@ -31,13 +31,14 @@ class DatabasePlacement(StrEnum):
 
 
 # Explicit PostgreSQL Flexible Server sizes. Unset keeps the infrastructure default,
-# B_Standard_B2s, and leaves the profile mapping and digest unchanged.
+# GP_Standard_D4ads_v5, and leaves the profile mapping and digest unchanged.
 DATABASE_SKUS = (
     "B_Standard_B1ms",
     "B_Standard_B2s",
     "B_Standard_B2ms",
     "GP_Standard_D2ds_v5",
     "GP_Standard_D4ds_v5",
+    "GP_Standard_D4ads_v5",
 )
 
 LEGACY_FULL_PRODUCT_ADD_ONS = (
