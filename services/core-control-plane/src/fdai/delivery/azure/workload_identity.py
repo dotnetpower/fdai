@@ -242,6 +242,11 @@ def _audience_to_resource(audience: str) -> str:
     return audience
 
 
+# Identities that the deployment federates to the same service account in
+# addition to the workload identity, selected by their own client-id env.
+_FEDERATED_SECONDARY_CLIENT_ID_ENVS = frozenset({"FDAI_NOTIFICATION_MI_CLIENT_ID"})
+
+
 def _config_from_env(
     env: Mapping[str, str] | None = None,
     *,
@@ -253,9 +258,11 @@ def _config_from_env(
         client_id = src.get("AZURE_CLIENT_ID")
         selected = src.get(client_id_env)
         if selected and (client_id is None or selected.casefold() != client_id.casefold()):
-            raise ManagedIdentityConfigurationError(
-                "AKS workload identity differs from the selected service identity"
-            )
+            if client_id_env not in _FEDERATED_SECONDARY_CLIENT_ID_ENVS:
+                raise ManagedIdentityConfigurationError(
+                    "AKS workload identity differs from the selected service identity"
+                )
+            client_id = selected
         return ManagedIdentityWorkloadIdentityConfig(
             endpoint="",
             header="",
