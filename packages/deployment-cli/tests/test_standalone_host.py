@@ -1718,6 +1718,12 @@ def test_aks_operational_history_job_is_shadow_and_uses_inventory_identity() -> 
     assert job["retry_limit"] == 0
 
 
+def test_aks_browser_gateway_follows_console_selection() -> None:
+    source = inspect.getsource(standalone_host._prepare_aks_application)
+
+    assert '"enabled": console_selected' in source
+
+
 def test_aks_job_rejects_missing_core_image() -> None:
     with pytest.raises(TypeError, match="image is unavailable"):
         aks_workload_jobs.build_aks_scheduled_job(

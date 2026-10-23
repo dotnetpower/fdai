@@ -69,6 +69,22 @@ def _declarations(root: Path) -> set[str]:
     }
 
 
+def test_database_owner_is_bound_before_temporary_bootstrap_admin() -> None:
+    boundaries = (INFRA / "modules/hub-service/boundaries.tf").read_text(encoding="utf-8")
+    bootstrap = (INFRA / "modules/hub-service/bootstrap.tf").read_text(encoding="utf-8")
+    database = boundaries.split(
+        'resource "azurerm_postgresql_flexible_server_database" "hub" {', 1
+    )[1].split("\n}", 1)[0]
+    bootstrap_admin = bootstrap.split(
+        'resource "azurerm_postgresql_flexible_server_active_directory_administrator" '
+        '"bootstrap" {',
+        1,
+    )[1].split("\n}", 1)[0]
+
+    assert "azurerm_postgresql_flexible_server_active_directory_administrator.hub" in database
+    assert "azurerm_postgresql_flexible_server_database.hub" in bootstrap_admin
+
+
 def _run(root: Path, *args: str, success: bool = True) -> subprocess.CompletedProcess[str]:
     environment = {
         key: value

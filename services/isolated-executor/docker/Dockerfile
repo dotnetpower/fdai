@@ -2,7 +2,7 @@
 
 ARG BASE_IMAGE_REGISTRY=docker.io
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS builder
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS dependency-builder
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
@@ -26,19 +26,24 @@ COPY services/document-ingestion-api/pyproject.toml ./services/document-ingestio
 COPY services/document-processing-worker/pyproject.toml ./services/document-processing-worker/pyproject.toml
 COPY services/system-knowledge-service/pyproject.toml ./services/system-knowledge-service/pyproject.toml
 COPY packages/github-app-auth/pyproject.toml ./packages/github-app-auth/pyproject.toml
+COPY packages/service-contracts/pyproject.toml ./packages/service-contracts/pyproject.toml
+COPY services/isolated-executor/pyproject.toml ./services/isolated-executor/pyproject.toml
+RUN uv sync --frozen --package fdai-isolated-executor-service --no-dev --no-editable \
+        --no-install-package fdai \
+        --no-install-package fdai-service-contracts \
+        --no-install-package fdai-isolated-executor-service
+
+FROM dependency-builder AS builder
+
 COPY packages/service-contracts/ ./packages/service-contracts/
 COPY services/isolated-executor/ ./services/isolated-executor/
 RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
     && uv build --wheel --package fdai-isolated-executor-service --out-dir /wheels \
-    && uv sync --frozen --package fdai-isolated-executor-service --no-dev --no-editable \
-        --no-install-package fdai \
-        --no-install-package fdai-service-contracts \
-        --no-install-package fdai-isolated-executor-service \
-    && uv pip install --python /app/.venv/bin/python --no-deps \
+    && uv pip install --python /app/.venv/bin/python --prefix /app/application --no-deps \
         /wheels/fdai_service_contracts-*.whl \
         /wheels/fdai_isolated_executor_service-*.whl \
-    && test -x /app/.venv/bin/fdai-isolated-executor-service \
-    && test "$(head -n 1 /app/.venv/bin/fdai-isolated-executor-service)" = "#!/app/.venv/bin/python"
+    && test -x /app/application/bin/fdai-isolated-executor-service \
+    && test "$(head -n 1 /app/application/bin/fdai-isolated-executor-service)" = "#!/app/.venv/bin/python"
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
 
@@ -60,13 +65,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     AZURE_MCP_COLLECT_TELEMETRY=false \
     HOME=/tmp/fdai \
-    PATH="/app/.venv/bin:${PATH}" \
+    PATH="/app/application/bin:/app/.venv/bin:${PATH}" \
+    PYTHONPATH=/app/application/lib/python3.13/site-packages \
     XDG_CACHE_HOME=/tmp/fdai/.cache
 
 WORKDIR /app
-COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
+COPY --from=dependency-builder --chown=65532:65532 /app/.venv /app/.venv
+COPY --from=builder --chown=65532:65532 /app/application /app/application
 USER 65532
-RUN test -x /app/.venv/bin/fdai-isolated-executor-service
+RUN test -x /app/application/bin/fdai-isolated-executor-service
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import os,urllib.request;urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"FDAI_ISOLATED_EXECUTOR_HEALTH_PORT\",\"8000\")}/live',timeout=2).read()"]

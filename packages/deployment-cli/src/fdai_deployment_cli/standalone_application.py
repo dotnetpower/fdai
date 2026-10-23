@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import importlib
 import json
 import os
@@ -15,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from fdai_deployment_cli import standalone_catalog_checkpoint
+from fdai_deployment_cli import azure_actor
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.catalog_review_profile import (
     CatalogReviewDeploymentProfile,
@@ -37,20 +37,19 @@ from fdai_deployment_cli.operational_evidence_verifier_input import (
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
-from fdai_deployment_cli.standalone_approval_input import (
-    wait_for_approval_input as _wait_for_approval_input,
-)
 from fdai_deployment_cli.source_application_inputs import (
     build_source_console,
     prepare_source_recovery_host,
     source_transfer_inputs,
+)
+from fdai_deployment_cli.standalone_approval_input import (
+    wait_for_approval_input as _wait_for_approval_input,
 )
 from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
 from fdai_deployment_cli.standalone_console_publish import publish_verified_console
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.standalone_transfer_cleanup import cleanup_remote_transfers, remote_prune
-from fdai_deployment_cli.target import compute_target_binding
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SSH_USER = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
@@ -129,6 +128,7 @@ def deploy_standalone_application(
     source_transfer = None
     recovery_host: Path | None = None
     recovery_host_digest: str | None = None
+    transient_paths: tuple[str, ...]
     if source_mode:
         if (
             kit is not None
@@ -650,11 +650,14 @@ def deploy_standalone_application(
                 timeout_seconds=deadline.remaining(),
                 redirect_changed=redirect_changed,
             )
-        transient_paths = (
-            (f"{remote_root}/source-transfer.tar", f"{remote_root}/source-receiver.pyz")
-            if source_mode
-            else (remote_archive,)
-        )
+        if source_mode:
+            assert source_transfer is not None
+            transient_paths = (
+                f"{remote_root}/{source_transfer.archive.name}",
+                f"{remote_root}/source-receiver.pyz",
+            )
+        else:
+            transient_paths = (remote_archive,)
         cleanup_remote_transfers(
             tunnel,
             transient_paths=transient_paths,
@@ -904,40 +907,11 @@ def _import_entra(scripts: Path) -> Any:
 
 
 def _azure_actor_digest(target_binding: str, *, timeout_seconds: int = 60) -> str:
-    result = subprocess.run(
-        (
-            "az",
-            "account",
-            "show",
-            "--query",
-            "{subscription_id:id,tenant_id:tenantId,user_name:user.name,user_type:user.type}",
-            "--output",
-            "json",
-            "--only-show-errors",
-        ),
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=timeout_seconds,
+    return azure_actor.actor_digest(
+        target_binding,
+        timeout_seconds=timeout_seconds,
+        runner=subprocess.run,
     )
-    try:
-        value = json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
-        raise ValueError("authenticated Azure approval actor is unavailable") from exc
-    if not isinstance(value, dict) or result.returncode != 0 or value.get("user_type") != "user":
-        raise ValueError("authenticated Azure approval actor is unavailable")
-    subscription = value.get("subscription_id")
-    tenant = value.get("tenant_id")
-    login = value.get("user_name")
-    if (
-        not isinstance(subscription, str)
-        or not isinstance(tenant, str)
-        or not isinstance(login, str)
-        or not login.strip()
-        or compute_target_binding(tenant_id=tenant, subscription_id=subscription) != target_binding
-    ):
-        raise ValueError("active Azure target does not match the approved plan")
-    return hashlib.sha256(f"{target_binding}:{login.casefold()}".encode()).hexdigest()
 
 
 def _private_json(path: Path, label: str) -> dict[str, Any]:

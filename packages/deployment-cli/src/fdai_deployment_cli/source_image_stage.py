@@ -14,6 +14,7 @@ import json
 import re
 import subprocess
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Protocol
@@ -49,6 +50,7 @@ _MAX_RECORD_BYTES = 1024 * 1024
 _BUILD_TIMEOUT_SECONDS = 3600
 _IMPORT_TIMEOUT_SECONDS = 1200
 _READ_TIMEOUT_SECONDS = 120
+MAX_PARALLEL_IMAGE_OPERATIONS: Final = 3
 
 _GUIDANCE = {
     UNAVAILABLE: (
@@ -138,19 +140,26 @@ def run_source_image_stage(
             raise SourceImageStageStopped(CHANGED)
     else:
         write_private_output(claim_path, json.dumps(claim, indent=2, sort_keys=True) + "\n")
-    digests: dict[str, str] = {}
-    for service in SERVICE_ORDER:
-        digests[service] = _require_digest(
-            builder.build(
+    operations: dict[str, Future[str]] = {}
+    with ThreadPoolExecutor(max_workers=MAX_PARALLEL_IMAGE_OPERATIONS) as executor:
+        for service in SERVICE_ORDER:
+            operations[service] = executor.submit(
+                _build_service,
+                builder,
                 target,
-                context=snapshot.root,
-                dockerfile=f"services/{service}/docker/Dockerfile",
-                image=f"{service}:sha-{snapshot.commit}",
+                snapshot,
+                service,
             )
-        )
-    for name, source in DEPENDENCY_IMAGES.items():
-        builder.import_image(target, source=source, image=f"{name}:sha-{snapshot.commit}")
-        digests[name] = source.rsplit("@", 1)[1]
+        for name, source in DEPENDENCY_IMAGES.items():
+            operations[name] = executor.submit(
+                _import_dependency,
+                builder,
+                target,
+                snapshot.commit,
+                name,
+                source,
+            )
+        digests = {name: _require_digest(future.result()) for name, future in operations.items()}
     _read_back(builder, target, snapshot.commit, digests)
     receipt: dict[str, object] = {
         "schema_version": RECEIPT_SCHEMA,
@@ -164,6 +173,7 @@ def run_source_image_stage(
             for name, digest in sorted(digests.items())
         },
         "builder": "azure-container-registry-tasks",
+        "max_parallel_image_operations": MAX_PARALLEL_IMAGE_OPERATIONS,
         "provenance": "operator-selected-source",
         "release_signature_verified": False,
         "effect_verified": True,
@@ -173,6 +183,31 @@ def run_source_image_stage(
     receipt["receipt_digest"] = canonical_digest(receipt)
     write_private_output(receipt_path, json.dumps(receipt, indent=2, sort_keys=True) + "\n")
     return receipt
+
+
+def _build_service(
+    builder: RegistryBuildService,
+    target: SourceImageTarget,
+    snapshot: SourceImageSnapshot,
+    service: str,
+) -> str:
+    return builder.build(
+        target,
+        context=snapshot.root,
+        dockerfile=f"services/{service}/docker/Dockerfile",
+        image=f"{service}:sha-{snapshot.commit}",
+    )
+
+
+def _import_dependency(
+    builder: RegistryBuildService,
+    target: SourceImageTarget,
+    commit: str,
+    name: str,
+    source: str,
+) -> str:
+    builder.import_image(target, source=source, image=f"{name}:sha-{commit}")
+    return source.rsplit("@", 1)[1]
 
 
 def _validate(snapshot: SourceImageSnapshot, target: SourceImageTarget) -> None:

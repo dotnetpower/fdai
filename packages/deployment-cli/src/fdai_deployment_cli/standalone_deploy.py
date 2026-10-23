@@ -45,6 +45,10 @@ from fdai_deployment_cli.standalone_foundation_transition import (
     run_foundation_transition,
 )
 from fdai_deployment_cli.standalone_status import current_status, prior_attempt
+from fdai_deployment_cli.target import (
+    azure_target_selection_arguments,
+    require_selected_azure_target,
+)
 
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -472,6 +476,7 @@ def active_azure_target() -> ActiveAzureTarget:
                 "az",
                 "account",
                 "show",
+                *azure_target_selection_arguments(),
                 "--query",
                 "{subscription_id:id,tenant_id:tenantId,user_type:user.type}",
                 "--output",
@@ -501,6 +506,7 @@ def active_azure_target() -> ActiveAzureTarget:
         or _GUID.fullmatch(tenant) is None
     ):
         raise ValueError("standalone deployment requires an authenticated Azure human")
+    require_selected_azure_target(subscription_id=subscription, tenant_id=tenant)
     return ActiveAzureTarget(subscription_id=subscription, tenant_id=tenant)
 
 

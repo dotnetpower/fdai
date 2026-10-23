@@ -86,6 +86,16 @@ SERVICES = {
     ),
 }
 
+BASELINE_SERVICES = frozenset(
+    {
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+    }
+)
+
 
 def _dockerfile(service: str) -> Path:
     return REPO_ROOT / "services" / service / "docker" / "Dockerfile"
@@ -101,12 +111,20 @@ def _stage(text: str, name: str) -> str:
     return match.group("body")
 
 
+def _dependency_stage(text: str) -> str:
+    stage = "dependency-builder" if " AS dependency-builder" in text else "builder"
+    return _stage(text, stage)
+
+
 def test_service_targets_install_owned_wheels_and_entrypoints() -> None:
     assert not (REPO_ROOT / "services" / "Dockerfile").exists()
 
     for service, (distribution, entrypoint, _) in SERVICES.items():
         dockerfile = _dockerfile(service).read_text(encoding="utf-8")
         builder = _stage(dockerfile, "builder")
+        dependency_builder = (
+            _stage(dockerfile, "dependency-builder") if service in BASELINE_SERVICES else builder
+        )
         runtime = _stage(dockerfile, "runtime")
         wheel_name = distribution.replace("-", "_")
         assert dockerfile.count(f"library/python@sha256:{PYTHON_DIGEST}") == 2
@@ -114,25 +132,43 @@ def test_service_targets_install_owned_wheels_and_entrypoints() -> None:
         assert "--target" not in dockerfile
         assert "uv build --wheel --package fdai-service-contracts" in builder
         assert f"uv build --wheel --package {distribution}" in builder
-        assert f"uv sync --frozen --package {distribution} --no-dev --no-editable" in builder
-        assert "UV_PROJECT_ENVIRONMENT=/app/.venv" in builder
+        assert (
+            f"uv sync --frozen --package {distribution} --no-dev --no-editable"
+            in dependency_builder
+        )
+        assert "UV_PROJECT_ENVIRONMENT=/app/.venv" in dependency_builder
         assert (
             "extensions/cost-governance/pyproject.toml "
-            "./extensions/cost-governance/pyproject.toml" in builder
+            "./extensions/cost-governance/pyproject.toml" in dependency_builder
         )
         assert (
             "COPY packages/github-app-auth/pyproject.toml ./packages/github-app-auth/pyproject.toml"
-            in builder
+            in dependency_builder
             or "COPY packages/github-app-auth/ ./packages/github-app-auth/" in builder
         )
-        assert "--no-install-package fdai-service-contracts" in builder
-        assert f"--no-install-package {distribution}" in builder
+        assert "--no-install-package fdai-service-contracts" in dependency_builder
+        assert f"--no-install-package {distribution}" in dependency_builder
         assert "/wheels/fdai_service_contracts-*.whl" in builder
         assert f"/wheels/{wheel_name}-*.whl" in builder
-        assert f'test "$(head -n 1 /app/.venv/bin/{entrypoint})"' in builder
         assert "#!/app/.venv/bin/python" in builder
         assert "/build/.venv" not in dockerfile
-        assert "COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv" in runtime
+        if service in BASELINE_SERVICES:
+            assert f'test "$(head -n 1 /app/application/bin/{entrypoint})"' in builder
+            assert "--prefix /app/application --no-deps" in builder
+            assert (
+                "COPY --from=dependency-builder --chown=65532:65532 "
+                "/app/.venv /app/.venv" in runtime
+            )
+            assert (
+                "COPY --from=builder --chown=65532:65532 "
+                "/app/application /app/application" in runtime
+            )
+            assert "COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv" not in runtime
+            assert 'PATH="/app/application/bin:/app/.venv/bin:${PATH}"' in runtime
+            assert "PYTHONPATH=/app/application/lib/python3.13/site-packages" in runtime
+        else:
+            assert f'test "$(head -n 1 /app/.venv/bin/{entrypoint})"' in builder
+            assert "COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv" in runtime
         assert "USER 65532" in runtime
         assert f'ENTRYPOINT ["{entrypoint}"]' in runtime
 
@@ -149,10 +185,12 @@ def test_github_services_install_refreshable_app_auth_wheel() -> None:
         REPO_ROOT / "extensions" / "cost-governance" / "docker" / "Dockerfile",
     )
     for dockerfile in dockerfiles:
-        builder = _stage(dockerfile.read_text(encoding="utf-8"), "builder")
+        text = dockerfile.read_text(encoding="utf-8")
+        builder = _stage(text, "builder")
+        dependency_builder = _dependency_stage(text)
         assert "COPY packages/github-app-auth/ ./packages/github-app-auth/" in builder
         assert "uv build --wheel --package fdai-github-app-auth" in builder
-        assert "--no-install-package fdai-github-app-auth" in builder
+        assert "--no-install-package fdai-github-app-auth" in dependency_builder
         assert "/wheels/fdai_github_app_auth-*.whl" in builder
 
 
@@ -163,16 +201,18 @@ def test_diagnostics_consumers_install_runtime_diagnostics_wheel() -> None:
         REPO_ROOT / "extensions" / "cost-governance" / "docker" / "Dockerfile",
     )
     for dockerfile in dockerfiles:
-        builder = _stage(dockerfile.read_text(encoding="utf-8"), "builder")
+        text = dockerfile.read_text(encoding="utf-8")
+        builder = _stage(text, "builder")
+        dependency_builder = _dependency_stage(text)
         assert "COPY packages/runtime-diagnostics/ ./packages/runtime-diagnostics/" in builder
         assert "uv build --wheel --package fdai-runtime-diagnostics" in builder
-        assert "--no-install-package fdai-runtime-diagnostics" in builder
+        assert "--no-install-package fdai-runtime-diagnostics" in dependency_builder
         assert "/wheels/fdai_runtime_diagnostics-*.whl" in builder
 
 
 def test_core_source_build_has_pinned_matching_java_grammar_header() -> None:
     text = _dockerfile("core-control-plane").read_text(encoding="utf-8")
-    builder = _stage(text, "builder")
+    dependency_builder = _stage(text, "dependency-builder")
     runtime = _stage(text, "runtime")
     lock = tomllib.loads((REPO_ROOT / "uv.lock").read_text(encoding="utf-8"))
     grammar = next(package for package in lock["package"] if package["name"] == "tree-sitter-java")
@@ -184,16 +224,35 @@ def test_core_source_build_has_pinned_matching_java_grammar_header() -> None:
         "94703d5a6bed02b98e438d7cad1136c01a60ba2c/src/tree_sitter/parser.h"
     )
     header = "RUN mkdir -p /usr/local/include/tree_sitter"
-    assert header in builder
+    assert header in dependency_builder
     # Exact URL and digest, failing closed on a mismatch, and no BuildKit-only ADD flags.
-    assert f"urlopen('{url}'" in builder
-    assert f"hexdigest() == '{digest}'" in builder
-    assert "digest mismatch" in builder
-    assert "chmod 0644 /usr/local/include/tree_sitter/parser.h" in builder
-    assert not re.search(r"^\s*ADD\s", builder, re.M)
-    assert builder.index(header) < builder.index("uv sync --frozen")
+    assert f"urlopen('{url}'" in dependency_builder
+    assert f"hexdigest() == '{digest}'" in dependency_builder
+    assert "digest mismatch" in dependency_builder
+    assert "chmod 0644 /usr/local/include/tree_sitter/parser.h" in dependency_builder
+    assert not re.search(r"^\s*ADD\s", dependency_builder, re.M)
+    assert dependency_builder.index(header) < dependency_builder.index("uv sync --frozen")
     assert "tree_sitter/parser.h" not in runtime
     assert "--chown=65532:65532 /app/.venv /app/.venv" in runtime
+
+
+def test_dockerignore_excludes_nested_python_caches_and_environments() -> None:
+    patterns = {
+        line.strip()
+        for line in (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+    assert {
+        "**/.cache/",
+        "**/.mypy_cache/",
+        "**/.pytest_cache/",
+        "**/.ruff_cache/",
+        "**/.uv_cache/",
+        "**/.venv/",
+        "**/__pycache__/",
+        "**/venv/",
+    } <= patterns
 
 
 def test_runtime_assets_follow_service_ownership() -> None:

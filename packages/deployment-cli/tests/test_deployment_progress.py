@@ -229,6 +229,32 @@ def test_phase_timer_freezes_even_when_finish_time_is_zero() -> None:
         assert display._phases["azure"].ended == 0.0
 
 
+def test_timing_receipt_records_completed_and_active_phase_durations() -> None:
+    clock = [10.0]
+    display, _output = _display(clock=lambda: clock[0])
+    with display:
+        begin_stage("azure")
+        clock[0] = 12.5
+        begin_stage("discovery")
+        clock[0] = 15.0
+
+    receipt = display.timing_receipt(
+        lane="source-install",
+        outcome="review",
+        recorded_at="2026-10-23T03:00:00Z",
+    )
+
+    assert receipt["total_elapsed_ms"] == 5000
+    assert receipt["timing_evidence_only"] is True
+    assert receipt["apply_authorized"] is False
+    assert receipt["deployment_ready"] is False
+    assert receipt["phases"] == [
+        {"name": "azure", "state": "done", "elapsed_ms": 2500},
+        {"name": "discovery", "state": "incomplete", "elapsed_ms": 2500},
+    ]
+    assert isinstance(receipt["receipt_digest"], str)
+
+
 def test_download_instrumentation_preserves_bytes_and_size_guard(tmp_path, monkeypatch) -> None:
     observed = []
     monkeypatch.setattr(deployment_kit, "downloaded_bytes", observed.append)

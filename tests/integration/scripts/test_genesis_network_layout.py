@@ -96,6 +96,37 @@ def test_default_exclusion_preserves_all_specific_reservations(
     assert str(layout[4]) == "192.168.240.0/20"
 
 
+def test_disconnected_peering_prefix_remains_reserved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    layout = _layout(
+        monkeypatch,
+        vnets=[
+            {
+                "local": ["172.29.0.0/16"],
+                "peers": [{"state": "Disconnected", "prefixes": ["172.30.0.0/16"]}],
+            }
+        ],
+    )
+
+    assert str(layout[0]) == "172.27.0.0/16"
+
+
+def test_disconnected_peering_without_prefix_stops(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValueError, match="Azure peering evidence"):
+        _layout(
+            monkeypatch,
+            vnets=[
+                {
+                    "local": ["172.29.0.0/16"],
+                    "peers": [{"state": "Disconnected", "prefixes": []}],
+                }
+            ],
+        )
+
+
 @pytest.mark.parametrize("source", ["vnet", "gateway"])
 def test_default_prefix_is_not_ignored_in_declared_address_spaces(
     monkeypatch: pytest.MonkeyPatch, source: str

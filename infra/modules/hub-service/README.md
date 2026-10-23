@@ -366,6 +366,9 @@ The application initialization can be retried only after investigating an explic
    A `postgres` session advisory lock spans principal commits, product grants and secret readback,
    and releases when the session closes on success or failure. A later failure may leave a matching
    principal committed; a reviewed retry preserves it. Don't run external secret writers concurrently.
+   The retained human PostgreSQL administrator is created before the product database, and the
+   temporary bootstrap administrator is created only after that database. This ordering keeps the
+   database owned by retained authority so bootstrap cleanup cannot be blocked by database ownership.
 
 3. Read only version identifiers into private `secret_versions`, never secret values:
 
