@@ -31,6 +31,8 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
 - Private inputs are rewritten from the retained Secret through mode-`0600` temporary files and
   atomic replacement on every initializer run. Existing or empty files are never accepted by
   presence alone.
+- If an interrupted kubelet `subPath` setup left an empty directory at a file target, the
+  initializer removes only that empty directory. A non-empty directory still fails closed.
 - The installation identity private key is never a Terraform input. Native bootstrap runs
   separately and supplies only the installation public key to the running Agent.
 - `enable_agent=false` prepares identity, RBAC, state, and inputs without starting a poller.

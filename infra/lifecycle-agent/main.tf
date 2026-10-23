@@ -15,6 +15,7 @@ locals {
       "t=private/'.local-policy.json.tmp'",
       "t.write_bytes(Path('/config/private/local-policy.json').read_bytes())",
       "t.chmod(0o600)",
+      "p.is_dir() and p.rmdir()",
       "t.replace(p)",
     ],
     var.installation.configuration_artifact == null ? [] : [
@@ -32,11 +33,13 @@ locals {
       "t=private/'.native-approval.json.tmp'",
       "t.write_bytes(Path('/config/private/native-approval.json').read_bytes())",
       "t.chmod(0o600)",
+      "p.is_dir() and p.rmdir()",
       "t.replace(p)",
       "p=private/'installation-public.pem'",
       "t=private/'.installation-public.pem.tmp'",
       "t.write_bytes(Path('/config/private/installation-public.pem').read_bytes())",
       "t.chmod(0o600)",
+      "p.is_dir() and p.rmdir()",
       "t.replace(p)",
     ] : [],
   ))
