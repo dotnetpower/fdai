@@ -11,7 +11,11 @@ from fdai_deployment_cli.contracts import canonical_bytes
 
 _APPLICATION = "azapi_resource.app_resource_group"
 _POLICY_TAGS = {"FirstPartyUsage": "/Unprivileged"}
-_INPUT_CHANGES = {"application_workload", "operations_public_ip_tags"}
+_PATCH_INPUTS = {
+    "runner_patch_mode",
+    "runner_bypass_platform_safety_checks",
+}
+_INPUT_CHANGES = {"application_workload", "operations_public_ip_tags", *_PATCH_INPUTS}
 
 
 def validate_recovery_plan(
@@ -71,6 +75,16 @@ def validate_recovery_plan(
         "value": select_public_ip_tags(state)
     }:
         raise ValueError("Foundation recovery IP tags differ from the retained policy value")
+    from genesis_foundation_apply import _observed_runner_patch_selection
+
+    observed_patch = _observed_runner_patch_selection(state)
+    if any(
+        variables.get(name) != {"value": value} for name, value in observed_patch.items()
+    ) or any(
+        name not in observed_patch and variables.get(name) != old_variables.get(name)
+        for name in _PATCH_INPUTS
+    ):
+        raise ValueError("Foundation recovery runner patch inputs differ from retained state")
     if set(changes) != set(old_changes) or not existing.keys() <= changes.keys():
         raise ValueError("Foundation recovery inventory changed")
     if _APPLICATION not in changes:

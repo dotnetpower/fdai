@@ -672,6 +672,78 @@ def test_residual_foundation_rejects_scope_expansion(recovery_plans, defect):
         validate_recovery_plan(current, original, state, application_workload="exampleaks")
 
 
+def test_recovery_accepts_runner_patch_inputs_from_retained_state(recovery_plans) -> None:
+    original, current, state = copy.deepcopy(recovery_plans)
+    address = "module.bootstrap.azurerm_linux_virtual_machine.runner[0]"
+    original["variables"].update(
+        {
+            "runner_patch_mode": {"value": None},
+            "runner_bypass_platform_safety_checks": {"value": False},
+        }
+    )
+    current["variables"].update(
+        {
+            "runner_patch_mode": {"value": "AutomaticByPlatform"},
+            "runner_bypass_platform_safety_checks": {"value": True},
+        }
+    )
+    original["resource_changes"].append(
+        {
+            "address": address,
+            "type": "azurerm_linux_virtual_machine",
+            "mode": "managed",
+            "change": {
+                "actions": ["create"],
+                "before": None,
+                "after": {
+                    "id": None,
+                    "name": "runner",
+                    "patch_mode": None,
+                    "bypass_platform_safety_checks_on_user_schedule_enabled": False,
+                },
+                "after_unknown": {"id": True},
+            },
+        }
+    )
+    runner = {
+        "id": "/subscriptions/example/virtualMachines/runner",
+        "name": "runner",
+        "patch_mode": "AutomaticByPlatform",
+        "bypass_platform_safety_checks_on_user_schedule_enabled": True,
+    }
+    current["resource_changes"].append(
+        {
+            "address": address,
+            "type": "azurerm_linux_virtual_machine",
+            "mode": "managed",
+            "change": {
+                "actions": ["no-op"],
+                "before": runner,
+                "after": runner,
+                "after_unknown": {},
+            },
+        }
+    )
+    state["resources"].append(
+        {
+            "module": "module.bootstrap",
+            "mode": "managed",
+            "type": "azurerm_linux_virtual_machine",
+            "name": "runner",
+            "instances": [{"index_key": 0, "attributes": runner}],
+        }
+    )
+
+    result = validate_recovery_plan(
+        current,
+        original,
+        state,
+        application_workload="exampleaks",
+    )
+
+    assert result["preserved_managed_count"] == 2
+
+
 @pytest.fixture(autouse=True)
 def _isolate_host_provider_preflight(monkeypatch):
     """This suite owns saved-plan orchestration; VM provider boundaries have dedicated tests."""
