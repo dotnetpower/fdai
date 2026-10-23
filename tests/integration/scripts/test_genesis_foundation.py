@@ -33,6 +33,7 @@ from genesis_foundation_recovery import (  # noqa: E402
     validate_recovery_plan,
 )
 from genesis_foundation_recovery_plan import (  # noqa: E402
+    _projected_runner_patch_selection,
     _recovery_variables,
     prepare_recovery_plan,
     require_ip_policy_only,
@@ -362,6 +363,32 @@ def test_recovery_variables_bind_supported_runner_patch_selection() -> None:
         "workload": "example",
         "application_workload": "exampleaks",
         "operations_public_ip_tags": {},
+        "runner_patch_mode": "AutomaticByPlatform",
+        "runner_bypass_platform_safety_checks": True,
+    }
+
+
+def test_recovery_plan_reads_tenant_patch_drift_from_runner_before_state() -> None:
+    projection = {
+        "resource_changes": [
+            {
+                "address": "module.bootstrap.azurerm_linux_virtual_machine.runner[0]",
+                "change": {
+                    "actions": ["update"],
+                    "before": {
+                        "patch_mode": "AutomaticByPlatform",
+                        "bypass_platform_safety_checks_on_user_schedule_enabled": True,
+                    },
+                    "after": {
+                        "patch_mode": "AutomaticByPlatform",
+                        "bypass_platform_safety_checks_on_user_schedule_enabled": False,
+                    },
+                },
+            }
+        ]
+    }
+
+    assert _projected_runner_patch_selection(projection) == {
         "runner_patch_mode": "AutomaticByPlatform",
         "runner_bypass_platform_safety_checks": True,
     }
