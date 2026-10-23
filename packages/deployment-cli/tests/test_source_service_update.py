@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -7,6 +8,57 @@ import pytest
 
 from fdai_deployment_cli import cli, source_service_update
 from fdai_deployment_cli.source_service_update import deploy_source_service_update
+
+
+@pytest.fixture(autouse=True)
+def _projection_facts(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    if request.node.name == "test_legacy_full_snapshot_remains_eligible_for_recovery_timing":
+        return
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update._projection_facts",
+        lambda _snapshot: ("fdai.source-snapshot.v2", 1, 1),
+    )
+
+
+def _built_image(work_dir: Path, service: str) -> dict[str, object]:
+    work_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    archive = work_dir / f"{service}.oci.tar"
+    archive.write_bytes(b"oci")
+    return {
+        "state": "built",
+        "service": service,
+        "source_commit": "c" * 40,
+        "archive_ref": archive.name,
+        "archive_sha256": "a" * 64,
+        "image_digest": "sha256:" + "b" * 64,
+    }
+
+
+def test_legacy_full_snapshot_remains_eligible_for_recovery_timing(tmp_path: Path) -> None:
+    snapshot = tmp_path / "snapshot"
+    tree = snapshot / "tree"
+    tree.mkdir(parents=True)
+    snapshot.chmod(0o700)
+    tree.chmod(0o700)
+    (tree / "source.py").write_text("VALUE = 1\n", encoding="utf-8")
+    manifest = snapshot / "source-input.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "fdai.source-snapshot.v1",
+                "source": {},
+                "files": [{"path": "source.py", "mode": "100644", "sha256": "a" * 64}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    manifest.chmod(0o600)
+
+    assert source_service_update._projection_facts(snapshot) == (
+        "fdai.source-snapshot.v1",
+        1,
+        10,
+    )
 
 
 @pytest.mark.parametrize(
@@ -47,21 +99,18 @@ def test_source_service_update_builds_imports_plans_and_verifies(
         "fdai_deployment_cli.source_service_update.inspect_source", lambda *_: source
     )
 
-    def materialize(_source, destination):
+    def materialize(_source, destination, **_kwargs):
         destination.mkdir(mode=0o700)
         return "s" * 64
 
     monkeypatch.setattr("fdai_deployment_cli.source_service_update.materialize_source", materialize)
     monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.service_source_projection",
+        lambda *_args: ("service.py",),
+    )
+    monkeypatch.setattr(
         "fdai_deployment_cli.source_service_update._build_image",
-        lambda **_: {
-            "state": "built",
-            "service": service,
-            "source_commit": "c" * 40,
-            "archive_ref": f"{service}.oci.tar",
-            "archive_sha256": "a" * 64,
-            "image_digest": "sha256:" + "b" * 64,
-        },
+        lambda **kwargs: _built_image(Path(kwargs["work_dir"]), service),
     )
     calls: list[tuple[str, ...]] = []
 
@@ -148,6 +197,16 @@ def test_source_service_update_builds_imports_plans_and_verifies(
     assert result["effect_verified"] is True
     assert result["peer_state_unchanged_verified"] is True
     assert result["terraform_zero_change_verified"] is True
+    timing_files = list((work / "timing").glob("*.json"))
+    assert len(timing_files) == 1
+    timing = json.loads(timing_files[0].read_text(encoding="utf-8"))
+    assert timing["lane"] == "source-service-update"
+    assert timing["source_snapshot_schema"] == "fdai.source-snapshot.v2"
+    assert timing["source_projection_file_count"] == 1
+    assert timing["source_projection_bytes"] == 1
+    assert timing["image_archive_bytes"] == 3
+    assert timing["effect_receipt_digest"] == result["receipt_digest"]
+    assert timing["timing_evidence_only"] is True
     assert [call[0] for call in calls] == [
         "adopt-historical-aks-application",
         "service-update-context",
@@ -181,7 +240,11 @@ def test_new_authority_profile_is_written_after_intent_admission(
     )
     monkeypatch.setattr(
         "fdai_deployment_cli.source_service_update.materialize_source",
-        lambda _source, destination: destination.mkdir(mode=0o700) or "s" * 64,
+        lambda _source, destination, **_kwargs: destination.mkdir(mode=0o700) or "s" * 64,
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.service_source_projection",
+        lambda *_args: ("service.py",),
     )
     monkeypatch.setattr(
         "fdai_deployment_cli.source_service_update._host_json",
@@ -266,18 +329,18 @@ def test_source_service_update_reconciles_historical_baseline_before_import(
     )
     monkeypatch.setattr(
         "fdai_deployment_cli.source_service_update.materialize_source",
-        lambda _source, destination: (destination.mkdir(mode=0o700), "s" * 64)[1],
+        lambda _source, destination, **_kwargs: (
+            destination.mkdir(mode=0o700),
+            "s" * 64,
+        )[1],
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.service_source_projection",
+        lambda *_args: ("service.py",),
     )
     monkeypatch.setattr(
         "fdai_deployment_cli.source_service_update._build_image",
-        lambda **_: {
-            "state": "built",
-            "service": "operator-service",
-            "source_commit": "c" * 40,
-            "archive_ref": "operator-service.oci.tar",
-            "archive_sha256": "a" * 64,
-            "image_digest": "sha256:" + "b" * 64,
-        },
+        lambda **kwargs: _built_image(Path(kwargs["work_dir"]), "operator-service"),
     )
     calls: list[tuple[str, ...]] = []
     adoption_attempts = 0
@@ -448,7 +511,7 @@ def test_source_service_update_requires_complete_historical_adoption_inputs(
     source = SimpleNamespace(
         root=tmp_path / "source",
         commit="c" * 40,
-        to_mapping=lambda: {},
+        to_mapping=dict,
         reverify=lambda: None,
     )
     source.root.mkdir(mode=0o700)

@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 59fca64c0243176c079d250b2166421873cfe78e
-translation_revised: 2026-10-07
+translation_source_sha: 98cbd70384ab2ee6aabca193dfa585202863c9ce
+translation_revised: 2026-10-23
 ---
 # 프로비저닝 실행 프로파일
 
@@ -52,7 +52,11 @@ scripts/deployment/azure/fdai-up.sh --offline-kit /media/fdai/fdai-kit.tar
 fdaictl provision azure --online
 ```
 
-두 명령은 활성 Azure CLI 사용자 컨텍스트에서만 테넌트와 구독을 결정합니다. 소스 checkout,
+기본적으로 두 명령은 활성 Azure CLI 사용자 컨텍스트에서 테넌트와 구독을 결정합니다. 공유
+shell이나 무인 shell은 비밀이 아닌 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 설정할 수
+있습니다. 그러면 대상 조회가 선택한 구독을 명시적으로 전달하고 반환된 테넌트가 다르면
+거부합니다. 이 방식은 한 번의 실행 대상을 고정할 뿐 권한을 부여하거나 인증된 사람 신원을
+대체하지 않습니다. 두 명령에는 소스 checkout,
 Git remote, GitHub 계정, GitHub 저장소, required CI 검사, 저장소 변수, 저장소 비밀, 작업 흐름
 dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Offline 모드는 완전한 키트를 로컬
 경로에서 읽고 모든 공개 아티팩트 대체 경로를 차단합니다. Online 모드는 선택 사항으로 유지되며
@@ -78,6 +82,9 @@ Foundation 네트워크 검색은 안정 버전 Network API `2024-05-01`로 선�
 라우팅 테이블과 로컬 네트워크 게이트웨이를 읽습니다. 기존 리소스의 지역에서 지원하지 않을 수
 있는 최신 버전을 Azure CLI가 자동 선택하게 두지 않습니다. 조회가 실패하면 검색을 중단하며
 예약된 주소 범위를 누락하거나 공급자를 등록하거나 다른 버전으로 재시도하지 않습니다.
+원격 주소 prefix가 완전한 `Disconnected` VNet peering은 연결 근거가 아니라 주소 예약으로
+유지합니다. 네트워크 검색은 겹치지 않는 네트워크를 선택할 때 이 prefix를 포함합니다. 반면
+원격 prefix가 불완전한 연결 해제 peering은 계속 실행을 중단합니다.
 
 기본 배포는 미리 빌드하고 서명한 이미지 집합을 검증하고, API Server VNet Integration이 적용된
 AKS 기반을 만들며, 기본 서비스 다섯 개를 배포합니다. 또한 배포에 연결된 라이선스를 설치하고

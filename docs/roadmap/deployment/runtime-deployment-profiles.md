@@ -113,6 +113,15 @@ signed kit archive, installs `fdaictl` from that snapshot, uses Terraform roots 
 support from the snapshot, and resolves providers directly from public registries under the
 committed lock files. Image references still enter the runtime profile only as read-back digests
 after the deployment registry build stage completes.
+The observation-first profile disables the browser gateway because it creates neither the external
+Operator nor document-ingestion Service. Selecting the Console add-on enables the gateway together
+with those exact browser-facing workloads.
+The archive container follows the immutable snapshot receiver: current receivers use gzip, while
+older retained receivers keep their original tar format. Runtime selection, host state, and retry
+timing cannot silently switch that format.
+The AKS initial inventory keeps a failed content-addressed Job checkpoint. A later invocation may
+run exactly one `.retry1` attempt with the same protected template and identity binding; a second
+failure or ambiguous terminal evidence stops without another automatic attempt.
 If the Foundation needed exact recovery, verified state handoff enters this same sequence. The
 recovery checkout supplies only current recovery code; runtime artifacts remain pinned to the
 original source snapshot, and recovery cannot change the selected runtime profile.
@@ -524,6 +533,10 @@ streams immediately and clients resume from their last event id within the termi
 Every shipped Alpine runtime image also pins security-sensitive runtime package revisions across
 all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
 contract together; image scanning verifies the built result before publication.
+The five baseline service images install locked third-party dependencies before copying application
+source. Their runtime stages keep that stable environment separate from the service wheel layer.
+A source-only rebuild can therefore reuse dependency blobs and publish only the changed application
+layer, without changing package versions, entry points, health checks, identity, or authority.
 
 Core's Alpine ARM64 builder supplies the missing `tree_sitter/parser.h` for source builds of locked `tree-sitter-java` 0.23.5 from the matching upstream commit, pinned by SHA-256. The builder-only header changes no runtime dependency, workload specification, identity, or authority. Native compile/parse evidence is not a complete image build or deployment. The download is verified in a plain `RUN` that fails closed on a digest mismatch, not with `ADD --checksum`: source installations build images with the registry's build service, whose classic builder rejects BuildKit-only syntax, and a test keeps every service Dockerfile free of it.
 
@@ -826,9 +839,16 @@ internal load balancer used by the migration host. The generated DSN is stored i
 read by workloads through managed CSI. Client traffic requires TLS with a state-owned certificate.
 The minimum four user nodes make this profile schedulable
 but do not claim database high availability, backup, or point-in-time recovery.
+Azure resource tags remain on Azure resources and are not reused as Kubernetes labels. The
+PostgreSQL `StatefulSet` uses only its explicit `app.kubernetes.io/*` and `fdai.io/*` labels so
+Azure tag punctuation cannot invalidate the Kubernetes object. Both the Pod and PostgreSQL
+container explicitly require UID/GID 999 and `runAsNonRoot=true`; the container also drops all
+capabilities and disables privilege escalation for the AKS restricted Pod Security profile.
 
 The in-cluster database stage writes the shared state-store DSN plus the role-scoped
 `fdai-ingestion-api-dsn` and `fdai-ingestion-worker-dsn` secrets that AKS document ingestion reads.
+It stores the standard `postgresql://` scheme so both SQLAlchemy and direct psycopg consumers can
+use the same secret; SQLAlchemy adds its driver selection at its own boundary.
 Each ingestion secret grants `Key Vault Secrets User` only to the matching workload identity, and
 only when the selected product profile creates that identity. The shared DSN is granted to Core,
 inventory, and whichever Operator and executor identities the profile creates, so an

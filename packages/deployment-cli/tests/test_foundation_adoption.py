@@ -509,6 +509,58 @@ def test_offline_upgrade_binds_the_retained_foundation_to_the_newer_kit(tmp_path
     assert _lineage(run_root, plan_directory) == receipt
 
 
+def test_completed_source_foundation_adopts_from_retained_names(tmp_path: Path) -> None:
+    foundation, evidence = _inputs(tmp_path)
+    _swap_recovery_receipt(
+        evidence,
+        schema_version="fdai.genesis-foundation-apply-receipt.v1",
+        state="applied",
+    )
+    (evidence / "recovery-private-handoff.json").rename(
+        evidence / "foundation-private-handoff.json"
+    )
+    (evidence / "recovery-apply-receipt.json").rename(evidence / "foundation-apply-receipt.json")
+
+    adoption = stage_recovered_foundation(
+        foundation_directory=foundation,
+        recovery_directory=evidence,
+        destination=tmp_path / "destination",
+        application_source_commit=APPLICATION_SOURCE,
+        kit_manifest_digest="e" * 64,
+        runtime_release_digest="f" * 64,
+        tenant_id=TENANT,
+        subscription_id=SUBSCRIPTION,
+        region=REGION,
+        monthly_cost_ceiling=2000,
+    )
+
+    assert adoption.receipt["foundation_source_commit"] == SOURCE
+
+
+def test_adoption_rejects_ambiguous_terminal_evidence_pairs(tmp_path: Path) -> None:
+    foundation, evidence = _inputs(tmp_path)
+    (evidence / "foundation-private-handoff.json").write_bytes(
+        (evidence / "recovery-private-handoff.json").read_bytes()
+    )
+    (evidence / "foundation-apply-receipt.json").write_bytes(
+        (evidence / "recovery-apply-receipt.json").read_bytes()
+    )
+
+    with pytest.raises(ValueError, match="one exact terminal evidence pair"):
+        stage_recovered_foundation(
+            foundation_directory=foundation,
+            recovery_directory=evidence,
+            destination=tmp_path / "destination",
+            application_source_commit=APPLICATION_SOURCE,
+            kit_manifest_digest="e" * 64,
+            runtime_release_digest="f" * 64,
+            tenant_id=TENANT,
+            subscription_id=SUBSCRIPTION,
+            region=REGION,
+            monthly_cost_ceiling=2000,
+        )
+
+
 def test_offline_upgrade_supersedes_the_receipt_of_another_kit(tmp_path: Path) -> None:
     run_root, plan_directory, _handoff = _retained_run(tmp_path)
     first = _lineage(run_root, plan_directory)

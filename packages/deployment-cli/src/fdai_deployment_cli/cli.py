@@ -54,8 +54,8 @@ from fdai_deployment_cli.entitlement_preflight import (
     ensure_azure_session,
     select_entitlement_mode,
 )
-from fdai_deployment_cli.entra_source import run_source_entra_operation
 from fdai_deployment_cli.entitlement_transport import seal_entitlement_command
+from fdai_deployment_cli.entra_source import run_source_entra_operation
 from fdai_deployment_cli.execution_copies import execution_copy_scope
 from fdai_deployment_cli.license import (
     INSTALLATION_ENTITLEMENT_SCHEMA,
@@ -69,9 +69,9 @@ from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.source_azure import plan_source_installation
+from fdai_deployment_cli import source_change_cli
+from fdai_deployment_cli.source_changed_update import deploy_changed_source
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
-from fdai_deployment_cli.source_service_update import deploy_source_service_update
-from fdai_deployment_cli.source_service_update_cli import source_service_update_inputs
 from fdai_deployment_cli.source_teardown import AzureResourceGroupClient, apply_source_teardown
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
@@ -114,6 +114,8 @@ def _parser() -> argparse.ArgumentParser:
             "provision_azure": _provision_azure,
             "provision_entra": _provision_entra,
             "provision_source_service_update": _provision_source_service_update,
+            "provision_source_change_plan": _provision_source_change_plan,
+            "provision_source_changed_update": _provision_source_changed_update,
             "provision_console_update_build": _provision_console_update_build,
             "provision_console_update_plan": _provision_console_update_plan,
             "provision_console_update_apply": _provision_console_update_apply,
@@ -188,11 +190,11 @@ def _provision_azure(args: argparse.Namespace) -> int:
         CatalogReviewDeploymentProfile,
         load_catalog_review_profile,
     )
-    from fdai_deployment_cli.installation_scope import InstallationOptions
     from fdai_deployment_cli.development_authority_cli import (
         selected_development_authority,
         validate_development_authority_command,
     )
+    from fdai_deployment_cli.installation_scope import InstallationOptions
     from fdai_deployment_cli.operational_evidence_verifier_input import (
         load_operational_evidence_verifier_input,
     )
@@ -377,6 +379,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                     and sys.stdin.isatty(),
                 )
                 ready = progress.finish_source(result)
+            result = source_change_cli.attach_timing(result, progress=progress, work_dir=work_dir)
             _print_mapping(
                 result,
                 output=args.output,
@@ -466,32 +469,20 @@ def _provision_entra(args: argparse.Namespace) -> int:
     )
 
 
-def _provision_source_service_update(args: argparse.Namespace) -> int:
-    """Build and deploy one source-selected service from an eligible deployment host."""
+def _provision_source_change_plan(args: argparse.Namespace) -> int:
+    return source_change_cli.provision_plan(args, _print_mapping)
 
-    source, application, selected, development_profile, clear_development_profile = (
-        source_service_update_inputs(args)
+
+def _provision_source_changed_update(args: argparse.Namespace) -> int:
+    return source_change_cli.provision_update(
+        args,
+        _print_mapping,
+        deploy=deploy_changed_source,
     )
-    result = deploy_source_service_update(
-        source_root=source,
-        application_work_dir=application,
-        work_dir=selected,
-        service=args.service,
-        timeout_seconds=args.timeout_seconds,
-        adopt_historical_binding=args.adopt_historical_binding,
-        adopt_historical_state=args.adopt_historical_state,
-        adopt_historical_variables=args.adopt_historical_variables,
-        adopt_historical_live=args.adopt_historical_live,
-        adopt_historical_plan=args.adopt_historical_plan,
-        development_authority_profile=development_profile,
-        clear_development_authority_profile=clear_development_profile,
-    )
-    print(
-        json.dumps(result, sort_keys=True, separators=(",", ":"))
-        if args.output == "json"
-        else (f"source service update applied: {result['service']} at {result['source_commit']}")
-    )
-    return 0
+
+
+def _provision_source_service_update(args: argparse.Namespace) -> int:
+    return source_change_cli.provision_service_update(args)
 
 
 def _provision_console_update_plan(args: argparse.Namespace) -> int:

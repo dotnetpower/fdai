@@ -205,6 +205,19 @@ def test_the_release_builds_no_appliance_image() -> None:
     ).exists()
 
 
+def test_release_build_bounds_parallel_images_and_overlaps_console() -> None:
+    builder = BUILDER.read_text(encoding="utf-8")
+
+    assert "release_parallelism=3" in builder
+    assert "wait_release_batch" in builder
+    assert builder.index("start_release_job build_console_artifact") < builder.index(
+        'for service in "${services[@]}"; do'
+    )
+    assert "start_release_job build_service_image" in builder
+    assert "start_release_job build_dependency_image clamav" in builder
+    assert "start_release_job build_dependency_image pgvector" in builder
+
+
 def test_release_console_uses_generic_offline_build_and_keeps_archive_layout(tmp_path):
     tools = tmp_path / "tools"
     tools.mkdir()

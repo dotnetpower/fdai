@@ -13,9 +13,17 @@ from fdai_deployment_cli.private_output import read_private_bytes, write_private
 from fdai_deployment_cli.source_input import SourceDeploymentInput, _git, _read_tracked
 
 _MANIFEST = "source-input.json"
+_FULL_SCHEMA = "fdai.source-snapshot.v1"
+_PROJECTED_SCHEMA = "fdai.source-snapshot.v2"
 
 
-def materialize_source(source: SourceDeploymentInput, destination: Path) -> str:
+def materialize_source(
+    source: SourceDeploymentInput,
+    destination: Path,
+    *,
+    selected_paths: tuple[str, ...] | None = None,
+    purpose: str | None = None,
+) -> str:
     """Create a fresh private execution copy, excluding every ignored or untracked input.
 
     Return the manifest digest for independent retention. Failure preserves the partial
@@ -25,6 +33,15 @@ def materialize_source(source: SourceDeploymentInput, destination: Path) -> str:
     destination.mkdir(mode=0o700)
     tree = destination / "tree"
     tree.mkdir(mode=0o700)
+    selected = set(selected_paths) if selected_paths is not None else None
+    if selected is not None and (
+        not selected
+        or purpose is None
+        or not purpose.strip()
+        or len(purpose) > 128
+        or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-._:" for character in purpose)
+    ):
+        raise ValueError("projected source snapshot requires a bounded purpose and file set")
     records: list[dict[str, str]] = []
     for entry in _git(source.root, "ls-tree", "-rz", "--full-tree", source.commit).split(b"\0"):
         if not entry:
@@ -32,6 +49,8 @@ def materialize_source(source: SourceDeploymentInput, destination: Path) -> str:
         metadata, raw_path = entry.split(b"\t", 1)
         mode, kind, _blob = metadata.decode("ascii").split()
         relative = raw_path.decode("utf-8")
+        if selected is not None and relative not in selected:
+            continue
         if kind != "blob" or mode not in {"100644", "100755", "120000"}:
             raise ValueError("source snapshot contains an unsupported input")
         content = _read_tracked(source.root, relative, mode=mode)
@@ -50,13 +69,22 @@ def materialize_source(source: SourceDeploymentInput, destination: Path) -> str:
             {"path": relative, "mode": mode, "sha256": hashlib.sha256(content).hexdigest()}
         )
     source.reverify()
-    if canonical_digest({"files": records}) != source.content_digest:
+    content_digest = canonical_digest({"files": records})
+    if selected is None and content_digest != source.content_digest:
         raise ValueError("source snapshot differs from the selected input")
-    manifest = {
-        "schema_version": "fdai.source-snapshot.v1",
+    if selected is not None and {record["path"] for record in records} != selected:
+        raise ValueError("projected source snapshot contains unavailable inputs")
+    manifest: dict[str, object] = {
+        "schema_version": _FULL_SCHEMA if selected is None else _PROJECTED_SCHEMA,
         "source": source.to_mapping(),
         "files": records,
     }
+    if selected is not None:
+        manifest["projection"] = {
+            "purpose": purpose,
+            "file_count": len(records),
+            "content_digest": content_digest,
+        }
     digest = canonical_digest(manifest)
     write_private_bytes(destination / _MANIFEST, canonical_bytes(manifest))
     verify_source_snapshot(destination, expected_digest=digest)
@@ -69,10 +97,15 @@ def verify_source_snapshot(directory: Path, *, expected_digest: str) -> dict[str
     manifest = load_json_object(raw, label="source snapshot", max_bytes=16 * 1024 * 1024)
     if canonical_digest(manifest) != expected_digest or raw != canonical_bytes(manifest):
         raise ValueError("source snapshot manifest differs from the retained digest")
-    if (
-        set(manifest) != {"schema_version", "source", "files"}
-        or manifest["schema_version"] != "fdai.source-snapshot.v1"
-    ):
+    schema = manifest.get("schema_version")
+    expected_keys = (
+        {"schema_version", "source", "files"}
+        if schema == _FULL_SCHEMA
+        else {"schema_version", "source", "projection", "files"}
+        if schema == _PROJECTED_SCHEMA
+        else set()
+    )
+    if set(manifest) != expected_keys:
         raise ValueError("source snapshot schema is invalid")
     source = manifest["source"]
     records = manifest["files"]
@@ -82,9 +115,35 @@ def verify_source_snapshot(directory: Path, *, expected_digest: str) -> dict[str
         or source.get("release_signature_verified") is not False
     ):
         raise ValueError("source snapshot cannot claim release trust")
-    if not isinstance(records, list) or len(records) != source.get("file_count"):
+    projection = manifest.get("projection")
+    expected_count = (
+        source.get("file_count")
+        if schema == _FULL_SCHEMA
+        else projection.get("file_count")
+        if isinstance(projection, dict)
+        else None
+    )
+    expected_content_digest = (
+        source.get("content_digest")
+        if schema == _FULL_SCHEMA
+        else projection.get("content_digest")
+        if isinstance(projection, dict)
+        else None
+    )
+    if (
+        not isinstance(records, list)
+        or len(records) != expected_count
+        or (
+            schema == _PROJECTED_SCHEMA
+            and (
+                not isinstance(projection, dict)
+                or set(projection) != {"purpose", "file_count", "content_digest"}
+                or not isinstance(projection.get("purpose"), str)
+            )
+        )
+    ):
         raise ValueError("source snapshot inventory is invalid")
-    if canonical_digest({"files": records}) != source.get("content_digest"):
+    if canonical_digest({"files": records}) != expected_content_digest:
         raise ValueError("source snapshot content binding is invalid")
     tree = directory / "tree"
     if tree.is_symlink() or not tree.is_dir():

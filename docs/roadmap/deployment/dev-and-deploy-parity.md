@@ -646,6 +646,9 @@ Each work item MUST be provable at CI time:
 - Every `infra/services/*` root initializes offline and passes `terraform validate` with the
   CI-pinned Terraform. These roots are deployed by `service-deploy.yml` and packaged in every
   offline kit, so a configuration error fails in CI instead of during deployment.
+- Every Terraform root included in one offline deployment kit selects the same AzureRM and Random
+  provider versions. The mirror stores each shared provider archive once while every root retains
+  its own reviewed lock and hash set.
 - Resolver dry-run against a recorded region catalog produces a stable
   `resolved-models.json` hash - proving idempotency.
 

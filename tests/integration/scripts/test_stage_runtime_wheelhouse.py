@@ -78,6 +78,7 @@ class RecordingRunner:
         self.fail = None
         self.omit_build = False
         self.omit_download = False
+        self.download_bytes = {}
         self.committed = {
             relative: (repo / relative).read_bytes()
             for relative in ("uv.lock", "packages/deployment-cli/uv.lock")
@@ -105,7 +106,9 @@ class RecordingRunner:
                 )
         elif args[1] == "run" and not self.omit_download:
             destination = Path(args[args.index("--dest") + 1])
-            (destination / "example_dependency-1.0-py3-none-any.whl").write_bytes(b"synthetic")
+            package = Path(args[args.index("--requirement") + 1]).stem
+            content = self.download_bytes.get(package, b"synthetic")
+            (destination / "example_dependency-1.0-py3-none-any.whl").write_bytes(content)
         return subprocess.CompletedProcess(args, 0, stdout=output)
 
 
@@ -166,13 +169,33 @@ def test_exact_roots_locked_exports_binary_hash_downloads(module, repository, tm
         assert info["version"] == "1.0"
         assert (out / info["requirements"]).read_bytes() == REQUIREMENTS
         assert info["wheel"].startswith("build/")
-    assert len(inventory["files"]) == len(EXPECTED) * 3 + 1
+        assert info["dependency_wheels"] == "wheels/shared"
+    dependency_wheels = list((out / "wheels/shared").glob("*.whl"))
+    assert [wheel.name for wheel in dependency_wheels] == [
+        "example_dependency-1.0-py3-none-any.whl"
+    ]
+    assert dependency_wheels[0].read_bytes() == b"synthetic"
+    assert not any(path.is_dir() for path in (out / "wheels").iterdir() if path.name != "shared")
+    assert not any(path.is_file() for path in (out / ".work/downloads").rglob("*"))
+    assert len(inventory["files"]) == len(EXPECTED) * 2 + 2
     support = (out / inventory["support_requirements"]).read_text()
     for name in EXPECTED:
         assert f"{name}==1.0 --hash=sha256:" in support
     for relative, digest in inventory["files"].items():
         assert hashlib.sha256((out / relative).read_bytes()).hexdigest() == digest
         assert not relative.startswith(".work/")
+
+
+def test_shared_pool_rejects_same_filename_with_different_content(module, repository, tmp_path):
+    runner = RecordingRunner(repository)
+    first, second = list(module.RUNTIME_PACKAGES)[:2]
+    runner.download_bytes = {first: b"first", second: b"second"}
+    out = tmp_path / "wheelhouse"
+
+    with pytest.raises(module.StagingError, match="conflicting content"):
+        module.stage_runtime_wheelhouse(out, repository, runner=runner)
+
+    assert not (out / "inventory.json").exists()
 
 
 def test_runtime_roots_match_authenticated_installer_contract(module, monkeypatch):
