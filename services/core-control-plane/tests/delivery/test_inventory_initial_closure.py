@@ -154,3 +154,4 @@ async def test_initial_lock_covers_independent_observation_and_precedes_completi
         await inventory_sync_cli.run(config, retain_initial_closure=True)
         assert events == ["locked", "observed", "complete", "unlocked"]
     assert coordinator.call_args.kwargs["run_lock"] is None
+    assert coordinator.call_args.kwargs["run_lock_already_held"] is True

@@ -401,6 +401,7 @@ async def run(
                     load_unfinished_collection, PostgresInventorySnapshotStoreConfig(dsn=config.dsn)
                 ),
                 run_lock=run_lock,
+                run_lock_already_held=retain_initial_closure,
                 relationship_mapping_catalog=relationship_catalog,
                 progress_deadline_seconds=float(config.progress_deadline_seconds),
                 attempt_deadline_seconds=float(config.attempt_deadline_seconds),
