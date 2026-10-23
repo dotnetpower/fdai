@@ -321,8 +321,9 @@ UTF-8 text or exposed as a Terraform command argument. The disabled stage create
 verified only after the Agent Pod is scheduled. The state initializer mounts public and private
 inputs read-only so an optional pre-staged configuration and signature can reach the persistent
 verified cache before the Agent process starts. It also copies the local policy and optional native
-identity inputs to owner-only `0600` files on the PVC. The main Agent never mounts the Kubernetes
-Secret and reads only those private state files.
+identity inputs to owner-only `0600` files beneath an exact current-UID mode-`0700`
+`/state/private` boundary on the PVC. The main Agent never mounts the Kubernetes Secret and reads
+only those private state files.
 
 `fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
 remote effect. From a clean source revision, digest-pinned component images, a reviewed private
