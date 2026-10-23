@@ -361,7 +361,7 @@ def _constrained(remaining: int) -> dict:
     inputs = _inputs()
     inputs["usage"] = [
         {"name": {"value": name}, "currentValue": 100 - remaining, "limit": 100}
-        for name in ("standardDASv5Family", "cores")
+        for name in ("standardDDSv4Family", "cores")
     ]
     return inputs
 
@@ -371,7 +371,7 @@ def test_resumed_installation_does_not_count_its_own_pools_as_new_demand() -> No
 
     assert aks_preflight.assess_aks_capacity(**inputs)["state"] == "blocked"
     result = aks_preflight.assess_aks_capacity(
-        **inputs, owned_vcpus={"standarddasv5family": 24, "cores": 24}
+        **inputs, owned_vcpus={"standardddsv4family": 24, "cores": 24}
     )
     assert result["state"] == "feasible"
     assert all(quota["remaining_vcpus"] == 48 for quota in result["quotas"])
@@ -379,7 +379,7 @@ def test_resumed_installation_does_not_count_its_own_pools_as_new_demand() -> No
 
 def test_owned_credit_never_hides_a_real_shortfall() -> None:
     result = aks_preflight.assess_aks_capacity(
-        **_constrained(remaining=10), owned_vcpus={"standarddasv5family": 24, "cores": 24}
+        **_constrained(remaining=10), owned_vcpus={"standardddsv4family": 24, "cores": 24}
     )
     assert result["state"] == "blocked"
 
@@ -402,8 +402,8 @@ def _owned_provider(pools: object, *, fail: bool = False):
 
 def test_inspect_credits_pools_in_the_retained_resource_group(monkeypatch) -> None:
     pools = [
-        {"size": "Standard_D4as_v5", "count": 3},
-        {"size": "Standard_D4as_v5", "count": 3},
+        {"size": "Standard_D4ds_v4", "count": 3},
+        {"size": "Standard_D4ds_v4", "count": 3},
         {"size": "Standard_Other", "count": 9},
     ]
     monkeypatch.setattr(aks_preflight.subprocess, "run", _owned_provider(pools))
@@ -415,7 +415,7 @@ def test_inspect_credits_pools_in_the_retained_resource_group(monkeypatch) -> No
         aks_preflight.DeploymentDeadline(60),
     )
 
-    assert owned == {"standarddasv5family": 24, "cores": 24}
+    assert owned == {"standardddsv4family": 24, "cores": 24}
 
 
 def test_unreadable_retained_group_earns_no_credit(monkeypatch) -> None:
