@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 85c529d11cb41b44c3996cbb7d232a6ce5ff4cc3
+translation_source_sha: 5d17f20bd810156ea90e16542e74891c898bbf25
 translation_revised: 2026-10-23
 ---
 
@@ -789,6 +789,10 @@ claim과 독립 재확인으로 복구합니다. 이어서 조정기는 보존�
 키트에 묶으므로, 관리 호스트는 그 근거를 통해서만 키트를 받아들입니다. 보존된 계보로는 새
 Foundation 계획을 승인하지 않습니다. 더 새 키트로 계산한 계획에 보존된 리비전의 출처를 붙이지
 않습니다.
+채택 입력은 최종 Foundation 증적 쌍을 정확히 하나만 허용합니다. 허용되는 증적은 통제된
+복구 handoff와 증적의 쌍이거나, 일반 source Foundation handoff와 적용 증적의 쌍입니다.
+두 쌍을 모두 포함해 모호한 디렉터리와 어느 쌍도 완성하지 못한 디렉터리는 애플리케이션 계획 전에
+거부합니다.
 
 **전환 설계:** 조정기는 먼저 정확한 Foundation 입력을 비교한 뒤 전환이 필요한지 결정합니다.
 전환을 유발하는 입력은 Foundation이 사용하는 Terraform 루트 콘텐츠, 공급자 잠금 파일,

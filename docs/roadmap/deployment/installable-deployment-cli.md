@@ -789,6 +789,10 @@ coordinator then rebuilds a no-effect Foundation adoption receipt from that reta
 chain and binds it to the newer kit, so the managed host accepts the kit only through that
 evidence. It does not approve a plan computed from the newer kit while that plan carries the
 retained revision as provenance.
+The adoption input accepts exactly one terminal Foundation evidence pair: either the governed
+recovery handoff and receipt, or the ordinary source Foundation handoff and applied receipt.
+Ambiguous directories containing both pairs and incomplete directories containing neither pair
+are rejected before any application planning.
 
 **Transition design:** The coordinator first compares precise Foundation inputs before it decides
 whether a transition exists. The trigger set is the Terraform root content used by Foundation, the
