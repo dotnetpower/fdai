@@ -326,7 +326,9 @@ identity inputs to owner-only `0600` files beneath an exact current-UID mode-`07
 only those private state files. `fsGroupChangePolicy=OnRootMismatch` prevents kubelet from
 recursively broadening those modes after the PVC root already has the Agent group. The main Agent
 bind-mounts only the required PVC files by `subPath` beneath the image's UID-owned mode-`0700`
-`/config/private` directory, so the group-managed PVC root is never a private-input parent.
+`/config/private` directory, so the group-managed PVC root is never a private-input parent. The
+initializer keeps its private-input and artifact-cache directories in distinct variables; native
+approval and installation identity files cannot drift into the configuration cache.
 
 `fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
 remote effect. From a clean source revision, digest-pinned component images, a reviewed private

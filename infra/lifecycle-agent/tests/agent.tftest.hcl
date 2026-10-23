@@ -29,12 +29,14 @@ variables {
     config_key_pem  = "public configuration key"
   }
   installation = {
-    id                    = "installation-alpha"
-    target_namespace      = "fdai-system"
-    fencing_generation    = 1
-    local_policy_json     = "{\"schema\":\"fdai.lifecycle-local-policy.v1\"}"
-    current_state_json    = "{\"digest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"
-    poll_interval_seconds = 5
+    id                          = "installation-alpha"
+    target_namespace            = "fdai-system"
+    fencing_generation          = 1
+    local_policy_json           = "{\"schema\":\"fdai.lifecycle-local-policy.v1\"}"
+    current_state_json          = "{\"digest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"
+    native_approval_json        = "{}"
+    installation_public_key_pem = "public installation key"
+    poll_interval_seconds       = 5
   }
   agent_image = "registry.example.com/fdai-lifecycle-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
@@ -77,6 +79,10 @@ run "enable_single_writer_agent" {
       contains(
         kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].volume_mount[*].sub_path,
         "private/local-policy.json",
+      ) &&
+      strcontains(
+        kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].init_container[0].args[0],
+        "p=private/'native-approval.json'",
       ) &&
       !contains(
         kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].volume_mount[*].name,

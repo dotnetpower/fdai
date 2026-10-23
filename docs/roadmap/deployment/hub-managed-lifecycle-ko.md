@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: cb4dbb08ee7e049db1c349544b4307c645ee8020
+translation_source_sha: 29aa7bb53fd592f37dfe0c98079ec4e7b487bb05
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -330,7 +330,9 @@ owner-only `0600` 파일로 복사합니다. main Agent는 Kubernetes Secret을 
 `fsGroupChangePolicy=OnRootMismatch`가 kubelet이 해당 mode를 재귀적으로 다시 넓히지
 않도록 합니다. main Agent는 필요한 PVC 파일만 `subPath`로 이미지의 UID 소유 mode-`0700`
 `/config/private` 디렉터리 아래에 bind mount합니다. 따라서 group이 관리하는 PVC root를
-비공개 입력 parent로 취급하지 않습니다.
+비공개 입력 parent로 취급하지 않습니다. 초기화 컨테이너는 비공개 입력 디렉터리와 산출물
+캐시 디렉터리를 서로 다른 변수로 유지하므로 native 승인과 설치본 신원 파일이 구성 캐시로
+이동하지 않습니다.
 
 `fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
 깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,
