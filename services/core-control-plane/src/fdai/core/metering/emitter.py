@@ -21,7 +21,12 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 from fdai.core.metering.pricing import PricingTable
-from fdai.core.metering.records import InvocationMode, InvocationScope, LlmInvocation
+from fdai.core.metering.records import (
+    InvocationDisposition,
+    InvocationMode,
+    InvocationScope,
+    LlmInvocation,
+)
 from fdai.core.metering.sink import MeteringSink
 from fdai.core.metering.usage import TokenUsage
 from fdai.shared.telemetry.correlation import current_correlation_id
@@ -78,6 +83,12 @@ class MeteringEmitter:
         *,
         correlation_id: str | None = None,
         usage_scope: InvocationScope | None = None,
+        cached_prompt_tokens: int = 0,
+        duration_ms: int = 0,
+        profile_digest: str | None = None,
+        locale: str = "und",
+        turn_family: str = "unknown",
+        disposition: InvocationDisposition = InvocationDisposition.UNKNOWN,
     ) -> None:
         """Record ``usage`` for the bound capability; never raise on failure.
 
@@ -123,6 +134,12 @@ class MeteringEmitter:
                 usage_scope=usage_scope or self._usage_scope,
                 cost=cost,
                 currency=currency,
+                cached_prompt_tokens=cached_prompt_tokens,
+                duration_ms=duration_ms,
+                profile_digest=profile_digest,
+                locale=locale,
+                turn_family=turn_family,
+                disposition=disposition,
             )
             await self._sink.record(record)
         except Exception:

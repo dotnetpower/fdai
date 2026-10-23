@@ -77,6 +77,7 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
         "rbac_break_glass_group_id": "break-glass",
         "stewardship_maintainers": "operator",
         "stewardship_agent_bindings": {"Odin": "user:operator"},
+        "notification_email_recipients": ["oncall@fabrikam.test", "digest@fabrikam.test"],
     }
     console = "read-only-console" in add_ons
     operator_api = console or "enterprise-identity-governance" in add_ons
@@ -90,6 +91,7 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
         "canary": True,
         "ingestion": console,
         "ingestion_worker": console,
+        "notification": "notifications" in add_ons,
     }
     identities = {
         name: (
@@ -107,6 +109,14 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
     def json_output(_infra: Path, name: str) -> object:
         return {
             "runtime_identity_bindings": identities,
+            "notification_email_binding": (
+                {
+                    "endpoint": "https://acs-fdai.unitedstates.communication.azure.com",
+                    "sender_address": "DoNotReply@fabrikam.azurecomm.net",
+                }
+                if "notifications" in add_ons
+                else None
+            ),
             "event_bus_topics": ["events"],
             "event_bus_semantic_topics": ["requests", "projections", "investigations"],
             "llm_model_endpoints": {"model": "endpoint"},
@@ -189,6 +199,7 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
             "service": name,
             "env": _a[2],
             "secret_environment": _a[3],
+            "additional_identities": _k.get("additional_identities") or {},
             "image": f"image-{name}",
             "replicas": 1,
             "max_replicas": 1,
@@ -266,3 +277,57 @@ def test_aks_core_and_operator_receive_readiness_and_receipt_bindings(
         "fdai-operator-request-operator-signing-seed"
     )
     assert "FDAI_OPERATOR_REQUEST_CORE_SIGNING_SEED" not in operator["secret_environment"]
+
+
+def test_notifications_add_on_binds_email_delivery_to_core_without_a_new_secret(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    core = _prepare(tmp_path, monkeypatch, ("notifications",))["workloads"]["core-control-plane"]
+
+    assert core["env"]["FDAI_EMAIL_ENDPOINT"] == (
+        "https://acs-fdai.unitedstates.communication.azure.com"
+    )
+    assert core["env"]["FDAI_EMAIL_SENDER_ADDRESS"] == "DoNotReply@fabrikam.azurecomm.net"
+    assert json.loads(core["env"]["FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON"]) == [
+        "oncall@fabrikam.test",
+        "digest@fabrikam.test",
+    ]
+    assert core["env"]["FDAI_NOTIFICATION_MI_CLIENT_ID"] == "notification-client"
+    assert core["additional_identities"] == {
+        "notification": {
+            "resource_id": "/identities/notification",
+            "client_id": "notification-client",
+        }
+    }
+    assert not any("EMAIL" in key for key in core["secret_environment"])
+
+
+def test_unselected_notifications_leave_core_without_email_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    core = _prepare(tmp_path, monkeypatch, ("enterprise-identity-governance", "read-only-console"))[
+        "workloads"
+    ]["core-control-plane"]
+
+    assert not any(key.startswith("FDAI_EMAIL") for key in core["env"])
+    assert "FDAI_NOTIFICATION_MI_CLIENT_ID" not in core["env"]
+    assert core["additional_identities"] == {}
+
+
+def test_notifications_add_on_without_a_recipient_list_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original = standalone_host.standalone_host_values.aks_notification_environment
+
+    def without_recipients(*, application_values, email_binding, identity):
+        return original(
+            application_values={**application_values, "notification_email_recipients": []},
+            email_binding=email_binding,
+            identity=identity,
+        )
+
+    monkeypatch.setattr(
+        standalone_host.standalone_host_values, "aks_notification_environment", without_recipients
+    )
+    with pytest.raises(ValueError, match="private recipient list"):
+        _prepare(tmp_path, monkeypatch, ("notifications",))

@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Final, Protocol, runtime_checkable
 
 
 class IncidentAppendStatus(StrEnum):
@@ -390,6 +390,38 @@ class StateStoreAuditReader(Protocol):
         ...
 
 
+AUDIT_CHAIN_ENTRY_FIELDS: Final = frozenset(
+    {"seq", "prev_hash", "entry_hash", "principal", "topic", "correlation_id", "payload_digest"}
+)
+
+
+def is_audit_chain_record(entry: Mapping[str, Any]) -> bool:
+    """Tell a Saga audit-chain record from any other component's audit row.
+
+    Every audit writer shares one table, so only this predicate separates the chain's own
+    history from unrelated rows. A store that filters in the database MUST apply the same
+    condition before its limit.
+    """
+
+    return AUDIT_CHAIN_ENTRY_FIELDS.issubset(entry) or (
+        entry.get("actor") == "Saga" and entry.get("action_kind") == "audit.record"
+    )
+
+
+@runtime_checkable
+class StateStoreAuditChainReader(Protocol):
+    """Optional bounded reader of only the Saga audit chain's own history."""
+
+    async def read_audit_chain_entries(
+        self, *, limit: int
+    ) -> tuple[tuple[Mapping[str, Any], ...], bool]:
+        """Read oldest-first chain records and report omitted chain records.
+
+        Other components' audit rows never count toward the limit or the omission flag.
+        """
+        ...
+
+
 @runtime_checkable
 class AssuranceTwinConfirmationStore(Protocol):
     """Atomically confirm one retained source and its provisional writer row."""
@@ -572,6 +604,9 @@ def _required(entry: Mapping[str, Any], key: str) -> str:
 
 
 __all__ = [
+    "AUDIT_CHAIN_ENTRY_FIELDS",
+    "StateStoreAuditChainReader",
+    "is_audit_chain_record",
     "AssuranceTwinConfirmationStore",
     "IncidentAppendStatus",
     "IncidentOpenAppendResult",

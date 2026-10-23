@@ -3,8 +3,8 @@
   "fixture_id": "f8-truncated-graph",
   "gate": "F8",
   "case": "negative",
-  "ontology_release_digest": "sha256:4786ea679289e9b134d6f82447d2640b1f9bf517f2953ed73e2bc3aea32886d1",
-  "semantic_profile_sha256": "sha256:b0ac810b37306cdbb61eb0678a40ac045a0b0071fb47c5bea036f7bc3470f374",
+  "ontology_release_digest": "sha256:4cd6ef56f08ad5ec9c27ea0eef21f4b369eed963a454b742760061c07388634f",
+  "semantic_profile_sha256": "sha256:09d63c112d2e74309abdbd9f789c79999f5508b7263de8079bda6c63e552a7b8",
   "cutoff": "2025-01-15T12:05:00Z",
   "context": {
     "graph": {

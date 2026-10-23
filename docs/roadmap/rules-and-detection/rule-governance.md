@@ -340,16 +340,44 @@ rule's shipped behavior does not match this environment.
 - The console MAY surface an "over-overridden rules" view for operators; it remains
   read-only, and proposing a revision/retirement is still a PR.
 
+## Repository review and installation approval
+
+Repository source review and installation approval are separate authority boundaries.
+GitHub's protected-branch policy owns repository permissions, required reviews, stale-review
+handling, and required exact-head CI. A pull request cannot select a different repository
+policy by supplying an FDAI installation profile or omitting a verifier App id. This change
+does not modify branch protection or grant a repository author runtime authority.
+
+**Design and critique:** Requiring every source contributor to deploy an Entra verifier
+conflated source review with installation approval. Simply skipping a missing App would
+instead hide an unverifiable operational approval. The revised boundary uses protected
+GitHub review for source and retains explicit, fail-closed installation verification.
+
+CI classifies governed source changes with `--scope-only`; its output describes potential
+installation review requirements, not approval evidence. Source checks do not load deployment
+profiles, fetch Entra attestations, or issue operational approvals. The existing App-backed
+CLI remains an optional integration for installations that select that trust path. Its
+caller supplies the installation's active policy and authoritative GitHub review, commit,
+and exact-head trusted Check Run facts. A successful result is review-only, not activation,
+promotion, or execution permission. Missing App configuration or untrusted evidence in that
+selected integration still blocks the installation review.
+
 ## RBAC (who can do what)
 
-Authoring, approving, assigning, and exempting are **separate permissions** - no self-approval,
+For installation governance, authoring, approving, assigning, and exempting are **separate permissions**.
+The following table describes the default multi-operator profile, which excludes self-approval,
 mirroring the approval≠execution rule in
 [security-and-identity.md](../architecture/security-and-identity.md). These are **logical** governance roles;
 they map to a small set of Entra security groups (Reader / Contributor / Approver / Owner +
 Break-Glass) in [user-rbac-and-identity.md](../interfaces/user-rbac-and-identity.md). Several logical roles
-collapse to the same Entra group - no-self-approval is enforced by CI on PR authorship, not by
+collapse to the same Entra group - no-self-approval is enforced on verified authorship, not by
 group separation, and high-risk approvals (`audit → deny / remediate`, exemption, override, or A1
 channel routing) require a **quorum of two approvers** from `aw-approvers`.
+An explicitly selected single-operator production profile instead lets its named operator
+satisfy every change class with effective quorum one. Required capabilities and Owner-tier
+checks remain, every approval needs fresh phishing-resistant authentication, and audit
+records the original quorum, profile, named operator, and self-review. The installation's
+active policy selects this profile; PR content cannot select it for the repository.
 
 | Logical role | Entra group | May | May not |
 |--------------|-------------|-----|---------|
@@ -368,7 +396,9 @@ matrix, counts only approvals that name a non-blank operator object id, review t
 pull-request head revision, follow that revision in time, carry the capability the change class
 requires, and satisfy the phishing-resistant requirement of a high-risk class. Repeated approvals
 from one operator count once, and an approval from the author, a recorded co-author, or the
-committer blocks the change even when other approvals already reach the quorum. The decision is
+committer blocks the change under the multi-operator profile even when other approvals already
+reach the quorum. The selected single-operator profile permits its named human's self-review,
+but never an executor's approval or an unnamed human's substitution. The decision is
 review-only and grants no execution authority.
 
 None of these governance roles hold the **executor's** identity; authoring/approving a rule never
@@ -385,9 +415,11 @@ and Owner-tier reviewer for loosening changes.
 
 ### Notification routing scope
 
-The A1 routing approver row covers decision-bearing routing only. CI therefore classifies a change
-to `config/notifications-matrix.yaml` as A1 routing, the `override` class with a quorum of two and
-the trusted identity attestation, unless it can show that the change leaves A1 routing intact. CI
+The A1 routing approver row covers decision-bearing routing only. The classifier treats a change
+to `config/notifications-matrix.yaml` as A1 routing, the `override` installation-review class,
+unless it can show that the change leaves A1 routing intact. The multi-operator requirement is
+quorum two with trusted identity evidence; a selected single-operator profile changes only
+the applicable quorum and self-review rule. The classifier
 compares the matrix at the merge base with the matrix at the pull-request head, so later commits on
 the base branch don't change the result. The change is A1 routing when any of these holds:
 
@@ -400,13 +432,13 @@ the base branch don't change the result. The change is A1 routing when any of th
 
 Adding or modifying any other route, such as an A2 alert or an A4 digest, is ordinary routing
 configuration. It needs no identity attestation and follows normal pull-request review. Comment-only
-edits don't change the parsed matrix. CI decides this scope before it requires
-`FDAI_GOVERNANCE_IDENTITY_APP_ID`, so a missing verifier App still fails closed for every change
-that needs identity review. A pull request can't weaken this proof and use it at the same time: if
-it also changes the CI workflow, the gate script, the matrix validator, the router, the trust-tier
-contract, or the review-authority code, both the gate script and the workflow require identity
-review independently. `rule-catalog/override-parameter-bounds.yaml` always needs identity review
-as an override.
+edits don't change the parsed matrix. Source CI reports this scope without requiring
+`FDAI_GOVERNANCE_IDENTITY_APP_ID`; GitHub branch protection remains authoritative for source
+review in either case. For an installation using the App-backed CLI, missing trusted evidence
+still fails closed. If the same diff changes the CI workflow, gate script, matrix validator,
+router, trust-tier contract, or review-authority code, the classifier conservatively requires
+installation identity review. `rule-catalog/override-parameter-bounds.yaml` always has the
+override installation-review classification.
 
 A new non-A1 route can't capture decision-bearing traffic. The router refuses to deliver an A1
 message through a route whose tier isn't A1, and it escalates the message to the HIL sink with a

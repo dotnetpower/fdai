@@ -15,8 +15,10 @@ from fdai.core.mscp_profile import ExpectedEffect, ObservedEffect
 from fdai.shared.contracts.models import Action
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
-_ACTION_TYPE = "remediate.tag-add"
-_OPERATION = "azure.resource.tags.read"
+_READ_OPERATIONS = {
+    "remediate.subscription-tag-add": "azure.subscription.tags.read",
+    "remediate.tag-add": "azure.resource.tags.read",
+}
 _MAX_RESPONSE_BYTES = 32_768
 
 
@@ -52,7 +54,7 @@ class GatewayTagEffectVerifier:
     async def expected(self, action: Action) -> ExpectedEffect | None:
         """Return an exact tag-presence prediction for the supported ActionType."""
 
-        if action.action_type != _ACTION_TYPE:
+        if action.action_type not in _READ_OPERATIONS:
             return None
         arguments = self._arguments(action)
         predicted_at = datetime.now(tz=UTC)
@@ -78,12 +80,13 @@ class GatewayTagEffectVerifier:
     ) -> ObservedEffect | None:
         """Read through the gateway's reader identity without executor receipt input."""
 
-        if action.action_type != _ACTION_TYPE:
+        operation = _READ_OPERATIONS.get(action.action_type)
+        if operation is None:
             return None
         token = await self._identity.get_token(self._audience)
         async with self._http.stream(
             "POST",
-            f"{self._base_url}/api/v1/operations/{_OPERATION}",
+            f"{self._base_url}/api/v1/operations/{operation}",
             headers={"Authorization": f"Bearer {token.token}"},
             json=self._arguments(action),
             timeout=30.0,
@@ -96,7 +99,7 @@ class GatewayTagEffectVerifier:
             if response.status_code >= 400:
                 raise ValueError(f"tag effect reader returned HTTP {response.status_code}")
         body = json.loads(content)
-        if not isinstance(body, Mapping) or body.get("operation_id") != _OPERATION:
+        if not isinstance(body, Mapping) or body.get("operation_id") != operation:
             raise ValueError("tag effect reader returned an invalid operation")
         result = body.get("result")
         if (
@@ -117,7 +120,7 @@ class GatewayTagEffectVerifier:
     def _arguments(action: Action) -> dict[str, object]:
         arguments = dict(action.params)
         arguments.setdefault("target_resource_ref", action.target_resource_ref)
-        target = resolve_azure_operation_target(_ACTION_TYPE, arguments)
+        target = resolve_azure_operation_target(action.action_type, arguments)
         if target.resource_ref != action.target_resource_ref:
             raise ValueError("tag effect target does not match the action resource")
         return target.arguments

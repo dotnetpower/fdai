@@ -136,6 +136,26 @@ def complete_model_trace(
     }
 
 
+def content_free_model_trace(trace: Mapping[str, object]) -> dict[str, object]:
+    """Keep hashes, usage, timing, and redaction counts while dropping model content."""
+
+    request = trace.get("request")
+    response = trace.get("response")
+    return {
+        **trace,
+        "content_omitted": True,
+        "request": {
+            "messages": [],
+            "sha256": request.get("sha256") if isinstance(request, Mapping) else None,
+        },
+        "response": {
+            "role": "assistant",
+            "content": "",
+            "sha256": response.get("sha256") if isinstance(response, Mapping) else None,
+        },
+    }
+
+
 def bounded_usage(value: Mapping[str, Any] | None) -> dict[str, int] | None:
     """Keep only measured non-negative provider token counters."""
     if value is None:

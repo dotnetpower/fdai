@@ -346,8 +346,7 @@ full-history verification is explicitly unavailable after the prefix leaves the 
 
 Legacy migration requires all old Saga writers to be stopped first; an already running old
 writer with a cached head cannot be fenced by this new reader. The optional StateStore audit
-reader must prove complete oldest-first history of at most 512 total audit rows, including
-unrelated rows, and validate contiguous Saga entries, payload digests and any old checkpoint.
+reader must prove complete oldest-first history of at most 512 of the chain's own audit records, and validate contiguous Saga entries, payload digests and any old checkpoint. Every component writes the same audit table, so a reader that offers a chain-only read filters in the database before its limit; other components' rows never count toward the bound. A fresh runtime therefore starts its chain no matter how many unrelated audit rows exist, while a reader without that filter keeps the stricter total-row bound.
 Missing readers, truncated or forked history and inconsistent checkpoints hold without rewriting
 audit evidence. Longer legacy histories require a separately reviewed migration, not an invented
 head. New replicas share committed revisions after migration; mixed-version rolling writes and

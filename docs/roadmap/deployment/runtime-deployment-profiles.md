@@ -141,6 +141,8 @@ instead proves bounded residual changes, the coordinator preserves the original 
 distinct residual review bound to the original claim, current state, target, source, runtime
 profile, and residual binary plan. It requires a new exact `<stage>-residual-apply` approval and a
 new residual claim before one effect. Destructive residuals retain the second confirmation.
+A fresh AKS runtime is claimed as `runtime-cluster` until it receives a receipt, so its residual
+review and apply read that retained review and claim rather than the ordinary `runtime` records.
 Residual apply ambiguity is verification-first and never repeats the saved plan. If authoritative
 replanning proves that only create actions remain after the focused private-access stage has
 converged, the coordinator may emit one fresh residual-successor plan. It requires another exact
@@ -202,8 +204,8 @@ satisfy an approval, or raise autonomy.
 
 Runtime, database, environment, fork status, and package presence do not select product add-ons. The shared immutable profile contains only explicit selections and `authority_granted: false`. A runtime record created before product profiles matches only the explicit legacy selection of the four original add-ons, so a later add-on never changes that match.
 The default constructs no Graph, approval, promotion-to-enforce, rollback, or privileged executor binding. A selected but incomplete add-on fails closed: `read-only-console` and
-`governed-execution` require `enterprise-identity-governance`, and every runtime carries the compiled profile to its own workloads so composition never diverges from the selection.
-The full-authority development profile remains a separate optional authority input for an exact disposable scope and never inherits from this product axis. The optional dev operations gateway is authenticated, so it requires an explicit Operator API audience and refuses to plan without one. Source AKS and Container Apps deployment pass the same reviewed profile and its profile-derived executor principal to Core together. Deployment validates the target and source revision before planning; runtime startup still revalidates the current interval and exact executor match.
+`governed-execution` require `enterprise-identity-governance`, and every runtime carries the compiled profile to its own workloads so composition never diverges from the selection. Console-governed stewardship belongs to `enterprise-identity-governance` and starts without `governed-execution`; GitOps publication still requires `governed-execution`.
+The full-authority development profile remains a separate optional authority input for an exact disposable scope and never inherits from this product axis. The optional dev operations gateway is authenticated, so it requires an explicit Operator API audience and refuses to plan without one. The subscription tag pilot instead runs in the isolated Executor with its change identity and uses a distinct Core reader for effect observation; it remains shadow-first and requires the profile's exact subscription scope before approval. Source AKS and Container Apps deployment pass the same reviewed profile and its profile-derived executor principal to Core together. Deployment validates the target and source revision before planning; runtime startup still revalidates the current interval and exact executor match.
 Azure observation requires only scoped `Reader`. Explicit source selection derives the minimum extra role: Azure Monitor, Log Analytics, Cost Management, AKS read-only
 (Cluster User plus RBAC Reader), or evidence-store `Storage Blob Data Reader`. No role can be selected directly or silently bundled. Missing source access reports unsupported.
 The base profile requires no Azure Policy assignment and uses Reader-visible resource metadata for policy evaluation; it grants no write, `User Access Administrator`, or Microsoft Graph permission.
@@ -246,7 +248,10 @@ Browser -> Static Web Apps -> API Management -> AKS LoadBalancer Service -> Pod
 
 Static Web Apps hosts the prebuilt Console. API Management (APIM) provides the public HTTPS API
 edge: the Operator API is routed at the APIM origin root, and Document Ingestion is routed at
-`/ingestion`. The Kubernetes Services listen on port 80 and forward to the existing container port.
+`/ingestion`. The Console calls ingestion with absolute paths, so the gateway keeps the `/ingestion`
+prefix on every ingestion route except the readiness probe and sends the root-level `/documents`
+routes to the ingestion backend; a regression test compares the gateway with the ingestion service's
+routes. The Kubernetes Services listen on port 80 and forward to the existing container port.
 The workload state owns APIM because its backend addresses come from those Services. The shared
 substrate does not create Azure Front Door for this path.
 APIM tags derive from the stable workload labels under Azure-safe names. For example,
@@ -409,6 +414,7 @@ can create secrets, filesystems, or paths. A retained context may tighten either
 `false` to `true` after partial-substrate readback proves the private posture; loosening `true` to
 `false` is rejected as a context mismatch. An ambiguous access apply follows the same
 verification-first and bounded residual rules as every other stage.
+On AKS, the `notifications` add-on applies the same targeted substrate stage to the Azure Communication Services Email resources, the managed sender domain, the notification identity, and its sender role. Core then receives `FDAI_EMAIL_ENDPOINT`, `FDAI_EMAIL_SENDER_ADDRESS`, `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON`, and `FDAI_NOTIFICATION_MI_CLIENT_ID`, and its service account is federated to the notification identity as an additional identity. No new secret is created, delivery is informational, and the add-on grants no approval, promotion, or execution authority. A missing recipient list or incomplete binding fails the application plan closed.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
@@ -425,6 +431,8 @@ The read-only capacity preflight accepts nonnegative integer quota values and ca
 integer strings returned by Azure CLI. Boolean, fractional, signed, whitespace-padded or oversized
 representations remain blocked. Available quota never overrides a SKU restriction, missing zone,
 unsupported architecture or missing host encryption; a different target requires a fresh review.
+A resumed installation does not count the vCPUs that its own AKS pools already use as new demand: the
+preflight credits them back from the retained resource group, and an unreadable group earns no credit.
 
 Source execution separately reads the [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)
 after initial settings confirmation and before Foundation planning. It selects exactly one primary
@@ -769,8 +777,11 @@ encryption. Allocatable workload-envelope validation remains open in the impleme
 The independent operational evidence verifier is an AKS-only optional internal workload. The
 runtime renderer receives it only when the standalone deployment input has already enabled the
 dedicated identity and supplied reviewed registry pins, deployed anchors, caller-token validation
-data, writer membership, role-readback scopes, and executor principals. This input changes neither
-runtime profile selection nor execution authority.
+data, writer membership, role-readback scopes, and executor principals. The AKS substrate target
+set includes the verifier's `Monitoring Reader` assignment alongside image pull and the state-store
+DSN secret, and a retained host context that started without a verifier input can bind a newly
+selected input on resume while rejecting any later omission or digest change. This input changes
+neither runtime profile selection nor execution authority.
 
 The default diskless SKUs retain platform-encrypted Managed OS disks rather than requiring
 ephemeral storage. Checkov exceptions stay attached to the affected resource: the pinned scanner

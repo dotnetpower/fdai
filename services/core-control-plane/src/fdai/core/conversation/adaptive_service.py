@@ -27,6 +27,7 @@ from .adaptive_models import (
     AdaptiveReview,
 )
 from .adaptive_prompt import (
+    AdaptiveStageTokenBudget,
     ConversationProfile,
     ConversationTierSelectableAdaptiveModel,
     compose_adaptive_prompt,
@@ -566,16 +567,20 @@ class AdaptiveConversationService:
         schema = json.loads(_stage_schema_json(shape))
         encoded = json.dumps({"input": payload, "schema": schema}, ensure_ascii=False)
         size = len(encoded.encode()) + len(prompt.encode())
+        model = budget.model if budget.model is not None else self._model
+        output_tokens = (
+            model.output_tokens_for_stage(stage)
+            if isinstance(model, AdaptiveStageTokenBudget)
+            else budget.policy.reserved_output_tokens
+        )
         try:
-            reservation = budget.reserve(
-                size, budget.policy.reserved_output_tokens, 1 if stage == "refine" else 0
-            )
+            reservation = budget.reserve(size, output_tokens, 1 if stage == "refine" else 0)
         except AdaptiveBudgetExceededError:
             _LOGGER.warning("adaptive_stage_budget_denied", extra={"stage": stage})
             return None
         try:
             result = await await_adaptive_call(
-                (budget.model if budget.model is not None else self._model).complete(
+                model.complete(
                     stage=stage,
                     system_prompt=prompt,
                     payload=payload,

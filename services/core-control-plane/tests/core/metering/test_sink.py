@@ -21,6 +21,7 @@ def _inv(corr: str) -> LlmInvocation:
         mode=InvocationMode.SHADOW,
         usage=TokenUsage(prompt_tokens=10, completion_tokens=5),
         cost=Decimal("0.001"),
+        currency="USD",
     )
 
 

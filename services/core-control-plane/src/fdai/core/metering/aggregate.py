@@ -48,6 +48,8 @@ class UsageSummary:
     usage: TokenUsage
     cost: Decimal
     currency: str
+    cached_prompt_tokens: int
+    total_duration_ms: int
 
     @property
     def has_unpriced(self) -> bool:
@@ -70,10 +72,14 @@ def _summarize_group(key: str, records: Iterable[LlmInvocation]) -> UsageSummary
     cost = Decimal(0)
     invocations = 0
     priced = 0
+    cached_prompt_tokens = 0
+    total_duration_ms = 0
     currencies: set[str] = set()
     for record in records:
         invocations += 1
         usage = usage + record.usage
+        cached_prompt_tokens += record.cached_prompt_tokens
+        total_duration_ms += record.duration_ms
         if record.cost is not None:
             cost += record.cost
             priced += 1
@@ -92,6 +98,8 @@ def _summarize_group(key: str, records: Iterable[LlmInvocation]) -> UsageSummary
         usage=usage,
         cost=cost,
         currency=currency,
+        cached_prompt_tokens=cached_prompt_tokens,
+        total_duration_ms=total_duration_ms,
     )
 
 
@@ -141,6 +149,22 @@ def summarize_by_scope(records: Iterable[LlmInvocation]) -> tuple[UsageSummary, 
     return _group_by(records, lambda r: r.usage_scope.value)
 
 
+def summarize_by_outcome(records: Iterable[LlmInvocation]) -> tuple[UsageSummary, ...]:
+    """Group calls by profile, locale, turn family, and terminal disposition."""
+
+    return _group_by(
+        records,
+        lambda record: "|".join(
+            (
+                record.profile_digest or "profile:unknown",
+                record.locale,
+                record.turn_family,
+                record.disposition.value,
+            )
+        ),
+    )
+
+
 def summarize_total(records: Iterable[LlmInvocation]) -> UsageSummary:
     """A single grand-total summary across every record (key ``"total"``)."""
     return _summarize_group("total", records)
@@ -176,6 +200,8 @@ def summaries_as_mapping(summaries: Iterable[UsageSummary]) -> tuple[Mapping[str
             "total_tokens": s.usage.total_tokens,
             "cost": _format_cost(s.cost),
             "currency": s.currency,
+            "cached_prompt_tokens": s.cached_prompt_tokens,
+            "total_duration_ms": s.total_duration_ms,
             "has_unpriced": s.has_unpriced,
             "has_mixed_currency": s.has_mixed_currency,
         }
@@ -194,6 +220,8 @@ def usage_summaries_as_mapping(
             "prompt_tokens": summary.usage.prompt_tokens,
             "completion_tokens": summary.usage.completion_tokens,
             "total_tokens": summary.usage.total_tokens,
+            "cached_prompt_tokens": summary.cached_prompt_tokens,
+            "total_duration_ms": summary.total_duration_ms,
         }
         for summary in summaries
     )
@@ -215,6 +243,12 @@ def invocations_as_mapping(
             "prompt_tokens": record.usage.prompt_tokens,
             "completion_tokens": record.usage.completion_tokens,
             "total_tokens": record.usage.total_tokens,
+            "cached_prompt_tokens": record.cached_prompt_tokens,
+            "duration_ms": record.duration_ms,
+            "profile_digest": record.profile_digest,
+            "locale": record.locale,
+            "turn_family": record.turn_family,
+            "disposition": record.disposition.value,
         }
         for record in records
     )
@@ -229,6 +263,7 @@ __all__ = [
     "summarize_by_day",
     "summarize_by_mode",
     "summarize_by_month",
+    "summarize_by_outcome",
     "summarize_by_scope",
     "summarize_total",
     "usage_summaries_as_mapping",

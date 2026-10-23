@@ -208,3 +208,26 @@ def test_aks_browser_gateway_scanner_exceptions_name_compensating_controls() -> 
     assert "APIM Consumption has no VNet integration" in gateway
     assert "checkov:skip=CKV_AZURE_160" in gateway
     assert "two exact API LoadBalancer frontend addresses" in gateway
+
+
+def test_aks_browser_gateway_routes_every_ingestion_path_to_the_ingestion_backend() -> None:
+    gateway = (ROOT / "infra/runtimes/aks/workloads/browser_gateway.tf").read_text(encoding="utf-8")
+    routes = (
+        ROOT / "services/document-ingestion-api/src/fdai_ingestion_api_service/http.py"
+    ).read_text(encoding="utf-8")
+    paths = sorted(set(re.findall(r'Route\(\s*"(/[^"]*)"', routes)))
+
+    # The Console uses absolute paths, so the gateway must serve exactly these three families.
+    assert paths
+    assert all(
+        path == "/healthz" or path.startswith(("/ingestion/", "/documents")) for path in paths
+    )
+    # `/ingestion/...` keeps its prefix (the API path strips it) except the readiness probe.
+    assert 'rewrite-uri template="@(&quot;/ingestion&quot; + context.Request.Url.Path)"' in gateway
+    assert "EndsWith(&quot;/healthz&quot;)" in gateway
+    # `/documents...` would otherwise reach the Operator API, which has no such routes.
+    assert "context.Request.Url.Path.StartsWith(&quot;/documents/&quot;)" in gateway
+    assert (
+        'set-backend-service base-url="http://${local.browser_gateway_addresses.ingestion}"'
+        in gateway
+    )

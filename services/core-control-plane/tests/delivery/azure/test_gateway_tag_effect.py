@@ -34,17 +34,21 @@ class _Identity:
         )
 
 
-def _action() -> Action:
+def _action(
+    *,
+    action_type: str = "remediate.tag-add",
+    target: str = TARGET,
+) -> Action:
     return Action(
         schema_version="1.0.0",
         action_id=UUID("00000000-0000-0000-0000-000000000001"),
         idempotency_key="tag-effect-one",
         event_id=UUID("00000000-0000-0000-0000-000000000002"),
-        action_type="remediate.tag-add",
-        target_resource_ref=TARGET,
+        action_type=action_type,
+        target_resource_ref=target,
         operation=Operation.TAG,
         params={
-            "target_resource_ref": TARGET,
+            "target_resource_ref": target,
             "tag_name": "environment",
             "tag_value": "dev",
         },
@@ -97,6 +101,42 @@ async def test_tag_effect_verifier_reads_exact_tag_without_executor_receipt() ->
     assert '"target_resource_ref":"' + TARGET + '"' in body
     assert '"tag_name":"environment"' in body
     assert '"tag_value":"dev"' in body
+
+
+async def test_tag_effect_verifier_reads_subscription_tag_independently() -> None:
+    target = "scope-0123456789abcdef/subscription"
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "operation_id": "azure.subscription.tags.read",
+                "status": "succeeded",
+                "result": {"matches": True, "present": True},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        verifier = GatewayTagEffectVerifier(
+            base_url="https://gateway.example.com",
+            audience="gateway-audience",
+            identity=_Identity(),
+            http_client=client,
+        )
+        action = _action(
+            action_type="remediate.subscription-tag-add",
+            target=target,
+        )
+        expected = await verifier.expected(action)
+        assert expected is not None
+        observed = await verifier.observe(action, expected)
+
+    assert observed is not None
+    assert observed.value == 1.0
+    assert requests[0].url.path.endswith("/azure.subscription.tags.read")
+    assert f'"target_resource_ref":"{target}"' in requests[0].read().decode()
 
 
 async def test_tag_effect_verifier_rejects_non_https_gateway() -> None:

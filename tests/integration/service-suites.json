@@ -345,6 +345,7 @@
           "services/isolated-executor/tests/test_executor_event_bus_adapter.py",
           "services/isolated-executor/tests/test_executor_http_adapters.py",
           "services/isolated-executor/tests/test_executor_postgres_adapters.py",
+          "services/isolated-executor/tests/test_subscription_tag_direct_api.py",
           "services/isolated-executor/tests/test_postgres_safeguard_bundle.py",
           "services/isolated-executor/tests/test_composition.py"
         ],

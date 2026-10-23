@@ -36,7 +36,10 @@ class OperationalTestObservationReadback:
     purposes = frozenset({PURPOSE})
 
     async def read(self, context: ReadbackContext) -> ReadbackFacts | ReadbackRejection:
-        raw = await self.provider.observation(**context.request.locator.coordinates)
+        raw = await self.provider.observation(
+            **context.request.locator.coordinates,
+            policy_revision=context.request.lookup.source_revision,
+        )
         if raw is None:
             return reject(_R.PARTIAL, "metric_sample_missing")
         required = {
