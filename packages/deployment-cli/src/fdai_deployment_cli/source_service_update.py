@@ -32,6 +32,7 @@ from fdai_deployment_cli.standalone_application import (
 )
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
+_COMMIT = re.compile(r"[0-9a-f]{40}")
 _IMAGE_DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 
 
@@ -52,6 +53,7 @@ def deploy_source_service_update(
     development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
     clear_development_authority_profile: bool = False,
     expected_source_commit: str | None = None,
+    expected_current_source_commit: str | None = None,
 ) -> dict[str, object]:
     """Build, import, plan, approve, apply, and verify one dev AKS service update."""
 
@@ -66,6 +68,11 @@ def deploy_source_service_update(
         raise ValueError("development authority changes require a Core service update")
     if development_authority_profile is not None and clear_development_authority_profile:
         raise ValueError("development authority select and clear are mutually exclusive")
+    if any(
+        value is not None and _COMMIT.fullmatch(value) is None
+        for value in (expected_source_commit, expected_current_source_commit)
+    ):
+        raise ValueError("source service update expected revisions are invalid")
     deadline = DeploymentDeadline(timeout_seconds)
     source = (
         inspect_source(source_root)
@@ -185,6 +192,14 @@ def deploy_source_service_update(
             or _DIGEST.fullmatch(str(context["target_binding"])) is None
         ):
             raise ValueError("retained AKS service update context is invalid")
+        receipt_path = work / "source-service-update-receipt.json"
+        if (
+            not receipt_path.exists()
+            and not receipt_path.is_symlink()
+            and expected_current_source_commit is not None
+            and context.get("current_source_commit") != expected_current_source_commit
+        ):
+            raise ValueError("retained AKS service source differs from the changed-update base")
         intent = {
             "schema_version": "fdai.source-service-update-intent.v1",
             "source": source.to_mapping(),
@@ -252,6 +267,11 @@ def deploy_source_service_update(
         )
         if completed is not None:
             return completed
+        if (
+            expected_current_source_commit is not None
+            and context.get("current_source_commit") != expected_current_source_commit
+        ):
+            raise ValueError("retained AKS service source differs from the changed-update base")
         source.reverify()
         image = _build_image(
             snapshot=snapshot,

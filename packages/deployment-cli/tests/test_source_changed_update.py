@@ -102,6 +102,7 @@ def test_multi_service_update_runs_existing_guarded_updates_serially(
     assert calls[0]["work_dir"] == (tmp_path / "work/operator-service").absolute()
     assert calls[1]["work_dir"] == (tmp_path / "work/isolated-executor").absolute()
     assert all(call["expected_source_commit"] == "c" * 40 for call in calls)
+    assert all(call["expected_current_source_commit"] == "b" * 40 for call in calls)
     assert result["effect_verified"] is True
 
 

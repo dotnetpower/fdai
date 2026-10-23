@@ -73,6 +73,7 @@ def deploy_changed_source(
             service=service,
             timeout_seconds=deadline.remaining(),
             expected_source_commit=str(plan["head_commit"]),
+            expected_current_source_commit=str(plan["base_commit"]),
         )
         receipts.append(
             {

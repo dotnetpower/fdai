@@ -143,6 +143,45 @@ def test_source_service_update_pins_the_expected_source_commit(
     assert observed == ["c" * 40]
 
 
+def test_source_service_update_rejects_a_changed_update_base_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "source"
+    application = tmp_path / "application"
+    source_root.mkdir(mode=0o700)
+    application.mkdir(mode=0o700)
+    source = SimpleNamespace(
+        root=source_root,
+        commit="c" * 40,
+        to_mapping=lambda: {},
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.inspect_source", lambda *_args, **_kwargs: source
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update._host_json",
+        lambda *_args, **_kwargs: {
+            "schema_version": "fdai.source-service-update-context.v1",
+            "state": "verified",
+            "service": "operator-service",
+            "target_binding": "d" * 64,
+            "current_source_commit": "a" * 40,
+            "current_image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+            "active_service_update": None,
+        },
+    )
+
+    with pytest.raises(ValueError, match="differs from the changed-update base"):
+        deploy_source_service_update(
+            source_root=source_root,
+            application_work_dir=application,
+            work_dir=tmp_path / "update",
+            service="operator-service",
+            timeout_seconds=60,
+            expected_current_source_commit="b" * 40,
+        )
+
+
 @pytest.mark.parametrize(
     ("service", "active_update"),
     [
