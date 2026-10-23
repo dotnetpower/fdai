@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:210292b910f1c407e2c185d7f11b70208ff659d3af5b4c9e3733ce5241be0d54",
+  "catalog_digest": "sha256:543f673fabd2da65c67eb1fe6a2003b43a39104bd7a91c9dce60dc447ed21499",
   "execution_authority": false,
-  "generated_at": "2026-10-22T21:26:18.349050Z",
+  "generated_at": "2026-10-23T06:07:44.217547Z",
   "records": [
     {
       "designed_behavior": [
@@ -106,11 +106,11 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:898d7efcaae2e228a624a87fbaab8fb8956ec91a35704674c7a8cee67ae0771a",
+      "record_digest": "sha256:14ba7422ac73147b8bef0d47927854378e85ec700be4599e528b540ff1cbb015",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "72e38134086c9fc4f04662afde5d4d3c4749c726",
+          "blob_sha": "0e062fbec16f627637302152dda2fc8a0b5d445f",
           "line_end": 29,
           "line_start": 29,
           "path": "docs/roadmap/agents/agent-pantheon.md",
@@ -336,11 +336,11 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:e1093b8791df33117c4177a69bff345aebc2ddadb0e59987fc60f2dd884933c8",
+      "record_digest": "sha256:1066a4b42630fc9af554c2fe672ed1b7b5943309bf484e1996e3d68f59490c7c",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "72e38134086c9fc4f04662afde5d4d3c4749c726",
+          "blob_sha": "0e062fbec16f627637302152dda2fc8a0b5d445f",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/agents/agent-pantheon.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "317412937e809edd4e2f2c4f83d9fd39344ea74e"
+  "source_revision": "f1658c175ad6c4aeb6d06e4f4fec2511e8a50a6b"
 }

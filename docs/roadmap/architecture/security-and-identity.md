@@ -387,7 +387,9 @@ The PostgreSQL evidence provider follows these boundaries:
 - The audit store is append-only and is the trust basis for autonomy.
 - **Tamper-evidence**: entries are hash-chained (each record commits to the previous) and
   periodically anchored/signed, so deletion or edits are detectable; storage is
-  write-once/WORM where available.
+  write-once/WORM where available. The chain's own records are what a restart or a new replica
+  reads back; other components' rows in the shared audit table never count toward that bound, so
+  a fresh runtime always starts its chain.
 - **Non-repudiation**: each entry records the authenticated actor identity (executor or
   approver) and mode (shadow/enforce) so an action cannot later be disowned.
 - Every action links to: the triggering event, the tier that decided it, the rules/policies
