@@ -2,8 +2,8 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: a296e77c953771eec9bc33c1bf3c751ae0e68ec1
-translation_revised: 2026-10-19
+translation_source_sha: 104dee45c9d7675b6b7bd41f0f9e3cda885c1128
+translation_revised: 2026-10-24
 ---
 
 # FDAI 기능 준비 상태 평가
@@ -34,8 +34,10 @@ translation_revised: 2026-10-19
 다시 집계하고 기능정의서의 대분류 집계 15개 및 영문·한국어 판정을 대조했습니다.
 결과는 Ready 28/52, Partial 24/52로 유지하며, 이전의 Ready 38/52, Partial 14/52를
 대체합니다. 이는 집계 일관성 검사이며 모든 기능을 새로 평가한 것은 아닙니다.
+**2026-10-23 수용 업데이트:** 정확한 소스의 v18 배포가 I03을 닫아 F14.2가 Ready로
+복귀했습니다. 현재 집계는 Ready 29/52, Partial 23/52입니다.
 
-**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
+**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 29/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 23/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
 Ready는 해당 기록에 명시된 지원 범위에만 적용됩니다. 모든 배포 환경, 공급자, 규모,
 자율 작업을 검증한 것은 아닙니다. Partial은 구현이 있지만 인용한 담당 문서에 필수
 지원 범위, 통합, 검증이 남아 있다는 뜻입니다. 최초 문서 점검에서는 Blocked를 평가할
@@ -49,7 +51,7 @@ Ready는 해당 기록에 명시된 지원 범위에만 적용됩니다. 모든 
 F06/F07 운영 검증과 W7 표본 근거는 #2204-#2208에 미완료로 남아 있습니다. 이 집계는
 고객 본운영 수용, 운영 학습 개선, 실제 비용 절감을 입증하지 않습니다.
 
-Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하지만, 필수 기능이나 운영 근거를
+Partial 23건은 구현된 부분과 기록된 집중 검사 근거를 유지하지만, 필수 기능이나 운영 근거를
 지원 범위 밖으로 줄여서 제외하지 않습니다. 기존 실제 환경 증적은 과거 기록으로 유지하며 이번
 세션에서 갱신하거나 특정 설치 환경을 검증한 것으로 취급하지 않습니다. 각 기록의 남은 조건을
 모두 충족한 뒤에만 Ready로 승격합니다.
@@ -261,7 +263,7 @@ Console은 네 가지 원본 연결, 완전성 확인 지점의 한계, 전제 �
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f14-1">F14.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 소스 배포, 사전 조건, 대상 검증, 이미지 및 Terraform 조정, Trial, 상태, 업데이트 및 롤백, 제거가 구현되어 있습니다. [소스 원장](../../roadmap-implementation/deployment/source-deployment.md)과 과거 테스트 207개가 이 부분을 뒷받침합니다. WP6에는 신규 Trial 증적 1건이 있으나 변경 없는 Trial 재실행, 정식 사용 권한 신규 설치, Trial 전환 재실행 및 워터마크 제거가 남습니다. [I01](functional-readiness-backlog-ko.md#f14-f15-배포-방식-확장-코드-검사)을 참조하세요. |
-| <span id="f14-2">F14.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 소스 및 서명 검증 오프라인 배포, 변조 및 기한과 취소 방지, 격리된 휠 설치가 구현되어 있습니다. [소스 원장](../../roadmap-implementation/deployment/source-deployment.md)의 WP6 이후 WP8 경로 정리가 남고 현행 도움말 및 파서는 `--online`을 표시합니다. [I02-I03](functional-readiness-backlog-ko.md#f14-f15-배포-방식-확장-코드-검사)에서 배포 복구 및 수용 기준을 대조합니다. [Hub 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)에는 일부 코드만 있으며 사용 가능한 전체 수명 주기는 없습니다. Hub 및 공개 게시는 소스와 오프라인 경로의 선행 조건이 아닙니다. |
+| <span id="f14-2">F14.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 소스 및 서명 검증 오프라인 배포, 키 없는 Trial과 키 보유자 사용권, 변조 및 기한과 취소 방지, 격리된 wheel 설치가 구현되고 수용되었습니다. 공개 도움말과 파서는 `--source`와 `--offline-kit`만 표시합니다. [Hub 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)에는 일부 코드만 있으며 사용 가능한 전체 수명 주기는 없습니다. Hub 및 공개 게시는 소스와 오프라인 경로의 선행 조건이 아닙니다. |
 | <span id="f14-3">F14.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 사용 가능 여부, 활성화, 유효 모드, 프로필 및 추가 기능, Trial 워터마크, 모델 상태, 재정의 및 회수 표시가 구현되어 있으며 작업 권한을 부여하지 않습니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md), [소스 원장](../../roadmap-implementation/deployment/source-deployment.md), 기록된 회수 검사가 로컬 동작을 뒷받침합니다. 운영 Release 상한 입력과 실제 사용 권한 전환 조회인 [A01 및 I01](functional-readiness-backlog-ko.md)이 남습니다. 선택적 작성 UI 및 물리 정책 테이블 이행은 별도의 조건부 범위입니다. |
 | <span id="f14-4">F14.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 게시자 신뢰, 호환성, 불변 비활성 우선 기능 묶음, 활성화 및 비활성화와 철회, 형식이 지정된 등록이 구현되어 있습니다. [기능 묶음 원장](../../roadmap-implementation/architecture/capability-bundle-lifecycle.md)에는 수명 주기, 재시작 및 공개 정보, 형식이 지정된 경로, 감사에 대한 필수 동일 산출물 연결 증적이 남습니다. [X01](functional-readiness-backlog-ko.md#f14-f15-배포-방식-확장-코드-검사)을 완료합니다. #355를 계획하지 않음으로 닫은 것은 그 기준의 검증이 아닙니다. |
 

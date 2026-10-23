@@ -81,6 +81,7 @@ class RuntimeTaskConfiguration:
     approval slot without Core importing a delivery implementation.
     """
     stewardship_governance_worker: Any = None
+    exemption_lifecycle_worker: Any = None
     stewardship_identity_health_worker: Any = None
     stewardship_merge_effects_worker: Any = None
     handover_knowledge_lifecycle_worker: Any = None
@@ -423,6 +424,7 @@ async def run_runtime_tasks(
     discovery_activation_task: asyncio.Task[None] | None = None
     continuous_operating_model_task: asyncio.Task[None] | None = None
     stewardship_governance_task: asyncio.Task[None] | None = None
+    exemption_lifecycle_task: asyncio.Task[None] | None = None
     stewardship_identity_health_task: asyncio.Task[None] | None = None
     stewardship_merge_effects_task: asyncio.Task[None] | None = None
     handover_knowledge_lifecycle_task: asyncio.Task[None] | None = None
@@ -542,6 +544,14 @@ async def run_runtime_tasks(
                 lambda: config.continuous_operating_model_worker.run(config.stop),
             ),
             name="continuous-operating-model",
+        )
+    if config.exemption_lifecycle_worker is not None:
+        exemption_lifecycle_task = asyncio.create_task(
+            config.readiness.run_when_ready(
+                config.stop,
+                lambda: config.exemption_lifecycle_worker.run(config.stop),
+            ),
+            name="exemption-lifecycle",
         )
     if config.stewardship_governance_worker is not None:
         stewardship_governance_task = asyncio.create_task(
@@ -745,6 +755,7 @@ async def run_runtime_tasks(
             rule_generation_reconciliation_task,
             incident_notification_replay_task,
             stewardship_governance_task,
+            exemption_lifecycle_task,
             stewardship_identity_health_task,
             stewardship_merge_effects_task,
             handover_knowledge_lifecycle_task,

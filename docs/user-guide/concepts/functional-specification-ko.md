@@ -2,8 +2,8 @@
 title: FDAI 기능정의서
 description: FDAI의 운영 기능, 공통 자동화, 거버넌스, 제품 기반 기능을 계층적으로 정의하고 처리 흐름 및 구현 상태와 구분합니다.
 translation_of: functional-specification.md
-translation_source_sha: 1f80c06454994c530f595f6b4a1fd4aa4f2437d9
-translation_revised: 2026-10-19
+translation_source_sha: 30ed8d2eef86ab2e8b20c62acc53e69139b753c0
+translation_revised: 2026-10-24
 ---
 
 # FDAI 기능정의서
@@ -59,7 +59,9 @@ Partial로 정정했습니다. F01-F09는 기존 평가를 유지합니다. 대�
 대분류 집계 15개, 영문·한국어 판정의 일치를 확인했습니다. 아래 집계가 이전의
 Ready 38/52, Partial 14/52를 대체합니다. 이번 재집계는 기존 판정을 유지하며,
 새로운 기능 검증이나 배포 적합성 검증은 아닙니다.
-**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
+이후 2026-10-23 정확한 소스 수용으로 F14.2가 Ready로 복귀해 아래의 현재 집계
+29/23을 만들었습니다.
+**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 29/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 23/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
 이 숫자는 제품 기능 집계이며 고객 본운영 수용 결과가 아닙니다.
 [배포 증적](https://github.com/dotnetpower/fdai/issues/2210#issuecomment-6254158832)에 기록된
 개발 환경의 전체 권한 활성화는 여전히 차단 상태입니다. 실패한 배포는 이전 버전으로
@@ -135,8 +137,8 @@ Ready 38/52, Partial 14/52를 대체합니다. 이번 재집계는 기존 판정
 | **F13. 운영 근거 및 보고서 제공** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 2/3</span> | [F13.1 운영 현황](functional-readiness-ko.md#f13-1) | 허용된 조회 화면에서 리소스, 관계, 인시던트, 작업, 승인, 이력, 출처가 명시된 결과를 표시합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F13.2 보고서 및 내보내기](functional-readiness-ko.md#f13-2) | 카탈로그에 정의된 보고서와 지원되는 내보내기 결과에 출처, 범위, 시각, 일부 수집원의 실패를 표시합니다. 보고서는 작업을 실행하지 않습니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F13.3 운영 성과 측정](functional-readiness-ko.md#f13-3) | 활동 건수만으로 개선을 주장하지 않고 선언된 기준선과 비교하여 신뢰성, 복구, 자동화, 비용 성과를 측정합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-| **F14. FDAI 설치 및 설정과 확장** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 0/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 4/4</span> | [F14.1 설치 및 초기 설정](functional-readiness-ko.md#f14-1) | 설치 범위와 계정을 정하고 사전 조건을 검사하며 실제 수집원을 연결하고 시작 준비 상태를 검증합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F14.2 업데이트 및 배포 방식](functional-readiness-ko.md#f14-2) | 소스 배포와 서명된 오프라인 패키지를 다룹니다. 설계되었지만 구현되지 않은 Hub 관리 수명 주기는 사용 가능한 설치 경로와 구분합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+| **F14. FDAI 설치 및 설정과 확장** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 3/4</span> | [F14.1 설치 및 초기 설정](functional-readiness-ko.md#f14-1) | 설치 범위와 계정을 정하고 사전 조건을 검사하며 실제 수집원을 연결하고 시작 준비 상태를 검증합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+|  | [F14.2 업데이트 및 배포 방식](functional-readiness-ko.md#f14-2) | 소스 배포와 서명된 오프라인 패키지를 다룹니다. 설계되었지만 구현되지 않은 Hub 관리 수명 주기는 사용 가능한 설치 경로와 구분합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F14.3 기능 설정](functional-readiness-ko.md#f14-3) | 사용 가능 여부, 활성화, 모드, 사전 조건, 라이선스 제한, 모델 상태를 표시합니다. 활성화나 사용 권한을 작업 실행 권한으로 간주하지 않습니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F14.4 신뢰할 수 있는 확장 및 연동](functional-readiness-ko.md#f14-4) | 게시자 신뢰, 호환성 확인, 범위가 제한된 접근, 활성화, 철회를 통해 버전이 지정된 기능 묶음, 스킬, 공급자 어댑터, Model Context Protocol(MCP) 도구를 관리합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 | **F15. 코드 보안 분석** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 2/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 1/3</span> | [F15.1 관리 절차에 따른 검사 및 결과 수집](functional-readiness-ko.md#f15-1) | 승인된 정확한 개정 버전의 코드를 확보해 격리된 환경에서 검사하거나 지원되는 외부 보안 점검 결과를 수집하고 검사 범위와 한계를 명시합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |

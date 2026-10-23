@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cf3e51ccab7e70861accba6557b76f93e6f2da8c
+translation_source_sha: 29757a9bebdf9047c40772a4c9c40b4e7f1b0978
 translation_revised: 2026-10-23
 ---
 # 프로젝트 구조
@@ -280,6 +280,10 @@ Core는 계약 하위 모듈이 아니라 공유 계약 파사드를 통해 Rule
 Operator는 WAF 컨트롤 세부 정보에 수치를 붙일 때만 이 기록을 읽습니다. `core/framework_rule_evidence/wara.py`는
 같은 범위별 커버리지를 검토된 정확한 `t0_rule` 바인딩의 WARA `rule` 증적으로 바꾸고, `core/wara/`는 결속된
 규칙 개정에서 온 증적만 받아들입니다.
+`core/governance_qualification/`은 F06.2 거버넌스 검증 기록의 순수한 검토 전용 코어입니다. provider 소스를 인정된 증거
+또는 이름이 있는 보류로 조정하고, 고정한 코호트에서 오탐, 미탐, 보류, 커버리지를 측정해 둘을 설치 기록 하나에 묶습니다.
+I/O와 wire 표면이 없고 활성화, 승인, 실행 권한을 부여하지 않습니다
+([규칙 거버넌스](../rules-and-detection/rule-governance-ko.md#검증-증거)).
 `core/framework_assessment/`는 결정적 요구 사항으로만 컨트롤을 결정하므로, MCSB의 보조 규칙 결합 같은
 `supporting_only` 요구 사항은 컨트롤을 실패시키거나 막을 수 없습니다.
 

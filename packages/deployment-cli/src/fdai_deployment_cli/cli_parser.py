@@ -109,9 +109,6 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     source_options = azure.add_argument_group("Artifact source (choose one)")
     kit_source = source_options.add_mutually_exclusive_group(required=True)
     kit_source.add_argument(
-        "--online", action="store_true", help="Download and verify the versioned release kit"
-    )
-    kit_source.add_argument(
         "--offline-kit",
         type=Path,
         metavar="PATH",
@@ -184,7 +181,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         "--system-node-sku",
         default=None,
         metavar="SKU",
-        help="AKS system node VM SKU (AKS default: Standard_D4as_v5)",
+        help="AKS system node VM SKU (AKS default: Standard_D4ds_v4)",
     )
     settings.add_argument(
         "--user-nodes",
@@ -202,7 +199,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     )
     settings.add_argument(
         "--user-node-sku",
-        default="Standard_D4as_v5",
+        default="Standard_D4ds_v4",
         metavar="SKU",
         help="AKS user node VM SKU (default: %(default)s)",
     )
@@ -211,7 +208,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         default=None,
         choices=DATABASE_SKUS,
         metavar="SKU",
-        help="PostgreSQL Flexible Server SKU for postgres-flex (default: B_Standard_B1ms)",
+        help="PostgreSQL Flexible Server SKU for postgres-flex (default: GP_Standard_D4ads_v5)",
     )
     settings.add_argument(
         "--monthly-cost-ceiling",
@@ -355,11 +352,6 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         ),
     )
     advanced = azure.add_argument_group("Advanced (optional)")
-    advanced.add_argument(
-        "--online-url",
-        metavar="URL",
-        help="Override the online kit URL on an approved HTTPS release host",
-    )
     advanced.add_argument(
         "--control-package",
         type=Path,

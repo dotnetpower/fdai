@@ -42,7 +42,7 @@ def test_root_help_explains_commands_and_next_steps(capsys) -> None:
     assert "Quick start:" in output.out
     assert "az login" in output.out
     assert "fdaictl doctor" in output.out
-    assert "fdaictl provision azure --online" in output.out
+    assert "fdaictl provision azure --source ." in output.out
     assert "fdaictl COMMAND --help" in output.out
     for description in ("signed", "simulation", "authentication", "version"):
         assert description in output.out.lower()
@@ -56,9 +56,11 @@ def test_azure_help_groups_and_explains_inputs(capsys) -> None:
     for value in ("koreacentral", "1500", "seconds", "14400", "observation-only"):
         assert value in output.out
     assert "--offline-kit" in output.out
+    assert "--source" in output.out
+    assert "--online" not in output.out
     assert "no public artifact" in output.out.lower()
     assert "~/" in output.out
-    assert "--progress plain" in output.out
+    assert "--progress" in output.out
     assert output.err == ""
 
 
@@ -141,7 +143,18 @@ def test_prepare_only_rejects_kit_mode(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         cli, "deploy_azure_foundation", lambda **_: pytest.fail("unexpected deployment")
     )
-    assert cli.main(["provision", "azure", "--online", "--prepare-only"]) == 3
+    assert (
+        cli.main(
+            [
+                "provision",
+                "azure",
+                "--offline-kit",
+                "example.tar.gz",
+                "--prepare-only",
+            ]
+        )
+        == 3
+    )
     assert "requires --source" in capsys.readouterr().err
 
 

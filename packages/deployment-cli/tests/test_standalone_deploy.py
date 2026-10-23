@@ -39,7 +39,19 @@ def test_azure_read_failure_never_discloses_private_command_or_path(monkeypatch,
         raise FileNotFoundError(2, "private-provider-marker", "/private-path-marker")
 
     monkeypatch.setattr(standalone_deploy.subprocess, "run", failed)
-    assert cli.main(["provision", "azure", "--online", "--progress", "off"]) == 3
+    assert (
+        cli.main(
+            [
+                "provision",
+                "azure",
+                "--offline-kit",
+                "kit.tar.gz",
+                "--progress",
+                "off",
+            ]
+        )
+        == 3
+    )
     captured = capsys.readouterr()
     assert "private-" not in captured.err
     assert captured.out == ""
@@ -61,7 +73,19 @@ def test_cli_raw_failure_fallback_is_value_safe(monkeypatch, capsys, error_type)
         raise error_type("private-fallback-marker")
 
     monkeypatch.setattr(cli, "deploy_azure_foundation", failed)
-    assert cli.main(["provision", "azure", "--online", "--progress", "off"]) == 3
+    assert (
+        cli.main(
+            [
+                "provision",
+                "azure",
+                "--offline-kit",
+                "kit.tar.gz",
+                "--progress",
+                "off",
+            ]
+        )
+        == 3
+    )
     captured = capsys.readouterr()
     assert "private-" not in captured.err
     assert "inspect retained evidence" in captured.err

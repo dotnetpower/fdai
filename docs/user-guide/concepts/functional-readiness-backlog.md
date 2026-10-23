@@ -17,12 +17,12 @@ completion.
 
 ## Audit results at a glance
 
-The previous F10-F15 result was Ready 13 and Partial 8. **Ten Ready decisions become Partial**:
-F10.1, F10.2, F10.4, F11.3, F13.2, F14.1-F14.4, and F15.1. The corrected result is
-**Ready 3 and Partial 18**. Across all 52 subfunctions, the inherited and corrected results total
-**Ready 28 and Partial 24**.
+The previous F10-F15 result was Ready 13 and Partial 8. The audit moved ten Ready decisions to
+Partial; the 2026-10-23 exact-source acceptance then restored F14.2 to Ready. The current result is
+**Ready 4 and Partial 17**. Across all 52 subfunctions, the inherited and corrected results total
+**Ready 29 and Partial 23**.
 
-The plan contains **29 unchecked work packages** and **seven deferred or conditional scope
+The plan contains **26 unchecked work packages** and **seven deferred or conditional scope
 records**. Shared work is linked once rather than counted again for every affected function.
 
 Three causes explain the misleading labels:
@@ -69,7 +69,7 @@ not ranges; `-` means no mandatory package was identified for that bounded funct
 | F13.2 | Ready -> Partial | Local report engine/exports and historical authenticated built-in RCA/PDF evidence | Production-datasource and authenticated error/isolation matrix beyond that built-in receipt | V01 |
 | F13.3 | Partial -> Partial | Baseline/treatment formulas, guard metrics, independent settlement, and censored outcomes | Qualifying episodes, comparable windows, denominators, and uncertainty | L04 |
 | F14.1 | Ready -> Partial | Source deployment, Trial, health, update/rollback, and one historical new-Trial receipt | Unchanged Trial rerun and both full-entitlement acceptance cases | I01 |
-| F14.2 | Ready -> Partial | Source distribution and signed offline-package mechanics with retained isolated install evidence | Superseded path retirement and remaining distribution acceptance; Hub is not an available path | I02, I03 |
+| F14.2 | Ready -> Ready | Accepted one-command source distribution and signed offline-package mechanics with retained isolated install evidence | No remaining mandatory distribution gap; Hub is not an available path | I02, I03 |
 | F14.3 | Ready -> Partial | Availability/mode/profile, Trial watermark, model-health, and recall presentation | Real Release ceiling input and entitlement-transition readback | A01, I01 |
 | F14.4 | Ready -> Partial | Typed bundle registration, publisher trust, disabled-first lifecycle, and revocation | Linked exact-artifact install/enable/disable/revoke/restart/disclosure receipts | X01 |
 | F15.1 | Ready -> Partial | Exact-revision acquisition, independent local acceptance, workers, and historical isolation probes | Terminal installed scan, scheduled publication, and same-correlation business acceptance | S01, S02 |
@@ -281,19 +281,16 @@ Use the [source-deployment ledger](../../roadmap-implementation/deployment/sourc
 The [detected-issue processing ledger](../../roadmap-implementation/operations/code-security-findings.md)
 supports the bounded Ready decisions for F15.2/F15.3.
 
-- [ ] **I01, source acceptance:** Complete WP6's three missing cases: unchanged keyless rerun,
-  new full-entitlement installation, and existing Trial-to-full rerun with watermark removal.
-  Retain exact digests, migration/health/readback and second-plan results; preserve the completed
-  new-Trial and teardown receipts as historical evidence.
-- [ ] **I02, superseded paths:** After I01, complete WP8: retire `--online` kit acquisition and
-  source signed-kit adoption redirection; decide whether `azd-up.sh` is retired or diagnostic-only.
-  CLI help/tests and quickstart/skill should advertise only source and signed offline installation.
-  The [current parser](../../../packages/deployment-cli/src/fdai_deployment_cli/cli_parser.py)
-  and [help](../../../packages/deployment-cli/src/fdai_deployment_cli/cli_help.py) still expose `--online`.
-- [ ] **I03, distribution validation:** Reconcile the distribution owner's older recovery/host
-  claims against newer source-deployment receipts, then retain any still-required connected
-  deployment, update/recovery, and live disposable-migration acceptance on the selected revision.
-  Do not repeat proven shipped-wheel/offline construction work or require a public release for source installation.
+- [x] **I01, source acceptance:** WP6 retains unchanged keyless rerun, new full-entitlement
+  installation, and existing Trial-to-full transition evidence with exact digests,
+  migration/health/readback, and second-plan results.
+- [x] **I02, superseded paths:** Public kit acquisition and source signed-kit adoption redirection
+  are retired. `azd-up.sh` remains a Core-only diagnostic, while CLI help and tests advertise only
+  source and signed offline installation.
+- [x] **I03, distribution validation:** The exact-source v18 invocation retained connected
+  deployment, bounded recovery, image, inventory, health, and zero-change receipts on the selected
+  revision. Proven shipped-wheel/offline construction remains separate and source installation
+  requires no public release.
 - [ ] **X01, extension lifecycle:** Retain one complete linked exact-artifact lineage covering
   install, enable, disable, revoke, restart, disclosure reload, typed action routing, and audit.
   Match artifact/release/environment identities and prove no bundle bypasses the governed path.
@@ -380,9 +377,9 @@ packages remain open.
 | H02 | External blocker | Canary, recurrence, scheduler, and stabilization prerequisites have local tests. | Supply approved installation baseline/scope/job inputs and retain scheduled attempts, no-execute replay, authority lowering, and configured stabilization exit. |
 | H03 | External blocker | The five-minute cadence and 30-second consumed-audit check do not settle the seven owner decisions. | Version the canary, smoke, alert, audit, cold-start, stabilization, and load/budget operating policy. |
 | V01 | External blocker | Report rendering and source-isolation mechanics exist. | Retain authenticated per-datasource identity, cutoff, freshness, unavailable, timeout, partial-widget, format-rejection, and GET-only evidence. |
-| I01 | External blocker | Source installation and Trial mechanics exist with one historical new-Trial receipt. | Supply approved signed full-entitlement input and retain unchanged Trial rerun, new full install, Trial-to-full transition, watermark removal, health/readback, and second plan. |
-| I02 | External blocker | Source and signed offline paths remain the only available distribution paths; `--online` cleanup is ordered after I01. | Complete I01, then remove superseded acquisition/help paths and decide whether `azd-up.sh` is diagnostic-only or retired. |
-| I03 | External blocker | Update, recovery, host, and offline mechanics pass bounded local checks. | Retain exact-revision connected deployment, update/recovery, and disposable migration evidence on an approved target. |
+| I01 | Complete | Keyless Trial, unchanged rerun, new full installation, and Trial-to-full transition evidence are retained. | Preserve the receipts and regression coverage. |
+| I02 | Complete | Source and signed offline paths are the only available distribution paths. | Keep `azd-up.sh` diagnostic-only and prevent it from becoming another installer. |
+| I03 | Complete | Exact-revision connected deployment, bounded recovery, managed-host continuation, inventory, health, and zero-change evidence are retained. | Preserve the v18 receipt chain and focused regressions. |
 | X01 | Code complete / live unverified | Bundle registration, disabled-first lifecycle, revocation, and typed routing exist. #355 closed as not planned without the mandatory lineage, and #2315 now owns the observable successor criteria. | Under #2315, retain one exact signed-artifact install, distinct reviewed enable, disable, revoke, restart, disclosure, routing, independent readback, and Saga audit lineage. |
 | S01 | External blocker | Installed acquisition, worker, and independent local acceptance code exists. | Keep #2128 paused until explicitly resumed, then retain one terminal installed request, exact revision, coverage, publication, and independent readback. |
 | S02 | External blocker | Scheduled processing, Incident, notification, and ownership handover mechanics exist. | After the pause lifts, bind approved identities and channels and retain one same-correlation scan or explicit no-issues result, Incident, notification, ownership handover, and duplicate-replay chain. |
