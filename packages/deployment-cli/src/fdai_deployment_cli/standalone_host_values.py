@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from typing import Any
 
@@ -371,6 +372,35 @@ def aks_operator_request_receipts(
         {"FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID": operator_producer},
         {"FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED": names["operator_signing_seed_secret_id"]},
     )
+
+
+def aks_notification_environment(
+    *,
+    application_values: dict[str, object],
+    email_binding: object,
+    identity: dict[str, Any],
+) -> dict[str, object]:
+    """Bind ACS Email delivery to the Core workload for the selected notifications add-on."""
+
+    binding = mapping(email_binding, "notification email binding")
+    recipients = application_values.get("notification_email_recipients")
+    if (
+        not isinstance(recipients, list)
+        or not recipients
+        or not all(isinstance(address, str) and address for address in recipients)
+    ):
+        raise ValueError("notifications add-on requires its private recipient list")
+    endpoint = binding.get("endpoint")
+    sender = binding.get("sender_address")
+    client_id = identity.get("client_id")
+    if not all(isinstance(value, str) and value for value in (endpoint, sender, client_id)):
+        raise ValueError("notification email binding is incomplete")
+    return {
+        "FDAI_EMAIL_ENDPOINT": endpoint,
+        "FDAI_EMAIL_SENDER_ADDRESS": sender,
+        "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON": json.dumps(recipients, separators=(",", ":")),
+        "FDAI_NOTIFICATION_MI_CLIENT_ID": client_id,
+    }
 
 
 def selected_identity(identities: dict[str, Any], name: str, selected: bool) -> dict[str, Any]:
