@@ -43,6 +43,9 @@ from fdai.delivery.inventory_change_acceleration import (
     build_job_event_bus as _build_job_event_bus,
 )
 from fdai.delivery.inventory_change_acceleration import (
+    forward_recovery_deltas as _forward_recovery_deltas,
+)
+from fdai.delivery.inventory_change_acceleration import (
     load_resource_type_registry as _load_resource_type_registry,
 )
 from fdai.delivery.inventory_change_acceleration import (
@@ -439,7 +442,7 @@ async def run(
             )
             if config.recovery_delta_enabled:
                 await inventory_sync_cli_support.try_recovery_delta_operation(
-                    lambda: inventory_change_acceleration.forward_recovery_deltas(
+                    lambda: _forward_recovery_deltas(
                         config=config,
                         identity=identity,
                         vocabulary=vocabulary,
@@ -789,12 +792,5 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
-__all__ = [
-    "InventoryJobConfig",
-    "InventoryJobResult",
-    "container_argv",
-    "container_main",
-    "run",
-    "run_recovery_delta",
-    "run_resource_change_feed",
-]
+__all__ = ["InventoryJobConfig", "InventoryJobResult", "container_argv", "container_main", "run"]
+__all__ += ["run_recovery_delta", "run_resource_change_feed"]
