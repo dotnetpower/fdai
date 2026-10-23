@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 34124efc85cecfad8c37c95e1c1fa2dc2e36a4de
-translation_revised: 2026-10-22
+translation_source_sha: 37505119bbad5a35775bddf758b7ec14ffb17fda
+translation_revised: 2026-10-23
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -644,6 +644,9 @@ Cognitive deployment를 변경할 수 있는 보호된 전체 계획은 해석�
 - 모든 `infra/services/*` 루트가 CI에 고정된 Terraform으로 오프라인 초기화와 `terraform validate`를
   통과합니다. 이 루트들은 `service-deploy.yml`이 배포하고 모든 offline 키트에 포함되므로, 구성
   오류가 배포 중이 아니라 CI에서 실패합니다.
+- 하나의 offline 배포 키트에 포함되는 모든 Terraform 루트는 같은 AzureRM 및 Random provider
+  버전을 선택합니다. 각 루트는 검토된 자체 lock과 해시 집합을 유지하며 mirror는 공유 provider
+  archive를 한 번만 저장합니다.
 - 녹화된 리전 카탈로그에 대한 해석기 예행 실행이 고정된 `resolved-models.json` 해시 →
   멱등성 증명.
 

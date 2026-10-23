@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: 복제한 저장소에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 0bd37f9747d7a6696c206c876e738a1b4939a6d2
-translation_revised: 2026-10-22
+translation_source_sha: b0116e7cc27f00799d616871ad3238b39eedac64
+translation_revised: 2026-10-23
 ---
 
 # 배포 빠른 시작
@@ -163,6 +163,36 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 제거하려면 `--progress plain`을 추가합니다. 출력이 없는 준비 및 사전 검사 작업은 10초마다
 `still working` 기록을 내고, 이후 명시적인 완료 또는 실패 기록을 냅니다. 비공개 작업
 디렉터리는 clone 밖에 있어야 합니다.
+
+### 다시 설치하지 않고 변경 검증
+
+정상 상태인 기존 source AKS 개발 설치에서는 Azure 작업을 시작하기 전에 정확한 Git 범위의 배포
+경로를 분류합니다.
+
+```bash
+fdaictl provision source-change-plan \
+  --source . \
+  --base <previous-commit>
+```
+
+명령은 `no-deploy`, `console-update`, `single-service-update`,
+`multi-service-update`, `full-release-required`, `split-update-required` 또는
+`higher-lane-required`를 반환합니다. Azure에 연결하거나 배포 상태를 변경하지 않습니다.
+
+지원되는 서비스 전용 결과에는 통제된 조정기를 실행합니다.
+
+```bash
+fdaictl provision source-changed-update \
+  --source . \
+  --base <previous-commit> \
+  --application-work-dir <retained-application-work-dir> \
+  --work-dir <private-update-work-dir>
+```
+
+영향받는 각 기준 서비스는 기존 이미지 반입 승인, 정확한 Terraform 계획 승인, 상태 재조회, 다른
+서비스의 불변성 검사, 대상별 변경 없음 계획을 그대로 사용합니다. 이 명령은 Console,
+마이그레이션, 인프라, 선택적 이미지, staging, production 또는 분류되지 않은 변경을 고속 서비스
+업데이트로 바꾸지 않습니다.
 
 폐기 가능한 source AKS 개발 설치에서는
 `--development-authority-profile <private-reviewed-profile.json>`을 추가할 수 있습니다. FDAI는

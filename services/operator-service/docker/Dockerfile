@@ -2,7 +2,7 @@
 
 ARG BASE_IMAGE_REGISTRY=docker.io
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS builder
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS dependency-builder
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
@@ -26,23 +26,29 @@ COPY services/document-processing-worker/pyproject.toml ./services/document-proc
 COPY services/isolated-executor/pyproject.toml ./services/isolated-executor/pyproject.toml
 COPY services/system-knowledge-service/pyproject.toml ./services/system-knowledge-service/pyproject.toml
 COPY packages/github-app-auth/pyproject.toml ./packages/github-app-auth/pyproject.toml
+COPY packages/service-contracts/pyproject.toml ./packages/service-contracts/pyproject.toml
+COPY packages/runtime-diagnostics/pyproject.toml ./packages/runtime-diagnostics/pyproject.toml
+COPY services/operator-service/pyproject.toml ./services/operator-service/pyproject.toml
+RUN uv sync --frozen --package fdai-operator-service --no-dev --no-editable \
+        --no-install-package fdai \
+        --no-install-package fdai-service-contracts \
+        --no-install-package fdai-runtime-diagnostics \
+        --no-install-package fdai-operator-service
+
+FROM dependency-builder AS builder
+
 COPY packages/service-contracts/ ./packages/service-contracts/
 COPY packages/runtime-diagnostics/ ./packages/runtime-diagnostics/
 COPY services/operator-service/ ./services/operator-service/
 RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
     && uv build --wheel --package fdai-runtime-diagnostics --out-dir /wheels \
     && uv build --wheel --package fdai-operator-service --out-dir /wheels \
-    && uv sync --frozen --package fdai-operator-service --no-dev --no-editable \
-        --no-install-package fdai \
-        --no-install-package fdai-service-contracts \
-        --no-install-package fdai-runtime-diagnostics \
-        --no-install-package fdai-operator-service \
-    && uv pip install --python /app/.venv/bin/python --no-deps \
+    && uv pip install --python /app/.venv/bin/python --prefix /app/application --no-deps \
         /wheels/fdai_service_contracts-*.whl \
         /wheels/fdai_runtime_diagnostics-*.whl \
         /wheels/fdai_operator_service-*.whl \
-    && test -x /app/.venv/bin/fdai-operator-service \
-    && test "$(head -n 1 /app/.venv/bin/fdai-operator-service)" = "#!/app/.venv/bin/python"
+    && test -x /app/application/bin/fdai-operator-service \
+    && test "$(head -n 1 /app/application/bin/fdai-operator-service)" = "#!/app/.venv/bin/python"
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
 
@@ -64,13 +70,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     AZURE_MCP_COLLECT_TELEMETRY=false \
     HOME=/tmp/fdai \
-    PATH="/app/.venv/bin:${PATH}" \
+    PATH="/app/application/bin:/app/.venv/bin:${PATH}" \
+    PYTHONPATH=/app/application/lib/python3.13/site-packages \
     XDG_CACHE_HOME=/tmp/fdai/.cache
 
 WORKDIR /app
-COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
+COPY --from=dependency-builder --chown=65532:65532 /app/.venv /app/.venv
+COPY --from=builder --chown=65532:65532 /app/application /app/application
 USER 65532
-RUN test -x /app/.venv/bin/fdai-operator-service
+RUN test -x /app/application/bin/fdai-operator-service
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import os,urllib.request;urllib.request.urlopen(f'http://127.0.0.1:{os.getenv(\"FDAI_OPERATOR_SERVICE_PORT\",\"8000\")}/healthz',timeout=2).read()"]

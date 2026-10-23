@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: d3f5fcd37965e3acdef2785c17a7adf472af88c2
-translation_revised: 2026-10-22
+translation_source_sha: b1e750a1ea2600cd57af59b4b884e7f0e022f78d
+translation_revised: 2026-10-23
 ---
 
 # 설치형 배포 CLI
@@ -258,7 +258,7 @@ enterprise identity 추가 기능을 선택하면 복구 계속 진행 경로는
 변경 없음 계획과 임시 자료 정리를 확인합니다. 이식 가능한 상태 보고는 요약이며 원본 증적의
 해시를 다시 계산할 입력이 아닙니다.
 
-이후 조정기는 `source-transfer.tar`와 불변 로컬 전송 증적을 준비합니다. 비압축 archive에는
+이후 조정기는 `source-transfer.tar.gz`와 불변 로컬 전송 증적을 준비합니다. 결정론적 gzip archive에는
 정규 소스 매니페스트와 번호가 지정된 일반 파일만 포함하고, archive가 지정한 대상 경로나 링크는
 추출하지 않습니다. 수신기는 독립적으로 전달된 archive 및 스냅샷 digest를 검증하고 새로운
 비공개 스냅샷에 매니페스트의 파일과 내부 링크만 복원합니다. 받은 코드를 실행하기 전에 검증하며,
@@ -315,7 +315,15 @@ fdaictl provision source-service-update \
   --application-work-dir <retained-application-work-dir>
 ```
 
-이 명령은 추적된 소스를 스냅샷으로 만들고 정확한 Git 버전이 포함된 Linux OCI archive 하나를
+`source-change-plan`을 사용하면 Azure에 연결하지 않고 정확한 Git 범위의 배포 경로를 분류할 수
+있습니다. 서비스만 변경된 결과에는 `source-changed-update`가 영향을 받는 각 기준 서비스에 기존의
+통제된 업데이트를 한 번씩 실행합니다. 문서와 테스트만 변경되면 `no-deploy`를 반환합니다.
+Console, 마이그레이션, 인프라, 선택적 이미지 또는 분류되지 않은 변경은 추측하지 않고 필요한 상위
+배포 경로에서 멈춥니다.
+
+서비스 명령은 선택한 Dockerfile의 추적 대상 `COPY` 입력과 고정된 빌드 도우미에서 범위가 제한된
+스냅샷을 만듭니다. 이 변환 결과는 전체 checkout 신원을 유지하면서 관련 없는 제품, 문서, 일반
+서비스 테스트를 제외합니다. 이어서 정확한 Git 버전이 포함된 Linux OCI archive 하나를
 빌드한 뒤 archive와 manifest digest를 검증합니다. 레지스트리 반입 전에는 현재 사람 승인을
 요청합니다. 보존된 배포 Managed Identity가 반입을 수행하고 digest를 다시 읽어 확인합니다.
 그런 다음 조정기는 선택한 Deployment로 제한된 Terraform 계획을 만들고 일반적인 exact-plan
@@ -450,10 +458,11 @@ Console 인증, 정리, 두 번째 계획의 변경 없음이 독립적으로 �
 - 첫 효과를 내기 전에 변경할 수 없는 클레임이 커밋, 스냅샷 다이제스트, 구독, 레지스트리,
   서비스 목록, 의존 이미지 고정값을 묶습니다. 다른 입력에 대한 클레임이나 영수증이 있으면
   `source_image_stage_inputs_changed`로 멈춥니다.
-- 다섯 개의 기본 서비스는 정해진 순서대로 `az acr build`로 빌드하고 `sha-<commit>` 태그를
-  붙입니다. 각 다이제스트는 실행 기록에서 바로 그 리포지토리, 태그, 레지스트리의 출력
-  이미지에서 가져옵니다. ClamAV와 pgvector는 오프라인 키트 빌더도 고정하는 다이제스트로
-  `az acr import`를 사용해 가져옵니다.
+- 다섯 개의 기본 서비스와 두 의존 이미지 반입은 레지스트리 작업을 최대 3개까지 동시에
+  실행합니다. 증적을 만들기 전에는 결과를 정해진 서비스 순서로 되돌립니다. 각 서비스는
+  `az acr build`와 `sha-<commit>` 태그를 사용합니다. 각 다이제스트는 실행 기록에서 바로 그
+  리포지토리, 태그, 레지스트리의 출력 이미지에서 가져옵니다. ClamAV와 pgvector는 오프라인
+  키트 빌더도 고정하는 다이제스트로 `az acr import`를 사용해 가져옵니다.
 - 모든 이미지를 다이제스트와 커밋 태그로 다시 읽고, 하나라도 다르면
   `source_image_build_failed`로 멈춥니다. 그런 뒤에야 비공개 영수증이 일곱 개의 다이제스트를
   `operator-selected-source` 출처, `release_signature_verified=false`,

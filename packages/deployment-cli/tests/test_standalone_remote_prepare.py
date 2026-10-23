@@ -201,7 +201,7 @@ def test_prepare_command_parses_with_the_host_parser(
     tunnel = _RecordingTunnel(
         {
             f"{remote_root}/kit.tar.gz": "a" * 64,
-            f"{remote_root}/source-transfer.tar": "b" * 64,
+            f"{remote_root}/source-transfer.tar.gz": "b" * 64,
             f"{remote_root}/source-receiver.pyz": "c" * 64,
             f"{remote_root}/source-runtime-support.tar": "e" * 64,
         }
@@ -311,7 +311,7 @@ def test_source_preparation_refuses_changed_runtime_support(tmp_path: Path) -> N
     remote_root = "/home/fdai/.fdai-transfer-example"
     tunnel = _RecordingTunnel(
         {
-            f"{remote_root}/source-transfer.tar": "b" * 64,
+            f"{remote_root}/source-transfer.tar.gz": "b" * 64,
             f"{remote_root}/source-receiver.pyz": "c" * 64,
             f"{remote_root}/source-runtime-support.tar": "f" * 64,
         }

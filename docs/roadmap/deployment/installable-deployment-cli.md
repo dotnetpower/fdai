@@ -260,8 +260,8 @@ loads the original state-handoff receipt through its bounded plan reference. It 
 digest, source, target, host attestation, remote-backend authority, zero-change plan and transient
 cleanup. Portable status is a projection, not the original receipt to rehash.
 
-The coordinator then prepares `source-transfer.tar` and an immutable local transfer receipt.
-The uncompressed archive contains the canonical source manifest plus numbered regular blobs,
+The coordinator then prepares `source-transfer.tar.gz` and an immutable local transfer receipt.
+The deterministic gzip archive contains the canonical source manifest plus numbered regular blobs,
 not archive-selected destination paths or links. The receiver reconstructs only manifest-owned
 files and internal links into a fresh private snapshot, checking independently supplied archive
 and snapshot digests before source execution. It rejects duplicate, missing, extra, absolute,
@@ -319,7 +319,16 @@ fdaictl provision source-service-update \
   --application-work-dir <retained-application-work-dir>
 ```
 
-The command snapshots tracked source, builds one Linux OCI archive with the exact Git revision,
+Use `source-change-plan` to classify an exact Git range without contacting Azure. For a
+service-only result, `source-changed-update` runs the existing guarded update once for each affected
+baseline service. Documentation and test-only changes return `no-deploy`; Console, migration,
+infrastructure, optional-image, and unclassified changes stop with their required higher lane
+instead of guessing.
+
+The service command derives a projected snapshot from the selected Dockerfile's tracked `COPY`
+inputs and fixed build helpers. The projection retains the complete checkout identity while
+excluding unrelated products, docs, and ordinary service tests. It builds one Linux OCI archive
+with the exact Git revision,
 validates its archive and manifest digests, and requests current human approval before registry
 import. The retained deployment Managed Identity performs the import and reads back the digest.
 The coordinator then produces a Terraform plan limited to the selected Deployment, requests the
@@ -444,7 +453,9 @@ build service with only Azure CLI and one verified snapshot of one commit:
 - Before the first effect, an immutable claim binds the commit, snapshot digest, subscription,
   registry, service list, and dependency pins. A claim or receipt for different inputs stops with
   `source_image_stage_inputs_changed`.
-- The five baseline services build in canonical order with `az acr build`, tagged `sha-<commit>`.
+- The five baseline services and two dependency imports use at most three concurrent registry
+  operations. Results return to canonical service order before receipt creation. Each service
+  uses `az acr build` and the `sha-<commit>` tag.
   Each digest comes from the run record's output image for exactly that repository, tag, and
   registry. ClamAV and pgvector are imported with `az acr import` by the digests that the offline
   kit builder also pins.

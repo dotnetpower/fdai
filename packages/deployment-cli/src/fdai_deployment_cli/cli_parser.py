@@ -448,6 +448,77 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     entra.add_argument("--output", choices=("text", "json"), default="text")
     entra.set_defaults(handler=handlers["provision_entra"])
 
+    source_change_plan = command(
+        provision_commands,
+        "source-change-plan",
+        "Classify one exact Git diff into the narrowest safe deployment lane",
+    )
+    source_change_plan.add_argument(
+        "--source",
+        type=Path,
+        required=True,
+        help="Clean Git checkout to inspect",
+    )
+    source_change_plan.add_argument(
+        "--base",
+        required=True,
+        help="Base Git revision for the exact diff",
+    )
+    source_change_plan.add_argument(
+        "--head",
+        default="HEAD",
+        help="Head Git revision for the exact diff (default: %(default)s)",
+    )
+    source_change_plan.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format (default: %(default)s)",
+    )
+    source_change_plan.set_defaults(handler=handlers["provision_source_change_plan"])
+
+    source_changed_update = command(
+        provision_commands,
+        "source-changed-update",
+        "Deploy every affected baseline service from one exact Git diff",
+    )
+    source_changed_update.add_argument(
+        "--source",
+        type=Path,
+        required=True,
+        help="Clean checkout whose HEAD supplies the update",
+    )
+    source_changed_update.add_argument(
+        "--base",
+        required=True,
+        help="Base Git revision for affected-service selection",
+    )
+    source_changed_update.add_argument(
+        "--application-work-dir",
+        type=Path,
+        required=True,
+        help="Retained existing-development application work directory",
+    )
+    source_changed_update.add_argument(
+        "--work-dir",
+        type=Path,
+        required=True,
+        help="Fresh or retained private changed-update work directory",
+    )
+    source_changed_update.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=14400,
+        help="Total update deadline in seconds (default: %(default)s)",
+    )
+    source_changed_update.add_argument(
+        "--output",
+        choices=("text", "json"),
+        default="text",
+        help="Output format (default: %(default)s)",
+    )
+    source_changed_update.set_defaults(handler=handlers["provision_source_changed_update"])
+
     source_update = command(
         provision_commands,
         "source-service-update",

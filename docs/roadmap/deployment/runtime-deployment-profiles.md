@@ -518,6 +518,10 @@ streams immediately and clients resume from their last event id within the termi
 Every shipped Alpine runtime image also pins security-sensitive runtime package revisions across
 all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
 contract together; image scanning verifies the built result before publication.
+The five baseline service images install locked third-party dependencies before copying application
+source. Their runtime stages keep that stable environment separate from the service wheel layer.
+A source-only rebuild can therefore reuse dependency blobs and publish only the changed application
+layer, without changing package versions, entry points, health checks, identity, or authority.
 
 Core's Alpine ARM64 builder supplies the missing `tree_sitter/parser.h` for source builds of locked `tree-sitter-java` 0.23.5 from the matching upstream commit, pinned by SHA-256. The builder-only header changes no runtime dependency, workload specification, identity, or authority. Native compile/parse evidence is not a complete image build or deployment. The download is verified in a plain `RUN` that fails closed on a digest mismatch, not with `ADD --checksum`: source installations build images with the registry's build service, whose classic builder rejects BuildKit-only syntax, and a test keeps every service Dockerfile free of it.
 

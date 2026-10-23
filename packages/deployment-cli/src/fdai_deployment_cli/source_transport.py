@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import hashlib
 import argparse
+import gzip
+import hashlib
 import io
 import json
 import os
@@ -38,7 +39,7 @@ def prepare_source_transport(
 ) -> dict[str, object]:
     """Prepare or reverify an exact local source transfer without touching a remote host."""
     source = verify_source_snapshot(snapshot, expected_digest=snapshot_digest)
-    archive = work_dir / "source-transfer.tar"
+    archive = work_dir / "source-transfer.tar.gz"
     receipt_path = work_dir / "source-transfer.json"
     if receipt_path.exists() or receipt_path.is_symlink():
         receipt = load_json_object(
@@ -98,7 +99,20 @@ def archive_source_snapshot(snapshot: Path, destination: Path, *, snapshot_diges
     finally:
         os.close(parent)
     with os.fdopen(descriptor, "w+b") as output:
-        with tarfile.open(fileobj=output, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+        with (
+            gzip.GzipFile(
+                fileobj=output,
+                mode="wb",
+                filename="",
+                mtime=0,
+                compresslevel=6,
+            ) as compressed,
+            tarfile.open(
+                fileobj=compressed,
+                mode="w",
+                format=tarfile.USTAR_FORMAT,
+            ) as archive,
+        ):
             _add_blob(archive, _MANIFEST, manifest_bytes)
             total = 0
             for index, record in enumerate(records):
@@ -154,7 +168,7 @@ def receive_source_snapshot(
             raise ValueError("source transport archive digest differs")
         source.seek(0)
         with (
-            tarfile.open(fileobj=source, mode="r:") as archive,
+            tarfile.open(fileobj=source, mode="r:gz") as archive,
             ThreadPoolExecutor(max_workers=4) as writer,
         ):
             manifest_bytes = _blob(archive, _MANIFEST, _MAX_MANIFEST)

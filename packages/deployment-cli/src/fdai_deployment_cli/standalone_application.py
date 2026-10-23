@@ -646,7 +646,7 @@ def deploy_standalone_application(
                 redirect_changed=redirect_changed,
             )
         transient_paths = (
-            (f"{remote_root}/source-transfer.tar", f"{remote_root}/source-receiver.pyz")
+            (f"{remote_root}/source-transfer.tar.gz", f"{remote_root}/source-receiver.pyz")
             if source_mode
             else (remote_archive,)
         )
