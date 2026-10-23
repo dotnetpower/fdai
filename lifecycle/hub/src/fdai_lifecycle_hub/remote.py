@@ -24,6 +24,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from fdai_lifecycle_hub import models, schemas
+from fdai_lifecycle_hub.agent_artifacts import artifact_for_plan
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_import_api import configuration_routes
 from fdai_lifecycle_hub.configuration_import_store import ConfigurationImportStore
@@ -217,6 +218,26 @@ def target_routes(
             return JSONResponse({"error": str(error)}, status_code=409)
         return JSONResponse(schemas.outcome_record(outcome))
 
+    async def artifact(request: Request) -> Response:
+        installation_id = request.path_params["installation_id"]
+        kind = request.path_params["kind"]
+        digest = request.path_params["digest"]
+        if kind not in {"release", "configuration"}:
+            return JSONResponse({"error": "artifact_kind_invalid"}, status_code=404)
+        try:
+            selected = await run_in_threadpool(
+                artifact_for_plan,
+                store,
+                catalog,
+                installation_id,
+                kind,
+                digest,
+                now=utc_now(),
+            )
+        except ValueError:
+            return JSONResponse({"error": "artifact_unavailable"}, status_code=404)
+        return JSONResponse(selected.to_json())
+
     return [
         *configuration_routes(ConfigurationImportStore(store.engine), catalog, utc_now),
         *local_channel_routes(catalog, utc_now),
@@ -225,6 +246,10 @@ def target_routes(
         Route("/v1/catalog/trust/approve", approve, methods=["POST"]),
         Route("/v1/catalog/import", import_catalog, methods=["POST"]),
         Route("/v1/installations/{installation_id}/recompute", recompute, methods=["POST"]),
+        Route(
+            "/v1/installations/{installation_id}/artifacts/{kind}/{digest}",
+            artifact,
+        ),
     ]
 
 

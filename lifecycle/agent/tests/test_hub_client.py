@@ -13,6 +13,7 @@ import pytest
 from fdai_lifecycle_agent.hub_client import (
     MAX_CONCURRENT_WRITE_RETRIES,
     MAX_PLAN_RESPONSE_BYTES,
+    FetchedArtifact,
     HttpHubClient,
     HubProtocolError,
     PlanReport,
@@ -143,6 +144,43 @@ def test_fetch_plan_decodes_base64_fields_from_contract_path() -> None:
 def test_fetch_plan_returns_none_for_no_content() -> None:
     with _client(httpx.MockTransport(lambda request: httpx.Response(204))) as client:
         assert client.fetch_plan("installation-alpha") is None
+
+
+def test_fetch_artifact_reads_exact_plan_bound_signed_bytes() -> None:
+    payload = b'{"schema_version":"example.v1"}'
+    signature = b"s" * 64
+    digest = "a" * 64
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={
+                "kind": "release",
+                "digest": digest,
+                "payload": base64.b64encode(payload).decode(),
+                "signature": base64.b64encode(signature).decode(),
+            },
+        )
+
+    with _client(httpx.MockTransport(handler)) as client:
+        artifact = client.fetch_artifact("installation-alpha", "release", digest)
+
+    assert artifact == FetchedArtifact(payload, signature)
+    assert seen == [f"/v1/installations/installation-alpha/artifacts/release/{digest}"]
+
+
+def test_fetch_artifact_returns_none_only_for_not_found() -> None:
+    digest = "a" * 64
+    with _client(httpx.MockTransport(lambda request: httpx.Response(404))) as client:
+        assert client.fetch_artifact("installation-alpha", "configuration", digest) is None
+
+    with (
+        _client(httpx.MockTransport(lambda request: httpx.Response(409))) as client,
+        pytest.raises(HubProtocolError, match="returned 409"),
+    ):
+        client.fetch_artifact("installation-alpha", "configuration", digest)
 
 
 @pytest.mark.parametrize(

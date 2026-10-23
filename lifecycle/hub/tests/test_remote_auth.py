@@ -31,12 +31,14 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
         return JSONResponse({"actor": request.state.principal})
 
     plan = "/v1/installations/installation-alpha/plan"
+    artifact = "/v1/installations/installation-alpha/artifacts/release/" + "a" * 64
     state = "/v1/installations/installation-alpha/state"
     reports = "/v1/installations/installation-alpha/plans/plan-one/reports"
     app = secure_app(
         Starlette(
             routes=[
                 Route(plan, ok),
+                Route(artifact, ok),
                 Route(state, ok, methods=["POST"]),
                 Route(reports, ok, methods=["POST"]),
                 Route("/v1/catalog", ok),
@@ -52,6 +54,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
     )
     with TestClient(app, base_url=config.origin) as client:
         assert client.get(plan, headers=token(**service)).status_code == 200
+        assert client.get(artifact, headers=token(**service)).status_code == 200
         assert client.post(state, headers=token(**service), json={}).status_code == 200
         assert client.post(reports, headers=token(**service), json={}).status_code == 200
         for path in (
@@ -68,6 +71,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
             assert client.get(path, headers=token(**service)).status_code == 403
             assert client.post(path, headers=token(**service), json={}).status_code == 403
         assert client.post(plan, headers=token(**service), json={}).status_code == 403
+        assert client.post(artifact, headers=token(**service), json={}).status_code == 403
         assert client.get(state, headers=token(**service)).status_code == 403
         assert client.get(plan, headers=token()).status_code == 403
         for changes in (

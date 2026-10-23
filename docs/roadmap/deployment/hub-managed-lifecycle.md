@@ -292,6 +292,19 @@ floor, pending report and rollback journal live with current state on a persiste
 Agent namespace, outside its workload Role. Only namespace-scoped Deployment, Service and Job
 operations are granted. See the [Agent preparation guide](../../../lifecycle/agent/README.md#remote-development-preparation).
 
+For connected installations, the Agent can select `--artifact-source hub`. After it receives a
+signed Plan, it requests only that Plan's exact Release and active configuration digests through
+its installation-bound `Agent.Access` identity. Lifecycle Hub rechecks the current eligible Plan,
+the accepted Release catalog, and the retained configuration import before returning original
+signed bytes. It doesn't provide an artifact list or another installation's inputs.
+
+The Agent verifies each signature and canonical digest before publishing the bytes to its private
+state volume. A later poll reuses the exact cached files, which removes repeated Hub downloads
+without treating cache presence as trust. Missing, changed, unbound, or unavailable artifacts
+remain retryable input holds and cause no Kubernetes call. Vendor and customer public keys, the
+private runtime bundle, installation policy, and decryption material remain independently
+provisioned installation inputs. This transport does not mirror images or grant apply authority.
+
 These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or workload
 effect evidence. Existing Hub images, revisions, catalog bindings and network allowlists are
 not changed by this preparation. An exact cloud plan and separate approval precede those effects.

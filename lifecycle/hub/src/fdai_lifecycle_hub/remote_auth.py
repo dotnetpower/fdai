@@ -287,7 +287,8 @@ def secure_app(
 def _agent_allowed(config: RemoteAuth, claims: dict[str, Any], method: str, path: str) -> bool:
     match = re.fullmatch(
         r"/v1/installations/([A-Za-z0-9][A-Za-z0-9._-]{0,127})/"
-        r"(plan|state|native-proofs|plans/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/reports)",
+        r"(plan|state|native-proofs|plans/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/reports|"
+        r"artifacts/(?:release|configuration)/[0-9a-f]{64})",
         path,
         flags=re.ASCII,
     )
@@ -295,7 +296,12 @@ def _agent_allowed(config: RemoteAuth, claims: dict[str, Any], method: str, path
         return False
     installation, operation = match.groups()
     return (
-        method in ({"GET", "HEAD"} if operation == "plan" else {"POST"})
+        method
+        in (
+            {"GET", "HEAD"}
+            if operation == "plan" or operation.startswith("artifacts/")
+            else {"POST"}
+        )
         and claims.get("idtyp") == "app"
         and isinstance(claims.get("roles"), list)
         and "Agent.Access" in claims["roles"]

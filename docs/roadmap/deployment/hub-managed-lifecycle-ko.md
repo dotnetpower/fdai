@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: cd9fa0ec024d68a2c535f56ba39c209056b542c7
-translation_revised: 2026-10-23
+translation_source_sha: cc97ee26dbc09ba57d14c9bc696ce63db143f902
+translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
 
@@ -293,6 +293,19 @@ Agent는 명시적으로 선택한 경우에만 AKS의 투영된 워크로드 ID
 영구 볼륨에 보관합니다. 워크로드 Role은 이 영역을 변경할 수 없습니다. 권한은 워크로드
 네임스페이스의 Deployment, Service, Job 작업에만 한정합니다.
 [Agent 준비 안내](../../../lifecycle/agent/README.md#remote-development-preparation)를 참조하세요.
+
+연결된 설치본에서는 Agent가 `--artifact-source hub`를 선택할 수 있습니다. Agent는 서명된
+Plan을 받은 뒤 설치본에 결속된 `Agent.Access` 신원으로 해당 Plan이 지정한 정확한 Release와
+활성 구성 다이제스트만 요청합니다. Lifecycle Hub는 현재 유효한 Plan, 수락한 Release
+카탈로그 및 보존된 구성 가져오기 기록을 다시 검증한 뒤 원본 서명 바이트를 반환합니다.
+산출물 목록이나 다른 설치본의 입력은 제공하지 않습니다.
+
+Agent는 각 서명과 정규 다이제스트를 검증한 뒤 바이트를 비공개 상태 볼륨에 게시합니다.
+이후 poll은 같은 캐시 파일을 재사용하므로, 캐시 존재를 신뢰로 간주하지 않으면서 반복 Hub
+다운로드를 제거합니다. 입력이 없거나 변경되었거나 Plan에 결속되지 않았거나 사용할 수 없으면
+재시도 가능한 입력 보류 상태가 되고 Kubernetes 호출은 수행하지 않습니다. 공급업체와 고객의
+공개 키, 비공개 런타임 묶음, 설치 정책 및 복호화 자료는 계속 독립적인 설치본 입력으로
+제공합니다. 이 전송은 이미지를 미러링하거나 적용 권한을 부여하지 않습니다.
 
 이 선택 기능의 근거는 집중 로컬 테스트입니다. 실제 Entra 인증, 이미지, AKS, 볼륨 재연결,
 워크로드 변경 효과를 입증하지 않습니다. 이 준비 작업은 기존 Hub의 이미지, revision,

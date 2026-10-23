@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai_deployment_cli.contracts import canonical_bytes
 from sqlalchemy import create_engine, select
 
+from fdai_lifecycle_hub.agent_artifacts import artifact_for_plan
 from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.remote_catalog import (
@@ -193,6 +194,25 @@ def test_separate_pin_channel_persistence_planner_and_recall(
     enroll(store, target_installation)
     outcome = restarted.recompute(store, target_installation.installation_id, key, now=now)
     assert outcome.plan.target_release_id == "1.6.0"
+    artifact = artifact_for_plan(
+        store,
+        restarted,
+        target_installation.installation_id,
+        "release",
+        catalog.releases["1.6.0"].digest,
+        now=now,
+    )
+    assert artifact.payload == canonical_bytes(catalog.releases["1.6.0"].to_mapping())
+    assert len(artifact.signature) == 64
+    with pytest.raises(ValueError, match="differs from the current Plan"):
+        artifact_for_plan(
+            store,
+            restarted,
+            target_installation.installation_id,
+            "release",
+            "f" * 64,
+            now=now,
+        )
     # Removing the synthetic registry facts blocks selection; publication is not artifact proof.
     absent = replace(
         target_installation,
