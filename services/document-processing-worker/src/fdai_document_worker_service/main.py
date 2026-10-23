@@ -3,7 +3,6 @@
 from fdai_service_contracts import ServiceDescriptor, ServiceKind, record_runtime_scope_receipt
 
 from fdai_document_worker_service.application import run_worker
-from fdai_document_worker_service.supervisor import configure_worker_logging
 
 SERVICE = ServiceDescriptor(
     service_id="document-processing-worker",
@@ -17,5 +16,4 @@ SERVICE = ServiceDescriptor(
 def main() -> int:
     """Start the document worker through the service-owned entry point."""
     record_runtime_scope_receipt(SERVICE)
-    configure_worker_logging()
     return run_worker()
