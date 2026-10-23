@@ -180,3 +180,31 @@ def test_an_occupied_appended_range_is_skipped_like_any_other(
     layout = _layout(monkeypatch, vnets=[{"local": occupied, "peers": []}])
     assert str(layout[0]) == "192.168.240.0/20"
     assert str(layout[4]) == "172.26.0.0/16"
+
+
+def test_a_disconnected_peering_keeps_its_range_reserved_instead_of_failing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    layout = _layout(
+        monkeypatch,
+        vnets=[
+            {
+                "local": ["10.1.0.0/16"],
+                "peers": [{"state": "Disconnected", "prefixes": ["172.29.0.0/16"]}],
+            }
+        ],
+    )
+
+    assert "172.29.0.0/16" not in {str(network) for network in layout if network is not None}
+    assert str(layout[0]) == "172.30.0.0/16"
+
+
+@pytest.mark.parametrize("state", ["", None, "Unknown", 1])
+def test_an_unrecognized_peering_state_still_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, state: object
+) -> None:
+    with pytest.raises(ValueError, match="peering evidence is incomplete"):
+        _layout(
+            monkeypatch,
+            vnets=[{"local": ["10.1.0.0/16"], "peers": [{"state": state, "prefixes": []}]}],
+        )
