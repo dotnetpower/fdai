@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 054a808d75c70243f3c4fd316b3782a478d92995
+translation_source_sha: fa469cf4e59bd12b1faffcac859270386c8ab672
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -112,6 +112,9 @@ Container Apps는 거부합니다. 이 배포가 standalone 애플리케이션 �
 스냅샷에서 `fdaictl`을 설치하며, 스냅샷의 Terraform 루트와 마이그레이션 지원을 사용합니다.
 공급자는 커밋된 lock 파일 기준으로 공개 레지스트리에서 직접 해석합니다. 이미지 참조는 배포
 레지스트리 빌드 단계가 끝난 뒤 다시 읽은 다이제스트로만 런타임 프로파일에 들어갑니다.
+archive 컨테이너 형식은 불변 소스 스냅샷의 수신기를 따릅니다. 현재 수신기는 gzip을 사용하고,
+보존된 이전 수신기는 기존 tar 형식을 유지합니다. 런타임 선택, 호스트 상태 또는 재시도 시점이
+이 형식을 암묵적으로 바꿀 수 없습니다.
 Foundation에 정확한 복구가 필요했다면 검증된 상태 인계가 같은 순서로 들어갑니다. 복구 checkout은
 현재 복구 코드만 제공하며, 런타임 산출물은 원래 소스 스냅샷에 계속 고정되고 복구는 선택된
 런타임 프로파일을 바꿀 수 없습니다.

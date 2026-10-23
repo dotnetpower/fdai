@@ -16,7 +16,7 @@ from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path, PurePosixPath
 from tempfile import TemporaryDirectory
-from typing import BinaryIO
+from typing import BinaryIO, cast
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest, load_json_object
 from fdai_deployment_cli.private_output import (
@@ -32,6 +32,7 @@ _MAX_FILE = 64 * 1024 * 1024
 _MAX_TOTAL = 2 * 1024 * 1024 * 1024
 _MAX_ARCHIVE = _MAX_TOTAL + 128 * 1024 * 1024
 _MAX_MANIFEST = 16 * 1024 * 1024
+_TRANSPORT_COMPRESSION = "gzip"
 
 
 def prepare_source_transport(
@@ -39,7 +40,9 @@ def prepare_source_transport(
 ) -> dict[str, object]:
     """Prepare or reverify an exact local source transfer without touching a remote host."""
     source = verify_source_snapshot(snapshot, expected_digest=snapshot_digest)
-    archive = work_dir / "source-transfer.tar.gz"
+    archive = work_dir / (
+        "source-transfer.tar.gz" if _supports_gzip_transport(snapshot) else "source-transfer.tar"
+    )
     receipt_path = work_dir / "source-transfer.json"
     if receipt_path.exists() or receipt_path.is_symlink():
         receipt = load_json_object(
@@ -99,30 +102,39 @@ def archive_source_snapshot(snapshot: Path, destination: Path, *, snapshot_diges
     finally:
         os.close(parent)
     with os.fdopen(descriptor, "w+b") as output:
-        with (
-            gzip.GzipFile(
+        if destination.name.endswith(".tar.gz"):
+            compressed = gzip.GzipFile(
                 fileobj=output,
                 mode="wb",
                 filename="",
                 mtime=0,
                 compresslevel=6,
-            ) as compressed,
-            tarfile.open(
-                fileobj=compressed,
+            )
+            archive_file = cast(BinaryIO, compressed)
+        elif destination.name.endswith(".tar"):
+            compressed = None
+            archive_file = output
+        else:
+            raise ValueError("source transport archive suffix is unsupported")
+        try:
+            with tarfile.open(
+                fileobj=archive_file,
                 mode="w",
                 format=tarfile.USTAR_FORMAT,
-            ) as archive,
-        ):
-            _add_blob(archive, _MANIFEST, manifest_bytes)
-            total = 0
-            for index, record in enumerate(records):
-                content = _read_tracked(snapshot / "tree", record["path"], mode=record["mode"])
-                total += len(content)
-                if len(content) > _MAX_FILE or total > _MAX_TOTAL:
-                    raise ValueError("source transport content exceeds its bound")
-                if hashlib.sha256(content).hexdigest() != record["sha256"]:
-                    raise ValueError("source transport content differs from its manifest")
-                _add_blob(archive, f"blobs/{index:08d}", content)
+            ) as archive:
+                _add_blob(archive, _MANIFEST, manifest_bytes)
+                total = 0
+                for index, record in enumerate(records):
+                    content = _read_tracked(snapshot / "tree", record["path"], mode=record["mode"])
+                    total += len(content)
+                    if len(content) > _MAX_FILE or total > _MAX_TOTAL:
+                        raise ValueError("source transport content exceeds its bound")
+                    if hashlib.sha256(content).hexdigest() != record["sha256"]:
+                        raise ValueError("source transport content differs from its manifest")
+                    _add_blob(archive, f"blobs/{index:08d}", content)
+        finally:
+            if compressed is not None:
+                compressed.close()
         output.flush()
         os.fsync(output.fileno())
         verify_source_snapshot(snapshot, expected_digest=snapshot_digest)
@@ -168,7 +180,7 @@ def receive_source_snapshot(
             raise ValueError("source transport archive digest differs")
         source.seek(0)
         with (
-            tarfile.open(fileobj=source, mode="r:gz") as archive,
+            tarfile.open(fileobj=source, mode="r:*") as archive,
             ThreadPoolExecutor(max_workers=4) as writer,
         ):
             manifest_bytes = _blob(archive, _MANIFEST, _MAX_MANIFEST)
@@ -233,6 +245,15 @@ def receive_source_snapshot(
         "deployment_ready": False,
         "mutation_performed": False,
     }
+
+
+def _supports_gzip_transport(snapshot: Path) -> bool:
+    relative = "packages/deployment-cli/src/fdai_deployment_cli/source_transport.py"
+    path = snapshot / "tree" / relative
+    if path.is_symlink() or not path.is_file():
+        return False
+    content = read_private_bytes(path, max_bytes=1024 * 1024)
+    return b'_TRANSPORT_COMPRESSION = "gzip"' in content
 
 
 def _restore_file(output: Path, content: bytes, mode: str) -> None:

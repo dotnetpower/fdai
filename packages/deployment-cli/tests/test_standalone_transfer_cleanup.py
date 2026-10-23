@@ -232,7 +232,11 @@ class _Tunnel:
 
 @pytest.mark.parametrize(
     "transient_paths",
-    [("/h/kit.tar.gz",), ("/h/source-transfer.tar.gz", "/h/source-receiver.pyz")],
+    [
+        ("/h/kit.tar.gz",),
+        ("/h/source-transfer.tar", "/h/source-receiver.pyz"),
+        ("/h/source-transfer.tar.gz", "/h/source-receiver.pyz"),
+    ],
 )
 def test_cleanup_removes_transients_then_reports_the_prune(
     transient_paths: tuple[str, ...], monkeypatch

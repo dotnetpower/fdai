@@ -209,7 +209,7 @@ def source_transfer_inputs(
         snapshot_digest=source_snapshot_digest,
     )
     return SourceTransferInputs(
-        archive=prepared_root / "source-transfer.tar.gz",
+        archive=prepared_root / str(transfer["archive_ref"]),
         archive_digest=str(transfer["archive_digest"]),
         receiver=prepared_root / "source-receiver.pyz",
         receiver_digest=receiver_digest,

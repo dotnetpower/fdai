@@ -519,10 +519,29 @@ def test_source_transfer_preparation_reverifies_without_overwriting(checkout):
     assert prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest) == first
     assert first["remote_transfer_verified"] is False
     assert first["deployment_ready"] is False
-    with (work_dir / "source-transfer.tar.gz").open("ab") as stream:
+    with (work_dir / str(first["archive_ref"])).open("ab") as stream:
         stream.write(b"changed")
     with pytest.raises(ValueError, match="digest differs"):
         prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest)
+
+
+def test_current_source_transport_uses_deterministic_gzip(checkout: Path) -> None:
+    transport = checkout / "packages/deployment-cli/src/fdai_deployment_cli/source_transport.py"
+    transport.parent.mkdir(parents=True)
+    transport.write_text('_TRANSPORT_COMPRESSION = "gzip"\n', encoding="utf-8")
+    _git(checkout, "add", ".")
+    _git(checkout, "-c", "commit.gpgsign=false", "commit", "-m", "gzip transport")
+    snapshot = checkout.parent / "gzip-snapshot"
+    snapshot_digest = materialize_source(inspect_source(checkout), snapshot)
+    work_dir = checkout.parent / "gzip-work"
+    work_dir.mkdir(mode=0o700)
+
+    first = prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest)
+    archive = work_dir / str(first["archive_ref"])
+
+    assert archive.name == "source-transfer.tar.gz"
+    assert archive.read_bytes().startswith(b"\x1f\x8b")
+    assert prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest) == first
 
 
 @pytest.mark.parametrize(

@@ -93,7 +93,11 @@ def prepare_remote(
     removed = tunnel.ssh(("rm", "-f", "--", remote_archive), timeout=60)
     if removed.returncode != 0:
         raise ValueError("standalone remote archive reset failed")
-    remote_source_archive = f"{remote_root}/source-transfer.tar.gz"
+    remote_source_archive = (
+        f"{remote_root}/source-transfer.tar.gz"
+        if source_mode and source_archive is not None and source_archive.name.endswith(".tar.gz")
+        else f"{remote_root}/source-transfer.tar"
+    )
     remote_source_receiver = f"{remote_root}/source-receiver.pyz"
     remote_runtime_support = f"{remote_root}/source-runtime-support.tar"
     if source_mode:

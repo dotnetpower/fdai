@@ -260,9 +260,10 @@ loads the original state-handoff receipt through its bounded plan reference. It 
 digest, source, target, host attestation, remote-backend authority, zero-change plan and transient
 cleanup. Portable status is a projection, not the original receipt to rehash.
 
-The coordinator then prepares `source-transfer.tar.gz` and an immutable local transfer receipt.
-The deterministic gzip archive contains the canonical source manifest plus numbered regular blobs,
-not archive-selected destination paths or links. The receiver reconstructs only manifest-owned
+For a snapshot whose receiver advertises gzip support, the coordinator prepares
+`source-transfer.tar.gz`; retained older snapshots continue with `source-transfer.tar`. Both forms
+are deterministic and carry the canonical source manifest plus numbered regular blobs, not
+archive-selected destination paths or links. The receiver reconstructs only manifest-owned
 files and internal links into a fresh private snapshot, checking independently supplied archive
 and snapshot digests before source execution. It rejects duplicate, missing, extra, absolute,
 traversal, hardlink and conflicting file/directory records. Limits are 65536 files, 64 MiB per file,

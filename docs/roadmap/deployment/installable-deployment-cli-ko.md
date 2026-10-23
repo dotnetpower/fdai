@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b1e750a1ea2600cd57af59b4b884e7f0e022f78d
+translation_source_sha: 85c529d11cb41b44c3996cbb7d232a6ce5ff4cc3
 translation_revised: 2026-10-23
 ---
 
@@ -258,8 +258,9 @@ enterprise identity 추가 기능을 선택하면 복구 계속 진행 경로는
 변경 없음 계획과 임시 자료 정리를 확인합니다. 이식 가능한 상태 보고는 요약이며 원본 증적의
 해시를 다시 계산할 입력이 아닙니다.
 
-이후 조정기는 `source-transfer.tar.gz`와 불변 로컬 전송 증적을 준비합니다. 결정론적 gzip archive에는
-정규 소스 매니페스트와 번호가 지정된 일반 파일만 포함하고, archive가 지정한 대상 경로나 링크는
+수신기가 gzip 지원을 선언한 스냅샷에는 조정기가 `source-transfer.tar.gz`와 불변 로컬 전송 증적을
+준비합니다. 보존된 이전 스냅샷은 `source-transfer.tar`를 계속 사용합니다. 두 형식은 모두
+결정론적이며 정규 소스 매니페스트와 번호가 지정된 일반 파일만 포함하고, archive가 지정한 대상 경로나 링크는
 추출하지 않습니다. 수신기는 독립적으로 전달된 archive 및 스냅샷 digest를 검증하고 새로운
 비공개 스냅샷에 매니페스트의 파일과 내부 링크만 복원합니다. 받은 코드를 실행하기 전에 검증하며,
 중복·누락·추가·절대 경로·상위 경로 이탈·하드 링크·파일/디렉터리 충돌은 거부합니다.

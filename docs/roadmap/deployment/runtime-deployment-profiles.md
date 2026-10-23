@@ -113,6 +113,9 @@ signed kit archive, installs `fdaictl` from that snapshot, uses Terraform roots 
 support from the snapshot, and resolves providers directly from public registries under the
 committed lock files. Image references still enter the runtime profile only as read-back digests
 after the deployment registry build stage completes.
+The archive container follows the immutable snapshot receiver: current receivers use gzip, while
+older retained receivers keep their original tar format. Runtime selection, host state, and retry
+timing cannot silently switch that format.
 If the Foundation needed exact recovery, verified state handoff enters this same sequence. The
 recovery checkout supplies only current recovery code; runtime artifacts remain pinned to the
 original source snapshot, and recovery cannot change the selected runtime profile.

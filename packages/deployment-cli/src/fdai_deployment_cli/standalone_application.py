@@ -34,13 +34,13 @@ from fdai_deployment_cli.operational_evidence_verifier_input import (
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
-from fdai_deployment_cli.standalone_approval_input import (
-    wait_for_approval_input as _wait_for_approval_input,
-)
 from fdai_deployment_cli.source_application_inputs import (
     build_source_console,
     prepare_source_recovery_host,
     source_transfer_inputs,
+)
+from fdai_deployment_cli.standalone_approval_input import (
+    wait_for_approval_input as _wait_for_approval_input,
 )
 from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
 from fdai_deployment_cli.standalone_console_publish import publish_verified_console
@@ -125,6 +125,7 @@ def deploy_standalone_application(
     source_transfer = None
     recovery_host: Path | None = None
     recovery_host_digest: str | None = None
+    transient_paths: tuple[str, ...]
     if source_mode:
         if (
             kit is not None
@@ -645,11 +646,14 @@ def deploy_standalone_application(
                 timeout_seconds=deadline.remaining(),
                 redirect_changed=redirect_changed,
             )
-        transient_paths = (
-            (f"{remote_root}/source-transfer.tar.gz", f"{remote_root}/source-receiver.pyz")
-            if source_mode
-            else (remote_archive,)
-        )
+        if source_mode:
+            assert source_transfer is not None
+            transient_paths = (
+                f"{remote_root}/{source_transfer.archive.name}",
+                f"{remote_root}/source-receiver.pyz",
+            )
+        else:
+            transient_paths = (remote_archive,)
         cleanup_remote_transfers(
             tunnel,
             transient_paths=transient_paths,
