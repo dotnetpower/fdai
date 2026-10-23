@@ -147,6 +147,8 @@ Terraform apply, exact approval, claim and receipt publication, state handoff, c
 mutation, and protected application plan/apply remain serial. A failed sibling stops the stage;
 already accepted provider registrations are retained, and probe cleanup still completes before a
 route can be accepted.
+Each serialized approval resolves the reviewed target from enabled authenticated accounts instead
+of relying on the Azure CLI's mutable default subscription.
 
 When private artifacts aren't supplied, the stable stop reason is
 `private_foundation_external_artifacts_required`. The next action names the signed kit, Foundation

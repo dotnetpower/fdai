@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: f3cb2202c0c0f35fd60adac5a07174cc2ff87c51
+translation_source_sha: c8ac53472ee840597de2217b76902854370249b0
 translation_revised: 2026-10-23
 ---
 # 구독 초기 프로비저닝
@@ -148,6 +148,8 @@ Storage 생성 및 상태 읽기를 각각 동시에 실행합니다. 도구 준
 정확한 승인, 점유와 증적 게시, 상태 인계, 정리, 저장소 변경, 보호된 애플리케이션 계획과 적용은
 계속 직렬로 수행합니다. 병렬 작업 하나가 실패하면 해당 단계를 중단합니다. 이미 수락된 공급자
 등록은 유지하며, 경로를 수락하기 전에 프로브 정리를 완료합니다.
+직렬화된 각 승인은 Azure CLI의 변경 가능한 기본 subscription에 의존하지 않고 활성화된 인증
+계정에서 검토된 대상을 확인합니다.
 
 비공개 아티팩트가 제공되지 않으면 안정적인 중단 사유는
 `private_foundation_external_artifacts_required`입니다. 다음 작업은 현재 작업 흐름에서 실행할

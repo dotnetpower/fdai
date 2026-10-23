@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 016e5c37b913f9298838b4c5e5c2a964b0d1ef97
+translation_source_sha: dff62f02d4ddf7c6882a81261ada24e9b7d50e01
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -780,6 +780,8 @@ Managed Host 준비는 첫 substrate 리소스 변경 전에 검증된 Foundatio
 네트워크를 강화하면 같은 호출이 그 정확한 그룹을 다시 읽고 별도로 승인된 잔여 계획을 만들기
 전에 접근 selector를 갱신할 수 있습니다. Foundation 바인딩이 없으면 실패한 substrate 출력에서
 소유권을 유도하지 않고 복구를 차단합니다.
+이후의 각 런타임 승인은 활성화된 인증 계정에서 동일한 정확한 tenant/subscription 바인딩을
+확인하며 워크스테이션 Azure CLI의 변경 가능한 기본 subscription과 독립적입니다.
 
 클러스터는 Azure Policy, patch 채널 Kubernetes 업그레이드, NodeImage OS 업그레이드를 활성화합니다.
 두 노드 풀 모두 호스트 암호화를 활성화하고 노드당 Pod 50개를 허용합니다. 배포 전에 선택한

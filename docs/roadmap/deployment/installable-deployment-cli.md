@@ -98,6 +98,10 @@ review and recovery tools, but those tools do not block or define connected depl
 
 The interactive checkpoint prompt resolves that same trusted CLI before reading the current
 human approver. A missing trusted executable or a service-principal account cannot create approval.
+Approval actor lookup selects the one enabled authenticated user account whose tenant and
+subscription derive the plan's exact target binding. It never relies on the Azure CLI's mutable
+default subscription, so another local process changing that default cannot redirect or interrupt
+a later checkpoint in the same invocation.
 The existing human-only terminal confirmation remains mandatory; selecting a checkpoint does not
 grant approval or apply any resources.
 

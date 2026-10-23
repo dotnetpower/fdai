@@ -742,6 +742,9 @@ the first substrate effect. If Azure Policy tightens Key Vault or document-stora
 during a claimed substrate apply, the same invocation can read back that exact group and refresh
 the access selectors before it plans a separately approved residual. A missing Foundation binding
 blocks recovery rather than deriving ownership from a failed substrate output.
+Each later runtime approval resolves the same exact tenant/subscription binding from enabled
+authenticated accounts and is independent of the workstation Azure CLI's mutable default
+subscription.
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected

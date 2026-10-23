@@ -1016,9 +1016,10 @@ def _azure_actor_digest(target_binding: str, *, timeout_seconds: int = 60) -> st
         (
             "az",
             "account",
-            "show",
+            "list",
             "--query",
-            "{subscription_id:id,tenant_id:tenantId,user_name:user.name,user_type:user.type}",
+            "[?state=='Enabled'].{subscription_id:id,tenant_id:tenantId,user_name:user.name,"
+            "user_type:user.type}",
             "--output",
             "json",
             "--only-show-errors",
@@ -1032,19 +1033,29 @@ def _azure_actor_digest(target_binding: str, *, timeout_seconds: int = 60) -> st
         value = json.loads(result.stdout)
     except json.JSONDecodeError as exc:
         raise ValueError("authenticated Azure approval actor is unavailable") from exc
-    if not isinstance(value, dict) or result.returncode != 0 or value.get("user_type") != "user":
-        raise ValueError("authenticated Azure approval actor is unavailable")
-    subscription = value.get("subscription_id")
-    tenant = value.get("tenant_id")
-    login = value.get("user_name")
     if (
-        not isinstance(subscription, str)
-        or not isinstance(tenant, str)
-        or not isinstance(login, str)
-        or not login.strip()
-        or compute_target_binding(tenant_id=tenant, subscription_id=subscription) != target_binding
+        not isinstance(value, list)
+        or result.returncode != 0
+        or any(not isinstance(account, dict) for account in value)
     ):
+        raise ValueError("authenticated Azure approval actor is unavailable")
+    matches = [
+        account
+        for account in value
+        if account.get("user_type") == "user"
+        and isinstance(account.get("subscription_id"), str)
+        and isinstance(account.get("tenant_id"), str)
+        and compute_target_binding(
+            tenant_id=str(account["tenant_id"]),
+            subscription_id=str(account["subscription_id"]),
+        )
+        == target_binding
+    ]
+    if len(matches) != 1:
         raise ValueError("active Azure target does not match the approved plan")
+    login = matches[0].get("user_name")
+    if not isinstance(login, str) or not login.strip():
+        raise ValueError("authenticated Azure approval actor is unavailable")
     return hashlib.sha256(f"{target_binding}:{login.casefold()}".encode()).hexdigest()
 
 

@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 44e69f279f27306eab05645116d17ad8fee78371
+translation_source_sha: b1d0e11c49cc3c94d17ab04d562a001fd6d54328
 translation_revised: 2026-10-23
 ---
 
@@ -99,6 +99,10 @@ Managed Host가 초기 구성 산출물을 내려받을 수 없는 아티팩트 
 
 대화형 체크포인트 프롬프트도 같은 신뢰된 CLI를 찾은 뒤 현재 사람 승인자의 신원을 조회합니다.
 신뢰된 실행 파일이 없거나 서비스 주체 계정이면 승인을 만들 수 없습니다.
+승인 수행자 조회는 tenant와 subscription이 계획의 정확한 대상 바인딩을 만드는 활성화된 인증
+사용자 계정 하나를 선택합니다. Azure CLI의 변경 가능한 기본 subscription에 의존하지 않으므로
+다른 로컬 프로세스가 기본값을 바꿔도 같은 호출의 이후 체크포인트를 다른 대상으로 돌리거나
+중단할 수 없습니다.
 기존의 사람 전용 터미널 확인은 계속 필요하며 확인 지점을 선택하는 것만으로 승인하거나
 리소스를 적용하지 않습니다.
 
