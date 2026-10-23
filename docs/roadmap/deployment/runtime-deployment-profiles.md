@@ -119,6 +119,9 @@ with those exact browser-facing workloads.
 The archive container follows the immutable snapshot receiver: current receivers use gzip, while
 older retained receivers keep their original tar format. Runtime selection, host state, and retry
 timing cannot silently switch that format.
+The AKS initial inventory keeps a failed content-addressed Job checkpoint. A later invocation may
+run exactly one `.retry1` attempt with the same protected template and identity binding; a second
+failure or ambiguous terminal evidence stops without another automatic attempt.
 If the Foundation needed exact recovery, verified state handoff enters this same sequence. The
 recovery checkout supplies only current recovery code; runtime artifacts remain pinned to the
 original source snapshot, and recovery cannot change the selected runtime profile.

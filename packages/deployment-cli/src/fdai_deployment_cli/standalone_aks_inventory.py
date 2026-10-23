@@ -13,7 +13,7 @@ from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_aks_job_execution import execute_aks_cronjob_once
-from fdai_deployment_cli.standalone_host_state import replace_private_json
+from fdai_deployment_cli.standalone_host_state import private_json, replace_private_json
 from fdai_deployment_cli.standalone_host_values import vault_name
 
 _GUID = re.compile(r"^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$")
@@ -56,11 +56,13 @@ def run_initial_aks_inventory(
     image_refs = _mapping(context.get("image_refs"), "runtime image references")
     core_image = str(image_refs.get("core-control-plane", ""))
     run_id = f"genesis.{source_revision}"
+    retry = _retry_index(work_dir)
     attempt_id = (
         "attempt."
         + hashlib.sha256(
             f"{source_revision}:{target_binding}:initial-inventory".encode()
         ).hexdigest()[:32]
+        + (".retry1" if retry else "")
     )
     execution = execute_aks_cronjob_once(
         context,
@@ -178,6 +180,24 @@ def run_initial_aks_inventory(
     receipt["receipt_digest"] = canonical_digest(receipt)
     replace_private_json(receipt_path, receipt)
     return receipt
+
+
+def _retry_index(work_dir: Path) -> int:
+    """Allow one later invocation to retry a failed read-only initial inventory Job."""
+
+    checkpoints = sorted(work_dir.glob("fdai-inventory-*.terminal.json"))
+    if not checkpoints:
+        return 0
+    if len(checkpoints) != 1:
+        raise ValueError("initial inventory retry evidence is ambiguous")
+    checkpoint = private_json(checkpoints[0], "initial inventory terminal checkpoint")
+    if (
+        checkpoint.get("schema_version") != "fdai.aks-one-shot-execution-checkpoint.v1"
+        or checkpoint.get("state") != "terminal"
+        or checkpoint.get("outcome") not in {"failed", "succeeded"}
+    ):
+        raise ValueError("initial inventory retry evidence is invalid")
+    return 1 if checkpoint["outcome"] == "failed" else 0
 
 
 def require_initial_inventory_receipt(

@@ -190,3 +190,22 @@ def test_initial_inventory_receipt_digest_is_not_trusted_after_tamper() -> None:
             value,
             runtime_platform="aks",
         )
+
+
+def test_failed_initial_inventory_allows_one_later_retry(tmp_path: Path) -> None:
+    checkpoint = {
+        "schema_version": "fdai.aks-one-shot-execution-checkpoint.v1",
+        "state": "terminal",
+        "outcome": "failed",
+    }
+    path = tmp_path / "fdai-inventory-0123456789abcdef.terminal.json"
+    path.write_text(json.dumps(checkpoint), encoding="utf-8")
+    path.chmod(0o600)
+
+    assert standalone_aks_inventory._retry_index(tmp_path) == 1
+
+    second = tmp_path / "fdai-inventory-fedcba9876543210.terminal.json"
+    second.write_text(json.dumps(checkpoint), encoding="utf-8")
+    second.chmod(0o600)
+    with pytest.raises(ValueError, match="ambiguous"):
+        standalone_aks_inventory._retry_index(tmp_path)

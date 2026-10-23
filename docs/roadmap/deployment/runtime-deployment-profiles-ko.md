@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b68e9f6e46199aba620befd1ab5a80007f8ae3a0
+translation_source_sha: 33272734790d22bd659c93f5a557b9ec786c5bc9
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -118,6 +118,9 @@ Container Apps는 거부합니다. 이 배포가 standalone 애플리케이션 �
 archive 컨테이너 형식은 불변 소스 스냅샷의 수신기를 따릅니다. 현재 수신기는 gzip을 사용하고,
 보존된 이전 수신기는 기존 tar 형식을 유지합니다. 런타임 선택, 호스트 상태 또는 재시도 시점이
 이 형식을 암묵적으로 바꿀 수 없습니다.
+AKS 초기 인벤토리는 실패한 content-addressed Job checkpoint를 보존합니다. 이후 invocation은
+같은 보호된 template과 identity binding으로 `.retry1` attempt를 정확히 한 번 실행할 수
+있습니다. 두 번째 실패 또는 모호한 최종 증적이 있으면 추가 자동 시도 없이 중단합니다.
 Foundation에 정확한 복구가 필요했다면 검증된 상태 인계가 같은 순서로 들어갑니다. 복구 checkout은
 현재 복구 코드만 제공하며, 런타임 산출물은 원래 소스 스냅샷에 계속 고정되고 복구는 선택된
 런타임 프로파일을 바꿀 수 없습니다.
