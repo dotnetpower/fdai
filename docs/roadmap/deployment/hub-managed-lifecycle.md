@@ -334,6 +334,14 @@ An app-owned bounded SQL/Key Vault bootstrap command runs in a temporary manual 
 Terraform declares resources; native Azure CLI starts and observes Jobs. Temporary grants are
 removed after initialization, separately from permanent runtime resources.
 
+After startup, each product can retain one manual trusted-operations Job for automation that
+doesn't depend on a browser session. Release Hub accepts only an exact private
+`publish-release` request. Lifecycle Hub accepts only exact `import-catalog` or `recompute`
+requests. The Job reads one exact-version Key Vault request, uses only that Hub's Managed Identity
+and transactional store, emits a bounded digest-only receipt, and has no installation apply
+identity. Exact retries read back the retained publication or import rather than adding another
+effect. Operator enrollment, ownership acceptance and Plan application remain separate boundaries.
+
 Login and Lifecycle's catalog source are optional explicit bindings, not placeholders.
 Without login, management APIs fail closed with 503 and the UI reports their unavailability.
 Without a catalog, Lifecycle doesn't instantiate a remote catalog client; that feature is

@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: cc97ee26dbc09ba57d14c9bc696ce63db143f902
+translation_source_sha: c57e1dfb621045cdd92ee866d5cc0828d41d629b
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -336,6 +336,14 @@ PostgreSQL/Key Vault 관리 ID, 인증서를 검증하는 TLS와 사람 DB 관�
 앱 소유의 제한된 SQL/Key Vault 초기화 명령은 임시 수동 Job에서 실행합니다.
 Terraform 기본 도구로 자원을 선언하고 Azure CLI로 Job을 시작하고 관측합니다.
 초기화 후 임시 권한은 영구 런타임 자원과 별도로 제거합니다.
+
+기동 후 각 제품은 브라우저 세션에 의존하지 않는 자동화를 위해 수동 trusted-operations
+Job 하나를 유지할 수 있습니다. Release Hub는 정확한 비공개 `publish-release` 요청만
+수락합니다. Lifecycle Hub는 정확한 `import-catalog` 또는 `recompute` 요청만 수락합니다.
+Job은 Key Vault에서 정확한 버전의 요청 하나를 읽고 해당 Hub의 Managed Identity와 트랜잭션
+저장소만 사용하며, 다이제스트만 포함한 범위가 제한된 증적을 출력합니다. 설치 적용 신원은
+보유하지 않습니다. 동일한 요청을 재시도하면 효과를 추가하지 않고 보존된 게시 또는 가져오기
+결과를 다시 읽습니다. 운영자 등록, 소유권 수락 및 Plan 적용은 계속 별도 경계입니다.
 
 로그인과 Lifecycle의 카탈로그 원본은 명시적으로 선택하는 연결이며 가짜 값을 넣지 않습니다.
 로그인이 없으면 관리 API는 503으로 차단하고 UI는 기능을 사용할 수 없다고 표시합니다.

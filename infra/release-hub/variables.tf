@@ -54,6 +54,14 @@ variable "enable_migration_jobs" {
   type    = bool
   default = false
 }
+variable "operation_job" {
+  type = object({
+    operation              = string
+    request_secret_version = string
+    actor                  = string
+  })
+  default = null
+}
 variable "secret_versions" {
   type    = object({ database = optional(string), signing_key = optional(string) })
   default = {}

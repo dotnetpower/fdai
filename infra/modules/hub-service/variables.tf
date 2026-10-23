@@ -137,6 +137,25 @@ variable "enable_migration_jobs" {
   type    = bool
   default = false
 }
+variable "operation_job" {
+  type = object({
+    operation              = string
+    request_secret_version = string
+    actor                  = string
+  })
+  default = null
+  validation {
+    condition = var.operation_job == null ? true : (
+      contains(
+        var.kind == "release" ? ["publish-release"] : ["import-catalog", "recompute"],
+        var.operation_job.operation,
+      ) &&
+      trimspace(var.operation_job.request_secret_version) != "" &&
+      trimspace(var.operation_job.actor) != ""
+    )
+    error_message = "Choose one product-owned operation with an exact request secret version and attributed actor."
+  }
+}
 variable "secret_versions" {
   type    = object({ database = optional(string), signing_key = optional(string) })
   default = {}
