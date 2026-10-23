@@ -93,6 +93,21 @@ def _secret(client: httpx.Client, name: str, value: str | None = None) -> str | 
     return stored
 
 
+def _secret_version_id(client: httpx.Client, name: str) -> str:
+    response = client.get(f"secrets/{name}", params={"api-version": "7.4"})
+    if response.status_code != 200:
+        raise BootstrapRejectedError("vault-secret-version-read")
+    record = response.json()
+    identifier = record.get("id") if isinstance(record, dict) else None
+    pattern = rf"https://[a-z0-9-]+\.vault\.azure\.net/secrets/{re.escape(name)}/[0-9a-f]{{32}}"
+    if not isinstance(identifier, str) or re.fullmatch(pattern, identifier) is None:
+        raise BootstrapRejectedError("vault-secret-version-record")
+    attributes = record.get("attributes")
+    if not isinstance(attributes, dict) or attributes.get("enabled") is not True:
+        raise BootstrapRejectedError("vault-secret-version-disabled")
+    return identifier
+
+
 def _connect(
     config: BootstrapConfig, token: str, database: str, *, autocommit: bool
 ) -> psycopg.Connection:
@@ -208,6 +223,11 @@ def initialize(config: BootstrapConfig) -> None:
                             )
                             if not isinstance(existing_key, Ed25519PrivateKey):
                                 raise BootstrapRejectedError("signing-key-type")
+                        for name in ("hub-database-url", "development-signing-key"):
+                            print(
+                                "hub_bootstrap_secret_version "
+                                f"name={name} id={_secret_version_id(client, name)}"
+                            )
     logger.info("hub_bootstrap_completed")
 
 

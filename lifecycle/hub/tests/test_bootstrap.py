@@ -75,7 +75,17 @@ def backend(monkeypatch, config):
             records[name] = json.loads(request.content)["value"]
         if name not in records:
             return httpx.Response(404)
-        return httpx.Response(200, json={"value": records[name], "attributes": {"enabled": True}})
+        return httpx.Response(
+            200,
+            json={
+                "id": (
+                    f"https://example.vault.azure.net/secrets/{name}/"
+                    "00000000000000000000000000000001"
+                ),
+                "value": records[name],
+                "attributes": {"enabled": True},
+            },
+        )
 
     client = httpx.Client(base_url=config.vault_uri, transport=httpx.MockTransport(handle))
     monkeypatch.setattr(bootstrap.httpx, "Client", lambda **kwargs: client)
@@ -89,7 +99,7 @@ def backend(monkeypatch, config):
     )
 
 
-def test_fresh_bootstrap_creates_only_app_data(config, backend):
+def test_fresh_bootstrap_creates_only_app_data(config, backend, capsys):
     backend.cursor.fetchall.side_effect = [
         [],
         [({"rolename": config.runtime_name, "objectId": config.runtime_object_id},)],
@@ -118,6 +128,11 @@ def test_fresh_bootstrap_creates_only_app_data(config, backend):
     assert "pg_advisory_lock(" in statements[0]
     assert not any("GRANT" in statement for statement in statements)
     assert backend.principal_session["open"] is False
+    output = capsys.readouterr().out
+    assert "hub-database-url/00000000000000000000000000000001" in output
+    assert "development-signing-key/00000000000000000000000000000001" in output
+    assert backend.records["hub-database-url"] not in output
+    assert backend.records["development-signing-key"] not in output
     for call in backend.connect.call_args_list:
         assert call.kwargs["sslmode"] == "verify-full"
         assert call.kwargs["sslrootcert"] == "/etc/ssl/certs/ca-certificates.crt"
