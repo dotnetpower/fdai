@@ -314,21 +314,38 @@ def deploy_standalone_application(
             tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
             tunnel.copy_to(substrate_approval, remote_approval, timeout=120)
             progress_detail("Applying the approved infrastructure plan and verifying its effects")
-            substrate_receipt = _remote_json(
-                tunnel,
-                remote_root,
-                app_work,
-                (
-                    substrate_apply_command,
-                    "--stage",
-                    "substrate",
-                    "--approval",
-                    remote_approval,
-                ),
-                timeout=7200,
-            )
-            substrate_approval.unlink(missing_ok=True)
-            tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+            try:
+                substrate_receipt = _remote_json(
+                    tunnel,
+                    remote_root,
+                    app_work,
+                    (
+                        substrate_apply_command,
+                        "--stage",
+                        "substrate",
+                        "--approval",
+                        remote_approval,
+                    ),
+                    timeout=7200,
+                )
+            except ValueError:
+                substrate_approval.unlink(missing_ok=True)
+                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+                progress_detail(
+                    "Recovering the failed infrastructure apply without repeating its effect"
+                )
+                substrate_receipt = _recover_failed_exact_apply(
+                    tunnel,
+                    remote_root=remote_root,
+                    app_work=app_work,
+                    prepared_root=prepared.root,
+                    remote_approval=remote_approval,
+                    stage="substrate",
+                    deadline=deadline,
+                )
+            else:
+                substrate_approval.unlink(missing_ok=True)
+                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
         _require_receipt(substrate_receipt, "substrate")
         if selected_runtime.runtime_platform.value == "aks":
             begin_stage("runtime")
@@ -735,6 +752,57 @@ def _plan_after_recovery(
         ),
         "apply",
     )
+
+
+def _recover_failed_exact_apply(
+    tunnel: Any,
+    *,
+    remote_root: str,
+    app_work: str,
+    prepared_root: Path,
+    remote_approval: str,
+    stage: str,
+    deadline: DeploymentDeadline,
+) -> dict[str, Any]:
+    """Verify a failed exact apply, then apply only its separately approved residual."""
+    recovery = _remote_json(
+        tunnel,
+        remote_root,
+        app_work,
+        ("recover-apply", "--stage", stage),
+        timeout=deadline.remaining(3600),
+    )
+    if recovery.get("state") == "applied":
+        return recovery
+    review, command = _plan_after_recovery(
+        tunnel,
+        remote_root,
+        app_work,
+        recovery,
+        stage=stage,
+        timeout=deadline.remaining(3600),
+    )
+    if command != "apply-residual":
+        raise ValueError("failed exact apply did not produce bounded residual recovery")
+    approval = _approve_plan(prepared_root, review, deadline=deadline)
+    tunnel.copy_to(approval, remote_approval, timeout=120)
+    try:
+        return _remote_json(
+            tunnel,
+            remote_root,
+            app_work,
+            (
+                command,
+                "--stage",
+                stage,
+                "--approval",
+                remote_approval,
+            ),
+            timeout=deadline.remaining(7200),
+        )
+    finally:
+        approval.unlink(missing_ok=True)
+        tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
 
 
 def _remote_json(
