@@ -33,6 +33,9 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
   presence alone.
 - If an interrupted kubelet `subPath` setup left an empty directory at a file target, the
   initializer removes only that empty directory. A non-empty directory still fails closed.
+- After local native bootstrap, pass its private `lifecycle-native-scope.json` through
+  `agent-tfvars --native-state`. The initializer stages it atomically at the Agent state path; the
+  installation private key still never enters Terraform.
 - The installation identity private key is never a Terraform input. Native bootstrap runs
   separately and supplies only the installation public key to the running Agent.
 - `enable_agent=false` prepares identity, RBAC, state, and inputs without starting a poller.

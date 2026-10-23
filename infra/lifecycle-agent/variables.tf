@@ -49,6 +49,7 @@ variable "installation" {
     local_policy_json           = string
     current_state_json          = string
     native_approval_json        = optional(string)
+    native_state_json           = optional(string)
     installation_public_key_pem = optional(string)
     configuration_artifact = optional(object({
       digest           = string

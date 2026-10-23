@@ -58,6 +58,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     tfvars.add_argument("--hub-api-client-id", required=True)
     tfvars.add_argument("--hub-agent-role-id", required=True)
     tfvars.add_argument("--agent-image", required=True)
+    tfvars.add_argument("--native-state", type=Path)
     tfvars.add_argument("--enable-agent", action="store_true")
     args = parser.parse_args(argv)
     try:
@@ -111,6 +112,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                         hub_agent_role_id=args.hub_agent_role_id,
                         agent_image=args.agent_image,
                         enable_agent=args.enable_agent,
+                        native_state_path=args.native_state,
                     )
                 )
             }

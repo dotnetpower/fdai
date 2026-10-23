@@ -334,7 +334,9 @@ initializer is a separate Job, every PVC `subPath` source exists before kubelet 
 Pod. Each run rewrites private inputs from the retained Secret through mode-`0600` temporary files
 and atomic replacement; prior file presence is never treated as trust. An interrupted kubelet
 `subPath` placeholder is removed only when it is an empty directory. Non-empty directories fail
-closed.
+closed. After local native bootstrap, the enabled Agent input includes the validated
+`lifecycle-native-scope.json`; the initializer stages it atomically at the Agent state path without
+copying the installation private key into Terraform.
 
 `fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
 remote effect. From a clean source revision, digest-pinned component images, a reviewed private

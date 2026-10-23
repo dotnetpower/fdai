@@ -109,6 +109,7 @@ def write_agent_tfvars(
     hub_agent_role_id: str,
     agent_image: str,
     enable_agent: bool,
+    native_state_path: Path | None = None,
 ) -> Path:
     """Write private Terraform inputs without copying the installation private key."""
 
@@ -119,6 +120,11 @@ def write_agent_tfvars(
     signature = read_private_bytes(root / "configuration.sig", max_bytes=64)
     if len(signature) != 64:
         raise ValueError("Configuration signature is invalid.")
+    native_state = (
+        read_private_bytes(native_state_path.absolute(), max_bytes=1024 * 1024).decode("utf-8")
+        if native_state_path is not None
+        else None
+    )
     value = {
         "subscription_id": subscription_id,
         "tenant_id": tenant_id,
@@ -154,6 +160,7 @@ def write_agent_tfvars(
             "local_policy_json": (root / "local-policy.json").read_text(encoding="utf-8"),
             "current_state_json": (root / "current-state.json").read_text(encoding="utf-8"),
             "native_approval_json": (root / "native-approval.json").read_text(encoding="utf-8"),
+            "native_state_json": native_state,
             "installation_public_key_pem": (root / "installation-public.pem").read_text(
                 encoding="utf-8"
             ),

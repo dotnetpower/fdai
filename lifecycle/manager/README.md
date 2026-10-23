@@ -75,6 +75,8 @@ fdai-lifecycle-manager native-acceptance \
 AKS, Hub and image coordinates. It never copies the installation private key. Omit
 `--enable-agent` for the preparation plan; add it only after the Lifecycle Hub has accepted native
 ownership, recorded empty state, managed the Entity, imported the catalog and issued the Plan.
+For that enabled plan, pass the local bootstrap state with
+`--native-state <private-state-dir>/lifecycle-native-scope.json`.
 
 ## Testing
 

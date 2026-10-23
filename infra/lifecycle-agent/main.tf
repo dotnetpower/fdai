@@ -42,6 +42,13 @@ locals {
       "p.is_dir() and p.rmdir()",
       "t.replace(p)",
     ] : [],
+    var.installation.native_state_json == null ? [] : [
+      "p=Path('/state/lifecycle-native-scope.json')",
+      "t=Path('/state/.lifecycle-native-scope.json.tmp')",
+      "t.write_bytes(Path('/config/private/native-state.json').read_bytes())",
+      "t.chmod(0o600)",
+      "t.replace(p)",
+    ],
   ))
 }
 
@@ -182,6 +189,9 @@ resource "kubernetes_secret_v1" "private_inputs" {
     { "local-policy.json" = var.installation.local_policy_json },
     var.installation.native_approval_json == null ? {} : {
       "native-approval.json" = var.installation.native_approval_json
+    },
+    var.installation.native_state_json == null ? {} : {
+      "native-state.json" = var.installation.native_state_json
     },
     var.installation.installation_public_key_pem == null ? {} : {
       "installation-public.pem" = var.installation.installation_public_key_pem

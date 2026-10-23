@@ -35,6 +35,7 @@ variables {
     local_policy_json           = "{\"schema\":\"fdai.lifecycle-local-policy.v1\"}"
     current_state_json          = "{\"digest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"
     native_approval_json        = "{}"
+    native_state_json           = "{}"
     installation_public_key_pem = "public installation key"
     poll_interval_seconds       = 5
   }
@@ -86,6 +87,10 @@ run "enable_single_writer_agent" {
       strcontains(
         kubernetes_job_v1.initialize[0].spec[0].template[0].spec[0].container[0].args[0],
         "p.is_dir() and p.rmdir()",
+      ) &&
+      strcontains(
+        kubernetes_job_v1.initialize[0].spec[0].template[0].spec[0].container[0].args[0],
+        "/state/lifecycle-native-scope.json",
       ) &&
       !contains(
         kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].volume_mount[*].name,
