@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: f4144651a4e1d775ecfa1a179284e5d75af8714b
-translation_revised: 2026-10-23
+translation_source_sha: 1a851230992bb485d1f60403b825eac6a2c9a52f
+translation_revised: 2026-10-24
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -238,6 +238,13 @@ Exemption은 Azure Policy exemption처럼 스코프의 할당을 waive:
   기본 구현은 로그만 남기며 네트워크를 사용하지 않습니다. 새로 알림 대상이 된 항목은
   각 예외의 정확한 개정과 요청자를 포함하는 버전 있는 다이제스트로 묶입니다. 원자적 상태
   선점으로 각 항목은 재실행과 복제본 간에 안전합니다.
+- Core 런타임이 이 조정기를 예약합니다. `fdai.runtime.exemption_lifecycle`은 설치된 카탈로그에
+  exemption이 있을 때만 주기마다(`FDAI_EXEMPTION_LIFECYCLE_INTERVAL_SECONDS`, 기본 3600,
+  `FDAI_EXEMPTION_LIFECYCLE_ENABLED=false`로 끔) 한 번 점검하고, 워크로드 자체의 알림 라우터로 다이제스트를
+  A2 운영 알림 하나로 전달합니다. 알림의 감사 id는 정확한 exemption 개정에서 파생되므로 재시작, 두 번째
+  복제본, 재시도된 점검이 같은 다이제스트를 두 번 보내지 않습니다. 어떤 채널도 전달하지 못한
+  다이제스트는 다음 점검에서 다시 시도합니다. 이 예약 점검은 만료 명령을 게시하지 않고 카탈로그를
+  바꾸지 않으며 권한을 부여하지 않습니다.
 - 만료 경로는 클라우드 프로바이더를 직접 호출하지 않습니다. 조정기는 활성 예외 개정과 예상
   만료 개정을 정확한 배정 id, 버전, 범위에 연결한 뒤 프로바이더 중립 `EventBus`를 통해
   `governance.reapply-rule-assignment` 제안을 게시합니다. 브로커 수락은
