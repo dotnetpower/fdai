@@ -14,7 +14,6 @@ from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.private_output import write_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
-
 _TARGET_BINDING = "a" * 64
 
 
@@ -318,6 +317,65 @@ def test_source_orchestration_stops_before_foundation_on_capacity_block(
     assert not (tmp_path / "work").exists()
 
 
+def test_retained_effected_source_run_does_not_require_fresh_capacity(
+    monkeypatch, tmp_path
+) -> None:
+    source = SimpleNamespace(commit="c" * 40, root=tmp_path, reverify=lambda: None)
+    monkeypatch.setattr(
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: {
+            "source_commit": source.commit,
+            "receipt_digest": "d" * 64,
+            "source_snapshot_digest": "e" * 64,
+        },
+    )
+    monkeypatch.setattr(source_azure, "inspect_source", lambda *_, **__: source)
+    monkeypatch.setattr(
+        source_azure, "_require_unique_entra_display_names", lambda *_args, **_: None
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_target",
+        lambda **_: {
+            "state": "blocked",
+            "target_binding": "a" * 64,
+            "blockers": ["quota_cores_insufficient"],
+            "deployment_ready": False,
+        },
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "started_installation_matches",
+        lambda work_dir, binding: (
+            work_dir == (tmp_path / "work").absolute()
+            and binding == {"source_commit": source.commit, "target_binding": "a" * 64}
+        ),
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_compute_cost",
+        lambda **_: {
+            "state": "blocked",
+            "stage": "cost-review",
+            "reason_code": "stop_after_retained_capacity_check",
+        },
+    )
+
+    result = source_azure.plan_source_installation(
+        source_root=tmp_path,
+        work_dir=tmp_path / "work",
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-flex"
+        ),
+        region="eastus",
+        monthly_cost_ceiling=1000,
+        timeout_seconds=1800,
+    )
+
+    assert result["stage"] == "cost-review"
+
+
 def test_source_identity_preflight_runs_before_aks_preflight(tmp_path, monkeypatch) -> None:
     root = tmp_path / "checkout"
     root.mkdir()
@@ -519,7 +577,7 @@ def test_verified_source_readiness_is_cli_success(monkeypatch, capsys, result, c
 @pytest.mark.parametrize(
     "arguments",
     [
-        ["--online"],
+        ["--offline-kit", "kit.tar.gz"],
         ["--source", ".", "--prepare-only"],
         ["--source", ".", "--preflight-only"],
     ],
@@ -708,7 +766,7 @@ def test_initial_confirmation_precedes_foundation_and_does_not_enable_interactiv
 @pytest.mark.parametrize(
     "arguments",
     [
-        ["--online"],
+        ["--offline-kit", "kit.tar.gz"],
         ["--source", ".", "--prepare-only"],
         ["--source", ".", "--preflight-only"],
         ["--source", ".", "--approval-file", "/tmp/approval.json"],

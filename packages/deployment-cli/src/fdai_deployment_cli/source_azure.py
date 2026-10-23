@@ -27,7 +27,11 @@ from fdai_deployment_cli.deployment_progress import (
 from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
 )
-from fdai_deployment_cli.installation_scope import InstallationOptions, confirm_installation_scope
+from fdai_deployment_cli.installation_scope import (
+    InstallationOptions,
+    confirm_installation_scope,
+    started_installation_matches,
+)
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     OperationalEvidenceVerifierDeploymentInput,
 )
@@ -159,9 +163,16 @@ def plan_source_installation(
         preflight = inspect_aks_target(
             profile=runtime_profile, region=region, timeout_seconds=deadline.remaining(180)
         )
-    if preflight["state"] != "feasible":
-        return {**preflight, "stage": "aks-preflight"}
     work_dir = work_dir.absolute()
+    retained_binding = {
+        "source_commit": source.commit,
+        "target_binding": preflight.get("target_binding"),
+    }
+    if preflight["state"] != "feasible" and not started_installation_matches(
+        work_dir,
+        retained_binding,
+    ):
+        return {**preflight, "stage": "aks-preflight"}
     if installation_options is not None:
         progress_detail("Waiting for the one-time installation scope confirmation")
         confirmation = confirm_installation_scope(

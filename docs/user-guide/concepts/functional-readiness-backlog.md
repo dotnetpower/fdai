@@ -281,15 +281,12 @@ Use the [source-deployment ledger](../../roadmap-implementation/deployment/sourc
 The [detected-issue processing ledger](../../roadmap-implementation/operations/code-security-findings.md)
 supports the bounded Ready decisions for F15.2/F15.3.
 
-- [ ] **I01, source acceptance:** Complete WP6's three missing cases: unchanged keyless rerun,
-  new full-entitlement installation, and existing Trial-to-full rerun with watermark removal.
-  Retain exact digests, migration/health/readback and second-plan results; preserve the completed
-  new-Trial and teardown receipts as historical evidence.
-- [ ] **I02, superseded paths:** After I01, complete WP8: retire `--online` kit acquisition and
-  source signed-kit adoption redirection; decide whether `azd-up.sh` is retired or diagnostic-only.
-  CLI help/tests and quickstart/skill should advertise only source and signed offline installation.
-  The [current parser](../../../packages/deployment-cli/src/fdai_deployment_cli/cli_parser.py)
-  and [help](../../../packages/deployment-cli/src/fdai_deployment_cli/cli_help.py) still expose `--online`.
+- [x] **I01, source acceptance:** WP6 retains unchanged keyless rerun, new full-entitlement
+  installation, and existing Trial-to-full transition evidence with exact digests,
+  migration/health/readback, and second-plan results.
+- [x] **I02, superseded paths:** Public kit acquisition and source signed-kit adoption redirection
+  are retired. `azd-up.sh` remains a Core-only diagnostic, while CLI help and tests advertise only
+  source and signed offline installation.
 - [ ] **I03, distribution validation:** Reconcile the distribution owner's older recovery/host
   claims against newer source-deployment receipts, then retain any still-required connected
   deployment, update/recovery, and live disposable-migration acceptance on the selected revision.
@@ -380,8 +377,8 @@ packages remain open.
 | H02 | External blocker | Canary, recurrence, scheduler, and stabilization prerequisites have local tests. | Supply approved installation baseline/scope/job inputs and retain scheduled attempts, no-execute replay, authority lowering, and configured stabilization exit. |
 | H03 | External blocker | The five-minute cadence and 30-second consumed-audit check do not settle the seven owner decisions. | Version the canary, smoke, alert, audit, cold-start, stabilization, and load/budget operating policy. |
 | V01 | External blocker | Report rendering and source-isolation mechanics exist. | Retain authenticated per-datasource identity, cutoff, freshness, unavailable, timeout, partial-widget, format-rejection, and GET-only evidence. |
-| I01 | External blocker | Source installation and Trial mechanics exist with one historical new-Trial receipt. | Supply approved signed full-entitlement input and retain unchanged Trial rerun, new full install, Trial-to-full transition, watermark removal, health/readback, and second plan. |
-| I02 | External blocker | Source and signed offline paths remain the only available distribution paths; `--online` cleanup is ordered after I01. | Complete I01, then remove superseded acquisition/help paths and decide whether `azd-up.sh` is diagnostic-only or retired. |
+| I01 | Complete | Keyless Trial, unchanged rerun, new full installation, and Trial-to-full transition evidence are retained. | Preserve the receipts and regression coverage. |
+| I02 | Complete | Source and signed offline paths are the only available distribution paths. | Keep `azd-up.sh` diagnostic-only and prevent it from becoming another installer. |
 | I03 | External blocker | Update, recovery, host, and offline mechanics pass bounded local checks. | Retain exact-revision connected deployment, update/recovery, and disposable migration evidence on an approved target. |
 | X01 | Code complete / live unverified | Bundle registration, disabled-first lifecycle, revocation, and typed routing exist. #355 closed as not planned without the mandatory lineage, and #2315 now owns the observable successor criteria. | Under #2315, retain one exact signed-artifact install, distinct reviewed enable, disable, revoke, restart, disclosure, routing, independent readback, and Saga audit lineage. |
 | S01 | External blocker | Installed acquisition, worker, and independent local acceptance code exists. | Keep #2128 paused until explicitly resumed, then retain one terminal installed request, exact revision, coverage, publication, and independent readback. |

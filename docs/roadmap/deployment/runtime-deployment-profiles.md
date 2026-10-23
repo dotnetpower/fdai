@@ -208,17 +208,13 @@ Inventory and observation live evidence remains Phase 1 ledger work after #341 w
 
 ## Operator contract
 
-The public command accepts explicit choices for both online and artifact-offline installation. An
-omitted runtime selects AKS for a new installation:
+The public command accepts source and signed artifact-offline installation. An omitted runtime
+selects AKS for a new installation:
 
 ```bash
-fdaictl provision azure --online \
+fdaictl provision azure --source /path/to/fdai \
+  --runtime aks \
   --database postgres-flex
-
-fdaictl provision azure --online \
-  --runtime container-apps \
-  --database postgres-flex \
-  --existing-installation
 
 fdaictl provision azure \
   --offline-kit /media/fdai/fdai-deployment-kit.tar.gz \

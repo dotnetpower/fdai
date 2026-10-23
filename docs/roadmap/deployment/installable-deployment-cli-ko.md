@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: d3f5fcd37965e3acdef2785c17a7adf472af88c2
-translation_revised: 2026-10-22
+translation_source_sha: 30543ac15861dddce260a94741cd40ba5e893463
+translation_revised: 2026-10-23
 ---
 
 # 설치형 배포 CLI
@@ -350,7 +350,7 @@ update 신원에 결속하며, 정상 rollout과 다른 workload의 불변성을
 
 standalone 애플리케이션 증적이 도입되기 전에 만들어진 워크로드 상태는 다섯 가지 `--adopt-historical-*` 입력을 모두 제공하는 범위가 제한된 채택 단계로 연결할 수 있습니다. 입력은 비공개 binding, 보존된 Terraform 상태, 워크로드 변수, 실제 Deployment 스냅샷, 과거 exact plan입니다. binding은 자체 근거 디렉터리 아래의 실행 자산만 참조할 수 있으며 Terraform 바이너리 digest, 소스 버전, Managed Identity, 런타임 프로파일을 고정합니다. 조정기는 관련 없는 변경 없이 하나의 Deployment만 제자리 업데이트하는 과거 계획 또는 완전한 변경 없음 계획만 허용합니다. 이어서 Managed Identity로 원격 상태와 현재 Deployment를 비교하고 새로운 전체 Terraform 계획을 만듭니다. 이 계획에 허용 목록에 포함된 기존 AKS 정규화만 있으면 같은 조정기는 차이를 적용 권한으로 취급하지 않고 digest로 고정된 조정 검토를 반환합니다. 먼저 검증 전용 복구를 시도합니다. 기존 실행 전 기록이 없을 때만 현재 exact-plan 승인을 요구하고, 보존된 계획을 엄격한 과거 상태 계약으로 다시 검증한 뒤 변경 불가능한 실행 전 기록을 쓰고 Managed Identity로 한 번만 적용합니다. 성공하려면 정상 워크로드 재조회, 새 상태와 typed Deployment 근거, 완전한 전체 범위 변경 없음 계획이 필요합니다. 이 증적에 연결된 적용 후 상태만 채택 단계로 다시 들어갈 수 있습니다. 일부 입력, 다른 서비스의 변경, 인식할 수 없는 효과, 상태 차이, 변경된 계획, 변조된 실행 전 기록이나 증적은 업데이트를 중단합니다. 채택 자체는 로컬 근거만 기록하며 적용 권한을 부여하지 않습니다.
 개발용 소스 경로는 `fdaictl provision azure --source <path>`로 명시적으로 선택합니다.
-`--online`, `--offline-kit`과 함께 사용할 수 없습니다. 초기 지원 대상은 AKS와 PostgreSQL
+`--offline-kit`과 함께 사용할 수 없습니다. 초기 지원 대상은 AKS와 PostgreSQL
 Flexible Server를 사용하는 새로운 `dev` 설치입니다. 기존 Container Apps 설치를 이전하지
 않으며, 폐쇄망이나 프로덕션 배포 준비가 완료됐다고 주장하지 않습니다.
 
@@ -580,7 +580,7 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 | `fdaictl provision console-update build` | 보호된 Git 소스에서 소스에 결속된 Console 산출물 하나 빌드 | 아니요 |
 | `fdaictl provision console-update plan` | 기존 개발 환경 대상과 후보 및 롤백 산출물 봉인 | 아니요 |
 | `fdaictl provision console-update apply` | 정확한 Console 계획을 게시하고 원격 콘텐츠와 접속 검증 | 정확한 터미널 승인 후 예 |
-| `fdaictl provision azure --online` | 서명 키트를 획득하고 헤드리스 `observation-first` 프로필을 배포합니다. 반복 가능한 `--add-on`과 `--observation-source` 선택으로 독립 표면을 추가하고 출처별 최소 읽기 역할을 파생합니다. | 정확한 계획 승인 후 인프라만 변경하며 기본값에는 관리 리소스 실행 권한이 없음 |
+| `fdaictl provision azure --source <path>` | 깨끗한 checkout 하나에서 빌드하고 선택한 프로필을 배포합니다. | 정확한 계획 승인 후 인프라만 변경하며 별도로 선택하지 않으면 관리 리소스 실행 권한이 없음 |
 | `fdaictl provision azure --offline-kit <path>` | 공개 산출물 획득 없이 같은 프로필 계약 실행 | 같은 정확한 프로필과 승인 적용 |
 | `fdaictl onboard guided --simulate` | 유한한 단계 그래프 예행연습 | 아니요 |
 | `fdaictl onboard status` | 로컬 해시 체인 예행연습 저널 읽기 | 아니요 |
@@ -590,7 +590,7 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 | `fdaictl license inspect` | 네트워크 호출 없이 기능 토큰을 검증하거나, 설치 사용권을 두 정확한 바인딩으로 검증 | 아니요 |
 
 `fdaictl provision azure --evidence-verifier-input <path>`는 AKS 전용이며 기본값이 꺼진
-`--online`, `--offline-kit`, 연결된 소스 애플리케이션 배포 경로의 확장입니다. 이 파일은
+`--source`와 `--offline-kit` 애플리케이션 배포 경로의 확장입니다. 이 파일은
 비공개 검토 JSON 입력입니다. 독립 운영 근거 검증기 신원과 워크로드 바인딩만 사용하도록
 설정하고, 자리 표시자와 시크릿 자료를 거부하며, 실행, 승격, 승인 권한을 부여하지 않습니다.
 

@@ -103,7 +103,7 @@ def confirm_installation_scope(
         valid_window = confirmed <= moment < expires and timedelta(
             0
         ) < expires - confirmed <= timedelta(days=1)
-        if not valid_window and not _matching_started_installation(work_dir, binding):
+        if not valid_window and not started_installation_matches(work_dir, binding):
             return _result("installation_scope_expired")
         return _result("installation_scope_confirmed", str(retained["digest"]))
     if (work_dir / "foundation/status.json").exists():
@@ -183,7 +183,7 @@ def _result(reason: str, digest: str | None = None) -> dict[str, object]:
     }
 
 
-def _matching_started_installation(
+def started_installation_matches(
     work_dir: Path,
     binding: dict[str, object],
 ) -> bool:

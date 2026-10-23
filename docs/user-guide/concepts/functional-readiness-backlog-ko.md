@@ -2,8 +2,8 @@
 title: F10-F15 준비 상태 전수 점검 및 완료 계획
 description: F10부터 F15까지 모든 중분류의 잔여 작업, 미충족 근거, 의존성에 따른 완료 계획입니다.
 translation_of: functional-readiness-backlog.md
-translation_source_sha: 1f7b1114faf7d7af8738bca8edea2b94cae2a9b7
-translation_revised: 2026-10-22
+translation_source_sha: 246f2abc2f07915abdc4f5fffd53f37e78c291b1
+translation_revised: 2026-10-23
 ---
 
 # F10-F15 준비 상태 전수 점검 및 완료 계획
@@ -278,15 +278,12 @@ F10.1, F10.2, F10.4, F11.3, F13.2, F14.1-F14.4, F15.1입니다. 정정 후 집�
 [결과 처리 원장](../../roadmap-implementation/operations/code-security-findings.md)은
 F15.2/F15.3의 범위가 제한된 Ready 판정을 뒷받침합니다.
 
-- [ ] **I01, 소스 배포 수용 기준:** WP6의 미완료 사례 3개를 검증합니다. 변경 없는
-  키 없는 재실행, 정식 사용 권한 신규 설치, 기존 Trial의 정식 사용 권한 전환 및
-  워터마크 제거입니다. 정확한 다이제스트, 마이그레이션 및 상태 조회, 두 번째 계획
-  결과를 보존하며 완료된 신규 Trial과 제거 증적은 과거 근거로 유지합니다.
-- [ ] **I02, 대체된 경로:** I01 이후 WP8을 완료합니다. `--online` 키트 획득과 소스의
-  서명 키트 인수 전환을 정리하고 `azd-up.sh` 폐기 또는 진단 전용 유지를 결정합니다.
-  CLI 도움말 및 테스트, 빠른 시작 및 스킬은 소스와 서명된 오프라인 설치만 안내해야 합니다.
-  [현행 파서](../../../packages/deployment-cli/src/fdai_deployment_cli/cli_parser.py)와
-  [도움말](../../../packages/deployment-cli/src/fdai_deployment_cli/cli_help.py)에는 아직 `--online`이 있습니다.
+- [x] **I01, 소스 배포 수용 기준:** WP6은 변경 없는 키 없는 재실행, 정식 사용 권한 신규
+  설치, 기존 Trial의 정식 사용 권한 전환 증적을 보존합니다. 정확한 다이제스트,
+  마이그레이션 및 상태 조회, 두 번째 계획 결과를 함께 기록합니다.
+- [x] **I02, 대체된 경로:** 공개 키트 획득과 소스의 서명 키트 인수 전환을 폐기했습니다.
+  `azd-up.sh`는 Core 전용 진단 도구로 유지하며 CLI 도움말과 테스트는 소스와 서명된
+  오프라인 설치만 안내합니다.
 - [ ] **I03, 배포 방식 검증:** 배포 담당 문서의 이전 복구 및 호스트 주장을 최신 소스
   배포 증적과 대조합니다. 선택한 개정에 여전히 필요한 연결 배포, 업데이트 및 복구,
   실제 일회용 데이터베이스 마이그레이션 검증을 보존합니다. 검증된 휠 설치 및 오프라인
@@ -375,8 +372,8 @@ Not assessed를 사용합니다. 설치별 일반 설정과 명시적으로 연�
 | H02 | 외부 차단 요인 | canary, 재발, scheduler, 안정화 선행 조건에는 로컬 테스트가 있습니다. | 승인된 설치 baseline, 범위, job 입력을 제공하고 예약 시도, no-execute replay, 권한 하향, 설정된 안정화 종료를 유지합니다. |
 | H03 | 외부 차단 요인 | 5분 cadence와 30초 consumed-audit 검사는 담당 결정 7개를 정하지 않습니다. | canary, smoke, alert, audit, cold-start, 안정화, 부하 및 budget 운영 정책을 버전으로 관리합니다. |
 | V01 | 외부 차단 요인 | 보고서 렌더링과 소스 격리 동작이 있습니다. | 인증된 datasource별 신원, cutoff, freshness, unavailable, timeout, partial widget, 형식 거부, GET-only 근거를 유지합니다. |
-| I01 | 외부 차단 요인 | 소스 설치와 Trial 동작이 있으며 과거 신규 Trial 증적 1개가 있습니다. | 승인된 서명 full-entitlement 입력을 제공하고 변경 없는 Trial 재실행, 신규 full 설치, Trial-to-full 전환, watermark 제거, health/readback, 두 번째 plan을 유지합니다. |
-| I02 | 외부 차단 요인 | 소스와 서명된 오프라인 경로만 사용할 수 있는 배포 경로이며 `--online` 정리는 I01 이후 순서입니다. | I01을 완료한 뒤 superseded acquisition 및 help 경로를 제거하고 `azd-up.sh`를 진단 전용으로 둘지 폐기할지 결정합니다. |
+| I01 | 완료 | 키 없는 Trial, 변경 없는 재실행, 신규 전체 사용권 설치, Trial-to-full 전환 증적을 보존합니다. | 증적과 회귀 검사를 유지합니다. |
+| I02 | 완료 | 소스와 서명된 오프라인 경로만 사용할 수 있는 배포 경로입니다. | `azd-up.sh`를 진단 전용으로 유지하고 별도 설치 프로그램이 되지 않도록 합니다. |
 | I03 | 외부 차단 요인 | update, recovery, host, offline 동작은 범위가 제한된 로컬 검사를 통과했습니다. | 승인된 대상에서 정확한 개정의 연결된 배포, update/recovery, disposable migration 근거를 유지합니다. |
 | X01 | 코드 완료/실환경 미검증 | bundle 등록, disabled-first 수명 주기, 철회, 타입화된 라우팅이 있습니다. #355는 필수 계보 없이 계획하지 않음으로 닫혔고, 이제 #2315가 관측 가능한 후속 기준을 담당합니다. | #2315에서 정확한 서명 artifact의 설치, 서로 다른 검토자의 enable, disable, revoke, restart, disclosure, routing, 독립 조회, Saga audit 계보를 유지합니다. |
 | S01 | 외부 차단 요인 | 설치된 acquisition, worker, 독립 로컬 수용 코드가 있습니다. | #2128을 명시적으로 재개할 때까지 중지를 유지한 뒤 terminal 설치 요청, 정확한 개정, coverage, 게시, 독립 조회를 유지합니다. |

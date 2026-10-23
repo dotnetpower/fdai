@@ -49,7 +49,7 @@ def run_initial_aks_inventory(
     binding = _validated_initial_inventory_binding(context)
     sources = binding["sources"]
     if not isinstance(sources, list):
-        raise ValueError("initial inventory source binding is invalid")
+        raise TypeError("initial inventory source binding is invalid")
     progress_url = str(context.get("inventory_progress_container_url", ""))
     if not progress_url.startswith("https://"):
         raise ValueError("initial inventory progress endpoint is invalid")
@@ -62,6 +62,27 @@ def run_initial_aks_inventory(
             f"{source_revision}:{target_binding}:initial-inventory".encode()
         ).hexdigest()[:32]
     )
+    retry_attempt_id = (
+        "attempt."
+        + hashlib.sha256(
+            f"{source_revision}:{target_binding}:initial-inventory:retry-1".encode()
+        ).hexdigest()[:32]
+    )
+    second_retry_attempt_id = (
+        "attempt."
+        + hashlib.sha256(
+            f"{source_revision}:{target_binding}:initial-inventory:retry-2".encode()
+        ).hexdigest()[:32]
+    )
+    execution_environment = {
+        "FDAI_INVENTORY_RESOURCE_TYPES": "",
+        "FDAI_INVENTORY_SCOPES": str(context["subscription_id"]),
+        "FDAI_INVENTORY_SOURCES": ",".join(str(source) for source in sources),
+        # The operations progress container is private to the managed host. The in-cluster
+        # Job records progress in PostgreSQL; the host closure completes the blob chain.
+        "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
+        "FDAI_INVENTORY_PROGRESS_RUN_ID": run_id,
+    }
     execution = execute_aks_cronjob_once(
         context,
         work_dir,
@@ -72,18 +93,25 @@ def run_initial_aks_inventory(
         expected_command=("python", "-m", "fdai.delivery.inventory_sync_cli"),
         expected_service_account="inventory-job",
         args=("--initial",),
-        environment={
-            "FDAI_INVENTORY_RESOURCE_TYPES": "",
-            "FDAI_INVENTORY_SCOPES": str(context["subscription_id"]),
-            "FDAI_INVENTORY_SOURCES": ",".join(str(source) for source in sources),
-            # The operations progress container is private to the managed host. The in-cluster
-            # Job records progress in PostgreSQL; the host closure completes the blob chain.
-            "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
-            "FDAI_INVENTORY_PROGRESS_RUN_ID": run_id,
-        },
+        environment=execution_environment,
         require_suspended=False,
         timeout_seconds=960,
+        failed_successor_limit=2,
+        retry_environments=(
+            {
+                **execution_environment,
+                "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": retry_attempt_id,
+            },
+            {
+                **execution_environment,
+                "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": second_retry_attempt_id,
+            },
+        ),
     )
+    if execution.name.startswith("fdai-inventory-retry-1-"):
+        attempt_id = retry_attempt_id
+    elif execution.name.startswith("fdai-inventory-retry-2-"):
+        attempt_id = second_retry_attempt_id
     infra = Path(str(context["infra"]))
     bundle = infra.parent
     key_vault_name = vault_name(_terraform_output(infra, "key_vault_uri"))
@@ -233,7 +261,7 @@ def _verified_closure(
     except json.JSONDecodeError as exc:
         raise ValueError("initial inventory closure receipt is invalid") from exc
     if not isinstance(value, dict):
-        raise ValueError("initial inventory closure receipt is invalid")
+        raise TypeError("initial inventory closure receipt is invalid")
     required_true = (
         "subscription_root",
         "final_fence",
@@ -294,7 +322,7 @@ def _parse_observed_at(value: object) -> datetime | None:
     if not isinstance(value, str):
         return None
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError:
         return None
     if parsed.tzinfo is None:

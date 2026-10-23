@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d47bb532e1a5d3bde76e495b7c132c11c8d68d50 }, { source: docs/roadmap/deployment/source-deployment.md, sha: d8980873e1c9d0a35d520788053ff0c885891605 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 82e0d17fa56b76307af3077e44ed3524ccfe5538 }, { source: docs/roadmap/deployment/source-deployment.md, sha: d8980873e1c9d0a35d520788053ff0c885891605 }]
 ---
 
 # Deploy Quickstart
@@ -234,44 +234,10 @@ removes its temporary files without rebuilding the deleted Terraform work tree o
 
 ### Recover a verified public development deployment
 
-This recovery path adopts state from the `azd-up.sh` public development bootstrap and still runs
-through the legacy release-kit acquisition, which is scheduled for removal.
-
-Use application-state adoption only when the contributor deployment has already produced a verified
-`fdai.contributor-recovery.v1` receipt after a failed apply. Run the command from the exact signed kit
-revision that contains the adoption support:
-
-```bash
-fdaictl provision azure \
-  --online \
-  --region <azure-region> \
-  --adopt-runner-image-receipt <verified-runner-image-receipt> \
-  --adopt-application-state <private-terraform-state> \
-  --adopt-application-recovery <private-recovery-receipt> \
-  --adopt-resolved-models <private-resolved-models>
-```
-
-Supply the runner receipt and all three application mode-0600 files together. The coordinator
-verifies their digests, target, resource
-count, resource suffix, and model-capability contract. It creates a private staged copy that removes
-only the application resource group's two ownership records. The original local state remains
-unchanged.
-
-The runner receipt reuses an independently verified managed image without another image apply. A
-new Foundation run keeps its current signed source and records the image's original source, signed
-verifier source, image run, and exact receipt digest as separate provenance.
-
-The managed host accepts the staged state only when the Foundation-owned remote application backend
-doesn't contain a state blob. It writes an immutable claim before the single non-forced state push,
-then reads the state back and verifies its lineage, serial, content, and managed-resource count. If
-the process stops after the claim, run the same command with the same work directory and inputs. The
-host verifies the existing remote state and doesn't repeat the push. A different input, target,
-Foundation binding, nonempty backend, or changed lineage stops recovery for operator review.
-The recovered-state path also stops before approval if either subsequent plan contains a delete or
-replacement action.
-
-Don't delete the existing Azure resources or the original local state to resolve an adoption error.
-Keep the work directory and use the retained claim or receipt to determine the failed boundary.
+`azd-up.sh` remains a Core-only development diagnostic. It isn't an FDAI installation path, and
+`fdaictl provision azure` no longer adopts its state through connected release-kit acquisition.
+Keep its work directory and receipts for diagnosis. Create a supported installation with the
+one-command source path or a signed offline package instead.
 
 ### Trial and full entitlement
 
@@ -366,9 +332,7 @@ The following tools are not public tenant deployment entry points:
 
 - `genesis-up.sh` is a low-level Foundation diagnostic and recovery tool.
 - `azd-up.sh` is a Core-only public development bootstrap on Container Apps. It is not the
-  one-command source deployment.
-- `fdaictl provision azure --online` acquires a published release kit. It is not one of the two
-  installation paths and is scheduled for removal.
+  one-command source deployment and its state isn't adopted by the public installer.
 - `fdai-up.sh` refuses the retired `--signing-key` option and never builds a kit. Build the signed
   offline package separately and pass `--offline-kit` instead.
 - Deployment workflows under `.github/workflows/` are repository CI, release, and historical

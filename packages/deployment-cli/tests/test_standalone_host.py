@@ -13,11 +13,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 
 from fdai_deployment_cli import (
     aks_workload_jobs,
     runtime_support_installation,
+    source_application_inputs,
     standalone_aks_inventory,
     standalone_aks_nodepool_guard,
     standalone_application,
@@ -29,11 +29,11 @@ from fdai_deployment_cli import (
     standalone_operational_evidence,
     standalone_stage_targets,
     standalone_terraform_environment,
-    source_application_inputs,
 )
 from fdai_deployment_cli.aks_job_execution import AksOneShotJob
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.source_image_stage import UNAVAILABLE, SourceImageStageStopped
+from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 from fdai_deployment_cli.standalone_review import validate_plan_review
 
 
@@ -1534,6 +1534,7 @@ def test_partial_apply_recovery_returns_separate_residual_review(
         lambda *_: (tmp_path, tmp_path / "application.auto.tfvars.json"),
     )
     monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_operation_targets", lambda *_: ())
     monkeypatch.setattr(standalone_host, "_residual_claim_exists", lambda *_: False)
     monkeypatch.setattr(
         standalone_host,
@@ -1544,6 +1545,23 @@ def test_partial_apply_recovery_returns_separate_residual_review(
     result = standalone_host._recover_apply(SimpleNamespace(stage="substrate"), tmp_path)
 
     assert result is residual
+
+
+def test_applied_application_with_input_rebind_uses_distinct_update_operation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(standalone_host, "_application_successor_prerequisite", lambda *_: True)
+    operation, reconciliation = standalone_host._application_operation(
+        {},
+        tmp_path,
+        stage="application",
+        service=None,
+        update=None,
+    )
+
+    assert operation == "application-input-rebind-update"
+    assert reconciliation is None
 
 
 def test_claimed_apply_blocks_ordinary_replanning(

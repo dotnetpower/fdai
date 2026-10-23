@@ -48,6 +48,7 @@ def _service_update(service: str = "operator-service") -> dict[str, str]:
         ("runtime", "runtime-cluster"),
         ("database", "database"),
         ("application", "application"),
+        ("application", "application-input-rebind-update"),
         ("application", "license-application-update"),
     ],
 )

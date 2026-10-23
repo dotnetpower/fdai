@@ -231,7 +231,7 @@ def validate_plan_review(review: dict[str, Any], *, allow_expired: bool = False)
             raise ValueError(_ERROR)
     expiry = review.get("expires_at")
     if not isinstance(expiry, str):
-        raise TypeError(_ERROR)
+        raise ValueError(_ERROR)  # noqa: TRY004 - public validator contract
     try:
         expires = datetime.fromisoformat(expiry)
     except ValueError as exc:
@@ -258,5 +258,9 @@ def _operation_matches_stage(stage: str, operation: object, service_update: obje
     if stage == "runtime":
         return operation in {"runtime", "runtime-cluster"}
     if stage == "application":
-        return operation in {"application", "license-application-update"}
+        return operation in {
+            "application",
+            "application-input-rebind-update",
+            "license-application-update",
+        }
     return operation == stage

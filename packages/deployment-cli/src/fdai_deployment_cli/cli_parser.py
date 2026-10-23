@@ -108,9 +108,6 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     source_options = azure.add_argument_group("Artifact source (choose one)")
     kit_source = source_options.add_mutually_exclusive_group(required=True)
     kit_source.add_argument(
-        "--online", action="store_true", help="Download and verify the versioned release kit"
-    )
-    kit_source.add_argument(
         "--offline-kit",
         type=Path,
         metavar="PATH",
@@ -344,11 +341,6 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         ),
     )
     advanced = azure.add_argument_group("Advanced (optional)")
-    advanced.add_argument(
-        "--online-url",
-        metavar="URL",
-        help="Override the online kit URL on an approved HTTPS release host",
-    )
     advanced.add_argument(
         "--control-package",
         type=Path,

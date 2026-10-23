@@ -79,9 +79,9 @@ class ActiveAzureTarget:
 def deploy_azure_foundation(
     *,
     work_dir: Path,
-    online: bool,
     offline_kit: Path | None,
-    online_url: str | None,
+    online: bool = False,
+    online_url: str | None = None,
     region: str,
     monthly_cost_ceiling: int,
     timeout_seconds: int,

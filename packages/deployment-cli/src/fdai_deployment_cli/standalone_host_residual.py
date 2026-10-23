@@ -29,7 +29,8 @@ def apply_residual_checkpoint(
     stage = str(args.stage)
     context = private_json(work_dir / "context.json", "standalone host context")
     receipt_path = work_dir / f"{stage}-receipt.json"
-    if receipt_path.exists():
+    residual_review_path = work_dir / f"{stage}-residual-review.json"
+    if receipt_path.exists() and not residual_review_path.exists():
         return private_json(receipt_path, "standalone residual apply receipt")
     original_review = private_json(
         work_dir / f"{stage}-review.json", "standalone original plan review"
@@ -37,9 +38,7 @@ def apply_residual_checkpoint(
     original_claim = private_json(
         work_dir / f"{stage}-claim.json", "standalone original apply claim"
     )
-    residual_review = private_json(
-        work_dir / f"{stage}-residual-review.json", "standalone residual plan review"
-    )
+    residual_review = private_json(residual_review_path, "standalone residual plan review")
     approval = private_json(absolute_path(args.approval), "standalone residual plan approval")
     successor_path = work_dir / f"{stage}-residual-successor-review.json"
     validate_approval(

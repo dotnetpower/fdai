@@ -589,7 +589,6 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         _private_directory(kit_work)
         kit = acquire_deployment_kit(
             work_dir=kit_work,
-            online=False,
             offline_kit=_absolute(args.kit),
         )
         foundation.adoption.require_kit(kit)
@@ -2191,6 +2190,11 @@ def _application_operation(
     if reconciliation is not None:
         return str(reconciliation["operation"]), reconciliation
     if stage == "application" and service is None and update is None:
+        if (
+            _application_successor_prerequisite(work_dir, stage)
+            and not (work_dir / "application-input-rebind-update-receipt.json").is_file()
+        ):
+            return "application-input-rebind-update", None
         license_operation = _license_application_operation(context, work_dir)
         if license_operation is not None:
             return license_operation, None
@@ -2201,6 +2205,8 @@ def _license_application_operation(
     context: dict[str, object],
     work_dir: Path,
 ) -> str | None:
+    if (work_dir / "license-application-update-receipt.json").is_file():
+        return None
     path = work_dir / "license-workload-binding-receipt.json"
     if not path.is_file() or path.is_symlink():
         return None
@@ -2730,7 +2736,12 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     ):
         operation = "runtime-cluster"
     receipt_path = work_dir / f"{operation}-receipt.json"
-    if receipt_path.exists():
+    successor_pending = (
+        stage == "application"
+        and update is None
+        and _application_successor_prerequisite(work_dir, stage)
+    )
+    if receipt_path.exists() and not successor_pending:
         if reconciliation is not None:
             return _historical_reconciliation_receipt(work_dir, context, reconciliation)
         receipt = _private_json(receipt_path, "standalone apply receipt")

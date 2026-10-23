@@ -54,8 +54,8 @@ from fdai_deployment_cli.entitlement_preflight import (
     ensure_azure_session,
     select_entitlement_mode,
 )
-from fdai_deployment_cli.entra_source import run_source_entra_operation
 from fdai_deployment_cli.entitlement_transport import seal_entitlement_command
+from fdai_deployment_cli.entra_source import run_source_entra_operation
 from fdai_deployment_cli.execution_copies import execution_copy_scope
 from fdai_deployment_cli.license import (
     INSTALLATION_ENTITLEMENT_SCHEMA,
@@ -188,11 +188,11 @@ def _provision_azure(args: argparse.Namespace) -> int:
         CatalogReviewDeploymentProfile,
         load_catalog_review_profile,
     )
-    from fdai_deployment_cli.installation_scope import InstallationOptions
     from fdai_deployment_cli.development_authority_cli import (
         selected_development_authority,
         validate_development_authority_command,
     )
+    from fdai_deployment_cli.installation_scope import InstallationOptions
     from fdai_deployment_cli.operational_evidence_verifier_input import (
         load_operational_evidence_verifier_input,
     )
@@ -315,10 +315,8 @@ def _provision_azure(args: argparse.Namespace) -> int:
             raise ValueError(
                 "selected catalog review profile requires signed-kit standalone deployment"
             )
-        if (
-            args.online_url is not None
-            or any(path is not None for path in adoption_paths)
-            or any(path is not None for path in foundation_adoption_paths)
+        if any(path is not None for path in adoption_paths) or any(
+            path is not None for path in foundation_adoption_paths
         ):
             raise ValueError("source deployment cannot reuse kit URLs or adoption inputs")
         if args.teardown:
@@ -416,9 +414,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
     with DeploymentProgress(mode=mode) as progress, execution_copy_scope():
         result = deploy_azure_foundation(
             work_dir=work_dir,
-            online=args.online,
             offline_kit=args.offline_kit,
-            online_url=args.online_url,
             region=args.region,
             runtime_profile=runtime_profile,
             monthly_cost_ceiling=args.monthly_cost_ceiling,

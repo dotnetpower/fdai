@@ -340,7 +340,7 @@ When an ordinary Core update has an immutable claim but no receipt, one supersed
 
 An installation whose workload state predates the standalone application receipt can use a bounded adoption step by supplying all five `--adopt-historical-*` inputs: a private binding, retained Terraform state, workload variables, live Deployment snapshot, and the historical exact plan. The binding can reference execution assets only below its evidence directory and pins the Terraform binary digest, source revision, Managed Identity, and runtime profile. The coordinator accepts the historical plan only when it contains one in-place Deployment update and no unrelated mutation, or when it is a complete zero-change plan. It then uses the Managed Identity to compare remote state and current Deployments and creates a fresh full Terraform plan. If that plan contains only the allowlisted legacy AKS normalization, the same coordinator returns a digest-bound reconciliation review instead of treating the drift as apply authority. It attempts verification-only recovery first. Without an existing claim, it requires current exact-plan approval, revalidates the saved plan with the strict historical contract, writes an immutable claim, and applies once through the Managed Identity. Success requires healthy workload readback, refreshed state and typed Deployment evidence, and a complete full-scope zero-change plan. Only that receipt-bound post-state can re-enter adoption. Partial inputs, changed peers, unrecognized effects, state drift, a changed plan, or a tampered claim or receipt stop the update. Adoption itself writes local evidence only and grants no apply authority.
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
-It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new
+It is mutually exclusive with `--offline-kit`. Initial support targets a new
 `dev` installation using AKS and PostgreSQL Flexible Server. It does not migrate an existing
 Container Apps installation and does not claim disconnected or production readiness.
 
@@ -577,7 +577,7 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl provision console-update build` | Build one source-bound Console artifact from protected Git source | No |
 | `fdaictl provision console-update plan` | Seal an existing-development target plus candidate and rollback artifacts | No |
 | `fdaictl provision console-update apply` | Publish one exact Console plan and verify remote content and access | Yes, after exact terminal approval |
-| `fdaictl provision azure --online` | Acquire a signed kit and deploy the headless observation-first profile; repeated `--add-on` and `--observation-source` selections opt into independent surfaces and derive each source's minimum read role | Infrastructure only after exact plan approval; no managed-resource execution authority by default |
+| `fdaictl provision azure --source <path>` | Build from one clean checkout and deploy the selected profile | Infrastructure only after exact plan approval; no managed-resource execution authority unless selected separately |
 | `fdaictl provision azure --offline-kit <path>` | Run the same profile contract without public artifact acquisition | Same exact profile and approvals |
 | `fdaictl onboard guided --simulate` | Rehearse the finite stage graph | No |
 | `fdaictl onboard status` | Read a local hash-chained rehearsal journal | No |
@@ -587,7 +587,7 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl license inspect` | Verify a capability token, or an installation entitlement against both exact bindings, without a network call | No |
 
 `fdaictl provision azure --evidence-verifier-input <path>` is an AKS-only, default-off extension
-to the `--online`, `--offline-kit`, and connected source application deployment paths. The file is
+to the `--source` and `--offline-kit` application deployment paths. The file is
 a private reviewed JSON input. It enables only the independent operational evidence verifier
 identity and workload binding, rejects placeholders and secret material, and grants no execution,
 promotion, or approval authority.

@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7320ef7cf76d81f3cc9e9e8da88fa827010c219a
-translation_revised: 2026-10-22
+translation_source_sha: d4634993bb0095d8ff416a16fdf8746114cb5b46
+translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
 
@@ -223,17 +223,13 @@ Azure 관찰의 필수 역할은 범위가 제한된 `Reader` 하나뿐입니다
 
 ## 운영자 계약
 
-공개 명령은 online 설치와 산출물 offline 설치에서 두 선택을 명시적으로 받습니다. 신규 설치에서
-런타임을 생략하면 AKS를 선택합니다.
+공개 명령은 소스 설치와 서명된 산출물 offline 설치를 지원합니다. 신규 설치에서 런타임을
+생략하면 AKS를 선택합니다.
 
 ```bash
-fdaictl provision azure --online \
+fdaictl provision azure --source /path/to/fdai \
+  --runtime aks \
   --database postgres-flex
-
-fdaictl provision azure --online \
-  --runtime container-apps \
-  --database postgres-flex \
-  --existing-installation
 
 fdaictl provision azure \
   --offline-kit /media/fdai/fdai-deployment-kit.tar.gz \

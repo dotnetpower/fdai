@@ -44,25 +44,17 @@ contract below; this documentation adds no implemented CLI flag or command.
 The installed package supports one default subscription deployment boundary after `az login`:
 
 ```bash
+fdaictl provision azure --source /path/to/fdai
 fdaictl provision azure --offline-kit /media/fdai/fdai-kit.tar
-# Source-checkout convenience wrapper using the same local kit.
-scripts/deployment/azure/fdai-up.sh --offline-kit /media/fdai/fdai-kit.tar
-# Optional bounded HTTPS distribution path.
-fdaictl provision azure --online
 ```
 
-Both commands derive the tenant and subscription only from the active Azure CLI user context. They
-do not require a source checkout, Git remote, GitHub account, GitHub repository, required CI check,
-repository variable, repository secret, workflow dispatch, or GitHub runner registration. Offline
-mode reads the complete kit from a local path and blocks every public artifact fallback. Online
-mode remains optional and downloads the same format over bounded HTTPS, validating each redirect
-before contact. Offline means artifact-offline,
+Both commands derive the tenant and subscription only from the active Azure CLI user context.
+Source mode uses one clean checkout. Offline mode reads the complete kit from a local path and
+blocks every public artifact fallback. Neither mode requires a GitHub account, required CI check,
+workflow dispatch, or GitHub runner registration. Offline means artifact-offline,
 not disconnected from the selected Azure control plane or Bastion endpoint.
 Offline retries reread the supplied source, reverify the retained snapshot, and use a fresh
 execution copy without replacing earlier state. Changed or incomplete bytes stop the retry.
-Online transfer progress cannot renew the 15-minute total download budget. Socket reads retain
-their 30-second bound; available-data reads return between underlying reads, and expiry removes
-only the newly created partial download without retrying. One in-flight socket read can outlast the total boundary by at most its own bound.
 
 The package pins the release and bundle verification roots independently from the kit. A complete
 kit contains the deployment bundle, Terraform and OPA, the provider mirror, runtime OCI archives,
