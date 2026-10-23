@@ -19,7 +19,7 @@ def test_container_apps_profile_preserves_the_existing_default() -> None:
         "system_node_sku": "Standard_D2as_v5",
         "user_node_min_count": 3,
         "user_node_max_count": 5,
-        "user_node_sku": "Standard_D4as_v5",
+        "user_node_sku": "Standard_D4ds_v4",
         "product_profile": {
             "schema_version": "fdai.product-profile.v1",
             "name": "observation-first",
@@ -48,7 +48,7 @@ def test_aks_profile_accepts_supported_node_floors(database: str, user_nodes: in
     )
 
     assert profile.runtime_platform.value == "aks"
-    assert profile.system_node_sku == "Standard_D4as_v5"
+    assert profile.system_node_sku == "Standard_D4ds_v4"
     assert profile.user_node_min_count == user_nodes
 
 

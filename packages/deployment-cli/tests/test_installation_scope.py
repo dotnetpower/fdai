@@ -54,7 +54,7 @@ def test_confirmation_once_and_resume_without_input(arguments, monkeypatch, caps
     assert path.stat().st_mode & 0o777 == 0o600
     output = capsys.readouterr().err
     assert "setup_cost_ceiling: 300" in output
-    assert "system_node_sku" in output and "Standard_D4as_v5" in output
+    assert "system_node_sku" in output and "Standard_D4ds_v4" in output
     assert "postgres-flex" in output
     arguments.update(interactive=False, now=NOW + timedelta(minutes=1))
     assert scope.confirm_installation_scope(**arguments) == result

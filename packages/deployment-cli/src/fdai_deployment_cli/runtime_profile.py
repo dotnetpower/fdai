@@ -55,10 +55,10 @@ class RuntimeDeploymentProfile:
     runtime_platform: RuntimePlatform
     database_placement: DatabasePlacement
     system_node_count: int = 3
-    system_node_sku: str = "Standard_D4as_v5"
+    system_node_sku: str = "Standard_D4ds_v4"
     user_node_min_count: int = 3
     user_node_max_count: int = 5
-    user_node_sku: str = "Standard_D4as_v5"
+    user_node_sku: str = "Standard_D4ds_v4"
     product_profile: ProductProfile = field(default_factory=ProductProfile)
     database_sku: str | None = None
 
@@ -108,7 +108,7 @@ class RuntimeDeploymentProfile:
         system_node_sku: str | None = None,
         user_node_min_count: int = 3,
         user_node_max_count: int = 5,
-        user_node_sku: str = "Standard_D4as_v5",
+        user_node_sku: str = "Standard_D4ds_v4",
         product_add_ons: tuple[str, ...] = (),
         observation_data_sources: tuple[str, ...] = (),
         database_sku: str | None = None,
@@ -146,7 +146,7 @@ class RuntimeDeploymentProfile:
             system_node_count=system_node_count,
             system_node_sku=system_node_sku
             if system_node_sku is not None
-            else ("Standard_D4as_v5" if runtime is RuntimePlatform.AKS else "Standard_D2as_v5"),
+            else ("Standard_D4ds_v4" if runtime is RuntimePlatform.AKS else "Standard_D2as_v5"),
             user_node_min_count=user_node_min_count,
             user_node_max_count=user_node_max_count,
             user_node_sku=user_node_sku,

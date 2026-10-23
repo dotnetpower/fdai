@@ -180,7 +180,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         "--system-node-sku",
         default=None,
         metavar="SKU",
-        help="AKS system node VM SKU (AKS default: Standard_D4as_v5)",
+        help="AKS system node VM SKU (AKS default: Standard_D4ds_v4)",
     )
     settings.add_argument(
         "--user-nodes",
@@ -198,7 +198,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     )
     settings.add_argument(
         "--user-node-sku",
-        default="Standard_D4as_v5",
+        default="Standard_D4ds_v4",
         metavar="SKU",
         help="AKS user node VM SKU (default: %(default)s)",
     )

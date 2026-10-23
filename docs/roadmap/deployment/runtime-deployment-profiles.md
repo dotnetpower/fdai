@@ -274,8 +274,8 @@ Static readback hashes only files that Static Web Apps serves; host-consumed con
 | AKS system nodes | At least 2. Production requires at least 3. | 3 |
 | AKS user nodes | At least 3. | 3 with `postgres-flex` |
 | AKS user nodes with `postgres-aks` | At least 4. | 4 for non-production compact use |
-| System node SKU | At least 4 vCPUs and 4 GB memory; available in the selected region and subscription. | `Standard_D4as_v5` |
-| User node SKU | Region and subscription must report it available. | `Standard_D4as_v5` |
+| System node SKU | At least 4 vCPUs and 4 GB memory; available in the selected region and subscription. | `Standard_D4ds_v4` |
+| User node SKU | Region and subscription must report it available. | `Standard_D4ds_v4` |
 | PostgreSQL Flexible Server SKU (`--database-sku`) | `postgres-flex` only. One of `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, or `GP_Standard_D4ds_v5`. | Unset keeps `B_Standard_B1ms`; a General Purpose size such as `GP_Standard_D2ds_v5` for AKS |
 | Availability zones | Every requested zone must exist for both selected SKUs. | Three zones in production |
 

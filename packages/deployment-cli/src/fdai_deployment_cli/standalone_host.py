@@ -268,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--system-node-sku", default=None)
     prepare.add_argument("--user-node-min-count", type=int, default=3)
     prepare.add_argument("--user-node-max-count", type=int, default=5)
-    prepare.add_argument("--user-node-sku", default="Standard_D4as_v5")
+    prepare.add_argument("--user-node-sku", default="Standard_D4ds_v4")
     prepare.add_argument("--database-sku")
     prepare.add_argument(
         "--product-add-on",

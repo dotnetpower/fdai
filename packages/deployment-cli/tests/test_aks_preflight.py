@@ -18,13 +18,13 @@ def _inputs():
     profile = RuntimeDeploymentProfile.create(
         runtime_platform="aks",
         database_placement="postgres-flex",
-        system_node_sku="Standard_D4as_v5",
+        system_node_sku="Standard_D4ds_v4",
     )
     skus = [
         {
-            "name": "Standard_D4as_v5",
+            "name": "Standard_D4ds_v4",
             "resourceType": "virtualMachines",
-            "family": "standardDASv5Family",
+            "family": "standardDDSv4Family",
             "capabilities": [
                 {"name": "vCPUs", "value": "4"},
                 {"name": "MemoryGB", "value": "16"},
@@ -37,7 +37,7 @@ def _inputs():
     ]
     usage = [
         {"name": {"value": name}, "currentValue": 0, "limit": 100}
-        for name in ("standardDASv5Family", "cores")
+        for name in ("standardDDSv4Family", "cores")
     ]
     return {"profile": profile, "region": "eastus", "skus": skus, "usage": usage}
 
@@ -92,7 +92,7 @@ def test_invalid_quota_representation_remains_blocked(value) -> None:
     arguments = _inputs()
     arguments["usage"][0]["limit"] = value
     assert (
-        "quota_standarddasv5family_invalid"
+        "quota_standardddsv4family_invalid"
         in aks_preflight.assess_aks_capacity(**arguments)["blockers"]
     )
 
@@ -176,7 +176,7 @@ def test_preflight_serializes_exact_selected_skus_from_one_catalog_read(monkeypa
                 b'"state":"Enabled","userType":"user"}'
             )
         elif command[1:3] == ("vm", "list-skus"):
-            assert command[command.index("--query") + 1] == ("[?name=='Standard_D4as_v5']")
+            assert command[command.index("--query") + 1] == ("[?name=='Standard_D4ds_v4']")
             stdout = json.dumps(inputs["skus"]).encode()
         elif command[1:4] == ("postgres", "flexible-server", "list-skus"):
             stdout = json.dumps(_postgres_capabilities()).encode()
@@ -346,7 +346,7 @@ def test_postgres_aks_profile_does_not_read_the_flexible_server_catalog(monkeypa
     profile = RuntimeDeploymentProfile.create(
         runtime_platform="aks",
         database_placement="postgres-aks",
-        system_node_sku="Standard_D4as_v5",
+        system_node_sku="Standard_D4ds_v4",
         user_node_min_count=4,
     )
 
