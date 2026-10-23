@@ -101,6 +101,7 @@ resource "kubernetes_role_binding_v1" "workloads" {
 }
 
 resource "kubernetes_persistent_volume_claim_v1" "state" {
+  wait_until_bound = false
   metadata {
     name      = "fdai-lifecycle-agent-state"
     namespace = kubernetes_namespace_v1.agent.metadata[0].name

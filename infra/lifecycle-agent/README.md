@@ -18,6 +18,8 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
 - `enable_agent=false` prepares identity, RBAC, state, and inputs without starting a poller.
   Switch it to `true` only after enrollment, application binding, native ownership acceptance,
   reported empty state, Entity management, signed input publication, and Plan issuance.
+- The PVC uses `WaitForFirstConsumer` storage and Terraform never waits for binding during the
+  disabled stage. Verify `Bound` independently after the Agent Pod is scheduled.
 
 ## Apply
 

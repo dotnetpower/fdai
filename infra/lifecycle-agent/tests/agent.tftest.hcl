@@ -47,9 +47,10 @@ run "prepare_without_starting_agent" {
       length(kubernetes_deployment_v1.agent) == 0 &&
       output.deployment.enabled == false &&
       output.deployment.agent_namespace == "fdai-agent-system" &&
-      output.deployment.target_namespace == "fdai-system"
+      output.deployment.target_namespace == "fdai-system" &&
+      kubernetes_persistent_volume_claim_v1.state.wait_until_bound == false
     )
-    error_message = "Preparation must create bounded prerequisites without starting the Agent."
+    error_message = "Preparation must not wait for a consumer-bound volume before starting the Agent."
   }
 }
 
