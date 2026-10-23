@@ -414,6 +414,7 @@ can create secrets, filesystems, or paths. A retained context may tighten either
 `false` to `true` after partial-substrate readback proves the private posture; loosening `true` to
 `false` is rejected as a context mismatch. An ambiguous access apply follows the same
 verification-first and bounded residual rules as every other stage.
+On AKS, the `notifications` add-on applies the same targeted substrate stage to the Azure Communication Services Email resources, the managed sender domain, the notification identity, and its sender role. Core then receives `FDAI_EMAIL_ENDPOINT`, `FDAI_EMAIL_SENDER_ADDRESS`, `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON`, and `FDAI_NOTIFICATION_MI_CLIENT_ID`, and its service account is federated to the notification identity as an additional identity. No new secret is created, delivery is informational, and the add-on grants no approval, promotion, or execution authority. A missing recipient list or incomplete binding fails the application plan closed.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.

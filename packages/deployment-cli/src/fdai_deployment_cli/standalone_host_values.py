@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from typing import Any
 
@@ -371,6 +372,104 @@ def aks_operator_request_receipts(
         {"FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID": operator_producer},
         {"FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED": names["operator_signing_seed_secret_id"]},
     )
+
+
+def aks_notification_environment(
+    *,
+    application_values: dict[str, object],
+    email_binding: object,
+    identity: dict[str, Any],
+) -> dict[str, object]:
+    """Bind ACS Email delivery to the Core workload for the selected notifications add-on."""
+
+    binding = mapping(email_binding, "notification email binding")
+    recipients = application_values.get("notification_email_recipients")
+    if (
+        not isinstance(recipients, list)
+        or not recipients
+        or not all(isinstance(address, str) and address for address in recipients)
+    ):
+        raise ValueError("notifications add-on requires its private recipient list")
+    endpoint = binding.get("endpoint")
+    sender = binding.get("sender_address")
+    client_id = identity.get("client_id")
+    if not all(isinstance(value, str) and value for value in (endpoint, sender, client_id)):
+        raise ValueError("notification email binding is incomplete")
+    return {
+        "FDAI_EMAIL_ENDPOINT": endpoint,
+        "FDAI_EMAIL_SENDER_ADDRESS": sender,
+        "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON": json.dumps(recipients, separators=(",", ":")),
+        "FDAI_NOTIFICATION_MI_CLIENT_ID": client_id,
+    }
+
+
+def aks_core_conversation_environment(
+    *,
+    application_values: dict[str, Any],
+    substrate_outputs: dict[str, object],
+    semantic_topics: list[object],
+) -> dict[str, str]:
+    """Build a complete Core semantic binding or reject incomplete model outputs."""
+
+    if len(semantic_topics) < 3:
+        raise ValueError("AKS semantic topic output contract is incomplete")
+
+    def required_text(value: object, label: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"AKS {label} output is unavailable")
+        return value.strip()
+
+    environment = {
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": required_text(
+            semantic_topics[0], "semantic request topic"
+        ),
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": required_text(
+            semantic_topics[1], "semantic projection topic"
+        ),
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": required_text(
+            semantic_topics[2], "read investigation topic"
+        ),
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": required_text(
+            substrate_outputs.get("semantic_physical"), "semantic physical topic"
+        ),
+    }
+    enable_llm = application_values.get("enable_llm")
+    if not isinstance(enable_llm, bool):
+        raise TypeError("AKS enable_llm setting MUST be a boolean")
+    if not enable_llm:
+        return environment
+
+    endpoint = required_text(substrate_outputs.get("llm_endpoint"), "LLM endpoint")
+    digest = required_text(substrate_outputs.get("resolved_models_sha256"), "resolved-model digest")
+    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise ValueError("AKS resolved-model digest MUST be a lowercase SHA-256 digest")
+    model_endpoints = substrate_outputs.get("llm_model_endpoints")
+    if (
+        not isinstance(model_endpoints, dict)
+        or not model_endpoints
+        or any(
+            not isinstance(reference, str)
+            or not reference.strip()
+            or not isinstance(model_endpoint, str)
+            or not model_endpoint.strip()
+            for reference, model_endpoint in model_endpoints.items()
+        )
+    ):
+        raise ValueError("AKS LLM model endpoint outputs are incomplete")
+    environment.update(
+        {
+            "LLM_MODE": "azure",
+            "LLM_RESOLVED_MODELS_PATH": "/app/resolved-models.json",
+            "LLM_RESOLVED_MODELS_SHA256": digest,
+            "FDAI_LLM_ENDPOINT": endpoint,
+            "FDAI_MODEL_ENDPOINTS_JSON": json.dumps(
+                model_endpoints,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        }
+    )
+    return environment
 
 
 def selected_identity(identities: dict[str, Any], name: str, selected: bool) -> dict[str, Any]:
