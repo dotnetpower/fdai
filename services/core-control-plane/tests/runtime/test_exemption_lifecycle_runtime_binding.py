@@ -7,12 +7,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fdai.rule_catalog.schema.governance_catalog import load_catalog_exemptions
-from fdai.rule_catalog.schema.governance_loader import GovernanceLoadError
 from fdai.runtime import configuration, delivery
 from fdai.runtime.exemption_lifecycle import (
     ExemptionLifecycleWorker,
     build_runtime_exemption_lifecycle_worker,
+    load_catalog_exemptions,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -92,7 +91,7 @@ def test_the_exemption_only_loader_fails_closed_on_an_invalid_file(tmp_path) -> 
     (tmp_path / "exemptions").mkdir()
     (tmp_path / "exemptions" / "bad.json").write_text("{not json", encoding="utf-8")
 
-    with pytest.raises(GovernanceLoadError):
+    with pytest.raises(ValueError):
         load_catalog_exemptions(tmp_path)
 
 

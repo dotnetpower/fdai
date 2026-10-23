@@ -13,11 +13,16 @@ import asyncio
 import hashlib
 import logging
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any, Protocol
 
 from fdai.core.notifications.router import RouteOutcome, RoutingResult
 from fdai.delivery.exemption_lifecycle import ExemptionLifecycleCoordinator
-from fdai.rule_catalog.schema.exemption import Exemption
+from fdai.rule_catalog.schema.exemption import (
+    Exemption,
+    load_exemption_from_mapping,
+    parse_exemption_json,
+)
 from fdai.rule_catalog.schema.exemption_lifecycle import ExemptionExpiryDigest
 from fdai.shared.providers.notifications.base import (
     NotificationMessage,
@@ -33,6 +38,24 @@ _MAX_LISTED_ITEMS = 20
 _DELIVERED = frozenset(
     {RouteOutcome.DELIVERED, RouteOutcome.DELIVERED_ON_FALLBACK, RouteOutcome.DELIVERED_ALL}
 )
+
+
+def load_catalog_exemptions(catalog_root: Path) -> tuple[Exemption, ...]:
+    """Load the installed exemptions, failing closed on any invalid or duplicate file.
+
+    Startup already validated the whole governance catalog; this reads only the exemptions.
+    """
+
+    directory = catalog_root / "exemptions"
+    if not directory.is_dir():
+        return ()
+    loaded: dict[str, Exemption] = {}
+    for path in sorted(directory.glob("*.json")):
+        exemption = load_exemption_from_mapping(parse_exemption_json(path.read_text("utf-8")))
+        if exemption.id in loaded:
+            raise ValueError(f"duplicate exemption id in {path.name}")
+        loaded[exemption.id] = exemption
+    return tuple(loaded.values())
 
 
 class _Router(Protocol):
@@ -158,7 +181,6 @@ async def build_runtime_exemption_lifecycle_worker(
     """Compose the worker from the installed catalog and the workload's own notification router."""
 
     from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
-    from fdai.rule_catalog.schema.governance_catalog import load_catalog_exemptions
     from fdai.runtime.configuration import _resolve_catalog_root
     from fdai.runtime.delivery import _build_notification_router
 

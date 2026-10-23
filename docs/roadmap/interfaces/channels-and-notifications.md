@@ -121,7 +121,7 @@ equivalence or conversion between the enum families.
   [user-rbac-and-identity.md](user-rbac-and-identity.md#6-identity-flow-console--draft-pr--audit)),
   carrying the invoker's Entra OID in the PR trailer. The PR then follows the standard
   quorum + no-self-approval rules.
-- **A2/A4 messages never contain approval buttons or executable links.**
+- **A2/A4 messages never contain approval buttons or executable links.** The scheduled exemption lifecycle sweep sends its ahead-of-expiry digest as one A2 alert through this router, with an audit id derived from the exact exemption revisions so a repeat is suppressed ([Rule Governance](../rules-and-detection/rule-governance.md#exemptions)).
 - **Learned patterns and predictions create no A1 request in the default profile.** Without the
   governed execution add-on, Forseti answers forecasts and capacity-fed arbitration with
   ActionType-free Verdicts, and the control loop stops T1 learned reuse before it builds an Action,
