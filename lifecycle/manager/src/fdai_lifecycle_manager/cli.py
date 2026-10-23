@@ -14,7 +14,7 @@ from fdai_lifecycle_manager.operations import (
     write_catalog_requests,
     write_native_acceptance,
 )
-from fdai_lifecycle_manager.preparation import prepare_installation
+from fdai_lifecycle_manager.preparation import prepare_installation, refresh_enrollment
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -34,6 +34,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     prepare.add_argument("--channel", default="DEV")
     prepare.add_argument("--region", required=True)
     prepare.add_argument("--actor", required=True)
+    refresh = command.add_parser("refresh-enrollment")
+    refresh.add_argument("--prepared", type=Path, required=True)
+    refresh.add_argument("--destination", type=Path, required=True)
     catalog = command.add_parser("catalog-requests")
     catalog.add_argument("--prepared", type=Path, required=True)
     catalog.add_argument("--publication-receipt", type=Path, required=True)
@@ -73,6 +76,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 channel=args.channel,
                 region=args.region,
                 actor=args.actor,
+                now=datetime.now(UTC),
+            ).model_dump(mode="json")
+        elif args.command == "refresh-enrollment":
+            receipt = refresh_enrollment(
+                prepared=args.prepared,
+                destination=args.destination,
                 now=datetime.now(UTC),
             ).model_dump(mode="json")
         elif args.command == "catalog-requests":

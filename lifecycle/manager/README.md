@@ -39,6 +39,19 @@ licensing authority. Use the Release and Lifecycle Hub trusted-operation stages 
 Lifecycle Agent root to apply those decisions. The installation private key stays local and never
 enters Terraform, a Hub, a command argument, or a log.
 
+If the short enrollment proof window expires while infrastructure and catalog stages run, refresh
+only that proof into a new file:
+
+```bash
+fdai-lifecycle-manager refresh-enrollment \
+  --prepared <private-directory> \
+  --destination <private-directory>/signed-enrollment-refreshed.json
+```
+
+The command verifies the retained proof against the installation public/private key pair, preserves
+the installation payload and identity, updates only `requested_at`, and writes a new mode-`0600`
+artifact without replacing the original.
+
 ## Continue the exact workflow
 
 After the Release operations Job returns its private receipt, derive the exact catalog import and

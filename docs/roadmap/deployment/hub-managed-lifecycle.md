@@ -327,7 +327,10 @@ directory containing the immutable publication request, signed enrollment, custo
 configuration, application-binding request, Entity settings, explicit empty state, native scope
 approval, Agent policy/cache and installation-owned keys. It contacts no Hub, Azure endpoint,
 registry or cluster and deletes a partial destination on failure. Its receipt contains digests
-only and grants no publication, enrollment, ownership, Plan or apply authority.
+only and grants no publication, enrollment, ownership, Plan or apply authority. If infrastructure
+and catalog stages outlive the bounded enrollment proof window, `refresh-enrollment` verifies the
+retained proof and key pair, preserves the installation identity and payload, and writes a new
+mode-`0600` proof with only `requested_at` refreshed. It never overwrites the original.
 
 These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or workload
 effect evidence. Existing Hub images, revisions, catalog bindings and network allowlists are

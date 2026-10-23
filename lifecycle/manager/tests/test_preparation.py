@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import stat
 import subprocess
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -27,7 +27,7 @@ from fdai_lifecycle_manager.operations import (
     write_catalog_requests,
     write_native_acceptance,
 )
-from fdai_lifecycle_manager.preparation import prepare_installation
+from fdai_lifecycle_manager.preparation import prepare_installation, refresh_enrollment
 
 
 def _git(root: Path, *arguments: str) -> str:
@@ -197,6 +197,26 @@ def test_prepare_builds_closed_signed_installation_inputs(tmp_path: Path) -> Non
         signature=enrollment.proof,
     )
     assert enrollment.installation.installation_id == "installation-alpha"
+    refreshed_path = destination / "signed-enrollment-refreshed.json"
+    refreshed_receipt = refresh_enrollment(
+        prepared=destination,
+        destination=refreshed_path,
+        now=now + timedelta(minutes=10),
+    )
+    refreshed_signed = schemas.SignedEnrollment.model_validate_json(refreshed_path.read_bytes())
+    refreshed = schemas.enrollment_request(
+        refreshed_signed.signed_payload,
+        refreshed_signed.proof,
+    )
+    assert refreshed_receipt.installation_key_id == enrollment.installation_key_id
+    assert refreshed.installation == enrollment.installation
+    assert refreshed.requested_at == now + timedelta(minutes=10)
+    assert refreshed.proof != enrollment.proof
+    assert verify_key_proof(
+        public_key=refreshed.installation_key,
+        payload=refreshed.signed_payload,
+        signature=refreshed.proof,
+    )
     assert all(
         stat.S_IMODE(path.stat().st_mode) == 0o600
         for path in destination.rglob("*")

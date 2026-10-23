@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 9f1b9e8a3a7e5bb730f966c42a06c05c77d22d81
+translation_source_sha: 099d634023b2560184c3169627adb9fdca51ce24
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -330,7 +330,9 @@ UTF-8 텍스트로 디코딩하거나 Terraform 명령 인수로 노출하지 �
 명시적인 빈 상태, native 범위 승인, Agent 정책과 캐시, 설치본 소유 키가 들어 있습니다.
 Hub, Azure 엔드포인트, 레지스트리 또는 클러스터에는 접촉하지 않으며 실패하면 일부만 만들어진
 대상을 제거합니다. 준비 증적에는 다이제스트만 포함하며 게시, 등록, 소유권, Plan 또는 적용
-권한을 부여하지 않습니다.
+권한을 부여하지 않습니다. 인프라와 카탈로그 단계가 제한된 등록 proof 유효 시간을 넘기면
+`refresh-enrollment`가 보존된 proof와 키 쌍을 검증합니다. 설치본 신원과 payload는 유지하고
+`requested_at`만 갱신한 mode-`0600` proof를 새 파일에 기록하며 원본은 덮어쓰지 않습니다.
 
 이 선택 기능의 근거는 집중 로컬 테스트입니다. 실제 Entra 인증, 이미지, AKS, 볼륨 재연결,
 워크로드 변경 효과를 입증하지 않습니다. 이 준비 작업은 기존 Hub의 이미지, revision,

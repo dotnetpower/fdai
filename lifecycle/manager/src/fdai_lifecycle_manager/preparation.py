@@ -44,7 +44,7 @@ from fdai_lifecycle_hub.execution_settings import (
     ApplicationBindingRequest,
     settings_digest,
 )
-from fdai_lifecycle_hub.signing import key_id_for
+from fdai_lifecycle_hub.signing import key_id_for, raw_public_key, verify_key_proof
 from pydantic import BaseModel, ConfigDict, Field
 
 _IMAGE = re.compile(r"(?P<repository>[^@]+)@(?P<digest>sha256:[0-9a-f]{64})\Z", re.ASCII)
@@ -70,6 +70,17 @@ class PreparationReceipt(BaseModel):
     destination: str
     mutation_performed: bool
     deployment_ready: bool
+
+
+class EnrollmentRefreshReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    schema_version: str
+    installation_id: str
+    installation_key_id: str
+    requested_at: datetime
+    destination: str
+    mutation_performed: bool
 
 
 def prepare_installation(
@@ -331,6 +342,60 @@ def prepare_installation(
                     path.rmdir()
             destination.rmdir()
         raise
+
+
+def refresh_enrollment(
+    *,
+    prepared: Path,
+    destination: Path,
+    now: datetime,
+) -> EnrollmentRefreshReceipt:
+    """Refresh only enrollment freshness while preserving the prepared installation identity."""
+
+    if now.tzinfo is None:
+        raise ValueError("Enrollment refresh time must include a timezone.")
+    prepared = prepared.absolute()
+    destination = destination.absolute()
+    if destination.parent != prepared or destination.exists() or destination.is_symlink():
+        raise ValueError("Refreshed enrollment must be a new file in the prepared directory.")
+
+    private_key = serialization.load_pem_private_key(
+        read_private_bytes(prepared / "installation-private.pem", max_bytes=16 * 1024),
+        password=None,
+    )
+    if not isinstance(private_key, Ed25519PrivateKey):
+        raise ValueError("Prepared installation key must be Ed25519.")
+    signed = schemas.SignedEnrollment.model_validate_json(
+        read_private_bytes(prepared / "signed-enrollment.json", max_bytes=256 * 1024)
+    )
+    request = schemas.enrollment_request(signed.signed_payload, signed.proof)
+    if raw_public_key(private_key) != request.installation_key or not verify_key_proof(
+        public_key=request.installation_key,
+        payload=request.signed_payload,
+        signature=request.proof,
+    ):
+        raise ValueError("Prepared enrollment proof does not match the installation key.")
+    payload = schemas.EnrollmentPayload.model_validate_json(signed.signed_payload)
+    template = payload.model_dump(
+        mode="json",
+        exclude={"installation_key", "requested_at"},
+    )
+    refreshed = schemas.sign_enrollment(template, private_key, now)
+    document = schemas.SignedEnrollment.model_validate(
+        {
+            "signed_payload": base64.b64encode(refreshed.signed_payload).decode("ascii"),
+            "proof": base64.b64encode(refreshed.proof).decode("ascii"),
+        }
+    )
+    _write_json(destination, document.model_dump(mode="json"))
+    return EnrollmentRefreshReceipt(
+        schema_version="fdai.enrollment-refresh-receipt.v1",
+        installation_id=refreshed.installation.installation_id,
+        installation_key_id=refreshed.installation_key_id,
+        requested_at=now,
+        destination=str(destination),
+        mutation_performed=True,
+    )
 
 
 def _component_images(
