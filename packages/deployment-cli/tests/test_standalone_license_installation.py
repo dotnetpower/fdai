@@ -13,7 +13,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from fdai_deployment_cli import license_issue, standalone_host
+from fdai_deployment_cli import license_issue, standalone_host, standalone_host_rebind
 from fdai_deployment_cli import standalone_license_installation as installation
 from fdai_deployment_cli.license import signed_token_schema
 
@@ -300,12 +300,13 @@ def test_bind_installed_license_updates_only_retained_core_contract(tmp_path: Pa
         == "fdai-capability-license"
     )
     assert (
-        standalone_host._license_application_operation(
+        standalone_host_rebind.pending_application_operation(
             standalone_host._private_json(
                 tmp_path / "context.json",
                 "standalone host context",
             ),
             tmp_path,
+            input_rebind_pending=False,
         )
         == "license-application-update"
     )
