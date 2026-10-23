@@ -12,8 +12,10 @@ locals {
       "private.mkdir(mode=0o700,exist_ok=True)",
       "private.chmod(0o700)",
       "p=private/'local-policy.json'",
-      "p.exists() or p.write_bytes(Path('/config/private/local-policy.json').read_bytes())",
-      "p.chmod(0o600)",
+      "t=private/'.local-policy.json.tmp'",
+      "t.write_bytes(Path('/config/private/local-policy.json').read_bytes())",
+      "t.chmod(0o600)",
+      "t.replace(p)",
     ],
     var.installation.configuration_artifact == null ? [] : [
       "cache=Path('/state/artifact-cache/configurations')",
@@ -27,11 +29,15 @@ locals {
     ],
     local.native ? [
       "p=private/'native-approval.json'",
-      "p.exists() or p.write_bytes(Path('/config/private/native-approval.json').read_bytes())",
-      "p.chmod(0o600)",
+      "t=private/'.native-approval.json.tmp'",
+      "t.write_bytes(Path('/config/private/native-approval.json').read_bytes())",
+      "t.chmod(0o600)",
+      "t.replace(p)",
       "p=private/'installation-public.pem'",
-      "p.exists() or p.write_bytes(Path('/config/private/installation-public.pem').read_bytes())",
-      "p.chmod(0o600)",
+      "t=private/'.installation-public.pem.tmp'",
+      "t.write_bytes(Path('/config/private/installation-public.pem').read_bytes())",
+      "t.chmod(0o600)",
+      "t.replace(p)",
     ] : [],
   ))
 }

@@ -331,7 +331,8 @@ bind-mounts only the required PVC files by `subPath` beneath the image's UID-own
 initializer keeps its private-input and artifact-cache directories in distinct variables; native
 approval and installation identity files cannot drift into the configuration cache. Because the
 initializer is a separate Job, every PVC `subPath` source exists before kubelet prepares the Agent
-Pod.
+Pod. Each run rewrites private inputs from the retained Secret through mode-`0600` temporary files
+and atomic replacement; prior file presence is never treated as trust.
 
 `fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
 remote effect. From a clean source revision, digest-pinned component images, a reviewed private

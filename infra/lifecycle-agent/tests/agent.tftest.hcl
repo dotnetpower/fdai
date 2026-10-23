@@ -85,7 +85,7 @@ run "enable_single_writer_agent" {
       ) &&
       strcontains(
         kubernetes_job_v1.initialize[0].spec[0].template[0].spec[0].container[0].args[0],
-        "p=private/'native-approval.json'",
+        "t.replace(p)",
       ) &&
       !contains(
         kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].volume_mount[*].name,

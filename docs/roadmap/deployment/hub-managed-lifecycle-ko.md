@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: f4195f44292dd9a94360cdf60a7fc6861b469635
+translation_source_sha: c14ddde9f073b1a5f077657b506037545b70508f
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -334,7 +334,9 @@ owner-only `0600` 파일로 복사합니다. main Agent는 Kubernetes Secret을 
 비공개 입력 parent로 취급하지 않습니다. 초기화 컨테이너는 비공개 입력 디렉터리와 산출물
 캐시 디렉터리를 서로 다른 변수로 유지하므로 native 승인과 설치본 신원 파일이 구성 캐시로
 이동하지 않습니다. 초기화가 별도 Job이므로 kubelet이 Agent Pod를 준비하기 전에 모든 PVC
-`subPath` 원본이 존재합니다.
+`subPath` 원본이 존재합니다. Job을 실행할 때마다 보존된 Secret에서 mode-`0600` 임시
+파일을 쓰고 atomic replace하여 비공개 입력을 갱신하므로 기존 파일의 존재를 신뢰로
+간주하지 않습니다.
 
 `fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
 깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,
