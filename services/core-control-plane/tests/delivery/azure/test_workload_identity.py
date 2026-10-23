@@ -284,3 +284,27 @@ async def test_concurrent_get_token_calls_across_audiences_are_independent() -> 
         )
     assert {t.token for t in tokens} == {"tok-aud-a", "tok-aud-b", "tok-aud-c"}
     assert hit_count == 3
+
+
+_FEDERATED_ENV = {
+    "AZURE_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+    "AZURE_TENANT_ID": "00000000-0000-0000-0000-000000000002",
+    "AZURE_FEDERATED_TOKEN_FILE": "/var/run/secrets/azure/tokens/token",
+}
+_SECONDARY_CLIENT = "00000000-0000-0000-0000-000000000003"
+
+
+def test_aks_federation_selects_declared_secondary_identity() -> None:
+    config = identity_module._config_from_env(
+        {**_FEDERATED_ENV, "FDAI_NOTIFICATION_MI_CLIENT_ID": _SECONDARY_CLIENT},
+        client_id_env="FDAI_NOTIFICATION_MI_CLIENT_ID",
+    )
+    assert config.client_id == _SECONDARY_CLIENT
+
+
+def test_aks_federation_rejects_undeclared_secondary_identity() -> None:
+    with pytest.raises(ManagedIdentityConfigurationError, match="differs from the selected"):
+        identity_module._config_from_env(
+            {**_FEDERATED_ENV, "FDAI_MI_CLIENT_ID": _SECONDARY_CLIENT},
+            client_id_env="FDAI_MI_CLIENT_ID",
+        )

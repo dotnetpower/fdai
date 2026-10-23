@@ -18,6 +18,10 @@ from fdai_deployment_cli.development_authority_profile import (
     stage_development_authority_profile,
 )
 from fdai_deployment_cli.foundation_adoption_transport import stage_foundation_context
+from fdai_deployment_cli.notification_recipients_input import (
+    NotificationRecipientsDeploymentInput,
+    stage_notification_recipients,
+)
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     OperationalEvidenceVerifierDeploymentInput,
     stage_operational_evidence_verifier_input,
@@ -52,6 +56,7 @@ def prepare_remote(
     timeout_seconds: int,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
     operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
+    notification_recipients: NotificationRecipientsDeploymentInput | None = None,
     development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
     clear_development_authority_profile: bool = False,
     control_package: ControlPackage | None = None,
@@ -165,6 +170,12 @@ def prepare_remote(
             prepared_root=handoff_path.parent,
             remote_root=remote_root,
         )
+        notification_recipients_arguments = stage_notification_recipients(
+            notification_recipients,
+            tunnel=tunnel,
+            prepared_root=handoff_path.parent,
+            remote_root=remote_root,
+        )
         development_authority_arguments = stage_development_authority_profile(
             development_authority_profile,
             tunnel=tunnel,
@@ -227,6 +238,7 @@ def prepare_remote(
             ),
             *catalog_review_arguments,
             *verifier_arguments,
+            *notification_recipients_arguments,
             *development_authority_arguments,
             *(("--clear-development-profile",) if clear_development_authority_profile else ()),
             *(

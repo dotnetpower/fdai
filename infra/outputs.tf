@@ -242,7 +242,20 @@ output "runtime_identity_bindings" {
       client_id    = module.operational_evidence_verifier_identity[0].client_id
       principal_id = module.operational_evidence_verifier_identity[0].principal_id
     } : null
+    notification = var.enable_email_notifications ? {
+      resource_id  = module.notification_identity[0].resource_id
+      client_id    = module.notification_identity[0].client_id
+      principal_id = module.notification_identity[0].principal_id
+    } : null
   }
+}
+
+output "notification_email_binding" {
+  description = "Non-secret ACS Email endpoint and sender for a separately stateful runtime renderer. Null unless email notifications are enabled; recipients are a private input and are never an output."
+  value = var.enable_email_notifications ? {
+    endpoint       = "https://${azurerm_communication_service.notifications[0].hostname}"
+    sender_address = "DoNotReply@${azurerm_email_communication_service_domain.notifications[0].from_sender_domain}"
+  } : null
 }
 
 output "container_app_environment_id" {

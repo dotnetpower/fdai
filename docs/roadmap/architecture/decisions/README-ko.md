@@ -1,8 +1,8 @@
 ---
 title: Architecture Decision Record
 translation_of: README.md
-translation_source_sha: 816a5a7b117d380c640d930fc05de8458b562fa0
-translation_revised: 2026-10-02
+translation_source_sha: 5e6095da31bc953c9ece370307d6bd4fe8c59616
+translation_revised: 2026-10-22
 ---
 # 아키텍처 결정 기록
 
@@ -21,6 +21,7 @@ translation_revised: 2026-10-02
 | [ADR-0001](0001-azure-day-zero-platform-ko.md) | Accepted | Azure day-zero platform 기준선 | `tech-stack.md`의 lightweight OD와 배포 초안 |
 | [ADR-0002](0002-independent-runtime-axes-ko.md) | Accepted | 독립적인 런타임, 신원, 자율성, 포크 축 | 로컬 shadow-only 및 production-fork 결합 |
 | [ADR-0003](0003-hub-managed-lifecycle-and-operator-governance-ko.md) | Accepted | 세 번째 설치 경로인 Hub 관리형 수명 주기와 단독 운영자 거버넌스 | 두 가지 설치 경로 규칙과 2인 전용 상시 권한 |
+| [ADR-0004](0004-local-isolated-executor-principal-ko.md) | Proposed | 개발 권한을 위한 로컬 격리 executor 주체 | 개발 프로파일의 배포 전용 executor 신원 |
 
 ## 상태 vocabulary
 
@@ -64,4 +65,5 @@ translation_revised: 2026-10-02
 | Azure day-zero 기준선 | [ADR-0001](0001-azure-day-zero-platform-ko.md) |
 | 런타임 및 사용자 지정 축 | [ADR-0002](0002-independent-runtime-axes-ko.md) |
 | Hub 관리형 수명 주기와 운영자 거버넌스 | [ADR-0003](0003-hub-managed-lifecycle-and-operator-governance-ko.md) |
+| 로컬 격리 executor 주체 | [ADR-0004](0004-local-isolated-executor-principal-ko.md) |
 | 기술 선택 상세 | [Technology Stack](../tech-stack-ko.md) |

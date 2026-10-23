@@ -19,6 +19,8 @@ from fdai_deployment_cli.standalone_host_values import vault_name
 _GUID = re.compile(r"^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$")
 _CLOSURE_CLOCK_SKEW = timedelta(seconds=60)
 _INITIAL_INVENTORY_SOURCES = ("arg", "arm")
+_ATTEMPT_SCHEMA = "fdai.aks-initial-inventory-attempt.v1"
+_MAX_ATTEMPTS = 3
 
 
 def initial_inventory_binding(subscription_id: str) -> dict[str, object]:
@@ -49,42 +51,66 @@ def run_initial_aks_inventory(
     binding = _validated_initial_inventory_binding(context)
     sources = binding["sources"]
     if not isinstance(sources, list):
-        raise ValueError("initial inventory source binding is invalid")
+        raise ValueError(  # noqa: TRY004 - normalize untrusted deployment state
+            "initial inventory source binding is invalid"
+        )
     progress_url = str(context.get("inventory_progress_container_url", ""))
     if not progress_url.startswith("https://"):
         raise ValueError("initial inventory progress endpoint is invalid")
     image_refs = _mapping(context.get("image_refs"), "runtime image references")
     core_image = str(image_refs.get("core-control-plane", ""))
     run_id = f"genesis.{source_revision}"
-    retry = _retry_index(work_dir)
+    attempt = _begin_inventory_attempt(
+        work_dir,
+        source_revision=source_revision,
+        target_binding=target_binding,
+    )
     attempt_id = (
         "attempt."
         + hashlib.sha256(
-            f"{source_revision}:{target_binding}:initial-inventory".encode()
+            f"{source_revision}:{target_binding}:initial-inventory:{attempt}".encode()
         ).hexdigest()[:32]
-        + (".retry1" if retry else "")
     )
-    execution = execute_aks_cronjob_once(
-        context,
+    try:
+        execution = execute_aks_cronjob_once(
+            context,
+            work_dir,
+            template_name="inventory",
+            purpose="inventory",
+            expected_container_name="inventory",
+            expected_image=core_image,
+            expected_command=("python", "-m", "fdai.delivery.inventory_sync_cli"),
+            expected_service_account="inventory-job",
+            args=("--initial",),
+            environment={
+                "FDAI_INVENTORY_EXECUTION_ATTEMPT": str(attempt),
+                "FDAI_INVENTORY_RESOURCE_TYPES": "",
+                "FDAI_INVENTORY_SCOPES": str(context["subscription_id"]),
+                "FDAI_INVENTORY_SOURCES": ",".join(str(source) for source in sources),
+                # The operations progress container is private to the managed host. The in-cluster
+                # Job records progress in PostgreSQL; the host closure completes the blob chain.
+                "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
+                "FDAI_INVENTORY_PROGRESS_RUN_ID": run_id,
+            },
+            require_suspended=False,
+            timeout_seconds=960,
+        )
+    except ValueError as exc:
+        if str(exc) == "AKS inventory Job failed":
+            _write_inventory_attempt(
+                work_dir,
+                source_revision=source_revision,
+                target_binding=target_binding,
+                attempt=attempt,
+                state="failed",
+            )
+        raise
+    _write_inventory_attempt(
         work_dir,
-        template_name="inventory",
-        purpose="inventory",
-        expected_container_name="inventory",
-        expected_image=core_image,
-        expected_command=("python", "-m", "fdai.delivery.inventory_sync_cli"),
-        expected_service_account="inventory-job",
-        args=("--initial",),
-        environment={
-            "FDAI_INVENTORY_RESOURCE_TYPES": "",
-            "FDAI_INVENTORY_SCOPES": str(context["subscription_id"]),
-            "FDAI_INVENTORY_SOURCES": ",".join(str(source) for source in sources),
-            # The operations progress container is private to the managed host. The in-cluster
-            # Job records progress in PostgreSQL; the host closure completes the blob chain.
-            "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
-            "FDAI_INVENTORY_PROGRESS_RUN_ID": run_id,
-        },
-        require_suspended=False,
-        timeout_seconds=960,
+        source_revision=source_revision,
+        target_binding=target_binding,
+        attempt=attempt,
+        state="succeeded",
     )
     infra = Path(str(context["infra"]))
     bundle = infra.parent
@@ -182,22 +208,68 @@ def run_initial_aks_inventory(
     return receipt
 
 
-def _retry_index(work_dir: Path) -> int:
-    """Allow one later invocation to retry a failed read-only initial inventory Job."""
-
-    checkpoints = sorted(work_dir.glob("fdai-inventory-*.terminal.json"))
-    if not checkpoints:
-        return 0
-    if len(checkpoints) != 1:
-        raise ValueError("initial inventory retry evidence is ambiguous")
-    checkpoint = private_json(checkpoints[0], "initial inventory terminal checkpoint")
+def _begin_inventory_attempt(
+    work_dir: Path,
+    *,
+    source_revision: str,
+    target_binding: str,
+) -> int:
+    path = work_dir / "initial-inventory-attempt.json"
+    if not path.exists():
+        _write_inventory_attempt(
+            work_dir,
+            source_revision=source_revision,
+            target_binding=target_binding,
+            attempt=1,
+            state="active",
+        )
+        return 1
+    value = private_json(path, "initial inventory attempt")
+    digest = value.pop("record_digest", None)
+    attempt = value.get("attempt")
+    state = value.get("state")
     if (
-        checkpoint.get("schema_version") != "fdai.aks-one-shot-execution-checkpoint.v1"
-        or checkpoint.get("state") != "terminal"
-        or checkpoint.get("outcome") not in {"failed", "succeeded"}
+        digest != canonical_digest(value)
+        or value.get("schema_version") != _ATTEMPT_SCHEMA
+        or value.get("source_revision") != source_revision
+        or value.get("target_binding") != target_binding
+        or type(attempt) is not int
+        or not 1 <= attempt <= _MAX_ATTEMPTS
+        or state not in {"active", "failed", "succeeded"}
     ):
-        raise ValueError("initial inventory retry evidence is invalid")
-    return 1 if checkpoint["outcome"] == "failed" else 0
+        raise ValueError("initial inventory attempt is invalid")
+    if state != "failed":
+        return attempt
+    if attempt >= _MAX_ATTEMPTS:
+        raise ValueError("initial inventory attempts are exhausted")
+    next_attempt = attempt + 1
+    _write_inventory_attempt(
+        work_dir,
+        source_revision=source_revision,
+        target_binding=target_binding,
+        attempt=next_attempt,
+        state="active",
+    )
+    return next_attempt
+
+
+def _write_inventory_attempt(
+    work_dir: Path,
+    *,
+    source_revision: str,
+    target_binding: str,
+    attempt: int,
+    state: str,
+) -> None:
+    value: dict[str, object] = {
+        "schema_version": _ATTEMPT_SCHEMA,
+        "source_revision": source_revision,
+        "target_binding": target_binding,
+        "attempt": attempt,
+        "state": state,
+    }
+    value["record_digest"] = canonical_digest(value)
+    replace_private_json(work_dir / "initial-inventory-attempt.json", value)
 
 
 def require_initial_inventory_receipt(
@@ -253,7 +325,9 @@ def _verified_closure(
     except json.JSONDecodeError as exc:
         raise ValueError("initial inventory closure receipt is invalid") from exc
     if not isinstance(value, dict):
-        raise ValueError("initial inventory closure receipt is invalid")
+        raise ValueError(  # noqa: TRY004 - normalize untrusted receipt JSON
+            "initial inventory closure receipt is invalid"
+        )
     required_true = (
         "subscription_root",
         "final_fence",
@@ -314,7 +388,7 @@ def _parse_observed_at(value: object) -> datetime | None:
     if not isinstance(value, str):
         return None
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError:
         return None
     if parsed.tzinfo is None:

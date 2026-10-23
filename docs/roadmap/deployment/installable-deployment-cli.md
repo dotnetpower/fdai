@@ -168,6 +168,11 @@ source migration again. Any other source difference remains blocked.
 Recovery reads the image-augmented Foundation variables when an artifact-offline image was used,
 or the base Foundation variables for an image-free connected run. It never fabricates an image
 receipt or changes bootstrap mode while selecting the retained input.
+The planner also reads the retained runner's supported guest-patch mode and platform-safety bypass
+from authoritative Terraform state. If provider refresh exposes a newer tenant-enforced selection,
+it validates the runner's `before` values, pins that exact pair in the recovery variables, and plans
+once more. Unsupported or inconsistent values stop planning instead of letting recovery revert the
+setting.
 When the application group already exists in the original state, policy-only recovery preserves
 its exact state ID and requires a no-op. It never renames or adopts that group. A missing
 application group still follows the distinct-name and verified-absence contract.
@@ -229,12 +234,17 @@ the backend. Missing local state alone grants no authority. Live recovery accept
 
 ### Explicit source recovery
 Resume with `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`.
+The recovery directory is one named `foundation-recovery-attempt-<n>` child of the original
+Foundation directory; sibling or unrelated paths are rejected before transfer.
 Original snapshot, profile, region and budget remain immutable; execution source is separate. Missing
 success returns review. Separate exact approvals advance enrollment/migration; claims allow verification
 only, never repeated apply or scope changes. Completed migration observes the backend without reenrollment.
 Recovery apply, enrollment, and state migration admit the current clean operator-selected checkout
 without requiring protected-branch CI. Historical execution revisions remain authenticated by their
 immutable receipts and original snapshot rather than being re-admitted as current source.
+Both recovery preparation and the shared state-handoff stage validate that current
+operator-selected source; the state-handoff does not perform a second maintainer-CI check against
+the historical handoff revision.
 When the enterprise identity add-on is selected, recovered continuation supplies the verified
 recovery handoff to the Entra stage so runner-principal readback does not depend on a superseded
 original apply handoff file.

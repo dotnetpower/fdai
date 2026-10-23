@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d47bb532e1a5d3bde76e495b7c132c11c8d68d50 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 4c7f9426762b0dcacd7e44e627f066f2613a21e5 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d47bb532e1a5d3bde76e495b7c132c11c8d68d50 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fed6ff2bb675275d8a97e74d1cbe1922a645a54b }]
 ---
 
 # Deploy Quickstart
@@ -172,36 +172,6 @@ keeping the same scrolling records. Quiet preparation and preflight work writes 
 record every 10 seconds, followed by an explicit completion or failure record. The private work
 directory must be outside your clone.
 
-### Validate a change without reinstalling
-
-For an existing healthy source-AKS development installation, classify an exact Git range before
-starting Azure work:
-
-```bash
-fdaictl provision source-change-plan \
-  --source . \
-  --base <previous-commit>
-```
-
-The command returns `no-deploy`, `console-update`, `single-service-update`,
-`multi-service-update`, `full-release-required`, `split-update-required`, or
-`higher-lane-required`. It does not contact Azure or change deployment state.
-
-For a supported service-only result, run the guarded coordinator:
-
-```bash
-fdaictl provision source-changed-update \
-  --source . \
-  --base <previous-commit> \
-  --application-work-dir <retained-application-work-dir> \
-  --work-dir <private-update-work-dir>
-```
-
-Each affected baseline service keeps its existing image-import approval, exact Terraform-plan
-approval, health readback, peer-invariance check, and targeted zero-change plan. The command does
-not turn Console, migration, infrastructure, optional-image, staging, production, or unclassified
-changes into a fast service update.
-
 For a disposable source-AKS development installation, you can add
 `--development-authority-profile <private-reviewed-profile.json>`. FDAI validates and transfers the
 profile only for the application plan and derives the separate executor principal from it. Omitting
@@ -244,6 +214,8 @@ with `--add-on` and optional observation sources with `--observation-source`; th
 headless observation-first profile. The partial AKS compute cost review uses a 1500 USD monthly
 ceiling unless you pass `--monthly-cost-ceiling <USD>`. These settings do not deploy resources by
 themselves.
+The `notifications` add-on also needs `--notification-recipients <path>`: a private JSON file
+`{"recipients": ["name@domain"]}` that stays out of the runtime profile and receipts.
 
 Before the Foundation plan, Genesis reads the regional VM catalog and chooses a compatible managed
 host size within the quota budget. The choice is sealed before approval and never changed during

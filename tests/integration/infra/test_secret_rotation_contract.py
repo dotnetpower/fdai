@@ -56,6 +56,36 @@ def test_postgres_container_satisfies_restricted_pod_security() -> None:
     assert 'drop = ["ALL"]' in root
 
 
+def test_postgres_aks_keeps_azure_tags_out_of_kubernetes_labels() -> None:
+    root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
+    variables = (ROOT / "infra/runtimes/aks/database/variables.tf").read_text(encoding="utf-8")
+
+    assert "labels = merge(var.tags" not in root
+    assert '"fdai.io/runtime"              = "aks"' in root
+    assert root.count("tags         = var.tags") == 3
+    assert (
+        'description = "Azure resource tags applied to the published Key Vault secrets."'
+        in variables
+    )
+
+
+def test_postgres_aks_sets_container_level_non_root_security_context() -> None:
+    root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
+
+    assert root.count("run_as_non_root") == 2
+    assert root.count("run_as_user") == 2
+    assert root.count("run_as_group") == 2
+
+
+def test_postgres_aks_publishes_a_psycopg_compatible_dsn() -> None:
+    root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
+
+    assert "postgresql+psycopg://" not in root
+    assert (
+        '"postgresql://${urlencode(var.admin_login)}:${urlencode(random_password.postgres.result)}@'
+    ) in root
+
+
 def test_postgres_aks_publishes_role_scoped_ingestion_dsns() -> None:
     root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
     variables = (ROOT / "infra/runtimes/aks/database/variables.tf").read_text(encoding="utf-8")

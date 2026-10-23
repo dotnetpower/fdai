@@ -31,6 +31,10 @@ from fdai_deployment_cli.source_input import inspect_source
 from fdai_deployment_cli.source_snapshot import verify_source_snapshot
 from fdai_deployment_cli.standalone_deploy import active_azure_target
 from fdai_deployment_cli.target import compute_target_binding
+from genesis_foundation_apply import (
+    _observed_runner_patch_selection,
+    _runner_patch_selection,
+)
 from genesis_foundation_apply_contract import load_apply_claim
 from genesis_foundation_recovery import select_public_ip_tags, validate_recovery_plan
 from genesis_foundation_recovery_successor import (
@@ -44,6 +48,7 @@ from genesis_subprocess import run_with_heartbeat
 from source_foundation_execution import _copy_private_tree
 
 _MAX = 64 * 1024 * 1024
+_RUNNER_ADDRESS = "module.bootstrap.azurerm_linux_virtual_machine.runner[0]"
 
 
 def require_naming_only(original: Path, current: Path) -> None:
@@ -117,6 +122,52 @@ def _foundation_variables(root: Path) -> Path:
         if augmented.exists() or augmented.is_symlink()
         else root / "foundation-variables.json"
     )
+
+
+def _recovery_variables(
+    retained: dict[str, object],
+    state: dict[str, object],
+    *,
+    application_workload: str,
+) -> dict[str, object]:
+    variables = dict(retained)
+    variables["application_workload"] = application_workload
+    variables["operations_public_ip_tags"] = select_public_ip_tags(state)
+    variables.update(_observed_runner_patch_selection(state))
+    return variables
+
+
+def _projected_runner_patch_selection(projection: dict[str, object]) -> dict[str, object]:
+    changes = projection.get("resource_changes")
+    if not isinstance(changes, list):
+        raise ValueError("Foundation recovery plan has no resource inventory")
+    runner = next(
+        (
+            entry
+            for entry in changes
+            if isinstance(entry, dict) and entry.get("address") == _RUNNER_ADDRESS
+        ),
+        None,
+    )
+    if runner is None:
+        return {}
+    change = runner.get("change")
+    if not isinstance(change, dict) or change.get("actions") != ["update"]:
+        return {}
+    before = change.get("before")
+    after = change.get("after")
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        raise ValueError("Foundation recovery runner patch projection is invalid")
+    fields = ("patch_mode", "bypass_platform_safety_checks_on_user_schedule_enabled")
+    if all(before.get(field) == after.get(field) for field in fields):
+        return {}
+    return _runner_patch_selection(before.get(fields[0]), before.get(fields[1]))
+
+
+def _replace_final_projection(work: Path, projection: bytes) -> None:
+    path = work / "show.stdout"
+    path.unlink(missing_ok=True)
+    write_private_bytes(path, projection)
 
 
 def _without_variable(content: bytes, name: str) -> bytes:
@@ -330,11 +381,14 @@ def _prepare_locked(
         expected_region=profile.region,
         expected_environment=profile.environment,
     )
-    variables = _json(normalized)
-    if canonical_digest(variables) != context["variables_digest"]:
+    retained_variables = _json(normalized)
+    if canonical_digest(retained_variables) != context["variables_digest"]:
         raise ValueError("Foundation recovery original variables changed")
-    variables["application_workload"] = application_workload
-    variables["operations_public_ip_tags"] = select_public_ip_tags(state)
+    variables = _recovery_variables(
+        retained_variables,
+        state,
+        application_workload=application_workload,
+    )
     if (
         predecessor is not None
         and canonical_digest(variables) != predecessor[0]["variables_digest"]
@@ -414,6 +468,45 @@ def _prepare_locked(
     projection = load_json_object(
         projection_bytes, label="Foundation recovery plan", max_bytes=_MAX
     )
+    projected_patch = _projected_runner_patch_selection(projection)
+    if projected_patch and any(
+        variables.get(key) != value for key, value in projected_patch.items()
+    ):
+        variables.update(projected_patch)
+        variables_path = work / "recovery-variables.json"
+        variables_path.unlink()
+        write_private_bytes(variables_path, canonical_bytes(variables))
+        plan_path = work / "recovery.tfplan"
+        plan_path.unlink()
+        _run(
+            [
+                str(binary),
+                "plan",
+                "-input=false",
+                "-no-color",
+                "-lock-timeout=0s",
+                f"-state={state_path}",
+                f"-var-file={variables_path}",
+                f"-out={plan_path}",
+            ],
+            cwd=root,
+            environment=environment,
+            deadline=deadline,
+            work=work,
+            label="patch-plan",
+        )
+        projection_bytes = _run(
+            [str(binary), "show", "-json", str(plan_path)],
+            cwd=root,
+            environment=environment,
+            deadline=deadline,
+            work=work,
+            label="patch-show",
+        )
+        projection = load_json_object(
+            projection_bytes, label="Foundation recovery patch plan", max_bytes=_MAX
+        )
+        _replace_final_projection(work, projection_bytes)
     summary = (
         validate_successor_plan(projection, predecessor[2], state)
         if predecessor is not None

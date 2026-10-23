@@ -250,7 +250,7 @@ resource "kubernetes_service_v1" "postgres_private" {
 
 locals {
   private_host         = kubernetes_service_v1.postgres_private.status[0].load_balancer[0].ingress[0].ip
-  dsn                  = "postgresql://${var.admin_login}:${random_password.postgres.result}@${local.private_host}:5432/${var.database_name}?sslmode=require"
+  dsn                  = "postgresql://${urlencode(var.admin_login)}:${urlencode(random_password.postgres.result)}@${local.private_host}:5432/${var.database_name}?sslmode=require"
   ingestion_api_dsn    = "${local.dsn}&options=-c%20role%3Dfdai_ingestion_api"
   ingestion_worker_dsn = "${local.dsn}&options=-c%20role%3Dfdai_ingestion_worker"
 }

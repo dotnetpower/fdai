@@ -507,22 +507,13 @@ def _bind_observed_public_ip_tags(*, state_path: Path, normalized_variables: Pat
 _SUPPORTED_PATCH_MODES = ("ImageDefault", "AutomaticByPlatform")
 
 
-def _observed_runner_patch_selection(state: Mapping[str, object]) -> dict[str, object]:
-    """Accept only a supported guest patch selection on the retained runner VM."""
+def _runner_patch_selection(mode: object, bypass: object) -> dict[str, object]:
+    """Validate one exact guest-patch selection from authoritative provider state."""
 
-    from genesis_foundation_recovery import _state_instances
-
-    instance = _state_instances(state).get(
-        "module.bootstrap.azurerm_linux_virtual_machine.runner[0]"
-    )
-    if instance is None:
-        return {}
-    mode = instance.get("patch_mode")
     if mode is None:
         return {}
     if not isinstance(mode, str) or mode not in _SUPPORTED_PATCH_MODES:
         raise ValueError("Foundation runner guest patch mode is unsupported")
-    bypass = instance.get("bypass_platform_safety_checks_on_user_schedule_enabled")
     if bypass is None:
         bypass = False
     if not isinstance(bypass, bool):
@@ -533,6 +524,22 @@ def _observed_runner_patch_selection(state: Mapping[str, object]) -> dict[str, o
         "runner_patch_mode": mode,
         "runner_bypass_platform_safety_checks": bypass,
     }
+
+
+def _observed_runner_patch_selection(state: Mapping[str, object]) -> dict[str, object]:
+    """Accept only a supported guest patch selection on the retained runner VM."""
+
+    from genesis_foundation_recovery import _state_instances
+
+    instance = _state_instances(state).get(
+        "module.bootstrap.azurerm_linux_virtual_machine.runner[0]"
+    )
+    if instance is None:
+        return {}
+    return _runner_patch_selection(
+        instance.get("patch_mode"),
+        instance.get("bypass_platform_safety_checks_on_user_schedule_enabled"),
+    )
 
 
 def _verify_foundation_effect(

@@ -150,6 +150,8 @@ instead proves bounded residual changes, the coordinator preserves the original 
 distinct residual review bound to the original claim, current state, target, source, runtime
 profile, and residual binary plan. It requires a new exact `<stage>-residual-apply` approval and a
 new residual claim before one effect. Destructive residuals retain the second confirmation.
+A fresh AKS runtime is claimed as `runtime-cluster` until it receives a receipt, so its residual
+review and apply read that retained review and claim rather than the ordinary `runtime` records.
 Residual apply ambiguity is verification-first and never repeats the saved plan. If authoritative
 replanning proves that only create actions remain after the focused private-access stage has
 converged, the coordinator may emit one fresh residual-successor plan. It requires another exact
@@ -255,7 +257,10 @@ Browser -> Static Web Apps -> API Management -> AKS LoadBalancer Service -> Pod
 
 Static Web Apps hosts the prebuilt Console. API Management (APIM) provides the public HTTPS API
 edge: the Operator API is routed at the APIM origin root, and Document Ingestion is routed at
-`/ingestion`. The Kubernetes Services listen on port 80 and forward to the existing container port.
+`/ingestion`. The Console calls ingestion with absolute paths, so the gateway keeps the `/ingestion`
+prefix on every ingestion route except the readiness probe and sends the root-level `/documents`
+routes to the ingestion backend; a regression test compares the gateway with the ingestion service's
+routes. API Management answers `412` when two writes to the same service overlap, so the two policies are written after the APIs and operations and one after the other. The Kubernetes Services listen on port 80 and forward to the existing container port.
 The workload state owns APIM because its backend addresses come from those Services. The shared
 substrate does not create Azure Front Door for this path.
 APIM tags derive from the stable workload labels under Azure-safe names. For example,
@@ -418,6 +423,7 @@ can create secrets, filesystems, or paths. A retained context may tighten either
 `false` to `true` after partial-substrate readback proves the private posture; loosening `true` to
 `false` is rejected as a context mismatch. An ambiguous access apply follows the same
 verification-first and bounded residual rules as every other stage.
+On AKS, the `notifications` add-on applies the same targeted substrate stage to the Azure Communication Services Email resources, the managed sender domain, the notification identity, and its sender role. Core then receives `FDAI_EMAIL_ENDPOINT`, `FDAI_EMAIL_SENDER_ADDRESS`, `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON`, and `FDAI_NOTIFICATION_MI_CLIENT_ID`, and its service account is federated to the notification identity as an additional identity. No new secret is created, delivery is informational, and the add-on grants no approval, promotion, or execution authority. A missing recipient list or incomplete binding fails the application plan closed.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
@@ -851,6 +857,11 @@ roles when `postgres-aks` is selected. Terraform `-target` keeps every configura
 target, even at count 0, so including those root secrets would otherwise plan the Flexible Server
 through `module.state_store`.
 
+The database root applies Azure ownership tags only to Key Vault secrets and uses DNS-safe keys for
+Kubernetes metadata labels. Shared and role-scoped DSNs use the standard `postgresql://` scheme
+with URL-encoded credentials, so direct psycopg migration and catalog tools and SQLAlchemy clients
+can consume the same secret.
+
 The Key Vault DSN has no independent fixed expiration. Credential rotation requires coordinated
 database and workload updates; expiring only the secret would interrupt access without rotating
 the database credential. This resource-local exception does not claim automated rotation evidence.
@@ -879,6 +890,11 @@ for that opt-in so Incident, Agent Activity, Trace, and optional cost-package ro
 its scan cost.
 
 On AKS, the substrate-targeted `terraform_data.installation` anchor uses the plan timestamp with ignored input changes and keeps the installation identifier and first-apply time in Terraform state, so no rerun or upgrade changes them while later plans remain fully known. The runtime stage applies the Container Insights association only after `azurerm_kubernetes_cluster.runtime` exists in state: the first fresh-cluster review targets every runtime resource except that association, then a second ordinary full-root runtime review creates the association. Each ordinary review names its managed-host `operation`: `runtime-cluster` or `runtime` here, and otherwise the stage or the bound service update. The controller approves a review only when that operation matches its stage. The Terraform configuration still rebuilds the association target ID instead of depending on the cluster resource, because monitoring-only targeted plans must not pull managed-cluster drift into scope. The application stage gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial writer once with the Key Vault state-store DSN and records a digest-bound receipt. The writer keeps a retained window unchanged, so a keyless installation keeps the 30-day window that started at its first apply ([capability licensing](../fork-and-sequencing/capability-licensing.md#durable-keyless-trial-target)). The deployment receipt reports `license_mode=trial` only while that read-back window is open under a trusted clock.
+
+Each initial-inventory one-shot uses a content-addressed attempt. A terminal failure remains
+immutable and is never redispatched in the same invocation. Only a later explicit source invocation
+can advance to the next attempt, with at most three attempts; an active or ambiguous attempt keeps
+the same identity for verification-only recovery.
 
 When the deploying operator holds the upstream integrity signing key, the deployment binding step
 also returns the installation binding. The capability stage then issues a no-expiry installation

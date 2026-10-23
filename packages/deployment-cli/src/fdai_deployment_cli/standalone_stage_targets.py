@@ -90,6 +90,13 @@ _SUBSTRATE_TARGETS: Final = (
     "azurerm_role_assignment.core_operator_request_core_seed_reader",
     "azurerm_role_assignment.core_operator_request_operator_seed_reader",
     "azurerm_role_assignment.operator_api_operator_request_seed_reader",
+    # Email notifications; every address is count 0 unless the add-on is selected.
+    "module.notification_identity",
+    "azurerm_communication_service.notifications",
+    "azurerm_email_communication_service.notifications",
+    "azurerm_email_communication_service_domain.notifications",
+    "azurerm_communication_service_email_domain_association.notifications",
+    "azurerm_role_assignment.notification_email_sender",
 )
 CONTAINER_INSIGHTS_ASSOCIATION_TARGET: Final = (
     "azurerm_monitor_data_collection_rule_association.container_insights"

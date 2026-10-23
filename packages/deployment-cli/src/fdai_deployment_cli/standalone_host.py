@@ -28,26 +28,34 @@ from fdai_deployment_cli import (
     standalone_terraform_environment,
 )
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
+from fdai_deployment_cli import notification_recipients_input as notification_recipients
 from fdai_deployment_cli import operational_evidence_verifier_input as oev
 from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
-from fdai_deployment_cli.standalone_service_update_finalization import (
-    add_finalization_parser,
-)
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     secret_binding_reordered,
-    single_block as _single,
     validate_reconciliation_plan,
+)
+from fdai_deployment_cli.aks_historical_reconciliation import (
+    single_block as _single,
 )
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
+)
+from fdai_deployment_cli.aks_service_update import (
     deployment_snapshot,
     peers_unchanged,
-    service_update_review as _service_update_review,
-    service_update_target as _service_update_target,
-    validated_secret_environment as _validated_secret_env,
     validate_plan_scope,
     validate_update_request,
+)
+from fdai_deployment_cli.aks_service_update import (
+    service_update_review as _service_update_review,
+)
+from fdai_deployment_cli.aks_service_update import (
+    service_update_target as _service_update_target,
+)
+from fdai_deployment_cli.aks_service_update import (
+    validated_secret_environment as _validated_secret_env,
 )
 from fdai_deployment_cli.aks_workload_jobs import (
     aks_kubernetes_direct_api_environment as _aks_kubernetes_direct_api_environment,
@@ -63,12 +71,6 @@ from fdai_deployment_cli.runtime_profile import (
     RuntimeDeploymentProfile,
     legacy_full_product_matches,
     legacy_runtime_profile_digest,
-)
-from fdai_deployment_cli.standalone_development_authority import (
-    apply_initial_development_authority,
-    apply_service_update_development_authority,
-    development_authority_from_args,
-    reconcile_retained_development_authority,
 )
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
@@ -96,6 +98,12 @@ from fdai_deployment_cli.standalone_checkpoint_failure import (
     terraform_failure as _terraform_failure,
 )
 from fdai_deployment_cli.standalone_database_principals import database_reader_principals
+from fdai_deployment_cli.standalone_development_authority import (
+    apply_initial_development_authority,
+    apply_service_update_development_authority,
+    development_authority_from_args,
+    reconcile_retained_development_authority,
+)
 from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
@@ -180,6 +188,9 @@ from fdai_deployment_cli.standalone_residual_apply import (
 from fdai_deployment_cli.standalone_residual_successor import (
     successor_prerequisite_verified as _residual_successor_prerequisite,
 )
+from fdai_deployment_cli.standalone_service_update_finalization import (
+    add_finalization_parser,
+)
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
 )
@@ -218,6 +229,7 @@ _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _mapping = standalone_host_values.mapping
 _required_guid = standalone_host_values.required_guid
 _selected_identity = standalone_host_values.selected_identity
+_aks_core_conversation_environment = standalone_host_values.aks_core_conversation_environment
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
 _AKS_RUNTIME_NAMESPACE = "fdai-runtime"
 _STAGES: Final = ("access", "substrate", "runtime", "database", "application")
@@ -251,6 +263,7 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--catalog-review-profile", type=Path)
     prepare.add_argument("--catalog-review-private-key", type=Path)
     prepare.add_argument("--operational-evidence-verifier-input", type=Path)
+    prepare.add_argument("--notification-recipients", type=Path)
     prepare.add_argument("--runtime-platform", default="aks")
     prepare.add_argument("--database-placement", default="postgres-flex")
     prepare.add_argument("--system-node-count", type=int, default=3)
@@ -455,6 +468,10 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         _absolute(verifier_input_path) if verifier_input_path else None
     )
     verifier_input_digest = verifier_input.input_digest if verifier_input is not None else ""
+    recipients_path = getattr(args, "notification_recipients", None)
+    recipients_input = notification_recipients.staged_notification_recipients_from_path(
+        _absolute(recipients_path) if recipients_path else None
+    )
     development_authority = development_authority_from_args(args, absolute=_absolute)
     foundation.login(_managed_identity_login, work_dir)
     suffix = (
@@ -529,6 +546,11 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             retained=retained,
             values=retained_values,
         )
+        recipients_changed = notification_recipients.reconcile_retained_notification_recipients(
+            recipients_input,
+            retained=retained,
+            values=retained_values,
+        )
         foundation.adoption.require_context(retained)
         source_changed = source_application_inputs.rebind_source_tree(retained, work_dir)
         authority_changed = reconcile_retained_development_authority(
@@ -539,7 +561,13 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             subscription_id=foundation.subscription_id,
             resource_groups=(str(app["name"]), str(ops["resource_group_name"])),
         )
-        if posture_changed or oev_changed or source_changed or authority_changed:
+        if (
+            posture_changed
+            or oev_changed
+            or recipients_changed
+            or source_changed
+            or authority_changed
+        ):
             _replace_private_json(retained_context, retained)
             _replace_private_json(retained_variables, retained_values)
         _terraform_init(work_dir, retained)
@@ -690,6 +718,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     )
     values.update(catalog_review_profile.catalog_review_terraform_values(catalog_profile))
     oev.apply_operational_evidence_verifier_input(values, verifier_input)
+    notification_recipients.apply_notification_recipients(values, recipients_input)
     if adoption is not None:
         values.update(
             resolved_capabilities=adoption[0]["resolved_capabilities"],
@@ -717,6 +746,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "catalog_review_profile_digest": catalog_profile.profile_digest,
         "catalog_review_selected": catalog_profile.selected,
         "oev_input_digest": verifier_input_digest,
+        "notification_recipients_digest": notification_recipients.context_digest(recipients_input),
         "development_authority_profile_digest": development_profile_digest,
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
@@ -872,75 +902,6 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     }
 
 
-def _aks_core_conversation_environment(
-    *,
-    application_values: dict[str, Any],
-    substrate_outputs: dict[str, object],
-    semantic_topics: list[object],
-) -> dict[str, str]:
-    """Build a complete Core semantic binding or reject incomplete model outputs."""
-
-    if len(semantic_topics) < 3:
-        raise ValueError("AKS semantic topic output contract is incomplete")
-
-    def required_text(value: object, label: str) -> str:
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"AKS {label} output is unavailable")
-        return value.strip()
-
-    environment = {
-        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": required_text(
-            semantic_topics[0], "semantic request topic"
-        ),
-        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": required_text(
-            semantic_topics[1], "semantic projection topic"
-        ),
-        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": required_text(
-            semantic_topics[2], "read investigation topic"
-        ),
-        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": required_text(
-            substrate_outputs.get("semantic_physical"), "semantic physical topic"
-        ),
-    }
-    enable_llm = application_values.get("enable_llm")
-    if not isinstance(enable_llm, bool):
-        raise TypeError("AKS enable_llm setting MUST be a boolean")
-    if not enable_llm:
-        return environment
-
-    endpoint = required_text(substrate_outputs.get("llm_endpoint"), "LLM endpoint")
-    digest = required_text(substrate_outputs.get("resolved_models_sha256"), "resolved-model digest")
-    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
-        raise ValueError("AKS resolved-model digest MUST be a lowercase SHA-256 digest")
-    model_endpoints = substrate_outputs.get("llm_model_endpoints")
-    if (
-        not isinstance(model_endpoints, dict)
-        or not model_endpoints
-        or any(
-            not isinstance(reference, str)
-            or not reference.strip()
-            or not isinstance(model_endpoint, str)
-            or not model_endpoint.strip()
-            for reference, model_endpoint in model_endpoints.items()
-        )
-    ):
-        raise ValueError("AKS LLM model endpoint outputs are incomplete")
-    environment.update(
-        {
-            "LLM_MODE": "azure",
-            "LLM_RESOLVED_MODELS_PATH": "/app/resolved-models.json",
-            "LLM_RESOLVED_MODELS_SHA256": digest,
-            "FDAI_LLM_ENDPOINT": endpoint,
-            "FDAI_MODEL_ENDPOINTS_JSON": json.dumps(
-                model_endpoints,
-                separators=(",", ":"),
-                sort_keys=True,
-            ),
-        }
-    )
-    return environment
-
-
 def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     context = _private_json(work_dir / "context.json", "standalone host context")
     if _runtime_platform(context) != "aks":
@@ -992,6 +953,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "operational_evidence_verifier_identity": _terraform_json_output(
             substrate, "operational_evidence_verifier_identity"
         ),
+        "notification_email": _terraform_json_output(substrate, "notification_email_binding"),
     }
     if _database_placement(context) == "postgres-flex":
         substrate_outputs.update(
@@ -1023,6 +985,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     )
     operator_api_selected = console_selected or enterprise_identity_selected
     governed_execution_selected = _selects_add_on(context, ProductAddOn.GOVERNED_EXECUTION)
+    notifications_selected = _selects_add_on(context, ProductAddOn.NOTIFICATIONS)
     console_origin = (
         _console_origin(str(substrate_outputs["console_hostname"])) if console_selected else ""
     )
@@ -1045,6 +1008,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     operator_identity = _selected_identity(identities, "operator", operator_api_selected)
     command_identity = _selected_identity(identities, "command", operator_api_selected)
     executor_identity = _selected_identity(identities, "executor", governed_execution_selected)
+    notification_identity = _selected_identity(identities, "notification", notifications_selected)
     inventory_identity = _mapping(identities.get("inventory"), "inventory runtime identity")
     canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
     ingestion_identity = _selected_identity(identities, "ingestion", console_selected)
@@ -1071,6 +1035,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     core_environment.update({**AKS_CORE_STARTUP_READINESS, **receipt_core_env})
     license_environment, license_secrets = aks_license_environment(application_values)
     core_environment.update(license_environment)
+    if notifications_selected:
+        core_environment.update(
+            standalone_host_values.aks_notification_environment(
+                application_values=application_values,
+                email_binding=substrate_outputs["notification_email"],
+                identity=notification_identity,
+            )
+        )
     operator_environment = (
         aks_operator_environment(
             application_values=application_values,
@@ -1096,7 +1068,16 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     refs = _mapping(context.get("image_refs"), "runtime image references")
     workloads = {
         "core-control-plane": _aks_workload(
-            "core", refs, core_identity, core_environment, dsn_secret, "/ready", "/live"
+            "core",
+            refs,
+            core_identity,
+            core_environment,
+            dsn_secret,
+            "/ready",
+            "/live",
+            additional_identities=(
+                {"notification": notification_identity} if notifications_selected else None
+            ),
         ),
     }
     if operator_api_selected:

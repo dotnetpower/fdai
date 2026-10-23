@@ -29,6 +29,9 @@ from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
 )
 from fdai_deployment_cli.license_issue import deployment_license_token as _license_token
+from fdai_deployment_cli.notification_recipients_input import (
+    NotificationRecipientsDeploymentInput,
+)
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     OperationalEvidenceVerifierDeploymentInput,
 )
@@ -71,6 +74,7 @@ def deploy_standalone_application(
     application_state_adoption: ApplicationStateAdoption | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
     operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
+    notification_recipients: NotificationRecipientsDeploymentInput | None = None,
     development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
     clear_development_authority_profile: bool = False,
     control_package: ControlPackage | None = None,
@@ -102,7 +106,7 @@ def deploy_standalone_application(
         plan_directory = foundation_recovery_directory.absolute()
         if (
             not source_mode
-            or plan_directory.parent != prepared.root.parent
+            or plan_directory.parent != prepared.root
             or re.fullmatch(r"foundation-recovery-attempt-[1-9][0-9]*", plan_directory.name) is None
             or not plan_directory.is_dir()
             or plan_directory.is_symlink()
@@ -234,6 +238,7 @@ def deploy_standalone_application(
                 catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
             ),
             operational_evidence_verifier_input=operational_evidence_verifier_input,
+            notification_recipients=notification_recipients,
             development_authority_profile=development_authority_profile,
             clear_development_authority_profile=clear_development_authority_profile,
             control_package=control_package,

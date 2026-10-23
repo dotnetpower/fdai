@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 33272734790d22bd659c93f5a557b9ec786c5bc9
+translation_source_sha: 06fa30af2d5d64ebddaf27df00e36129c2f68ef8
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -112,15 +112,6 @@ Container Apps는 거부합니다. 이 배포가 standalone 애플리케이션 �
 스냅샷에서 `fdaictl`을 설치하며, 스냅샷의 Terraform 루트와 마이그레이션 지원을 사용합니다.
 공급자는 커밋된 lock 파일 기준으로 공개 레지스트리에서 직접 해석합니다. 이미지 참조는 배포
 레지스트리 빌드 단계가 끝난 뒤 다시 읽은 다이제스트로만 런타임 프로파일에 들어갑니다.
-관찰 우선 프로파일은 외부 Operator와 문서 수집 Service를 만들지 않으므로 브라우저 gateway를
-비활성화합니다. Console add-on을 선택하면 이 두 브라우저 대상 워크로드와 함께 gateway를
-활성화합니다.
-archive 컨테이너 형식은 불변 소스 스냅샷의 수신기를 따릅니다. 현재 수신기는 gzip을 사용하고,
-보존된 이전 수신기는 기존 tar 형식을 유지합니다. 런타임 선택, 호스트 상태 또는 재시도 시점이
-이 형식을 암묵적으로 바꿀 수 없습니다.
-AKS 초기 인벤토리는 실패한 content-addressed Job checkpoint를 보존합니다. 이후 invocation은
-같은 보호된 template과 identity binding으로 `.retry1` attempt를 정확히 한 번 실행할 수
-있습니다. 두 번째 실패 또는 모호한 최종 증적이 있으면 추가 자동 시도 없이 중단합니다.
 Foundation에 정확한 복구가 필요했다면 검증된 상태 인계가 같은 순서로 들어갑니다. 복구 checkout은
 현재 복구 코드만 제공하며, 런타임 산출물은 원래 소스 스냅샷에 계속 고정되고 복구는 선택된
 런타임 프로파일을 바꿀 수 없습니다.
@@ -167,7 +158,8 @@ zero-change plan과 권위 있는 재조회가 원 claim을 종결합니다. 갱
 변경을 입증하면 조정기는 원 claim을 보존하고 원 claim, 현재 state, target, source, runtime
 profile, 잔여 이진 plan에 연결된 별도 residual review를 만듭니다. 한 번의 효과 전에 새 exact
 `<stage>-residual-apply` 승인과 새 residual claim이 필요하며 파괴적 잔여 변경에는 두 번째 확인을
-유지합니다. Residual apply가 모호하면 검증을 먼저 수행하고 저장된 plan을 반복하지 않습니다.
+유지합니다. 새 AKS runtime은 receipt를 받기 전까지 `runtime-cluster`로 claim되므로, 그 residual review와
+apply는 일반 `runtime` 기록이 아니라 보존된 `runtime-cluster` review와 claim을 읽습니다. Residual apply가 모호하면 검증을 먼저 수행하고 저장된 plan을 반복하지 않습니다.
 집중 비공개 접근 단계가 수렴한 뒤 권위 있는 재계획에서 create 작업만 남았음이 입증되면 조정기는
 새 residual-successor plan을 한 번만 만들 수 있습니다. 또 다른 exact 승인과 별도 successor
 claim이 필요합니다. update, replace, delete, 접근 증적 누락, 모호한 successor 효과 또는 무변경이
@@ -270,7 +262,9 @@ fdaictl provision azure \
 
 Static Web Apps는 미리 빌드된 Console을 호스팅합니다. API Management(APIM)는 공용 HTTPS API
 경계를 제공합니다. Operator API는 APIM origin root에서 라우팅하고 Document Ingestion은
-`/ingestion`에서 라우팅합니다. Kubernetes Service는 포트 80에서 요청을 받고 기존 컨테이너
+`/ingestion`에서 라우팅합니다. Console은 수집 API를 절대 경로로 호출하므로 게이트웨이는 준비 상태
+프로브를 제외한 모든 수집 경로에서 `/ingestion` 접두사를 유지하고, 루트 수준 `/documents` 경로를 수집
+백엔드로 보냅니다. 회귀 테스트가 게이트웨이를 수집 서비스의 경로와 비교합니다. API Management는 같은 서비스에 대한 쓰기가 겹치면 `412`로 응답하므로 두 정책은 API와 오퍼레이션 뒤에 하나씩 순서대로 기록합니다. Kubernetes Service는 포트 80에서 요청을 받고 기존 컨테이너
 포트로 전달합니다. 워크로드 상태는 Service backend 주소를 사용하므로 APIM도 소유합니다. 공유
 기반은 이 경로에 Azure Front Door를 만들지 않습니다.
 APIM 태그는 안정적인 워크로드 레이블에서 Azure에 안전한 이름으로 파생됩니다. 예를 들어 Azure 태그
@@ -402,6 +396,7 @@ catalog 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여
 소스 버전, 플랫폼 및 digest를 검증합니다. 복구된 Foundation이 release보다 이전 버전이면 로컬
 조정기는 완전한 근거 연결을 보존하고, 관리 호스트는 기존 인계 다이제스트를 서로 다른 현재 키트
 및 런타임 다이제스트에 독립적으로 결속합니다. 이 결속은 선택적 카탈로그 검토 체크포인트를 선택하거나 건너뛰거나 승인하지 않습니다. 최초 Host context는 정확한 Foundation adoption receipt digest를 영속화하고 retained-context retry마다 이를 재검증하므로, context가 자체 retry에 필요한 binding을 누락할 수 없습니다. AKS public baseline은 기본값으로 유지합니다. 권위 있는 재조회에서 정확한 기존 애플리케이션 Key Vault 또는 document storage account가 public-disabled 상태이고 Managed Host의 사용 가능한 경로가 없음을 확인하면 preparation은 대응하는 `enable_aks_key_vault_private_access` 또는 `enable_aks_document_storage_private_access` 복구 축만 선택합니다. 두 축은 검증된 runner VNet 좌표와 공유 애플리케이션-러너 peering을 요구하고 선택된 Key Vault 또는 document Blob/DFS endpoint와 DNS link만 만들며 private AKS, private PostgreSQL 또는 다른 서비스 private endpoint는 선택하지 않습니다. Residual Terraform plan은 계속 정확한 승인을 요구합니다. 선택기는 제한된 management-list JSON에서 provider가 평탄화한 값 또는 중첩 `properties.publicNetworkAccess`를 검증하고 리소스가 없으면 기본 경로를 유지하며 중복 또는 알 수 없는 shape는 닫힌 상태로 실패합니다. Blob과 DFS endpoint module은 document storage의 암묵적 dependency가 아니라 dependent이므로 명시적 substrate target입니다. 두 focused 축 중 하나라도 선택되면 별도로 승인한 `access` plan이 선택된 endpoint, DNS link, peering 및 deployer data role만 먼저 수렴합니다. 읽기 전용 Key Vault와 ADLS probe가 성공해야 일반 substrate plan이 secret, filesystem 또는 path를 만들 수 있습니다. 부분 substrate 재조회가 비공개 상태를 증명하면 retained context는 selector를 `false`에서 `true`로만 강화할 수 있고, `true`에서 `false`로 완화하는 변경은 거부됩니다. 모호한 access apply에는 다른 stage와 같은 verification-first 및 제한된 residual 규칙을 적용합니다. 범위가 제한된 예외 하나는 적격 호스트가 기존의 정상
+AKS에서 `notifications` add-on은 Azure Communication Services Email 리소스, 관리형 발신 도메인, 알림 신원, 그 발신 역할에 같은 대상 지정 substrate 단계를 적용합니다. 그러면 Core는 `FDAI_EMAIL_ENDPOINT`, `FDAI_EMAIL_SENDER_ADDRESS`, `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON`, `FDAI_NOTIFICATION_MI_CLIENT_ID`를 받고, 서비스 계정은 추가 신원으로 알림 신원에 연합됩니다. 새 비밀은 만들지 않고, 전달은 정보 제공용이며, 이 add-on은 승인, 승격, 실행 권한을 주지 않습니다. 수신자 목록이 없거나 바인딩이 불완전하면 application plan이 fail closed합니다.
 `dev` AKS 설치에서 서비스 하나에 `fdaictl provision source-service-update`를 실행하도록
 허용합니다. 소스에서 빌드한 이미지는 release 신뢰가 아니라 운영자가 선택한 근거로 유지됩니다.
 현재 사람 승인이 Managed Identity 반입과 Deployment 전용 exact 계획을 통제하며, digest와 상태
@@ -518,10 +513,6 @@ FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니
 출시되는 모든 Alpine 런타임 이미지에서는 보안에 민감한 런타임 패키지 revision도 모든 서비스
 Dockerfile에 걸쳐 고정합니다. 수정된 패키지 revision이 공개되면 공유 고정값과 저장소 계약을
 함께 갱신하고, 이미지를 게시하기 전에 이미지 검사가 빌드 결과를 확인합니다.
-다섯 개의 기준 서비스 이미지는 애플리케이션 소스를 복사하기 전에 잠긴 타사 의존성을 설치합니다.
-런타임 단계에서는 이 안정적인 환경을 서비스 wheel 레이어와 분리합니다. 따라서 소스만 변경된
-재빌드는 의존성 blob을 재사용하고 변경된 애플리케이션 레이어만 게시할 수 있습니다. 이 구조는
-패키지 버전, 진입점, 상태 확인, 신원 또는 권한을 바꾸지 않습니다.
 
 Core의 Alpine ARM64 빌더는 잠금 파일에 고정된 `tree-sitter-java` 0.23.5를 소스에서 빌드할 때 빠진 `tree_sitter/parser.h`를 해당 버전의 업스트림 커밋에서 가져오고 SHA-256으로 고정합니다. 이 헤더는 빌더에만 두며 런타임 의존성, 워크로드 명세, 신원, 권한을 바꾸지 않습니다. 네이티브 컴파일과 구문 분석 근거는 전체 이미지 빌드나 배포를 입증하지 않습니다. 내려받은 파일은 `ADD --checksum`이 아니라 일반 `RUN`에서 검증하며 다이제스트가 다르면 실패합니다. 소스 설치는 레지스트리 빌드 서비스로 이미지를 빌드하는데 그 클래식 빌더가 BuildKit 전용 문법을 거부하기 때문이며, 테스트가 모든 서비스 Dockerfile에서 그 문법을 막습니다.
 
@@ -865,23 +856,21 @@ Managed Identity에 구독 `Reader`만 부여합니다. 데이터 플레인 역�
 CSI를 통해 읽습니다. 클라이언트 트래픽에는 상태가 소유하는 인증서를 사용한 TLS가 필요합니다.
 사용자 노드 최소 4개는 이 프로파일의 스케줄 가능성을 위한 값이며,
 데이터베이스 고가용성, 백업 또는 특정 시점 복구를 의미하지 않습니다.
-Azure 리소스 태그는 Azure 리소스에만 유지하며 Kubernetes label로 재사용하지 않습니다.
-PostgreSQL `StatefulSet`은 명시된 `app.kubernetes.io/*`와 `fdai.io/*` label만 사용하므로
-Azure 태그의 문장 부호 때문에 Kubernetes 객체가 유효하지 않게 되지 않습니다. Pod와 PostgreSQL
-컨테이너는 UID/GID 999와 `runAsNonRoot=true`를 명시적으로 요구합니다. 또한 컨테이너는 AKS의
-제한된 Pod Security 프로파일에 맞게 모든 capability를 제거하고 권한 상승을 비활성화합니다.
 
 클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN과 AKS 문서 수집이 읽는 역할 범위
-`fdai-ingestion-api-dsn`, `fdai-ingestion-worker-dsn` 비밀을 기록합니다.
-SQLAlchemy와 직접 psycopg consumer가 같은 비밀을 사용할 수 있도록 표준 `postgresql://`
-scheme을 저장합니다. SQLAlchemy는 자체 경계에서 driver 선택을 추가합니다.
-각 수집 비밀은 일치하는
+`fdai-ingestion-api-dsn`, `fdai-ingestion-worker-dsn` 비밀을 기록합니다. 각 수집 비밀은 일치하는
 워크로드 신원에만, 그리고 선택한 제품 프로파일이 그 신원을 만들 때만 `Key Vault Secrets User`를
 부여합니다. 공유 DSN은 Core, 인벤토리, 그리고 프로파일이 만드는 Operator와 실행기 신원에 부여하므로,
 관찰 우선 설치는 이 신원들 없이도 데이터베이스를 준비합니다. `postgres-aks`를 선택하면 기반 구성
 플랜은 여전히 Flexible Server 기반 수집 DSN 비밀과 그 읽기 역할을 제외합니다. Terraform
 `-target`은 count가 0인 대상이라도 구성 의존성을 모두 유지하므로, 루트 비밀이 포함되면
 `module.state_store`를 통해 Flexible Server가 플랜에 들어가기 때문입니다.
+
+데이터베이스 루트는 Azure 소유권 태그를 Key Vault 비밀에만 적용하고, Kubernetes
+metadata에는 DNS 규칙을 만족하는 라벨 키만 사용합니다. 공유 및 역할 범위 DSN은 URL로
+인코딩한 자격 증명과 표준 `postgresql://` scheme을 사용합니다. 따라서 psycopg를 직접
+호출하는 마이그레이션 및 카탈로그 도구와 SQLAlchemy 클라이언트가 같은 비밀을 사용할 수
+있습니다.
 
 Key Vault DSN에는 별도의 고정 만료일을 두지 않습니다. 자격 증명을 교체하려면 데이터베이스와
 워크로드를 함께 갱신해야 합니다. 비밀 값만 만료시키면 데이터베이스 자격 증명은 바뀌지 않은 채
@@ -924,6 +913,11 @@ drift를 범위 안으로 끌어오지 않아야 하기 때문입니다. 애플�
 ([기능 라이선싱](../fork-and-sequencing/capability-licensing-ko.md#영속적인-무키-trial-목표)).
 배포 영수증은 다시 읽은 기간이 신뢰할 수 있는 시계 기준으로 열려 있을 때만
 `license_mode=trial`을 보고합니다.
+
+초기 인벤토리 one-shot은 content-addressed attempt를 사용합니다. 최종 실패는 변경하지 않고
+보존하며 같은 호출 안에서는 다시 실행하지 않습니다. 이후 명시적인 소스 호출만 다음 attempt로
+진행할 수 있고, attempt는 최대 3회로 제한됩니다. 진행 중이거나 결과가 불명확한 attempt는 같은
+식별자를 유지한 채 검증 전용 복구를 수행합니다.
 
 배포 운영자가 업스트림 무결성 서명 키를 보유하면 배포 바인딩 단계가 설치 바인딩도 함께
 반환합니다. 그러면 기능 단계는 30일 토큰 대신, 해당 설치와 배포에 묶인 만료 없는 설치
