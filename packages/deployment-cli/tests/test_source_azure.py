@@ -14,7 +14,6 @@ from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.private_output import write_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
-
 _TARGET_BINDING = "a" * 64
 
 
@@ -316,6 +315,84 @@ def test_source_orchestration_stops_before_foundation_on_capacity_block(
     )
     assert result["stage"] == "aks-preflight"
     assert not (tmp_path / "work").exists()
+
+
+def test_source_resume_skips_new_install_capacity_preflight(monkeypatch, tmp_path) -> None:
+    root = tmp_path / "checkout"
+    root.mkdir()
+    work_dir = tmp_path / "work"
+    work_dir.mkdir(mode=0o700)
+    foundation_dir = work_dir / "foundation"
+    foundation_dir.mkdir(mode=0o700)
+    plan_dir = work_dir / "foundation/foundation-plan-attempt-1"
+    plan_dir.mkdir(mode=0o700)
+    source = SimpleNamespace(root=root, commit="c" * 40, reverify=lambda: None)
+    status = {
+        "schema_version": "fdai.genesis-orchestration-status.v2",
+        "foundation_report": {
+            "foundation_plan": {"plan_ref": "foundation-plan-attempt-1"},
+        },
+    }
+    receipt = {
+        "schema_version": "fdai.genesis-foundation-apply-receipt.v1",
+        "state": "applied",
+        "source_commit": source.commit,
+        "target_binding": _TARGET_BINDING,
+        "mutation_performed": True,
+        "control_plane_readback_verified": True,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    write_private_bytes(
+        work_dir / "foundation/status.json",
+        json.dumps(status, sort_keys=True).encode(),
+    )
+    write_private_bytes(
+        plan_dir / "foundation-apply-receipt.json",
+        json.dumps(receipt, sort_keys=True).encode(),
+    )
+    monkeypatch.setattr(source_azure, "inspect_source", lambda *_, **__: source)
+    monkeypatch.setattr(
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: {
+            "source_commit": source.commit,
+            "source_snapshot_digest": "e" * 64,
+            "receipt_digest": "d" * 64,
+        },
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_target",
+        lambda **_: pytest.fail("retained Foundation must not consume new-install quota"),
+    )
+    monkeypatch.setattr(
+        source_azure,
+        "inspect_aks_compute_cost",
+        lambda **_: {
+            "state": "blocked",
+            "stage": "cost-review",
+            "reason_code": "stop-after-preflight",
+            "deployment_ready": False,
+        },
+    )
+
+    result = source_azure.plan_source_installation(
+        source_root=root,
+        work_dir=work_dir,
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks",
+            database_placement="postgres-aks",
+            system_node_count=2,
+            user_node_min_count=4,
+            user_node_max_count=4,
+        ),
+        region="westus2",
+        monthly_cost_ceiling=1500,
+        timeout_seconds=1800,
+    )
+
+    assert result["stage"] == "cost-review"
+    assert result["reason_code"] == "stop-after-preflight"
 
 
 def test_source_identity_preflight_runs_before_aks_preflight(tmp_path, monkeypatch) -> None:

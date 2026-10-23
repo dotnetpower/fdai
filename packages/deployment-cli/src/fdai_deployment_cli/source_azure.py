@@ -16,7 +16,7 @@ from fdai_service_contracts.product_profile import ProductAddOn
 
 from fdai_deployment_cli.aks_preflight import current_target_binding, inspect_aks_target
 from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
-from fdai_deployment_cli.contracts import load_json_object
+from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_cost import inspect_aks_compute_cost
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_progress import (
@@ -148,20 +148,28 @@ def plan_source_installation(
             region=region,
             monthly_cost_ceiling=monthly_cost_ceiling,
         )
+    work_dir = work_dir.absolute()
     with installer_activity("Verifying source and tenant-local identity names"):
         source = inspect_source(source_root, expected_commit=str(prepared["source_commit"]))
+        target_binding = current_target_binding(timeout_seconds=deadline.remaining(60))
         _require_unique_entra_display_names(
             runtime_profile,
             source.root / "scripts/deployment/azure",
-            target_binding=current_target_binding(timeout_seconds=deadline.remaining(60)),
+            target_binding=target_binding,
         )
-    with installer_activity("Checking AKS SKU, quota, and PostgreSQL availability"):
-        preflight = inspect_aks_target(
-            profile=runtime_profile, region=region, timeout_seconds=deadline.remaining(180)
-        )
-    if preflight["state"] != "feasible":
-        return {**preflight, "stage": "aks-preflight"}
-    work_dir = work_dir.absolute()
+    retained_target = _retained_foundation_target_binding(work_dir, source_commit=source.commit)
+    if retained_target is None:
+        with installer_activity("Checking AKS SKU, quota, and PostgreSQL availability"):
+            preflight = inspect_aks_target(
+                profile=runtime_profile, region=region, timeout_seconds=deadline.remaining(180)
+            )
+        if preflight["state"] != "feasible":
+            return {**preflight, "stage": "aks-preflight"}
+    else:
+        if retained_target != target_binding:
+            raise ValueError("retained Foundation target differs from the active Azure account")
+        progress_detail("Skipping new-install capacity preflight for the retained Foundation")
+        preflight = {"state": "feasible", "target_binding": target_binding}
     if installation_options is not None:
         progress_detail("Waiting for the one-time installation scope confirmation")
         confirmation = confirm_installation_scope(
@@ -450,6 +458,51 @@ def _capture(
             "source planning stage failed; preserve private state and do not repeat effects"
         )
     return load_json_object(result.stdout, label="source planning result", max_bytes=1024 * 1024)
+
+
+def _retained_foundation_target_binding(
+    work_dir: Path,
+    *,
+    source_commit: str,
+) -> str | None:
+    status_path = work_dir / "foundation/status.json"
+    if not status_path.is_file():
+        return None
+    status = load_json_object(
+        read_private_bytes(status_path, max_bytes=1_048_576),
+        label="retained source Foundation status",
+    )
+    report = status.get("foundation_report")
+    plan = report.get("foundation_plan") if isinstance(report, dict) else None
+    plan_ref = plan.get("plan_ref") if isinstance(plan, dict) else None
+    if (
+        status.get("schema_version") != "fdai.genesis-orchestration-status.v2"
+        or not isinstance(plan_ref, str)
+        or re.fullmatch(r"foundation-plan-attempt-[1-9][0-9]*", plan_ref) is None
+    ):
+        raise ValueError("retained source Foundation status is invalid")
+    receipt = load_json_object(
+        read_private_bytes(
+            work_dir / "foundation" / plan_ref / "foundation-apply-receipt.json",
+            max_bytes=1_048_576,
+        ),
+        label="retained source Foundation apply receipt",
+    )
+    digest = receipt.pop("receipt_digest", None)
+    target_binding = receipt.get("target_binding")
+    if (
+        not isinstance(digest, str)
+        or canonical_digest(receipt) != digest
+        or receipt.get("schema_version") != "fdai.genesis-foundation-apply-receipt.v1"
+        or receipt.get("state") != "applied"
+        or receipt.get("source_commit") != source_commit
+        or not isinstance(target_binding, str)
+        or re.fullmatch(r"[0-9a-f]{64}", target_binding) is None
+        or receipt.get("mutation_performed") is not True
+        or receipt.get("control_plane_readback_verified") is not True
+    ):
+        raise ValueError("retained source Foundation apply receipt is invalid")
+    return target_binding
 
 
 def _require_unique_entra_display_names(
