@@ -124,6 +124,8 @@ def _principal_object_ids(cursor: psycopg.Cursor[tuple[object, ...]], role_name:
         normalized = {key.casefold(): value for key, value in record.items()}
         catalog_role = normalized.get("rolename")
         if not isinstance(catalog_role, str):
+            catalog_role = normalized.get("rolname")
+        if not isinstance(catalog_role, str):
             raise BootstrapRejectedError("principal-catalog-schema")
         if catalog_role != role_name:
             continue

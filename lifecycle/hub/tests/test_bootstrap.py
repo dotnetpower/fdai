@@ -127,7 +127,7 @@ def test_principal_lookup_uses_case_insensitive_json_fields(config):
     cursor = MagicMock()
     cursor.fetchall.return_value = [
         ({"roleName": "other-runtime", "objectId": None},),
-        ({"roleName": config.runtime_name, "objectId": config.runtime_object_id},),
+        ({"rolname": config.runtime_name, "objectId": config.runtime_object_id},),
     ]
 
     assert bootstrap._principal_object_ids(cursor, config.runtime_name) == [
