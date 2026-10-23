@@ -318,9 +318,10 @@ is never a Terraform input. A pre-staged customer configuration signature remain
 through Terraform and uses the Kubernetes provider's binary-secret field; it is never decoded as
 UTF-8 text or exposed as a Terraform command argument. The disabled stage creates its
 `WaitForFirstConsumer` PVC without waiting for `Bound`; binding and independent readiness are
-verified only after the Agent Pod is scheduled. The state initializer mounts public and private
-inputs read-only so an optional pre-staged configuration and signature can reach the persistent
-verified cache before the Agent process starts. It also copies the local policy and optional native
+verified only after a consumer is scheduled. Activation runs a bounded one-shot initializer Job,
+waits for it to complete, and only then creates or updates the Agent Deployment. The Job mounts
+public and private inputs read-only so an optional pre-staged configuration and signature can reach
+the persistent verified cache before the Agent process starts. It also copies the local policy and optional native
 identity inputs to owner-only `0600` files beneath an exact current-UID mode-`0700`
 `/state/private` boundary on the PVC. The main Agent never mounts the Kubernetes Secret and reads
 only those private state files. `fsGroupChangePolicy=OnRootMismatch` prevents kubelet from
@@ -328,7 +329,9 @@ recursively broadening those modes after the PVC root already has the Agent grou
 bind-mounts only the required PVC files by `subPath` beneath the image's UID-owned mode-`0700`
 `/config/private` directory, so the group-managed PVC root is never a private-input parent. The
 initializer keeps its private-input and artifact-cache directories in distinct variables; native
-approval and installation identity files cannot drift into the configuration cache.
+approval and installation identity files cannot drift into the configuration cache. Because the
+initializer is a separate Job, every PVC `subPath` source exists before kubelet prepares the Agent
+Pod.
 
 `fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
 remote effect. From a clean source revision, digest-pinned component images, a reviewed private

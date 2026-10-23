@@ -25,6 +25,9 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
   a private-input parent.
 - Initializer variables keep the private input directory and artifact-cache directory distinct;
   native approval and installation identity files always remain beneath `/state/private`.
+- Activation runs that initializer as a bounded one-shot Job and waits for completion before
+  creating or updating the Agent Deployment. This guarantees every `subPath` source exists before
+  kubelet prepares the Agent Pod.
 - The installation identity private key is never a Terraform input. Native bootstrap runs
   separately and supplies only the installation public key to the running Agent.
 - `enable_agent=false` prepares identity, RBAC, state, and inputs without starting a poller.

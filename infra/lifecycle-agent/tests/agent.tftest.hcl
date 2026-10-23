@@ -47,6 +47,7 @@ run "prepare_without_starting_agent" {
   assert {
     condition = (
       length(kubernetes_deployment_v1.agent) == 0 &&
+      length(kubernetes_job_v1.initialize) == 0 &&
       output.deployment.enabled == false &&
       output.deployment.agent_namespace == "fdai-agent-system" &&
       output.deployment.target_namespace == "fdai-system" &&
@@ -65,11 +66,13 @@ run "enable_single_writer_agent" {
   assert {
     condition = (
       length(kubernetes_deployment_v1.agent) == 1 &&
+      length(kubernetes_job_v1.initialize) == 1 &&
+      kubernetes_job_v1.initialize[0].wait_for_completion == true &&
       kubernetes_deployment_v1.agent[0].spec[0].replicas == "1" &&
       kubernetes_deployment_v1.agent[0].spec[0].strategy[0].type == "Recreate" &&
       kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].security_context[0].fs_group_change_policy == "OnRootMismatch" &&
       contains(
-        kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].init_container[0].volume_mount[*].name,
+        kubernetes_job_v1.initialize[0].spec[0].template[0].spec[0].container[0].volume_mount[*].name,
         "private-inputs",
       ) &&
       contains(
@@ -81,7 +84,7 @@ run "enable_single_writer_agent" {
         "private/local-policy.json",
       ) &&
       strcontains(
-        kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].init_container[0].args[0],
+        kubernetes_job_v1.initialize[0].spec[0].template[0].spec[0].container[0].args[0],
         "p=private/'native-approval.json'",
       ) &&
       !contains(

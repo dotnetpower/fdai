@@ -3,6 +3,37 @@ locals {
   service_account = "fdai-lifecycle-agent"
   identity_name   = "id-${var.prefix}-lifecycle-agent"
   native          = var.installation.native_approval_json != null
+  initialize_state_script = join(";", concat(
+    [
+      "from pathlib import Path",
+      "p=Path('/state/current-state.json')",
+      "p.exists() or p.write_bytes(Path('/config/public/current-state.json').read_bytes())",
+      "private=Path('/state/private')",
+      "private.mkdir(mode=0o700,exist_ok=True)",
+      "private.chmod(0o700)",
+      "p=private/'local-policy.json'",
+      "p.exists() or p.write_bytes(Path('/config/private/local-policy.json').read_bytes())",
+      "p.chmod(0o600)",
+    ],
+    var.installation.configuration_artifact == null ? [] : [
+      "cache=Path('/state/artifact-cache/configurations')",
+      "cache.mkdir(mode=0o700,parents=True,exist_ok=True)",
+      "q=cache/'${var.installation.configuration_artifact.digest}.json'",
+      "q.exists() or q.write_bytes(Path('/config/private/configuration.json').read_bytes())",
+      "q.chmod(0o600)",
+      "s=cache/'${var.installation.configuration_artifact.digest}.sig'",
+      "s.exists() or s.write_bytes(Path('/config/private/configuration.sig').read_bytes())",
+      "s.chmod(0o600)",
+    ],
+    local.native ? [
+      "p=private/'native-approval.json'",
+      "p.exists() or p.write_bytes(Path('/config/private/native-approval.json').read_bytes())",
+      "p.chmod(0o600)",
+      "p=private/'installation-public.pem'",
+      "p.exists() or p.write_bytes(Path('/config/private/installation-public.pem').read_bytes())",
+      "p.chmod(0o600)",
+    ] : [],
+  ))
 }
 
 data "azuread_service_principal" "hub_api" {
@@ -156,6 +187,102 @@ resource "kubernetes_secret_v1" "private_inputs" {
   type = "Opaque"
 }
 
+resource "kubernetes_job_v1" "initialize" {
+  count               = var.enable_agent ? 1 : 0
+  wait_for_completion = true
+  metadata {
+    name      = "fdai-lifecycle-agent-initialize"
+    namespace = kubernetes_namespace_v1.agent.metadata[0].name
+    labels = {
+      "app.kubernetes.io/name"       = "fdai-lifecycle-agent-initialize"
+      "app.kubernetes.io/managed-by" = "terraform"
+    }
+  }
+  spec {
+    active_deadline_seconds = 120
+    backoff_limit           = 0
+    template {
+      metadata {
+        labels = {
+          "app.kubernetes.io/name"       = "fdai-lifecycle-agent-initialize"
+          "app.kubernetes.io/managed-by" = "terraform"
+        }
+      }
+      spec {
+        restart_policy                  = "Never"
+        service_account_name            = kubernetes_service_account_v1.agent.metadata[0].name
+        automount_service_account_token = false
+        security_context {
+          run_as_non_root        = true
+          run_as_user            = 65532
+          run_as_group           = 65532
+          fs_group               = 65532
+          fs_group_change_policy = "OnRootMismatch"
+          seccomp_profile {
+            type = "RuntimeDefault"
+          }
+        }
+        container {
+          name    = "initialize-state"
+          image   = var.agent_image
+          command = ["python", "-c"]
+          args    = [local.initialize_state_script]
+          resources {
+            requests = {
+              cpu    = "50m"
+              memory = "64Mi"
+            }
+            limits = {
+              cpu    = "250m"
+              memory = "128Mi"
+            }
+          }
+          security_context {
+            allow_privilege_escalation = false
+            read_only_root_filesystem  = true
+            run_as_non_root            = true
+            capabilities {
+              drop = ["ALL"]
+            }
+          }
+          volume_mount {
+            name       = "state"
+            mount_path = "/state"
+          }
+          volume_mount {
+            name       = "public-inputs"
+            mount_path = "/config/public"
+            read_only  = true
+          }
+          volume_mount {
+            name       = "private-inputs"
+            mount_path = "/config/private"
+            read_only  = true
+          }
+        }
+        volume {
+          name = "state"
+          persistent_volume_claim {
+            claim_name = kubernetes_persistent_volume_claim_v1.state.metadata[0].name
+          }
+        }
+        volume {
+          name = "public-inputs"
+          config_map {
+            name = kubernetes_config_map_v1.public_inputs.metadata[0].name
+          }
+        }
+        volume {
+          name = "private-inputs"
+          secret {
+            secret_name = kubernetes_secret_v1.private_inputs.metadata[0].name
+          }
+        }
+      }
+    }
+  }
+}
+
 resource "kubernetes_deployment_v1" "agent" {
   count = var.enable_agent ? 1 : 0
   metadata {
@@ -195,66 +322,6 @@ resource "kubernetes_deployment_v1" "agent" {
           fs_group_change_policy = "OnRootMismatch"
           seccomp_profile {
             type = "RuntimeDefault"
-          }
-        }
-        init_container {
-          name    = "initialize-state"
-          image   = var.agent_image
-          command = ["python", "-c"]
-          args = [
-            join(";", concat(
-              [
-                "from pathlib import Path",
-                "p=Path('/state/current-state.json')",
-                "p.exists() or p.write_bytes(Path('/config/public/current-state.json').read_bytes())",
-                "private=Path('/state/private')",
-                "private.mkdir(mode=0o700,exist_ok=True)",
-                "private.chmod(0o700)",
-                "p=private/'local-policy.json'",
-                "p.exists() or p.write_bytes(Path('/config/private/local-policy.json').read_bytes())",
-                "p.chmod(0o600)",
-              ],
-              var.installation.configuration_artifact == null ? [] : [
-                "cache=Path('/state/artifact-cache/configurations')",
-                "cache.mkdir(mode=0o700,parents=True,exist_ok=True)",
-                "q=cache/'${var.installation.configuration_artifact.digest}.json'",
-                "q.exists() or q.write_bytes(Path('/config/private/configuration.json').read_bytes())",
-                "q.chmod(0o600)",
-                "s=cache/'${var.installation.configuration_artifact.digest}.sig'",
-                "s.exists() or s.write_bytes(Path('/config/private/configuration.sig').read_bytes())",
-                "s.chmod(0o600)",
-              ],
-              local.native ? [
-                "p=private/'native-approval.json'",
-                "p.exists() or p.write_bytes(Path('/config/private/native-approval.json').read_bytes())",
-                "p.chmod(0o600)",
-                "p=private/'installation-public.pem'",
-                "p.exists() or p.write_bytes(Path('/config/private/installation-public.pem').read_bytes())",
-                "p.chmod(0o600)",
-              ] : [],
-            )),
-          ]
-          security_context {
-            allow_privilege_escalation = false
-            read_only_root_filesystem  = true
-            run_as_non_root            = true
-            capabilities {
-              drop = ["ALL"]
-            }
-          }
-          volume_mount {
-            name       = "state"
-            mount_path = "/state"
-          }
-          volume_mount {
-            name       = "public-inputs"
-            mount_path = "/config/public"
-            read_only  = true
-          }
-          volume_mount {
-            name       = "private-inputs"
-            mount_path = "/config/private"
-            read_only  = true
           }
         }
         container {
@@ -364,6 +431,7 @@ resource "kubernetes_deployment_v1" "agent" {
   lifecycle {
     prevent_destroy = true
   }
+  depends_on = [kubernetes_job_v1.initialize]
 }
 
 output "deployment" {

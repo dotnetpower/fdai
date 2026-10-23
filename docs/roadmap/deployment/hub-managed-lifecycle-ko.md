@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 29aa7bb53fd592f37dfe0c98079ec4e7b487bb05
+translation_source_sha: f4195f44292dd9a94360cdf60a7fc6861b469635
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -321,7 +321,8 @@ Terraform 입력으로 사용하지 않습니다. 미리 배치하는 고객 구
 동안 정규 Base64 형식을 유지하며 Kubernetes provider의 binary secret 필드를 사용합니다.
 UTF-8 텍스트로 디코딩하거나 Terraform 명령 인수로 노출하지 않습니다. 비활성 단계에서는
 `WaitForFirstConsumer` PVC를 만들되 `Bound` 상태를 기다리지 않습니다. Agent Pod를 예약한
-뒤에만 binding과 readiness를 독립적으로 검증합니다. 상태 초기화 컨테이너는 공개 입력과
+뒤에만 binding과 readiness를 독립적으로 검증합니다. 활성화는 제한된 일회성 초기화 Job을
+실행하고 완료를 기다린 다음 Agent Deployment를 생성하거나 갱신합니다. Job은 공개 입력과
 비공개 입력을 모두 read-only로 mount하므로, 선택적으로 미리 배치한 구성과 서명을 Agent
 프로세스 시작 전에 영구 검증 캐시로 옮길 수 있습니다. 로컬 정책과 선택적 native 신원
 입력도 PVC에서 현재 UID가 소유하고 mode가 정확히 `0700`인 `/state/private` 경계 아래의
@@ -332,7 +333,8 @@ owner-only `0600` 파일로 복사합니다. main Agent는 Kubernetes Secret을 
 `/config/private` 디렉터리 아래에 bind mount합니다. 따라서 group이 관리하는 PVC root를
 비공개 입력 parent로 취급하지 않습니다. 초기화 컨테이너는 비공개 입력 디렉터리와 산출물
 캐시 디렉터리를 서로 다른 변수로 유지하므로 native 승인과 설치본 신원 파일이 구성 캐시로
-이동하지 않습니다.
+이동하지 않습니다. 초기화가 별도 Job이므로 kubelet이 Agent Pod를 준비하기 전에 모든 PVC
+`subPath` 원본이 존재합니다.
 
 `fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
 깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,
