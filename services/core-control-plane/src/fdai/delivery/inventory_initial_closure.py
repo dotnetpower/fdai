@@ -5,8 +5,29 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from collections.abc import AsyncIterator
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fdai.delivery.inventory_job_config import InventoryJobConfig
+from fdai.delivery.inventory_sync import _RUN_LOCK_ID as INVENTORY_RUN_LOCK_ID
+from fdai.delivery.persistence.postgres_resource_lock import (
+    PostgresAdvisoryResourceLock,
+    PostgresAdvisoryResourceLockConfig,
+)
+
+
+@asynccontextmanager
+async def initial_context(
+    config: InventoryJobConfig, timeout_ms: int, initial: bool
+) -> AsyncIterator[tuple[AsyncExitStack, PostgresAdvisoryResourceLock | None]]:
+    """Hold initial promotion through observation; recurring runs lock in the coordinator."""
+    async with AsyncExitStack() as stack:
+        lock = PostgresAdvisoryResourceLock(
+            config=PostgresAdvisoryResourceLockConfig(dsn=config.dsn, lock_timeout_ms=timeout_ms)
+        )
+        if initial:
+            await stack.enter_async_context(lock.acquire(INVENTORY_RUN_LOCK_ID))
+        yield stack, None if initial else lock
 
 
 async def retain_initial_inventory_closure(config: InventoryJobConfig) -> None:

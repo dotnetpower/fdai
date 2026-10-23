@@ -64,6 +64,19 @@ def test_provider_coverage_failure_exposes_only_reviewed_reason() -> None:
     assert private.message == "RuntimeError"
 
 
+async def test_recurring_run_keeps_lock_acquisition_in_its_coordinator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lock = SimpleNamespace(acquire=Mock())
+    monkeypatch.setattr(
+        inventory_initial_closure, "PostgresAdvisoryResourceLock", Mock(return_value=lock)
+    )
+    async with inventory_initial_closure.initial_context(_config(), 1000, False) as context:
+        _stack, coordinator_lock = context
+        assert coordinator_lock is lock
+        lock.acquire.assert_not_called()
+
+
 @pytest.mark.parametrize("observer_fails", [False, True])
 async def test_initial_lock_covers_independent_observation_and_precedes_completion(
     monkeypatch: pytest.MonkeyPatch, observer_fails: bool
@@ -119,7 +132,7 @@ async def test_initial_lock_covers_independent_observation_and_precedes_completi
         Mock(return_value=SimpleNamespace(publish_terminal=AsyncMock())),
     )
     monkeypatch.setattr(
-        inventory_sync_cli,
+        inventory_initial_closure,
         "PostgresAdvisoryResourceLock",
         Mock(return_value=SimpleNamespace(acquire=acquire)),
     )
