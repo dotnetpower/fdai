@@ -85,12 +85,12 @@ resource "kubernetes_stateful_set_v1" "postgres" {
   metadata {
     name      = "postgres"
     namespace = kubernetes_namespace_v1.database.metadata[0].name
-    labels = merge(var.tags, {
+    labels = {
       "app.kubernetes.io/name"       = "postgres"
       "app.kubernetes.io/component"  = "state-store"
       "app.kubernetes.io/managed-by" = "terraform"
       "fdai.io/runtime"              = "aks"
-    })
+    }
   }
 
   spec {

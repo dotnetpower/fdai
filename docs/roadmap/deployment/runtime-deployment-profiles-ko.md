@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: fa469cf4e59bd12b1faffcac859270386c8ab672
+translation_source_sha: 6cea75b06564b8fa38c619aab8b63c96b490aa17
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -859,6 +859,9 @@ Managed Identity에 구독 `Reader`만 부여합니다. 데이터 플레인 역�
 CSI를 통해 읽습니다. 클라이언트 트래픽에는 상태가 소유하는 인증서를 사용한 TLS가 필요합니다.
 사용자 노드 최소 4개는 이 프로파일의 스케줄 가능성을 위한 값이며,
 데이터베이스 고가용성, 백업 또는 특정 시점 복구를 의미하지 않습니다.
+Azure 리소스 태그는 Azure 리소스에만 유지하며 Kubernetes label로 재사용하지 않습니다.
+PostgreSQL `StatefulSet`은 명시된 `app.kubernetes.io/*`와 `fdai.io/*` label만 사용하므로
+Azure 태그의 문장 부호 때문에 Kubernetes 객체가 유효하지 않게 되지 않습니다.
 
 클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN과 AKS 문서 수집이 읽는 역할 범위
 `fdai-ingestion-api-dsn`, `fdai-ingestion-worker-dsn` 비밀을 기록합니다. 각 수집 비밀은 일치하는

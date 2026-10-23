@@ -827,6 +827,9 @@ internal load balancer used by the migration host. The generated DSN is stored i
 read by workloads through managed CSI. Client traffic requires TLS with a state-owned certificate.
 The minimum four user nodes make this profile schedulable
 but do not claim database high availability, backup, or point-in-time recovery.
+Azure resource tags remain on Azure resources and are not reused as Kubernetes labels. The
+PostgreSQL `StatefulSet` uses only its explicit `app.kubernetes.io/*` and `fdai.io/*` labels so
+Azure tag punctuation cannot invalidate the Kubernetes object.
 
 The in-cluster database stage writes the shared state-store DSN plus the role-scoped
 `fdai-ingestion-api-dsn` and `fdai-ingestion-worker-dsn` secrets that AKS document ingestion reads.

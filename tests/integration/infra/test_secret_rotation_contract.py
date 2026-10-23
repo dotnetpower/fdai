@@ -32,6 +32,17 @@ def test_aks_dsn_requires_coordinated_rotation_without_independent_expiry() -> N
     assert "depends_on = [kubernetes_stateful_set_v1.postgres]" in block
 
 
+def test_postgres_stateful_set_does_not_reuse_azure_tag_keys_as_labels() -> None:
+    root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
+    resource = 'resource "kubernetes_stateful_set_v1" "postgres"'
+    start = root.index(resource)
+    block = root[start : root.index("\n}", start) + 2]
+
+    assert "labels = merge(var.tags" not in block
+    assert '"app.kubernetes.io/name"       = "postgres"' in block
+    assert '"fdai.io/runtime"              = "aks"' in block
+
+
 def test_postgres_aks_publishes_role_scoped_ingestion_dsns() -> None:
     root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
     variables = (ROOT / "infra/runtimes/aks/database/variables.tf").read_text(encoding="utf-8")
