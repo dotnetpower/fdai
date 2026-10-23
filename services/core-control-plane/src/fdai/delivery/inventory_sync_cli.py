@@ -17,7 +17,11 @@ import httpx
 from fdai_service_contracts import InventoryProgressStage
 
 from fdai.core.ontology_platform.runtime_call_telemetry import RuntimeCallTelemetryProducer
-from fdai.delivery import inventory_collection_health_reporting, inventory_sync_cli_support
+from fdai.delivery import (
+    inventory_change_acceleration,
+    inventory_collection_health_reporting,
+    inventory_sync_cli_support,
+)
 from fdai.delivery.aks_subscription_discovery import (
     AksSubscriptionDiscoveryError,
     AksUnavailableScope,
@@ -39,19 +43,15 @@ from fdai.delivery.inventory_change_acceleration import (
     build_job_event_bus as _build_job_event_bus,
 )
 from fdai.delivery.inventory_change_acceleration import (
-    forward_recovery_deltas as _forward_recovery_deltas,
-)
-from fdai.delivery.inventory_change_acceleration import (
     load_resource_type_registry as _load_resource_type_registry,
-)
-from fdai.delivery.inventory_change_acceleration import (
-    recovery_delta_lock as _recovery_delta_lock,
 )
 from fdai.delivery.inventory_change_acceleration import (
     run_recovery_delta,
     run_resource_change_feed,
 )
-from fdai.delivery.inventory_change_acceleration import workload_identity as _workload_identity
+from fdai.delivery.inventory_change_acceleration import (
+    workload_identity as _workload_identity,
+)
 from fdai.delivery.inventory_configuration_events import publish_promoted_resource_events
 from fdai.delivery.inventory_initial_closure import (
     initial_context,
@@ -439,14 +439,14 @@ async def run(
             )
             if config.recovery_delta_enabled:
                 await inventory_sync_cli_support.try_recovery_delta_operation(
-                    lambda: _forward_recovery_deltas(
+                    lambda: inventory_change_acceleration.forward_recovery_deltas(
                         config=config,
                         identity=identity,
                         vocabulary=vocabulary,
                         http_client=client,
                         event_bus=event_bus,
                         topic=event_topic,
-                        scope_lock=_recovery_delta_lock(config),
+                        scope_lock=inventory_change_acceleration.recovery_delta_lock(config),
                         initial_replay_after=collection_started_at,
                     ),
                     logger=_LOGGER,
@@ -788,7 +788,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
 
 __all__ = [
     "InventoryJobConfig",
