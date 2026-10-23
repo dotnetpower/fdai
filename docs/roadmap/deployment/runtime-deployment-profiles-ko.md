@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b0e888f0002886c5a59706c0237e65368863ffd0
+translation_source_sha: ee5cd77c16f37b0e473edc6f33d5f94c0e58ab6c
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -774,6 +774,12 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 네트워크 격리, 영역 중복 NAT 또는 방화벽/UDR 호환성을 의미하지 않습니다. 구독 정책이 첫 효과부터
 비공개 접근을 요구하면 공개 기본 구성을 차단하고, 정책을 약화하는 대신 적합한 내부 실행 호스트와
 정확한 비공개 계획을 선택합니다.
+
+Managed Host 준비는 첫 substrate 리소스 변경 전에 검증된 Foundation 애플리케이션 리소스 그룹
+이름을 보존합니다. Azure Policy가 claim된 substrate 적용 중에 Key Vault 또는 문서 스토리지
+네트워크를 강화하면 같은 호출이 그 정확한 그룹을 다시 읽고 별도로 승인된 잔여 계획을 만들기
+전에 접근 selector를 갱신할 수 있습니다. Foundation 바인딩이 없으면 실패한 substrate 출력에서
+소유권을 유도하지 않고 복구를 차단합니다.
 
 클러스터는 Azure Policy, patch 채널 Kubernetes 업그레이드, NodeImage OS 업그레이드를 활성화합니다.
 두 노드 풀 모두 호스트 암호화를 활성화하고 노드당 Pod 50개를 허용합니다. 배포 전에 선택한

@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 58424ebb5ed60056dd0bd207b1475e925c0664e5
+translation_source_sha: f3cb2202c0c0f35fd60adac5a07174cc2ff87c51
 translation_revised: 2026-10-23
 ---
 # 구독 초기 프로비저닝
@@ -128,6 +128,10 @@ prefix가 있으면 계획을 차단합니다.
 projection, 정규화된 변수, 변경 불가능한 적용 claim, 소스/실행/대상 바인딩, 결정적 리소스
 그룹 이름, 비공개 인계를 검증합니다. 정확히 두 개의 FDAI 소유 그룹만 삭제하고 독립적으로
 부재를 다시 확인하며, 실패한 적용을 성공으로 다시 표시하지 않습니다.
+Managed Host 준비 context는 첫 substrate 리소스 변경 전에 검증된 Foundation 애플리케이션
+리소스 그룹 이름을 보존합니다. 따라서 정확한 적용이 정책으로 네트워크 상태를 바꾼 뒤
+실패하더라도 성공한 substrate 출력 없이 잔여 계획을 만들기 전에 Key Vault와 문서 스토리지의
+비공개 접근 상태를 다시 확인할 수 있습니다.
 
 ### 안전하고 범위가 제한된 병렬 실행
 

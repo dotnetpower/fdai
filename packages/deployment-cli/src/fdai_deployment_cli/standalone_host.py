@@ -722,6 +722,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "key_vault_name": key_vault_name,
         "document_storage_private_access": document_storage_private_access,
         "document_storage_account_name": document_storage_account_name,
+        "resource_group_name": str(app["name"]),
         "entra_binding_digest": entra_binding_digest,
         "application_state_adoption_digest": adoption_digest,
         "catalog_review_profile_digest": catalog_profile.profile_digest,

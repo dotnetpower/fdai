@@ -467,6 +467,7 @@ def test_prepare_persists_foundation_adoption_binding() -> None:
     assert '"key_vault_private_access": key_vault_private_access' in source
     assert '"enable_aks_document_storage_private_access": document_storage_private_access' in source
     assert '"document_storage_private_access": document_storage_private_access' in source
+    assert '"resource_group_name": str(app["name"])' in source
 
 
 def test_refresh_private_access_rebinds_only_authoritative_posture(

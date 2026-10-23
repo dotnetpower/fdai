@@ -126,6 +126,10 @@ variables, immutable apply claim, source/run/target bindings, deterministic reso
 and private handoff before requesting a separate typed confirmation. It deletes only those two
 FDAI-owned groups and independently reads back their absence; it never relabels the failed apply as
 successful.
+The managed-host preparation context retains the verified Foundation application resource-group
+name before the first substrate effect. If that exact apply fails after policy changes network
+posture, private-access refresh can therefore read back Key Vault and document-storage posture
+before planning a residual, without requiring a successful substrate output.
 
 ### Safe bounded concurrency
 

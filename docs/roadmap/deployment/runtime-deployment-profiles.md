@@ -737,6 +737,11 @@ connected baseline, not a claim of private-cluster, network-isolated, zone-redun
 firewall/UDR compatibility. A tenant policy that requires private access from the first effect
 blocks the public baseline and selects an eligible internal execution host plus an exact private
 plan instead of weakening the policy.
+Managed-host preparation retains the verified Foundation application resource-group name before
+the first substrate effect. If Azure Policy tightens Key Vault or document-storage networking
+during a claimed substrate apply, the same invocation can read back that exact group and refresh
+the access selectors before it plans a separately approved residual. A missing Foundation binding
+blocks recovery rather than deriving ownership from a failed substrate output.
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected
