@@ -84,7 +84,7 @@ def test_completed_service_update_receipt_is_reused_only_after_current_readback(
     tmp_path: Path,
 ) -> None:
     work = tmp_path / "update"
-    work.mkdir()
+    work.mkdir(mode=0o700)
     result: dict[str, object] = {
         "schema_version": "fdai.source-service-update.v1",
         "state": "applied",
