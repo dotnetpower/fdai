@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 59fca64c0243176c079d250b2166421873cfe78e
-translation_revised: 2026-10-07
+translation_source_sha: f2897576981797bd3bb7ddf76c0c6cbd19532f74
+translation_revised: 2026-10-23
 ---
 # 프로비저닝 실행 프로파일
 
@@ -78,6 +78,9 @@ Foundation 네트워크 검색은 안정 버전 Network API `2024-05-01`로 선�
 라우팅 테이블과 로컬 네트워크 게이트웨이를 읽습니다. 기존 리소스의 지역에서 지원하지 않을 수
 있는 최신 버전을 Azure CLI가 자동 선택하게 두지 않습니다. 조회가 실패하면 검색을 중단하며
 예약된 주소 범위를 누락하거나 공급자를 등록하거나 다른 버전으로 재시도하지 않습니다.
+원격 주소 prefix가 완전한 `Disconnected` VNet peering은 연결 근거가 아니라 주소 예약으로
+유지합니다. 네트워크 검색은 겹치지 않는 네트워크를 선택할 때 이 prefix를 포함합니다. 반면
+원격 prefix가 불완전한 연결 해제 peering은 계속 실행을 중단합니다.
 
 기본 배포는 미리 빌드하고 서명한 이미지 집합을 검증하고, API Server VNet Integration이 적용된
 AKS 기반을 만들며, 기본 서비스 다섯 개를 배포합니다. 또한 배포에 연결된 라이선스를 설치하고

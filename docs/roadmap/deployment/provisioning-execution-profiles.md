@@ -75,6 +75,9 @@ Foundation network discovery reads existing route tables and local network gatew
 selected subscription using the stable Network API `2024-05-01`. It does not let Azure CLI select
 a newer version that may be unavailable in an existing resource's region. A failed read still
 blocks discovery; it never drops a reservation, registers a provider, or retries another version.
+A `Disconnected` VNet peering with complete remote address prefixes remains an address reservation,
+not connectivity evidence. Discovery includes those prefixes when selecting non-overlapping
+networks, while a disconnected peering without complete prefixes still stops the run.
 
 Basic deployment verifies the prebuilt signed image set, creates the AKS substrate with API Server
 VNet Integration, deploys the five baseline services, installs the deployment-bound license, runs
