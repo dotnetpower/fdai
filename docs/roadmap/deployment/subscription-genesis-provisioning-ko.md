@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 97c2feae2a5ff7b0bef5c93aa05dbb6c67fab840
+translation_source_sha: 58424ebb5ed60056dd0bd207b1475e925c0664e5
 translation_revised: 2026-10-23
 ---
 # 구독 초기 프로비저닝
@@ -109,6 +109,10 @@ scripts/deployment/azure/genesis-up.sh \
 등록하고 하나의 누적 제한 시간 안에 모든 네임스페이스를 다시 확인합니다. 롤백해도 등록은
 유지합니다.
 대상 축이 없거나 잘못된 경우 첫 Azure 명령 전에 종료 코드 `64`를 반환합니다.
+네트워크 검색은 각 peer가 정규 원격 prefix를 계속 보고하는 경우에만 Azure VNet peering의
+`Connected`, `Initiated`, `Disconnected` 상태를 완전한 근거로 취급합니다. 연결이 끊긴
+peer를 포함해 보고된 모든 prefix를 충돌 방지 계산에 유지하며, 알 수 없는 상태나 누락된
+prefix가 있으면 계획을 차단합니다.
 
 명시적으로 승인된 정책 프로브는 결정적 이름과 태그가 있는 Key Vault 및 Storage 리소스
 그룹 하나를 만들고 정책 적용 후의 실제 네트워크 상태를 관측합니다. 정확한 소유권 정리가

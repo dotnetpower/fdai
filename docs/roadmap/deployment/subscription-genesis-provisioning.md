@@ -106,6 +106,10 @@ The router verifies tools, both Azure target axes, the region, clean source, and
 Inspection is read-only. Mutation-enabled preflight registers only missing namespaces, reads every
 namespace back under one cumulative deadline, and retains registrations on rollback.
 Missing or malformed target axes return exit code `64` before the first Azure command.
+Network discovery treats Azure's `Connected`, `Initiated`, and `Disconnected` VNet peering states
+as complete only when each peer still reports canonical remote prefixes. All reported prefixes,
+including disconnected peers, remain in collision avoidance; an unknown state or missing prefix
+blocks planning.
 
 The explicitly authorized policy probe creates one deterministic, tagged Key Vault and Storage
 resource group, observes the effective post-policy network posture, and accepts a route only after

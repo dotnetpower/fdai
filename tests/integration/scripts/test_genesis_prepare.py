@@ -595,6 +595,20 @@ def test_network_evidence_allows_exact_ipv4_host_route() -> None:
     )
 
 
+def test_network_evidence_retains_disconnected_peering_prefixes() -> None:
+    genesis_prepare_inputs._require_complete_network_evidence(
+        [
+            {
+                "local": ["10.0.0.0/16"],
+                "peers": [{"state": "Disconnected", "prefixes": ["10.1.0.0/16"]}],
+            }
+        ],
+        [],
+        [],
+        [{"dst": "default"}],
+    )
+
+
 def test_subscription_network_inventory_lists_ids_then_reads_exact_resources(
     monkeypatch,
 ) -> None:
