@@ -113,6 +113,21 @@ def test_multi_service_update_runs_existing_guarded_updates_serially(
     assert all(call["expected_source_commit"] == "c" * 40 for call in calls)
     assert all(call["expected_current_source_commit"] == "b" * 40 for call in calls)
     assert result["effect_verified"] is True
+    assert len(result["effect_receipt_digest"]) == 64
+    assert (tmp_path / "work/source-changed-update-intent.json").is_file()
+    assert (tmp_path / "work/source-changed-update-progress-01.json").is_file()
+    assert (tmp_path / "work/source-changed-update-progress-02.json").is_file()
+    assert (tmp_path / "work/source-changed-update-effect.json").is_file()
+
+    repeated = deploy_changed_source(
+        source_root=source,
+        base="HEAD~1",
+        application_work_dir=application,
+        work_dir=tmp_path / "work",
+        timeout_seconds=60,
+    )
+
+    assert repeated["effect_receipt_digest"] == result["effect_receipt_digest"]
 
 
 def test_changed_update_rejects_incomplete_service_effect_evidence(
