@@ -39,6 +39,30 @@ licensing authority. Use the Release and Lifecycle Hub trusted-operation stages 
 Lifecycle Agent root to apply those decisions. The installation private key stays local and never
 enters Terraform, a Hub, a command argument, or a log.
 
+## Continue the exact workflow
+
+After the Release operations Job returns its private receipt, derive the exact catalog import and
+recompute requests:
+
+```bash
+fdai-lifecycle-manager catalog-requests \
+  --prepared <private-directory> \
+  --publication-receipt <private-release-receipt.json>
+```
+
+After native bootstrap produces its signed proof and the application binding has been accepted,
+derive the separate native ownership request:
+
+```bash
+fdai-lifecycle-manager native-acceptance \
+  --prepared <private-directory> --proof <private-native-proof.json>
+```
+
+`agent-tfvars` writes the independent Lifecycle Agent root's private input file from exact Azure,
+AKS, Hub and image coordinates. It never copies the installation private key. Omit
+`--enable-agent` for the preparation plan; add it only after the Lifecycle Hub has accepted native
+ownership, recorded empty state, managed the Entity, imported the catalog and issued the Plan.
+
 ## Testing
 
 ```bash

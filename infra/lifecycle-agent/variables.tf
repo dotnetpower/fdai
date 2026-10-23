@@ -50,15 +50,26 @@ variable "installation" {
     current_state_json          = string
     native_approval_json        = optional(string)
     installation_public_key_pem = optional(string)
-    agent_namespace             = optional(string, "fdai-agent-system")
-    poll_interval_seconds       = optional(number, 5)
+    configuration_artifact = optional(object({
+      digest           = string
+      payload          = string
+      signature_base64 = string
+    }))
+    agent_namespace       = optional(string, "fdai-agent-system")
+    poll_interval_seconds = optional(number, 5)
   })
   sensitive = true
   validation {
     condition = (
       var.installation.fencing_generation >= 1 &&
       var.installation.poll_interval_seconds >= 1 &&
-      var.installation.poll_interval_seconds <= 60
+      var.installation.poll_interval_seconds <= 60 &&
+      (
+        var.installation.configuration_artifact == null ||
+        can(regex("^[0-9a-f]{64}$", var.installation.configuration_artifact.digest)) &&
+        can(base64decode(var.installation.configuration_artifact.signature_base64)) &&
+        length(base64decode(var.installation.configuration_artifact.signature_base64)) == 64
+      )
     )
     error_message = "Use a positive fencing generation and a 1-60 second poll interval."
   }

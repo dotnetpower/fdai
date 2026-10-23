@@ -145,6 +145,10 @@ resource "kubernetes_secret_v1" "private_inputs" {
     var.installation.installation_public_key_pem == null ? {} : {
       "installation-public.pem" = var.installation.installation_public_key_pem
     },
+    var.installation.configuration_artifact == null ? {} : {
+      "configuration.json" = var.installation.configuration_artifact.payload
+      "configuration.sig"  = base64decode(var.installation.configuration_artifact.signature_base64)
+    },
   )
   type = "Opaque"
 }
@@ -194,7 +198,23 @@ resource "kubernetes_deployment_v1" "agent" {
           image   = var.agent_image
           command = ["python", "-c"]
           args = [
-            "from pathlib import Path; p=Path('/state/current-state.json'); p.exists() or p.write_bytes(Path('/config/public/current-state.json').read_bytes())",
+            join(";", concat(
+              [
+                "from pathlib import Path",
+                "p=Path('/state/current-state.json')",
+                "p.exists() or p.write_bytes(Path('/config/public/current-state.json').read_bytes())",
+              ],
+              var.installation.configuration_artifact == null ? [] : [
+                "d=Path('/state/artifact-cache/configurations')",
+                "d.mkdir(mode=0o700,parents=True,exist_ok=True)",
+                "q=d/'${var.installation.configuration_artifact.digest}.json'",
+                "q.exists() or q.write_bytes(Path('/config/private/configuration.json').read_bytes())",
+                "q.chmod(0o600)",
+                "s=d/'${var.installation.configuration_artifact.digest}.sig'",
+                "s.exists() or s.write_bytes(Path('/config/private/configuration.sig').read_bytes())",
+                "s.chmod(0o600)",
+              ],
+            )),
           ]
           security_context {
             allow_privilege_escalation = false

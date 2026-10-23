@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import re
+from dataclasses import replace
 from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -63,6 +64,7 @@ class PreparationReceipt(BaseModel):
     runtime_bundle_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     native_scope_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     settings_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    bound_settings_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     hub_key_id: str
     image_digests: tuple[str, ...]
     destination: str
@@ -306,6 +308,7 @@ def prepare_installation(
             runtime_bundle_digest=runtime_bundle.digest,
             native_scope_digest=native_scope.digest,
             settings_digest=settings_digest(settings),
+            bound_settings_digest=settings_digest(replace(settings, product=product)),
             hub_key_id=key_id_for(hub_public),
             image_digests=tuple(sorted(digests.values())),
             destination=str(destination),

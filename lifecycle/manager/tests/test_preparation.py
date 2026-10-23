@@ -9,13 +9,24 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from fdai_deployment_cli.lifecycle_native import NativeScopeClaim, sign_native_scope
 from fdai_lifecycle_agent.cli import load_local_policy
 from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
 from fdai_lifecycle_hub import schemas
 from fdai_lifecycle_hub.execution_settings import ApplicationBindingRequest
-from fdai_lifecycle_hub.operations import ReleasePublicationRequest
+from fdai_lifecycle_hub.operations import (
+    CatalogImportRequest,
+    RecomputeRequest,
+    ReleasePublicationRequest,
+)
 from fdai_lifecycle_hub.signing import verify_key_proof
 
+from fdai_lifecycle_manager.operations import (
+    write_agent_tfvars,
+    write_catalog_requests,
+    write_native_acceptance,
+)
 from fdai_lifecycle_manager.preparation import prepare_installation
 
 
@@ -231,3 +242,111 @@ def test_prepare_rejects_component_set_drift_and_removes_partial_output(
         )
 
     assert not destination.exists()
+
+
+def test_prepared_inputs_derive_exact_later_operation_requests(tmp_path: Path) -> None:
+    checkout = tmp_path / "source"
+    _checkout(checkout)
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    bundle = private / "runtime-bundle.json"
+    bundle.write_text(json.dumps(_runtime_bundle()), encoding="utf-8")
+    bundle.chmod(0o600)
+    images = private / "images.json"
+    images.write_text(
+        json.dumps({"operator-service": "registry.example.com/operator@sha256:" + "a" * 64}),
+        encoding="utf-8",
+    )
+    images.chmod(0o600)
+    hub_key = private / "hub.pem"
+    release_key = private / "release.pem"
+    _public_key(hub_key)
+    _public_key(release_key)
+    prepared = tmp_path / "prepared"
+    receipt = prepare_installation(
+        source_root=checkout,
+        destination=prepared,
+        runtime_bundle_path=bundle,
+        component_images_path=images,
+        hub_public_key_path=hub_key,
+        release_public_key_path=release_key,
+        installation_id="installation-alpha",
+        entity_id="operator-canary",
+        product="fdai",
+        release_id="1.0.0",
+        channel="DEV",
+        region="westus3",
+        actor="example-operator",
+        now=datetime(2026, 10, 24, 2, tzinfo=UTC),
+    )
+    publication = private / "publication.json"
+    publication.write_text(
+        json.dumps(
+            {
+                "schema_version": "fdai.release-publication-receipt.v1",
+                "request_id": "00000000-0000-0000-0000-000000000000",
+                "release_id": receipt.release_id,
+                "manifest_digest": receipt.release_digest,
+                "catalog_revision": 3,
+                "catalog_sha256": "b" * 64,
+                "catalog_bytes": 1024,
+                "channels": ["DEV"],
+                "effect_verified": True,
+                "mutation_performed": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    publication.chmod(0o600)
+
+    import_path, recompute_path = write_catalog_requests(prepared, publication)
+
+    assert CatalogImportRequest.model_validate_json(import_path.read_bytes()).revision == 3
+    assert (
+        RecomputeRequest.model_validate_json(recompute_path.read_bytes()).installation_id
+        == receipt.installation_id
+    )
+
+    key = load_pem_private_key(
+        (prepared / "installation-private.pem").read_bytes(),
+        password=None,
+    )
+    assert isinstance(key, Ed25519PrivateKey)
+    claim = NativeScopeClaim(
+        schema_version="fdai.lifecycle-native-scope.v1",
+        installation_id=receipt.installation_id,
+        entity_id=receipt.entity_id,
+        product=receipt.product,
+        scope_digest=receipt.native_scope_digest,
+        approval_digest="sha256:" + "c" * 64,
+        creation_receipt_digest="sha256:" + "d" * 64,
+    )
+    proof = private / "proof.json"
+    proof.write_text(sign_native_scope(claim, key).model_dump_json(), encoding="utf-8")
+    proof.chmod(0o600)
+    acceptance = write_native_acceptance(prepared, proof)
+    assert receipt.bound_settings_digest in acceptance.read_text(encoding="utf-8")
+
+    tfvars = write_agent_tfvars(
+        prepared,
+        private / "agent.tfvars.json",
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        tenant_id="00000000-0000-0000-0000-000000000000",
+        location="westus3",
+        resource_group_name="rg-example-dev-wus3",
+        prefix="example",
+        kubeconfig_path="/private/kubeconfig",
+        kubeconfig_context="example",
+        cluster_oidc_issuer_url="https://oidc.example.com/",
+        hub_url="https://hub.example.com",
+        hub_api_client_id="00000000-0000-0000-0000-000000000000",
+        hub_agent_role_id="00000000-0000-0000-0000-000000000000",
+        agent_image="registry.example.com/agent@sha256:" + "e" * 64,
+        enable_agent=False,
+    )
+    values = json.loads(tfvars.read_text(encoding="utf-8"))
+    assert values["enable_agent"] is False
+    assert values["installation"]["configuration_artifact"]["digest"] == (
+        receipt.configuration_digest
+    )
+    assert "installation-private" not in tfvars.read_text(encoding="utf-8")
