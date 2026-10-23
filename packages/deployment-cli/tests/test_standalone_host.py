@@ -470,6 +470,24 @@ def test_prepare_persists_foundation_adoption_binding() -> None:
     assert '"resource_group_name": str(app["name"])' in source
 
 
+def test_browser_gateway_input_requires_console_selection() -> None:
+    values = {
+        "resource_group_name": "rg-fdai-dev-wus3",
+        "location": "westus3",
+        "workload": "fdai",
+        "environment": "dev",
+        "region_short": "wus3",
+        "resource_name_suffix": "abcdef",
+        "backend_nsg_id": "",
+    }
+
+    assert standalone_host._browser_gateway_input(enabled=False, **values) is None
+    assert standalone_host._browser_gateway_input(enabled=True, **values) == {
+        "enabled": True,
+        **values,
+    }
+
+
 def test_refresh_private_access_rebinds_only_authoritative_posture(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

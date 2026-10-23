@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 091fc113d468d137a29fcde3cae7c7365939137e
+translation_source_sha: 18807f5ba95b87d03679e5c7240ac92daca6d9cf
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -782,6 +782,10 @@ Managed Host 준비는 첫 substrate 리소스 변경 전에 검증된 Foundatio
 소유권을 유도하지 않고 복구를 차단합니다.
 이후의 각 런타임 승인은 활성화된 인증 계정에서 동일한 정확한 tenant/subscription 바인딩을
 확인하며 워크스테이션 Azure CLI의 변경 가능한 기본 subscription과 독립적입니다.
+AKS 워크로드 계획은 읽기 전용 Console add-on을 선택한 경우에만 브라우저용 APIM gateway
+입력을 생성합니다. 기본 observation-first 프로필은 외부 Operator 또는 문서 수집 Service를
+만들어 내지 않고 Core를 배포하므로 Console을 선택하지 않으면 gateway 입력을 `null`로
+유지합니다.
 
 클러스터는 Azure Policy, patch 채널 Kubernetes 업그레이드, NodeImage OS 업그레이드를 활성화합니다.
 두 노드 풀 모두 호스트 암호화를 활성화하고 노드당 Pod 50개를 허용합니다. 배포 전에 선택한

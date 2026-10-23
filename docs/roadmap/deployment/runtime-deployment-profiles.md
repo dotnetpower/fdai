@@ -745,6 +745,10 @@ blocks recovery rather than deriving ownership from a failed substrate output.
 Each later runtime approval resolves the same exact tenant/subscription binding from enabled
 authenticated accounts and is independent of the workstation Azure CLI's mutable default
 subscription.
+The AKS workload plan emits a browser-facing APIM gateway input only when the read-only Console
+add-on is selected. The default observation-first profile deploys Core without inventing external
+Operator or document-ingestion Services; an absent Console selection therefore keeps the gateway
+input null.
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected

@@ -1204,15 +1204,16 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "key_vault_name": _vault_name(str(substrate_outputs["key_vault_uri"])),
         "workloads": workloads,
         "scheduled_jobs": scheduled_jobs,
-        "browser_gateway": {
-            "resource_group_name": resource_group,
-            "location": application_values["region"],
-            "workload": application_values["workload"],
-            "environment": application_values["env"],
-            "region_short": application_values["region_short"],
-            "resource_name_suffix": application_values["resource_name_suffix"],
-            "backend_nsg_id": backend_nsg_id,
-        },
+        "browser_gateway": _browser_gateway_input(
+            enabled=console_selected,
+            resource_group_name=resource_group,
+            location=str(application_values["region"]),
+            workload=str(application_values["workload"]),
+            environment=str(application_values["env"]),
+            region_short=str(application_values["region_short"]),
+            resource_name_suffix=str(application_values["resource_name_suffix"]),
+            backend_nsg_id=backend_nsg_id,
+        ),
         "tags": {"fdai.io/source-commit": context["source_commit"]},
     }
     context.update(
@@ -1365,6 +1366,31 @@ def _bind_installed_license(
     receipt["receipt_digest"] = canonical_digest(receipt)
     _replace_private_json(work_dir / "license-workload-binding-receipt.json", receipt)
     return receipt
+
+
+def _browser_gateway_input(
+    *,
+    enabled: bool,
+    resource_group_name: str,
+    location: str,
+    workload: str,
+    environment: str,
+    region_short: str,
+    resource_name_suffix: str,
+    backend_nsg_id: str,
+) -> dict[str, object] | None:
+    if not enabled:
+        return None
+    return {
+        "enabled": True,
+        "resource_group_name": resource_group_name,
+        "location": location,
+        "workload": workload,
+        "environment": environment,
+        "region_short": region_short,
+        "resource_name_suffix": resource_name_suffix,
+        "backend_nsg_id": backend_nsg_id,
+    }
 
 
 def _refresh_private_access(
