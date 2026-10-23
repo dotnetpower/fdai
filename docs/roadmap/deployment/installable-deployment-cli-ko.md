@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: afd2aa03b36042e87758a70d1d7e3834d70d7b2e
+translation_source_sha: 7501f799328332d41527a8f26466aebd7d143fbe
 translation_revised: 2026-10-23
 ---
 
@@ -342,6 +342,14 @@ fdaictl provision source-service-update \
 보호된 업데이트를 한 번씩 실행합니다. 문서와 테스트만 변경되면 `no-deploy`를 반환합니다.
 Console, migration, 인프라, 선택 이미지 또는 분류할 수 없는 변경은 추측하지 않고 해당 상위
 경로에서 중단합니다.
+
+changed-source 조정기는 계획한 정확한 head를 source 수용에 결속하고 Git base를 각 서비스의
+보존된 배포 개정과 대조합니다. 서비스 간 파일 이동은 삭제된 경로와 추가된 경로를 모두 포함하며,
+서비스 Dockerfile 또는 패키지 매니페스트를 제거하면 상위 배포 경로가 필요합니다. 완료된 각
+서비스 업데이트는 보존된 증적과 현재 이미지 및 source 확인 결과가 계속 일치할 때만 안전하게
+재시도할 수 있습니다. 조정기는 비공개 exact intent, 순서가 있는 진행 상태 및 안정적인 효과
+증적을 보존합니다. 따라서 일부 서비스만 완료된 실행은 이미 검증된 서비스를 다시 빌드하거나
+반입하지 않고 재개할 수 있습니다.
 
 서비스 명령은 선택한 Dockerfile이 추적하는 `COPY` 입력과 고정 빌드 도우미로 변환된 스냅샷을
 만듭니다. 이 변환 결과는 전체 checkout 신원을 보존하면서 관련 없는 제품, 문서, 일반 서비스

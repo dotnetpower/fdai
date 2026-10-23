@@ -345,6 +345,14 @@ baseline service. Documentation and test-only changes return `no-deploy`; Consol
 infrastructure, optional-image, and unclassified changes stop with their required higher lane
 instead of guessing.
 
+The changed-source coordinator binds the exact planned head to source admission and the Git base
+to each service's retained deployed revision. Cross-service renames include both the removed and
+added paths, while removal of a service Dockerfile or package manifest requires a higher lane.
+Each completed service update is safe to retry (idempotent) only when its retained receipt and
+current image and source readback still agree. The coordinator retains private exact intent,
+ordered progress, and a stable effect receipt so a partial multi-service run can resume without
+rebuilding or reimporting an already verified service.
+
 The service command derives a projected snapshot from the selected Dockerfile's tracked `COPY`
 inputs and fixed build helpers. The projection retains the complete checkout identity while
 excluding unrelated products, docs, and ordinary service tests. It builds one Linux OCI archive

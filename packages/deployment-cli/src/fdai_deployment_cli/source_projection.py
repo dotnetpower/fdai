@@ -37,13 +37,19 @@ def service_source_projection(
         raise ValueError("source projection Dockerfile is unavailable")
     content = _read_tracked(source.root, dockerfile, mode=entries[dockerfile]).decode("utf-8")
     selected = set(_SUPPORT_FILES)
+    explicit_filtered: set[str] = set()
     selected.add(dockerfile)
     for item in _docker_copy_sources(content):
-        selected.update(_expand_tracked_source(item, entries))
+        expanded = _expand_tracked_source(item, entries)
+        selected.update(expanded)
+        if _explicit_filtered_source(item):
+            explicit_filtered.update(expanded)
     missing = selected - entries.keys()
     if missing:
         raise ValueError("source projection requires unavailable tracked inputs")
-    selected = {path for path in selected if _included_build_input(path)}
+    selected = {
+        path for path in selected if path in explicit_filtered or _included_build_input(path)
+    }
     _include_symlink_targets(source, selected, entries)
     return tuple(sorted(selected))
 
@@ -80,7 +86,11 @@ def _docker_copy_sources(content: str) -> tuple[str, ...]:
     sources: list[str] = []
     for instruction in logical:
         parts = shlex.split(instruction)
-        if not parts or parts[0].upper() != "COPY":
+        if not parts:
+            continue
+        if parts[0].upper() == "ADD":
+            raise ValueError("source projection does not accept Docker ADD inputs")
+        if parts[0].upper() != "COPY":
             continue
         if any(part.startswith("--from=") for part in parts[1:]):
             continue
@@ -126,6 +136,11 @@ def _included_build_input(path: str) -> bool:
         or "dist" in parts
         or path.endswith(".pyc")
     )
+
+
+def _explicit_filtered_source(path: str) -> bool:
+    parts = PurePosixPath(path).parts
+    return "tests" in parts or "docs" in parts or path.endswith(".md")
 
 
 def _include_symlink_targets(
