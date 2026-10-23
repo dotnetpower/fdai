@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 6e9c5480e21a83775b48a48458d04ec037347c8b
+translation_source_sha: 12e38111235b2de0abcac4bdfe97db24df2b5982
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -158,7 +158,8 @@ zero-change plan과 권위 있는 재조회가 원 claim을 종결합니다. 갱
 변경을 입증하면 조정기는 원 claim을 보존하고 원 claim, 현재 state, target, source, runtime
 profile, 잔여 이진 plan에 연결된 별도 residual review를 만듭니다. 한 번의 효과 전에 새 exact
 `<stage>-residual-apply` 승인과 새 residual claim이 필요하며 파괴적 잔여 변경에는 두 번째 확인을
-유지합니다. Residual apply가 모호하면 검증을 먼저 수행하고 저장된 plan을 반복하지 않습니다.
+유지합니다. 새 AKS runtime은 receipt를 받기 전까지 `runtime-cluster`로 claim되므로, 그 residual review와
+apply는 일반 `runtime` 기록이 아니라 보존된 `runtime-cluster` review와 claim을 읽습니다. Residual apply가 모호하면 검증을 먼저 수행하고 저장된 plan을 반복하지 않습니다.
 집중 비공개 접근 단계가 수렴한 뒤 권위 있는 재계획에서 create 작업만 남았음이 입증되면 조정기는
 새 residual-successor plan을 한 번만 만들 수 있습니다. 또 다른 exact 승인과 별도 successor
 claim이 필요합니다. update, replace, delete, 접근 증적 누락, 모호한 successor 효과 또는 무변경이
