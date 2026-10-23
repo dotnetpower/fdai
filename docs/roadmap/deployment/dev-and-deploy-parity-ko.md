@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 37505119bbad5a35775bddf758b7ec14ffb17fda
-translation_revised: 2026-10-23
+translation_source_sha: e2c5b823c0d5f0132a2bb00df0c30242034696d5
+translation_revised: 2026-10-24
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -577,9 +577,12 @@ Trial 만료 워터마크도 같은 규칙을 따릅니다. 로컬과 배포된 
 체크아웃은 사용권이 없는 배포와 같은 워터마크를 표시합니다. 어떤 실행 장소, 테스트 대역,
 설정도 워터마크를 숨기지 않습니다.
 
-계획된 [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)도 같은 규칙을 따릅니다. 설치 경로는
-독립 축입니다. Hub 관리형 설치는 소스 설치나 오프라인 패키지 설치와 같은 권위 있는 소스, 계약,
-런타임 범위 증적을 바인딩하며, 수명 주기 에이전트는 컨트롤 플레인 동작을 바꾸지 않습니다.
+개발용 [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)도 같은 규칙을 따릅니다. 설치 경로는
+독립 축입니다. Hub 관리형 설치는 source 설치나 오프라인 패키지 설치와 같은 권위 있는 소스,
+계약, 런타임 범위 증적을 바인딩하며, Lifecycle Agent는 컨트롤 플레인 동작을 바꾸지 않습니다.
+독립 `infra/lifecycle-agent` 루트는 Agent 신원과 federation, 정확한 API 역할, 영구 상태,
+워크로드 네임스페이스에 한정된 권한만 만듭니다. Azure 관리 리소스 역할은 부여하지 않으며,
+설치본의 등록, 소유권, 서명된 입력과 Plan이 독립적으로 완료될 때까지 Agent를 시작하지 않습니다.
 
 코드 보안 검토와 팩 화면은 로컬과 배포 환경에서 같은 `state_kv` 행을 읽으며, `/code-security/reviews`와
 `/code-security/packs`는 지속형 operational-state 출처로 선언됩니다. 실행 위치에 따른 차이는 LLM

@@ -174,7 +174,6 @@ src = [
     "lifecycle/hub/src",
     "lifecycle/release-hub/src",
     "lifecycle/agent/src",
-    "lifecycle/manager/src",
 ]
 # Mock/design assets and design experiments are not part of the shipped
 # monorepo; they live outside the lint gate on purpose.
@@ -231,7 +230,6 @@ files = [
     "lifecycle/hub/src",
     "lifecycle/release-hub/src",
     "lifecycle/agent/src/fdai_lifecycle_agent",
-    "lifecycle/manager/src/fdai_lifecycle_manager",
 ]
 mypy_path = [
     "packages/service-contracts/src",
@@ -246,7 +244,6 @@ mypy_path = [
     "lifecycle/hub/src",
     "lifecycle/release-hub/src",
     "lifecycle/agent/src",
-    "lifecycle/manager/src",
     "packages/deployment-cli/src",
 ]
 
@@ -289,7 +286,6 @@ pythonpath = [
     "lifecycle/hub/src",
     "lifecycle/release-hub/src",
     "lifecycle/agent/src",
-    "lifecycle/manager/src",
     "packages/deployment-cli/src",
     "packages/service-contracts/src",
     "services/core-control-plane",
