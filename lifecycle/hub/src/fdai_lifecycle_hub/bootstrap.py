@@ -20,6 +20,12 @@ from sqlalchemy.engine import URL
 logger = logging.getLogger(__name__)
 
 
+class BootstrapRejectedError(ValueError):
+    def __init__(self, reason: str) -> None:
+        super().__init__("Hub bootstrap rejected.")
+        self.reason = reason
+
+
 class BootstrapConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     database_host: str
@@ -70,20 +76,20 @@ def _secret(client: httpx.Client, name: str, value: str | None = None) -> str | 
             json={"value": value, "attributes": {"enabled": True}},
         )
         if response.status_code != 200:
-            raise ValueError("Key Vault secret creation failed; inspect the private service audit.")
+            raise BootstrapRejectedError("vault-secret-create")
         response = client.get(f"secrets/{name}", params={"api-version": "7.4"})
     if response.status_code != 200:
-        raise ValueError("Key Vault initialization failed; inspect the private service audit.")
+        raise BootstrapRejectedError("vault-secret-read")
     record = response.json()
     if not isinstance(record, dict) or not isinstance(record.get("attributes"), dict):
-        raise ValueError("Key Vault returned an invalid Hub secret record.")
+        raise BootstrapRejectedError("vault-secret-record")
     if record["attributes"].get("enabled") is not True:
-        raise ValueError("Existing Hub secret is disabled; explicit repair is required.")
+        raise BootstrapRejectedError("vault-secret-disabled")
     stored = record.get("value")
     if not isinstance(stored, str):
-        raise ValueError("Key Vault returned an invalid Hub secret.")
+        raise BootstrapRejectedError("vault-secret-value")
     if value is not None and stored != value:
-        raise ValueError("Existing Hub secret conflicts with the bound runtime; not overwritten.")
+        raise BootstrapRejectedError("vault-secret-conflict")
     return stored
 
 
@@ -114,17 +120,20 @@ def _principal_object_ids(cursor: psycopg.Cursor[tuple[object, ...]], role_name:
     for row in cursor.fetchall():
         record = row[0]
         if not isinstance(record, dict) or not all(isinstance(key, str) for key in record):
-            raise ValueError("Azure principal catalog returned an invalid record.")
+            raise BootstrapRejectedError("principal-catalog-record")
         normalized = {key.casefold(): value for key, value in record.items()}
         catalog_role = normalized.get("rolename")
         if not isinstance(catalog_role, str):
-            raise ValueError("Azure principal catalog schema is unsupported.")
+            raise BootstrapRejectedError("principal-catalog-schema")
         if catalog_role != role_name:
             continue
         object_id = normalized.get("objectid")
         if not isinstance(object_id, str):
-            raise ValueError("Azure principal catalog record has no object identifier.")
-        object_ids.append(object_id)
+            raise BootstrapRejectedError("principal-object-id")
+        try:
+            object_ids.append(str(UUID(object_id)))
+        except ValueError as error:
+            raise BootstrapRejectedError("principal-object-id") from error
     return object_ids
 
 
@@ -145,13 +154,13 @@ def initialize(config: BootstrapConfig) -> None:
                     if len(principals) != 1 or UUID(principals[0]) != UUID(
                         config.runtime_object_id
                     ):
-                        raise ValueError("Existing runtime principal conflicts; not replaced.")
+                        raise BootstrapRejectedError("principal-conflict")
                 else:
                     cursor.execute(
                         "SELECT 1 FROM pg_roles WHERE rolname = %s", (config.runtime_name,)
                     )
                     if cursor.fetchone():
-                        raise ValueError("Unbound runtime role already exists; not adopted.")
+                        raise BootstrapRejectedError("principal-unbound-role")
                     cursor.execute(
                         "SELECT * FROM pg_catalog.pgaadauth_create_principal_with_oid"
                         "(%s, %s, 'service', false, false)",
@@ -159,9 +168,7 @@ def initialize(config: BootstrapConfig) -> None:
                     )
                     created = _principal_object_ids(cursor, config.runtime_name)
                     if len(created) != 1 or UUID(created[0]) != UUID(config.runtime_object_id):
-                        raise ValueError(
-                            "Runtime principal readback failed; initialization stopped."
-                        )
+                        raise BootstrapRejectedError("principal-readback")
             with _connect(config, token, config.database_name, autocommit=False) as database:
                 with database.cursor() as cursor:
                     cursor.execute(
@@ -198,9 +205,7 @@ def initialize(config: BootstrapConfig) -> None:
                                 existing.encode(), password=None
                             )
                             if not isinstance(existing_key, Ed25519PrivateKey):
-                                raise ValueError(
-                                    "Existing signing key is not Ed25519; not replaced."
-                                )
+                                raise BootstrapRejectedError("signing-key-type")
     logger.info("hub_bootstrap_completed")
 
 
@@ -210,6 +215,11 @@ def main() -> None:
         if len(raw) > 16384:
             raise ValueError("Bootstrap configuration is too large.")
         initialize(BootstrapConfig.model_validate_json(raw))
+    except BootstrapRejectedError as error:
+        logger.error("hub_bootstrap_rejected category=BootstrapRejected reason=%s", error.reason)
+        raise SystemExit(
+            "Hub bootstrap rejected; inspect private configuration and audit."
+        ) from None
     except (ValueError, TypeError, AzureError, psycopg.Error, httpx.HTTPError) as error:
         logger.error("hub_bootstrap_rejected category=%s", type(error).__name__)
         raise SystemExit(

@@ -196,19 +196,41 @@ def test_expected_error_does_not_echo_configuration(monkeypatch, capsys):
     assert "synthetic-sensitive-marker" not in capsys.readouterr().err
 
 
+def test_bootstrap_rejection_logs_only_static_reason(monkeypatch, caplog):
+    monkeypatch.setenv("FDAI_HUB_BOOTSTRAP_CONFIG", "{}")
+    monkeypatch.setattr(
+        bootstrap,
+        "initialize",
+        MagicMock(side_effect=bootstrap.BootstrapRejectedError("principal-readback")),
+    )
+    monkeypatch.setattr(
+        bootstrap.BootstrapConfig,
+        "model_validate_json",
+        MagicMock(return_value=MagicMock()),
+    )
+
+    with pytest.raises(SystemExit):
+        bootstrap.main()
+
+    assert "reason=principal-readback" in caplog.text
+    assert "FDAI_HUB_BOOTSTRAP_CONFIG" not in caplog.text
+
+
 def test_secret_failure_has_no_success_shaped_fallback():
     with httpx.Client(
         base_url="https://example.vault.azure.net/",
         transport=httpx.MockTransport(lambda request: httpx.Response(403)),
     ) as client:
-        with pytest.raises(ValueError, match="initialization failed"):
+        with pytest.raises(bootstrap.BootstrapRejectedError) as error:
             bootstrap._secret(client, "hub-database-url", "synthetic-value")
+    assert error.value.reason == "vault-secret-read"
 
 
 def test_failed_principal_readback_stops_before_secrets(config, backend):
     backend.cursor.fetchall.side_effect = [[], []]
-    with pytest.raises(ValueError, match="readback"):
+    with pytest.raises(bootstrap.BootstrapRejectedError) as error:
         bootstrap.initialize(config)
+    assert error.value.reason == "principal-readback"
     assert backend.writes == []
     assert backend.connect.call_count == 1
     assert backend.principal_session["open"] is False
