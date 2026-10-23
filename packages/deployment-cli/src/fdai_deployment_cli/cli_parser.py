@@ -258,6 +258,16 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         ),
     )
     settings.add_argument(
+        "--notification-recipients",
+        type=Path,
+        metavar="PATH",
+        dest="notification_recipients",
+        help=(
+            'Private JSON file {"recipients": ["name@domain"]} for the notifications add-on '
+            "on a source AKS installation; required with that add-on, never stored in the profile"
+        ),
+    )
+    settings.add_argument(
         "--development-authority-profile",
         type=Path,
         metavar="PATH",

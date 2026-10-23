@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: d8980873e1c9d0a35d520788053ff0c885891605
-translation_revised: 2026-10-18
+translation_source_sha: fed6ff2bb675275d8a97e74d1cbe1922a645a54b
+translation_revised: 2026-10-23
 ---
 
 # 단일 명령 소스 배포
@@ -158,6 +158,8 @@ source AKS 개발 설치에서는 `--development-authority-profile <path>`로 �
 옵션을 사용할 수 없습니다. 재실행 시 이 옵션을 생략해도 보존된 프로필을 묵시적으로
 철회하지 않습니다. `--clear-development-profile`은 별도의 정확한 plan을 통해
 프로필을 제거합니다.
+
+소스 AKS 설치의 `notifications` add-on에는 `--notification-recipients <path>`가 필요합니다. 이 옵션은 최대 20개 주소를 담은 소유자 전용 비공개 JSON 파일 `{"recipients": ["name@domain"]}`입니다. 이 옵션이 없거나, 반대로 `notifications` add-on 없이 이 옵션만 주면 Azure 효과 전에 실행이 중단됩니다. 주소는 관리형 호스트에 비공개 staged 파일 하나로 전달되어 Terraform `notification_email_recipients` 입력으로만 쓰입니다. 런타임 프로파일, 그 digest, plan review, receipt, 로그에는 들어가지 않습니다. 정규 목록의 digest만 비공개 보존 호스트 컨텍스트에 합류하므로, 이후 실행에서 목록이 달라지면 드리프트로 실패합니다. 자리 표시자 도메인은 거부합니다. 이 옵션은 준비, 사전 점검, teardown, 서명 키트, 비 AKS 경로와 소스 복구에서 사용할 수 없습니다.
 
 대화형 소스 배포는 추가 전용 설치 진행 스트림을 사용합니다. 각 전환은 번호가 있는 단계 제목,
 정확한 완료/건너뜀/남은 단계 수, 출력이 없는 장기 하위 작업의 경과 시간 활동 신호를 기록합니다.

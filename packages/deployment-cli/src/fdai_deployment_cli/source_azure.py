@@ -28,6 +28,9 @@ from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
 )
 from fdai_deployment_cli.installation_scope import InstallationOptions, confirm_installation_scope
+from fdai_deployment_cli.notification_recipients_input import (
+    NotificationRecipientsDeploymentInput,
+)
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     OperationalEvidenceVerifierDeploymentInput,
 )
@@ -59,6 +62,7 @@ def plan_source_installation(
     confirm_initial: bool = False,
     foundation_recovery_directory: Path | None = None,
     operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
+    notification_recipients: NotificationRecipientsDeploymentInput | None = None,
     development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
     clear_development_authority_profile: bool = False,
 ) -> dict[str, object]:
@@ -81,6 +85,8 @@ def plan_source_installation(
             raise ValueError("source recovery cannot replace the retained initial scope or prompt")
         if operational_evidence_verifier_input is not None:
             raise ValueError("source recovery cannot add a new operational evidence verifier input")
+        if notification_recipients is not None:
+            raise ValueError("source recovery cannot add notification recipients")
         if development_authority_profile is not None:
             raise ValueError("source recovery cannot add a development authority profile")
         if clear_development_authority_profile:
@@ -400,6 +406,7 @@ def plan_source_installation(
                 foundation_state_receipt_digest=str(expected_handoff_digest),
                 catalog_review_profile=CatalogReviewDeploymentProfile.unselected(),
                 operational_evidence_verifier_input=operational_evidence_verifier_input,
+                notification_recipients=notification_recipients,
                 development_authority_profile=development_authority_profile,
                 clear_development_authority_profile=clear_development_authority_profile,
                 current_operator_object_id=current_operator_object_id,
