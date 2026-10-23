@@ -67,8 +67,10 @@ variable "installation" {
       (
         var.installation.configuration_artifact == null ||
         can(regex("^[0-9a-f]{64}$", var.installation.configuration_artifact.digest)) &&
-        can(base64decode(var.installation.configuration_artifact.signature_base64)) &&
-        length(base64decode(var.installation.configuration_artifact.signature_base64)) == 64
+        can(regex(
+          "^[A-Za-z0-9+/]{86}==$",
+          var.installation.configuration_artifact.signature_base64,
+        ))
       )
     )
     error_message = "Use a positive fencing generation and a 1-60 second poll interval."

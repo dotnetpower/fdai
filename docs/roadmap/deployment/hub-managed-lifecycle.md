@@ -314,7 +314,9 @@ assignment, an Agent namespace and persistent state, and a namespace-scoped work
 grants no Azure managed-resource role. `enable_agent=false` prepares these prerequisites without
 starting a poller; an exact later plan starts one Recreate-strategy Agent only after enrollment,
 ownership, reported state, signed inputs and a Plan exist. The installation identity private key
-is never a Terraform input.
+is never a Terraform input. A pre-staged customer configuration signature remains canonical Base64
+through Terraform and uses the Kubernetes provider's binary-secret field; it is never decoded as
+UTF-8 text or exposed as a Terraform command argument.
 
 `fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
 remote effect. From a clean source revision, digest-pinned component images, a reviewed private

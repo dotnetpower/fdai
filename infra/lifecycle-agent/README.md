@@ -11,6 +11,8 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
   exact target namespace.
 - Public signing keys and initial reported state use a ConfigMap. Local policy, runtime topology,
   and optional native approval use a private Kubernetes Secret in the private Terraform state.
+- A pre-staged configuration signature stays canonical Base64 in Terraform and is written through
+  the provider's binary Secret field, so arbitrary Ed25519 bytes never pass through UTF-8 decoding.
 - The installation identity private key is never a Terraform input. Native bootstrap runs
   separately and supplies only the installation public key to the running Agent.
 - `enable_agent=false` prepares identity, RBAC, state, and inputs without starting a poller.

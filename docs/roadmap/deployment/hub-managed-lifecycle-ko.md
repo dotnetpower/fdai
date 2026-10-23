@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 74f301487f1bdda104f34a51d533d77db645e11c
+translation_source_sha: 131f640b195fb4bee206f29d53addfcb47853900
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -317,7 +317,9 @@ Identity, workload federation 연결 하나, 정확한 `Agent.Access` 앱 역할
 리소스 쓰기 역할은 부여하지 않습니다. `enable_agent=false`는 poller를 시작하지 않고
 필수 조건만 준비합니다. 등록, 소유권, 보고 상태, 서명된 입력과 Plan이 모두 준비된 뒤
 정확한 후속 plan에서 Recreate 전략의 Agent 하나만 시작합니다. 설치본 신원 개인 키는
-Terraform 입력으로 사용하지 않습니다.
+Terraform 입력으로 사용하지 않습니다. 미리 배치하는 고객 구성 서명은 Terraform을 지나는
+동안 정규 Base64 형식을 유지하며 Kubernetes provider의 binary secret 필드를 사용합니다.
+UTF-8 텍스트로 디코딩하거나 Terraform 명령 인수로 노출하지 않습니다.
 
 `fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
 깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,

@@ -70,6 +70,33 @@ run "enable_single_writer_agent" {
   }
 }
 
+run "binary_configuration_signature_is_accepted" {
+  command = plan
+  variables {
+    installation = {
+      id                 = "installation-alpha"
+      target_namespace   = "fdai-system"
+      fencing_generation = 1
+      local_policy_json  = "{\"schema\":\"fdai.lifecycle-local-policy.v1\"}"
+      current_state_json = "{\"digest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"
+      configuration_artifact = {
+        digest           = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        payload          = "{}"
+        signature_base64 = "gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+vw=="
+      }
+      poll_interval_seconds = 5
+    }
+  }
+
+  assert {
+    condition = (
+      kubernetes_secret_v1.private_inputs.binary_data["configuration.sig"] ==
+      "gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+vw=="
+    )
+    error_message = "Arbitrary binary Ed25519 signatures must remain Base64 through Terraform."
+  }
+}
+
 run "mutable_agent_image_is_rejected" {
   command = plan
   variables {

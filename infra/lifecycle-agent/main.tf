@@ -147,9 +147,11 @@ resource "kubernetes_secret_v1" "private_inputs" {
     },
     var.installation.configuration_artifact == null ? {} : {
       "configuration.json" = var.installation.configuration_artifact.payload
-      "configuration.sig"  = base64decode(var.installation.configuration_artifact.signature_base64)
     },
   )
+  binary_data = var.installation.configuration_artifact == null ? {} : {
+    "configuration.sig" = var.installation.configuration_artifact.signature_base64
+  }
   type = "Opaque"
 }
 
