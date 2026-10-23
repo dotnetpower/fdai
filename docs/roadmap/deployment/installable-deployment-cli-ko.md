@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: d86ce753097dd2a4ff0f6a387c98e28f0769abbe
+translation_source_sha: 167c44f87e2642c2e574638ccc3bc2c7f6b3cf1d
 translation_revised: 2026-10-23
 ---
 
@@ -233,7 +233,9 @@ SKU·할당량, 구성·provider·계획·도구·상태 해시와 만료를 검
 
 ### 명시적 소스 복구
 `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`로
-재개합니다. 원래 스냅샷·설정·리전·예산은 불변이며 실행 소스는 별도로 기록합니다. 성공 증적이
+재개합니다. 복구 디렉터리는 원래 Foundation 디렉터리 바로 아래의
+`foundation-recovery-attempt-<n>` 이름을 사용해야 합니다. 형제 경로나 관련 없는 경로는 전송 전에
+거부합니다. 원래 스냅샷·설정·리전·예산은 불변이며 실행 소스는 별도로 기록합니다. 성공 증적이
 없으면 검토 결과를 반환합니다. 별도 정확한 승인으로 등록·이행을 진행하며 실행 전 기록이 있으면
 검증만 허용하고 적용 반복이나 범위 변경은 거부합니다. 이행 완료 후에는 다시 등록하지 않고
 원격 저장소를 관측합니다. 원래 잠금이 소스 전송을 보호하고 불변 진행 기록은 기존 상태와

@@ -102,7 +102,7 @@ def deploy_standalone_application(
         plan_directory = foundation_recovery_directory.absolute()
         if (
             not source_mode
-            or plan_directory.parent != prepared.root.parent
+            or plan_directory.parent != prepared.root
             or re.fullmatch(r"foundation-recovery-attempt-[1-9][0-9]*", plan_directory.name) is None
             or not plan_directory.is_dir()
             or plan_directory.is_symlink()

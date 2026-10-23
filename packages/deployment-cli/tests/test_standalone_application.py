@@ -32,8 +32,8 @@ def test_source_recovery_uses_recovered_private_handoff(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     foundation = tmp_path / "foundation"
-    recovery = tmp_path / "foundation-recovery-attempt-5"
     foundation.mkdir()
+    recovery = foundation / "foundation-recovery-attempt-5"
     recovery.mkdir()
     captured: dict[str, Path] = {}
 
