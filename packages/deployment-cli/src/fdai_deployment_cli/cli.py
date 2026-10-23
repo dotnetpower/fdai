@@ -9,7 +9,6 @@ import re
 import stat
 import subprocess
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
 from fdai_deployment_cli.__about__ import __version__
@@ -70,11 +69,9 @@ from fdai_deployment_cli.profile import load_profile, write_profile
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.source_azure import plan_source_installation
-from fdai_deployment_cli.source_change_plan import plan_git_changes
+from fdai_deployment_cli import source_change_cli
 from fdai_deployment_cli.source_changed_update import deploy_changed_source
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
-from fdai_deployment_cli.source_service_update import deploy_source_service_update
-from fdai_deployment_cli.source_service_update_cli import source_service_update_inputs
 from fdai_deployment_cli.source_teardown import AzureResourceGroupClient, apply_source_teardown
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
@@ -382,20 +379,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                     and sys.stdin.isatty(),
                 )
                 ready = progress.finish_source(result)
-            timing = progress.timing_receipt(
-                lane="source-install",
-                outcome=str(result.get("state", "unknown")),
-                recorded_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            )
-            timing_directory = work_dir / "timing"
-            timing_directory.mkdir(mode=0o700, exist_ok=True)
-            timing_path = timing_directory / f"{timing['receipt_digest']}.json"
-            if not timing_path.exists():
-                write_private_output(
-                    timing_path,
-                    json.dumps(timing, sort_keys=True, separators=(",", ":")) + "\n",
-                )
-            result = {**result, "timing_receipt_digest": timing["receipt_digest"]}
+            result = source_change_cli.attach_timing(result, progress=progress, work_dir=work_dir)
             _print_mapping(
                 result,
                 output=args.output,
@@ -486,67 +470,19 @@ def _provision_entra(args: argparse.Namespace) -> int:
 
 
 def _provision_source_change_plan(args: argparse.Namespace) -> int:
-    """Classify a commit range without building, deploying, or contacting Azure."""
-
-    result = plan_git_changes(args.source, args.base, args.head)
-    _print_mapping(
-        result,
-        output=args.output,
-        text=(
-            f"source change lane: {result['lane']}; "
-            f"reason={result['reason_code']}; no deployment performed"
-        ),
-    )
-    return 0
+    return source_change_cli.provision_plan(args, _print_mapping)
 
 
 def _provision_source_changed_update(args: argparse.Namespace) -> int:
-    """Apply a service-only changed-source plan through existing exact approvals."""
-
-    result = deploy_changed_source(
-        source_root=args.source,
-        base=args.base,
-        application_work_dir=args.application_work_dir,
-        work_dir=args.work_dir,
-        timeout_seconds=args.timeout_seconds,
+    return source_change_cli.provision_update(
+        args,
+        _print_mapping,
+        deploy=deploy_changed_source,
     )
-    services = result.get("services")
-    if not isinstance(services, list) or any(not isinstance(item, str) for item in services):
-        raise ValueError("source changed update returned an invalid service list")
-    _print_mapping(
-        result,
-        output=args.output,
-        text=(f"source changed update: {result['state']}; services={','.join(services) or 'none'}"),
-    )
-    return 0 if result["state"] in {"applied", "no-deploy"} else 2
 
 
 def _provision_source_service_update(args: argparse.Namespace) -> int:
-    """Build and deploy one source-selected service from an eligible deployment host."""
-
-    source, application, selected, development_profile, clear_development_profile = (
-        source_service_update_inputs(args)
-    )
-    result = deploy_source_service_update(
-        source_root=source,
-        application_work_dir=application,
-        work_dir=selected,
-        service=args.service,
-        timeout_seconds=args.timeout_seconds,
-        adopt_historical_binding=args.adopt_historical_binding,
-        adopt_historical_state=args.adopt_historical_state,
-        adopt_historical_variables=args.adopt_historical_variables,
-        adopt_historical_live=args.adopt_historical_live,
-        adopt_historical_plan=args.adopt_historical_plan,
-        development_authority_profile=development_profile,
-        clear_development_authority_profile=clear_development_profile,
-    )
-    print(
-        json.dumps(result, sort_keys=True, separators=(",", ":"))
-        if args.output == "json"
-        else (f"source service update applied: {result['service']} at {result['source_commit']}")
-    )
-    return 0
+    return source_change_cli.provision_service_update(args)
 
 
 def _provision_console_update_plan(args: argparse.Namespace) -> int:
