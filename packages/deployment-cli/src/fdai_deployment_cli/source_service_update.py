@@ -32,6 +32,7 @@ from fdai_deployment_cli.standalone_application import (
 )
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
+_IMAGE_DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 
 
 def deploy_source_service_update(
@@ -237,6 +238,15 @@ def deploy_source_service_update(
                     raise ValueError("retained development authority profile differs")
             else:
                 write_private_bytes(development_authority_profile_path, profile_bytes)
+        completed = _verified_completed_receipt(
+            work,
+            source_commit=source.commit,
+            service=service,
+            target_binding=str(context["target_binding"]),
+            context=context,
+        )
+        if completed is not None:
+            return completed
         source.reverify()
         image = _build_image(
             snapshot=snapshot,
@@ -485,6 +495,57 @@ def _projection_facts(snapshot: Path) -> tuple[str, int, int]:
         if not path.is_symlink():
             total += path.stat().st_size
     return schema, len(records), total
+
+
+def _verified_completed_receipt(
+    work: Path,
+    *,
+    source_commit: str,
+    service: str,
+    target_binding: str,
+    context: dict[str, Any],
+) -> dict[str, object] | None:
+    receipt_path = work / "source-service-update-receipt.json"
+    if not receipt_path.exists() and not receipt_path.is_symlink():
+        return None
+    receipt = _read(receipt_path)
+    image_digest = receipt.get("image_digest")
+    receipt_digest = receipt.get("receipt_digest")
+    unsigned = {key: value for key, value in receipt.items() if key != "receipt_digest"}
+    if (
+        receipt.get("schema_version") != "fdai.source-service-update.v1"
+        or receipt.get("state") != "applied"
+        or receipt.get("service") != service
+        or receipt.get("source_commit") != source_commit
+        or receipt.get("target_binding") != target_binding
+        or not isinstance(image_digest, str)
+        or _IMAGE_DIGEST.fullmatch(image_digest) is None
+        or not isinstance(receipt_digest, str)
+        or _DIGEST.fullmatch(receipt_digest) is None
+        or canonical_digest(unsigned) != receipt_digest
+        or any(
+            not isinstance(receipt.get(key), str) or _DIGEST.fullmatch(str(receipt[key])) is None
+            for key in (
+                "image_import_receipt_digest",
+                "application_receipt_digest",
+                "finalization_receipt_digest",
+            )
+        )
+        or any(
+            receipt.get(key) is not True
+            for key in (
+                "effect_verified",
+                "peer_state_unchanged_verified",
+                "terraform_zero_change_verified",
+            )
+        )
+        or context.get("current_source_commit") != source_commit
+        or not isinstance(context.get("current_image"), str)
+        or not str(context["current_image"]).endswith(f"@{image_digest}")
+        or context.get("active_service_update") is not None
+    ):
+        raise ValueError("retained source service update receipt is not currently verified")
+    return receipt
 
 
 def _approve_import(root: Path, review: dict[str, Any], deadline: DeploymentDeadline) -> Path:

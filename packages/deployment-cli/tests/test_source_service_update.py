@@ -8,6 +8,7 @@ import pytest
 
 from fdai_deployment_cli import cli, source_service_update
 from fdai_deployment_cli.source_service_update import deploy_source_service_update
+from fdai_deployment_cli.contracts import canonical_digest
 
 
 @pytest.fixture(autouse=True)
@@ -59,6 +60,59 @@ def test_legacy_full_snapshot_remains_eligible_for_recovery_timing(tmp_path: Pat
         1,
         10,
     )
+
+
+def test_completed_service_update_receipt_is_reused_only_after_current_readback(
+    tmp_path: Path,
+) -> None:
+    work = tmp_path / "update"
+    work.mkdir()
+    result: dict[str, object] = {
+        "schema_version": "fdai.source-service-update.v1",
+        "state": "applied",
+        "service": "operator-service",
+        "source_commit": "c" * 40,
+        "image_digest": "sha256:" + "b" * 64,
+        "target_binding": "d" * 64,
+        "image_import_receipt_digest": "e" * 64,
+        "application_receipt_digest": "1" * 64,
+        "effect_verified": True,
+        "peer_state_unchanged_verified": True,
+        "terraform_zero_change_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+        "finalization_receipt_digest": "2" * 64,
+    }
+    result["receipt_digest"] = canonical_digest(result)
+    receipt = work / "source-service-update-receipt.json"
+    receipt.write_text(json.dumps(result), encoding="utf-8")
+    receipt.chmod(0o600)
+    context = {
+        "current_source_commit": "c" * 40,
+        "current_image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+        "active_service_update": None,
+    }
+
+    assert (
+        source_service_update._verified_completed_receipt(
+            work,
+            source_commit="c" * 40,
+            service="operator-service",
+            target_binding="d" * 64,
+            context=context,
+        )
+        == result
+    )
+
+    context["current_source_commit"] = "a" * 40
+    with pytest.raises(ValueError, match="not currently verified"):
+        source_service_update._verified_completed_receipt(
+            work,
+            source_commit="c" * 40,
+            service="operator-service",
+            target_binding="d" * 64,
+            context=context,
+        )
 
 
 @pytest.mark.parametrize(
