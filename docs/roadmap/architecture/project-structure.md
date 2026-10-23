@@ -275,13 +275,9 @@ receipt only when its provenance matches the activation generation the profile p
 approval, or execution authority ([Framework Rule Evidence from T0](../rules-and-detection/framework-rule-evidence.md)).
 `core/framework_rule_evidence/record.py` builds the versioned scoped coverage record whose wire contract lives in
 `fdai_service_contracts.framework_rule_coverage`. The assessment job persists it with an audit entry, and the Operator
-reads it only to attach counts to a WAF control detail. `core/framework_rule_evidence/wara.py` turns
+reads it only to attach counts to a WAF control detail. `core/governance_qualification/` is the pure, review-only F06.2 qualification core (source holds, frozen-cohort measurement, installation record) with no I/O, wire surface, or authority ([Rule Governance](../rules-and-detection/rule-governance.md#qualification-evidence)). `core/framework_rule_evidence/wara.py` turns
 the same scoped coverage into WARA `rule` receipts for reviewed exact `t0_rule` bindings, and
 `core/wara/` admits them only from the bound Rule revision.
-`core/governance_qualification/` is the pure, review-only core of the F06.2 governance qualification record. It reconciles
-provider sources into admitted evidence or named holds, measures false positives, false negatives, holds, and coverage on a
-frozen cohort, and binds both to one installation record. It has no I/O, no wire surface, and grants no activation, approval,
-or execution authority ([Rule Governance](../rules-and-detection/rule-governance.md#qualification-evidence)).
 `core/framework_assessment/` decides a control only from its decisive requirements, so a
 `supporting_only` requirement, such as an MCSB supporting Rule binding, can neither fail nor block it.
 
