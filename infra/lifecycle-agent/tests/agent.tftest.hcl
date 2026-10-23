@@ -29,11 +29,11 @@ variables {
     config_key_pem  = "public configuration key"
   }
   installation = {
-    id                   = "installation-alpha"
-    target_namespace     = "fdai-system"
-    fencing_generation   = 1
-    local_policy_json    = "{\"schema\":\"fdai.lifecycle-local-policy.v1\"}"
-    current_state_json   = "{\"digest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"
+    id                    = "installation-alpha"
+    target_namespace      = "fdai-system"
+    fencing_generation    = 1
+    local_policy_json     = "{\"schema\":\"fdai.lifecycle-local-policy.v1\"}"
+    current_state_json    = "{\"digest\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"
     poll_interval_seconds = 5
   }
   agent_image = "registry.example.com/fdai-lifecycle-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
