@@ -47,7 +47,11 @@ from fdai_deployment_cli.standalone_console_publish import publish_verified_cons
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.standalone_transfer_cleanup import cleanup_remote_transfers, remote_prune
-from fdai_deployment_cli.target import compute_target_binding
+from fdai_deployment_cli.target import (
+    azure_target_selection_arguments,
+    compute_target_binding,
+    require_selected_azure_target,
+)
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SSH_USER = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
@@ -908,6 +912,7 @@ def _azure_actor_digest(target_binding: str, *, timeout_seconds: int = 60) -> st
             "az",
             "account",
             "show",
+            *azure_target_selection_arguments(),
             "--query",
             "{subscription_id:id,tenant_id:tenantId,user_name:user.name,user_type:user.type}",
             "--output",
@@ -936,6 +941,7 @@ def _azure_actor_digest(target_binding: str, *, timeout_seconds: int = 60) -> st
         or compute_target_binding(tenant_id=tenant, subscription_id=subscription) != target_binding
     ):
         raise ValueError("active Azure target does not match the approved plan")
+    require_selected_azure_target(subscription_id=subscription, tenant_id=tenant)
     return hashlib.sha256(f"{target_binding}:{login.casefold()}".encode()).hexdigest()
 
 

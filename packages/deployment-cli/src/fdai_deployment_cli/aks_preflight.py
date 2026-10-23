@@ -13,7 +13,11 @@ from typing import Any, cast
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
-from fdai_deployment_cli.target import compute_target_binding
+from fdai_deployment_cli.target import (
+    azure_target_selection_arguments,
+    compute_target_binding,
+    require_selected_azure_target,
+)
 
 # Major version created by infra/modules/state-store/postgres-flex; a parity test keeps them equal.
 POSTGRES_FLEX_MAJOR_VERSION = "16"
@@ -21,7 +25,13 @@ POSTGRES_FLEX_MAJOR_VERSION = "16"
 
 def _active_human_target(deadline: DeploymentDeadline) -> tuple[str, str]:
     account = _json(
-        ("account", "show", "--query", "{id:id,tenantId:tenantId,state:state,userType:user.type}"),
+        (
+            "account",
+            "show",
+            *azure_target_selection_arguments(),
+            "--query",
+            "{id:id,tenantId:tenantId,state:state,userType:user.type}",
+        ),
         deadline,
     )
     if (
@@ -33,6 +43,7 @@ def _active_human_target(deadline: DeploymentDeadline) -> tuple[str, str]:
     subscription, tenant = account.get("id"), account.get("tenantId")
     if not isinstance(subscription, str) or not isinstance(tenant, str):
         raise ValueError("AKS preflight target binding is incomplete")  # noqa: TRY004
+    require_selected_azure_target(subscription_id=subscription, tenant_id=tenant)
     return subscription, tenant
 
 
