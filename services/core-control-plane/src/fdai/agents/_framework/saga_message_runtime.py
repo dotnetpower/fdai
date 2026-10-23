@@ -17,6 +17,7 @@ from fdai.agents._framework.adapters import (
     canonical_json_digest,
 )
 from fdai.agents._framework.assignment_workflow import seal_assignment
+from fdai.agents._framework.audit_chain_rehydrate import AuditAppendDeferredError
 from fdai.agents._framework.human_access_workflow import seal_human_access
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.saga_constants import (
@@ -111,6 +112,7 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
         _append_audit: Any
         _append_ingress_retention_audit: Any
         _append_issue_audit: Any
+        _defer_audit_message: Any
         _audit_outbox_pending: Any
         _clock: Any
         _durable_state_store: Any
@@ -218,6 +220,13 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
             behavior="typed_message:rejected_owner",
         ):
             return
+        try:
+            await self._process_audited_message(topic, payload)
+        except AuditAppendDeferredError:
+            await self._defer_audit_message(topic, payload)
+
+    async def _process_audited_message(self, topic: str, payload: dict[str, Any]) -> None:
+        """Append before emitting any Saga seal; recovery reuses this same path."""
         principal = str(payload.get("producer_principal", "unknown"))
         correlation_id = str(payload.get("correlation_id") or "")
         self.record_behavior("typed_message:accepted")

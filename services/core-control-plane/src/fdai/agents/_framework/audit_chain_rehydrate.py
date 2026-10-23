@@ -18,6 +18,12 @@ from fdai.agents._framework.audit_chain_journal import (
 from fdai.shared.providers.state_store import StateStore
 
 _APPEND_DEADLINE_SECONDS = 2.0
+_APPEND_QUEUE_WAIT_SECONDS = 30.0
+_APPEND_QUEUE_LIMIT = 256
+
+
+class AuditAppendDeferredError(AuditChainError):
+    """Transient audit backpressure; the authenticated message can be retried."""
 
 
 async def rehydrate_audit_entries(store: StateStore) -> list[AuditEntry]:
@@ -40,6 +46,7 @@ class StateStoreAuditChainAdapter:
         self.store = store
         self.entries = []
         self._append_lock = asyncio.Lock()
+        self._queued_appends = 0
         self._base_length = 0
         self._base_hash = "0" * 64
         self._sealed_head_hash = "0" * 64
@@ -57,24 +64,30 @@ class StateStoreAuditChainAdapter:
     ) -> AuditEntry:
         """Atomically append a shared revision before exposing a bounded mirror.
 
-        Eight conflicts or two seconds hold the write without a cached-head
-        fallback. The mirror and correlation index cover at most 512 entries.
+        Queue admission is bounded separately from eight conflicts or two seconds
+        of active append work. No cached-head fallback is allowed.
         """
         snapshot = deepcopy(payload)
         payload_digest = _digest(snapshot)
         loop = asyncio.get_running_loop()
-        deadline = loop.time() + _APPEND_DEADLINE_SECONDS
+        if self._queued_appends >= _APPEND_QUEUE_LIMIT:
+            raise AuditAppendDeferredError("durable audit append queue is full")
+        self._queued_appends += 1
         try:
-            async with asyncio.timeout(_APPEND_DEADLINE_SECONDS):
+            async with asyncio.timeout(_APPEND_QUEUE_WAIT_SECONDS):
                 await self._append_lock.acquire()
         except TimeoutError as exc:
-            raise AuditChainError("durable audit append deadline exceeded") from exc
+            raise AuditAppendDeferredError("durable audit append queue deadline exceeded") from exc
+        finally:
+            self._queued_appends -= 1
+        deadline = loop.time() + _APPEND_DEADLINE_SECONDS
         try:
-            for _ in range(8):
+            for attempt in range(8):
                 if loop.time() >= deadline:
-                    raise AuditChainError("durable audit append deadline exceeded")
+                    raise AuditAppendDeferredError("durable audit append deadline exceeded")
                 journal = await load_journal(self.store)
                 if journal is None:
+                    await asyncio.sleep(0.005 * (attempt + 1))
                     continue
                 entry = AuditEntry(
                     seq=journal.length,
@@ -88,7 +101,7 @@ class StateStoreAuditChainAdapter:
                 entry = replace(entry, entry_hash=entry_hash(entry))
                 advanced = journal.advanced(entry)
                 if loop.time() >= deadline:
-                    raise AuditChainError("durable audit append deadline exceeded")
+                    raise AuditAppendDeferredError("durable audit append deadline exceeded")
                 committed = await self.store.compare_and_set_state_with_audit(
                     AUDIT_CHECKPOINT_KEY,
                     advanced.encode(),
@@ -109,9 +122,10 @@ class StateStoreAuditChainAdapter:
                 if committed:
                     self._install(advanced)
                     return entry
+                await asyncio.sleep(0.005 * (attempt + 1))
         finally:
             self._append_lock.release()
-        raise AuditChainError("durable audit append contention budget exhausted")
+        raise AuditAppendDeferredError("durable audit append contention budget exhausted")
 
     def _install(self, journal: AuditJournal) -> None:
         self.entries = list(journal.entries)

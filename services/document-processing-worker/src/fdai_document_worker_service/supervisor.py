@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import signal
 import time
@@ -12,6 +13,40 @@ from typing import Protocol
 from fdai_document_worker_service.health import RuntimeHealthServer
 
 _LOGGER = logging.getLogger("fdai.ingestion.worker")
+_LOG_FIELDS = (
+    "upload_id",
+    "stage",
+    "attempt_id",
+    "state",
+    "selected_count",
+    "exception_type",
+    "effect_id",
+    "effect_kind",
+    "topic",
+    "offset",
+    "reason",
+    "worker_status",
+    "dependency_failure_type",
+    "last_success_age_seconds",
+)
+
+
+class WorkerLogFormatter(logging.Formatter):
+    """Expose allowlisted stage metadata, never arbitrary payloads or tracebacks."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        fields = {name: getattr(record, name) for name in _LOG_FIELDS if hasattr(record, name)}
+        return json.dumps(
+            {"event": record.getMessage(), "level": record.levelname, **fields},
+            separators=(",", ":"),
+        )
+
+
+def configure_worker_logging() -> None:
+    """Install the worker's content-free structured output at process startup."""
+    handler = logging.StreamHandler()
+    handler.setFormatter(WorkerLogFormatter())
+    logging.basicConfig(level=logging.INFO, handlers=[handler])
 
 
 class WorkerLoopService(Protocol):
