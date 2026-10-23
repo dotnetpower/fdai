@@ -85,12 +85,12 @@ resource "kubernetes_stateful_set_v1" "postgres" {
   metadata {
     name      = "postgres"
     namespace = kubernetes_namespace_v1.database.metadata[0].name
-    labels = merge(var.tags, {
+    labels = {
       "app.kubernetes.io/name"       = "postgres"
       "app.kubernetes.io/component"  = "state-store"
       "app.kubernetes.io/managed-by" = "terraform"
       "fdai.io/runtime"              = "aks"
-    })
+    }
   }
 
   spec {
@@ -132,6 +132,9 @@ resource "kubernetes_stateful_set_v1" "postgres" {
 
           security_context {
             allow_privilege_escalation = false
+            run_as_non_root            = true
+            run_as_user                = 999
+            run_as_group               = 999
             capabilities {
               drop = ["ALL"]
             }
@@ -247,7 +250,7 @@ resource "kubernetes_service_v1" "postgres_private" {
 
 locals {
   private_host         = kubernetes_service_v1.postgres_private.status[0].load_balancer[0].ingress[0].ip
-  dsn                  = "postgresql+psycopg://${var.admin_login}:${random_password.postgres.result}@${local.private_host}:5432/${var.database_name}?sslmode=require"
+  dsn                  = "postgresql://${urlencode(var.admin_login)}:${urlencode(random_password.postgres.result)}@${local.private_host}:5432/${var.database_name}?sslmode=require"
   ingestion_api_dsn    = "${local.dsn}&options=-c%20role%3Dfdai_ingestion_api"
   ingestion_worker_dsn = "${local.dsn}&options=-c%20role%3Dfdai_ingestion_worker"
 }

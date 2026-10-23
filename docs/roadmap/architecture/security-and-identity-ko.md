@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: b00a14fb6022959e2e5bd6af766e4cdb527a7704
-translation_revised: 2026-10-22
+translation_source_sha: 1dfd31c11f8a2a5726640d9fa74ea872e6c056b2
+translation_revised: 2026-10-23
 ---
 
 # 보안과 아이덴티티
@@ -379,6 +379,8 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
 - 감사 저장소는 추가 전용이며 자율성의 신뢰 기반.
 - **Tamper-evidence**: 엔트리는 hash-chain(각 기록이 이전을 커밋)되고 주기적으로 기준점/서명
   되어 삭제나 편집이 감지 가능; 가능한 곳에서 한 번만 쓰는/WORM 저장.
+  재시작이나 새 복제본은 체인 자체의 기록을 다시 읽으며, 공유 감사 테이블의 다른 구성요소 행은 그 한도에
+  포함되지 않으므로 새 런타임도 항상 체인을 시작함.
 - **부인 방지**: 각 엔트리는 인증된 행위자 아이덴티티(실행기 또는 승인자)와 모드(shadow/강제 적용)
   를 기록하여 액션을 나중에 부인할 수 없음.
 - 모든 액션은 다음에 링크: 트리거 이벤트, 결정한 티어, 인용된 규칙/정책, 리스크 결정(auto/HIL),

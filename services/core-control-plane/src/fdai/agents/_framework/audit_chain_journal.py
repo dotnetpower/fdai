@@ -9,7 +9,11 @@ from dataclasses import asdict, dataclass
 from typing import Any, TypeGuard
 
 from fdai.agents._framework.adapters import AuditChainError, AuditEntry, _digest
-from fdai.shared.providers.state_store import StateStore, StateStoreAuditReader
+from fdai.shared.providers.state_store import (
+    StateStore,
+    StateStoreAuditChainReader,
+    StateStoreAuditReader,
+)
 
 AUDIT_CHECKPOINT_KEY = "pantheon/saga/audit-chain/verified-head"
 AUDIT_JOURNAL_LIMIT = 512
@@ -143,11 +147,18 @@ async def load_journal(store: StateStore) -> AuditJournal | None:
     stored = await store.read_state(AUDIT_CHECKPOINT_KEY)
     if stored is not None and stored.get("schema_version") == "2.0.0":
         return _decode_journal(stored)
-    if not callable(getattr(store, "read_audit_entries", None)) or not isinstance(
+    # The audit table is shared by every writer. Reading it unfiltered makes a fresh runtime
+    # unable to start the chain once unrelated rows exceed the bound, so ask for chain rows only.
+    if callable(getattr(store, "read_audit_chain_entries", None)) and isinstance(
+        store, StateStoreAuditChainReader
+    ):
+        records, truncated = await store.read_audit_chain_entries(limit=AUDIT_JOURNAL_LIMIT)
+    elif callable(getattr(store, "read_audit_entries", None)) and isinstance(
         store, StateStoreAuditReader
     ):
+        records, truncated = await store.read_audit_entries(limit=AUDIT_JOURNAL_LIMIT)
+    else:
         raise AuditChainError("durable audit history reader is required for legacy migration")
-    records, truncated = await store.read_audit_entries(limit=AUDIT_JOURNAL_LIMIT)
     if truncated:
         raise AuditChainError(
             "legacy audit history exceeds bounded migration; reviewed migration required"
