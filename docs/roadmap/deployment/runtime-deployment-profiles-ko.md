@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ca8d4035e203aa76d1fece280872466f30bd5adc
+translation_source_sha: f7b7947094a25dab93d3833a3c41fb93debf838b
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -26,6 +26,13 @@ translation_revised: 2026-10-23
 Core와 Cost Governance 이미지는 두 런타임 프로필에서 같은 고정 Go 툴체인과 `github.com/klauspost/compress@v1.18.7` 모듈 재정의로 OPA를 빌드합니다. AKS나 Container Apps를 선택해도 이 툴체인, 빌더 digest, 풀 리퀘스트를 막는 이미지 스캔은 바뀌지 않습니다.
 
 ## 설계 개요
+
+소스 AKS의 최초 인벤토리 Job은 Pod 재시도를 사용하지 않습니다. 관리 호스트가 이미
+서로 구분되고 보존되는 시도를 세 번까지 관리하기 때문입니다. 기존 인벤토리 쓰기 잠금을
+유지한 상태에서 별도 관찰자가 정확한 세대의 완료 검증 증적을 보존한 뒤 예약 수집의 승격을
+허용합니다. 호스트에서 재개하면 성공한 Job을 다시 실행하지 않고 과거 증적을 재생할 수 있지만,
+검증하지 않은 이전 세대를 인증하거나 현재 그래프의 최신성을 주장하지 않습니다.
+Container Apps와 일반 예약 Job의 재시도 계약은 바뀌지 않습니다.
 
 [로컬 Release Hub](../../../lifecycle/release-hub/README.md)는 별도의 루프백 전용 공급업체 개발
 도구이며, 어느 프로파일에서도 설치되는 런타임 구성 요소가 아닙니다. 저장소 검사를 위한 소스

@@ -133,6 +133,34 @@ def test_initial_inventory_overrides_mutable_template_and_retains_closure_eviden
     assert result["closure_receipt_verified"] is True
     standalone_aks_inventory.require_initial_inventory_receipt(result, runtime_platform="aks")
 
+    retained_time = result["freshness_observed_at"]
+    attempt_record = json.loads((tmp_path / "initial-inventory-attempt.json").read_text())
+    started_at = attempt_record["started_at"]
+
+    def replay_env(_command: tuple[str, ...], **kwargs: object) -> str:
+        environment = kwargs["env"]
+        assert isinstance(environment, dict)
+        return json.dumps(
+            _closure(
+                run_id=environment["FDAI_INVENTORY_PROGRESS_RUN_ID"],
+                attempt_id=environment["FDAI_INVENTORY_PROGRESS_ATTEMPT_ID"],
+                scope_digest=environment["FDAI_INVENTORY_EXPECTED_SCOPE_DIGEST"],
+                observed_at=datetime.fromisoformat(str(retained_time)),
+            )
+        )
+
+    monkeypatch.setattr(standalone_aks_inventory, "_capture_env", replay_env)
+    resumed = standalone_aks_inventory.run_initial_aks_inventory(
+        context, tmp_path, receipt_path=receipt_path
+    )
+    assert resumed["generation_digest"] == result["generation_digest"]
+    assert resumed["freshness_observed_at"] == retained_time
+    assert execution_calls[1]["environment"] == execution_calls[0]["environment"]
+    assert (
+        json.loads((tmp_path / "initial-inventory-attempt.json").read_text())["started_at"]
+        == started_at
+    )
+
 
 def test_failed_inventory_attempt_advances_only_on_next_invocation(tmp_path: Path) -> None:
     first = standalone_aks_inventory._begin_inventory_attempt(

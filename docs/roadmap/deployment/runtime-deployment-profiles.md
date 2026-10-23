@@ -27,6 +27,13 @@ The Core and Cost Governance images build OPA with the same pinned Go toolchain 
 
 ## Design at a glance
 
+The source AKS initial-inventory Job disables pod retries because the managed host already owns
+three distinct, retained attempts. It holds the existing inventory writer lock through a separate
+observer's exact-generation closure capture, then permits scheduled promotion to continue. Host
+resume can replay that historical receipt without redispatching the successful Job; it cannot
+certify an unverified superseded generation or claim current graph freshness. Container Apps and
+ordinary scheduled Job retry contracts are unchanged.
+
 The [local Release Hub](../../../lifecycle/release-hub/README.md) is a separate loopback-only vendor
 development tool, not an installed runtime component in either profile. Registering its source
 root for repository checks neither selects a runtime platform nor activates Cost Governance.

@@ -3906,7 +3906,7 @@ def test_initial_aks_inventory_runs_job_and_requires_independent_complete_readba
     infra = bundle / "infra"
     infra.mkdir(parents=True)
     work_dir = tmp_path / "work"
-    work_dir.mkdir()
+    work_dir.mkdir(mode=0o700)
     for name in ("migration-receipt.json", "application-receipt.json"):
         (work_dir / name).write_text("{}", encoding="utf-8")
     source_revision = "c" * 40
@@ -3979,10 +3979,14 @@ def test_initial_aks_inventory_runs_job_and_requires_independent_complete_readba
     monkeypatch.setattr(standalone_aks_inventory, "vault_name", lambda *_: "vault")
     monkeypatch.setattr(standalone_aks_inventory, "_capture", lambda *_args, **_kwargs: "dsn")
     monkeypatch.setattr(standalone_aks_inventory, "_capture_env", capture_env)
-    monkeypatch.setattr(standalone_aks_inventory, "replace_private_json", lambda *_: None)
 
     result = standalone_host._initial_inventory(SimpleNamespace(), work_dir)
 
+    attempt_path = work_dir / "initial-inventory-attempt.json"
+    attempt = json.loads(attempt_path.read_text(encoding="utf-8"))
+    assert attempt["state"] == "succeeded"
+    assert datetime.fromisoformat(attempt["started_at"]).tzinfo is not None
+    assert attempt_path.stat().st_mode & 0o777 == 0o600
     assert len(execution_calls) == 1
     request = execution_calls[0]
     assert request["template_name"] == "inventory"

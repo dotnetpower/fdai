@@ -39,8 +39,7 @@ _CLOSURE_CONDITIONS = frozenset(
         "fresh_generation",
     }
 )
-# A scheduled reconciliation can promote a newer generation after the one-shot Job finished. The
-# Job's own generation is then healthy but no longer active, so only a new attempt can be bound.
+# Without retained independent closure, a superseded Job generation needs a new bounded attempt.
 _SUPERSEDED_CLOSURE_CONDITIONS = frozenset({"active_generation"})
 
 
@@ -187,7 +186,10 @@ def run_initial_aks_inventory(
             )
         ),
     }
-    closure_started_at = datetime.now(tz=UTC)
+    attempt_record = private_json(work_dir / "initial-inventory-attempt.json", "inventory attempt")
+    closure_started_at = _parse_observed_at(attempt_record.get("started_at"))
+    if closure_started_at is None:
+        raise ValueError("initial inventory attempt start time is invalid")
     try:
         closure_output = _capture_env(
             (str(runtime_python), "-m", "fdai.delivery.inventory_closure_cli"),
@@ -287,6 +289,7 @@ def _begin_inventory_attempt(
         or type(attempt) is not int
         or not 1 <= attempt <= _MAX_ATTEMPTS
         or state not in {"active", "failed", "succeeded"}
+        or ("started_at" in value and _parse_observed_at(value["started_at"]) is None)
     ):
         raise ValueError("initial inventory attempt is invalid")
     if state != "failed":
@@ -312,15 +315,22 @@ def _write_inventory_attempt(
     attempt: int,
     state: str,
 ) -> None:
+    path = work_dir / "initial-inventory-attempt.json"
+    started_at = datetime.now(tz=UTC).isoformat()
+    if path.exists():
+        previous = private_json(path, "initial inventory attempt")
+        if previous.get("attempt") == attempt and "started_at" in previous:
+            started_at = str(previous["started_at"])
     value: dict[str, object] = {
         "schema_version": _ATTEMPT_SCHEMA,
         "source_revision": source_revision,
         "target_binding": target_binding,
         "attempt": attempt,
         "state": state,
+        "started_at": started_at,
     }
     value["record_digest"] = canonical_digest(value)
-    replace_private_json(work_dir / "initial-inventory-attempt.json", value)
+    replace_private_json(path, value)
 
 
 def require_initial_inventory_receipt(
