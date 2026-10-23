@@ -323,7 +323,8 @@ inputs read-only so an optional pre-staged configuration and signature can reach
 verified cache before the Agent process starts. It also copies the local policy and optional native
 identity inputs to owner-only `0600` files beneath an exact current-UID mode-`0700`
 `/state/private` boundary on the PVC. The main Agent never mounts the Kubernetes Secret and reads
-only those private state files.
+only those private state files. `fsGroupChangePolicy=OnRootMismatch` prevents kubelet from
+recursively broadening those modes after the PVC root already has the Agent group.
 
 `fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
 remote effect. From a clean source revision, digest-pinned component images, a reviewed private

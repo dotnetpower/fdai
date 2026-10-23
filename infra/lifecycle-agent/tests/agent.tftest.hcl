@@ -65,6 +65,7 @@ run "enable_single_writer_agent" {
       length(kubernetes_deployment_v1.agent) == 1 &&
       kubernetes_deployment_v1.agent[0].spec[0].replicas == "1" &&
       kubernetes_deployment_v1.agent[0].spec[0].strategy[0].type == "Recreate" &&
+      kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].security_context[0].fs_group_change_policy == "OnRootMismatch" &&
       contains(
         kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].init_container[0].volume_mount[*].name,
         "private-inputs",

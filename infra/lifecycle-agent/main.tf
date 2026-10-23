@@ -188,10 +188,11 @@ resource "kubernetes_deployment_v1" "agent" {
         service_account_name            = kubernetes_service_account_v1.agent.metadata[0].name
         automount_service_account_token = true
         security_context {
-          run_as_non_root = true
-          run_as_user     = 65532
-          run_as_group    = 65532
-          fs_group        = 65532
+          run_as_non_root        = true
+          run_as_user            = 65532
+          run_as_group           = 65532
+          fs_group               = 65532
+          fs_group_change_policy = "OnRootMismatch"
           seccomp_profile {
             type = "RuntimeDefault"
           }

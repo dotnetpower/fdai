@@ -18,6 +18,8 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
 - The initializer also copies the local policy and optional native identity inputs to the PVC with
   mode `0600` beneath an exact current-UID mode-`0700` `/state/private` boundary. The main Agent
   does not mount the Kubernetes Secret and reads only those owner-only state files.
+- Pod volume ownership uses `fsGroupChangePolicy=OnRootMismatch`. Once the PVC root has the Agent
+  group, kubelet does not recursively broaden the initializer's private file modes.
 - The installation identity private key is never a Terraform input. Native bootstrap runs
   separately and supplies only the installation public key to the running Agent.
 - `enable_agent=false` prepares identity, RBAC, state, and inputs without starting a poller.
