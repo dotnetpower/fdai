@@ -52,6 +52,7 @@ if TYPE_CHECKING:
     from fdai.runtime.bootstrap_messaging import MessagingRuntime
     from fdai.runtime.bootstrap_pantheon import PantheonInitializationResult
     from fdai.runtime.bootstrap_semantics import SemanticRuntime
+    from fdai.runtime.exemption_lifecycle import ExemptionLifecycleWorker
     from fdai.runtime.handover_knowledge_lifecycle import HandoverKnowledgeLifecycleWorker
     from fdai.runtime.human_assignment_reconciliation import AssignmentReconciliationWorker
     from fdai.runtime.operating_intent_revalidation import (
@@ -92,6 +93,7 @@ class CoreRuntime:
     diagnostic_event_ingest_bridge: DiagnosticEventIngestBridge | None = None
     hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
     stewardship_governance_worker: StewardshipGovernanceWorker | None = None
+    exemption_lifecycle_worker: ExemptionLifecycleWorker | None = None
     stewardship_identity_health_worker: StewardshipIdentityHealthWorker | None = None
     stewardship_merge_effects_worker: StewardshipMergeEffectsWorker | None = None
     handover_knowledge_lifecycle_worker: HandoverKnowledgeLifecycleWorker | None = None
@@ -145,6 +147,7 @@ class CoreRuntime:
             diagnostic_event_ingest_bridge=self.diagnostic_event_ingest_bridge,
             hil_workflow_registry=self.hil_workflow_registry,
             stewardship_governance_worker=self.stewardship_governance_worker,
+            exemption_lifecycle_worker=self.exemption_lifecycle_worker,
             stewardship_identity_health_worker=self.stewardship_identity_health_worker,
             stewardship_merge_effects_worker=self.stewardship_merge_effects_worker,
             handover_knowledge_lifecycle_worker=self.handover_knowledge_lifecycle_worker,

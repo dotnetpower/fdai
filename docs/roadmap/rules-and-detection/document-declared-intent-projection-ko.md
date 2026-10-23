@@ -1,8 +1,8 @@
 ---
 title: 승인된 문서 의도 변환
 translation_of: document-declared-intent-projection.md
-translation_source_sha: aa7039d16b5697a71a4ed0ea8e1fb639f0c54091
-translation_revised: 2026-10-23
+translation_source_sha: 69378d6330b07c6b3ed5797ff6d7d0018836c20d
+translation_revised: 2026-10-24
 ---
 # 승인된 문서 의도 변환
 
@@ -121,7 +121,7 @@ Heimdall은 커밋된 저장소를 독립적으로 열어 결과와 승인된 �
 Core는 별도의 at-least-once 그룹에서 기존 준비 이벤트를 소비합니다. 보존한 typed envelope가
 없는 문서는 무시하고, 준비 사실과 envelope가 다르면 dead letter로 보냅니다. 일반 Pantheon
 시작 구성은 같은 런타임 저장소와 기본 payload 검증기를 제공하며 task supervisor는 다른 필수
-소비자와 함께 이 ingress를 종료하고 회수합니다.
+소비자와 함께 이 ingress를 종료하고 회수하며, exemption 수명주기 점검 같은 관련 없는 선택 백그라운드 점검은 이 ingress를 막지 않습니다.
 기존 `document.deleted` 사실은 적용된 원본을 독립 재조회와 Vidar 롤백 흐름으로 다시
 보냅니다. 누락되거나 불일치하는 원본을 조회 가능한 상태로 조용히 남기지 않습니다.
 

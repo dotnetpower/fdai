@@ -364,7 +364,7 @@ Repository integration also pins report-line routes, service tests, runtime whee
 transport `1.3.0`, source-derived question-bank artifacts, and their semantic coverage digest in
 their canonical inventories; catalog source changes regenerate both artifacts in dependency order.
 The shared core-wheel payload check covers every runtime module, not only reporting-line modules.
-Adding an unrelated runtime module to that declared payload keeps package integrity explicit and
+Adding an unrelated runtime module to that declared payload, such as the optional exemption lifecycle sweep, keeps package integrity explicit and
 does not change this interface's routing, approval, or authority behavior.
 The linked implementation ledger records the completed 22-round critique campaign and the local
 validation evidence separately from deployment evidence. After integrating a newer protected base,

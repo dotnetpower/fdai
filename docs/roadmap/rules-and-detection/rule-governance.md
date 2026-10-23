@@ -239,6 +239,14 @@ An exemption waives an assignment for a scope, like an Azure Policy exemption:
   the shipped default only logs - no network) and the standard append-only audit boundary. It groups
   newly due lookahead items into a versioned digest that names each exact exemption revision and
   requester. Atomic state claims make each item safe across replays or replicas.
+- The Core runtime schedules that coordinator. `fdai.runtime.exemption_lifecycle` runs one sweep per
+  interval (`FDAI_EXEMPTION_LIFECYCLE_INTERVAL_SECONDS`, default 3600; disabled by
+  `FDAI_EXEMPTION_LIFECYCLE_ENABLED=false`) only when the installed catalog holds an exemption, and
+  delivers the digest through the workload's own notification router as one A2 operational alert.
+  The alert's audit id derives from the exact exemption revisions, so a restart, a second replica,
+  or a retried sweep never sends the same digest twice, and a digest that no channel delivered is
+  retried on the next sweep. This scheduled sweep publishes no expiry command and changes no
+  catalog; it grants no authority.
 - Expiry never calls a cloud provider. The coordinator binds the active and expected expired
   exemption revisions to an exact assignment id, version, and scope, then publishes a replay-stable
   `governance.reapply-rule-assignment` proposal through the provider-neutral `EventBus`. Broker

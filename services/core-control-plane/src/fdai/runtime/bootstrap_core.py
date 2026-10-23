@@ -35,9 +35,7 @@ from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
 )
 from fdai.runtime.bootstrap_hil import build_hil_workflow_registry as _build_hil_workflow_registry
-from fdai.runtime.bootstrap_lifecycle import (
-    build_discovery_activation_runtime,
-)
+from fdai.runtime.bootstrap_lifecycle import build_discovery_activation_runtime
 from fdai.runtime.bootstrap_lifecycle import (
     build_mutation_dependency_readiness as _build_mutation_dependency_readiness,
 )
@@ -48,10 +46,7 @@ from fdai.runtime.bootstrap_lifecycle import (
     semantic_router_config_from_env as _semantic_router_config_from_env,
 )
 from fdai.runtime.bootstrap_messaging import build_messaging_runtime, operating_model_event_bus
-from fdai.runtime.bootstrap_pantheon import (
-    PantheonInitialization,
-    initialize_pantheon,
-)
+from fdai.runtime.bootstrap_pantheon import PantheonInitialization, initialize_pantheon
 from fdai.runtime.bootstrap_plan import BootstrapPlan
 from fdai.runtime.bootstrap_readiness import (
     build_runtime_operational_readiness,
@@ -79,6 +74,7 @@ from fdai.runtime.control_loop import (
 from fdai.runtime.conversation_assurance import build_runtime_pantheon_conversation_assurance
 from fdai.runtime.delivery import _build_notification_router, _build_publisher
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
+from fdai.runtime.exemption_lifecycle import build_runtime_exemption_lifecycle_worker
 from fdai.runtime.governed_rca import bind_governed_rca_from_environment
 from fdai.runtime.handover_knowledge_lifecycle import HandoverKnowledgeLifecycleWorker
 from fdai.runtime.observation_evidence import bind_executed_action_observation_from_env
@@ -778,6 +774,9 @@ async def build_core_runtime(
         environment=environment,
         diagnostic_event_ingest_bridge=diagnostic_event_ingest_bridge,
         hil_workflow_registry=_build_hil_workflow_registry(state_store),
+        exemption_lifecycle_worker=await build_runtime_exemption_lifecycle_worker(
+            container, resources.http_client, state_store, environment
+        ),
         stewardship_governance_worker=stewardship_governance_worker,
         stewardship_identity_health_worker=stewardship_identity_health_worker,
         stewardship_merge_effects_worker=stewardship_merge_effects_worker,
