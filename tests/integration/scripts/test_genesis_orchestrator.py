@@ -121,11 +121,13 @@ def test_genesis_python_entrypoint_remains_python_310_compatible() -> None:
 
 def test_complete_provider_profile_covers_the_baseline_routes_only() -> None:
     expected = {
+        "Microsoft.AlertsManagement",
         "Microsoft.App",
         "Microsoft.Authorization",
         "Microsoft.CognitiveServices",
         "Microsoft.Compute",
         "Microsoft.ContainerRegistry",
+        "Microsoft.ContainerService",
         "Microsoft.DBforPostgreSQL",
         "Microsoft.DevTestLab",
         "Microsoft.EventGrid",
@@ -140,13 +142,12 @@ def test_complete_provider_profile_covers_the_baseline_routes_only() -> None:
     }
 
     assert expected == set((*FOUNDATION_PROVIDERS, *APPLICATION_PROVIDERS))
-    assert len(expected) == 16
+    assert len(expected) == 18
     assert {
         "Microsoft.ApiManagement",
         "Microsoft.BotService",
         "Microsoft.Communication",
         "Microsoft.Consumption",
-        "Microsoft.ContainerService",
         "Microsoft.DBforMySQL",
         "Microsoft.Web",
     }.isdisjoint(expected)

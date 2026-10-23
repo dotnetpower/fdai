@@ -65,6 +65,15 @@ def test_provision_removes_its_execution_copies_after_success_or_failure(
         return {"deployment_ready": True}
 
     monkeypatch.setattr(cli, "deploy_azure_foundation", deploy)
-    result = cli.main(["provision", "azure", "--online", "--output", "json"])
+    result = cli.main(
+        [
+            "provision",
+            "azure",
+            "--offline-kit",
+            "kit.tar.gz",
+            "--output",
+            "json",
+        ]
+    )
     assert result == (0 if ready else 3)
     assert created and not created[0].exists()

@@ -229,17 +229,13 @@ Inventory and observation live evidence remains Phase 1 ledger work after #341 w
 
 ## Operator contract
 
-The public command accepts explicit choices for both online and artifact-offline installation. An
-omitted runtime selects AKS for a new installation:
+The public command accepts source and signed artifact-offline installation. An omitted runtime
+selects AKS for a new installation:
 
 ```bash
-fdaictl provision azure --online \
+fdaictl provision azure --source /path/to/fdai \
+  --runtime aks \
   --database postgres-flex
-
-fdaictl provision azure --online \
-  --runtime container-apps \
-  --database postgres-flex \
-  --existing-installation
 
 fdaictl provision azure \
   --offline-kit /media/fdai/fdai-deployment-kit.tar.gz \
@@ -302,9 +298,9 @@ Static readback hashes only files that Static Web Apps serves; host-consumed con
 | AKS system nodes | At least 2. Production requires at least 3. | 3 |
 | AKS user nodes | At least 3. | 3 with `postgres-flex` |
 | AKS user nodes with `postgres-aks` | At least 4. | 4 for non-production compact use |
-| System node SKU | At least 4 vCPUs and 4 GB memory; available in the selected region and subscription. | `Standard_D4as_v5` |
-| User node SKU | Region and subscription must report it available. | `Standard_D4as_v5` |
-| PostgreSQL Flexible Server SKU (`--database-sku`) | `postgres-flex` only. One of `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, or `GP_Standard_D4ds_v5`. | Unset keeps `B_Standard_B1ms`; a General Purpose size such as `GP_Standard_D2ds_v5` for AKS |
+| System node SKU | At least 4 vCPUs and 4 GB memory; available in the selected region and subscription. | `Standard_D4ds_v4` |
+| User node SKU | Region and subscription must report it available. | `Standard_D4ds_v4` |
+| PostgreSQL Flexible Server SKU (`--database-sku`) | `postgres-flex` only. One of `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, `GP_Standard_D4ds_v5`, or `GP_Standard_D4ads_v5`. | Unset keeps the regional-catalog General Purpose default `GP_Standard_D4ads_v5` |
 | Availability zones | Every requested zone must exist for both selected SKUs. | Three zones in production |
 
 The database size enters the runtime profile only when it is selected, so an unset size keeps the
@@ -776,6 +772,18 @@ connected baseline, not a claim of private-cluster, network-isolated, zone-redun
 firewall/UDR compatibility. A tenant policy that requires private access from the first effect
 blocks the public baseline and selects an eligible internal execution host plus an exact private
 plan instead of weakening the policy.
+Managed-host preparation retains the verified Foundation application resource-group name before
+the first substrate effect. If Azure Policy tightens Key Vault or document-storage networking
+during a claimed substrate apply, the same invocation can read back that exact group and refresh
+the access selectors before it plans a separately approved residual. A missing Foundation binding
+blocks recovery rather than deriving ownership from a failed substrate output.
+Each later runtime approval resolves the same exact tenant/subscription binding from enabled
+authenticated accounts and is independent of the workstation Azure CLI's mutable default
+subscription.
+The AKS workload plan enables the browser-facing APIM gateway only when the read-only Console
+add-on is selected. The default observation-first profile deploys Core without inventing external
+Operator or document-ingestion Services; an absent Console selection therefore retains the
+validated gateway shape with `enabled=false`.
 
 The cluster enables Azure Policy, patch-channel Kubernetes upgrades, and NodeImage OS upgrades.
 Both node pools enable host encryption and allow 50 pods per node. Confirm the selected
@@ -785,6 +793,8 @@ SKUs are serialized, then checks their regional restrictions, three required zon
 host encryption, and family plus total quota. It does not issue a second catalog request for a
 different node-pool SKU or retry a failed provider read. A `postgres-flex` profile also reads the
 regional PostgreSQL Flexible Server catalog once and blocks unless it offers PostgreSQL 16. A
+new-subscription application preflight also registers `Microsoft.ContainerService` for AKS and
+`Microsoft.AlertsManagement` for the baseline smart-detection rule before runtime planning. A
 subscription that is restricted from a region gets an empty version list instead of an error, so
 the preflight reports `postgres_flex_region_restricted`. Missing or malformed evidence blocks as
 well. The signed offline package runs this preflight before the first Azure change of a new AKS

@@ -62,7 +62,19 @@ def test_identity_prompt_eof_has_stable_cli_exit(monkeypatch, capsys) -> None:
         raise EOFError()
 
     monkeypatch.setattr(cli, "deploy_azure_foundation", closed)
-    assert cli.main(["provision", "azure", "--online", "--progress", "plain"]) == 3
+    assert (
+        cli.main(
+            [
+                "provision",
+                "azure",
+                "--offline-kit",
+                "kit.tar.gz",
+                "--progress",
+                "plain",
+            ]
+        )
+        == 3
+    )
     output = capsys.readouterr()
     assert "approval input closed" in output.err
     assert "Traceback" not in output.err

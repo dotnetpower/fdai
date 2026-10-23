@@ -283,7 +283,16 @@ def test_cli_marks_failed_acquisition_without_running_azure(tmp_path, monkeypatc
 
     monkeypatch.setattr(standalone_deploy, "acquire_deployment_kit", fail_acquisition)
     result = cli.main(
-        ["provision", "azure", "--online", "--progress", "plain", "--work-dir", str(tmp_path)]
+        [
+            "provision",
+            "azure",
+            "--offline-kit",
+            "kit.tar.gz",
+            "--progress",
+            "plain",
+            "--work-dir",
+            str(tmp_path),
+        ]
     )
     captured = capsys.readouterr()
     assert result == 3
@@ -300,7 +309,16 @@ def test_cli_interrupt_and_failure_never_print_a_ready_result(error, monkeypatch
         raise error
 
     monkeypatch.setattr(cli, "deploy_azure_foundation", stop)
-    result = cli.main(["provision", "azure", "--online", "--progress", "plain"])
+    result = cli.main(
+        [
+            "provision",
+            "azure",
+            "--offline-kit",
+            "kit.tar.gz",
+            "--progress",
+            "plain",
+        ]
+    )
     captured = capsys.readouterr()
     assert result == (130 if isinstance(error, KeyboardInterrupt) else 3)
     assert "Application deployment" in captured.err
@@ -313,7 +331,19 @@ def test_cli_requires_verified_readiness_for_success(ready, monkeypatch, capsys)
     monkeypatch.setattr(
         cli, "deploy_azure_foundation", lambda **_kwargs: {"deployment_ready": ready}
     )
-    assert cli.main(["provision", "azure", "--online", "--output", "json"]) == 3
+    assert (
+        cli.main(
+            [
+                "provision",
+                "azure",
+                "--offline-kit",
+                "kit.tar.gz",
+                "--output",
+                "json",
+            ]
+        )
+        == 3
+    )
     assert capsys.readouterr().out == ""
 
 
@@ -473,7 +503,8 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
         [
             "provision",
             "azure",
-            "--online",
+            "--offline-kit",
+            "kit.tar.gz",
             "--output",
             "json",
             "--work-dir",

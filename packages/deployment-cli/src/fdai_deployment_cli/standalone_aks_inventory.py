@@ -99,6 +99,28 @@ def run_initial_aks_inventory(
             f"{source_revision}:{target_binding}:initial-inventory:{attempt}".encode()
         ).hexdigest()[:32]
     )
+    retry_attempt_id = (
+        "attempt."
+        + hashlib.sha256(
+            f"{source_revision}:{target_binding}:initial-inventory:{attempt}:retry-1".encode()
+        ).hexdigest()[:32]
+    )
+    second_retry_attempt_id = (
+        "attempt."
+        + hashlib.sha256(
+            f"{source_revision}:{target_binding}:initial-inventory:{attempt}:retry-2".encode()
+        ).hexdigest()[:32]
+    )
+    execution_environment = {
+        "FDAI_INVENTORY_EXECUTION_ATTEMPT": str(attempt),
+        "FDAI_INVENTORY_RESOURCE_TYPES": "",
+        "FDAI_INVENTORY_SCOPES": str(context["subscription_id"]),
+        "FDAI_INVENTORY_SOURCES": ",".join(str(source) for source in sources),
+        # The operations progress container is private to the managed host. The in-cluster
+        # Job records progress in PostgreSQL; the host closure completes the blob chain.
+        "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
+        "FDAI_INVENTORY_PROGRESS_RUN_ID": run_id,
+    }
     try:
         execution = execute_aks_cronjob_once(
             context,
@@ -110,18 +132,20 @@ def run_initial_aks_inventory(
             expected_command=("python", "-m", "fdai.delivery.inventory_sync_cli"),
             expected_service_account="inventory-job",
             args=("--initial",),
-            environment={
-                "FDAI_INVENTORY_EXECUTION_ATTEMPT": str(attempt),
-                "FDAI_INVENTORY_RESOURCE_TYPES": "",
-                "FDAI_INVENTORY_SCOPES": str(context["subscription_id"]),
-                "FDAI_INVENTORY_SOURCES": ",".join(str(source) for source in sources),
-                # The operations progress container is private to the managed host. The in-cluster
-                # Job records progress in PostgreSQL; the host closure completes the blob chain.
-                "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": attempt_id,
-                "FDAI_INVENTORY_PROGRESS_RUN_ID": run_id,
-            },
+            environment=execution_environment,
             require_suspended=False,
             timeout_seconds=960,
+            failed_successor_limit=2,
+            retry_environments=(
+                {
+                    **execution_environment,
+                    "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": retry_attempt_id,
+                },
+                {
+                    **execution_environment,
+                    "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": second_retry_attempt_id,
+                },
+            ),
         )
     except ValueError as exc:
         if str(exc) == "AKS inventory Job failed":
@@ -140,6 +164,10 @@ def run_initial_aks_inventory(
         attempt=attempt,
         state="succeeded",
     )
+    if execution.name.startswith("fdai-inventory-retry-1-"):
+        attempt_id = retry_attempt_id
+    elif execution.name.startswith("fdai-inventory-retry-2-"):
+        attempt_id = second_retry_attempt_id
     infra = Path(str(context["infra"]))
     bundle = infra.parent
     key_vault_name = vault_name(_terraform_output(infra, "key_vault_uri"))

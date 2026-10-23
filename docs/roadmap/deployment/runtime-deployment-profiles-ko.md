@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: f7b7947094a25dab93d3833a3c41fb93debf838b
+translation_source_sha: bfa23c54f8cb458c23e31a7633e09c78117cd4ed
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -243,17 +243,13 @@ Azure 관찰의 필수 역할은 범위가 제한된 `Reader` 하나뿐입니다
 
 ## 운영자 계약
 
-공개 명령은 online 설치와 산출물 offline 설치에서 두 선택을 명시적으로 받습니다. 신규 설치에서
-런타임을 생략하면 AKS를 선택합니다.
+공개 명령은 소스 설치와 서명된 산출물 offline 설치를 지원합니다. 신규 설치에서 런타임을
+생략하면 AKS를 선택합니다.
 
 ```bash
-fdaictl provision azure --online \
+fdaictl provision azure --source /path/to/fdai \
+  --runtime aks \
   --database postgres-flex
-
-fdaictl provision azure --online \
-  --runtime container-apps \
-  --database postgres-flex \
-  --existing-installation
 
 fdaictl provision azure \
   --offline-kit /media/fdai/fdai-deployment-kit.tar.gz \
@@ -325,9 +321,9 @@ Studio를 포함하지 않은 기존 롤백 산출물도 계속 읽을 수 있�
 | AKS 시스템 노드 | 최소 2개입니다. 프로덕션은 최소 3개입니다. | 3 |
 | AKS 사용자 노드 | 최소 3개입니다. | `postgres-flex` 사용 시 3 |
 | `postgres-aks` 사용 시 AKS 사용자 노드 | 최소 4개입니다. | 비프로덕션 소형 구성에서 4 |
-| 시스템 노드 SKU | 최소 4 vCPU와 4 GB 메모리이며 선택한 지역과 구독에서 사용 가능해야 합니다. | `Standard_D4as_v5` |
-| 사용자 노드 SKU | 지역과 구독에서 사용 가능해야 합니다. | `Standard_D4as_v5` |
-| PostgreSQL Flexible Server SKU(`--database-sku`) | `postgres-flex`에서만 사용합니다. `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, `GP_Standard_D4ds_v5` 중 하나여야 합니다. | 지정하지 않으면 `B_Standard_B1ms`를 유지합니다. AKS에는 `GP_Standard_D2ds_v5` 같은 General Purpose 크기를 권장합니다. |
+| 시스템 노드 SKU | 최소 4 vCPU와 4 GB 메모리이며 선택한 지역과 구독에서 사용 가능해야 합니다. | `Standard_D4ds_v4` |
+| 사용자 노드 SKU | 지역과 구독에서 사용 가능해야 합니다. | `Standard_D4ds_v4` |
+| PostgreSQL Flexible Server SKU(`--database-sku`) | `postgres-flex`에서만 사용합니다. `B_Standard_B1ms`, `B_Standard_B2s`, `B_Standard_B2ms`, `GP_Standard_D2ds_v5`, `GP_Standard_D4ds_v5`, `GP_Standard_D4ads_v5` 중 하나여야 합니다. | 지정하지 않으면 지역 카탈로그의 General Purpose 기본값인 `GP_Standard_D4ads_v5`를 유지합니다. |
 | 가용성 영역 | 요청한 각 영역을 두 SKU에서 모두 사용할 수 있어야 합니다. | 프로덕션에서 3개 영역 |
 
 데이터베이스 크기는 선택한 경우에만 런타임 프로파일에 들어갑니다. 따라서 지정하지 않으면 기존
@@ -811,6 +807,18 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 비공개 접근을 요구하면 공개 기본 구성을 차단하고, 정책을 약화하는 대신 적합한 내부 실행 호스트와
 정확한 비공개 계획을 선택합니다.
 
+Managed Host 준비는 첫 substrate 리소스 변경 전에 검증된 Foundation 애플리케이션 리소스 그룹
+이름을 보존합니다. Azure Policy가 claim된 substrate 적용 중에 Key Vault 또는 문서 스토리지
+네트워크를 강화하면 같은 호출이 그 정확한 그룹을 다시 읽고 별도로 승인된 잔여 계획을 만들기
+전에 접근 selector를 갱신할 수 있습니다. Foundation 바인딩이 없으면 실패한 substrate 출력에서
+소유권을 유도하지 않고 복구를 차단합니다.
+이후의 각 런타임 승인은 활성화된 인증 계정에서 동일한 정확한 tenant/subscription 바인딩을
+확인하며 워크스테이션 Azure CLI의 변경 가능한 기본 subscription과 독립적입니다.
+AKS 워크로드 계획은 읽기 전용 Console add-on을 선택한 경우에만 브라우저용 APIM gateway를
+활성화합니다. 기본 observation-first 프로필은 외부 Operator 또는 문서 수집 Service를 만들어
+내지 않고 Core를 배포하므로 Console을 선택하지 않으면 검증된 gateway 구조를
+`enabled=false`로 유지합니다.
+
 클러스터는 Azure Policy, patch 채널 Kubernetes 업그레이드, NodeImage OS 업그레이드를 활성화합니다.
 두 노드 풀 모두 호스트 암호화를 활성화하고 노드당 Pod 50개를 허용합니다. 배포 전에 선택한
 구독과 SKU가 호스트 암호화를 지원하는지 확인해야 합니다. 읽기 전용 사전 검증은 지역
@@ -818,7 +826,9 @@ API Server VNet Integration을 활성화하고, 나중에 클러스터를 교체
 직렬화한 다음 지역 제한, 필요한 세 개 영역, 아키텍처, 호스트 암호화, 제품군별 quota 및 전체
 quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로그 요청을 보내거나 실패한
 프로바이더 읽기를 재시도하지 않습니다. `postgres-flex` 프로파일은 지역 PostgreSQL Flexible Server
-카탈로그도 한 번 읽고, PostgreSQL 16을 제공하지 않으면 차단합니다. 해당 지역에서 프로비저닝이
+카탈로그도 한 번 읽고, PostgreSQL 16을 제공하지 않으면 차단합니다. 새 subscription의
+애플리케이션 사전 점검은 런타임 계획 전에 AKS용 `Microsoft.ContainerService`와 기본 스마트
+감지 규칙용 `Microsoft.AlertsManagement`도 등록합니다. 해당 지역에서 프로비저닝이
 제한된 구독은 오류 대신 빈 버전 목록을 받으므로 사전 검증은 `postgres_flex_region_restricted`를
 보고합니다. 증거가 없거나 형식이 잘못된 경우에도 차단합니다. 서명된 offline 패키지는 새 AKS
 설치의 첫 Azure 변경 전에 이 사전 검증을 실행합니다. 재개한 설치는 이 검증을 건너뛰므로 설치가

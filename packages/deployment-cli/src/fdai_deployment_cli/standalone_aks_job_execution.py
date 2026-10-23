@@ -99,10 +99,22 @@ def execute_aks_cronjob_once(
     environment: dict[str, str],
     require_suspended: bool,
     timeout_seconds: int,
+    failed_successor_limit: int = 0,
+    retry_environments: tuple[dict[str, str], ...] = (),
+    _retry_index: int = 0,
+    _retry_base_purpose: str | None = None,
 ) -> AksOneShotJob:
-    """Create once, or verify and observe the exact retained Kubernetes Job."""
+    """Create once, or run bounded distinct successors after explicit terminal failures."""
 
     kubeconfig = Path(str(context.get("kubeconfig", "")))
+    if (
+        type(failed_successor_limit) is not int
+        or not 0 <= failed_successor_limit <= 2
+        or len(retry_environments) != failed_successor_limit
+        or not 0 <= _retry_index <= failed_successor_limit
+    ):
+        raise ValueError("AKS one-shot failed-successor configuration is invalid")
+    retry_base_purpose = _retry_base_purpose or purpose
     if not kubeconfig.is_file():
         raise ValueError("AKS kubeconfig is unavailable for one-shot execution")
     read_private_bytes(kubeconfig, max_bytes=1024 * 1024)
@@ -191,6 +203,26 @@ def execute_aks_cronjob_once(
         )
         if outcome == "succeeded":
             return execution
+        if _retry_index < failed_successor_limit:
+            next_retry = _retry_index + 1
+            return execute_aks_cronjob_once(
+                context,
+                work_dir,
+                template_name=template_name,
+                purpose=f"{retry_base_purpose}-retry-{next_retry}",
+                expected_container_name=expected_container_name,
+                expected_image=expected_image,
+                expected_command=expected_command,
+                expected_service_account=expected_service_account,
+                args=args,
+                environment=retry_environments[next_retry - 1],
+                require_suspended=require_suspended,
+                timeout_seconds=timeout_seconds,
+                failed_successor_limit=failed_successor_limit,
+                retry_environments=retry_environments,
+                _retry_index=next_retry,
+                _retry_base_purpose=retry_base_purpose,
+            )
         raise ValueError(f"AKS {purpose} Job failed")
 
     dispatch_intent_at: datetime | None = None
@@ -342,6 +374,26 @@ def execute_aks_cronjob_once(
                     outcome="failed",
                 ),
             )
+            if _retry_index < failed_successor_limit:
+                next_retry = _retry_index + 1
+                return execute_aks_cronjob_once(
+                    context,
+                    work_dir,
+                    template_name=template_name,
+                    purpose=f"{retry_base_purpose}-retry-{next_retry}",
+                    expected_container_name=expected_container_name,
+                    expected_image=expected_image,
+                    expected_command=expected_command,
+                    expected_service_account=expected_service_account,
+                    args=args,
+                    environment=retry_environments[next_retry - 1],
+                    require_suspended=require_suspended,
+                    timeout_seconds=timeout_seconds,
+                    failed_successor_limit=failed_successor_limit,
+                    retry_environments=retry_environments,
+                    _retry_index=next_retry,
+                    _retry_base_purpose=retry_base_purpose,
+                )
             raise ValueError(f"AKS {purpose} Job failed")
         current = None
         time.sleep(5)
@@ -358,7 +410,7 @@ def _protected_template_digest(
         raise ValueError("protected AKS Job template digests are unavailable")
     digest = values.get(template_name)
     if not isinstance(digest, str):
-        raise ValueError("protected AKS Job template digest is unavailable")
+        raise TypeError("protected AKS Job template digest is unavailable")
     return digest
 
 
@@ -425,7 +477,7 @@ def _verify_service_account(value: object, *, expected: dict[str, object]) -> No
         raise ValueError("AKS one-shot ServiceAccount is invalid")
     metadata = value.get("metadata")
     if not isinstance(metadata, dict):
-        raise ValueError("AKS one-shot ServiceAccount metadata is invalid")
+        raise TypeError("AKS one-shot ServiceAccount metadata is invalid")
     annotations = metadata.get("annotations", {})
     if not isinstance(annotations, dict) or any(
         not isinstance(key, str) or not isinstance(item, str) for key, item in annotations.items()
@@ -580,7 +632,7 @@ def _parse_moment(value: object) -> datetime | None:
     if not isinstance(value, str):
         return None
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value)
     except ValueError:
         return None
     if parsed.tzinfo is None:
@@ -640,21 +692,21 @@ def _terminal_checkpoint_outcome(
 
 def _terminal_evidence(job: object) -> dict[str, object]:
     if not isinstance(job, dict):
-        raise ValueError("AKS Job terminal evidence is invalid")
+        raise TypeError("AKS Job terminal evidence is invalid")
     status = job.get("status")
     if not isinstance(status, dict):
-        raise ValueError("AKS Job terminal evidence is invalid")
+        raise TypeError("AKS Job terminal evidence is invalid")
     conditions = status.get("conditions", [])
     if not isinstance(conditions, list):
-        raise ValueError("AKS Job terminal evidence is invalid")
+        raise TypeError("AKS Job terminal evidence is invalid")
     normalized_conditions: list[dict[str, str]] = []
     for item in conditions:
         if not isinstance(item, dict):
-            raise ValueError("AKS Job terminal evidence is invalid")
+            raise TypeError("AKS Job terminal evidence is invalid")
         condition_type = item.get("type")
         condition_status = item.get("status")
         if not isinstance(condition_type, str) or not isinstance(condition_status, str):
-            raise ValueError("AKS Job terminal evidence is invalid")
+            raise TypeError("AKS Job terminal evidence is invalid")
         normalized_conditions.append(
             {
                 "type": condition_type,

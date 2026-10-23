@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: 99c91c5924be300c7906dbd29bccfa1bf0473fd2
+translation_source_sha: 077356bf89e0de00c9b938b12984b74bbcc3f336
 translation_revised: 2026-10-23
 ---
 # 구독 초기 프로비저닝
@@ -108,7 +108,15 @@ scripts/deployment/azure/genesis-up.sh \
 검사합니다. 검사 모드는 읽기 전용입니다. 변경 허용 사전 점검은 누락된 네임스페이스만
 등록하고 하나의 누적 제한 시간 안에 모든 네임스페이스를 다시 확인합니다. 롤백해도 등록은
 유지합니다.
+애플리케이션 프로필에는 스마트 감지 규칙용 `Microsoft.AlertsManagement`와 AKS용
+`Microsoft.ContainerService`가 포함되므로 새 subscription은 사전 수동 등록에 의존하지 않습니다.
+소스 조정기는 운영자가 전체 설치 범위를 확인한 뒤에만 변경 허용 provider 등록 바인딩 하나를
+명시적으로 전달하며, 직접 Foundation 준비는 읽기 전용으로 유지됩니다.
 대상 축이 없거나 잘못된 경우 첫 Azure 명령 전에 종료 코드 `64`를 반환합니다.
+네트워크 검색은 각 peer가 정규 원격 prefix를 계속 보고하는 경우에만 Azure VNet peering의
+`Connected`, `Initiated`, `Disconnected` 상태를 완전한 근거로 취급합니다. 연결이 끊긴
+peer를 포함해 보고된 모든 prefix를 충돌 방지 계산에 유지하며, 알 수 없는 상태나 누락된
+prefix가 있으면 계획을 차단합니다.
 
 명시적으로 승인된 정책 프로브는 결정적 이름과 태그가 있는 Key Vault 및 Storage 리소스
 그룹 하나를 만들고 정책 적용 후의 실제 네트워크 상태를 관측합니다. 정확한 소유권 정리가
@@ -117,6 +125,17 @@ scripts/deployment/azure/genesis-up.sh \
 정확히 승인된 계획을 기다립니다. 비공개 결과는 별도로 검토한 기반 계층 계획과 VNet 실행기를
 기다립니다. 어떤 결과도 다른 경로로 자동 전환하거나 봉인되지 않은 미리 보기를 적용하거나
 구독 준비 상태를 설정하지 않습니다.
+
+정확한 적용 claim 경계를 통과했지만 적용 영수증과 상태 인계 영수증을 모두 만들지 못한
+소스 기반 계층은 보관된 검토 계획으로 소유권을 증명한 경우에만 철거할 수 있습니다. 철거
+경로는 별도의 입력 확인을 요구하기 전에 저장 계획, 승인된 Terraform 바이너리와 계획
+projection, 정규화된 변수, 변경 불가능한 적용 claim, 소스/실행/대상 바인딩, 결정적 리소스
+그룹 이름, 비공개 인계를 검증합니다. 정확히 두 개의 FDAI 소유 그룹만 삭제하고 독립적으로
+부재를 다시 확인하며, 실패한 적용을 성공으로 다시 표시하지 않습니다.
+Managed Host 준비 context는 첫 substrate 리소스 변경 전에 검증된 Foundation 애플리케이션
+리소스 그룹 이름을 보존합니다. 따라서 정확한 적용이 정책으로 네트워크 상태를 바꾼 뒤
+실패하더라도 성공한 substrate 출력 없이 잔여 계획을 만들기 전에 Key Vault와 문서 스토리지의
+비공개 접근 상태를 다시 확인할 수 있습니다.
 
 ### 안전하고 범위가 제한된 병렬 실행
 
@@ -133,6 +152,8 @@ Storage 생성 및 상태 읽기를 각각 동시에 실행합니다. 도구 준
 정확한 승인, 점유와 증적 게시, 상태 인계, 정리, 저장소 변경, 보호된 애플리케이션 계획과 적용은
 계속 직렬로 수행합니다. 병렬 작업 하나가 실패하면 해당 단계를 중단합니다. 이미 수락된 공급자
 등록은 유지하며, 경로를 수락하기 전에 프로브 정리를 완료합니다.
+직렬화된 각 승인은 Azure CLI의 변경 가능한 기본 subscription에 의존하지 않고 활성화된 인증
+계정에서 검토된 대상을 확인합니다.
 
 비공개 아티팩트가 제공되지 않으면 안정적인 중단 사유는
 `private_foundation_external_artifacts_required`입니다. 다음 작업은 현재 작업 흐름에서 실행할
