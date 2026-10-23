@@ -33,7 +33,9 @@ def backend(monkeypatch, config):
     connection, cursor = MagicMock(), MagicMock()
     connection.__enter__.return_value = connection
     connection.cursor.return_value.__enter__.return_value = cursor
-    cursor.fetchall.return_value = [(config.runtime_object_id,)]
+    cursor.fetchall.return_value = [
+        ({"rolename": config.runtime_name, "objectId": config.runtime_object_id},)
+    ]
     cursor.fetchone.return_value = None
     database_connection, database_cursor = MagicMock(), MagicMock()
     database_connection.__enter__.return_value = database_connection
@@ -88,7 +90,10 @@ def backend(monkeypatch, config):
 
 
 def test_fresh_bootstrap_creates_only_app_data(config, backend):
-    backend.cursor.fetchall.side_effect = [[], [(config.runtime_object_id,)]]
+    backend.cursor.fetchall.side_effect = [
+        [],
+        [({"rolename": config.runtime_name, "objectId": config.runtime_object_id},)],
+    ]
     bootstrap.initialize(config)
     assert backend.writes == ["hub-database-url", "development-signing-key"]
     key = serialization.load_pem_private_key(
@@ -97,8 +102,10 @@ def test_fresh_bootstrap_creates_only_app_data(config, backend):
     assert isinstance(key, Ed25519PrivateKey)
     statements = [str(call.args[0]) for call in backend.cursor.execute.call_args_list]
     assert any("pgaadauth_create_principal_with_oid" in statement for statement in statements)
-    assert sum("SELECT objectid FROM" in statement for statement in statements) == 2
-    assert not any('"objectId"' in statement for statement in statements)
+    assert sum("SELECT to_jsonb(principal)" in statement for statement in statements) == 2
+    assert not any(
+        "WHERE rolename" in statement or '"objectId"' in statement for statement in statements
+    )
     grants = [str(call.args[0]) for call in backend.database_cursor.execute.call_args_list]
     assert any("GRANT USAGE, CREATE" in statement for statement in grants)
     assert not any("DROP" in statement or "ALTER ROLE" in statement for statement in statements)
@@ -116,6 +123,21 @@ def test_fresh_bootstrap_creates_only_app_data(config, backend):
         assert call.kwargs["sslrootcert"] == "/etc/ssl/certs/ca-certificates.crt"
 
 
+def test_principal_lookup_uses_case_insensitive_json_fields(config):
+    cursor = MagicMock()
+    cursor.fetchall.return_value = [
+        ({"roleName": "other-runtime", "objectId": "00000000-0000-0000-0000-000000000003"},),
+        ({"roleName": config.runtime_name, "objectId": config.runtime_object_id},),
+    ]
+
+    assert bootstrap._principal_object_ids(cursor, config.runtime_name) == [
+        config.runtime_object_id
+    ]
+    cursor.execute.assert_called_once_with(
+        "SELECT to_jsonb(principal) FROM pg_catalog.pgaadauth_list_principals(false) AS principal"
+    )
+
+
 def test_existing_matching_bootstrap_does_not_overwrite(config, backend):
     key = (
         Ed25519PrivateKey.generate()
@@ -129,7 +151,9 @@ def test_existing_matching_bootstrap_does_not_overwrite(config, backend):
     backend.records.update(
         {"hub-database-url": config.database_url, "development-signing-key": key}
     )
-    backend.cursor.fetchall.return_value = [(config.runtime_object_id,)]
+    backend.cursor.fetchall.return_value = [
+        ({"rolename": config.runtime_name, "objectId": config.runtime_object_id},)
+    ]
     bootstrap.initialize(config)
     assert backend.writes == []
     assert not any(
@@ -141,7 +165,14 @@ def test_existing_matching_bootstrap_does_not_overwrite(config, backend):
 @pytest.mark.parametrize("conflict", ["principal", "unbound_role", "database", "key"])
 def test_partial_or_conflicting_state_is_not_replaced(config, backend, conflict):
     if conflict == "principal":
-        backend.cursor.fetchall.return_value = [("00000000-0000-0000-0000-000000000003",)]
+        backend.cursor.fetchall.return_value = [
+            (
+                {
+                    "rolename": config.runtime_name,
+                    "objectId": "00000000-0000-0000-0000-000000000003",
+                },
+            )
+        ]
     elif conflict == "unbound_role":
         backend.cursor.fetchall.return_value = []
         backend.cursor.fetchone.return_value = (1,)

@@ -106,6 +106,25 @@ def _connect(
     )
 
 
+def _principal_object_ids(cursor: psycopg.Cursor[tuple[object, ...]], role_name: str) -> list[str]:
+    cursor.execute(
+        "SELECT to_jsonb(principal) FROM pg_catalog.pgaadauth_list_principals(false) AS principal"
+    )
+    object_ids: list[str] = []
+    for row in cursor.fetchall():
+        record = row[0]
+        if not isinstance(record, dict) or not all(isinstance(key, str) for key in record):
+            raise ValueError("Azure principal catalog returned an invalid record.")
+        normalized = {key.casefold(): value for key, value in record.items()}
+        catalog_role = normalized.get("rolename")
+        object_id = normalized.get("objectid")
+        if not isinstance(catalog_role, str) or not isinstance(object_id, str):
+            raise ValueError("Azure principal catalog schema is unsupported.")
+        if catalog_role == role_name:
+            object_ids.append(object_id)
+    return object_ids
+
+
 def initialize(config: BootstrapConfig) -> None:
     """Hold a postgres session lock across principal, product-schema and secret initialization."""
     with ManagedIdentityCredential(
@@ -118,14 +137,9 @@ def initialize(config: BootstrapConfig) -> None:
         with _connect(config, token, "postgres", autocommit=True) as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT pg_advisory_lock(hashtext('fdai_hub_bootstrap'))")
-                cursor.execute(
-                    "SELECT objectid FROM pg_catalog.pgaadauth_list_principals(false) "
-                    "WHERE rolename = %s",
-                    (config.runtime_name,),
-                )
-                principals = cursor.fetchall()
+                principals = _principal_object_ids(cursor, config.runtime_name)
                 if principals:
-                    if len(principals) != 1 or UUID(principals[0][0]) != UUID(
+                    if len(principals) != 1 or UUID(principals[0]) != UUID(
                         config.runtime_object_id
                     ):
                         raise ValueError("Existing runtime principal conflicts; not replaced.")
@@ -140,13 +154,8 @@ def initialize(config: BootstrapConfig) -> None:
                         "(%s, %s, 'service', false, false)",
                         (config.runtime_name, config.runtime_object_id),
                     )
-                    cursor.execute(
-                        "SELECT objectid FROM pg_catalog.pgaadauth_list_principals(false) "
-                        "WHERE rolename = %s",
-                        (config.runtime_name,),
-                    )
-                    created = cursor.fetchall()
-                    if len(created) != 1 or UUID(created[0][0]) != UUID(config.runtime_object_id):
+                    created = _principal_object_ids(cursor, config.runtime_name)
+                    if len(created) != 1 or UUID(created[0]) != UUID(config.runtime_object_id):
                         raise ValueError(
                             "Runtime principal readback failed; initialization stopped."
                         )
