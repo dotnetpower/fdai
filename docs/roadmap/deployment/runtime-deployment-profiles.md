@@ -829,7 +829,9 @@ The minimum four user nodes make this profile schedulable
 but do not claim database high availability, backup, or point-in-time recovery.
 Azure resource tags remain on Azure resources and are not reused as Kubernetes labels. The
 PostgreSQL `StatefulSet` uses only its explicit `app.kubernetes.io/*` and `fdai.io/*` labels so
-Azure tag punctuation cannot invalidate the Kubernetes object.
+Azure tag punctuation cannot invalidate the Kubernetes object. Both the Pod and PostgreSQL
+container explicitly require UID/GID 999 and `runAsNonRoot=true`; the container also drops all
+capabilities and disables privilege escalation for the AKS restricted Pod Security profile.
 
 The in-cluster database stage writes the shared state-store DSN plus the role-scoped
 `fdai-ingestion-api-dsn` and `fdai-ingestion-worker-dsn` secrets that AKS document ingestion reads.

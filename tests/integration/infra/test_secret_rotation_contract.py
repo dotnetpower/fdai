@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -41,6 +42,16 @@ def test_postgres_stateful_set_does_not_reuse_azure_tag_keys_as_labels() -> None
     assert "labels = merge(var.tags" not in block
     assert '"app.kubernetes.io/name"       = "postgres"' in block
     assert '"fdai.io/runtime"              = "aks"' in block
+
+
+def test_postgres_container_satisfies_restricted_pod_security() -> None:
+    root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
+
+    assert len(re.findall(r"run_as_non_root\s*=\s*true", root)) == 2
+    assert len(re.findall(r"run_as_user\s*=\s*999", root)) == 2
+    assert len(re.findall(r"run_as_group\s*=\s*999", root)) == 2
+    assert "allow_privilege_escalation = false" in root
+    assert 'drop = ["ALL"]' in root
 
 
 def test_postgres_aks_publishes_role_scoped_ingestion_dsns() -> None:

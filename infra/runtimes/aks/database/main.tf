@@ -132,6 +132,9 @@ resource "kubernetes_stateful_set_v1" "postgres" {
 
           security_context {
             allow_privilege_escalation = false
+            run_as_non_root            = true
+            run_as_user                = 999
+            run_as_group               = 999
             capabilities {
               drop = ["ALL"]
             }
