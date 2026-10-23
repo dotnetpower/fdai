@@ -170,10 +170,6 @@ class PostgresInventoryClosureVerifier:
         }
         failed = sorted(name for name, passed in conditions.items() if not passed)
         if failed:
-            if "active_generation" in failed:
-                raise ValueError(
-                    "inventory closure generation superseded without retained verification"
-                )
             raise ValueError("inventory closure verification failed: " + ",".join(failed))
         observed_at = datetime.now(tz=UTC)
         values: dict[str, object] = {

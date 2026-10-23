@@ -193,8 +193,12 @@ async def test_closure_verifier_binds_exact_active_generation(
     assert receipt.coverage_gap_count == 174
 
     connection.progress = _progress("sha256:" + "f" * 64).model_dump(mode="json")
-    with pytest.raises(ValueError, match="superseded without retained verification"):
+    with pytest.raises(ValueError, match="active_generation"):
         await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
+    connection.active["overlay_count"] = 1
+    with pytest.raises(ValueError, match="active_generation,overlay_closed"):
+        await verifier.verify(run_id=progress.run_id, attempt_id=progress.attempt_id)
+    connection.active["overlay_count"] = 0
 
     connection.progress = progress.model_dump(mode="json")
     retained = await verifier.retain(run_id=progress.run_id, attempt_id=progress.attempt_id)

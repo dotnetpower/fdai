@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9c438a6086fd2aad55b27ff6126036b70ad6249b
+translation_source_sha: 038d4e003e2091a61f57bb3105dac710fe0ec5f7
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -925,6 +925,12 @@ drift를 범위 안으로 끌어오지 않아야 하기 때문입니다. 애플�
 보존하며 같은 호출 안에서는 다시 실행하지 않습니다. 이후 명시적인 소스 호출만 다음 attempt로
 진행할 수 있고, attempt는 최대 3회로 제한됩니다. 진행 중이거나 결과가 불명확한 attempt는 같은
 식별자를 유지한 채 검증 전용 복구를 수행합니다.
+
+독립 closure가 one-shot Job 종료 후 예약된 재조정이 더 새로운 세대를 승격했다는 이유로만
+(`active_generation`) 실패하면, Job 자체의 세대는 정상이지만 더 이상 활성 세대가 아니므로
+묶을 수 없습니다. 그 attempt는 실패로 기록하고 다음 호출이 새 attempt를 시작합니다. closure는
+완화하지 않습니다. 그 밖의 검증 조건 실패는 attempt를 유지한 채 이름만 보고하며, 고정된 검증
+조건 집합에 속한 이름만 출력합니다.
 
 배포 운영자가 업스트림 무결성 서명 키를 보유하면 배포 바인딩 단계가 설치 바인딩도 함께
 반환합니다. 그러면 기능 단계는 30일 토큰 대신, 해당 설치와 배포에 묶인 만료 없는 설치
