@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: ca232aec7491c8ac91c1fd85920122057dd5d779
-translation_revised: 2026-10-21
+translation_source_sha: 4ec41ba3e9fc9bf1778fa41df7fd74a9badba4c5
+translation_revised: 2026-10-23
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -42,6 +42,13 @@ principal과 사례 접근 범위를 연결하는 독립 조회 검증 증적 �
 ![설계 개요. 주요 단계는 Provider events and delta APIs, Durable observation ingress, Normalize and adjudicate, Current operational graph, Bitemporal observation history, Typed rollups, Verified archive, Verified semantic query, Evidence current and complete?, Evidence-backed result, Bounded live read입니다.](../../diagrams/generated/fdai-roadmap-architecture-continuous-operational-instance-graph-01.ko.svg)
 
 ## 변경할 수 없는 불변식
+
+최초 설치 완료 검증은 수집기가 기존 인벤토리 쓰기 잠금을 해제하기 전에 별도 관찰자가
+검증한 정확한 세대의 증적을 보존합니다. 이후 예약 수집이 새 세대를 승격해도 과거 증적은
+유효하지만, 재생할 때 원래 관측 시각을 유지하며 현재 그래프의 최신성을 주장하지 않습니다.
+독립 검증 증적이 보존되지 않은 이전 세대는 여전히 완료 조건을 충족하지 못합니다.
+[Genesis 프로비전](../deployment/subscription-genesis-provisioning-ko.md#최초-인벤토리-진행률)이
+호스트의 제한된 재시도와 증적 재생을 담당하며, 어느 경로도 관측 또는 실행 권한을 추가하지 않습니다.
 
 AKS에서 Operator의 그래프 질의와 실시간 단계 전송은 Operator 신원에 연결된 투영 워크로드
 자격 증명을 사용합니다. 자격 증명이 바뀌어도 질의 수용, 토픽 소유권, 관측 출처 또는 변환

@@ -32,6 +32,13 @@ unbounded tight polling loop.
 
 ## Non-negotiable invariants
 
+Initial installation closure retains a distinct observer's exact-generation receipt before the
+collector releases the existing inventory writer lock. Later scheduled promotion does not
+invalidate that historical receipt, but replay preserves its original observation time and cannot
+assert current graph freshness. A superseded generation without retained independent verification
+remains ineligible. [Genesis provisioning](../deployment/subscription-genesis-provisioning.md#initial-inventory-progress)
+owns bounded host retries and receipt replay; neither adds observation or execution authority.
+
 On AKS, Operator graph-query and live-stage transport use the projected workload credential bound
 to the Operator identity. The credential change does not alter query admission, topic ownership,
 observation provenance or projection writers. The existing adapters facade owns factory exposure. Incomplete federation remains unavailable and never
