@@ -227,6 +227,22 @@ def test_service_projection_uses_tracked_docker_copy_inputs(checkout: Path) -> N
     assert "scripts/deployment/azure/source_image_build.py" in paths
 
 
+def test_service_projection_rejects_untracked_docker_add_inputs(checkout: Path) -> None:
+    dockerfile = checkout / "services/operator-service/docker/Dockerfile"
+    dockerfile.parent.mkdir(parents=True)
+    dockerfile.write_text(
+        "FROM scratch\nCOPY pyproject.toml /app/\nADD service.tar /app/\n",
+        encoding="utf-8",
+    )
+    (checkout / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
+    (checkout / "service.tar").write_bytes(b"archive")
+    _git(checkout, "add", ".")
+    _git(checkout, "-c", "commit.gpgsign=false", "commit", "-m", "service")
+
+    with pytest.raises(ValueError, match="does not accept Docker ADD"):
+        service_source_projection(inspect_source(checkout), "operator-service")
+
+
 def test_reading_a_link_may_update_access_time(checkout: Path, monkeypatch) -> None:
     access_times = iter((1, 2))
 

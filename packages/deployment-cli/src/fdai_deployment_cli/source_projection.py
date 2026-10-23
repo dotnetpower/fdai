@@ -80,7 +80,11 @@ def _docker_copy_sources(content: str) -> tuple[str, ...]:
     sources: list[str] = []
     for instruction in logical:
         parts = shlex.split(instruction)
-        if not parts or parts[0].upper() != "COPY":
+        if not parts:
+            continue
+        if parts[0].upper() == "ADD":
+            raise ValueError("source projection does not accept Docker ADD inputs")
+        if parts[0].upper() != "COPY":
             continue
         if any(part.startswith("--from=") for part in parts[1:]):
             continue
