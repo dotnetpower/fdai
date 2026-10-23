@@ -35,6 +35,24 @@ def _built_image(work_dir: Path, service: str) -> dict[str, object]:
     }
 
 
+def _imported_image(service: str) -> dict[str, object]:
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.source-service-image-import-receipt.v1",
+        "state": "imported",
+        "service": service,
+        "source_commit": "c" * 40,
+        "archive_sha256": "a" * 64,
+        "image_digest": "sha256:" + "b" * 64,
+        "image": f"example.azurecr.io/{service}@sha256:" + "b" * 64,
+        "claim_digest": "d" * 64,
+        "effect_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    return receipt
+
+
 def test_legacy_full_snapshot_remains_eligible_for_recovery_timing(tmp_path: Path) -> None:
     snapshot = tmp_path / "snapshot"
     tree = snapshot / "tree"
@@ -182,6 +200,41 @@ def test_source_service_update_rejects_a_changed_update_base_mismatch(
         )
 
 
+def test_source_service_update_rejects_unbound_image_import_receipt() -> None:
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.source-service-image-import-receipt.v1",
+        "state": "imported",
+        "service": "operator-service",
+        "source_commit": "c" * 40,
+        "archive_sha256": "a" * 64,
+        "image_digest": "sha256:" + "b" * 64,
+        "image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
+        "claim_digest": "d" * 64,
+        "effect_verified": True,
+        "mutation_performed": True,
+        "subscription_ready": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+
+    source_service_update._validate_import_receipt(
+        receipt,
+        service="operator-service",
+        source_commit="c" * 40,
+        archive_sha256="a" * 64,
+        image_digest="sha256:" + "b" * 64,
+    )
+
+    receipt["image"] = "example.azurecr.io/isolated-executor@sha256:" + "b" * 64
+    with pytest.raises(ValueError, match="image import receipt is invalid"):
+        source_service_update._validate_import_receipt(
+            receipt,
+            service="operator-service",
+            source_commit="c" * 40,
+            archive_sha256="a" * 64,
+            image_digest="sha256:" + "b" * 64,
+        )
+
+
 @pytest.mark.parametrize(
     ("service", "active_update"),
     [
@@ -257,10 +310,7 @@ def test_source_service_update_builds_imports_plans_and_verifies(
                 "active_service_update": active_update,
             }
         if command == "import-source-image":
-            return {
-                "image": f"example.azurecr.io/{service}@sha256:" + "b" * 64,
-                "receipt_digest": "e" * 64,
-            }
+            return _imported_image(service)
         if command == "prepare-service-update":
             return {
                 "service": service,
@@ -520,10 +570,7 @@ def test_source_service_update_reconciles_historical_baseline_before_import(
                 "active_service_update": None,
             }
         if command == "import-source-image":
-            return {
-                "image": "example.azurecr.io/operator-service@sha256:" + "b" * 64,
-                "receipt_digest": "e" * 64,
-            }
+            return _imported_image("operator-service")
         if command == "prepare-service-update":
             return {
                 "service": "operator-service",

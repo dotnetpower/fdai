@@ -323,6 +323,13 @@ def deploy_source_service_update(
             ),
             timeout=deadline.remaining(2400),
         )
+        _validate_import_receipt(
+            imported,
+            service=service,
+            source_commit=source.commit,
+            archive_sha256=str(image["archive_sha256"]),
+            image_digest=str(image["image_digest"]),
+        )
         phase_started = _record_timing(phase_timings, "image-import", phase_started)
         expected_update = {
             "service": service,
@@ -571,6 +578,37 @@ def _verified_completed_receipt(
     ):
         raise ValueError("retained source service update receipt is not currently verified")
     return receipt
+
+
+def _validate_import_receipt(
+    receipt: dict[str, Any],
+    *,
+    service: str,
+    source_commit: str,
+    archive_sha256: str,
+    image_digest: str,
+) -> None:
+    receipt_digest = receipt.get("receipt_digest")
+    claim_digest = receipt.get("claim_digest")
+    image = receipt.get("image")
+    unsigned = {key: value for key, value in receipt.items() if key != "receipt_digest"}
+    if (
+        receipt.get("schema_version") != "fdai.source-service-image-import-receipt.v1"
+        or receipt.get("state") != "imported"
+        or receipt.get("service") != service
+        or receipt.get("source_commit") != source_commit
+        or receipt.get("archive_sha256") != archive_sha256
+        or receipt.get("image_digest") != image_digest
+        or not isinstance(image, str)
+        or not image.endswith(f"/{service}@{image_digest}")
+        or receipt.get("effect_verified") is not True
+        or not isinstance(claim_digest, str)
+        or _DIGEST.fullmatch(claim_digest) is None
+        or not isinstance(receipt_digest, str)
+        or _DIGEST.fullmatch(receipt_digest) is None
+        or canonical_digest(unsigned) != receipt_digest
+    ):
+        raise ValueError("source service image import receipt is invalid")
 
 
 def _approve_import(root: Path, review: dict[str, Any], deadline: DeploymentDeadline) -> Path:
