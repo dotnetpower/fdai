@@ -705,9 +705,14 @@ def test_recovery_accepts_runner_patch_inputs_from_retained_state(recovery_plans
             },
         }
     )
-    runner = {
+    retained_runner = {
         "id": "/subscriptions/example/virtualMachines/runner",
         "name": "runner",
+        "patch_mode": None,
+        "bypass_platform_safety_checks_on_user_schedule_enabled": False,
+    }
+    refreshed_runner = {
+        **retained_runner,
         "patch_mode": "AutomaticByPlatform",
         "bypass_platform_safety_checks_on_user_schedule_enabled": True,
     }
@@ -718,8 +723,8 @@ def test_recovery_accepts_runner_patch_inputs_from_retained_state(recovery_plans
             "mode": "managed",
             "change": {
                 "actions": ["no-op"],
-                "before": runner,
-                "after": runner,
+                "before": refreshed_runner,
+                "after": refreshed_runner,
                 "after_unknown": {},
             },
         }
@@ -730,7 +735,7 @@ def test_recovery_accepts_runner_patch_inputs_from_retained_state(recovery_plans
             "mode": "managed",
             "type": "azurerm_linux_virtual_machine",
             "name": "runner",
-            "instances": [{"index_key": 0, "attributes": runner}],
+            "instances": [{"index_key": 0, "attributes": retained_runner}],
         }
     )
 
