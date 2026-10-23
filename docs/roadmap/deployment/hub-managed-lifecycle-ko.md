@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: b4d862a6c19112c470428ccfcb26a1e8ad1d434b
+translation_source_sha: 53e54bc2779b05498db0726cc08ed5df5c4690b5
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -315,6 +315,15 @@ Identity, workload federation 연결 하나, 정확한 `Agent.Access` 앱 역할
 필수 조건만 준비합니다. 등록, 소유권, 보고 상태, 서명된 입력과 Plan이 모두 준비된 뒤
 정확한 후속 plan에서 Recreate 전략의 Agent 하나만 시작합니다. 설치본 신원 개인 키는
 Terraform 입력으로 사용하지 않습니다.
+
+`fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
+깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,
+독립적으로 얻은 Hub/Release 공개 키에서 새 비공개 디렉터리를 만듭니다. 이 디렉터리에는
+변경 불가능한 게시 요청, 서명된 등록, 고객 서명 구성, 애플리케이션 연결 요청, Entity 설정,
+명시적인 빈 상태, native 범위 승인, Agent 정책과 캐시, 설치본 소유 키가 들어 있습니다.
+Hub, Azure 엔드포인트, 레지스트리 또는 클러스터에는 접촉하지 않으며 실패하면 일부만 만들어진
+대상을 제거합니다. 준비 증적에는 다이제스트만 포함하며 게시, 등록, 소유권, Plan 또는 적용
+권한을 부여하지 않습니다.
 
 이 선택 기능의 근거는 집중 로컬 테스트입니다. 실제 Entra 인증, 이미지, AKS, 볼륨 재연결,
 워크로드 변경 효과를 입증하지 않습니다. 이 준비 작업은 기존 Hub의 이미지, revision,

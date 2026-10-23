@@ -18,7 +18,6 @@ from fdai_lifecycle_hub.domain import Issued, PlanOutcome, Unchanged
 from fdai_lifecycle_hub.remote_catalog import PinApproval, RemoteCatalog
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
-from fdai_release_hub.store import Change, ReleaseStore
 
 
 class ReleasePublicationRequest(BaseModel):
@@ -84,6 +83,8 @@ def publish_release(
     now: datetime,
 ) -> dict[str, Any]:
     """Converge one immutable Release through register, publish, and channel membership."""
+
+    from fdai_release_hub.store import Change, ReleaseStore
 
     store = ReleaseStore(engine, key, clock=lambda: now, initialize=False)
     snapshot = store.snapshot()

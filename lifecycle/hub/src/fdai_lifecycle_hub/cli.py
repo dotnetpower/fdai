@@ -90,6 +90,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     enroll.add_argument("path", type=Path, help="enrollment request without key and time")
     enroll.add_argument("--key", type=Path, required=True, help="installation private key")
+    submit_enrollment = command(
+        "submit-enrollment",
+        _submit_enrollment,
+        "submit an already signed enrollment request without reading its private key",
+    )
+    submit_enrollment.add_argument("path", type=Path)
 
     approve = command("approve", _approve, "enroll a pending installation")
     approve.add_argument("installation_id")
@@ -229,6 +235,25 @@ def _migrate(args: argparse.Namespace) -> int:
 
 def _dev_keygen(args: argparse.Namespace) -> int:
     _print({"public_key": str(generate_development_key(args.path))})
+    return 0
+
+
+def _submit_enrollment(args: argparse.Namespace) -> int:
+    try:
+        document = schemas.SignedEnrollment.model_validate_json(args.path.read_bytes())
+        request = schemas.enrollment_request(
+            document.signed_payload,
+            document.proof,
+        )
+    except (OSError, ValueError) as error:
+        raise ValueError("signed_enrollment_request_invalid") from error
+    _store().request_enrollment(request, verify=verify_key_proof, now=domain.utc_now())
+    _print(
+        {
+            "pending": request.installation.installation_id,
+            "installation_key_id": request.installation_key_id,
+        }
+    )
     return 0
 
 

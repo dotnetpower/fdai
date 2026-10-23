@@ -314,6 +314,15 @@ starting a poller; an exact later plan starts one Recreate-strategy Agent only a
 ownership, reported state, signed inputs and a Plan exist. The installation identity private key
 is never a Terraform input.
 
+`fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
+remote effect. From a clean source revision, digest-pinned component images, a reviewed private
+runtime bundle, and independently obtained Hub/Release public keys, it creates a new private
+directory containing the immutable publication request, signed enrollment, customer-signed
+configuration, application-binding request, Entity settings, explicit empty state, native scope
+approval, Agent policy/cache and installation-owned keys. It contacts no Hub, Azure endpoint,
+registry or cluster and deletes a partial destination on failure. Its receipt contains digests
+only and grants no publication, enrollment, ownership, Plan or apply authority.
+
 These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or workload
 effect evidence. Existing Hub images, revisions, catalog bindings and network allowlists are
 not changed by this preparation. An exact cloud plan and separate approval precede those effects.

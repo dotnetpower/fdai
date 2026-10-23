@@ -3285,6 +3285,7 @@
         "packages/deployment-cli/tests/test_lifecycle_native.py",
         "lifecycle/agent/src/fdai_lifecycle_agent/native_*.py",
         "lifecycle/agent/tests/test_native*.py",
+        "lifecycle/manager/**",
         "lifecycle/Dockerfile.agent",
         "infra/lifecycle-agent/**",
         "tests/integration/services/test_lifecycle_agent_image.py",
