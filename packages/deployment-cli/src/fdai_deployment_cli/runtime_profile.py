@@ -30,14 +30,15 @@ class DatabasePlacement(StrEnum):
     POSTGRES_AKS = "postgres-aks"
 
 
-# Explicit PostgreSQL Flexible Server sizes. Unset keeps the infrastructure day-zero default,
-# B_Standard_B1ms, and leaves the profile mapping and digest unchanged.
+# Explicit PostgreSQL Flexible Server sizes. Unset keeps the infrastructure default,
+# GP_Standard_D4ads_v5, and leaves the profile mapping and digest unchanged.
 DATABASE_SKUS = (
     "B_Standard_B1ms",
     "B_Standard_B2s",
     "B_Standard_B2ms",
     "GP_Standard_D2ds_v5",
     "GP_Standard_D4ds_v5",
+    "GP_Standard_D4ads_v5",
 )
 
 LEGACY_FULL_PRODUCT_ADD_ONS = (
@@ -55,10 +56,10 @@ class RuntimeDeploymentProfile:
     runtime_platform: RuntimePlatform
     database_placement: DatabasePlacement
     system_node_count: int = 3
-    system_node_sku: str = "Standard_D4as_v5"
+    system_node_sku: str = "Standard_D4ds_v4"
     user_node_min_count: int = 3
     user_node_max_count: int = 5
-    user_node_sku: str = "Standard_D4as_v5"
+    user_node_sku: str = "Standard_D4ds_v4"
     product_profile: ProductProfile = field(default_factory=ProductProfile)
     database_sku: str | None = None
 
@@ -108,7 +109,7 @@ class RuntimeDeploymentProfile:
         system_node_sku: str | None = None,
         user_node_min_count: int = 3,
         user_node_max_count: int = 5,
-        user_node_sku: str = "Standard_D4as_v5",
+        user_node_sku: str = "Standard_D4ds_v4",
         product_add_ons: tuple[str, ...] = (),
         observation_data_sources: tuple[str, ...] = (),
         database_sku: str | None = None,
@@ -146,7 +147,7 @@ class RuntimeDeploymentProfile:
             system_node_count=system_node_count,
             system_node_sku=system_node_sku
             if system_node_sku is not None
-            else ("Standard_D4as_v5" if runtime is RuntimePlatform.AKS else "Standard_D2as_v5"),
+            else ("Standard_D4ds_v4" if runtime is RuntimePlatform.AKS else "Standard_D2as_v5"),
             user_node_min_count=user_node_min_count,
             user_node_max_count=user_node_max_count,
             user_node_sku=user_node_sku,

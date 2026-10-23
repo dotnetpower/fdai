@@ -31,7 +31,7 @@ variables {
   core_image                 = "registry.example.com/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
 }
 
-run "unselected_size_keeps_the_day_zero_burstable_server" {
+run "unselected_size_keeps_the_default_general_purpose_server" {
   command = plan
 
   plan_options {
@@ -39,8 +39,8 @@ run "unselected_size_keeps_the_day_zero_burstable_server" {
   }
 
   assert {
-    condition     = var.postgres_sku_name == "B_Standard_B1ms"
-    error_message = "An unselected size must keep the day-zero Burstable B1ms server."
+    condition     = var.postgres_sku_name == "GP_Standard_D4ads_v5"
+    error_message = "An unselected size must keep the default General Purpose D4ads v5 server."
   }
 }
 

@@ -1,7 +1,7 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 98cbd70384ab2ee6aabca193dfa585202863c9ce
+translation_source_sha: a24814d8544d2af2ae612cc16b020196c950427e
 translation_revised: 2026-10-23
 ---
 # 프로비저닝 실행 프로파일
@@ -45,23 +45,18 @@ Parser handler, 출력 계약, 정확한 승인 요건 및 변경 권한은 바�
 설치 패키지는 `az login` 후 하나의 기본 구독 배포 경계를 지원합니다.
 
 ```bash
+fdaictl provision azure --source /path/to/fdai
 fdaictl provision azure --offline-kit /media/fdai/fdai-kit.tar
-# 같은 로컬 키트를 사용하는 소스 checkout 편의 wrapper입니다.
-scripts/deployment/azure/fdai-up.sh --offline-kit /media/fdai/fdai-kit.tar
-# 범위가 제한된 HTTPS 배포판을 위한 선택적 경로입니다.
-fdaictl provision azure --online
 ```
 
 기본적으로 두 명령은 활성 Azure CLI 사용자 컨텍스트에서 테넌트와 구독을 결정합니다. 공유
 shell이나 무인 shell은 비밀이 아닌 `AZURE_SUBSCRIPTION_ID`와 `AZURE_TENANT_ID`를 설정할 수
 있습니다. 그러면 대상 조회가 선택한 구독을 명시적으로 전달하고 반환된 테넌트가 다르면
 거부합니다. 이 방식은 한 번의 실행 대상을 고정할 뿐 권한을 부여하거나 인증된 사람 신원을
-대체하지 않습니다. 두 명령에는 소스 checkout,
-Git remote, GitHub 계정, GitHub 저장소, required CI 검사, 저장소 변수, 저장소 비밀, 작업 흐름
-dispatch 또는 GitHub runner 등록이 필요하지 않습니다. Offline 모드는 완전한 키트를 로컬
-경로에서 읽고 모든 공개 아티팩트 대체 경로를 차단합니다. Online 모드는 선택 사항으로 유지되며
-각 리다이렉트에 접촉하기 전에 검증하는 제한된 HTTPS로 같은 형식을 다운로드합니다. 여기서
-offline은 아티팩트가
+대체하지 않습니다. 소스 모드는 깨끗한 checkout 하나를 사용합니다. Offline 모드는 완전한
+키트를 로컬 경로에서 읽고 모든 공개 아티팩트 대체 경로를 차단합니다. 두 모드 모두 GitHub
+계정, required CI 검사, 작업 흐름 dispatch 또는 GitHub runner 등록이 필요하지 않습니다.
+여기서 offline은 아티팩트가
 오프라인이라는 뜻이며 선택한 Azure control plane 또는 Bastion 엔드포인트와 단절된다는 뜻은
 아닙니다.
 

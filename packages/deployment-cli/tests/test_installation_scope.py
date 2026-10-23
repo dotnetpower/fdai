@@ -1,9 +1,9 @@
 """Initial-only installation confirmation never grants checkpoint authority."""
 
-from datetime import UTC, datetime, timedelta
 import os
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -54,7 +54,7 @@ def test_confirmation_once_and_resume_without_input(arguments, monkeypatch, caps
     assert path.stat().st_mode & 0o777 == 0o600
     output = capsys.readouterr().err
     assert "setup_cost_ceiling: 300" in output
-    assert "system_node_sku" in output and "Standard_D4as_v5" in output
+    assert "system_node_sku" in output and "Standard_D4ds_v4" in output
     assert "postgres-flex" in output
     arguments.update(interactive=False, now=NOW + timedelta(minutes=1))
     assert scope.confirm_installation_scope(**arguments) == result
@@ -103,7 +103,7 @@ def test_changed_binding_cannot_reprompt(arguments, monkeypatch, key):
     original = arguments["binding"][key]
     arguments["binding"][key] = (
         "f" * len(original)
-        if key.endswith("digest") or key.endswith("binding") or key == "source_commit"
+        if key.endswith(("digest", "binding")) or key == "source_commit"
         else ("westus" if key == "region" else 1201)
     )
     with pytest.raises(ValueError, match="scope changed"):
@@ -115,6 +115,64 @@ def test_expiry_cannot_renew_confirmation(arguments, monkeypatch):
     scope.confirm_installation_scope(**arguments)
     monkeypatch.setattr(scope, "_read_initial_answer", lambda _: pytest.fail("no reprompt"))
     arguments["now"] = NOW + timedelta(hours=1)
+    assert (
+        scope.confirm_installation_scope(**arguments)["reason_code"] == "installation_scope_expired"
+    )
+
+
+def test_effected_installation_reuses_matching_scope_after_initial_window(arguments, monkeypatch):
+    monkeypatch.setattr(scope, "_read_initial_answer", lambda _: "install")
+    confirmed = scope.confirm_installation_scope(**arguments)
+    status = {
+        "schema_version": "fdai.genesis-orchestration-status.v2",
+        "mutation_performed": True,
+        "source_commit": arguments["binding"]["source_commit"],
+        "target_binding": arguments["binding"]["target_binding"],
+    }
+    status_path = arguments["work_dir"] / "foundation/status.json"
+    status_path.parent.mkdir()
+    status_path.parent.chmod(0o700)
+    write_private_bytes(status_path, canonical_bytes(status))
+    write_private_bytes(
+        status_path.parent / "profile.json",
+        canonical_bytes(
+            {
+                "schema_version": "fdai.provision-profile.v1",
+                "target_binding": arguments["binding"]["target_binding"],
+            }
+        ),
+    )
+    monkeypatch.setattr(scope, "_read_initial_answer", lambda _: pytest.fail("no reprompt"))
+    arguments["now"] = NOW + timedelta(hours=1)
+
+    assert scope.confirm_installation_scope(**arguments) == confirmed
+
+
+@pytest.mark.parametrize("changed", ["source_commit", "target_binding", "mutation_performed"])
+def test_expired_scope_rejects_unmatched_or_uneffected_status(arguments, monkeypatch, changed):
+    monkeypatch.setattr(scope, "_read_initial_answer", lambda _: "install")
+    scope.confirm_installation_scope(**arguments)
+    status = {
+        "schema_version": "fdai.genesis-orchestration-status.v2",
+        "mutation_performed": True,
+        "source_commit": arguments["binding"]["source_commit"],
+    }
+    profile = {
+        "schema_version": "fdai.provision-profile.v1",
+        "target_binding": arguments["binding"]["target_binding"],
+    }
+    if changed == "target_binding":
+        profile[changed] = "f" * len(profile[changed])
+    else:
+        status[changed] = False if changed == "mutation_performed" else "f" * len(status[changed])
+    status_path = arguments["work_dir"] / "foundation/status.json"
+    status_path.parent.mkdir()
+    status_path.parent.chmod(0o700)
+    write_private_bytes(status_path, canonical_bytes(status))
+    write_private_bytes(status_path.parent / "profile.json", canonical_bytes(profile))
+    monkeypatch.setattr(scope, "_read_initial_answer", lambda _: pytest.fail("no reprompt"))
+    arguments["now"] = NOW + timedelta(hours=1)
+
     assert (
         scope.confirm_installation_scope(**arguments)["reason_code"] == "installation_scope_expired"
     )

@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: d47bb532e1a5d3bde76e495b7c132c11c8d68d50
-translation_revised: 2026-10-22
+translation_source_sha: 82e0d17fa56b76307af3077e44ed3524ccfe5538
+translation_revised: 2026-10-23
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
@@ -233,13 +233,14 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 - [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 [단일 명령 소스 배포](source-deployment-ko.md)입니다. 어떤 clone이든 키 없이 배포하며, 무결성 서명 키가 없으면 영속 30일 Trial을, 사용할 수 있는 `secrets/integrity-signing-key.pem`이 있으면 전체 설치 사용권을 선택합니다. 독립적인 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다. Genesis 검사는 배포하는 정확한 커밋의 깨끗한 checkout만 허용하며 CI 결과를 조회하거나 GitHub CLI를 요구하지 않습니다.
   명령 실행이 표시하는 각 계획을 승인하고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
-  모드 인자가 없으면 어느 작업 디렉터리에서든 자기 checkout을 배포하고, Azure 호출 전에 `secrets/integrity-signing-key.pem`으로 사용권을 선택하며, Azure CLI 세션이 없으면 `az login`을 시작하고, 키트를 빌드하거나 서명하지 않습니다. 폐기된 `--signing-key` 옵션은 거부하며, 소스 빌드가 완성되기 전에 애플리케이션 단계가 필요한 키 보유자는 서명된 오프라인 패키지를 빌드해 `--offline-kit`로 전달합니다.
+  모드 인자가 없으면 어느 작업 디렉터리에서든 자기 checkout을 배포하고, Azure 호출 전에 `secrets/integrity-signing-key.pem`으로 사용권을 선택하며, Azure CLI 세션이 없으면 `az login`을 시작하고, 키트를 빌드하거나 서명하지 않습니다. 폐기된 `--signing-key` 옵션은 거부합니다.
 - [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드나 배포가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. `--scan secrets`는 clone에 전체 사용권을 선택하는 업스트림 `integrity` 키가 있는지 보여 줍니다. 개발 프로필은 오프라인 패키지의 완전 키트와 번들 역할에 서명자 하나를 고정하며, 라이선싱은 무결성 키를 사용합니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
-- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
-  경로입니다. provider lock을 검증하고 확인된 principal을 전달하며 소유자 전용 계획을 저장합니다.
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 Core 전용 `dev` 진단 도구입니다.
+  설치 경로가 아니며 공개 설치 프로그램은 이 상태를 채택하지 않습니다. provider lock을
+  검증하고 확인된 principal을 전달하며 소유자 전용 계획을 저장합니다.
   실패한 적용은 정리된 후속 소스가 refresh-only 재확인과 별도 종료 증적을 기록할 때까지 차단되며 이전 계획은 다시 적용하지 않습니다. 정책으로 비공개가 된 기존 Key Vault는 Managed Host를 사용하는 `fdai-up.sh` 경로로 보냅니다. 각 적용은
   대화형 터미널에 정확한 SHA-256 입력, 생성 후 20분 이내 계획, 변경되지 않은 소스 및 행위자
   결합, 해결되지 않은 이전 시도 없음이 필요합니다. 비공개, 공유, 스테이징 또는 운영 배포

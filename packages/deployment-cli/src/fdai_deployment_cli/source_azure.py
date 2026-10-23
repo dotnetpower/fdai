@@ -27,7 +27,11 @@ from fdai_deployment_cli.deployment_progress import (
 from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
 )
-from fdai_deployment_cli.installation_scope import InstallationOptions, confirm_installation_scope
+from fdai_deployment_cli.installation_scope import (
+    InstallationOptions,
+    confirm_installation_scope,
+    started_installation_matches,
+)
 from fdai_deployment_cli.notification_recipients_input import (
     NotificationRecipientsDeploymentInput,
 )
@@ -168,9 +172,16 @@ def plan_source_installation(
             timeout_seconds=deadline.remaining(180),
             owned_resource_group=_retained_application_group(work_dir, foundation_workload),
         )
-    if preflight["state"] != "feasible":
-        return {**preflight, "stage": "aks-preflight"}
     work_dir = work_dir.absolute()
+    retained_binding = {
+        "source_commit": source.commit,
+        "target_binding": preflight.get("target_binding"),
+    }
+    if preflight["state"] != "feasible" and not started_installation_matches(
+        work_dir,
+        retained_binding,
+    ):
+        return {**preflight, "stage": "aks-preflight"}
     if installation_options is not None:
         progress_detail("Waiting for the one-time installation scope confirmation")
         confirmation = confirm_installation_scope(
@@ -252,6 +263,7 @@ def plan_source_installation(
             str(monthly_cost_ceiling),
             "--workload",
             foundation_workload,
+            "--register-providers",
         ),
         source.root,
         environment,
@@ -274,44 +286,55 @@ def plan_source_installation(
         else foundation / "current-source-approval.json"
     )
     status_path = foundation / "status.json"
+    failed_advance_recovery_used = False
     while True:
         source.reverify()
         previous = prior_attempt(status_path)
-        result = _capture(
-            (
-                sys.executable,
-                str(scripts / "source_genesis.py"),
-                "--advance",
-                "--work-dir",
-                str(foundation),
-                "--source-commit",
-                source.commit,
-                "--target-binding",
-                str(preflight["target_binding"]),
-                "--region",
-                region,
-                "--monthly-cost-ceiling",
-                str(monthly_cost_ceiling),
-                "--workload",
-                foundation_workload,
-                "--source-snapshot",
-                str(work_dir / "source-snapshot"),
-                "--source-snapshot-digest",
-                str(prepared["source_snapshot_digest"]),
-                "--terraform",
-                str(terraform),
-                "--timeout-seconds",
-                str(deadline.remaining(14400)),
-                *(
-                    ("--approval-file", str(approval))
-                    if approval_file is not None or (interactive and approval.exists())
-                    else ()
+        try:
+            result = _capture(
+                (
+                    sys.executable,
+                    str(scripts / "source_genesis.py"),
+                    "--advance",
+                    "--work-dir",
+                    str(foundation),
+                    "--source-commit",
+                    source.commit,
+                    "--target-binding",
+                    str(preflight["target_binding"]),
+                    "--region",
+                    region,
+                    "--monthly-cost-ceiling",
+                    str(monthly_cost_ceiling),
+                    "--workload",
+                    foundation_workload,
+                    "--register-providers",
+                    "--source-snapshot",
+                    str(work_dir / "source-snapshot"),
+                    "--source-snapshot-digest",
+                    str(prepared["source_snapshot_digest"]),
+                    "--terraform",
+                    str(terraform),
+                    "--timeout-seconds",
+                    str(deadline.remaining(14400)),
+                    *(
+                        ("--approval-file", str(approval))
+                        if approval_file is not None or (interactive and approval.exists())
+                        else ()
+                    ),
                 ),
-            ),
-            source.root,
-            environment,
-            deadline.remaining(14400),
-        )
+                source.root,
+                environment,
+                deadline.remaining(14400),
+            )
+        except ValueError:
+            if failed_advance_recovery_used or not _claimed_foundation_apply_requires_recovery(
+                foundation
+            ):
+                raise
+            failed_advance_recovery_used = True
+            progress_detail("Recovering the claimed Foundation apply without repeating its effect")
+            continue
         source.reverify()
         if (
             result.get("schema_version") != "fdai.source-foundation-progress.v1"
@@ -483,6 +506,14 @@ def _capture(
             "source planning stage failed; preserve private state and do not repeat effects"
         )
     return load_json_object(result.stdout, label="source planning result", max_bytes=1024 * 1024)
+
+
+def _claimed_foundation_apply_requires_recovery(foundation: Path) -> bool:
+    claims = sorted(foundation.glob("foundation-plan-attempt-*/foundation-apply-claim.json"))
+    if len(claims) != 1 or claims[0].is_symlink():
+        return False
+    receipt = claims[0].with_name("foundation-apply-receipt.json")
+    return not receipt.exists() and not receipt.is_symlink()
 
 
 def _require_unique_entra_display_names(

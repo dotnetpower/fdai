@@ -18,6 +18,7 @@ from fdai_deployment_cli import (
     standalone_console_publish,
 )
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.target import compute_target_binding
 
 
@@ -70,11 +71,160 @@ def test_source_recovery_uses_recovered_private_handoff(
 
 def test_focused_access_converges_before_substrate() -> None:
     source = inspect.getsource(standalone_application.deploy_standalone_application)
+    access_source = inspect.getsource(standalone_application._converge_focused_private_access)
 
     assert source.index('host_preparation.get("focused_private_access")') < source.index(
         'begin_stage("substrate")'
     )
-    assert 'stage="access"' in source
+    assert 'stage="access"' in access_source
+    assert source.index('"refresh-private-access"') < source.index("_recover_failed_exact_apply(")
+
+
+def test_failed_exact_apply_uses_only_a_separate_residual(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    approval = tmp_path / "approval.json"
+    approval.write_text("approved", encoding="utf-8")
+    commands: list[tuple[str, ...]] = []
+
+    class Tunnel:
+        def copy_to(self, source: Path, destination: str, *, timeout: int) -> None:
+            assert source == approval
+            assert destination == "/remote/approval.json"
+            assert timeout == 120
+
+        def ssh(
+            self,
+            command: tuple[str, ...],
+            *,
+            timeout: int,
+            input_text: str | None = None,
+        ) -> SimpleNamespace:
+            assert timeout == 60
+            assert input_text is None
+            commands.append(command)
+            return SimpleNamespace(returncode=0)
+
+    results = iter(
+        (
+            {"residual_recovery": {"operation": "substrate-residual"}},
+            {"state": "applied", "operation": "substrate-residual"},
+        )
+    )
+    monkeypatch.setattr(
+        standalone_application,
+        "_remote_json",
+        lambda _tunnel, _root, _work, arguments, **_kwargs: (
+            commands.append(arguments) or next(results)
+        ),
+    )
+    monkeypatch.setattr(
+        standalone_application,
+        "_plan_after_recovery",
+        lambda *_args, **_kwargs: ({"stage": "substrate"}, "apply-residual"),
+    )
+    monkeypatch.setattr(
+        standalone_application,
+        "_approve_plan",
+        lambda *_args, **_kwargs: approval,
+    )
+
+    result = standalone_application._recover_failed_exact_apply(
+        Tunnel(),
+        remote_root="/remote",
+        app_work="/remote/application",
+        prepared_root=tmp_path,
+        remote_approval="/remote/approval.json",
+        stage="substrate",
+        deadline=DeploymentDeadline(600),
+        remote_json=standalone_application._remote_json,
+        plan_after_recovery=standalone_application._plan_after_recovery,
+        approve_plan=standalone_application._approve_plan,
+    )
+
+    assert result["state"] == "applied"
+    assert commands[0] == ("recover-apply", "--stage", "substrate")
+    assert commands[1][0] == "apply-residual"
+
+
+def test_failed_residual_apply_uses_one_separate_successor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    approval = tmp_path / "approval.json"
+    approval.write_text("approved", encoding="utf-8")
+    commands: list[tuple[str, ...]] = []
+
+    class Tunnel:
+        def copy_to(self, _source: Path, _destination: str, *, timeout: int) -> None:
+            assert timeout == 120
+
+        def ssh(
+            self,
+            command: tuple[str, ...],
+            *,
+            timeout: int,
+            input_text: str | None = None,
+        ) -> SimpleNamespace:
+            assert timeout == 60
+            assert input_text is None
+            commands.append(command)
+            return SimpleNamespace(returncode=0)
+
+    results: list[object] = [
+        {"residual_recovery": {"operation": "substrate-residual"}},
+        ValueError("residual apply failed"),
+        {"residual_successor": {"operation": "substrate-residual-successor"}},
+        {"state": "applied", "operation": "substrate-residual-successor"},
+    ]
+
+    def remote(
+        _tunnel: object,
+        _root: str,
+        _work: str,
+        arguments: tuple[str, ...],
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        commands.append(arguments)
+        result = results.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        assert isinstance(result, dict)
+        return result
+
+    monkeypatch.setattr(standalone_application, "_remote_json", remote)
+    monkeypatch.setattr(
+        standalone_application,
+        "_plan_after_recovery",
+        lambda *_args, **_kwargs: ({"stage": "substrate"}, "apply-residual"),
+    )
+    monkeypatch.setattr(
+        standalone_application,
+        "_approve_plan",
+        lambda *_args, **_kwargs: approval,
+    )
+
+    result = standalone_application._recover_failed_exact_apply(
+        Tunnel(),
+        remote_root="/remote",
+        app_work="/remote/application",
+        prepared_root=tmp_path,
+        remote_approval="/remote/approval.json",
+        stage="substrate",
+        deadline=DeploymentDeadline(600),
+        remote_json=standalone_application._remote_json,
+        plan_after_recovery=standalone_application._plan_after_recovery,
+        approve_plan=standalone_application._approve_plan,
+    )
+
+    assert result["operation"] == "substrate-residual-successor"
+    assert [command[0] for command in commands if command[0] != "rm"] == [
+        "recover-apply",
+        "apply-residual",
+        "recover-apply",
+        "apply-residual",
+    ]
 
 
 def test_runtime_cluster_phase_is_followed_by_runtime_association_review() -> None:
