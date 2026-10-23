@@ -765,44 +765,49 @@ def _recover_failed_exact_apply(
     deadline: DeploymentDeadline,
 ) -> dict[str, Any]:
     """Verify a failed exact apply, then apply only its separately approved residual."""
-    recovery = _remote_json(
-        tunnel,
-        remote_root,
-        app_work,
-        ("recover-apply", "--stage", stage),
-        timeout=deadline.remaining(3600),
-    )
-    if recovery.get("state") == "applied":
-        return recovery
-    review, command = _plan_after_recovery(
-        tunnel,
-        remote_root,
-        app_work,
-        recovery,
-        stage=stage,
-        timeout=deadline.remaining(3600),
-    )
-    if command != "apply-residual":
-        raise ValueError("failed exact apply did not produce bounded residual recovery")
-    approval = _approve_plan(prepared_root, review, deadline=deadline)
-    tunnel.copy_to(approval, remote_approval, timeout=120)
-    try:
-        return _remote_json(
+    for phase in range(2):
+        recovery = _remote_json(
             tunnel,
             remote_root,
             app_work,
-            (
-                command,
-                "--stage",
-                stage,
-                "--approval",
-                remote_approval,
-            ),
-            timeout=deadline.remaining(7200),
+            ("recover-apply", "--stage", stage),
+            timeout=deadline.remaining(3600),
         )
-    finally:
-        approval.unlink(missing_ok=True)
-        tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+        if recovery.get("state") == "applied":
+            return recovery
+        review, command = _plan_after_recovery(
+            tunnel,
+            remote_root,
+            app_work,
+            recovery,
+            stage=stage,
+            timeout=deadline.remaining(3600),
+        )
+        if command != "apply-residual":
+            raise ValueError("failed exact apply did not produce bounded residual recovery")
+        approval = _approve_plan(prepared_root, review, deadline=deadline)
+        tunnel.copy_to(approval, remote_approval, timeout=120)
+        try:
+            return _remote_json(
+                tunnel,
+                remote_root,
+                app_work,
+                (
+                    command,
+                    "--stage",
+                    stage,
+                    "--approval",
+                    remote_approval,
+                ),
+                timeout=deadline.remaining(7200),
+            )
+        except ValueError:
+            if phase == 1:
+                raise
+        finally:
+            approval.unlink(missing_ok=True)
+            tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+    raise ValueError("failed exact apply exceeded its bounded residual recovery")
 
 
 def _remote_json(
