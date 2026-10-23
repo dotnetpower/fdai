@@ -376,6 +376,19 @@ def test_retained_effected_source_run_does_not_require_fresh_capacity(
     assert result["stage"] == "cost-review"
 
 
+def test_claimed_foundation_apply_allows_one_verification_recovery(tmp_path: Path) -> None:
+    attempt = tmp_path / "foundation-plan-attempt-1"
+    attempt.mkdir()
+    claim = attempt / "foundation-apply-claim.json"
+    claim.write_text("{}", encoding="utf-8")
+    claim.chmod(0o600)
+
+    assert source_azure._claimed_foundation_apply_requires_recovery(tmp_path)
+    receipt = attempt / "foundation-apply-receipt.json"
+    receipt.write_text("{}", encoding="utf-8")
+    assert not source_azure._claimed_foundation_apply_requires_recovery(tmp_path)
+
+
 def test_source_identity_preflight_runs_before_aks_preflight(tmp_path, monkeypatch) -> None:
     root = tmp_path / "checkout"
     root.mkdir()

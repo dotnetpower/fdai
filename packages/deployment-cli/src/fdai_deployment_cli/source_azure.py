@@ -276,44 +276,54 @@ def plan_source_installation(
         else foundation / "current-source-approval.json"
     )
     status_path = foundation / "status.json"
+    failed_advance_recovery_used = False
     while True:
         source.reverify()
         previous = prior_attempt(status_path)
-        result = _capture(
-            (
-                sys.executable,
-                str(scripts / "source_genesis.py"),
-                "--advance",
-                "--work-dir",
-                str(foundation),
-                "--source-commit",
-                source.commit,
-                "--target-binding",
-                str(preflight["target_binding"]),
-                "--region",
-                region,
-                "--monthly-cost-ceiling",
-                str(monthly_cost_ceiling),
-                "--workload",
-                foundation_workload,
-                "--source-snapshot",
-                str(work_dir / "source-snapshot"),
-                "--source-snapshot-digest",
-                str(prepared["source_snapshot_digest"]),
-                "--terraform",
-                str(terraform),
-                "--timeout-seconds",
-                str(deadline.remaining(14400)),
-                *(
-                    ("--approval-file", str(approval))
-                    if approval_file is not None or (interactive and approval.exists())
-                    else ()
+        try:
+            result = _capture(
+                (
+                    sys.executable,
+                    str(scripts / "source_genesis.py"),
+                    "--advance",
+                    "--work-dir",
+                    str(foundation),
+                    "--source-commit",
+                    source.commit,
+                    "--target-binding",
+                    str(preflight["target_binding"]),
+                    "--region",
+                    region,
+                    "--monthly-cost-ceiling",
+                    str(monthly_cost_ceiling),
+                    "--workload",
+                    foundation_workload,
+                    "--source-snapshot",
+                    str(work_dir / "source-snapshot"),
+                    "--source-snapshot-digest",
+                    str(prepared["source_snapshot_digest"]),
+                    "--terraform",
+                    str(terraform),
+                    "--timeout-seconds",
+                    str(deadline.remaining(14400)),
+                    *(
+                        ("--approval-file", str(approval))
+                        if approval_file is not None or (interactive and approval.exists())
+                        else ()
+                    ),
                 ),
-            ),
-            source.root,
-            environment,
-            deadline.remaining(14400),
-        )
+                source.root,
+                environment,
+                deadline.remaining(14400),
+            )
+        except ValueError:
+            if failed_advance_recovery_used or not _claimed_foundation_apply_requires_recovery(
+                foundation
+            ):
+                raise
+            failed_advance_recovery_used = True
+            progress_detail("Recovering the claimed Foundation apply without repeating its effect")
+            continue
         source.reverify()
         if (
             result.get("schema_version") != "fdai.source-foundation-progress.v1"
@@ -461,6 +471,14 @@ def _capture(
             "source planning stage failed; preserve private state and do not repeat effects"
         )
     return load_json_object(result.stdout, label="source planning result", max_bytes=1024 * 1024)
+
+
+def _claimed_foundation_apply_requires_recovery(foundation: Path) -> bool:
+    claims = sorted(foundation.glob("foundation-plan-attempt-*/foundation-apply-claim.json"))
+    if len(claims) != 1 or claims[0].is_symlink():
+        return False
+    receipt = claims[0].with_name("foundation-apply-receipt.json")
+    return not receipt.exists() and not receipt.is_symlink()
 
 
 def _require_unique_entra_display_names(
