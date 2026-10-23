@@ -837,6 +837,11 @@ roles when `postgres-aks` is selected. Terraform `-target` keeps every configura
 target, even at count 0, so including those root secrets would otherwise plan the Flexible Server
 through `module.state_store`.
 
+The database root applies Azure ownership tags only to Key Vault secrets and uses DNS-safe keys for
+Kubernetes metadata labels. Shared and role-scoped DSNs use the standard `postgresql://` scheme
+with URL-encoded credentials, so direct psycopg migration and catalog tools and SQLAlchemy clients
+can consume the same secret.
+
 The Key Vault DSN has no independent fixed expiration. Credential rotation requires coordinated
 database and workload updates; expiring only the secret would interrupt access without rotating
 the database credential. This resource-local exception does not claim automated rotation evidence.
@@ -865,6 +870,11 @@ for that opt-in so Incident, Agent Activity, Trace, and optional cost-package ro
 its scan cost.
 
 On AKS, the substrate-targeted `terraform_data.installation` anchor uses the plan timestamp with ignored input changes and keeps the installation identifier and first-apply time in Terraform state, so no rerun or upgrade changes them while later plans remain fully known. The runtime stage applies the Container Insights association only after `azurerm_kubernetes_cluster.runtime` exists in state: the first fresh-cluster review targets every runtime resource except that association, then a second ordinary full-root runtime review creates the association. Each ordinary review names its managed-host `operation`: `runtime-cluster` or `runtime` here, and otherwise the stage or the bound service update. The controller approves a review only when that operation matches its stage. The Terraform configuration still rebuilds the association target ID instead of depending on the cluster resource, because monitoring-only targeted plans must not pull managed-cluster drift into scope. The application stage gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial writer once with the Key Vault state-store DSN and records a digest-bound receipt. The writer keeps a retained window unchanged, so a keyless installation keeps the 30-day window that started at its first apply ([capability licensing](../fork-and-sequencing/capability-licensing.md#durable-keyless-trial-target)). The deployment receipt reports `license_mode=trial` only while that read-back window is open under a trusted clock.
+
+Each initial-inventory one-shot uses a content-addressed attempt. A terminal failure remains
+immutable and is never redispatched in the same invocation. Only a later explicit source invocation
+can advance to the next attempt, with at most three attempts; an active or ambiguous attempt keeps
+the same identity for verification-only recovery.
 
 When the deploying operator holds the upstream integrity signing key, the deployment binding step
 also returns the installation binding. The capability stage then issues a no-expiry installation
