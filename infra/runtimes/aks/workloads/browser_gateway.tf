@@ -86,6 +86,55 @@ resource "azurerm_api_management_api_operation" "browser_gateway" {
   url_template        = "/*"
 }
 
+# The Console calls the ingestion service with absolute paths: `/ingestion/...` and `/documents...`.
+# The ingestion API's `ingestion` path would strip its prefix, so restore it for every route
+# except the readiness probe, and send the root-level `/documents` routes to the same backend.
+resource "azurerm_api_management_api_policy" "browser_gateway_ingestion" {
+  count = local.browser_gateway_enabled ? 1 : 0
+
+  api_name            = azurerm_api_management_api.browser_gateway["ingestion"].name
+  api_management_name = azurerm_api_management.browser_gateway[0].name
+  resource_group_name = var.browser_gateway.resource_group_name
+  xml_content         = <<-XML
+    <policies>
+      <inbound>
+        <base />
+        <choose>
+          <when condition="@(!context.Request.Url.Path.EndsWith(&quot;/healthz&quot;))">
+            <rewrite-uri template="@(&quot;/ingestion&quot; + context.Request.Url.Path)" copy-unmatched-params="true" />
+          </when>
+        </choose>
+      </inbound>
+      <backend><base /></backend>
+      <outbound><base /></outbound>
+      <on-error><base /></on-error>
+    </policies>
+  XML
+}
+
+resource "azurerm_api_management_api_policy" "browser_gateway_documents" {
+  count = local.browser_gateway_enabled ? 1 : 0
+
+  api_name            = azurerm_api_management_api.browser_gateway["operator"].name
+  api_management_name = azurerm_api_management.browser_gateway[0].name
+  resource_group_name = var.browser_gateway.resource_group_name
+  xml_content         = <<-XML
+    <policies>
+      <inbound>
+        <base />
+        <choose>
+          <when condition="@(context.Request.Url.Path == &quot;/documents&quot; || context.Request.Url.Path.StartsWith(&quot;/documents/&quot;))">
+            <set-backend-service base-url="http://${local.browser_gateway_addresses.ingestion}" />
+          </when>
+        </choose>
+      </inbound>
+      <backend><base /></backend>
+      <outbound><base /></outbound>
+      <on-error><base /></on-error>
+    </policies>
+  XML
+}
+
 resource "azurerm_network_security_rule" "browser_gateway" {
   # checkov:skip=CKV_AZURE_160:APIM Consumption has no fixed outbound IP; this rule permits port 80 only to the two exact API LoadBalancer frontend addresses.
   count = local.browser_gateway_enabled && try(var.browser_gateway.backend_nsg_id, "") != "" ? 1 : 0

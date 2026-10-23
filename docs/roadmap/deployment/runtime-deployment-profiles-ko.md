@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 12e38111235b2de0abcac4bdfe97db24df2b5982
+translation_source_sha: c02b9c2f2e3c14842b4a91dbe9282ed2d2f5c03b
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -262,7 +262,9 @@ fdaictl provision azure \
 
 Static Web Apps는 미리 빌드된 Console을 호스팅합니다. API Management(APIM)는 공용 HTTPS API
 경계를 제공합니다. Operator API는 APIM origin root에서 라우팅하고 Document Ingestion은
-`/ingestion`에서 라우팅합니다. Kubernetes Service는 포트 80에서 요청을 받고 기존 컨테이너
+`/ingestion`에서 라우팅합니다. Console은 수집 API를 절대 경로로 호출하므로 게이트웨이는 준비 상태
+프로브를 제외한 모든 수집 경로에서 `/ingestion` 접두사를 유지하고, 루트 수준 `/documents` 경로를 수집
+백엔드로 보냅니다. 회귀 테스트가 게이트웨이를 수집 서비스의 경로와 비교합니다. Kubernetes Service는 포트 80에서 요청을 받고 기존 컨테이너
 포트로 전달합니다. 워크로드 상태는 Service backend 주소를 사용하므로 APIM도 소유합니다. 공유
 기반은 이 경로에 Azure Front Door를 만들지 않습니다.
 APIM 태그는 안정적인 워크로드 레이블에서 Azure에 안전한 이름으로 파생됩니다. 예를 들어 Azure 태그
