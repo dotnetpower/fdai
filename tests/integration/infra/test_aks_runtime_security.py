@@ -231,3 +231,14 @@ def test_aks_browser_gateway_routes_every_ingestion_path_to_the_ingestion_backen
         'set-backend-service base-url="http://${local.browser_gateway_addresses.ingestion}"'
         in gateway
     )
+
+
+def test_aks_browser_gateway_policies_are_written_after_the_apis_and_one_at_a_time() -> None:
+    gateway = (ROOT / "infra/runtimes/aks/workloads/browser_gateway.tf").read_text(encoding="utf-8")
+    ingestion = gateway.split('"browser_gateway_ingestion" {', 1)[1].split("xml_content", 1)[0]
+    documents = gateway.split('"browser_gateway_documents" {', 1)[1].split("xml_content", 1)[0]
+
+    # APIM answers 412 when two writes to the same service overlap.
+    for block in (ingestion, documents):
+        assert "azurerm_api_management_api_operation.browser_gateway" in block
+    assert "azurerm_api_management_api_policy.browser_gateway_ingestion" in documents

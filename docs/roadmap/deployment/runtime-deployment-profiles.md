@@ -251,7 +251,7 @@ edge: the Operator API is routed at the APIM origin root, and Document Ingestion
 `/ingestion`. The Console calls ingestion with absolute paths, so the gateway keeps the `/ingestion`
 prefix on every ingestion route except the readiness probe and sends the root-level `/documents`
 routes to the ingestion backend; a regression test compares the gateway with the ingestion service's
-routes. The Kubernetes Services listen on port 80 and forward to the existing container port.
+routes. API Management answers `412` when two writes to the same service overlap, so the two policies are written after the APIs and operations and one after the other. The Kubernetes Services listen on port 80 and forward to the existing container port.
 The workload state owns APIM because its backend addresses come from those Services. The shared
 substrate does not create Azure Front Door for this path.
 APIM tags derive from the stable workload labels under Azure-safe names. For example,

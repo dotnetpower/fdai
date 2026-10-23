@@ -92,6 +92,10 @@ resource "azurerm_api_management_api_operation" "browser_gateway" {
 resource "azurerm_api_management_api_policy" "browser_gateway_ingestion" {
   count = local.browser_gateway_enabled ? 1 : 0
 
+  # APIM answers 412 when two writes to the same service overlap, so write the policy after the
+  # APIs and operations rather than in parallel with them.
+  depends_on = [azurerm_api_management_api.browser_gateway, azurerm_api_management_api_operation.browser_gateway]
+
   api_name            = azurerm_api_management_api.browser_gateway["ingestion"].name
   api_management_name = azurerm_api_management.browser_gateway[0].name
   resource_group_name = var.browser_gateway.resource_group_name
@@ -114,6 +118,14 @@ resource "azurerm_api_management_api_policy" "browser_gateway_ingestion" {
 
 resource "azurerm_api_management_api_policy" "browser_gateway_documents" {
   count = local.browser_gateway_enabled ? 1 : 0
+
+  # APIM answers 412 when two writes to the same service overlap, so write the policy after the
+  # APIs and operations rather than in parallel with them.
+  depends_on = [
+    azurerm_api_management_api.browser_gateway,
+    azurerm_api_management_api_operation.browser_gateway,
+    azurerm_api_management_api_policy.browser_gateway_ingestion,
+  ]
 
   api_name            = azurerm_api_management_api.browser_gateway["operator"].name
   api_management_name = azurerm_api_management.browser_gateway[0].name
