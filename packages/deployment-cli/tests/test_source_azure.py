@@ -14,6 +14,7 @@ from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.private_output import write_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
+
 _TARGET_BINDING = "a" * 64
 
 

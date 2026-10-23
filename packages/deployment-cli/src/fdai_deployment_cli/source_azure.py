@@ -154,14 +154,12 @@ def plan_source_installation(
             region=region,
             monthly_cost_ceiling=monthly_cost_ceiling,
         )
-    work_dir = work_dir.absolute()
     with installer_activity("Verifying source and tenant-local identity names"):
         source = inspect_source(source_root, expected_commit=str(prepared["source_commit"]))
-        target_binding = current_target_binding(timeout_seconds=deadline.remaining(60))
         _require_unique_entra_display_names(
             runtime_profile,
             source.root / "scripts/deployment/azure",
-            target_binding=target_binding,
+            target_binding=current_target_binding(timeout_seconds=deadline.remaining(60)),
         )
     with installer_activity("Checking AKS SKU, quota, and PostgreSQL availability"):
         preflight = inspect_aks_target(
@@ -172,6 +170,7 @@ def plan_source_installation(
         )
     if preflight["state"] != "feasible":
         return {**preflight, "stage": "aks-preflight"}
+    work_dir = work_dir.absolute()
     if installation_options is not None:
         progress_detail("Waiting for the one-time installation scope confirmation")
         confirmation = confirm_installation_scope(
