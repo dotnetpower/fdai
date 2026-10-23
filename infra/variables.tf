@@ -42,9 +42,9 @@ variable "enable_ohl_scale_out_evidence_target" {
 }
 
 variable "postgres_sku_name" {
-  description = "PostgreSQL Flexible Server SKU. The deployment profile selects a larger size explicitly; the default keeps the day-zero Burstable B1ms."
+  description = "PostgreSQL Flexible Server SKU. The deployment profile selects a larger size explicitly; the default uses the broadly available Burstable B2s."
   type        = string
-  default     = "B_Standard_B1ms"
+  default     = "B_Standard_B2s"
 
   validation {
     condition = contains([

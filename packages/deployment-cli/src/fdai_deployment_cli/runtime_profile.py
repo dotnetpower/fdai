@@ -30,8 +30,8 @@ class DatabasePlacement(StrEnum):
     POSTGRES_AKS = "postgres-aks"
 
 
-# Explicit PostgreSQL Flexible Server sizes. Unset keeps the infrastructure day-zero default,
-# B_Standard_B1ms, and leaves the profile mapping and digest unchanged.
+# Explicit PostgreSQL Flexible Server sizes. Unset keeps the infrastructure default,
+# B_Standard_B2s, and leaves the profile mapping and digest unchanged.
 DATABASE_SKUS = (
     "B_Standard_B1ms",
     "B_Standard_B2s",

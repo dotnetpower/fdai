@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 1c23a3333931b3704fffc25537184e9eef4953ea
-translation_revised: 2026-10-22
+translation_source_sha: 7e912e3cbb3a52629f5ebb5adad5d5c0bda9c55f
+translation_revised: 2026-10-23
 ---
 # 운영자 거버넌스 프로필
 
@@ -243,6 +243,10 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
 이 테이블은 설치의 PostgreSQL 데이터베이스에 있습니다. `policy_revision`과
 `policy_activation`의 단일 작성자는 Mimir이며, Thor는 `governance` ActionType으로
 `promotion_record`를 기록합니다. Lifecycle Hub는 다이제스트만 봅니다.
+
+배포 프로필의 PostgreSQL SKU는 운영 용량 입력이며 거버넌스 프로필, 승인, 위험, 승격 또는
+권한 선택자가 아닙니다. 소스 설치의 암묵적 기본값을 `B_Standard_B1ms`에서
+`B_Standard_B2s`로 변경해도 운영자 거버넌스 바인딩은 바뀌지 않습니다.
 
 ## 현재 한계
 

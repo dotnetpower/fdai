@@ -257,6 +257,11 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
 `policy_revision` and `policy_activation`, and Thor writes `promotion_record` through the
 `governance` ActionType. The Lifecycle Hub sees only digests.
 
+The deployment profile's PostgreSQL SKU is an operational capacity input, not a governance
+profile, approval, risk, promotion, or authority selector. Changing its implicit source-install
+default from `B_Standard_B1ms` to `B_Standard_B2s` leaves every operator-governance binding
+unchanged.
+
 ## Honest limits
 
 - The approval profile, the quorum reduction, and the operator policy input exist as Core decision
