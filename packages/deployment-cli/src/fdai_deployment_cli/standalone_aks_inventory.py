@@ -21,6 +21,35 @@ _CLOSURE_CLOCK_SKEW = timedelta(seconds=60)
 _INITIAL_INVENTORY_SOURCES = ("arg", "arm")
 _ATTEMPT_SCHEMA = "fdai.aks-initial-inventory-attempt.v1"
 _MAX_ATTEMPTS = 3
+_CLOSURE_FAILURE = re.compile(r"inventory closure verification failed: ([a-z_]+(?:,[a-z_]+)*)")
+_CLOSURE_CONDITIONS = frozenset(
+    {
+        "verified_progress",
+        "active",
+        "active_generation",
+        "observed",
+        "source",
+        "subscription_scope",
+        "full_scope",
+        "provider_coverage",
+        "unmapped_reconciled",
+        "overlay_closed",
+        "child_sources",
+        "projection",
+        "fresh_generation",
+    }
+)
+# A scheduled reconciliation can promote a newer generation after the one-shot Job finished. The
+# Job's own generation is then healthy but no longer active, so only a new attempt can be bound.
+_SUPERSEDED_CLOSURE_CONDITIONS = frozenset({"active_generation"})
+
+
+class _CapturedFailure(ValueError):
+    """A captured command failed; the bounded stderr stays available for classification."""
+
+    def __init__(self, reason: str, stderr: str) -> None:
+        super().__init__(reason)
+        self.stderr = stderr
 
 
 def initial_inventory_binding(subscription_id: str) -> dict[str, object]:
@@ -159,14 +188,36 @@ def run_initial_aks_inventory(
         ),
     }
     closure_started_at = datetime.now(tz=UTC)
-    closure = _verified_closure(
-        _capture_env(
+    try:
+        closure_output = _capture_env(
             (str(runtime_python), "-m", "fdai.delivery.inventory_closure_cli"),
             cwd=bundle,
             env=closure_environment,
             timeout=300,
             reason="initial inventory independent closure failed",
-        ),
+        )
+    except _CapturedFailure as exc:
+        conditions = _failed_closure_conditions(exc.stderr)
+        if conditions and conditions <= _SUPERSEDED_CLOSURE_CONDITIONS:
+            _write_inventory_attempt(
+                work_dir,
+                source_revision=source_revision,
+                target_binding=target_binding,
+                attempt=attempt,
+                state="failed",
+            )
+            raise ValueError(
+                "initial inventory independent closure failed: the Job generation was "
+                "superseded by a newer active generation; the next invocation starts a new "
+                f"attempt ({','.join(sorted(conditions))})"
+            ) from None
+        if conditions:
+            raise ValueError(
+                f"initial inventory independent closure failed: {','.join(sorted(conditions))}"
+            ) from None
+        raise
+    closure = _verified_closure(
+        closure_output,
         expected_attempt_id=attempt_id,
         expected_run_id=run_id,
         expected_scope_digest=str(binding["scope_digest"]),
@@ -442,8 +493,18 @@ def _capture_env(
         timeout=timeout,
     )
     if result.returncode != 0:
-        raise ValueError(reason)
+        raise _CapturedFailure(reason, result.stderr)
     return result.stdout
+
+
+def _failed_closure_conditions(stderr: str) -> frozenset[str]:
+    """Return only the named verifier conditions, never free-form process output."""
+
+    matches = _CLOSURE_FAILURE.findall(stderr)
+    if not matches:
+        return frozenset()
+    names = frozenset(matches[-1].split(","))
+    return names if names <= _CLOSURE_CONDITIONS else frozenset()
 
 
 def _mapping(value: object, label: str) -> dict[str, Any]:
