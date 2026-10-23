@@ -754,6 +754,8 @@ SKUs are serialized, then checks their regional restrictions, three required zon
 host encryption, and family plus total quota. It does not issue a second catalog request for a
 different node-pool SKU or retry a failed provider read. A `postgres-flex` profile also reads the
 regional PostgreSQL Flexible Server catalog once and blocks unless it offers PostgreSQL 16. A
+new-subscription application preflight also registers `Microsoft.ContainerService` for AKS and
+`Microsoft.AlertsManagement` for the baseline smart-detection rule before runtime planning. A
 subscription that is restricted from a region gets an empty version list instead of an error, so
 the preflight reports `postgres_flex_region_restricted`. Missing or malformed evidence blocks as
 well. The signed offline package runs this preflight before the first Azure change of a new AKS

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: dff62f02d4ddf7c6882a81261ada24e9b7d50e01
+translation_source_sha: 091fc113d468d137a29fcde3cae7c7365939137e
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -790,7 +790,9 @@ Managed Host 준비는 첫 substrate 리소스 변경 전에 검증된 Foundatio
 직렬화한 다음 지역 제한, 필요한 세 개 영역, 아키텍처, 호스트 암호화, 제품군별 quota 및 전체
 quota를 확인합니다. 다른 노드 풀 SKU를 위해 두 번째 카탈로그 요청을 보내거나 실패한
 프로바이더 읽기를 재시도하지 않습니다. `postgres-flex` 프로파일은 지역 PostgreSQL Flexible Server
-카탈로그도 한 번 읽고, PostgreSQL 16을 제공하지 않으면 차단합니다. 해당 지역에서 프로비저닝이
+카탈로그도 한 번 읽고, PostgreSQL 16을 제공하지 않으면 차단합니다. 새 subscription의
+애플리케이션 사전 점검은 런타임 계획 전에 AKS용 `Microsoft.ContainerService`와 기본 스마트
+감지 규칙용 `Microsoft.AlertsManagement`도 등록합니다. 해당 지역에서 프로비저닝이
 제한된 구독은 오류 대신 빈 버전 목록을 받으므로 사전 검증은 `postgres_flex_region_restricted`를
 보고합니다. 증거가 없거나 형식이 잘못된 경우에도 차단합니다. 서명된 offline 패키지는 새 AKS
 설치의 첫 Azure 변경 전에 이 사전 검증을 실행합니다. 재개한 설치는 이 검증을 건너뛰므로 설치가

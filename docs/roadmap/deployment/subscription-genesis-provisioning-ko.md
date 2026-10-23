@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 프로비저닝
 translation_of: subscription-genesis-provisioning.md
-translation_source_sha: c8ac53472ee840597de2217b76902854370249b0
+translation_source_sha: 1539c933cc93d491aafc9987dd3c62f057246de5
 translation_revised: 2026-10-23
 ---
 # 구독 초기 프로비저닝
@@ -108,6 +108,8 @@ scripts/deployment/azure/genesis-up.sh \
 검사합니다. 검사 모드는 읽기 전용입니다. 변경 허용 사전 점검은 누락된 네임스페이스만
 등록하고 하나의 누적 제한 시간 안에 모든 네임스페이스를 다시 확인합니다. 롤백해도 등록은
 유지합니다.
+애플리케이션 프로필에는 스마트 감지 규칙용 `Microsoft.AlertsManagement`와 AKS용
+`Microsoft.ContainerService`가 포함되므로 새 subscription은 사전 수동 등록에 의존하지 않습니다.
 대상 축이 없거나 잘못된 경우 첫 Azure 명령 전에 종료 코드 `64`를 반환합니다.
 네트워크 검색은 각 peer가 정규 원격 prefix를 계속 보고하는 경우에만 Azure VNet peering의
 `Connected`, `Initiated`, `Disconnected` 상태를 완전한 근거로 취급합니다. 연결이 끊긴
