@@ -180,3 +180,38 @@ def test_an_occupied_appended_range_is_skipped_like_any_other(
     layout = _layout(monkeypatch, vnets=[{"local": occupied, "peers": []}])
     assert str(layout[0]) == "192.168.240.0/20"
     assert str(layout[4]) == "172.26.0.0/16"
+
+
+def test_a_disconnected_peering_keeps_its_prefixes_reserved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    layout = _layout(
+        monkeypatch,
+        vnets=[
+            {
+                "local": ["10.240.0.0/16"],
+                "peers": [{"state": "Disconnected", "prefixes": ["172.29.0.0/16"]}],
+            }
+        ],
+    )
+
+    assert not layout[0].overlaps(ipaddress.ip_network("172.29.0.0/16"))
+    assert not layout[4].overlaps(ipaddress.ip_network("172.29.0.0/16"))
+
+
+@pytest.mark.parametrize(
+    "peer",
+    [
+        {"state": "Updating", "prefixes": ["172.29.0.0/16"]},
+        {"state": "Disconnected"},
+        {"state": "Disconnected", "prefixes": []},
+        {"state": "Disconnected", "prefixes": ["not-a-prefix"]},
+        {"prefixes": ["172.29.0.0/16"]},
+    ],
+    ids=["other-state", "no-prefixes", "empty-prefixes", "invalid-prefix", "no-state"],
+)
+def test_other_peering_evidence_still_fails_closed(
+    monkeypatch: pytest.MonkeyPatch, peer: dict[str, object]
+) -> None:
+    with pytest.raises(ValueError, match="peering evidence is incomplete|evidence is incomplete"):
+        _layout(monkeypatch, vnets=[{"local": ["10.240.0.0/16"], "peers": [peer]}])
