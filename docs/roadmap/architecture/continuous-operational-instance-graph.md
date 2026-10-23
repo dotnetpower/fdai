@@ -32,13 +32,6 @@ unbounded tight polling loop.
 
 ## Non-negotiable invariants
 
-Initial installation closure retains a distinct observer's exact-generation receipt before the
-collector releases the existing inventory writer lock. Later scheduled promotion does not
-invalidate that historical receipt, but replay preserves its original observation time and cannot
-assert current graph freshness. A superseded generation without retained independent verification
-remains ineligible. [Genesis provisioning](../deployment/subscription-genesis-provisioning.md#initial-inventory-progress)
-owns bounded host retries and receipt replay; neither adds observation or execution authority.
-
 On AKS, Operator graph-query and live-stage transport use the projected workload credential bound
 to the Operator identity. The credential change does not alter query admission, topic ownership,
 observation provenance or projection writers. The existing adapters facade owns factory exposure. Incomplete federation remains unavailable and never
@@ -59,7 +52,7 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   the exact requested recovery revision before evaluating readiness, so an eventually consistent
   pre-existing healthy revision cannot satisfy recovery evidence. Every Core image transition binds `FDAI_SOURCE_REVISION` to the exact protected commit.
   A later plan treats a rolled-back image and source revision as recovery metadata only when both source revisions are valid commits and the refreshed source binding exactly matches the plan's `before` state.
-  The fixed Heimdall recovery observer enters only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible.
+  The fixed Heimdall recovery observer enters only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible. Initial inventory closure replays only an independently retained exact-generation receipt with its original observation time, never certifying an unverified superseded generation or current graph freshness. [Genesis provisioning](../deployment/subscription-genesis-provisioning.md#initial-inventory-progress) owns lock-protected capture and bounded host retries; neither adds observation or execution authority.
 - **Single writer:** Collectors append typed observations. They never mutate ontology instances
   directly. One projection owner adjudicates observations and atomically advances its current
   subgraph. Snapshot and journal record conversion call one support-owned relationship-evidence
