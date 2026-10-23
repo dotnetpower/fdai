@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 06fa30af2d5d64ebddaf27df00e36129c2f68ef8
+translation_source_sha: db84ef379b07df4101bcbd85abf9b60bf69220c4
 translation_revised: 2026-10-23
 ---
 # 런타임 배포 프로파일
@@ -112,6 +112,15 @@ Container Apps는 거부합니다. 이 배포가 standalone 애플리케이션 �
 스냅샷에서 `fdaictl`을 설치하며, 스냅샷의 Terraform 루트와 마이그레이션 지원을 사용합니다.
 공급자는 커밋된 lock 파일 기준으로 공개 레지스트리에서 직접 해석합니다. 이미지 참조는 배포
 레지스트리 빌드 단계가 끝난 뒤 다시 읽은 다이제스트로만 런타임 프로파일에 들어갑니다.
+관찰 우선 프로파일은 외부 Operator와 문서 수집 Service를 만들지 않으므로 브라우저 gateway를
+비활성화합니다. Console add-on을 선택하면 이 두 브라우저 대상 워크로드와 함께 gateway를
+활성화합니다.
+archive 컨테이너 형식은 불변 소스 스냅샷의 수신기를 따릅니다. 현재 수신기는 gzip을 사용하고,
+보존된 이전 수신기는 기존 tar 형식을 유지합니다. 런타임 선택, 호스트 상태 또는 재시도 시점이
+이 형식을 암묵적으로 바꿀 수 없습니다.
+AKS 초기 인벤토리는 실패한 content-addressed Job checkpoint를 보존합니다. 이후 invocation은
+같은 보호된 template과 identity binding으로 재시도를 정확히 한 번 실행할 수 있습니다. 두 번째
+실패 또는 모호한 최종 증적이 있으면 추가 자동 시도 없이 중단합니다.
 Foundation에 정확한 복구가 필요했다면 검증된 상태 인계가 같은 순서로 들어갑니다. 복구 checkout은
 현재 복구 코드만 제공하며, 런타임 산출물은 원래 소스 스냅샷에 계속 고정되고 복구는 선택된
 런타임 프로파일을 바꿀 수 없습니다.
@@ -513,6 +522,10 @@ FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니
 출시되는 모든 Alpine 런타임 이미지에서는 보안에 민감한 런타임 패키지 revision도 모든 서비스
 Dockerfile에 걸쳐 고정합니다. 수정된 패키지 revision이 공개되면 공유 고정값과 저장소 계약을
 함께 갱신하고, 이미지를 게시하기 전에 이미지 검사가 빌드 결과를 확인합니다.
+다섯 개의 기본 서비스 이미지는 애플리케이션 소스를 복사하기 전에 고정된 서드파티 의존성을
+설치합니다. 런타임 단계는 안정적인 환경과 서비스 wheel 계층을 분리합니다. 따라서 소스만
+변경된 재빌드는 패키지 버전, 진입점, 상태 검사, 신원 또는 권한을 바꾸지 않고 의존성 blob을
+재사용하고 변경된 애플리케이션 계층만 게시할 수 있습니다.
 
 Core의 Alpine ARM64 빌더는 잠금 파일에 고정된 `tree-sitter-java` 0.23.5를 소스에서 빌드할 때 빠진 `tree_sitter/parser.h`를 해당 버전의 업스트림 커밋에서 가져오고 SHA-256으로 고정합니다. 이 헤더는 빌더에만 두며 런타임 의존성, 워크로드 명세, 신원, 권한을 바꾸지 않습니다. 네이티브 컴파일과 구문 분석 근거는 전체 이미지 빌드나 배포를 입증하지 않습니다. 내려받은 파일은 `ADD --checksum`이 아니라 일반 `RUN`에서 검증하며 다이제스트가 다르면 실패합니다. 소스 설치는 레지스트리 빌드 서비스로 이미지를 빌드하는데 그 클래식 빌더가 BuildKit 전용 문법을 거부하기 때문이며, 테스트가 모든 서비스 Dockerfile에서 그 문법을 막습니다.
 
@@ -856,9 +869,15 @@ Managed Identity에 구독 `Reader`만 부여합니다. 데이터 플레인 역�
 CSI를 통해 읽습니다. 클라이언트 트래픽에는 상태가 소유하는 인증서를 사용한 TLS가 필요합니다.
 사용자 노드 최소 4개는 이 프로파일의 스케줄 가능성을 위한 값이며,
 데이터베이스 고가용성, 백업 또는 특정 시점 복구를 의미하지 않습니다.
+Azure 리소스 태그는 Azure 리소스에만 유지하며 Kubernetes label로 재사용하지 않습니다.
+PostgreSQL `StatefulSet`은 명시된 `app.kubernetes.io/*`와 `fdai.io/*` label만 사용합니다.
+Pod와 PostgreSQL 컨테이너는 UID/GID 999와 `runAsNonRoot=true`를 명시적으로 요구하며,
+컨테이너는 모든 capability를 제거하고 권한 상승을 비활성화합니다.
 
 클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN과 AKS 문서 수집이 읽는 역할 범위
 `fdai-ingestion-api-dsn`, `fdai-ingestion-worker-dsn` 비밀을 기록합니다. 각 수집 비밀은 일치하는
+SQLAlchemy와 직접 psycopg consumer가 같은 비밀을 사용할 수 있도록 표준 `postgresql://`
+scheme을 저장합니다. SQLAlchemy는 자체 경계에서 driver 선택을 추가합니다.
 워크로드 신원에만, 그리고 선택한 제품 프로파일이 그 신원을 만들 때만 `Key Vault Secrets User`를
 부여합니다. 공유 DSN은 Core, 인벤토리, 그리고 프로파일이 만드는 Operator와 실행기 신원에 부여하므로,
 관찰 우선 설치는 이 신원들 없이도 데이터베이스를 준비합니다. `postgres-aks`를 선택하면 기반 구성
