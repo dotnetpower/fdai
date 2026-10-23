@@ -78,6 +78,21 @@ def test_routes_console_and_service_as_split_update() -> None:
     assert result["services"] == ["operator-service"]
 
 
+def test_deleted_service_build_contract_requires_a_higher_lane() -> None:
+    path = "services/operator-service/docker/Dockerfile"
+
+    result = source_change_plan(
+        [path],
+        base_commit=BASE,
+        head_commit=HEAD,
+        deleted_paths=[path],
+    )
+
+    assert result["lane"] == "higher-lane-required"
+    assert result["reason_code"] == "service_build_contract_removed"
+    assert result["higher_lane_paths"] == [path]
+
+
 def test_git_plan_and_cli_are_read_only(tmp_path: Path, capsys) -> None:
     repository = tmp_path / "repository"
     repository.mkdir()

@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from fdai_deployment_cli.contracts import canonical_digest
-from fdai_deployment_cli.image_targets import select_image_targets
+from fdai_deployment_cli.image_targets import IMAGE_TARGETS, select_image_targets
 from fdai_deployment_cli.runtime_release import RUNTIME_SERVICES
 
 _COMMIT = re.compile(r"[0-9a-f]{40}")
@@ -34,6 +34,12 @@ _NO_DEPLOY_PREFIXES = (
 )
 _RUNTIME_EXCEPTION_PATHS = frozenset({"docs/internals/sregym-absorption-ledger.json"})
 _RUNTIME_EXCEPTION_PREFIXES = ("services/core-control-plane/tests/scenarios/",)
+_SERVICE_BUILD_CONTRACTS = frozenset(
+    {
+        *(target.dockerfile for target in IMAGE_TARGETS),
+        *(f"services/{target.service}/pyproject.toml" for target in IMAGE_TARGETS),
+    }
+)
 
 
 def source_change_plan(
@@ -41,6 +47,7 @@ def source_change_plan(
     *,
     base_commit: str,
     head_commit: str,
+    deleted_paths: Iterable[str] = (),
 ) -> dict[str, object]:
     """Return a no-effect deployment route for one exact commit range."""
     if _COMMIT.fullmatch(base_commit) is None or _COMMIT.fullmatch(head_commit) is None:
@@ -50,6 +57,9 @@ def source_change_plan(
         path.startswith("/") or ".." in Path(path).parts or "\x00" in path for path in paths
     ):
         raise ValueError("source change plan paths are invalid or exceed their bound")
+    deleted = tuple(sorted({path.removeprefix("./") for path in deleted_paths if path}))
+    if any(path not in paths for path in deleted):
+        raise ValueError("source change plan deletions must belong to the exact diff")
     runtime_paths = tuple(path for path in paths if not _is_no_deploy_path(path))
 
     higher_lane = tuple(
@@ -57,6 +67,7 @@ def source_change_plan(
         for path in runtime_paths
         if path in _HIGHER_LANE_EXACT or path.startswith(_HIGHER_LANE_PREFIXES)
     )
+    removed_contracts = tuple(path for path in deleted if path in _SERVICE_BUILD_CONTRACTS)
     console_paths = tuple(path for path in runtime_paths if path.startswith("console/"))
     image_targets = select_image_targets(runtime_paths)
     unsupported = tuple(
@@ -71,7 +82,10 @@ def source_change_plan(
     )
     services = tuple(dict.fromkeys(services))
 
-    if higher_lane:
+    if removed_contracts:
+        lane, reason = "higher-lane-required", "service_build_contract_removed"
+        higher_lane = tuple(sorted({*higher_lane, *removed_contracts}))
+    elif higher_lane:
         lane, reason = "higher-lane-required", "deployment_contract_changed"
     elif unsupported:
         lane, reason = "full-release-required", "unsupported_hot_path_target"
@@ -126,7 +140,7 @@ def plan_git_changes(source_root: Path, base: str, head: str = "HEAD") -> dict[s
             str(root),
             "diff",
             "--no-renames",
-            "--name-only",
+            "--name-status",
             "-z",
             "--diff-filter=ACMRD",
             base_commit,
@@ -136,8 +150,19 @@ def plan_git_changes(source_root: Path, base: str, head: str = "HEAD") -> dict[s
         capture_output=True,
         timeout=30,
     ).stdout
-    paths = [value.decode("utf-8") for value in output.split(b"\0") if value]
-    return source_change_plan(paths, base_commit=base_commit, head_commit=head_commit)
+    fields = [value for value in output.split(b"\0") if value]
+    if len(fields) % 2:
+        raise ValueError("source change plan received invalid Git diff status output")
+    changes = [
+        (fields[index].decode("ascii"), fields[index + 1].decode("utf-8"))
+        for index in range(0, len(fields), 2)
+    ]
+    return source_change_plan(
+        (path for _status, path in changes),
+        base_commit=base_commit,
+        head_commit=head_commit,
+        deleted_paths=(path for status, path in changes if status == "D"),
+    )
 
 
 def _git(root: Path, *arguments: str) -> str:
