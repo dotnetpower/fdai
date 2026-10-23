@@ -243,6 +243,46 @@ def test_service_projection_rejects_untracked_docker_add_inputs(checkout: Path) 
         service_source_projection(inspect_source(checkout), "operator-service")
 
 
+def test_service_projection_preserves_explicit_filtered_copy_inputs(checkout: Path) -> None:
+    dockerfile = checkout / "services/operator-service/docker/Dockerfile"
+    dockerfile.parent.mkdir(parents=True)
+    dockerfile.write_text(
+        "FROM scratch\n"
+        "COPY services/operator-service/ ./services/operator-service/\n"
+        "COPY services/operator-service/tests/runtime_fixture.py /app/runtime_fixture.py\n"
+        "COPY services/operator-service/docs/runtime.md /app/runtime.md\n",
+        encoding="utf-8",
+    )
+    package = checkout / "services/operator-service/src/example"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+    tests = checkout / "services/operator-service/tests"
+    tests.mkdir()
+    (tests / "runtime_fixture.py").write_text("VALUE = 2\n", encoding="utf-8")
+    (tests / "test_example.py").write_text("assert True\n", encoding="utf-8")
+    docs = checkout / "services/operator-service/docs"
+    docs.mkdir()
+    (docs / "runtime.md").write_text("# Runtime\n", encoding="utf-8")
+    for relative in (
+        ".dockerignore",
+        "scripts/automation/run-bounded-command.py",
+        "scripts/deployment/azure/genesis_checks.py",
+        "scripts/deployment/azure/genesis_subprocess.py",
+        "scripts/deployment/azure/source_image_build.py",
+    ):
+        path = checkout / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# fixture\n", encoding="utf-8")
+    _git(checkout, "add", ".")
+    _git(checkout, "-c", "commit.gpgsign=false", "commit", "-m", "service")
+
+    paths = service_source_projection(inspect_source(checkout), "operator-service")
+
+    assert "services/operator-service/tests/runtime_fixture.py" in paths
+    assert "services/operator-service/docs/runtime.md" in paths
+    assert "services/operator-service/tests/test_example.py" not in paths
+
+
 def test_reading_a_link_may_update_access_time(checkout: Path, monkeypatch) -> None:
     access_times = iter((1, 2))
 
