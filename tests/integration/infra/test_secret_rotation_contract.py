@@ -53,6 +53,15 @@ def test_postgres_aks_sets_container_level_non_root_security_context() -> None:
     assert root.count("run_as_group") == 2
 
 
+def test_postgres_aks_publishes_a_psycopg_compatible_dsn() -> None:
+    root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
+
+    assert "postgresql+psycopg://" not in root
+    assert (
+        '"postgresql://${urlencode(var.admin_login)}:${urlencode(random_password.postgres.result)}@'
+    ) in root
+
+
 def test_postgres_aks_publishes_role_scoped_ingestion_dsns() -> None:
     root = (ROOT / "infra/runtimes/aks/database/main.tf").read_text(encoding="utf-8")
     variables = (ROOT / "infra/runtimes/aks/database/variables.tf").read_text(encoding="utf-8")
