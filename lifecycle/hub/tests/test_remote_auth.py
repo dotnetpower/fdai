@@ -49,9 +49,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
     )
     app.state.entra_verifier._keys = original.state.entra_verifier._keys
     app.state.entra_verifier._refresh_after = time.monotonic() + 600
-    service = dict(
-        oid="agent-object", azp="agent-client", scp=None, idtyp="app", roles=["Agent.Access"]
-    )
+    service = dict(oid="agent-object", azp="agent-client", scp=None, roles=["Agent.Access"])
     with TestClient(app, base_url=config.origin) as client:
         assert client.get(plan, headers=token(**service)).status_code == 200
         assert client.get(artifact, headers=token(**service)).status_code == 200
@@ -77,7 +75,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
         for changes in (
             {"oid": "other"},
             {"azp": "other"},
-            {"idtyp": None},
+            {"idtyp": "user"},
             {"roles": []},
             {"roles": ["Catalog.Read"]},
             {"scp": "Hub.Access"},
@@ -292,7 +290,7 @@ def test_native_proof_transport_is_agent_only_and_never_accepts_ownership(
         for changes in (
             {"oid": "other"},
             {"azp": "other"},
-            {"idtyp": None},
+            {"idtyp": "user"},
             {"roles": []},
         ):
             assert (
@@ -858,7 +856,6 @@ def test_service_identity_is_read_export_only(protected):
     service = dict(
         oid="customer-service",
         azp="customer-client",
-        idtyp="app",
         scp=None,
         roles=["Catalog.Read"],
     )
@@ -872,7 +869,7 @@ def test_service_identity_is_read_export_only(protected):
             {"oid": "vendor-service"},
             {"azp": "vendor-client"},
             {"roles": []},
-            {"idtyp": None},
+            {"idtyp": "user"},
         ):
             assert (
                 client.get("/v1/catalog/export", headers=token(**(service | changes))).status_code

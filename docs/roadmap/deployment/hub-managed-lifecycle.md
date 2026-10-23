@@ -264,11 +264,13 @@ for onboarding/release diagrams, public input provenance and the current manual/
 ## Opt-in installation Agent transport
 
 The local development implementation accepts an explicit `auth.agent_principals` binding for
-each installation. A caller needs the exact application object/client pair, `idtyp=app`, and
-the `Agent.Access` role in a directly verified Entra token. It can only read that installation's
-Plan and submit its state/reports. Operators, catalog identities and Agent identities remain
-distinct; an Agent cannot enroll, approve, publish, import or recompute. Release Hub refuses
-Agent bindings, and an empty binding list preserves existing denial.
+each installation. A caller needs the exact application object/client pair, no delegated `scp`
+claim, and the `Agent.Access` role in a directly verified Entra token. When Entra emits `idtyp`,
+it must be `app`; v2 Managed Identity tokens that omit this optional claim remain application
+tokens because the exact object, client and app role must still match. It can only read that
+installation's Plan and submit its state/reports. Operators, catalog identities and Agent
+identities remain distinct; an Agent cannot enroll, approve, publish, import or recompute.
+Release Hub refuses Agent bindings, and an empty binding list preserves existing denial.
 
 For an explicitly bound installation, the verified operator can submit its signed enrollment to
 `POST /v1/enrollments/{installation_id}/requests`. The existing installation proof, freshness,

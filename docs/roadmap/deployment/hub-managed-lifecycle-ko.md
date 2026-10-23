@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 53e54bc2779b05498db0726cc08ed5df5c4690b5
+translation_source_sha: 74f301487f1bdda104f34a51d533d77db645e11c
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -264,11 +264,14 @@ Agent 신원은 이 운영자 목록을 읽을 수 없습니다.
 ## 명시적으로 선택하는 설치 Agent 통신
 
 로컬 개발 구현은 설치본별로 명시적인 `auth.agent_principals` 연결을 받습니다.
-호출자는 직접 검증한 Entra 토큰에 정확한 애플리케이션 object/client 쌍, `idtyp=app`,
-`Agent.Access` 역할을 갖춰야 합니다. 해당 설치본의 Plan을 읽고 상태와 보고서를 제출할
-수 있을 뿐입니다. 운영자, 카탈로그 ID, Agent ID는 구분합니다. Agent는 등록, 승인,
-게시, 가져오기, 재계산을 할 수 없습니다. Release Hub는 Agent 연결을 받지 않으며,
-연결 목록이 비어 있으면 기존 차단 동작을 유지합니다.
+호출자는 직접 검증한 Entra 토큰에 정확한 애플리케이션 object/client 쌍, 위임된 `scp`
+claim이 없는 상태, `Agent.Access` 역할을 갖춰야 합니다. Entra가 `idtyp`을 발급하면
+값은 `app`이어야 합니다. v2 Managed Identity 토큰이 이 선택적 claim을 생략해도 정확한
+object, client, 앱 역할을 모두 대조하므로 애플리케이션 토큰으로 처리합니다. 해당
+설치본의 Plan을 읽고 상태와 보고서를 제출할 수 있을 뿐입니다. 운영자, 카탈로그 ID,
+Agent ID는 구분합니다. Agent는 등록, 승인, 게시, 가져오기, 재계산을 할 수 없습니다.
+Release Hub는 Agent 연결을 받지 않으며, 연결 목록이 비어 있으면 기존 차단 동작을
+유지합니다.
 
 명시적으로 연결한 설치본에 한해, 인증된 운영자는 서명된 등록 요청을
 `POST /v1/enrollments/{installation_id}/requests`로 제출할 수 있습니다.
