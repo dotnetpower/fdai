@@ -13,6 +13,7 @@ import subprocess
 import sys
 import uuid
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any, Final
 
@@ -134,6 +135,13 @@ from fdai_deployment_cli.standalone_host_state import (
 )
 from fdai_deployment_cli.standalone_host_state import (
     replace_private_json as _replace_private_json,
+)
+from fdai_deployment_cli.standalone_host_rebind import (
+    bind_installed_license as _bind_installed_license,
+    pending_application_operation as _pending_application_operation,
+    prepare_managed_identity_login,
+    reconcile_retained_aks_license_binding as _reconcile_retained_aks_license_binding,
+    refresh_private_access,
 )
 from fdai_deployment_cli.standalone_host_values import (
     AKS_CORE_STARTUP_READINESS,
@@ -270,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--system-node-sku", default=None)
     prepare.add_argument("--user-node-min-count", type=int, default=3)
     prepare.add_argument("--user-node-max-count", type=int, default=5)
-    prepare.add_argument("--user-node-sku", default="Standard_D4as_v5")
+    prepare.add_argument("--user-node-sku", default="Standard_D4ds_v4")
     prepare.add_argument("--database-sku")
     prepare.add_argument(
         "--product-add-on",
@@ -285,6 +293,10 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
     )
     prepare.set_defaults(handler=_prepare)
+
+    subcommands.add_parser("refresh-private-access").set_defaults(
+        handler=partial(refresh_private_access, login=_managed_identity_login_from_context)
+    )
 
     source_application_inputs.add_prepare_source_parser(subcommands, _prepare)
 
@@ -382,6 +394,8 @@ def main(argv: list[str] | None = None) -> int:
     license_command.add_argument("--deployment-binding", required=True)
     license_command.add_argument("--installation-binding", default=None)
     license_command.set_defaults(handler=_install_license)
+
+    subcommands.add_parser("bind-installed-license").set_defaults(handler=_bind_installed_license)
 
     verify = subcommands.add_parser("verify")
     verify.set_defaults(handler=_verify)
@@ -608,7 +622,6 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         _private_directory(kit_work)
         kit = acquire_deployment_kit(
             work_dir=kit_work,
-            online=False,
             offline_kit=_absolute(args.kit),
         )
         foundation.adoption.require_kit(kit)
@@ -741,6 +754,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "key_vault_name": key_vault_name,
         "document_storage_private_access": document_storage_private_access,
         "document_storage_account_name": document_storage_account_name,
+        "resource_group_name": str(app["name"]),
         "entra_binding_digest": entra_binding_digest,
         "application_state_adoption_digest": adoption_digest,
         "catalog_review_profile_digest": catalog_profile.profile_digest,
@@ -1202,12 +1216,19 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     workloads_path = work_dir / "workloads.auto.tfvars.json"
     if workloads_path.exists():
         retained_values = _private_json(workloads_path, "workloads.auto.tfvars.json")
+        license_binding_changed = _reconcile_retained_aks_license_binding(
+            retained_values,
+            values,
+        )
+        input_rebind_changed = False
         if retained_values != values:
-            bind_authoritative_backend_nsg(
+            input_rebind_changed = bind_authoritative_backend_nsg(
                 work_dir=work_dir,
                 retained=retained_values,
                 current=values,
             )
+        if license_binding_changed and not input_rebind_changed:
+            _replace_private_json(workloads_path, retained_values)
     else:
         _replace_or_verify_private_json(workloads_path, values)
     _replace_private_json(work_dir / "context.json", context)
@@ -2049,6 +2070,14 @@ def _application_operation(
     )
     if reconciliation is not None:
         return str(reconciliation["operation"]), reconciliation
+    if stage == "application" and service is None and update is None:
+        pending = _pending_application_operation(
+            context,
+            work_dir,
+            input_rebind_pending=_application_successor_prerequisite(work_dir, stage),
+        )
+        if pending is not None:
+            return pending, None
     return (str(update["operation"]) if update is not None else stage), None
 
 
@@ -2562,7 +2591,12 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     ):
         operation = "runtime-cluster"
     receipt_path = work_dir / f"{operation}-receipt.json"
-    if receipt_path.exists():
+    successor_pending = (
+        stage == "application"
+        and update is None
+        and _application_successor_prerequisite(work_dir, stage)
+    )
+    if receipt_path.exists() and not successor_pending:
         if reconciliation is not None:
             return _historical_reconciliation_receipt(work_dir, context, reconciliation)
         receipt = _private_json(receipt_path, "standalone apply receipt")
@@ -4053,19 +4087,7 @@ def _deployment_binding(_args: argparse.Namespace, work_dir: Path) -> dict[str, 
 
 
 def _managed_identity_login_from_context(context: dict[str, object], work_dir: Path) -> None:
-    _configure_terraform(context)
-    standalone_planned_outputs.bind(
-        Path(str(context["infra"])),
-        variables=work_dir / "application.auto.tfvars.json",
-        data_dir=Path(str(context.get("terraform_data", work_dir / "terraform-data"))),
-    )
-    _managed_identity_login(
-        str(context["subscription_id"]),
-        str(context["tenant_id"]),
-        str(context["client_id"]),
-        str(context["principal_id"]),
-        work_dir,
-    )
+    prepare_managed_identity_login(context, work_dir, login=_managed_identity_login)
 
 
 def _managed_identity_login(

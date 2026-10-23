@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 복제한 저장소에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: ee42e0c4cb5a211aadf9e11cd6f360c760338be2
+translation_source_sha: 1b6d17f4793100a348448d6cf12b6cebade4e7bf
 translation_revised: 2026-10-23
 ---
 
@@ -224,43 +224,10 @@ Foundation 계획은 먼저 비공개 로컬 백엔드를 사용합니다. 정�
 
 ### 검증된 공개 개발 배포 복구
 
-이 복구 경로는 `azd-up.sh` 공개 개발 bootstrap의 상태를 채택하며, 제거될 예정인 기존 릴리스 키트
-획득 경로를 여전히 사용합니다.
-
-기여자 배포가 실패한 적용 이후 검증된 `fdai.contributor-recovery.v1` 증적을 생성한 경우에만
-애플리케이션 상태 채택을 사용하세요. 채택 지원이 포함된 정확한 서명 키트 개정 번호에서 다음
-명령을 실행합니다.
-
-```bash
-fdaictl provision azure \
-  --online \
-  --region <azure-region> \
-  --adopt-runner-image-receipt <verified-runner-image-receipt> \
-  --adopt-application-state <private-terraform-state> \
-  --adopt-application-recovery <private-recovery-receipt> \
-  --adopt-resolved-models <private-resolved-models>
-```
-
-runner 증적과 mode-0600 애플리케이션 파일 세 개를 모두 함께 제공하세요. 조정기는 다이제스트,
-대상, 리소스 수, 리소스
-접미사 및 모델 기능 계약을 검증합니다. 애플리케이션 리소스 그룹의 소유권 레코드 두 개만 제거한
-비공개 단계 상태 복사본을 만듭니다. 원래 로컬 상태는 변경하지 않습니다.
-
-runner 증적은 이미 독립 검증된 관리 이미지를 image apply 없이 재사용합니다. 새 Foundation
-실행은 현재 서명 출처를 유지하고 이미지의 원래 출처, 서명 검증기 출처, 이미지 실행 및 정확한
-증적 다이제스트를 별도 출처 정보로 기록합니다.
-
-Managed Host는 Foundation이 소유한 원격 애플리케이션 백엔드에 상태 Blob이 없을 때만 단계
-상태를 허용합니다. 강제 옵션 없이 상태를 한 번 push하기 전에 변경 불가능한 claim을 기록하고, 이후
-상태를 다시 읽어 lineage, serial, 내용 및 관리 리소스 수를 검증합니다. claim 이후 프로세스가
-중단되면 같은 작업 디렉터리와 입력으로 같은 명령을 실행하세요. 호스트는 기존 원격 상태를
-검증하고 push를 반복하지 않습니다. 입력, 대상, Foundation 연결이 다르거나 백엔드가 비어 있지
-않거나 lineage가 바뀌면 운영자 검토를 위해 복구를 중단합니다.
-복구 상태 경로는 이후 계획 중 하나에 삭제 또는 교체 작업이 포함되어 있어도 승인 전에
-중단합니다.
-
-채택 오류를 해결하기 위해 기존 Azure 리소스나 원래 로컬 상태를 삭제하지 마세요. 작업
-디렉터리를 보존하고 보존된 claim 또는 증적으로 실패한 경계를 확인하세요.
+`azd-up.sh`는 Core 전용 개발 진단 도구로 유지됩니다. FDAI 설치 경로가 아니며,
+`fdaictl provision azure`는 연결형 릴리스 키트 획득으로 이 상태를 더 이상 채택하지 않습니다.
+진단을 위해 작업 디렉터리와 증적을 보존하세요. 지원되는 설치가 필요하면 단일 명령 소스 경로나
+서명된 오프라인 패키지를 사용하세요.
 
 ### Trial과 전체 사용권
 
@@ -351,9 +318,7 @@ Azure 관리 및 데이터 플레인 엔드포인트에는 Azure 네트워크 �
 
 - `genesis-up.sh`는 저수준 Foundation 진단 및 복구 도구입니다.
 - `azd-up.sh`는 Container Apps에 Core만 배포하는 공개 개발 bootstrap입니다. 단일 명령 소스
-  배포가 아닙니다.
-- `fdaictl provision azure --online`은 게시된 릴리스 키트를 가져옵니다. 두 설치 방식에 속하지
-  않으며 제거될 예정입니다.
+  배포가 아니며 공개 설치 프로그램은 이 상태를 채택하지 않습니다.
 - `fdai-up.sh`는 폐기된 `--signing-key` 옵션을 거부하며 키트를 빌드하지 않습니다. 서명된 오프라인
   패키지는 따로 빌드해 `--offline-kit`로 전달합니다.
 - `.github/workflows/` 아래 배포 워크플로는 저장소 CI, release 및 과거 자동화를 위한 것입니다. 대상 환경

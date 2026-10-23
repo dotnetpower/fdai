@@ -36,4 +36,4 @@ def test_root_allowlist_matches_the_deployment_profile_allowlist() -> None:
     allowed = tuple(re.findall(r'^\s*"([A-Za-z0-9_]+)",\s*$', block, re.MULTILINE))
 
     assert allowed == DATABASE_SKUS
-    assert re.search(r'^\s*default\s*=\s*"B_Standard_B1ms"\s*$', block, re.MULTILINE)
+    assert re.search(r'^\s*default\s*=\s*"GP_Standard_D4ads_v5"\s*$', block, re.MULTILINE)

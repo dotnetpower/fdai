@@ -33,8 +33,10 @@ installation-specific operational qualification instead of treating a feature na
 `c3a8a26275` and compared with all 15 specification group summaries and both language versions.
 The result remains Ready 28/52 and Partial 24/52, superseding the earlier Ready 38/52 and
 Partial 14/52 totals. This is a count-consistency check, not a new assessment of every function.
+**Acceptance update, 2026-10-23:** F14.2 returned to Ready after the exact-source v18 deployment
+closed I03. The current totals are Ready 29/52 and Partial 23/52.
 
-**Overall:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">Not assessed 0/52</span>
+**Overall:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 29/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 23/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">Not assessed 0/52</span>
 Ready applies only to the support scope stated in its record. It does not certify every
 deployment, provider, scale, or autonomous action. Partial means the stated function has an
 implementation, but mandatory coverage, integration, or verification remains open in the cited
@@ -48,7 +50,7 @@ see [deployment evidence](https://github.com/dotnetpower/fdai/issues/2210#issuec
 F06/F07 operational qualification and W7 cohort evidence remain open in #2204-#2208. These counts
 do not establish customer production acceptance, operational learning improvement, or realized savings.
 
-The 24 Partial decisions retain their implemented subset and recorded focused checks, but
+The 23 Partial decisions retain their implemented subset and recorded focused checks, but
 they do not narrow away mandatory verbs or required operational evidence. Historical live receipts
 remain historical; this session does not renew them or qualify a particular installation. Promote
 one of these functions only after every remaining condition in its record is satisfied.
@@ -262,7 +264,7 @@ F12.4 therefore remains Partial.
 | Function | State | Evidence, supported scope, and remaining conditions |
 |----------|-------|-----------------------------------------------------|
 | <span id="f14-1">F14.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: source deployment, prerequisites, target validation, image/Terraform orchestration, Trial, health, update/rollback and teardown. The [source ledger](../../roadmap-implementation/deployment/source-deployment.md) and historical 207-test cohort support this subset. WP6 has one new-Trial receipt but still needs unchanged Trial rerun, new full entitlement, and Trial-to-full rerun with watermark removal. See [I01](functional-readiness-backlog.md#f14-f15-distribution-extensions-and-scanning). |
-| <span id="f14-2">F14.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: source and signature-verified offline distribution, tamper/deadline/cancellation guards, and isolated shipped-wheel installation. The [source ledger](../../roadmap-implementation/deployment/source-deployment.md) still requires WP8 source-path cleanup after WP6; current help/parser expose `--online`. Reconcile distribution recovery/acceptance in [I02-I03](functional-readiness-backlog.md#f14-f15-distribution-extensions-and-scanning). The [Hub ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md) contains partial software, not a complete available lifecycle; Hub/public publication are not source/offline prerequisites. |
+| <span id="f14-2">F14.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | Implemented and accepted: source and signature-verified offline distribution, keyless Trial and key-holder entitlement, tamper/deadline/cancellation guards, and isolated shipped-wheel installation. Public help and parsing expose only `--source` and `--offline-kit`. The [Hub ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md) contains partial software, not a complete available lifecycle; Hub/public publication are not source/offline prerequisites. |
 | <span id="f14-3">F14.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: availability, enablement, effective mode, profile/add-ons, Trial watermark, model health, override and recall display without action authority. The [governance ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md), [source ledger](../../roadmap-implementation/deployment/source-deployment.md), and recorded recall tests support local behavior. Remaining: production Release ceiling input and live entitlement-transition readback, [A01 and I01](functional-readiness-backlog.md). Optional authoring UI and physical policy-table migration remain separate conditional scope. |
 | <span id="f14-4">F14.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: publisher trust, compatibility, immutable disabled-first bundles, enable/disable/revoke, and typed registration. The [bundle ledger](../../roadmap-implementation/architecture/capability-bundle-lifecycle.md) retains a mandatory linked exact-artifact receipt set for lifecycle, restart/disclosure, typed routing and audit. Complete [X01](functional-readiness-backlog.md#f14-f15-distribution-extensions-and-scanning); #355 closing as not planned did not validate that gate. |
 

@@ -30,10 +30,12 @@ FOUNDATION_PROVIDERS = (
     "Microsoft.Storage",
 )
 APPLICATION_PROVIDERS = (
+    "Microsoft.AlertsManagement",
     "Microsoft.App",
     "Microsoft.Authorization",
     "Microsoft.CognitiveServices",
     "Microsoft.ContainerRegistry",
+    "Microsoft.ContainerService",
     "Microsoft.DBforPostgreSQL",
     "Microsoft.EventGrid",
     "Microsoft.EventHub",

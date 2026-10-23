@@ -362,6 +362,25 @@ and exact-head trusted Check Run facts. A successful result is review-only, not 
 promotion, or execution permission. Missing App configuration or untrusted evidence in that
 selected integration still blocks the installation review.
 
+## Qualification evidence
+
+An installation qualifies the governance rollout through one review-only record, built by
+`fdai.core.governance_qualification` and `scripts/governance/build-governance-qualification.py`.
+The record binds the installation, management scope, environment class, Rule generation digest,
+ontology release digest, pinned provider revisions, and evidence cutoff before collection.
+
+- **Sources.** Every required provider source is admitted only when it is available, observed no
+  later than the cutoff, and fresh at the cutoff. Unavailable, stale, incomplete, revoked,
+  conflicting, missing, post-cutoff, and conflicting-duplicate sources each become a named hold.
+- **Frozen cohort.** False positives, false negatives, holds, and coverage are measured on a
+  cohort frozen by digest. A changed case set fails closed. A held case is never counted as correct,
+  a worst-case false-negative rate counts held violations as misses, a zero denominator is absent
+  rather than zero, and every rate carries its Wilson 95% interval and the independent-group count.
+- **Record.** The record is `ready_for_review` only when no source is held and the cohort is
+  measured without holds; otherwise every blocker is named. It carries `authority: none`, never
+  approves, promotes, or executes, and changes no mode. Its digest, the source digest, and the
+  measurement digest are the evidence digests the implementation ledger MUST cite.
+
 ## RBAC (who can do what)
 
 For installation governance, authoring, approving, assigning, and exempting are **separate permissions**.

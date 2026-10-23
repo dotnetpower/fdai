@@ -118,8 +118,8 @@ def test_every_leaf_help_is_side_effect_free(path, monkeypatch, tmp_path, capsys
         ["provisoin"],
         ["provision", "az"],
         ["provision", "azure", "--onl"],
-        ["provision", "azure", "--online", "--reg", "koreacentral"],
-        ["provision", "azure", "--online", "--prog", "plain"],
+        ["provision", "azure", "--offline-kit", "kit.tar.gz", "--reg", "koreacentral"],
+        ["provision", "azure", "--offline-kit", "kit.tar.gz", "--prog", "plain"],
         ["version", "--out", "json"],
     ],
 )
@@ -148,7 +148,6 @@ def test_leaf_handler_defaults_and_typed_arguments_are_preserved(tmp_path):
     )
     assert args.handler is cli._provision_azure
     assert args.offline_kit == path
-    assert args.online is False
     assert args.monthly_cost_ceiling is None
     assert args.timeout_seconds == 14400
     assert args.foundation_workload == "fdai"
@@ -277,7 +276,7 @@ def test_explicit_empty_argv_never_uses_process_arguments(monkeypatch, capsys):
 
 
 def test_missing_leaf_value_links_to_leaf_help(capsys):
-    assert _invoke(["provision", "azure", "--online", "--region"]) == 2
+    assert _invoke(["provision", "azure", "--offline-kit", "kit.tar.gz", "--region"]) == 2
     output = capsys.readouterr()
     assert "Try 'fdaictl provision azure --help'" in output.err
     assert output.out == ""
@@ -309,7 +308,16 @@ def test_execution_resolves_the_same_default_or_relative_work_directory(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
     monkeypatch.setattr(cli, "deploy_azure_foundation", fake_deployment)
-    arguments = ["provision", "azure", "--online", "--progress", "off", "--output", "json"]
+    arguments = [
+        "provision",
+        "azure",
+        "--offline-kit",
+        "kit.tar.gz",
+        "--progress",
+        "off",
+        "--output",
+        "json",
+    ]
     if explicit_directory:
         arguments.extend(["--work-dir", "run with spaces"])
     assert _invoke(arguments) == 0
@@ -329,7 +337,8 @@ def test_azure_adoption_requires_all_inputs(monkeypatch, tmp_path, capsys):
             [
                 "provision",
                 "azure",
-                "--online",
+                "--offline-kit",
+                "kit.tar.gz",
                 "--progress",
                 "off",
                 "--adopt-application-state",
@@ -355,7 +364,8 @@ def test_azure_adoption_resolves_relative_inputs(monkeypatch, tmp_path, capsys):
             [
                 "provision",
                 "azure",
-                "--online",
+                "--offline-kit",
+                "kit.tar.gz",
                 "--progress",
                 "off",
                 "--output",
@@ -385,7 +395,8 @@ def test_foundation_adoption_requires_both_directories(monkeypatch, tmp_path, ca
             [
                 "provision",
                 "azure",
-                "--online",
+                "--offline-kit",
+                "kit.tar.gz",
                 "--progress",
                 "off",
                 "--adopt-foundation-directory",
@@ -411,7 +422,8 @@ def test_foundation_adoption_resolves_relative_directories(monkeypatch, tmp_path
             [
                 "provision",
                 "azure",
-                "--online",
+                "--offline-kit",
+                "kit.tar.gz",
                 "--progress",
                 "off",
                 "--output",

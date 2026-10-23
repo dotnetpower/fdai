@@ -241,10 +241,11 @@ def _advance_locked(
             store.update(stage=stage, state="running", completed=True)
             checks.prepare_access_tools(timeout=min(600, store.remaining_seconds()))
         stage = "providers"
+        register_providers = bool(getattr(args, "register_providers", False))
         providers = reconcile_resource_providers(
             subscription_id=target.subscription_id,
-            profile="foundation",
-            apply=False,
+            profile="complete" if register_providers else "foundation",
+            apply=register_providers,
             timeout_seconds=min(180, store.remaining_seconds()),
         )
         store.provider_report = providers.to_mapping()
@@ -328,14 +329,6 @@ def _advance_locked(
             reason_code=exc.reason_code,
             next_action=exc.next_action,
         )
-        if exc.stage == "application-plan":
-            source.reverify()
-            store.update(
-                stage=exc.stage,
-                state="waiting",
-                reason_code="prebuilt_runtime_artifacts_required",
-                next_action="resume_with_signed_kit_and_foundation_adoption",
-            )
         return _progress_result(store, source.commit)
     except (CheckError, PrivateExecutionError) as exc:
         store.update(
@@ -375,6 +368,7 @@ def main() -> int:
     parser.add_argument("--region", required=True)
     parser.add_argument("--monthly-cost-ceiling", type=int, required=True)
     parser.add_argument("--workload", default="fdai")
+    parser.add_argument("--register-providers", action="store_true")
     parser.add_argument("--advance", action="store_true")
     parser.add_argument("--source-snapshot", type=Path)
     parser.add_argument("--source-snapshot-digest")

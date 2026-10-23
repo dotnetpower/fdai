@@ -56,6 +56,25 @@ def test_authoritative_backend_nsg_rebind_is_idempotent(tmp_path: Path) -> None:
     assert not bind_authoritative_backend_nsg(work_dir=tmp_path, retained=current, current=current)
 
 
+def test_authoritative_backend_nsg_rebind_accepts_ordinary_applied_predecessor(
+    tmp_path: Path,
+) -> None:
+    tmp_path.chmod(0o700)
+    _write(tmp_path / "application-claim.json", {"claim": "original"})
+    _write(tmp_path / "application-receipt.json", {"receipt": "applied"})
+    retained = {"browser_gateway": {"backend_nsg_id": ""}}
+    current = {"browser_gateway": {"backend_nsg_id": "/subscriptions/example/nsg"}}
+    _write(tmp_path / "workloads.auto.tfvars.json", retained)
+
+    assert bind_authoritative_backend_nsg(work_dir=tmp_path, retained=retained, current=current)
+    claim = private_json(
+        tmp_path / "application-input-rebind-claim.json",
+        "application input rebind claim",
+    )
+    assert "application_receipt_digest" in claim
+    assert "residual_claim_digest" not in claim
+
+
 @pytest.mark.parametrize(
     "current",
     [

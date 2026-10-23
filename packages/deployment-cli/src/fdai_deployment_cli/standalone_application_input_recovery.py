@@ -23,19 +23,20 @@ def bind_authoritative_backend_nsg(
 
     if retained == current:
         return False
-    if not all(
-        (work_dir / name).is_file()
-        for name in (
-            "application-claim.json",
-            "application-residual-claim.json",
-            "application-residual-review.json",
-        )
-    ):
+    original_paths = ("application-claim.json", "application-receipt.json")
+    residual_paths = (
+        "application-claim.json",
+        "application-residual-claim.json",
+        "application-residual-review.json",
+    )
+    ordinary_applied = all((work_dir / name).is_file() for name in original_paths)
+    residual_claimed = all((work_dir / name).is_file() for name in residual_paths)
+    if not ordinary_applied and not residual_claimed:
         raise ValueError("retained workloads.auto.tfvars.json differs")
     old_gateway = retained.get("browser_gateway")
     new_gateway = current.get("browser_gateway")
     if not isinstance(old_gateway, dict) or not isinstance(new_gateway, dict):
-        raise ValueError("retained workloads.auto.tfvars.json differs")
+        raise TypeError("retained workloads.auto.tfvars.json differs")
     old_nsg = old_gateway.get("backend_nsg_id")
     new_nsg = new_gateway.get("backend_nsg_id")
     expected = {
@@ -45,18 +46,25 @@ def bind_authoritative_backend_nsg(
     if old_nsg != "" or not isinstance(new_nsg, str) or not new_nsg or expected != current:
         raise ValueError("retained workloads.auto.tfvars.json differs")
     original_claim = private_json(work_dir / "application-claim.json", "application claim")
-    residual_claim = private_json(
-        work_dir / "application-residual-claim.json", "application residual claim"
-    )
     claim = {
         "schema_version": "fdai.application-input-rebind-claim.v1",
         "field": "browser_gateway.backend_nsg_id",
         "prior_values_digest": canonical_digest(retained),
         "current_values_digest": canonical_digest(current),
         "original_claim_digest": canonical_digest(original_claim),
-        "residual_claim_digest": canonical_digest(residual_claim),
         "mutation_performed": False,
     }
+    if residual_claimed:
+        claim["residual_claim_digest"] = canonical_digest(
+            private_json(
+                work_dir / "application-residual-claim.json",
+                "application residual claim",
+            )
+        )
+    else:
+        claim["application_receipt_digest"] = canonical_digest(
+            private_json(work_dir / "application-receipt.json", "application receipt")
+        )
     claim["claim_digest"] = canonical_digest(claim)
     claim_path = work_dir / "application-input-rebind-claim.json"
     if claim_path.exists():
