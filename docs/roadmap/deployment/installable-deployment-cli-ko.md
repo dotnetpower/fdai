@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: a4a528af4b1858c113d0aeb9bc17db81f5ab37ce
+translation_source_sha: d86ce753097dd2a4ff0f6a387c98e28f0769abbe
 translation_revised: 2026-10-23
 ---
 
@@ -241,6 +241,8 @@ SKU·할당량, 구성·provider·계획·도구·상태 해시와 만료를 검
 복구 apply, 등록, 상태 이행은 현재의 깨끗한 운영자 선택 checkout을 보호된 브랜치 CI 없이
 허용합니다. 이전 실행 리비전은 현재 소스로 다시 허용하지 않고, 불변 증적과 원래 스냅샷으로
 인증합니다.
+복구 준비 단계와 공통 상태 인계 단계는 모두 현재 운영자 선택 소스를 검증합니다. 상태 인계는
+과거 인계 리비전을 대상으로 유지관리자 CI 검사를 다시 수행하지 않습니다.
 enterprise identity 추가 기능을 선택하면 복구 계속 진행 경로는 검증된 복구 인계를 Entra 단계에
 전달합니다. 따라서 runner principal 재조회가 대체된 원래 apply 인계 파일에 의존하지 않습니다.
 복구 전용 host zip 애플리케이션은 managed-host checkpoint 결과를 종료 코드로 반환합니다. 따라서

@@ -240,6 +240,9 @@ only, never repeated apply or scope changes. Completed migration observes the ba
 Recovery apply, enrollment, and state migration admit the current clean operator-selected checkout
 without requiring protected-branch CI. Historical execution revisions remain authenticated by their
 immutable receipts and original snapshot rather than being re-admitted as current source.
+Both recovery preparation and the shared state-handoff stage validate that current
+operator-selected source; the state-handoff does not perform a second maintainer-CI check against
+the historical handoff revision.
 When the enterprise identity add-on is selected, recovered continuation supplies the verified
 recovery handoff to the Entra stage so runner-principal readback does not depend on a superseded
 original apply handoff file.
