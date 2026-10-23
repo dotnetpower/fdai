@@ -69,9 +69,17 @@ run "enable_single_writer_agent" {
         kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].init_container[0].volume_mount[*].name,
         "private-inputs",
       ) &&
+      contains(
+        kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].args,
+        "/state/local-policy.json",
+      ) &&
+      !contains(
+        kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].volume_mount[*].name,
+        "private-inputs",
+      ) &&
       output.deployment.enabled == true
     )
-    error_message = "Enabled deployment must keep one Recreate Agent writer with private cache inputs."
+    error_message = "Enabled Agent must consume owner-only private state, not the Secret volume."
   }
 }
 

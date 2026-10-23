@@ -206,6 +206,9 @@ resource "kubernetes_deployment_v1" "agent" {
                 "from pathlib import Path",
                 "p=Path('/state/current-state.json')",
                 "p.exists() or p.write_bytes(Path('/config/public/current-state.json').read_bytes())",
+                "p=Path('/state/local-policy.json')",
+                "p.exists() or p.write_bytes(Path('/config/private/local-policy.json').read_bytes())",
+                "p.chmod(0o600)",
               ],
               var.installation.configuration_artifact == null ? [] : [
                 "d=Path('/state/artifact-cache/configurations')",
@@ -217,6 +220,14 @@ resource "kubernetes_deployment_v1" "agent" {
                 "s.exists() or s.write_bytes(Path('/config/private/configuration.sig').read_bytes())",
                 "s.chmod(0o600)",
               ],
+              local.native ? [
+                "p=Path('/state/native-approval.json')",
+                "p.exists() or p.write_bytes(Path('/config/private/native-approval.json').read_bytes())",
+                "p.chmod(0o600)",
+                "p=Path('/state/installation-public.pem')",
+                "p.exists() or p.write_bytes(Path('/config/private/installation-public.pem').read_bytes())",
+                "p.chmod(0o600)",
+              ] : [],
             )),
           ]
           security_context {
@@ -262,7 +273,7 @@ resource "kubernetes_deployment_v1" "agent" {
               "--configuration-public-key", "/config/public/configuration-public.pem",
               "--artifact-source", "hub",
               "--current-state", "/state/current-state.json",
-              "--local-policy", "/config/private/local-policy.json",
+              "--local-policy", "/state/local-policy.json",
               "--apply",
               "--in-cluster",
               "--namespace", var.installation.target_namespace,
@@ -271,8 +282,8 @@ resource "kubernetes_deployment_v1" "agent" {
               "--max-duration-seconds", "3600",
             ],
             local.native ? [
-              "--native-approval", "/config/private/native-approval.json",
-              "--installation-public-key", "/config/private/installation-public.pem",
+              "--native-approval", "/state/native-approval.json",
+              "--installation-public-key", "/state/installation-public.pem",
             ] : [],
           )
           env {
@@ -304,11 +315,6 @@ resource "kubernetes_deployment_v1" "agent" {
           volume_mount {
             name       = "public-inputs"
             mount_path = "/config/public"
-            read_only  = true
-          }
-          volume_mount {
-            name       = "private-inputs"
-            mount_path = "/config/private"
             read_only  = true
           }
         }

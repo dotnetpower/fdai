@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: acd0562507fcde8a20c3967ba9aa41f515452cef
+translation_source_sha: 96cfff15a8d80f17d66992d227f3102e8bf63bf8
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -323,7 +323,9 @@ UTF-8 텍스트로 디코딩하거나 Terraform 명령 인수로 노출하지 �
 `WaitForFirstConsumer` PVC를 만들되 `Bound` 상태를 기다리지 않습니다. Agent Pod를 예약한
 뒤에만 binding과 readiness를 독립적으로 검증합니다. 상태 초기화 컨테이너는 공개 입력과
 비공개 입력을 모두 read-only로 mount하므로, 선택적으로 미리 배치한 구성과 서명을 Agent
-프로세스 시작 전에 영구 검증 캐시로 옮길 수 있습니다.
+프로세스 시작 전에 영구 검증 캐시로 옮길 수 있습니다. 로컬 정책과 선택적 native 신원
+입력도 PVC의 owner-only `0600` 파일로 복사합니다. main Agent는 Kubernetes Secret을
+mount하지 않고 이 비공개 상태 파일만 읽습니다.
 
 `fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
 깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,
