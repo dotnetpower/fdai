@@ -164,6 +164,12 @@ def _projected_runner_patch_selection(projection: dict[str, object]) -> dict[str
     return _runner_patch_selection(before.get(fields[0]), before.get(fields[1]))
 
 
+def _replace_final_projection(work: Path, projection: bytes) -> None:
+    path = work / "show.stdout"
+    path.unlink(missing_ok=True)
+    write_private_bytes(path, projection)
+
+
 def _without_variable(content: bytes, name: str) -> bytes:
     pattern = rb'^variable "' + name.encode() + rb'" \{\n.*?^\}\n\n'
     result, count = re.subn(pattern, b"", content, flags=re.MULTILINE | re.DOTALL)
@@ -500,6 +506,7 @@ def _prepare_locked(
         projection = load_json_object(
             projection_bytes, label="Foundation recovery patch plan", max_bytes=_MAX
         )
+        _replace_final_projection(work, projection_bytes)
     summary = (
         validate_successor_plan(projection, predecessor[2], state)
         if predecessor is not None

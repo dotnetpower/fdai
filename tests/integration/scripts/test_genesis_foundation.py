@@ -35,6 +35,7 @@ from genesis_foundation_recovery import (  # noqa: E402
 from genesis_foundation_recovery_plan import (  # noqa: E402
     _projected_runner_patch_selection,
     _recovery_variables,
+    _replace_final_projection,
     prepare_recovery_plan,
     require_ip_policy_only,
     require_naming_only,
@@ -392,6 +393,15 @@ def test_recovery_plan_reads_tenant_patch_drift_from_runner_before_state() -> No
         "runner_patch_mode": "AutomaticByPlatform",
         "runner_bypass_platform_safety_checks": True,
     }
+
+
+def test_recovery_replaces_canonical_projection_after_replan(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    write_private_bytes(tmp_path / "show.stdout", b"initial")
+
+    _replace_final_projection(tmp_path, b"final")
+
+    assert (tmp_path / "show.stdout").read_bytes() == b"final"
 
 
 def test_recovery_requires_original_lock_before_any_planning(tmp_path):
