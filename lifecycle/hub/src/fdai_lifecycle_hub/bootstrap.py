@@ -117,11 +117,14 @@ def _principal_object_ids(cursor: psycopg.Cursor[tuple[object, ...]], role_name:
             raise ValueError("Azure principal catalog returned an invalid record.")
         normalized = {key.casefold(): value for key, value in record.items()}
         catalog_role = normalized.get("rolename")
-        object_id = normalized.get("objectid")
-        if not isinstance(catalog_role, str) or not isinstance(object_id, str):
+        if not isinstance(catalog_role, str):
             raise ValueError("Azure principal catalog schema is unsupported.")
-        if catalog_role == role_name:
-            object_ids.append(object_id)
+        if catalog_role != role_name:
+            continue
+        object_id = normalized.get("objectid")
+        if not isinstance(object_id, str):
+            raise ValueError("Azure principal catalog record has no object identifier.")
+        object_ids.append(object_id)
     return object_ids
 
 

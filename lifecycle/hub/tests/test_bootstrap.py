@@ -126,7 +126,7 @@ def test_fresh_bootstrap_creates_only_app_data(config, backend):
 def test_principal_lookup_uses_case_insensitive_json_fields(config):
     cursor = MagicMock()
     cursor.fetchall.return_value = [
-        ({"roleName": "other-runtime", "objectId": "00000000-0000-0000-0000-000000000003"},),
+        ({"roleName": "other-runtime", "objectId": None},),
         ({"roleName": config.runtime_name, "objectId": config.runtime_object_id},),
     ]
 
