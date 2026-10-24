@@ -18,6 +18,7 @@ from starlette.testclient import TestClient
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_release_hub.api import MAX_CATALOG_VIEW_BYTES, create_app
+from fdai_release_hub.cli import main
 from fdai_release_hub.store import (
     CapabilityChange,
     CatalogConfirmation,
@@ -64,6 +65,45 @@ def admit(store: ReleaseStore, **fields: object):
     return load_pinned_export(
         raw, expected_sha256=digest, public_key=store.key.public_key, now=NOW, **fields
     )
+
+
+@pytest.mark.parametrize("port", ["0", "65536", "not-a-port"])
+def test_cli_rejects_invalid_ports_before_opening_state(tmp_path: Path, port: str) -> None:
+    with pytest.raises(SystemExit) as raised:
+        main(["serve", str(tmp_path / "missing"), "--port", port])
+    assert raised.value.code == 2
+
+
+def test_cli_rejects_non_directory_and_uninitialized_state(tmp_path: Path) -> None:
+    state_file = tmp_path / "state-file"
+    state_file.write_text("not a directory")
+    with pytest.raises(SystemExit) as raised:
+        main(["dev-init", str(state_file)])
+    assert raised.value.code == 2
+    missing = tmp_path / "missing"
+    with pytest.raises(SystemExit) as raised:
+        main(["serve", str(missing)])
+    assert raised.value.code == 2
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    with pytest.raises(SystemExit) as raised:
+        main(["serve", str(private)])
+    assert raised.value.code == 2
+
+
+def test_cli_requires_private_state_and_refuses_key_reinitialization(tmp_path: Path) -> None:
+    exposed = tmp_path / "exposed"
+    exposed.mkdir(mode=0o755)
+    exposed.chmod(0o755)
+    with pytest.raises(SystemExit) as raised:
+        main(["dev-init", str(exposed)])
+    assert raised.value.code == 2
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    assert main(["dev-init", str(private)]) == 0
+    with pytest.raises(SystemExit) as raised:
+        main(["dev-init", str(private)])
+    assert raised.value.code == 2
 
 
 def test_registration_publication_contribution_recall_and_restart(store: ReleaseStore) -> None:
