@@ -82,6 +82,12 @@ fdaictl provision azure --offline-kit /private/fdai-offline/fdai-deployment-kit-
   `--catalog-review-profile` and use the Console-governed approval path. Select an App-backed
   integration only on a new explicit operator request. This is a selection default, not an
   installation gate, and it never blocks a run.
+- Operator default for the development installation `rg-fdai-dev-wus3` / `aks-fdai-dev-wus3`: the
+  operator deploys workloads only through the Hub (signed release, approved catalog, Plan, lifecycle
+  agent apply). Do not start a new source-AKS installation or edit that cluster's workloads with
+  kubectl. Azure resources the lifecycle agent cannot create stay a separate, named change.
+  Read-only inspection and deleting a pod so its Deployment recreates it remain allowed. This is a
+  selection default, not an installation gate.
 - Do not repeat an apply whose outcome is ambiguous. Read back state and plan again instead.
 - Articles 7 and 8 govern FDAI's own runtime actions on managed resources. They are not
   installation gates.
