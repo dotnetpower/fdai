@@ -701,7 +701,7 @@ class LifecycleAgent:
         record = self._record(state, plan_id)
         if record.result != result:
             record = replace(record, result=result, reported_at=None, reported=False)
-            state = state.with_record(plan_id, record)
+            state = state.with_result(plan_id, record)
         if record.reported:
             return _poll_result(plan_id, record)
         return self._deliver(state, plan_id, record)

@@ -127,6 +127,27 @@ def test_with_result_applies_the_replay_rule(
     assert state.plans["plan-7"].result == result
 
 
+def test_final_rejection_after_admission_retains_the_replay_tombstone() -> None:
+    admitted = _record(
+        7,
+        result=PlanResult(
+            outcome="apply-started",
+            reason_code="apply_started",
+            exact_plan_digest="sha256:" + "a" * 64,
+        ),
+    )
+    rejected = replace(
+        admitted,
+        result=PlanResult(outcome="rejected", reason_code="plan_expired"),
+    )
+
+    state = AgentState().with_result("plan-7", admitted).with_result("plan-7", rejected)
+
+    assert state.last_accepted_sequence == 7
+    assert state.rejected_sequences == {7}
+    assert state.plans["plan-7"].result == rejected.result
+
+
 def test_lock_refuses_a_concurrent_poll(tmp_path: Path) -> None:
     store = LocalStateStore(tmp_path / "state")
 
