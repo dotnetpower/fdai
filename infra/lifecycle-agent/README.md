@@ -39,6 +39,9 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
 - All Agent journal, current-state, native-state, and artifact-cache files live beneath the
   UID-owned mode-`0700` `/state/agent` directory. The group-managed PVC mount root is never passed
   as the Agent state directory.
+- The main container mounts only that PVC `agent` subdirectory at the image's UID-owned
+  mode-`0700` `/agent-state` path. Strict readers therefore never traverse the group-writable PVC
+  mount root.
 - The installation identity private key is never a Terraform input. Native bootstrap runs
   separately and supplies only the installation public key to the running Agent.
 - `enable_agent=false` prepares identity, RBAC, state, and inputs without starting a poller.

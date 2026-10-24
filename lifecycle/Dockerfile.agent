@@ -19,7 +19,7 @@ RUN test -s /etc/ssl/certs/ca-certificates.crt \
     && useradd --uid 65532 --gid agent --no-create-home agent \
     && mkdir /state /config \
     && chown 65532:65532 /state /config \
-    && install -d -m 0700 -o 65532 -g 65532 /config/private
+    && install -d -m 0700 -o 65532 -g 65532 /agent-state /config/private
 COPY --from=build /opt/agent /opt/agent
 ENV PATH="/opt/agent/bin:$PATH" \
     HOME=/state \

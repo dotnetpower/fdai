@@ -338,7 +338,9 @@ closed. After local native bootstrap, the enabled Agent input includes the valid
 `lifecycle-native-scope.json`; the initializer stages it atomically at the Agent state path without
 copying the installation private key into Terraform. All journal, current-state, native-state and
 artifact-cache files live beneath the UID-owned mode-`0700` `/state/agent` directory; the
-group-managed PVC mount root is never passed as the Agent state directory.
+group-managed PVC mount root is never passed as the Agent state directory. The main container
+mounts only that `agent` subdirectory at the image's UID-owned mode-`0700` `/agent-state` path, so
+strict readers never traverse the group-writable PVC mount root.
 
 `fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
 remote effect. From a clean source revision, digest-pinned component images, a reviewed private

@@ -358,7 +358,7 @@ resource "kubernetes_deployment_v1" "agent" {
               "--hub-auth", "workload-identity",
               "--hub-scope", "api://${var.hub.api_client_id}/.default",
               "--installation-id", var.installation.id,
-              "--state-dir", "/state/agent",
+              "--state-dir", "/agent-state",
               "--hub-public-key", "/config/public/hub-public.pem",
               "--hub-key-id", var.hub.signing_key_id,
               "--hub-key-epoch", tostring(var.hub.signing_epoch),
@@ -366,7 +366,7 @@ resource "kubernetes_deployment_v1" "agent" {
               "--release-public-key", "/config/public/release-public.pem",
               "--configuration-public-key", "/config/public/configuration-public.pem",
               "--artifact-source", "hub",
-              "--current-state", "/state/agent/current-state.json",
+              "--current-state", "/agent-state/current-state.json",
               "--local-policy", "/config/private/local-policy.json",
               "--apply",
               "--in-cluster",
@@ -404,7 +404,8 @@ resource "kubernetes_deployment_v1" "agent" {
           }
           volume_mount {
             name       = "state"
-            mount_path = "/state"
+            mount_path = "/agent-state"
+            sub_path   = "agent"
           }
           volume_mount {
             name       = "public-inputs"
@@ -414,7 +415,7 @@ resource "kubernetes_deployment_v1" "agent" {
           volume_mount {
             name       = "state"
             mount_path = "/config/private/local-policy.json"
-            sub_path   = "private/local-policy.json"
+            sub_path   = "agent/private/local-policy.json"
             read_only  = true
           }
           dynamic "volume_mount" {
@@ -425,7 +426,7 @@ resource "kubernetes_deployment_v1" "agent" {
             content {
               name       = "state"
               mount_path = "/config/private/${volume_mount.value}"
-              sub_path   = "private/${volume_mount.value}"
+              sub_path   = "agent/private/${volume_mount.value}"
               read_only  = true
             }
           }
