@@ -19,7 +19,12 @@ from starlette.testclient import TestClient
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_release_hub.api import MAX_CATALOG_VIEW_BYTES, create_app
-from fdai_release_hub.catalog_serialization import BoundedJson, ensure_row_bound, write_channels
+from fdai_release_hub.catalog_serialization import (
+    BoundedJson,
+    ensure_row_bound,
+    index_memberships,
+    write_channels,
+)
 from fdai_release_hub.cli import main
 from fdai_release_hub.store import (
     CapabilityChange,
@@ -372,6 +377,26 @@ def test_channel_serialization_uses_two_streaming_queries(store: ReleaseStore) -
         sqlalchemy_event.remove(store.engine, "before_cursor_execute", record)
 
     assert len(statements) == 2
+
+
+def test_snapshot_memberships_are_indexed_in_one_pass() -> None:
+    iterations = 0
+
+    def memberships():
+        nonlocal iterations
+        iterations += 1
+        yield {"channel": "DEV", "release_id": "1.0.0"}
+        yield {"channel": "RELEASE", "release_id": "1.0.0"}
+        yield {"channel": "DEV", "release_id": "1.1.0"}
+
+    names, by_release, by_channel = index_memberships(
+        memberships(), is_custom_channel=lambda _value: False
+    )
+    for _ in range(100):
+        assert by_release["1.0.0"] == ["DEV", "RELEASE"]
+        assert by_channel["DEV"] == ["1.0.0", "1.1.0"]
+    assert names == {"DEV", "RELEASE", "RELEASE_CANDIDATE"}
+    assert iterations == 1
 
 
 @pytest.mark.parametrize("release_id", ["../x", "1.0", "01.0.0", "1.0.0+build"])

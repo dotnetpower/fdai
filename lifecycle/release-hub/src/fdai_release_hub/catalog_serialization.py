@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_bytes
@@ -149,6 +149,29 @@ def write_channels(
     if current is not None:
         raise CatalogError("Stored catalog channel is invalid.")
     writer.write(b"}")
+
+
+def index_memberships(
+    rows: Iterable[Mapping[Any, Any]],
+    *,
+    is_custom_channel: Callable[[str | None], bool],
+) -> tuple[set[str], dict[str, list[str]], dict[str, list[str]]]:
+    """Index a snapshot's memberships in one pass for bounded repeated lookups."""
+
+    channel_names = set(BUILT_IN_CHANNELS)
+    by_release: dict[str, list[str]] = {}
+    by_channel: dict[str, list[str]] = {}
+    for row in rows:
+        channel = row["channel"]
+        release_id = row["release_id"]
+        if not isinstance(channel, str) or not isinstance(release_id, str):
+            raise CatalogError("Stored catalog membership is invalid.")
+        if channel not in BUILT_IN_CHANNELS and not is_custom_channel(channel):
+            raise CatalogError("Stored catalog channel is invalid.")
+        channel_names.add(channel)
+        by_release.setdefault(release_id, []).append(channel)
+        by_channel.setdefault(channel, []).append(release_id)
+    return channel_names, by_release, by_channel
 
 
 def release_channels(
