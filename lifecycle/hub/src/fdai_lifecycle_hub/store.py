@@ -64,7 +64,11 @@ from fdai_lifecycle_hub.execution_settings import (
 from fdai_lifecycle_hub.migrations import _versions, require_writable_schema
 from fdai_lifecycle_hub.models import PlanEventKind
 from fdai_lifecycle_hub.planning import plan_next
-from fdai_lifecycle_hub.reports import ROLLED_BACK, failure_suppressions
+from fdai_lifecycle_hub.reports import (
+    ROLLED_BACK,
+    failure_suppressions,
+    validate_report_progress,
+)
 
 _UNIQUE_VIOLATION = "23505"
 
@@ -803,6 +807,13 @@ class HubStore:
                 if schemas.PlanReport.model_validate(existing, from_attributes=True) != report:
                     raise ReportConflictError(f"attempt {report.attempt} was already reported")
                 return False
+            previous = session.scalars(
+                plan.reports.select().order_by(models.PlanReport.attempt.desc()).limit(1)
+            ).one_or_none()
+            try:
+                validate_report_progress(previous, report)
+            except ValueError as error:
+                raise ReportConflictError(str(error)) from error
             plan.reports.add(models.PlanReport(**report.model_dump(), received_at=now))
             plan.events.add(models.PlanEvent(kind=PlanEventKind.REPORTED, recorded_at=now))
             audit.append(

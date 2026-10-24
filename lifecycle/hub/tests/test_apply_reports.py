@@ -18,6 +18,7 @@ from fdai_lifecycle_hub import models
 from fdai_lifecycle_hub.api import MAX_STATE_BYTES, create_app
 from fdai_lifecycle_hub.domain import Installation, Issued, IssuedPlan, Planner, Waiting
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest
+from fdai_lifecycle_hub.errors import ReportConflictError
 from fdai_lifecycle_hub.reports import FAILURE_HOLD, FAILURE_HOLD_GRACE
 from fdai_lifecycle_hub.schemas import PlanReport, reported_state_json
 from fdai_lifecycle_hub.signing import verify_key_proof
@@ -156,6 +157,12 @@ def test_failure_hold_ends_by_itself(
     planner: Planner,
     now: datetime,
 ) -> None:
+    registered.record_report(
+        installation.installation_id,
+        issued.plan_id,
+        _report(issued.digest, 1, "apply-started", "started"),
+        now=now,
+    )
     report = _report(issued.digest, 2, "rolled-back", "apply_failed")
     registered.record_report(installation.installation_id, issued.plan_id, report, now=now)
 
@@ -175,6 +182,12 @@ def test_failure_hold_absorbs_a_reader_clock_slightly_behind_the_writer(
     """A recompute whose own clock reads a little earlier than the writer's still sees the hold,
     within the grace margin; past it, the hold is correctly not yet in effect."""
 
+    registered.record_report(
+        installation.installation_id,
+        issued.plan_id,
+        _report(issued.digest, 1, "apply-started", "started"),
+        now=now,
+    )
     report = _report(issued.digest, 2, "rolled-back", "apply_failed")
     registered.record_report(installation.installation_id, issued.plan_id, report, now=now)
 
@@ -192,6 +205,12 @@ def test_failure_hold_absorbs_a_reader_clock_slightly_behind_the_writer(
 def test_repeated_rolled_back_report_adds_no_second_hold(
     registered: HubStore, installation: Installation, issued: IssuedPlan, now: datetime
 ) -> None:
+    registered.record_report(
+        installation.installation_id,
+        issued.plan_id,
+        _report(issued.digest, 1, "apply-started", "started"),
+        now=now,
+    )
     report = _report(issued.digest, 2, "rolled-back", "apply_failed")
 
     assert registered.record_report(installation.installation_id, issued.plan_id, report, now=now)
@@ -199,6 +218,55 @@ def test_repeated_rolled_back_report_adds_no_second_hold(
         installation.installation_id, issued.plan_id, report, now=now + timedelta(minutes=1)
     )
     assert len(registered.load(installation.installation_id).suppressions) == 1
+
+
+@pytest.mark.parametrize("outcome", ["applied", "rolled-back"])
+def test_effect_result_requires_apply_started(
+    registered: HubStore,
+    installation: Installation,
+    issued: IssuedPlan,
+    now: datetime,
+    outcome: str,
+) -> None:
+    reason = "applied" if outcome == "applied" else "apply_failed"
+
+    with pytest.raises(ReportConflictError, match="apply-started"):
+        registered.record_report(
+            installation.installation_id,
+            issued.plan_id,
+            _report(issued.digest, 1, outcome, reason),
+            now=now,
+        )
+
+
+def test_report_attempts_are_contiguous_and_time_ordered(
+    registered: HubStore, installation: Installation, issued: IssuedPlan, now: datetime
+) -> None:
+    record = partial(
+        registered.record_report, installation.installation_id, issued.plan_id, now=now
+    )
+    first = _report(issued.digest, 1, "rejected", "input_unavailable")
+    record(first)
+
+    with pytest.raises(ReportConflictError, match="contiguous"):
+        record(_report(issued.digest, 3, "apply-started", "started"))
+    stale = _report(issued.digest, 2, "apply-started", "started").model_copy(
+        update={"reported_at": first.reported_at - timedelta(seconds=1)}
+    )
+    with pytest.raises(ReportConflictError, match="backwards"):
+        record(stale)
+
+
+def test_terminal_report_rejects_followup(
+    registered: HubStore, installation: Installation, issued: IssuedPlan, now: datetime
+) -> None:
+    record = partial(
+        registered.record_report, installation.installation_id, issued.plan_id, now=now
+    )
+    record(_report(issued.digest, 1, "dry-run-admitted", "dry_run_computed"))
+
+    with pytest.raises(ReportConflictError, match="terminal"):
+        record(_report(issued.digest, 2, "rejected", "changed_result"))
 
 
 def test_applied_report_holds_nothing(

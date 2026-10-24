@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Literal, Protocol
 
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 
@@ -31,6 +31,33 @@ FAILURE_HOLD = timedelta(hours=24)
 # another process or host, reads it back from its own clock. Backdating the start absorbs small
 # clock skew between the two without weakening an operator's own future-dated suppression.
 FAILURE_HOLD_GRACE = timedelta(minutes=1)
+_TERMINAL_OUTCOMES = frozenset({"dry-run-admitted", "applied", ROLLED_BACK})
+_EFFECT_OUTCOMES = frozenset({"applied", ROLLED_BACK})
+
+
+class ReportProgress(Protocol):
+    attempt: int
+    outcome: str
+    reported_at: datetime
+
+
+def validate_report_progress(previous: ReportProgress | None, current: ReportProgress) -> None:
+    """Reject gaps, time reversal, and impossible effect-result transitions."""
+
+    if previous is None:
+        if current.attempt != 1:
+            raise ValueError("the first report attempt MUST be 1")
+        if current.outcome in _EFFECT_OUTCOMES:
+            raise ValueError("an effect result requires an apply-started report")
+        return
+    if current.attempt != previous.attempt + 1:
+        raise ValueError("report attempts MUST be contiguous")
+    if current.reported_at < previous.reported_at:
+        raise ValueError("report timestamps MUST NOT move backwards")
+    if previous.outcome in _TERMINAL_OUTCOMES:
+        raise ValueError("a terminal report cannot be followed by another report")
+    if current.outcome in _EFFECT_OUTCOMES and previous.outcome != "apply-started":
+        raise ValueError("an effect result requires the preceding apply-started report")
 
 
 def failure_suppressions(

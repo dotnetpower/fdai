@@ -247,13 +247,13 @@ def test_reports_are_idempotent_and_conflicts_are_rejected(
     with pytest.raises(ReportConflictError):
         record(_report(outcome, outcome="rejected"))
     rejected = _report(outcome, attempt=2, outcome="rejected", reason_code="signature_invalid")
-    assert record(rejected) is True
+    with pytest.raises(ReportConflictError, match="terminal"):
+        record(rejected)
     assert [
         (report.plan_id, report.attempt, report.reason_code, report.received_at)
         for report in registered.reports(installation.installation_id)
     ] == [
         (outcome.plan.plan_id, 1, "admitted", now),
-        (outcome.plan.plan_id, 2, "signature_invalid", now),
     ]
 
 
