@@ -121,6 +121,15 @@ def write_channels(
                 raise CatalogError(writer.message, 503)
         channel_names.add(channel)
 
+    rows = iter(
+        stream(
+            db,
+            select(membership.c.channel, membership.c.release_id).order_by(
+                membership.c.channel, membership.c.release_id
+            ),
+        )
+    )
+    current = next(rows, None)
     writer.write(b"{")
     first_channel = True
     for channel in sorted(channel_names):
@@ -130,18 +139,15 @@ def write_channels(
         writer.value(channel)
         writer.write(b":[")
         first_release = True
-        release_ids = db.scalars(
-            select(membership.c.release_id)
-            .where(membership.c.channel == channel)
-            .order_by(membership.c.release_id)
-            .execution_options(stream_results=True, max_row_buffer=1, yield_per=1)
-        ).yield_per(1)
-        for release_id in release_ids:
+        while current is not None and current["channel"] == channel:
             if not first_release:
                 writer.write(b",")
             first_release = False
-            writer.value(release_id)
+            writer.value(current["release_id"])
+            current = next(rows, None)
         writer.write(b"]")
+    if current is not None:
+        raise CatalogError("Stored catalog channel is invalid.")
     writer.write(b"}")
 
 
