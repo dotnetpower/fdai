@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 43133a9276e7fe13ca665a8123415f4916dea34e
+translation_source_sha: 5dded7d5f4a3253b75d9f1ef730fdd5c17ae86e2
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -1166,6 +1166,17 @@ Hub 경로에서 카탈로그 검토와 초기 인벤토리를 실행하는 일�
 다이제스트를 Terraform 입력이 아니라 에이전트의 렌더링 증적에서 도출합니다.
 
 ### 이전 미해결 질문에 대한 결정
+
+분류 관문(`service_migrations.classification`)은 구현되어 있으며 마이그레이션을 import하지 않고
+동작합니다. Release는 `fdai.migration-classification.v1`(`revision`별 `expand` 또는 `contract`)을
+선언합니다. 보류 개정은 이미지의 개정에서 설치가 이미 적용한 버전을 뺀 것이므로, 등록 기준 시점
+이전 개정에는 선언이 필요 없습니다. 분류되지 않은 개정, 축소로 선언된 개정, 확장으로 선언했지만
+정적 분석에서 테이블, 열, 스키마, 타입을 삭제하거나 이름을 바꾸거나 열 타입을 바꾸거나 truncate하는
+것으로 확인된 개정이 있으면 계획은 업그레이드 전체를 안정적인 사유 코드로 거부합니다. 분석은
+`upgrade()`가 도달하는 코드만 읽으므로 삭제하는 `downgrade()`는 영향을 주지 않으며, 선언을 강화하기만
+합니다. 보수적이어서, 스스로 만드는 함수 본문 안에서 삭제하는 개정도 축소로 분류합니다. Release의
+마이그레이션 Job 템플릿, 증적을 포함한 설치 범위 리스, 이 관문을 호출하는 런타임은 #2472에 남아
+있습니다.
 
 Hub 관리형 수명 주기 담당자가 2026-10-07에 다음과 같이 결정했습니다.
 

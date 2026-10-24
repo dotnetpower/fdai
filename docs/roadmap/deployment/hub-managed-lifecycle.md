@@ -1176,6 +1176,18 @@ Terraform input.
 
 ### Decisions on earlier open questions
 
+The classification gate (`service_migrations.classification`) is implemented and runs without
+importing a migration. The Release declares `fdai.migration-classification.v1` (`revision` to
+`expand` or `contract`). The pending revisions are the image's revisions minus the versions the
+installation has applied, so the enrollment baseline needs no declaration. The plan rejects the
+whole upgrade with a stable reason code for an unclassified revision, a declared contract revision,
+or a declared expand revision that static analysis finds dropping or renaming a table, column,
+schema or type, changing a column type, or truncating. Analysis reads only what `upgrade()` reaches,
+so a `downgrade()` that drops does not count, and it only ever tightens a declaration. It is
+conservative: a revision that drops inside a function body it creates is classified contract. The
+migration Job template in the Release, the installation-wide lease with its receipt, and the
+runtime that calls this gate remain open in #2472.
+
 The Hub-managed lifecycle owner decided these points on 2026-10-07.
 
 - **Migration identity:** The schema-expand Job runs under a dedicated migration ServiceAccount and
