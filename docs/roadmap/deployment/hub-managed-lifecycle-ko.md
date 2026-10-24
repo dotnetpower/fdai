@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 1f8f5eb9b5ddc608eda1e4ffceedf31417942c2b
+translation_source_sha: cc781f66a7768f523821c0f3410481ee1926a75f
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -340,7 +340,9 @@ owner-only `0600` 파일로 복사합니다. main Agent는 Kubernetes Secret을 
 있을 때만 제거하며, 비어 있지 않은 디렉터리는 계속 fail-closed 처리합니다. 로컬 native
 bootstrap 뒤 활성 Agent 입력에는 검증된 `lifecycle-native-scope.json`을 포함합니다.
 초기화 Job은 설치본 개인 키를 Terraform에 복사하지 않고 이를 Agent 상태 경로에 atomic
-stage합니다.
+stage합니다. 모든 journal, current-state, native-state, 산출물 캐시 파일은 UID가 소유하고
+mode가 `0700`인 `/state/agent` 아래에 둡니다. group이 관리하는 PVC mount root는 Agent
+상태 디렉터리로 전달하지 않습니다.
 
 `fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
 깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,

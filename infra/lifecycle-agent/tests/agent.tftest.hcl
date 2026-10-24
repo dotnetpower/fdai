@@ -90,7 +90,11 @@ run "enable_single_writer_agent" {
       ) &&
       strcontains(
         kubernetes_job_v1.initialize[0].spec[0].template[0].spec[0].container[0].args[0],
-        "/state/lifecycle-native-scope.json",
+        "state=Path('/state/agent')",
+      ) &&
+      contains(
+        kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].args,
+        "/state/agent",
       ) &&
       !contains(
         kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].container[0].volume_mount[*].name,
