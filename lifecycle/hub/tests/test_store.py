@@ -32,6 +32,7 @@ from fdai_lifecycle_hub.errors import (
     NotPendingError,
     PlanDigestMismatchError,
     ReportConflictError,
+    ReportProgressionError,
     SchemaMismatchError,
     StateRejectedError,
     UnknownInstallationError,
@@ -247,7 +248,7 @@ def test_reports_are_idempotent_and_conflicts_are_rejected(
     with pytest.raises(ReportConflictError):
         record(_report(outcome, outcome="rejected"))
     rejected = _report(outcome, attempt=2, outcome="rejected", reason_code="signature_invalid")
-    with pytest.raises(ReportConflictError, match="terminal"):
+    with pytest.raises(ReportProgressionError, match="terminal"):
         record(rejected)
     assert [
         (report.plan_id, report.attempt, report.reason_code, report.received_at)
