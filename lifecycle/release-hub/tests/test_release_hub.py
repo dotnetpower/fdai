@@ -13,6 +13,7 @@ from fdai_deployment_cli.lifecycle_promotion import (
     CanaryObservation,
     PromotionStageCriteria,
 )
+from sqlalchemy import event as sqlalchemy_event
 from starlette.testclient import TestClient
 
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
@@ -312,6 +313,18 @@ def test_actor_attribution_preserves_existing_recall_notice_and_export_pins(stor
     assert store.snapshot()["revision"] == 3
 
 
+def test_streamed_catalog_read_preserves_canonical_contract(store: ReleaseStore) -> None:
+    publish(store)
+    change(store, "recall")
+    snapshot = store.snapshot()
+    raw, digest = store.export_snapshot(snapshot)
+
+    assert store.export() == (raw, digest)
+    assert store.catalog_view(MAX_CATALOG_VIEW_BYTES) == canonical_bytes(
+        {**snapshot, "export_sha256": digest}
+    )
+
+
 @pytest.mark.parametrize("release_id", ["../x", "1.0", "01.0.0", "1.0.0+build"])
 def test_release_id_validation(store: ReleaseStore, release_id: str) -> None:
     with pytest.raises(CatalogError, match="SemVer"):
@@ -521,22 +534,56 @@ def test_api_stream_limit_rejects_chunked_body_without_buffering_past_limit(
 def test_catalog_view_has_an_explicit_response_limit(
     client: TestClient, store: ReleaseStore, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    snapshot = store.snapshot()
-    snapshot["events"] = [
-        {
-            "revision": 0,
-            "action": "register",
-            "release_id": "1.0.0",
-            "channel": None,
-            "reason": "x" * MAX_CATALOG_VIEW_BYTES,
-            "occurred_at": NOW.isoformat(),
-            "actor": "local-operator",
-        }
-    ]
-    monkeypatch.setattr(store, "snapshot", lambda: snapshot)
+    def oversized_catalog(maximum: int) -> bytes:
+        assert maximum == MAX_CATALOG_VIEW_BYTES
+        raise CatalogError("Catalog view exceeds the 16 MiB service limit.", 503)
+
+    monkeypatch.setattr(store, "catalog_view", oversized_catalog)
     response = client.get("/v1/catalog")
     assert response.status_code == 503
     assert response.json() == {"error": "Catalog view exceeds the 16 MiB service limit."}
+
+
+def test_catalog_view_boundary_and_limit_abort_roll_back(store: ReleaseStore) -> None:
+    body = store.catalog_view(MAX_CATALOG_VIEW_BYTES)
+    assert store.catalog_view(len(body)) == body
+
+    rollbacks = 0
+
+    def record_rollback(connection: object) -> None:
+        nonlocal rollbacks
+        rollbacks += 1
+
+    sqlalchemy_event.listen(store.engine, "rollback", record_rollback)
+    try:
+        with pytest.raises(CatalogError, match="16 MiB service limit"):
+            store.catalog_view(len(body) - 1)
+    finally:
+        sqlalchemy_event.remove(store.engine, "rollback", record_rollback)
+
+    assert rollbacks == 1
+    assert store.catalog_view(len(body)) == body
+
+
+def test_catalog_export_boundary_and_limit_abort_roll_back(store: ReleaseStore) -> None:
+    raw, digest = store.export()
+    assert store.export(maximum=len(raw)) == (raw, digest)
+
+    rollbacks = 0
+
+    def record_rollback(connection: object) -> None:
+        nonlocal rollbacks
+        rollbacks += 1
+
+    sqlalchemy_event.listen(store.engine, "rollback", record_rollback)
+    try:
+        with pytest.raises(CatalogError, match="8 MiB consumer limit"):
+            store.export(maximum=len(raw) - 1)
+    finally:
+        sqlalchemy_event.remove(store.engine, "rollback", record_rollback)
+
+    assert rollbacks == 1
+    assert store.export(maximum=len(raw)) == (raw, digest)
 
 
 @pytest.mark.parametrize(

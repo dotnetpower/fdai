@@ -8,7 +8,6 @@ import sqlite3
 from functools import partial
 from pathlib import Path
 
-from fdai_deployment_cli.contracts import canonical_bytes
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.applications import Starlette
@@ -43,11 +42,7 @@ def create_app(
 ) -> Starlette:
     async def catalog(request: Request) -> Response:
         try:
-            snapshot = await run_in_threadpool(store.snapshot)
-            _, digest = store.export_snapshot(snapshot)
-            body = canonical_bytes({**snapshot, "export_sha256": digest})
-            if len(body) > MAX_CATALOG_VIEW_BYTES:
-                raise CatalogError("Catalog view exceeds the 16 MiB service limit.", 503)
+            body = await run_in_threadpool(store.catalog_view, MAX_CATALOG_VIEW_BYTES)
             return Response(body, media_type="application/json")
         except CatalogError as error:
             return JSONResponse({"error": str(error)}, status_code=error.status)

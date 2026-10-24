@@ -38,6 +38,19 @@ from sqlalchemy.pool import NullPool
 from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES
 from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.signing import HubSigningKey
+from fdai_release_hub.catalog_serialization import (
+    CATALOG_VIEW_LIMIT_MESSAGE,
+    EXPORT_LIMIT_MESSAGE,
+    BoundedJson,
+    catalog_position,
+    ensure_row_bound,
+    release_channels,
+    stream,
+    write_channels,
+)
+from fdai_release_hub.catalog_serialization import (
+    CatalogError as CatalogError,
+)
 from fdai_release_hub.database import (
     catalog_metadata,
     event_actors,
@@ -56,12 +69,6 @@ def _is_custom_channel(value: str | None) -> bool:
         and len(value) <= 64
         and re.fullmatch(r"custom-[a-z0-9]+(?:-[a-z0-9]+)*", value) is not None
     )
-
-
-class CatalogError(ValueError):
-    def __init__(self, message: str, status: int = 422) -> None:
-        super().__init__(message)
-        self.status = status
 
 
 class CatalogConfirmation(BaseModel):
@@ -469,12 +476,15 @@ class ReleaseStore:
 
     def snapshot(self) -> dict[str, Any]:
         with self.connect() as db:
-            # Hold the same lock as writers so the multi-query snapshot cannot mix revisions.
-            if self.engine.dialect.name == "sqlite":
-                db.exec_driver_sql("BEGIN")
-            else:
-                db.execute(select(catalog_metadata).with_for_update()).all()
+            self._lock_snapshot(db)
             return self._snapshot_locked(db)
+
+    def _lock_snapshot(self, db: Connection) -> None:
+        # Hold the same lock as writers so a multi-query read cannot mix revisions.
+        if self.engine.dialect.name == "sqlite":
+            db.exec_driver_sql("BEGIN")
+        else:
+            db.execute(select(catalog_metadata).with_for_update()).all()
 
     def _snapshot_locked(self, db: Connection) -> dict[str, Any]:
         rows = db.execute(select(releases).order_by(releases.c.id.desc())).mappings().all()
@@ -541,8 +551,143 @@ class ReleaseStore:
             "events": history,
         }
 
-    def export(self) -> tuple[bytes, str]:
-        return self.export_snapshot(self.snapshot())
+    def catalog_view(self, maximum: int) -> bytes:
+        with self.connect() as db:
+            self._lock_snapshot(db)
+            ensure_row_bound(
+                db,
+                maximum=maximum,
+                message=CATALOG_VIEW_LIMIT_MESSAGE,
+                export_only=False,
+            )
+            _, export_digest = self._export_locked(db, MAX_EXPORT_BYTES)
+            revision, updated_at = catalog_position(db)
+            expires_at = (datetime.fromisoformat(updated_at) + timedelta(hours=24)).isoformat()
+            writer = BoundedJson(maximum, CATALOG_VIEW_LIMIT_MESSAGE)
+            writer.write(b'{"channels":')
+            write_channels(db, writer, is_custom_channel=_is_custom_channel)
+            writer.write(b',"events":[')
+            first = True
+            event_rows = stream(
+                db,
+                select(
+                    events,
+                    event_actors.c.actor,
+                )
+                .select_from(events.outerjoin(event_actors))
+                .order_by(events.c.revision.desc()),
+            )
+            for row in event_rows:
+                record = dict(row)
+                if record["actor"] is None:
+                    record["actor"] = "legacy-unattributed"
+                if not first:
+                    writer.write(b",")
+                first = False
+                writer.value(record)
+            writer.write(b'],"expired":')
+            writer.value(self.clock() >= datetime.fromisoformat(expires_at))
+            writer.write(b',"expires_at":')
+            writer.value(expires_at)
+            writer.write(b',"export_sha256":')
+            writer.value(export_digest)
+            writer.write(b',"key_id":')
+            writer.value(self.key.key_id)
+            writer.write(b',"mode":"local-development","releases":[')
+            first = True
+            for row in stream(db, select(releases).order_by(releases.c.id.desc())):
+                record = dict(row)
+                self._verify_release_state(
+                    record["manifest"],
+                    record["signature"],
+                    record["published_at"],
+                    record["recalled_at"],
+                )
+                record["signed_payload_sha256"] = hashlib.sha256(
+                    record["manifest"].encode()
+                ).hexdigest()
+                record["channels"] = release_channels(db, record["id"], writer.remaining)
+                record["state"] = (
+                    "recalled"
+                    if record["recalled_at"]
+                    else "published"
+                    if record["signature"]
+                    else "draft"
+                )
+                record["signature_status"] = (
+                    "development-key-verified" if record["signature"] else "unsigned"
+                )
+                if not first:
+                    writer.write(b",")
+                first = False
+                writer.value(record)
+            writer.write(b'],"revision":')
+            writer.value(revision)
+            writer.write(b',"updated_at":')
+            writer.value(updated_at)
+            writer.write(b"}")
+            return writer.finish()
+
+    def export(self, *, maximum: int = MAX_EXPORT_BYTES) -> tuple[bytes, str]:
+        with self.connect() as db:
+            self._lock_snapshot(db)
+            return self._export_locked(db, maximum)
+
+    def _export_locked(self, db: Connection, maximum: int) -> tuple[bytes, str]:
+        ensure_row_bound(
+            db,
+            maximum=maximum,
+            message=EXPORT_LIMIT_MESSAGE,
+            export_only=True,
+        )
+        revision, updated_at = catalog_position(db)
+        expires_at = (datetime.fromisoformat(updated_at) + timedelta(hours=24)).isoformat()
+        writer = BoundedJson(maximum, EXPORT_LIMIT_MESSAGE)
+        writer.write(b'{"channels":')
+        write_channels(db, writer, is_custom_channel=_is_custom_channel)
+        writer.write(b',"expires_at":')
+        writer.value(expires_at)
+        writer.write(b',"recalls":[')
+        first = True
+        recall_rows = stream(
+            db,
+            select(events)
+            .where(events.c.action.in_(("recall", "recall_capability", "lift_capability")))
+            .order_by(events.c.revision),
+        )
+        for row in recall_rows:
+            if not first:
+                writer.write(b",")
+            first = False
+            writer.value(self._recall_dicts([dict(row)])[0])
+        writer.write(b'],"releases":{')
+        first = True
+        for row in stream(db, select(releases).order_by(releases.c.id)):
+            record = dict(row)
+            self._verify_release_state(
+                record["manifest"],
+                record["signature"],
+                record["published_at"],
+                record["recalled_at"],
+            )
+            if not record["signature"]:
+                continue
+            if not first:
+                writer.write(b",")
+            first = False
+            writer.value(record["id"])
+            writer.write(b":")
+            writer.value(
+                {
+                    "manifest": record["manifest"],
+                    "signature": record["signature"],
+                }
+            )
+        writer.write(b'},"revision":')
+        writer.value(revision)
+        writer.write(b"}")
+        body = writer.finish()
+        return body, hashlib.sha256(body).hexdigest()
 
     @staticmethod
     def _recall_dicts(events_asc: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -590,5 +735,5 @@ class ReleaseStore:
             }
         )
         if len(body) > MAX_EXPORT_BYTES:
-            raise CatalogError("Catalog export exceeds the 8 MiB consumer limit.", 503)
+            raise CatalogError(EXPORT_LIMIT_MESSAGE, 503)
         return body, hashlib.sha256(body).hexdigest()
