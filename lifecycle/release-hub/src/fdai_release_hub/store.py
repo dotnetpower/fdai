@@ -35,6 +35,7 @@ from sqlalchemy import Engine, create_engine, event, func, select
 from sqlalchemy.engine import Connection
 from sqlalchemy.pool import NullPool
 
+from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES
 from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_release_hub.database import (
@@ -210,7 +211,9 @@ class ReleaseStore:
             ):
                 self._verify_release_state(manifest, signature, published_at, recalled_at)
             self._record_event(db, "renew", "catalog", change, actor, now.isoformat())
-        return self.snapshot()
+            snapshot = self._snapshot_locked(db)
+            self.export_snapshot(snapshot)
+        return snapshot
 
     def change(
         self,
@@ -331,7 +334,9 @@ class ReleaseStore:
                 else:
                     raise CatalogError("Unsupported action.")
             self._record_event(db, action, release_id, change, actor, now, channel=change.channel)
-        return self.snapshot()
+            snapshot = self._snapshot_locked(db)
+            self.export_snapshot(snapshot)
+        return snapshot
 
     def change_capability(
         self,
@@ -405,7 +410,9 @@ class ReleaseStore:
                 )
             else:
                 raise CatalogError("Unsupported capability action.")
-        return self.snapshot()
+            snapshot = self._snapshot_locked(db)
+            self.export_snapshot(snapshot)
+        return snapshot
 
     def promote_stage(
         self,
@@ -467,29 +474,32 @@ class ReleaseStore:
                 db.exec_driver_sql("BEGIN")
             else:
                 db.execute(select(catalog_metadata).with_for_update()).all()
-            rows = db.execute(select(releases).order_by(releases.c.id.desc())).mappings().all()
-            history = [
-                dict(row)
-                for row in db.execute(select(events).order_by(events.c.revision.desc())).mappings()
-            ]
-            actors = dict(db.execute(select(event_actors)).tuples().all())
-            for event_record in history:
-                event_record["actor"] = actors.get(event_record["revision"], "legacy-unattributed")
-            memberships = (
-                db.execute(
-                    select(membership).order_by(
-                        membership.c.channel,
-                        membership.c.release_id,
-                    )
+            return self._snapshot_locked(db)
+
+    def _snapshot_locked(self, db: Connection) -> dict[str, Any]:
+        rows = db.execute(select(releases).order_by(releases.c.id.desc())).mappings().all()
+        history = [
+            dict(row)
+            for row in db.execute(select(events).order_by(events.c.revision.desc())).mappings()
+        ]
+        actors = dict(db.execute(select(event_actors)).tuples().all())
+        for event_record in history:
+            event_record["actor"] = actors.get(event_record["revision"], "legacy-unattributed")
+        memberships = (
+            db.execute(
+                select(membership).order_by(
+                    membership.c.channel,
+                    membership.c.release_id,
                 )
-                .mappings()
-                .all()
             )
-            updated_at = (
-                history[0]["occurred_at"]
-                if history
-                else db.execute(select(catalog_metadata.c.created_at)).scalar_one()
-            )
+            .mappings()
+            .all()
+        )
+        updated_at = (
+            history[0]["occurred_at"]
+            if history
+            else db.execute(select(catalog_metadata.c.created_at)).scalar_one()
+        )
         channel_names = set(CHANNELS)
         for member in memberships:
             channel = member["channel"]
@@ -579,4 +589,6 @@ class ReleaseStore:
                 "recalls": recalls,
             }
         )
+        if len(body) > MAX_EXPORT_BYTES:
+            raise CatalogError("Catalog export exceeds the 8 MiB consumer limit.", 503)
         return body, hashlib.sha256(body).hexdigest()

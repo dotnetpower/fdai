@@ -8,6 +8,7 @@ import sqlite3
 from functools import partial
 from pathlib import Path
 
+from fdai_deployment_cli.contracts import canonical_bytes
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.applications import Starlette
@@ -29,6 +30,7 @@ from fdai_release_hub.store import (
 )
 
 MAX_BODY = 2 * 1024 * 1024
+MAX_CATALOG_VIEW_BYTES = 16 * 1024 * 1024
 logger = logging.getLogger(__name__)
 
 
@@ -43,7 +45,10 @@ def create_app(
         try:
             snapshot = await run_in_threadpool(store.snapshot)
             _, digest = store.export_snapshot(snapshot)
-            return JSONResponse({**snapshot, "export_sha256": digest})
+            body = canonical_bytes({**snapshot, "export_sha256": digest})
+            if len(body) > MAX_CATALOG_VIEW_BYTES:
+                raise CatalogError("Catalog view exceeds the 16 MiB service limit.", 503)
+            return Response(body, media_type="application/json")
         except CatalogError as error:
             return JSONResponse({"error": str(error)}, status_code=error.status)
 
@@ -79,9 +84,9 @@ def create_app(
                 return JSONResponse({"error": "Request body is too large."}, status_code=413)
         body = bytearray()
         async for chunk in request.stream():
-            body.extend(chunk)
-            if len(body) > MAX_BODY:
+            if len(chunk) > MAX_BODY - len(body):
                 return JSONResponse({"error": "Request body is too large."}, status_code=413)
+            body.extend(chunk)
         try:
             actor = request.state.operator if remote_auth else "local-operator"
             if action == "renew":

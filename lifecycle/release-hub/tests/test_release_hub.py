@@ -17,7 +17,7 @@ from starlette.testclient import TestClient
 
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.signing import HubSigningKey
-from fdai_release_hub.api import create_app
+from fdai_release_hub.api import MAX_CATALOG_VIEW_BYTES, create_app
 from fdai_release_hub.store import (
     CapabilityChange,
     CatalogConfirmation,
@@ -349,6 +349,44 @@ def test_export_size_boundary(store: ReleaseStore, extra_byte: bool) -> None:
         assert set(load_pinned_export(raw, **arguments).releases) == {"1.6.0"}
 
 
+def test_oversized_export_rolls_back_publication_atomically(store: ReleaseStore) -> None:
+    sample = (SAMPLES / "1.6.0.json").read_text()
+    manifest = sample + " " * (950_000 - len(sample))
+    revision = 0
+    for patch in range(9):
+        release_id = f"1.0.{patch}"
+        result = store.change(
+            "register",
+            release_id,
+            Change(
+                revision=revision,
+                confirmation=release_id,
+                reason="Bounded catalog test",
+                manifest=manifest,
+            ),
+        )
+        revision = result["revision"]
+        publication = Change(
+            revision=revision,
+            confirmation=release_id,
+            reason="Bounded catalog test",
+        )
+        if patch == 8:
+            with pytest.raises(CatalogError, match="8 MiB consumer limit"):
+                store.change("publish", release_id, publication)
+            break
+        result = store.change("publish", release_id, publication)
+        revision = result["revision"]
+    with store.connect() as db:
+        assert db.exec_driver_sql("SELECT count(*) FROM events").scalar_one() == 17
+        assert db.exec_driver_sql("SELECT count(*) FROM membership").scalar_one() == 8
+        assert (
+            db.exec_driver_sql("SELECT signature FROM releases WHERE id='1.0.8'").scalar_one()
+            is None
+        )
+    assert len(store.export()[0]) <= 8 * 1024 * 1024
+
+
 def test_exact_signed_payload_and_canonical_digest_are_distinct(store: ReleaseStore) -> None:
     document = json.loads((SAMPLES / "1.6.0.json").read_text())
     raw = json.dumps(document, indent=4) + "\n"
@@ -425,6 +463,40 @@ def test_api_normalizes_json_media_type_and_rejects_encoded_bodies(client: TestC
     )
     assert encoded.status_code == 415
     assert encoded.json() == {"error": "Encoded request bodies are not supported."}
+
+
+def test_api_stream_limit_rejects_chunked_body_without_buffering_past_limit(
+    client: TestClient,
+) -> None:
+    chunks = iter((b"x" * (1024 * 1024), b"x" * (1024 * 1024), b"x"))
+    response = client.post(
+        "/v1/catalog/renew",
+        content=chunks,
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 413
+    assert response.json() == {"error": "Request body is too large."}
+
+
+def test_catalog_view_has_an_explicit_response_limit(
+    client: TestClient, store: ReleaseStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    snapshot = store.snapshot()
+    snapshot["events"] = [
+        {
+            "revision": 0,
+            "action": "register",
+            "release_id": "1.0.0",
+            "channel": None,
+            "reason": "x" * MAX_CATALOG_VIEW_BYTES,
+            "occurred_at": NOW.isoformat(),
+            "actor": "local-operator",
+        }
+    ]
+    monkeypatch.setattr(store, "snapshot", lambda: snapshot)
+    response = client.get("/v1/catalog")
+    assert response.status_code == 503
+    assert response.json() == {"error": "Catalog view exceeds the 16 MiB service limit."}
 
 
 @pytest.mark.parametrize(
