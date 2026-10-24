@@ -105,6 +105,19 @@ from fdai_deployment_cli.standalone_development_authority import (
     development_authority_from_args,
     reconcile_retained_development_authority,
 )
+from fdai_deployment_cli.standalone_host_rebind import (
+    bind_installed_license as _bind_installed_license,
+)
+from fdai_deployment_cli.standalone_host_rebind import (
+    pending_application_operation as _pending_application_operation,
+)
+from fdai_deployment_cli.standalone_host_rebind import (
+    prepare_managed_identity_login,
+    refresh_private_access,
+)
+from fdai_deployment_cli.standalone_host_rebind import (
+    reconcile_retained_aks_license_binding as _reconcile_retained_aks_license_binding,
+)
 from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
@@ -135,13 +148,6 @@ from fdai_deployment_cli.standalone_host_state import (
 )
 from fdai_deployment_cli.standalone_host_state import (
     replace_private_json as _replace_private_json,
-)
-from fdai_deployment_cli.standalone_host_rebind import (
-    bind_installed_license as _bind_installed_license,
-    pending_application_operation as _pending_application_operation,
-    prepare_managed_identity_login,
-    reconcile_retained_aks_license_binding as _reconcile_retained_aks_license_binding,
-    refresh_private_access,
 )
 from fdai_deployment_cli.standalone_host_values import (
     AKS_CORE_STARTUP_READINESS,
@@ -1003,10 +1009,13 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     console_origin = (
         _console_origin(str(substrate_outputs["console_hostname"])) if console_selected else ""
     )
-    backend_nsg_id = _subnet_network_security_group(
-        str(substrate_outputs["aks_subnet_id"]),
-        context=context,
-        cwd=work_dir,
+    backend_nsg_id = standalone_host_values.require_browser_gateway_backend_nsg(
+        enabled=console_selected,
+        backend_nsg_id=_subnet_network_security_group(
+            str(substrate_outputs["aks_subnet_id"]),
+            context=context,
+            cwd=work_dir,
+        ),
     )
     identities = substrate_outputs["identities"]
     topics = substrate_outputs["topics"]
@@ -3473,36 +3482,26 @@ def _browser_console_binding(context: dict[str, object], work_dir: Path) -> dict
     substrate = Path(str(context["infra"]))
     hostname = _terraform_output(substrate, "console_default_hostname")
     resource_id = _terraform_output(substrate, "console_static_web_app_id")
-    static_site_match = re.fullmatch(
-        r"/subscriptions/([^/]+)/resourceGroups/[^/]+/providers/"
-        r"Microsoft[.]Web/staticSites/[^/]+",
-        resource_id,
-        flags=re.IGNORECASE,
-    )
-    if static_site_match is None:
-        raise ValueError("Console Static Web App resource ID is invalid")
-    if static_site_match.group(1).casefold() != str(context["subscription_id"]).casefold():
-        raise ValueError("Console Static Web App belongs to a different subscription")
-
+    workloads_path = work_dir / "workloads.auto.tfvars.json"
+    if workloads_path.is_file():
+        standalone_host_values.verify_browser_gateway_backend_nsg(
+            _private_json(workloads_path, "workloads.auto.tfvars.json"),
+            observed_nsg_id=_subnet_network_security_group(
+                _terraform_output(substrate, "aks_subnet_id"),
+                context=context,
+                cwd=work_dir,
+            ),
+        )
     _activate_terraform_stage("application", context, work_dir)
     workloads = Path(str(context["workloads_infra"]))
-    operator_url = _terraform_output(workloads, "browser_gateway_operator_url").rstrip("/")
-    ingestion_url = _terraform_output(workloads, "browser_gateway_ingestion_url").rstrip("/")
-    operator_match = re.fullmatch(
-        r"https://([a-z0-9](?:[a-z0-9-]*[a-z0-9])?[.]azure-api[.]net)",
-        operator_url,
+    return standalone_host_values.validate_browser_console_binding(
+        subscription_id=str(context["subscription_id"]),
+        hostname=hostname,
+        console_origin=_console_origin(hostname),
+        resource_id=resource_id,
+        operator_url=_terraform_output(workloads, "browser_gateway_operator_url").rstrip("/"),
+        ingestion_url=_terraform_output(workloads, "browser_gateway_ingestion_url").rstrip("/"),
     )
-    if operator_match is None:
-        raise ValueError("browser gateway Operator URL is invalid")
-    if ingestion_url != f"{operator_url}/ingestion":
-        raise ValueError("browser gateway ingestion URL is not bound to the Operator gateway")
-    return {
-        "console_hostname": hostname,
-        "console_origin": _console_origin(hostname),
-        "console_static_web_app_id": resource_id,
-        "operator_api_base_url": operator_url,
-        "ingestion_api_base_url": ingestion_url,
-    }
 
 
 def _terraform_init(work_dir: Path, context: dict[str, object]) -> None:

@@ -104,7 +104,6 @@ resource "azurerm_subnet" "evidence_target" {
 }
 
 resource "azurerm_subnet" "aks" {
-  # checkov:skip=CKV2_AZURE_31:AKS applies workload NetworkPolicy while this subnet keeps platform routing independent of an NSG lifecycle.
   count                           = var.enable_aks_subnet ? 1 : 0
   name                            = "snet-aks"
   resource_group_name             = var.resource_group_name
@@ -155,4 +154,18 @@ resource "azurerm_subnet_network_security_group_association" "evidence_target" {
   count                     = var.enable_evidence_target_subnet ? 1 : 0
   subnet_id                 = azurerm_subnet.evidence_target[0].id
   network_security_group_id = azurerm_network_security_group.evidence_target[0].id
+}
+
+resource "azurerm_network_security_group" "aks" {
+  count               = var.enable_aks_subnet ? 1 : 0
+  name                = "nsg-aks"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  tags                = var.tags
+}
+
+resource "azurerm_subnet_network_security_group_association" "aks" {
+  count                     = var.enable_aks_subnet ? 1 : 0
+  subnet_id                 = azurerm_subnet.aks[0].id
+  network_security_group_id = azurerm_network_security_group.aks[0].id
 }

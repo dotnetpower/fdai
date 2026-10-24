@@ -148,8 +148,8 @@ resource "azurerm_api_management_api_policy" "browser_gateway_documents" {
 }
 
 resource "azurerm_network_security_rule" "browser_gateway" {
-  # checkov:skip=CKV_AZURE_160:APIM Consumption has no fixed outbound IP; this rule permits port 80 only to the two exact API LoadBalancer frontend addresses.
-  count = local.browser_gateway_enabled && try(var.browser_gateway.backend_nsg_id, "") != "" ? 1 : 0
+  # checkov:skip=CKV_AZURE_160:APIM Consumption has no fixed outbound IP; this rule permits port 80 only from the AzureCloud service tag to the two exact API LoadBalancer frontend addresses.
+  count = local.browser_gateway_enabled ? 1 : 0
 
   name                   = "AllowBrowserGatewayBackends"
   priority               = 450
@@ -158,7 +158,7 @@ resource "azurerm_network_security_rule" "browser_gateway" {
   protocol               = "Tcp"
   source_port_range      = "*"
   destination_port_range = "80"
-  source_address_prefix  = "Internet"
+  source_address_prefix  = "AzureCloud"
   destination_address_prefixes = sort([
     local.browser_gateway_addresses.ingestion,
     local.browser_gateway_addresses.operator,
