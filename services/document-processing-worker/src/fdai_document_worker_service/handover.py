@@ -117,6 +117,35 @@ class HandoverBootstrapConsumer:
         self._budget = budget or HandoverGenerationBudget()
         self._interpreter = interpreter
 
+    async def _resolve_stewardship(self) -> StewardshipInput | None:
+        read_stewardship = getattr(self._store, "read_stewardship_input", None)
+        if self._stewardship is None:
+            return await read_stewardship() if callable(read_stewardship) else None
+        if not callable(read_stewardship) or all(
+            item.stewards or item.accept_autonomous_reason is not None
+            for item in self._stewardship.agents
+        ):
+            return self._stewardship
+        projected = await read_stewardship()
+        if projected is None:
+            return self._stewardship
+        projected_reasons = {
+            item.agent_name: item.accept_autonomous_reason
+            for item in projected.agents
+            if item.accept_autonomous_reason is not None and not item.stewards
+        }
+        if not projected_reasons:
+            return self._stewardship
+        agents = tuple(
+            item.model_copy(
+                update={"accept_autonomous_reason": projected_reasons.get(item.agent_name)}
+            )
+            if not item.stewards and item.accept_autonomous_reason is None
+            else item
+            for item in self._stewardship.agents
+        )
+        return self._stewardship.model_copy(update={"agents": agents})
+
     async def consume(
         self, *, session: UploadSession, envelope: DocumentEnvelope
     ) -> tuple[str, ...]:
@@ -136,7 +165,8 @@ class HandoverBootstrapConsumer:
                         "retained handover draft does not match the current source version"
                     )
                 return existing.draft.warnings
-        if self._stewardship is None:
+        stewardship = await self._resolve_stewardship()
+        if stewardship is None:
             unavailable_warnings = (
                 "current stewardship input is unavailable; nothing was drafted",
             )
@@ -166,10 +196,10 @@ class HandoverBootstrapConsumer:
                     envelope=envelope,
                     draft=StewardshipDraft(
                         outcome=HandoverDraftOutcome.ABSTAINED,
-                        unmapped_agents=_unmapped_agents(self._stewardship, ()),
+                        unmapped_agents=_unmapped_agents(stewardship, ()),
                         warnings=budget_warnings,
                     ),
-                    stewardship=self._stewardship,
+                    stewardship=stewardship,
                     max_yaml_bytes=self._budget.max_yaml_bytes,
                 )
             )
@@ -225,16 +255,20 @@ class HandoverBootstrapConsumer:
                             envelope=envelope,
                             draft=StewardshipDraft(
                                 outcome=HandoverDraftOutcome.ABSTAINED,
-                                unmapped_agents=_unmapped_agents(self._stewardship, ()),
+                                unmapped_agents=_unmapped_agents(stewardship, ()),
                                 warnings=lookup_warnings,
                             ),
-                            stewardship=self._stewardship,
+                            stewardship=stewardship,
                             max_yaml_bytes=self._budget.max_yaml_bytes,
                         )
                     )
                     return lookup_warnings
                 cache[key] = await self._directory.resolve(mapping.person.display_name)
-            identity = cache[key]
+            identity = cache[key] or _resolve_existing_steward_identity(
+                stewardship,
+                mapping.person.display_name,
+                mapping.person.kind,
+            )
             person = mapping.person.model_copy(
                 update={
                     "kind": identity.kind if identity else mapping.person.kind,
@@ -251,7 +285,7 @@ class HandoverBootstrapConsumer:
                 if item.person.unresolved
             }.values()
         )
-        unmapped = _unmapped_agents(self._stewardship, mappings)
+        unmapped = _unmapped_agents(stewardship, mappings)
         warnings = _warnings(mappings, abstained, unresolved, unmapped)
         if interpretation_warning is not None:
             warnings = (*warnings, interpretation_warning)
@@ -267,7 +301,7 @@ class HandoverBootstrapConsumer:
             session=session,
             envelope=envelope,
             draft=draft,
-            stewardship=self._stewardship,
+            stewardship=stewardship,
             max_yaml_bytes=self._budget.max_yaml_bytes,
             model_review=model_review,
         )
@@ -448,6 +482,25 @@ def _artifact(
     )
 
 
+def _resolve_existing_steward_identity(
+    stewardship: StewardshipInput,
+    display_name: str,
+    kind: StewardKind,
+) -> ResolvedStewardIdentity | None:
+    candidate = display_name.strip().casefold()
+    if not candidate:
+        return None
+    for agent in stewardship.agents:
+        for subject in agent.stewards:
+            if subject.kind is kind and subject.oid.strip().casefold() == candidate:
+                return ResolvedStewardIdentity(oid=subject.oid, kind=subject.kind)
+    if kind is StewardKind.USER:
+        for maintainer in stewardship.maintainers:
+            if maintainer.strip().casefold() == candidate:
+                return ResolvedStewardIdentity(oid=maintainer, kind=StewardKind.USER)
+    return None
+
+
 def _unmapped_agents(
     stewardship: StewardshipInput,
     mappings: tuple[HandoverMapping, ...],
@@ -455,7 +508,8 @@ def _unmapped_agents(
     accountable = {
         item.agent_name
         for item in stewardship.agents
-        if any(
+        if item.accept_autonomous_reason is not None
+        or any(
             subject.responsibility is StewardResponsibility.ACCOUNTABLE for subject in item.stewards
         )
     }
@@ -492,16 +546,24 @@ def _render_yaml(draft: StewardshipDraft, stewardship: StewardshipInput) -> str:
     for agent in _AGENT_NAMES:
         existing = current.get(agent, StewardshipAgentInput(agent_name=agent))
         lines.append(f"    {agent}:")
-        subjects = list(existing.stewards)
-        subjects.extend(
-            StewardshipSubject(
-                kind=mapping.person.kind,
-                oid=mapping.person.oid or "",
-                responsibility=mapping.responsibility,
-            )
-            for mapping in by_agent[agent]
-        )
-        subjects = list(dict.fromkeys(subjects))
+        subjects: list[StewardshipSubject] = []
+        seen_keys: set[tuple[StewardKind, str]] = set()
+        for subject in (
+            *existing.stewards,
+            *(
+                StewardshipSubject(
+                    kind=mapping.person.kind,
+                    oid=mapping.person.oid or "",
+                    responsibility=mapping.responsibility,
+                )
+                for mapping in by_agent[agent]
+            ),
+        ):
+            subject_key = (subject.kind, subject.oid)
+            if subject_key in seen_keys:
+                continue
+            seen_keys.add(subject_key)
+            subjects.append(subject)
         if subjects:
             lines.append("      stewards:")
             for subject in subjects:
@@ -510,7 +572,12 @@ def _render_yaml(draft: StewardshipDraft, stewardship: StewardshipInput) -> str:
                     f'        - {{ kind: {subject.kind.value}, id: "{subject.oid}", '
                     f"responsibility: {subject.responsibility.value}{duty} }}"
                 )
-        if existing.accept_autonomous_reason is not None:
+        has_accountable = any(
+            subject.responsibility is StewardResponsibility.ACCOUNTABLE for subject in subjects
+        )
+        if existing.accept_autonomous_reason is not None and not has_accountable:
+            if not subjects:
+                lines.append("      stewards: []")
             lines.extend(
                 (
                     "      accept_autonomous:",

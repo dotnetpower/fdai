@@ -547,6 +547,76 @@ def test_service_owned_stewardship_input_is_bounded_and_versioned() -> None:
     assert njord.stewards[0].duty is StewardDuty.PRIMARY
 
 
+async def test_handover_consumer_falls_back_to_projected_stewardship_and_resolves_known_oids() -> (
+    None
+):
+    from fdai_document_worker_service.handover import (
+        _AGENT_NAMES,
+        NullStewardPersonDirectory,
+    )
+
+    projection = {
+        "map": {
+            "version": 1,
+            "maintainers": ["maintainer-projected"],
+            "hop_timeout_seconds": 900,
+            "over_assigned_max": 5,
+            "agents": [
+                {
+                    "name": name,
+                    "autonomous": name == "Loki",
+                    "accept_autonomous_reason": (
+                        "Chaos proposals are always HIL." if name == "Loki" else None
+                    ),
+                    "stewards": (
+                        []
+                        if name == "Loki"
+                        else [
+                            {
+                                "kind": "user",
+                                "id": "steward-projected",
+                                "responsibility": "accountable",
+                                "duty": "primary",
+                            }
+                        ]
+                    ),
+                }
+                for name in _AGENT_NAMES
+            ],
+        }
+    }
+    projected = handover_store_module.stewardship_input_from_projection(projection)
+    assert projected is not None
+
+    class ProjectedStore(Store):
+        async def read_stewardship_input(self) -> StewardshipInput | None:
+            return projected
+
+    session, envelope = _session_and_envelope(
+        "Agent: Njord; responsibility: accountable; subject: user; identity: steward-projected"
+    )
+    store = ProjectedStore()
+    warnings = await HandoverBootstrapConsumer(
+        directory=NullStewardPersonDirectory(),
+        store=store,
+        stewardship=None,
+    ).consume(session=session, envelope=envelope)
+
+    assert warnings == ()
+    assert store.artifact is not None
+    assert store.artifact.draft.outcome.value == "drafted"
+    assert store.artifact.draft.unmapped_agents == ()
+    assert store.artifact.draft.unresolved_people == ()
+    assert store.artifact.draft.mappings[0].person.oid == "steward-projected"
+    assert "accept_autonomous:" in store.artifact.yaml
+    assert (
+        store.artifact.yaml.count(
+            'id: "steward-projected", responsibility: accountable, duty: primary'
+        )
+        == 14
+    )
+
+
 def _stewardship_input() -> StewardshipInput:
     return StewardshipInput(
         version=2,
