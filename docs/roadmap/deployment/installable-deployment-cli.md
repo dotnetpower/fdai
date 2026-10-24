@@ -915,6 +915,13 @@ which is designed but not implemented. It also states that installation tooling 
 gate. An appliance image was another packaging of the same kit rather than one of those paths, so
 its builder and runner are gone and no release step produces one.
 
+## Hub ownership guard
+
+Once an installation records the owner-only `hub-ownership.json` marker defined by the
+[Hub-managed lifecycle](hub-managed-lifecycle.md), the standalone host refuses to activate a
+Terraform stage for the AKS workloads root, so no CLI entry point can plan objects the Hub agent
+owns. A damaged marker also refuses. This adds no installation gate for the other two paths.
+
 ## Result contract
 
 `deployment_ready=true` means the selected application converged, service health passed, and the

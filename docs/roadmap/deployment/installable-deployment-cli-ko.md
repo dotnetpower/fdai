@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 7501f799328332d41527a8f26466aebd7d143fbe
-translation_revised: 2026-10-23
+translation_source_sha: fc0acac20bd51a244ae256d481fbdf768d642cdc
+translation_revised: 2026-10-24
 ---
 
 # 설치형 배포 CLI
@@ -910,6 +910,13 @@ readback은 SSH 사용자의 주변 `PATH`에 의존하지 않습니다.
 설치 도구가 다른 게이트를 추가하지 않는다고 규정합니다. 어플라이언스 이미지는 이 경로 가운데
 하나가 아니라 같은 키트를 다르게 포장한 것이므로 빌더와 실행기를 삭제했고, 어떤 release 단계도
 이를 만들지 않습니다.
+
+## Hub 소유 가드
+
+설치가 [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)에 정의된 owner-only `hub-ownership.json`
+표시를 기록하면, standalone host는 AKS 워크로드 루트의 Terraform 단계 활성화를 거부합니다. 그래서
+어떤 CLI 진입점도 Hub 에이전트가 소유한 객체를 계획할 수 없습니다. 손상된 표시도 거부합니다. 다른
+두 경로에는 설치 관문을 추가하지 않습니다.
 
 ## 결과 계약
 
