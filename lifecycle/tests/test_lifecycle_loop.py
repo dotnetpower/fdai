@@ -64,6 +64,16 @@ type ConnectHub = Callable[[str, float], HttpHubClient]
 
 
 @dataclass
+class MutableClock:
+    """Use wall time until a test explicitly advances the Hub beyond a Plan boundary."""
+
+    fixed: datetime | None = None
+
+    def __call__(self) -> datetime:
+        return self.fixed or datetime.now(UTC)
+
+
+@dataclass
 class RecordingCluster:
     """A mechanical Kubernetes seam that distinguishes dry runs from mutations."""
 
@@ -258,11 +268,21 @@ def database_url(
 
 
 @pytest.fixture
-def hub_url(database_url: str) -> Iterator[str]:
+def hub_clock() -> MutableClock:
+    return MutableClock()
+
+
+@pytest.fixture
+def hub_url(database_url: str, hub_clock: MutableClock) -> Iterator[str]:
     """Serve the Hub API on an ephemeral loopback port for the duration of one test."""
 
     store = HubStore.connect(database_url)
-    config = uvicorn.Config(create_app(store), host=hub_cli.LOOPBACK, port=0, log_level="warning")
+    config = uvicorn.Config(
+        create_app(store, clock=hub_clock),
+        host=hub_cli.LOOPBACK,
+        port=0,
+        log_level="warning",
+    )
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -529,6 +549,7 @@ def test_hub_rejects_invalid_agent_report_after_apply_started(
 def test_expiry_faults_restart_to_terminal_without_kubernetes_mutation(
     loop: Loop,
     database_url: str,
+    hub_clock: MutableClock,
     monkeypatch: pytest.MonkeyPatch,
     fault_boundary: str,
 ) -> None:
@@ -607,6 +628,10 @@ def test_expiry_faults_restart_to_terminal_without_kubernetes_mutation(
     assert failed == {} or failed["reported"] is False
     retained = WorkloadStore(loop.root / "state" / INSTALLATION_ID).load().journal
     assert retained is not None and retained.phase == "prepared"
+
+    hub_clock.fixed = plan.expires_at + timedelta(seconds=1)
+    with HttpHubClient(loop.hub_url) as client:
+        assert client.fetch_plan(INSTALLATION_ID) is None
 
     restarted = loop.poll(clock=expire_only_after_started_is_accepted, cluster=cluster)
     shown = loop.show()

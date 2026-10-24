@@ -2,7 +2,9 @@
 
 One poll holds the exclusive state lock. Order of checks, each failing closed:
 
-1. Read the current-state snapshot, then fetch the Plan. Undecodable bytes are dropped without a
+1. Read the current-state snapshot and resume any durable apply journal before fetching a Plan.
+   An expired prepared journal reports its exact no-effect terminal result from local state because
+   the Hub no longer serves expired Plans. Undecodable newly fetched bytes are dropped without a
    report, because no Plan id can be trusted.
 2. Admit with ``evaluate_plan_admission`` against durable local state and the locally derived
    maximum envelope. A Plan can only narrow that envelope.
@@ -286,6 +288,8 @@ class LifecycleAgent:
                     reason_code=AgentReason.ROLLBACK_FAILED,
                     plan_id=halted_plan_id,
                 )
+            if journal is not None and self._deps.clock() >= journal.expires_at:
+                return self._expire_prepared(apply, journal.plan_id)
         signed = self._deps.hub.fetch_plan(self._settings.installation_id)
         if signed is None:
             if (apply := self._deps.apply) is not None:
@@ -524,11 +528,7 @@ class LifecycleAgent:
             record = self._record(self._deps.state_store.load(), plan_id)
             return _poll_result(plan_id, record, outcome="already-reported")
         if self._deps.clock() >= journal.expires_at:
-            _log("lifecycle_agent.plan_expired", level=logging.WARNING, plan_id=plan_id)
-            result = self._replace_result(plan_id, _rejection(AgentReason.PLAN_EXPIRED))
-            if result.reported:
-                self._clear_prepared_after_terminal_report(apply, plan_id)
-            return result
+            return self._expire_prepared(apply, plan_id)
         journal = replace(journal, phase="applying")
         apply.store.save(replace(workload_state, journal=journal))
         _log("lifecycle_agent.apply_begun", plan_id=plan_id)
@@ -547,6 +547,15 @@ class LifecycleAgent:
             return self._complete(apply, workload_state, journal, AgentReason.APPLY_FAILED)
         failure = None if healthy else AgentReason.HEALTH_CHECK_FAILED
         return self._complete(apply, workload_state, journal, failure)
+
+    def _expire_prepared(self, apply: ApplyMode, plan_id: str) -> PollResult:
+        """Durably finish an expired no-effect journal without refetching its unavailable Plan."""
+
+        _log("lifecycle_agent.plan_expired", level=logging.WARNING, plan_id=plan_id)
+        result = self._replace_result(plan_id, _rejection(AgentReason.PLAN_EXPIRED))
+        if result.reported:
+            self._clear_prepared_after_terminal_report(apply, plan_id)
+        return result
 
     @staticmethod
     def _clear_prepared_after_terminal_report(apply: ApplyMode, plan_id: str) -> None:
