@@ -390,8 +390,13 @@ state locations. Native local backends accept explicit absolute paths in durable
 preserving existing local state without an Azure Storage prerequisite. A remote backend is an
 optional, reviewed Terraform override prepared before candidate freeze, never an active-run switch.
 The shared internal module creates only the selected product's resources. It doesn't read
-the other Hub's state, IDs or NAT address. An approved existing registry is an external input.
-No FDAI source/offline installer, main infrastructure root, Agent or cluster deployment changes.
+the other Hub's state, IDs or NAT address. An approved registry remains an explicit external input
+to both product roots. A product-separated deployment may place the shared Hub image transport in
+the Release Hub resource group without transferring Lifecycle Hub state ownership. The validated
+development topology uses one dedicated Release-Hub-owned ACR, grants each Hub Managed Identity
+`AcrPull`, and pins every app and Job to its product-specific digest. Registry relocation changes
+neither Hub database, Key Vault, network nor installation authority. No FDAI source/offline
+installer, main infrastructure root, Agent or cluster deployment changes.
 
 With zero Entra app registrations, each root plans without Graph or directory state and each
 remote application can migrate its own schema, serve, report health/readiness and provide its UI.
