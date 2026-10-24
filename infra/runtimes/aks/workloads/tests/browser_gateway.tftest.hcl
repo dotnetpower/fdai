@@ -96,11 +96,11 @@ run "browser_gateway_contract" {
 
   assert {
     condition = (
-      azurerm_network_security_rule.browser_gateway[0].source_address_prefix == "Internet" &&
+      azurerm_network_security_rule.browser_gateway[0].source_address_prefix == "AzureCloud" &&
       azurerm_network_security_rule.browser_gateway[0].destination_port_range == "80" &&
       azurerm_network_security_rule.browser_gateway[0].network_security_group_name == "nsg-example"
     )
-    error_message = "A policy-attached subnet NSG must allow only the public API frontend port."
+    error_message = "The AKS subnet NSG must allow port 80 only from the AzureCloud service tag."
   }
 
   assert {
@@ -110,6 +110,27 @@ run "browser_gateway_contract" {
     ])
     error_message = "Only public Services must wait for their LoadBalancer address."
   }
+}
+
+run "browser_gateway_requires_backend_nsg_when_enabled" {
+  command = plan
+
+  variables {
+    browser_gateway = {
+      enabled              = true
+      resource_group_name  = "rg-example-dev-wus2"
+      location             = "westus2"
+      workload             = "example"
+      environment          = "dev"
+      region_short         = "wus2"
+      resource_name_suffix = "a1b2c3"
+      backend_nsg_id       = ""
+    }
+  }
+
+  expect_failures = [
+    var.browser_gateway,
+  ]
 }
 
 run "browser_gateway_tags_are_azure_safe" {

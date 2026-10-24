@@ -278,9 +278,17 @@ access tokens carry, and every Terraform root rejects the `api://` App ID URI fo
 recorded with that legacy form is upgraded only when it otherwise matches the current readback, and
 service deployment and live recovery canonicalize a stored `api://<client-id>` service audience.
 Cross-origin resource sharing (CORS) accepts only the exact
-Static Web Apps origin. When Azure Policy attaches a network security group to the AKS subnet, the
-workload plan permits TCP port 80 only for the exact public Service frontend addresses. APIM
-Consumption has no fixed outbound address that can be used as the source rule.
+Static Web Apps origin. The shared network module creates and attaches a Terraform-managed network
+security group (`nsg-aks`) to `snet-aks` during the substrate stage so tenant policy remediation
+never attaches an empty unmanaged NSG after installation, and the workload stage requires that
+attached NSG whenever the browser gateway is enabled. The `AllowBrowserGatewayBackends` rule
+restricts inbound TCP port 80 to the `AzureCloud` service tag and the two exact public Service
+frontend addresses rather than `Internet`. Security trade-off: APIM Consumption has no VNet
+integration, dedicated outbound IP, or `ApiManagement` service-tag coverage, so `AzureCloud` is
+the narrowest service tag that covers the gateway while excluding non-Azure internet sources; the
+backend APIs continue to enforce Microsoft Entra JWT validation (`401` on unauthenticated
+requests), App Roles, and exact-origin CORS. During verification, the managed host confirms that
+the live AKS subnet NSG still matches the browser-gateway binding before Console publication.
 
 After the approved application plan converges, `fdaictl provision azure` reads the SWA and APIM
 bindings from their owning Terraform states, adds the exact SWA redirect to the existing Entra SPA

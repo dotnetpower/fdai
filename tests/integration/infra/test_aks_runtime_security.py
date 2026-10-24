@@ -242,3 +242,21 @@ def test_aks_browser_gateway_policies_are_written_after_the_apis_and_one_at_a_ti
     for block in (ingestion, documents):
         assert "azurerm_api_management_api_operation.browser_gateway" in block
     assert "azurerm_api_management_api_policy.browser_gateway_ingestion" in documents
+
+
+def test_aks_browser_gateway_path_owns_subnet_nsg_and_restricts_source_to_azure_cloud() -> None:
+    network = (ROOT / "infra/modules/network/main.tf").read_text(encoding="utf-8")
+    network_outputs = (ROOT / "infra/modules/network/outputs.tf").read_text(encoding="utf-8")
+    gateway = (ROOT / "infra/runtimes/aks/workloads/browser_gateway.tf").read_text(encoding="utf-8")
+    variables = (ROOT / "infra/runtimes/aks/workloads/variables.tf").read_text(encoding="utf-8")
+    rule = gateway.split('resource "azurerm_network_security_rule" "browser_gateway" {', 1)[1]
+
+    assert 'resource "azurerm_network_security_group" "aks"' in network
+    assert 'resource "azurerm_subnet_network_security_group_association" "aks"' in network
+    assert "subnet_id                 = azurerm_subnet.aks[0].id" in network
+    assert "network_security_group_id = azurerm_network_security_group.aks[0].id" in network
+    assert 'output "aks_subnet_nsg_id"' in network_outputs
+    assert "count = local.browser_gateway_enabled ? 1 : 0" in rule
+    assert 'source_address_prefix  = "AzureCloud"' in rule
+    assert 'source_address_prefix  = "Internet"' not in rule
+    assert "!var.browser_gateway.enabled ?" in variables
