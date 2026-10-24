@@ -49,7 +49,7 @@ from fdai_lifecycle_agent.native_cli import (
 from fdai_lifecycle_agent.polling import PollLimits, poll_bounded
 from fdai_lifecycle_agent.reference_cli import register_reference_command, run_reference_command
 from fdai_lifecycle_agent.reference_state import ReferenceStatusSource
-from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
+from fdai_lifecycle_agent.runtime_bundle import INSTALLATION_BINDING_FORMAT, RuntimeBundle
 from fdai_lifecycle_agent.signatures import (
     Ed25519ArtifactVerifier,
     Ed25519HubKeyring,
@@ -78,7 +78,7 @@ _LOCAL_POLICY_KEYS = frozenset(
     }
 )
 _OPTIONAL_LOCAL_POLICY_KEYS = frozenset(
-    {"component_images", "product", "native_scope_digest", "runtime_bundle"}
+    {"component_images", "product", "native_scope_digest", "runtime_bundle", "installation_binding"}
 )
 _MAX_LOCAL_POLICY_BYTES = 64 * 1024
 _EXIT_OK = 0
@@ -501,6 +501,8 @@ def load_local_policy(path: Path) -> LocalPolicy:
     if document["schema"] != LOCAL_POLICY_SCHEMA:
         raise ValueError("local policy schema is unsupported")
     runtime_bundle = None
+    if "installation_binding" in document and "runtime_bundle" not in document:
+        raise ValueError("an installation binding requires a private runtime bundle")
     if "runtime_bundle" in document:
         try:
             private = read_private_bytes(path, max_bytes=_MAX_LOCAL_POLICY_BYTES)
@@ -514,6 +516,7 @@ def load_local_policy(path: Path) -> LocalPolicy:
             )
         except ValidationError:
             raise ValueError("private local runtime bundle is invalid") from None
+        runtime_bundle = _bind_installation(runtime_bundle, document.get("installation_binding"))
     product = document.get("product")
     if product is not None and not is_product_id(product):
         raise ValueError("local policy product must be an application identifier")
@@ -559,6 +562,25 @@ def load_local_policy(path: Path) -> LocalPolicy:
         native_scope_digest=native_pin,
         runtime_bundle=runtime_bundle,
     )
+
+
+def _bind_installation(bundle: RuntimeBundle, binding: object) -> RuntimeBundle:
+    if binding is None:
+        if bundle.referenced_binding_keys():
+            raise ValueError("the runtime bundle references an installation binding that is absent")
+        return bundle
+    if (
+        not isinstance(binding, dict)
+        or set(binding) != {"format", "values"}
+        or binding["format"] != INSTALLATION_BINDING_FORMAT
+        or not isinstance(binding["values"], dict)
+    ):
+        raise ValueError("installation binding is invalid")
+    try:
+        return bundle.with_installation_binding(binding["values"])
+    except ValueError as error:
+        # The messages are fixed text; a value is never echoed.
+        raise ValueError(str(error)) from None
 
 
 def _strings(value: object, label: str) -> frozenset[str]:
