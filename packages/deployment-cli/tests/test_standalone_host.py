@@ -962,6 +962,91 @@ def test_browser_console_binding_rejects_invalid_cross_state_values(
         )
 
 
+@pytest.mark.parametrize(
+    ("retained_nsg", "observed_nsg", "message"),
+    [
+        ("", "/subscriptions/00000000-0000-0000-0000-000000000001/nsg", "is required"),
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/nsg-one",
+            "/subscriptions/00000000-0000-0000-0000-000000000001/nsg-two",
+            "differs from the browser gateway binding",
+        ),
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/nsg-one",
+            "",
+            "differs from the browser gateway binding",
+        ),
+    ],
+)
+def test_browser_console_binding_rejects_missing_or_replaced_subnet_nsg(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    retained_nsg: str,
+    observed_nsg: str,
+    message: str,
+) -> None:
+    subscription_id = "00000000-0000-0000-0000-000000000001"
+    workloads_tfvars = tmp_path / "workloads.auto.tfvars.json"
+    workloads_tfvars.write_text(
+        json.dumps(
+            {
+                "browser_gateway": {
+                    "enabled": True,
+                    "backend_nsg_id": retained_nsg,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    workloads_tfvars.chmod(0o600)
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_args: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_terraform_output",
+        lambda _infra, name: {
+            "console_default_hostname": "calm-field-012345678.3.azurestaticapps.net",
+            "console_static_web_app_id": (
+                f"/subscriptions/{subscription_id}/resourceGroups/rg-app/providers/"
+                "Microsoft.Web/staticSites/swa-console"
+            ),
+            "aks_subnet_id": (
+                f"/subscriptions/{subscription_id}/resourceGroups/rg-app/providers/"
+                "Microsoft.Network/virtualNetworks/vnet-app/subnets/snet-aks"
+            ),
+            "browser_gateway_operator_url": "https://apim-fdai.azure-api.net",
+            "browser_gateway_ingestion_url": "https://apim-fdai.azure-api.net/ingestion",
+        }[name],
+    )
+    monkeypatch.setattr(
+        standalone_host,
+        "_subnet_network_security_group",
+        lambda *_args, **_kwargs: observed_nsg,
+    )
+
+    with pytest.raises(ValueError, match=message):
+        standalone_host._browser_console_binding(
+            {
+                "subscription_id": subscription_id,
+                "infra": str(tmp_path / "substrate"),
+                "workloads_infra": str(tmp_path / "workloads"),
+            },
+            tmp_path,
+        )
+
+
+def test_require_browser_gateway_backend_nsg_rejects_empty_nsg_when_enabled() -> None:
+    assert (
+        standalone_host.standalone_host_values.require_browser_gateway_backend_nsg(
+            enabled=False, backend_nsg_id=""
+        )
+        == ""
+    )
+    with pytest.raises(ValueError, match="is required when the browser gateway is enabled"):
+        standalone_host.standalone_host_values.require_browser_gateway_backend_nsg(
+            enabled=True, backend_nsg_id="   "
+        )
+
+
 def _review() -> dict[str, object]:
     value: dict[str, object] = {
         "schema_version": "fdai.standalone-application-plan.v1",

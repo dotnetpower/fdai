@@ -79,7 +79,7 @@ def stewardship_governance_selected(application_values: dict[str, object]) -> bo
 def _stewardship_bindings_environment(application_values: dict[str, object]) -> dict[str, object]:
     bindings = application_values["stewardship_agent_bindings"]
     if not isinstance(bindings, dict):
-        raise ValueError("stewardship bindings are invalid")
+        raise ValueError("stewardship bindings are invalid")  # noqa: TRY004
     environment: dict[str, object] = {
         "FDAI_MAINTAINERS": application_values["stewardship_maintainers"]
     }
@@ -279,7 +279,7 @@ def aks_operator_environment(
 
     bindings = application_values["stewardship_agent_bindings"]
     if not isinstance(bindings, dict):
-        raise ValueError("stewardship bindings are invalid")
+        raise ValueError("stewardship bindings are invalid")  # noqa: TRY004
     environment: dict[str, object] = {
         "AZURE_CLIENT_ID": operator_identity["client_id"],
         "FDAI_COMMAND_MI_CLIENT_ID": command_identity["client_id"],
@@ -340,7 +340,7 @@ def aks_operator_request_receipts(
     """
 
     if not isinstance(binding, dict):
-        raise ValueError("operator_request receipt binding is invalid")
+        raise ValueError("operator_request receipt binding is invalid")  # noqa: TRY004
     names: dict[str, str] = {}
     for field, expected_name in _OPERATOR_REQUEST_SEED_NAMES.items():
         reference = str(binding.get(field, ""))
@@ -495,3 +495,69 @@ def required_guid(value: dict[str, Any], field: str) -> str:
     if not isinstance(item, str) or _GUID.fullmatch(item) is None:
         raise ValueError(f"{field} is invalid")
     return item
+
+
+def require_browser_gateway_backend_nsg(*, enabled: bool, backend_nsg_id: str) -> str:
+    """Require an attached AKS subnet NSG whenever the browser gateway is enabled."""
+
+    if enabled and not backend_nsg_id.strip():
+        raise ValueError(
+            "AKS subnet network security group is required when the browser gateway is enabled"
+        )
+    return backend_nsg_id
+
+
+def verify_browser_gateway_backend_nsg(
+    workloads_values: dict[str, object],
+    *,
+    observed_nsg_id: str,
+) -> None:
+    """Verify that the live AKS subnet NSG still matches the prepared gateway binding."""
+
+    gateway = mapping(workloads_values.get("browser_gateway"), "AKS browser gateway")
+    expected_nsg_id = require_browser_gateway_backend_nsg(
+        enabled=gateway.get("enabled") is True,
+        backend_nsg_id=str(gateway.get("backend_nsg_id", "")),
+    )
+    if expected_nsg_id and observed_nsg_id.strip().casefold() != expected_nsg_id.strip().casefold():
+        raise ValueError(
+            "AKS subnet network security group differs from the browser gateway binding"
+        )
+
+
+def validate_browser_console_binding(
+    *,
+    subscription_id: str,
+    hostname: str,
+    console_origin: str,
+    resource_id: str,
+    operator_url: str,
+    ingestion_url: str,
+) -> dict[str, str]:
+    """Validate cross-state SWA and APIM outputs for the AKS browser Console."""
+
+    static_site_match = re.fullmatch(
+        r"/subscriptions/([^/]+)/resourceGroups/[^/]+/providers/"
+        r"Microsoft[.]Web/staticSites/[^/]+",
+        resource_id,
+        flags=re.IGNORECASE,
+    )
+    if static_site_match is None:
+        raise ValueError("Console Static Web App resource ID is invalid")
+    if static_site_match.group(1).casefold() != subscription_id.casefold():
+        raise ValueError("Console Static Web App belongs to a different subscription")
+    operator_match = re.fullmatch(
+        r"https://([a-z0-9](?:[a-z0-9-]*[a-z0-9])?[.]azure-api[.]net)",
+        operator_url,
+    )
+    if operator_match is None:
+        raise ValueError("browser gateway Operator URL is invalid")
+    if ingestion_url != f"{operator_url}/ingestion":
+        raise ValueError("browser gateway ingestion URL is not bound to the Operator gateway")
+    return {
+        "console_hostname": hostname,
+        "console_origin": console_origin,
+        "console_static_web_app_id": resource_id,
+        "operator_api_base_url": operator_url,
+        "ingestion_api_base_url": ingestion_url,
+    }
