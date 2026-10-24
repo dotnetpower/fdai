@@ -69,6 +69,10 @@ run "enable_single_writer_agent" {
       length(kubernetes_deployment_v1.agent) == 1 &&
       length(kubernetes_job_v1.initialize) == 1 &&
       kubernetes_job_v1.initialize[0].wait_for_completion == true &&
+      can(regex(
+        "^[0-9a-f]{64}$",
+        kubernetes_job_v1.initialize[0].spec[0].template[0].metadata[0].annotations["fdai.io/input-digest"],
+      )) &&
       kubernetes_deployment_v1.agent[0].spec[0].replicas == "1" &&
       kubernetes_deployment_v1.agent[0].spec[0].strategy[0].type == "Recreate" &&
       kubernetes_deployment_v1.agent[0].spec[0].template[0].spec[0].security_context[0].fs_group_change_policy == "OnRootMismatch" &&

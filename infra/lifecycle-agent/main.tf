@@ -54,6 +54,14 @@ locals {
       "t.replace(p)",
     ],
   ))
+  initialize_input_digest = sha256(jsonencode({
+    current_state           = var.installation.current_state_json
+    local_policy            = var.installation.local_policy_json
+    native_approval         = var.installation.native_approval_json
+    native_state            = var.installation.native_state_json
+    installation_public_key = var.installation.installation_public_key_pem
+    configuration_artifact  = var.installation.configuration_artifact
+  }))
 }
 
 data "azuread_service_principal" "hub_api" {
@@ -229,6 +237,9 @@ resource "kubernetes_job_v1" "initialize" {
         labels = {
           "app.kubernetes.io/name"       = "fdai-lifecycle-agent-initialize"
           "app.kubernetes.io/managed-by" = "terraform"
+        }
+        annotations = {
+          "fdai.io/input-digest" = local.initialize_input_digest
         }
       }
       spec {

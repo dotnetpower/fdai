@@ -334,7 +334,8 @@ initializer is a separate Job, every PVC `subPath` source exists before kubelet 
 Pod. Each run rewrites private inputs from the retained Secret through mode-`0600` temporary files
 and atomic replacement; prior file presence is never treated as trust. An interrupted kubelet
 `subPath` placeholder is removed only when it is an empty directory. Non-empty directories fail
-closed. After local native bootstrap, the enabled Agent input includes the validated
+closed. The Job Pod template binds a digest of every staged input, so policy, approval, native
+state, current state, public identity or configuration changes replace and rerun it. After local native bootstrap, the enabled Agent input includes the validated
 `lifecycle-native-scope.json`; the initializer stages it atomically at the Agent state path without
 copying the installation private key into Terraform. All journal, current-state, native-state and
 artifact-cache files live beneath the UID-owned mode-`0700` `/state/agent` directory; the
