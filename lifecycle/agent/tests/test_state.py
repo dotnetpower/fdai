@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import stat
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -82,6 +83,79 @@ def test_invalid_state_fails_closed(tmp_path: Path, content: bytes) -> None:
 
     with pytest.raises(AgentStateError):
         store.load()
+
+
+def test_legacy_apply_started_expiry_is_migrated_and_persisted(tmp_path: Path) -> None:
+    store = LocalStateStore(tmp_path)
+    legacy = {
+        "schema": "fdai.lifecycle-agent-state.v1",
+        "last_accepted_sequence": 7,
+        "rejected_sequences": [],
+        "plans": {
+            "plan-7": {
+                "sequence": 7,
+                "payload_digest": "a" * 64,
+                "result": {
+                    "outcome": "rejected",
+                    "reason_code": "plan_expired",
+                    "exact_plan_digest": None,
+                    "summary": "",
+                    "retryable": False,
+                },
+                "attempts": 1,
+                "reported_at": "2026-10-07T12:00:00+00:00",
+                "reported": True,
+            }
+        },
+    }
+    store.path.write_text(json.dumps(legacy))
+
+    state = store.load()
+
+    assert state.rejected_sequences == {7}
+    persisted = json.loads(store.path.read_text())
+    assert persisted["rejected_sequences"] == [7]
+    assert persisted["plans"] == legacy["plans"]
+    assert store.load() == state
+
+
+@pytest.mark.parametrize(
+    ("last_accepted_sequence", "reason_code"),
+    [
+        (-1, "plan_expired"),
+        (7, "release_unavailable"),
+    ],
+)
+def test_other_missing_tombstones_still_fail_closed(
+    tmp_path: Path, last_accepted_sequence: int, reason_code: str
+) -> None:
+    store = LocalStateStore(tmp_path)
+    document = {
+        "schema": "fdai.lifecycle-agent-state.v1",
+        "last_accepted_sequence": last_accepted_sequence,
+        "rejected_sequences": [],
+        "plans": {
+            "plan-7": {
+                "sequence": 7,
+                "payload_digest": "a" * 64,
+                "result": {
+                    "outcome": "rejected",
+                    "reason_code": reason_code,
+                    "exact_plan_digest": None,
+                    "summary": "",
+                    "retryable": False,
+                },
+                "attempts": 0,
+                "reported_at": None,
+                "reported": False,
+            }
+        },
+    }
+    store.path.write_text(json.dumps(document))
+
+    with pytest.raises(AgentStateError, match="invalid"):
+        store.load()
+    assert json.loads(store.path.read_text()) == document
 
 
 def test_plan_records_are_bounded_by_newest_sequence() -> None:

@@ -150,9 +150,12 @@ class LocalStateStore:
         except OSError as error:
             raise AgentStateError(f"agent state is unreadable: {type(error).__name__}") from error
         try:
-            return _parse_state(load_json(raw, label="agent state"))
+            state, migrated = _parse_state(load_json(raw, label="agent state"))
         except (TypeError, ValueError) as error:
             raise AgentStateError("agent state is invalid") from error
+        if migrated:
+            self.save(state)
+        return state
 
     def save(self, state: AgentState) -> None:
         try:
@@ -207,21 +210,52 @@ def _record_document(record: PlanRecord) -> dict[str, object]:
     return asdict(record) | {"reported_at": reported_at}
 
 
-def _parse_state(document: object) -> AgentState:
+def _parse_state(document: object) -> tuple[AgentState, bool]:
     if not isinstance(document, dict) or set(document) != _STATE_KEYS:
         raise ValueError("agent state fields are invalid")
     match document:
         case {"schema": schema, "rejected_sequences": list(rejected), "plans": dict(plans)} if (
             schema == STATE_SCHEMA
         ):
+            if len(plans) > MAX_PLAN_RECORDS:
+                raise ValueError("agent state retains too many Plan records")
             state = AgentState(
                 last_accepted_sequence=_integer(document["last_accepted_sequence"], minimum=-1),
                 rejected_sequences=frozenset(_integer(item, minimum=0) for item in rejected),
                 plans={str(plan_id): _parse_record(record) for plan_id, record in plans.items()},
             )
+            state, migrated = _migrate_legacy_expiry_tombstones(state)
             _validate_state(state)
-            return state
+            return state, migrated
     raise ValueError("agent state schema is unsupported")
+
+
+def _migrate_legacy_expiry_tombstones(state: AgentState) -> tuple[AgentState, bool]:
+    """Repair only v1 final expiry records that previously advanced the replay floor."""
+
+    missing = {
+        record.sequence
+        for record in state.plans.values()
+        if not record.result.admitted
+        and not record.result.retryable
+        and record.sequence not in state.rejected_sequences
+    }
+    if not missing:
+        return state, False
+    legacy_expiries = {
+        record.sequence
+        for record in state.plans.values()
+        if record.sequence in missing
+        and record.result.outcome == "rejected"
+        and record.result.reason_code == "plan_expired"
+        and record.sequence <= state.last_accepted_sequence
+    }
+    if missing != legacy_expiries:
+        return state, False
+    return (
+        replace(state, rejected_sequences=state.rejected_sequences | legacy_expiries),
+        True,
+    )
 
 
 def _parse_record(record: object) -> PlanRecord:
