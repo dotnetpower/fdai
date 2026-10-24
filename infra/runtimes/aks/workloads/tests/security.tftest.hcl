@@ -246,6 +246,90 @@ run "external_scale_exact_name_and_thor_subject" {
   }
 }
 
+run "hub_managed_binds_no_executor_role_in_the_fdai_namespace" {
+  command = plan
+
+  variables {
+    hub_managed                     = true
+    executor_external_scale_targets = { "example-shop" = ["order-service"] }
+    workloads = {
+      isolated-executor = merge(var.workloads.example, {
+        component = "isolated-executor"
+        environment = {
+          FDAI_EXECUTION_VENUE = "deployed"
+          FDAI_KUBERNETES_DIRECT_API_JSON = jsonencode({
+            allowed_namespaces = ["example-shop"]
+          })
+        }
+      })
+    }
+  }
+
+  assert {
+    condition = (
+      length(kubernetes_role_v1.executor_kubernetes_effect) == 0 &&
+      length(kubernetes_role_binding_v1.executor_kubernetes_effect) == 0
+    )
+    error_message = "A Hub-managed installation must bind no Executor Kubernetes-effect role in the FDAI namespace."
+  }
+
+  assert {
+    condition = (
+      length(kubernetes_role_v1.executor_external_scale) == 1 &&
+      length(kubernetes_role_binding_v1.executor_external_scale) == 1 &&
+      kubernetes_role_binding_v1.executor_external_scale["example-shop"].metadata[0].namespace == "example-shop"
+    )
+    error_message = "Executor scale targets in other namespaces must stay bound on the Hub path."
+  }
+}
+
+run "terraform_managed_namespace_keeps_the_executor_effect_role" {
+  command = plan
+
+  variables {
+    workloads = {
+      isolated-executor = merge(var.workloads.example, {
+        component = "isolated-executor"
+        environment = {
+          FDAI_EXECUTION_VENUE = "deployed"
+          FDAI_KUBERNETES_DIRECT_API_JSON = jsonencode({
+            allowed_namespaces = ["fdai-runtime"]
+          })
+        }
+      })
+    }
+  }
+
+  assert {
+    condition = (
+      length(kubernetes_role_v1.executor_kubernetes_effect) == 1 &&
+      length(kubernetes_role_binding_v1.executor_kubernetes_effect) == 1
+    )
+    error_message = "The default Terraform-managed namespace must keep its Executor effect role."
+  }
+}
+
+run "hub_managed_rejects_the_fdai_namespace_on_the_executor_allowlist" {
+  command = plan
+
+  variables {
+    hub_managed = true
+    workloads = {
+      isolated-executor = merge(var.workloads.example, {
+        component = "isolated-executor"
+        environment = {
+          FDAI_EXECUTION_VENUE = "deployed"
+          FDAI_KUBERNETES_DIRECT_API_JSON = jsonencode({
+            allowed_namespaces = ["fdai-runtime"]
+          })
+        }
+      })
+    }
+  }
+
+  expect_failures = [kubernetes_namespace_v1.runtime]
+}
+
 run "reject_external_scale_without_allowlist" {
   command = plan
 

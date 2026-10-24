@@ -9,6 +9,13 @@ variable "namespace" {
   default     = "fdai-runtime"
 }
 
+variable "hub_managed" {
+  description = "True when the Lifecycle Agent owns this namespace's workloads. The Executor then binds no Kubernetes-effect role in the FDAI namespace, so it cannot patch or delete the Hub-managed Deployments; scale targets in other namespaces stay bound."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "executor_external_scale_targets" {
   description = "Explicit existing namespaces and exact Deployment names eligible for Thor-owned scale-only RBAC. Empty by default; requires separate plan approval and revocation."
   type        = map(set(string))
