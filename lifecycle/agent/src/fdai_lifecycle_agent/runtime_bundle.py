@@ -20,6 +20,8 @@ from fdai_lifecycle_agent.workload import (
     is_dns_label,
 )
 
+_MAX_AUTOSCALED_REPLICAS = 10
+
 type Name = Annotated[str, StringConstraints(pattern=r"^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$")]
 type EntityId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$")]
 
@@ -29,7 +31,7 @@ class RuntimeObject(BaseModel):
 
     entity_id: EntityId
     name: Name
-    kind: Literal["Deployment", "Service", "CronJob"]
+    kind: Literal["Deployment", "Service", "CronJob", "HorizontalPodAutoscaler"]
     spec: dict[str, Any] = Field(repr=False)
 
     @model_validator(mode="after")
@@ -52,8 +54,10 @@ class RuntimeObject(BaseModel):
                 if port.get("protocol", "TCP") != "TCP":
                     raise ValueError("runtime Service protocol is unsupported")
         elif self.kind == "Deployment":
-            _fields(self.spec, {"replicas", "template"}, {"strategy", "progressDeadlineSeconds"})
-            _integer(self.spec["replicas"], 1, 3)
+            # An autoscaled Deployment omits replicas; the bundle checks that pairing.
+            _fields(self.spec, {"template"}, {"replicas", "strategy", "progressDeadlineSeconds"})
+            if "replicas" in self.spec:
+                _integer(self.spec["replicas"], 1, 3)
             _integer(self.spec.get("progressDeadlineSeconds", 600), 1, 900)
             if "strategy" in self.spec and self.spec["strategy"] != {
                 "type": "RollingUpdate",
@@ -61,6 +65,26 @@ class RuntimeObject(BaseModel):
             }:
                 raise ValueError("runtime Deployment strategy is unsupported")
             _pod_template(self.spec["template"], scheduled=False)
+        elif self.kind == "HorizontalPodAutoscaler":
+            _fields(self.spec, {"minReplicas", "maxReplicas", "metrics"}, set())
+            _integer(self.spec["minReplicas"], 1, _MAX_AUTOSCALED_REPLICAS)
+            _integer(self.spec["maxReplicas"], 1, _MAX_AUTOSCALED_REPLICAS)
+            if self.spec["maxReplicas"] < self.spec["minReplicas"]:
+                raise ValueError("runtime autoscaler bounds are inverted")
+            for metric in _sequence(self.spec["metrics"], 2):
+                _fields(metric, {"type", "resource"}, set())
+                if metric["type"] != "Resource":
+                    raise ValueError("runtime autoscaler metric is unsupported")
+                _fields(metric["resource"], {"name", "target"}, set())
+                _fields(metric["resource"]["target"], {"type", "averageUtilization"}, set())
+                if (
+                    metric["resource"]["name"] not in {"cpu", "memory"}
+                    or metric["resource"]["target"]["type"] != "Utilization"
+                ):
+                    raise ValueError("runtime autoscaler metric is unsupported")
+                _integer(metric["resource"]["target"]["averageUtilization"], 1, 100)
+            if not self.spec["metrics"]:
+                raise ValueError("runtime autoscaler requires a metric")
         else:
             _fields(
                 self.spec,
@@ -107,7 +131,7 @@ class RuntimeObject(BaseModel):
 
     @property
     def pod(self) -> dict[str, Any] | None:
-        if self.kind == "Service":
+        if self.kind in {"Service", "HorizontalPodAutoscaler"}:
             return None
         spec = self.spec if self.kind == "Deployment" else self.spec["jobTemplate"]["spec"]
         pod: dict[str, Any] = spec["template"]["spec"]
@@ -139,6 +163,17 @@ class RuntimeBundle(BaseModel):
         for item in self.objects:
             if item.kind == "Service" and (item.entity_id, item.name) not in deployments:
                 raise ValueError("runtime Service requires its own Entity's named Deployment")
+        autoscaled = {
+            (item.entity_id, item.name)
+            for item in self.objects
+            if item.kind == "HorizontalPodAutoscaler"
+        }
+        if not autoscaled <= deployments.keys():
+            raise ValueError("runtime autoscaler requires its own Entity's named Deployment")
+        for key, deployment in deployments.items():
+            # The autoscaler owns the replica count, so a Deployment never also pins it.
+            if ("replicas" in deployment.spec) == (key in autoscaled):
+                raise ValueError("runtime Deployment replicas and autoscaler are inconsistent")
         if len(canonical_bytes(self.model_dump(mode="json"))) > 64 * 1024:
             raise ValueError("runtime bundle exceeds its byte limit")
         return self
@@ -180,6 +215,12 @@ class RuntimeBundle(BaseModel):
             selector = {COMPONENT_LABEL: item.name}
             if item.kind == "Service":
                 spec["selector"] = selector
+            elif item.kind == "HorizontalPodAutoscaler":
+                spec["scaleTargetRef"] = {
+                    "apiVersion": "apps/v1",
+                    "kind": "Deployment",
+                    "name": item.name,
+                }
             else:
                 workload = spec if item.kind == "Deployment" else spec["jobTemplate"]["spec"]
                 template = workload["template"]
@@ -200,6 +241,8 @@ class RuntimeBundle(BaseModel):
                     if item.kind == "Service"
                     else "apps/v1"
                     if item.kind == "Deployment"
+                    else "autoscaling/v2"
+                    if item.kind == "HorizontalPodAutoscaler"
                     else "batch/v1",
                     "kind": item.kind,
                     "metadata": {"name": item.name, "namespace": namespace, "labels": labels},

@@ -17,7 +17,8 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > **Hub-managed path:** The Hub-managed lifecycle supports AKS only and adds an in-cluster
 > lifecycle agent. The development Agent defaults to dry-run and reporting; explicit bounded
 > apply supports the existing HTTP/legacy profiles and the independently pinned
-> [private runtime-bundle extension](lifecycle-runtime-bundles.md).
+> [private runtime-bundle extension](lifecycle-runtime-bundles.md), which includes a bounded
+> HorizontalPodAutoscaler. The Agent role gains only the `autoscaling` verbs for it.
 > This supplies neither infrastructure/identity creation nor a completed FDAI installation.
 > Namespace permissions, same-schema prerequisites and operational qualification remain separate.
 

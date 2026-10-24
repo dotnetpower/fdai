@@ -76,6 +76,7 @@ def validate_native_policy(
     else:
         matches = (
             not scope.scheduled_components
+            and not scope.autoscaled_components
             and scope.service_components in (None, scope.components)
             and dict(entity_components) == {scope.entity_id: frozenset(scope.components)}
         )

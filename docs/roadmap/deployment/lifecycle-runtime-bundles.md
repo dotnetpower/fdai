@@ -42,7 +42,7 @@ keys, nonfinite values and existing byte limits remain blocked.
 
 The installation-local bundle contains a format, product, namespace and bounded object list.
 Each object names its Entity, kind, name and private specification. Only Deployments,
-ClusterIP Services and bounded CronJobs are in scope. Every container and initialization
+ClusterIP Services, bounded CronJobs and bounded HorizontalPodAutoscalers are in scope. Every container and initialization
 container names an approved Release component instead of a repository, tag or raw image.
 The Agent resolves it through the existing independently approved Entity/component/repository map.
 
@@ -60,6 +60,22 @@ is not proved by that syntax check; server admission and bounded rollout expose 
 The Agent receives no Secret-read permission to inspect their contents.
 Private rendered specifications remain in protected installation storage, not reports or Hub
 metadata. The public configuration can carry the digest without exposing reference names.
+
+## Autoscaled Deployments
+
+A HorizontalPodAutoscaler is a bounded object that names its own Entity's Deployment of the same
+name. It carries `minReplicas` and `maxReplicas` between 1 and 10 and one or two `Resource`
+metrics (`cpu` or `memory`) with a `Utilization` target from 1 to 100. Behavior policies,
+custom and external metrics and scale targets outside the bundle are rejected.
+
+The autoscaler owns the replica count. A Deployment that has an autoscaler therefore omits
+`replicas`, and a Deployment that omits `replicas` requires one; pinning both is rejected. The
+renderer binds `scaleTargetRef` to the same-name Deployment and applies the autoscaler after the
+Deployment. An update that replaces the Deployment spec keeps the live replica count instead of
+resetting it to one. The rollout check follows the controller-reported replica count and is never
+complete at zero. The native scope binds the autoscaler in `autoscaled_components`, which is
+omitted when empty so existing scope digests and approvals do not change. The Agent role gains the
+`autoscaling` `horizontalpodautoscalers` verbs it needs and nothing wider.
 
 ## Native ownership and workload behavior
 

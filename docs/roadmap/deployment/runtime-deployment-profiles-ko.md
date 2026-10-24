@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: e19c28ca5fa46fdedf45addb88868a0c6bdc83b3
+translation_source_sha: bd87ed5f8e610e75bbb3cb1f676fbf3d3c98daa0
 translation_revised: 2026-10-24
 ---
 # 런타임 배포 프로파일
@@ -17,7 +17,8 @@ translation_revised: 2026-10-24
 > **Hub 관리형 경로:** Hub 관리형 수명 주기는 AKS만 지원하며 클러스터 안에 수명 주기 에이전트를
 > 추가합니다. 개발용 Agent는 기본적으로 dry-run과 보고를 수행합니다. 명시적으로 선택한
 > 유한 적용에서는 기존 HTTP·이전 호환 프로필과 독립적으로 고정한
-> [비공개 실행 묶음 확장](lifecycle-runtime-bundles-ko.md)을 지원합니다.
+> [비공개 실행 묶음 확장](lifecycle-runtime-bundles-ko.md)을 지원하며, 여기에는 범위가 제한된
+> HorizontalPodAutoscaler가 포함됩니다. Agent 역할에는 이를 위한 `autoscaling` 동사만 추가합니다.
 > 기반 시설·신원 생성이나 FDAI 전체 설치 완료를 제공하지는 않습니다.
 > 네임스페이스 권한, 동일 스키마 사전 준비와 운영 검증은 별도로 유지합니다.
 

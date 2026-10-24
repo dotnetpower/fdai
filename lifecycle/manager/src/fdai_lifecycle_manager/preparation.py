@@ -223,6 +223,13 @@ def prepare_installation(
         schedules = tuple(
             sorted(item.name for item in runtime_bundle.objects if item.kind == "CronJob")
         )
+        autoscalers = tuple(
+            sorted(
+                item.name
+                for item in runtime_bundle.objects
+                if item.kind == "HorizontalPodAutoscaler"
+            )
+        )
         native_scope = NativeScope(
             installation_id=installation_id,
             entity_id=entity_id,
@@ -231,6 +238,7 @@ def prepare_installation(
             components=deployments,
             service_components=services,
             scheduled_components=schedules,
+            autoscaled_components=autoscalers,
         )
         approval = NativeApproval(
             schema_version="fdai.lifecycle-native-approval.v1",
