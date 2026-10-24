@@ -105,31 +105,35 @@ def write_channels(
     is_custom_channel: Callable[[str | None], bool],
 ) -> None:
     channel_names = set(BUILT_IN_CHANNELS)
-    encoded_size = sum(len(canonical_bytes(channel)) + 1 for channel in channel_names) + 2
+    encoded_size = 1 + sum(len(canonical_bytes(channel)) + 4 for channel in channel_names)
     channels = db.scalars(
         select(membership.c.channel)
         .distinct()
-        .order_by(membership.c.channel)
         .execution_options(stream_results=True, max_row_buffer=1, yield_per=1)
     ).yield_per(1)
     for channel in channels:
         if channel not in BUILT_IN_CHANNELS and not is_custom_channel(channel):
             raise CatalogError("Stored catalog channel is invalid.")
         if channel not in channel_names:
-            encoded_size += len(canonical_bytes(channel)) + 1
+            encoded_size += len(canonical_bytes(channel)) + 4
             if encoded_size > writer.remaining:
                 raise CatalogError(writer.message, 503)
         channel_names.add(channel)
 
-    rows = iter(
-        stream(
-            db,
-            select(membership.c.channel, membership.c.release_id).order_by(
-                membership.c.channel, membership.c.release_id
-            ),
-        )
+    memberships: dict[str, list[str]] = {channel: [] for channel in channel_names}
+    rows = stream(
+        db,
+        select(membership.c.channel, membership.c.release_id),
     )
-    current = next(rows, None)
+    for row in rows:
+        releases = memberships.get(row["channel"])
+        if releases is None:
+            raise CatalogError("Stored catalog channel is invalid.")
+        encoded_size += len(canonical_bytes(row["release_id"])) + bool(releases)
+        if encoded_size > writer.remaining:
+            raise CatalogError(writer.message, 503)
+        releases.append(row["release_id"])
+
     writer.write(b"{")
     first_channel = True
     for channel in sorted(channel_names):
@@ -139,15 +143,14 @@ def write_channels(
         writer.value(channel)
         writer.write(b":[")
         first_release = True
-        while current is not None and current["channel"] == channel:
+        releases = memberships[channel]
+        releases.sort()
+        for release_id in releases:
             if not first_release:
                 writer.write(b",")
             first_release = False
-            writer.value(current["release_id"])
-            current = next(rows, None)
+            writer.value(release_id)
         writer.write(b"]")
-    if current is not None:
-        raise CatalogError("Stored catalog channel is invalid.")
     writer.write(b"}")
 
 
