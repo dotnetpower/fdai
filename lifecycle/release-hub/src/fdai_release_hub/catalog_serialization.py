@@ -84,10 +84,15 @@ def ensure_row_bound(
         release_count = release_count.where(release_filter)
     if event_filter is not None:
         event_count = event_count.where(event_filter)
-    row_count = (
-        int(db.scalar(release_count) or 0)
-        + int(db.scalar(event_count) or 0)
-        + int(db.scalar(select(func.count()).select_from(membership)) or 0)
+    row_count = int(
+        db.scalar(
+            select(
+                release_count.scalar_subquery()
+                + event_count.scalar_subquery()
+                + select(func.count()).select_from(membership).scalar_subquery()
+            )
+        )
+        or 0
     )
     if row_count > maximum:
         raise CatalogError(message, 503)

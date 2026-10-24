@@ -19,6 +19,7 @@ from starlette.testclient import TestClient
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_release_hub.api import MAX_CATALOG_VIEW_BYTES, create_app
+from fdai_release_hub.catalog_serialization import ensure_row_bound
 from fdai_release_hub.cli import main
 from fdai_release_hub.store import (
     CapabilityChange,
@@ -323,6 +324,29 @@ def test_streamed_catalog_read_preserves_canonical_contract(store: ReleaseStore)
     assert store.catalog_view(MAX_CATALOG_VIEW_BYTES) == canonical_bytes(
         {**snapshot, "export_sha256": digest}
     )
+
+
+@pytest.mark.parametrize("export_only", [False, True])
+def test_catalog_row_bound_uses_one_database_query(store: ReleaseStore, export_only: bool) -> None:
+    statements: list[str] = []
+
+    def record(_connection: object, _cursor: object, statement: str, *_args: object) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    sqlalchemy_event.listen(store.engine, "before_cursor_execute", record)
+    try:
+        with store.connect() as db:
+            ensure_row_bound(
+                db,
+                maximum=MAX_CATALOG_VIEW_BYTES,
+                message="catalog too large",
+                export_only=export_only,
+            )
+    finally:
+        sqlalchemy_event.remove(store.engine, "before_cursor_execute", record)
+
+    assert len(statements) == 1
 
 
 @pytest.mark.parametrize("release_id", ["../x", "1.0", "01.0.0", "1.0.0+build"])
