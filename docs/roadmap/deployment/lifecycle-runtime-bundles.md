@@ -77,6 +77,27 @@ complete at zero. The native scope binds the autoscaler in `autoscaled_component
 omitted when empty so existing scope digests and approvals do not change. The Agent role gains the
 `autoscaling` `horizontalpodautoscalers` verbs it needs and nothing wider.
 
+## Installation binding
+
+A container environment variable takes exactly one source: an existing `valueFrom` reference, a
+bounded `value` literal, or a `binding` key. A `binding` names a value the installation owner
+supplies in the private `installation_binding` object of the same owner-only local policy
+(`format: fdai.installation-binding.v1`, a map of at most 128 keys). The infrastructure agent
+writes that object from its Terraform outputs; this document owns only the reader.
+
+Binding keys are lowercase identifiers. Values and literals are 1 to 1024 printable characters and
+cannot look like a credential: a URL with userinfo, `Password=`, `AccountKey=`,
+`SharedAccessKey=` or a PEM header is rejected. A variable whose name suggests a credential (secret,
+password, token, DSN, key, signing and similar) accepts only a Secret reference, never a literal
+or a binding. The Agent rejects a binding key the bundle does not reference and a referenced key the
+binding lacks, at policy load and again at render, with fixed messages that never echo a value.
+
+The values are resolved into plain environment values at render time and are not part of the
+bundle. The pinned bundle digest covers the literals and the binding key names, so changing a
+reference changes the pin while changing an installation-local value does not. A configuration-key
+source is not implemented here and stays open in
+[#2471](https://github.com/dotnetpower/fdai/issues/2471).
+
 ## Native ownership and workload behavior
 
 Old native scopes retain exactly their original serialized shape, digests, and Deployment/Service
