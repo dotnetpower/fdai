@@ -3,8 +3,28 @@ import { actionsFor, artifacts, isCustomChannel, releaseTitle, requestCatalog, s
 
 const TITLES = { register: "Register release", publish: "Publish to DEV", contribute: "Add to channel", recall: "Recall release", renew: "Renew catalog freshness" };
 type Pending = { action: Action; release: Release | null };
+type ConfirmationState = {
+  action: Action;
+  busy: boolean;
+  channel: string;
+  channelConfirmation: string;
+  confirmation: string;
+  customChannel: boolean;
+  reason: string;
+  target: string;
+};
 const time = (value: string) => new Date(value).toISOString().replace("T", " ").replace(".000Z", " UTC");
 const locationRoute = () => decodeURI(location.hash.slice(1) || "/releases");
+
+export function isConfirmationDisabled(state: ConfirmationState): boolean {
+  return state.busy
+    || state.confirmation !== state.target
+    || !state.target
+    || state.reason.trim().length < 3
+    || (state.action === "contribute"
+      && state.customChannel
+      && state.channelConfirmation !== state.channel);
+}
 
 function Confirm({ pending, catalog, close, done }: {
   pending: Pending; catalog: Catalog; close: () => void; done: (id: string) => Promise<void>;
@@ -34,7 +54,7 @@ function Confirm({ pending, catalog, close, done }: {
   }, []);
   async function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (busy || error) return;
+    if (busy) return;
     setBusy(true); setError("");
     try {
       await requestCatalog(action === "renew" ? "/v1/catalog/renew" : `/v1/releases/${encodeURIComponent(id)}/${action}`, {
@@ -74,9 +94,11 @@ function Confirm({ pending, catalog, close, done }: {
       <label>Reason<textarea required minLength={3} maxLength={500} rows={2} value={reason} onInput={(e) => setReason(e.currentTarget.value)} /></label>
       <label>Type {target || "the Release id"} to confirm<input required autoComplete="off" value={confirmation} onInput={(e) => setConfirmation(e.currentTarget.value)} /></label>
       <p>Catalog revision {catalog.revision}. A concurrent change requires refresh and review.</p>
-      {error && <p class="error" role="alert">{error} Close this dialog and refresh to inspect the current state.</p>}
+      {error && <p class="error" role="alert">{error} Correct the input or retry, or close and refresh to inspect the current state.</p>}
       <footer><button type="button" disabled={busy} onClick={close}>Cancel</button>
-        <button class={action === "recall" ? "danger" : "primary"} disabled={busy || confirmation !== target || !target || reason.trim().length < 3 || !!error || (action === "contribute" && customChannel && channelConfirmation !== channel)}>
+        <button class={action === "recall" ? "danger" : "primary"} disabled={isConfirmationDisabled({
+          action, busy, channel, channelConfirmation, confirmation, customChannel, reason, target,
+        })}>
           {busy ? "Saving..." : `Confirm ${TITLES[action].toLowerCase()}`}
         </button></footer>
     </form>

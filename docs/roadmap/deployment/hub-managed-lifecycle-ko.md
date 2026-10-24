@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 5dded7d5f4a3253b75d9f1ef730fdd5c17ae86e2
+translation_source_sha: 74670b6ccbcb9ed506081ad07c59fcbddfc45eaa
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -351,6 +351,14 @@ UID 소유 mode-`0700` `/agent-state` 경로에 mount하므로 strict reader가 
 PVC mount root를 탐색하지 않습니다. 제한된 `64Mi` `emptyDir`가 Kubernetes dynamic
 discovery에 필요한 쓰기 가능한 `/tmp`를 제공하며 이미지 root filesystem은 read-only로
 유지합니다.
+
+Hub가 `apply-started`를 수락한 뒤 Agent는 첫 Kubernetes 변경 전에 Plan 만료를 다시
+확인합니다. 준비한 Plan이 만료되었으면 `reason_code=plan_expired`를 기록하고 정확한 Plan
+digest를 생략하며 summary를 비운 최종 `rejected` 보고를 먼저 영구 저장해 전달합니다. Agent는
+Hub가 이 보고를 수락한 뒤에만 준비 journal을 지웁니다. 그보다 앞선 영구 저장 경계에서
+실패하거나 재시작해도 Kubernetes를 변경하지 않고 동일한 보고를 재개합니다. Hub는 효과가
+없음을 나타내는 이 후속 보고만 수락하고 rollback 실패 억제 구간을 만들지 않습니다. 중복
+`apply-started`와 그 밖의 모든 시작 이후 거부 사유는 계속 유효하지 않습니다.
 
 native approval 만료는 attribution이 있는 운영자가 동일한 exact scope를 갱신할 수 있으므로
 재시도 가능한 로컬 보류입니다. Agent는 새 retryable 기록과 이 정확한 사유를 가진 기존

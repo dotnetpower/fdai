@@ -116,28 +116,37 @@ def _exact_plan_digest(url: str, installation_id: str) -> str:
 def _report_rolled_back_from_a_separate_process(
     url: str, installation_id: str, plan_id: str, exact_plan_digest: str
 ) -> None:
-    """Submit the report from a brand-new interpreter, so the commit that adds the failure
-    suppression shares no module cache or open connection with whichever process issued the Plan
-    or will later recompute it. The Hub's serve process still performs the actual write; this only
-    keeps the HTTP caller itself a genuinely separate process, matching the demo's topology.
+    """Submit the apply progression from brand-new interpreters, so the commit that adds the
+    failure suppression shares no module cache or open connection with whichever process issued
+    the Plan or will later recompute it. The Hub's serve process still performs the actual write;
+    this only keeps the HTTP callers genuinely separate processes, matching the demo's topology.
     """
 
     report_url = f"{url}/v1/installations/{installation_id}/plans/{plan_id}/reports"
-    body = json.dumps(
+    reports = (
         {
             "attempt": 1,
+            "outcome": "apply-started",
+            "reason_code": "apply_started",
+            "exact_plan_digest": exact_plan_digest,
+            "summary": "cross-process apply started",
+            "reported_at": "2026-01-01T00:00:00Z",
+        },
+        {
+            "attempt": 2,
             "outcome": "rolled-back",
             "reason_code": "health_check_failed",
             "exact_plan_digest": exact_plan_digest,
             "summary": "cross-process regression",
             "reported_at": "2026-01-01T00:00:00Z",
-        }
+        },
     )
-    script = _REPORT_SCRIPT.format(url=report_url, body=body)
-    result = subprocess.run(  # noqa: S603 - fixed interpreter, script built above.
-        [sys.executable, "-c", script], capture_output=True, text=True, timeout=15, check=False
-    )
-    assert result.returncode == 0, result.stderr
+    for report in reports:
+        script = _REPORT_SCRIPT.format(url=report_url, body=json.dumps(report))
+        result = subprocess.run(  # noqa: S603 - fixed interpreter, script built above.
+            [sys.executable, "-c", script], capture_output=True, text=True, timeout=15, check=False
+        )
+        assert result.returncode == 0, result.stderr
 
 
 def _checks_by_release(record: dict[str, Any]) -> dict[str, list[str]]:

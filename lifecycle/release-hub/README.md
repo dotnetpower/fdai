@@ -72,6 +72,8 @@ npm --prefix lifecycle/release-hub/ui run dev
 The API and UI bind only to `127.0.0.1`. The UI uses port `5291`, proxies the API on `8091`,
 and rejects cross-origin mutation requests. No production authentication or key management is
 implemented. The key is never returned by an API or accepted through a browser form.
+The state path must resolve outside the checkout, be a private directory with no group or other
+access, and contain a key created by `dev-init`. Serve ports must be between 1 and 65535.
 Register an existing `fdai.runtime-release.v3` manifest; registration validates metadata only.
 Artifact archives, SBOM contents, provenance semantics and registry presence remain unverified.
 The optional local label may contain Korean; machine release ids remain canonical SemVer.

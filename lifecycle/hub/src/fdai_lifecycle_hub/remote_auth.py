@@ -6,12 +6,14 @@ import json
 import logging
 import re
 import time
+from threading import Condition
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
 import httpx
 import jwt
 from jwt import PyJWK
+from jwt.exceptions import PyJWTError
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
@@ -23,6 +25,9 @@ from starlette.routing import Route
 
 logger = logging.getLogger(__name__)
 MAX_JWKS_BYTES = 256 * 1024
+JWKS_CACHE_SECONDS = 300
+MAX_JWKS_STALE_SECONDS = 900
+UNKNOWN_KID_REFRESH_SECONDS = 30
 
 
 class AgentPrincipal(BaseModel):
@@ -91,6 +96,10 @@ class EntraVerifier:
         self.config = config
         self._keys: dict[str, PyJWK] = {}
         self._refresh_after = 0.0
+        self._unknown_kid_refresh_after = 0.0
+        self._last_successful_refresh: float | None = None
+        self._refresh_condition = Condition()
+        self._refreshing = False
 
     def _refresh(self) -> None:
         url = f"https://login.microsoftonline.com/{self.config.tenant_id}/discovery/v2.0/keys"
@@ -107,11 +116,11 @@ class EntraVerifier:
             response.raise_for_status()
             if response.headers.get("content-encoding", "identity") != "identity":
                 raise ValueError("Compressed signing-key responses are not accepted.")
-            for chunk in response.iter_raw(chunk_size=16 * 1024):
+            for chunk in response.iter_raw():
                 raw.extend(chunk)
                 if len(raw) > MAX_JWKS_BYTES or time.monotonic() >= deadline:
                     raise ValueError("Entra signing-key response exceeded its bound.")
-        body = json.loads(raw)
+        body = _strict_json(raw)
         if not isinstance(body, dict) or not isinstance(body.get("keys"), list):
             raise ValueError("Entra signing-key response is invalid.")
         keys = {}
@@ -119,19 +128,72 @@ class EntraVerifier:
             if not isinstance(item, dict) or not isinstance(item.get("kid"), str):
                 raise ValueError("Entra signing-key entry is invalid.")
             if item.get("kty") == "RSA" and item.get("use", "sig") == "sig":
+                if item["kid"] in keys:
+                    raise ValueError("Entra signing-key response has a duplicate key id.")
                 keys[item["kid"]] = PyJWK.from_dict(item, algorithm="RS256")
         if not keys:
             raise ValueError("Entra signing-key response has no supported key.")
         self._keys = keys
-        self._refresh_after = time.monotonic() + 300
+        refreshed_at = time.monotonic()
+        self._last_successful_refresh = refreshed_at
+        self._refresh_after = refreshed_at + JWKS_CACHE_SECONDS
+        self._unknown_kid_refresh_after = refreshed_at + UNKNOWN_KID_REFRESH_SECONDS
+
+    def _stale_keys_usable(self, now: float) -> bool:
+        return (
+            bool(self._keys)
+            and self._last_successful_refresh is not None
+            and now < self._last_successful_refresh + MAX_JWKS_STALE_SECONDS
+        )
+
+    def _refresh_for(self, kid: str) -> None:
+        """Single-flight a due refresh and briefly retain valid keys when refresh fails."""
+
+        while True:
+            with self._refresh_condition:
+                now = time.monotonic()
+                due = now >= self._refresh_after or (
+                    kid not in self._keys and now >= self._unknown_kid_refresh_after
+                )
+                if not due:
+                    if self._keys and not self._stale_keys_usable(now):
+                        raise ValueError("Entra signing keys exceeded their stale lifetime.")
+                    return
+                if self._refreshing:
+                    completed = self._refresh_condition.wait_for(
+                        lambda: not self._refreshing, timeout=5
+                    )
+                    if not completed:
+                        raise ValueError("Entra signing-key refresh exceeded its bound.")
+                    continue
+                self._refreshing = True
+                break
+        try:
+            self._refresh()
+        except (httpx.HTTPError, PyJWTError, KeyError, ValueError) as error:
+            failed_at = time.monotonic()
+            retry_at = failed_at + UNKNOWN_KID_REFRESH_SECONDS
+            with self._refresh_condition:
+                self._refresh_after = retry_at
+                self._unknown_kid_refresh_after = retry_at
+            logger.warning("hub_jwks_refresh_failed error=%s", type(error).__name__)
+            if not self._keys:
+                raise
+            if not self._stale_keys_usable(failed_at):
+                raise ValueError("Entra signing keys exceeded their stale lifetime.") from error
+        finally:
+            with self._refresh_condition:
+                self._refreshing = False
+                self._refresh_condition.notify_all()
 
     def verify(self, token: str) -> dict[str, Any]:
         if len(token) > 16 * 1024:
             raise ValueError("Access token is too large.")
-        if time.monotonic() >= self._refresh_after:
-            self._refresh()
         kid = jwt.get_unverified_header(token).get("kid")
-        if not isinstance(kid, str) or kid not in self._keys:
+        if not isinstance(kid, str):
+            raise ValueError("Access token signing key is not trusted.")
+        self._refresh_for(kid)
+        if kid not in self._keys:
             raise ValueError("Access token signing key is not trusted.")
         claims = jwt.decode(
             token,
@@ -146,6 +208,32 @@ class EntraVerifier:
         if not all(isinstance(claims.get(name), str) for name in ("oid", "sub", "azp")):
             raise ValueError("Access token principal binding is invalid.")
         return claims
+
+
+def _strict_json(raw: bytes | bytearray) -> object:
+    """Decode a JWKS as unambiguous UTF-8 JSON."""
+
+    try:
+        return json.loads(
+            bytes(raw).decode("utf-8"),
+            object_pairs_hook=_unique_object,
+            parse_constant=_reject_constant,
+        )
+    except (UnicodeDecodeError, ValueError, RecursionError) as error:
+        raise ValueError("Entra signing-key response is invalid.") from error
+
+
+def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate field")
+        result[key] = value
+    return result
+
+
+def _reject_constant(value: str) -> object:
+    raise ValueError("non-finite number")
 
 
 def secure_app(

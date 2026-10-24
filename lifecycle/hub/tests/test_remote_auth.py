@@ -3,18 +3,314 @@ from __future__ import annotations
 import json
 import time
 from base64 import b64encode
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from threading import Barrier, Event
 
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
+from lifecycle.hub.tests.remote_auth_helpers import seed_entra_key_cache
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from fdai_lifecycle_hub.remote_auth import AgentPrincipal, RemoteAuth, secure_app
+from fdai_lifecycle_hub.remote_auth import (
+    MAX_JWKS_STALE_SECONDS,
+    AgentPrincipal,
+    EntraVerifier,
+    RemoteAuth,
+    _strict_json,
+    secure_app,
+)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b'{"keys":[],"keys":[]}',
+        b'{"keys":[],"value":NaN}',
+        '{"keys":[]}'.encode("utf-16"),
+    ],
+)
+def test_entra_signing_keys_require_strict_utf8_json(payload):
+    with pytest.raises(ValueError, match="signing-key response is invalid"):
+        _strict_json(payload)
+
+
+def test_entra_signing_keys_reject_duplicate_key_ids(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "duplicate"
+
+    class Response:
+        headers = {"content-encoding": "identity"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        def iter_raw(self):
+            yield json.dumps({"keys": [public, public]}).encode()
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.httpx.stream", lambda *_a, **_k: Response())
+
+    with pytest.raises(ValueError, match="duplicate key id"):
+        EntraVerifier(auth)._refresh()
+
+
+def test_entra_signing_key_trickle_observes_total_refresh_deadline(auth, monkeypatch):
+    class Response:
+        headers = {"content-encoding": "identity"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        def iter_raw(self):
+            yield b"{"
+            yield b'"'
+
+    clock = iter((100.0, 104.0, 105.0))
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: next(clock))
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.httpx.stream", lambda *_a, **_k: Response())
+
+    with pytest.raises(ValueError, match="exceeded its bound"):
+        EntraVerifier(auth)._refresh()
+
+
+def test_entra_unknown_key_refreshes_once_inside_cache_window(auth, monkeypatch):
+    old_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    new_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    old_public = json.loads(RSAAlgorithm.to_jwk(old_key.public_key()))
+    new_public = json.loads(RSAAlgorithm.to_jwk(new_key.public_key()))
+    old_public["kid"] = "old"
+    new_public["kid"] = "new"
+    verifier = EntraVerifier(auth)
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(old_public, algorithm="RS256")},
+        unknown_kid_refresh_after=0,
+    )
+    refreshes = 0
+
+    def refresh():
+        nonlocal refreshes
+        refreshes += 1
+        seed_entra_key_cache(
+            verifier,
+            {"new": jwt.PyJWK.from_dict(new_public, algorithm="RS256")},
+        )
+
+    monkeypatch.setattr(verifier, "_refresh", refresh)
+    now = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "iss": auth.issuer,
+            "aud": auth.audience,
+            "exp": now + timedelta(minutes=5),
+            "iat": now,
+            "nbf": now,
+            "tid": auth.tenant_id,
+            "oid": "approved-human",
+            "sub": "approved-human",
+            "azp": auth.spa_client_id,
+            "ver": "2.0",
+        },
+        new_key,
+        algorithm="RS256",
+        headers={"kid": "new"},
+    )
+
+    assert verifier.verify(token)["oid"] == "approved-human"
+    assert refreshes == 1
+
+
+def test_concurrent_unknown_keys_single_flight_the_jwks_refresh(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "new"
+    verifier = EntraVerifier(auth)
+    verifier._last_successful_refresh = time.monotonic()
+    verifier._refresh_after = time.monotonic() + 600
+    verifier._unknown_kid_refresh_after = 0
+    started = Event()
+    release = Event()
+    barrier = Barrier(9)
+    refreshes = 0
+
+    def refresh():
+        nonlocal refreshes
+        refreshes += 1
+        started.set()
+        assert release.wait(timeout=2)
+        seed_entra_key_cache(
+            verifier,
+            {"new": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        )
+
+    monkeypatch.setattr(verifier, "_refresh", refresh)
+    token = _token(auth, key, kid="new")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_verify_after, barrier, verifier, token) for _ in range(8)]
+        barrier.wait(timeout=2)
+        assert started.wait(timeout=2)
+        release.set()
+        claims = [future.result(timeout=2) for future in futures]
+
+    assert {claim["oid"] for claim in claims} == {"approved-human"}
+    assert refreshes == 1
+
+
+def test_failed_jwks_refresh_retains_keys_and_starts_cooldown(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "old"
+    verifier = EntraVerifier(auth)
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        refreshed_at=50.0,
+        refresh_after=0,
+        unknown_kid_refresh_after=0,
+    )
+    clock = [100.0]
+    refreshes = 0
+
+    def fail_refresh():
+        nonlocal refreshes
+        refreshes += 1
+        raise ValueError("synthetic JWKS failure")
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(verifier, "_refresh", fail_refresh)
+    old_token = _token(auth, key, kid="old")
+    unknown_token = _token(auth, key, kid="unknown")
+
+    assert verifier.verify(old_token)["oid"] == "approved-human"
+    with pytest.raises(ValueError, match="not trusted"):
+        verifier.verify(unknown_token)
+    assert refreshes == 1
+    assert verifier._keys["old"].key is not None
+    assert verifier._refresh_after == 130
+    assert verifier._unknown_kid_refresh_after == 130
+
+    clock[0] = 131
+    assert verifier.verify(old_token)["oid"] == "approved-human"
+    assert refreshes == 2
+
+
+def test_failed_jwks_refresh_rejects_keys_after_stale_deadline(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "old"
+    verifier = EntraVerifier(auth)
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        refreshed_at=100.0,
+        refresh_after=0,
+        unknown_kid_refresh_after=0,
+    )
+    clock = [100.0 + MAX_JWKS_STALE_SECONDS - 1]
+    refreshes = 0
+
+    def fail_refresh():
+        nonlocal refreshes
+        refreshes += 1
+        raise ValueError("synthetic JWKS failure")
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(verifier, "_refresh", fail_refresh)
+    token = _token(auth, key, kid="old")
+
+    assert verifier.verify(token)["oid"] == "approved-human"
+    assert refreshes == 1
+
+    clock[0] += 1
+    with pytest.raises(ValueError, match="exceeded their stale lifetime"):
+        verifier.verify(token)
+    assert refreshes == 1
+
+
+def test_concurrent_expired_keys_fail_closed_after_one_refresh(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "old"
+    verifier = EntraVerifier(auth)
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        refreshed_at=100.0,
+        refresh_after=0,
+        unknown_kid_refresh_after=0,
+    )
+    clock = [100.0 + MAX_JWKS_STALE_SECONDS]
+    started = Event()
+    release = Event()
+    barrier = Barrier(9)
+    refreshes = 0
+
+    def fail_refresh():
+        nonlocal refreshes
+        refreshes += 1
+        started.set()
+        assert release.wait(timeout=2)
+        raise ValueError("synthetic JWKS failure")
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(verifier, "_refresh", fail_refresh)
+    token = _token(auth, key, kid="old")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_verify_after, barrier, verifier, token) for _ in range(8)]
+        barrier.wait(timeout=2)
+        assert started.wait(timeout=2)
+        release.set()
+        errors = [future.exception(timeout=2) for future in futures]
+
+    assert all(
+        isinstance(error, ValueError) and "exceeded their stale lifetime" in str(error)
+        for error in errors
+    )
+    assert refreshes == 1
+
+
+def _verify_after(barrier: Barrier, verifier: EntraVerifier, token: str) -> dict[str, object]:
+    barrier.wait(timeout=2)
+    return verifier.verify(token)
+
+
+def _token(auth: RemoteAuth, key, *, kid: str) -> str:
+    now = datetime.now(UTC)
+    return jwt.encode(
+        {
+            "iss": auth.issuer,
+            "aud": auth.audience,
+            "exp": now + timedelta(minutes=5),
+            "iat": now,
+            "nbf": now,
+            "tid": auth.tenant_id,
+            "oid": "approved-human",
+            "sub": "approved-human",
+            "azp": auth.spa_client_id,
+            "ver": "2.0",
+        },
+        key,
+        algorithm="RS256",
+        headers={"kid": kid},
+    )
 
 
 def test_agent_exact_identity_installation_role_and_methods(auth, protected):
@@ -34,6 +330,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
     artifact = "/v1/installations/installation-alpha/artifacts/release/" + "a" * 64
     state = "/v1/installations/installation-alpha/state"
     reports = "/v1/installations/installation-alpha/plans/plan-one/reports"
+    plan_detail = "/v1/installations/installation-alpha/plans/plan-one"
     app = secure_app(
         Starlette(
             routes=[
@@ -41,14 +338,17 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
                 Route(artifact, ok),
                 Route(state, ok, methods=["POST"]),
                 Route(reports, ok, methods=["POST"]),
+                Route(plan_detail, ok),
                 Route("/v1/catalog", ok),
             ]
         ),
         config,
         vendor=False,
     )
-    app.state.entra_verifier._keys = original.state.entra_verifier._keys
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        original.state.entra_verifier._keys,
+    )
     service = dict(oid="agent-object", azp="agent-client", scp=None, roles=["Agent.Access"])
     with TestClient(app, base_url=config.origin) as client:
         assert client.get(plan, headers=token(**service)).status_code == 200
@@ -65,6 +365,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
             "/v1/installations/installation-alpha/recompute",
             "/v1/installations/installation-alpha/application-binding",
             "/v1/installations/installation-alpha/native-ownership",
+            plan_detail,
         ):
             assert client.get(path, headers=token(**service)).status_code == 403
             assert client.post(path, headers=token(**service), json={}).status_code == 403
@@ -370,8 +671,10 @@ def enrollment_remote(auth, protected, store, now):
             }
         )
         app = create_app(target_store, remote_auth=config, clock=lambda: now)
-        app.state.entra_verifier._keys = vendor.state.entra_verifier._keys
-        app.state.entra_verifier._refresh_after = time.monotonic() + 600
+        seed_entra_key_cache(
+            app.state.entra_verifier,
+            vendor.state.entra_verifier._keys,
+        )
         return TestClient(app, base_url=config.origin)
 
     return client, token
@@ -784,8 +1087,10 @@ def protected(auth):
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     public["kid"] = "test-only"
-    app.state.entra_verifier._keys = {"test-only": jwt.PyJWK.from_dict(public)}
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        {"test-only": jwt.PyJWK.from_dict(public)},
+    )
 
     def token(**changes):
         now = datetime.now(UTC)
@@ -909,8 +1214,10 @@ def test_release_catalog_renewal_requires_attributed_vendor_operator(
             )
     original, token = protected
     app = create_app(store, remote_auth=auth, remote_origin=auth.origin)
-    app.state.entra_verifier._keys = original.state.entra_verifier._keys
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        original.state.entra_verifier._keys,
+    )
     payload = {"revision": 0, "confirmation": "renew 0", "reason": "Reviewed current catalog"}
     route = "/v1/catalog/renew"
     revision = 0
@@ -974,8 +1281,10 @@ def test_target_local_curation_requires_current_operator_and_exact_request(
     monkeypatch.setattr("fdai_lifecycle_hub.remote.utc_now", lambda: now)
     app = create_app(store, remote_auth=auth)
     app.routes[0:0] = target_routes(store, target, key)
-    app.state.entra_verifier._keys = original.state.entra_verifier._keys
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        original.state.entra_verifier._keys,
+    )
     target.fetch = lambda _: pytest.fail("Local curation must not fetch or import a source.")
     route = "/v1/catalog/local-channels"
     payload = request_for(target, catalog, now).model_dump()
@@ -1085,8 +1394,10 @@ def test_target_real_api_denies_agent_transport_and_binds_approval_actor(
         }
     )
     app = create_app(store, remote_auth=config, clock=lambda: now)
-    app.state.entra_verifier._keys = vendor.state.entra_verifier._keys
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        vendor.state.entra_verifier._keys,
+    )
     store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
     installation_id = enrollment.installation.installation_id
     with TestClient(app, base_url="https://hub.example.com") as client:
