@@ -348,9 +348,11 @@ provides writable `/tmp` for Kubernetes dynamic discovery while the image root f
 read-only.
 
 After the Hub accepts `apply-started`, the Agent checks Plan expiry again before the first
-Kubernetes mutation. If the prepared Plan has expired, it clears the journal and reports terminal
-`rejected` with `reason_code=plan_expired`, no exact Plan digest, and an empty summary. The Hub
-accepts only that no-effect successor and creates no rollback failure suppression; duplicate
+Kubernetes mutation. If the prepared Plan has expired, it durably retains and delivers terminal
+`rejected` with `reason_code=plan_expired`, no exact Plan digest, and an empty summary. The Agent
+clears the prepared journal only after the Hub accepts that report; a failure or restart at any
+earlier durable boundary resumes the same report without a Kubernetes mutation. The Hub accepts
+only that no-effect successor and creates no rollback failure suppression; duplicate
 `apply-started` and every other rejected-after-start reason remain invalid.
 
 An expired native approval is a retryable local hold because an attributed operator can renew the

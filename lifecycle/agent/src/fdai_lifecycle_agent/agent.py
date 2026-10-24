@@ -356,6 +356,11 @@ class LifecycleAgent:
             if existing.result.outcome == "apply-started" and self._deps.apply is not None:
                 # Reported, then interrupted before the apply began; the journal decides.
                 return self._apply(self._deps.apply, plan.plan_id)
+            if (
+                existing.result.reason_code == AgentReason.PLAN_EXPIRED
+                and self._deps.apply is not None
+            ):
+                self._clear_prepared_after_terminal_report(self._deps.apply, plan.plan_id)
             return _poll_result(plan.plan_id, existing, outcome="already-reported")
         return self._deliver_then_apply(state, plan.plan_id, existing)
 
@@ -501,6 +506,12 @@ class LifecycleAgent:
         result = self._deliver(state, plan_id, record)
         if result.outcome == "apply-started" and result.reported and self._deps.apply is not None:
             return self._apply(self._deps.apply, plan_id)
+        if (
+            result.reason_code == AgentReason.PLAN_EXPIRED
+            and result.reported
+            and self._deps.apply is not None
+        ):
+            self._clear_prepared_after_terminal_report(self._deps.apply, plan_id)
         return result
 
     def _apply(self, apply: ApplyMode, plan_id: str) -> PollResult:
@@ -514,8 +525,10 @@ class LifecycleAgent:
             return _poll_result(plan_id, record, outcome="already-reported")
         if self._deps.clock() >= journal.expires_at:
             _log("lifecycle_agent.plan_expired", level=logging.WARNING, plan_id=plan_id)
-            apply.store.save(replace(workload_state, journal=None))
-            return self._replace_result(plan_id, _rejection(AgentReason.PLAN_EXPIRED))
+            result = self._replace_result(plan_id, _rejection(AgentReason.PLAN_EXPIRED))
+            if result.reported:
+                self._clear_prepared_after_terminal_report(apply, plan_id)
+            return result
         journal = replace(journal, phase="applying")
         apply.store.save(replace(workload_state, journal=journal))
         _log("lifecycle_agent.apply_begun", plan_id=plan_id)
@@ -534,6 +547,15 @@ class LifecycleAgent:
             return self._complete(apply, workload_state, journal, AgentReason.APPLY_FAILED)
         failure = None if healthy else AgentReason.HEALTH_CHECK_FAILED
         return self._complete(apply, workload_state, journal, failure)
+
+    @staticmethod
+    def _clear_prepared_after_terminal_report(apply: ApplyMode, plan_id: str) -> None:
+        """Clear a no-effect journal only after its terminal report was accepted."""
+
+        workload_state = apply.store.load()
+        journal = workload_state.journal
+        if journal is not None and journal.plan_id == plan_id and journal.phase == "prepared":
+            apply.store.save(replace(workload_state, journal=None))
 
     def _continue(
         self, apply: ApplyMode, workload_state: WorkloadState, journal: ApplyJournal

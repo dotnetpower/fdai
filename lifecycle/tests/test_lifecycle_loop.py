@@ -38,8 +38,10 @@ from fdai_lifecycle_agent.hub_client import (
     PlanReport,
     SignedPlan,
 )
+from fdai_lifecycle_agent.journal import WorkloadState, WorkloadStore
 from fdai_lifecycle_agent.state import (
     AgentState,
+    AgentStateError,
     LocalStateStore,
     PlanRecord,
     PlanResult,
@@ -190,7 +192,11 @@ class Loop:
                 clock=effective_clock,
             )
             assert exit_code == expected_exit_code
-        result: dict[str, Any] = json.loads(output.getvalue())
+        rendered = output.getvalue()
+        if not rendered:
+            assert expected_exit_code != 0
+            return {}
+        result: dict[str, Any] = json.loads(rendered)
         return result
 
 
@@ -511,8 +517,20 @@ def test_hub_rejects_invalid_agent_report_after_apply_started(
     ]
 
 
-def test_expiry_after_apply_started_is_terminal_without_kubernetes_mutation(
-    loop: Loop, database_url: str
+@pytest.mark.parametrize(
+    "fault_boundary",
+    [
+        "terminal-persist",
+        "hub-acceptance",
+        "acceptance-persist",
+        "journal-clear",
+    ],
+)
+def test_expiry_faults_restart_to_terminal_without_kubernetes_mutation(
+    loop: Loop,
+    database_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+    fault_boundary: str,
 ) -> None:
     loop.enroll(open_window())
     loop.recompute()
@@ -530,7 +548,66 @@ def test_expiry_after_apply_started_is_terminal_without_kubernetes_mutation(
         offset = timedelta(seconds=1)
         return plan.expires_at + offset if accepted else plan.expires_at - offset
 
-    expired = loop.poll(clock=expire_only_after_started_is_accepted, cluster=cluster)
+    injected = False
+    original_state_save = LocalStateStore.save
+    original_workload_save = WorkloadStore.save
+
+    def fail_state_save(store: LocalStateStore, state: AgentState) -> None:
+        nonlocal injected
+        record = state.plans.get(plan.plan_id)
+        if record is None:
+            original_state_save(store, state)
+            return
+        terminal = record.result.reason_code == "plan_expired"
+        at_boundary = (
+            fault_boundary == "terminal-persist"
+            and terminal
+            and not record.reported
+            and record.reported_at is not None
+        ) or (fault_boundary == "acceptance-persist" and terminal and record.reported)
+        if at_boundary and not injected:
+            injected = True
+            raise AgentStateError(f"injected {fault_boundary} failure")
+        original_state_save(store, state)
+
+    def fail_workload_save(store: WorkloadStore, state: WorkloadState) -> None:
+        nonlocal injected
+        if fault_boundary == "journal-clear" and state.journal is None and not injected:
+            injected = True
+            raise AgentStateError("injected journal-clear failure")
+        original_workload_save(store, state)
+
+    class LostTerminalAcceptance(HttpHubClient):
+        def submit_report(self, installation_id: str, plan_id: str, report: PlanReport) -> None:
+            nonlocal injected
+            super().submit_report(installation_id, plan_id, report)
+            if (
+                fault_boundary == "hub-acceptance"
+                and report.reason_code == "plan_expired"
+                and not injected
+            ):
+                injected = True
+                raise HubProtocolError("injected lost terminal acceptance")
+
+    monkeypatch.setattr(LocalStateStore, "save", fail_state_save)
+    monkeypatch.setattr(WorkloadStore, "save", fail_workload_save)
+
+    def connect_with_fault(url: str, timeout: float) -> HttpHubClient:
+        if fault_boundary == "hub-acceptance":
+            return LostTerminalAcceptance(url, timeout_seconds=timeout)
+        return connect(url, timeout)
+
+    failed = loop.poll(
+        clock=expire_only_after_started_is_accepted,
+        cluster=cluster,
+        connect_hub=connect_with_fault,
+        expected_exit_code=1,
+    )
+    assert injected
+    assert failed == {} or failed["reported"] is False
+    retained = WorkloadStore(loop.root / "state" / INSTALLATION_ID).load().journal
+    assert retained is not None and retained.phase == "prepared"
+
     restarted = loop.poll(clock=expire_only_after_started_is_accepted, cluster=cluster)
     shown = loop.show()
     store = HubStore.connect(database_url)
@@ -539,18 +616,11 @@ def test_expiry_after_apply_started_is_terminal_without_kubernetes_mutation(
     finally:
         store.engine.dispose()
 
-    assert (expired["outcome"], expired["reason_code"], expired["reported"]) == (
-        "rejected",
-        "plan_expired",
-        True,
-    )
-    assert (restarted["outcome"], restarted["reason_code"], restarted["reported"]) == (
-        "already-reported",
-        "plan_expired",
-        True,
-    )
+    assert restarted["outcome"] in {"rejected", "already-reported"}
+    assert (restarted["reason_code"], restarted["reported"]) == ("plan_expired", True)
     assert cluster.dry_runs
     assert cluster.mutations == []
+    assert WorkloadStore(loop.root / "state" / INSTALLATION_ID).load().journal is None
     terminal_reports = [
         (report["attempt"], report["outcome"], report["reason_code"]) for report in shown["reports"]
     ]
