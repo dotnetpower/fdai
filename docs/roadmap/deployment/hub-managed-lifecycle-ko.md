@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: bc9bfd70cb8b63f1ab7b0f3a219776083e02ba8f
+translation_source_sha: 4ab3c269c9aeee3a2d288aeb1b94d116778c6984
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -351,6 +351,10 @@ UID 소유 mode-`0700` `/agent-state` 경로에 mount하므로 strict reader가 
 PVC mount root를 탐색하지 않습니다. 제한된 `64Mi` `emptyDir`가 Kubernetes dynamic
 discovery에 필요한 쓰기 가능한 `/tmp`를 제공하며 이미지 root filesystem은 read-only로
 유지합니다.
+
+native approval 만료는 attribution이 있는 운영자가 동일한 exact scope를 갱신할 수 있으므로
+재시도 가능한 로컬 보류입니다. Agent는 새 retryable 기록과 이 정확한 사유를 가진 기존
+non-retryable 기록을 모두 재평가합니다. 다른 최종 거부는 replay-safe 상태를 유지합니다.
 
 `fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
 깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,

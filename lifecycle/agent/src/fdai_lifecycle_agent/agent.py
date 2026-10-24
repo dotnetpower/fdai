@@ -301,7 +301,11 @@ class LifecycleAgent:
         state = self._deps.state_store.load()
         payload_digest = hashlib.sha256(signed.signed_payload).hexdigest()
         existing = state.plans.get(plan.plan_id)
-        if existing is not None and not existing.result.retryable:
+        if (
+            existing is not None
+            and not existing.result.retryable
+            and existing.result.reason_code != "native_scope_approval_expired"
+        ):
             return self._resume(state, plan, payload_digest, existing)
 
         result = self._evaluate(plan, state, current, payload_digest)
