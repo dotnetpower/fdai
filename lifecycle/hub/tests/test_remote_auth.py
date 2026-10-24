@@ -14,7 +14,96 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from fdai_lifecycle_hub.remote_auth import AgentPrincipal, RemoteAuth, secure_app
+from fdai_lifecycle_hub.remote_auth import (
+    AgentPrincipal,
+    EntraVerifier,
+    RemoteAuth,
+    _strict_json,
+    secure_app,
+)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b'{"keys":[],"keys":[]}',
+        b'{"keys":[],"value":NaN}',
+        '{"keys":[]}'.encode("utf-16"),
+    ],
+)
+def test_entra_signing_keys_require_strict_utf8_json(payload):
+    with pytest.raises(ValueError, match="signing-key response is invalid"):
+        _strict_json(payload)
+
+
+def test_entra_signing_keys_reject_duplicate_key_ids(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "duplicate"
+
+    class Response:
+        headers = {"content-encoding": "identity"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        def iter_raw(self, *, chunk_size):
+            assert chunk_size == 16 * 1024
+            yield json.dumps({"keys": [public, public]}).encode()
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.httpx.stream", lambda *_a, **_k: Response())
+
+    with pytest.raises(ValueError, match="duplicate key id"):
+        EntraVerifier(auth)._refresh()
+
+
+def test_entra_unknown_key_refreshes_once_inside_cache_window(auth, monkeypatch):
+    old_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    new_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    old_public = json.loads(RSAAlgorithm.to_jwk(old_key.public_key()))
+    new_public = json.loads(RSAAlgorithm.to_jwk(new_key.public_key()))
+    old_public["kid"] = "old"
+    new_public["kid"] = "new"
+    verifier = EntraVerifier(auth)
+    verifier._keys = {"old": jwt.PyJWK.from_dict(old_public, algorithm="RS256")}
+    verifier._refresh_after = time.monotonic() + 600
+    verifier._unknown_kid_refresh_after = 0
+    refreshes = 0
+
+    def refresh():
+        nonlocal refreshes
+        refreshes += 1
+        verifier._keys = {"new": jwt.PyJWK.from_dict(new_public, algorithm="RS256")}
+        verifier._unknown_kid_refresh_after = time.monotonic() + 30
+
+    monkeypatch.setattr(verifier, "_refresh", refresh)
+    now = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "iss": auth.issuer,
+            "aud": auth.audience,
+            "exp": now + timedelta(minutes=5),
+            "iat": now,
+            "nbf": now,
+            "tid": auth.tenant_id,
+            "oid": "approved-human",
+            "sub": "approved-human",
+            "azp": auth.spa_client_id,
+            "ver": "2.0",
+        },
+        new_key,
+        algorithm="RS256",
+        headers={"kid": "new"},
+    )
+
+    assert verifier.verify(token)["oid"] == "approved-human"
+    assert refreshes == 1
 
 
 def test_agent_exact_identity_installation_role_and_methods(auth, protected):
