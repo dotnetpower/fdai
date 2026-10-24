@@ -12,6 +12,7 @@ Set ``FDAI_DATABASE_URL`` to also run the scenarios against loopback PostgreSQL.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
@@ -27,10 +28,18 @@ from typing import Any
 import pytest
 import uvicorn
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
+from fdai_deployment_cli.lifecycle_plan import decode_canonical_plan_payload
 from fdai_deployment_cli.runtime_release import parse_runtime_release_manifest
 
 from fdai_lifecycle_agent import cli as agent_cli
 from fdai_lifecycle_agent.hub_client import HttpHubClient, PlanReport, SignedPlan
+from fdai_lifecycle_agent.state import (
+    AgentState,
+    LocalStateStore,
+    PlanRecord,
+    PlanResult,
+    StoredReport,
+)
 from fdai_lifecycle_hub import cli as hub_cli
 from fdai_lifecycle_hub.api import create_app
 from fdai_lifecycle_hub.signing import key_id_for, load_private_key, load_public_key
@@ -116,6 +125,7 @@ class Loop:
         *,
         connect_hub: ConnectHub = connect,
         clock: Callable[[], datetime] | None = None,
+        expected_exit_code: int = 0,
     ) -> dict[str, Any]:
         hub_public_key = self.root / "hub.pub.pem"
         argv = [
@@ -140,7 +150,7 @@ class Loop:
                 if clock is None
                 else agent_cli.main(argv, connect_hub=connect_hub, clock=clock)
             )
-            assert exit_code == 0
+            assert exit_code == expected_exit_code
         result: dict[str, Any] = json.loads(output.getvalue())
         return result
 
@@ -326,6 +336,71 @@ def test_final_agent_report_survives_a_backward_client_clock(loop: Loop) -> None
         (2, "dry-run-admitted"),
     ]
     assert shown["reports"][1]["reported_at"] < shown["reports"][0]["reported_at"]
+
+
+def test_terminal_gap_replays_apply_started_then_terminal_across_agent_restarts(
+    loop: Loop,
+) -> None:
+    loop.enroll(open_window())
+    loop.recompute()
+    with HttpHubClient(loop.hub_url) as client:
+        signed = client.fetch_plan(INSTALLATION_ID)
+    assert signed is not None
+    plan = decode_canonical_plan_payload(signed.signed_payload, signed.signature)
+    payload_digest = hashlib.sha256(signed.signed_payload).hexdigest()
+    exact_digest = f"sha256:{payload_digest}"
+    terminal_time = datetime.now(UTC)
+    started_result = PlanResult(
+        outcome="apply-started",
+        reason_code="apply_started",
+        exact_plan_digest=exact_digest,
+        summary='{"update":1}',
+    )
+    terminal_result = PlanResult(
+        outcome="applied",
+        reason_code="applied",
+        exact_plan_digest=exact_digest,
+        summary='{"update":1}',
+    )
+    state_store = LocalStateStore(loop.root / "state" / INSTALLATION_ID)
+    state_store.save(
+        AgentState(
+            last_accepted_sequence=plan.sequence,
+            plans={
+                plan.plan_id: PlanRecord(
+                    sequence=plan.sequence,
+                    payload_digest=payload_digest,
+                    result=terminal_result,
+                    attempts=2,
+                    reported_at=terminal_time,
+                    apply_started_report=StoredReport(
+                        attempt=1,
+                        result=started_result,
+                        reported_at=terminal_time - timedelta(seconds=1),
+                    ),
+                )
+            },
+        )
+    )
+
+    gap = loop.poll(expected_exit_code=1)
+    assert loop.show()["reports"] == []
+    started = loop.poll(expected_exit_code=1)
+    pending_after_restart = state_store.load().plans[plan.plan_id].pending_reports
+    terminal = loop.poll()
+    shown = loop.show()
+
+    assert [(result["outcome"], result["reported"]) for result in (gap, started, terminal)] == [
+        ("applied", False),
+        ("applied", False),
+        ("applied", True),
+    ]
+    assert [report.attempt for report in pending_after_restart] == [2]
+    assert [(report["attempt"], report["outcome"]) for report in shown["reports"]] == [
+        (1, "apply-started"),
+        (2, "applied"),
+    ]
+    assert state_store.load().plans[plan.plan_id].pending_reports == ()
 
 
 def test_plan_for_another_installation_is_rejected_and_the_hub_records_why(loop: Loop) -> None:

@@ -16,6 +16,7 @@ from fdai_lifecycle_agent.state import (
     LocalStateStore,
     PlanRecord,
     PlanResult,
+    StoredReport,
 )
 
 
@@ -87,7 +88,7 @@ def test_invalid_state_fails_closed(tmp_path: Path, content: bytes) -> None:
 
 def test_legacy_apply_started_expiry_is_migrated_and_persisted(tmp_path: Path) -> None:
     store = LocalStateStore(tmp_path)
-    legacy = {
+    legacy: dict[str, Any] = {
         "schema": "fdai.lifecycle-agent-state.v1",
         "last_accepted_sequence": 7,
         "rejected_sequences": [],
@@ -114,9 +115,103 @@ def test_legacy_apply_started_expiry_is_migrated_and_persisted(tmp_path: Path) -
 
     assert state.rejected_sequences == {7}
     persisted = json.loads(store.path.read_text())
+    assert persisted["schema"] == "fdai.lifecycle-agent-state.v2"
     assert persisted["rejected_sequences"] == [7]
-    assert persisted["plans"] == legacy["plans"]
+    plans = persisted["plans"]
+    assert isinstance(plans, dict)
+    assert plans["plan-7"] | {
+        "apply_started_report": None,
+        "pending_reports": [],
+    } == legacy["plans"]["plan-7"] | {
+        "apply_started_report": None,
+        "pending_reports": [],
+    }
     assert store.load() == state
+
+
+def test_legacy_rewound_terminal_report_migrates_to_durable_replay_sequence(
+    tmp_path: Path,
+) -> None:
+    store = LocalStateStore(tmp_path)
+    reported_at = "2026-10-07T12:00:00+00:00"
+    result = {
+        "outcome": "applied",
+        "reason_code": "applied",
+        "exact_plan_digest": "sha256:" + "b" * 64,
+        "summary": '{"update":1}',
+        "retryable": False,
+    }
+    store.path.write_text(
+        json.dumps(
+            {
+                "schema": "fdai.lifecycle-agent-state.v1",
+                "last_accepted_sequence": 7,
+                "rejected_sequences": [],
+                "plans": {
+                    "plan-7": {
+                        "sequence": 7,
+                        "payload_digest": "a" * 64,
+                        "result": result,
+                        "attempts": 1,
+                        "reported_at": reported_at,
+                        "reported": False,
+                    }
+                },
+            }
+        )
+    )
+
+    record = store.load().plans["plan-7"]
+
+    assert record.attempts == 2
+    assert record.apply_started_report == StoredReport(
+        attempt=1,
+        result=PlanResult(
+            outcome="apply-started",
+            reason_code="apply_started",
+            exact_plan_digest="sha256:" + "b" * 64,
+            summary='{"update":1}',
+        ),
+        reported_at=datetime(2026, 10, 7, 11, 59, 59, 999999, tzinfo=UTC),
+    )
+    assert [report.attempt for report in record.pending_reports] == [1, 2]
+    assert record.pending_reports[-1].result == record.result
+    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v2"
+
+
+def test_legacy_accepted_single_terminal_report_remains_complete(tmp_path: Path) -> None:
+    store = LocalStateStore(tmp_path)
+    store.path.write_text(
+        json.dumps(
+            {
+                "schema": "fdai.lifecycle-agent-state.v1",
+                "last_accepted_sequence": 7,
+                "rejected_sequences": [],
+                "plans": {
+                    "plan-7": {
+                        "sequence": 7,
+                        "payload_digest": "a" * 64,
+                        "result": {
+                            "outcome": "applied",
+                            "reason_code": "applied",
+                            "exact_plan_digest": "sha256:" + "b" * 64,
+                            "summary": "",
+                            "retryable": False,
+                        },
+                        "attempts": 1,
+                        "reported_at": "2026-10-07T12:00:00+00:00",
+                        "reported": True,
+                    }
+                },
+            }
+        )
+    )
+
+    record = store.load().plans["plan-7"]
+
+    assert record.reported is True
+    assert record.apply_started_report is None
+    assert record.pending_reports == ()
 
 
 @pytest.mark.parametrize(

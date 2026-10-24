@@ -92,6 +92,7 @@ from fdai_lifecycle_agent.state import (
     LocalStateStore,
     PlanRecord,
     PlanResult,
+    StoredReport,
 )
 from fdai_lifecycle_agent.workload import Workload, WorkloadError, object_key
 
@@ -733,29 +734,50 @@ class LifecycleAgent:
         )
 
     def _deliver(self, state: AgentState, plan_id: str, record: PlanRecord) -> PollResult:
-        """Send the pending report, persisted first, and mark it reported only on acceptance.
+        """Send one durable pending report and mark the current result only after acceptance.
 
         A record without a pending report gets the next attempt number and a timestamp. A retry
         resends that identical report, which the Hub accepts as a duplicate. When the Hub reports
-        that the attempt already holds other content, the next poll starts a new attempt.
+        a terminal-attempt gap, the retained apply-started report is replayed before the unchanged
+        terminal report. Each poll sends at most one report, so restart recovery is bounded.
         """
 
-        reported_at = record.reported_at
-        if reported_at is None:
-            reported_at = self._deps.clock()
+        replaying = bool(record.pending_reports)
+        if replaying:
+            stored = record.pending_reports[0]
+        elif record.reported_at is None:
+            stored = StoredReport(
+                attempt=record.attempts + 1,
+                result=record.result,
+                reported_at=self._deps.clock(),
+            )
             record = replace(
-                record, attempts=record.attempts + 1, reported_at=reported_at, reported=False
+                record,
+                attempts=stored.attempt,
+                reported_at=stored.reported_at,
+                reported=False,
+                apply_started_report=(
+                    stored
+                    if stored.result.outcome == "apply-started"
+                    else record.apply_started_report
+                ),
             )
             state = state.with_record(plan_id, record)
             self._deps.state_store.save(state)
-        result = record.result
+        else:
+            stored = StoredReport(
+                attempt=record.attempts,
+                result=record.result,
+                reported_at=record.reported_at,
+            )
+        result = stored.result
         report = PlanReport(
-            attempt=record.attempts,
+            attempt=stored.attempt,
             outcome=result.outcome,
             reason_code=result.reason_code,
             exact_plan_digest=result.exact_plan_digest,
             summary=result.summary,
-            reported_at=reported_at,
+            reported_at=stored.reported_at,
         )
         try:
             self._deps.hub.submit_report(self._settings.installation_id, plan_id, report)
@@ -764,21 +786,53 @@ class LifecycleAgent:
                 "lifecycle_agent.report_failed",
                 level=logging.ERROR,
                 plan_id=plan_id,
-                attempt=record.attempts,
+                attempt=stored.attempt,
                 error=str(error),
             )
             if error.code == "report_conflict":
+                pending = record.pending_reports[1:] if replaying else ()
                 self._deps.state_store.save(
-                    state.with_record(plan_id, replace(record, reported_at=None))
+                    state.with_record(
+                        plan_id,
+                        replace(
+                            record,
+                            reported_at=(
+                                None if stored.attempt == record.attempts else record.reported_at
+                            ),
+                            pending_reports=pending,
+                        ),
+                    )
                 )
-            elif error.code == "report_attempt_gap" and record.attempts > 1:
+            elif (
+                error.code == "report_attempt_gap"
+                and not replaying
+                and record.apply_started_report is not None
+                and record.result.outcome in {"applied", "rolled-back"}
+                and record.apply_started_report.attempt + 1 == stored.attempt
+            ):
+                recovery = replace(
+                    record,
+                    reported=False,
+                    pending_reports=(record.apply_started_report, stored),
+                )
+                self._deps.state_store.save(state.with_record(plan_id, recovery))
+            elif (
+                error.code == "report_attempt_gap"
+                and not replaying
+                and record.attempts > 1
+                and record.result.outcome not in {"applied", "rolled-back"}
+            ):
                 self._deps.state_store.save(
                     state.with_record(plan_id, replace(record, attempts=record.attempts - 1))
                 )
             return _poll_result(plan_id, record)
-        record = replace(record, reported=True)
+        pending = record.pending_reports[1:] if replaying else ()
+        current_accepted = (
+            not pending and stored.attempt == record.attempts and stored.result == record.result
+        )
+        record = replace(record, pending_reports=pending, reported=current_accepted)
         self._deps.state_store.save(state.with_record(plan_id, record))
-        _log("lifecycle_agent.reported", plan_id=plan_id, attempt=record.attempts)
+        _log("lifecycle_agent.reported", plan_id=plan_id, attempt=stored.attempt)
         return _poll_result(plan_id, record)
 
 

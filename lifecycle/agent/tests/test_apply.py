@@ -183,6 +183,41 @@ def test_nothing_is_applied_until_the_hub_accepts_apply_started(
     assert _outcomes(harness) == [(1, "apply-started", "apply_started"), (2, "applied", "applied")]
 
 
+def test_terminal_attempt_gap_replays_started_then_terminal_across_restarts(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    harness.serve(harness.release_plan("1.0.0", V1))
+    assert harness.apply_poll(cluster).outcome == "applied"
+    writes = len(cluster.writes())
+    state = harness.state_store.load()
+    record = state.plans["plan-0008"]
+    harness.state_store.save(state.with_record("plan-0008", replace(record, reported=False)))
+    recovered_hub = type(harness.hub)(
+        plan=harness.hub.plan,
+        report_errors=[
+            HubProtocolError("Hub report request returned 409", code="report_attempt_gap")
+        ],
+    )
+    harness.hub = recovered_hub
+
+    gap = harness.apply_poll(cluster)
+    started = harness.apply_poll(cluster)
+    terminal = harness.apply_poll(cluster)
+
+    assert [(result.outcome, result.reported) for result in (gap, started, terminal)] == [
+        ("applied", False),
+        ("applied", False),
+        ("applied", True),
+    ]
+    assert [report.attempt for report in recovered_hub.attempted] == [2, 1, 2]
+    assert _outcomes(harness) == [
+        (1, "apply-started", "apply_started"),
+        (2, "applied", "applied"),
+    ]
+    assert harness.state_store.load().plans["plan-0008"].pending_reports == ()
+    assert len(cluster.writes()) == writes
+
+
 def test_an_expired_plan_is_not_applied_after_a_late_apply_started(
     harness: Harness, cluster: FakeCluster
 ) -> None:
