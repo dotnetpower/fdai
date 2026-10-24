@@ -11,6 +11,7 @@ from fdai_lifecycle_agent.inputs import (
     InputKind,
     SignedArtifact,
     stage_artifact,
+    validate_artifact,
 )
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
 
@@ -37,14 +38,24 @@ class CachedHubArtifactStore(ArtifactStore):
         }
 
     def load(self, kind: InputKind, digest: str) -> SignedArtifact | None:
-        if cached := self._local.load(kind, digest):
-            return cached
+        try:
+            cached = self._local.load(kind, digest)
+            if cached is not None:
+                validate_artifact(kind, digest, cached, self._verifiers[kind])
+                return cached
+        except ValueError:
+            # A bounded, Plan-pinned fetch may repair corrupt or interrupted cache bytes.
+            pass
         artifact = self._hub.fetch_artifact(self._installation_id, kind, digest)
         if artifact is None:
             return None
         staged = SignedArtifact(artifact.payload, artifact.signature)
         stage_artifact(self._root, kind, digest, staged, self._verifiers[kind])
-        return self._local.load(kind, digest)
+        persisted = self._local.load(kind, digest)
+        if persisted is None:
+            raise ValueError("Staged Hub artifact was not durably readable.")
+        validate_artifact(kind, digest, persisted, self._verifiers[kind])
+        return persisted
 
 
 __all__ = ["CachedHubArtifactStore"]
