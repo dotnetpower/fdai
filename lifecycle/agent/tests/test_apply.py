@@ -218,6 +218,40 @@ def test_terminal_attempt_gap_replays_started_then_terminal_across_restarts(
     assert len(cluster.writes()) == writes
 
 
+def test_terminal_gap_replays_retryable_started_and_terminal_prefix(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    plan = harness.release_plan("1.0.0", V1)
+    release = harness.store.releases.pop(plan.target_release_digest)
+    harness.serve(plan)
+    retryable = harness.apply_poll(cluster)
+    harness.store.releases[plan.target_release_digest] = release
+    applied = harness.apply_poll(cluster)
+    state = harness.state_store.load()
+    record = state.plans["plan-0008"]
+    assert [report.attempt for report in record.report_history] == [1, 2, 3]
+    harness.state_store.save(state.with_record("plan-0008", replace(record, reported=False)))
+    recovered_hub = type(harness.hub)(
+        plan=harness.hub.plan,
+        report_errors=[
+            HubProtocolError("Hub report request returned 409", code="report_attempt_gap")
+        ],
+    )
+    harness.hub = recovered_hub
+
+    results = [harness.apply_poll(cluster) for _ in range(4)]
+
+    assert (retryable.reason_code, applied.outcome) == ("release_unavailable", "applied")
+    assert [(result.outcome, result.reported) for result in results] == [
+        ("applied", False),
+        ("applied", False),
+        ("applied", False),
+        ("applied", True),
+    ]
+    assert [report.attempt for report in recovered_hub.attempted] == [3, 1, 2, 3]
+    assert harness.state_store.load().plans["plan-0008"].pending_reports == ()
+
+
 def test_an_expired_plan_is_not_applied_after_a_late_apply_started(
     harness: Harness, cluster: FakeCluster
 ) -> None:

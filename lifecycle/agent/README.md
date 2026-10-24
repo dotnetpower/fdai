@@ -61,9 +61,11 @@ for setup ownership, exact input pins, optional CronJob RBAC and unverified sche
    is retried up to three times after `Retry-After`. Any other failure resends the identical report on the next
    poll, which the Hub accepts as a duplicate, so `attempt` doesn't grow while the Hub is
    unreachable. A `409 report_conflict` means that the attempt already contains different bytes
-   and makes the next poll start a new `attempt`. A `409 report_attempt_gap` rewinds one step and
-   retries the required missing attempt without discarding the pending report. A reported Plan is
-   not evaluated again.
+   and makes the next poll start a new `attempt`. The agent retains a contiguous history of up to
+   eight reports from attempt 1. A `409 report_attempt_gap` replays that history in order,
+   including any earlier retryable rejection, until the Hub accepts the current report. A reported
+   Plan is not evaluated again. Unknown or non-contiguous legacy report progress fails closed
+   instead of guessing.
 
 A rejection blocks its sequence durably, except a retryable one: an input that is missing or
 unreadable (`release_unavailable`, `configuration_unreadable`, and so on), or bytes that no

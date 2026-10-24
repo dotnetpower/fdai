@@ -272,6 +272,10 @@ def test_legacy_expired_native_approval_result_is_retried(harness: Harness) -> N
         reason_code="native_scope_approval_expired",
         retryable=False,
     )
+    state["plans"][plan.plan_id]["report_history"][-1]["result"].update(
+        reason_code="native_scope_approval_expired",
+        retryable=False,
+    )
     state["rejected_sequences"] = [plan.sequence]
     harness.state_store.path.write_text(json.dumps(state))
     harness.store.releases[harness.release_digest] = release
@@ -583,9 +587,10 @@ def test_http_hub_attempt_gap_retries_the_required_missing_attempt(harness: Harn
     with HttpHubClient("http://127.0.0.1:8740", transport=httpx.MockTransport(handler)) as client:
         first = harness.poll(hub=client)
         second = harness.poll(hub=client)
+        third = harness.poll(hub=client)
 
-    assert (first.reported, second.reported) == (False, True)
-    assert attempts == [2, 1]
+    assert (first.reported, second.reported, third.reported) == (False, False, True)
+    assert attempts == [2, 1, 2]
 
 
 def test_plan_id_reused_with_other_bytes_is_rejected(harness: Harness) -> None:

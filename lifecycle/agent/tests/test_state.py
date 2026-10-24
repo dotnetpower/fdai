@@ -11,6 +11,7 @@ import pytest
 
 from fdai_lifecycle_agent.state import (
     MAX_PLAN_RECORDS,
+    MAX_REPORT_HISTORY,
     AgentState,
     AgentStateError,
     LocalStateStore,
@@ -22,9 +23,17 @@ from fdai_lifecycle_agent.state import (
 
 def _record(sequence: int, *, retryable: bool = False, **overrides: Any) -> PlanRecord:
     result = PlanResult(outcome="rejected", reason_code="plan_expired", retryable=retryable)
-    return replace(
+    record = replace(
         PlanRecord(sequence=sequence, payload_digest="a" * 64, result=result), **overrides
     )
+    if record.attempts == 1 and record.reported_at is not None and not record.report_history:
+        report = StoredReport(
+            attempt=1,
+            result=record.result,
+            reported_at=record.reported_at,
+        )
+        record = replace(record, report_history=(report,))
+    return record
 
 
 def test_missing_state_starts_below_sequence_zero(tmp_path: Path) -> None:
@@ -46,7 +55,7 @@ def test_state_round_trips_with_owner_only_permissions(tmp_path: Path) -> None:
                     exact_plan_digest="sha256:" + "b" * 64,
                     summary='{"entity_count":2}',
                 ),
-                attempts=2,
+                attempts=1,
                 reported_at=datetime(2026, 10, 7, 11, tzinfo=UTC),
                 reported=True,
             ),
@@ -115,15 +124,29 @@ def test_legacy_apply_started_expiry_is_migrated_and_persisted(tmp_path: Path) -
 
     assert state.rejected_sequences == {7}
     persisted = json.loads(store.path.read_text())
-    assert persisted["schema"] == "fdai.lifecycle-agent-state.v2"
+    assert persisted["schema"] == "fdai.lifecycle-agent-state.v3"
     assert persisted["rejected_sequences"] == [7]
     plans = persisted["plans"]
     assert isinstance(plans, dict)
     assert plans["plan-7"] | {
         "apply_started_report": None,
+        "report_history": [
+            {
+                "attempt": 1,
+                "result": legacy["plans"]["plan-7"]["result"],
+                "reported_at": legacy["plans"]["plan-7"]["reported_at"],
+            }
+        ],
         "pending_reports": [],
     } == legacy["plans"]["plan-7"] | {
         "apply_started_report": None,
+        "report_history": [
+            {
+                "attempt": 1,
+                "result": legacy["plans"]["plan-7"]["result"],
+                "reported_at": legacy["plans"]["plan-7"]["reported_at"],
+            }
+        ],
         "pending_reports": [],
     }
     assert store.load() == state
@@ -176,7 +199,8 @@ def test_legacy_rewound_terminal_report_migrates_to_durable_replay_sequence(
     )
     assert [report.attempt for report in record.pending_reports] == [1, 2]
     assert record.pending_reports[-1].result == record.result
-    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v2"
+    assert [report.attempt for report in record.report_history] == [1, 2]
+    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v3"
 
 
 def test_legacy_accepted_single_terminal_report_remains_complete(tmp_path: Path) -> None:
@@ -211,7 +235,107 @@ def test_legacy_accepted_single_terminal_report_remains_complete(tmp_path: Path)
 
     assert record.reported is True
     assert record.apply_started_report is None
+    assert [report.attempt for report in record.report_history] == [1]
     assert record.pending_reports == ()
+
+
+def test_v2_contiguous_apply_progress_is_migrated(tmp_path: Path) -> None:
+    store = LocalStateStore(tmp_path)
+    started = {
+        "attempt": 1,
+        "result": {
+            "outcome": "apply-started",
+            "reason_code": "apply_started",
+            "exact_plan_digest": "sha256:" + "b" * 64,
+            "summary": "",
+            "retryable": False,
+        },
+        "reported_at": "2026-10-07T11:59:59+00:00",
+    }
+    terminal = {
+        "outcome": "applied",
+        "reason_code": "applied",
+        "exact_plan_digest": "sha256:" + "b" * 64,
+        "summary": "",
+        "retryable": False,
+    }
+    store.path.write_text(
+        json.dumps(
+            {
+                "schema": "fdai.lifecycle-agent-state.v2",
+                "last_accepted_sequence": 7,
+                "rejected_sequences": [],
+                "plans": {
+                    "plan-7": {
+                        "sequence": 7,
+                        "payload_digest": "a" * 64,
+                        "result": terminal,
+                        "attempts": 2,
+                        "reported_at": "2026-10-07T12:00:00+00:00",
+                        "reported": False,
+                        "apply_started_report": started,
+                        "pending_reports": [
+                            started,
+                            {
+                                "attempt": 2,
+                                "result": terminal,
+                                "reported_at": "2026-10-07T12:00:00+00:00",
+                            },
+                        ],
+                    }
+                },
+            }
+        )
+    )
+
+    record = store.load().plans["plan-7"]
+
+    assert [report.attempt for report in record.report_history] == [1, 2]
+    assert record.pending_reports == record.report_history
+    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v3"
+
+
+def test_v2_non_contiguous_retryable_apply_progress_fails_closed(tmp_path: Path) -> None:
+    store = LocalStateStore(tmp_path)
+    started = {
+        "attempt": 2,
+        "result": {
+            "outcome": "apply-started",
+            "reason_code": "apply_started",
+            "exact_plan_digest": "sha256:" + "b" * 64,
+            "summary": "",
+            "retryable": False,
+        },
+        "reported_at": "2026-10-07T11:59:59+00:00",
+    }
+    document = {
+        "schema": "fdai.lifecycle-agent-state.v2",
+        "last_accepted_sequence": 7,
+        "rejected_sequences": [],
+        "plans": {
+            "plan-7": {
+                "sequence": 7,
+                "payload_digest": "a" * 64,
+                "result": {
+                    "outcome": "applied",
+                    "reason_code": "applied",
+                    "exact_plan_digest": "sha256:" + "b" * 64,
+                    "summary": "",
+                    "retryable": False,
+                },
+                "attempts": 3,
+                "reported_at": "2026-10-07T12:00:00+00:00",
+                "reported": False,
+                "apply_started_report": started,
+                "pending_reports": [],
+            }
+        },
+    }
+    store.path.write_text(json.dumps(document))
+
+    with pytest.raises(AgentStateError, match="invalid"):
+        store.load()
+    assert json.loads(store.path.read_text()) == document
 
 
 @pytest.mark.parametrize(
@@ -272,6 +396,31 @@ def test_retryable_records_are_evicted_before_final_results() -> None:
 
     assert "forged" not in state.plans
     assert "plan-0" in state.plans
+
+
+def test_report_history_size_is_bounded(tmp_path: Path) -> None:
+    reports = tuple(
+        StoredReport(
+            attempt=attempt,
+            result=PlanResult(
+                outcome="rejected",
+                reason_code="release_unavailable",
+                retryable=True,
+            ),
+            reported_at=datetime(2026, 10, 7, 12, attempt, tzinfo=UTC),
+        )
+        for attempt in range(1, MAX_REPORT_HISTORY + 2)
+    )
+    record = _record(
+        1,
+        retryable=True,
+        attempts=len(reports),
+        reported_at=reports[-1].reported_at,
+        report_history=reports,
+    )
+
+    with pytest.raises(AgentStateError, match="invalid"):
+        LocalStateStore(tmp_path).save(AgentState(plans={"plan-1": record}))
 
 
 @pytest.mark.parametrize(

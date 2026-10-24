@@ -338,7 +338,7 @@ def test_final_agent_report_survives_a_backward_client_clock(loop: Loop) -> None
     assert shown["reports"][1]["reported_at"] < shown["reports"][0]["reported_at"]
 
 
-def test_terminal_gap_replays_apply_started_then_terminal_across_agent_restarts(
+def test_retryable_terminal_gap_replays_complete_prefix_across_agent_restarts(
     loop: Loop,
 ) -> None:
     loop.enroll(open_window())
@@ -362,6 +362,28 @@ def test_terminal_gap_replays_apply_started_then_terminal_across_agent_restarts(
         exact_plan_digest=exact_digest,
         summary='{"update":1}',
     )
+    retryable_result = PlanResult(
+        outcome="rejected",
+        reason_code="release_unavailable",
+        retryable=True,
+    )
+    history = (
+        StoredReport(
+            attempt=1,
+            result=retryable_result,
+            reported_at=terminal_time - timedelta(seconds=2),
+        ),
+        StoredReport(
+            attempt=2,
+            result=started_result,
+            reported_at=terminal_time - timedelta(seconds=1),
+        ),
+        StoredReport(
+            attempt=3,
+            result=terminal_result,
+            reported_at=terminal_time,
+        ),
+    )
     state_store = LocalStateStore(loop.root / "state" / INSTALLATION_ID)
     state_store.save(
         AgentState(
@@ -371,13 +393,14 @@ def test_terminal_gap_replays_apply_started_then_terminal_across_agent_restarts(
                     sequence=plan.sequence,
                     payload_digest=payload_digest,
                     result=terminal_result,
-                    attempts=2,
+                    attempts=3,
                     reported_at=terminal_time,
                     apply_started_report=StoredReport(
-                        attempt=1,
+                        attempt=2,
                         result=started_result,
                         reported_at=terminal_time - timedelta(seconds=1),
                     ),
+                    report_history=history,
                 )
             },
         )
@@ -385,20 +408,25 @@ def test_terminal_gap_replays_apply_started_then_terminal_across_agent_restarts(
 
     gap = loop.poll(expected_exit_code=1)
     assert loop.show()["reports"] == []
-    started = loop.poll(expected_exit_code=1)
+    retryable = loop.poll(expected_exit_code=1)
     pending_after_restart = state_store.load().plans[plan.plan_id].pending_reports
+    started = loop.poll(expected_exit_code=1)
     terminal = loop.poll()
     shown = loop.show()
 
-    assert [(result["outcome"], result["reported"]) for result in (gap, started, terminal)] == [
+    assert [
+        (result["outcome"], result["reported"]) for result in (gap, retryable, started, terminal)
+    ] == [
+        ("applied", False),
         ("applied", False),
         ("applied", False),
         ("applied", True),
     ]
-    assert [report.attempt for report in pending_after_restart] == [2]
+    assert [report.attempt for report in pending_after_restart] == [2, 3]
     assert [(report["attempt"], report["outcome"]) for report in shown["reports"]] == [
-        (1, "apply-started"),
-        (2, "applied"),
+        (1, "rejected"),
+        (2, "apply-started"),
+        (3, "applied"),
     ]
     assert state_store.load().plans[plan.plan_id].pending_reports == ()
 

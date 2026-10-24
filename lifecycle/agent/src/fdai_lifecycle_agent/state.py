@@ -23,18 +23,20 @@ from typing import cast, get_args
 from fdai_lifecycle_agent.hub_client import ReportOutcome
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
 
-STATE_SCHEMA = "fdai.lifecycle-agent-state.v2"
-_LEGACY_STATE_SCHEMA = "fdai.lifecycle-agent-state.v1"
+STATE_SCHEMA = "fdai.lifecycle-agent-state.v3"
+_V1_STATE_SCHEMA = "fdai.lifecycle-agent-state.v1"
+_V2_STATE_SCHEMA = "fdai.lifecycle-agent-state.v2"
 STATE_FILE_NAME = "lifecycle-agent-state.json"
 LOCK_FILE_NAME = ".lifecycle-agent.lock"
 MAX_PLAN_RECORDS = 256
-MAX_PENDING_REPORTS = 2
+MAX_REPORT_HISTORY = 8
 _MAX_STATE_BYTES = 4 * 1024 * 1024
 _STATE_KEYS = frozenset({"schema", "last_accepted_sequence", "rejected_sequences", "plans"})
-_LEGACY_RECORD_KEYS = frozenset(
+_V1_RECORD_KEYS = frozenset(
     {"sequence", "payload_digest", "result", "attempts", "reported_at", "reported"}
 )
-_RECORD_KEYS = _LEGACY_RECORD_KEYS | {"apply_started_report", "pending_reports"}
+_V2_RECORD_KEYS = _V1_RECORD_KEYS | {"apply_started_report", "pending_reports"}
+_RECORD_KEYS = _V2_RECORD_KEYS | {"report_history"}
 _STORED_REPORT_KEYS = frozenset({"attempt", "result", "reported_at"})
 _RESULT_KEYS = frozenset({"outcome", "reason_code", "exact_plan_digest", "summary", "retryable"})
 _HEX_DIGEST = re.compile(r"[0-9a-f]{64}\Z", re.ASCII)
@@ -82,8 +84,8 @@ class PlanRecord:
     ``attempts`` is the number of the latest report and only ever grows. ``reported_at`` is set
     while that report is pending, so a retry resends the identical report under the same attempt
     and the Hub treats it as a duplicate. ``None`` means the next delivery starts a new attempt.
-    Apply mode retains its exact started report. A terminal-attempt gap persists at most the
-    started/terminal suffix still needing replay, one report per later poll.
+    ``report_history`` retains the complete contiguous attempt prefix. A report-attempt gap
+    persists the suffix still needing replay, one report per later poll.
     """
 
     sequence: int
@@ -93,6 +95,7 @@ class PlanRecord:
     reported_at: datetime | None = None
     reported: bool = False
     apply_started_report: StoredReport | None = None
+    report_history: tuple[StoredReport, ...] = ()
     pending_reports: tuple[StoredReport, ...] = ()
 
 
@@ -177,7 +180,10 @@ class LocalStateStore:
     def save(self, state: AgentState) -> None:
         try:
             _validate_state(state)
-            write_json_atomically(self._path, _state_document(state))
+            data = _json_bytes(_state_document(state))
+            if len(data) > _MAX_STATE_BYTES:
+                raise ValueError("agent state is too large")
+            write_bytes_atomically(self._path, data)
         except ValueError as error:
             raise AgentStateError("agent state is invalid") from error
         except OSError as error:
@@ -186,7 +192,11 @@ class LocalStateStore:
 
 def write_json_atomically(path: Path, document: object) -> None:
     """Write ``document`` as owner-only JSON that a crash can't leave half-written."""
-    write_bytes_atomically(path, json.dumps(document, sort_keys=True, indent=2).encode() + b"\n")
+    write_bytes_atomically(path, _json_bytes(document))
+
+
+def _json_bytes(document: object) -> bytes:
+    return json.dumps(document, sort_keys=True, indent=2).encode() + b"\n"
 
 
 def write_bytes_atomically(path: Path, data: bytes) -> None:
@@ -228,6 +238,7 @@ def _record_document(record: PlanRecord) -> dict[str, object]:
         **asdict(record),
         "reported_at": reported_at,
         "apply_started_report": _stored_report_document(record.apply_started_report),
+        "report_history": [_stored_report_document(report) for report in record.report_history],
         "pending_reports": [_stored_report_document(report) for report in record.pending_reports],
     }
 
@@ -247,22 +258,21 @@ def _parse_state(document: object) -> tuple[AgentState, bool]:
         raise ValueError("agent state fields are invalid")
     match document:
         case {"schema": schema, "rejected_sequences": list(rejected), "plans": dict(plans)} if (
-            schema in {STATE_SCHEMA, _LEGACY_STATE_SCHEMA}
+            schema in {STATE_SCHEMA, _V1_STATE_SCHEMA, _V2_STATE_SCHEMA}
         ):
             if len(plans) > MAX_PLAN_RECORDS:
                 raise ValueError("agent state retains too many Plan records")
-            legacy = schema == _LEGACY_STATE_SCHEMA
             state = AgentState(
                 last_accepted_sequence=_integer(document["last_accepted_sequence"], minimum=-1),
                 rejected_sequences=frozenset(_integer(item, minimum=0) for item in rejected),
                 plans={
-                    str(plan_id): _parse_record(record, legacy=legacy)
+                    str(plan_id): _parse_record(record, schema=str(schema))
                     for plan_id, record in plans.items()
                 },
             )
             state, tombstones_migrated = _migrate_legacy_expiry_tombstones(state)
             _validate_state(state)
-            return state, legacy or tombstones_migrated
+            return state, schema != STATE_SCHEMA or tombstones_migrated
     raise ValueError("agent state schema is unsupported")
 
 
@@ -294,8 +304,12 @@ def _migrate_legacy_expiry_tombstones(state: AgentState) -> tuple[AgentState, bo
     )
 
 
-def _parse_record(record: object, *, legacy: bool) -> PlanRecord:
-    expected_keys = _LEGACY_RECORD_KEYS if legacy else _RECORD_KEYS
+def _parse_record(record: object, *, schema: str) -> PlanRecord:
+    expected_keys = {
+        _V1_STATE_SCHEMA: _V1_RECORD_KEYS,
+        _V2_STATE_SCHEMA: _V2_RECORD_KEYS,
+        STATE_SCHEMA: _RECORD_KEYS,
+    }[schema]
     if not isinstance(record, dict) or set(record) != expected_keys:
         raise ValueError("plan record fields are invalid")
     match record:
@@ -314,28 +328,38 @@ def _parse_record(record: object, *, legacy: bool) -> PlanRecord:
                 reported=reported,
                 apply_started_report=(
                     None
-                    if legacy or record["apply_started_report"] is None
+                    if schema == _V1_STATE_SCHEMA or record["apply_started_report"] is None
                     else _parse_stored_report(record["apply_started_report"])
+                ),
+                report_history=(
+                    ()
+                    if schema != STATE_SCHEMA
+                    else tuple(
+                        _parse_stored_report(item)
+                        for item in _stored_report_list(record["report_history"])
+                    )
                 ),
                 pending_reports=(
                     ()
-                    if legacy
+                    if schema == _V1_STATE_SCHEMA
                     else tuple(
                         _parse_stored_report(item)
                         for item in _stored_report_list(record["pending_reports"])
                     )
                 ),
             )
-            if legacy:
+            if schema == _V1_STATE_SCHEMA:
                 parsed = _migrate_legacy_report_progress(parsed)
+            if schema != STATE_SCHEMA:
+                parsed = _migrate_report_history(parsed)
             _validate_record(parsed)
             return parsed
     raise ValueError("plan record values are invalid")
 
 
 def _stored_report_list(value: object) -> list[object]:
-    if not isinstance(value, list) or len(value) > MAX_PENDING_REPORTS:
-        raise ValueError("pending report sequence is invalid")
+    if not isinstance(value, list) or len(value) > MAX_REPORT_HISTORY:
+        raise ValueError("stored report sequence is invalid")
     return value
 
 
@@ -384,6 +408,44 @@ def _migrate_legacy_report_progress(record: PlanRecord) -> PlanRecord:
         apply_started_report=started,
         pending_reports=(started, terminal),
     )
+
+
+def _migrate_report_history(record: PlanRecord) -> PlanRecord:
+    """Reconstruct only exact v1/v2 report prefixes; ambiguous older state fails closed."""
+
+    if record.attempts == 0:
+        if (
+            record.reported_at is not None
+            or record.reported
+            or record.apply_started_report is not None
+            or record.pending_reports
+        ):
+            raise ValueError("legacy report progress is ambiguous")
+        return record
+    if record.reported_at is None:
+        raise ValueError("legacy report progress is incomplete")
+    current = StoredReport(
+        attempt=record.attempts,
+        result=record.result,
+        reported_at=record.reported_at,
+    )
+    if record.attempts == 1:
+        if record.apply_started_report not in {None, current} or record.pending_reports:
+            raise ValueError("legacy report progress is ambiguous")
+        return replace(record, report_history=(current,))
+    started = record.apply_started_report
+    if (
+        record.attempts != 2
+        or started is None
+        or started.attempt != 1
+        or started.result.outcome != "apply-started"
+        or record.result.outcome not in {"applied", "rolled-back"}
+    ):
+        raise ValueError("legacy report prefix cannot be reconstructed")
+    history = (started, current)
+    if record.pending_reports not in {(), history, history[1:]}:
+        raise ValueError("legacy pending reports are not a report-history suffix")
+    return replace(record, report_history=history)
 
 
 def parse_plan_result(result: object) -> PlanResult:
@@ -447,25 +509,35 @@ def _validate_record(record: PlanRecord) -> None:
         raise ValueError("an undelivered report cannot have delivery progress")
     if record.reported and record.reported_at is None:
         raise ValueError("an accepted report MUST retain its timestamp")
-    if len(record.pending_reports) > MAX_PENDING_REPORTS:
-        raise ValueError("pending report sequence is too large")
-    if record.apply_started_report is not None:
-        _validate_stored_report(record.apply_started_report)
-        if record.apply_started_report.result.outcome != "apply-started":
-            raise ValueError("the retained apply-started report is invalid")
-    if record.pending_reports:
-        if record.reported or record.reported_at is None or record.apply_started_report is None:
-            raise ValueError("pending report replay requires an unaccepted terminal report")
-        for report in record.pending_reports:
-            _validate_stored_report(report)
-        terminal = StoredReport(
+    if len(record.report_history) > MAX_REPORT_HISTORY:
+        raise ValueError("report history is too large")
+    if record.attempts != len(record.report_history):
+        raise ValueError("report history MUST contain every attempt")
+    for expected_attempt, report in enumerate(record.report_history, start=1):
+        _validate_stored_report(report)
+        if report.attempt != expected_attempt:
+            raise ValueError("report history MUST be a contiguous prefix")
+    if record.report_history and record.reported_at is not None:
+        current = StoredReport(
             attempt=record.attempts,
             result=record.result,
             reported_at=record.reported_at,
         )
-        full_replay = (record.apply_started_report, terminal)
-        if record.pending_reports not in {full_replay, full_replay[1:]}:
-            raise ValueError("pending reports MUST be the durable apply progression")
+        if record.report_history[-1] != current:
+            raise ValueError("report history MUST end with the current report")
+    if record.apply_started_report is not None:
+        _validate_stored_report(record.apply_started_report)
+        if record.apply_started_report.result.outcome != "apply-started":
+            raise ValueError("the retained apply-started report is invalid")
+        if record.apply_started_report not in record.report_history:
+            raise ValueError("the retained apply-started report is absent from report history")
+    if record.pending_reports:
+        if record.reported or record.reported_at is None:
+            raise ValueError("pending report replay requires an unaccepted current report")
+        for report in record.pending_reports:
+            _validate_stored_report(report)
+        if record.pending_reports != record.report_history[-len(record.pending_reports) :]:
+            raise ValueError("pending reports MUST be a report-history suffix")
     _validate_result(record.result)
 
 
