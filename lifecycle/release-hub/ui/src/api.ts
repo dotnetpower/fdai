@@ -89,6 +89,10 @@ export function actionsFor(release: Release): Action[] {
   return release.state === "draft" ? ["publish"] : ["contribute", "recall"];
 }
 
+export function releaseStateIndex(releases: Release[]): ReadonlyMap<string, Release["state"]> {
+  return new Map(releases.map((release) => [release.id, release.state]));
+}
+
 export function isCustomChannel(value: string): boolean {
   return value.length <= 64 && value === value.trim() && /^custom-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }

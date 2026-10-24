@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { actionsFor, artifacts, isCustomChannel, parseReleaseManifest, releaseTitle, requestCatalog, schemaCompatibility, type Release } from "./api";
+import { actionsFor, artifacts, isCustomChannel, parseReleaseManifest, releaseStateIndex, releaseTitle, requestCatalog, schemaCompatibility, type Release } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe("release action boundaries", () => {
@@ -36,6 +36,23 @@ describe("release action boundaries", () => {
     expect(actionsFor({ ...base, state: "recalled" })).toEqual([]);
     expect(actionsFor({ ...base, state: "draft" })).toEqual(["publish"]);
     expect(actionsFor({ ...base, state: "published" })).toEqual(["contribute", "recall"]);
+  });
+  it("indexes release states once for repeated channel membership lookups", () => {
+    let reads = 0;
+    const releases = ["1.0.0", "1.1.0"].map((id) => ({
+      ...base,
+      id,
+      get state() {
+        reads += 1;
+        return id === "1.0.0" ? "recalled" as const : "published" as const;
+      },
+    }));
+    const states = releaseStateIndex(releases);
+    for (let index = 0; index < 100; index += 1) {
+      expect(states.get("1.0.0")).toBe("recalled");
+      expect(states.get("1.1.0")).toBe("published");
+    }
+    expect(reads).toBe(2);
   });
   it("preserves full artifact and evidence digests", () => {
     const digest = `sha256:${"a".repeat(64)}`;
