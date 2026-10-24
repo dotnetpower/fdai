@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: fa62262d3ae0ddb25b68df742d7f1f9d4fae0e50
+translation_source_sha: 6b8a4f20078892df727126a7eba461666fd92775
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -393,9 +393,14 @@ Release Hub는 공급업체의 제품이고, Lifecycle Hub는 고객의 배포 �
 기본 로컬 백엔드는 영속 비공개 저장소의 절대 경로를 명시적으로 받아, Azure Storage 없이
 기존 로컬 state를 보존합니다. 원격 백엔드는 후보 고정 전에 별도로 검토하는 표준 Terraform
 재정의 설정으로 선택할 수 있으며, 실행 중 백엔드를 바꾸지는 않습니다.
-공유 내부 모듈은 선택한 제품의 자원만 만듭니다. 다른 Hub의 state, ID, NAT 주소를 읽지 않습니다.
-승인된 기존 레지스트리는 외부 입력입니다. FDAI 소스/오프라인 설치기, 본체 인프라 루트,
-Agent 또는 클러스터 배포는 바꾸지 않습니다.
+공유 내부 모듈은 선택한 제품의 자원만 만듭니다. 다른 Hub의 state, ID, NAT 주소를 읽지
+않습니다. 승인된 레지스트리는 두 제품 루트에 명시적으로 주입하는 외부 입력으로 유지합니다.
+제품별 배포는 Lifecycle Hub의 state 소유권을 넘기지 않고 공유 Hub 이미지 전송 수단을
+Release Hub 리소스 그룹에 배치할 수 있습니다. 검증된 개발 토폴로지는 Release Hub가 소유한
+전용 ACR 하나를 사용하고, 각 Hub의 Managed Identity에 `AcrPull`을 부여하며, 모든 앱과 Job을
+제품별 다이제스트에 고정합니다. 레지스트리 이전은 Hub 데이터베이스, Key Vault, 네트워크
+또는 설치 권한을 바꾸지 않습니다. FDAI 소스/오프라인 설치기, 본체 인프라 루트, Agent 또는
+클러스터 배포도 바꾸지 않습니다.
 
 Entra 앱 등록이 0개여도 각 루트는 Graph나 디렉터리 state 없이 계획할 수 있고,
 각 원격 앱은 자기 스키마 이행, 서버 기동, 상태/준비 확인과 UI 제공을 수행할 수 있습니다.
