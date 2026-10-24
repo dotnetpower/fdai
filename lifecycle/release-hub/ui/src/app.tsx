@@ -34,7 +34,7 @@ function Confirm({ pending, catalog, close, done }: {
   }, []);
   async function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (busy || error) return;
+    if (busy) return;
     setBusy(true); setError("");
     try {
       await requestCatalog(action === "renew" ? "/v1/catalog/renew" : `/v1/releases/${encodeURIComponent(id)}/${action}`, {
