@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 6b405af76df5511e09192a984e67282056ce58b2
+translation_source_sha: fa62262d3ae0ddb25b68df742d7f1f9d4fae0e50
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -368,10 +368,16 @@ Hub, Azure 엔드포인트, 레지스트리 또는 클러스터에는 접촉하�
 `refresh-enrollment`가 보존된 proof와 키 쌍을 검증합니다. 설치본 신원과 payload는 유지하고
 `requested_at`만 갱신한 mode-`0600` proof를 새 파일에 기록하며 원본은 덮어쓰지 않습니다.
 
-이 선택 기능의 근거는 집중 로컬 테스트입니다. 실제 Entra 인증, 이미지, AKS, 볼륨 재연결,
-워크로드 변경 효과를 입증하지 않습니다. 이 준비 작업은 기존 Hub의 이미지, revision,
-카탈로그 연결, 네트워크 허용 목록을 변경하지 않습니다. 해당 변경에는 정확한 클라우드
-계획과 별도 승인이 먼저 필요합니다.
+이 선택 기능에는 범위가 제한된 실제 개발 설치본 증적도 하나 있습니다. Release Hub가
+정확한 서명 Release를 게시하고 Lifecycle Hub가 가져왔습니다. 설치본에 결속된 Managed
+Identity가 Plan과 산출물을 가져왔으며, Agent는 FDAI Operator canary 하나를 적용하고 Ready
+상태를 독립적으로 확인한 뒤 `applied`를 보고했습니다. 새 recompute는 `up-to-date`를
+반환했고 반복 poll은 `no-plan`을 반환했습니다. 이 증적은 보존된 AKS 개발 설치본 하나만
+포괄하며 production, 볼륨 재연결, 신원 교체, 여러 Entity 업데이트 또는 구성 키 교체를
+입증하지 않습니다. 설치본의 기존 데이터베이스 Secret 참조는 워크로드 준비 중에
+연결했습니다. 이후 비공개 런타임 묶음에는 Plan 실행 전에 이러한 의존성을 모두 포함해야
+합니다. 기존 Hub 이미지, revision, 카탈로그 연결, 네트워크 허용 목록은 정확한 클라우드
+계획과 별도 승인을 통해서만 변경합니다.
 
 ## 제품별 독립 배포
 

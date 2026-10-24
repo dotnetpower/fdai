@@ -364,9 +364,16 @@ and catalog stages outlive the bounded enrollment proof window, `refresh-enrollm
 retained proof and key pair, preserves the installation identity and payload, and writes a new
 mode-`0600` proof with only `requested_at` refreshed. It never overwrites the original.
 
-These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or workload
-effect evidence. Existing Hub images, revisions, catalog bindings and network allowlists are
-not changed by this preparation. An exact cloud plan and separate approval precede those effects.
+These opt-ins also have one bounded live development-installation receipt. Release Hub published
+and Lifecycle Hub imported the exact signed Release, an installation-bound Managed Identity fetched
+the Plan and artifacts, and the Agent applied and independently observed one ready FDAI Operator
+canary before reporting `applied`. A fresh recompute returned `up-to-date`, and repeated polls
+returned `no-plan`. This evidence covers one retained AKS development installation, not production,
+volume eviction, identity rotation, multi-Entity updates, or configuration-key rotation. The
+installation's existing database Secret reference was bound during workload preparation; future
+private runtime bundles must carry every such dependency before Plan execution. Existing Hub
+images, revisions, catalog bindings and network allowlists change only through exact cloud plans
+and separate approval.
 
 ## Independent product deployment
 
