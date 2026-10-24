@@ -347,6 +347,12 @@ strict readers never traverse the group-writable PVC mount root. A bounded `64Mi
 provides writable `/tmp` for Kubernetes dynamic discovery while the image root filesystem remains
 read-only.
 
+After the Hub accepts `apply-started`, the Agent checks Plan expiry again before the first
+Kubernetes mutation. If the prepared Plan has expired, it clears the journal and reports terminal
+`rejected` with `reason_code=plan_expired`, no exact Plan digest, and an empty summary. The Hub
+accepts only that no-effect successor and creates no rollback failure suppression; duplicate
+`apply-started` and every other rejected-after-start reason remain invalid.
+
 An expired native approval is a retryable local hold because an attributed operator can renew the
 same exact scope without changing the installation proof or Plan bytes. The Agent re-evaluates both
 new retryable records and legacy non-retryable records carrying this exact reason, including removal

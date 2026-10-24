@@ -20,7 +20,7 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import redirect_stdout
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
@@ -45,6 +45,7 @@ from fdai_lifecycle_agent.state import (
     PlanResult,
     StoredReport,
 )
+from fdai_lifecycle_agent.workload import Cluster, Manifest
 from fdai_lifecycle_hub import cli as hub_cli
 from fdai_lifecycle_hub.api import create_app
 from fdai_lifecycle_hub.signing import key_id_for, load_private_key, load_public_key
@@ -58,6 +59,28 @@ SECOND_PLAN = f"{INSTALLATION_ID}-00000002"
 _CREDENTIAL_PREFIXES = ("AZURE_", "ARM_", "MSI_", "IDENTITY_")
 
 type ConnectHub = Callable[[str, float], HttpHubClient]
+
+
+@dataclass
+class RecordingCluster:
+    """A mechanical Kubernetes seam that distinguishes dry runs from mutations."""
+
+    namespace: str = "fdai-demo"
+    dry_runs: list[tuple[str, str]] = field(default_factory=list)
+    mutations: list[tuple[str, str, str]] = field(default_factory=list)
+
+    def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
+        key = (str(manifest["kind"]), str(manifest["metadata"]["name"]))
+        if dry_run:
+            self.dry_runs.append(key)
+        else:
+            self.mutations.append(("apply", *key))
+
+    def get(self, kind: str, name: str) -> Manifest | None:
+        return None
+
+    def delete(self, kind: str, name: str) -> None:
+        self.mutations.append(("delete", kind, name))
 
 
 class MisroutedHub(HttpHubClient):
@@ -130,6 +153,7 @@ class Loop:
         *,
         connect_hub: ConnectHub = connect,
         clock: Callable[[], datetime] | None = None,
+        cluster: Cluster | None = None,
         expected_exit_code: int = 0,
     ) -> dict[str, Any]:
         hub_public_key = self.root / "hub.pub.pem"
@@ -148,12 +172,22 @@ class Loop:
             *("--current-state", str(self.root / "current-state.json")),
             *("--local-policy", str(self.root / "local-policy.json")),
         ]
+        if cluster is not None:
+            argv.extend(["--apply", "--kube-context", "integration", "--namespace", "fdai-demo"])
+
+        def connect_cluster(context: str, namespace: str) -> Cluster:
+            assert cluster is not None
+            assert (context, namespace) == ("integration", "fdai-demo")
+            return cluster
+
+        effective_clock = clock or (lambda: datetime.now(UTC))
         output = io.StringIO()
         with redirect_stdout(output):
-            exit_code = (
-                agent_cli.main(argv, connect_hub=connect_hub)
-                if clock is None
-                else agent_cli.main(argv, connect_hub=connect_hub, clock=clock)
+            exit_code = agent_cli.main(
+                argv,
+                connect_hub=connect_hub,
+                connect_cluster=connect_cluster,
+                clock=effective_clock,
             )
             assert exit_code == expected_exit_code
         result: dict[str, Any] = json.loads(output.getvalue())
@@ -475,6 +509,56 @@ def test_hub_rejects_invalid_agent_report_after_apply_started(
     assert [(report["attempt"], report["outcome"]) for report in loop.show()["reports"]] == [
         (1, "apply-started")
     ]
+
+
+def test_expiry_after_apply_started_is_terminal_without_kubernetes_mutation(
+    loop: Loop, database_url: str
+) -> None:
+    loop.enroll(open_window())
+    loop.recompute()
+    with HttpHubClient(loop.hub_url) as client:
+        signed = client.fetch_plan(INSTALLATION_ID)
+    assert signed is not None
+    plan = decode_canonical_plan_payload(signed.signed_payload, signed.signature)
+    local_policy = json.loads((loop.root / "local-policy.json").read_text())
+    local_policy["component_images"] = {"core-control-plane": "registry.example.test/fdai/core"}
+    (loop.root / "local-policy.json").write_text(json.dumps(local_policy))
+    cluster = RecordingCluster()
+
+    def expire_only_after_started_is_accepted() -> datetime:
+        accepted = any(report["outcome"] == "apply-started" for report in loop.show()["reports"])
+        offset = timedelta(seconds=1)
+        return plan.expires_at + offset if accepted else plan.expires_at - offset
+
+    expired = loop.poll(clock=expire_only_after_started_is_accepted, cluster=cluster)
+    restarted = loop.poll(clock=expire_only_after_started_is_accepted, cluster=cluster)
+    shown = loop.show()
+    store = HubStore.connect(database_url)
+    try:
+        suppressions = store.load(INSTALLATION_ID).suppressions
+    finally:
+        store.engine.dispose()
+
+    assert (expired["outcome"], expired["reason_code"], expired["reported"]) == (
+        "rejected",
+        "plan_expired",
+        True,
+    )
+    assert (restarted["outcome"], restarted["reason_code"], restarted["reported"]) == (
+        "already-reported",
+        "plan_expired",
+        True,
+    )
+    assert cluster.dry_runs
+    assert cluster.mutations == []
+    terminal_reports = [
+        (report["attempt"], report["outcome"], report["reason_code"]) for report in shown["reports"]
+    ]
+    assert terminal_reports == [
+        (1, "apply-started", "apply_started"),
+        (2, "rejected", "plan_expired"),
+    ]
+    assert suppressions == ()
 
 
 def test_plan_for_another_installation_is_rejected_and_the_hub_records_why(loop: Loop) -> None:

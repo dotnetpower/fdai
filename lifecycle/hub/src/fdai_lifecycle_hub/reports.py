@@ -2,8 +2,10 @@
 
 The agent reports `dry-run-admitted` or `rejected` for a dry run. When it applies a Plan, it
 reports `apply-started` right before the change and then `applied` or `rolled-back` with the next
-attempt. A `rolled-back` report holds every Entity of the Plan, so the Hub doesn't plan the
-failed Release for them again until the hold ends or an operator lifts it.
+attempt. The sole no-effect exception is `rejected:plan_expired` when the prepared Plan expires
+after the Hub accepts `apply-started` but before the first mutation. A `rolled-back` report holds
+every Entity of the Plan, so the Hub doesn't plan the failed Release for them again until the hold
+ends or an operator lifts it.
 """
 
 from __future__ import annotations
@@ -42,6 +44,30 @@ class ReportProgress(Protocol):
     @property
     def outcome(self) -> str: ...
 
+    @property
+    def reason_code(self) -> str: ...
+
+    @property
+    def exact_plan_digest(self) -> str | None: ...
+
+    @property
+    def summary(self) -> str: ...
+
+
+def _is_terminal(report: ReportProgress) -> bool:
+    return report.outcome in _TERMINAL_OUTCOMES or (
+        report.outcome == "rejected" and report.reason_code == "plan_expired"
+    )
+
+
+def _is_no_effect_expiry(report: ReportProgress) -> bool:
+    return (
+        report.outcome == "rejected"
+        and report.reason_code == "plan_expired"
+        and report.exact_plan_digest is None
+        and report.summary == ""
+    )
+
 
 def validate_report_progress(previous: ReportProgress | None, current: ReportProgress) -> None:
     """Reject attempt gaps and impossible transitions; attempts establish report order."""
@@ -54,9 +80,13 @@ def validate_report_progress(previous: ReportProgress | None, current: ReportPro
         return
     if current.attempt != previous.attempt + 1:
         raise ValueError("report attempts MUST be contiguous")
-    if previous.outcome in _TERMINAL_OUTCOMES:
+    if _is_terminal(previous):
         raise ValueError("a terminal report cannot be followed by another report")
-    if previous.outcome == "apply-started" and current.outcome not in _EFFECT_OUTCOMES:
+    if (
+        previous.outcome == "apply-started"
+        and current.outcome not in _EFFECT_OUTCOMES
+        and not _is_no_effect_expiry(current)
+    ):
         raise ValueError("apply-started MUST be followed by applied or rolled-back")
     if current.outcome in _EFFECT_OUTCOMES and previous.outcome != "apply-started":
         raise ValueError("an effect result requires the preceding apply-started report")

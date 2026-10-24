@@ -267,14 +267,58 @@ def test_report_progress_accepts_exact_nonterminal_successors(
     validate_report_progress(previous, current)
 
 
-@pytest.mark.parametrize("outcome", ["apply-started", "rejected"])
-def test_apply_started_rejects_non_effect_successor(outcome: str) -> None:
+@pytest.mark.parametrize(
+    ("outcome", "reason_code", "exact_digest", "summary"),
+    [
+        ("apply-started", "apply_started", True, "1 entity"),
+        ("rejected", "invalid_successor", False, ""),
+        ("rejected", "plan_expired", True, ""),
+        ("rejected", "plan_expired", False, "1 entity"),
+    ],
+)
+def test_apply_started_rejects_every_other_non_effect_successor(
+    outcome: str, reason_code: str, exact_digest: bool, summary: str
+) -> None:
     digest = "sha256:" + "a" * 64
     previous = _report(digest, 1, "apply-started", "apply_started")
-    current = _report(digest, 2, outcome, "invalid_successor")
+    current = PlanReport(
+        attempt=2,
+        outcome=outcome,
+        reason_code=reason_code,
+        exact_plan_digest=digest if exact_digest else None,
+        summary=summary,
+        reported_at=previous.reported_at + timedelta(seconds=1),
+    )
 
     with pytest.raises(ValueError, match="followed by applied or rolled-back"):
         validate_report_progress(previous, current)
+
+
+def test_apply_started_accepts_only_empty_plan_expired_rejection_and_makes_it_terminal() -> None:
+    digest = "sha256:" + "a" * 64
+    previous = _report(digest, 1, "apply-started", "apply_started")
+    expired = PlanReport(
+        attempt=2,
+        outcome="rejected",
+        reason_code="plan_expired",
+        exact_plan_digest=None,
+        summary="",
+        reported_at=previous.reported_at + timedelta(seconds=1),
+    )
+
+    validate_report_progress(previous, expired)
+
+    with pytest.raises(ValueError, match="terminal report"):
+        validate_report_progress(
+            expired,
+            expired.model_copy(
+                update={
+                    "attempt": 3,
+                    "reason_code": "invalid_successor",
+                    "reported_at": expired.reported_at + timedelta(seconds=1),
+                }
+            ),
+        )
 
 
 def test_report_attempts_are_contiguous_despite_client_clock_changes(
