@@ -538,7 +538,7 @@ class HubStore:
 
         return self._recompute(
             installation_id,
-            lambda session, row: planner(mapping.to_domain(session, row), now),
+            lambda _session, _row, installation: planner(installation, now),
             now=now,
         )
 
@@ -558,7 +558,11 @@ class HubStore:
         inputs. This does not import a package or advance a durable configuration chain head.
         """
 
-        def evaluate(session: Session, row: models.Installation) -> domain.PlanOutcome:
+        def evaluate(
+            session: Session,
+            row: models.Installation,
+            installation: domain.Installation,
+        ) -> domain.PlanOutcome:
             binding = resolve_binding(session, row, binding_version, now)
             recipient = X25519PublicKey.from_public_bytes(
                 bytes.fromhex(binding.installation_encryption_key)
@@ -577,7 +581,6 @@ class HubStore:
                 configuration_key=trusted_key,
                 installation_key_digest=encryption_key_digest(recipient),
             )
-            installation = mapping.to_domain(session, row)
             if now + installation.settings.plan_duration > binding.binding_expires_at:
                 raise KeyBindingError("configuration_binding_expires_before_plan")
             if installation.open_plan is not None:
@@ -612,9 +615,12 @@ class HubStore:
     ) -> domain.PlanOutcome:
         """The configured default: durable activation selects an upgrade input, not authority."""
 
-        def evaluate(session: Session, row: models.Installation) -> domain.PlanOutcome:
+        def evaluate(
+            session: Session,
+            row: models.Installation,
+            installation: domain.Installation,
+        ) -> domain.PlanOutcome:
             selected = persisted_candidate(session, row, catalog, now)
-            installation = mapping.to_domain(session, row)
             candidate = selected[0] if selected else None
             if selected is not None:
                 binding = resolve_binding(session, row, selected[1], now)
@@ -648,7 +654,7 @@ class HubStore:
     def _recompute(
         self,
         installation_id: str,
-        evaluate: Callable[[Session, models.Installation], domain.PlanOutcome],
+        evaluate: Callable[[Session, models.Installation, domain.Installation], domain.PlanOutcome],
         *,
         now: datetime,
         configuration_binding_version: int | None = None,
@@ -659,7 +665,7 @@ class HubStore:
             row = rows.lock_enrolled(session, installation_id)
             installation = mapping.to_domain(session, row)
             try:
-                outcome = evaluate(session, row)
+                outcome = evaluate(session, row, installation)
             except KeyBindingError as error:
                 failure = error
                 # Keep the denial durable without withdrawing an unrelated legacy Plan.
