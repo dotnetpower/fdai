@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 00376a5997fce5853dd658e0aa94e242cb9448e0
+translation_source_sha: bc9bfd70cb8b63f1ab7b0f3a219776083e02ba8f
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -340,7 +340,9 @@ owner-only `0600` 파일로 복사합니다. main Agent는 Kubernetes Secret을 
 있을 때만 제거하며, 비어 있지 않은 디렉터리는 계속 fail-closed 처리합니다. 로컬 native
 Job Pod template은 모든 stage 입력의 digest를 결속합니다. 따라서 정책, 승인, native
 state, current state, 공개 신원 또는 구성 산출물이 바뀌면 Job을 교체해 다시 실행합니다.
-로컬 native bootstrap 뒤 활성 Agent 입력에는 검증된 `lifecycle-native-scope.json`을 포함합니다.
+digest 앞 12자는 제한된 Job 이름에도 포함하므로 provider의 patch 동작이 필수 재실행을
+no-op으로 바꿀 수 없습니다. 로컬 native bootstrap 뒤 활성 Agent 입력에는 검증된
+`lifecycle-native-scope.json`을 포함합니다.
 초기화 Job은 설치본 개인 키를 Terraform에 복사하지 않고 이를 Agent 상태 경로에 atomic
 stage합니다. 모든 journal, current-state, native-state, 산출물 캐시 파일은 UID가 소유하고
 mode가 `0700`인 `/state/agent` 아래에 둡니다. group이 관리하는 PVC mount root는 Agent

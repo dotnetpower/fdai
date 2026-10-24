@@ -222,7 +222,7 @@ resource "kubernetes_job_v1" "initialize" {
   count               = var.enable_agent ? 1 : 0
   wait_for_completion = true
   metadata {
-    name      = "fdai-lifecycle-agent-initialize"
+    name      = "fdai-lifecycle-agent-init-${substr(local.initialize_input_digest, 0, 12)}"
     namespace = kubernetes_namespace_v1.agent.metadata[0].name
     labels = {
       "app.kubernetes.io/name"       = "fdai-lifecycle-agent-initialize"

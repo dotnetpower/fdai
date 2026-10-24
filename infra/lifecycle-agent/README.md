@@ -30,6 +30,8 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
   kubelet prepares the Agent Pod.
 - The Job Pod template carries a digest of every staged input. A policy, approval, native state,
   current state, public identity, or configuration artifact change replaces and reruns the Job.
+  The first 12 digest characters are also part of the bounded Job name so provider patch behavior
+  cannot turn a required rerun into a no-op.
 - Private inputs are rewritten from the retained Secret through mode-`0600` temporary files and
   atomic replacement on every initializer run. Existing or empty files are never accepted by
   presence alone.
