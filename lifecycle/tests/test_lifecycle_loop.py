@@ -23,7 +23,7 @@ from contextlib import redirect_stdout
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 import uvicorn
@@ -32,7 +32,12 @@ from fdai_deployment_cli.lifecycle_plan import decode_canonical_plan_payload
 from fdai_deployment_cli.runtime_release import parse_runtime_release_manifest
 
 from fdai_lifecycle_agent import cli as agent_cli
-from fdai_lifecycle_agent.hub_client import HttpHubClient, PlanReport, SignedPlan
+from fdai_lifecycle_agent.hub_client import (
+    HttpHubClient,
+    HubProtocolError,
+    PlanReport,
+    SignedPlan,
+)
 from fdai_lifecycle_agent.state import (
     AgentState,
     LocalStateStore,
@@ -429,6 +434,47 @@ def test_retryable_terminal_gap_replays_complete_prefix_across_agent_restarts(
         (3, "applied"),
     ]
     assert state_store.load().plans[plan.plan_id].pending_reports == ()
+
+
+@pytest.mark.parametrize("outcome", ["apply-started", "rejected"])
+def test_hub_rejects_invalid_agent_report_after_apply_started(
+    loop: Loop, outcome: Literal["apply-started", "rejected"]
+) -> None:
+    loop.enroll(open_window())
+    loop.recompute()
+    with HttpHubClient(loop.hub_url) as client:
+        signed = client.fetch_plan(INSTALLATION_ID)
+        assert signed is not None
+        exact_digest = f"sha256:{hashlib.sha256(signed.signed_payload).hexdigest()}"
+        reported_at = datetime.now(UTC)
+        client.submit_report(
+            INSTALLATION_ID,
+            FIRST_PLAN,
+            PlanReport(
+                attempt=1,
+                outcome="apply-started",
+                reason_code="apply_started",
+                exact_plan_digest=exact_digest,
+                summary='{"update":1}',
+                reported_at=reported_at,
+            ),
+        )
+        invalid = PlanReport(
+            attempt=2,
+            outcome=outcome,
+            reason_code="invalid_successor",
+            exact_plan_digest=exact_digest if outcome == "apply-started" else None,
+            summary='{"update":1}',
+            reported_at=reported_at + timedelta(seconds=1),
+        )
+
+        with pytest.raises(HubProtocolError, match="422 report_invalid") as error:
+            client.submit_report(INSTALLATION_ID, FIRST_PLAN, invalid)
+
+    assert error.value.code == "report_invalid"
+    assert [(report["attempt"], report["outcome"]) for report in loop.show()["reports"]] == [
+        (1, "apply-started")
+    ]
 
 
 def test_plan_for_another_installation_is_rejected_and_the_hub_records_why(loop: Loop) -> None:

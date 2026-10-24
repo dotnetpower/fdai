@@ -22,7 +22,11 @@ from fdai_lifecycle_hub.errors import (
     ReportAttemptGapError,
     ReportProgressionError,
 )
-from fdai_lifecycle_hub.reports import FAILURE_HOLD, FAILURE_HOLD_GRACE
+from fdai_lifecycle_hub.reports import (
+    FAILURE_HOLD,
+    FAILURE_HOLD_GRACE,
+    validate_report_progress,
+)
 from fdai_lifecycle_hub.schemas import PlanReport, reported_state_json
 from fdai_lifecycle_hub.signing import verify_key_proof
 from fdai_lifecycle_hub.store import HubStore
@@ -240,6 +244,37 @@ def test_effect_result_requires_apply_started(
             _report(issued.digest, 1, outcome, reason),
             now=now,
         )
+
+
+@pytest.mark.parametrize(
+    ("previous_outcome", "current_outcome", "current_reason"),
+    [
+        ("rejected", "rejected", "input_unavailable"),
+        ("rejected", "apply-started", "apply_started"),
+        ("apply-started", "applied", "applied"),
+        ("apply-started", "rolled-back", "apply_failed"),
+    ],
+)
+def test_report_progress_accepts_exact_nonterminal_successors(
+    previous_outcome: str,
+    current_outcome: str,
+    current_reason: str,
+) -> None:
+    digest = "sha256:" + "a" * 64
+    previous = _report(digest, 1, previous_outcome, "input_unavailable")
+    current = _report(digest, 2, current_outcome, current_reason)
+
+    validate_report_progress(previous, current)
+
+
+@pytest.mark.parametrize("outcome", ["apply-started", "rejected"])
+def test_apply_started_rejects_non_effect_successor(outcome: str) -> None:
+    digest = "sha256:" + "a" * 64
+    previous = _report(digest, 1, "apply-started", "apply_started")
+    current = _report(digest, 2, outcome, "invalid_successor")
+
+    with pytest.raises(ValueError, match="followed by applied or rolled-back"):
+        validate_report_progress(previous, current)
 
 
 def test_report_attempts_are_contiguous_despite_client_clock_changes(

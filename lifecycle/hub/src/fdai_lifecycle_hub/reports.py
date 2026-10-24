@@ -56,6 +56,8 @@ def validate_report_progress(previous: ReportProgress | None, current: ReportPro
         raise ValueError("report attempts MUST be contiguous")
     if previous.outcome in _TERMINAL_OUTCOMES:
         raise ValueError("a terminal report cannot be followed by another report")
+    if previous.outcome == "apply-started" and current.outcome not in _EFFECT_OUTCOMES:
+        raise ValueError("apply-started MUST be followed by applied or rolled-back")
     if current.outcome in _EFFECT_OUTCOMES and previous.outcome != "apply-started":
         raise ValueError("an effect result requires the preceding apply-started report")
 
