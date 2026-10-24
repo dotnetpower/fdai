@@ -92,8 +92,8 @@ class NativeStateStore:
         except OSError as error:
             raise WorkloadError("native_scope_state_unavailable") from error
         try:
-            document = load_json(raw, label="native scope state")
-            return NativeState.model_validate_json(canonical_bytes(document))
+            load_json(raw, label="native scope state")
+            return NativeState.model_validate_json(raw)
         except ValueError as error:
             raise WorkloadError("native_scope_state_invalid") from error
 

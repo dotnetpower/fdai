@@ -173,6 +173,18 @@ def manifests():
     )
 
 
+def test_native_state_load_avoids_canonical_json_round_trip(native, monkeypatch) -> None:
+    _, store, *_ = native
+    bootstrap(native)
+    expected = store.load()
+    monkeypatch.setattr(
+        "fdai_lifecycle_agent.native_state.canonical_bytes",
+        lambda _document: (_ for _ in ()).throw(AssertionError("unexpected canonicalization")),
+    )
+
+    assert store.load() == expected
+
+
 def scheduled_manifest():
     deployment = manifests()[0]
     return {
