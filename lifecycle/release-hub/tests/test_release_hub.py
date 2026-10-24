@@ -18,7 +18,13 @@ from starlette.testclient import TestClient
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_release_hub.api import create_app
-from fdai_release_hub.store import CatalogConfirmation, CatalogError, Change, ReleaseStore
+from fdai_release_hub.store import (
+    CapabilityChange,
+    CatalogConfirmation,
+    CatalogError,
+    Change,
+    ReleaseStore,
+)
 
 NOW = datetime(2026, 10, 15, 13, tzinfo=UTC)
 SAMPLES = Path(__file__).resolve().parents[2] / "hub" / "samples" / "catalog" / "releases"
@@ -473,6 +479,84 @@ def test_corrupt_signature_is_unavailable_not_verified(
     response = client.get("/v1/catalog")
     assert response.status_code == 503
     assert "failed verification" in response.json()["error"]
+
+
+@pytest.mark.parametrize(
+    ("action", "fields"),
+    [
+        ("contribute", {"channel": "RELEASE_CANDIDATE"}),
+        ("recall", {}),
+    ],
+)
+def test_corrupt_signature_blocks_release_mutation_before_commit(
+    store: ReleaseStore, action: str, fields: dict[str, str]
+) -> None:
+    publish(store)
+    with store.connect() as db:
+        db.exec_driver_sql("UPDATE releases SET signature='invalid'")
+    attempted = Change(
+        revision=2,
+        confirmation="1.6.0",
+        reason="Must not commit",
+        **fields,
+    )
+    with pytest.raises(CatalogError, match="failed verification"):
+        store.change(action, "1.6.0", attempted)
+    with store.connect() as db:
+        assert db.exec_driver_sql("SELECT count(*) FROM events").scalar_one() == 2
+        assert db.exec_driver_sql("SELECT count(*) FROM membership").scalar_one() == 1
+        assert db.exec_driver_sql("SELECT recalled_at FROM releases").scalar_one() is None
+
+
+def test_corrupt_lifting_release_blocks_capability_lift_before_commit(store: ReleaseStore) -> None:
+    publish(store)
+    capability_id = "action:scale-service"
+    store.change_capability(
+        "recall",
+        capability_id,
+        CapabilityChange(
+            revision=2,
+            confirmation=capability_id,
+            reason="Safety regression",
+        ),
+    )
+    with store.connect() as db:
+        db.exec_driver_sql("UPDATE releases SET signature='invalid'")
+    with pytest.raises(CatalogError, match="failed verification"):
+        store.change_capability(
+            "lift",
+            capability_id,
+            CapabilityChange(
+                revision=3,
+                confirmation=capability_id,
+                reason="Must not commit",
+                lifting_release_id="1.6.0",
+            ),
+        )
+    with store.connect() as db:
+        assert db.exec_driver_sql("SELECT count(*) FROM events").scalar_one() == 3
+
+
+@pytest.mark.parametrize(
+    ("statement", "message"),
+    [
+        ("UPDATE releases SET signature=NULL", "signature failed verification"),
+        ("UPDATE releases SET published_at=NULL", "publication state is inconsistent"),
+        (
+            "UPDATE releases SET signature=NULL, published_at=NULL, "
+            "recalled_at='2026-10-15T13:00:00+00:00'",
+            "signature failed verification",
+        ),
+    ],
+)
+def test_inconsistent_publication_metadata_is_unavailable(
+    store: ReleaseStore, statement: str, message: str
+) -> None:
+    publish(store)
+    with store.connect() as db:
+        db.exec_driver_sql(statement)
+    with pytest.raises(CatalogError, match=message):
+        store.snapshot()
 
 
 def test_storage_failure_is_explicit_503(client: TestClient, store: ReleaseStore) -> None:

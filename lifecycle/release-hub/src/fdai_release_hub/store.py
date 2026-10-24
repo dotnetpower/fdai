@@ -167,6 +167,20 @@ class ReleaseStore:
         except (InvalidSignature, ValueError) as error:
             raise CatalogError("Stored Release signature failed verification.", 503) from error
 
+    def _verify_release_state(
+        self,
+        manifest: str,
+        signature: str | None,
+        published_at: str | None,
+        recalled_at: str | None,
+    ) -> None:
+        if (published_at is not None or recalled_at is not None) and not signature:
+            self._verify_signature(manifest, signature)
+        if signature and published_at is None:
+            raise CatalogError("Stored Release publication state is inconsistent.", 503)
+        if signature:
+            self._verify_signature(manifest, signature)
+
     def renew(
         self, change: CatalogConfirmation, *, actor: str = "local-operator"
     ) -> dict[str, Any]:
@@ -194,8 +208,7 @@ class ReleaseStore:
                     releases.c.recalled_at,
                 )
             ):
-                if published_at is not None or recalled_at is not None or signature:
-                    self._verify_signature(manifest, signature)
+                self._verify_release_state(manifest, signature, published_at, recalled_at)
             self._record_event(db, "renew", "catalog", change, actor, now.isoformat())
         return self.snapshot()
 
@@ -251,6 +264,12 @@ class ReleaseStore:
             else:
                 if row is None:
                     raise CatalogError("Release not found.", 404)
+                self._verify_release_state(
+                    row["manifest"],
+                    row["signature"],
+                    row["published_at"],
+                    row["recalled_at"],
+                )
                 if row["recalled_at"]:
                     raise CatalogError("Recalled Releases cannot be changed or re-promoted.", 409)
                 if action == "publish":
@@ -369,6 +388,12 @@ class ReleaseStore:
                     or lifting_row["recalled_at"]
                 ):
                     raise CatalogError("Lifting Release must be published and not recalled.", 409)
+                self._verify_release_state(
+                    lifting_row["manifest"],
+                    lifting_row["signature"],
+                    lifting_row["published_at"],
+                    lifting_row["recalled_at"],
+                )
                 self._record_event(
                     db,
                     "lift_capability",
@@ -474,11 +499,15 @@ class ReleaseStore:
         records = []
         for row in rows:
             record = dict(row)
+            self._verify_release_state(
+                record["manifest"],
+                record["signature"],
+                record["published_at"],
+                record["recalled_at"],
+            )
             record["signed_payload_sha256"] = hashlib.sha256(
                 record["manifest"].encode()
             ).hexdigest()
-            if record["signature"]:
-                self._verify_signature(record["manifest"], record["signature"])
             record["channels"] = [m["channel"] for m in memberships if m["release_id"] == row["id"]]
             record["state"] = (
                 "recalled" if row["recalled_at"] else "published" if row["signature"] else "draft"
