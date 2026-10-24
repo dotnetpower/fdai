@@ -375,6 +375,18 @@ private runtime bundles must carry every such dependency before Plan execution. 
 images, revisions, catalog bindings and network allowlists change only through exact cloud plans
 and separate approval.
 
+A second bounded receipt qualifies the application-neutral lifecycle on a newly created customer
+development AKS cluster. Release Hub published nginx `2180.0.0`, distinct update `2180.1.0`, and
+controlled-failure `2180.2.0`; Lifecycle Hub imported each exact catalog revision and issued
+installation-bound Plans. The Agent installed and updated nginx, then reported `rolled-back` with
+`health_check_failed` after the failure image became unhealthy. Independent readback confirmed the
+restored `2180.1.0` image digest, Ready 1/1, HTTP 200, and an unchanged Service UID. A new recompute
+returned `waiting` with no Plan, preserving the failure hold. Cross-installation access returned
+403, and Agent and Hub replica replacement retained state without duplicate workload effects. The
+temporary AKS, registry, identities, and node resource group were removed after validation, and
+the Lifecycle Hub trust and network inputs returned to a zero-change plan. This receipt validates
+the nginx gate in #2180; it does not qualify the complete FDAI topology tracked by #2181.
+
 ## Independent product deployment
 
 Release Hub is the vendor's product. Lifecycle Hub is the customer's deployment-management

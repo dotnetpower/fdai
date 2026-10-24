@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 6b8a4f20078892df727126a7eba461666fd92775
+translation_source_sha: 855c536bfee5d1a5e2474db4558383809e53ddde
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -378,6 +378,19 @@ Identity가 Plan과 산출물을 가져왔으며, Agent는 FDAI Operator canary 
 연결했습니다. 이후 비공개 런타임 묶음에는 Plan 실행 전에 이러한 의존성을 모두 포함해야
 합니다. 기존 Hub 이미지, revision, 카탈로그 연결, 네트워크 허용 목록은 정확한 클라우드
 계획과 별도 승인을 통해서만 변경합니다.
+
+두 번째 범위 제한 증적은 새로 만든 고객 개발 AKS 클러스터에서 애플리케이션 중립적인
+수명 주기를 검증합니다. Release Hub는 nginx `2180.0.0`, 별도 업데이트 `2180.1.0`,
+통제된 실패 버전 `2180.2.0`을 게시했습니다. Lifecycle Hub는 각 exact catalog revision을
+가져와 설치본에 결속된 Plan을 발급했습니다. Agent는 nginx를 설치하고 업데이트한 뒤 실패
+이미지가 비정상 상태가 되자 `health_check_failed`와 함께 `rolled-back`을 보고했습니다.
+독립 readback에서 복원된 `2180.1.0` 이미지 다이제스트, Ready 1/1, HTTP 200, 변경되지 않은
+Service UID를 확인했습니다. 새 recompute는 Plan 없이 `waiting`을 반환해 실패 보류를
+유지했습니다. 다른 설치본에 대한 접근은 403을 반환했으며 Agent와 Hub replica를 교체해도
+상태가 유지되고 워크로드 효과가 중복되지 않았습니다. 검증 후 임시 AKS, 레지스트리, 신원,
+노드 리소스 그룹을 제거했고 Lifecycle Hub trust와 네트워크 입력은 zero-change plan으로
+복원했습니다. 이 증적은 #2180의 nginx gate를 검증하지만 #2181에서 추적하는 전체 FDAI
+topology를 검증하지는 않습니다.
 
 ## 제품별 독립 배포
 
