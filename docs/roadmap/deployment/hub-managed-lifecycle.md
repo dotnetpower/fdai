@@ -349,8 +349,8 @@ read-only.
 
 An expired native approval is a retryable local hold because an attributed operator can renew the
 same exact scope without changing the installation proof or Plan bytes. The Agent re-evaluates both
-new retryable records and legacy non-retryable records carrying this exact reason; all other final
-rejections remain replay-safe.
+new retryable records and legacy non-retryable records carrying this exact reason, including removal
+of its legacy sequence tombstone; all other final rejections remain replay-safe.
 
 `fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
 remote effect. From a clean source revision, digest-pinned component images, a reviewed private

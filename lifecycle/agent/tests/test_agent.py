@@ -266,6 +266,7 @@ def test_legacy_expired_native_approval_result_is_retried(harness: Harness) -> N
         reason_code="native_scope_approval_expired",
         retryable=False,
     )
+    state["rejected_sequences"] = [plan.sequence]
     harness.state_store.path.write_text(json.dumps(state))
     harness.store.releases[harness.release_digest] = release
 
@@ -273,6 +274,7 @@ def test_legacy_expired_native_approval_result_is_retried(harness: Harness) -> N
 
     assert admitted.outcome == "dry-run-admitted"
     assert harness.hub.reports[-1][2].attempt == 2
+    assert _state_file(harness)["rejected_sequences"] == []
 
 
 def test_unreadable_input_is_a_retryable_rejection(harness: Harness) -> None:

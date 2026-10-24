@@ -301,6 +301,11 @@ class LifecycleAgent:
         state = self._deps.state_store.load()
         payload_digest = hashlib.sha256(signed.signed_payload).hexdigest()
         existing = state.plans.get(plan.plan_id)
+        if existing is not None and existing.result.reason_code == "native_scope_approval_expired":
+            state = replace(
+                state,
+                rejected_sequences=state.rejected_sequences - {existing.sequence},
+            )
         if (
             existing is not None
             and not existing.result.retryable
