@@ -675,6 +675,15 @@ Focused modules own configuration and identity contracts, bounded ARM transport,
 resource reads and mutations. The split preserves the three vertical executor identities, one-resource
 blast radius, effect readback, rollback, and no-authority defaults.
 
+### Executor role on the Hub path
+
+The workload root accepts `hub_managed` (default `false`). When it is `true`, the Lifecycle Agent
+owns the runtime namespace's workloads, so the root binds no Executor Kubernetes-effect Role or
+RoleBinding there and the Executor cannot patch or delete the Hub-managed Deployments or Pods.
+Planning also rejects a Hub-managed namespace that is on the Executor direct-API allowlist.
+Scale targets in other namespaces stay bound exactly as below, because they no longer depend on the
+runtime-namespace role. The default `false` keeps the Terraform-managed behavior unchanged.
+
 ### Exact external Deployment scaling
 
 The workload root accepts `executor_external_scale_targets`, an opt-in map from an existing

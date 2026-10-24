@@ -74,13 +74,15 @@ locals {
     },
   )
   inventory_job_enabled = contains(keys(var.scheduled_jobs), "inventory")
-  executor_kubernetes_effect_enabled = try(
+  executor_direct_api_enabled = try(
     contains(
       keys(var.workloads["isolated-executor"].environment),
       "FDAI_KUBERNETES_DIRECT_API_JSON",
     ),
     false,
   )
+  # A Hub-managed namespace is changed only by the Lifecycle Agent.
+  executor_kubernetes_effect_enabled = local.executor_direct_api_enabled && !var.hub_managed
 }
 
 resource "kubernetes_namespace_v1" "runtime" {
@@ -90,6 +92,19 @@ resource "kubernetes_namespace_v1" "runtime" {
       "app.kubernetes.io/part-of"          = "fdai"
       "app.kubernetes.io/managed-by"       = "terraform"
       "pod-security.kubernetes.io/enforce" = "restricted"
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition = !(var.hub_managed && local.executor_direct_api_enabled && try(
+        contains(
+          jsondecode(var.workloads["isolated-executor"].environment["FDAI_KUBERNETES_DIRECT_API_JSON"]).allowed_namespaces,
+          var.namespace,
+        ),
+        false,
+      ))
+      error_message = "A Hub-managed namespace cannot be on the Executor Kubernetes direct-API allowlist; the Lifecycle Agent owns its workloads."
     }
   }
 }
@@ -287,7 +302,7 @@ resource "kubernetes_role_v1" "executor_external_scale" {
 
   lifecycle {
     precondition {
-      condition = local.executor_kubernetes_effect_enabled && try(
+      condition = local.executor_direct_api_enabled && try(
         var.workloads["isolated-executor"].environment["FDAI_EXECUTION_VENUE"] == "deployed" &&
         contains(
           jsondecode(var.workloads["isolated-executor"].environment["FDAI_KUBERNETES_DIRECT_API_JSON"]).allowed_namespaces,
