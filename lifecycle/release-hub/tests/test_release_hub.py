@@ -404,6 +404,43 @@ def test_api_errors_origin_and_loopback_boundary(client: TestClient, store: Rele
     assert client.get("/v1/catalog", headers={"Host": "example.com"}).status_code == 400
 
 
+def test_api_normalizes_json_media_type_and_rejects_encoded_bodies(client: TestClient) -> None:
+    payload = {"revision": 0, "confirmation": "1.6.0", "reason": "Review"}
+    accepted = client.post(
+        "/v1/releases/1.6.0/publish",
+        content=json.dumps(payload),
+        headers={"Content-Type": " Application/JSON ; charset=utf-8"},
+    )
+    assert accepted.status_code == 404
+    encoded = client.post(
+        "/v1/releases/1.6.0/publish",
+        content=json.dumps(payload),
+        headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+    )
+    assert encoded.status_code == 415
+    assert encoded.json() == {"error": "Encoded request bodies are not supported."}
+
+
+@pytest.mark.parametrize(
+    ("declared_length", "status", "message"),
+    [
+        ("invalid", 400, "Content-Length must be an integer."),
+        ("-1", 400, "Content-Length cannot be negative."),
+        (str(2 * 1024 * 1024 + 1), 413, "Request body is too large."),
+    ],
+)
+def test_api_rejects_invalid_declared_body_lengths_before_parsing(
+    client: TestClient, declared_length: str, status: int, message: str
+) -> None:
+    response = client.post(
+        "/v1/catalog/renew",
+        content="{}",
+        headers={"Content-Type": "application/json", "Content-Length": declared_length},
+    )
+    assert response.status_code == status
+    assert response.json() == {"error": message}
+
+
 def test_api_real_mutation_readback_and_export(client: TestClient) -> None:
     payload = {
         "revision": 0,

@@ -55,8 +55,28 @@ def create_app(
             return JSONResponse({"error": str(error)}, status_code=error.status)
 
     async def change(request: Request, *, action: str) -> Response:
-        if request.headers.get("content-type", "").split(";")[0] != "application/json":
+        media_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
+        if media_type != "application/json":
             return JSONResponse({"error": "Use application/json."}, status_code=415)
+        content_encoding = request.headers.get("content-encoding", "identity").strip().lower()
+        if content_encoding != "identity":
+            return JSONResponse(
+                {"error": "Encoded request bodies are not supported."}, status_code=415
+            )
+        declared_length = request.headers.get("content-length")
+        if declared_length is not None:
+            try:
+                content_length = int(declared_length)
+            except ValueError:
+                return JSONResponse(
+                    {"error": "Content-Length must be an integer."}, status_code=400
+                )
+            if content_length < 0:
+                return JSONResponse(
+                    {"error": "Content-Length cannot be negative."}, status_code=400
+                )
+            if content_length > MAX_BODY:
+                return JSONResponse({"error": "Request body is too large."}, status_code=413)
         body = bytearray()
         async for chunk in request.stream():
             body.extend(chunk)
