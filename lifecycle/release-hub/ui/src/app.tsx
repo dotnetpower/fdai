@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { actionsFor, artifacts, isCustomChannel, releaseTitle, requestCatalog, schemaCompatibility, type Action, type Catalog, type Release } from "./api";
+import { actionsFor, artifacts, isCustomChannel, parseReleaseManifest, releaseTitle, requestCatalog, schemaCompatibility, type Action, type Catalog, type Release } from "./api";
 
 const TITLES = { register: "Register release", publish: "Publish to DEV", contribute: "Add to channel", recall: "Recall release", renew: "Renew catalog freshness" };
 type Pending = { action: Action; release: Release | null };
@@ -112,16 +112,16 @@ function Status({ release }: { release: Release }) {
 function ReleaseDetail({ release, catalog, act, disabled }: {
   release: Release; catalog: Catalog; act: (action: Action, release: Release) => void; disabled: boolean;
 }) {
-  const manifest = JSON.parse(release.manifest) as { source_commit: string; platform_tag: string; schema: { target: number; tolerates: { minimum: number; maximum: number } } };
+  const manifest = parseReleaseManifest(release.manifest);
   return <>
     <a href="#/releases" class="back">All releases</a>
-    <div class="page-head"><div><p class="eyebrow">Release detail</p><h1>{releaseTitle(release)}</h1><p>{release.label || "No release label"}</p></div>
+    <div class="page-head"><div><p class="eyebrow">Release detail</p><h1>{releaseTitle(release, manifest)}</h1><p>{release.label || "No release label"}</p></div>
       <div class="actions">{actionsFor(release).map((action) => <button key={action} disabled={disabled} class={action === "recall" ? "danger" : ""} onClick={() => act(action, release)}>{TITLES[action]}</button>)}</div>
     </div>
     <div class="facts">
       <div><span>Publication state</span><Status release={release} /></div>
       <div><span>Manifest signature</span><strong>{release.signature ? "Development key verified" : "Unsigned"}</strong></div>
-      <div><span>Schema compatibility</span><strong>{schemaCompatibility(release.manifest)}</strong></div>
+      <div><span>Schema compatibility</span><strong>{schemaCompatibility(manifest)}</strong></div>
       <div><span>Artifact availability</span><strong>Unverified</strong></div>
     </div>
     {release.state === "recalled" && <p class="warning" role="status">Recalled at {time(release.recalled_at!)}. New channel contributions are blocked. Refresh the pinned catalog before recomputing Lifecycle Plans.</p>}
@@ -129,7 +129,7 @@ function ReleaseDetail({ release, catalog, act, disabled }: {
       <div class="channel" key={channel}><h3>{channel}</h3><p>{members.includes(release.id) ? release.state === "recalled" ? "Withdrawn by recall" : "Eligible for planning" : "Not added"}</p><a href="#/channels">Review channel</a></div>
     )}</div></section>
     <section><h2>Artifacts</h2><p>Declared digests from the manifest. No image build, registry check, SBOM review or provenance verification has run.</p>
-      <div class="artifact-list">{artifacts(release.manifest).map((artifact) => <article key={artifact.component}>
+      <div class="artifact-list">{artifacts(manifest).map((artifact) => <article key={artifact.component}>
         <h3>{artifact.component}</h3><code class="digest">{artifact.digest}</code>
         <details><summary>SBOM digest</summary><code class="digest">{artifact.sbom}</code></details>
       </article>)}</div>

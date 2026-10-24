@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { actionsFor, artifacts, isCustomChannel, releaseTitle, requestCatalog, schemaCompatibility, type Release } from "./api";
+import { actionsFor, artifacts, isCustomChannel, parseReleaseManifest, releaseTitle, requestCatalog, schemaCompatibility, type Release } from "./api";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe("release action boundaries", () => {
@@ -39,20 +39,35 @@ describe("release action boundaries", () => {
   });
   it("preserves full artifact and evidence digests", () => {
     const digest = `sha256:${"a".repeat(64)}`;
-    expect(artifacts(JSON.stringify({ services: { core: { image_digest: digest, sbom_sha256: "b".repeat(64) } } })))
+    expect(artifacts(parseReleaseManifest(JSON.stringify({ services: { core: { image_digest: digest, sbom_sha256: "b".repeat(64) } } }))))
       .toEqual([{ component: "core", digest, sbom: "b".repeat(64) }]);
   });
   it.each(["example-web", "example-worker", "fdai"])("renders %s without application branches", (product) => {
     const digest = `sha256:${"a".repeat(64)}`;
-    const manifest = JSON.stringify({ product, workloads: { frontend: { image_digest: digest } } });
-    expect(releaseTitle({ ...base, manifest })).toBe(`${product} 1.0.0`);
+    const raw = JSON.stringify({ product, workloads: { frontend: { image_digest: digest } } });
+    const manifest = parseReleaseManifest(raw);
+    expect(releaseTitle({ ...base, manifest: raw }, manifest)).toBe(`${product} 1.0.0`);
     expect(schemaCompatibility(manifest)).toBe("Not declared (stateless package)");
     expect(artifacts(manifest)).toEqual([{ component: "frontend", digest, sbom: "Not declared" }]);
   });
   it("does not invent a product for a legacy manifest", () => {
-    const manifest = JSON.stringify({ schema: { target: 6, tolerates: { minimum: 5, maximum: 7 } } });
-    expect(releaseTitle({ ...base, manifest })).toBe("Release 1.0.0");
+    const raw = JSON.stringify({ schema: { target: 6, tolerates: { minimum: 5, maximum: 7 } } });
+    const manifest = parseReleaseManifest(raw);
+    expect(releaseTitle({ ...base, manifest: raw }, manifest)).toBe("Release 1.0.0");
     expect(schemaCompatibility(manifest)).toBe("5 - 7 (target 6)");
+  });
+  it("parses one detail manifest once for all derived views", () => {
+    const parse = vi.spyOn(JSON, "parse");
+    const raw = JSON.stringify({
+      product: "example-web",
+      schema: { target: 0, tolerates: { minimum: 0, maximum: 0 } },
+      workloads: { frontend: { image_digest: `sha256:${"a".repeat(64)}` } },
+    });
+    const manifest = parseReleaseManifest(raw);
+    releaseTitle({ ...base, manifest: raw }, manifest);
+    schemaCompatibility(manifest);
+    artifacts(manifest);
+    expect(parse).toHaveBeenCalledTimes(1);
   });
   it("surfaces server denial without success-shaped defaults", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: "Catalog changed." }) }));
@@ -106,7 +121,7 @@ describe("release action boundaries", () => {
   });
   it("fails closed when artifact evidence has no digest", () => {
     const manifest = JSON.stringify({ services: { core: { sbom_sha256: "b".repeat(64) } } });
-    expect(() => artifacts(manifest)).toThrow("Artifact core has no digest.");
+    expect(() => artifacts(parseReleaseManifest(manifest))).toThrow("Artifact core has no digest.");
   });
   it("never retries a renewal after its request is aborted", async () => {
     const controller = new AbortController();
