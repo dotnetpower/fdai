@@ -18,7 +18,13 @@ FIELD_MANAGER = "fdai-lifecycle-agent"
 MANAGED_BY_LABEL = "app.kubernetes.io/managed-by"
 ENTITY_LABEL = "fdai.io/entity"
 COMPONENT_LABEL = "fdai.io/component"
-API_VERSIONS = {"Deployment": "apps/v1", "Service": "v1", "Job": "batch/v1", "CronJob": "batch/v1"}
+API_VERSIONS = {
+    "Deployment": "apps/v1",
+    "Service": "v1",
+    "Job": "batch/v1",
+    "CronJob": "batch/v1",
+    "HorizontalPodAutoscaler": "autoscaling/v2",
+}
 CONTAINER_PORT = 8080
 
 _DNS_LABEL = re.compile(r"[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\Z", re.ASCII)
@@ -206,7 +212,10 @@ def rollout_complete(deployment: Manifest) -> bool:
     spec = deployment.get("spec") or {}
     status = deployment.get("status") or {}
     generation = (deployment.get("metadata") or {}).get("generation", 0)
-    replicas = spec.get("replicas", 1)
+    # An autoscaled Deployment omits replicas; the controller-reported count is then the target.
+    replicas = spec["replicas"] if "replicas" in spec else status.get("replicas", 0)
+    if replicas < 1 and "replicas" not in spec:
+        return False
     return status.get("observedGeneration", -1) >= generation and all(
         status.get(field, 0) == replicas
         for field in ("replicas", "updatedReplicas", "availableReplicas", "readyReplicas")
@@ -265,10 +274,13 @@ class Workload:
             lambda: self._jobs_complete(jobs), can_continue=can_continue
         ):
             raise WorkloadError("schema_check_failed")
-        for manifest in desired:
-            if manifest["kind"] not in {"Job", "CronJob"}:
-                _check_deadline(can_continue)
-                self.cluster.apply(manifest)
+        # An autoscaler is applied after its target Deployment exists.
+        for manifest in sorted(
+            (item for item in desired if item["kind"] not in {"Job", "CronJob"}),
+            key=lambda item: item["kind"] == "HorizontalPodAutoscaler",
+        ):
+            _check_deadline(can_continue)
+            self.cluster.apply(manifest)
         immediate = tuple(item for item in desired if item["kind"] != "CronJob")
         if not self._wait_until(lambda: self._rolled_out(immediate), can_continue=can_continue):
             return False

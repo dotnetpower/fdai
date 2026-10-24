@@ -134,6 +134,11 @@ resource "kubernetes_role_v1" "workloads" {
     resources  = ["services", "deployments", "jobs", "cronjobs"]
     verbs      = ["get", "create", "patch", "delete"]
   }
+  rule {
+    api_groups = ["autoscaling"]
+    resources  = ["horizontalpodautoscalers"]
+    verbs      = ["get", "create", "patch", "delete"]
+  }
   lifecycle {
     prevent_destroy = true
   }
