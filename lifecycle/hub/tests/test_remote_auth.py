@@ -56,13 +56,37 @@ def test_entra_signing_keys_reject_duplicate_key_ids(auth, monkeypatch):
         def raise_for_status(self):
             return None
 
-        def iter_raw(self, *, chunk_size):
-            assert chunk_size == 16 * 1024
+        def iter_raw(self):
             yield json.dumps({"keys": [public, public]}).encode()
 
     monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.httpx.stream", lambda *_a, **_k: Response())
 
     with pytest.raises(ValueError, match="duplicate key id"):
+        EntraVerifier(auth)._refresh()
+
+
+def test_entra_signing_key_trickle_observes_total_refresh_deadline(auth, monkeypatch):
+    class Response:
+        headers = {"content-encoding": "identity"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        def iter_raw(self):
+            yield b"{"
+            yield b'"'
+
+    clock = iter((100.0, 104.0, 105.0))
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: next(clock))
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.httpx.stream", lambda *_a, **_k: Response())
+
+    with pytest.raises(ValueError, match="exceeded its bound"):
         EntraVerifier(auth)._refresh()
 
 

@@ -116,7 +116,7 @@ class EntraVerifier:
             response.raise_for_status()
             if response.headers.get("content-encoding", "identity") != "identity":
                 raise ValueError("Compressed signing-key responses are not accepted.")
-            for chunk in response.iter_raw(chunk_size=16 * 1024):
+            for chunk in response.iter_raw():
                 raw.extend(chunk)
                 if len(raw) > MAX_JWKS_BYTES or time.monotonic() >= deadline:
                     raise ValueError("Entra signing-key response exceeded its bound.")
