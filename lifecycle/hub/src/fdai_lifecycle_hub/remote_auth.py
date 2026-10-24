@@ -26,6 +26,7 @@ from starlette.routing import Route
 logger = logging.getLogger(__name__)
 MAX_JWKS_BYTES = 256 * 1024
 JWKS_CACHE_SECONDS = 300
+MAX_JWKS_STALE_SECONDS = 900
 UNKNOWN_KID_REFRESH_SECONDS = 30
 
 
@@ -96,6 +97,7 @@ class EntraVerifier:
         self._keys: dict[str, PyJWK] = {}
         self._refresh_after = 0.0
         self._unknown_kid_refresh_after = 0.0
+        self._last_successful_refresh: float | None = None
         self._refresh_condition = Condition()
         self._refreshing = False
 
@@ -133,8 +135,16 @@ class EntraVerifier:
             raise ValueError("Entra signing-key response has no supported key.")
         self._keys = keys
         refreshed_at = time.monotonic()
+        self._last_successful_refresh = refreshed_at
         self._refresh_after = refreshed_at + JWKS_CACHE_SECONDS
         self._unknown_kid_refresh_after = refreshed_at + UNKNOWN_KID_REFRESH_SECONDS
+
+    def _stale_keys_usable(self, now: float) -> bool:
+        return (
+            bool(self._keys)
+            and self._last_successful_refresh is not None
+            and now < self._last_successful_refresh + MAX_JWKS_STALE_SECONDS
+        )
 
     def _refresh_for(self, kid: str) -> None:
         """Single-flight a due refresh and briefly retain valid keys when refresh fails."""
@@ -146,6 +156,8 @@ class EntraVerifier:
                     kid not in self._keys and now >= self._unknown_kid_refresh_after
                 )
                 if not due:
+                    if self._keys and not self._stale_keys_usable(now):
+                        raise ValueError("Entra signing keys exceeded their stale lifetime.")
                     return
                 if self._refreshing:
                     completed = self._refresh_condition.wait_for(
@@ -159,13 +171,16 @@ class EntraVerifier:
         try:
             self._refresh()
         except (httpx.HTTPError, PyJWTError, KeyError, ValueError) as error:
-            retry_at = time.monotonic() + UNKNOWN_KID_REFRESH_SECONDS
+            failed_at = time.monotonic()
+            retry_at = failed_at + UNKNOWN_KID_REFRESH_SECONDS
             with self._refresh_condition:
                 self._refresh_after = retry_at
                 self._unknown_kid_refresh_after = retry_at
             logger.warning("hub_jwks_refresh_failed error=%s", type(error).__name__)
             if not self._keys:
                 raise
+            if not self._stale_keys_usable(failed_at):
+                raise ValueError("Entra signing keys exceeded their stale lifetime.") from error
         finally:
             with self._refresh_condition:
                 self._refreshing = False

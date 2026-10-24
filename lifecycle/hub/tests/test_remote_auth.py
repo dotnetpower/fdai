@@ -17,6 +17,7 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from fdai_lifecycle_hub.remote_auth import (
+    MAX_JWKS_STALE_SECONDS,
     AgentPrincipal,
     EntraVerifier,
     RemoteAuth,
@@ -74,6 +75,7 @@ def test_entra_unknown_key_refreshes_once_inside_cache_window(auth, monkeypatch)
     new_public["kid"] = "new"
     verifier = EntraVerifier(auth)
     verifier._keys = {"old": jwt.PyJWK.from_dict(old_public, algorithm="RS256")}
+    verifier._last_successful_refresh = time.monotonic()
     verifier._refresh_after = time.monotonic() + 600
     verifier._unknown_kid_refresh_after = 0
     refreshes = 0
@@ -82,6 +84,7 @@ def test_entra_unknown_key_refreshes_once_inside_cache_window(auth, monkeypatch)
         nonlocal refreshes
         refreshes += 1
         verifier._keys = {"new": jwt.PyJWK.from_dict(new_public, algorithm="RS256")}
+        verifier._last_successful_refresh = time.monotonic()
         verifier._unknown_kid_refresh_after = time.monotonic() + 30
 
     monkeypatch.setattr(verifier, "_refresh", refresh)
@@ -113,6 +116,7 @@ def test_concurrent_unknown_keys_single_flight_the_jwks_refresh(auth, monkeypatc
     public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     public["kid"] = "new"
     verifier = EntraVerifier(auth)
+    verifier._last_successful_refresh = time.monotonic()
     verifier._refresh_after = time.monotonic() + 600
     verifier._unknown_kid_refresh_after = 0
     started = Event()
@@ -126,6 +130,7 @@ def test_concurrent_unknown_keys_single_flight_the_jwks_refresh(auth, monkeypatc
         started.set()
         assert release.wait(timeout=2)
         verifier._keys = {"new": jwt.PyJWK.from_dict(public, algorithm="RS256")}
+        verifier._last_successful_refresh = time.monotonic()
         verifier._refresh_after = time.monotonic() + 600
         verifier._unknown_kid_refresh_after = time.monotonic() + 30
 
@@ -148,6 +153,7 @@ def test_failed_jwks_refresh_retains_keys_and_starts_cooldown(auth, monkeypatch)
     public["kid"] = "old"
     verifier = EntraVerifier(auth)
     verifier._keys = {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")}
+    verifier._last_successful_refresh = 50.0
     verifier._refresh_after = 0
     verifier._unknown_kid_refresh_after = 0
     clock = [100.0]
@@ -174,6 +180,75 @@ def test_failed_jwks_refresh_retains_keys_and_starts_cooldown(auth, monkeypatch)
     clock[0] = 131
     assert verifier.verify(old_token)["oid"] == "approved-human"
     assert refreshes == 2
+
+
+def test_failed_jwks_refresh_rejects_keys_after_stale_deadline(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "old"
+    verifier = EntraVerifier(auth)
+    verifier._keys = {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")}
+    verifier._last_successful_refresh = 100.0
+    verifier._refresh_after = 0
+    verifier._unknown_kid_refresh_after = 0
+    clock = [100.0 + MAX_JWKS_STALE_SECONDS - 1]
+    refreshes = 0
+
+    def fail_refresh():
+        nonlocal refreshes
+        refreshes += 1
+        raise ValueError("synthetic JWKS failure")
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(verifier, "_refresh", fail_refresh)
+    token = _token(auth, key, kid="old")
+
+    assert verifier.verify(token)["oid"] == "approved-human"
+    assert refreshes == 1
+
+    clock[0] += 1
+    with pytest.raises(ValueError, match="exceeded their stale lifetime"):
+        verifier.verify(token)
+    assert refreshes == 1
+
+
+def test_concurrent_expired_keys_fail_closed_after_one_refresh(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "old"
+    verifier = EntraVerifier(auth)
+    verifier._keys = {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")}
+    verifier._last_successful_refresh = 100.0
+    verifier._refresh_after = 0
+    verifier._unknown_kid_refresh_after = 0
+    clock = [100.0 + MAX_JWKS_STALE_SECONDS]
+    started = Event()
+    release = Event()
+    barrier = Barrier(9)
+    refreshes = 0
+
+    def fail_refresh():
+        nonlocal refreshes
+        refreshes += 1
+        started.set()
+        assert release.wait(timeout=2)
+        raise ValueError("synthetic JWKS failure")
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(verifier, "_refresh", fail_refresh)
+    token = _token(auth, key, kid="old")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_verify_after, barrier, verifier, token) for _ in range(8)]
+        barrier.wait(timeout=2)
+        assert started.wait(timeout=2)
+        release.set()
+        errors = [future.exception(timeout=2) for future in futures]
+
+    assert all(
+        isinstance(error, ValueError) and "exceeded their stale lifetime" in str(error)
+        for error in errors
+    )
+    assert refreshes == 1
 
 
 def _verify_after(barrier: Barrier, verifier: EntraVerifier, token: str) -> dict[str, object]:
@@ -233,6 +308,9 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
         vendor=False,
     )
     app.state.entra_verifier._keys = original.state.entra_verifier._keys
+    app.state.entra_verifier._last_successful_refresh = (
+        original.state.entra_verifier._last_successful_refresh
+    )
     app.state.entra_verifier._refresh_after = time.monotonic() + 600
     service = dict(oid="agent-object", azp="agent-client", scp=None, roles=["Agent.Access"])
     with TestClient(app, base_url=config.origin) as client:
@@ -556,6 +634,9 @@ def enrollment_remote(auth, protected, store, now):
         )
         app = create_app(target_store, remote_auth=config, clock=lambda: now)
         app.state.entra_verifier._keys = vendor.state.entra_verifier._keys
+        app.state.entra_verifier._last_successful_refresh = (
+            vendor.state.entra_verifier._last_successful_refresh
+        )
         app.state.entra_verifier._refresh_after = time.monotonic() + 600
         return TestClient(app, base_url=config.origin)
 
@@ -970,6 +1051,7 @@ def protected(auth):
     public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     public["kid"] = "test-only"
     app.state.entra_verifier._keys = {"test-only": jwt.PyJWK.from_dict(public)}
+    app.state.entra_verifier._last_successful_refresh = time.monotonic()
     app.state.entra_verifier._refresh_after = time.monotonic() + 600
 
     def token(**changes):
@@ -1095,6 +1177,9 @@ def test_release_catalog_renewal_requires_attributed_vendor_operator(
     original, token = protected
     app = create_app(store, remote_auth=auth, remote_origin=auth.origin)
     app.state.entra_verifier._keys = original.state.entra_verifier._keys
+    app.state.entra_verifier._last_successful_refresh = (
+        original.state.entra_verifier._last_successful_refresh
+    )
     app.state.entra_verifier._refresh_after = time.monotonic() + 600
     payload = {"revision": 0, "confirmation": "renew 0", "reason": "Reviewed current catalog"}
     route = "/v1/catalog/renew"
@@ -1160,6 +1245,9 @@ def test_target_local_curation_requires_current_operator_and_exact_request(
     app = create_app(store, remote_auth=auth)
     app.routes[0:0] = target_routes(store, target, key)
     app.state.entra_verifier._keys = original.state.entra_verifier._keys
+    app.state.entra_verifier._last_successful_refresh = (
+        original.state.entra_verifier._last_successful_refresh
+    )
     app.state.entra_verifier._refresh_after = time.monotonic() + 600
     target.fetch = lambda _: pytest.fail("Local curation must not fetch or import a source.")
     route = "/v1/catalog/local-channels"
@@ -1271,6 +1359,9 @@ def test_target_real_api_denies_agent_transport_and_binds_approval_actor(
     )
     app = create_app(store, remote_auth=config, clock=lambda: now)
     app.state.entra_verifier._keys = vendor.state.entra_verifier._keys
+    app.state.entra_verifier._last_successful_refresh = (
+        vendor.state.entra_verifier._last_successful_refresh
+    )
     app.state.entra_verifier._refresh_after = time.monotonic() + 600
     store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
     installation_id = enrollment.installation.installation_id
