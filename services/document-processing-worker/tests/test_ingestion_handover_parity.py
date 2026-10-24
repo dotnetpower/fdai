@@ -609,12 +609,7 @@ async def test_handover_consumer_falls_back_to_projected_stewardship_and_resolve
     assert store.artifact.draft.unresolved_people == ()
     assert store.artifact.draft.mappings[0].person.oid == "steward-projected"
     assert "accept_autonomous:" in store.artifact.yaml
-    assert (
-        store.artifact.yaml.count(
-            'id: "steward-projected", responsibility: accountable, duty: primary'
-        )
-        == 14
-    )
+    assert store.artifact.yaml.count('id: "steward-projected", responsibility: accountable }') == 14
 
 
 def _stewardship_input() -> StewardshipInput:

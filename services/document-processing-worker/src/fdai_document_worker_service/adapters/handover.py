@@ -73,7 +73,9 @@ def stewardship_input_from_projection(projection: object) -> StewardshipInput | 
                         responsibility=StewardResponsibility(responsibility),
                         duty=(
                             StewardDuty(duty_str)
-                            if duty_str and responsibility == StewardResponsibility.ACCOUNTABLE
+                            if version == 2
+                            and duty_str
+                            and responsibility == StewardResponsibility.ACCOUNTABLE
                             else None
                         ),
                     )

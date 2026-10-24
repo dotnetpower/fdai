@@ -567,7 +567,11 @@ def _render_yaml(draft: StewardshipDraft, stewardship: StewardshipInput) -> str:
         if subjects:
             lines.append("      stewards:")
             for subject in subjects:
-                duty = f", duty: {subject.duty.value}" if subject.duty is not None else ""
+                duty = (
+                    f", duty: {subject.duty.value}"
+                    if stewardship.version == 2 and subject.duty is not None
+                    else ""
+                )
                 lines.append(
                     f'        - {{ kind: {subject.kind.value}, id: "{subject.oid}", '
                     f"responsibility: {subject.responsibility.value}{duty} }}"
