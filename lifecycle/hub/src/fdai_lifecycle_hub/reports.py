@@ -42,12 +42,9 @@ class ReportProgress(Protocol):
     @property
     def outcome(self) -> str: ...
 
-    @property
-    def reported_at(self) -> datetime: ...
-
 
 def validate_report_progress(previous: ReportProgress | None, current: ReportProgress) -> None:
-    """Reject gaps, time reversal, and impossible effect-result transitions."""
+    """Reject attempt gaps and impossible transitions; attempts establish report order."""
 
     if previous is None:
         if current.attempt != 1:
@@ -57,8 +54,6 @@ def validate_report_progress(previous: ReportProgress | None, current: ReportPro
         return
     if current.attempt != previous.attempt + 1:
         raise ValueError("report attempts MUST be contiguous")
-    if current.reported_at < previous.reported_at:
-        raise ValueError("report timestamps MUST NOT move backwards")
     if previous.outcome in _TERMINAL_OUTCOMES:
         raise ValueError("a terminal report cannot be followed by another report")
     if current.outcome in _EFFECT_OUTCOMES and previous.outcome != "apply-started":

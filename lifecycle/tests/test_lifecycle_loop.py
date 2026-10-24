@@ -111,7 +111,11 @@ class Loop:
         return self.hub("show", INSTALLATION_ID)
 
     def poll(
-        self, installation_id: str = INSTALLATION_ID, *, connect_hub: ConnectHub = connect
+        self,
+        installation_id: str = INSTALLATION_ID,
+        *,
+        connect_hub: ConnectHub = connect,
+        clock: Callable[[], datetime] | None = None,
     ) -> dict[str, Any]:
         hub_public_key = self.root / "hub.pub.pem"
         argv = [
@@ -131,7 +135,12 @@ class Loop:
         ]
         output = io.StringIO()
         with redirect_stdout(output):
-            assert agent_cli.main(argv, connect_hub=connect_hub) == 0
+            exit_code = (
+                agent_cli.main(argv, connect_hub=connect_hub)
+                if clock is None
+                else agent_cli.main(argv, connect_hub=connect_hub, clock=clock)
+            )
+            assert exit_code == 0
         result: dict[str, Any] = json.loads(output.getvalue())
         return result
 
@@ -295,6 +304,28 @@ def test_unsigned_release_is_rejected_and_the_hub_records_why(loop: Loop) -> Non
         True,
     )
     assert reports(loop.show()) == [(FIRST_PLAN, "rejected", "release_signature_missing", None)]
+
+
+def test_final_agent_report_survives_a_backward_client_clock(loop: Loop) -> None:
+    release = next((loop.root / "inputs" / "releases").glob("*.json"))
+    release_bytes = release.read_bytes()
+    release.unlink()
+    loop.enroll(open_window())
+    loop.recompute()
+    first_clock = datetime.now(UTC) + timedelta(seconds=10)
+
+    first = loop.poll(clock=lambda: first_clock)
+    release.write_bytes(release_bytes)
+    final = loop.poll(clock=lambda: first_clock - timedelta(seconds=20))
+    shown = loop.show()
+
+    assert (first["reason_code"], first["reported"]) == ("release_unavailable", True)
+    assert (final["outcome"], final["reported"]) == ("dry-run-admitted", True)
+    assert [(report["attempt"], report["outcome"]) for report in shown["reports"]] == [
+        (1, "rejected"),
+        (2, "dry-run-admitted"),
+    ]
+    assert shown["reports"][1]["reported_at"] < shown["reports"][0]["reported_at"]
 
 
 def test_plan_for_another_installation_is_rejected_and_the_hub_records_why(loop: Loop) -> None:

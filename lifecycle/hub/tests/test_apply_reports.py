@@ -242,7 +242,7 @@ def test_effect_result_requires_apply_started(
         )
 
 
-def test_report_attempts_are_contiguous_and_time_ordered(
+def test_report_attempts_are_contiguous_despite_client_clock_changes(
     registered: HubStore, installation: Installation, issued: IssuedPlan, now: datetime
 ) -> None:
     record = partial(
@@ -256,8 +256,12 @@ def test_report_attempts_are_contiguous_and_time_ordered(
     stale = _report(issued.digest, 2, "apply-started", "started").model_copy(
         update={"reported_at": first.reported_at - timedelta(seconds=1)}
     )
-    with pytest.raises(ReportProgressionError, match="backwards"):
-        record(stale)
+
+    assert record(stale)
+    assert [
+        (report.attempt, report.reported_at)
+        for report in registered.reports(installation.installation_id)
+    ] == [(1, first.reported_at), (2, stale.reported_at)]
 
 
 def test_terminal_report_rejects_followup(
