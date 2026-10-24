@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 855c536bfee5d1a5e2474db4558383809e53ddde
+translation_source_sha: 43133a9276e7fe13ca665a8123415f4916dea34e
 translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
@@ -1137,6 +1137,14 @@ Release에 새로 추가된 워크로드는 1단계에서 페더레이션 ID 자
 모든 진입점은 실행을 거부하거나 Hub용 변형을 사용합니다. 일반 애플리케이션 단계, 서비스별
 업데이트, 과거 상태 조정이 모두 포함됩니다. 그래서 Terraform과 에이전트가 같은 객체를 함께 쓰지
 않습니다.
+
+표시는 설치 작업 디렉터리의 owner-only 파일 `hub-ownership.json`입니다(스키마
+`fdai.hub-ownership-marker.v1`: 설치 id, 인계 receipt digest, 시각, 기록 digest). AKS 워크로드 루트의
+Terraform 단계를 활성화하는 단일 지점이 이 파일을 확인하므로, 일반 애플리케이션 단계, 서비스별
+업데이트, 과거 상태 조정이 모두 이 파일이 있는 동안 거부됩니다. 읽을 수 없거나 변조됐거나 심볼릭
+링크이거나 그룹이 읽을 수 있는 표시도 거부하므로, 손상으로 객체가 Terraform에 되돌아가지
+않습니다. 같은 인계에 대한 기록은 멱등이고 다른 인계를 덮어쓰지 않으며, 해제에는 롤백 receipt
+digest가 필요합니다. 워크로드 루트의 Hub용 변형은 아직 없으므로 현재 동작은 거부뿐입니다.
 
 **되돌리기:** 먼저 에이전트가 인수한 객체의 조정을 멈추고, 조정 리스를 놓고, 해제를 기록합니다.
 그런 다음 인프라 에이전트가 같은 주소에 대해 `import` 블록이 있는 정확한 계획을 적용하고, 이어지는

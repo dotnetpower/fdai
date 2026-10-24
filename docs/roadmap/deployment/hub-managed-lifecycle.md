@@ -1144,6 +1144,15 @@ point that would plan the full workloads root refuses to run or uses the Hub var
 ordinary application stage, per-service update, and historical reconciliation. So Terraform and the
 agent never write the same object.
 
+The marker is the owner-only `hub-ownership.json` in the installation's work directory (schema
+`fdai.hub-ownership-marker.v1`: installation id, handoff receipt digest, time, record digest). The
+single place that activates a Terraform stage for the AKS workloads root checks it, so the ordinary
+application stage, per-service update and historical reconciliation all refuse while it exists. A
+present but unreadable, tampered, symlinked or group-readable marker also refuses, so damage cannot
+hand the objects back to Terraform. Recording is idempotent for the same handoff and never
+overwrites a different one, and release needs a rollback receipt digest. The Hub variant of the
+workloads root does not exist yet, so refusal is the only behavior today.
+
 **Rollback:** First, the agent stops reconciling the adopted objects, releases its reconciliation
 lease, and records the release. Then the infrastructure agent applies an exact plan with `import`
 blocks for the same addresses, and a following zero-change plan proves that Terraform state matches
