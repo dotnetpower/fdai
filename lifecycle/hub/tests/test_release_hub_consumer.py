@@ -19,6 +19,44 @@ from fdai_lifecycle_hub.store import HubStore
 from fdai_release_hub.store import CapabilityChange, Change, ReleaseStore
 
 
+def test_pinned_export_reuses_the_bounded_json_parse(
+    tmp_path: Path,
+    catalog: ReleaseCatalog,
+    key: HubSigningKey,
+    now: datetime,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    vendor = ReleaseStore(tmp_path / "vendor.db", key, clock=lambda: now)
+    for revision, action in enumerate(("register", "publish")):
+        vendor.change(
+            action,
+            "1.6.0",
+            Change(
+                revision=revision,
+                confirmation="1.6.0",
+                reason="Single parse regression",
+                manifest=(
+                    canonical_bytes(catalog.releases["1.6.0"].to_mapping()).decode()
+                    if action == "register"
+                    else None
+                ),
+            ),
+        )
+    raw, digest = vendor.export()
+    monkeypatch.setattr(
+        "fdai_lifecycle_hub.catalog_import._Export.model_validate_json",
+        classmethod(
+            lambda _cls, _raw: (_ for _ in ()).throw(
+                AssertionError("export JSON parsed more than once")
+            )
+        ),
+    )
+
+    admitted = load_pinned_export(raw, expected_sha256=digest, public_key=key.public_key, now=now)
+
+    assert "1.6.0" in admitted.releases
+
+
 def test_vendor_publication_to_lifecycle_plan_and_recall(
     tmp_path: Path,
     catalog: ReleaseCatalog,
