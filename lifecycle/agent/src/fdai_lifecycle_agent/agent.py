@@ -127,6 +127,7 @@ class AgentReason(StrEnum):
     HEALTH_CHECK_FAILED = "health_check_failed"
     APPLY_FAILED = "apply_failed"
     ROLLBACK_FAILED = "rollback_failed"
+    REPORT_CONFLICT = "report_conflict"
     PLAN_EXPIRED = "plan_expired"
     WORKLOAD_RENDER_FAILED = "workload_render_failed"
     EARLIER_PHASE_RECEIPT_MISSING = "earlier_phase_receipt_missing"
@@ -274,6 +275,25 @@ class LifecycleAgent:
             return self._poll()
 
     def _poll(self) -> PollResult:
+        state = self._deps.state_store.load()
+        conflicts = sorted(
+            (
+                record.sequence,
+                plan_id,
+                record,
+            )
+            for plan_id, record in state.plans.items()
+            if record.report_conflict_attempt is not None
+        )
+        if conflicts:
+            _, plan_id, record = conflicts[0]
+            _log(
+                "lifecycle_agent.report_conflict_halted",
+                level=logging.ERROR,
+                plan_id=plan_id,
+                attempt=record.report_conflict_attempt,
+            )
+            return _report_conflict_result(plan_id, record)
         current = self._read_current_state()
         if (apply := self._deps.apply) is not None:
             workload_state = apply.store.load()
@@ -304,7 +324,6 @@ class LifecycleAgent:
                 outcome="malformed-plan", reason_code=AgentReason.PLAN_PAYLOAD_MALFORMED
             )
 
-        state = self._deps.state_store.load()
         payload_digest = hashlib.sha256(signed.signed_payload).hexdigest()
         existing = state.plans.get(plan.plan_id)
         if existing is not None and existing.result.reason_code == "native_scope_approval_expired":
@@ -776,6 +795,8 @@ class LifecycleAgent:
         most one report, so restart recovery is bounded.
         """
 
+        if record.report_conflict_attempt is not None:
+            return _report_conflict_result(plan_id, record)
         replaying = bool(record.pending_reports)
         if replaying:
             stored = record.pending_reports[0]
@@ -827,19 +848,9 @@ class LifecycleAgent:
                 error=str(error),
             )
             if error.code == "report_conflict":
-                pending = record.pending_reports[1:] if replaying else ()
-                self._deps.state_store.save(
-                    state.with_record(
-                        plan_id,
-                        replace(
-                            record,
-                            reported_at=(
-                                None if stored.attempt == record.attempts else record.reported_at
-                            ),
-                            pending_reports=pending,
-                        ),
-                    )
-                )
+                record = replace(record, report_conflict_attempt=stored.attempt)
+                self._deps.state_store.save(state.with_record(plan_id, record))
+                return _report_conflict_result(plan_id, record)
             elif error.code == "report_attempt_gap" and not replaying and record.report_history:
                 recovery = replace(
                     record,
@@ -856,6 +867,15 @@ class LifecycleAgent:
         self._deps.state_store.save(state.with_record(plan_id, record))
         _log("lifecycle_agent.reported", plan_id=plan_id, attempt=stored.attempt)
         return _poll_result(plan_id, record)
+
+
+def _report_conflict_result(plan_id: str, record: PlanRecord) -> PollResult:
+    return PollResult(
+        outcome="halted",
+        reason_code=AgentReason.REPORT_CONFLICT,
+        plan_id=plan_id,
+        exact_plan_digest=record.result.exact_plan_digest,
+    )
 
 
 _ADMITTED_EVENTS = {

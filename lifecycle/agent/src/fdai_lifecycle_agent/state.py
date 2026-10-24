@@ -23,9 +23,10 @@ from typing import cast, get_args
 from fdai_lifecycle_agent.hub_client import ReportOutcome
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
 
-STATE_SCHEMA = "fdai.lifecycle-agent-state.v3"
+STATE_SCHEMA = "fdai.lifecycle-agent-state.v4"
 _V1_STATE_SCHEMA = "fdai.lifecycle-agent-state.v1"
 _V2_STATE_SCHEMA = "fdai.lifecycle-agent-state.v2"
+_V3_STATE_SCHEMA = "fdai.lifecycle-agent-state.v3"
 STATE_FILE_NAME = "lifecycle-agent-state.json"
 LOCK_FILE_NAME = ".lifecycle-agent.lock"
 MAX_PLAN_RECORDS = 256
@@ -36,7 +37,8 @@ _V1_RECORD_KEYS = frozenset(
     {"sequence", "payload_digest", "result", "attempts", "reported_at", "reported"}
 )
 _V2_RECORD_KEYS = _V1_RECORD_KEYS | {"apply_started_report", "pending_reports"}
-_RECORD_KEYS = _V2_RECORD_KEYS | {"report_history"}
+_V3_RECORD_KEYS = _V2_RECORD_KEYS | {"report_history"}
+_RECORD_KEYS = _V3_RECORD_KEYS | {"report_conflict_attempt"}
 _STORED_REPORT_KEYS = frozenset({"attempt", "result", "reported_at"})
 _RESULT_KEYS = frozenset({"outcome", "reason_code", "exact_plan_digest", "summary", "retryable"})
 _HEX_DIGEST = re.compile(r"[0-9a-f]{64}\Z", re.ASCII)
@@ -88,6 +90,8 @@ class PlanRecord:
     accepted v1 two-attempt expiry: v1 did not retain the exact apply-started report, so migration
     preserves only the known terminal attempt and never replays the unknowable prefix. A
     report-attempt gap persists the suffix still needing replay, one report per later poll.
+    ``report_conflict_attempt`` durably halts every poll because the Agent API cannot read and
+    reconcile the different report that the Hub already accepted.
     """
 
     sequence: int
@@ -99,6 +103,7 @@ class PlanRecord:
     apply_started_report: StoredReport | None = None
     report_history: tuple[StoredReport, ...] = ()
     pending_reports: tuple[StoredReport, ...] = ()
+    report_conflict_attempt: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,7 +265,7 @@ def _parse_state(document: object) -> tuple[AgentState, bool]:
         raise ValueError("agent state fields are invalid")
     match document:
         case {"schema": schema, "rejected_sequences": list(rejected), "plans": dict(plans)} if (
-            schema in {STATE_SCHEMA, _V1_STATE_SCHEMA, _V2_STATE_SCHEMA}
+            schema in {STATE_SCHEMA, _V1_STATE_SCHEMA, _V2_STATE_SCHEMA, _V3_STATE_SCHEMA}
         ):
             if len(plans) > MAX_PLAN_RECORDS:
                 raise ValueError("agent state retains too many Plan records")
@@ -310,6 +315,7 @@ def _parse_record(record: object, *, schema: str) -> PlanRecord:
     expected_keys = {
         _V1_STATE_SCHEMA: _V1_RECORD_KEYS,
         _V2_STATE_SCHEMA: _V2_RECORD_KEYS,
+        _V3_STATE_SCHEMA: _V3_RECORD_KEYS,
         STATE_SCHEMA: _RECORD_KEYS,
     }[schema]
     if not isinstance(record, dict) or set(record) != expected_keys:
@@ -335,7 +341,7 @@ def _parse_record(record: object, *, schema: str) -> PlanRecord:
                 ),
                 report_history=(
                     ()
-                    if schema != STATE_SCHEMA
+                    if schema not in {STATE_SCHEMA, _V3_STATE_SCHEMA}
                     else tuple(
                         _parse_stored_report(item)
                         for item in _stored_report_list(record["report_history"])
@@ -349,10 +355,15 @@ def _parse_record(record: object, *, schema: str) -> PlanRecord:
                         for item in _stored_report_list(record["pending_reports"])
                     )
                 ),
+                report_conflict_attempt=(
+                    None
+                    if schema != STATE_SCHEMA
+                    else _optional_integer(record["report_conflict_attempt"], minimum=1)
+                ),
             )
             if schema == _V1_STATE_SCHEMA:
                 parsed = _migrate_legacy_report_progress(parsed)
-            if schema != STATE_SCHEMA:
+            if schema in {_V1_STATE_SCHEMA, _V2_STATE_SCHEMA}:
                 parsed = _migrate_report_history(parsed, schema=schema)
             _validate_record(parsed)
             return parsed
@@ -517,6 +528,10 @@ def _integer(value: object, *, minimum: int) -> int:
     return value
 
 
+def _optional_integer(value: object, *, minimum: int) -> int | None:
+    return None if value is None else _integer(value, minimum=minimum)
+
+
 def _validate_state(state: AgentState) -> None:
     if len(state.plans) > MAX_PLAN_RECORDS:
         raise ValueError("agent state retains too many Plan records")
@@ -542,6 +557,14 @@ def _validate_record(record: PlanRecord) -> None:
         raise ValueError("an undelivered report cannot have delivery progress")
     if record.reported and record.reported_at is None:
         raise ValueError("an accepted report MUST retain its timestamp")
+    if record.report_conflict_attempt is not None and (
+        record.reported
+        or record.report_conflict_attempt > record.attempts
+        or not any(
+            report.attempt == record.report_conflict_attempt for report in record.report_history
+        )
+    ):
+        raise ValueError("a report conflict MUST name one retained unaccepted attempt")
     if len(record.report_history) > MAX_REPORT_HISTORY:
         raise ValueError("report history is too large")
     accepted_v1_expiry = _is_accepted_v1_expiry_suffix(record)

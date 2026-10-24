@@ -546,25 +546,36 @@ def test_failed_report_is_resent_identically_under_the_same_attempt(harness: Har
     assert resent.attempt == 1
 
 
-def test_conflicting_attempt_starts_a_new_attempt_on_the_next_poll(harness: Harness) -> None:
+def test_conflicting_dry_run_halts_durably_without_a_successor(harness: Harness) -> None:
     harness.serve(harness.plan())
     harness.hub.report_errors.append(
         HubProtocolError("Hub report request returned 409", code="report_conflict")
     )
 
-    harness.poll()
-    result = harness.poll()
+    conflict = harness.poll()
+    fetches = harness.hub.fetches
+    restarted = harness.poll()
 
-    assert result.reported is True
-    assert [report.attempt for report in harness.hub.attempted] == [1, 2]
+    assert (conflict.outcome, conflict.reason_code, conflict.reported) == (
+        "halted",
+        "report_conflict",
+        False,
+    )
+    assert restarted == conflict
+    assert [report.attempt for report in harness.hub.attempted] == [1]
+    assert harness.hub.fetches == fetches
+    record = harness.state_store.load().plans["plan-0008"]
+    assert record.report_conflict_attempt == 1
+    assert record.reported_at == NOW
 
 
 def test_http_hub_attempt_gap_retries_the_required_missing_attempt(harness: Harness) -> None:
     plan = harness.serve(harness.plan())
-    harness.hub.report_errors.append(
-        HubProtocolError("Hub report request returned 409", code="report_conflict")
-    )
+    harness.hub.report_errors.append(HubProtocolError("Hub report request returned 503"))
     harness.poll()
+    state = harness.state_store.load()
+    record = state.plans[plan.plan_id]
+    harness.state_store.save(state.with_record(plan.plan_id, replace(record, reported_at=None)))
     attempts: list[int] = []
 
     def handler(request: httpx.Request) -> httpx.Response:

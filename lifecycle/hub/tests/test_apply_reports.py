@@ -20,6 +20,7 @@ from fdai_lifecycle_hub.domain import Installation, Issued, IssuedPlan, Planner,
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest
 from fdai_lifecycle_hub.errors import (
     ReportAttemptGapError,
+    ReportConflictError,
     ReportProgressionError,
 )
 from fdai_lifecycle_hub.reports import (
@@ -353,6 +354,50 @@ def test_terminal_report_rejects_followup(
 
     with pytest.raises(ReportProgressionError, match="terminal"):
         record(_report(issued.digest, 2, "rejected", "changed_result"))
+
+
+@pytest.mark.parametrize("terminal", ["dry-run-admitted", "plan_expired", "applied"])
+def test_terminal_attempt_conflicts_cannot_be_reconciled_by_a_successor(
+    registered: HubStore,
+    installation: Installation,
+    issued: IssuedPlan,
+    now: datetime,
+    terminal: str,
+) -> None:
+    record = partial(
+        registered.record_report, installation.installation_id, issued.plan_id, now=now
+    )
+    if terminal == "dry-run-admitted":
+        terminal_report = _report(issued.digest, 1, terminal, "dry_run_computed")
+    else:
+        record(_report(issued.digest, 1, "apply-started", "apply_started"))
+        terminal_report = (
+            PlanReport(
+                attempt=2,
+                outcome="rejected",
+                reason_code="plan_expired",
+                exact_plan_digest=None,
+                summary="",
+                reported_at=now,
+            )
+            if terminal == "plan_expired"
+            else _report(issued.digest, 2, "applied", "applied")
+        )
+    record(terminal_report)
+
+    with pytest.raises(ReportConflictError):
+        record(terminal_report.model_copy(update={"reason_code": "conflicting_terminal"}))
+    with pytest.raises(ReportProgressionError, match="terminal"):
+        record(
+            PlanReport(
+                attempt=terminal_report.attempt + 1,
+                outcome="rejected",
+                reason_code="invalid_successor",
+                exact_plan_digest=None,
+                summary="",
+                reported_at=now,
+            )
+        )
 
 
 def test_applied_report_holds_nothing(

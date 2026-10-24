@@ -330,6 +330,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
     artifact = "/v1/installations/installation-alpha/artifacts/release/" + "a" * 64
     state = "/v1/installations/installation-alpha/state"
     reports = "/v1/installations/installation-alpha/plans/plan-one/reports"
+    plan_detail = "/v1/installations/installation-alpha/plans/plan-one"
     app = secure_app(
         Starlette(
             routes=[
@@ -337,6 +338,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
                 Route(artifact, ok),
                 Route(state, ok, methods=["POST"]),
                 Route(reports, ok, methods=["POST"]),
+                Route(plan_detail, ok),
                 Route("/v1/catalog", ok),
             ]
         ),
@@ -363,6 +365,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
             "/v1/installations/installation-alpha/recompute",
             "/v1/installations/installation-alpha/application-binding",
             "/v1/installations/installation-alpha/native-ownership",
+            plan_detail,
         ):
             assert client.get(path, headers=token(**service)).status_code == 403
             assert client.post(path, headers=token(**service), json={}).status_code == 403

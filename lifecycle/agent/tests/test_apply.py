@@ -16,7 +16,7 @@ from fdai_deployment_cli.lifecycle_plan import (
 )
 
 from fdai_lifecycle_agent.dry_run import Health, load_current_state
-from fdai_lifecycle_agent.hub_client import HubProtocolError
+from fdai_lifecycle_agent.hub_client import HubProtocolError, PlanReport
 from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.workload import Manifest, render
 
@@ -265,6 +265,59 @@ def test_an_expired_plan_is_not_applied_after_a_late_apply_started(
     assert cluster.writes() == []
     assert _outcomes(harness)[-1] == (2, "rejected", "plan_expired")
     assert _store(harness).load().journal is None
+
+
+def test_expired_terminal_conflict_halts_across_restart_and_retains_prepared_journal(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    plan = harness.serve(harness.release_plan("1.0.0", V1))
+    harness.hub.report_errors.extend(
+        [
+            HubProtocolError("Hub report request returned 503"),
+            HubProtocolError("Hub report request returned 409", code="report_conflict"),
+        ]
+    )
+    harness.apply_poll(cluster)
+
+    conflict = harness.apply_poll(cluster, now=plan.expires_at + timedelta(seconds=1))
+    attempts = len(harness.hub.attempted)
+    restarted = harness.apply_poll(cluster, now=plan.expires_at + timedelta(seconds=2))
+
+    assert (conflict.outcome, conflict.reason_code) == ("halted", "report_conflict")
+    assert restarted == conflict
+    assert len(harness.hub.attempted) == attempts
+    journal = _store(harness).load().journal
+    assert journal is not None
+    assert (journal.plan_id, journal.phase) == ("plan-0008", "prepared")
+    assert cluster.writes() == []
+
+
+def test_applied_terminal_conflict_halts_across_restart_and_retains_done_journal(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    harness.serve(harness.release_plan("1.0.0", V1))
+    original_submit = harness.hub.submit_report
+
+    def reject_applied(installation_id: str, plan_id: str, report: PlanReport) -> None:
+        if report.outcome == "applied":
+            harness.hub.attempted.append(report)
+            raise HubProtocolError("Hub report request returned 409", code="report_conflict")
+        original_submit(installation_id, plan_id, report)
+
+    harness.hub.submit_report = reject_applied  # type: ignore[method-assign]
+
+    conflict = harness.apply_poll(cluster)
+    writes = len(cluster.writes())
+    attempts = len(harness.hub.attempted)
+    restarted = harness.apply_poll(cluster)
+
+    assert (conflict.outcome, conflict.reason_code) == ("halted", "report_conflict")
+    assert restarted == conflict
+    assert (len(cluster.writes()), len(harness.hub.attempted)) == (writes, attempts)
+    journal = _store(harness).load().journal
+    assert journal is not None
+    assert (journal.plan_id, journal.phase) == ("plan-0008", "done")
+    assert harness.hub.states == []
 
 
 class _Crash(BaseException):

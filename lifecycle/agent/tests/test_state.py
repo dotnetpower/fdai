@@ -73,6 +73,36 @@ def test_state_round_trips_with_owner_only_permissions(tmp_path: Path) -> None:
     assert {path.name for path in store.path.parent.iterdir()} == {store.path.name}
 
 
+def test_v3_state_migrates_with_no_report_conflict(tmp_path: Path) -> None:
+    store = LocalStateStore(tmp_path)
+    state = AgentState(
+        last_accepted_sequence=8,
+        plans={
+            "plan-8": _record(
+                8,
+                result=PlanResult(
+                    outcome="dry-run-admitted",
+                    reason_code="dry_run_computed",
+                    exact_plan_digest="sha256:" + "b" * 64,
+                ),
+                attempts=1,
+                reported_at=datetime(2026, 10, 7, 12, tzinfo=UTC),
+                reported=True,
+            )
+        },
+    )
+    store.save(state)
+    document = json.loads(store.path.read_text())
+    document["schema"] = "fdai.lifecycle-agent-state.v3"
+    del document["plans"]["plan-8"]["report_conflict_attempt"]
+    store.path.write_text(json.dumps(document))
+
+    assert store.load() == state
+    persisted = json.loads(store.path.read_text())
+    assert persisted["schema"] == "fdai.lifecycle-agent-state.v4"
+    assert persisted["plans"]["plan-8"]["report_conflict_attempt"] is None
+
+
 @pytest.mark.parametrize(
     "content",
     [
@@ -124,7 +154,7 @@ def test_legacy_apply_started_expiry_is_migrated_and_persisted(tmp_path: Path) -
 
     assert state.rejected_sequences == {7}
     persisted = json.loads(store.path.read_text())
-    assert persisted["schema"] == "fdai.lifecycle-agent-state.v3"
+    assert persisted["schema"] == "fdai.lifecycle-agent-state.v4"
     assert persisted["rejected_sequences"] == [7]
     plans = persisted["plans"]
     assert isinstance(plans, dict)
@@ -138,6 +168,7 @@ def test_legacy_apply_started_expiry_is_migrated_and_persisted(tmp_path: Path) -
             }
         ],
         "pending_reports": [],
+        "report_conflict_attempt": None,
     } == legacy["plans"]["plan-7"] | {
         "apply_started_report": None,
         "report_history": [
@@ -148,6 +179,7 @@ def test_legacy_apply_started_expiry_is_migrated_and_persisted(tmp_path: Path) -
             }
         ],
         "pending_reports": [],
+        "report_conflict_attempt": None,
     }
     assert store.load() == state
 
@@ -200,7 +232,7 @@ def test_legacy_rewound_terminal_report_migrates_to_durable_replay_sequence(
     assert [report.attempt for report in record.pending_reports] == [1, 2]
     assert record.pending_reports[-1].result == record.result
     assert [report.attempt for report in record.report_history] == [1, 2]
-    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v3"
+    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v4"
 
 
 def test_legacy_accepted_single_terminal_report_remains_complete(tmp_path: Path) -> None:
@@ -292,7 +324,7 @@ def test_v2_contiguous_apply_progress_is_migrated(tmp_path: Path) -> None:
 
     assert [report.attempt for report in record.report_history] == [1, 2]
     assert record.pending_reports == record.report_history
-    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v3"
+    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v4"
 
 
 def test_v1_accepted_two_attempt_expiry_migrates_known_terminal_and_persists(
@@ -335,7 +367,7 @@ def test_v1_accepted_two_attempt_expiry_migrates_known_terminal_and_persists(
         (2, record.result)
     ]
     assert record.pending_reports == ()
-    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v3"
+    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v4"
     assert store.load() == state
 
 
@@ -395,7 +427,7 @@ def test_v2_two_attempt_expiry_uses_retained_started_report_and_persists(
     assert record.apply_started_report == record.report_history[0]
     assert [report.attempt for report in record.report_history] == [1, 2]
     assert record.pending_reports == record.report_history
-    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v3"
+    assert json.loads(store.path.read_text())["schema"] == "fdai.lifecycle-agent-state.v4"
     assert store.load() == state
 
 
