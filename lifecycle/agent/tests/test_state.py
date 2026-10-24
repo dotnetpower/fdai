@@ -45,6 +45,7 @@ def test_state_round_trips_with_owner_only_permissions(tmp_path: Path) -> None:
                     summary='{"entity_count":2}',
                 ),
                 attempts=2,
+                reported_at=datetime(2026, 10, 7, 11, tzinfo=UTC),
                 reported=True,
             ),
             "plan-0009": _record(
@@ -154,3 +155,94 @@ def test_utf16_state_file_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(AgentStateError, match="invalid"):
         store.load()
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        _record(1, attempts=0, reported=True),
+        _record(1, attempts=0, reported_at=datetime(2026, 10, 7, 12, tzinfo=UTC)),
+        _record(1, attempts=1, reported=True),
+    ],
+)
+def test_invalid_report_progress_is_not_persisted(tmp_path: Path, record: PlanRecord) -> None:
+    store = LocalStateStore(tmp_path)
+
+    with pytest.raises(AgentStateError, match="invalid"):
+        store.save(AgentState(rejected_sequences=frozenset({1}), plans={"plan-1": record}))
+    assert not store.path.exists()
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        PlanResult(outcome="rejected", reason_code="INVALID"),
+        PlanResult(outcome="rejected", reason_code="valid", exact_plan_digest="sha256:bad"),
+        PlanResult(outcome="rejected", reason_code="valid", summary="x" * 2001),
+        PlanResult(
+            outcome="dry-run-admitted",
+            reason_code="dry_run_computed",
+            exact_plan_digest=None,
+        ),
+        PlanResult(
+            outcome="dry-run-admitted",
+            reason_code="dry_run_computed",
+            exact_plan_digest="sha256:" + "b" * 64,
+            retryable=True,
+        ),
+    ],
+)
+def test_invalid_plan_result_is_not_persisted(tmp_path: Path, result: PlanResult) -> None:
+    store = LocalStateStore(tmp_path)
+    state = AgentState(
+        last_accepted_sequence=1,
+        rejected_sequences=frozenset({1}) if not result.admitted else frozenset(),
+        plans={"plan-1": _record(1, result=result)},
+    )
+
+    with pytest.raises(AgentStateError, match="invalid"):
+        store.save(state)
+    assert not store.path.exists()
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        AgentState(
+            last_accepted_sequence=0,
+            plans={
+                "plan-1": _record(
+                    1,
+                    result=PlanResult(
+                        outcome="dry-run-admitted",
+                        reason_code="dry_run_computed",
+                        exact_plan_digest="sha256:" + "b" * 64,
+                    ),
+                )
+            },
+        ),
+        AgentState(
+            last_accepted_sequence=1,
+            rejected_sequences=frozenset({1}),
+            plans={
+                "plan-1": _record(
+                    1,
+                    result=PlanResult(
+                        outcome="dry-run-admitted",
+                        reason_code="dry_run_computed",
+                        exact_plan_digest="sha256:" + "b" * 64,
+                    ),
+                )
+            },
+        ),
+        AgentState(
+            plans={"plan-1": _record(1)},
+        ),
+    ],
+)
+def test_inconsistent_replay_state_is_not_persisted(tmp_path: Path, state: AgentState) -> None:
+    store = LocalStateStore(tmp_path)
+
+    with pytest.raises(AgentStateError, match="invalid"):
+        store.save(state)
+    assert not store.path.exists()

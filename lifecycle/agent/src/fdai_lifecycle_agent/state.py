@@ -11,6 +11,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import re
 import tempfile
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
@@ -32,6 +33,10 @@ _RECORD_KEYS = frozenset(
     {"sequence", "payload_digest", "result", "attempts", "reported_at", "reported"}
 )
 _RESULT_KEYS = frozenset({"outcome", "reason_code", "exact_plan_digest", "summary", "retryable"})
+_HEX_DIGEST = re.compile(r"[0-9a-f]{64}\Z", re.ASCII)
+_PLAN_DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z", re.ASCII)
+_REASON_CODE = re.compile(r"[a-z][a-z0-9_]{0,95}\Z", re.ASCII)
+_MAX_SUMMARY_CHARACTERS = 2000
 
 
 class AgentStateError(RuntimeError):
@@ -151,7 +156,10 @@ class LocalStateStore:
 
     def save(self, state: AgentState) -> None:
         try:
+            _validate_state(state)
             write_json_atomically(self._path, _state_document(state))
+        except ValueError as error:
+            raise AgentStateError("agent state is invalid") from error
         except OSError as error:
             raise AgentStateError(f"agent state is not writable: {type(error).__name__}") from error
 
@@ -206,11 +214,13 @@ def _parse_state(document: object) -> AgentState:
         case {"schema": schema, "rejected_sequences": list(rejected), "plans": dict(plans)} if (
             schema == STATE_SCHEMA
         ):
-            return AgentState(
+            state = AgentState(
                 last_accepted_sequence=_integer(document["last_accepted_sequence"], minimum=-1),
                 rejected_sequences=frozenset(_integer(item, minimum=0) for item in rejected),
                 plans={str(plan_id): _parse_record(record) for plan_id, record in plans.items()},
             )
+            _validate_state(state)
+            return state
     raise ValueError("agent state schema is unsupported")
 
 
@@ -224,7 +234,7 @@ def _parse_record(record: object) -> PlanRecord:
             "reported_at": str() | None as reported_at,
             "result": result,
         }:
-            return PlanRecord(
+            parsed = PlanRecord(
                 sequence=_integer(record["sequence"], minimum=0),
                 payload_digest=payload_digest,
                 result=parse_plan_result(result),
@@ -232,6 +242,8 @@ def _parse_record(record: object) -> PlanRecord:
                 reported_at=None if reported_at is None else _aware(reported_at),
                 reported=reported,
             )
+            _validate_record(parsed)
+            return parsed
     raise ValueError("plan record values are invalid")
 
 
@@ -246,13 +258,15 @@ def parse_plan_result(result: object) -> PlanResult:
             "summary": str(summary),
             "retryable": bool(retryable),
         } if outcome in get_args(ReportOutcome.__value__):
-            return PlanResult(
+            parsed = PlanResult(
                 outcome=cast(ReportOutcome, outcome),
                 reason_code=reason_code,
                 exact_plan_digest=digest,
                 summary=summary,
                 retryable=retryable,
             )
+            _validate_result(parsed)
+            return parsed
     raise ValueError("plan result values are invalid")
 
 
@@ -267,3 +281,49 @@ def _integer(value: object, *, minimum: int) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
         raise ValueError("agent state integer is invalid")
     return value
+
+
+def _validate_state(state: AgentState) -> None:
+    if len(state.plans) > MAX_PLAN_RECORDS:
+        raise ValueError("agent state retains too many Plan records")
+    admitted = [record.sequence for record in state.plans.values() if record.result.admitted]
+    if admitted and max(admitted) > state.last_accepted_sequence:
+        raise ValueError("agent state replay floor is below an admitted Plan")
+    if any(sequence in state.rejected_sequences for sequence in admitted):
+        raise ValueError("an admitted Plan sequence cannot remain rejected")
+    for record in state.plans.values():
+        _validate_record(record)
+        if (
+            not record.result.admitted
+            and not record.result.retryable
+            and record.sequence not in state.rejected_sequences
+        ):
+            raise ValueError("a final rejection MUST retain its sequence tombstone")
+
+
+def _validate_record(record: PlanRecord) -> None:
+    if _HEX_DIGEST.fullmatch(record.payload_digest) is None:
+        raise ValueError("agent state payload digest is invalid")
+    if record.attempts == 0 and (record.reported_at is not None or record.reported):
+        raise ValueError("an undelivered report cannot have delivery progress")
+    if record.reported and record.reported_at is None:
+        raise ValueError("an accepted report MUST retain its timestamp")
+    _validate_result(record.result)
+
+
+def _validate_result(result: PlanResult) -> None:
+    if _REASON_CODE.fullmatch(result.reason_code) is None:
+        raise ValueError("agent state reason code is invalid")
+    if len(result.summary) > _MAX_SUMMARY_CHARACTERS:
+        raise ValueError("agent state report summary is too large")
+    if result.retryable and result.admitted:
+        raise ValueError("an admitted result cannot be retryable")
+    if result.admitted and (
+        result.exact_plan_digest is None or _PLAN_DIGEST.fullmatch(result.exact_plan_digest) is None
+    ):
+        raise ValueError("an admitted result MUST retain the exact Plan digest")
+    if (
+        result.exact_plan_digest is not None
+        and _PLAN_DIGEST.fullmatch(result.exact_plan_digest) is None
+    ):
+        raise ValueError("agent state exact Plan digest is invalid")
