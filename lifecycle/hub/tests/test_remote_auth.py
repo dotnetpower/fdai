@@ -11,6 +11,7 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
+from lifecycle.hub.tests.remote_auth_helpers import seed_entra_key_cache
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
@@ -98,18 +99,20 @@ def test_entra_unknown_key_refreshes_once_inside_cache_window(auth, monkeypatch)
     old_public["kid"] = "old"
     new_public["kid"] = "new"
     verifier = EntraVerifier(auth)
-    verifier._keys = {"old": jwt.PyJWK.from_dict(old_public, algorithm="RS256")}
-    verifier._last_successful_refresh = time.monotonic()
-    verifier._refresh_after = time.monotonic() + 600
-    verifier._unknown_kid_refresh_after = 0
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(old_public, algorithm="RS256")},
+        unknown_kid_refresh_after=0,
+    )
     refreshes = 0
 
     def refresh():
         nonlocal refreshes
         refreshes += 1
-        verifier._keys = {"new": jwt.PyJWK.from_dict(new_public, algorithm="RS256")}
-        verifier._last_successful_refresh = time.monotonic()
-        verifier._unknown_kid_refresh_after = time.monotonic() + 30
+        seed_entra_key_cache(
+            verifier,
+            {"new": jwt.PyJWK.from_dict(new_public, algorithm="RS256")},
+        )
 
     monkeypatch.setattr(verifier, "_refresh", refresh)
     now = datetime.now(UTC)
@@ -153,10 +156,10 @@ def test_concurrent_unknown_keys_single_flight_the_jwks_refresh(auth, monkeypatc
         refreshes += 1
         started.set()
         assert release.wait(timeout=2)
-        verifier._keys = {"new": jwt.PyJWK.from_dict(public, algorithm="RS256")}
-        verifier._last_successful_refresh = time.monotonic()
-        verifier._refresh_after = time.monotonic() + 600
-        verifier._unknown_kid_refresh_after = time.monotonic() + 30
+        seed_entra_key_cache(
+            verifier,
+            {"new": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        )
 
     monkeypatch.setattr(verifier, "_refresh", refresh)
     token = _token(auth, key, kid="new")
@@ -176,10 +179,13 @@ def test_failed_jwks_refresh_retains_keys_and_starts_cooldown(auth, monkeypatch)
     public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     public["kid"] = "old"
     verifier = EntraVerifier(auth)
-    verifier._keys = {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")}
-    verifier._last_successful_refresh = 50.0
-    verifier._refresh_after = 0
-    verifier._unknown_kid_refresh_after = 0
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        refreshed_at=50.0,
+        refresh_after=0,
+        unknown_kid_refresh_after=0,
+    )
     clock = [100.0]
     refreshes = 0
 
@@ -211,10 +217,13 @@ def test_failed_jwks_refresh_rejects_keys_after_stale_deadline(auth, monkeypatch
     public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     public["kid"] = "old"
     verifier = EntraVerifier(auth)
-    verifier._keys = {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")}
-    verifier._last_successful_refresh = 100.0
-    verifier._refresh_after = 0
-    verifier._unknown_kid_refresh_after = 0
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        refreshed_at=100.0,
+        refresh_after=0,
+        unknown_kid_refresh_after=0,
+    )
     clock = [100.0 + MAX_JWKS_STALE_SECONDS - 1]
     refreshes = 0
 
@@ -241,10 +250,13 @@ def test_concurrent_expired_keys_fail_closed_after_one_refresh(auth, monkeypatch
     public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     public["kid"] = "old"
     verifier = EntraVerifier(auth)
-    verifier._keys = {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")}
-    verifier._last_successful_refresh = 100.0
-    verifier._refresh_after = 0
-    verifier._unknown_kid_refresh_after = 0
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        refreshed_at=100.0,
+        refresh_after=0,
+        unknown_kid_refresh_after=0,
+    )
     clock = [100.0 + MAX_JWKS_STALE_SECONDS]
     started = Event()
     release = Event()
@@ -331,11 +343,10 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
         config,
         vendor=False,
     )
-    app.state.entra_verifier._keys = original.state.entra_verifier._keys
-    app.state.entra_verifier._last_successful_refresh = (
-        original.state.entra_verifier._last_successful_refresh
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        original.state.entra_verifier._keys,
     )
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
     service = dict(oid="agent-object", azp="agent-client", scp=None, roles=["Agent.Access"])
     with TestClient(app, base_url=config.origin) as client:
         assert client.get(plan, headers=token(**service)).status_code == 200
@@ -657,11 +668,10 @@ def enrollment_remote(auth, protected, store, now):
             }
         )
         app = create_app(target_store, remote_auth=config, clock=lambda: now)
-        app.state.entra_verifier._keys = vendor.state.entra_verifier._keys
-        app.state.entra_verifier._last_successful_refresh = (
-            vendor.state.entra_verifier._last_successful_refresh
+        seed_entra_key_cache(
+            app.state.entra_verifier,
+            vendor.state.entra_verifier._keys,
         )
-        app.state.entra_verifier._refresh_after = time.monotonic() + 600
         return TestClient(app, base_url=config.origin)
 
     return client, token
@@ -1074,9 +1084,10 @@ def protected(auth):
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     public["kid"] = "test-only"
-    app.state.entra_verifier._keys = {"test-only": jwt.PyJWK.from_dict(public)}
-    app.state.entra_verifier._last_successful_refresh = time.monotonic()
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        {"test-only": jwt.PyJWK.from_dict(public)},
+    )
 
     def token(**changes):
         now = datetime.now(UTC)
@@ -1200,11 +1211,10 @@ def test_release_catalog_renewal_requires_attributed_vendor_operator(
             )
     original, token = protected
     app = create_app(store, remote_auth=auth, remote_origin=auth.origin)
-    app.state.entra_verifier._keys = original.state.entra_verifier._keys
-    app.state.entra_verifier._last_successful_refresh = (
-        original.state.entra_verifier._last_successful_refresh
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        original.state.entra_verifier._keys,
     )
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
     payload = {"revision": 0, "confirmation": "renew 0", "reason": "Reviewed current catalog"}
     route = "/v1/catalog/renew"
     revision = 0
@@ -1268,11 +1278,10 @@ def test_target_local_curation_requires_current_operator_and_exact_request(
     monkeypatch.setattr("fdai_lifecycle_hub.remote.utc_now", lambda: now)
     app = create_app(store, remote_auth=auth)
     app.routes[0:0] = target_routes(store, target, key)
-    app.state.entra_verifier._keys = original.state.entra_verifier._keys
-    app.state.entra_verifier._last_successful_refresh = (
-        original.state.entra_verifier._last_successful_refresh
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        original.state.entra_verifier._keys,
     )
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
     target.fetch = lambda _: pytest.fail("Local curation must not fetch or import a source.")
     route = "/v1/catalog/local-channels"
     payload = request_for(target, catalog, now).model_dump()
@@ -1382,11 +1391,10 @@ def test_target_real_api_denies_agent_transport_and_binds_approval_actor(
         }
     )
     app = create_app(store, remote_auth=config, clock=lambda: now)
-    app.state.entra_verifier._keys = vendor.state.entra_verifier._keys
-    app.state.entra_verifier._last_successful_refresh = (
-        vendor.state.entra_verifier._last_successful_refresh
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        vendor.state.entra_verifier._keys,
     )
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
     store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
     installation_id = enrollment.installation.installation_id
     with TestClient(app, base_url="https://hub.example.com") as client:
