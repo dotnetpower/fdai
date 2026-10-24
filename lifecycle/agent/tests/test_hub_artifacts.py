@@ -32,7 +32,14 @@ def test_verified_hub_artifact_is_cached_with_exact_bytes(tmp_path: Path) -> Non
     artifact = FetchedArtifact(payload, key.sign(payload))
     expected = SignedArtifact(artifact.payload, artifact.signature)
     hub = _Hub(artifact)
-    verifier = Ed25519ArtifactVerifier(key.public_key())
+    cryptographic_verifier = Ed25519ArtifactVerifier(key.public_key())
+    verifications = 0
+
+    def verifier(candidate: bytes, signature: bytes) -> bool:
+        nonlocal verifications
+        verifications += 1
+        return cryptographic_verifier(candidate, signature)
+
     store = CachedHubArtifactStore(
         tmp_path / "cache",
         cast(HttpHubClient, hub),
@@ -43,7 +50,9 @@ def test_verified_hub_artifact_is_cached_with_exact_bytes(tmp_path: Path) -> Non
     digest = canonical_digest({"schema_version": "example.v1"})
 
     assert store.load("release", digest) == expected
+    assert verifications == 1
     assert store.load("release", digest) == expected
+    assert verifications == 2
     assert hub.calls == 1
     assert (tmp_path / "cache/releases" / f"{digest}.json").read_bytes() == payload
 

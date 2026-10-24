@@ -54,7 +54,8 @@ class CachedHubArtifactStore(ArtifactStore):
         persisted = self._local.load(kind, digest)
         if persisted is None:
             raise ValueError("Staged Hub artifact was not durably readable.")
-        validate_artifact(kind, digest, persisted, self._verifiers[kind])
+        if persisted != staged:
+            raise ValueError("Staged Hub artifact differs from the verified bytes.")
         return persisted
 
 
