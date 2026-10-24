@@ -42,6 +42,8 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
 - The main container mounts only that PVC `agent` subdirectory at the image's UID-owned
   mode-`0700` `/agent-state` path. Strict readers therefore never traverse the group-writable PVC
   mount root.
+- A bounded `64Mi` `emptyDir` provides writable `/tmp` for Kubernetes dynamic discovery while the
+  image root filesystem remains read-only.
 - The installation identity private key is never a Terraform input. Native bootstrap runs
   separately and supplies only the installation public key to the running Agent.
 - `enable_agent=false` prepares identity, RBAC, state, and inputs without starting a poller.

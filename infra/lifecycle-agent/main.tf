@@ -278,6 +278,11 @@ resource "kubernetes_job_v1" "initialize" {
             read_only  = true
           }
           volume_mount {
+            name       = "tmp"
+            mount_path = "/tmp"
+            read_only  = false
+          }
+          volume_mount {
             name       = "private-inputs"
             mount_path = "/config/private"
             read_only  = true
@@ -287,6 +292,12 @@ resource "kubernetes_job_v1" "initialize" {
           name = "state"
           persistent_volume_claim {
             claim_name = kubernetes_persistent_volume_claim_v1.state.metadata[0].name
+          }
+        }
+        volume {
+          name = "tmp"
+          empty_dir {
+            size_limit = "64Mi"
           }
         }
         volume {
