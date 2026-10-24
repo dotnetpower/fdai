@@ -100,7 +100,9 @@ class NativeCluster:
         try:
             self._approval.require_current(self._clock())
         except ValueError as error:
-            raise MutationNotSubmittedError("native_scope_approval_expired") from error
+            raise MutationNotSubmittedError(
+                "native_scope_approval_expired", retryable=True
+            ) from error
 
     def _guard(self, *, mutation: bool = False) -> NativeState:
         state = self._load()

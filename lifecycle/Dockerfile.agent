@@ -1,0 +1,31 @@
+ARG PYTHON_IMAGE=python:3.13-slim-bookworm@sha256:e32be0e55814a08977501ca863271d9bd02443710db8f2afaf8372e2c4508530
+ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.10.12@sha256:72ab0aeb448090480ccabb99fb5f52b0dc3c71923bffb5e2e26517a1c27b7fec
+
+FROM ${UV_IMAGE} AS uv-tool
+
+FROM ${PYTHON_IMAGE} AS build
+ENV UV_PROJECT_ENVIRONMENT=/opt/agent
+COPY --from=uv-tool /uv /usr/local/bin/uv
+WORKDIR /src
+COPY packages/service-contracts packages/service-contracts
+COPY packages/deployment-cli packages/deployment-cli
+COPY lifecycle/agent lifecycle/agent
+RUN UV_HTTP_RETRIES=0 UV_HTTP_TIMEOUT=15 uv sync \
+    --project lifecycle/agent --frozen --no-dev --no-editable
+
+FROM ${PYTHON_IMAGE} AS runtime
+RUN test -s /etc/ssl/certs/ca-certificates.crt \
+    && groupadd --gid 65532 agent \
+    && useradd --uid 65532 --gid agent --no-create-home agent \
+    && mkdir /state /config \
+    && chown 65532:65532 /state /config \
+    && install -d -m 0700 -o 65532 -g 65532 /agent-state /config/private
+COPY --from=build /opt/agent /opt/agent
+ENV PATH="/opt/agent/bin:$PATH" \
+    HOME=/state \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+WORKDIR /state
+USER 65532:65532
+ENTRYPOINT ["fdai-lifecycle-agent"]
+CMD ["--help"]

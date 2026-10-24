@@ -43,8 +43,10 @@ from fdai_lifecycle_agent.strict_json import load_json
 type ReportOutcome = Literal[
     "dry-run-admitted", "rejected", "apply-started", "applied", "rolled-back"
 ]
+type ArtifactKind = Literal["release", "configuration"]
 
 MAX_PLAN_RESPONSE_BYTES = 256 * 1024
+MAX_ARTIFACT_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_SUMMARY_CHARACTERS = 2000
 MAX_CONCURRENT_WRITE_RETRIES = 3
 _MAX_RETRY_AFTER_SECONDS = 5.0
@@ -68,6 +70,14 @@ class SignedPlan:
     """Raw Plan bytes and Hub signature exactly as received; untrusted until admitted."""
 
     signed_payload: bytes
+    signature: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class FetchedArtifact:
+    """Raw signed artifact bytes returned by the current Plan's Hub boundary."""
+
+    payload: bytes
     signature: bytes
 
 
@@ -203,6 +213,54 @@ class HttpHubClient:
         path = f"/v1/installations/{_segment(installation_id, 'installation_id')}/native-proofs"
         self._post(path, proof.model_dump(mode="json"), label="native proof")
 
+    def fetch_artifact(
+        self,
+        installation_id: str,
+        kind: ArtifactKind,
+        digest: str,
+    ) -> FetchedArtifact | None:
+        if (
+            kind not in ("release", "configuration")
+            or re.fullmatch(r"[0-9a-f]{64}", digest, re.ASCII) is None
+        ):
+            raise ValueError("Hub artifact kind or digest is invalid.")
+        path = (
+            f"/v1/installations/{_segment(installation_id, 'installation_id')}"
+            f"/artifacts/{kind}/{digest}"
+        )
+        try:
+            headers = self._headers()
+            deadline = time.monotonic() + self._timeout_seconds
+            with self._client.stream("GET", path, headers=headers) as response:
+                if response.status_code == 404:
+                    return None
+                if response.status_code != 200:
+                    raise HubProtocolError(f"Hub artifact request returned {response.status_code}")
+                body = _bounded_body(
+                    response,
+                    deadline=deadline,
+                    maximum=MAX_ARTIFACT_RESPONSE_BYTES,
+                )
+        except httpx.HTTPError as error:
+            raise HubProtocolError(
+                f"Hub artifact request failed: {type(error).__name__}"
+            ) from error
+        try:
+            document = load_json(body, label="Hub artifact response")
+        except ValueError as error:
+            raise HubProtocolError("Hub artifact response is not JSON") from error
+        if (
+            not isinstance(document, dict)
+            or set(document) != {"kind", "digest", "payload", "signature"}
+            or document["kind"] != kind
+            or document["digest"] != digest
+        ):
+            raise HubProtocolError("Hub artifact response identity differs")
+        return FetchedArtifact(
+            payload=_base64(document["payload"], "payload"),
+            signature=_base64(document["signature"], "signature"),
+        )
+
     def _post(self, path: str, body: Mapping[str, object], *, label: str) -> None:
         """POST ``body``; resend it after ``503 concurrent_write``, otherwise raise unless 202."""
 
@@ -320,15 +378,20 @@ def _segment(value: str, label: str) -> str:
         raise HubProtocolError(str(error)) from error
 
 
-def _bounded_body(response: httpx.Response, *, deadline: float) -> bytes:
+def _bounded_body(
+    response: httpx.Response,
+    *,
+    deadline: float,
+    maximum: int = MAX_PLAN_RESPONSE_BYTES,
+) -> bytes:
     chunks: list[bytes] = []
     total = 0
     for chunk in response.iter_bytes():
         if time.monotonic() >= deadline:
             raise HubProtocolError("Hub response exceeded the request deadline.")
         total += len(chunk)
-        if total > MAX_PLAN_RESPONSE_BYTES:
-            raise HubProtocolError("Hub plan response exceeds the size limit")
+        if total > maximum:
+            raise HubProtocolError("Hub response exceeds the size limit")
         chunks.append(chunk)
     return b"".join(chunks)
 

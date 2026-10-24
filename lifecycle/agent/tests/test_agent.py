@@ -257,6 +257,26 @@ def test_unavailable_input_is_retried_without_repeating_the_same_report(harness:
     assert harness.hub.reports[-1][2].attempt == 2
 
 
+def test_legacy_expired_native_approval_result_is_retried(harness: Harness) -> None:
+    release = harness.store.releases.pop(harness.release_digest)
+    plan = harness.serve(harness.plan())
+    harness.poll()
+    state = _state_file(harness)
+    state["plans"][plan.plan_id]["result"].update(
+        reason_code="native_scope_approval_expired",
+        retryable=False,
+    )
+    state["rejected_sequences"] = [plan.sequence]
+    harness.state_store.path.write_text(json.dumps(state))
+    harness.store.releases[harness.release_digest] = release
+
+    admitted = harness.poll()
+
+    assert admitted.outcome == "dry-run-admitted"
+    assert harness.hub.reports[-1][2].attempt == 2
+    assert _state_file(harness)["rejected_sequences"] == []
+
+
 def test_unreadable_input_is_a_retryable_rejection(harness: Harness) -> None:
     harness.store.unreadable = True
     harness.serve(harness.plan())

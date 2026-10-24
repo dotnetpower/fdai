@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import logging
@@ -260,6 +262,38 @@ class RemoteCatalog:
             return self._curated(
                 connection, row, now + timedelta(seconds=time.monotonic() - started)
             )[0]
+
+    def signed_release(
+        self,
+        release_id: str,
+        digest: str,
+        *,
+        now: datetime,
+    ) -> tuple[bytes, bytes]:
+        """Return original signed Release bytes after revalidating accepted catalog trust."""
+
+        with self.engine.begin() as connection:
+            row = self._locked(connection)
+            admitted = self._accepted(row, now)
+            release = admitted.releases.get(release_id)
+            if release is None or release.digest != digest:
+                raise ValueError("Accepted catalog Release differs from the requested artifact.")
+            document = json.loads(row["payload"])
+            record = document.get("releases", {}).get(release_id)
+            if (
+                not isinstance(record, dict)
+                or set(record) != {"manifest", "signature"}
+                or not isinstance(record["manifest"], str)
+                or not isinstance(record["signature"], str)
+            ):
+                raise ValueError("Accepted catalog Release artifact is invalid.")
+            try:
+                signature = base64.b64decode(record["signature"], validate=True)
+            except (binascii.Error, ValueError):
+                raise ValueError("Accepted catalog Release signature is invalid.") from None
+            if len(signature) != 64:
+                raise ValueError("Accepted catalog Release signature is invalid.")
+            return record["manifest"].encode(), signature
 
     def _accepted(self, row: RowMapping, now: datetime) -> ReleaseCatalog:
         if row["payload"] is None:

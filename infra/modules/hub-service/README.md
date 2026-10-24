@@ -419,6 +419,25 @@ Runtime `enable_apps` and `enable_migration_jobs` have `prevent_destroy` guards 
 stage selectors. Only the explicitly temporary bootstrap resources are removed during cleanup.
 RBAC propagation or provider failure stops an attempt; don't conceal it with retry controllers.
 
+### Trusted lifecycle operations Job
+
+After startup and authentication are independently verified, each product can retain one manual
+operations Job. Set `operation_job` to the product-owned operation, the exact Key Vault version of
+`hub-operation-request`, and the attributed operator. Release Hub accepts only
+`publish-release`; Lifecycle Hub accepts only `import-catalog` or `recompute`.
+
+The Job receives request bytes only through the exact-version Key Vault reference and removes the
+environment value before opening storage. It reuses the Hub's own Managed Identity, database
+binding, signing key and transactional stores. It cannot enroll an installation, accept native
+ownership or apply a Plan. Repeating the same exact publication or catalog import performs
+readback without another mutation. A changed immutable Release, changed catalog pin, product
+mismatch or missing attribution stops the Job.
+
+Freeze and review each Job template and request-secret version as a new stage candidate. Start one
+manual execution, require `Succeeded`, retain only its bounded JSON receipt, and independently
+read the Release catalog or Lifecycle Plan afterward. Change `operation_job.operation` only through
+another reviewed in-place plan. Never pass request or key bytes in Job arguments or logs.
+
 ## Upgrade an existing running Hub
 
 Keep the existing backend, state ownership and enabled-resource flags. Don't repeat bootstrap,

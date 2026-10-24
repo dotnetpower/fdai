@@ -291,11 +291,12 @@ def test_expiry_during_preparation_never_submits_a_mutation(native, monkeypatch,
 
     monkeypatch.setattr(provider, "get", paused_read)
     monkeypatch.setattr(store, "save", paused_save)
-    with pytest.raises(WorkloadError, match="native_scope_approval_expired"):
+    with pytest.raises(WorkloadError, match="native_scope_approval_expired") as denied:
         if operation == "delete":
             cluster.delete("Deployment", "frontend")
         else:
             cluster.apply(manifest)
+    assert denied.value.retryable is True
     assert provider.objects == before_objects
     assert provider.calls == before_calls
     assert store.load() == before_state

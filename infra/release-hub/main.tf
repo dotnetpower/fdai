@@ -32,6 +32,7 @@ module "hub" {
   enable_apps           = var.enable_apps
   enable_bootstrap_job  = var.enable_bootstrap_job
   enable_migration_jobs = var.enable_migration_jobs
+  operation_job         = var.operation_job
   secret_versions       = var.secret_versions
 }
 

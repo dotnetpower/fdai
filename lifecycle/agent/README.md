@@ -81,7 +81,8 @@ nothing, logs `lifecycle_agent.plan_id_conflict`, and exits `1`.
 
 | Option | Content |
 |--------|---------|
-| `--inputs-dir` | `releases/<digest>.json` (an application or legacy runtime manifest) and `configurations/<digest>.json` (`schema`, `environment`, `entity_overrides`), each with a raw Ed25519 signature over the file bytes in `<digest>.sig`. `<digest>` is the hex SHA-256 of the document's canonical JSON. |
+| `--artifact-source` | `directory` reads pre-staged files. `hub` downloads only the exact Release and active configuration named by the current Plan and requires workload-identity authentication. |
+| `--inputs-dir` | For `directory`, contains `releases/<digest>.json` and `configurations/<digest>.json` plus raw Ed25519 `<digest>.sig` files. For `hub`, this is an optional private verified cache; omission uses `<state-dir>/artifact-cache`. |
 | `--current-state` | The Hub's reported-state shape, rewritten by the agent in apply mode: `{"digest": "<64 hex>", "schema_revision": 15, "entities": {"<entity>": {"release_id": "1.4.0", "artifact_digests": ["sha256:..."], "health": "healthy"}}, "observed_at": "<RFC 3339>"}` |
 | `--local-policy` | `{"schema": "fdai.lifecycle-local-policy.v1", "entity_ids": [...], "regions": [...], "capability_modes": {...}, "destructive_allowed": false, "max_duration_minutes": 60, "entity_components": {"core": ["core-control-plane"]}}`. Every Entity in `entity_ids` must name at least one component. Apply mode also needs `"component_images": {"core-control-plane": "<repository>"}`, a repository path without a tag or digest for every component. |
 
@@ -177,6 +178,13 @@ The AKS workload-identity webhook supplies `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` 
 `AZURE_FEDERATED_TOKEN_FILE`. Its projected token has the token-exchange audience, not the
 Kubernetes API audience. Kubernetes authentication still uses its own projected identity.
 Don't supply token contents through command arguments, input files or logs.
+
+Connected Agents can add `--artifact-source hub` instead of pre-staging signed inputs. Lifecycle
+Hub serves only the Release and configuration digests in that installation's current eligible
+Plan, after rechecking accepted catalog and configuration-import provenance. The Agent verifies
+the original signatures and canonical digests before publishing a mode-`0600` private cache.
+Subsequent polls reuse exact bytes. A missing or changed artifact remains a retryable hold and
+doesn't reach Kubernetes.
 
 The `poll` command accepts the same settings as `poll-once` plus `--max-polls` (default 30),
 `--poll-interval-seconds` (15) and `--max-duration-seconds` (900). It bounds poll starts and

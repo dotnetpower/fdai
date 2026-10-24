@@ -1,0 +1,61 @@
+[project]
+name = "fdai-lifecycle-manager"
+version = "0.1.0"
+description = "Prepare installation-local inputs for Hub-managed FDAI deployments"
+requires-python = ">=3.12"
+dependencies = [
+    "fdai-deployment-cli==0.1.1",
+    "fdai-lifecycle-agent==0.1.0",
+    "fdai-lifecycle-hub==0.1.0",
+]
+
+[project.scripts]
+fdai-lifecycle-manager = "fdai_lifecycle_manager.cli:main"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.13,<2",
+    "pytest>=9,<10",
+    "ruff>=0.7,<1",
+]
+
+[build-system]
+requires = ["hatchling==1.31.0"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+fdai-deployment-cli = { path = "../../packages/deployment-cli", editable = true }
+fdai-lifecycle-agent = { path = "../agent", editable = true }
+fdai-lifecycle-hub = { path = "../hub", editable = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_lifecycle_manager"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/fdai_lifecycle_manager", "tests"]
+mypy_path = [
+    "src",
+    "tests",
+    "../agent/src",
+    "../hub/src",
+    "../../packages/deployment-cli/src",
+    "../../packages/service-contracts/src",
+]
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+testpaths = ["tests"]

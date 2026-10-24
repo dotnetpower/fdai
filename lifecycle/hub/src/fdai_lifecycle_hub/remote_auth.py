@@ -238,7 +238,7 @@ def secure_app(
                     and config.service_object_id is not None
                     and claims.get("oid") == config.service_object_id
                     and claims.get("azp") == config.service_client_id
-                    and claims.get("idtyp") == "app"
+                    and _application_identity(claims)
                     and isinstance(claims.get("roles"), list)
                     and config.service_role in claims["roles"]
                 )
@@ -287,7 +287,8 @@ def secure_app(
 def _agent_allowed(config: RemoteAuth, claims: dict[str, Any], method: str, path: str) -> bool:
     match = re.fullmatch(
         r"/v1/installations/([A-Za-z0-9][A-Za-z0-9._-]{0,127})/"
-        r"(plan|state|native-proofs|plans/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/reports)",
+        r"(plan|state|native-proofs|plans/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/reports|"
+        r"artifacts/(?:release|configuration)/[0-9a-f]{64})",
         path,
         flags=re.ASCII,
     )
@@ -295,8 +296,13 @@ def _agent_allowed(config: RemoteAuth, claims: dict[str, Any], method: str, path
         return False
     installation, operation = match.groups()
     return (
-        method in ({"GET", "HEAD"} if operation == "plan" else {"POST"})
-        and claims.get("idtyp") == "app"
+        method
+        in (
+            {"GET", "HEAD"}
+            if operation == "plan" or operation.startswith("artifacts/")
+            else {"POST"}
+        )
+        and _application_identity(claims)
         and isinstance(claims.get("roles"), list)
         and "Agent.Access" in claims["roles"]
         and any(
@@ -306,6 +312,11 @@ def _agent_allowed(config: RemoteAuth, claims: dict[str, Any], method: str, path
             for principal in config.agent_principals
         )
     )
+
+
+def _application_identity(claims: dict[str, Any]) -> bool:
+    """Accept v2 application tokens whose optional identity-type claim is omitted."""
+    return claims.get("idtyp") in (None, "app")
 
 
 def _denied(status: int, reason: str) -> Response:

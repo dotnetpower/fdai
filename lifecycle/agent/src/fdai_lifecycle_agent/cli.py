@@ -31,6 +31,7 @@ from fdai_lifecycle_agent.agent import (
 )
 from fdai_lifecycle_agent.configuration_revision import load_full_revision_binding
 from fdai_lifecycle_agent.dry_run import load_current_state
+from fdai_lifecycle_agent.hub_artifacts import CachedHubArtifactStore
 from fdai_lifecycle_agent.hub_client import HttpHubClient, HubProtocolError
 from fdai_lifecycle_agent.inputs import (
     MAX_INPUT_BYTES,
@@ -130,9 +131,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     poll.add_argument(
         "--inputs-dir",
-        required=True,
         type=Path,
-        help="Directory with releases/ and configurations/ signed documents.",
+        help="Directory source or private cache for signed Release/configuration documents.",
+    )
+    poll.add_argument(
+        "--artifact-source",
+        choices=("directory", "hub"),
+        default="directory",
+        help="Read pre-staged files, or fetch exact current-Plan artifacts from the Hub.",
     )
     poll.add_argument("--current-state", required=True, type=Path, help="Current-state fixture.")
     poll.add_argument(
@@ -316,6 +322,10 @@ def main(
         parser.error("Kubernetes connection options require --apply")
     if (arguments.hub_auth == "workload-identity") != bool(arguments.hub_scope):
         parser.error("--hub-scope is required only with --hub-auth workload-identity")
+    if arguments.artifact_source == "directory" and arguments.inputs_dir is None:
+        parser.error("--inputs-dir is required with --artifact-source directory")
+    if arguments.artifact_source == "hub" and arguments.hub_auth != "workload-identity":
+        parser.error("--artifact-source hub requires --hub-auth workload-identity")
     limits = None
     try:
         if arguments.command == "poll":
@@ -405,10 +415,21 @@ def main(
                 store=WorkloadStore(arguments.state_dir),
                 write_current_state=partial(write_json_atomically, arguments.current_state),
             )
+        artifact_store = (
+            CachedHubArtifactStore(
+                arguments.inputs_dir or arguments.state_dir / "artifact-cache",
+                hub,
+                arguments.installation_id,
+                release_verifier=release_verifier,
+                configuration_verifier=configuration_verifier,
+            )
+            if arguments.artifact_source == "hub"
+            else DirectoryArtifactStore(arguments.inputs_dir)
+        )
         dependencies = AgentDependencies(
             hub=hub,
             state_store=LocalStateStore(arguments.state_dir),
-            artifact_store=DirectoryArtifactStore(arguments.inputs_dir),
+            artifact_store=artifact_store,
             verify_plan_signature=hub_keyring,
             verify_release_signature=release_verifier,
             verify_configuration_signature=configuration_verifier,
