@@ -18,7 +18,10 @@ from fdai_lifecycle_hub import models
 from fdai_lifecycle_hub.api import MAX_STATE_BYTES, create_app
 from fdai_lifecycle_hub.domain import Installation, Issued, IssuedPlan, Planner, Waiting
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest
-from fdai_lifecycle_hub.errors import ReportConflictError
+from fdai_lifecycle_hub.errors import (
+    ReportAttemptGapError,
+    ReportProgressionError,
+)
 from fdai_lifecycle_hub.reports import FAILURE_HOLD, FAILURE_HOLD_GRACE
 from fdai_lifecycle_hub.schemas import PlanReport, reported_state_json
 from fdai_lifecycle_hub.signing import verify_key_proof
@@ -230,7 +233,7 @@ def test_effect_result_requires_apply_started(
 ) -> None:
     reason = "applied" if outcome == "applied" else "apply_failed"
 
-    with pytest.raises(ReportConflictError, match="apply-started"):
+    with pytest.raises(ReportProgressionError, match="apply-started"):
         registered.record_report(
             installation.installation_id,
             issued.plan_id,
@@ -248,12 +251,12 @@ def test_report_attempts_are_contiguous_and_time_ordered(
     first = _report(issued.digest, 1, "rejected", "input_unavailable")
     record(first)
 
-    with pytest.raises(ReportConflictError, match="contiguous"):
+    with pytest.raises(ReportAttemptGapError, match="required attempt 2"):
         record(_report(issued.digest, 3, "apply-started", "started"))
     stale = _report(issued.digest, 2, "apply-started", "started").model_copy(
         update={"reported_at": first.reported_at - timedelta(seconds=1)}
     )
-    with pytest.raises(ReportConflictError, match="backwards"):
+    with pytest.raises(ReportProgressionError, match="backwards"):
         record(stale)
 
 
@@ -265,7 +268,7 @@ def test_terminal_report_rejects_followup(
     )
     record(_report(issued.digest, 1, "dry-run-admitted", "dry_run_computed"))
 
-    with pytest.raises(ReportConflictError, match="terminal"):
+    with pytest.raises(ReportProgressionError, match="terminal"):
         record(_report(issued.digest, 2, "rejected", "changed_result"))
 
 

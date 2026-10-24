@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+from base64 import b64encode
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+import httpx
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai_deployment_cli.lifecycle_plan import LifecyclePlan
@@ -20,7 +22,11 @@ from fdai_lifecycle_agent.dry_run import (
     Health,
     compute_change_set,
 )
-from fdai_lifecycle_agent.hub_client import HubProtocolError, SignedPlan
+from fdai_lifecycle_agent.hub_client import (
+    HttpHubClient,
+    HubProtocolError,
+    SignedPlan,
+)
 from fdai_lifecycle_agent.inputs import SignedArtifact
 from fdai_lifecycle_agent.state import AgentStateError
 
@@ -547,6 +553,39 @@ def test_conflicting_attempt_starts_a_new_attempt_on_the_next_poll(harness: Harn
 
     assert result.reported is True
     assert [report.attempt for report in harness.hub.attempted] == [1, 2]
+
+
+def test_http_hub_attempt_gap_retries_the_required_missing_attempt(harness: Harness) -> None:
+    plan = harness.serve(harness.plan())
+    harness.hub.report_errors.append(
+        HubProtocolError("Hub report request returned 409", code="report_conflict")
+    )
+    harness.poll()
+    attempts: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "plan": {
+                        "signed_payload": b64encode(plan.signed_payload).decode("ascii"),
+                        "signature": b64encode(plan.signature).decode("ascii"),
+                    }
+                },
+            )
+        body = json.loads(request.content)
+        attempts.append(body["attempt"])
+        if len(attempts) == 1:
+            return httpx.Response(409, json={"error": "report_attempt_gap"})
+        return httpx.Response(202)
+
+    with HttpHubClient("http://127.0.0.1:8740", transport=httpx.MockTransport(handler)) as client:
+        first = harness.poll(hub=client)
+        second = harness.poll(hub=client)
+
+    assert (first.reported, second.reported) == (False, True)
+    assert attempts == [2, 1]
 
 
 def test_plan_id_reused_with_other_bytes_is_rejected(harness: Harness) -> None:

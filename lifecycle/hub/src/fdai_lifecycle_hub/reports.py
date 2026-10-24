@@ -36,9 +36,14 @@ _EFFECT_OUTCOMES = frozenset({"applied", ROLLED_BACK})
 
 
 class ReportProgress(Protocol):
-    attempt: int
-    outcome: str
-    reported_at: datetime
+    @property
+    def attempt(self) -> int: ...
+
+    @property
+    def outcome(self) -> str: ...
+
+    @property
+    def reported_at(self) -> datetime: ...
 
 
 def validate_report_progress(previous: ReportProgress | None, current: ReportProgress) -> None:

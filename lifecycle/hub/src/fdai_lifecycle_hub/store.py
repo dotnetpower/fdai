@@ -49,7 +49,9 @@ from fdai_lifecycle_hub.errors import (
     NotPendingError,
     OwnershipUnprovenError,
     PlanDigestMismatchError,
+    ReportAttemptGapError,
     ReportConflictError,
+    ReportProgressionError,
     SchemaMismatchError,
     StateRejectedError,
     UnknownPlanError,
@@ -810,10 +812,13 @@ class HubStore:
             previous = session.scalars(
                 plan.reports.select().order_by(models.PlanReport.attempt.desc()).limit(1)
             ).one_or_none()
+            expected_attempt = 1 if previous is None else previous.attempt + 1
+            if report.attempt > expected_attempt:
+                raise ReportAttemptGapError(f"report skipped required attempt {expected_attempt}")
             try:
                 validate_report_progress(previous, report)
             except ValueError as error:
-                raise ReportConflictError(str(error)) from error
+                raise ReportProgressionError(str(error)) from error
             plan.reports.add(models.PlanReport(**report.model_dump(), received_at=now))
             plan.events.add(models.PlanEvent(kind=PlanEventKind.REPORTED, recorded_at=now))
             audit.append(

@@ -60,8 +60,10 @@ for setup ownership, exact input pins, optional CronJob RBAC and unverified sche
    `POST /v1/installations/{installation_id}/plans/{plan_id}/reports`. A `503 concurrent_write`
    is retried up to three times after `Retry-After`. Any other failure resends the identical report on the next
    poll, which the Hub accepts as a duplicate, so `attempt` doesn't grow while the Hub is
-   unreachable. Only a `409 report_conflict` makes the next poll start a new `attempt`. A reported
-   Plan is not evaluated again.
+   unreachable. A `409 report_conflict` means that the attempt already contains different bytes
+   and makes the next poll start a new `attempt`. A `409 report_attempt_gap` rewinds one step and
+   retries the required missing attempt without discarding the pending report. A reported Plan is
+   not evaluated again.
 
 A rejection blocks its sequence durably, except a retryable one: an input that is missing or
 unreadable (`release_unavailable`, `configuration_unreadable`, and so on), or bytes that no

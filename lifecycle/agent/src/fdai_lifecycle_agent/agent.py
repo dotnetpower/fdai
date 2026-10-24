@@ -771,6 +771,10 @@ class LifecycleAgent:
                 self._deps.state_store.save(
                     state.with_record(plan_id, replace(record, reported_at=None))
                 )
+            elif error.code == "report_attempt_gap" and record.attempts > 1:
+                self._deps.state_store.save(
+                    state.with_record(plan_id, replace(record, attempts=record.attempts - 1))
+                )
             return _poll_result(plan_id, record)
         record = replace(record, reported=True)
         self._deps.state_store.save(state.with_record(plan_id, record))
