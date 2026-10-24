@@ -6,12 +6,14 @@ import json
 import logging
 import re
 import time
+from threading import Condition
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
 import httpx
 import jwt
 from jwt import PyJWK
+from jwt.exceptions import PyJWTError
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
@@ -94,6 +96,8 @@ class EntraVerifier:
         self._keys: dict[str, PyJWK] = {}
         self._refresh_after = 0.0
         self._unknown_kid_refresh_after = 0.0
+        self._refresh_condition = Condition()
+        self._refreshing = False
 
     def _refresh(self) -> None:
         url = f"https://login.microsoftonline.com/{self.config.tenant_id}/discovery/v2.0/keys"
@@ -132,18 +136,48 @@ class EntraVerifier:
         self._refresh_after = refreshed_at + JWKS_CACHE_SECONDS
         self._unknown_kid_refresh_after = refreshed_at + UNKNOWN_KID_REFRESH_SECONDS
 
+    def _refresh_for(self, kid: str) -> None:
+        """Single-flight a due refresh and briefly retain valid keys when refresh fails."""
+
+        while True:
+            with self._refresh_condition:
+                now = time.monotonic()
+                due = now >= self._refresh_after or (
+                    kid not in self._keys and now >= self._unknown_kid_refresh_after
+                )
+                if not due:
+                    return
+                if self._refreshing:
+                    completed = self._refresh_condition.wait_for(
+                        lambda: not self._refreshing, timeout=5
+                    )
+                    if not completed:
+                        raise ValueError("Entra signing-key refresh exceeded its bound.")
+                    continue
+                self._refreshing = True
+                break
+        try:
+            self._refresh()
+        except (httpx.HTTPError, PyJWTError, KeyError, ValueError) as error:
+            retry_at = time.monotonic() + UNKNOWN_KID_REFRESH_SECONDS
+            with self._refresh_condition:
+                self._refresh_after = retry_at
+                self._unknown_kid_refresh_after = retry_at
+            logger.warning("hub_jwks_refresh_failed error=%s", type(error).__name__)
+            if not self._keys:
+                raise
+        finally:
+            with self._refresh_condition:
+                self._refreshing = False
+                self._refresh_condition.notify_all()
+
     def verify(self, token: str) -> dict[str, Any]:
         if len(token) > 16 * 1024:
             raise ValueError("Access token is too large.")
         kid = jwt.get_unverified_header(token).get("kid")
         if not isinstance(kid, str):
             raise ValueError("Access token signing key is not trusted.")
-        now = time.monotonic()
-        refreshed = now >= self._refresh_after
-        if refreshed:
-            self._refresh()
-        elif kid not in self._keys and now >= self._unknown_kid_refresh_after:
-            self._refresh()
+        self._refresh_for(kid)
         if kid not in self._keys:
             raise ValueError("Access token signing key is not trusted.")
         claims = jwt.decode(

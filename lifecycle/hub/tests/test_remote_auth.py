@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import time
 from base64 import b64encode
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from threading import Barrier, Event
 
 import jwt
 import pytest
@@ -104,6 +106,100 @@ def test_entra_unknown_key_refreshes_once_inside_cache_window(auth, monkeypatch)
 
     assert verifier.verify(token)["oid"] == "approved-human"
     assert refreshes == 1
+
+
+def test_concurrent_unknown_keys_single_flight_the_jwks_refresh(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "new"
+    verifier = EntraVerifier(auth)
+    verifier._refresh_after = time.monotonic() + 600
+    verifier._unknown_kid_refresh_after = 0
+    started = Event()
+    release = Event()
+    barrier = Barrier(9)
+    refreshes = 0
+
+    def refresh():
+        nonlocal refreshes
+        refreshes += 1
+        started.set()
+        assert release.wait(timeout=2)
+        verifier._keys = {"new": jwt.PyJWK.from_dict(public, algorithm="RS256")}
+        verifier._refresh_after = time.monotonic() + 600
+        verifier._unknown_kid_refresh_after = time.monotonic() + 30
+
+    monkeypatch.setattr(verifier, "_refresh", refresh)
+    token = _token(auth, key, kid="new")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_verify_after, barrier, verifier, token) for _ in range(8)]
+        barrier.wait(timeout=2)
+        assert started.wait(timeout=2)
+        release.set()
+        claims = [future.result(timeout=2) for future in futures]
+
+    assert {claim["oid"] for claim in claims} == {"approved-human"}
+    assert refreshes == 1
+
+
+def test_failed_jwks_refresh_retains_keys_and_starts_cooldown(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "old"
+    verifier = EntraVerifier(auth)
+    verifier._keys = {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")}
+    verifier._refresh_after = 0
+    verifier._unknown_kid_refresh_after = 0
+    clock = [100.0]
+    refreshes = 0
+
+    def fail_refresh():
+        nonlocal refreshes
+        refreshes += 1
+        raise ValueError("synthetic JWKS failure")
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(verifier, "_refresh", fail_refresh)
+    old_token = _token(auth, key, kid="old")
+    unknown_token = _token(auth, key, kid="unknown")
+
+    assert verifier.verify(old_token)["oid"] == "approved-human"
+    with pytest.raises(ValueError, match="not trusted"):
+        verifier.verify(unknown_token)
+    assert refreshes == 1
+    assert verifier._keys["old"].key is not None
+    assert verifier._refresh_after == 130
+    assert verifier._unknown_kid_refresh_after == 130
+
+    clock[0] = 131
+    assert verifier.verify(old_token)["oid"] == "approved-human"
+    assert refreshes == 2
+
+
+def _verify_after(barrier: Barrier, verifier: EntraVerifier, token: str) -> dict[str, object]:
+    barrier.wait(timeout=2)
+    return verifier.verify(token)
+
+
+def _token(auth: RemoteAuth, key, *, kid: str) -> str:
+    now = datetime.now(UTC)
+    return jwt.encode(
+        {
+            "iss": auth.issuer,
+            "aud": auth.audience,
+            "exp": now + timedelta(minutes=5),
+            "iat": now,
+            "nbf": now,
+            "tid": auth.tenant_id,
+            "oid": "approved-human",
+            "sub": "approved-human",
+            "azp": auth.spa_client_id,
+            "ver": "2.0",
+        },
+        key,
+        algorithm="RS256",
+        headers={"kid": kid},
+    )
 
 
 def test_agent_exact_identity_installation_role_and_methods(auth, protected):
