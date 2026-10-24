@@ -1152,6 +1152,15 @@ point that would plan the full workloads root refuses to run or uses the Hub var
 ordinary application stage, per-service update, and historical reconciliation. So Terraform and the
 agent never write the same object.
 
+The marker is the owner-only `hub-ownership.json` in the installation's work directory (schema
+`fdai.hub-ownership-marker.v1`: installation id, handoff receipt digest, time, record digest). The
+single place that activates a Terraform stage for the AKS workloads root checks it, so the ordinary
+application stage, per-service update and historical reconciliation all refuse while it exists. A
+present but unreadable, tampered, symlinked or group-readable marker also refuses, so damage cannot
+hand the objects back to Terraform. Recording is idempotent for the same handoff and never
+overwrites a different one, and release needs a rollback receipt digest. The Hub variant of the
+workloads root does not exist yet, so refusal is the only behavior today.
+
 **Rollback:** First, the agent stops reconciling the adopted objects, releases its reconciliation
 lease, and records the release. Then the infrastructure agent applies an exact plan with `import`
 blocks for the same addresses, and a following zero-change plan proves that Terraform state matches
@@ -1174,6 +1183,18 @@ derives its protected CronJob template digests from the agent's render receipt i
 Terraform input.
 
 ### Decisions on earlier open questions
+
+The classification gate (`service_migrations.classification`) is implemented and runs without
+importing a migration. The Release declares `fdai.migration-classification.v1` (`revision` to
+`expand` or `contract`). The pending revisions are the image's revisions minus the versions the
+installation has applied, so the enrollment baseline needs no declaration. The plan rejects the
+whole upgrade with a stable reason code for an unclassified revision, a declared contract revision,
+or a declared expand revision that static analysis finds dropping or renaming a table, column,
+schema or type, changing a column type, or truncating. Analysis reads only what `upgrade()` reaches,
+so a `downgrade()` that drops does not count, and it only ever tightens a declaration. It is
+conservative: a revision that drops inside a function body it creates is classified contract. The
+migration Job template in the Release, the installation-wide lease with its receipt, and the
+runtime that calls this gate remain open in #2472.
 
 The Hub-managed lifecycle owner decided these points on 2026-10-07.
 

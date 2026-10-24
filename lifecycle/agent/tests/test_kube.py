@@ -173,6 +173,25 @@ def test_foreign_uid_prevents_replace_and_service_retains_assigned_defaults(monk
     assert spec["value"].items() >= defaults.items()
 
 
+def test_replace_keeps_the_autoscaler_owned_replica_count(monkeypatch):
+    client, api = cluster(monkeypatch)
+    api.get.return_value.to_dict.return_value = {
+        "metadata": {"uid": "owned", "resourceVersion": "9"},
+        "spec": {"replicas": 3},
+    }
+    unpinned = deployment()
+    unpinned["spec"].pop("replicas", None)
+
+    client.replace_owned(unpinned, "owned")
+
+    replaced = api.patch.call_args.kwargs["body"][-1]["value"]
+    assert replaced["replicas"] == 3
+    pinned = deployment()
+    pinned["spec"]["replicas"] = 2
+    client.replace_owned(pinned, "owned")
+    assert api.patch.call_args.kwargs["body"][-1]["value"]["replicas"] == 2
+
+
 def test_native_delete_uses_api_server_uid_precondition(monkeypatch):
     client, api = cluster(monkeypatch)
     client.delete_owned("Deployment", "operator-service", "owned")

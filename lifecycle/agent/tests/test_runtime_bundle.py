@@ -350,7 +350,7 @@ def test_private_pod_templates_cannot_widen_the_supported_security_boundary(
     ("key", "value"),
     [
         ("image", "registry.example.test/unapproved:latest"),
-        ("env", [{"name": "LITERAL", "value": "not-a-reference"}]),
+        ("env", [{"name": "DATABASE_PASSWORD", "value": "not-a-reference"}]),
         ("env", {"invalid": "shape"}),
         ("securityContext", {"privileged": True}),
         ("resources", {"limits": {"cpu": "64000m", "memory": "1024Mi"}}),

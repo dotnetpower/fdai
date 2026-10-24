@@ -22,6 +22,7 @@ from fdai_service_contracts.product_profile import ObservationDataSource, Produc
 from fdai_deployment_cli import (
     aks_readiness,
     catalog_review_profile,
+    hub_ownership,
     source_application_inputs,
     standalone_host_values,
     standalone_kubernetes_tools,
@@ -3552,7 +3553,7 @@ def _activate_terraform_stage(stage: str, context: dict[str, object], work_dir: 
     elif stage == "database":
         data = context.get("database_terraform_data")
     elif stage == "application" and platform == "aks":
-        data = context.get("workloads_terraform_data")
+        data = hub_ownership.workloads_terraform_data(context, work_dir)
     else:
         data = context.get("terraform_data", str(work_dir / "terraform-data"))
     if not isinstance(data, str) or not data:

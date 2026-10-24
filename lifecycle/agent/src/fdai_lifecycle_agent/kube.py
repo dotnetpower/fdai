@@ -134,6 +134,14 @@ class KubernetesCluster:
                 if current is not None and key in current.get("spec", {})
             }
             body["spec"] = defaults | dict(manifest["spec"])
+        elif (
+            manifest["kind"] == "Deployment"
+            and "replicas" not in manifest["spec"]
+            and current is not None
+            and "replicas" in current.get("spec", {})
+        ):
+            # An autoscaler owns the replica count; replacing the spec must not reset it.
+            body["spec"] = dict(manifest["spec"]) | {"replicas": current["spec"]["replicas"]}
         self._call(
             manifest["kind"],
             lambda client, resource: client.patch(

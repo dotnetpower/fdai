@@ -17,7 +17,8 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > **Hub-managed path:** The Hub-managed lifecycle supports AKS only and adds an in-cluster
 > lifecycle agent. The development Agent defaults to dry-run and reporting; explicit bounded
 > apply supports the existing HTTP/legacy profiles and the independently pinned
-> [private runtime-bundle extension](lifecycle-runtime-bundles.md).
+> [private runtime-bundle extension](lifecycle-runtime-bundles.md), which includes a bounded
+> HorizontalPodAutoscaler. The Agent role gains only the `autoscaling` verbs for it.
 > This supplies neither infrastructure/identity creation nor a completed FDAI installation.
 > Namespace permissions, same-schema prerequisites and operational qualification remain separate.
 
@@ -673,6 +674,15 @@ The gateway facade coordinates authorization, dry-run binding, idempotency, and 
 Focused modules own configuration and identity contracts, bounded ARM transport, and scoped Azure
 resource reads and mutations. The split preserves the three vertical executor identities, one-resource
 blast radius, effect readback, rollback, and no-authority defaults.
+
+### Executor role on the Hub path
+
+The workload root accepts `hub_managed` (default `false`). When it is `true`, the Lifecycle Agent
+owns the runtime namespace's workloads, so the root binds no Executor Kubernetes-effect Role or
+RoleBinding there and the Executor cannot patch or delete the Hub-managed Deployments or Pods.
+Planning also rejects a Hub-managed namespace that is on the Executor direct-API allowlist.
+Scale targets in other namespaces stay bound exactly as below, because they no longer depend on the
+runtime-namespace role. The default `false` keeps the Terraform-managed behavior unchanged.
 
 ### Exact external Deployment scaling
 

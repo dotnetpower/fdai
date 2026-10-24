@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: e19c28ca5fa46fdedf45addb88868a0c6bdc83b3
+translation_source_sha: d0b5e33263e56098e7197f33289276eaf1fab282
 translation_revised: 2026-10-24
 ---
 # 런타임 배포 프로파일
@@ -17,7 +17,8 @@ translation_revised: 2026-10-24
 > **Hub 관리형 경로:** Hub 관리형 수명 주기는 AKS만 지원하며 클러스터 안에 수명 주기 에이전트를
 > 추가합니다. 개발용 Agent는 기본적으로 dry-run과 보고를 수행합니다. 명시적으로 선택한
 > 유한 적용에서는 기존 HTTP·이전 호환 프로필과 독립적으로 고정한
-> [비공개 실행 묶음 확장](lifecycle-runtime-bundles-ko.md)을 지원합니다.
+> [비공개 실행 묶음 확장](lifecycle-runtime-bundles-ko.md)을 지원하며, 여기에는 범위가 제한된
+> HorizontalPodAutoscaler가 포함됩니다. Agent 역할에는 이를 위한 `autoscaling` 동사만 추가합니다.
 > 기반 시설·신원 생성이나 FDAI 전체 설치 완료를 제공하지는 않습니다.
 > 네임스페이스 권한, 동일 스키마 사전 준비와 운영 검증은 별도로 유지합니다.
 
@@ -707,6 +708,15 @@ gateway 파사드는 인가, dry-run 결속, 멱등성 및 리소스 임대를 �
 신원 계약, 범위가 제한된 ARM 전송 및 범위가 지정된 Azure 리소스 읽기와 변경을 소유합니다.
 이 분리는 세 vertical 실행기 신원, 리소스 하나의 영향 범위, 효과 재확인, rollback 및 기본 권한
 없음 동작을 보존합니다.
+
+### Hub 경로의 Executor 역할
+
+워크로드 루트는 `hub_managed`(기본 `false`)를 받습니다. `true`이면 Lifecycle Agent가 런타임
+네임스페이스의 워크로드를 소유하므로, 루트는 그 네임스페이스에 Executor Kubernetes 효과 Role과
+RoleBinding을 만들지 않습니다. 따라서 Executor는 Hub가 관리하는 Deployment나 Pod를 patch하거나
+삭제할 수 없습니다. 계획 단계에서는 Hub 관리 네임스페이스가 Executor direct-API 허용 목록에 있는 경우도
+거부합니다. 다른 네임스페이스의 확장 대상은 런타임 네임스페이스 역할에 더 이상 의존하지 않으므로
+아래 설명대로 그대로 연결됩니다. 기본값 `false`는 Terraform 관리 동작을 바꾸지 않습니다.
 
 ### 외부 Deployment의 정확한 확장 대상
 

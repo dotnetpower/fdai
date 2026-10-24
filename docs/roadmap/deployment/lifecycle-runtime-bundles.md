@@ -42,7 +42,7 @@ keys, nonfinite values and existing byte limits remain blocked.
 
 The installation-local bundle contains a format, product, namespace and bounded object list.
 Each object names its Entity, kind, name and private specification. Only Deployments,
-ClusterIP Services and bounded CronJobs are in scope. Every container and initialization
+ClusterIP Services, bounded CronJobs and bounded HorizontalPodAutoscalers are in scope. Every container and initialization
 container names an approved Release component instead of a repository, tag or raw image.
 The Agent resolves it through the existing independently approved Entity/component/repository map.
 
@@ -60,6 +60,43 @@ is not proved by that syntax check; server admission and bounded rollout expose 
 The Agent receives no Secret-read permission to inspect their contents.
 Private rendered specifications remain in protected installation storage, not reports or Hub
 metadata. The public configuration can carry the digest without exposing reference names.
+
+## Autoscaled Deployments
+
+A HorizontalPodAutoscaler is a bounded object that names its own Entity's Deployment of the same
+name. It carries `minReplicas` and `maxReplicas` between 1 and 10 and one or two `Resource`
+metrics (`cpu` or `memory`) with a `Utilization` target from 1 to 100. Behavior policies,
+custom and external metrics and scale targets outside the bundle are rejected.
+
+The autoscaler owns the replica count. A Deployment that has an autoscaler therefore omits
+`replicas`, and a Deployment that omits `replicas` requires one; pinning both is rejected. The
+renderer binds `scaleTargetRef` to the same-name Deployment and applies the autoscaler after the
+Deployment. An update that replaces the Deployment spec keeps the live replica count instead of
+resetting it to one. The rollout check follows the controller-reported replica count and is never
+complete at zero. The native scope binds the autoscaler in `autoscaled_components`, which is
+omitted when empty so existing scope digests and approvals do not change. The Agent role gains the
+`autoscaling` `horizontalpodautoscalers` verbs it needs and nothing wider.
+
+## Installation binding
+
+A container environment variable takes exactly one source: an existing `valueFrom` reference, a
+bounded `value` literal, or a `binding` key. A `binding` names a value the installation owner
+supplies in the private `installation_binding` object of the same owner-only local policy
+(`format: fdai.installation-binding.v1`, a map of at most 128 keys). The infrastructure agent
+writes that object from its Terraform outputs; this document owns only the reader.
+
+Binding keys are lowercase identifiers. Values and literals are 1 to 1024 printable characters and
+cannot look like a credential: a URL with userinfo, `Password=`, `AccountKey=`,
+`SharedAccessKey=` or a PEM header is rejected. A variable whose name suggests a credential (secret,
+password, token, DSN, key, signing and similar) accepts only a Secret reference, never a literal
+or a binding. The Agent rejects a binding key the bundle does not reference and a referenced key the
+binding lacks, at policy load and again at render, with fixed messages that never echo a value.
+
+The values are resolved into plain environment values at render time and are not part of the
+bundle. The pinned bundle digest covers the literals and the binding key names, so changing a
+reference changes the pin while changing an installation-local value does not. A configuration-key
+source is not implemented here and stays open in
+[#2471](https://github.com/dotnetpower/fdai/issues/2471).
 
 ## Native ownership and workload behavior
 

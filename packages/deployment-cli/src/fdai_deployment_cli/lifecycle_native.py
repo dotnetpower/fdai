@@ -44,6 +44,7 @@ class NativeScope(BaseModel):
     components: Annotated[tuple[DnsName, ...], Field(min_length=1, max_length=64)]
     service_components: Annotated[tuple[DnsName, ...], Field(max_length=64)] | None = None
     scheduled_components: Annotated[tuple[DnsName, ...], Field(max_length=64)] = ()
+    autoscaled_components: Annotated[tuple[DnsName, ...], Field(max_length=64)] = ()
 
     @model_validator(mode="after")
     def validate_components(self) -> Self:
@@ -63,6 +64,10 @@ class NativeScope(BaseModel):
             or len(self.components) + len(self.scheduled_components) > 64
         ):
             raise ValueError("native scheduled components must be distinct and canonical")
+        if tuple(sorted(set(self.autoscaled_components))) != self.autoscaled_components or not set(
+            self.autoscaled_components
+        ) <= set(self.components):
+            raise ValueError("native autoscalers must be a canonical subset of Deployments")
         return self
 
     @model_serializer(mode="wrap")
@@ -72,6 +77,8 @@ class NativeScope(BaseModel):
             document.pop("scheduled_components", None)
         if self.service_components is None:
             document.pop("service_components", None)
+        if not self.autoscaled_components:
+            document.pop("autoscaled_components", None)
         return document
 
     @property
@@ -92,6 +99,9 @@ class NativeScope(BaseModel):
             frozenset(("Deployment", component) for component in self.components)
             | frozenset(("Service", component) for component in services)
             | frozenset(("CronJob", component) for component in self.scheduled_components)
+            | frozenset(
+                ("HorizontalPodAutoscaler", component) for component in self.autoscaled_components
+            )
         )
 
 
