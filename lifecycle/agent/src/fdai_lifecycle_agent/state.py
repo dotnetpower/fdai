@@ -84,8 +84,10 @@ class PlanRecord:
     ``attempts`` is the number of the latest report and only ever grows. ``reported_at`` is set
     while that report is pending, so a retry resends the identical report under the same attempt
     and the Hub treats it as a duplicate. ``None`` means the next delivery starts a new attempt.
-    ``report_history`` retains the complete contiguous attempt prefix. A report-attempt gap
-    persists the suffix still needing replay, one report per later poll.
+    ``report_history`` retains the complete contiguous attempt prefix. The sole exception is an
+    accepted v1 two-attempt expiry: v1 did not retain the exact apply-started report, so migration
+    preserves only the known terminal attempt and never replays the unknowable prefix. A
+    report-attempt gap persists the suffix still needing replay, one report per later poll.
     """
 
     sequence: int
@@ -351,7 +353,7 @@ def _parse_record(record: object, *, schema: str) -> PlanRecord:
             if schema == _V1_STATE_SCHEMA:
                 parsed = _migrate_legacy_report_progress(parsed)
             if schema != STATE_SCHEMA:
-                parsed = _migrate_report_history(parsed)
+                parsed = _migrate_report_history(parsed, schema=schema)
             _validate_record(parsed)
             return parsed
     raise ValueError("plan record values are invalid")
@@ -410,7 +412,7 @@ def _migrate_legacy_report_progress(record: PlanRecord) -> PlanRecord:
     )
 
 
-def _migrate_report_history(record: PlanRecord) -> PlanRecord:
+def _migrate_report_history(record: PlanRecord, *, schema: str) -> PlanRecord:
     """Reconstruct only exact v1/v2 report prefixes; ambiguous older state fails closed."""
 
     if record.attempts == 0:
@@ -435,17 +437,48 @@ def _migrate_report_history(record: PlanRecord) -> PlanRecord:
         return replace(record, report_history=(current,))
     started = record.apply_started_report
     if (
+        schema == _V1_STATE_SCHEMA
+        and record.attempts == 2
+        and record.reported
+        and started is None
+        and not record.pending_reports
+        and _is_no_effect_expiry(record.result)
+    ):
+        # V1 discarded the exact apply-started summary when it stored the terminal rejection.
+        # An accepted terminal needs no replay, so retain the known attempt instead of inventing
+        # audit content. An unaccepted v1 terminal remains ambiguous and fails below.
+        return replace(record, report_history=(current,))
+    if (
         record.attempts != 2
         or started is None
         or started.attempt != 1
         or started.result.outcome != "apply-started"
-        or record.result.outcome not in {"applied", "rolled-back"}
+        or (
+            record.result.outcome not in {"applied", "rolled-back"}
+            and not _is_no_effect_expiry(record.result)
+        )
     ):
         raise ValueError("legacy report prefix cannot be reconstructed")
+    if _is_no_effect_expiry(record.result) and (
+        started.result.reason_code != "apply_started"
+        or started.result.exact_plan_digest != f"sha256:{record.payload_digest}"
+        or started.result.retryable
+    ):
+        raise ValueError("legacy expiry apply-started report is invalid")
     history = (started, current)
     if record.pending_reports not in {(), history, history[1:]}:
         raise ValueError("legacy pending reports are not a report-history suffix")
     return replace(record, report_history=history)
+
+
+def _is_no_effect_expiry(result: PlanResult) -> bool:
+    return (
+        result.outcome == "rejected"
+        and result.reason_code == "plan_expired"
+        and result.exact_plan_digest is None
+        and result.summary == ""
+        and not result.retryable
+    )
 
 
 def parse_plan_result(result: object) -> PlanResult:
@@ -511,9 +544,11 @@ def _validate_record(record: PlanRecord) -> None:
         raise ValueError("an accepted report MUST retain its timestamp")
     if len(record.report_history) > MAX_REPORT_HISTORY:
         raise ValueError("report history is too large")
-    if record.attempts != len(record.report_history):
+    accepted_v1_expiry = _is_accepted_v1_expiry_suffix(record)
+    if not accepted_v1_expiry and record.attempts != len(record.report_history):
         raise ValueError("report history MUST contain every attempt")
-    for expected_attempt, report in enumerate(record.report_history, start=1):
+    history_start = 2 if accepted_v1_expiry else 1
+    for expected_attempt, report in enumerate(record.report_history, start=history_start):
         _validate_stored_report(report)
         if report.attempt != expected_attempt:
             raise ValueError("report history MUST be a contiguous prefix")
@@ -539,6 +574,24 @@ def _validate_record(record: PlanRecord) -> None:
         if record.pending_reports != record.report_history[-len(record.pending_reports) :]:
             raise ValueError("pending reports MUST be a report-history suffix")
     _validate_result(record.result)
+
+
+def _is_accepted_v1_expiry_suffix(record: PlanRecord) -> bool:
+    if (
+        record.attempts != 2
+        or not record.reported
+        or record.reported_at is None
+        or record.apply_started_report is not None
+        or record.pending_reports
+        or not _is_no_effect_expiry(record.result)
+        or len(record.report_history) != 1
+    ):
+        return False
+    return record.report_history[0] == StoredReport(
+        attempt=2,
+        result=record.result,
+        reported_at=record.reported_at,
+    )
 
 
 def _validate_stored_report(report: StoredReport) -> None:
