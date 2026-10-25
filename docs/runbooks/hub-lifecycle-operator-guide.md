@@ -8,8 +8,9 @@ applies a change. It separates the current development procedure from the intend
 workflow so you don't mistake a successful registration for a working deployment service.
 
 > **Scope:** Hub-managed lifecycle is not a completed production installation path. Use the
+> [Hub-image bootstrap](../roadmap/deployment/hub-image-deployment.md), explicit
 > [source deployment](../roadmap/deployment/source-deployment.md) or signed offline installation
-> path for the implemented FDAI installation contract. This guide does not authorize cloud
+> path for installation. Image bootstrap is not managed lifecycle completion. This guide does not authorize cloud
 > changes, publication, key export, or workload application.
 
 ## What this guide covers
@@ -31,6 +32,21 @@ it is not an invisible service you should assume is running.
 | Customer approver | Verify installation identity and approve permitted changes | Act as the Agent's execution identity |
 | Lifecycle Hub | Evaluate constraints, sign Plans, retain lifecycle metadata | Hold Kubernetes credentials or execute workload changes |
 | Lifecycle agent | Verify inputs, enforce local limits, apply, observe and recover | Publish releases, approve itself, or administer Azure |
+
+## Clone deployment and subscription requests
+
+For an ordinary deployment request from a new clone, follow
+[Release Hub image deployment](../roadmap/deployment/hub-image-deployment.md).
+The command uses `https://hub.msfdai.com`, independently trusted public-key verification and
+signed digest-pinned image locations. It does not ask a customer to build or publish a Release,
+and it never switches to source builds after a Hub failure. Explicit source/offline modes retain
+their existing contracts.
+
+Vendor operators can open **Deployment requests** in Release Hub to filter the intake list by
+subscription. Entries show the reported subscription, region, Release/channel, request time and
+input identities. `requested` / `self-reported` means a client submitted metadata; it does not
+prove ownership, installation, enrollment or successful effects. The list is private, excluded
+from catalog exports and separate from publication revision/expiry.
 
 ## 1. See the whole flow
 

@@ -1,22 +1,30 @@
 ---
 title: 배포 빠른 시작
-description: 복제한 저장소에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
+description: 서명된 Release Hub 이미지, 명시적 소스 빌드 또는 서명된 오프라인 패키지로 FDAI를 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 4a7ae88febb458099efa9ce28a26c7008a6c250f
+translation_source_sha: ee7276f34ee44cf48b5dd0fa65cdf40fe1b35239
 translation_revised: 2026-10-25
 ---
 
 # 배포 빠른 시작
 
-> **배포 방식:** [헌법](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](../roadmap/deployment/hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
+> **배포 방식:** 일반적인 복제 후 배포는
+> [Release Hub 이미지](../roadmap/deployment/hub-image-deployment-ko.md)를 선택합니다.
+> 명시적 소스 빌드와 서명된 오프라인 패키지는
+> [헌법의 기존 계약](../roadmap/architecture/fdai-constitution-ko.md#제1조-목적과-범위)을 유지합니다.
+> 연결된 이미지 초기 설치가 [Hub 관리형 수명 주기](../roadmap/deployment/hub-managed-lifecycle-ko.md)
+> 전체의 완성을 뜻하지는 않습니다.
 
-한 번의 대화형 Azure 로그인 뒤 복제한 저장소에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에
-배포할 수 있습니다. 키, 서명된 키트, 게시된 릴리스, GitHub 설정은 필요하지 않습니다. 업스트림
+한 번의 대화형 Azure 로그인 뒤 복제한 저장소에서 FDAI를 자신의 Azure 구독에 배포할 수 있습니다.
+명령은 기본적으로 `https://hub.msfdai.com`을 통해 사전 빌드 이미지를 선택합니다.
+독립적으로 신뢰한 Release 공개키와 호환되는 게시 Release가 필요합니다.
+비공개 서명 키, 서명된 키트나 GitHub 설정은 필요하지 않습니다.
+명시적 소스 모드는 Hub나 게시된 Release가 필요하지 않습니다. 업스트림
 무결성 서명 키가 없으면 설치본은 30일 Trial로 동작하고 Trial이 끝나면 만료 워터마크를 표시합니다.
 복제한 저장소의 `secrets/integrity-signing-key.pem`에 그 키가 있으면 전체 사용권을 받습니다.
 
-Terraform은 인프라의 단일 기준으로 유지됩니다. 배포 명령은 복제한 저장소에서 서비스 이미지를 자신의
-레지스트리에 빌드하고, 적용하는 각 계획을 표시하고, 비공개 데이터 플레인 작업을 Virtual Network
+Terraform은 인프라의 단일 기준으로 유지됩니다. 배포 명령은 서명되고 다이제스트로 고정된
+서비스 이미지를 자신의 레지스트리에 가져오고, 적용하는 각 계획을 표시하고, 비공개 데이터 플레인 작업을 Virtual Network
 내부로 옮기고, 배포 준비 상태를 보고하기 전에 애플리케이션 결과를 검증합니다.
 
 기본적으로 계획은 전용 인벤토리 Managed Identity에 구독 범위 AKS Cluster User 및 RBAC
@@ -28,17 +36,19 @@ Kubernetes 객체를 읽을 수 있으며 Core, Operator 또는 Thor에는 이 �
 
 | 환경 | 시작 방법 | 필요한 것 |
 |------|-----------|-----------|
-| 로그인할 수 있는 모든 Azure 구독 | `az login`을 실행한 뒤 한 줄 실행: `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region <region>` | 다른 것은 필요 없음. 키, 키트, 릴리스도 필요 없음 |
+| 연결된 환경의 복제 후 배포 | `az login` 뒤 복제한 저장소에서 `scripts/deployment/azure/fdai-up.sh --hub-public-key <trusted-public.pem> --region <region>` 실행 | 독립적으로 신뢰한 Release 공개키, 호환되는 게시 Release, 레지스트리 읽기 권한 |
+| 자체 구독의 명시적 소스 빌드 | `az login` 뒤 `scripts/deployment/azure/fdai-up.sh --source . --region <region>` 실행 | Hub, 검증 키, 키트나 게시 Release가 필요하지 않음 |
 | 인터넷에 연결되지 않은 Azure VM | 그 VM에서 `fdaictl provision azure --offline-kit <package>` 실행 | 키 보유자가 만든 서명된 오프라인 패키지 하나 |
 
-GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에도 포함되지 않습니다.
+GitHub Actions는 저장소를 테스트합니다. 대상 환경에 배포하는 전달 경로가 아닙니다.
 
 > **Hub 개발 검증:** 별도의 [Release Hub](../../infra/release-hub/README.md)와
 > [Lifecycle Hub](../../infra/lifecycle-hub/README.md) 안내는 각 제품의 UI/API/DB를 독립적으로
 > 배포합니다. 로그인과 상대 카탈로그 연결은 기동의 전제조건이 아니며, 인증을 설정하기 전까지
 > 관리 API는 사용할 수 없습니다. [기존 두 Hub 안내](../../infra/hubs-development/README.md)는
 > 기존 인증된 검증 구성을 보존합니다. 어느 쪽도 완전한 Hub 관리형 FDAI 설치나 이 빠른 시작의
-> 두 경로를 대체하지 않습니다. 로컬 근거는 Azure나 프로덕션 신뢰 루트의 검증이 아니며,
+> 소스 및 오프라인 경로를 대체하지 않습니다. Hub 이미지 초기 설치는 별도로 문서화하며,
+> 관리형 수명 주기 전체의 완성을 뜻하지 않습니다. 로컬 근거는 Azure나 프로덕션 신뢰 루트의 검증이 아니며,
 > 클라우드 실행에는 별도 승인이 필요합니다.
 
 > **현재 상태:** 단일 명령 소스 배포는 애플리케이션 수렴까지 구현되었습니다.
@@ -81,6 +91,11 @@ GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에�
   멈추며, 역할을 활성화한 뒤 같은 명령을 다시 실행하면 이어서 진행합니다.
 - 선택한 Azure 리전에서 필요한 리소스 형식의 사용 가능한 용량
 - 의도한 구독을 선택한 대화형 Azure 세션
+- 기본 이미지 경로에는 독립적으로 승인한 Release Hub 공개 PEM과 서명된 Release 소스 커밋에
+  일치하는 깨끗한 저장소가 필요합니다. 공개키만 사용하고 비공개 키를 제공하지 마세요.
+  선택 채널과 서명된 이미지 위치에 접근할 수 있어야 합니다. 검사에 실패하면 대체 이미지를
+  빌드하지 않고 멈춥니다. [Release Hub 이미지 배포](../roadmap/deployment/hub-image-deployment-ko.md)를
+  참조하세요.
 
 ### 명령을 한 번 설치
 
@@ -149,16 +164,23 @@ Linux에서는 보통 `~/.local/bin`입니다. 이후에는 복제한 디렉터�
 
 ### 배포 실행
 
-로그인한 뒤 저장소를 clone하고 선택한 Azure 리전에 배포를 시작하는 한 줄을 실행합니다.
+승인된 신뢰 경로로 Release 공개키를 받고 로그인한 뒤 선택한 구독을 확인하세요.
+이어서 원하는 Azure 리전에 배포합니다.
 
 ```bash
 az login
-git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region koreacentral
+az account show --query '{subscription:id,name:name}' --output table
+git clone https://github.com/dotnetpower/fdai.git
+fdai/scripts/deployment/azure/fdai-up.sh \
+  --hub-public-key /trusted/release-hub-public.pem --region koreacentral
 ```
 
-이미 clone이 있다면 그 루트에서 `scripts/deployment/azure/fdai-up.sh --region koreacentral`을 대신
-실행합니다. 래퍼는 clone의 잠긴 환경을 준비하고 지정한 옵션으로 `fdaictl provision azure --source .`를
-실행합니다. CLI를 설치했다면 clone에서 그 명령을 직접 실행할 수 있습니다. 대화형 터미널에서는
+이미 복제한 저장소가 있다면 같은 공개키와 리전 옵션으로 래퍼를 실행하세요.
+래퍼는 저장소의 잠긴 환경을 준비하고 기본적으로 Hub 이미지를 선택합니다.
+Hub와 독립적인 기존 빌드 경로에는
+`scripts/deployment/azure/fdai-up.sh --source . --region koreacentral`을 명시적으로 실행하세요.
+CLI를 설치했다면 `fdaictl provision azure --source <checkout>`도 사용할 수 있습니다.
+대화형 터미널에서는
 추가 전용 설치 이벤트가 자동으로 표시됩니다. 같은 스크롤 기록을 유지하면서 터미널 스타일을
 제거하려면 `--progress plain`을 추가합니다. 출력이 없는 준비 및 사전 검사 작업은 10초마다
 `still working` 기록을 내고, 이후 명시적인 완료 또는 실패 기록을 냅니다. 비공개 작업
@@ -174,11 +196,14 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 
 1. 명령줄로 비밀 값을 받지 않고 Azure CLI에서 활성 테넌트와 구독을 읽습니다.
 2. clone의 깨끗하게 커밋된 스냅샷 하나를 고정합니다.
+   Hub 모드에서는 서명된 카탈로그와 Release를 검증하고 소스 일치를 확인하며,
+   Azure 배포 효과 전에 선택한 구독의 최소 배포 요청을 기록합니다.
 3. clone의 `secrets/` 디렉터리를 보고 Trial 또는 전체 사용권 모드를 선택합니다.
 4. 정책, 할당량, 프로바이더 및 대상을 읽기 전용으로 검사합니다.
 5. Foundation 계획을 표시하고 적용합니다. 비공개 상태 경계, Virtual Network, Bastion 액세스,
    배포 신원 및 Managed Host를 만듭니다.
-6. 스냅샷에서 서비스 이미지를 자신의 레지스트리에 빌드하고 그 digest를 다시 읽습니다.
+6. 서명된 이미지 다이제스트를 자신의 레지스트리에 가져오고 다시 조회합니다.
+   명시적 소스 모드는 대신 스냅샷에서 서비스 이미지를 빌드합니다.
 7. 마이그레이션과 카탈로그를 적용하고, Trial을 시작하거나 전체 사용권을 저장하고, 선택한 경우
    Entra를 구성한 뒤 애플리케이션을 digest로 배포합니다.
 8. 이미지 digest, 마이그레이션과 카탈로그 상태, 서비스 상태 및 두 번째 변경 없음 계획을
@@ -187,13 +212,20 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 명령 실행이 그 명령이 표시하는 각 계획을 승인합니다. 기존 리소스를 삭제하거나 교체할 때만
 추가로 한 번 입력해 확인해야 합니다. 명령은 응답이 없다고 승인한 것으로 해석하지 않습니다.
 적용 결과가 불분명하면 같은 명령을 다시 실행할 때 적용을 반복하지 않고 검증 전용 복구를
-수행합니다. 나중에 명령을 다시 실행하면 현재 clone으로 같은 설치를 업그레이드합니다.
+수행합니다. Hub 이미지 재실행은 정확한 선택 카탈로그를 유지합니다. 기존 설치본의 채널
+업그레이드와 Hub 해체는 구현되지 않았습니다. 카탈로그 변경에는 별도로 검토한 실행이
+필요하며, 모드를 바꾸거나 기존 리소스를 도입하는 방식으로 해결하지 않습니다.
+명시적 소스 모드는 기존의 재개 및 갱신 계약을 유지합니다.
+요청 행은 배포 성공이 아닙니다. Release Hub 운영자는
+**Deployment requests**에서 `requested` / `self-reported` 기록을 확인합니다.
+요청에는 구독, 리전, Release와 채널, 입력 다이제스트가 포함되며 Azure 자격 증명이나
+고객 구성은 포함하지 않습니다. 구독 소유권도 증명하지 않습니다.
 
 정확한 Foundation 복구는 복구 논리에 더 새로운 깨끗한 checkout을 사용할 수 있습니다. 검증된
 상태 인계 후에도 애플리케이션 배포는 원래 보존된 소스 스냅샷과 원래 런타임 프로파일을 사용합니다.
 복구는 애플리케이션 바이트를 자동으로 업그레이드하거나 서명된 키트를 선택하지 않습니다.
 
-먼저 가능성을 확인하려면 Azure 접근 없이 스냅샷만 고정하는 `--prepare-only`나 리소스를 바꾸지
+명시적 소스 모드에서 Azure 접근 없이 스냅샷만 고정하려면 `--prepare-only`를, 리소스를 바꾸지
 않고 AKS SKU와 할당량을 읽는 `--preflight-only`를 추가합니다. 준비나 사전 점검의 성공은
 애플리케이션 배포 완료를 뜻하지 않습니다.
 

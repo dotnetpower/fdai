@@ -20,6 +20,42 @@ export type Change = {
   revision: number; confirmation: string; reason: string; channel?: string; channel_confirmation?: string;
   label?: string; manifest?: string;
 };
+export type DeploymentRequest = {
+  request_id: string; subscription_id: string; release_id: string; channel: string;
+  region: string; source_commit: string; catalog_digest: string; recorded_at: string;
+  status: "requested"; trust: "self-reported";
+};
+export type DeploymentRequestPage = {
+  requests: DeploymentRequest[]; limit: number; offset: number; has_more: boolean;
+};
+
+export async function requestDeploymentRequests(
+  subscriptionId = "", offset = 0, limit = 25,
+): Promise<DeploymentRequestPage> {
+  const query = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (subscriptionId) query.set("subscription_id", subscriptionId);
+  const response = await authenticatedFetch(`/v1/deployment-requests?${query}`, {
+    signal: AbortSignal.timeout(10_000),
+  });
+  let result: unknown;
+  try { result = await response.json(); }
+  catch { throw new Error(`Deployment requests unavailable (${response.status}).`); }
+  if (!response.ok) {
+    throw new Error("Deployment requests unavailable. Check operator access and refresh.");
+  }
+  if (typeof result !== "object" || result === null) throw new Error("Invalid deployment request page.");
+  const page = result as DeploymentRequestPage;
+  if (!Array.isArray(page.requests) || page.requests.length > limit
+    || page.limit !== limit || page.offset !== offset || typeof page.has_more !== "boolean"
+    || !page.requests.every((record) => typeof record === "object" && record !== null
+      && record.status === "requested" && record.trust === "self-reported"
+      && ["request_id", "subscription_id", "release_id", "channel", "region", "source_commit", "catalog_digest", "recorded_at"]
+        .every((key) => typeof record[key as keyof DeploymentRequest] === "string")
+      && Number.isFinite(Date.parse(record.recorded_at)))) {
+    throw new Error("Invalid deployment request page.");
+  }
+  return page;
+}
 
 export type ReleaseManifest = Record<string, unknown> & {
   product?: string;

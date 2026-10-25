@@ -3,7 +3,11 @@ title: Installable Deployment CLI
 ---
 # Installable Deployment CLI
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies. [One-Command Source Deployment](source-deployment.md) owns the source path's artifacts and entitlement selection.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope)
+> defines the installation contracts. Ordinary clone deployment selects
+> [Hub-image bootstrap](hub-image-deployment.md), not completion of the full managed lifecycle.
+> [One-Command Source Deployment](source-deployment.md) owns explicit source builds and their
+> entitlement selection. Source and offline paths acquire no new Hub prerequisite.
 
 This document defines the public FDAI deployment command. Operators run one local coordinator
 after Azure sign-in, while Terraform apply and private data-plane work run on the managed host
@@ -25,7 +29,7 @@ inside the target virtual network.
 | Infrastructure engine | Terraform from the selected signed profile closure |
 | Target selection | Active interactive Azure CLI user |
 | Apply location | Managed deployment host inside the target VNet |
-| Connected artifact source | One clean checkout; service images are built from it into the deployment's own registry, as [source deployment](source-deployment.md) defines |
+| Connected artifact source | Default clone deployment imports signed image digests selected through `https://hub.msfdai.com`; explicit `--source` builds from the clean checkout without a Hub dependency |
 | Disconnected artifact source | Complete offline profile in one signed kit; no appliance image is produced |
 | Approval | Current human approval bound to each exact plan digest |
 | Runtime identity | Scoped read-only observation identity by default; privileged executor only for the explicit governed-execution add-on |
@@ -43,6 +47,20 @@ application component Releases. That strict metadata is consumed only by the Hub
 it adds no public source/offline command, migration authority, or local-database fallback.
 
 GitHub Actions may validate source, build images, and optionally publish signed releases; publication is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment. The read-only [observer artifact preflight](../architecture/aks-outbound-connector.md#artifact-preflight) reuses the same pinned-root offline kit and OCI verifier for an exact Core image; its bounded process result creates no new release trust, approval or installation authority. The kit may also bind one optional default Rule activation profile by path, id, source timestamp, file digest, and complete-kit manifest digest. Preparation emits deterministic Core environment bindings only; it neither applies a generation nor deploys a tenant workload.
+
+## Connected image bootstrap
+
+The clone wrapper selects [Release Hub images](hub-image-deployment.md) by default.
+An independently approved public verification key, signed catalog/manifest, eligible channel
+membership and an exact source match are required for that selection. The existing coordinator
+retains infrastructure, approval, migration, licensing, health and zero-change-plan boundaries.
+There is no source build fallback on Hub failure and no claim that image bootstrap completes
+enrollment or the full Hub-managed lifecycle.
+
+Minimal subscription request metadata reaches Release Hub before Azure deployment effects.
+It is a self-reported request, not proof of subscription ownership or deployment success.
+Operators view it separately from catalog publication. Explicit source and offline modes do
+not submit a request.
 
 ## Connected source deployment
 

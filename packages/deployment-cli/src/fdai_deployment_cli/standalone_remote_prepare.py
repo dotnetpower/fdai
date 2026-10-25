@@ -18,6 +18,7 @@ from fdai_deployment_cli.development_authority_profile import (
     stage_development_authority_profile,
 )
 from fdai_deployment_cli.foundation_adoption_transport import stage_foundation_context
+from fdai_deployment_cli.hub_image_trust import HubImageSelection, load_selection
 from fdai_deployment_cli.notification_recipients_input import (
     NotificationRecipientsDeploymentInput,
     stage_notification_recipients,
@@ -60,6 +61,7 @@ def prepare_remote(
     development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
     clear_development_authority_profile: bool = False,
     control_package: ControlPackage | None = None,
+    hub_selection: HubImageSelection | None = None,
 ) -> dict[str, object]:
     """Transfer exact inputs and invoke the value-free host preparation command.
 
@@ -73,6 +75,10 @@ def prepare_remote(
         database_placement="postgres-flex",
     )
     source_mode = source_archive is not None
+    if hub_selection is not None:
+        hub_selection = load_selection(hub_selection.path, hub_selection.digest)
+        if not source_mode:
+            raise ValueError("Hub images cannot be transferred in offline-kit mode")
     if source_mode:
         if not all(
             value is not None
@@ -155,6 +161,23 @@ def prepare_remote(
         if digest.returncode != 0 or digest.stdout.split(maxsplit=1)[0] != archive_digest:
             raise ValueError("standalone transport archive digest differs")
         install_cli = _kit_cli_installation(remote_root)
+    hub_arguments: tuple[str, ...] = ()
+    if hub_selection is not None:
+        remote_selection = f"{remote_root}/hub-selection.json"
+        tunnel.copy_to(hub_selection.path, remote_selection, timeout=120)
+        observed = tunnel.ssh(("sha256sum", remote_selection), timeout=120)
+        if (
+            observed.returncode != 0
+            or not observed.stdout.split()
+            or observed.stdout.split()[0] != hub_selection.digest
+        ):
+            raise ValueError("Hub selection transfer digest differs")
+        hub_arguments = (
+            "--hub-selection",
+            remote_selection,
+            "--hub-selection-digest",
+            hub_selection.digest,
+        )
     if control_package is not None:
         install_cli = _stage_control_package(tunnel, remote_root, control_package)
     try:
@@ -237,6 +260,7 @@ def prepare_remote(
                 for value in ("--observation-source", source.value)
             ),
             *catalog_review_arguments,
+            *hub_arguments,
             *verifier_arguments,
             *notification_recipients_arguments,
             *development_authority_arguments,

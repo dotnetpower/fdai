@@ -1,7 +1,7 @@
 ---
 title: 애플리케이션 실행 묶음
 translation_of: lifecycle-runtime-bundles.md
-translation_source_sha: 2e1843b69508c0864bcd99ddb4a56c2117c0a37f
+translation_source_sha: 96a17c1d43272633545cb9e05dbc651f29c768a9
 translation_revised: 2026-10-25
 ---
 # 애플리케이션 실행 묶음
@@ -37,7 +37,14 @@ Plan 검증, dry-run, 적용, 복구와 보고 순서를 동일하게 사용합�
 
 Release v2는 `product`, `release_version`, `source_commit`, `platform_tag`와 선택적인
 설정·DB 스키마 정보를 유지합니다. `components`에는 이름을 가진 레코드 1-64개가 있으며,
-각 레코드는 `image_digest`만 포함합니다. v1의 `workloads`와 달리 sidecar, 초기화
+각 레코드는 필수 `image_digest`와 선택적 `image_ref`를 포함합니다.
+`image_ref`가 있으면 자격 증명 없이 정확히 같은 다이제스트로 고정한 레지스트리 참조여야 합니다.
+변경 가능한 태그만으로는 허용하지 않습니다. 생략하면 기존 구성 요소 매니페스트를 유지합니다.
+[연결된 이미지 초기 설치](hub-image-deployment-ko.md)는 레지스트리 위치를 추정하거나
+대체 이미지를 빌드하지 않으며, 일곱 구성 요소 전체의 서명된 참조를 요구합니다.
+Lifecycle Agent는 독립적으로 승인한 로컬 저장소 바인딩을 계속 사용합니다.
+새 필드는 레지스트리 접근 권한을 부여하거나 로컬 정책 범위를 넓히지 않습니다.
+v1의 `workloads`와 달리 v2는 sidecar, 초기화
 컨테이너나 주기 작업을 HTTP 서비스로 표현하지 않습니다. 알 수 없는 필드, 잘못된 이름·digest,
 중복 JSON 키, 유한하지 않은 값과 기존 크기 제한 위반은 계속 차단합니다.
 

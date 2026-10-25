@@ -86,7 +86,7 @@ creates a missing key implicitly. Keep the state directory outside source contro
 
 The default commands above remain unauthenticated and loopback-only. A separate
 `python -m fdai_lifecycle_hub.remote` entrypoint supports direct Entra authentication,
-service-owned passwordless PostgreSQL, explicit schema revision 1 migration, attributed
+service-owned passwordless PostgreSQL, explicit schema revision 2 migration, attributed
 publication audit, and a versioned Key Vault development signing-key reference. It rejects
 missing configuration/migration instead of silently creating remote state or keys.
 Its bundled UI uses operator Entra sign-in; the customer service identity can read only
@@ -99,6 +99,59 @@ vaults, and logs, not just separate RGs. This change has not deployed or validat
 Customer pin approval is a separate authenticated operation using an independently obtained
 digest/revision. Automatic polling, production TUF metadata/root ceremony, artifact availability,
 and Agent apply remain unsupported.
+
+### Review clone deployment requests
+
+Open **Deployment requests** to review subscriptions that reported a clone deployment request.
+Every record is **self-reported, ownership unverified**, with status `requested`. It is not
+proof of subscription ownership, approval, deployment execution, or success. Intake never
+changes catalog revision, expiry, channel membership, or installation authority.
+
+`POST /v1/deployment-requests` accepts a JSON object with exactly these fields (2 KiB body limit):
+
+| Field | Accepted value |
+|-------|----------------|
+| `request_id` | Stable lowercase SHA-256 hex, 64 characters |
+| `subscription_id` | Canonical lowercase UUID |
+| `release_id` | Canonical SemVer Release id, at most 64 characters |
+| `channel` | `DEV`, `RELEASE_CANDIDATE`, `RELEASE`, or `custom-name`, at most 64 characters |
+| `region` | Lowercase Azure location token, at most 64 characters |
+| `source_commit` | Lowercase 40-character Git commit hex |
+| `catalog_digest` | Lowercase 64-character SHA-256 hex |
+
+Unknown or duplicate fields, credentials, tenant ids, deployment identities, callbacks, and
+free-form messages are not accepted. New requests require a published, signature-verified,
+non-recalled Release in the selected local catalog channel. The supplied commit and catalog
+digest are self-reported metadata, not a verified source binding or independent trust input.
+Intake allows eight in-flight requests per server process, bounds body reads to ten seconds,
+and caps retained records at 100,000. Busy intake returns `429`, an expired body deadline `408`,
+and exhausted capacity or unavailable storage `503`. Exact retries remain readable at capacity.
+These local bounds do not replace deployment-edge abuse controls or a reviewed retention policy.
+
+The response contains those seven fields plus server-supplied `recorded_at` (UTC),
+`status: "requested"`, and `trust: "self-reported"`. First acceptance returns `201`; an exact
+retry of the same request id returns `200` and the original record, even if the Release has
+since been recalled. Changed metadata under the same id returns `409`. No automatic retry runs.
+
+With an explicitly configured `public_catalog_export` profile, this POST and the existing
+signed catalog export GET are public. All other writes and the request listing retain existing
+vendor authentication. Default authenticated remote and loopback-only local behavior is unchanged.
+Public intake cannot verify that the submitting party owns the named subscription.
+
+Operator-only `GET /v1/deployment-requests` returns
+`{"requests": [...], "limit": 25, "offset": 0, "has_more": false}`. Optional
+`subscription_id` filters by exact canonical UUID; `limit` is 1-100 (default 25) and
+`offset` is 0-100000, matching the retention cap so every retained page is reachable.
+Results sort by `recorded_at` descending, then `request_id` descending.
+Unknown or duplicate query fields are not accepted. Subscription rows never enter catalog
+views or signed exports. The UI supports filtering, pagination, explicit refresh, and
+per-request metadata disclosure, with separate loading, empty, and unavailable states.
+
+Existing revision 1 databases need the explicit remote migration command before serving this
+build. The transactional revision 2 expansion preserves catalog data and adds only the request
+table and indexes. Remote serving does not migrate implicitly; local initialization keeps its
+existing automatic-development-migration behavior. Local tests do not qualify production
+intake abuse protection, retention policy, ownership attestation, or successful Azure deployment.
 
 ### Renew development catalog freshness
 

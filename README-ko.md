@@ -1,7 +1,7 @@
 ---
 translation_of: README.md
-translation_source_sha: b25df46098a56dc02ff4a0c4a84cbee654596f23
-translation_revised: 2026-09-26
+translation_source_sha: 8b357039b60323b195a6b60401b82a66985f70f3
+translation_revised: 2026-10-25
 ---
 
 # FDAI
@@ -129,7 +129,9 @@ FDAI를 오래 운영할수록 T2 비중은 작아지고 자동 해결 비율은
 
 - **사용자 가이드**: [docs/user-guide/get-started-ko.md](docs/user-guide/get-started-ko.md)
 - **로컬 개발**: [docs/user-guide/local-development-quickstart-ko.md](docs/user-guide/local-development-quickstart-ko.md)
-- **Azure 배포**: [docs/user-guide/deploy-quickstart-ko.md](docs/user-guide/deploy-quickstart-ko.md)
+- **Azure 배포**: [docs/user-guide/deploy-quickstart-ko.md](docs/user-guide/deploy-quickstart-ko.md).
+  복제 후 배포는 `hub.msfdai.com`을 통해 서명된 이미지를 선택합니다. 명시적 소스 및
+  오프라인 설치도 유지하며, Release Hub 운영자는 자체 신고된 구독 요청을 조회할 수 있습니다.
 - **상세 로드맵**: [docs/roadmap/README-ko.md](docs/roadmap/README-ko.md)
 - **컨트리뷰터 규칙**: [.github/copilot-instructions.md](.github/copilot-instructions.md)
 

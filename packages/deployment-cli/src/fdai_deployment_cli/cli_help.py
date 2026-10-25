@@ -22,11 +22,12 @@ ROOT_EPILOG = (
     "Deployment requires explicit approval; help grants no authority."
 )
 AZURE_DESCRIPTION = (
-    "Use the active Azure CLI human account with source or a verified signed kit.\n"
-    "Choose --source or --offline-kit. Exact plans require human approval.\n"
+    "Use the active Azure CLI human account with signed Hub images, source, or a signed kit.\n"
+    "Choose --hub, --source or --offline-kit. Exact plans require human approval.\n"
+    "Hub mode needs an independently provisioned --hub-public-key; it never builds services.\n"
     "A new source install confirms scope at startup only; later stages never prompt.\n"
     "Scope confirmation is not apply approval; --approval-file supplies exact approval.\n"
-    "Source Foundation uses exact approvals; application activation is incomplete.\n"
+    "Source and Hub-image bootstrap share Foundation and application acceptance checks.\n"
     "Use --prepare-only for no Azure access or --preflight-only for read-only SKU/quota checks.\n"
     "New installations seal Container Apps or AKS into every approved plan.\n"
     "New installations can start observation-only without a capability token.\n"
@@ -34,6 +35,7 @@ AZURE_DESCRIPTION = (
 )
 AZURE_EPILOG = (
     "Examples (after az login):\n"
+    "  fdaictl provision azure --hub . --hub-public-key /trusted/release-public.pem\n\n"
     "  fdaictl provision azure --source . --runtime aks --prepare-only\n\n"
     "  fdaictl provision azure --source . --runtime aks --preflight-only\n\n"
     "  fdaictl provision azure \\\n"

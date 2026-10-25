@@ -33,6 +33,18 @@ The Core and Cost Governance images build OPA with the same pinned Go toolchain 
 
 ## Design at a glance
 
+Ordinary clone deployment uses [Hub-image bootstrap](hub-image-deployment.md) through
+`https://hub.msfdai.com`. This AKS bootstrap reuses the existing Foundation and application
+coordinator, carries the exact verified catalog selection to the managed host, imports all seven
+signed component image digests into the installation registry, and verifies them before workload
+apply. Checkout-supplied infrastructure, migrations and Console remain separately attributed.
+
+Selecting Hub images does not change runtime-profile defaults, product add-ons, executor identity,
+approval, licensing or health/zero-change-plan requirements. Explicit source mode retains its
+Hub-independent build input, and offline mode retains its local signed artifacts. No Hub failure
+selects another artifact mode. This bootstrap is not full managed lifecycle execution and does not
+implement in-place channel upgrades, Hub teardown or a Container Apps migration.
+
 The source AKS initial-inventory Job disables pod retries because the managed host already owns
 three distinct, retained attempts. It holds the existing inventory writer lock through a separate
 observer's exact-generation closure capture, then permits scheduled promotion to continue. Host

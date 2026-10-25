@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { actionsFor, artifacts, isCustomChannel, parseReleaseManifest, releaseStateIndex, releaseTitle, requestCatalog, schemaCompatibility, type Action, type Catalog, type Release } from "./api";
+import { DeploymentRequests } from "./deployment-requests";
 
 const TITLES = { register: "Register release", publish: "Publish to DEV", contribute: "Add to channel", recall: "Recall release", renew: "Renew catalog freshness" };
 type Pending = { action: Action; release: Release | null };
@@ -195,7 +196,7 @@ export function App() {
     <a class="skip" href="#main" onClick={(event) => { event.preventDefault(); heading.current?.focus(); }}>Skip to content</a>
     <nav class="side" aria-label="Release Hub">
       <div class="brand"><img src="/brand/fdai-logo.png" alt="FDAI" /><span>Release Hub<small>Vendor workspace</small></span></div>
-      {[["/releases", "Releases"], ["/channels", "Channels"], ["/activity", "Activity"], ["/trust", "Catalog trust"]].map(([path, title]) =>
+      {[["/releases", "Releases"], ["/channels", "Channels"], ["/deployment-requests", "Deployment requests"], ["/activity", "Activity"], ["/trust", "Catalog trust"]].map(([path, title]) =>
         <a key={path} class={active === path ? "nav-link current" : "nav-link"} href={`#${path}`} aria-current={active === path ? "page" : undefined}>{title}</a>)}
       <div class="side-note"><strong>Development validation</strong><p>No production trust root or deployment authority.</p></div>
     </nav>
@@ -204,6 +205,7 @@ export function App() {
       <p class="boundary">Development signatures only. Images remain external; nothing is deployed.</p>
       {error && <p class="error" role="alert">Catalog unavailable: {error} {catalog ? "Previously loaded data is shown; mutations are disabled." : "Use Refresh catalog to retry."}</p>}
       {notice && <p role="status" class={error ? "warning" : "success"}>{notice}</p>}
+      {route === "/deployment-requests" && <DeploymentRequests />}
       {!catalog && !error && <p role="status" class="empty">Loading release catalog...</p>}
       {catalog && <>
         {catalog.expired && <p class="warning">Catalog export expired at {time(catalog.expires_at)}. Consumers will reject it. Review the releases, channels and recalls, then use <a href="#/trust">Catalog trust</a> to explicitly renew freshness. Refresh catalog is read-only.</p>}
@@ -214,7 +216,8 @@ export function App() {
             <div class="summary"><strong>{catalog.releases.length} releases</strong><span>Revision {catalog.revision}</span><span>Updated {time(catalog.updated_at)}</span></div>
             {catalog.releases.length === 0 ? <section class="empty"><h2>No releases yet</h2><p>Register a signed application package or a legacy runtime manifest to begin. No sample releases are seeded.</p></section>
               : <div class="release-list">{catalog.releases.map((r) => <a key={r.id} href={`#/releases/${r.id}`} class="release-row"><div><strong>{releaseTitle(r)}</strong><p>{r.label || "No label"}</p></div><Status release={r} /><span>{r.channels.join(" / ") || "No channel"}</span><span class="row-next" aria-hidden="true">View details</span></a>)}</div>}
-          </> : route === "/channels" ? <Channels catalog={catalog} />
+          </>           : route === "/deployment-requests" ? null
+          : route === "/channels" ? <Channels catalog={catalog} />
           : route === "/activity" ? <><h1>Activity</h1><p>Transactional publication changes, newest first. Development attribution is not a production audit guarantee.</p><Activity catalog={catalog} /></>
           : route === "/trust" ? <>
             <h1>Catalog trust</h1><p>Verify exact export bytes and every published manifest before Lifecycle planning.</p>

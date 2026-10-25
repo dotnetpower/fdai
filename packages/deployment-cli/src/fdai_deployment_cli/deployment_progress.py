@@ -166,6 +166,12 @@ class DeploymentProgress:
         self.detail("Using the authenticated Azure CLI session")
         self.skip("kit", "Source checkout selected; no deployment kit is used")
 
+    def begin_hub(self) -> None:
+        """Distinguish signed service images from checkout-supplied support artifacts."""
+        self.begin("azure")
+        self.detail("Using the authenticated Azure CLI session")
+        self.skip("kit", "Hub signed images and matching checkout support selected; no kit")
+
     def finish_source(self, result: Mapping[str, object]) -> bool:
         """Render ready only for the source coordinator's verified terminal result."""
 

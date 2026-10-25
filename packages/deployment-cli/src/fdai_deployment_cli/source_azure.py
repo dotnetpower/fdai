@@ -27,6 +27,7 @@ from fdai_deployment_cli.deployment_progress import (
 from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
 )
+from fdai_deployment_cli.hub_image_trust import HubImageSelection, load_selection
 from fdai_deployment_cli.installation_scope import (
     InstallationOptions,
     confirm_installation_scope,
@@ -69,6 +70,7 @@ def plan_source_installation(
     notification_recipients: NotificationRecipientsDeploymentInput | None = None,
     development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
     clear_development_authority_profile: bool = False,
+    hub_selection: HubImageSelection | None = None,
 ) -> dict[str, object]:
     """Advance source Foundation through exact human approvals, or stop for review.
 
@@ -79,7 +81,31 @@ def plan_source_installation(
     """
     if interactive and approval_file is not None:
         raise ValueError("explicit source approval cannot be combined with interactive approval")
+    if hub_selection is None and (work_dir / "hub-images").exists():
+        raise ValueError("source builds cannot resume a Hub-image deployment")
+    hub_target_binding = None
+    if hub_selection is not None:
+        from fdai_deployment_cli.aks_preflight import _active_human_target
+        from fdai_deployment_cli.hub_image_deploy import record_deployment_request
+        from fdai_deployment_cli.target import compute_target_binding
+
+        hub_selection = load_selection(hub_selection.path, hub_selection.digest)
+        inspect_source(source_root, expected_commit=hub_selection.source_commit)
+        subscription_id, tenant_id = _active_human_target(
+            DeploymentDeadline(min(timeout_seconds, 60))
+        )
+        hub_target_binding = compute_target_binding(
+            subscription_id=subscription_id, tenant_id=tenant_id
+        )
+        record_deployment_request(hub_selection, subscription_id=subscription_id, region=region)
     if foundation_recovery_directory is not None:
+        if hub_selection is not None:
+            from fdai_deployment_cli.hub_image_deploy import require_retained_hub_recovery
+
+            assert hub_target_binding is not None
+            require_retained_hub_recovery(
+                hub_selection, work_dir=work_dir, target_binding=hub_target_binding
+            )
         from fdai_deployment_cli.source_recovery import (
             recovered_application_evidence,
             resume_source_installation,
@@ -107,6 +133,8 @@ def plan_source_installation(
             timeout_seconds=timeout_seconds,
             approval_file=approval_file,
         )
+        if hub_target_binding is not None and progress.get("target_binding") != hub_target_binding:
+            raise ValueError("Hub request target differs from retained Foundation recovery")
         if progress.get("stage") != "application-plan":
             return progress
         evidence = recovered_application_evidence(
@@ -141,6 +169,7 @@ def plan_source_installation(
             source_snapshot_digest=evidence.source_snapshot_digest,
             source_root=execution_source.root,
             foundation_recovery_directory=foundation_recovery_directory,
+            hub_selection=hub_selection,
         )
         return {
             **application,
@@ -157,6 +186,7 @@ def plan_source_installation(
             runtime_profile=runtime_profile,
             region=region,
             monthly_cost_ceiling=monthly_cost_ceiling,
+            hub_selection_digest=hub_selection.digest if hub_selection is not None else None,
         )
     with installer_activity("Verifying source and tenant-local identity names"):
         source = inspect_source(source_root, expected_commit=str(prepared["source_commit"]))
@@ -172,6 +202,8 @@ def plan_source_installation(
             timeout_seconds=deadline.remaining(180),
             owned_resource_group=_retained_application_group(work_dir, foundation_workload),
         )
+    if hub_target_binding is not None and preflight.get("target_binding") != hub_target_binding:
+        raise ValueError("Azure target changed after the Hub deployment request")
     work_dir = work_dir.absolute()
     retained_binding = {
         "source_commit": source.commit,
@@ -436,6 +468,7 @@ def plan_source_installation(
                 source_snapshot=work_dir / "source-snapshot",
                 source_snapshot_digest=str(prepared["source_snapshot_digest"]),
                 source_root=source.root,
+                hub_selection=hub_selection,
             )
             return {**application, "cost_review": cost_review}
         if not interactive or result["stage"] not in {

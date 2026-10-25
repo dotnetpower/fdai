@@ -90,7 +90,12 @@ Hub binds at deployment time.
 
 **Direction rule.** Release Hub never calls a customer. The Lifecycle Hub polls Release Hub, the
 installation Agent polls the Lifecycle Hub, and every connection starts inside the customer
-boundary. Release Hub stores no customer address, identity or schedule.
+boundary. Release Hub stores no customer callback address, execution identity or schedule. The explicit
+[deployment-request intake](hub-image-deployment.md#see-subscription-deployment-requests) is a
+separate, minimal exception: it retains a reported subscription ID, region, Release/channel,
+input digests and server receipt time for an operator-only list. These self-reported requests
+never enter the public catalog, prove subscription ownership, authorize deployment or report
+operational success. Customer configuration identifiers remain sealed under their existing contract.
 
 | Concern | Decision |
 |---------|----------|

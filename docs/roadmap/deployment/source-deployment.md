@@ -21,13 +21,15 @@ owns the first installation path in
 >
 > **Scope:** Runtime and provisioning topology, Trial and token semantics, and the signed offline
 > package stay with the owners listed in [Related docs](#related-docs).
+> Ordinary clone deployment now selects [Release Hub images](hub-image-deployment.md).
+> Select `--source .` explicitly to use this document's unchanged Hub-independent build contract.
 
 ## Design at a glance
 
 | Concern | Decision |
 |---------|----------|
 | Who can deploy | Anyone with a clone, an interactive `az login`, and rights to create resources and role assignments in the target subscription |
-| Entry points | One line, `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region <region>`, or `fdaictl provision azure --source <checkout> --region <region>`; both run one coordinator |
+| Entry points | One line, `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --source . --region <region>`, or `fdaictl provision azure --source <checkout> --region <region>`; both run one coordinator |
 | Artifact source | One clean committed checkout; service images are built from it into the deployment's own registry |
 | Release artifacts created | None: no signed kit, bundle, control package, wheelhouse, appliance, host image, SBOM, provenance, attestation, or published release |
 | Keys required | None. A signing key is never an installation input |
@@ -147,7 +149,7 @@ evidence open for operator review.
 ## Run the command
 
 ```bash
-git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region koreacentral
+git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --source . --region koreacentral
 ```
 
 The line works from any directory because `fdai-up.sh` resolves its own checkout. Sign in with
@@ -155,7 +157,9 @@ The line works from any directory because `fdai-up.sh` resolves its own checkout
 itself. `fdai-up.sh` prepares the checkout's locked environment and invokes
 `fdaictl provision azure --source <checkout>` with the remaining options. Both entry points run the
 same coordinator and produce the same result. Running the command again resumes or upgrades the
-same installation.
+same installation. Omitting `--source` selects the separately documented
+[Hub-image bootstrap](hub-image-deployment.md), not an implicit source build. A Hub error never
+selects this source path automatically.
 
 For a source AKS development installation, `--development-authority-profile <path>` selects one private reviewed profile for the application plan. The coordinator derives its executor, validates the exact target and source revision, and stages neither value until application deployment. The option is unavailable for preparation, preflight, teardown, signed-kit, and non-AKS paths. Omitting it on a rerun preserves a retained profile instead of silently revoking authority; `--clear-development-profile` removes it through a separate exact plan.
 

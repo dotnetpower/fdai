@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: d90ada0e3109634ae7fa66a089431f6906bfbb5d
+translation_source_sha: 62623acd8d492af922b8c40d5f3c696e36e1af22
 translation_revised: 2026-10-25
 ---
 # Lifecycle Release와 채널
@@ -93,7 +93,12 @@ UI는 읽기 전용 **Refresh catalog**와 **Renew catalog freshness**를 구분
 
 **방향 규칙.** Release Hub는 고객에게 요청하지 않습니다. Lifecycle Hub가 Release Hub를
 조회하고, 설치 Agent가 Lifecycle Hub를 조회하며, 모든 연결은 고객 경계 안에서 시작합니다.
-Release Hub는 고객의 주소, 신원, 일정을 저장하지 않습니다.
+Release Hub는 고객의 콜백 주소, 실행 신원, 일정을 저장하지 않습니다.
+명시적 [배포 요청 수신 경로](hub-image-deployment-ko.md#구독별-배포-요청-확인)만 별도의 최소
+예외입니다. 신고된 구독 ID, 리전, Release와 채널, 입력 다이제스트, 서버 수신 시각을 운영자
+전용 목록에 보관합니다. 자체 신고 요청은 공개 카탈로그에 포함되지 않으며 구독 소유권을
+증명하거나 배포를 승인하거나 운영 성공을 보고하지 않습니다.
+고객 구성의 식별자는 기존 계약에 따라 봉인된 상태를 유지합니다.
 
 | 관심사 | 결정 |
 |--------|------|

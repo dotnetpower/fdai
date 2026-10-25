@@ -204,9 +204,9 @@ Recommended mapping:
 - Runtime services: **AKS Standard** is the new-install default for the five packaged services. The planned [Hub-managed lifecycle](../../docs/roadmap/deployment/hub-managed-lifecycle.md) adds an in-cluster lifecycle agent and an execution-host infrastructure agent; neither is an application service, a pantheon agent, or an executor-identity holder.
   Core stays non-privileged and only internal Executor may hold effect authority. Digest-pinned OCI
   images and runtime-neutral specs render to Kubernetes `Deployment`, `Service`, `ServiceAccount`,
-  HPA, PDB, `NetworkPolicy`, and `CronJob`. Source deployment builds images from the checkout;
-  the offline package carries them prebuilt. Existing Container Apps installations are compatibility/migration sources. See
-  [../../docs/roadmap/architecture/service-decomposition-execution-plan.md](../../docs/roadmap/architecture/service-decomposition-execution-plan.md).
+  HPA, PDB, `NetworkPolicy`, and `CronJob`. Ordinary clones use [Hub-image bootstrap](../../docs/roadmap/deployment/hub-image-deployment.md) through `https://hub.msfdai.com`; verify independent trust and signed digest-pinned imports, with no source fallback.
+  Explicit `--source` builds without a Hub; offline packages carry prebuilt images. Bootstrap is not the full managed lifecycle, and subscription requests are self-reported, privately listed, and excluded from catalog exports.
+  Existing Container Apps installations are compatibility/migration sources. See [service decomposition](../../docs/roadmap/architecture/service-decomposition-execution-plan.md).
 - Light triggers: AKS `CronJob` resources use the portable schedule contract.
 - Audit/state/KPI + T1 vectors: **PostgreSQL Flexible** with **pgvector** co-located. Dev uses Burstable
   without HA; production requires zone-redundant HA plus geo-redundant backup. Cosmos DB is considered
