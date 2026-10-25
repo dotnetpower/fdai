@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5bddf397916f05b2700b5e6ca7a26aa6653a6e9c
+translation_source_sha: 5ac362aa98f74cc85e8d3a725d653b80ab3babc5
 translation_revised: 2026-10-25
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -52,6 +52,9 @@ Hub 관리형 AKS 인계에서는 `enable_document_ingestion=true`로 공용 Azu
 `enable_document_ingestion_workloads=false`로 인제스트 API, 워커, 마이그레이션 Container Apps를
 생략할 수 있습니다. 소스·오프라인 Container Apps 배포의 기본값은 계속 `true`입니다. 검토한
 정확한 계획에서만 이 분리를 사용하며, Hub 소유권이나 적용 권한을 부여하지 않습니다.
+기존 설치에서는 별도 remote state key를 사용하는 `infra/hub-stewardship-prerequisites`에서 이
+계획을 실행합니다. 이 루트는 공용 플랫폼 리소스를 조회하고 애플리케이션 워크로드를 소유하지
+않으므로, 보존된 소스 워크로드 state를 묵시적으로 다시 계획할 수 없습니다.
 
 원격 개발 Agent를 연결할 때는 Lifecycle Hub 루트의 `operator_auth.agent_principals`에
 명시적인 연결 정보를 지정합니다. 각 항목은 하나의 설치, Entra 개체와 클라이언트를 식별합니다.

@@ -1183,6 +1183,11 @@ value.
    remains `true`; a Hub-managed installation sets it to `false` only in a reviewed exact plan so
    identities, storage, private endpoints and role bindings can converge without creating a second
    workload renderer.
+   Existing installations use the dedicated `infra/hub-stewardship-prerequisites` root and a
+   separate remote state key. It reads the retained ACR, Key Vault, Event Hubs, Log Analytics,
+   VNet and AKS resources and owns only four workload identities and federated credentials,
+   document storage/private endpoints, Document Intelligence/private endpoint, role-scoped DSN
+   references and ACS Email. It declares no Container App, Container App Job or Kubernetes object.
 2. **Schema expand:** The Release ships its database migration as a Kubernetes Job template that
    uses the Core image, which already contains the migration and catalog tools. The Job runs the
    legacy migrations, the service-owned migrations in their declared order, and the authoritative
