@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
@@ -9,9 +10,38 @@ from pathlib import Path
 import pytest
 
 from fdai_deployment_cli import hub_ownership, standalone_host
+from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.standalone_host_state import replace_private_json
 
 DIGEST = "sha256:" + "a" * 64
 OTHER = "sha256:" + "b" * 64
+
+
+def adoption_receipt(
+    path: Path,
+    *,
+    complete: bool = True,
+) -> Path:
+    body: dict[str, object] = {
+        "schema_version": "fdai.runtime-adoption-receipt.v1",
+        "installation_id": "installation-dev",
+        "release_id": "release-1",
+        "objects": [
+            {
+                "kind": "Deployment",
+                "name": "core-control-plane",
+                "uid": "uid-core",
+                "resource_version": "42",
+                "render_digest": DIGEST,
+            }
+        ],
+        "complete": complete,
+    }
+    replace_private_json(
+        path,
+        body | {"receipt_digest": "sha256:" + canonical_digest(body)},
+    )
+    return path
 
 
 def aks_context(work_dir: Path) -> dict[str, object]:
@@ -79,6 +109,60 @@ def test_recording_is_private_idempotent_and_never_overwrites_a_different_handof
         hub_ownership.record_hub_ownership(
             tmp_path, installation_id="installation-other", handoff_receipt_digest=DIGEST
         )
+
+
+def test_complete_adoption_receipt_records_hub_ownership(tmp_path: Path) -> None:
+    receipt = adoption_receipt(tmp_path / "adoption-receipt.json")
+
+    marker = hub_ownership.record_hub_ownership_from_adoption(
+        tmp_path,
+        adoption_receipt=receipt,
+    )
+
+    assert marker["installation_id"] == "installation-dev"
+    assert marker["handoff_receipt_digest"].startswith("sha256:")
+    with pytest.raises(ValueError, match="Hub-managed"):
+        hub_ownership.require_terraform_owned_workloads(tmp_path)
+
+
+@pytest.mark.parametrize("complete", [False, True])
+def test_incomplete_or_tampered_adoption_never_records_marker(
+    tmp_path: Path,
+    complete: bool,
+) -> None:
+    receipt = adoption_receipt(tmp_path / "adoption-receipt.json", complete=complete)
+    if complete:
+        receipt.write_text(receipt.read_text().replace("uid-core", "uid-other"))
+        receipt.chmod(0o600)
+
+    with pytest.raises(ValueError, match="adoption receipt is invalid"):
+        hub_ownership.record_hub_ownership_from_adoption(
+            tmp_path,
+            adoption_receipt=receipt,
+        )
+
+    assert not (tmp_path / hub_ownership.MARKER_NAME).exists()
+
+
+def test_standalone_command_records_marker_from_adoption_receipt(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    receipt = adoption_receipt(tmp_path / "adoption-receipt.json")
+
+    assert (
+        standalone_host.main(
+            [
+                "--work-dir",
+                str(tmp_path),
+                "record-hub-workload-handoff",
+                "--adoption-receipt",
+                str(receipt),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["schema_version"] == "fdai.hub-ownership-marker.v1"
 
 
 @pytest.mark.parametrize(

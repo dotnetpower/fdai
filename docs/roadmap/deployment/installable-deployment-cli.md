@@ -930,6 +930,10 @@ Once an installation records the owner-only `hub-ownership.json` marker defined 
 [Hub-managed lifecycle](hub-managed-lifecycle.md), the standalone host refuses to activate a
 Terraform stage for the AKS workloads root, so no CLI entry point can plan objects the Hub agent
 owns. A damaged marker also refuses. This adds no installation gate for the other two paths.
+The internal `record-hub-workload-handoff` checkpoint accepts only a complete digest-valid
+per-object adoption receipt before recording that marker. Separate private helpers generate exact
+Terraform `removed`/`import` blocks and verify forget-only release plus zero-change rollback plans;
+they do not apply a plan or mutate state.
 
 ## Result contract
 

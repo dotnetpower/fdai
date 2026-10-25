@@ -74,6 +74,57 @@ class KubernetesCluster:
             missing_ok=False,
         )
 
+    def adopt_terraform_owned(
+        self,
+        manifest: Manifest,
+        *,
+        uid: str,
+        resource_version: str,
+    ) -> Manifest:
+        """Transfer only a Terraform-managed spec through one identity-fenced SSA."""
+
+        check_scope((manifest,), self._namespace)
+        name = manifest["metadata"]["name"]
+        current = self.get(manifest["kind"], name)
+        metadata = (current or {}).get("metadata", {})
+        if metadata.get("uid") != uid or metadata.get("resourceVersion") != resource_version:
+            raise WorkloadError("adoption_resource_drifted")
+        managers = {
+            str(item.get("manager"))
+            for item in metadata.get("managedFields", [])
+            if not item.get("subresource")
+        }
+        if managers != {"Terraform"}:
+            raise WorkloadError("adoption_field_manager_conflict")
+        body = dict(manifest) | {
+            "metadata": dict(manifest["metadata"])
+            | {
+                "uid": uid,
+                "resourceVersion": resource_version,
+                "annotations": dict(manifest["metadata"].get("annotations", {}))
+                | {"fdai.io/adopted-from": "Terraform"},
+            }
+        }
+        adopted = self._call(
+            manifest["kind"],
+            lambda client, resource: client.server_side_apply(
+                resource,
+                body=body,
+                namespace=self._namespace,
+                field_manager=FIELD_MANAGER,
+                force_conflicts=True,
+                _request_timeout=self._timeout,
+            ),
+            missing_ok=False,
+        )
+        result = dict(adopted.to_dict())
+        adopted_metadata = result.get("metadata", {})
+        if adopted_metadata.get("uid") != uid or not isinstance(
+            adopted_metadata.get("resourceVersion"), str
+        ):
+            raise WorkloadError("adoption_receipt_invalid")
+        return result
+
     def get(self, kind: str, name: str) -> Manifest | None:
         live = self._call(
             kind,
