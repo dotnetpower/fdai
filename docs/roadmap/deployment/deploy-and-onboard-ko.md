@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 291854794cc086b85e9d3e19fbb4016aba5b9ac7
-translation_revised: 2026-10-25
+translation_source_sha: b39ffa977c46651c33ae855c019f17ab50dbd4e4
+translation_revised: 2026-10-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
@@ -60,6 +60,8 @@ Terraform은 `Agent.Access`, 페더레이션 자격 증명이나 Kubernetes 권�
 승인된 범위에서 별도로 설정하세요. 해당 네임스페이스로 제한된 RBAC, 영속 상태 볼륨, 등록과
 독립적인 결과 확인은 [Hub 운영자 안내서](../../runbooks/hub-lifecycle-operator-guide-ko.md)를
 따르세요. 이 설정만으로 운영자 권한이나 release 적용 권한이 생기지는 않습니다.
+Agent 상태 볼륨은 영역 중복(zone-redundant) 디스크 클래스를 사용하므로 다른 영역으로 옮겨진 Pod도
+볼륨을 연결할 수 있습니다.
 
 [기존 두 Hub 검증 구성](../../../infra/hubs-development/README.md)은 기존 state 소유자를 위해
 그대로 보존합니다. 해당 안내는 별도 네트워크, 자체 관리 ID와 키, 명시적 migration,
