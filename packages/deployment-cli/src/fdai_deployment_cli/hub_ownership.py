@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_host_state import private_json, replace_private_json
@@ -25,6 +26,19 @@ _DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 
 def marker_path(work_dir: Path) -> Path:
     return work_dir / MARKER_NAME
+
+
+def add_handoff_parser(subcommands: Any) -> None:
+    parser = subcommands.add_parser("record-hub-workload-handoff")
+    parser.add_argument("--adoption-receipt", type=Path, required=True)
+    parser.set_defaults(handler=_record_handoff_command)
+
+
+def _record_handoff_command(args: Any, work_dir: Path) -> dict[str, object]:
+    return record_hub_ownership_from_adoption(
+        work_dir,
+        adoption_receipt=args.adoption_receipt,
+    )
 
 
 def record_hub_ownership(

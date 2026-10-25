@@ -382,12 +382,8 @@ def main(argv: list[str] | None = None) -> int:
     update_context.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
     update_context.set_defaults(handler=_service_update_context, read_only=True)
 
-    binding = subcommands.add_parser("deployment-binding")
-    binding.set_defaults(handler=_deployment_binding)
-
-    hub_handoff = subcommands.add_parser("record-hub-workload-handoff")
-    hub_handoff.add_argument("--adoption-receipt", type=Path, required=True)
-    hub_handoff.set_defaults(handler=_record_hub_workload_handoff)
+    subcommands.add_parser("deployment-binding").set_defaults(handler=_deployment_binding)
+    hub_ownership.add_handoff_parser(subcommands)
 
     migrate = subcommands.add_parser("migrate")
     migrate.set_defaults(handler=_migrate)
@@ -3176,16 +3172,6 @@ def _require_source_service_update_dev_environment(work_dir: Path) -> None:
     values = _private_json(work_dir / "application.auto.tfvars.json", "application variables")
     if values.get("env") != "dev":
         raise ValueError("source service updates are supported only for retained dev installations")
-
-
-def _record_hub_workload_handoff(
-    args: argparse.Namespace,
-    work_dir: Path,
-) -> dict[str, object]:
-    return hub_ownership.record_hub_ownership_from_adoption(
-        work_dir,
-        adoption_receipt=args.adoption_receipt,
-    )
 
 
 def _migrate(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
