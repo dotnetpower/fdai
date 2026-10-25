@@ -94,7 +94,7 @@ resource "azurerm_role_assignment" "secret_reader" {
   }
 }
 resource "azurerm_role_assignment" "operation_request_reader" {
-  for_each             = var.operation_job == null ? toset([]) : local.kinds
+  for_each             = local.operation_uses_request ? local.kinds : toset([])
   scope                = "${local.foundation[each.key].vault_id}/secrets/hub-operation-request"
   role_definition_name = "Key Vault Secrets User"
   principal_id         = local.foundation[each.key].identity_object_id

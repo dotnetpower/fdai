@@ -709,7 +709,7 @@ def test_binding_a_database_creates_the_integrity_state_and_pin_changes_fail(tmp
             )
         }
     )
-    with pytest.raises(ValueError, match="explicit key rotation"):
+    with pytest.raises(ValueError, match="explicit, attributed rebinding"):
         bind_catalog(engine, other, actor="owner", reason="swap")
     catalog = RemoteCatalog(engine, source)
     assert catalog.integrity_floors().root_version == 0

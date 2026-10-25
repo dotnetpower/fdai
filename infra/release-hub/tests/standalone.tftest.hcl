@@ -440,3 +440,19 @@ run "root_installation_is_rejected_for_the_lifecycle_hub" {
   }
   expect_failures = [var.operation_job]
 }
+
+run "release_hub_rejects_binding_operations" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "release"
+    operation_job = {
+      operation = "rebind-catalog"
+      actor     = "example-operator"
+      reason    = "Not a Release Hub operation"
+    }
+  }
+  expect_failures = [var.operation_job]
+}

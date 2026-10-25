@@ -59,6 +59,13 @@ def ensure_integrity_state(connection: Connection) -> None:
         )
 
 
+def reset_integrity_state(connection: Connection) -> None:
+    """Forget every persisted role floor, so a different pinned root starts from none."""
+
+    if inspect(connection).has_table(integrity_state.name):
+        connection.execute(integrity_state.delete())
+
+
 def read_integrity(connection: Connection, *, lock: bool = False) -> RowMapping:
     if not inspect(connection).has_table(integrity_state.name):
         raise ValueError("Catalog integrity state is not bound; run explicit bind-catalog.")

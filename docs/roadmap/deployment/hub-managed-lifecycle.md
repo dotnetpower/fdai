@@ -518,7 +518,8 @@ removed after initialization, separately from permanent runtime resources.
 After startup, each product can retain one manual trusted-operations Job for automation that
 doesn't depend on a browser session. Release Hub accepts only an exact private
 `publish-release` request. Lifecycle Hub accepts only exact `import-catalog` or `recompute`
-requests. The Job reads one exact-version Key Vault request, uses only that Hub's Managed Identity
+requests, plus the binding operations `bind-catalog` and `rebind-catalog`, which take an attributed actor and
+a reason instead of a request secret. The Job reads one exact-version Key Vault request, uses only that Hub's Managed Identity
 and transactional store, emits a bounded digest-only receipt, and has no installation apply
 identity. Exact retries read back the retained publication or import rather than adding another
 effect. Operator enrollment, ownership acceptance and Plan application remain separate boundaries.

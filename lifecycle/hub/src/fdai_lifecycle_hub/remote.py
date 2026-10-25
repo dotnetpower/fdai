@@ -404,6 +404,7 @@ def _run() -> None:
             "serve",
             "schema",
             "bind-catalog",
+            "rebind-catalog",
             "publish-release",
             "import-catalog",
             "recompute",
@@ -427,7 +428,7 @@ def _run() -> None:
     namespace = "release_hub" if config.kind == "release" else "lifecycle_hub"
     if args.command == "prepare" and config.kind != "target":
         raise ValueError("Preparation is supported only for an existing Lifecycle Hub.")
-    if args.command == "bind-catalog":
+    if args.command in {"bind-catalog", "rebind-catalog"}:
         if config.kind != "target" or config.catalog is None:
             raise ValueError("Catalog binding requires an explicit Lifecycle Hub catalog source.")
         if not args.actor or not args.actor.strip() or not args.reason or not args.reason.strip():
@@ -435,7 +436,13 @@ def _run() -> None:
         require_schema(engine, namespace)
         from fdai_lifecycle_hub.remote_catalog import bind_catalog
 
-        bind_catalog(engine, config.catalog, actor=args.actor, reason=args.reason)
+        bind_catalog(
+            engine,
+            config.catalog,
+            actor=args.actor,
+            reason=args.reason,
+            rebind=args.command == "rebind-catalog",
+        )
         return
     if args.command == "install-catalog-root":
         if config.kind != "release" or config.catalog_roles is None:
@@ -562,6 +569,11 @@ def _run() -> None:
             prepare = args.command == "prepare"
             migrate(engine, "lifecycle_hub", initialize_target, prepare=prepare)
             require_schema(engine, "lifecycle_hub", allow_pre_native=prepare)
+            if source is not None and not prepare:
+                from fdai_lifecycle_hub.remote_catalog import bind_catalog_if_missing
+
+                if bind_catalog_if_missing(engine, source, actor="system:migration"):
+                    logger.info("hub_catalog_trust_bound_by_migration")
             logger.info("hub_schema_transition_completed stage=%s", args.command)
             return
         require_schema(engine, "lifecycle_hub", allow_pre_native=True)

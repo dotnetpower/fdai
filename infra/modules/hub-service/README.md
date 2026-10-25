@@ -446,7 +446,9 @@ RBAC propagation or provider failure stops an attempt; don't conceal it with ret
 After startup and authentication are independently verified, each product can retain one manual
 operations Job. Set `operation_job` to the product-owned operation, the exact Key Vault version of
 `hub-operation-request`, and the attributed operator. Release Hub accepts only
-`publish-release` or `install-catalog-root` (when `catalog_roles` is set); Lifecycle Hub accepts only `import-catalog` or `recompute`.
+`publish-release` or `install-catalog-root` (when `catalog_roles` is set); Lifecycle Hub accepts only `import-catalog`, `recompute`, `bind-catalog` or `rebind-catalog`.
+The two binding operations take `actor` and a `reason` of 3 to 500 characters and no
+`request_secret_version`; every other operation takes the secret version and no reason.
 
 The Job receives request bytes only through the exact-version Key Vault reference and removes the
 environment value before opening storage. It reuses the Hub's own Managed Identity, database
