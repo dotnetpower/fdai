@@ -1827,6 +1827,12 @@ variable "enable_document_ingestion" {
   default     = false
 }
 
+variable "enable_document_ingestion_workloads" {
+  description = "Provision the document-ingestion Container Apps and migration Job. Set false only for a Hub-managed installation whose separately reviewed bundle owns those workloads."
+  type        = bool
+  default     = true
+}
+
 variable "enable_document_intelligence" {
   description = "Provision a Terraform-owned Azure AI Document Intelligence account, diagnostics, and optional private endpoint for OCR."
   type        = bool
