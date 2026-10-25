@@ -398,7 +398,8 @@ leaving it unselected changes nothing. The Core keeps its version floors in memo
 restart accepts any validly signed, unexpired metadata. Each transition logs
 `catalog_freshness_changed` with a stable reason. The verification code lives in
 `fdai_service_contracts` (`catalog_integrity`, `catalog_roles`, `catalog_metadata`), shared with the
-Hubs.
+Hubs. The Container Apps Core service root exposes the settings as the optional `catalog_freshness`
+variable, which requires an `https` URL and unique ed25519 root key ids.
 
 ### Signed catalog roles in the Hubs
 
@@ -448,8 +449,8 @@ Keys for snapshot and timestamp come from secret references, so a hardware-backe
 operator choice that this design does not enforce.
 
 **Not yet implemented.** A production root ceremony with retained custody receipts, which stays
-an operator procedure. Terraform and chart wiring of the installation freshness settings, and
-durable version floors for it. The standalone Release Hub
+an operator procedure. Wiring the installation freshness settings into the AKS workloads (the
+Container Apps Core root already takes `catalog_freshness`), and durable version floors for it. The standalone Release Hub
 root already installs the root through its operation Job, so the legacy paired fixture stays
 unchanged. Database inspection fingerprints the optional role tables when they exist.
 

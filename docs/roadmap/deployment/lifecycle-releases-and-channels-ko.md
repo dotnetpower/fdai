@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: cdd480972f4b9134601fa13d0fc5b643f8dc2d8b
+translation_source_sha: 996d5f31c07036192ff2d3b8d67056b04c86445a
 translation_revised: 2026-10-26
 ---
 # Lifecycle Release와 채널
@@ -393,7 +393,9 @@ URL을 가져와 고정된 `FDAI_CATALOG_FRESHNESS_ROOT_KEY_IDS`(임계값은
 아무것도 바뀌지 않습니다. Core는 버전 하한을 메모리에만 두므로 재시작하면 유효하게 서명된
 만료 전 메타데이터를 받아들입니다. 상태가 바뀔 때마다 안정적인 사유와 함께
 `catalog_freshness_changed`를 기록합니다. 검증 코드는 Hub와 공유하는 `fdai_service_contracts`
-(`catalog_integrity`, `catalog_roles`, `catalog_metadata`)에 있습니다.
+(`catalog_integrity`, `catalog_roles`, `catalog_metadata`)에 있습니다. Container Apps Core 서비스
+루트는 이 설정을 선택 변수 `catalog_freshness`로 노출하며, `https` URL과 고유한 ed25519 root 키 id를
+요구합니다.
 
 ### Hub의 서명된 카탈로그 역할
 
@@ -441,7 +443,8 @@ SHA-256이므로 id가 다른 키를 가리킬 수 없습니다. root는 공개 
 선택이며 이 설계가 강제하지 않습니다.
 
 **아직 구현하지 않은 것.** 보관 영수증을 남기는 프로덕션 root 설정 의식은 운영자 절차로 남습니다.
-설치 최신성 설정을 Terraform과 차트로 연결하는 일과 그 버전 하한을 영속화하는 일도 남아 있습니다.
+설치 최신성 설정을 AKS 워크로드에 연결하는 일(Container Apps Core 루트는 이미
+`catalog_freshness`를 받습니다)과 그 버전 하한을 영속화하는 일도 남아 있습니다.
 독립 Release Hub 루트는 이미 작업 Job으로
 root를 설치하므로 기존 두 Hub 검증 구성은 그대로 둡니다. 데이터베이스 검사는 선택 역할 테이블이
 존재하면 그 지문을 계산합니다.

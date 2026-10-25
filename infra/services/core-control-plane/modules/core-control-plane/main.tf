@@ -134,6 +134,11 @@ module "container_app" {
     { name = "FDAI_LICENSE_IMAGE_DIGEST", value = var.license.image_digest },
     { name = "FDAI_LICENSE_DEPLOYMENT_BINDING", value = var.license.deployment_digest },
     { name = "FDAI_LICENSE_TOKEN_REVISION", value = var.license.token_revision },
+    ], trimspace(var.catalog_freshness.metadata_url) == "" ? [] : [
+    { name = "FDAI_CATALOG_FRESHNESS_METADATA_URL", value = trimspace(var.catalog_freshness.metadata_url) },
+    { name = "FDAI_CATALOG_FRESHNESS_ROOT_KEY_IDS", value = join(",", var.catalog_freshness.root_key_ids) },
+    { name = "FDAI_CATALOG_FRESHNESS_ROOT_THRESHOLD", value = tostring(var.catalog_freshness.root_threshold > 0 ? var.catalog_freshness.root_threshold : length(var.catalog_freshness.root_key_ids)) },
+    { name = "FDAI_CATALOG_FRESHNESS_REFRESH_SECONDS", value = tostring(var.catalog_freshness.refresh_seconds) },
     ], trimspace(var.decision_evidence_container_url) == "" ? [] : [
     { name = "FDAI_DECISION_EVIDENCE_CONTAINER_URL", value = trimspace(var.decision_evidence_container_url) },
     ], var.rca_reader_identity.client_id == "" ? [] : [

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 6965243aa9d07ea35a2da7518c3d1e30393e5881
+translation_source_sha: 71e411729db6dbccc6299398ee12e719824a0840
 translation_revised: 2026-10-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -618,6 +618,7 @@ Incident 자동 열기 설정도 시작 시 적용됩니다. 구체화 과정은
 | `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV 참조 + env | 배포 | fix/release/security/인시던트/IRP 산출물용 GitHub 변경 피드 및 작업 흐름 도구 연결입니다. 플랫폼은 활성화된 담당 체계 대상과 토큰 시크릿 ID를 `stewardship_gitops_binding`으로 내보냅니다. 보호된 서비스 워크플로는 이 객체를 검증하고 독립 Core 서비스에는 Key Vault 참조만 주입합니다. 강제 적용 플래그는 ActionType 승격 및 risk/HIL 게이트를 우회하지 않습니다. |
 | `FDAI_RBAC_READERS_GROUP_ID` / `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` / `FDAI_RBAC_APPROVERS_GROUP_ID` / `FDAI_RBAC_OWNERS_GROUP_ID` / `FDAI_RBAC_BREAK_GLASS_GROUP_ID` | env | 배포 | 5개 human 역할 의 Entra ID 그룹 객체 id ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md) 참조). 미설정 그룹 = 역할 미할당. |
 | `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` / `FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS` / `FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS` | env | 배포 / 업스트림 | 자리 표시자 신원이 시작을 차단하도록 `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`로 설정합니다. `ENABLE_STEWARDSHIP_GOVERNANCE`는 기본적으로 GitHub App이나 웹후크 시크릿 없이 Console 관리형 모드로 동작하며, 선택적 GitOps 어댑터는 조정 회전 Key Vault 예외와 함께 `GITOPS_OWNER`, `GITOPS_REPO`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` 또는 호환 `GITOPS_TOKEN`을 매핑합니다. Terraform은 `FDAI_MAINTAINERS`, `FDAI_STEWARD_<AGENT>`, Key Vault 참조와 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 준비 상태 기반 Entra 상태 및 내용이 없는 인수인계 수명 주기 간격도 공급합니다. 간격 기본값은 3600초와 60초이며 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다. |
+| `FDAI_CATALOG_FRESHNESS_METADATA_URL` / `_ROOT_KEY_IDS` / `_ROOT_THRESHOLD` / `_REFRESH_SECONDS` | env | 배포 / 업스트림 | 선택 사항입니다. Core가 Release Hub의 공개 서명 카탈로그 메타데이터를 고정된 ed25519 root 키 id로 검증하고, 메타데이터가 만료되었거나 검증되지 않은 동안 운영자 재정의 승격을 `shadow` 모드로 되돌립니다. Terraform은 Core 루트의 `catalog_freshness`에서 값을 설정하며 URL은 `https`여야 합니다. 권한을 낮추기만 합니다. [Lifecycle Release와 채널](lifecycle-releases-and-channels-ko.md#카탈로그-무결성)을 참조하세요. |
 | `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | 배포 | 프로덕션 Operator API Entra JWT 검증기 (`EntraJwtVerifier`) 필수: 배포 테넌트 id와 `fdai-api` 애플리케이션(클라이언트) ID이며, v2 액세스 토큰은 이 값을 `aud`로 전달합니다. [user-rbac-and-identity-ko.md#102-api-토큰-검증](../interfaces/user-rbac-and-identity-ko.md#102-api-토큰-검증) 참조. |
 | `FDAI_ENTRA_ISSUER` / `FDAI_ENTRA_JWKS_URI` | env | 배포 | 선택 검증기 오버라이드; 기본값은 테넌트 의 v2 발급자 + 공개 키 셋. v1-토큰 앱은 `ISSUER` 를 `https://sts.windows.net/<tenant>/` 로; `JWKS_URI` 는 소버린 / 에어갭 클라우드에서만 오버라이드. |
 | `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | 업스트림 | Operator API onboarding 탐색 입력. ARG를 사용해 프로비저닝된 리소스 집합 및 실행기 Event Hubs / Key Vault 역할을 검증합니다. |

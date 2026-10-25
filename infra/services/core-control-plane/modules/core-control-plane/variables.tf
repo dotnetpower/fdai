@@ -132,6 +132,16 @@ variable "teams_notification_binding" {
   default = {}
 }
 
+variable "catalog_freshness" {
+  type = object({
+    metadata_url    = optional(string, "")
+    root_key_ids    = optional(list(string), [])
+    root_threshold  = optional(number, 0)
+    refresh_seconds = optional(number, 300)
+  })
+  default = {}
+}
+
 variable "stewardship_gitops" {
   type = object({
     enabled                   = optional(bool, false)
