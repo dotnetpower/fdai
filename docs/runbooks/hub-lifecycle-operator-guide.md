@@ -229,6 +229,12 @@ separate secret versions and enable `catalog_roles` on the Release Hub. Run the
 the chain and refuses a root that does not authorize its own keys. Serving needs a root, so
 `GET /v1/catalog/metadata` returns `503` until one is installed.
 
+**Order of operations for a deployed pair.** Run each Hub's `migrate` Job with the new image before
+its new revision takes traffic, because a new image can require a newer schema revision and a
+revision that starts early stays in restart backoff. Install the root before the customers move to
+`tuf`, and move every customer Hub that shares the Release Hub, because a Release Hub with an
+installed root stops extending the legacy export expiry.
+
 **Customer: pin the root.** Replace `release_public_key` with
 `trust = { mode = "tuf", root_key_ids = [...], root_threshold = <n> }` in a reviewed deployment
 change, then run `bind-catalog`. A bound database refuses a changed trust, so an existing

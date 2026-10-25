@@ -1,7 +1,7 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: e713d22423d734a95df776407b1aaa47b7579fd9
+translation_source_sha: a4bb21464e13cd1e030a78c40b30198ec0d2cda1
 translation_revised: 2026-10-25
 ---
 # Hub 수명 주기 운영자 가이드
@@ -223,6 +223,12 @@ timestamp 키로 대체합니다. 두 Hub 모두에서 선택적으로 켜며, �
 준비하고 Release Hub에서 `catalog_roles`를 켭니다. 서명된 `root-v1.json`을 요청으로 하여
 `install-catalog-root` 작업을 실행합니다. Hub는 체인을 확인하고 자신의 키를 승인하지 않는 root를
 거부합니다. 제공에는 root가 필요하므로 설치 전까지 `GET /v1/catalog/metadata`는 `503`을 반환합니다.
+
+**배포된 쌍의 작업 순서.** 새 이미지는 더 새로운 스키마 revision을 요구할 수 있고, 먼저 시작한
+revision은 재시작 대기 상태에 머무르므로 각 Hub의 새 revision이 트래픽을 받기 전에 새 이미지로
+`migrate` Job을 실행하세요. 고객이 `tuf`로 옮기기 전에 root를 설치하고, Release Hub를 공유하는
+모든 고객 Hub를 함께 옮기세요. root가 설치된 Release Hub는 기존 방식의 export 만료 연장을
+중단하기 때문입니다.
 
 **고객: root를 pin합니다.** 검토된 배포 변경에서 `release_public_key`를
 `trust = { mode = "tuf", root_key_ids = [...], root_threshold = <n> }`로 바꾸고 `bind-catalog`를
