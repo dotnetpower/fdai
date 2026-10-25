@@ -783,6 +783,8 @@ def generate_fdai_runtime_bundle(
         namespace=namespace,
         objects=tuple(objects),
     )
+    if product == "fdai" and "core-control-plane" in workloads:
+        service_accounts.add("fdai-schema-migration")
     deployments = tuple(sorted(item.name for item in bundle.objects if item.kind == "Deployment"))
     services = tuple(sorted(item.name for item in bundle.objects if item.kind == "Service"))
     schedules = tuple(sorted(item.name for item in bundle.objects if item.kind == "CronJob"))

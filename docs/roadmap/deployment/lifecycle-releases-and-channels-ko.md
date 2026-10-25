@@ -1,8 +1,8 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: a9e8847b1c14b5ed9eee8b90cdba8a86e764e781
-translation_revised: 2026-10-22
+translation_source_sha: ecb686ab77bc2bb634ac48ec44dc5fcfd0c48582
+translation_revised: 2026-10-25
 ---
 # Lifecycle Release와 채널
 
@@ -322,8 +322,13 @@ timestamp 메타데이터가 만료된 동안 운영자 재정의 승격을 `sha
 공유 전환 검증기에 전달합니다. 허용 범위는 양 끝값을 포함하며, 업그레이드는 현재 개정보다
 낮은 목표 스키마도 수락하지 않습니다. 롤백과 회수 roll-off에는 별도의 방향 규칙을 유지합니다.
 에이전트의 워크로드 검증기는 클러스터 호출 전에 지원하지 않는 스키마 변경을 보류합니다.
-동일 스키마로 제한된 현재 지원 범위는 미구현 마이그레이션의 실행 권한이나 실제 설치의
-롤백 근거가 아닙니다.
+
+애플리케이션 구성 요소 Release에는 엄격한 `fdai.schema-expand-job.v1` 객체를 포함할 수 있습니다.
+이 객체는 `fdai.migration-classification.v1`의 확장 전용 개정 맵과 실행 기한을 서명된 매니페스트에
+결속합니다. Agent는 이 객체에서 임의 명령을 렌더링하지 않고, 고정된 Core 이미지 실행기와 설치에서
+검토한 런타임 참조를 사용합니다. 완료한 Kubernetes Job이 스키마 증적이며 워크로드 롤백 후에도
+유지됩니다. 보고하는 스키마 개정은 이 Job의 유효한 완료 증적이 있을 때만 앞으로 이동합니다.
+축소 개정은 이 단계에서 지원하지 않으며 이후 복원 체크포인트 Plan이 필요합니다.
 
 ## 산출물 전달
 

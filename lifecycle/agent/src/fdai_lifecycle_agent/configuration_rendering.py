@@ -15,6 +15,7 @@ from fdai_lifecycle_agent.inputs import VerifiedConfiguration, VerifiedRelease
 from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.operator_workload import render_operator, validate_profile
 from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
+from fdai_lifecycle_agent.schema_expand import render_schema_expand_job
 from fdai_lifecycle_agent.workload import (
     ENTITY_LABEL,
     Manifest,
@@ -39,7 +40,9 @@ def validate_entity_configuration(
     if release.schema_version == APPLICATION_COMPONENT_RELEASE_SCHEMA:
         if runtime_bundle is None:
             raise WorkloadError("runtime_bundle_unavailable")
-        if release.schema_target != current_schema:
+        if release.schema_target != current_schema and release.schema_expand is None:
+            raise WorkloadError("schema_transition_unsupported")
+        if release.schema_target is None or release.schema_target < current_schema:
             raise WorkloadError("schema_transition_unsupported")
         for entity in plan.entity_ids:
             values = (
@@ -143,6 +146,7 @@ def prepare_workload(
     workload: Workload,
     store: WorkloadStore,
     runtime_bundle: RuntimeBundle | None = None,
+    current_schema: int | None = None,
 ) -> tuple[tuple[Manifest, ...], tuple[Manifest, ...]]:
     """Render and server-dry-run approved workloads before writing the intent journal."""
     _validate_release_profile(release, configuration)
@@ -172,6 +176,23 @@ def prepare_workload(
             images,
             configuration_values=configuration_values,
         )
+        if (
+            release.schema_expand is not None
+            and current_schema is not None
+            and release.schema_target is not None
+            and release.schema_target > current_schema
+        ):
+            desired = (
+                render_schema_expand_job(
+                    desired,
+                    release.schema_expand,
+                    namespace=workload.namespace,
+                    plan_digest=hashlib.sha256(plan.signed_payload).hexdigest(),
+                    release_digest=f"sha256:{release.digest}",
+                    schema_target=release.schema_target,
+                ),
+                *desired,
+            )
     elif configuration.entity_values:
         store.require_private()
         desired = render_entity_configuration(

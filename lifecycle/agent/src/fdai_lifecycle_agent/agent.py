@@ -97,7 +97,7 @@ from fdai_lifecycle_agent.state import (
     PlanResult,
     StoredReport,
 )
-from fdai_lifecycle_agent.workload import Workload, WorkloadError, object_key
+from fdai_lifecycle_agent.workload import Workload, WorkloadError, is_schema_expand_job, object_key
 
 type PollOutcome = Literal[
     "no-plan",
@@ -448,7 +448,15 @@ class LifecycleAgent:
         )
         if deps.apply is None:
             return result
-        return self._prepare(deps.apply, plan, release, configuration, entity_images, result)
+        return self._prepare(
+            deps.apply,
+            plan,
+            release,
+            configuration,
+            entity_images,
+            result,
+            current_schema=current.schema_revision,
+        )
 
     def _prepare(
         self,
@@ -458,6 +466,8 @@ class LifecycleAgent:
         configuration: VerifiedConfiguration,
         entity_images: Mapping[str, frozenset[str]],
         admitted: PlanResult,
+        *,
+        current_schema: int,
     ) -> PlanResult:
         """Render, preflight, and journal the rollback target; return ``apply-started``."""
 
@@ -505,6 +515,7 @@ class LifecycleAgent:
                 workload=apply.workload,
                 store=apply.store,
                 runtime_bundle=settings.runtime_bundle,
+                current_schema=current_schema,
             )
         except WorkloadError as error:
             return _rejection(error.reason_code, retryable=error.retryable)
@@ -607,6 +618,14 @@ class LifecycleAgent:
         current = self._read_current_state()
         entities = dict(current.entities)
         healthy = workload_state.healthy
+        migration_present = any(is_schema_expand_job(item) for item in journal.desired)
+        try:
+            completed_schema = apply.workload.completed_schema_revision(journal.desired)
+        except WorkloadError:
+            completed_schema = None
+            failure = AgentReason.APPLY_FAILED
+        if failure is None and migration_present and completed_schema is None:
+            failure = AgentReason.APPLY_FAILED
         if failure is None:
             result = replace(started, outcome="applied", reason_code=AgentReason.APPLIED)
             entities |= {
@@ -620,13 +639,14 @@ class LifecycleAgent:
             )
         else:
             restored = self._roll_back(apply, journal)
+            unresolved_migration = migration_present and completed_schema is None
             result = replace(
                 started,
                 outcome="rolled-back",
                 reason_code=failure,
                 summary=_with_rollback(started.summary, verified=restored),
             )
-            if not restored:
+            if not restored or unresolved_migration:
                 apply.store.halt(journal.plan_id)
                 entities |= {
                     entity_id: replace(entities[entity_id], health=Health.UNHEALTHY)
@@ -635,7 +655,7 @@ class LifecycleAgent:
                 }
         snapshot = snapshot_document(
             entities,
-            schema_revision=current.schema_revision,
+            schema_revision=completed_schema or current.schema_revision,
             observed_at=max(self._deps.clock(), current.observed_at + _MIN_STATE_STEP),
             available_artifact_digests=current.available_artifact_digests,
         )
