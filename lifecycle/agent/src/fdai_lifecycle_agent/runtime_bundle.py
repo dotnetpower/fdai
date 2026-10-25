@@ -8,6 +8,9 @@ from copy import deepcopy
 from typing import Annotated, Any, Literal, Self
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
+from fdai_deployment_cli.lifecycle_installation_binding import (
+    validate_installation_binding_values,
+)
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, StringConstraints, model_validator
 
 from fdai_lifecycle_agent.workload import (
@@ -21,7 +24,6 @@ from fdai_lifecycle_agent.workload import (
 )
 
 _MAX_AUTOSCALED_REPLICAS = 10
-INSTALLATION_BINDING_FORMAT = "fdai.installation-binding.v1"
 _BINDING_KEY = re.compile(r"[a-z][a-z0-9_.-]{0,62}")
 _MAX_BINDING_VALUES = 128
 _MAX_BINDING_VALUE_LENGTH = 1024
@@ -168,22 +170,10 @@ class RuntimeBundle(BaseModel):
     def with_installation_binding(self, values: Mapping[str, Any]) -> Self:
         """Attach the private binding. It never enters the pinned bundle digest."""
 
-        if len(values) > _MAX_BINDING_VALUES:
-            raise ValueError("installation binding has too many values")
-        for key, value in values.items():
-            if not isinstance(key, str) or not _BINDING_KEY.fullmatch(key):
-                raise ValueError("installation binding key is invalid")
-            try:
-                _binding_text(value)
-            except ValueError:
-                raise ValueError("installation binding value is invalid") from None
         referenced = self.referenced_binding_keys()
-        if set(values) - referenced:
-            raise ValueError("installation binding names a key the bundle does not reference")
-        if referenced - set(values):
-            raise ValueError("installation binding lacks a key the bundle references")
+        validated = validate_installation_binding_values(values, allowed_keys=referenced)
         bound = self.model_copy()
-        bound._installation_binding = dict(values)
+        bound._installation_binding = validated
         return bound
 
     def referenced_binding_keys(self) -> frozenset[str]:
@@ -195,6 +185,17 @@ class RuntimeBundle(BaseModel):
             for container in item.pod.get(key, [])
             for variable in container.get("env", [])
             if "binding" in variable
+        )
+
+    def referenced_configuration_keys(self, entity_id: str) -> frozenset[str]:
+        return frozenset(
+            variable["configuration"]
+            for item in self.objects
+            if item.entity_id == entity_id and item.pod is not None
+            for key in ("containers", "initContainers")
+            for container in item.pod.get(key, [])
+            for variable in container.get("env", [])
+            if "configuration" in variable
         )
 
     @model_validator(mode="after")
@@ -240,7 +241,13 @@ class RuntimeBundle(BaseModel):
             for container in item.pod.get(key, [])
         )
 
-    def _resolve_environment(self, container: dict[str, Any]) -> None:
+    def _resolve_environment(
+        self,
+        container: dict[str, Any],
+        *,
+        entity_id: str,
+        configuration_values: Mapping[str, Mapping[str, Any]],
+    ) -> None:
         for variable in container.get("env", []):
             if "binding" in variable:
                 key = variable.pop("binding")
@@ -248,15 +255,26 @@ class RuntimeBundle(BaseModel):
                     variable["value"] = self._installation_binding[key]
                 except KeyError:
                     raise WorkloadError("installation_binding_key_missing") from None
+            elif "configuration" in variable:
+                key = variable.pop("configuration")
+                try:
+                    value = configuration_values[entity_id][key]
+                    _binding_text(value)
+                except (KeyError, ValueError):
+                    raise WorkloadError("configuration_key_missing") from None
+                variable["value"] = value
 
     def render(
         self,
         namespace: str,
         entities: frozenset[str],
         images: Mapping[tuple[str, str], str],
+        *,
+        configuration_values: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> tuple[Manifest, ...]:
         if namespace != self.namespace:
             raise WorkloadError("runtime_bundle_namespace_mismatch")
+        resolved_configuration = configuration_values or {}
         desired: list[Manifest] = []
         for item in self.objects:
             if item.entity_id not in entities:
@@ -292,7 +310,11 @@ class RuntimeBundle(BaseModel):
                     spec["selector"] = {"matchLabels": selector}
                 for key in ("containers", "initContainers"):
                     for container in template["spec"].get(key, []):
-                        self._resolve_environment(container)
+                        self._resolve_environment(
+                            container,
+                            entity_id=item.entity_id,
+                            configuration_values=resolved_configuration,
+                        )
                         component = container.pop("image_component")
                         try:
                             container["image"] = images[item.entity_id, component]
@@ -506,7 +528,7 @@ def _container(item: Any, volumes: set[str], *, initializing: bool, scheduled: b
         raise ValueError("runtime image pull policy is invalid")
     seen_env_names: set[str] = set()
     for variable in _sequence(item.get("env", []), 128):
-        _fields(variable, {"name"}, {"valueFrom", "value", "binding"})
+        _fields(variable, {"name"}, {"valueFrom", "value", "binding", "configuration"})
         if not isinstance(variable["name"], str) or not re.fullmatch(
             r"[A-Za-z_][A-Za-z0-9_]{0,127}", variable["name"]
         ):
@@ -514,7 +536,9 @@ def _container(item: Any, volumes: set[str], *, initializing: bool, scheduled: b
         if variable["name"] in seen_env_names:
             raise ValueError("runtime environment names must be unique")
         seen_env_names.add(variable["name"])
-        sources = [key for key in ("valueFrom", "value", "binding") if key in variable]
+        sources = [
+            key for key in ("valueFrom", "value", "binding", "configuration") if key in variable
+        ]
         if len(sources) != 1:
             raise ValueError("runtime environment requires exactly one value source")
         if sources[0] != "valueFrom":
@@ -580,15 +604,14 @@ def _container(item: Any, volumes: set[str], *, initializing: bool, scheduled: b
 
 
 def _literal_or_binding(variable: dict[str, Any], source: str) -> None:
-    """A literal or an installation-binding key, only for a name that carries no credential."""
+    """Validate a literal or non-secret render-time key."""
 
     if _SECRET_NAME.search(variable["name"]):
         raise ValueError("runtime environment name requires a Secret reference")
-    if source == "binding":
-        if not isinstance(variable["binding"], str) or not _BINDING_KEY.fullmatch(
-            variable["binding"]
-        ):
-            raise ValueError("runtime binding key is invalid")
+    if source in {"binding", "configuration"}:
+        value = variable[source]
+        if not isinstance(value, str) or not _BINDING_KEY.fullmatch(value):
+            raise ValueError(f"runtime {source} key is invalid")
     else:
         _binding_text(variable["value"])
 

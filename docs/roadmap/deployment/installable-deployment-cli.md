@@ -32,6 +32,11 @@ inside the target virtual network.
 | GitHub dependency | None for tenant deployment |
 | Shared Hub library | Application parser and legacy runtime adapter follow the [Release contract](lifecycle-releases-and-channels.md#application-package-contract); public source/offline commands remain unchanged |
 
+The internal Hub infrastructure-agent library can write one `fdai.installation-binding.v1`
+artifact from an exact reviewed Terraform-output key set. It creates a new owner-only file,
+never replaces an existing binding, grants no output-review authority, and changes no public
+source or offline command.
+
 GitHub Actions may validate source, build images, and optionally publish signed releases; publication is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment. The read-only [observer artifact preflight](../architecture/aks-outbound-connector.md#artifact-preflight) reuses the same pinned-root offline kit and OCI verifier for an exact Core image; its bounded process result creates no new release trust, approval or installation authority. The kit may also bind one optional default Rule activation profile by path, id, source timestamp, file digest, and complete-kit manifest digest. Preparation emits deterministic Core environment bindings only; it neither applies a generation nor deploys a tenant workload.
 
 ## Connected source deployment
