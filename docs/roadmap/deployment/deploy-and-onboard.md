@@ -28,6 +28,9 @@ For a Hub-managed AKS handoff, `enable_document_ingestion=true` can provision th
 prerequisites while `enable_document_ingestion_workloads=false` omits the ingestion API, worker and
 migration Container Apps. The default remains `true` for source/offline Container Apps deployments.
 Use the split only with an exact reviewed plan; it grants no Hub ownership or apply authority.
+For an existing installation, run that plan from `infra/hub-stewardship-prerequisites` with a
+separate remote state key. The root reads the shared platform resources and owns no application
+workload, so it cannot silently re-plan the retained source workloads state.
 
 The Lifecycle Hub image now needs a digest-pinned `OPA_IMAGE` build argument because the adoption policy runs `opa`; the Release Hub image doesn't contain it. The Lifecycle Hub `catalog` setting adds `access`, `check_interval_seconds` and an `adoption` object whose `auto` mode requires an attributed, expiring `authorized_by` and `authorization_expires_at`. Release Hub adds `auth.public_catalog_export` and `timestamp_renewal_check_seconds`. Each new field is optional and is omitted from the runtime JSON when unset, so older images keep parsing their configuration. See [Automatic catalog adoption](lifecycle-releases-and-channels.md#automatic-catalog-adoption). Signed catalog roles add two more optional inputs: the Lifecycle Hub `catalog.trust` object (`mode = "tuf"`, `root_key_ids`, `root_threshold`) replaces `release_public_key`, and the Release Hub `catalog_roles` object adds separate snapshot-key and timestamp-key secret versions. The offline-signed root is installed through the `install-catalog-root` operation. See [Signed catalog roles](lifecycle-releases-and-channels.md#signed-catalog-roles-in-the-hubs). The Lifecycle Hub operation Job also accepts `bind-catalog` and `rebind-catalog`; they take an attributed `actor` and a `reason` instead of a request secret, and a rebinding keeps the revision floor.
 
