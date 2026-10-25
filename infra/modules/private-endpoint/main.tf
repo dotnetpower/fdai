@@ -67,6 +67,6 @@ resource "azurerm_private_endpoint" "this" {
 
   private_dns_zone_group {
     name                 = "default"
-    private_dns_zone_ids = [azurerm_private_dns_zone.this.id]
+    private_dns_zone_ids = concat([azurerm_private_dns_zone.this.id], sort(tolist(var.additional_private_dns_zone_ids)))
   }
 }
