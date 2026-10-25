@@ -44,6 +44,7 @@ from fdai_lifecycle_hub.operations import (
 )
 from fdai_lifecycle_hub.remote_auth import RemoteAuth
 from fdai_lifecycle_hub.remote_catalog import (
+    CatalogNotImportedError,
     CatalogSource,
     PinApproval,
     RemoteCatalog,
@@ -184,6 +185,11 @@ def target_routes(
 
         try:
             admitted = await run_in_threadpool(catalog.catalog, utc_now())
+        except CatalogNotImportedError:
+            logger.warning("hub_catalog_unavailable reason=catalog_not_imported")
+            return JSONResponse(
+                {"error": "catalog_not_imported_approve_pin_and_import"}, status_code=503
+            )
         except ValueError:
             logger.warning("hub_catalog_unavailable reason=catalog_verification_failed")
             return JSONResponse(

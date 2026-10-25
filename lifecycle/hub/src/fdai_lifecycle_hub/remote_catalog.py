@@ -157,6 +157,10 @@ def fetch_export(source: CatalogSource) -> bytes:
     return bytes(raw)
 
 
+class CatalogNotImportedError(ValueError):
+    """The trust binding exists but no pinned export has been approved and imported yet."""
+
+
 class RemoteCatalog:
     def __init__(
         self,
@@ -297,7 +301,7 @@ class RemoteCatalog:
 
     def _accepted(self, row: RowMapping, now: datetime) -> ReleaseCatalog:
         if row["payload"] is None:
-            raise ValueError("No verified catalog has been imported.")
+            raise CatalogNotImportedError("No verified catalog has been imported.")
         # A new approval does not replace accepted bytes until explicit import.
         return load_pinned_export(
             row["payload"],

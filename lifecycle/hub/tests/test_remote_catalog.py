@@ -166,7 +166,9 @@ def test_release_inventory_refuses_unimported_catalog(tmp_path, key, store, now)
     app = create_app(store)
     app.routes[0:0] = target_routes(store, target, key)
     with TestClient(app) as client:
-        assert client.get("/v1/catalog/releases").status_code == 503
+        unimported = client.get("/v1/catalog/releases")
+        assert unimported.status_code == 503
+        assert unimported.json() == {"error": "catalog_not_imported_approve_pin_and_import"}
     assert target.status()["minimum_revision"] == 0
 
 
