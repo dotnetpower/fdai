@@ -1,4 +1,4 @@
-# Hub Stewardship Prerequisites
+# Hub Operational Ownership Prerequisites
 
 This Terraform root owns only the Azure prerequisites that the Hub lifecycle agent cannot create
 for an existing AKS installation. It references the retained resource group, ACR, Key Vault,
