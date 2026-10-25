@@ -56,7 +56,9 @@ and resumable work while the roadmap owner remains focused on normative design.
   profile and scope; Operator, the decision transaction, and Core refuse every other approval,
   and the admitted self-approval dispatches only after the full current evaluation reruns
   ([`test_development_category_park.py`](../../../services/core-control-plane/tests/core/hil_resume/test_development_category_park.py), [`test_development_category_approval.py`](../../../services/core-control-plane/tests/core/hil_resume/test_development_category_approval.py)).
-- [ ] [#1623](https://github.com/dotnetpower/fdai/issues/1623): Retain one live run in which the
+- [ ] [#2210](https://github.com/dotnetpower/fdai/issues/2210) (moved from the closed
+  [#1623](https://github.com/dotnetpower/fdai/issues/1623), which delivered the park and
+  approval implementation): Retain one live run in which the
   sole Owner approves their own parked request after a fresh sign-in inside the dedicated test
   scope, keeping the park, the attestation, the Core admission audit, and independent effect
   evidence. The run needs a registered direct-API ActionType whose declared blast radius the
