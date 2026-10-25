@@ -26,6 +26,8 @@ Variable validation rejects invalid combinations at plan time.
 |-------|-----|-------|
 | `catalog` | Lifecycle | `access` is `managed-identity` (default) or `anonymous`. Managed identity requires `token_scope` and `managed_identity_client_id`; anonymous forbids both. `check_interval_seconds` is `0` or `300` to `86400`. |
 | `catalog.adoption` | Lifecycle | `mode` is `review` (default) or `auto`; `auto` requires `authorized_by` and a timezone-qualified `authorization_expires_at`. `max_new_releases` is `0` to `64`. |
+| `catalog.trust` | Lifecycle | Replaces `release_public_key` with signed TUF roles; name exactly one. `mode = "tuf"`, 1 to 16 unique `ed25519-<64 hex>` `root_key_ids`, and a whole `root_threshold` from 1 through the key count. |
+| `catalog_roles` | Release | Optional `timestamp_ttl_seconds` (`3600` to `604800`) and `snapshot_ttl_seconds` (`3600` to `5184000`, at least the timestamp). Needs the separate `secret_versions.catalog_snapshot_key` and `catalog_timestamp_key`; emits `FDAI_HUB_CATALOG_SNAPSHOT_KEY` and `FDAI_HUB_CATALOG_TIMESTAMP_KEY` only when set. |
 | `operator_auth.public_catalog_export` | Release | Serves the signed export without a bearer token. |
 | `timestamp_renewal_check_seconds` | Release | `0` or `60` to `3600`. |
 
@@ -444,7 +446,7 @@ RBAC propagation or provider failure stops an attempt; don't conceal it with ret
 After startup and authentication are independently verified, each product can retain one manual
 operations Job. Set `operation_job` to the product-owned operation, the exact Key Vault version of
 `hub-operation-request`, and the attributed operator. Release Hub accepts only
-`publish-release`; Lifecycle Hub accepts only `import-catalog` or `recompute`.
+`publish-release` or `install-catalog-root` (when `catalog_roles` is set); Lifecycle Hub accepts only `import-catalog` or `recompute`.
 
 The Job receives request bytes only through the exact-version Key Vault reference and removes the
 environment value before opening storage. It reuses the Hub's own Managed Identity, database

@@ -1,7 +1,7 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: 94a89bb0b114a9160f8a66105bb16e5cf94c8c8a
+translation_source_sha: 8d2b76cb3b1cb4ebfba0b3d2e3ee784b0e0c2297
 translation_revised: 2026-10-25
 ---
 # Hub 수명 주기 운영자 가이드
@@ -164,6 +164,53 @@ AI가 비밀값을 만들거나 알고 보관해야 운영할 수 있는 구조�
 채택은 Plan을 적용하지 않습니다. Agent가 서명과 로컬 범위를 다시 검증합니다. 서명 누락이나
 잘못된 서명이 표시되면 Release Hub 빌드가 오래되었거나 키가 다른 것입니다. 독립적인 출처를
 확인한 뒤에만 아래의 **Catalog import**를 사용하세요.
+
+### C1. 서명된 카탈로그 역할 사용(선택)
+
+서명된 카탈로그 역할은 개발용 키 하나를 오프라인 root 키의 임계값과 별도의 온라인 snapshot,
+timestamp 키로 대체합니다. 두 Hub 모두에서 선택적으로 켜며, 위의 단일 키 흐름이 기본값으로 남습니다.
+이 절은 공급업체와 고객의 절차이며 어떤 클라우드 변경도 승인하지 않습니다.
+
+**공급업체: root 설정 의식을 오프라인으로 실행합니다.** 네트워크와 Hub 상태가 없는 작업 환경을
+사용합니다. 각 키 보유자가 자신의 키에 대한 단계를 실행하므로 root 개인 키를 공유하지 않습니다.
+
+1. 각 보유자가 `fdai-release-hub root keygen --out-dir <dir> --name root`를 실행하고 개인 파일(권한
+   `0600`)을 보관합니다. `.pub.pem` 파일만 전달합니다.
+2. 온라인 snapshot, timestamp 키와 export 키를 키 보관 절차에 따라 비밀 참조로 만듭니다. 서로, 그리고
+   모든 root 키와 달라야 합니다.
+3. `--root-public`, `--snapshot-public`, `--timestamp-public`, `--export-public` 파일로
+   `fdai-release-hub root build --out root-v1.json --version 1 --threshold <n>`을 실행합니다.
+4. 임계값만큼의 보유자가 서명할 때까지 각 보유자가
+   `fdai-release-hub root sign --record root-v1.json --key <private.pem>`을 실행합니다.
+   `fdai-release-hub root verify --record root-v1.json`을 실행해 영수증을 보관합니다.
+5. root 키 id와 임계값을 Release Hub와 별개로 고객이 신뢰하는 경로로 공개합니다. 개인 키는 절대
+   공개하지 않습니다.
+
+**공급업체: root를 설치하고 제공합니다.** snapshot과 timestamp 키를 서로 다른 비밀 버전 두 개로
+준비하고 Release Hub에서 `catalog_roles`를 켭니다. 서명된 `root-v1.json`을 요청으로 하여
+`install-catalog-root` 작업을 실행합니다. Hub는 체인을 확인하고 자신의 키를 승인하지 않는 root를
+거부합니다. 제공에는 root가 필요하므로 설치 전까지 `GET /v1/catalog/metadata`는 `503`을 반환합니다.
+
+**고객: root를 pin합니다.** 검토된 배포 변경에서 `release_public_key`를
+`trust = { mode = "tuf", root_key_ids = [...], root_threshold = <n> }`로 바꾸고 `bind-catalog`를
+실행합니다. 이미 묶은 데이터베이스는 바뀐 신뢰를 거부하므로 기존 설치는 신뢰를 새로 묶어야 합니다.
+첫 root는 정확히 그 키와 임계값을 지정해야 합니다(MUST).
+
+**Updates를 읽습니다.** **Catalog integrity** 영역에 root, snapshot, timestamp 버전과 timestamp 만료
+시각이 표시됩니다. timestamp가 만료되면 Hub는 회수만 채택하고 공급업체가 새 timestamp를 게시할 때까지
+회수 roll-off Plan만 발급합니다. 기다리지 말고 공급업체에 갱신을 요청하세요. 확인이 실패하면 버전
+롤백이나 서명 수가 부족한 root 같은 이유가 표시됩니다. 이를 우회해 import하지 마세요.
+
+**root를 교체합니다.** `--version <n+1>`과 새 보유자의 공개 키로 새 기록을 만듭니다. 새 보유자의
+임계값과 이전 보유자의 임계값이 모두 서명합니다(`root sign --previous root-v1.json`). 그다음
+`root verify --record root-v2.json --previous root-v1.json`을 실행하고 같은 작업으로 설치합니다.
+각 고객 Hub는 **Root rotation awaiting review**를 표시하며 스스로 채택하지 않습니다. 별도 경로로
+새 키 id를 확인한 뒤 **Review and apply**를 선택합니다. root는 만료되어도 폐기되므로 그 전에 다음
+교체를 예약합니다. 폐기하는 export 키가 서명한 매니페스트를 모두 다시 서명하기 전에는 그 키를
+`export_key_ids`에 유지합니다.
+
+설정 의식 도구는 임계값을 강제합니다. 키를 어디에 두고 누가 보유하는지는 운영자 절차이며 이
+저장소는 이를 검증하지 않습니다.
 
 ### C2. 메타데이터와 적용 준비 상태를 구분
 
@@ -336,7 +383,8 @@ Agent 로컬 정책과 패키지의 `product`도 이 값과 독립적으로 일�
 운영 설계에서도 가져오기라는 개념은 남습니다. 고객 Hub가 공급자 메타데이터를 검증해
 수락합니다. 서명된 root, snapshot, timestamp 메타데이터, 영구적인 되돌림 방지 상태,
 키 교체, 통제된 갱신이 평상시 수동 고정값 전달을 대신하는 방향입니다.
-이 운영용 프로토콜과 신뢰 설정 절차는 아직 완성되지 않았습니다. 문구만 지우거나,
+[C1](#c1-서명된-카탈로그-역할-사용선택)의 선택 모드가 이 프로토콜을 구현하지만, 프로덕션 root 설정 의식과
+키 보관은 아직 완성되지 않은 운영자 절차입니다. 문구만 지우거나,
 다운로드한 다이제스트를 자동 승인하거나, 현 가져오기 API를 주기 실행하는 것으로
 해결되지 않습니다. 오프라인 설치에도 명시적으로 검증하는 반입 절차가 필요합니다.
 

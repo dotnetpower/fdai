@@ -625,3 +625,155 @@ run "target_rejects_timestamp_renewal" {
   }
   expect_failures = [var.timestamp_renewal_check_seconds]
 }
+
+run "signed_roles_trust_reaches_runtime_without_a_release_key" {
+  command = plan
+  variables {
+    catalog = {
+      url    = "https://release.example.com/v1/catalog/export"
+      access = "anonymous"
+      trust = {
+        mode           = "tuf"
+        root_key_ids   = ["ed25519-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "ed25519-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "ed25519-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+        root_threshold = 2
+      }
+    }
+  }
+  assert {
+    condition = (
+      output.deployment.runtime_config.catalog.trust.mode == "tuf" &&
+      output.deployment.runtime_config.catalog.trust.root_threshold == 2 &&
+      length(output.deployment.runtime_config.catalog.trust.root_key_ids) == 3 &&
+      !contains(keys(output.deployment.runtime_config.catalog), "release_public_key")
+    )
+    error_message = "Signed-roles trust must replace the single release key in the runtime config."
+  }
+}
+
+run "catalog_trust_is_one_of_key_or_roles" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                = "https://release.example.com/v1/catalog/export"
+      access             = "anonymous"
+      release_public_key = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      trust = {
+        mode           = "tuf"
+        root_key_ids   = ["ed25519-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        root_threshold = 1
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "catalog_without_any_trust_is_rejected" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url    = "https://release.example.com/v1/catalog/export"
+      access = "anonymous"
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "signed_roles_reject_malformed_key_ids" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url    = "https://release.example.com/v1/catalog/export"
+      access = "anonymous"
+      trust = {
+        mode           = "tuf"
+        root_key_ids   = ["hub-0123456789abcdef"]
+        root_threshold = 1
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "signed_roles_reject_duplicate_key_ids" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url    = "https://release.example.com/v1/catalog/export"
+      access = "anonymous"
+      trust = {
+        mode           = "tuf"
+        root_key_ids   = ["ed25519-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "ed25519-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        root_threshold = 1
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "signed_roles_reject_a_threshold_above_the_key_count" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url    = "https://release.example.com/v1/catalog/export"
+      access = "anonymous"
+      trust = {
+        mode           = "tuf"
+        root_key_ids   = ["ed25519-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        root_threshold = 2
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "signed_roles_reject_a_zero_threshold_and_an_unknown_mode" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url    = "https://release.example.com/v1/catalog/export"
+      access = "anonymous"
+      trust = {
+        mode           = "pinned"
+        root_key_ids   = ["ed25519-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        root_threshold = 0
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "target_rejects_catalog_roles_serving" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind          = "target"
+    catalog_roles = {}
+  }
+  expect_failures = [var.catalog_roles]
+}

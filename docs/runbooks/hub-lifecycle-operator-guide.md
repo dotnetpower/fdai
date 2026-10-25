@@ -166,6 +166,57 @@ Adoption never applies a Plan. The Agent still verifies signatures and its local
 If the screen reports a missing or invalid signature, the Release Hub build is older or the key
 differs. Use **Catalog import** below only after confirming the independent source.
 
+### C1. Use signed catalog roles (opt-in)
+
+Signed catalog roles replace the single development key with a threshold of offline root keys and
+separate online snapshot and timestamp keys. They are opt-in on both Hubs, and the single-key
+flow above stays the default. This section is the vendor and customer procedure. It does not
+authorize any cloud change.
+
+**Vendor: run the root ceremony offline.** Use a workstation with no network and no Hub state.
+Each key holder runs the steps for their own key, so no private root key is ever shared.
+
+1. Each holder runs `fdai-release-hub root keygen --out-dir <dir> --name root` and keeps the
+   private file (mode `0600`). Only the `.pub.pem` files travel.
+2. Generate the online snapshot and timestamp keys and the export key as secret references with
+   your key-custody process. Keep them different from each other and from every root key.
+3. Run `fdai-release-hub root build --out root-v1.json --version 1 --threshold <n>` with the
+   `--root-public`, `--snapshot-public`, `--timestamp-public` and `--export-public` files.
+4. Each holder runs `fdai-release-hub root sign --record root-v1.json --key <private.pem>` until
+   a threshold of holders has signed. Run `fdai-release-hub root verify --record root-v1.json` and
+   keep the receipt.
+5. Publish the root key ids and threshold through a channel the customer trusts, separate from
+   the Release Hub. Never publish a private key.
+
+**Vendor: install the root and serve it.** Provision the snapshot and timestamp keys as two
+separate secret versions and enable `catalog_roles` on the Release Hub. Run the
+`install-catalog-root` operation with the signed `root-v1.json` as its request. The Hub checks
+the chain and refuses a root that does not authorize its own keys. Serving needs a root, so
+`GET /v1/catalog/metadata` returns `503` until one is installed.
+
+**Customer: pin the root.** Replace `release_public_key` with
+`trust = { mode = "tuf", root_key_ids = [...], root_threshold = <n> }` in a reviewed deployment
+change, then run `bind-catalog`. A bound database refuses a changed trust, so an existing
+installation needs a fresh binding. The first root MUST name exactly those keys and threshold.
+
+**Read Updates.** The **Catalog integrity** area shows the root, snapshot and timestamp versions
+and when the timestamp expires. When the timestamp has expired, the Hub adopts only recalls and
+issues only recall roll-off Plans until the vendor publishes a fresh one. Ask the vendor to
+renew rather than waiting. A failed check names the reason, such as a rolled-back version or a
+root that is not signed by enough keys. Don't import around it.
+
+**Rotate the root.** Build a new record with `--version <n+1>` and the new holders' public keys.
+Sign it with a threshold of the new holders and a threshold of the previous holders
+(`root sign --previous root-v1.json`), then `root verify --record root-v2.json --previous
+root-v1.json`. Install it with the same operation. Each customer Hub shows **Root rotation
+awaiting review** and never adopts it by itself. Confirm the new key ids through your separate
+channel, then choose **Review and apply**. A root is also retired when it expires, so schedule the
+next rotation before then. Keep a retiring export key in `export_key_ids` until every manifest it
+signed is re-signed.
+
+The ceremony tooling enforces thresholds. Where the keys live and who holds them is an operator
+procedure that this repository does not verify.
+
 ### C2. Inspect inputs without confusing metadata with readiness
 
 For the legacy or offline pin flow in **Catalog import**, follow these separate actions:
@@ -334,8 +385,10 @@ alone do not authenticate all channel/recall/freshness metadata.
 In the production design, the import concept remains: the customer's Hub validates and admits
 vendor metadata. Signed root, snapshot and timestamp metadata, persistent anti-rollback state,
 key rotation and controlled refresh replace routine manual export-pin transcription.
-That production protocol and its operational ceremony are not completed. Removing the label,
-auto-approving a downloaded digest or scheduling the current import endpoint is not the fix.
+The opt-in mode in [C1](#c1-use-signed-catalog-roles-opt-in) implements that protocol, but the
+production root ceremony and key custody are an operator procedure that is not completed.
+Removing the label, auto-approving a downloaded digest or scheduling the current import endpoint
+is not the fix.
 Offline installations still need an explicitly verified offline transfer/import process.
 
 ## 5. Separate necessary boundaries from avoidable work

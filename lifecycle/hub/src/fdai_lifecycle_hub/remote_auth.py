@@ -24,6 +24,8 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 logger = logging.getLogger(__name__)
+# The signed export and the signed roles that vouch for it share one read policy.
+CATALOG_READ_PATHS = frozenset({"/v1/catalog/export", "/v1/catalog/metadata"})
 MAX_JWKS_BYTES = 256 * 1024
 JWKS_CACHE_SECONDS = 300
 MAX_JWKS_STALE_SECONDS = 900
@@ -317,7 +319,7 @@ def secure_app(
         public_export = (
             vendor
             and config.public_catalog_export
-            and path == "/v1/catalog/export"
+            and path in CATALOG_READ_PATHS
             and request.method in {"GET", "HEAD"}
         )
         if (path.startswith("/v1/") or path == "/v1") and not public_export:
@@ -333,7 +335,7 @@ def secure_app(
                 allowed = (
                     vendor
                     and request.method in {"GET", "HEAD"}
-                    and path == "/v1/catalog/export"
+                    and path in CATALOG_READ_PATHS
                     and config.service_object_id is not None
                     and claims.get("oid") == config.service_object_id
                     and claims.get("azp") == config.service_client_id

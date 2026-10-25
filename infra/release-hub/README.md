@@ -51,6 +51,7 @@ service identity that `operator_auth.service_object_id` admits.
 |-------|--------|
 | `operator_auth.public_catalog_export = true` | Serves the signed, content-free export without a bearer token, so a Lifecycle Hub can use `access = "anonymous"`. Omitted or `false` keeps token-required access. Only the Release Hub accepts it. |
 | `timestamp_renewal_check_seconds` | Automatically renews the freshness of already published content. `0` (default) disables it; otherwise `60` to `3600`. It publishes no new content. |
+| `catalog_roles` | Serves signed TUF snapshot and timestamp metadata at `GET /v1/catalog/metadata`. Optional `timestamp_ttl_seconds` (`3600` to `604800`, default `86400`) and `snapshot_ttl_seconds` (`3600` to `5184000`, default `604800`, never shorter than the timestamp). Needs the `catalog_snapshot_key` and `catalog_timestamp_key` secret versions, separate from `signing_key`. With roles, renewal re-signs only the timestamp. |
 
 Set `public_catalog_export` only when the export carries no content you need to protect. The
 signature protects integrity, not confidentiality. Without it, a Lifecycle Hub configured for
@@ -58,6 +59,17 @@ signature protects integrity, not confidentiality. Without it, a Lifecycle Hub c
 only when set, so an older image keeps parsing an unchanged configuration. Adoption settings
 (`review` or `auto`, and their expiring authorization) belong to each
 [Lifecycle Hub deployment](../lifecycle-hub/README.md#pull-only-catalog-adoption).
+
+## Install the signed root
+
+Signed roles need an offline-signed root. Run the ceremony outside this repository with
+`fdai-release-hub root keygen`, `build`, `sign` and `verify`
+([procedure](../../docs/runbooks/hub-lifecycle-operator-guide.md#c1-use-signed-catalog-roles-opt-in)).
+Then set `operation_job.operation = "install-catalog-root"`, with the signed root's Key Vault
+version as `request_secret_version`. The Job checks the chain and that the root authorizes this
+Hub's own snapshot, timestamp and export keys, then stores only the public record. Until it runs,
+`GET /v1/catalog/metadata` returns `503`. The role tables are optional, are created by the Job,
+and don't move the schema revision.
 
 ## Existing installations
 

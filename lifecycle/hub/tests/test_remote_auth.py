@@ -1107,6 +1107,7 @@ def protected(auth):
         Starlette(
             routes=[
                 Route("/v1/catalog/export", ok),
+                Route("/v1/catalog/metadata", ok),
                 Route("/v1/catalog", ok),
                 Route("/v1/releases/change", ok, methods=["POST"]),
             ]
@@ -1196,6 +1197,7 @@ def test_service_identity_is_read_export_only(protected):
     )
     with TestClient(app, base_url="https://hub.example.com") as client:
         assert client.get("/v1/catalog/export", headers=token(**service)).status_code == 200
+        assert client.get("/v1/catalog/metadata", headers=token(**service)).status_code == 200
         assert client.get("/v1/catalog", headers=token(**service)).status_code == 403
         assert (
             client.post("/v1/releases/change", headers=token(**service), json={}).status_code == 403
@@ -1513,6 +1515,7 @@ def test_public_catalog_export_opens_only_the_signed_read_path(auth):
             Starlette(
                 routes=[
                     Route("/v1/catalog/export", served, methods=["GET", "POST"]),
+                    Route("/v1/catalog/metadata", served, methods=["GET", "POST"]),
                     Route("/v1/catalog", served),
                 ]
             ),
@@ -1523,6 +1526,9 @@ def test_public_catalog_export_opens_only_the_signed_read_path(auth):
     public = auth.model_copy(update={"public_catalog_export": True})
     with TestClient(vendor_app(public), base_url=public.origin) as client:
         assert client.get("/v1/catalog/export").status_code == 200
+        assert client.get("/v1/catalog/metadata").status_code == 200
+        assert client.head("/v1/catalog/metadata").status_code == 200
+        assert client.post("/v1/catalog/metadata", json={}).status_code == 401
         assert client.head("/v1/catalog/export").status_code == 200
         assert client.post("/v1/catalog/export", json={}).status_code == 401
         assert client.get("/v1/catalog").status_code == 401

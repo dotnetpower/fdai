@@ -86,6 +86,27 @@ catalog = {
 }
 ```
 
+To use signed TUF roles instead of one key, replace `release_public_key` with a `trust` object. Name
+exactly one of the two. The first root the Release Hub serves must name exactly these key ids and
+threshold, and every later root must be signed by a threshold of the previous keys.
+
+```hcl
+catalog = {
+  url          = "https://<release-hub-host>/v1/catalog/export"
+  access       = "anonymous"
+  trust = {
+    mode           = "tuf"
+    root_key_ids   = ["ed25519-<64 hex>", "ed25519-<64 hex>", "ed25519-<64 hex>"]
+    root_threshold = 2
+  }
+}
+```
+
+`root_key_ids` holds 1 to 16 unique ids, and `root_threshold` is a whole number from 1 through
+the number of ids. A root rotation always waits for an operator in **Updates**. A bound database
+refuses a changed trust, so changing from `release_public_key` to `trust` needs a fresh
+`bind-catalog`.
+
 `access = "anonymous"` only works when the Release Hub deploys with
 `operator_auth.public_catalog_export = true`; otherwise the export request is rejected. The export
 is signed and content-free, so integrity comes from the signature and not from the transport.

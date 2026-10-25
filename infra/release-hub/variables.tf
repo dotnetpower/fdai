@@ -87,6 +87,19 @@ variable "operation_job" {
   default = null
 }
 variable "secret_versions" {
-  type    = object({ database = optional(string), signing_key = optional(string) })
+  type = object({
+    database              = optional(string)
+    signing_key           = optional(string)
+    catalog_snapshot_key  = optional(string)
+    catalog_timestamp_key = optional(string)
+  })
   default = {}
+}
+variable "catalog_roles" {
+  type = object({
+    timestamp_ttl_seconds = optional(number)
+    snapshot_ttl_seconds  = optional(number)
+  })
+  default     = null
+  description = "Serve signed TUF snapshot and timestamp metadata; the hub-service module validates every field."
 }

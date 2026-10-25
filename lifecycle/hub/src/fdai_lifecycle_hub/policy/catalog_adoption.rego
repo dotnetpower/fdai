@@ -53,6 +53,30 @@ reasons contains "too_many_new_releases" if {
 	count(input.change.added_releases) > input.config.max_new_releases
 }
 
+# Signed catalog roles. Without `integrity` (legacy single-key trust) none of these fire.
+reasons contains "integrity_not_verified" if {
+	input.integrity
+	not input.integrity.verified
+}
+
+# A stale timestamp can no longer prove the catalog is current. Only a change that consists of
+# new recalls may be adopted, because recall roll-off lowers risk.
+reasons contains "timestamp_expired" if {
+	input.integrity.expired
+	not recall_only_change
+}
+
+# Trust in a new offline root key set is always a person's decision.
+reasons contains "root_rotation_requires_review" if input.integrity.root_rotation
+
+recall_only_change if {
+	count(input.change.new_recalls) > 0
+	count(input.change.added_releases) == 0
+	count(input.change.changed_releases) == 0
+	count(input.change.channel_additions) == 0
+	count(input.change.new_channels) == 0
+}
+
 authorization_present if {
 	input.config.authorized_by != null
 	input.config.authorization_expires_at != null

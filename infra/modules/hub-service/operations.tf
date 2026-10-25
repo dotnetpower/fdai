@@ -34,6 +34,14 @@ resource "azurerm_container_app_job" "operation" {
     identity            = local.foundation[each.key].identity_id
     key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/hub-operation-request/${try(var.operation_job.request_secret_version, "")}"
   }
+  dynamic "secret" {
+    for_each = local.catalog_role_secrets
+    content {
+      name                = secret.key
+      identity            = local.foundation[each.key].identity_id
+      key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/${secret.key}/${secret.value.version}"
+    }
+  }
   template {
     container {
       name    = "operation"
@@ -63,6 +71,13 @@ resource "azurerm_container_app_job" "operation" {
       env {
         name        = "FDAI_HUB_OPERATION_REQUEST"
         secret_name = "operation-request"
+      }
+      dynamic "env" {
+        for_each = local.catalog_role_secrets
+        content {
+          name        = env.value.env
+          secret_name = env.key
+        }
       }
       env {
         name  = "FDAI_HUB_MANAGED_IDENTITY_CLIENT_ID"

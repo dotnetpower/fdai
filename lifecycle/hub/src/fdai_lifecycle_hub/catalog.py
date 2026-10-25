@@ -45,6 +45,8 @@ class ReleaseCatalog:
     channels: Mapping[str, frozenset[str]]
     recalls: tuple[RecallRecord, ...] = ()
     local_curation: LocalCurationEvidence | None = None
+    # None means every plan type may be issued. A stale signed timestamp narrows it.
+    plan_types: frozenset[str] | None = None
 
     def __post_init__(self) -> None:
         if any(

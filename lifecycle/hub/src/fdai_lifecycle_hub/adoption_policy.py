@@ -156,8 +156,9 @@ def policy_input(
     baseline_present: bool,
     signature_verified: bool,
     now: datetime,
+    integrity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    document: dict[str, Any] = {
         "signature": {"verified": signature_verified},
         "baseline_present": baseline_present,
         "now": now.astimezone(UTC).isoformat().replace("+00:00", "Z"),
@@ -170,6 +171,9 @@ def policy_input(
         },
         "change": change,
     }
+    if integrity is not None:
+        document["integrity"] = integrity
+    return document
 
 
 def evaluate_policy(

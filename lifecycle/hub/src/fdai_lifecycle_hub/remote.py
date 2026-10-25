@@ -9,9 +9,10 @@ import logging
 import os
 from collections.abc import Callable, Coroutine, Mapping
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from functools import partial
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from azure.core.exceptions import AzureError
 from cryptography.hazmat.primitives import serialization
@@ -34,6 +35,7 @@ from fdai_lifecycle_hub.catalog_adoption import (
     CatalogUpdater,
     run_periodic,
 )
+from fdai_lifecycle_hub.catalog_trust import online_key_from_environment
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_import_api import configuration_routes
 from fdai_lifecycle_hub.configuration_import_store import ConfigurationImportStore
@@ -66,6 +68,23 @@ from fdai_lifecycle_hub.store import HubStore
 
 logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:
+    from fdai_release_hub.catalog_roles import CatalogRoleKeys
+
+
+class CatalogRolesConfig(BaseModel):
+    """Release Hub only: serve TUF snapshot and timestamp roles beside the signed export."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+    timestamp_ttl_seconds: int = Field(default=86400, ge=3600, le=7 * 86400)
+    snapshot_ttl_seconds: int = Field(default=7 * 86400, ge=3600, le=60 * 86400)
+
+    @model_validator(mode="after")
+    def snapshot_outlasts_timestamp(self) -> CatalogRolesConfig:
+        if self.snapshot_ttl_seconds < self.timestamp_ttl_seconds:
+            raise ValueError("The snapshot validity must outlast the timestamp validity.")
+        return self
+
 
 class RemoteConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -73,6 +92,7 @@ class RemoteConfig(BaseModel):
     auth: RemoteAuth | None = None
     origin: str | None = None
     catalog: CatalogSource | None = None
+    catalog_roles: CatalogRolesConfig | None = None
     key_epoch: int = 1
     # Release Hub only: zero disables. Otherwise re-assert already published content before the
     # development export expires; this can never add a Release, channel or recall.
@@ -82,6 +102,8 @@ class RemoteConfig(BaseModel):
     def validate_kind(self) -> RemoteConfig:
         if self.kind == "release" and self.catalog is not None:
             raise ValueError("Release Hub does not consume a catalog source.")
+        if self.kind != "release" and self.catalog_roles is not None:
+            raise ValueError("Only Release Hub serves catalog roles.")
         if self.auth is None and self.origin is None:
             raise ValueError("Remote Hub requires an explicit origin, not placeholder login IDs.")
         if self.origin is not None:
@@ -185,6 +207,25 @@ def remote_key(epoch: int) -> HubSigningKey:
     if not isinstance(key, Ed25519PrivateKey):
         raise ValueError("Development signing key must be Ed25519.")
     return HubSigningKey(key, epoch)
+
+
+CATALOG_SNAPSHOT_KEY_ENV = "FDAI_HUB_CATALOG_SNAPSHOT_KEY"
+CATALOG_TIMESTAMP_KEY_ENV = "FDAI_HUB_CATALOG_TIMESTAMP_KEY"
+
+
+def catalog_role_keys(config: RemoteConfig) -> CatalogRoleKeys | None:
+    """Online snapshot and timestamp keys from separate secret references, read once."""
+
+    if config.catalog_roles is None:
+        return None
+    from fdai_release_hub.catalog_roles import CatalogRoleKeys
+
+    return CatalogRoleKeys(
+        snapshot=online_key_from_environment(CATALOG_SNAPSHOT_KEY_ENV),
+        timestamp=online_key_from_environment(CATALOG_TIMESTAMP_KEY_ENV),
+        timestamp_ttl=timedelta(seconds=config.catalog_roles.timestamp_ttl_seconds),
+        snapshot_ttl=timedelta(seconds=config.catalog_roles.snapshot_ttl_seconds),
+    )
 
 
 class ReviewedCandidate(BaseModel):
@@ -366,6 +407,7 @@ def _run() -> None:
             "publish-release",
             "import-catalog",
             "recompute",
+            "install-catalog-root",
         ],
     )
     parser.add_argument("--actor")
@@ -394,6 +436,29 @@ def _run() -> None:
         from fdai_lifecycle_hub.remote_catalog import bind_catalog
 
         bind_catalog(engine, config.catalog, actor=args.actor, reason=args.reason)
+        return
+    if args.command == "install-catalog-root":
+        if config.kind != "release" or config.catalog_roles is None:
+            raise ValueError("Root installation requires a Release Hub with catalog roles.")
+        actor = (args.actor or "").strip()
+        if (args.request is None) == (args.request_env is None) or not actor:
+            raise ValueError("Root installation requires one request source and an actor.")
+        if args.request is not None:
+            root_path = args.request.absolute()
+            if root_path.stat().st_size > 64 * 1024:
+                raise ValueError("The signed root is too large.")
+            root_bytes = root_path.read_bytes()
+        else:
+            root_bytes = os.environ.pop(str(args.request_env), "").encode()
+        from fdai_release_hub.store import ReleaseStore as RootStore
+
+        installed = RootStore(
+            engine,
+            remote_key(config.key_epoch),
+            initialize=False,
+            role_keys=catalog_role_keys(config),
+        ).install_root(root_bytes, actor=actor)
+        print(json.dumps(installed, sort_keys=True, separators=(",", ":")))
         return
     if args.command in {"publish-release", "import-catalog", "recompute"}:
         if (args.request is None) == (args.request_env is None):
@@ -464,7 +529,12 @@ def _run() -> None:
             require_schema(engine, "release_hub")
             return
         require_schema(engine, "release_hub")
-        store = ReleaseStore(engine, remote_key(config.key_epoch), initialize=False)
+        store = ReleaseStore(
+            engine,
+            remote_key(config.key_epoch),
+            initialize=False,
+            role_keys=catalog_role_keys(config),
+        )
         app = release_app(
             store, static_dir=args.ui, remote_auth=config.auth, remote_origin=config.origin
         )

@@ -170,3 +170,109 @@ test("failed check and automatic mode show clear sentences", async ({ page }) =>
   await expect(page.getByText("admin@example.test, expires")).toBeVisible();
   await expect(page.locator(".badge").filter({ hasText: "Valid" })).toBeVisible();
 });
+
+const integrityResult = (overrides: Record<string, unknown> = {}) => ({
+  mode: "tuf", verified: true, reason: "allowed",
+  root: { version: 2, expires_at: "2099-01-01T00:00:00Z" },
+  snapshot: { version: 5, expires_at: "2099-01-01T00:00:00Z" },
+  timestamp: { version: 9, expires_at: "2099-01-01T00:00:00Z" },
+  expired: false, root_rotation: false, previous_root_version: 2, max_recall_sequence: 3,
+  allowed_plan_types: ["install", "upgrade", "recall-rolloff"],
+  demote_operator_overrides_to_shadow: false, ...overrides,
+});
+const integrityState = (overrides: Record<string, unknown> = {}) => ({
+  mode: "tuf", root_version: 2, snapshot_version: 5, snapshot_expires_at: "2099-01-01T00:00:00Z",
+  timestamp_version: 9, timestamp_expires_at: "2099-01-01T00:00:00Z", max_recall_sequence: 3,
+  observed_at: "2026-10-25T00:00:00Z", last: integrityResult(), ...overrides,
+});
+const tufReview = (integrity: unknown, reasons: string[]) => ({
+  ...reviewRecord(true),
+  detail: reasons.join(","),
+  candidate: { ...candidate(true), decision: { allow: false, reasons }, integrity },
+  integrity,
+});
+
+test("signed roles show versions and a fresh timestamp as verified", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const api = await stub(page, { status: () => ({ ...baseStatus, integrity: integrityState() }) });
+  await page.goto("https://hub.test/updates");
+  const panel = page.getByText("Catalog integrity").locator("..");
+  await expect(panel.locator(".badge").filter({ hasText: "Verified" })).toBeVisible();
+  await expect(panel.getByText("Root v2, snapshot v5, timestamp v9.")).toBeVisible();
+  await expect(panel.getByText("Timestamp expires")).toBeVisible();
+  await expect(page.getByText("Only recall roll-off")).toHaveCount(0);
+  await expectNoOverflow(page);
+  expect(api.writes).toEqual([]);
+});
+
+test("an expired timestamp is judged now and limits the Hub to recall roll-off", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const expired = integrityResult({
+    expired: true, demote_operator_overrides_to_shadow: true, allowed_plan_types: ["recall-rolloff"],
+    timestamp: { version: 9, expires_at: "2020-01-01T00:00:00Z" },
+  });
+  const record = tufReview(expired, ["timestamp_expired"]);
+  const api = await stub(page, {
+    status: () => ({ ...baseStatus, last_check: record, integrity: integrityState({
+      timestamp_expires_at: "2020-01-01T00:00:00Z", last: expired }) }),
+  });
+  await page.goto("https://hub.test/updates");
+  const panel = page.getByText("Catalog integrity").locator("..");
+  await expect(panel.locator(".badge").filter({ hasText: "Timestamp expired" })).toBeVisible();
+  await expect(panel.getByText("Only recall roll-off Plans are issued")).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: "Timestamp expired" })).toBeVisible();
+  await expect(page.getByText("The vendor's signed timestamp has expired, so only recall changes")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Review and apply" })).toHaveCount(0);
+  await expect(page.getByRole("note").filter({ hasText: "timestamp has expired" })).toBeVisible();
+  expect(api.writes).toEqual([]);
+});
+
+test("a stale persisted timestamp warns even when the last check said verified", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await stub(page, {
+    status: () => ({ ...baseStatus, integrity: integrityState({ timestamp_expires_at: "2020-01-01T00:00:00Z" }) }),
+  });
+  await page.goto("https://hub.test/updates");
+  const panel = page.getByText("Catalog integrity").locator("..");
+  await expect(panel.locator(".badge").filter({ hasText: "Timestamp expired" })).toBeVisible();
+  await expect(panel.getByText("Only recall roll-off Plans are issued")).toBeVisible();
+});
+
+test("a root rotation is shown for review with both versions and can be applied by a person", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const rotation = integrityResult({
+    root_rotation: true, previous_root_version: 1, root: { version: 2, expires_at: "2099-01-01T00:00:00Z" },
+  });
+  const api = await stub(page, {
+    status: () => ({ ...baseStatus, last_check: tufReview(rotation, ["root_rotation_requires_review"]),
+      integrity: integrityState({ root_version: 1, last: rotation }) }),
+    apply: () => ({ status: 200, json: { ...reviewRecord(true), outcome: "adopted", detail: "operator_review",
+      plans: [] } }),
+  });
+  await page.goto("https://hub.test/updates");
+  await expect(page.getByRole("alert").filter({ hasText: "Root rotation awaiting review" })).toBeVisible();
+  await expect(page.getByText("The vendor changed its offline root keys. A root rotation always needs your review."))
+    .toBeVisible();
+  await expect(page.getByText("v2 (was v1)")).toBeVisible();
+  await expect(page.getByLabel("Catalog roles").getByText("v5", { exact: true })).toBeVisible();
+  await expectNoOverflow(page);
+  await page.getByRole("button", { name: "Review and apply" }).click();
+  await expect.poll(() => api.writes.length).toBe(1);
+  expect(JSON.parse(api.writes[0]!.body!)).toEqual({ revision: 7, sha256: SHA });
+});
+
+test("unverified roles fail the check with the reason in plain words", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const failed = integrityResult({ verified: false, reason: "catalog_version_rollback" });
+  await stub(page, {
+    status: () => ({ ...baseStatus, integrity: integrityState({ last: failed }),
+      last_check: { checked_at: "2026-10-25T00:00:00Z", outcome: "failed", detail: "integrity_not_verified",
+        candidate: null, plans: [], integrity: failed } }),
+  });
+  await page.goto("https://hub.test/updates");
+  await expect(page.getByText("The vendor's signed catalog roles could not be verified, so the catalog was not accepted."))
+    .toBeVisible();
+  await expect(page.getByText("A signed record carries an older version").first()).toBeVisible();
+  await expect(page.locator(".badge").filter({ hasText: "Not verified" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Review and apply" })).toHaveCount(0);
+});

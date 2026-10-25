@@ -144,11 +144,44 @@ Choose the database with the existing `FDAI_LIFECYCLE_HUB_DATABASE_URL` setting.
 no runtime or remote PostgreSQL database is needed. Recall changes the pin and revision. Import
 the newly approved export before recomputing; existing issued Plans are not revoked by this tool.
 
+## Signed catalog roles (opt-in)
+
+With a root installed, the Release Hub also serves `GET /v1/catalog/metadata`: a root chain, a
+snapshot and a timestamp that vouch for the signed export. The root is signed offline by a
+threshold of keys and never touches the Hub; the snapshot and timestamp use two separate online
+keys. The renewal task then re-signs only the timestamp and appends no `renew` event.
+
+```bash
+# Local development Hub first: create its online keys (after dev-init).
+uv run --project lifecycle/release-hub fdai-release-hub tuf-init /private/release-hub
+# Offline, each holder for their own key; outside the checkout.
+uv run --project lifecycle/release-hub fdai-release-hub root keygen --out-dir /private/ceremony --name root
+uv run --project lifecycle/release-hub fdai-release-hub root build --out /private/root-v1.json \
+  --version 1 --threshold 2 --root-public /private/ceremony/root-*.pub.pem \
+  --snapshot-public /private/release-hub/snapshot.pub.pem \
+  --timestamp-public /private/release-hub/timestamp.pub.pem \
+  --export-public /private/release-hub/development.pub.pem
+uv run --project lifecycle/release-hub fdai-release-hub root sign --record /private/root-v1.json \
+  --key /private/ceremony/root-1.pem /private/ceremony/root-2.pem
+uv run --project lifecycle/release-hub fdai-release-hub root verify --record /private/root-v1.json
+# Install the signed root into the local Hub.
+uv run --project lifecycle/release-hub fdai-release-hub install-root /private/release-hub \
+  --root /private/root-v1.json
+```
+
+Private root keys are read only from files with mode `0600` and are never stored in a Hub. A
+remote Release Hub enables `catalog_roles` in its configuration, reads the keys once from
+`FDAI_HUB_CATALOG_SNAPSHOT_KEY` and `FDAI_HUB_CATALOG_TIMESTAMP_KEY`, and installs the root with
+the `install-catalog-root` operation. The role tables are optional and created by that
+operation; they do not move the Release Hub schema revision. A Release Hub with roles installed
+stops extending the legacy export expiry, so move customer Hubs to `catalog.trust` first.
+
 ## Remaining production work
 
-Production signing and root ceremony, authenticated contributor roles, signed catalog freshness
-and anti-rollback state, automated promotion gates, custom channels, capability recall delivery,
-registry mirroring, upgrade bundles and real FDAI workload deployment remain unsupported.
+The production root ceremony with custody receipts, managed custody of the online keys,
+authenticated contributor roles, automated promotion gates, custom channels, capability recall
+delivery, registry mirroring, upgrade bundles and real FDAI workload deployment remain
+unsupported.
 The Recall action records local eligibility withdrawal; it does not cancel issued Plans or
 roll off running installations. An operator must refresh the pinned export before recomputing.
 
