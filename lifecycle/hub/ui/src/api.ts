@@ -157,6 +157,9 @@ export interface PendingEnrollment {
   installation_id: string;
   installation_key_id: string;
   requested_at: string;
+  // Absent on a Hub that predates Agent-submitted enrollment.
+  requested_by?: string | null;
+  requested_via?: "agent" | "operator" | null;
   channel: string;
   version_range: string;
   region: string;

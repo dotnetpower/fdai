@@ -74,9 +74,12 @@ and resumable work while the roadmap owner remains focused on normative design.
   tampered candidate is refused, and Plans are issued without being applied.
 - [ ] Replace the single development key with production TUF root, snapshot and timestamp roles;
   exit when threshold root signatures and recall-sequence continuity gate adoption.
-- [ ] Design and review an Agent-submitted pending enrollment and cluster-derived enrollment state;
+- [x] Design and review an Agent-submitted pending enrollment and cluster-derived enrollment state;
   exit when the design records the authority change and a bound Agent can create only a pending
-  request.
+  request. The design note and critique are in
+  [Hub-Managed Lifecycle](../../roadmap/deployment/hub-managed-lifecycle.md#agent-submitted-pending-enrollment)
+  and the local implementation is tracked in the
+  [Hub-Managed Lifecycle ledger](hub-managed-lifecycle.md). Operating-Hub validation remains open there.
 - [ ] Retain separately authorized physical migration and old-binary rollback qualification;
   local guards and synthetic cluster adapters do not establish those operational effects.
 

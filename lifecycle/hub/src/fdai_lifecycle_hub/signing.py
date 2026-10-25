@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
+from fdai_deployment_cli.lifecycle_enrollment import installation_key_id as installation_key_id
 from fdai_deployment_cli.lifecycle_plan import SignatureVerifier
 
 
@@ -97,12 +98,6 @@ def raw_public_key(private_key: Ed25519PrivateKey) -> bytes:
     return private_key.public_key().public_bytes(
         serialization.Encoding.Raw, serialization.PublicFormat.Raw
     )
-
-
-def installation_key_id(public_key: bytes) -> str:
-    """The id an approver compares with the key the installation shows out of band."""
-
-    return "installation-" + hashlib.sha256(public_key).hexdigest()[:16]
 
 
 def verify_key_proof(*, public_key: bytes, payload: bytes, signature: bytes) -> bool:

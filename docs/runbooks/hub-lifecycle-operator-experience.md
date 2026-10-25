@@ -49,8 +49,10 @@ These priorities describe the operator journey, not a vulnerability severity ass
   **Updates** screen remove revision and digest transcription. The legacy pin flow remains for
   unsigned and offline exports. Production TUF roles are still design.
 - UXH-08: `fdai-lifecycle-hub sign-enrollment` and the bound-installation selection remove file
-  path and ID transcription. Generating the reported state from the cluster and an Agent-submitted
-  pending enrollment remain open and need their own design review.
+  path and ID transcription. `fdai-lifecycle-agent enroll` removes the carried file: the Agent
+  derives Entities and reported state from its cluster and submits a pending request, and the
+  operator compares the key id out of band and accepts. Native proof handoff, configuration-key
+  custody and a live Agent submission to an operating Hub remain open.
 
 ## Reuse what already works
 

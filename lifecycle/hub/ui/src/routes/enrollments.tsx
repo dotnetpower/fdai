@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { hubApi, HubApiError, type BindableInstallation } from "../api";
 import { effectiveSelection, isSelectable, optionLabel } from "../bindable-installations";
+import { enrollmentRequester } from "../enrollment-requester";
 import { AsyncBoundary } from "../components/async-boundary";
 import { Link } from "../components/link";
 import { formatTimestamp } from "../format";
@@ -37,6 +38,7 @@ function EnrollmentsList() {
                 <tr>
                   <th>Installation</th>
                   <th>Requested</th>
+                  <th>Requested by</th>
                   <th>Channel</th>
                   <th>Entities</th>
                 </tr>
@@ -50,6 +52,7 @@ function EnrollmentsList() {
                       </Link>
                     </td>
                     <td>{formatTimestamp(request.requested_at)}</td>
+                    <td>{enrollmentRequester(request).fromAgent ? "Installation Agent" : "Operator or file"}</td>
                     <td class="mono">{request.channel}</td>
                     <td>{request.entities.length}</td>
                   </tr>
@@ -114,7 +117,9 @@ function EnrollmentRequestForm({ onSubmitted }: { onSubmitted: () => void }) {
         Upload a request signed within five minutes, never a private key. Submission does not approve
         enrollment, manage Entities, or apply a Plan.</p>
       <p class="note">Create the file with `fdai-lifecycle-hub sign-enrollment` inside the installation
-        boundary; it prints the key id to compare at approval.</p>
+        boundary; it prints the key id to compare at approval. An installation whose Agent can reach this
+        Hub may instead run `fdai-lifecycle-agent enroll`: the Agent submits the pending request itself and
+        it appears in the list below.</p>
       {bindable === undefined && <p class="note" role="status">Loading bound installations...</p>}
       {bindable && <>
         <label>Installation
@@ -193,7 +198,7 @@ function EnrollmentDetail({ installationId }: { installationId: string }) {
             <div>
               <h1>{request.installation_id}</h1>
               <div class="sub">
-                Requested {formatTimestamp(request.requested_at)}
+                {enrollmentRequester(request).label} · {formatTimestamp(request.requested_at)}
               </div>
             </div>
           </div>
@@ -203,6 +208,10 @@ function EnrollmentDetail({ installationId }: { installationId: string }) {
             <p>Verify <code>{request.installation_key_id}</code> against the key id you obtained
               outside this screen (for example, from the installation's own enrollment output)
               before accepting. Do not accept solely because this screen shows a key id.</p>
+            {enrollmentRequester(request).fromAgent && (
+              <p>The installation Agent can propose this request but cannot accept or reject it.
+                Your decision is still required.</p>
+            )}
           </div>
 
           <div class="kv">

@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, replace
 from datetime import datetime, timedelta
-from typing import Self, assert_never
+from typing import Literal, Self, assert_never
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
@@ -267,6 +267,7 @@ class HubStore:
         verify: KeyProofVerifier,
         now: datetime,
         requested_by: str | None = None,
+        requested_via: Literal["agent", "operator"] | None = None,
     ) -> None:
         """Record a pending request, or audit why its key proof fails and raise."""
 
@@ -274,6 +275,7 @@ class HubStore:
         details = {"installation_key_id": request.installation_key_id}
         if requested_by is not None:
             details["requested_by"] = schemas.actor_name.validate_python(requested_by)
+            details["requested_via"] = requested_via or "operator"
         if (failure := request.proof_failure(verify, now)) is not None:
             with self._write() as session:
                 audit.append(
@@ -878,10 +880,26 @@ def _is_unique_violation(error: IntegrityError) -> bool:
 
 
 def _pending_enrollment(session: Session, row: models.Installation) -> domain.PendingEnrollment:
+    # Records written before `requested_via` existed came only from the operator route.
+    payload = session.scalars(
+        select(models.AuditRecord.payload)
+        .where(
+            models.AuditRecord.action == "enrollment.requested",
+            models.AuditRecord.installation_id == row.installation_id,
+        )
+        .order_by(models.AuditRecord.sequence.desc())
+        .limit(1)
+    ).one_or_none()
+    requested_by = (payload or {}).get("requested_by")
+    requested_via = (payload or {}).get("requested_via", "operator")
     return domain.PendingEnrollment(
         installation=mapping.to_domain(session, row),
         installation_key_id=signing.installation_key_id(row.installation_key),
         requested_at=row.requested_at,
+        requested_by=requested_by if isinstance(requested_by, str) else None,
+        requested_via=requested_via
+        if requested_by and requested_via in ("agent", "operator")
+        else None,
     )
 
 
