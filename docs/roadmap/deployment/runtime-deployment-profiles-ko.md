@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ca4e83a5fceb76ee14219ce7ebff8b865cdc522c
+translation_source_sha: 8a2591b1e330414e7696a8bdaf376fe1d35b3b13
 translation_revised: 2026-10-26
 ---
 # 런타임 배포 프로파일
@@ -257,9 +257,7 @@ Deployment의 새 plan과 승인을 요구하며, repair 자체는 다시 대체
 자율성을 높이지 않습니다.
 
 런타임, 데이터베이스, 환경, 포크 상태 및 패키지 존재 여부는 제품 추가 기능을 선택하지 않습니다. 공유 불변 프로필은 명시적 선택과 `authority_granted: false`만 포함합니다. 제품 프로필 이전에 만든 런타임 기록은 원래 추가 기능 네 개를 명시적으로 선택한 레거시 선택과만 일치하므로, 이후 추가된 기능이 이 일치 여부를 바꾸지 않습니다.
-기본값은 Graph, 승인, enforce 승격, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않으며, 선택했지만 불완전한 추가 기능은 안전하게 차단됩니다. `read-only-console`과 `governed-execution`은 `enterprise-identity-governance`를 요구하고, 모든 런타임은 컴파일된 프로필을 자신의 워크로드까지 전달하므로 조립이 선택과 어긋나지 않습니다. Console 관리형 담당 체계는 `enterprise-identity-governance`에 속하므로 `governed-execution` 없이 시작하며, GitOps 게시는 계속 `governed-execution`을 요구합니다. full-authority 개발 프로필은 정확한 폐기 가능 범위를 위한 별도의 선택적 권한 입력이며 이 제품 축에서 상속되지 않습니다. 선택적 dev operations gateway는 인증을 사용하므로 명시적인 Operator API audience가 필요하며 없으면 계획을 거부합니다. 구독 태그 pilot은 독립 Executor의 변경 신원으로 실행하고 별도 Core reader로 효과를 관찰합니다. 이 작업은 항상 shadow로 시작하며 승인 전에 프로필의 정확한 구독 범위를 요구합니다.
-
-`governed-execution`을 선택하면 Core는 `FDAI_CATALOG_FRESHNESS_METADATA_URL`과 고정된 `FDAI_CATALOG_FRESHNESS_ROOT_KEY_IDS`로 설치 측 카탈로그 최신성도 선택할 수 있습니다. 그러면 Core가 Release Hub의 공개 서명 메타데이터를 직접 검증하고, 그 메타데이터가 만료되었거나 검증되지 않은 동안 운영자 재정의 승격을 `shadow` 모드로 되돌립니다. 이 기능은 권한을 낮추기만 하고 추가 기능을 선택하지 않으며, 설정하지 않으면 Core는 바뀌지 않습니다. [Lifecycle Release와 채널](lifecycle-releases-and-channels-ko.md#카탈로그-무결성)을 참조하세요.
+기본값은 Graph, 승인, enforce 승격, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않으며, 선택했지만 불완전한 추가 기능은 안전하게 차단됩니다. `read-only-console`과 `governed-execution`은 `enterprise-identity-governance`를 요구하고, 모든 런타임은 컴파일된 프로필을 자신의 워크로드까지 전달하므로 조립이 선택과 어긋나지 않습니다. Console 관리형 담당 체계는 `enterprise-identity-governance`에 속하므로 `governed-execution` 없이 시작하며, GitOps 게시는 계속 `governed-execution`을 요구합니다. full-authority 개발 프로필은 정확한 폐기 가능 범위를 위한 별도의 선택적 권한 입력이며 이 제품 축에서 상속되지 않습니다. 선택적 dev operations gateway는 인증을 사용하므로 명시적인 Operator API audience가 필요하며 없으면 계획을 거부합니다. 구독 태그 pilot은 독립 Executor의 변경 신원으로 실행하고 별도 Core reader로 효과를 관찰합니다. 이 작업은 항상 shadow로 시작하며 승인 전에 프로필의 정확한 구독 범위를 요구합니다. `governed-execution`을 선택하면 Core는 `FDAI_CATALOG_FRESHNESS_METADATA_URL`과 고정된 `FDAI_CATALOG_FRESHNESS_ROOT_KEY_IDS`로 설치 측 카탈로그 최신성도 선택할 수 있습니다. 그러면 Core가 Release Hub의 공개 서명 메타데이터를 직접 검증하고, 그 메타데이터가 만료되었거나 검증되지 않은 동안 운영자 재정의 승격을 `shadow` 모드로 되돌립니다. 이 기능은 권한을 낮추기만 하고 추가 기능을 선택하지 않으며, 설정하지 않으면 Core는 바뀌지 않습니다. [Lifecycle Release와 채널](lifecycle-releases-and-channels-ko.md#카탈로그-무결성)을 참조하세요.
 source AKS와 Container Apps 배포는 검토된 동일 개발 프로필과 프로필에서 도출한 실행기
 principal을 Core에 전달합니다. 두 값은 함께 선택하거나 모두 선택하지 않습니다. 배포는 plan
 전에 대상과 source 개정을 검증하고, 런타임 시작 시 현재 유효기간과 정확한 실행기 일치를
