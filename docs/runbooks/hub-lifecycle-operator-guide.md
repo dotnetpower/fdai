@@ -405,6 +405,31 @@ ownership, add permissions, replace configuration, compute a Plan or deploy a wo
 Agent local policy and the package's `product` must independently match this binding.
 Enrollment requests must leave `settings.product` unset; bind it here only after enrollment approval.
 
+### C3. Move or set a Hub's custom domain
+
+One Hub stack owns one hostname. Check these in order, because each failure looks like "the
+Hub does not respond":
+
+1. **DNS.** The `CNAME` must point at the serving Container App's default hostname. Managed
+   certificate validation also needs that record first.
+2. **Certificate.** Create the managed certificate in the serving Container App environment, then
+   bind it to the app with SNI. A hostname bound with `Disabled` has no certificate, so TLS fails
+   with a connection reset.
+3. **Allowed host.** Set `custom_domain.hostname` in that stack's variables. Without it the Hub
+   answers `400 Invalid host header` because it only accepts its default hostname.
+4. **One owner.** Set `dns_zone` only in the stack that serves the hostname. A second stack that
+   also declares the hostname and DNS record rewrites it on its next apply. Remove the other stack's
+   resources from its state with `terraform state rm`, never by deleting the record, then set its
+   `custom_domain` to null.
+5. **Dependencies.** Confirm the Hub's database is running. A stopped PostgreSQL server keeps the
+   app out of readiness even when DNS and TLS are correct.
+
+A hostname that was bound outside Terraform is brought under management with
+`terraform import` of the `azurerm_container_app_custom_domain`, `azurerm_dns_cname_record` and
+`azurerm_dns_txt_record` resources, followed by a reviewed plan that shows only in-place changes.
+Moving the domain to another Hub also changes where the signed-in origin points, so the Entra
+application registration must list that Hub's redirect URI.
+
 ### D. Plan, then apply only when the missing prerequisites are resolved
 
 The current setup should stop before apply unless all of these are independently established:
