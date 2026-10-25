@@ -3605,7 +3605,7 @@ module "operator_api" {
 }
 
 module "ingestion_gateway" {
-  count  = var.enable_document_ingestion ? 1 : 0
+  count  = var.enable_document_ingestion && var.enable_document_ingestion_workloads ? 1 : 0
   source = "./modules/ingestion-gateway/container-app"
 
   name                         = "ca-${var.workload}${local.full_suffix}-ingestion"

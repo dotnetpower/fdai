@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 965e4d90fc1e28a780eef75860df9959808eacb6
+translation_source_sha: 7c5814f43f3dbab4521ba0e81ad0dbb0e7561843
 translation_revised: 2026-10-25
 ---
 # Hub 관리형 수명 주기
@@ -1170,7 +1170,10 @@ JSON Patch를 사용합니다. 생성 응답을
 
 1. **인프라:** 인프라 에이전트가 Azure 리소스, 클러스터 범위 객체, 역할 바인딩, 외부 Service에
    대해 추가와 제자리 변경만 적용하고, 목표 Release의 모든 워크로드와 작업에 대한 페더레이션 ID
-   자격 증명을 만듭니다. 그런 다음 설치 바인딩과 그 증적을 기록합니다.
+   자격 증명을 만듭니다. 그런 다음 설치 바인딩과 그 증적을 기록합니다. 공용 인프라 루트는
+   `enable_document_ingestion_workloads`로 선행 조건과 문서 인제스트 Container Apps를 분리합니다.
+   기본값은 계속 `true`입니다. Hub 관리형 설치는 검토한 정확한 계획에서만 `false`로 설정해 신원,
+   스토리지, 비공개 엔드포인트, 역할 바인딩을 수렴시키면서 두 번째 워크로드 렌더러를 만들지 않습니다.
 2. **스키마 확장:** Release는 데이터베이스 마이그레이션을 Kubernetes Job 템플릿으로 제공하며,
    이 템플릿은 마이그레이션과 카탈로그 도구가 이미 들어 있는 Core 이미지를 사용합니다. Job은 현재
    관리 호스트의 마이그레이션 단계처럼 기존 마이그레이션, 선언된 순서에 따른 서비스 소유

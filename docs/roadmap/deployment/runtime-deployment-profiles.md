@@ -26,6 +26,9 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > per-object adoption receipt. Exact removed/import block generation and plan verification stay
 > inside the Hub handoff; they do not select a runtime profile or change source/offline behavior.
 > Namespace permissions, same-schema prerequisites and operational qualification remain separate.
+> A Hub-managed AKS prerequisite plan may set `enable_document_ingestion_workloads=false` while
+> document-ingestion infrastructure stays enabled. This omits Container Apps workloads only; it
+> does not change the selected AKS profile or the lifecycle Agent's ownership boundary.
 
 Stewardship governance is runtime-profile neutral. With `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true` and no GitHub credentials, AKS and Container Apps both compose the Console-governed candidate publisher and merge-effects worker, and Terraform creates no webhook secret, GitHub secret reference, or Git host binding. Selecting a GitOps target adds them. Neither selection grants merge, IAM, approval, or execution authority. In Console mode an Owner activates a candidate through the Operator API and Core's governance worker, which needs no extra runtime binding in either profile. ChatOps is optional there: the ingestion gateway binds its webhook only when a ChatOps reference exists, and a GitOps target still requires it. On a source AKS installation the same mode follows the explicit selections: when the Console, enterprise identity bindings, and document ingestion are all selected, the AKS host values set `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED`, `FDAI_MAINTAINERS`, and the steward bindings on Core.
 

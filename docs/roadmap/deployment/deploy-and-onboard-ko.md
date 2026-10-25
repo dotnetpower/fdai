@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 420e1184c532c99f13a607444d6bd8ea219c1ba6
+translation_source_sha: 5bddf397916f05b2700b5e6ca7a26aa6653a6e9c
 translation_revised: 2026-10-25
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -47,6 +47,11 @@ FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 
 상태로 유지합니다. 수동 마이그레이션 성공과 독립적인 스키마 확인을 마친 뒤, 별도로 검토하고
 봉인한 활성화 계획에서 `app_image=null`을 지정합니다. 이 입력을 생략하면 기존 단일 이미지
 기동 방식이 유지됩니다. 선택적 `resource_group_name`으로 기본 리소스 그룹 이름을 재정의하고 `custom_domain`으로 공개 HTTPS 서브도메인·Azure DNS 레코드·런타임 origin·상태 검사 `Host` 헤더를 일치시킬 수 있습니다. 전체 Job 검증과 실행 전 전체 변경 없음 계획도 유지하며, 상태 소유권, 인증이나 승인 절차를 우회하지 않습니다.
+
+Hub 관리형 AKS 인계에서는 `enable_document_ingestion=true`로 공용 Azure 선행 조건을 만들면서
+`enable_document_ingestion_workloads=false`로 인제스트 API, 워커, 마이그레이션 Container Apps를
+생략할 수 있습니다. 소스·오프라인 Container Apps 배포의 기본값은 계속 `true`입니다. 검토한
+정확한 계획에서만 이 분리를 사용하며, Hub 소유권이나 적용 권한을 부여하지 않습니다.
 
 원격 개발 Agent를 연결할 때는 Lifecycle Hub 루트의 `operator_auth.agent_principals`에
 명시적인 연결 정보를 지정합니다. 각 항목은 하나의 설치, Entra 개체와 클라이언트를 식별합니다.

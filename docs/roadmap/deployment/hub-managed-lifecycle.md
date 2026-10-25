@@ -1178,7 +1178,11 @@ value.
 1. **Infrastructure:** The infrastructure agent applies only additive and in-place changes to Azure
    resources, cluster-scoped objects, role bindings, and external Services, and creates a federated
    identity credential for every workload and job in the target Release. It then writes the
-   installation binding and its receipt.
+   installation binding and its receipt. The shared infrastructure root separates prerequisites
+   from document-ingestion Container Apps with `enable_document_ingestion_workloads`. Its default
+   remains `true`; a Hub-managed installation sets it to `false` only in a reviewed exact plan so
+   identities, storage, private endpoints and role bindings can converge without creating a second
+   workload renderer.
 2. **Schema expand:** The Release ships its database migration as a Kubernetes Job template that
    uses the Core image, which already contains the migration and catalog tools. The Job runs the
    legacy migrations, the service-owned migrations in their declared order, and the authoritative
