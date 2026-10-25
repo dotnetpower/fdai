@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5bddf397916f05b2700b5e6ca7a26aa6653a6e9c
+translation_source_sha: 291854794cc086b85e9d3e19fbb4016aba5b9ac7
 translation_revised: 2026-10-25
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -33,7 +33,7 @@ Release Hub 이미지에는 포함되지 않습니다. Lifecycle Hub `catalog` �
 둘 더 추가합니다. Lifecycle Hub `catalog.trust` 객체(`mode = "tuf"`, `root_key_ids`,
 `root_threshold`)가 `release_public_key`를 대체하고, Release Hub `catalog_roles` 객체는 서로 다른
 snapshot 키와 timestamp 키 비밀 버전을 추가합니다. 오프라인에서 서명한 root는 `install-catalog-root`
-작업으로 설치합니다. [서명된 카탈로그 역할](lifecycle-releases-and-channels-ko.md#hub의-서명된-카탈로그-역할)을 참고하세요.
+작업으로 설치합니다. [서명된 카탈로그 역할](lifecycle-releases-and-channels-ko.md#hub의-서명된-카탈로그-역할)을 참고하세요. Lifecycle Hub 작업 Job은 `bind-catalog`와 `rebind-catalog`도 수락합니다. 요청 비밀 대신 귀속되는 `actor`와 `reason`을 받으며, 재바인딩은 리비전 하한을 유지합니다.
 로그인과 카탈로그 연결은 기동의
 전제조건이 아닙니다. Entra 앱 등록 없이 migration, 상태/준비 검사와 정적 UI를 제공하며,
 인증을 설정하기 전까지 관리 API는 사용할 수 없습니다. 익명 관리 기능을 제공하거나 새로운
