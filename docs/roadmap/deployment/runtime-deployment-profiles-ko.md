@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 03b0b4c8152c8d1e39fd62737fde8d18e1efa74c
+translation_source_sha: 574cfc924ed176c564f8330c674d0caf4b9148b2
 translation_revised: 2026-10-25
 ---
 # 런타임 배포 프로파일
@@ -30,6 +30,19 @@ translation_revised: 2026-10-25
 Core와 Cost Governance 이미지는 두 런타임 프로필에서 같은 고정 Go 툴체인과 `github.com/klauspost/compress@v1.18.7` 모듈 재정의로 OPA를 빌드합니다. AKS나 Container Apps를 선택해도 이 툴체인, 빌더 digest, 풀 리퀘스트를 막는 이미지 스캔은 바뀌지 않습니다.
 
 ## 설계 개요
+
+일반적인 복제 후 배포는 `https://hub.msfdai.com`을 통한
+[Hub 이미지 초기 설치](hub-image-deployment-ko.md)를 사용합니다.
+이 AKS 초기 설치는 기존 Foundation 및 애플리케이션 조정기를 재사용합니다.
+검증한 정확한 카탈로그 선택을 Managed Host로 전달하고, 서명된 일곱 구성 요소의 이미지
+다이제스트를 설치본 레지스트리로 가져온 뒤 워크로드 적용 전에 검증합니다.
+저장소에서 제공하는 인프라, 마이그레이션과 Console의 출처는 별도로 기록합니다.
+
+Hub 이미지 선택은 런타임 프로필 기본값, 제품 추가 기능, 실행기 신원, 승인, 라이선싱,
+상태 및 무변경 계획 검증을 바꾸지 않습니다. 명시적 소스 모드는 Hub에 의존하지 않는
+빌드 입력을 유지하며, 오프라인 모드는 로컬 서명 산출물을 유지합니다.
+Hub 실패 시 다른 산출물 모드로 전환하지 않습니다. 이 초기 설치는 전체 관리형 수명 주기
+실행이 아니며 기존 설치본의 채널 업그레이드, Hub 해체나 Container Apps 이행을 구현하지 않습니다.
 
 소스 AKS의 최초 인벤토리 Job은 Pod 재시도를 사용하지 않습니다. 관리 호스트가 이미
 서로 구분되고 보존되는 시도를 세 번까지 관리하기 때문입니다. 기존 인벤토리 쓰기 잠금을

@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: 7cd8f45d17f2816985ace50ab656e6eddecc5426
-translation_revised: 2026-10-23
+translation_source_sha: a3f745efb0afc86b156d80500aafea28d49bf679
+translation_revised: 2026-10-25
 ---
 
 # 단일 명령 소스 배포
@@ -23,13 +23,15 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 >
 > **범위:** 런타임과 프로비저닝 토폴로지, Trial과 토큰의 의미, 서명된 오프라인 패키지는
 > [관련 문서](#관련-문서)에 나열한 소유 문서가 계속 맡습니다.
+> 일반적인 복제 후 배포는 이제 [Release Hub 이미지](hub-image-deployment-ko.md)를 선택합니다.
+> 이 문서의 Hub 독립 빌드 계약을 사용하려면 `--source .`을 명시적으로 선택하세요.
 
 ## 한눈에 보는 설계
 
 | 관심사 | 결정 |
 |--------|------|
 | 배포할 수 있는 사람 | clone, 대화형 `az login`, 대상 구독에서 리소스와 역할 할당을 만들 권한을 가진 누구나 |
-| 진입점 | 한 줄 명령 `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region <region>` 또는 `fdaictl provision azure --source <checkout> --region <region>`. 둘 다 하나의 조정기를 실행 |
+| 진입점 | 한 줄 명령 `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --source . --region <region>` 또는 `fdaictl provision azure --source <checkout> --region <region>`. 둘 다 하나의 조정기를 실행 |
 | 산출물 출처 | 깨끗하게 커밋된 checkout 하나. 서비스 이미지는 그 checkout에서 배포 자체의 레지스트리로 빌드 |
 | 만드는 릴리스 산출물 | 없음. 서명된 키트, 번들, 제어 패키지, wheelhouse, 어플라이언스, 호스트 이미지, SBOM, provenance, attestation, 게시된 릴리스를 만들지 않음 |
 | 필요한 키 | 없음. 서명 키는 설치 입력이 아님 |
@@ -142,7 +144,7 @@ Terraform의 소스 트리는 원래 보존된 애플리케이션 스냅샷에 �
 ## 명령 실행
 
 ```bash
-git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region koreacentral
+git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --source . --region koreacentral
 ```
 
 `fdai-up.sh`가 자신의 checkout을 찾으므로 이 한 줄은 어느 디렉터리에서든 동작합니다. 먼저
@@ -150,6 +152,9 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 `fdai-up.sh`는 checkout의 잠긴 환경을 준비하고 나머지 옵션과 함께
 `fdaictl provision azure --source <checkout>`을 호출합니다. 두 진입점은 같은 조정기를 실행하고
 같은 결과를 냅니다. 명령을 다시 실행하면 같은 설치를 재개하거나 업그레이드합니다.
+`--source`를 생략하면 묵시적 소스 빌드가 아니라 별도로 문서화한
+[Hub 이미지 초기 설치](hub-image-deployment-ko.md)를 선택합니다.
+Hub 오류가 나도 이 소스 경로로 자동 전환하지 않습니다.
 
 source AKS 개발 설치에서는 `--development-authority-profile <path>`로 애플리케이션 plan에
 적용할 비공개 검토 완료 full-authority 개발 프로필 하나를 선택합니다. 조정기는 해당 파일에서

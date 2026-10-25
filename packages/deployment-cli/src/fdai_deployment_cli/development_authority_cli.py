@@ -44,7 +44,7 @@ def validate_development_authority_command(
 
     if profile is None and not clear:
         return
-    if args.source is None or args.runtime != "aks":
+    if (args.source is None and getattr(args, "hub", None) is None) or args.runtime != "aks":
         raise ValueError("development authority changes require source AKS deployment")
     if args.prepare_only or args.preflight_only or args.teardown:
         raise ValueError("development authority changes require an application deployment run")

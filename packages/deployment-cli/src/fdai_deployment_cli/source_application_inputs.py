@@ -70,6 +70,8 @@ def add_prepare_source_parser(subcommands: Subparsers, handler: object) -> None:
     prepare_source.add_argument("--source-snapshot-digest", required=True)
     prepare_source.add_argument("--runtime-support", type=Path, required=True)
     prepare_source.add_argument("--runtime-support-digest", required=True)
+    prepare_source.add_argument("--hub-selection", type=Path)
+    prepare_source.add_argument("--hub-selection-digest")
     prepare_source.add_argument("--handoff", type=Path, required=True)
     prepare_source.add_argument("--entra", type=Path)
     prepare_source.add_argument("--foundation-adoption", type=Path)
@@ -147,7 +149,7 @@ def source_tree_copy(snapshot_tree: Path, work_dir: Path) -> Path:
 
 def rebind_source_tree(context: dict[str, object], work_dir: Path) -> bool:
     """Move a retained source context's working paths out of the snapshot."""
-    if context.get("artifact_source") != "operator-selected-source":
+    if context.get("artifact_source") not in {"operator-selected-source", "hub-signed-images"}:
         return False
     snapshot_tree = Path(str(context["source_snapshot"])) / "tree"
     prefix = str(snapshot_tree)
@@ -289,16 +291,36 @@ def source_image_import_receipt(
         registry_name=str(context["registry_name"]),
     )
     try:
-        receipt = run_source_image_stage(
-            snapshot=SourceImageSnapshot(
-                root=snapshot_path / "tree",
-                commit=commit,
-                digest=snapshot_digest,
-            ),
-            target=target,
-            builder=AzureRegistryBuildService(),
-            work_dir=work_dir / "source-image-stage",
-        )
+        if context.get("artifact_source") == "hub-signed-images":
+            from fdai_deployment_cli.hub_image_stage import run_hub_image_stage
+            from fdai_deployment_cli.hub_image_trust import load_selection
+
+            selection = load_selection(
+                Path(str(context["hub_selection"])), str(context["hub_selection_digest"])
+            )
+            if selection.source_commit != commit:
+                raise ValueError("Hub image selection differs from the support snapshot")
+            receipt = run_hub_image_stage(
+                selection=selection,
+                target=target,
+                registry=AzureRegistryBuildService(),
+                work_dir=work_dir / "hub-image-stage",
+            )
+        elif context.get("artifact_source") == "operator-selected-source":
+            if (work_dir / "hub-selection.json").exists():
+                raise ValueError("source builds cannot reuse Hub image inputs")
+            receipt = run_source_image_stage(
+                snapshot=SourceImageSnapshot(
+                    root=snapshot_path / "tree",
+                    commit=commit,
+                    digest=snapshot_digest,
+                ),
+                target=target,
+                builder=AzureRegistryBuildService(),
+                work_dir=work_dir / "source-image-stage",
+            )
+        else:
+            raise ValueError("image artifact source is unknown; no build fallback")
     except SourceImageStageStopped as exc:
         raise ValueError(exc.reason_code) from exc
     image_refs = _mapping(receipt.get("image_refs"), "source image stage receipt")
@@ -315,6 +337,13 @@ def source_image_import_receipt(
         "subscription_ready": False,
     }
     result["receipt_digest"] = canonical_digest(result)
+    if context.get("artifact_source") == "hub-signed-images":
+        result.update(selection.metadata())
+        result["schema_version"] = "fdai.hub-image-import-receipt.v1"
+        result.pop("source_image_stage_receipt_digest", None)
+        result["hub_image_stage_receipt_digest"] = receipt["receipt_digest"]
+        result.pop("receipt_digest", None)
+        result["receipt_digest"] = canonical_digest(result)
     return result, context
 
 

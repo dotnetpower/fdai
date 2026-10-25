@@ -36,7 +36,14 @@ also binds it. A bundle, package or Plan cannot change those independent binding
 
 Release v2 keeps `product`, `release_version`, `source_commit`, `platform_tag` and optional
 configuration/database schema metadata. Its `components` map contains 1-64 named records with
-exactly `image_digest`. Unlike v1's `workloads`, it makes no HTTP claim about a sidecar,
+required `image_digest` and optional `image_ref`. When present, `image_ref` is a credential-free
+registry reference pinned to that exact digest; a mutable tag alone is not accepted.
+Omission preserves existing component manifests. The
+[connected image bootstrap](hub-image-deployment.md) requires signed references for its complete
+seven-component inventory rather than inventing registry coordinates or building replacements.
+The Lifecycle Agent still uses its independently approved local repository bindings; the new
+field never grants registry access or widens its local policy.
+Unlike v1's `workloads`, v2 makes no HTTP claim about a sidecar,
 initialization container or scheduled task. Unknown fields, invalid names/digests, duplicate JSON
 keys, nonfinite values and existing byte limits remain blocked.
 

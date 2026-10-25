@@ -1,6 +1,6 @@
 """Portable publication tables, including a singleton catalog lock shared by all replicas."""
 
-from sqlalchemy import Column, ForeignKey, Integer, MetaData, String, Table, Text
+from sqlalchemy import Column, ForeignKey, Index, Integer, MetaData, String, Table, Text
 
 metadata = MetaData()
 releases = Table(
@@ -40,4 +40,27 @@ catalog_metadata = Table(
     "metadata",
     metadata,
     Column("created_at", Text, primary_key=True),
+)
+deployment_requests = Table(
+    "deployment_requests",
+    metadata,
+    Column("request_id", String(64), primary_key=True),
+    Column("subscription_id", String(36), nullable=False),
+    Column("release_id", String(64), nullable=False),
+    Column("channel", String(64), nullable=False),
+    Column("region", String(64), nullable=False),
+    Column("source_commit", String(40), nullable=False),
+    Column("catalog_digest", String(64), nullable=False),
+    Column("recorded_at", String(32), nullable=False),
+    Column("status", String(16), nullable=False),
+    Column("trust", String(24), nullable=False),
+)
+Index(
+    "deployment_requests_order", deployment_requests.c.recorded_at, deployment_requests.c.request_id
+)
+Index(
+    "deployment_requests_subscription_order",
+    deployment_requests.c.subscription_id,
+    deployment_requests.c.recorded_at,
+    deployment_requests.c.request_id,
 )

@@ -448,6 +448,18 @@ def _verify_source_runtime(args: argparse.Namespace, _work_dir: Path) -> dict[st
 
 def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     _private_directory(work_dir)
+    from fdai_deployment_cli.hub_image_stage import prepare_host_selection
+
+    selected_hub_path = getattr(args, "hub_selection", None)
+    selected_hub_digest = getattr(args, "hub_selection_digest", None)
+    hub_selection = prepare_host_selection(
+        path=_absolute(selected_hub_path) if selected_hub_path is not None else None,
+        digest=selected_hub_digest,
+        work_dir=work_dir,
+    )
+    source_mode = hasattr(args, "source_snapshot")
+    if hub_selection is not None and not source_mode:
+        raise ValueError("Hub images require checkout support, not offline-kit mode")
     handoff = _private_json(_absolute(args.handoff), "Foundation handoff")
     runtime_profile = RuntimeDeploymentProfile.from_prepare_arguments(args)
     enterprise_identity_selected = runtime_profile.product_profile.selects(
@@ -467,6 +479,10 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         handoff=handoff,
         runner=runner,
     )
+    if hub_selection is not None and (
+        hub_selection.source_commit != foundation.adoption.source_commit
+    ):
+        raise ValueError("Hub Release and Foundation source revisions differ")
     initial_inventory_binding = _initial_inventory_binding(foundation.subscription_id)
     foundation_binding_digest = _foundation_binding_digest(
         handoff,
@@ -543,6 +559,17 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         if not retained_context.exists() or not retained_variables.exists():
             raise ValueError("standalone host preparation is incomplete")
         retained = _private_json(retained_context, "standalone host context")
+        expected_source = (
+            "hub-signed-images"
+            if hub_selection is not None
+            else "operator-selected-source"
+            if source_mode
+            else "signed-kit"
+        )
+        if retained.get("artifact_source") != expected_source or retained.get(
+            "hub_selection_digest"
+        ) != (hub_selection.digest if hub_selection is not None else None):
+            raise ValueError("standalone host artifact mode or Hub selection drifted")
         retained_values = _private_json(retained_variables, "standalone host Terraform variables")
         posture_changed = _reconcile_retained_private_access(
             retained, retained_values, key_vault_private_access, document_storage_private_access
@@ -604,8 +631,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             "focused_private_access": _focused_private_access(retained),
             "mutation_performed": False,
             "subscription_ready": False,
+            **(hub_selection.metadata() if hub_selection is not None else {}),
         }
-    source_mode = hasattr(args, "source_snapshot")
     if source_mode:
         source_snapshot = _absolute(args.source_snapshot)
         source_artifacts = source_application_inputs.source_host_artifacts(
@@ -794,6 +821,9 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         context.update(
             source_snapshot=str(source_snapshot), source_snapshot_digest=source_artifacts.digest
         )
+    if hub_selection is not None:
+        context.update(hub_selection.metadata())
+        context["hub_selection"] = str(hub_selection.path)
     _replace_private_json(work_dir / "application.auto.tfvars.json", values)
     _replace_private_json(work_dir / "context.json", context)
     _terraform_init(work_dir, context)
@@ -810,6 +840,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "focused_private_access": _focused_private_access(context),
         "mutation_performed": False,
         "subscription_ready": False,
+        **(hub_selection.metadata() if hub_selection is not None else {}),
     }
 
 
@@ -2772,7 +2803,7 @@ def _import_images(_args: argparse.Namespace, work_dir: Path) -> dict[str, objec
     _managed_identity_login_from_context(context, work_dir)
     if not (work_dir / "substrate-receipt.json").exists():
         raise ValueError("image import requires the applied substrate plan")
-    if context.get("artifact_source") == "operator-selected-source":
+    if context.get("artifact_source") in {"operator-selected-source", "hub-signed-images"}:
         return source_application_inputs.write_source_image_import_receipt(
             context=context, work_dir=work_dir, write_json=_replace_private_json
         )

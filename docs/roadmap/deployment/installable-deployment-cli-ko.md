@@ -1,13 +1,17 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: bcc337b60856d278c8fd85f5562bb1998f4652e4
+translation_source_sha: a7a4830acd20cc13094c23a4365d2dff6927cfe5
 translation_revised: 2026-10-25
 ---
 
 # 설치형 배포 CLI
 
-> **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다. 소스 경로의 산출물과 사용권 선택은 [단일 명령 소스 배포](source-deployment-ko.md)가 소유합니다.
+> **배포 방식:** [헌법](../architecture/fdai-constitution-ko.md#제1조-목적과-범위)이 설치 계약을
+> 정의합니다. 일반적인 복제 후 배포는 [Hub 이미지 초기 설치](hub-image-deployment-ko.md)를
+> 선택하며, 이는 관리형 수명 주기 전체의 완성을 뜻하지 않습니다.
+> [단일 명령 소스 배포](source-deployment-ko.md)는 명시적 소스 빌드와 사용권 선택을 담당합니다.
+> 소스 및 오프라인 경로에 Hub 전제조건이 추가되지는 않습니다.
 
 이 문서는 공개 FDAI 배포 명령을 정의합니다. 운영자는 Azure 로그인 후 하나의 로컬 조정기를
 실행하고, Terraform 적용과 비공개 데이터 플레인 작업은 대상 Virtual Network 내부의 Managed
@@ -29,7 +33,7 @@ Host에서 실행됩니다.
 | 인프라 엔진 | 선택한 서명 프로필 폐쇄 집합의 Terraform |
 | 대상 선택 | 활성 대화형 Azure CLI 사용자 |
 | 적용 위치 | 대상 VNet 내부의 Managed Host |
-| 연결된 산출물 원본 | 깨끗한 checkout 하나. [소스 배포](source-deployment-ko.md)가 정의하는 대로 서비스 이미지를 그 checkout에서 배포 자체 레지스트리로 빌드 |
+| 연결된 산출물 원본 | 기본 복제 후 배포는 `https://hub.msfdai.com`에서 선택한 서명된 이미지 다이제스트를 가져옴. 명시적 `--source`는 Hub 없이 깨끗한 저장소에서 빌드 |
 | 폐쇄망 산출물 원본 | 서명된 키트 하나에 담긴 완전한 오프라인 프로필. 어플라이언스 이미지는 만들지 않습니다 |
 | 승인 | 각 정확한 계획 digest에 연결된 현재 사람 승인 |
 | 런타임 신원 | 기본값은 범위가 제한된 읽기 전용 관찰 신원이며, 권한 있는 실행기는 명시적 `governed-execution` 추가 기능에서만 사용 |
@@ -46,6 +50,19 @@ Host에서 실행됩니다.
 소스·오프라인 명령, 마이그레이션 권한 또는 로컬 데이터베이스 우회를 추가하지 않습니다.
 
 GitHub Actions는 소스를 검증하고 이미지를 빌드하며 선택적으로 서명된 release를 게시할 수 있지만, 게시는 배포 검증의 필수 조건이 아닙니다. GitHub Actions는 대상 환경을 계획, 적용, 재개 또는 제거할 수 없습니다. 읽기 전용 [관측 산출물 사전 점검](../architecture/aks-outbound-connector-ko.md#산출물-사전-점검)은 정확한 Core 이미지에 같은 고정 신뢰 루트의 오프라인 키트·OCI 검증기를 재사용하며, 제한된 프로세스 결과로 새 release 신뢰나 승인·설치 권한을 만들지 않습니다. 같은 키트는 경로, profile id, source timestamp, 파일 digest 및 전체 manifest digest에 결속된 선택적 기본 Rule 활성화 profile도 포함할 수 있습니다. 준비 단계는 결정론적 Core 환경 바인딩만 출력하며 세대를 적용하거나 대상 환경 workload를 배포하지 않습니다.
+
+## 연결된 이미지 초기 설치
+
+복제 후 실행하는 래퍼는 기본적으로 [Release Hub 이미지](hub-image-deployment-ko.md)를 선택합니다.
+독립적으로 승인한 공개 검증 키, 서명된 카탈로그와 매니페스트, 적격 채널 구성과 정확한 소스
+일치가 필요합니다. 기존 조정기는 인프라, 승인, 마이그레이션, 라이선싱, 상태와 무변경 계획
+검증 경계를 유지합니다. Hub 실패 시 소스 빌드로 전환하지 않으며, 이미지 초기 설치로 등록이나
+전체 Hub 관리형 수명 주기가 완성됐다고 주장하지 않습니다.
+
+Azure 배포 효과 전에 최소 구독 요청 메타데이터를 Release Hub로 보냅니다.
+자체 신고 요청일 뿐 구독 소유권이나 배포 성공 증거가 아닙니다.
+운영자는 카탈로그 게시와 분리된 화면에서 확인합니다.
+명시적 소스 및 오프라인 모드는 요청을 제출하지 않습니다.
 
 ## 연결된 소스 배포
 

@@ -13,8 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from fdai_deployment_cli import standalone_catalog_checkpoint
-from fdai_deployment_cli import azure_actor
+from fdai_deployment_cli import azure_actor, standalone_catalog_checkpoint
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.catalog_review_profile import (
     CatalogReviewDeploymentProfile,
@@ -28,6 +27,7 @@ from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
 from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
 )
+from fdai_deployment_cli.hub_image_trust import HubImageSelection, load_selection
 from fdai_deployment_cli.license_issue import deployment_license_token as _license_token
 from fdai_deployment_cli.notification_recipients_input import (
     NotificationRecipientsDeploymentInput,
@@ -37,16 +37,16 @@ from fdai_deployment_cli.operational_evidence_verifier_input import (
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.source_application_inputs import (
+    build_source_console,
+    prepare_source_recovery_host,
+    source_transfer_inputs,
+)
 from fdai_deployment_cli.standalone_application_recovery import (
     converge_focused_private_access as _converge_focused_private_access,
 )
 from fdai_deployment_cli.standalone_application_recovery import (
     recover_failed_exact_apply as _recover_failed_exact_apply,
-)
-from fdai_deployment_cli.source_application_inputs import (
-    build_source_console,
-    prepare_source_recovery_host,
-    source_transfer_inputs,
 )
 from fdai_deployment_cli.standalone_approval_input import (
     wait_for_approval_input as _wait_for_approval_input,
@@ -83,6 +83,7 @@ def deploy_standalone_application(
     source_snapshot_digest: str | None = None,
     source_root: Path | None = None,
     foundation_recovery_directory: Path | None = None,
+    hub_selection: HubImageSelection | None = None,
 ) -> dict[str, object]:
     """Deploy and independently replan the application without a workflow host."""
 
@@ -92,6 +93,10 @@ def deploy_standalone_application(
         database_placement="postgres-flex",
     )
     source_mode = source_snapshot is not None
+    if hub_selection is not None:
+        hub_selection = load_selection(hub_selection.path, hub_selection.digest)
+        if not source_mode or hub_selection.source_commit != prepared.source_commit:
+            raise ValueError("Hub images require the matching checkout support snapshot")
     begin_stage("transfer")
     progress_detail(
         "Verifying the handoff and preparing the source snapshot for Bastion transfer"
@@ -171,6 +176,8 @@ def deploy_standalone_application(
     if source_mode:
         work_binding["source_snapshot_digest"] = source_snapshot_digest
         work_binding["provenance"] = "operator-selected-source"
+        if hub_selection is not None:
+            work_binding.update(hub_selection.metadata())
     else:
         work_binding["kit_manifest_digest"] = prepared.kit_manifest_digest
     if control_package is not None:
@@ -229,6 +236,7 @@ def deploy_standalone_application(
             source_runtime_support_digest=(
                 source_transfer.runtime_support_digest if source_transfer is not None else None
             ),
+            **({"hub_selection": hub_selection} if hub_selection is not None else {}),
             runtime_profile=selected_runtime,
             application_state_adoption=application_state_adoption,
             remote_adoption_state=remote_adoption_state,
@@ -735,6 +743,8 @@ def deploy_standalone_application(
             receipt["kit_manifest_digest"] = kit_verification.manifest_digest
         if kit_runtime is not None:
             receipt["runtime_release_digest"] = kit_runtime.digest
+    if hub_selection is not None:
+        receipt.update(hub_selection.metadata())
     receipt["receipt_digest"] = canonical_digest(receipt)
     deadline.remaining()
     _replace_private_json(prepared.root / "standalone-application-receipt.json", receipt)

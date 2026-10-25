@@ -876,12 +876,14 @@ def test_bare_command_deploys_its_own_checkout_without_building_a_kit(
     assert (
         f"uv=run --frozen --isolated --python {invoker}/.venv/bin/python "
         f"--project {invoker}/packages/deployment-cli "
-        f"fdaictl provision azure --source {invoker} --region koreacentral"
+        f"fdaictl provision azure --hub {invoker} --region koreacentral"
     ) in recorded
     assert "build-root=" not in recorded
 
 
-@pytest.mark.parametrize("arguments", [("--offline-kit", "package.tar.gz"), ("--source", ".")])
+@pytest.mark.parametrize(
+    "arguments", [("--offline-kit", "package.tar.gz"), ("--source", "."), ("--hub", ".")]
+)
 def test_explicit_mode_is_forwarded_unchanged(tmp_path: Path, arguments: tuple[str, ...]) -> None:
     completed, recorder, invoker = _run_contributor_up(tmp_path, *arguments)
 
@@ -909,3 +911,23 @@ def test_wrapper_never_invokes_the_kit_builder() -> None:
     assert "build-standalone-deployment-kit.sh --" not in source
     assert '--signing-key "' not in source
     assert "--online" in source
+
+
+@pytest.mark.parametrize("equals", [False, True])
+def test_hub_public_key_is_resolved_before_entering_the_checkout(
+    tmp_path: Path, equals: bool
+) -> None:
+    flag = (
+        ("--hub-public-key=trusted/public.pem",)
+        if equals
+        else (
+            "--hub-public-key",
+            "trusted/public.pem",
+        )
+    )
+    completed, recorder, invoker = _run_contributor_up(tmp_path, *flag)
+    assert completed.returncode == 0, completed.stderr
+    recorded = recorder.read_text(encoding="ascii")
+    separator = "=" if equals else " "
+    assert f"--hub-public-key{separator}{tmp_path}/trusted/public.pem" in recorded
+    assert f"--hub {invoker}" in recorded

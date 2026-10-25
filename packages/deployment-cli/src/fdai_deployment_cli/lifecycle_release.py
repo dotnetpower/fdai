@@ -159,7 +159,7 @@ def parse_lifecycle_release_manifest(raw: bytes) -> LifecycleRelease:
         )
         parsed_components = (
             {
-                name: _image_record(name, value, allowed={"image_digest"})
+                name: _image_record(name, value, allowed={"image_digest", "image_ref"})
                 for name, value in workloads.items()
             }
             if component_only
@@ -213,6 +213,23 @@ def _image_record(name: object, value: object, *, allowed: set[str]) -> str:
     digest = value["image_digest"]
     if not isinstance(digest, str) or _DIGEST.fullmatch(digest) is None:
         raise ValueError("application image must be digest-pinned")
+    if "image_ref" in value:
+        reference = value["image_ref"]
+        if (
+            not isinstance(reference, str)
+            or len(reference) > 512
+            or re.fullmatch(
+                r"[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?"
+                r"(?::[1-9][0-9]{0,4})?/"
+                r"[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*"
+                r"@sha256:[0-9a-f]{64}",
+                reference,
+                re.ASCII,
+            )
+            is None
+            or reference.rsplit("@", 1)[1] != digest
+        ):
+            raise ValueError("application image source must match its signed digest")
     return digest
 
 

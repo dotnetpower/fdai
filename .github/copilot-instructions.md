@@ -109,9 +109,14 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
    three [deployment distribution](../docs/roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)
    paths: a one-line source deployment from any local checkout, which runs a 30-day Trial unless
    the upstream integrity signing key selects full entitlement, a signed offline package, or the
-   [Hub-managed lifecycle](../docs/roadmap/deployment/hub-managed-lifecycle.md), which is designed
-   but not implemented. The first two require no protected branch, CI result, published artifact, or
-   attestation.
+   [Hub-managed lifecycle](../docs/roadmap/deployment/hub-managed-lifecycle.md), which remains
+   partially implemented. For an ordinary clone deployment request, select
+   [Hub-image bootstrap](../docs/roadmap/deployment/hub-image-deployment.md) through
+   `https://hub.msfdai.com`, with independently approved public-key trust and signed digest-pinned
+   images. Never silently build source images after a Hub failure. Explicit `--source` preserves
+   the Hub-independent source contract; offline installation stays unchanged. These explicit paths
+   require no protected branch, CI result, published artifact, or attestation. Hub request records
+   are self-reported subscription metadata, never verified ownership or deployment success.
    Explicit deployment authorization permits entering the applicable deployment path. Delivery authorization never
    selects a tenant, subscription, environment, or exact Terraform plan and never supplies a secret.
    For coding-session operations, an authenticated Owner's explicit request for a development action

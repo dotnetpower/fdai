@@ -128,7 +128,9 @@ rate. All targets require a measured baseline before they can be claimed
 
 - **User guide**: [docs/user-guide/get-started.md](docs/user-guide/get-started.md)
 - **Develop locally**: [docs/user-guide/local-development-quickstart.md](docs/user-guide/local-development-quickstart.md)
-- **Deploy to Azure**: [docs/user-guide/deploy-quickstart.md](docs/user-guide/deploy-quickstart.md)
+- **Deploy to Azure**: [docs/user-guide/deploy-quickstart.md](docs/user-guide/deploy-quickstart.md).
+  Clone deployment selects signed images through `hub.msfdai.com`; explicit source and offline
+  installation remain available. Release Hub operators can view self-reported subscription requests.
 - **Detailed roadmap**: [docs/roadmap/README.md](docs/roadmap/README.md)
 - **Contributor rules**: [.github/copilot-instructions.md](.github/copilot-instructions.md)
 

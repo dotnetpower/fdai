@@ -1,7 +1,7 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: 94a89bb0b114a9160f8a66105bb16e5cf94c8c8a
+translation_source_sha: d25ce11ee229513f5808c843fbb279c3d99a9efd
 translation_revised: 2026-10-25
 ---
 # Hub 수명 주기 운영자 가이드
@@ -11,8 +11,10 @@ translation_revised: 2026-10-25
 전체의 완성으로 오해하지 않도록 실제 가능한 작업과 중단할 지점을 안내합니다.
 
 > **범위:** Hub 관리 수명 주기는 완성된 운영용 설치 경로가 아닙니다. 구현된 FDAI 설치
-> 계약에는 [소스 배포](../roadmap/deployment/source-deployment-ko.md) 또는 서명된 오프라인
-> 설치 경로를 사용하세요. 이 문서는 클라우드 변경, 발행, 키 반출, 워크로드 적용을 승인하지 않습니다.
+> 계약에는 [Hub 이미지 초기 설치](../roadmap/deployment/hub-image-deployment-ko.md), 명시적
+> [소스 배포](../roadmap/deployment/source-deployment-ko.md) 또는 서명된 오프라인 설치 경로를
+> 사용하세요. 이미지 초기 설치는 관리형 수명 주기 전체의 완성이 아닙니다.
+> 이 문서는 클라우드 변경, 발행, 키 반출, 워크로드 적용을 승인하지 않습니다.
 
 ## 이 문서에서 다루는 내용
 
@@ -33,6 +35,20 @@ FDAI Release Hub는 공급자용입니다. Lifecycle Hub는 설치본 운영자�
 | 고객 승인자 | 설치본 신원 확인, 허용된 변경 승인 | 에이전트 실행 신원으로 작업 |
 | Lifecycle Hub | 제약 평가, Plan 서명, 수명 주기 메타데이터 보관 | Kubernetes 자격 증명 보유, 워크로드 변경 실행 |
 | 수명 주기 에이전트 | 입력 검증, 로컬 한도 적용, 변경 적용, 결과 관찰, 복구 | release 발행, 자기 승인, Azure 관리 |
+
+## 복제 후 배포와 구독 요청
+
+새로 복제한 저장소에서 일반적인 배포를 요청한다면
+[Release Hub 이미지 배포](../roadmap/deployment/hub-image-deployment-ko.md)를 따르세요.
+명령은 `https://hub.msfdai.com`, 독립적으로 신뢰한 공개키 검증과 서명된 다이제스트 고정
+이미지 위치를 사용합니다. 고객에게 Release 빌드나 게시를 요구하지 않으며, Hub 오류 뒤에
+소스 빌드로 전환하지 않습니다. 명시적 소스 및 오프라인 모드는 기존 계약을 유지합니다.
+
+공급자 운영자는 Release Hub의 **Deployment requests**에서 구독별로 요청 목록을
+필터링할 수 있습니다. 신고된 구독, 리전, Release와 채널, 요청 시각과 입력 식별값을
+표시합니다. `requested` / `self-reported`는 클라이언트가 메타데이터를 제출했다는 뜻일 뿐,
+소유권, 설치, 등록이나 효과 성공을 증명하지 않습니다. 목록은 비공개이며 카탈로그
+내보내기에 포함되지 않고, 게시 개정 및 만료와도 분리됩니다.
 
 ## 1. 전체 흐름 파악
 
