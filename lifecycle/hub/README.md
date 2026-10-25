@@ -38,12 +38,26 @@ Enrollment requests; approval remains separate and Entities remain unmanaged. Ag
 submit or approve enrollment. Empty bindings retain the existing closed route, and the original
 Agent enrollment route stays closed even to an operator.
 
-In the operator UI, open **Enrollment requests**, enter the bound installation ID,
-and select the signed request JSON file. **Submit request** sends only its `signed_payload`
+`GET /v1/enrollments/bindable` lists the bound installation IDs with their status.
+`fdai-lifecycle-hub sign-enrollment <request.json> --key <installation.pem> --out <file>` signs
+inside the installation boundary and writes only the upload file; it prints the key id and the
+submission deadline and refuses to overwrite an existing file.
+
+In the operator UI, open **Enrollment requests**, select the bound installation,
+and choose the signed request JSON file. **Submit request** sends only its `signed_payload`
 and `proof` fields to that operator route. Files are limited to 64 KiB; private keys must
 never be uploaded. A successful submission remains pending and requires a separate approval
 after independent installation-key verification. If submission times out, refresh the pending
 list before retrying; the UI never retries automatically.
+
+The **Updates** screen is the pull-only path. The Lifecycle Hub polls the bound Release Hub on
+`catalog.check_interval_seconds`, verifies the Release key's signature over the exact export
+bytes, and evaluates the packaged Rego policy (`policy/catalog_adoption.rego`, run with the
+`opa` binary). In `auto` mode a change inside the standing authorization is adopted and Plans are
+issued for enrolled installations. Otherwise the candidate waits for **Review and apply**. The
+default is `review`; a missing signature, key, engine or authorization never adopts. Routes:
+`GET /v1/catalog/updates`, `POST /v1/catalog/updates/check` and `POST /v1/catalog/updates/apply`.
+Release Hub never calls this Hub. See [Automatic catalog adoption](../../docs/roadmap/deployment/lifecycle-releases-and-channels.md#automatic-catalog-adoption).
 
 The Catalog import screen separates independent exact-pin approval from one bounded outbound
 import using the customer's managed identity. Accepted bytes, digest, key binding, revision

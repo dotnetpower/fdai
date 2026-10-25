@@ -72,9 +72,11 @@ leaves publication state unchanged.
 
 Renewal appends an attributed `renew` event targeting `catalog`. It advances the revision and
 24-hour expiry, changing the export digest without changing manifests, signatures, channels,
-recalls or the signing key. Customer Hubs retain their old accepted bytes until an operator
-independently approves the new exact pin and explicitly imports it. Renewal never imports,
-plans or applies an installation change and does not replace production signed catalog roles.
+recalls or the signing key. Customer Hubs retain their old accepted bytes until either an
+operator independently approves the new exact pin and explicitly imports it, or
+[automatic adoption](#automatic-catalog-adoption) verifies the signature and the policy allows it.
+Renewal never imports, plans or applies an installation change and does not replace production
+signed catalog roles. An optional Release Hub task can perform the renewal automatically.
 The UI distinguishes read-only **Refresh catalog** from **Renew catalog freshness**.
 
 ## Automatic catalog adoption
@@ -98,22 +100,43 @@ boundary. Release Hub stores no customer address, identity or schedule.
 | Adoption policy | Rego decides whether a verified candidate may replace the accepted catalog without a person. Input is the signature result, the change summary and the owner's standing authorization. Output is `allow` and the reasons a review is needed. The default is `review`. |
 | Fail closed | A missing signature, a wrong key, an expired candidate, a lower revision, an unavailable policy engine or an expired standing authorization never adopts automatically. The candidate waits for review. |
 | Review | One **Updates** screen shows the candidate revision, expiry, signature result and the change summary. **Review and apply** names the exact revision and digest that the Hub itself verified. If the source moved in the meantime, the Hub refuses and shows the new candidate. |
-| Atomic adoption | One transaction verifies the signature and the manifests, enforces the revision floor, records the approval and the accepted bytes, and appends audit events attributed to the policy or the reviewing operator. |
+| Atomic adoption | One transaction verifies the signature and the manifests, enforces the revision floor, requires that the accepted catalog is still the one the policy assessed, refuses to overwrite an operator-approved pin for the same revision, records the accepted bytes, and appends audit events attributed to the policy or the reviewing operator. |
 | After adoption | The Hub computes a Plan for every enrolled installation. Issuing a Plan never applies it. The Agent still verifies signatures and its local envelope before any effect. |
 
 The standing authorization is the existing human authorization from the constitution. Its
 `authorized_by` and `authorization_expires_at` are configuration, so a change is a reviewed
 deployment change. When it expires, adoption returns to review. Silence never approves.
 
-Default policy outcomes for a candidate with a valid signature:
+In `auto` mode, a candidate with a valid signature gets these outcomes. In `review` mode, which
+is the default, every change waits for a person.
 
 | Change | Outcome |
 |--------|---------|
-| Freshness only (same releases, channels and recalls) | Adopt |
-| New recall | Adopt when nothing else changed. A recall mixed with other changes waits for review, and the screen marks it urgent. |
-| New Release in an allowed channel, up to `max_new_releases` | Adopt |
-| Membership in a channel outside `allowed_channels`, a new channel, a removed Release, a lifted recall or a widened schema range | Review |
-| Any signature, expiry, revision or policy-engine failure | Review, with the failure reason |
+| First catalog, or the same releases, channels and recalls with a later expiry | Adopt |
+| New Release in an allowed channel, up to `max_new_releases` (not counted for the first catalog) | Adopt |
+| New recall with nothing else changed | Adopt |
+| Membership in a channel outside `allowed_channels`, a new channel outside that list, a removed or replaced Release, removed membership, a lifted or dropped recall or a widened schema range | Review |
+| Expired or missing standing authorization, or an unavailable or invalid policy engine | Review |
+| A missing signature, a signature from another key, a lower revision, an expired candidate or an unreachable source | No candidate; the Updates screen shows the failure and the legacy pin flow remains |
+
+A recall mixed with other changes waits for review, and the screen marks it urgent.
+
+### Configuration and interfaces
+
+The deployment supplies the standing authorization through the Lifecycle Hub `catalog` setting:
+`access` (`managed-identity` by default, or `anonymous`), `check_interval_seconds`, and an
+`adoption` object with `mode`, `allowed_channels`, `max_new_releases`, `authorized_by` and
+`authorization_expires_at`. `auto` requires both authorization fields. Release Hub gains
+`auth.public_catalog_export` and `timestamp_renewal_check_seconds`. Existing configurations keep
+their behavior because every new field is optional.
+
+| Interface | Purpose |
+|-----------|---------|
+| `GET /v1/catalog/updates` | Policy, accepted catalog, last check, candidate with decision and change summary, and recent events |
+| `POST /v1/catalog/updates/check` | Run one bounded poll now |
+| `POST /v1/catalog/updates/apply` | Adopt the reviewed `revision` and `sha256` if the source still offers exactly that candidate; otherwise `409 candidate_changed` |
+| `fdai-lifecycle-hub sign-enrollment` | Sign an enrollment request inside the installation boundary and write only the file the operator uploads |
+| `GET /v1/enrollments/bindable` | List the installations the deployment bound to an Agent, so the operator selects one and types nothing |
 
 **What stays a person's decision.** First trust of the vendor key, the choice of channels and
 standing authorization, installation enrollment, ownership, configuration signing and any

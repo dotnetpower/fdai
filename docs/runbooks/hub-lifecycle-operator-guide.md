@@ -125,10 +125,13 @@ it is not an export-only signer for the authenticated remote operator route.
 
 ### B. Submit and approve enrollment
 
-1. Obtain the bound installation ID, fresh signed JSON file and independent public key ID from
-   the installation setup operator. Do not choose an arbitrary ID or upload a PEM key.
+1. Obtain the fresh signed JSON file and independent public key ID from the installation setup
+   operator. They create the file with `fdai-lifecycle-hub sign-enrollment <request.json>
+   --key <installation.pem> --out <file>`, which signs inside the installation boundary and
+   prints the key id and the submission deadline. Do not upload a PEM key.
 2. Sign in to the customer's Lifecycle Hub. Open **Enrollment requests**.
-3. Enter the ID, select the signed JSON file (at most 64 KiB), and click **Submit request** once.
+3. Select the bound installation, choose the signed JSON file (at most 64 KiB), and click
+   **Submit request** once.
    The request timestamp must be within five minutes of the Hub clock. This is a submission
    freshness limit, not a five-minute lifetime for the installation.
 4. After success, open the pending request. Compare its key ID with the custody output.
@@ -141,9 +144,31 @@ If submission has an uncertain result, refresh the pending list before retrying.
 request is stale and no request exists, obtain a newly signed file using the same installation
 key. Don't regenerate the key, reject an otherwise valid identity, or repeat an accepted request.
 
-### C. Inspect inputs without confusing metadata with readiness
+### C. Keep the catalog current without typing a pin
 
-For the existing development catalog screen, follow these separate actions:
+Builds with **Updates** poll the bound Release Hub from inside the customer boundary. Release
+Hub never contacts the customer. You don't copy a revision or digest, because the Hub verifies
+the Release Hub's signature over the exact export bytes with the key bound at deployment.
+
+1. Open **Updates**. It shows the accepted catalog, the last check, the standing authorization
+   and the check interval. **Check now** runs one bounded poll.
+2. In `auto` mode, a signed change that stays inside the standing authorization is adopted
+   without a click, and the Hub issues a Plan for every enrolled installation. In `review`
+   mode, or when the policy asks for review, the screen shows the reasons and the change.
+3. Read the change. An urgent banner marks a new recall. Choose **Review and apply** once if
+   it is acceptable. If the source moved in the meantime, the Hub shows the new candidate and
+   applies nothing.
+4. Renew the standing authorization before `authorization_expires_at` through a reviewed
+   deployment change. Silence never extends it, and an expired authorization returns adoption
+   to review.
+
+Adoption never applies a Plan. The Agent still verifies signatures and its local envelope.
+If the screen reports a missing or invalid signature, the Release Hub build is older or the key
+differs. Use **Catalog import** below only after confirming the independent source.
+
+### C2. Inspect inputs without confusing metadata with readiness
+
+For the legacy or offline pin flow in **Catalog import**, follow these separate actions:
 
 1. Obtain the exact export **Revision** and **SHA-256** through the approved independent trust
    channel. The setup must already bind the expected Release Hub and public key.
@@ -323,7 +348,7 @@ operators see and move between those boundaries.
 |-------|----------------------------------------------------------|
 | IDs, trust references and files passed through an engineer or chat | One supported installer produces a durable public handoff and a registration download |
 | Independent key verification has no integrated workflow | A trusted setup channel presents the exact key comparison without exporting the key |
-| Manual export revision/digest approval for every development change | Production catalog metadata with authenticated freshness and controlled refresh |
+| Manual export revision/digest approval for every development change | Implemented for development: signed export, polling and policy adoption. Production TUF roles and root ceremony remain design. |
 | Package delivery, artifact checks and Agent start require separate setup | Installation-side input staging, registry verification and bounded scheduling |
 | Several disconnected status pages | One installation journey showing prerequisite, owner, blocker and next action |
 | Missing end-to-end notifications | Durable tasks and notifications for each responsible human, with acknowledgement and audit |

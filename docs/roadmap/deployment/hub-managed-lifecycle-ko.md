@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 8a02491dc94d5fc8053f9284be501c43f7d8cc12
+translation_source_sha: 5c5d7258b5991f11741c55b21b07dab471869af9
 translation_revised: 2026-10-25
 ---
 # Hub 관리형 수명 주기
@@ -254,7 +254,10 @@ UI는 이미 준비한 합성 설치본의 Plan을 계산합니다. 기존 검�
 **Available releases**는 `GET /v1/catalog/releases`로 이미 수락한 카탈로그를 조회합니다.
 외부 가져오기 없이 고정값, 서명, 만료를 다시 검증합니다. 신뢰를 확인할 수 없으면
 `503`을 반환하며, 검증한 빈 카탈로그와 구분합니다. 고정값을 승인해 가져오기 전에는 검증 또는 만료 실패가 아니라
-`catalog_not_imported_approve_pin_and_import` 오류를 반환합니다. **Configuration packages**는
+`catalog_not_imported_approve_pin_and_import` 오류를 반환합니다.
+**Updates** 화면은 Lifecycle Hub가 직접 수행하는 조회, 정책 결정, 한 번의 **Review and apply**를
+보여 줍니다. [자동 카탈로그 채택](lifecycle-releases-and-channels-ko.md#자동-카탈로그-채택)을
+참고하세요. **Configuration packages**는
 `GET /v1/configurations`로 저장된 다이제스트, 개수, 시각, 현재 설치본 참조만 표시합니다.
 값과 봉인된 식별자는 제외하고, 독립된 패키지 서명 출처를 기록하지 않았음을 명시합니다.
 두 목록은 이미지 가용성, 배포 자격, 서명된 입력 준비 완료를 입증하지 않습니다.
@@ -283,7 +286,13 @@ Release Hub는 Agent 연결을 받지 않으며, 연결 목록이 비어 있으�
 루트는 비어 있지 않은 Agent 연결을 실행 설정으로 전달합니다. 연결 목록이 비어 있으면
 이전 이미지와의 호환성을 위해 실행 설정에서 해당 필드를 생략합니다.
 
-운영자는 **Enrollment requests** 화면에서 연결된 설치본 ID를 입력하고 64 KiB 이하의
+`GET /v1/enrollments/bindable`은 연결된 설치본 ID와 상태를 나열하므로 **Enrollment requests**
+화면에서 ID를 선택할 수 있습니다. `fdai-lifecycle-hub sign-enrollment`는 설치 경계 안에서
+요청에 서명하고 업로드 파일만 기록한 뒤, 승인자가 독립적으로 대조할 키 ID를 출력합니다.
+클러스터에서 보고 상태를 생성하는 일과 Agent가 승인 대기 등록을 직접 제출하는 일은 아직 구현되지
+않았습니다. 뒤의 항목은 Agent가 등록할 수 없다는 규칙을 바꾸므로 별도의 설계 검토가 필요합니다.
+
+운영자는 **Enrollment requests** 화면에서 연결된 설치본을 선택하고 64 KiB 이하의
 서명된 요청 JSON 파일을 선택할 수 있습니다. `signed_payload`와 `proof`만 전송하며,
 개인 키는 업로드하지 않습니다. 제출 요청은 10초 안에 끝내고 자동으로 재시도하지 않습니다.
 결과를 확인할 수 없으면 승인 대기 목록을 새로 고친 뒤 재시도하세요.
