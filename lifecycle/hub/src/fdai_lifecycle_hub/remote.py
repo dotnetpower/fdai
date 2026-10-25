@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 import os
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Callable, Coroutine, Mapping
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
@@ -31,7 +31,6 @@ from starlette.routing import Route
 from fdai_lifecycle_hub import models, schemas
 from fdai_lifecycle_hub.agent_artifacts import artifact_for_plan
 from fdai_lifecycle_hub.catalog_adoption import (
-    CandidateChangedError,
     CatalogUpdater,
     run_periodic,
 )
@@ -52,6 +51,7 @@ from fdai_lifecycle_hub.operations import (
 )
 from fdai_lifecycle_hub.remote_auth import RemoteAuth
 from fdai_lifecycle_hub.remote_catalog import (
+    CandidateChangedError,
     CatalogNotImportedError,
     CatalogSource,
     PinApproval,
@@ -196,7 +196,7 @@ class ReviewedCandidate(BaseModel):
 
 
 def background_lifespan(
-    original: Any, factories: list[Callable[[], Awaitable[None]]]
+    original: Any, factories: list[Callable[[], Coroutine[Any, Any, None]]]
 ) -> Callable[[Any], Any]:
     """Run bounded periodic tasks beside the server and stop them with it."""
 

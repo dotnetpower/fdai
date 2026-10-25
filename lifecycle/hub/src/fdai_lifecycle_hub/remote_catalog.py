@@ -157,7 +157,7 @@ def _bearer(source: CatalogSource, deadline: float) -> str | None:
         raise ValueError("Catalog service identity unavailable; import stopped.") from None
     if time.monotonic() >= deadline:
         raise ValueError("Catalog service identity exceeded the import deadline.")
-    return token.token
+    return str(token.token)
 
 
 def _download(
@@ -638,7 +638,9 @@ class RemoteCatalog:
                 "mode": "development-pinned-export",
             }
 
-    def _verify(self, raw: bytes, row: RowMapping, now: datetime) -> ReleaseCatalog:
+    def _verify(
+        self, raw: bytes, row: Mapping[str, Any] | RowMapping, now: datetime
+    ) -> ReleaseCatalog:
         return load_pinned_export(
             raw,
             expected_sha256=row["approval_digest"],
