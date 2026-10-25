@@ -33,7 +33,7 @@ from fdai_lifecycle_hub.catalog_import import load_pinned_export, verify_export_
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import utc_now
-from fdai_lifecycle_hub.remote_catalog import FetchedExport, RemoteCatalog
+from fdai_lifecycle_hub.remote_catalog import CandidateChangedError, FetchedExport, RemoteCatalog
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
 
@@ -41,10 +41,6 @@ logger = logging.getLogger(__name__)
 POLICY_ACTOR = "policy:catalog-adoption"
 MIN_JITTER_START_SECONDS = 5.0
 MAX_JITTER_START_SECONDS = 30.0
-
-
-class CandidateChangedError(ValueError):
-    """The source moved after the operator reviewed a candidate."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,14 +97,20 @@ class CatalogUpdater:
             fetched = self._poll(None)
             if fetched is None:
                 raise CandidateChangedError("Catalog source did not return a candidate.")
-            candidate, decision, view = self._assess(fetched, now)
+            _candidate, decision, view, baseline = self._assess(fetched, now)
             if view["revision"] != revision or view["sha256"] != sha256:
                 self._remember(self._record(now, "review_required", decision, view))
                 raise CandidateChangedError("The candidate changed; review the new one.")
             if not view["signature_verified"]:
                 raise ValueError("Only a signature-verified candidate can be reviewed here.")
             reason = "operator_review:" + ",".join(decision.reasons or ("policy_allow",))
-            self.catalog.adopt(fetched, actor=actor, reason=reason[:500], now=now)
+            self.catalog.adopt(
+                fetched,
+                expected_previous_digest=baseline,
+                actor=actor,
+                reason=reason[:500],
+                now=now,
+            )
             record = CheckRecord(
                 now.isoformat(),
                 "adopted",
@@ -122,7 +124,7 @@ class CatalogUpdater:
         source = self.catalog.source
         adoption = source.adoption
         now = self.clock()
-        previous, expires_at = self.catalog.accepted_baseline()
+        previous, expires_at, _digest_unused = self.catalog.accepted_baseline()
         state = self.catalog.status()
         return {
             "mode": adoption.mode,
@@ -169,7 +171,7 @@ class CatalogUpdater:
 
     def _assess(
         self, fetched: FetchedExport, now: datetime
-    ) -> tuple[Any, PolicyDecision, dict[str, Any]]:
+    ) -> tuple[Any, PolicyDecision, dict[str, Any], str | None]:
         """Verify the exact bytes and decide. Raises ValueError for an unusable candidate."""
 
         state = self.catalog.status()
@@ -184,7 +186,7 @@ class CatalogUpdater:
             minimum_revision=state["minimum_revision"],
             previous_sha256=state["accepted_sha256"],
         )
-        previous, _expires = self.catalog.accepted_baseline()
+        previous, _expires, baseline = self.catalog.accepted_baseline()
         change = summarize_change(previous, candidate)
         decision = self.evaluate(
             policy_input(
@@ -206,7 +208,7 @@ class CatalogUpdater:
             "change": change,
             "accepted_revision": state["minimum_revision"] if state["imported"] else None,
         }
-        return candidate, decision, view
+        return candidate, decision, view, baseline
 
     def _check(self) -> CheckRecord:
         now = self.clock()
@@ -222,7 +224,7 @@ class CatalogUpdater:
         if not fetched.signature:
             return CheckRecord(now.isoformat(), "failed", "signature_missing")
         try:
-            _candidate, decision, view = self._assess(fetched, now)
+            _candidate, decision, view, baseline = self._assess(fetched, now)
         except (ValueError, KeyError, SQLAlchemyError):
             return CheckRecord(now.isoformat(), "failed", "candidate_invalid")
         if not view["signature_verified"]:
@@ -236,7 +238,13 @@ class CatalogUpdater:
             )
             return self._record(now, "review_required", decision, view)
         try:
-            self.catalog.adopt(fetched, actor=POLICY_ACTOR, reason="policy_allow", now=now)
+            self.catalog.adopt(
+                fetched,
+                expected_previous_digest=baseline,
+                actor=POLICY_ACTOR,
+                reason="policy_allow",
+                now=now,
+            )
         except (ValueError, SQLAlchemyError):
             return CheckRecord(now.isoformat(), "failed", "adoption_rejected", view)
         return CheckRecord(

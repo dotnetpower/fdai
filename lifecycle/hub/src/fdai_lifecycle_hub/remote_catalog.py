@@ -223,6 +223,10 @@ def fetch_signed_export(
     )
 
 
+class CandidateChangedError(ValueError):
+    """The accepted catalog or the source moved after a candidate was assessed."""
+
+
 class CatalogNotImportedError(ValueError):
     """The trust binding exists but no pinned export has been approved and imported yet."""
 
@@ -328,12 +332,20 @@ class RemoteCatalog:
         return self.status()
 
     def adopt(
-        self, fetched: FetchedExport, *, actor: str, reason: str, now: datetime
+        self,
+        fetched: FetchedExport,
+        *,
+        expected_previous_digest: str | None,
+        actor: str,
+        reason: str,
+        now: datetime,
     ) -> dict[str, Any]:
         """Replace the accepted catalog with exact bytes the pinned Release key signed.
 
         The signature, the manifests, the revision floor and the write share one transaction, so
-        a concurrent import, approval or recompute cannot interleave with the replacement.
+        a concurrent import, approval or recompute cannot interleave with the replacement. The
+        caller names the accepted digest its policy decision was computed against, so a change
+        that was never assessed cannot ride along after the baseline moved.
         """
 
         started = time.monotonic()
@@ -347,6 +359,13 @@ class RemoteCatalog:
                 raise ValueError("Catalog export signature does not verify.")
             if row["previous_digest"] == digest:
                 return {"adopted": False, "revision": row["floor"], "sha256": digest}
+            if row["previous_digest"] != expected_previous_digest:
+                raise CandidateChangedError("The accepted catalog changed after assessment.")
+            if (
+                row["approval_digest"] not in (None, digest)
+                and revision_of(fetched.raw) == row["approval_revision"]
+            ):
+                raise ValueError("Catalog adoption conflicts with an operator-approved pin.")
             effective = now + timedelta(seconds=time.monotonic() - started)
             self._verify(fetched.raw, dict(row) | {"approval_digest": digest}, effective)
             revision = json.loads(fetched.raw)["revision"]
@@ -369,8 +388,8 @@ class RemoteCatalog:
             )
         return {"adopted": True, "revision": revision, "sha256": digest}
 
-    def accepted_baseline(self) -> tuple[ReleaseCatalog | None, str | None]:
-        """The accepted catalog and its expiry, even when it has expired, for diffing only."""
+    def accepted_baseline(self) -> tuple[ReleaseCatalog | None, str | None, str | None]:
+        """The accepted catalog, its expiry and digest, even when expired, for diffing only."""
 
         with self.engine.connect() as connection:
             row = (
@@ -379,7 +398,7 @@ class RemoteCatalog:
                 .one_or_none()
             )
         if row is None or row["payload"] is None:
-            return None, None
+            return None, None, None
         previous = load_pinned_export(
             row["payload"],
             expected_sha256=row["previous_digest"],
@@ -388,7 +407,7 @@ class RemoteCatalog:
             minimum_revision=0,
             previous_sha256=None,
         )
-        return previous, json.loads(row["payload"])["expires_at"]
+        return previous, json.loads(row["payload"])["expires_at"], row["previous_digest"]
 
     def record_review_needed(
         self, *, revision: int, digest: str, reason: str, now: datetime
@@ -649,6 +668,10 @@ class RemoteCatalog:
                 recorded_at=now.isoformat(),
             )
         )
+
+
+def revision_of(raw: bytes) -> int:
+    return int(json.loads(raw)["revision"])
 
 
 def initialize_trust(connection: Connection, source: CatalogSource) -> None:

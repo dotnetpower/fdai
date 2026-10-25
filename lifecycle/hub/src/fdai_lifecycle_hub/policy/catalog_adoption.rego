@@ -39,6 +39,8 @@ reasons contains "channel_membership_removed" if count(input.change.channel_remo
 
 reasons contains "recall_lifted" if count(input.change.lifted_recalls) > 0
 
+reasons contains "recall_dropped" if count(input.change.removed_recalls) > 0
+
 reasons contains "schema_range_widened" if input.change.schema_widened
 
 reasons contains sprintf("channel_not_allowed:%s", [addition.channel]) if {

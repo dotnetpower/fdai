@@ -629,3 +629,74 @@ def test_signed_digest_matches_legacy_pin(vendor, key, now):
         now=START + timedelta(minutes=10),
     )
     assert set(catalog.releases) == {"1.5.0"}
+
+
+@needs_opa
+def test_dropped_recall_is_reported_and_sent_to_review(catalog):
+    from fdai_deployment_cli.runtime_release import RecallRecord
+
+    from fdai_lifecycle_hub.catalog import ReleaseCatalog
+
+    recall = RecallRecord(
+        scope="release",
+        target="1.4.0",
+        sequence=3,
+        notice_digest="a" * 64,
+    )
+
+    def build(recalls):
+        return ReleaseCatalog(
+            releases={"1.4.0": catalog.releases["1.4.0"]},
+            channels={"DEV": frozenset({"1.4.0"})},
+            recalls=recalls,
+        )
+
+    change = summarize_change(build((recall,)), build(()))
+    assert change["removed_recalls"] == [{"scope": "release", "target": "1.4.0", "sequence": 3}]
+    document = policy_input(
+        config=AdoptionConfig(**auto()),
+        change=change,
+        baseline_present=True,
+        signature_verified=True,
+        now=START,
+    )
+    assert "recall_dropped" in evaluate_policy(document).reasons
+    assert summarize_change(build((recall,)), build((recall,)))["removed_recalls"] == []
+
+
+def test_adoption_refuses_a_baseline_that_moved_or_an_operator_pin_conflict(
+    tmp_path, key, store, clock, vendor
+):
+    from fdai_lifecycle_hub.remote_catalog import CandidateChangedError, PinApproval
+
+    updater = updater_for(tmp_path, key, vendor, store, clock, adoption=auto())
+    fetched = fetch_from(vendor)(updater.catalog.source)
+    with pytest.raises(CandidateChangedError):
+        updater.catalog.adopt(
+            fetched,
+            expected_previous_digest="0" * 64,
+            actor="policy:test",
+            reason="test",
+            now=clock(),
+        )
+    assert updater.catalog.status()["imported"] is False
+    revision = json.loads(fetched.raw)["revision"]
+    updater.catalog.approve(
+        PinApproval(
+            revision=revision,
+            sha256="b" * 64,
+            reason="Independent customer review",
+            confirmation=f"approve {revision} {'b' * 64}",
+        ),
+        actor="customer-operator",
+        now=clock(),
+    )
+    with pytest.raises(ValueError, match="operator-approved pin"):
+        updater.catalog.adopt(
+            fetched,
+            expected_previous_digest=None,
+            actor="policy:test",
+            reason="test",
+            now=clock(),
+        )
+    assert updater.catalog.status()["imported"] is False

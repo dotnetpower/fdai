@@ -1502,3 +1502,31 @@ def test_remote_readiness_rechecks_schema_and_default_business_routes_remain_pro
             connection.exec_driver_sql("DROP TABLE release_hub_schema_revision")
         assert client.get("/readyz").status_code == 503
         assert client.get("/healthz").status_code == 200
+
+
+def test_public_catalog_export_opens_only_the_signed_read_path(auth):
+    async def served(request):
+        return JSONResponse({"served": request.url.path})
+
+    def vendor_app(config, *, vendor=True):
+        return secure_app(
+            Starlette(
+                routes=[
+                    Route("/v1/catalog/export", served, methods=["GET", "POST"]),
+                    Route("/v1/catalog", served),
+                ]
+            ),
+            config,
+            vendor=vendor,
+        )
+
+    public = auth.model_copy(update={"public_catalog_export": True})
+    with TestClient(vendor_app(public), base_url=public.origin) as client:
+        assert client.get("/v1/catalog/export").status_code == 200
+        assert client.head("/v1/catalog/export").status_code == 200
+        assert client.post("/v1/catalog/export", json={}).status_code == 401
+        assert client.get("/v1/catalog").status_code == 401
+    with TestClient(vendor_app(auth), base_url=auth.origin) as closed:
+        assert closed.get("/v1/catalog/export").status_code == 401
+    with pytest.raises(ValueError, match="Only Release Hub"):
+        vendor_app(public, vendor=False)

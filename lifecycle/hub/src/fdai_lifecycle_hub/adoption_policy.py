@@ -114,6 +114,11 @@ def summarize_change(previous: ReleaseCatalog | None, candidate: ReleaseCatalog)
         for release_id in sorted(members - candidate.channels.get(name, frozenset()))
     ]
     fresh_recalls = [item for item in candidate.recalls if _recall_key(item) not in old_recalls]
+    kept_recalls = {_recall_key(item) for item in candidate.recalls}
+    dropped_recalls = [
+        {"scope": key[0], "target": key[1], "sequence": key[2]}
+        for key in sorted(old_recalls - kept_recalls)
+    ]
     return {
         "added_releases": [
             {
@@ -138,6 +143,7 @@ def summarize_change(previous: ReleaseCatalog | None, candidate: ReleaseCatalog)
             for item in fresh_recalls
             if item.action == "lift"
         ],
+        "removed_recalls": dropped_recalls,
         "schema_widened": previous is not None
         and _schema_ceiling(candidate) > _schema_ceiling(previous),
     }
