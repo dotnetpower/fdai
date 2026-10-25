@@ -1,8 +1,8 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: 8052346d2691c26f4c47f091873c79cf27cd10ba
-translation_revised: 2026-10-25
+translation_source_sha: 646ded385f487ea7d6792543b84b594020d14e19
+translation_revised: 2026-10-26
 ---
 # Hub 수명 주기 운영자 가이드
 
@@ -399,6 +399,28 @@ fdai-lifecycle-manager generate-runtime-bundle \
 증명하거나 권한 추가, 구성 교체, 계획 계산, 워크로드 배포를 수행하지 않습니다.
 Agent 로컬 정책과 패키지의 `product`도 이 값과 독립적으로 일치해야 합니다.
 등록 요청은 `settings.product`를 지정하지 않아야 합니다. 등록 승인 후 이 화면에서 고정하세요.
+
+### C3. Hub 사용자 지정 도메인 이동 또는 설정
+
+호스트네임 하나는 Hub 스택 하나가 소유합니다. 각 실패가 모두 "Hub가 응답하지 않음"으로 보이므로
+다음 순서로 확인하세요.
+
+1. **DNS.** `CNAME`은 서비스하는 Container App의 기본 호스트네임을 가리켜야 합니다. 관리형 인증서
+   검증도 이 레코드가 먼저 있어야 합니다.
+2. **인증서.** 서비스하는 Container App 환경에서 관리형 인증서를 만들고 SNI로 앱에 바인딩합니다.
+   `Disabled`로 바인딩된 호스트네임에는 인증서가 없어 TLS가 연결 재설정으로 실패합니다.
+3. **허용 호스트.** 해당 스택 변수에 `custom_domain.hostname`을 설정합니다. 설정하지 않으면 Hub는
+   기본 호스트네임만 받아들여 `400 Invalid host header`로 응답합니다.
+4. **소유자 하나.** `dns_zone`은 호스트네임을 서비스하는 스택에만 설정합니다. 같은 호스트네임과 DNS
+   레코드를 선언한 다른 스택은 다음 apply에서 레코드를 덮어씁니다. 다른 스택의 리소스는 레코드를
+   삭제하지 말고 `terraform state rm`으로 상태에서 제거한 뒤 `custom_domain`을 null로 설정합니다.
+5. **의존 자원.** Hub의 데이터베이스가 실행 중인지 확인합니다. DNS와 TLS가 맞아도 PostgreSQL 서버가
+   중지되어 있으면 앱이 준비 상태가 되지 못합니다.
+
+Terraform 밖에서 바인딩한 호스트네임은 `azurerm_container_app_custom_domain`,
+`azurerm_dns_cname_record`, `azurerm_dns_txt_record`를 `terraform import`한 뒤, 제자리 변경만
+보이는 계획을 검토해서 관리 대상으로 옮깁니다. 도메인을 다른 Hub로 옮기면 로그인 출처도 바뀌므로
+Entra 애플리케이션 등록에 그 Hub의 리디렉션 URI가 있어야 합니다.
 
 ### D. 부족한 선행 조건을 해결한 뒤 계획과 적용 진행
 
