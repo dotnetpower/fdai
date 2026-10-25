@@ -18,6 +18,8 @@ FIELD_MANAGER = "fdai-lifecycle-agent"
 MANAGED_BY_LABEL = "app.kubernetes.io/managed-by"
 ENTITY_LABEL = "fdai.io/entity"
 COMPONENT_LABEL = "fdai.io/component"
+SCHEMA_EXPAND_ANNOTATION = "fdai.io/schema-expand"
+SCHEMA_TARGET_ANNOTATION = "fdai.io/schema-target"
 API_VERSIONS = {
     "Deployment": "apps/v1",
     "Service": "v1",
@@ -83,6 +85,14 @@ def is_repository(value: str) -> bool:
 
 def object_key(manifest: Manifest) -> ObjectKey:
     return manifest["kind"], manifest["metadata"]["name"]
+
+
+def is_schema_expand_job(manifest: Manifest) -> bool:
+    return (
+        manifest.get("kind") == "Job"
+        and manifest.get("metadata", {}).get("annotations", {}).get(SCHEMA_EXPAND_ANNOTATION)
+        == "true"
+    )
 
 
 def render(
@@ -291,10 +301,11 @@ class Workload:
             lambda: self._rolled_out(scheduled), can_continue=can_continue
         ):
             raise WorkloadError("scheduled_activation_unverified")
-        for job in jobs:
+        cleanup_jobs = tuple(job for job in jobs if not is_schema_expand_job(job))
+        for job in cleanup_jobs:
             self.cluster.delete(*object_key(job))
-        if jobs and not self._wait_until(
-            lambda: all(self.cluster.get(*object_key(job)) is None for job in jobs)
+        if cleanup_jobs and not self._wait_until(
+            lambda: all(self.cluster.get(*object_key(job)) is None for job in cleanup_jobs)
         ):
             raise WorkloadError("schema_check_cleanup_failed")
         return True
@@ -318,13 +329,18 @@ class Workload:
                 self.cluster.apply(_suspended_schedule(item))
         recorded = {object_key(manifest) for manifest in previous}
         created = [key for key in map(object_key, desired) if key not in recorded]
+        migration_jobs = {
+            object_key(manifest) for manifest in desired if is_schema_expand_job(manifest)
+        }
         for kind, name in created:
-            if kind == "Job":
+            if kind == "Job" and (kind, name) not in migration_jobs:
                 self.cluster.delete(kind, name)
         # A running Job must be absent before restoring or removing any workload.
         if not self._wait_until(
             lambda: all(
-                self.cluster.get(kind, name) is None for kind, name in created if kind == "Job"
+                self.cluster.get(kind, name) is None
+                for kind, name in created
+                if kind == "Job" and (kind, name) not in migration_jobs
             )
         ):
             return False
@@ -347,10 +363,36 @@ class Workload:
                         for item in previous
                     )
                 )
-                and all(self.cluster.get(kind, name) is None for kind, name in created)
+                and all(
+                    self.cluster.get(kind, name) is None
+                    for kind, name in created
+                    if (kind, name) not in migration_jobs
+                )
             )
         )
         return restored and not unproved_scheduled_effect
+
+    def completed_schema_revision(self, desired: Sequence[Manifest]) -> int | None:
+        """Return the retained completed migration receipt's schema target, if any."""
+
+        targets: list[int] = []
+        for manifest in desired:
+            if not is_schema_expand_job(manifest):
+                continue
+            live = self.cluster.get(*object_key(manifest))
+            conditions = [] if live is None else live.get("status", {}).get("conditions", [])
+            if not any(
+                item.get("type") == "Complete" and item.get("status") == "True"
+                for item in conditions
+            ):
+                continue
+            target = (
+                manifest.get("metadata", {}).get("annotations", {}).get(SCHEMA_TARGET_ANNOTATION)
+            )
+            if not isinstance(target, str) or not target.isdecimal():
+                raise WorkloadError("schema_expand_receipt_invalid")
+            targets.append(int(target))
+        return max(targets) if targets else None
 
     def _rolled_out(self, manifests: Sequence[Manifest]) -> bool:
         """Whether every object exists and, for a Deployment, its rollout is complete."""

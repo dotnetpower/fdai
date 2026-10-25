@@ -21,6 +21,8 @@ from fdai_deployment_cli.runtime_release import (
 
 APPLICATION_RELEASE_SCHEMA = "fdai.application-release.v1"
 APPLICATION_COMPONENT_RELEASE_SCHEMA = "fdai.application-release.v2"
+SCHEMA_EXPAND_JOB_SCHEMA = "fdai.schema-expand-job.v1"
+MIGRATION_CLASSIFICATION_SCHEMA = "fdai.migration-classification.v1"
 APPLICATION_RELEASE_SCHEMAS = frozenset(
     {APPLICATION_RELEASE_SCHEMA, APPLICATION_COMPONENT_RELEASE_SCHEMA}
 )
@@ -35,6 +37,7 @@ LIFECYCLE_IMAGE_SECTIONS = (
 _IDENTIFIER = re.compile(r"[a-z][a-z0-9-]{0,62}\Z", re.ASCII)
 _COMPONENT = re.compile(r"[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?\Z", re.ASCII)
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z", re.ASCII)
+_REVISION_ID = re.compile(r"[A-Za-z0-9_]{1,128}\Z", re.ASCII)
 _FIELDS = frozenset(
     {"schema_version", "product", "release_version", "source_commit", "platform_tag", "workloads"}
 )
@@ -81,6 +84,12 @@ class HttpWorkload:
 
 
 @dataclass(frozen=True, slots=True)
+class SchemaExpandMigration:
+    classification: Mapping[str, str]
+    active_deadline_seconds: int
+
+
+@dataclass(frozen=True, slots=True)
 class ApplicationRelease:
     product: str
     release_version: str
@@ -92,6 +101,7 @@ class ApplicationRelease:
     schema_target: int = 0
     schema_range: SchemaRange = SchemaRange(0, 0)
     configuration_schema: ConfigurationSchema | None = None
+    schema_expand: SchemaExpandMigration | None = None
     schema_version: str = APPLICATION_RELEASE_SCHEMA
     components: Mapping[str, str] = field(default_factory=dict)
     downtime_entities: tuple[str, ...] = field(default=(), init=False)
@@ -115,7 +125,16 @@ def parse_lifecycle_release_manifest(raw: bytes) -> LifecycleRelease:
             "components" if schema_version == APPLICATION_COMPONENT_RELEASE_SCHEMA else "workloads"
         )
         required = (_FIELDS - {"workloads"}) | {section}
-        if not required <= document.keys() <= required | {"configuration_schema", "schema"}:
+        if (
+            not required
+            <= document.keys()
+            <= required
+            | {
+                "configuration_schema",
+                "schema",
+                "schema_expand",
+            }
+        ):
             raise ValueError("application fields are invalid")
         product = document["product"]
         version = document["release_version"]
@@ -156,6 +175,13 @@ def parse_lifecycle_release_manifest(raw: bytes) -> LifecycleRelease:
         target, schema_range = (
             _schema(document["schema"]) if "schema" in document else (0, SchemaRange(0, 0))
         )
+        schema_expand = (
+            _schema_expand(document["schema_expand"]) if "schema_expand" in document else None
+        )
+        if schema_expand is not None and (
+            not component_only or target == 0 or not schema_expand.classification
+        ):
+            raise ValueError("schema expand Job requires a component Release schema transition")
         catalog = canonical_bytes(document)
         load_json_object(catalog, label="canonical application release", strict=True)
         return ApplicationRelease(
@@ -169,6 +195,7 @@ def parse_lifecycle_release_manifest(raw: bytes) -> LifecycleRelease:
             schema_target=target,
             schema_range=schema_range,
             configuration_schema=configuration,
+            schema_expand=schema_expand,
             schema_version=str(schema_version),
             components=MappingProxyType(parsed_components),
         )
@@ -207,6 +234,46 @@ def _workload(name: object, value: object) -> HttpWorkload:
     if type(replicas) is not int or not 1 <= replicas <= 3:
         raise ValueError("application replicas are invalid")
     return HttpWorkload(digest, port, path, replicas)
+
+
+def _schema_expand(value: object) -> SchemaExpandMigration:
+    if (
+        not isinstance(value, Mapping)
+        or set(value) != {"schema_version", "classification", "active_deadline_seconds"}
+        or value["schema_version"] != SCHEMA_EXPAND_JOB_SCHEMA
+        or not isinstance(value["classification"], Mapping)
+    ):
+        raise ValueError("schema expand Job is invalid")
+    classification = value["classification"]
+    if (
+        set(classification) != {"schema", "revisions"}
+        or classification["schema"] != MIGRATION_CLASSIFICATION_SCHEMA
+        or not isinstance(classification["revisions"], Mapping)
+        or not classification["revisions"]
+        or not all(
+            isinstance(revision, str)
+            and _REVISION_ID.fullmatch(revision)
+            and migration_class in {"expand", "contract"}
+            for revision, migration_class in classification["revisions"].items()
+        )
+    ):
+        raise ValueError("migration classification is invalid")
+    if any(
+        migration_class == "contract" for migration_class in classification["revisions"].values()
+    ):
+        raise ValueError("schema expand Job cannot contain contract revisions")
+    deadline = value["active_deadline_seconds"]
+    if type(deadline) is not int or not 60 <= deadline <= 3600:
+        raise ValueError("schema expand Job deadline is invalid")
+    return SchemaExpandMigration(
+        MappingProxyType(
+            {
+                str(revision): str(migration_class)
+                for revision, migration_class in classification["revisions"].items()
+            }
+        ),
+        deadline,
+    )
 
 
 def _schema(value: object) -> tuple[int, SchemaRange]:

@@ -325,8 +325,15 @@ The current Hub planner already passes the parsed Release and installation-repor
 revision through the shared transition validator before signing a Plan. Tolerance endpoints
 are inclusive; an upgrade also refuses a target schema below the current revision. Rollback and
 recall roll-off retain their separate direction rule. The Agent's workload validators hold
-unsupported schema changes before cluster calls. Their narrower same-schema support isn't
-permission to run unimplemented migrations or evidence of an installed rollback.
+unsupported schema changes before cluster calls.
+
+An application component Release may include a strict `fdai.schema-expand-job.v1` object. It binds
+the `fdai.migration-classification.v1` expand-only revision map and an active deadline inside the
+signed manifest. The Agent renders no arbitrary command from that object: it uses a fixed
+Core-image runner and the installation-reviewed runtime references. The completed Kubernetes Job
+is the schema receipt and remains after a workload rollback; the reported schema revision advances
+only when that Job has a valid completion receipt. Contract revisions remain unsupported in this
+phase and require the later restore-checkpoint Plan.
 
 ## Artifact delivery
 

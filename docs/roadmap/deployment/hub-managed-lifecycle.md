@@ -1192,9 +1192,19 @@ whole upgrade with a stable reason code for an unclassified revision, a declared
 or a declared expand revision that static analysis finds dropping or renaming a table, column,
 schema or type, changing a column type, or truncating. Analysis reads only what `upgrade()` reaches,
 so a `downgrade()` that drops does not count, and it only ever tightens a declaration. It is
-conservative: a revision that drops inside a function body it creates is classified contract. The
-migration Job template in the Release, the installation-wide lease with its receipt, and the
-runtime that calls this gate remain open in #2472.
+conservative: a revision that drops inside a function body it creates is classified contract.
+
+The component Release can now carry one bounded `fdai.schema-expand-job.v1` declaration with only
+expand revisions and a finite deadline. The lifecycle agent renders a fixed Job from the reviewed
+Core image and its existing database reference, runs it before any Deployment switch, and retains
+the completed Job with release, classification and schema-target annotations as the migration
+receipt. The Core-image runner rechecks the declared revision files without importing them, holds
+one PostgreSQL advisory lease while it runs the legacy migration, ordered service migrations and
+authoritative catalog materialization, and emits a digest-only receipt. Lease contention, a
+destructive declared revision, Job failure or interruption blocks workload switching. A later
+workload rollback retains the expanded schema and completed Job receipt. The dedicated migration
+ServiceAccount is included in the generated prerequisite inventory; its live managed-identity and
+database-role binding remain part of the authorized installation handoff under #2468.
 
 The Hub-managed lifecycle owner decided these points on 2026-10-07.
 

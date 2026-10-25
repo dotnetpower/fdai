@@ -34,6 +34,7 @@ from fdai_deployment_cli.lifecycle_release import (
     LIFECYCLE_RELEASE_SCHEMAS,
     ApplicationRelease,
     HttpWorkload,
+    SchemaExpandMigration,
     parse_lifecycle_release_manifest,
 )
 from fdai_deployment_cli.private_output import read_private_bytes
@@ -193,6 +194,7 @@ class VerifiedRelease:
     schema_minimum: int | None = None
     schema_maximum: int | None = None
     configuration_schema: ConfigurationSchema | None = None
+    schema_expand: SchemaExpandMigration | None = None
     workloads: Mapping[str, HttpWorkload] = field(default_factory=dict)
     schema_version: str = "fdai.runtime-release.v3"
 
@@ -285,6 +287,7 @@ def verify_release(
         schema_minimum=None if release.schema_range is None else release.schema_range.minimum,
         schema_maximum=None if release.schema_range is None else release.schema_range.maximum,
         configuration_schema=release.configuration_schema,
+        schema_expand=release.schema_expand if isinstance(release, ApplicationRelease) else None,
         workloads=release.workloads if isinstance(release, ApplicationRelease) else {},
         schema_version=release.schema_version,
     )

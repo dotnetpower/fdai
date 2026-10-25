@@ -133,6 +133,8 @@ def prepare(
     sequence: int = 8,
     entity_id: str = "application",
     configuration_values: dict[str, Any] | None = None,
+    schema_target: int = 0,
+    schema_expand: bool = False,
 ):
     bundle = parse(document)
     components = bundle.components(entity_id)
@@ -144,18 +146,31 @@ def prepare(
         )
     else:
         harness.current_state = load_current_state(harness.state_file)
-    digest = harness.add_release(
-        {
-            "schema_version": APPLICATION_COMPONENT_RELEASE_SCHEMA,
-            "product": bundle.product,
-            "release_version": version,
-            "source_commit": "a" * 40,
-            "platform_tag": "linux-x86_64",
-            "components": {
-                name: {"image_digest": harness.image(f"{name}-{version}")} for name in components
-            },
+    release_document: dict[str, Any] = {
+        "schema_version": APPLICATION_COMPONENT_RELEASE_SCHEMA,
+        "product": bundle.product,
+        "release_version": version,
+        "source_commit": "a" * 40,
+        "platform_tag": "linux-x86_64",
+        "components": {
+            name: {"image_digest": harness.image(f"{name}-{version}")} for name in components
+        },
+    }
+    if schema_target:
+        release_document["schema"] = {
+            "target": schema_target,
+            "tolerates": {"minimum": 0, "maximum": schema_target},
         }
-    )
+    if schema_expand:
+        release_document["schema_expand"] = {
+            "schema_version": "fdai.schema-expand-job.v1",
+            "classification": {
+                "schema": "fdai.migration-classification.v1",
+                "revisions": {f"revision_{schema_target}": "expand"},
+            },
+            "active_deadline_seconds": 1800,
+        }
+    digest = harness.add_release(release_document)
     config = harness.add_configuration(
         {
             "schema": {
@@ -544,6 +559,94 @@ def test_component_release_cannot_authorize_a_schema_transition(
     ).poll_once()
     assert (result.outcome, result.reason_code) == ("rejected", "schema_transition_unsupported")
     assert cluster.calls == []
+
+
+def _schema_expand_document() -> dict[str, Any]:
+    document = bundle_document(product="fdai", components=("core-control-plane",))
+    deployment = next(item for item in document["objects"] if item["kind"] == "Deployment")
+    container_document = deployment["spec"]["template"]["spec"]["containers"][0]
+    container_document["env"] = [
+        {
+            "name": "FDAI_DATABASE_URL",
+            "valueFrom": {
+                "secretKeyRef": {
+                    "name": "fdai-schema-migration-database",
+                    "key": "FDAI_DATABASE_URL",
+                    "optional": False,
+                }
+            },
+        }
+    ]
+    return document
+
+
+def test_schema_expand_completes_before_workload_and_advances_reported_schema(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    settings = prepare(
+        harness,
+        _schema_expand_document(),
+        schema_target=2,
+        schema_expand=True,
+    )
+
+    result = LifecycleAgent(
+        settings, harness.dependencies(apply=harness.apply_mode(cluster))
+    ).poll_once()
+
+    assert result.outcome == "applied"
+    state = load_current_state(harness.state_file)
+    assert state.schema_revision == 2
+    writes = cluster.writes()
+    job_index = next(index for index, call in enumerate(writes) if call[1] == "Job")
+    deployment_index = next(index for index, call in enumerate(writes) if call[1] == "Deployment")
+    assert job_index < deployment_index
+    assert any(kind == "Job" for kind, _ in cluster.objects)
+
+
+def test_workload_rollback_after_schema_expand_keeps_new_schema_and_receipt(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    settings = prepare(
+        harness,
+        _schema_expand_document(),
+        schema_target=2,
+        schema_expand=True,
+    )
+    cluster.broken_images.add(
+        "registry.example.test/application/core-control-plane"
+        f"@{harness.image('core-control-plane-1.5.0')}"
+    )
+
+    result = LifecycleAgent(
+        settings, harness.dependencies(apply=harness.apply_mode(cluster))
+    ).poll_once()
+
+    assert result.outcome == "rolled-back"
+    assert load_current_state(harness.state_file).schema_revision == 2
+    assert any(kind == "Job" for kind, _ in cluster.objects)
+    assert cluster.get("Deployment", "core-control-plane") is None
+
+
+def test_interrupted_schema_expand_halts_without_switching_workloads(
+    harness: Harness, cluster: FakeCluster
+) -> None:
+    settings = prepare(
+        harness,
+        _schema_expand_document(),
+        schema_target=2,
+        schema_expand=True,
+    )
+    cluster.schema_status = "Incomplete"
+    agent = LifecycleAgent(settings, harness.dependencies(apply=harness.apply_mode(cluster)))
+
+    result = agent.poll_once()
+
+    assert result.outcome == "rolled-back"
+    assert load_current_state(harness.state_file).schema_revision == 0
+    assert any(kind == "Job" for kind, _ in cluster.objects)
+    assert cluster.get("Deployment", "core-control-plane") is None
+    assert agent.poll_once().outcome == "halted"
 
 
 @pytest.mark.parametrize("region", [None, 1, False, [], {}])

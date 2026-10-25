@@ -243,6 +243,7 @@ def test_generator_matches_native_scope_and_terraform_workload_parity() -> None:
         "core-control-plane",
         "document-ingestion-api",
         "document-processing-worker",
+        "fdai-schema-migration",
         "inventory-job",
         "observation-campaign-job",
         "operator-service",

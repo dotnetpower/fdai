@@ -37,6 +37,10 @@ artifact from an exact reviewed Terraform-output key set. It creates a new owner
 never replaces an existing binding, grants no output-review authority, and changes no public
 source or offline command.
 
+The same internal library validates an optional expand-only schema Job declaration in signed
+application component Releases. That strict metadata is consumed only by the Hub lifecycle path;
+it adds no public source/offline command, migration authority, or local-database fallback.
+
 GitHub Actions may validate source, build images, and optionally publish signed releases; publication is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment. The read-only [observer artifact preflight](../architecture/aks-outbound-connector.md#artifact-preflight) reuses the same pinned-root offline kit and OCI verifier for an exact Core image; its bounded process result creates no new release trust, approval or installation authority. The kit may also bind one optional default Rule activation profile by path, id, source timestamp, file digest, and complete-kit manifest digest. Preparation emits deterministic Core environment bindings only; it neither applies a generation nor deploys a tenant workload.
 
 ## Connected source deployment
