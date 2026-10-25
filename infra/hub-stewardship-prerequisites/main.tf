@@ -150,10 +150,20 @@ module "document_blob_private_endpoint" {
   target_resource_id    = module.document_storage.id
   subresource_name      = "blob"
   private_dns_zone_name = "privatelink.blob.core.windows.net"
-  additional_private_dns_zone_ids = [
-    data.azurerm_private_dns_zone.ops_blob.id,
-  ]
-  tags = local.tags
+  tags                  = local.tags
+}
+
+resource "azurerm_private_dns_a_record" "document_blob_ops" {
+  name                = module.document_storage.name
+  zone_name           = data.azurerm_private_dns_zone.ops_blob.name
+  resource_group_name = data.azurerm_private_dns_zone.ops_blob.resource_group_name
+  ttl                 = 300
+  records             = [module.document_blob_private_endpoint.private_ip_address]
+  tags                = merge(local.tags, { "fdai:component" = "document-ingestion" })
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
 }
 
 module "document_dfs_private_endpoint" {

@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: e879e429932e4272f1eccd09c5d0ac18867771fd
+translation_source_sha: 0aa4e0c4119cff81b756f9d2935c4aa94a0ab131
 translation_revised: 2026-10-26
 ---
 # Hub 관리형 수명 주기
@@ -1180,9 +1180,9 @@ JSON Patch를 사용합니다. 생성 응답을
    조회하고 워크로드 신원 4개와 페더레이션 자격 증명, 문서 스토리지와 비공개 엔드포인트, Document
    Intelligence와 비공개 엔드포인트, 역할 범위 DSN 참조, ACS Email만 소유합니다. Container App,
    Container App Job, Kubernetes 객체는 선언하지 않습니다.
-   운영 VNet이 기존 Blob 비공개 DNS 영역을 사용하고 있으면 문서 스토리지 엔드포인트는 겹치는
-   VNet 연결을 다시 만들지 않습니다. 대신 기존 영역과 애플리케이션 영역 모두에 레코드를
-   게시합니다.
+   운영 VNet이 기존 Blob 비공개 DNS 영역을 사용하고 있으면 문서 스토리지 엔드포인트는
+   애플리케이션 영역과의 연결을 유지합니다. 루트는 겹치는 VNet 연결을 다시 만드는 대신 동일한
+   비공개 IP의 관리형 A 레코드를 운영 영역에 게시합니다.
 2. **스키마 확장:** Release는 데이터베이스 마이그레이션을 Kubernetes Job 템플릿으로 제공하며,
    이 템플릿은 마이그레이션과 카탈로그 도구가 이미 들어 있는 Core 이미지를 사용합니다. Job은 현재
    관리 호스트의 마이그레이션 단계처럼 기존 마이그레이션, 선언된 순서에 따른 서비스 소유

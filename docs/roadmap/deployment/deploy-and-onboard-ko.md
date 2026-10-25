@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 97f85fe564ff4ea01a1ecf832a2f81d134870134
+translation_source_sha: 4e45869ca8b78c716f89fe149eedd274e2d9af97
 translation_revised: 2026-10-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -56,8 +56,8 @@ Hub 관리형 AKS 인계에서는 `enable_document_ingestion=true`로 공용 Azu
 계획을 실행합니다. 이 루트는 공용 플랫폼 리소스를 조회하고 애플리케이션 워크로드를 소유하지
 않으므로, 보존된 소스 워크로드 state를 묵시적으로 다시 계획할 수 없습니다.
 운영 VNet이 기존 Blob 비공개 DNS 영역에 이미 연결되어 있으면 문서 스토리지 엔드포인트는
-겹치는 VNet 연결을 다시 만들지 않습니다. 대신 기존 영역과 애플리케이션 영역 모두에 레코드를
-게시합니다.
+애플리케이션 영역과의 연결을 유지합니다. 루트는 겹치는 VNet 연결을 다시 만드는 대신 동일한
+비공개 IP의 관리형 A 레코드를 운영 영역에 게시합니다.
 
 원격 개발 Agent를 연결할 때는 Lifecycle Hub 루트의 `operator_auth.agent_principals`에
 명시적인 연결 정보를 지정합니다. 각 항목은 하나의 설치, Entra 개체와 클라이언트를 식별합니다.

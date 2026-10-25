@@ -81,7 +81,9 @@ override_data {
 override_data {
   target = data.azurerm_private_dns_zone.ops_blob
   values = {
-    id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai-ops-wus3/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net"
+    id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai-ops-wus3/providers/Microsoft.Network/privateDnsZones/privatelink.blob.core.windows.net"
+    name                = "privatelink.blob.core.windows.net"
+    resource_group_name = "rg-fdai-ops-wus3"
   }
 }
 
@@ -143,11 +145,9 @@ run "plans_only_stewardship_prerequisites" {
 
   assert {
     condition = (
-      length(module.document_blob_private_endpoint.private_dns_zone_ids) == 2 &&
-      contains(
-        module.document_blob_private_endpoint.private_dns_zone_ids,
-        data.azurerm_private_dns_zone.ops_blob.id,
-      )
+      azurerm_private_dns_a_record.document_blob_ops.zone_name == data.azurerm_private_dns_zone.ops_blob.name &&
+      azurerm_private_dns_a_record.document_blob_ops.resource_group_name == var.ops_resource_group_name &&
+      length(azurerm_private_dns_a_record.document_blob_ops.records) == 1
     )
     error_message = "The document Blob endpoint must publish its record to the existing operations Blob private DNS zone."
   }
