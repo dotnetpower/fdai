@@ -858,24 +858,69 @@ def initialize_trust(connection: Connection, source: CatalogSource) -> None:
         integrity_store.ensure_integrity_state(connection)
 
 
-def bind_catalog(engine: Engine, source: CatalogSource, *, actor: str, reason: str) -> None:
-    """Bind an independently approved source key after standalone migration; never import bytes."""
+def _lock_for_binding(engine: Engine, connection: Connection) -> None:
+    if engine.dialect.name == "postgresql":
+        from sqlalchemy import text
+
+        connection.execute(text("SELECT pg_advisory_xact_lock(hashtext('lifecycle_hub'))"))
+    elif engine.dialect.name == "sqlite":
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
+
+
+def bind_catalog(
+    engine: Engine,
+    source: CatalogSource,
+    *,
+    actor: str,
+    reason: str,
+    rebind: bool = False,
+) -> None:
+    """Bind an independently approved source key after standalone migration; never import bytes.
+
+    A bound database refuses a different trust unless the operator asks for an explicit rebinding.
+    A rebinding keeps the revision floor, so the new trust can never accept an older catalog than
+    the Hub already accepted, and it drops the accepted bytes, which only the previous trust had
+    verified. The next check re-verifies and re-adopts the current catalog under the new trust.
+    """
     if not actor.strip() or len(actor) > 160 or not reason.strip() or len(reason) > 500:
         raise ValueError("Catalog binding requires a bounded actor and reason.")
     with engine.begin() as connection:
-        if engine.dialect.name == "postgresql":
-            from sqlalchemy import text
-
-            connection.execute(text("SELECT pg_advisory_xact_lock(hashtext('lifecycle_hub'))"))
-        elif engine.dialect.name == "sqlite":
-            connection.exec_driver_sql("BEGIN IMMEDIATE")
+        _lock_for_binding(engine, connection)
         require_writable_schema(connection)
         row = connection.execute(select(trust_state).with_for_update()).mappings().one_or_none()
         if row is not None:
-            if row["key_digest"] != source.key_digest:
-                raise ValueError("Catalog key differs; explicit key rotation is required.")
+            if row["key_digest"] == source.key_digest:
+                if source.tuf:
+                    integrity_store.ensure_integrity_state(connection)
+                return
+            if not rebind:
+                raise ValueError(
+                    "Catalog key differs; run an explicit, attributed rebinding to change trust."
+                )
+            if (
+                row["key_digest"] is not None
+                and source.trust is None
+                and _bound_to_roles(connection)
+            ):
+                raise ValueError("Rebinding from signed roles to a single key is not allowed.")
+            connection.execute(
+                trust_state.update()
+                .where(trust_state.c.id == 1)
+                .values(key_digest=source.key_digest, payload=None, previous_digest=None)
+            )
+            integrity_store.reset_integrity_state(connection)
             if source.tuf:
                 integrity_store.ensure_integrity_state(connection)
+            connection.execute(
+                trust_events.insert().values(
+                    action="source.rebound",
+                    actor=actor,
+                    revision=row["floor"],
+                    digest=source.key_digest,
+                    reason=f"{reason} (previous trust {row['key_digest'][:16]})"[:500],
+                    recorded_at=datetime.now(UTC).isoformat(),
+                )
+            )
             return
         initialize_trust(connection, source)
         connection.execute(
@@ -888,3 +933,37 @@ def bind_catalog(engine: Engine, source: CatalogSource, *, actor: str, reason: s
                 recorded_at=datetime.now(UTC).isoformat(),
             )
         )
+
+
+def _bound_to_roles(connection: Connection) -> bool:
+    """Whether the persisted trust already uses signed roles."""
+
+    from sqlalchemy import inspect
+
+    return inspect(connection).has_table(integrity_store.integrity_state.name)
+
+
+def bind_catalog_if_missing(engine: Engine, source: CatalogSource, *, actor: str) -> bool:
+    """Bind the trust row when none exists, so a migration of a current schema still binds.
+
+    Never changes an existing binding: a different trust stays an explicit rebinding decision.
+    """
+
+    with engine.begin() as connection:
+        _lock_for_binding(engine, connection)
+        require_writable_schema(connection)
+        row = connection.execute(select(trust_state.c.id)).first()
+        if row is not None:
+            return False
+        initialize_trust(connection, source)
+        connection.execute(
+            trust_events.insert().values(
+                action="source.bound",
+                actor=actor,
+                revision=0,
+                digest=source.key_digest,
+                reason="bound by migration because no trust existed",
+                recorded_at=datetime.now(UTC).isoformat(),
+            )
+        )
+    return True

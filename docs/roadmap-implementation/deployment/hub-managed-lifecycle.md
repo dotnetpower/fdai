@@ -72,6 +72,7 @@ implementation states below.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-25 | validated | Submitted a genuine Agent enrollment request from the installation's AKS cluster to a deployed Lifecycle Hub. A one-off Job used the Agent workload identity, derived the Entity from the labelled workload, signed with a new development installation key and left a pending request. The audit record names the bound Agent object and `requested_via` agent, and the printed key id equals the one derived from the public key. Live validation exposed a defect: the declaration pattern rejected the real channel names, which is fixed with a regression test. | `current change`; `lifecycle/agent/src/fdai_lifecycle_agent/installation_declaration.py`, `lifecycle/agent/tests/test_enrollment.py`; Kubernetes Job output and a read-only audit query; the temporary key Secret, Job and Role were deleted afterward | The request stays pending until a person compares the key id and accepts it. The resident Agent pod could not schedule (non-zonal state disk), the Job needed a `restricted`-profile security context and the Agent's owner-only state directory, and delivering the key and declaration to a resident Pod is not wired. |
 | 2026-10-25 | implemented | Reconciled the closed Hub issues with their owners without changing behavior. #2469 (HorizontalPodAutoscaler kind) and #2470 (ownership marker, adoption receipts, exact forget and rollback plans) closed with their repository-side contracts delivered; their live apply, rollback, deletion and zero-change plan evidence moved into the exit criteria of #2468. #2489 closed with its feature delivered; production custody, audited rebinding, live refusal paths and a genuine enrollment submission moved to the new task #2498. | `current change`; #2468, #2469, #2470, #2489, #2498; autoscaler, native-scope and Lifecycle native tests: 82 passed | Live Core handoff and Release apply (#2468); production catalog custody and operational paths (#2498). |
 | 2026-10-25 | implemented | Added the dedicated `infra/hub-stewardship-prerequisites` root for an existing Hub-managed AKS installation. It reads retained shared resources and owns only four workload identities/FICs, document ADLS/private endpoints, Document Intelligence/private endpoint, role-scoped DSN references and ACS Email in a separate state; it declares no application workload. | `current change`; root validate and mocked plan; the plan asserts four identities/FICs and zero Container Apps/Jobs. | Generate, review, apply and independently read back the exact development plan under #2466/#2468. |
 | 2026-10-25 | implemented | Split document-ingestion Azure prerequisites from Container Apps workload creation for the Hub-only development handoff. `enable_document_ingestion_workloads=false` preserves the dedicated identities, ADLS/private endpoints, Document Intelligence and role bindings while omitting the ingestion API, worker and migration Container Apps; the default remains unchanged. | `current change`; `infra/{variables,main}.tf`; `ingestion_roles.tftest.hcl` includes the Hub-only prerequisite plan. | Run and independently read back the named prerequisite plan in `rg-fdai-dev-wus3`, then keep all Kubernetes workloads on the lifecycle Agent path. |
@@ -374,10 +375,13 @@ No live cloud/model call, actual installation, production key ceremony or physic
 
 - [ ] Under separately approved live authority, submit a genuine signed request for a bound
   installation, verify the authenticated submitter in its audit and pending UI, then separately
-  approve it before accepting any Agent Plan/state/report effects. The Agent-submitted route is
-  deployed and answers an unauthenticated call with `401`. A genuine submission was not run: the
-  installation's Agent pod could not be scheduled, and delivery of the installation key and
-  declaration file to the pod is not wired.
+  approve it before accepting any Agent Plan/state/report effects. A genuine Agent submission ran:
+  a Job in the installation's cluster, using the Agent workload identity, left a pending request on a
+  deployed Lifecycle Hub whose audit record names the bound Agent identity and `requested_via` agent,
+  and whose key id matched the one derived independently from the public key. The pending UI and
+  the separate human acceptance are still open. The installation's resident Agent pod still cannot
+  schedule because its state disk is not zonal, and delivery of the installation key and declaration to a
+  resident Pod is not wired.
 
 - [x] Record focused authentication, CLI, staging, fresh-process persistence, replay and rollback
   checks for the opt-in Agent preparation: 201 tests pass in the current change.

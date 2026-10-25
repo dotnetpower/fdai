@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5ac362aa98f74cc85e8d3a725d653b80ab3babc5
-translation_revised: 2026-10-25
+translation_source_sha: fcaaac09ce8498bee9ccf5d7830bcab77817bcac
+translation_revised: 2026-10-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
@@ -33,7 +33,7 @@ Release Hub 이미지에는 포함되지 않습니다. Lifecycle Hub `catalog` �
 둘 더 추가합니다. Lifecycle Hub `catalog.trust` 객체(`mode = "tuf"`, `root_key_ids`,
 `root_threshold`)가 `release_public_key`를 대체하고, Release Hub `catalog_roles` 객체는 서로 다른
 snapshot 키와 timestamp 키 비밀 버전을 추가합니다. 오프라인에서 서명한 root는 `install-catalog-root`
-작업으로 설치합니다. [서명된 카탈로그 역할](lifecycle-releases-and-channels-ko.md#hub의-서명된-카탈로그-역할)을 참고하세요.
+작업으로 설치합니다. [서명된 카탈로그 역할](lifecycle-releases-and-channels-ko.md#hub의-서명된-카탈로그-역할)을 참고하세요. Lifecycle Hub 작업 Job은 `bind-catalog`와 `rebind-catalog`도 수락합니다. 요청 비밀 대신 귀속되는 `actor`와 `reason`을 받으며, 재바인딩은 리비전 하한을 유지합니다.
 로그인과 카탈로그 연결은 기동의
 전제조건이 아닙니다. Entra 앱 등록 없이 migration, 상태/준비 검사와 정적 UI를 제공하며,
 인증을 설정하기 전까지 관리 API는 사용할 수 없습니다. 익명 관리 기능을 제공하거나 새로운

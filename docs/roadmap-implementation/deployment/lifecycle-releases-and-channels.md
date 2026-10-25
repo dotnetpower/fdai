@@ -38,6 +38,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-25 | validated | Ran the Lifecycle verification code against the deployed Release Hub's live metadata and export under 13 refusal scenarios and an offline root rotation made with the shipped ceremony tooling, and added the supported `rebind-catalog` operation. Every tampered, rolled-back, unpinned or under-signed input was refused, an expired timestamp allowed only recall roll-off, a valid rotation was flagged with `root_rotation_requires_review`, and a rotation signed only by the new keys was refused. | `current change`; `lifecycle/hub/src/fdai_lifecycle_hub/remote_catalog.py`, `remote.py`, `catalog_integrity_state.py`, `infra/modules/hub-service/{variables,operations,apps}.tf`; `lifecycle/hub/tests/test_catalog_rebinding.py`; `terraform test` 44 and 23 passed; the live artifacts were read with `curl` and no private value is recorded here | The deployed Lifecycle Hubs were not themselves attacked and no live rotation was installed. `rebind-catalog` was not run on a deployed Hub. |
 | 2026-10-25 | validated | Deployed the merged signed-roles build (source `68925addaa`) under the owner's explicit development-scope authorization. A development root ceremony produced a 2-of-3 root; the snapshot and timestamp keys and the signed root were registered as Key Vault secrets through the Azure Resource Manager secret API because the vault accepts no public data-plane access. After the Release Hub schema migration (revision 2) and a root installation Job, `GET /v1/catalog/metadata` returned the root chain, snapshot and timestamp without a bearer token. Two Lifecycle Hubs, rebound to the pinned root, verified the chain, persisted root, snapshot and timestamp versions with their expiries, and adopted catalog revision 9 as `policy:catalog-adoption`. | Terraform plans with in-place updates only, applied from private local state; `az containerapp job` executions; read-only database probes of the trust and integrity state; `curl` of the metadata and export endpoints; no private key, secret value or tenant value recorded here | The Release Hub was unavailable for several minutes while its new revision waited for the schema migration and restarted. The refusal paths, a root rotation and an expired timestamp were not exercised live. The single-key trust row was deleted by hand after an audit event, and `bind-catalog` ran as a one-off Job override. |
 | 2026-10-25 | validated | Deployed the Release Hub and two Lifecycle Hub stacks from source `9bd6753374` under the owner's explicit development-scope authorization. The Release Hub served the signed export without a bearer token, answered a conditional read with `304`, and its automatic freshness renewal advanced the catalog from revision 8 to 9. Both Lifecycle Hubs adopted revision 9 in `auto` mode as `policy:catalog-adoption` with no typed value. A live export signature verified with the key pinned in the Lifecycle Hub. | Terraform plans contained only in-place updates (3 and 2 resources) and were applied from private local state; read-only database probes of the trust state; `curl` of `/v1/catalog/export` and `/healthz`; no secret or private value recorded here | Review-required, unsigned and wrong-key paths were not exercised live. Plans for enrolled installations were not exercised because no installation is enrolled. |
 | 2026-10-25 | implemented | Added opt-in TUF-style signed catalog roles for the Hubs (#2489). Release Hub installs an offline-signed threshold root, signs snapshot and timestamp with separate online keys, serves `GET /v1/catalog/metadata` and renews by re-signing only the timestamp. The Lifecycle Hub gains `catalog.trust` mode `tuf`: it verifies the root chain (rotation needs the previous threshold), roles, export binding and persisted anti-rollback floors, feeds `integrity` facts to Rego, adopts only recalls and plans only `recall-rolloff` while the timestamp is expired, and holds every root rotation for review. Added the offline ceremony CLI, Terraform inputs and the Updates integrity display. Legacy single-key and pin flows are unchanged. | `current change`; #2489; hub and Release Hub: `uv run --frozen --with pytest --with pytest-asyncio --with pytest-timeout --with httpx python -m pytest tests ../release-hub/tests -p no:cacheprovider -q` 805 passed, 208 skipped, and the same suite through `scripts/automation/with-local-test-database.py` on the isolated validation PostgreSQL 1004 passed, 9 skipped; `packages/deployment-cli/tests/test_lifecycle_catalog_roles.py` and `test_lifecycle_catalog_integrity_and_bundle.py` 10 passed; strict mypy (63 files) and Ruff passed; UI typecheck, 111 unit tests and `updates.spec.ts` 10 Chromium cases passed; `terraform fmt -check`, `terraform test` 38 passed in `infra/lifecycle-hub` and 22 passed in `infra/release-hub`, and `terraform validate` in `infra/hubs-development` passed. | Run the production root ceremony and retain custody receipts, validate on deployed Hubs, back the online keys with managed custody, wire shadow demotion, add inspection and a development Job for the role tables, and support an audited in-place trust switch. |
@@ -96,13 +97,17 @@ and resumable work while the roadmap owner remains focused on normative design.
   Hubs: the Release Hub installed the signed root and served metadata, and both Lifecycle Hubs
   verified root, snapshot and timestamp, persisted their versions and adopted a catalog by policy
   (2026-10-25 history row).
-- [ ] Exercise the refusal paths on a deployed pair; exit when a tampered, rolled-back, expired or
-  unpinned root is refused and a rotation waits for review. Local tests cover these paths; no live
-  attack or rotation was run.
-- [ ] Add one supported, audited operation for `bind-catalog` and rebinding, and make `migrate`
-  bind a missing trust row when the schema is already current; exit when a Lifecycle Hub can move to
-  `tuf` without a one-off Job override and without deleting the trust row by hand. The live move
-  used both workarounds.
+- [x] Exercise the refusal paths against the deployed Release Hub's live signed artifacts: the
+  Lifecycle verification code refused an unpinned root, a threshold shortfall, a root, snapshot and
+  timestamp rollback, tampered root, snapshot and timestamp signatures, and tampered export bytes. It
+  restricted an expired timestamp to recall roll-off. A root rotation signed by the old and new
+  thresholds was flagged and sent to review, and one signed only by the new keys was refused
+  (2026-10-25 history row). The deployed Lifecycle Hubs were not attacked; the verifier ran locally.
+- [x] Add one supported, audited operation for `bind-catalog` and `rebind-catalog`, and make
+  `migrate` bind a missing trust row when the schema is already current. A rebinding keeps the
+  revision floor and drops only the accepted bytes. Covered by
+  `lifecycle/hub/tests/test_catalog_rebinding.py` and the Terraform `operation_job` tests. The new
+  operation was not run on a deployed Hub, because both Hubs already use signed roles.
 - [ ] Back the online snapshot and timestamp keys with managed key custody; exit when the keys are
   non-exportable and the Hub signs through a key service.
 - [ ] Wire `demote_operator_overrides_to_shadow` from the Lifecycle Hub integrity result to the
@@ -110,8 +115,10 @@ and resumable work while the roadmap owner remains focused on normative design.
   promotions to shadow mode on an installation.
 - [ ] Add database-inspection fingerprints for the optional role tables and a dedicated operation
   Job for root installation in `infra/hubs-development`; exit when both are covered by tests.
-- [ ] Support switching an already bound Lifecycle Hub from the single key to signed roles without
-  a fresh trust binding; exit when an explicit, audited rebinding preserves accepted state.
+- [x] Support switching an already bound Lifecycle Hub from the single key to signed roles without
+  a fresh trust binding. `rebind-catalog` keeps the revision floor and the approval history and
+  drops only the accepted bytes that the previous trust verified, so the next check re-adopts the
+  current catalog under the new trust. Covered by `test_catalog_rebinding.py`.
 - [x] Design and review an Agent-submitted pending enrollment and cluster-derived enrollment state;
   exit when the design records the authority change and a bound Agent can create only a pending
   request. The design note and critique are in

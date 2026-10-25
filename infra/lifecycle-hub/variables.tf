@@ -79,8 +79,9 @@ variable "enable_migration_jobs" {
 variable "operation_job" {
   type = object({
     operation              = string
-    request_secret_version = string
     actor                  = string
+    request_secret_version = optional(string)
+    reason                 = optional(string)
   })
   default = null
 }

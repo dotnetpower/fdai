@@ -237,8 +237,13 @@ installed root stops extending the legacy export expiry.
 
 **Customer: pin the root.** Replace `release_public_key` with
 `trust = { mode = "tuf", root_key_ids = [...], root_threshold = <n> }` in a reviewed deployment
-change, then run `bind-catalog`. A bound database refuses a changed trust, so an existing
-installation needs a fresh binding. The first root MUST name exactly those keys and threshold.
+change, then run `bind-catalog`. A new database is bound by `migrate` when no trust exists. A bound
+database refuses a changed trust until you run the audited `rebind-catalog` operation, which the
+Lifecycle Hub operation Job runs with an actor and a reason. A rebinding keeps the revision floor,
+records a `source.rebound` event that names the previous trust, and drops the accepted catalog
+bytes that only the previous trust verified. The next check re-verifies and re-adopts the current
+catalog under the new trust. Moving from signed roles back to a single key is refused. The first
+root MUST name exactly those keys and threshold.
 
 **Read Updates.** The **Catalog integrity** area shows the root, snapshot and timestamp versions
 and when the timestamp expires. When the timestamp has expired, the Hub adopts only recalls and

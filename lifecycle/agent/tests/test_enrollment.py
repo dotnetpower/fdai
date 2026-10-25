@@ -552,3 +552,34 @@ def test_oversized_or_failed_listing_is_refused_without_following_a_page(
         cluster.list_entity_workloads()
 
     assert api.call_api.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "channel", ["DEV", "RELEASE_CANDIDATE", "RELEASE", "custom-pilot", "stable"]
+)
+def test_declaration_accepts_every_real_channel_name(tmp_path: Path, channel: str) -> None:
+    from fdai_lifecycle_agent.installation_declaration import load_declaration
+
+    document = declaration()
+    document["settings"]["channel"] = channel
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    path = private / "declaration.json"
+    path.write_text(json.dumps(document))
+    path.chmod(0o600)
+    assert load_declaration(path).settings.channel == channel
+
+
+@pytest.mark.parametrize("channel", ["", "1dev", "dev channel", "DEV/../x", "x" * 65])
+def test_declaration_still_rejects_malformed_channel_names(tmp_path: Path, channel: str) -> None:
+    from fdai_lifecycle_agent.installation_declaration import DeclarationError, load_declaration
+
+    document = declaration()
+    document["settings"]["channel"] = channel
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    path = private / "declaration.json"
+    path.write_text(json.dumps(document))
+    path.chmod(0o600)
+    with pytest.raises(DeclarationError):
+        load_declaration(path)
