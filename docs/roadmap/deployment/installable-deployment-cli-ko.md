@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: bcc337b60856d278c8fd85f5562bb1998f4652e4
+translation_source_sha: 90f3436d0f0ffdd6a598daf10104a1141470db38
 translation_revised: 2026-10-25
 ---
 
@@ -35,6 +35,7 @@ Host에서 실행됩니다.
 | 런타임 신원 | 기본값은 범위가 제한된 읽기 전용 관찰 신원이며, 권한 있는 실행기는 명시적 `governed-execution` 추가 기능에서만 사용 |
 | GitHub 의존성 | 대상 환경 배포에는 없음 |
 | 공유 Hub 라이브러리 | 앱 파서와 기존 런타임 어댑터는 [Release 계약](lifecycle-releases-and-channels-ko.md#애플리케이션-패키지-계약)을 따르며 공개 소스/오프라인 명령은 그대로 유지합니다 |
+| 공유 등록 서명 | `fdai_deployment_cli.lifecycle_enrollment`는 설치본 등록 서명의 유일한 표준 구현이며, Hub의 `sign-enrollment` 명령과 [Agent `enroll` 명령](hub-managed-lifecycle-ko.md#agent가-제출하는-승인-대기-등록)이 함께 사용합니다. 공개 `fdaictl` 명령은 추가하지 않습니다 |
 
 내부 Hub 인프라 에이전트 라이브러리는 검토된 Terraform 출력 키 집합과 정확히 일치하는 값으로
 `fdai.installation-binding.v1` 산출물 하나를 기록할 수 있습니다. 새로운 소유자 전용 파일만

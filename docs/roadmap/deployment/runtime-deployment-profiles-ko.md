@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 03b0b4c8152c8d1e39fd62737fde8d18e1efa74c
+translation_source_sha: 892fc14bd373748ed92206038096aca7abc15084
 translation_revised: 2026-10-25
 ---
 # 런타임 배포 프로파일
@@ -18,7 +18,9 @@ translation_revised: 2026-10-25
 > 추가합니다. 개발용 Agent는 기본적으로 dry-run과 보고를 수행합니다. 명시적으로 선택한
 > 유한 적용에서는 기존 HTTP·이전 호환 프로필과 독립적으로 고정한
 > [비공개 실행 묶음 확장](lifecycle-runtime-bundles-ko.md)을 지원하며, 여기에는 범위가 제한된
-> HorizontalPodAutoscaler가 포함됩니다. Agent 역할에는 이를 위한 `autoscaling` 동사만 추가합니다.
+> HorizontalPodAutoscaler가 포함됩니다. Agent 역할에는 이를 위한 `autoscaling` 동사와, `fdai-lifecycle-agent
+> enroll`이 승인 대기 등록을 읽기 전용으로 도출하도록 Deployment와 CronJob에 대한 네임스페이스
+> 범위 `list`만 추가합니다. Secret이나 쓰기 동사는 추가하지 않습니다.
 > 기반 시설·신원 생성이나 FDAI 전체 설치 완료를 제공하지는 않습니다.
 > 내부 standalone host 체크포인트는 완료된 객체별 인수 증적이 있을 때만 Hub 워크로드 소유권을
 > 기록할 수 있습니다. 정확한 removed/import 블록 생성과 계획 검증은 Hub 인계 안에만 있으며,
