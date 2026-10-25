@@ -22,6 +22,7 @@ from fdai_service_contracts.product_profile import ObservationDataSource, Produc
 from fdai_deployment_cli import (
     aks_readiness,
     catalog_review_profile,
+    hub_image_stage,
     hub_ownership,
     source_application_inputs,
     standalone_host_values,
@@ -448,18 +449,8 @@ def _verify_source_runtime(args: argparse.Namespace, _work_dir: Path) -> dict[st
 
 def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     _private_directory(work_dir)
-    from fdai_deployment_cli.hub_image_stage import prepare_host_selection
-
-    selected_hub_path = getattr(args, "hub_selection", None)
-    selected_hub_digest = getattr(args, "hub_selection_digest", None)
-    hub_selection = prepare_host_selection(
-        path=_absolute(selected_hub_path) if selected_hub_path is not None else None,
-        digest=selected_hub_digest,
-        work_dir=work_dir,
-    )
+    hub_selection = hub_image_stage.prepare_host_inputs(args, work_dir)
     source_mode = hasattr(args, "source_snapshot")
-    if hub_selection is not None and not source_mode:
-        raise ValueError("Hub images require checkout support, not offline-kit mode")
     handoff = _private_json(_absolute(args.handoff), "Foundation handoff")
     runtime_profile = RuntimeDeploymentProfile.from_prepare_arguments(args)
     enterprise_identity_selected = runtime_profile.product_profile.selects(
@@ -479,10 +470,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         handoff=handoff,
         runner=runner,
     )
-    if hub_selection is not None and (
-        hub_selection.source_commit != foundation.adoption.source_commit
-    ):
-        raise ValueError("Hub Release and Foundation source revisions differ")
+    hub_image_stage.require_foundation_source(hub_selection, foundation.adoption.source_commit)
     initial_inventory_binding = _initial_inventory_binding(foundation.subscription_id)
     foundation_binding_digest = _foundation_binding_digest(
         handoff,
@@ -559,17 +547,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         if not retained_context.exists() or not retained_variables.exists():
             raise ValueError("standalone host preparation is incomplete")
         retained = _private_json(retained_context, "standalone host context")
-        expected_source = (
-            "hub-signed-images"
-            if hub_selection is not None
-            else "operator-selected-source"
-            if source_mode
-            else "signed-kit"
-        )
-        if retained.get("artifact_source") != expected_source or retained.get(
-            "hub_selection_digest"
-        ) != (hub_selection.digest if hub_selection is not None else None):
-            raise ValueError("standalone host artifact mode or Hub selection drifted")
+        hub_image_stage.require_retained_artifact_mode(retained, source_mode, hub_selection)
         retained_values = _private_json(retained_variables, "standalone host Terraform variables")
         posture_changed = _reconcile_retained_private_access(
             retained, retained_values, key_vault_private_access, document_storage_private_access
@@ -634,14 +612,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             **(hub_selection.metadata() if hub_selection is not None else {}),
         }
     if source_mode:
-        source_snapshot = _absolute(args.source_snapshot)
-        source_artifacts = source_application_inputs.source_host_artifacts(
-            source_snapshot=source_snapshot,
-            snapshot_digest=str(args.source_snapshot_digest),
-            expected_source_commit=foundation.adoption.source_commit,
-            work_dir=work_dir,
-            runtime_support=_absolute(args.runtime_support),
-            runtime_support_digest=str(args.runtime_support_digest),
+        source_artifacts = source_application_inputs.prepare_host_artifacts(
+            args, work_dir, foundation.adoption.source_commit
         )
         source_commit = source_artifacts.source_commit
         infra = source_artifacts.infra
@@ -818,12 +790,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "terraform_data": str(work_dir / "terraform-data"),
     }
     if source_mode:
-        context.update(
-            source_snapshot=str(source_snapshot), source_snapshot_digest=source_artifacts.digest
-        )
-    if hub_selection is not None:
-        context.update(hub_selection.metadata())
-        context["hub_selection"] = str(hub_selection.path)
+        context.update(source_artifacts.snapshot_metadata())
+    hub_image_stage.bind_host_selection(context, hub_selection)
     _replace_private_json(work_dir / "application.auto.tfvars.json", values)
     _replace_private_json(work_dir / "context.json", context)
     _terraform_init(work_dir, context)

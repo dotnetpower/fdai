@@ -2,17 +2,59 @@
 
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest, load_json_object
 from fdai_deployment_cli.hub_image_trust import HubImageSelection, load_selection
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
+from fdai_deployment_cli.source_application_inputs import absolute_input_path
 from fdai_deployment_cli.source_image_stage import (
     RegistryBuildService,
     SourceImageStageStopped,
     SourceImageTarget,
 )
+
+
+def prepare_host_inputs(args: argparse.Namespace, work_dir: Path) -> HubImageSelection | None:
+    selected_hub_path = getattr(args, "hub_selection", None)
+    selection = prepare_host_selection(
+        path=absolute_input_path(selected_hub_path) if selected_hub_path is not None else None,
+        digest=getattr(args, "hub_selection_digest", None),
+        work_dir=work_dir,
+    )
+    if selection is not None and not hasattr(args, "source_snapshot"):
+        raise ValueError("Hub images require checkout support, not offline-kit mode")
+    return selection
+
+
+def require_foundation_source(selection: HubImageSelection | None, source_commit: str) -> None:
+    if selection is not None and selection.source_commit != source_commit:
+        raise ValueError("Hub Release and Foundation source revisions differ")
+
+
+def require_retained_artifact_mode(
+    retained: dict[str, object], source_mode: bool, selection: HubImageSelection | None
+) -> None:
+    """Reject any retained artifact mode or exact signed selection drift."""
+    expected_source = (
+        "hub-signed-images"
+        if selection is not None
+        else "operator-selected-source"
+        if source_mode
+        else "signed-kit"
+    )
+    if retained.get("artifact_source") != expected_source or retained.get(
+        "hub_selection_digest"
+    ) != (selection.digest if selection is not None else None):
+        raise ValueError("standalone host artifact mode or Hub selection drifted")
+
+
+def bind_host_selection(context: dict[str, object], selection: HubImageSelection | None) -> None:
+    if selection is not None:
+        context.update(selection.metadata())
+        context["hub_selection"] = str(selection.path)
 
 
 def prepare_host_selection(

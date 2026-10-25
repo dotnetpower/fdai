@@ -27,7 +27,8 @@ from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
 from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
 )
-from fdai_deployment_cli.hub_image_trust import HubImageSelection, load_selection
+from fdai_deployment_cli.hub_image_deploy import application_selection, source_binding
+from fdai_deployment_cli.hub_image_trust import HubImageSelection
 from fdai_deployment_cli.license_issue import deployment_license_token as _license_token
 from fdai_deployment_cli.notification_recipients_input import (
     NotificationRecipientsDeploymentInput,
@@ -93,10 +94,7 @@ def deploy_standalone_application(
         database_placement="postgres-flex",
     )
     source_mode = source_snapshot is not None
-    if hub_selection is not None:
-        hub_selection = load_selection(hub_selection.path, hub_selection.digest)
-        if not source_mode or hub_selection.source_commit != prepared.source_commit:
-            raise ValueError("Hub images require the matching checkout support snapshot")
+    hub_selection = application_selection(hub_selection, source_mode, prepared)
     begin_stage("transfer")
     progress_detail(
         "Verifying the handoff and preparing the source snapshot for Bastion transfer"
@@ -174,10 +172,7 @@ def deploy_standalone_application(
         "runtime_profile_digest": selected_runtime.digest,
     }
     if source_mode:
-        work_binding["source_snapshot_digest"] = source_snapshot_digest
-        work_binding["provenance"] = "operator-selected-source"
-        if hub_selection is not None:
-            work_binding.update(hub_selection.metadata())
+        work_binding.update(source_binding(source_snapshot_digest, hub_selection))
     else:
         work_binding["kit_manifest_digest"] = prepared.kit_manifest_digest
     if control_package is not None:

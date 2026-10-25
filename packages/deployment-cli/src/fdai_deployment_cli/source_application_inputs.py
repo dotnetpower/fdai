@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import os
 import shutil
@@ -60,6 +61,29 @@ class SourceHostArtifacts:
     terraform: Path
     kit_bin: Path
     digest: str
+
+    def snapshot_metadata(self) -> dict[str, object]:
+        return {
+            "source_snapshot": str(self.artifact_root.parent),
+            "source_snapshot_digest": self.digest,
+        }
+
+
+def absolute_input_path(path: Path) -> Path:
+    return path if path.is_absolute() else Path.cwd() / path
+
+
+def prepare_host_artifacts(
+    args: argparse.Namespace, work_dir: Path, source_commit: str
+) -> SourceHostArtifacts:
+    return source_host_artifacts(
+        source_snapshot=absolute_input_path(args.source_snapshot),
+        snapshot_digest=str(args.source_snapshot_digest),
+        expected_source_commit=source_commit,
+        work_dir=work_dir,
+        runtime_support=absolute_input_path(args.runtime_support),
+        runtime_support_digest=str(args.runtime_support_digest),
+    )
 
 
 def add_prepare_source_parser(subcommands: Subparsers, handler: object) -> None:

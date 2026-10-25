@@ -71,3 +71,24 @@ resolved the dependency failure. Formatting preserved all six Python ASTs, and t
 TCTX run passed 153 Hub/source/wrapper/productization cases with no skips. Unchanged request/API
 and PostgreSQL evidence above remains reusable. The staged owning-document impact, design-route,
 translation and implementation-ledger checks also passed.
+
+The authorized delivery preflight then exposed three task-caused size-limit regressions.
+The new Hub selection, host preparation and final metadata wiring were extracted into existing
+Hub/input helpers without changing source/offline behavior or raising debt caps. The actual LOC
+gate passed with `cli.py` at 798 lines, application coordinator at its 978-line baseline and
+managed host at 4608 lines below its 4609-line baseline. The bounded host/application/input
+regression command below passed 268 cases; a final native CLI/source/wrapper/help selection
+passed 120 cases. Changed source strict typing, Ruff lint and formatting passed.
+
+```bash
+PYTHONPATH=packages/deployment-cli/tests .venv/bin/python -m pytest -c pyproject.toml -q --no-cov \
+  packages/deployment-cli/tests/test_hub_image_{inputs,deployment,transport,orchestration}.py \
+  packages/deployment-cli/tests/test_standalone_application{,_input_recovery,_completion}.py \
+  packages/deployment-cli/tests/test_standalone_host{,_backend,_residual}.py \
+  packages/deployment-cli/tests/test_source_{tree_copy,cli_installation}.py
+```
+
+The official behavior-seed generator refreshed only two instruction-source blob pins and their
+source-manifest hashes; seed identities and prose stayed unchanged. Its equality check verified
+all 13 seeds, and the focused seed test passed 16 cases. Delivery is tracked in #2493; publication
+and live installation remain outside that issue's implementation scope.

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import http.client
+import os
 import re
 import ssl
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -27,6 +30,95 @@ from fdai_deployment_cli.private_output import read_private_bytes, write_private
 from fdai_deployment_cli.source_input import inspect_source
 
 DEFAULT_HUB_URL = "https://hub.msfdai.com"
+
+
+def hub_source_inputs(args: argparse.Namespace) -> tuple[bool, Path | None, Path | None]:
+    hub_mode = args.hub is not None
+    source_root = args.hub if hub_mode else args.source
+    if not hub_mode and any(
+        getattr(args, name) is not None
+        for name in ("hub_url", "hub_public_key", "hub_release", "hub_channel")
+    ):
+        raise ValueError("Hub options require --hub and cannot modify source or offline mode")
+    hub_key = args.hub_public_key
+    if hub_mode and hub_key is None and os.environ.get("FDAI_HUB_PUBLIC_KEY"):
+        hub_key = Path(os.environ["FDAI_HUB_PUBLIC_KEY"])
+    if hub_mode and hub_key is None:
+        raise ValueError(
+            "--hub requires --hub-public-key PATH or FDAI_HUB_PUBLIC_KEY; provision the "
+            "Ed25519 public key independently, never download a TOFU key from the Hub"
+        )
+    if hub_mode and args.runtime != "aks":
+        raise ValueError("Hub image bootstrap currently requires AKS")
+    return hub_mode, source_root, hub_key
+
+
+def deployment_work_dir(args: argparse.Namespace) -> Path:
+    selected_dir: Path | None = args.work_dir
+    if selected_dir is None:
+        selected_dir = Path.home() / (
+            ".local/state/fdai/azure-hub"
+            if args.hub is not None
+            else ".local/state/fdai/azure-source"
+            if args.source is not None
+            else ".local/state/fdai/azure"
+        )
+    return selected_dir if selected_dir.is_absolute() else Path.cwd() / selected_dir
+
+
+def prepare_cli_selection(
+    args: argparse.Namespace, work_dir: Path, source_root: Path | None, hub_key: Path | None
+) -> HubImageSelection | None:
+    """Seal Hub inputs without permitting source/offline reuse of a retained Hub run."""
+    if args.hub is not None:
+        assert source_root is not None and hub_key is not None
+        if args.teardown:
+            raise ValueError(
+                "Hub image bootstrap does not authorize teardown; retain the run for review"
+            )
+        return prepare_hub_selection(
+            source_root=source_root,
+            work_dir=work_dir,
+            public_key_path=hub_key,
+            hub_url=DEFAULT_HUB_URL if args.hub_url is None else args.hub_url,
+            channel="RELEASE" if args.hub_channel is None else args.hub_channel,
+            release_id=args.hub_release,
+        )
+    if (work_dir / "hub-images").exists():
+        raise ValueError("source or offline artifact mode cannot reuse a Hub-image work directory")
+    return None
+
+
+def bind_support_receipt(
+    result: dict[str, Any], selection: HubImageSelection | None, *, require_receipt: bool = False
+) -> None:
+    """Preserve the support receipt identity before binding signed image provenance."""
+    if selection is not None:
+        result.update(selection.metadata())
+        if require_receipt or "receipt_digest" in result:
+            result["support_receipt_digest"] = result.pop("receipt_digest")
+            result["receipt_digest"] = canonical_digest(result)
+
+
+def application_selection(
+    selection: HubImageSelection | None, source_mode: bool, prepared: Any
+) -> HubImageSelection | None:
+    """Reverify Hub provenance without adding source/offline preparation prerequisites."""
+    if selection is not None:
+        selection = load_selection(selection.path, selection.digest)
+        if not source_mode or selection.source_commit != prepared.source_commit:
+            raise ValueError("Hub images require the matching checkout support snapshot")
+    return selection
+
+
+def source_binding(
+    snapshot_digest: str | None, selection: HubImageSelection | None
+) -> dict[str, object]:
+    return {
+        "source_snapshot_digest": snapshot_digest,
+        "provenance": "operator-selected-source",
+        **(selection.metadata() if selection is not None else {}),
+    }
 
 
 def require_retained_hub_recovery(

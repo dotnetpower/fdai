@@ -194,30 +194,14 @@ def _provision_azure(args: argparse.Namespace) -> int:
         selected_development_authority,
         validate_development_authority_command,
     )
-    from fdai_deployment_cli.hub_image_deploy import DEFAULT_HUB_URL, prepare_hub_selection
+    from fdai_deployment_cli import hub_image_deploy
     from fdai_deployment_cli.installation_scope import InstallationOptions
     from fdai_deployment_cli.notification_recipients_input import selected_notification_recipients
     from fdai_deployment_cli.operational_evidence_verifier_input import (
         load_operational_evidence_verifier_input,
     )
 
-    hub_mode = args.hub is not None
-    source_root = args.hub if hub_mode else args.source
-    if not hub_mode and any(
-        getattr(args, name) is not None
-        for name in ("hub_url", "hub_public_key", "hub_release", "hub_channel")
-    ):
-        raise ValueError("Hub options require --hub and cannot modify source or offline mode")
-    hub_key = args.hub_public_key
-    if hub_mode and hub_key is None and os.environ.get("FDAI_HUB_PUBLIC_KEY"):
-        hub_key = Path(os.environ["FDAI_HUB_PUBLIC_KEY"])
-    if hub_mode and hub_key is None:
-        raise ValueError(
-            "--hub requires --hub-public-key PATH or FDAI_HUB_PUBLIC_KEY; provision the "
-            "Ed25519 public key independently, never download a TOFU key from the Hub"
-        )
-    if hub_mode and args.runtime != "aks":
-        raise ValueError("Hub image bootstrap currently requires AKS")
+    hub_mode, source_root, hub_key = hub_image_deploy.hub_source_inputs(args)
 
     catalog_review_profile = (
         CatalogReviewDeploymentProfile.unselected()
@@ -296,16 +280,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         raise ValueError(
             "initial scope options require a source install without an exact approval file"
         )
-    selected_dir = args.work_dir
-    if selected_dir is None:
-        selected_dir = Path.home() / (
-            ".local/state/fdai/azure-hub"
-            if hub_mode
-            else ".local/state/fdai/azure-source"
-            if args.source is not None
-            else ".local/state/fdai/azure"
-        )
-    work_dir = selected_dir if selected_dir.is_absolute() else Path.cwd() / selected_dir
+    work_dir = hub_image_deploy.deployment_work_dir(args)
     args.monthly_cost_ceiling = resolve_work_dir_monthly_cost_ceiling(
         args.monthly_cost_ceiling,
         work_dir=work_dir,
@@ -330,23 +305,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
         raise ValueError("Foundation adoption requires both retained directories")
     if args.control_package is not None and args.offline_kit is None:
         raise ValueError("--control-package requires --offline-kit")
-    hub_selection = None
-    if hub_mode:
-        assert source_root is not None and hub_key is not None
-        if args.teardown:
-            raise ValueError(
-                "Hub image bootstrap does not authorize teardown; retain the run for review"
-            )
-        hub_selection = prepare_hub_selection(
-            source_root=source_root,
-            work_dir=work_dir,
-            public_key_path=hub_key,
-            hub_url=DEFAULT_HUB_URL if args.hub_url is None else args.hub_url,
-            channel="RELEASE" if args.hub_channel is None else args.hub_channel,
-            release_id=args.hub_release,
-        )
-    elif (work_dir / "hub-images").exists():
-        raise ValueError("source or offline artifact mode cannot reuse a Hub-image work directory")
+    hub_selection = hub_image_deploy.prepare_cli_selection(args, work_dir, source_root, hub_key)
     if not args.prepare_only:
         entitlement_mode = select_entitlement_mode()
         print(
@@ -419,11 +378,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                     and sys.stdin.isatty(),
                     **({"hub_selection": hub_selection} if hub_selection is not None else {}),
                 )
-                if hub_selection is not None:
-                    result.update(hub_selection.metadata())
-                    if "receipt_digest" in result:
-                        result["support_receipt_digest"] = result.pop("receipt_digest")
-                        result["receipt_digest"] = canonical_digest(result)
+                hub_image_deploy.bind_support_receipt(result, hub_selection)
                 ready = progress.finish_source(result)
             result = source_change_cli.attach_timing(result, progress=progress, work_dir=work_dir)
             _print_mapping(
@@ -446,10 +401,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
             monthly_cost_ceiling=args.monthly_cost_ceiling,
             **({"hub_selection_digest": hub_selection.digest} if hub_selection is not None else {}),
         )
-        if hub_selection is not None:
-            result.update(hub_selection.metadata())
-            result["support_receipt_digest"] = result.pop("receipt_digest")
-            result["receipt_digest"] = canonical_digest(result)
+        hub_image_deploy.bind_support_receipt(result, hub_selection, require_receipt=True)
         if args.preflight_only:
             result = inspect_aks_target(
                 profile=runtime_profile,
