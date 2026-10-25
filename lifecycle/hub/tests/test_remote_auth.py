@@ -1083,6 +1083,243 @@ def test_operator_enrollment_keeps_proof_and_request_bounds(
         assert payload["requested_by"] == "approved-human"
 
 
+AGENT_CLAIMS = {
+    "oid": "agent-object",
+    "azp": "agent-client",
+    "scp": None,
+    "idtyp": "app",
+    "roles": ["Agent.Access"],
+}
+AGENT_ENROLLMENT_PATH = "/v1/installations/installation-alpha/enrollment-request"
+
+
+def test_agent_submits_only_a_pending_enrollment_for_its_installation(
+    enrollment_remote, enrollment, store
+):
+    from sqlalchemy import select
+
+    from fdai_lifecycle_hub.models import AuditRecord
+
+    make_client, token = enrollment_remote
+    agent = token(**AGENT_CLAIMS)
+    with make_client() as client:
+        response = client.post(
+            AGENT_ENROLLMENT_PATH, json=signed_enrollment_body(enrollment), headers=agent
+        )
+        assert response.status_code == 202
+        assert response.json() == {
+            "enrollment": "pending",
+            "installation_key_id": enrollment.installation_key_id,
+        }
+        assert client.get("/v1/installations", headers=token()).json() == {"installations": []}
+        assert (
+            client.get("/v1/installations/installation-alpha/plan", headers=agent).status_code
+            == 204
+        )
+        detail = client.get("/v1/enrollments/pending/installation-alpha", headers=token()).json()
+        assert detail["requested_by"] == "agent-object"
+        assert detail["requested_via"] == "agent"
+        assert (
+            client.post(
+                AGENT_ENROLLMENT_PATH, json=signed_enrollment_body(enrollment), headers=agent
+            ).status_code
+            == 409
+        )
+    with store.engine.connect() as connection:
+        payload = connection.scalar(
+            select(AuditRecord.payload).where(AuditRecord.action == "enrollment.requested")
+        )
+    assert payload["requested_by"] == "agent-object"
+    assert payload["requested_via"] == "agent"
+    assert store.enrollment_status("installation-alpha").value == "pending"
+
+
+def test_operator_submission_is_attributed_to_the_operator(enrollment_remote, enrollment, store):
+    make_client, token = enrollment_remote
+    with make_client() as client:
+        assert (
+            client.post(
+                "/v1/enrollments/installation-alpha/requests",
+                json=signed_enrollment_body(enrollment),
+                headers=token(),
+            ).status_code
+            == 202
+        )
+        detail = client.get("/v1/enrollments/pending/installation-alpha", headers=token()).json()
+    assert (detail["requested_by"], detail["requested_via"]) == ("approved-human", "operator")
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"oid": "other"},
+        {"azp": "other"},
+        {"idtyp": "user"},
+        {"roles": []},
+        {"roles": ["Catalog.Read"]},
+        {"roles": None},
+        {"scp": "Hub.Access"},
+    ],
+)
+def test_agent_enrollment_requires_the_exact_binding_role_and_no_delegation(
+    enrollment_remote, enrollment, store, changes
+):
+    make_client, token = enrollment_remote
+    with make_client() as client:
+        response = client.post(
+            AGENT_ENROLLMENT_PATH,
+            json=signed_enrollment_body(enrollment),
+            headers=token(**(AGENT_CLAIMS | changes)),
+        )
+    assert response.status_code == 403
+    assert store.list_pending_enrollments() == ()
+
+
+def test_agent_enrollment_rejects_other_unbound_and_non_agent_callers(
+    enrollment_remote, enrollment, store
+):
+    make_client, token = enrollment_remote
+    body = signed_enrollment_body(enrollment)
+    agent = token(**AGENT_CLAIMS)
+    with make_client() as client:
+        other = "/v1/installations/other-installation/enrollment-request"
+        assert client.post(other, json=body, headers=agent).status_code == 403
+        assert client.post(AGENT_ENROLLMENT_PATH, json=body).status_code == 401
+        assert client.post(AGENT_ENROLLMENT_PATH, json=body, headers=token()).status_code == 403
+        assert client.get(AGENT_ENROLLMENT_PATH, headers=agent).status_code == 403
+        assert client.put(AGENT_ENROLLMENT_PATH, json=body, headers=agent).status_code == 403
+        for headers in (
+            agent | {"Origin": "https://attacker.example"},
+            agent | {"Sec-Fetch-Site": "cross-site"},
+            agent | {"Content-Type": "text/plain"},
+        ):
+            assert (
+                client.post(AGENT_ENROLLMENT_PATH, content=b"{}", headers=headers).status_code
+                == 403
+            )
+    with make_client(bound=False) as unbound:
+        assert unbound.post(AGENT_ENROLLMENT_PATH, json=body, headers=agent).status_code == 403
+    assert store.list_pending_enrollments() == ()
+
+
+def test_agent_enrollment_is_closed_on_release_hub_and_without_a_binding(auth):
+    principal = AgentPrincipal(
+        installation_id="installation-alpha", object_id="agent-object", client_id="agent-client"
+    )
+    with pytest.raises(ValueError, match="Release Hub"):
+        secure_app(
+            Starlette(), auth.model_copy(update={"agent_principals": (principal,)}), vendor=True
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid", ["signature", "stale", "path", "json", "size", "actor", "replay"]
+)
+def test_agent_enrollment_keeps_proof_and_request_bounds(
+    enrollment_remote, enrollment, store, sign, installation, now, invalid
+):
+    from sqlalchemy import select
+
+    from fdai_lifecycle_hub.api import MAX_ENROLLMENT_BYTES
+    from fdai_lifecycle_hub.models import AuditRecord
+
+    make_client, token = enrollment_remote
+    if invalid == "stale":
+        enrollment = sign(installation, now - timedelta(minutes=6))
+    body = signed_enrollment_body(enrollment)
+    if invalid == "signature":
+        body["proof"] = b64encode(b"invalid-signature").decode("ascii")
+    elif invalid == "path":
+        payload = json.loads(enrollment.signed_payload)
+        payload["installation_id"] = "other-installation"
+        body["signed_payload"] = b64encode(json.dumps(payload).encode()).decode("ascii")
+    elif invalid == "actor":
+        body["requested_by"] = "forged-actor"
+    if invalid == "json":
+        content = b"{"
+    elif invalid == "size":
+        content = b" " * (MAX_ENROLLMENT_BYTES + 1)
+    else:
+        content = json.dumps(body).encode()
+    headers = token(**AGENT_CLAIMS) | {"Content-Type": "application/json"}
+    with make_client() as client:
+        if invalid == "replay":
+            assert (
+                client.post(AGENT_ENROLLMENT_PATH, content=content, headers=headers).status_code
+                == 202
+            )
+        response = client.post(AGENT_ENROLLMENT_PATH, content=content, headers=headers)
+    assert response.status_code == (
+        403
+        if invalid in {"signature", "stale"}
+        else 413
+        if invalid == "size"
+        else 409
+        if invalid == "replay"
+        else 422
+    )
+    assert len(store.list_pending_enrollments()) == (1 if invalid == "replay" else 0)
+    if invalid in {"signature", "stale"}:
+        with store.engine.connect() as connection:
+            payload = connection.scalar(
+                select(AuditRecord.payload).where(AuditRecord.action == "enrollment.proof_failed")
+            )
+        assert payload["requested_by"] == "agent-object"
+
+
+def test_agent_can_neither_decide_nor_reach_any_other_route(enrollment_remote, enrollment, store):
+    import re
+
+    from starlette.routing import Route as StarletteRoute
+
+    make_client, token = enrollment_remote
+    agent = token(**AGENT_CLAIMS)
+    allowed = {
+        ("GET", "/v1/installations/{installation_id}/plan"),
+        ("POST", "/v1/installations/{installation_id}/state"),
+        ("POST", "/v1/installations/{installation_id}/plans/{plan_id}/reports"),
+        ("POST", "/v1/installations/{installation_id}/native-proofs"),
+        ("POST", "/v1/installations/{installation_id}/enrollment-request"),
+    }
+    with make_client() as client:
+        assert (
+            client.post(
+                AGENT_ENROLLMENT_PATH, json=signed_enrollment_body(enrollment), headers=agent
+            ).status_code
+            == 202
+        )
+        reached = set()
+        for route in client.app.routes:
+            if not isinstance(route, StarletteRoute) or not route.path.startswith("/v1/"):
+                continue
+            concrete = re.sub(
+                r"\{([a-z_]+)\}",
+                lambda match: "a" * 64 if "digest" in match[1] else "installation-alpha",
+                route.path,
+            )
+            for method in ("GET", "POST", "PUT", "DELETE"):
+                status = client.request(method, concrete, json={}, headers=agent).status_code
+                if status != 403:
+                    reached.add((method, route.path))
+        assert reached <= allowed
+        for decision in ("approve", "reject"):
+            path = f"/v1/installations/installation-alpha/enrollment/{decision}"
+            body = {
+                "approver": "agent-object",
+                "installation_key_id": enrollment.installation_key_id,
+            }
+            assert client.post(path, json=body | {"reason": "x"}, headers=agent).status_code == 403
+        assert (
+            client.post(
+                "/v1/enrollments/installation-alpha/requests",
+                json=signed_enrollment_body(enrollment),
+                headers=agent,
+            ).status_code
+            == 403
+        )
+    assert store.enrollment_status("installation-alpha").value == "pending"
+
+
 @pytest.fixture
 def auth() -> RemoteAuth:
     return RemoteAuth(

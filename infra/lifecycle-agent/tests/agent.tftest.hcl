@@ -56,6 +56,16 @@ run "prepare_without_starting_agent" {
     )
     error_message = "Preparation must not wait for a consumer-bound volume before starting the Agent."
   }
+
+  assert {
+    condition = (
+      length(kubernetes_role_v1.workloads.rule) == 3 &&
+      length([for rule in kubernetes_role_v1.workloads.rule : rule if contains(rule.verbs, "list")]) == 1 &&
+      length([for rule in kubernetes_role_v1.workloads.rule : rule if contains(rule.verbs, "list") && length(rule.verbs) == 1]) == 1 &&
+      !anytrue([for rule in kubernetes_role_v1.workloads.rule : contains(rule.resources, "secrets")])
+    )
+    error_message = "Enrollment discovery needs only namespace-scoped list on Deployments and CronJobs and never Secrets."
+  }
 }
 
 run "enable_single_writer_agent" {

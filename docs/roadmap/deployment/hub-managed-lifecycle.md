@@ -272,9 +272,11 @@ each installation. A caller needs the exact application object/client pair, no d
 claim, and the `Agent.Access` role in a directly verified Entra token. When Entra emits `idtyp`,
 it must be `app`; v2 Managed Identity tokens that omit this optional claim remain application
 tokens because the exact object, client and app role must still match. It can only read that
-installation's Plan and submit its state/reports. Operators, catalog identities and Agent
-identities remain distinct; an Agent cannot enroll, approve, publish, import or recompute.
-Release Hub refuses Agent bindings, and an empty binding list preserves existing denial.
+installation's Plan and submit its state/reports. It can also propose its own pending
+enrollment, as [Agent-submitted pending enrollment](#agent-submitted-pending-enrollment)
+defines. Operators, catalog identities and Agent identities remain distinct; an Agent cannot
+approve, reject, manage Entities, record ownership, publish, import or recompute. Release Hub
+refuses Agent bindings, and an empty binding list preserves existing denial.
 
 For an explicitly bound installation, the verified operator can submit its signed enrollment to
 `POST /v1/enrollments/{installation_id}/requests`. The existing installation proof, freshness,
@@ -287,9 +289,86 @@ empty bindings omit the runtime field for compatibility with older images.
 `GET /v1/enrollments/bindable` lists the bound installation IDs with their status, so the
 **Enrollment requests** screen offers a selection. `fdai-lifecycle-hub sign-enrollment` signs the
 request inside the installation boundary and writes only the upload file, then prints the key id
-for the approver's independent comparison. Generating the request's reported state from the
-cluster, and an Agent-submitted pending enrollment, remain unimplemented: the second changes the
-rule that an Agent cannot enroll and needs its own design review.
+for the approver's independent comparison. It remains the offline path for an installation whose
+Agent cannot reach the Hub. `fdai-lifecycle-agent enroll` is the online path: the installation
+Agent derives the request from its own cluster and submits it, so the operator carries no file.
+
+### Agent-submitted pending enrollment
+
+**Design note.** The previous rule was that an Agent cannot enroll. That rule kept every
+authority-bearing first step with a human, but it made the operator carry a signed file between
+the installation and the Hub and author the reported state by hand. The revised rule is narrower
+than "Agents may enroll": the Agent identity bound to exactly one installation may *propose* that
+installation's enrollment, and a human still decides.
+
+`POST /v1/installations/{installation_id}/enrollment-request` takes the existing
+`SignedEnrollment` body (`signed_payload`, `proof`). It is available only to an application
+identity whose object/client pair is bound to exactly that installation in
+`auth.agent_principals`, with the `Agent.Access` role and no delegated `scp` claim. The handler
+reuses `request_enrollment` with the existing proof, five-minute freshness, matching-id, 64 KiB
+and no-`settings.product` rules. It creates a pending record only and audits the Agent's object
+id as `requested_by` with `requested_via=agent`. The Hub exposes both fields on the pending
+record so the **Enrollment requests** screen shows who proposed it.
+
+**Authority change.** This adds exactly one capability to the Agent identity: creating a pending
+enrollment for its own bound installation. It adds none of approving, rejecting, enrolling,
+managing Entities, recording ownership, setting the product binding, or reading other
+installations. The route is unavailable when no Agent is bound, to unbound or other
+installations, to operator tokens, and on Release Hub.
+
+**Why this is safe.**
+
+- *Pending is not authority.* A pending installation is excluded from the installation list,
+  planning, the Agent plan route and every Entity operation. Only the independently verified key
+  id in a human approval turns it into an enrollment, and every Entity then starts unmanaged.
+- *Two independent factors.* The request needs the workload identity (the Entra token) and the
+  installation private key (the proof). A leaked token cannot produce a valid proof, and a leaked
+  key cannot reach the route without the token.
+- *No overwrite.* One record exists per installation id. A repeat submission, or one for an
+  already pending, enrolled or rejected installation, returns the existing `installation_exists`
+  conflict. An Agent cannot replace an approved key or reset a decision.
+- *The customer owns settings.* The Agent derives Entities and reported state from the cluster,
+  but reads channel, version range, region, allowed regions, windows and configuration from a
+  strict customer-owned declaration file and invents none. It cannot set `settings.product`.
+- *Attribution.* The audit chain records the authenticated Agent object id and that the request
+  came through the Agent, so the approver can distinguish it from an operator submission.
+
+**Critique and revision.**
+
+1. *Key id provenance.* The Agent prints the key id, but a compromised Pod could print any id.
+   The approver therefore compares the id with one obtained independently of the pending
+   request, for example derived from the installation public key in key custody. The command
+   never prints the private key, and the screen shows the key id but keeps the approval field
+   empty.
+2. *Slot squatting.* A compromised bound Agent identity can occupy its installation's slot with
+   a pending request. This denies enrollment but grants nothing; the operator rejects it, and
+   the audit names the principal. Because the identity is bound to one installation, it cannot
+   squat another.
+3. *Cluster-derived state is a claim.* Anyone with namespace write access can label a workload.
+   The Hub already treats reported state as installation claims, and Entities start unmanaged.
+   The Agent reads only labelled Deployments and CronJobs, never Secrets or values, and refuses
+   ambiguous or unbounded observations instead of guessing.
+4. *Uncertain delivery.* The Agent does not retry after an uncertain transport result, because
+   the Hub may have recorded the request. It tells the operator to check the pending list; a
+   re-run after a recorded request returns the conflict, so re-running is safe.
+5. *Rejected alternatives.* Opening the original `/enrollment` route would widen a route that
+   remote authorization deliberately denies to everyone. Accepting an Agent token on the
+   operator route would mix principal classes. Letting the Agent approve its own request
+   would remove the human decision and is not allowed.
+
+Reported state is derived from workloads that carry the `fdai.io/entity` label in the Agent's
+own namespace. The Entity id is the label value, the Release id comes from a canonical SemVer
+`app.kubernetes.io/version` label, the schema revision from an `fdai.io/schema-revision`
+annotation, and artifact digests from `@sha256:` image references. Health comes from the
+Deployment rollout status. A workload without a Release label reports the explicit empty
+state, not an invented version.
+
+**Status.** The route, the `enroll` command, the read-only Role rule and the UI attribution are
+implemented for development with local test evidence only. No operating Hub, Agent Pod, workload
+identity or permission change has been exercised, and the renderer does not yet stamp the Release
+and schema-revision metadata. The
+[implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
+tracks the open work.
 
 The **Enrollment requests** screen lets the operator select the bound installation and
 upload a signed request JSON file of at most 64 KiB. It sends only `signed_payload` and

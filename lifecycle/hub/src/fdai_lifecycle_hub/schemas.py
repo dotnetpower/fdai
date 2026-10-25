@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Annotated, Any, Self, assert_never
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.lifecycle_enrollment import sign_enrollment_payload
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 from pydantic import (
     AwareDatetime,
@@ -45,7 +45,6 @@ from fdai_lifecycle_hub.domain import (
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest
 from fdai_lifecycle_hub.entity import Entity, EntitySettings, OwnershipEvidence
 from fdai_lifecycle_hub.reports import FINAL_REASONS, ReportOutcome
-from fdai_lifecycle_hub.signing import raw_public_key
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
 Identifier = Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]{0,62}$")]
@@ -152,12 +151,8 @@ def sign_enrollment(
 ) -> EnrollmentRequest:
     """Add the installation key and `at` to `template`, sign the result, and parse it."""
 
-    fields = {
-        "installation_key": b64encode(raw_public_key(key)).decode("ascii"),
-        "requested_at": at.isoformat(),
-    }
-    payload = canonical_bytes({**template, **fields})
-    return enrollment_request(payload, key.sign(payload))
+    payload, proof = sign_enrollment_payload(template, key, at)
+    return enrollment_request(payload, proof)
 
 
 def enrollment_request(signed_payload: bytes, proof: bytes) -> EnrollmentRequest:
@@ -348,6 +343,8 @@ def pending_enrollment_record(pending: PendingEnrollment) -> dict[str, Any]:
         "installation_id": installation.installation_id,
         "installation_key_id": pending.installation_key_id,
         "requested_at": pending.requested_at.isoformat(),
+        "requested_by": pending.requested_by,
+        "requested_via": pending.requested_via,
         "channel": installation.settings.channel,
         "version_range": installation.settings.version_range,
         "region": installation.settings.region,

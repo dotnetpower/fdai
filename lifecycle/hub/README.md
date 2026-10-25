@@ -34,9 +34,17 @@ For a bound installation, an authenticated operator can submit a signed enrollme
 and `proof` base64 fields. The Hub verifies the installation signature, request freshness,
 matching installation id and request-size limit, and audits the verified operator as
 `requested_by`, including proof failures. Submission creates only a pending request visible in
-Enrollment requests; approval remains separate and Entities remain unmanaged. Agents cannot
-submit or approve enrollment. Empty bindings retain the existing closed route, and the original
-Agent enrollment route stays closed even to an operator.
+Enrollment requests; approval remains separate and Entities remain unmanaged. Empty bindings
+retain the existing closed route, and the original Agent enrollment route stays closed even to
+an operator.
+
+The Agent bound to exactly one installation can also propose that installation's pending
+enrollment through `POST /v1/installations/{installation_id}/enrollment-request` (see
+`fdai-lifecycle-agent enroll`). It requires the exact object/client binding, `Agent.Access` and
+no delegated `scp`, reuses the proof, freshness, matching-id and size checks, and audits the
+Agent object id as `requested_by` with `requested_via=agent`. The Agent cannot approve, reject,
+manage Entities, record ownership or set `settings.product`, and an operator token cannot use
+this route. Enrollment requests shows who proposed each pending request.
 
 `GET /v1/enrollments/bindable` lists the bound installation IDs with their status.
 `fdai-lifecycle-hub sign-enrollment <request.json> --key <installation.pem> --out <file>` signs
@@ -102,7 +110,11 @@ This status page does not enable anonymous management access.
    state. The Hub checks the proof with an injected verifier against the exact request bytes and
    accepts a `requested_at` no more than five minutes from its own clock. A failed proof creates
    nothing: the Hub audits `enrollment_proof_invalid` or `enrollment_proof_stale` and refuses the
-   request.
+   request. The request reaches the Hub three ways: the loopback `enrollment` route, an operator
+   upload through `POST /v1/enrollments/{id}/requests`, or, in the explicit remote profile, the
+   installation Agent bound to exactly that installation through
+   `POST /v1/installations/{id}/enrollment-request` (`fdai-lifecycle-agent enroll`). Every way
+   creates only a pending request, and the audit records `requested_by` and `requested_via`.
 2. The installation is `pending`. It receives no Plan, the Hub doesn't recompute it, and it
    accepts no reported state or suppression.
 3. A customer approver uses the operator UI or `approve` with the installation key id they
@@ -187,6 +199,7 @@ newer than the current one, include every managed Entity, and name only known En
 | Method and path | Result |
 |-----------------|--------|
 | `POST /v1/installations/{id}/enrollment` | `202` with the installation key id for a pending request, `403` with `enrollment_proof_invalid` or `enrollment_proof_stale`, `409` when the installation exists, `422` for an invalid body or another installation id |
+| `POST /v1/installations/{id}/enrollment-request` | Remote profile only, for the Agent bound to exactly this installation (`Agent.Access`, no `scp`). Same body and checks as the enrollment route; `202` pending, `403` for any other caller, an invalid proof or a stale request, `409` `installation_exists`, `413` above 64 KiB, `422`. It creates a pending request only; the Agent cannot approve, reject, manage Entities or record ownership |
 | `GET /v1/installations/{id}/plan` | `200` with `{"plan": {"signed_payload", "signature"}}` in base64, or `204` when the installation isn't enrolled or no Plan is open |
 | `POST /v1/installations/{id}/plans/{plan_id}/reports` | `202` for a new or identical report, `409` for a conflicting attempt or other Plan bytes, `413` above 16 KiB, `422` for an invalid body, `503` with `Retry-After` when a concurrent write committed first |
 | `POST /v1/installations/{id}/state` | `202` when the snapshot becomes current, `409` with `stale_state` when its `observed_at` isn't newer, `413` above 64 KiB, `422` with `state_invalid`, `404` for an unknown or unenrolled installation |
@@ -214,7 +227,7 @@ and health values, displayed as "Not reported".
 | `GET /v1/installations` | `200` with every enrolled installation's channel, current and target Release, latest outcome, health, and the next maintenance window with whether it's already open |
 | `GET /v1/installations/{id}` | `200` with settings, Entities, suppressions, the open Plan, the last evaluation, and every report; `404` for an unknown or not-yet-enrolled installation |
 | `GET /v1/installations/{id}/plans/{plan_id}` | `200` with the Plan's status (`open` or `superseded`), its events, every report, and every recompute that targeted it; `404` for an unknown Plan |
-| `GET /v1/enrollments/pending` | `200` with every pending enrollment request: the installation key id, requested time, settings, and declared Entities (unmanaged; ownership evidence doesn't exist until after approval) |
+| `GET /v1/enrollments/pending` | `200` with every pending enrollment request: the installation key id, requested time, `requested_by` and `requested_via` (`agent` or `operator`, `null` for a signed file or older record), settings, and declared Entities (unmanaged; ownership evidence doesn't exist until after approval) |
 | `GET /v1/enrollments/pending/{id}` | `200` with one pending request's full detail; `404` when it isn't pending |
 | `POST /v1/installations/{id}/enrollment/approve` | Body `{"approver", "installation_key_id"}`. `200` with `{"enrolled": id}`, `409` with `not_pending`, `422` with `installation_key_mismatch` or `approval_invalid` |
 | `POST /v1/installations/{id}/enrollment/reject` | Body `{"approver", "reason"}`. `200` with `{"rejected": id}`, `409` with `not_pending`, `422` with `rejection_invalid` |

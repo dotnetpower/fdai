@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from base64 import b64encode
 from pathlib import Path
+from typing import Literal
 
 from pydantic import ValidationError
 from starlette.applications import Starlette
@@ -44,6 +45,7 @@ from fdai_lifecycle_hub.schemas import (
     PlanReport,
     RejectionRequest,
     SignedEnrollment,
+    actor_name,
     enrollment_request,
     installation_detail_record,
     installation_summary_record,
@@ -98,7 +100,12 @@ def create_app(
             }
         )
 
-    async def post_enrollment(request: Request, *, requested_by: str | None = None) -> Response:
+    async def post_enrollment(
+        request: Request,
+        *,
+        requested_by: str | None = None,
+        requested_via: Literal["agent", "operator"] | None = None,
+    ) -> Response:
         body = await _read_limited(request, MAX_ENROLLMENT_BYTES)
         if body is None:
             return _error(413, "enrollment_too_large")
@@ -116,6 +123,7 @@ def create_app(
                 verify=verify_proof,
                 now=clock(),
                 requested_by=requested_by,
+                requested_via=requested_via,
             )
         except EnrollmentProofError as error:
             return _error(403, error.failure)
@@ -135,7 +143,30 @@ def create_app(
             for principal in remote_auth.agent_principals
         ):
             return _error(403, "installation_not_bound")
-        return await post_enrollment(request, requested_by=request.state.operator)
+        return await post_enrollment(
+            request, requested_by=request.state.operator, requested_via="operator"
+        )
+
+    async def post_agent_enrollment(request: Request) -> Response:
+        """Let the Agent bound to exactly this installation propose, never decide, enrollment."""
+
+        principal = getattr(request.state, "principal", None)
+        installation_id = request.path_params["installation_id"]
+        if (
+            remote_auth is None
+            or hasattr(request.state, "operator")
+            or not isinstance(principal, str)
+            or not any(
+                bound.installation_id == installation_id and bound.object_id == principal
+                for bound in remote_auth.agent_principals
+            )
+        ):
+            return _error(403, "principal_not_authorized")
+        try:
+            schemas_actor = actor_name.validate_python(principal)
+        except ValidationError:
+            return _error(403, "principal_not_authorized")
+        return await post_enrollment(request, requested_by=schemas_actor, requested_via="agent")
 
     async def post_report(request: Request) -> Response:
         body = await _read_limited(request, MAX_REPORT_BYTES)
@@ -344,6 +375,13 @@ def create_app(
     ]
     if remote_auth is not None and remote_auth.agent_principals:
         routes.append(Route("/v1/enrollments/bindable", list_bindable))
+        routes.append(
+            Route(
+                "/v1/installations/{installation_id}/enrollment-request",
+                post_agent_enrollment,
+                methods=["POST"],
+            )
+        )
         routes.append(
             Route(
                 "/v1/enrollments/{installation_id}/requests",

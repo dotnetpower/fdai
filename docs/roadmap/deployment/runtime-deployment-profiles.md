@@ -18,7 +18,9 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > lifecycle agent. The development Agent defaults to dry-run and reporting; explicit bounded
 > apply supports the existing HTTP/legacy profiles and the independently pinned
 > [private runtime-bundle extension](lifecycle-runtime-bundles.md), which includes a bounded
-> HorizontalPodAutoscaler. The Agent role gains only the `autoscaling` verbs for it.
+> HorizontalPodAutoscaler. The Agent role gains only the `autoscaling` verbs for it, plus
+> namespace-scoped `list` on Deployments and CronJobs so `fdai-lifecycle-agent enroll` can derive
+> its pending enrollment read-only; no Secret or write verb is added.
 > This supplies neither infrastructure/identity creation nor a completed FDAI installation.
 > The internal standalone-host checkpoint may record Hub workload ownership only from a complete
 > per-object adoption receipt. Exact removed/import block generation and plan verification stay

@@ -1,0 +1,27 @@
+# Optional read-only permission for `fdai-lifecycle-agent enroll`. Review separately.
+# It lists Deployments and CronJobs in the workload namespace so the Agent can derive its
+# enrollment Entities and reported state. It grants no write verb, no Secret access, and nothing
+# cluster-wide; the existing workload Role already holds `get`.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: fdai-lifecycle-enrollment-read
+  namespace: fdai-nginx-dev
+rules:
+  - apiGroups: ["apps", "batch"]
+    resources: ["deployments", "cronjobs"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: fdai-lifecycle-enrollment-read
+  namespace: fdai-nginx-dev
+subjects:
+  - kind: ServiceAccount
+    name: fdai-lifecycle-agent
+    namespace: fdai-agent-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: fdai-lifecycle-enrollment-read

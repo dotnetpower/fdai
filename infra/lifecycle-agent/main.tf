@@ -139,6 +139,12 @@ resource "kubernetes_role_v1" "workloads" {
     resources  = ["horizontalpodautoscalers"]
     verbs      = ["get", "create", "patch", "delete"]
   }
+  # Read-only Entity discovery for `enroll`; namespace-scoped, no Secret or write access.
+  rule {
+    api_groups = ["apps", "batch"]
+    resources  = ["deployments", "cronjobs"]
+    verbs      = ["list"]
+  }
   lifecycle {
     prevent_destroy = true
   }

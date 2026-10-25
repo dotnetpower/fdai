@@ -431,7 +431,7 @@ class Workload:
             name = metadata.get("name")
             if not isinstance(entity_id, str) or not isinstance(name, str):
                 continue
-            expected_digests.update(_deployment_image_digests(manifest))
+            expected_digests.update(deployment_image_digests(manifest))
             live = self.cluster.get(manifest["kind"], name)
             if (
                 live is None
@@ -440,7 +440,7 @@ class Workload:
             ):
                 drifted.add(entity_id)
             if live is not None:
-                live_digests.setdefault(entity_id, set()).update(_deployment_image_digests(live))
+                live_digests.setdefault(entity_id, set()).update(deployment_image_digests(live))
         return (
             {
                 entity_id: frozenset(live_digests.get(entity_id, set()))
@@ -502,7 +502,7 @@ def _suspended_schedule(manifest: Manifest) -> Manifest:
     return dict(manifest) | {"spec": dict(manifest["spec"]) | {"suspend": True}}
 
 
-def _deployment_image_digests(manifest: Manifest) -> tuple[str, ...]:
+def deployment_image_digests(manifest: Manifest) -> tuple[str, ...]:
     spec = manifest.get("spec") or {}
     if manifest.get("kind") == "CronJob":
         spec = spec.get("jobTemplate", {}).get("spec", {})

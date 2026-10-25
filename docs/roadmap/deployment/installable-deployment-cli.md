@@ -31,6 +31,7 @@ inside the target virtual network.
 | Runtime identity | Scoped read-only observation identity by default; privileged executor only for the explicit governed-execution add-on |
 | GitHub dependency | None for tenant deployment |
 | Shared Hub library | Application parser and legacy runtime adapter follow the [Release contract](lifecycle-releases-and-channels.md#application-package-contract); public source/offline commands remain unchanged |
+| Shared enrollment signing | `fdai_deployment_cli.lifecycle_enrollment` is the one canonical installation enrollment signer, used by the Hub `sign-enrollment` command and the [Agent `enroll` command](hub-managed-lifecycle.md#agent-submitted-pending-enrollment); it adds no public `fdaictl` command |
 
 The internal Hub infrastructure-agent library can write one `fdai.installation-binding.v1`
 artifact from an exact reviewed Terraform-output key set. It creates a new owner-only file,

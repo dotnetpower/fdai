@@ -125,20 +125,39 @@ it is not an export-only signer for the authenticated remote operator route.
 
 ### B. Submit and approve enrollment
 
-1. Obtain the fresh signed JSON file and independent public key ID from the installation setup
-   operator. They create the file with `fdai-lifecycle-hub sign-enrollment <request.json>
-   --key <installation.pem> --out <file>`, which signs inside the installation boundary and
-   prints the key id and the submission deadline. Do not upload a PEM key.
-2. Sign in to the customer's Lifecycle Hub. Open **Enrollment requests**.
-3. Select the bound installation, choose the signed JSON file (at most 64 KiB), and click
-   **Submit request** once.
-   The request timestamp must be within five minutes of the Hub clock. This is a submission
-   freshness limit, not a five-minute lifetime for the installation.
-4. After success, open the pending request. Compare its key ID with the custody output.
-5. Enter **Approver**, paste the independently verified ID into **Verified key id**, leave
-   **Rejection reason** empty, and click **Accept enrollment** only if identity matches.
+The installation Agent submits its own request, so you do not carry a signed file. You compare
+the key ID out of band, then accept.
+
+1. Ask the installation setup operator to run `fdai-lifecycle-agent enroll` inside the
+   installation boundary (see the [Agent README](../../lifecycle/agent/README.md#enrolling-this-installation)).
+   The Agent reads the installation's Entities and state from its own cluster, reads the settings
+   and configuration from the customer's declaration file, signs with the existing installation
+   key and submits a **pending** request. It prints the installation key ID and a submit-before
+   time. It never prints the private key.
+2. Sign in to the customer's Lifecycle Hub. Open **Enrollment requests** and refresh the list.
+   If the request is missing, the Agent result may have been uncertain; check the list before
+   asking for a re-run. A re-run after a recorded request changes nothing.
+3. Open the pending request. The page says **Requested by installation Agent** with a short
+   object ID, or **Requested by operator** for a file you uploaded.
+4. Obtain the installation key ID independently of this screen (for example, from the key
+   custodian) and compare it with the request's key ID.
+5. Enter **Approver**, type the independently verified ID into **Verified key id**, leave
+   **Rejection reason** empty, and click **Accept enrollment** only if identity matches. The
+   Agent cannot accept or reject its own request.
 6. Verify the installation appears in **Installations**. No managed Entity, no current release,
    and no Plan are expected before ownership, configuration and planning are ready.
+
+The Agent submission is available only when the deployment binds the installation to its Agent
+identity. The submit-before time is the five-minute freshness limit for the signed request, not
+a lifetime for the installation.
+
+**Offline path.** When the Agent cannot reach the Hub, obtain a fresh signed JSON file and the
+independent public key ID from the installation setup operator. They create the file with
+`fdai-lifecycle-hub sign-enrollment <request.json> --key <installation.pem> --out <file>`,
+which signs inside the installation boundary and prints the key id and the submission deadline.
+Do not upload a PEM key. In **Enrollment requests**, select the bound installation, choose the
+signed JSON file (at most 64 KiB) and click **Submit request** once. The request timestamp must
+be within five minutes of the Hub clock. Then continue from step 3.
 
 If submission has an uncertain result, refresh the pending list before retrying. If the
 request is stale and no request exists, obtain a newly signed file using the same installation
