@@ -52,6 +52,11 @@ data "azurerm_virtual_network" "ops" {
   resource_group_name = var.ops_resource_group_name
 }
 
+data "azurerm_private_dns_zone" "ops_blob" {
+  name                = "privatelink.blob.core.windows.net"
+  resource_group_name = var.ops_resource_group_name
+}
+
 data "azurerm_kubernetes_cluster" "target" {
   name                = var.aks_name
   resource_group_name = var.resource_group_name
@@ -145,8 +150,10 @@ module "document_blob_private_endpoint" {
   target_resource_id    = module.document_storage.id
   subresource_name      = "blob"
   private_dns_zone_name = "privatelink.blob.core.windows.net"
-  extra_vnet_links      = { ops = data.azurerm_virtual_network.ops.id }
-  tags                  = local.tags
+  additional_private_dns_zone_ids = [
+    data.azurerm_private_dns_zone.ops_blob.id,
+  ]
+  tags = local.tags
 }
 
 module "document_dfs_private_endpoint" {
