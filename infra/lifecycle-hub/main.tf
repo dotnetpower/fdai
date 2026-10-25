@@ -16,6 +16,7 @@ module "hub" {
   source                = "../modules/hub-service"
   kind                  = "target"
   prefix                = var.prefix
+  resource_group_name   = var.resource_group_name
   tenant_id             = var.tenant_id
   location              = var.location
   tags                  = var.tags
@@ -27,6 +28,7 @@ module "hub" {
   image                 = var.image
   app_image             = var.app_image
   ingress_cidrs         = var.ingress_cidrs
+  custom_domain         = var.custom_domain
   replicas              = var.replicas
   operator_auth         = var.operator_auth
   catalog               = var.catalog

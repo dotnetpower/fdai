@@ -1,7 +1,28 @@
 locals {
-  origins = {
-    for kind in local.kinds : kind => "https://ca-${var.prefix}-${kind}.${azurerm_container_app_environment.hub[kind].default_domain}"
+  default_hostnames = {
+    for kind in local.kinds : kind => "ca-${var.prefix}-${kind}.${azurerm_container_app_environment.hub[kind].default_domain}"
   }
+  hostnames = {
+    for kind in local.kinds : kind => var.custom_domain == null ? local.default_hostnames[kind] : var.custom_domain.hostname
+  }
+  origins = {
+    for kind in local.kinds : kind => "https://${local.hostnames[kind]}"
+  }
+  custom_domain_record_name = (
+    var.custom_domain != null && var.custom_domain.dns_zone != null
+    ? trimsuffix(var.custom_domain.hostname, ".${var.custom_domain.dns_zone.name}")
+    : null
+  )
+  custom_domain_dns_kinds = (
+    var.enable_apps && var.custom_domain != null && var.custom_domain.dns_zone != null
+    ? local.kinds
+    : toset([])
+  )
+  custom_domain_kinds = (
+    var.enable_apps && var.custom_domain != null
+    ? local.kinds
+    : toset([])
+  )
   foundation = {
     for kind in local.kinds : kind => {
       resource_group     = azurerm_resource_group.hub[kind].name
@@ -160,6 +181,43 @@ resource "azurerm_container_app" "hub" {
   ]
   lifecycle {
     prevent_destroy = true
+  }
+}
+
+resource "azurerm_dns_cname_record" "hub_custom_domain" {
+  for_each            = local.custom_domain_dns_kinds
+  name                = local.custom_domain_record_name
+  zone_name           = var.custom_domain.dns_zone.name
+  resource_group_name = var.custom_domain.dns_zone.resource_group_name
+  ttl                 = var.custom_domain.dns_zone.ttl
+  record              = local.default_hostnames[each.key]
+}
+resource "azurerm_dns_txt_record" "hub_custom_domain" {
+  for_each            = local.custom_domain_dns_kinds
+  name                = "asuid.${local.custom_domain_record_name}"
+  zone_name           = var.custom_domain.dns_zone.name
+  resource_group_name = var.custom_domain.dns_zone.resource_group_name
+  ttl                 = var.custom_domain.dns_zone.ttl
+  record {
+    value = azurerm_container_app.hub[each.key].custom_domain_verification_id
+  }
+}
+resource "azurerm_container_app_custom_domain" "hub" {
+  for_each                                 = local.custom_domain_kinds
+  name                                     = var.custom_domain.hostname
+  container_app_id                         = azurerm_container_app.hub[each.key].id
+  certificate_binding_type                 = var.custom_domain.certificate_binding_type
+  container_app_environment_certificate_id = var.custom_domain.certificate_id
+  depends_on = [
+    azurerm_dns_cname_record.hub_custom_domain,
+    azurerm_dns_txt_record.hub_custom_domain,
+  ]
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes = [
+      certificate_binding_type,
+      container_app_environment_certificate_id,
+    ]
   }
 }
 

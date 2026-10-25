@@ -5,7 +5,7 @@ locals {
 
 resource "azurerm_resource_group" "hub" {
   for_each = local.kinds
-  name     = "rg-${var.prefix}-${each.key}"
+  name     = coalesce(var.resource_group_name, "rg-${var.prefix}-${each.key}")
   location = var.location
   tags     = local.tags
 }

@@ -32,6 +32,8 @@ For an existing running Hub, follow the
 Keep `image` on the new candidate and temporarily set `app_image` to the approved existing
 serving digest. After verified migration, set `app_image=null` to activate the candidate.
 Omitting `app_image` preserves the existing single-image behavior.
+Optional `custom_domain` binds a public HTTPS subdomain and optional Azure DNS records while
+updating the runtime origin and probe `Host` headers.
 
 Login is optional for process startup. Without `operator_auth`, management APIs return 503 and
 the UI explicitly shows unavailable functionality. Anonymous management API policy is deferred,

@@ -19,6 +19,15 @@ variable "prefix" {
     error_message = "Use 4-11 lowercase letters/digits beginning with a letter."
   }
 }
+variable "resource_group_name" {
+  type        = string
+  default     = null
+  description = "Optional explicit resource group name; null uses rg-<prefix>-<kind>."
+  validation {
+    condition     = var.resource_group_name == null ? true : can(regex("^[A-Za-z0-9._()-]{1,90}$", var.resource_group_name))
+    error_message = "Use a valid Azure resource group name, or null for rg-<prefix>-<kind>."
+  }
+}
 variable "tenant_id" {
   type        = string
   description = "Azure PostgreSQL and Key Vault service identity tenant, not browser login."
@@ -73,6 +82,39 @@ variable "ingress_cidrs" {
       for cidr in var.ingress_cidrs : can(cidrhost(cidr, 0)) && !endswith(cidr, "/0")
     ])
     error_message = "Provide explicitly approved bounded ingress CIDRs."
+  }
+}
+variable "custom_domain" {
+  type = object({
+    hostname                 = string
+    certificate_binding_type = optional(string)
+    certificate_id           = optional(string)
+    dns_zone = optional(object({
+      name                = string
+      resource_group_name = string
+      ttl                 = optional(number, 300)
+    }))
+  })
+  default     = null
+  description = "Optional custom HTTPS hostname, DNS records and certificate binding for the Hub Container App."
+  validation {
+    condition = var.custom_domain == null ? true : (
+      length(var.custom_domain.hostname) <= 253 &&
+      can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$", var.custom_domain.hostname)) &&
+      !endswith(var.custom_domain.hostname, ".azurecontainerapps.io") &&
+      (var.custom_domain.certificate_binding_type == null || contains(["Disabled", "SniEnabled"], var.custom_domain.certificate_binding_type)) &&
+      (var.custom_domain.certificate_id == null || trimspace(var.custom_domain.certificate_id) != "") &&
+      (var.custom_domain.certificate_binding_type != "Disabled" || var.custom_domain.certificate_id == null) &&
+      (var.custom_domain.dns_zone == null ? true : (
+        can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$", var.custom_domain.dns_zone.name)) &&
+        trimspace(var.custom_domain.dns_zone.resource_group_name) != "" &&
+        var.custom_domain.dns_zone.ttl >= 60 &&
+        var.custom_domain.dns_zone.ttl <= 86400 &&
+        endswith(var.custom_domain.hostname, ".${var.custom_domain.dns_zone.name}") &&
+        can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", trimsuffix(var.custom_domain.hostname, ".${var.custom_domain.dns_zone.name}")))
+      ))
+    )
+    error_message = "Use a lowercase subdomain hostname (not .azurecontainerapps.io); when dns_zone is set, hostname must be a direct single-label subdomain of dns_zone.name."
   }
 }
 variable "replicas" {
