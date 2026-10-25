@@ -85,8 +85,18 @@ variable "agent_image" {
   }
 }
 variable "storage_class_name" {
-  type    = string
-  default = "managed-csi"
+  type        = string
+  default     = null
+  description = "Existing StorageClass for the Agent state volume. Null creates a zone-redundant class."
+}
+variable "storage_sku" {
+  type        = string
+  default     = "StandardSSD_ZRS"
+  description = "Azure disk SKU of the created StorageClass. Zone-redundant disks attach in every zone."
+  validation {
+    condition     = contains(["StandardSSD_ZRS", "Premium_ZRS"], var.storage_sku)
+    error_message = "Agent state needs a zone-redundant disk SKU so a rescheduled Pod can attach it in any zone."
+  }
 }
 variable "enable_agent" {
   type    = bool

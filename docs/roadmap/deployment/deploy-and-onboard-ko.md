@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: fcaaac09ce8498bee9ccf5d7830bcab77817bcac
+translation_source_sha: 6965243aa9d07ea35a2da7518c3d1e30393e5881
 translation_revised: 2026-10-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -63,6 +63,8 @@ Terraform은 `Agent.Access`, 페더레이션 자격 증명이나 Kubernetes 권�
 승인된 범위에서 별도로 설정하세요. 해당 네임스페이스로 제한된 RBAC, 영속 상태 볼륨, 등록과
 독립적인 결과 확인은 [Hub 운영자 안내서](../../runbooks/hub-lifecycle-operator-guide-ko.md)를
 따르세요. 이 설정만으로 운영자 권한이나 release 적용 권한이 생기지는 않습니다.
+Agent 상태 볼륨은 영역 중복(zone-redundant) 디스크 클래스를 사용하므로 다른 영역으로 옮겨진 Pod도
+볼륨을 연결할 수 있습니다.
 
 [기존 두 Hub 검증 구성](../../../infra/hubs-development/README.md)은 기존 state 소유자를 위해
 그대로 보존합니다. 해당 안내는 별도 네트워크, 자체 관리 ID와 키, 명시적 migration,

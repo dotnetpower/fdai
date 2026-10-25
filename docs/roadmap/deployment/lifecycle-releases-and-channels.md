@@ -432,8 +432,9 @@ operator choice that this design does not enforce.
 
 **Not yet implemented.** A production root ceremony with retained custody receipts, which stays
 an operator procedure. Wiring `demote_operator_overrides_to_shadow` to the promotion registry on
-an installation. A dedicated operation Job in the development stack to install the root.
-Fingerprinting the optional tables in database inspection.
+an installation, which needs an authenticated Agent-to-Core event first. The standalone Release Hub
+root already installs the root through its operation Job, so the legacy paired fixture stays
+unchanged. Database inspection fingerprints the optional role tables when they exist.
 
 ## Schema compatibility
 

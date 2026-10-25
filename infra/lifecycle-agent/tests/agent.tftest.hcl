@@ -68,6 +68,43 @@ run "prepare_without_starting_agent" {
   }
 }
 
+run "state_volume_uses_zone_redundant_storage" {
+  command = plan
+
+  assert {
+    condition = (
+      length(kubernetes_storage_class_v1.state) == 1 &&
+      kubernetes_storage_class_v1.state[0].parameters.skuName == "StandardSSD_ZRS" &&
+      kubernetes_storage_class_v1.state[0].volume_binding_mode == "WaitForFirstConsumer" &&
+      kubernetes_persistent_volume_claim_v1.state.spec[0].storage_class_name == "fdai-lifecycle-agent-state"
+    )
+    error_message = "The Agent state volume must use a zone-redundant disk class by default."
+  }
+}
+
+run "existing_storage_class_is_not_replaced" {
+  command = plan
+  variables {
+    storage_class_name = "managed-csi-premium"
+  }
+
+  assert {
+    condition = (
+      length(kubernetes_storage_class_v1.state) == 0 &&
+      kubernetes_persistent_volume_claim_v1.state.spec[0].storage_class_name == "managed-csi-premium"
+    )
+    error_message = "An explicit StorageClass must be used as is."
+  }
+}
+
+run "locally_redundant_disk_sku_is_rejected" {
+  command = plan
+  variables {
+    storage_sku = "Standard_LRS"
+  }
+  expect_failures = [var.storage_sku]
+}
+
 run "enable_single_writer_agent" {
   command = plan
   variables {

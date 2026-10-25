@@ -56,8 +56,14 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
 - `enable_agent=false` prepares identity, RBAC, state, and inputs without starting a poller.
   Switch it to `true` only after enrollment, application binding, native ownership acceptance,
   reported empty state, Entity management, signed input publication, and Plan issuance.
-- The PVC uses `WaitForFirstConsumer` storage and Terraform never waits for binding during the
-  disabled stage. Verify `Bound` independently after the Agent Pod is scheduled.
+- The PVC uses a zone-redundant (`StandardSSD_ZRS` by default) StorageClass that this root creates
+  with `WaitForFirstConsumer`, so a Pod rescheduled to another zone can attach the volume. A regional
+  `Standard_LRS` disk cannot attach to a zonal node. Set `storage_class_name` to use an existing
+  class instead. A StorageClass is immutable on a bound PVC: to move an installation that already
+  has the previous `managed-csi` volume, scale the Agent to zero, delete its empty PVC outside
+  Terraform so the next reviewed plan creates the replacement, then apply. Never delete a PVC that
+  holds enrolled state.
+- Terraform never waits for binding during the disabled stage. Verify `Bound` independently after the Agent Pod is scheduled.
 
 ## Apply
 
