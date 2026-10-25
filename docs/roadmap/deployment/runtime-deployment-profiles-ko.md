@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: d0b5e33263e56098e7197f33289276eaf1fab282
-translation_revised: 2026-10-24
+translation_source_sha: 03b0b4c8152c8d1e39fd62737fde8d18e1efa74c
+translation_revised: 2026-10-25
 ---
 # 런타임 배포 프로파일
 
@@ -20,6 +20,9 @@ translation_revised: 2026-10-24
 > [비공개 실행 묶음 확장](lifecycle-runtime-bundles-ko.md)을 지원하며, 여기에는 범위가 제한된
 > HorizontalPodAutoscaler가 포함됩니다. Agent 역할에는 이를 위한 `autoscaling` 동사만 추가합니다.
 > 기반 시설·신원 생성이나 FDAI 전체 설치 완료를 제공하지는 않습니다.
+> 내부 standalone host 체크포인트는 완료된 객체별 인수 증적이 있을 때만 Hub 워크로드 소유권을
+> 기록할 수 있습니다. 정확한 removed/import 블록 생성과 계획 검증은 Hub 인계 안에만 있으며,
+> 런타임 프로파일을 선택하거나 소스·오프라인 동작을 바꾸지 않습니다.
 > 네임스페이스 권한, 동일 스키마 사전 준비와 운영 검증은 별도로 유지합니다.
 
 담당 체계 거버넌스는 런타임 프로필과 무관합니다. `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED=true`이고 GitHub 자격 증명이 없으면 AKS와 Container Apps 모두 Console 관리형 후보 게시기와 병합 효과 워커를 조립하며, Terraform은 웹후크 시크릿, GitHub 시크릿 참조, Git 호스트 바인딩을 만들지 않습니다. GitOps 대상을 선택하면 이 항목이 추가됩니다. 어느 선택도 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다. Console 모드에서는 Owner가 Operator API와 Core 거버넌스 워커를 통해 후보를 활성화하며, 두 프로필 모두 추가 런타임 바인딩이 필요하지 않습니다. 이 모드에서 ChatOps는 선택 사항입니다. 수집 게이트웨이는 ChatOps 참조가 있을 때만 웹후크를 바인딩하며, GitOps 대상을 선택하면 계속 필요합니다. 소스 AKS 설치에서는 명시적 선택을 따릅니다. Console, 엔터프라이즈 ID 바인딩, 문서 인제스트를 모두 선택하면 AKS 호스트 값이 Core에 `FDAI_STEWARDSHIP_GOVERNANCE_ENABLED`, `FDAI_MAINTAINERS`, 담당자 바인딩을 설정합니다.
