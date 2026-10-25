@@ -253,6 +253,49 @@ run "custom_domain_propagates_to_operator_auth_origin" {
   }
 }
 
+run "default_hostname_redirect_is_opt_in" {
+  command = plan
+  variables {
+    custom_domain = {
+      hostname                  = "lifecycle.example.com"
+      redirect_default_hostname = true
+    }
+    operator_auth = {
+      profile        = "remote-development"
+      tenant_id      = "00000000-0000-0000-0000-000000000001"
+      audience       = "example-api"
+      spa_client_id  = "example-browser"
+      operator_scope = "Hub.Access"
+      operator_ids   = ["example-operator"]
+    }
+  }
+  assert {
+    condition     = contains(keys(output.deployment.runtime_config.auth), "redirect_hosts")
+    error_message = "A selected redirect must send the default hostname to the custom origin."
+  }
+}
+
+run "default_hostname_redirect_is_absent_unless_selected" {
+  command = plan
+  variables {
+    custom_domain = {
+      hostname = "lifecycle.example.com"
+    }
+    operator_auth = {
+      profile        = "remote-development"
+      tenant_id      = "00000000-0000-0000-0000-000000000001"
+      audience       = "example-api"
+      spa_client_id  = "example-browser"
+      operator_scope = "Hub.Access"
+      operator_ids   = ["example-operator"]
+    }
+  }
+  assert {
+    condition     = !contains(keys(output.deployment.runtime_config.auth), "redirect_hosts")
+    error_message = "A Hub image that predates redirect_hosts must not receive the key."
+  }
+}
+
 run "catalog_defaults_preserve_older_runtime_config" {
   command = plan
   variables {

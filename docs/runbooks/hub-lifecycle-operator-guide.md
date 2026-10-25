@@ -421,7 +421,11 @@ Hub does not respond":
    also declares the hostname and DNS record rewrites it on its next apply. Remove the other stack's
    resources from its state with `terraform state rm`, never by deleting the record, then set its
    `custom_domain` to null.
-5. **Dependencies.** Confirm the Hub's database is running. A stopped PostgreSQL server keeps the
+5. **Default hostname.** A Hub accepts only its configured origin host, so the default Container App
+   hostname answers `400 Invalid host header` after the move. Set
+   `custom_domain.redirect_default_hostname = true` on a Hub image that reads `redirect_hosts` to send
+   GET and HEAD there to the custom hostname with a `308`.
+6. **Dependencies.** Confirm the Hub's database is running. A stopped PostgreSQL server keeps the
    app out of readiness even when DNS and TLS are correct.
 
 A hostname that was bound outside Terraform is brought under management with

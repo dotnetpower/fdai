@@ -6,6 +6,7 @@ from base64 import b64encode
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Barrier, Event
+from urllib.parse import urlsplit
 
 import jwt
 import pytest
@@ -1421,6 +1422,78 @@ def test_direct_jwt_not_aca_headers_and_exact_operator(protected):
                 "/v1/catalog", headers={**token(), "Host": "untrusted.example.com"}
             ).status_code
             == 400
+        )
+
+
+def _redirecting_app(auth, *hosts):
+    async def ok(request):
+        return JSONResponse({"actor": "reached"})
+
+    return secure_app(
+        Starlette(
+            routes=[Route("/healthz", ok), Route("/v1/catalog", ok, methods=["GET", "POST"])]
+        ),
+        auth.model_copy(update={"redirect_hosts": hosts}),
+        vendor=True,
+    )
+
+
+def test_former_host_redirects_reads_to_the_fixed_origin(auth):
+    former = "old-hub.example.com"
+    with TestClient(
+        _redirecting_app(auth, former), base_url=f"https://{former}", follow_redirects=False
+    ) as client:
+        response = client.get("/healthz")
+        assert response.status_code == 308
+        assert response.headers["location"] == "https://hub.example.com/healthz"
+        assert response.headers["cache-control"] == "no-store"
+        assert client.head("/healthz").status_code == 308
+        assert (
+            client.get("/v1/catalog?x=1&y=%2F").headers["location"]
+            == "https://hub.example.com/v1/catalog?x=1&y=%2F"
+        )
+        # The destination host is never taken from the request path.
+        hostile = client.get("//evil.example.com/x").headers["location"]
+        assert urlsplit(hostile).hostname == "hub.example.com"
+
+
+def test_former_host_does_not_serve_writes_or_other_hosts(auth):
+    former = "old-hub.example.com"
+    app = _redirecting_app(auth, former)
+    with TestClient(app, base_url=f"https://{former}", follow_redirects=False) as client:
+        assert client.post("/v1/catalog").status_code in {400, 401}
+        assert client.delete("/v1/catalog").status_code in {400, 401, 405}
+    with TestClient(
+        app, base_url="https://untrusted.example.com", follow_redirects=False
+    ) as client:
+        assert client.get("/healthz").status_code == 400
+    with TestClient(app, base_url="https://hub.example.com", follow_redirects=False) as client:
+        assert client.get("/healthz").status_code == 200
+
+
+def test_without_redirect_hosts_a_former_host_is_refused(auth):
+    with TestClient(
+        _redirecting_app(auth), base_url="https://old-hub.example.com", follow_redirects=False
+    ) as client:
+        assert client.get("/healthz").status_code in {400, 401}
+
+
+@pytest.mark.parametrize(
+    "hosts",
+    [
+        ("hub.example.com",),
+        ("OLD.example.com",),
+        ("old-hub.example.com", "old-hub.example.com"),
+        ("old-hub.example.com:8443",),
+        ("*.example.com",),
+        ("localhost",),
+        tuple(f"old{n}.example.com" for n in range(5)),
+    ],
+)
+def test_redirect_hosts_must_be_distinct_dns_names_other_than_the_origin(auth, hosts):
+    with pytest.raises(ValueError):
+        auth.model_copy(update={"redirect_hosts": hosts}).model_validate(
+            {**auth.model_dump(), "redirect_hosts": hosts}
         )
 
 

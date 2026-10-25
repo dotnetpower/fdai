@@ -89,6 +89,9 @@ variable "custom_domain" {
     hostname                 = string
     certificate_binding_type = optional(string)
     certificate_id           = optional(string)
+    # Redirect GET and HEAD from the default Container App hostname to the custom hostname.
+    # Needs a Hub image that reads `redirect_hosts`; leave unset for older images.
+    redirect_default_hostname = optional(bool, false)
     dns_zone = optional(object({
       name                = string
       resource_group_name = string

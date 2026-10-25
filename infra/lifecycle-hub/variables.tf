@@ -33,9 +33,10 @@ variable "app_image" {
 variable "ingress_cidrs" { type = set(string) }
 variable "custom_domain" {
   type = object({
-    hostname                 = string
-    certificate_binding_type = optional(string)
-    certificate_id           = optional(string)
+    hostname                  = string
+    certificate_binding_type  = optional(string)
+    certificate_id            = optional(string)
+    redirect_default_hostname = optional(bool, false)
     dns_zone = optional(object({
       name                = string
       resource_group_name = string

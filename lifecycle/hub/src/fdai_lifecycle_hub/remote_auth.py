@@ -8,7 +8,7 @@ import re
 import time
 from threading import Condition
 from typing import Any, Literal
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 import httpx
 import jwt
@@ -22,6 +22,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 # The signed export and the signed roles that vouch for it share one read policy.
@@ -42,6 +43,12 @@ class AgentPrincipal(BaseModel):
     client_id: str = Field(min_length=1)
 
 
+MAX_REDIRECT_HOSTS = 4
+_HOSTNAME = re.compile(
+    r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$"
+)
+
+
 class RemoteAuth(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
@@ -58,6 +65,8 @@ class RemoteAuth(BaseModel):
     # Public Release Hub export and metadata-only request intake; vendor management stays private.
     public_catalog_export: bool = False
     agent_principals: tuple[AgentPrincipal, ...] = ()
+    # Former hostnames whose GET and HEAD requests are redirected to `origin`. They never serve.
+    redirect_hosts: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def validate_boundary(self) -> RemoteAuth:
@@ -75,6 +84,15 @@ class RemoteAuth(BaseModel):
             raise ValueError("Remote origin must be an exact HTTPS origin without a path.")
         if bool(self.service_object_id) != bool(self.service_client_id):
             raise ValueError("Service object and client identities must be supplied together.")
+        if (
+            len(self.redirect_hosts) > MAX_REDIRECT_HOSTS
+            or len(set(self.redirect_hosts)) != len(self.redirect_hosts)
+            or any(
+                _HOSTNAME.fullmatch(host) is None or host == parsed.hostname
+                for host in self.redirect_hosts
+            )
+        ):
+            raise ValueError("Redirect hosts must be distinct DNS names other than the origin.")
         for field in ("installation_id", "object_id", "client_id"):
             values = [getattr(principal, field) for principal in self.agent_principals]
             if len(values) != len(set(values)):
@@ -240,6 +258,38 @@ def _reject_constant(value: str) -> object:
     raise ValueError("non-finite number")
 
 
+class _RedirectFormerHosts:
+    """Send GET and HEAD for a former hostname to the configured origin and nothing else.
+
+    The target is the fixed origin plus the request's own path, so no request value chooses the
+    destination host. Every other method and path keeps the ordinary host check and is refused.
+    """
+
+    def __init__(self, app: ASGIApp, *, hosts: frozenset[str], origin: str) -> None:
+        self._app = app
+        self._hosts = hosts
+        self._origin = origin
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["method"] in ("GET", "HEAD"):
+            host = ""
+            for name, value in scope["headers"]:
+                if name == b"host":
+                    host = value.decode("latin-1").rsplit(":", 1)[0].lower()
+                    break
+            if host in self._hosts:
+                query = scope.get("query_string", b"").decode("latin-1")
+                location = (
+                    self._origin + quote(scope["path"], safe="/") + ("?" + query if query else "")
+                )
+                await Response(
+                    status_code=308,
+                    headers={"Location": location, "Cache-Control": "no-store"},
+                )(scope, receive, send)
+                return
+        await self._app(scope, receive, send)
+
+
 def secure_app(
     app: Starlette, config: RemoteAuth | None, *, vendor: bool, origin: str | None = None
 ) -> Starlette:
@@ -394,6 +444,10 @@ def secure_app(
         return response
 
     app.add_middleware(BaseHTTPMiddleware, dispatch=boundary)
+    if config.redirect_hosts:
+        app.add_middleware(
+            _RedirectFormerHosts, hosts=frozenset(config.redirect_hosts), origin=config.origin
+        )
     return app
 
 

@@ -1,7 +1,7 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: 646ded385f487ea7d6792543b84b594020d14e19
+translation_source_sha: cefc26e4eae2737b98135d6b018543188ed61692
 translation_revised: 2026-10-26
 ---
 # Hub 수명 주기 운영자 가이드
@@ -414,7 +414,11 @@ Agent 로컬 정책과 패키지의 `product`도 이 값과 독립적으로 일�
 4. **소유자 하나.** `dns_zone`은 호스트네임을 서비스하는 스택에만 설정합니다. 같은 호스트네임과 DNS
    레코드를 선언한 다른 스택은 다음 apply에서 레코드를 덮어씁니다. 다른 스택의 리소스는 레코드를
    삭제하지 말고 `terraform state rm`으로 상태에서 제거한 뒤 `custom_domain`을 null로 설정합니다.
-5. **의존 자원.** Hub의 데이터베이스가 실행 중인지 확인합니다. DNS와 TLS가 맞아도 PostgreSQL 서버가
+5. **기본 호스트네임.** Hub는 설정된 origin 호스트만 받아들이므로 도메인을 옮기면 기본 Container App
+   호스트네임은 `400 Invalid host header`로 응답합니다. `redirect_hosts`를 읽는 Hub 이미지에서
+   `custom_domain.redirect_default_hostname = true`를 설정하면 그 호스트네임의 GET과 HEAD를 사용자 지정
+   호스트네임으로 `308` 리디렉션합니다.
+6. **의존 자원.** Hub의 데이터베이스가 실행 중인지 확인합니다. DNS와 TLS가 맞아도 PostgreSQL 서버가
    중지되어 있으면 앱이 준비 상태가 되지 못합니다.
 
 Terraform 밖에서 바인딩한 호스트네임은 `azurerm_container_app_custom_domain`,

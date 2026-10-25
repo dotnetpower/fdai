@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 17d820ccc3cfc36d6b56b3967450b8f7c5a0bc3b
+translation_source_sha: a292e43590d5b50afd20ed2f8b7bce57dd89126d
 translation_revised: 2026-10-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -46,7 +46,7 @@ FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 
 유지하고, `image`로 새 마이그레이션 후보를 지정합니다. 기존 앱과 마이그레이션 Job은 활성화
 상태로 유지합니다. 수동 마이그레이션 성공과 독립적인 스키마 확인을 마친 뒤, 별도로 검토하고
 봉인한 활성화 계획에서 `app_image=null`을 지정합니다. 이 입력을 생략하면 기존 단일 이미지
-기동 방식이 유지됩니다. 선택적 `resource_group_name`으로 기본 리소스 그룹 이름을 재정의하고 `custom_domain`으로 공개 HTTPS 서브도메인·Azure DNS 레코드·런타임 origin·상태 검사 `Host` 헤더를 일치시킬 수 있습니다. 전체 Job 검증과 실행 전 전체 변경 없음 계획도 유지하며, 상태 소유권, 인증이나 승인 절차를 우회하지 않습니다.
+기동 방식이 유지됩니다. 선택적 `resource_group_name`으로 기본 리소스 그룹 이름을 재정의하고 `custom_domain`으로 공개 HTTPS 서브도메인·Azure DNS 레코드·런타임 origin·상태 검사 `Host` 헤더를 일치시킬 수 있습니다. Hub는 설정된 origin 호스트만 받아들이므로 사용자 지정 도메인을 설정하면 기본 Container App 호스트네임은 `400`으로 응답합니다. `custom_domain.redirect_default_hostname=true`를 설정하면 `redirect_hosts`를 읽는 Hub 이미지가 그 호스트네임의 GET과 HEAD를 고정된 origin으로 `308` 리디렉션하고 나머지는 거부합니다. 이전 이미지에서는 설정하지 마세요. 전체 Job 검증과 실행 전 전체 변경 없음 계획도 유지하며, 상태 소유권, 인증이나 승인 절차를 우회하지 않습니다.
 
 Hub 관리형 AKS 인계에서는 `enable_document_ingestion=true`로 공용 Azure 선행 조건을 만들면서
 `enable_document_ingestion_workloads=false`로 인제스트 API, 워커, 마이그레이션 Container Apps를
