@@ -1158,8 +1158,19 @@ single place that activates a Terraform stage for the AKS workloads root checks 
 application stage, per-service update and historical reconciliation all refuse while it exists. A
 present but unreadable, tampered, symlinked or group-readable marker also refuses, so damage cannot
 hand the objects back to Terraform. Recording is idempotent for the same handoff and never
-overwrites a different one, and release needs a rollback receipt digest. The Hub variant of the
-workloads root does not exist yet, so refusal is the only behavior today.
+overwrites a different one, and release needs a rollback receipt digest.
+
+The repository-side handoff now generates exact `removed` blocks with `destroy = false` and exact
+rollback `import` blocks from one reviewed object inventory. Its plan verifier accepts only the
+expected `forget` actions for release and a zero-change rollback plan; destroy, update, missing and
+unknown addresses fail closed. The Agent adopts one Terraform-owned object at a time only when UID,
+resource version and the sole non-status field manager still match. It records UID, post-adoption
+resource version and render digest after each object so an interruption resumes after the last
+receipt, while drift or an unknown object stops. Only a complete digest-valid adoption receipt can
+drive `record-hub-workload-handoff` and create the ownership marker. These are local executable
+contracts. Before a rollback import can be verified, the Agent records a separate reconciliation
+release receipt bound to the complete adoption receipt. This is not evidence that a live Terraform
+state release, cluster adoption, rollback import or zero-change plan has run.
 
 **Rollback:** First, the agent stops reconciling the adopted objects, releases its reconciliation
 lease, and records the release. Then the infrastructure agent applies an exact plan with `import`

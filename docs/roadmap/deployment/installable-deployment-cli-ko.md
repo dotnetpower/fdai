@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: cc3d9ea50a136bdf3db39958adfb555276a84ce2
+translation_source_sha: bcc337b60856d278c8fd85f5562bb1998f4652e4
 translation_revised: 2026-10-25
 ---
 
@@ -926,6 +926,10 @@ readback은 SSH 사용자의 주변 `PATH`에 의존하지 않습니다.
 표시를 기록하면, standalone host는 AKS 워크로드 루트의 Terraform 단계 활성화를 거부합니다. 그래서
 어떤 CLI 진입점도 Hub 에이전트가 소유한 객체를 계획할 수 없습니다. 손상된 표시도 거부합니다. 다른
 두 경로에는 설치 관문을 추가하지 않습니다.
+내부 `record-hub-workload-handoff` 체크포인트는 완료되고 digest가 유효한 객체별 인수 증적만 받은
+뒤 이 표시를 기록합니다. 별도 비공개 도우미는 정확한 Terraform `removed`/`import` 블록을 생성하고,
+해제 계획이 `forget` 작업만 포함하며 되돌리기 계획에 변경이 없는지 검증합니다. 계획을 적용하거나
+상태를 변경하지는 않습니다.
 
 ## 결과 계약
 

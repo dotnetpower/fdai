@@ -382,8 +382,8 @@ def main(argv: list[str] | None = None) -> int:
     update_context.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
     update_context.set_defaults(handler=_service_update_context, read_only=True)
 
-    binding = subcommands.add_parser("deployment-binding")
-    binding.set_defaults(handler=_deployment_binding)
+    subcommands.add_parser("deployment-binding").set_defaults(handler=_deployment_binding)
+    hub_ownership.add_handoff_parser(subcommands)
 
     migrate = subcommands.add_parser("migrate")
     migrate.set_defaults(handler=_migrate)

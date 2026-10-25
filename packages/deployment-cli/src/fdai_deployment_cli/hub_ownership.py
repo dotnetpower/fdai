@@ -12,18 +12,33 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_host_state import private_json, replace_private_json
 
 MARKER_NAME = "hub-ownership.json"
 MARKER_SCHEMA = "fdai.hub-ownership-marker.v1"
+ADOPTION_SCHEMA = "fdai.runtime-adoption-receipt.v1"
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}")
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 
 
 def marker_path(work_dir: Path) -> Path:
     return work_dir / MARKER_NAME
+
+
+def add_handoff_parser(subcommands: Any) -> None:
+    parser = subcommands.add_parser("record-hub-workload-handoff")
+    parser.add_argument("--adoption-receipt", type=Path, required=True)
+    parser.set_defaults(handler=_record_handoff_command)
+
+
+def _record_handoff_command(args: Any, work_dir: Path) -> dict[str, object]:
+    return record_hub_ownership_from_adoption(
+        work_dir,
+        adoption_receipt=args.adoption_receipt,
+    )
 
 
 def record_hub_ownership(
@@ -58,6 +73,44 @@ def record_hub_ownership(
     record = body | {"record_digest": "sha256:" + canonical_digest(body)}
     replace_private_json(path, record)
     return record
+
+
+def record_hub_ownership_from_adoption(
+    work_dir: Path,
+    *,
+    adoption_receipt: Path,
+) -> dict[str, object]:
+    """Record the marker only from one complete, digest-valid per-object adoption receipt."""
+
+    receipt = private_json(adoption_receipt.absolute(), "runtime adoption receipt")
+    digest = receipt.pop("receipt_digest", None)
+    if (
+        receipt.get("schema_version") != ADOPTION_SCHEMA
+        or receipt.get("complete") is not True
+        or not isinstance(receipt.get("objects"), list)
+        or not receipt["objects"]
+        or digest != "sha256:" + canonical_digest(receipt)
+        or _ID.fullmatch(str(receipt.get("installation_id", ""))) is None
+        or _ID.fullmatch(str(receipt.get("release_id", ""))) is None
+    ):
+        raise ValueError("runtime adoption receipt is invalid")
+    required = {"kind", "name", "uid", "resource_version", "render_digest"}
+    if any(
+        not isinstance(item, dict)
+        or set(item) != required
+        or _ID.fullmatch(str(item["kind"])) is None
+        or _ID.fullmatch(str(item["name"])) is None
+        or _ID.fullmatch(str(item["uid"])) is None
+        or _ID.fullmatch(str(item["resource_version"])) is None
+        or _DIGEST.fullmatch(str(item["render_digest"])) is None
+        for item in receipt["objects"]
+    ):
+        raise ValueError("runtime adoption receipt is invalid")
+    return record_hub_ownership(
+        work_dir,
+        installation_id=str(receipt["installation_id"]),
+        handoff_receipt_digest=str(digest),
+    )
 
 
 def release_hub_ownership(work_dir: Path, *, rollback_receipt_digest: str) -> None:
