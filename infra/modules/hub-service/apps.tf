@@ -59,6 +59,7 @@ locals {
         auth = merge(
           { for key, value in var.operator_auth : key => value if !contains(["agent_principals", "public_catalog_export"], key) },
           { origin = local.origins[kind] },
+          try(var.custom_domain.redirect_default_hostname, false) ? { redirect_hosts = [local.default_hostnames[kind]] } : {},
           length(var.operator_auth.agent_principals) == 0 ? {} : { agent_principals = var.operator_auth.agent_principals },
           var.operator_auth.public_catalog_export ? { public_catalog_export = true } : {},
         )
