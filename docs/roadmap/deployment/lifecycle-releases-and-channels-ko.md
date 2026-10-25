@@ -1,8 +1,8 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: 62623acd8d492af922b8c40d5f3c696e36e1af22
-translation_revised: 2026-10-25
+translation_source_sha: dee781a51269df2189b4a0d2724c69e3662b2da6
+translation_revised: 2026-10-26
 ---
 # Lifecycle Release와 채널
 
@@ -425,8 +425,10 @@ SHA-256이므로 id가 다른 키를 가리킬 수 없습니다. root는 공개 
 선택이며 이 설계가 강제하지 않습니다.
 
 **아직 구현하지 않은 것.** 보관 영수증을 남기는 프로덕션 root 설정 의식은 운영자 절차로 남습니다.
-설치본의 승격 레지스트리에 `demote_operator_overrides_to_shadow`를 연결하는 일, 개발 스택에서
-root를 설치하는 전용 작업 Job, 데이터베이스 검사에서 선택 테이블의 지문을 계산하는 일도 남아 있습니다.
+설치본의 승격 레지스트리에 `demote_operator_overrides_to_shadow`를 연결하는 일은 Agent가 Core에
+인증된 이벤트를 보내는 경로가 먼저 필요해 남아 있습니다. 독립 Release Hub 루트는 이미 작업 Job으로
+root를 설치하므로 기존 두 Hub 검증 구성은 그대로 둡니다. 데이터베이스 검사는 선택 역할 테이블이
+존재하면 그 지문을 계산합니다.
 
 ## 스키마 호환성
 

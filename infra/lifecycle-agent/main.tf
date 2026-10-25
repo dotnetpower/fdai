@@ -170,6 +170,21 @@ resource "kubernetes_role_binding_v1" "workloads" {
   }
 }
 
+# A regional Standard_LRS disk cannot attach to a zonal node, so the created class uses ZRS.
+resource "kubernetes_storage_class_v1" "state" {
+  count = var.storage_class_name == null ? 1 : 0
+  metadata {
+    name = "fdai-lifecycle-agent-state"
+  }
+  storage_provisioner    = "disk.csi.azure.com"
+  reclaim_policy         = "Retain"
+  volume_binding_mode    = "WaitForFirstConsumer"
+  allow_volume_expansion = true
+  parameters = {
+    skuName = var.storage_sku
+  }
+}
+
 resource "kubernetes_persistent_volume_claim_v1" "state" {
   wait_until_bound = false
   metadata {
@@ -178,7 +193,7 @@ resource "kubernetes_persistent_volume_claim_v1" "state" {
   }
   spec {
     access_modes       = ["ReadWriteOnce"]
-    storage_class_name = var.storage_class_name
+    storage_class_name = coalesce(var.storage_class_name, one(kubernetes_storage_class_v1.state[*].metadata[0].name))
     resources {
       requests = {
         storage = "1Gi"

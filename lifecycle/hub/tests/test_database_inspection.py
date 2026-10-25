@@ -174,6 +174,29 @@ def test_cli_rejects_query_routing_before_engine_creation(
     assert "example.com" not in printed.err
 
 
+@pytest.mark.parametrize(
+    ("kind", "optional"),
+    [
+        ("release", ["catalog_role_root", "catalog_role_state"]),
+        ("target", ["catalog_integrity_state"]),
+    ],
+)
+def test_signed_role_tables_are_fingerprinted_only_when_present(database, kind, optional):
+    engine, _, _ = database
+    initialize(engine, kind)
+    assert not set(optional) & set(check.observe(engine, kind, "source").tables)
+    if kind == "release":
+        from fdai_release_hub.role_tables import role_metadata as metadata
+    else:
+        from fdai_lifecycle_hub.catalog_integrity_state import metadata
+    metadata.create_all(engine)
+    baseline = check.observe(engine, kind, "source")
+    assert set(optional) <= set(baseline.tables)
+    with engine.begin() as connection:
+        connection.execute(text(f"DROP TABLE {optional[0]}"))
+    assert optional[0] not in check.observe(engine, kind, "source").tables
+
+
 @pytest.mark.parametrize("kind", ["release", "target"])
 def test_empty_product_and_same_state_compare_in_readonly_transaction(database, kind):
     engine, _, schema = database
