@@ -20,6 +20,7 @@ from fdai_deployment_cli.deployment_progress import begin_stage, terminal_output
 from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
 )
+from fdai_deployment_cli.hub_image_trust import HubImageSelection
 from fdai_deployment_cli.notification_recipients_input import (
     NotificationRecipientsDeploymentInput,
 )
@@ -53,6 +54,7 @@ def complete_application(
     source_snapshot_digest: str | None = None,
     source_root: Path | None = None,
     foundation_recovery_directory: Path | None = None,
+    hub_selection: HubImageSelection | None = None,
 ) -> dict[str, object]:
     """Configure identity and complete one exact standalone application deployment."""
 
@@ -110,6 +112,7 @@ def complete_application(
         source_snapshot_digest=source_snapshot_digest,
         source_root=source_root,
         foundation_recovery_directory=foundation_recovery_directory,
+        **({"hub_selection": hub_selection} if hub_selection is not None else {}),
     )
     deadline.remaining()
     result: dict[str, object] = {
@@ -143,4 +146,6 @@ def complete_application(
         result["control_package_version"] = control_package.version
     if foundation_adoption_receipt_digest is not None:
         result["foundation_adoption_receipt_digest"] = foundation_adoption_receipt_digest
+    if hub_selection is not None:
+        result.update(hub_selection.metadata())
     return result

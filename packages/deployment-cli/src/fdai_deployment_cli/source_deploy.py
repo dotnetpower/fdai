@@ -22,6 +22,7 @@ def prepare_source_deployment(
     runtime_profile: RuntimeDeploymentProfile,
     region: str,
     monthly_cost_ceiling: int,
+    hub_selection_digest: str | None = None,
 ) -> dict[str, object]:
     """Seal and reverify one connected dev source run without cloud access or execution.
 
@@ -39,6 +40,14 @@ def prepare_source_deployment(
         raise ValueError("source deployment cost review ceiling must be positive")
     source = inspect_source(source_root)
     work_dir = work_dir.absolute()
+    if (work_dir / "hub-images").exists() and hub_selection_digest is None:
+        raise ValueError("source builds cannot reuse a Hub-image work directory")
+    if hub_selection_digest is not None:
+        from fdai_deployment_cli.hub_image_trust import load_selection
+
+        selection = load_selection(work_dir / "hub-images/selection.json", hub_selection_digest)
+        if selection.source_commit != source.commit:
+            raise ValueError("Hub images and source support revisions differ")
     if work_dir.resolve().is_relative_to(source.root):
         raise ValueError("source deployment work directory must be outside the selected checkout")
     work_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -83,6 +92,9 @@ def prepare_source_deployment(
             "region": region,
             "monthly_cost_ceiling": monthly_cost_ceiling,
         }
+        if hub_selection_digest is not None:
+            intent["hub_selection_digest"] = hub_selection_digest
+            intent["artifact_source"] = "hub-signed-images"
         intent_path = work_dir / "source-intent.json"
         if intent_path.exists():
             prior = load_json_object(
@@ -97,7 +109,10 @@ def prepare_source_deployment(
                     f"Repeat the original values for: {', '.join(changed)}"
                 )
         else:
-            if {path.name for path in work_dir.iterdir()} != {"source.lock"}:
+            expected_entries = {"source.lock"}
+            if hub_selection_digest is not None:
+                expected_entries.add("hub-images")
+            if {path.name for path in work_dir.iterdir()} != expected_entries:
                 raise ValueError("source deployment cannot adopt existing or partial work state")
             write_private_bytes(intent_path, canonical_bytes(intent))
         receipt_path = work_dir / "source-preparation.json"
@@ -140,6 +155,10 @@ def prepare_source_deployment(
             "deployment_ready": False,
             "subscription_ready": False,
         }
+        if hub_selection_digest is not None:
+            result["hub_selection_digest"] = hub_selection_digest
+            result["image_artifact_source"] = "hub-signed-images"
+            result["image_signature_verified"] = True
         result["receipt_digest"] = canonical_digest(result)
         source.reverify()
         if not receipt_path.exists():

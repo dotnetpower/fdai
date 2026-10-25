@@ -170,7 +170,7 @@ def test_reader_cutover_precedes_native_floor_upgrade(monkeypatch, tmp_path, eng
 
 @pytest.mark.parametrize(
     ("kind", "revision"),
-    [("target", 4), ("target", 7), ("release", 2), ("release", 5), ("release", 6)],
+    [("target", 4), ("target", 7), ("release", 3), ("release", 5), ("release", 6)],
 )
 def test_serving_compatibility_does_not_accept_other_revisions(monkeypatch, engine, kind, revision):
     monkeypatch.setenv(

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
 
+from fdai_deployment_cli import source_change_parser
 from fdai_deployment_cli.__about__ import __version__
 from fdai_deployment_cli.aks_service_update import SERVICES as AKS_SERVICES
 from fdai_deployment_cli.cli_help import (
@@ -23,7 +24,6 @@ from fdai_deployment_cli.foundation_plan import register_foundation_plan_command
 from fdai_deployment_cli.lifecycle_configuration_cli import register_configuration_commands
 from fdai_deployment_cli.runtime_profile import DATABASE_SKUS
 from fdai_deployment_cli.state_handoff import register_state_handoff_command
-from fdai_deployment_cli import source_change_parser
 
 CommandHandler = Callable[[argparse.Namespace], int]
 
@@ -120,6 +120,22 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         metavar="PATH",
         help="Select a clean source checkout for connected dev AKS deployment",
     )
+    kit_source.add_argument(
+        "--hub",
+        type=Path,
+        metavar="PATH",
+        help="Select a clean checkout and import signed Release Hub images; never build services",
+    )
+    source_options.add_argument("--hub-url", help="Public HTTPS Release Hub origin")
+    source_options.add_argument(
+        "--hub-public-key",
+        type=Path,
+        help="Independently provisioned Ed25519 public PEM (or FDAI_HUB_PUBLIC_KEY path)",
+    )
+    source_options.add_argument(
+        "--hub-release", help="Exact signed Release in the selected channel"
+    )
+    source_options.add_argument("--hub-channel", help="Release channel (default: RELEASE)")
     source_action = azure.add_mutually_exclusive_group()
     source_action.add_argument(
         "--prepare-only",

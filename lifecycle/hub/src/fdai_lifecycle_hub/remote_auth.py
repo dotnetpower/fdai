@@ -53,8 +53,7 @@ class RemoteAuth(BaseModel):
     service_object_id: str | None = None
     service_client_id: str | None = None
     service_role: str = "Catalog.Read"
-    # Serves the signed, content-free catalog export without a bearer token; integrity comes
-    # from the export signature, and the Release Hub vendor boundary is the only valid holder.
+    # Public Release Hub export and metadata-only request intake; vendor management stays private.
     public_catalog_export: bool = False
     agent_principals: tuple[AgentPrincipal, ...] = ()
 
@@ -320,7 +319,18 @@ def secure_app(
             and path == "/v1/catalog/export"
             and request.method in {"GET", "HEAD"}
         )
-        if (path.startswith("/v1/") or path == "/v1") and not public_export:
+        public_intake = (
+            vendor
+            and config.public_catalog_export
+            and path == "/v1/deployment-requests"
+            and request.method == "POST"
+        )
+        if public_intake and (
+            request.headers.get("origin") not in (None, config.origin)
+            or request.headers.get("sec-fetch-site") == "cross-site"
+        ):
+            return _denied(403, "untrusted_mutation")
+        if (path.startswith("/v1/") or path == "/v1") and not (public_export or public_intake):
             authorization = request.headers.get("authorization", "")
             if not authorization.startswith("Bearer "):
                 return _denied(401, "authentication_required")
