@@ -8,9 +8,10 @@ import hashlib
 import json
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 import httpx
@@ -22,8 +23,13 @@ from sqlalchemy import Column, Engine, Integer, LargeBinary, MetaData, String, T
 from sqlalchemy.engine import Connection, RowMapping
 
 from fdai_lifecycle_hub import local_channels as local_channel_store
+from fdai_lifecycle_hub.adoption_policy import AdoptionConfig
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
-from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES, load_pinned_export
+from fdai_lifecycle_hub.catalog_import import (
+    MAX_EXPORT_BYTES,
+    load_pinned_export,
+    verify_export_signature,
+)
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import PlanOutcome
@@ -60,9 +66,13 @@ trust_events = Table(
 class CatalogSource(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
     url: str
-    token_scope: str = Field(min_length=1)
-    managed_identity_client_id: str = Field(min_length=1)
+    access: Literal["managed-identity", "anonymous"] = "managed-identity"
+    token_scope: str | None = Field(default=None, min_length=1)
+    managed_identity_client_id: str | None = Field(default=None, min_length=1)
     release_public_key: str
+    # Zero disables the periodic check. Otherwise the Hub polls no faster than every 5 minutes.
+    check_interval_seconds: int = Field(default=3600, ge=0, le=86400)
+    adoption: AdoptionConfig = AdoptionConfig()
 
     @model_validator(mode="after")
     def validate_source(self) -> CatalogSource:
@@ -78,8 +88,15 @@ class CatalogSource(BaseModel):
             or url.path != "/v1/catalog/export"
         ):
             raise ValueError("Catalog source must be one approved HTTPS export URL.")
-        if not self.token_scope.endswith("/.default"):
-            raise ValueError("Catalog service scope must name the Release Hub application.")
+        if self.access == "managed-identity":
+            if not self.token_scope or not self.managed_identity_client_id:
+                raise ValueError("Catalog access by Managed Identity needs a scope and client.")
+            if not self.token_scope.endswith("/.default"):
+                raise ValueError("Catalog service scope must name the Release Hub application.")
+        elif self.token_scope is not None or self.managed_identity_client_id is not None:
+            raise ValueError("Anonymous catalog access must not name an identity.")
+        if 0 < self.check_interval_seconds < 300:
+            raise ValueError("Catalog checks run at most every five minutes.")
         self.public_key()
         return self
 
@@ -113,11 +130,21 @@ class PinApproval(BaseModel):
         return self
 
 
-def fetch_export(source: CatalogSource) -> bytes:
+@dataclass(frozen=True, slots=True)
+class FetchedExport:
+    """Export bytes with the detached signature that arrived on the same response."""
+
+    raw: bytes
+    signature: str | None
+    key_id: str | None
+
+
+def _bearer(source: CatalogSource, deadline: float) -> str | None:
+    if source.access == "anonymous":
+        return None
     # Only ManagedIdentityCredential is used: no CLI/developer credential fallback in a remote Hub.
     from azure.identity import ManagedIdentityCredential
 
-    deadline = time.monotonic() + 15
     try:
         with ManagedIdentityCredential(
             client_id=source.managed_identity_client_id,
@@ -130,16 +157,31 @@ def fetch_export(source: CatalogSource) -> bytes:
         raise ValueError("Catalog service identity unavailable; import stopped.") from None
     if time.monotonic() >= deadline:
         raise ValueError("Catalog service identity exceeded the import deadline.")
+    return token.token
+
+
+def _download(
+    source: CatalogSource, *, if_none_match: str | None = None
+) -> tuple[int, bytes, Mapping[str, str]]:
+    deadline = time.monotonic() + 15
+    bearer = _bearer(source, deadline)
+    headers = {"Accept-Encoding": "identity"}
+    if bearer is not None:
+        headers["Authorization"] = f"Bearer {bearer}"
+    if if_none_match is not None:
+        headers["If-None-Match"] = f'"{if_none_match}"'
     raw = bytearray()
     try:
         with httpx.stream(
             "GET",
             source.url,
-            headers={"Authorization": f"Bearer {token.token}", "Accept-Encoding": "identity"},
+            headers=headers,
             timeout=5,
             follow_redirects=False,
             trust_env=False,
         ) as response:
+            if response.status_code == 304 and if_none_match is not None:
+                return 304, b"", {}
             if response.status_code != 200:
                 raise ValueError(
                     "Catalog source did not return a successful export; import stopped."
@@ -150,11 +192,35 @@ def fetch_export(source: CatalogSource) -> bytes:
                 raw.extend(chunk)
                 if len(raw) > MAX_EXPORT_BYTES or time.monotonic() >= deadline:
                     raise ValueError("Catalog export exceeded its size or time bound.")
+            received = {
+                name: response.headers[name]
+                for name in ("x-fdai-export-signature", "x-fdai-export-key-id")
+                if name in response.headers
+            }
     except httpx.HTTPError as error:
         raise ValueError("Catalog transport failed; no trust state was changed.") from error
     if time.monotonic() >= deadline:
         raise ValueError("Catalog download exceeded the import deadline.")
-    return bytes(raw)
+    return 200, bytes(raw), received
+
+
+def fetch_export(source: CatalogSource) -> bytes:
+    return _download(source)[1]
+
+
+def fetch_signed_export(
+    source: CatalogSource, *, accepted_digest: str | None = None
+) -> FetchedExport | None:
+    """One bounded poll. None means the source reports the accepted digest is still current."""
+
+    status, raw, headers = _download(source, if_none_match=accepted_digest)
+    if status == 304:
+        return None
+    return FetchedExport(
+        raw=raw,
+        signature=headers.get("x-fdai-export-signature"),
+        key_id=headers.get("x-fdai-export-key-id"),
+    )
 
 
 class CatalogNotImportedError(ValueError):
@@ -168,8 +234,10 @@ class RemoteCatalog:
         source: CatalogSource,
         *,
         fetch: Callable[[CatalogSource], bytes] = fetch_export,
+        fetch_signed: Callable[..., FetchedExport | None] = fetch_signed_export,
     ) -> None:
         self.engine, self.source, self.fetch = engine, source, fetch
+        self.fetch_signed = fetch_signed
 
     def _locked(self, connection: Connection) -> RowMapping:
         begin_sqlite_write(connection)
@@ -258,6 +326,110 @@ class RemoteCatalog:
                 now,
             )
         return self.status()
+
+    def adopt(
+        self, fetched: FetchedExport, *, actor: str, reason: str, now: datetime
+    ) -> dict[str, Any]:
+        """Replace the accepted catalog with exact bytes the pinned Release key signed.
+
+        The signature, the manifests, the revision floor and the write share one transaction, so
+        a concurrent import, approval or recompute cannot interleave with the replacement.
+        """
+
+        started = time.monotonic()
+        digest = hashlib.sha256(fetched.raw).hexdigest()
+        with self.engine.begin() as connection:
+            require_writable_schema(connection)
+            row = self._locked(connection)
+            if not verify_export_signature(
+                fetched.raw, fetched.signature, self.source.public_key()
+            ):
+                raise ValueError("Catalog export signature does not verify.")
+            if row["previous_digest"] == digest:
+                return {"adopted": False, "revision": row["floor"], "sha256": digest}
+            effective = now + timedelta(seconds=time.monotonic() - started)
+            self._verify(fetched.raw, dict(row) | {"approval_digest": digest}, effective)
+            revision = json.loads(fetched.raw)["revision"]
+            if revision < max(row["floor"], row["approval_revision"]):
+                raise ValueError("Catalog adoption revision moved backwards.")
+            connection.execute(
+                trust_state.update()
+                .where(trust_state.c.id == 1)
+                .values(
+                    approval_revision=revision,
+                    approval_digest=digest,
+                    floor=revision,
+                    previous_digest=digest,
+                    payload=fetched.raw,
+                )
+            )
+            self._audit(connection, "pin.approved", actor, revision, digest, reason, now)
+            self._audit(
+                connection, "catalog.imported", actor, revision, digest, "signed_adoption", now
+            )
+        return {"adopted": True, "revision": revision, "sha256": digest}
+
+    def accepted_baseline(self) -> tuple[ReleaseCatalog | None, str | None]:
+        """The accepted catalog and its expiry, even when it has expired, for diffing only."""
+
+        with self.engine.connect() as connection:
+            row = (
+                connection.execute(select(trust_state).where(trust_state.c.id == 1))
+                .mappings()
+                .one_or_none()
+            )
+        if row is None or row["payload"] is None:
+            return None, None
+        previous = load_pinned_export(
+            row["payload"],
+            expected_sha256=row["previous_digest"],
+            public_key=self.source.public_key(),
+            now=datetime(1970, 1, 1, tzinfo=UTC),
+            minimum_revision=0,
+            previous_sha256=None,
+        )
+        return previous, json.loads(row["payload"])["expires_at"]
+
+    def record_review_needed(
+        self, *, revision: int, digest: str, reason: str, now: datetime
+    ) -> None:
+        """Record one review request per candidate digest, so repeated polls add no rows."""
+
+        with self.engine.begin() as connection:
+            require_writable_schema(connection)
+            latest = connection.execute(
+                select(trust_events.c.digest)
+                .where(trust_events.c.action == "check.review_required")
+                .order_by(trust_events.c.sequence.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            if latest != digest:
+                self._audit(
+                    connection,
+                    "check.review_required",
+                    "policy:catalog-adoption",
+                    revision,
+                    digest,
+                    reason,
+                    now,
+                )
+
+    def recent_events(self, limit: int = 10) -> list[dict[str, Any]]:
+        with self.engine.connect() as connection:
+            rows = connection.execute(
+                select(trust_events).order_by(trust_events.c.sequence.desc()).limit(limit)
+            ).mappings()
+            return [
+                {
+                    "action": row["action"],
+                    "actor": row["actor"],
+                    "revision": row["revision"],
+                    "sha256": row["digest"],
+                    "reason": row["reason"],
+                    "recorded_at": row["recorded_at"],
+                }
+                for row in rows
+            ]
 
     def catalog(self, now: datetime) -> ReleaseCatalog:
         started = time.monotonic()

@@ -20,6 +20,28 @@ from pydantic import BaseModel, ConfigDict, Field
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 
 MAX_EXPORT_BYTES = 8 * 1024 * 1024
+EXPORT_SIGNATURE_DOMAIN = b"fdai.catalog-export.v1\n"
+MAX_EXPORT_SIGNATURE_CHARS = 128
+
+
+def export_signing_message(raw: bytes) -> bytes:
+    """Domain-separate the export signature from manifest signatures made by the same key."""
+
+    return EXPORT_SIGNATURE_DOMAIN + raw
+
+
+def verify_export_signature(
+    raw: bytes, signature: str | None, public_key: Ed25519PublicKey
+) -> bool:
+    """Whether the pinned Release key signed these exact export bytes."""
+
+    if not signature or len(signature) > MAX_EXPORT_SIGNATURE_CHARS:
+        return False
+    try:
+        public_key.verify(b64decode(signature, validate=True), export_signing_message(raw))
+    except (InvalidSignature, ValueError):
+        return False
+    return True
 
 
 class _Artifact(BaseModel):

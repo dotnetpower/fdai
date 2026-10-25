@@ -53,6 +53,9 @@ class RemoteAuth(BaseModel):
     service_object_id: str | None = None
     service_client_id: str | None = None
     service_role: str = "Catalog.Read"
+    # Serves the signed, content-free catalog export without a bearer token; integrity comes
+    # from the export signature, and the Release Hub vendor boundary is the only valid holder.
+    public_catalog_export: bool = False
     agent_principals: tuple[AgentPrincipal, ...] = ()
 
     @model_validator(mode="after")
@@ -287,6 +290,8 @@ def secure_app(
     verifier = EntraVerifier(config)
     if vendor and config.agent_principals:
         raise ValueError("Release Hub does not accept Agent principals.")
+    if config.public_catalog_export and not vendor:
+        raise ValueError("Only Release Hub may serve a public catalog export.")
     app.state.entra_verifier = verifier
 
     async def auth_config(request: Request) -> Response:
@@ -309,7 +314,13 @@ def secure_app(
 
     async def boundary(request: Request, call_next: RequestResponseEndpoint) -> Response:
         path = request.url.path
-        if path.startswith("/v1/") or path == "/v1":
+        public_export = (
+            vendor
+            and config.public_catalog_export
+            and path == "/v1/catalog/export"
+            and request.method in {"GET", "HEAD"}
+        )
+        if (path.startswith("/v1/") or path == "/v1") and not public_export:
             authorization = request.headers.get("authorization", "")
             if not authorization.startswith("Bearer "):
                 return _denied(401, "authentication_required")
