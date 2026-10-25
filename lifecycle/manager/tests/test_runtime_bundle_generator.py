@@ -32,8 +32,8 @@ def _identity(name: str, index: int) -> dict[str, str]:
             "/resourceGroups/rg-fdai-dev-wus3"
             f"/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-{name}"
         ),
-        "client_id": f"client-{name}-{suffix}",
-        "principal_id": f"principal-{name}-{suffix}",
+        "client_id": f"00000000-0000-0000-0000-{suffix}",
+        "principal_id": f"10000000-0000-0000-0000-{suffix}",
     }
 
 
@@ -357,7 +357,7 @@ def test_generator_matches_native_scope_and_terraform_workload_parity() -> None:
         generated.prerequisites.identity_bindings["operator-service"]["additional_identities"][
             "command"
         ]["client_id"]
-        == "client-command-000000000003"
+        == _identity("command", 3)["client_id"]
     )
 
     for job_name, j_spec in scheduled_jobs.items():
