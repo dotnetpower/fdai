@@ -52,6 +52,16 @@ resource "azurerm_role_assignment" "secret_reader" {
     prevent_destroy = true
   }
 }
+resource "azurerm_role_assignment" "operation_request_reader" {
+  for_each             = var.operation_job == null ? toset([]) : local.kinds
+  scope                = "${local.foundation[each.key].vault_id}/secrets/hub-operation-request"
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = local.foundation[each.key].identity_object_id
+  principal_type       = "ServicePrincipal"
+  lifecycle {
+    prevent_destroy = true
+  }
+}
 resource "azurerm_container_app" "hub" {
   for_each                     = var.enable_apps ? local.kinds : toset([])
   name                         = "ca-${var.prefix}-${each.key}"
@@ -162,5 +172,6 @@ output "deployment" {
     identity_name  = azurerm_user_assigned_identity.hub[var.kind].name
     runtime_config = local.configs[var.kind]
     migration_job  = var.enable_migration_jobs ? azurerm_container_app_job.migrate[var.kind].name : null
+    operation_job  = var.operation_job == null ? null : azurerm_container_app_job.operation[var.kind].name
   })
 }

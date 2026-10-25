@@ -5,15 +5,17 @@ import os
 import stat
 import subprocess
 import sys
+from base64 import b64encode
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 
-from fdai_lifecycle_hub import cli, domain
+from fdai_lifecycle_hub import cli, domain, schemas
 from fdai_lifecycle_hub.catalog import load_catalog
 from fdai_lifecycle_hub.cli import DATABASE_URL_ENV, main
 from fdai_lifecycle_hub.domain import Installation
@@ -110,6 +112,31 @@ def _enroll(
         _run(
             capsys, "manage", installation_id, entity.entity_id, str(settings), "--operator", "bob"
         )
+
+
+def test_signed_enrollment_can_be_submitted_without_private_key_handoff(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    enrollment_template: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(DATABASE_URL_ENV, f"sqlite+pysqlite:///{tmp_path / 'hub.db'}")
+    _run(capsys, "migrate")
+    key = Ed25519PrivateKey.generate()
+    request = schemas.sign_enrollment(enrollment_template, key, datetime.now(UTC))
+    signed = schemas.SignedEnrollment.model_validate(
+        {
+            "signed_payload": b64encode(request.signed_payload).decode("ascii"),
+            "proof": b64encode(request.proof).decode("ascii"),
+        }
+    )
+    path = tmp_path / "signed-enrollment.json"
+    path.write_text(signed.model_dump_json(), encoding="utf-8")
+
+    pending = _run(capsys, "submit-enrollment", str(path))
+
+    assert pending["pending"] == request.installation.installation_id
+    assert pending["installation_key_id"] == request.installation_key_id
 
 
 def test_catalog_directory_loads_releases_and_channels(catalog_dir: Path) -> None:

@@ -31,6 +31,7 @@ from fdai_lifecycle_agent.agent import (
 )
 from fdai_lifecycle_agent.configuration_revision import load_full_revision_binding
 from fdai_lifecycle_agent.dry_run import load_current_state
+from fdai_lifecycle_agent.hub_artifacts import CachedHubArtifactStore
 from fdai_lifecycle_agent.hub_client import HttpHubClient, HubProtocolError
 from fdai_lifecycle_agent.inputs import (
     MAX_INPUT_BYTES,
@@ -48,7 +49,7 @@ from fdai_lifecycle_agent.native_cli import (
 from fdai_lifecycle_agent.polling import PollLimits, poll_bounded
 from fdai_lifecycle_agent.reference_cli import register_reference_command, run_reference_command
 from fdai_lifecycle_agent.reference_state import ReferenceStatusSource
-from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
+from fdai_lifecycle_agent.runtime_bundle import INSTALLATION_BINDING_FORMAT, RuntimeBundle
 from fdai_lifecycle_agent.signatures import (
     Ed25519ArtifactVerifier,
     Ed25519HubKeyring,
@@ -77,7 +78,7 @@ _LOCAL_POLICY_KEYS = frozenset(
     }
 )
 _OPTIONAL_LOCAL_POLICY_KEYS = frozenset(
-    {"component_images", "product", "native_scope_digest", "runtime_bundle"}
+    {"component_images", "product", "native_scope_digest", "runtime_bundle", "installation_binding"}
 )
 _MAX_LOCAL_POLICY_BYTES = 64 * 1024
 _EXIT_OK = 0
@@ -130,9 +131,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     poll.add_argument(
         "--inputs-dir",
-        required=True,
         type=Path,
-        help="Directory with releases/ and configurations/ signed documents.",
+        help="Directory source or private cache for signed Release/configuration documents.",
+    )
+    poll.add_argument(
+        "--artifact-source",
+        choices=("directory", "hub"),
+        default="directory",
+        help="Read pre-staged files, or fetch exact current-Plan artifacts from the Hub.",
     )
     poll.add_argument("--current-state", required=True, type=Path, help="Current-state fixture.")
     poll.add_argument(
@@ -316,6 +322,10 @@ def main(
         parser.error("Kubernetes connection options require --apply")
     if (arguments.hub_auth == "workload-identity") != bool(arguments.hub_scope):
         parser.error("--hub-scope is required only with --hub-auth workload-identity")
+    if arguments.artifact_source == "directory" and arguments.inputs_dir is None:
+        parser.error("--inputs-dir is required with --artifact-source directory")
+    if arguments.artifact_source == "hub" and arguments.hub_auth != "workload-identity":
+        parser.error("--artifact-source hub requires --hub-auth workload-identity")
     limits = None
     try:
         if arguments.command == "poll":
@@ -405,10 +415,21 @@ def main(
                 store=WorkloadStore(arguments.state_dir),
                 write_current_state=partial(write_json_atomically, arguments.current_state),
             )
+        artifact_store = (
+            CachedHubArtifactStore(
+                arguments.inputs_dir or arguments.state_dir / "artifact-cache",
+                hub,
+                arguments.installation_id,
+                release_verifier=release_verifier,
+                configuration_verifier=configuration_verifier,
+            )
+            if arguments.artifact_source == "hub"
+            else DirectoryArtifactStore(arguments.inputs_dir)
+        )
         dependencies = AgentDependencies(
             hub=hub,
             state_store=LocalStateStore(arguments.state_dir),
-            artifact_store=DirectoryArtifactStore(arguments.inputs_dir),
+            artifact_store=artifact_store,
             verify_plan_signature=hub_keyring,
             verify_release_signature=release_verifier,
             verify_configuration_signature=configuration_verifier,
@@ -480,6 +501,8 @@ def load_local_policy(path: Path) -> LocalPolicy:
     if document["schema"] != LOCAL_POLICY_SCHEMA:
         raise ValueError("local policy schema is unsupported")
     runtime_bundle = None
+    if "installation_binding" in document and "runtime_bundle" not in document:
+        raise ValueError("an installation binding requires a private runtime bundle")
     if "runtime_bundle" in document:
         try:
             private = read_private_bytes(path, max_bytes=_MAX_LOCAL_POLICY_BYTES)
@@ -493,6 +516,7 @@ def load_local_policy(path: Path) -> LocalPolicy:
             )
         except ValidationError:
             raise ValueError("private local runtime bundle is invalid") from None
+        runtime_bundle = _bind_installation(runtime_bundle, document.get("installation_binding"))
     product = document.get("product")
     if product is not None and not is_product_id(product):
         raise ValueError("local policy product must be an application identifier")
@@ -538,6 +562,25 @@ def load_local_policy(path: Path) -> LocalPolicy:
         native_scope_digest=native_pin,
         runtime_bundle=runtime_bundle,
     )
+
+
+def _bind_installation(bundle: RuntimeBundle, binding: object) -> RuntimeBundle:
+    if binding is None:
+        if bundle.referenced_binding_keys():
+            raise ValueError("the runtime bundle references an installation binding that is absent")
+        return bundle
+    if (
+        not isinstance(binding, dict)
+        or set(binding) != {"format", "values"}
+        or binding["format"] != INSTALLATION_BINDING_FORMAT
+        or not isinstance(binding["values"], dict)
+    ):
+        raise ValueError("installation binding is invalid")
+    try:
+        return bundle.with_installation_binding(binding["values"])
+    except ValueError as error:
+        # The messages are fixed text; a value is never echoed.
+        raise ValueError(str(error)) from None
 
 
 def _strings(value: object, label: str) -> frozenset[str]:

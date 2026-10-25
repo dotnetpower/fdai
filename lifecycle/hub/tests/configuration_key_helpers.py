@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import secrets
-import time
 from base64 import b64encode
 from datetime import UTC, datetime, timedelta
 
@@ -11,6 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from jwt.algorithms import RSAAlgorithm
+from lifecycle.hub.tests.remote_auth_helpers import seed_entra_key_cache
 
 from fdai_lifecycle_hub.configuration_keys import ConfigurationKeyRequest, SignedKeyRequest
 from fdai_lifecycle_hub.remote_auth import RemoteAuth
@@ -72,8 +72,10 @@ def tokens(app, auth):
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     public["kid"] = "test-only"
-    app.state.entra_verifier._keys = {"test-only": jwt.PyJWK.from_dict(public)}
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        {"test-only": jwt.PyJWK.from_dict(public)},
+    )
 
     def token(actor="requester", **changes):
         now = datetime.now(UTC)

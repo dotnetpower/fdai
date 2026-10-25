@@ -100,7 +100,9 @@ class NativeCluster:
         try:
             self._approval.require_current(self._clock())
         except ValueError as error:
-            raise MutationNotSubmittedError("native_scope_approval_expired") from error
+            raise MutationNotSubmittedError(
+                "native_scope_approval_expired", retryable=True
+            ) from error
 
     def _guard(self, *, mutation: bool = False) -> NativeState:
         state = self._load()
@@ -165,6 +167,12 @@ class NativeCluster:
                 .get("labels", {})
             )
             isolated = all(template_labels.get(label) == value for label, value in selector.items())
+        elif kind == "HorizontalPodAutoscaler":
+            isolated = spec.get("scaleTargetRef") == {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": name,
+            }
         else:
             isolated = spec.get("selector") == selector
         if not isolated:
@@ -209,7 +217,7 @@ class NativeCluster:
             owned_manifest["spec"]["jobTemplate"]["spec"]["template"]["metadata"]["labels"].update(
                 selector
             )
-        else:
+        elif kind == "Service":
             owned_manifest["spec"]["selector"] = selector
         if owned_uid is not None:
             if live is None:

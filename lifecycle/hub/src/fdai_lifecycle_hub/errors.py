@@ -25,6 +25,14 @@ class ReportConflictError(HubStoreError):
     pass
 
 
+class ReportAttemptGapError(HubStoreError):
+    """A report skipped the next attempt required by the retained sequence."""
+
+
+class ReportProgressionError(HubStoreError):
+    """A report violates ordering or outcome progression without colliding with an attempt."""
+
+
 class PlanDigestMismatchError(HubStoreError):
     pass
 

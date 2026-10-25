@@ -83,6 +83,17 @@ def test_report_is_accepted_once_and_conflicts_are_rejected(
     assert (conflict.status_code, conflict.json()) == (409, {"error": "report_conflict"})
 
 
+def test_report_attempt_gap_is_distinct_from_an_occupied_attempt(
+    client: TestClient, issued: Issued, report: dict[str, object]
+) -> None:
+    response = client.post(_reports_url(issued.plan.plan_id), json=report | {"attempt": 2})
+
+    assert (response.status_code, response.json()) == (
+        409,
+        {"error": "report_attempt_gap"},
+    )
+
+
 def test_report_naming_other_plan_bytes_returns_409(
     client: TestClient, issued: Issued, report: dict[str, object]
 ) -> None:

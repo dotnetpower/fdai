@@ -49,7 +49,9 @@ from fdai_lifecycle_hub.errors import (
     NotPendingError,
     OwnershipUnprovenError,
     PlanDigestMismatchError,
+    ReportAttemptGapError,
     ReportConflictError,
+    ReportProgressionError,
     SchemaMismatchError,
     StateRejectedError,
     UnknownPlanError,
@@ -64,7 +66,11 @@ from fdai_lifecycle_hub.execution_settings import (
 from fdai_lifecycle_hub.migrations import _versions, require_writable_schema
 from fdai_lifecycle_hub.models import PlanEventKind
 from fdai_lifecycle_hub.planning import plan_next
-from fdai_lifecycle_hub.reports import ROLLED_BACK, failure_suppressions
+from fdai_lifecycle_hub.reports import (
+    ROLLED_BACK,
+    failure_suppressions,
+    validate_report_progress,
+)
 
 _UNIQUE_VIOLATION = "23505"
 
@@ -532,7 +538,7 @@ class HubStore:
 
         return self._recompute(
             installation_id,
-            lambda session, row: planner(mapping.to_domain(session, row), now),
+            lambda _session, _row, installation: planner(installation, now),
             now=now,
         )
 
@@ -552,7 +558,11 @@ class HubStore:
         inputs. This does not import a package or advance a durable configuration chain head.
         """
 
-        def evaluate(session: Session, row: models.Installation) -> domain.PlanOutcome:
+        def evaluate(
+            session: Session,
+            row: models.Installation,
+            installation: domain.Installation,
+        ) -> domain.PlanOutcome:
             binding = resolve_binding(session, row, binding_version, now)
             recipient = X25519PublicKey.from_public_bytes(
                 bytes.fromhex(binding.installation_encryption_key)
@@ -571,7 +581,6 @@ class HubStore:
                 configuration_key=trusted_key,
                 installation_key_digest=encryption_key_digest(recipient),
             )
-            installation = mapping.to_domain(session, row)
             if now + installation.settings.plan_duration > binding.binding_expires_at:
                 raise KeyBindingError("configuration_binding_expires_before_plan")
             if installation.open_plan is not None:
@@ -606,9 +615,12 @@ class HubStore:
     ) -> domain.PlanOutcome:
         """The configured default: durable activation selects an upgrade input, not authority."""
 
-        def evaluate(session: Session, row: models.Installation) -> domain.PlanOutcome:
+        def evaluate(
+            session: Session,
+            row: models.Installation,
+            installation: domain.Installation,
+        ) -> domain.PlanOutcome:
             selected = persisted_candidate(session, row, catalog, now)
-            installation = mapping.to_domain(session, row)
             candidate = selected[0] if selected else None
             if selected is not None:
                 binding = resolve_binding(session, row, selected[1], now)
@@ -642,7 +654,7 @@ class HubStore:
     def _recompute(
         self,
         installation_id: str,
-        evaluate: Callable[[Session, models.Installation], domain.PlanOutcome],
+        evaluate: Callable[[Session, models.Installation, domain.Installation], domain.PlanOutcome],
         *,
         now: datetime,
         configuration_binding_version: int | None = None,
@@ -653,7 +665,7 @@ class HubStore:
             row = rows.lock_enrolled(session, installation_id)
             installation = mapping.to_domain(session, row)
             try:
-                outcome = evaluate(session, row)
+                outcome = evaluate(session, row, installation)
             except KeyBindingError as error:
                 failure = error
                 # Keep the denial durable without withdrawing an unrelated legacy Plan.
@@ -803,6 +815,16 @@ class HubStore:
                 if schemas.PlanReport.model_validate(existing, from_attributes=True) != report:
                     raise ReportConflictError(f"attempt {report.attempt} was already reported")
                 return False
+            previous = session.scalars(
+                plan.reports.select().order_by(models.PlanReport.attempt.desc()).limit(1)
+            ).one_or_none()
+            expected_attempt = 1 if previous is None else previous.attempt + 1
+            if report.attempt > expected_attempt:
+                raise ReportAttemptGapError(f"report skipped required attempt {expected_attempt}")
+            try:
+                validate_report_progress(previous, report)
+            except ValueError as error:
+                raise ReportProgressionError(str(error)) from error
             plan.reports.add(models.PlanReport(**report.model_dump(), received_at=now))
             plan.events.add(models.PlanEvent(kind=PlanEventKind.REPORTED, recorded_at=now))
             audit.append(

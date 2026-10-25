@@ -10,7 +10,7 @@ from sqlalchemy import Boolean, Column, MetaData, String, Table, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from fdai_lifecycle_hub import audit, models, schemas
+from fdai_lifecycle_hub import audit, mapping, models, schemas
 from fdai_lifecycle_hub.domain import (
     DailyWindow,
     EntityState,
@@ -32,6 +32,7 @@ from fdai_lifecycle_hub.errors import (
     NotPendingError,
     PlanDigestMismatchError,
     ReportConflictError,
+    ReportProgressionError,
     SchemaMismatchError,
     StateRejectedError,
     UnknownInstallationError,
@@ -119,6 +120,30 @@ def test_issued_plan_is_served_and_advances_sequence(
         outcome.plan.signature,
     )
     assert registered.load(installation.installation_id).last_sequence == 1
+
+
+def test_recompute_maps_the_installation_once(
+    registered: HubStore,
+    installation: Installation,
+    planner: Planner,
+    now: datetime,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    to_domain = mapping.to_domain
+    conversions = 0
+
+    def counted(session: Session, row: models.Installation) -> Installation:
+        nonlocal conversions
+        conversions += 1
+        return to_domain(session, row)
+
+    monkeypatch.setattr(mapping, "to_domain", counted)
+
+    assert isinstance(
+        registered.recompute(installation.installation_id, planner, now=now),
+        Issued,
+    )
+    assert conversions == 1
 
 
 def test_repeated_recompute_keeps_the_open_plan(
@@ -247,13 +272,13 @@ def test_reports_are_idempotent_and_conflicts_are_rejected(
     with pytest.raises(ReportConflictError):
         record(_report(outcome, outcome="rejected"))
     rejected = _report(outcome, attempt=2, outcome="rejected", reason_code="signature_invalid")
-    assert record(rejected) is True
+    with pytest.raises(ReportProgressionError, match="terminal"):
+        record(rejected)
     assert [
         (report.plan_id, report.attempt, report.reason_code, report.received_at)
         for report in registered.reports(installation.installation_id)
     ] == [
         (outcome.plan.plan_id, 1, "admitted", now),
-        (outcome.plan.plan_id, 2, "signature_invalid", now),
     ]
 
 

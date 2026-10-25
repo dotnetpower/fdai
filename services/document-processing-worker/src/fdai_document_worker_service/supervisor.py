@@ -47,6 +47,7 @@ def configure_worker_logging() -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(WorkerLogFormatter())
     logging.basicConfig(level=logging.INFO, handlers=[handler])
+    logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
 
 
 class WorkerLoopService(Protocol):

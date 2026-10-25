@@ -70,6 +70,26 @@ def test_scheduled_scope_explicitly_binds_only_named_cronjobs():
     assert scheduled.model_dump(mode="json")["scheduled_components"] == ["analyzer"]
 
 
+def test_empty_autoscaler_scope_preserves_existing_canonical_bytes_and_digest():
+    original = scope()
+    assert "autoscaled_components" not in original.model_dump(mode="json")
+    assert scope(autoscaled_components=()).digest == original.digest
+
+
+def test_autoscaler_scope_binds_only_named_autoscalers_of_existing_deployments():
+    original = scope()
+    autoscaled = scope(autoscaled_components=("frontend",))
+    assert autoscaled.resources == original.resources | {("HorizontalPodAutoscaler", "frontend")}
+    assert autoscaled.digest != original.digest
+    assert autoscaled.model_dump(mode="json")["autoscaled_components"] == ["frontend"]
+
+
+@pytest.mark.parametrize("autoscaled", [("other",), ("frontend", "frontend"), ("invalid.name",)])
+def test_autoscaler_scope_rejects_unknown_duplicate_or_malformed_targets(autoscaled):
+    with pytest.raises(ValidationError):
+        scope(autoscaled_components=autoscaled)
+
+
 def test_workers_need_no_placeholder_service_or_different_execution_path():
     original = scope()
     worker = scope(service_components=())

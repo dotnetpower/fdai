@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 from collections.abc import Mapping
@@ -12,6 +13,7 @@ from typing import Any, Literal
 from azure.core.exceptions import AzureError
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fdai_deployment_cli.private_output import read_private_bytes
 from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import Connection, make_url
@@ -24,6 +26,7 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from fdai_lifecycle_hub import models, schemas
+from fdai_lifecycle_hub.agent_artifacts import artifact_for_plan
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_import_api import configuration_routes
 from fdai_lifecycle_hub.configuration_import_store import ConfigurationImportStore
@@ -31,6 +34,14 @@ from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import utc_now
 from fdai_lifecycle_hub.local_channel_api import local_channel_routes
 from fdai_lifecycle_hub.migrations import _revision, migrate, require_schema
+from fdai_lifecycle_hub.operations import (
+    CatalogImportRequest,
+    RecomputeRequest,
+    ReleasePublicationRequest,
+    approve_and_import_catalog,
+    publish_release,
+    recompute_installation,
+)
 from fdai_lifecycle_hub.remote_auth import RemoteAuth
 from fdai_lifecycle_hub.remote_catalog import (
     CatalogSource,
@@ -217,6 +228,26 @@ def target_routes(
             return JSONResponse({"error": str(error)}, status_code=409)
         return JSONResponse(schemas.outcome_record(outcome))
 
+    async def artifact(request: Request) -> Response:
+        installation_id = request.path_params["installation_id"]
+        kind = request.path_params["kind"]
+        digest = request.path_params["digest"]
+        if kind not in {"release", "configuration"}:
+            return JSONResponse({"error": "artifact_kind_invalid"}, status_code=404)
+        try:
+            selected = await run_in_threadpool(
+                artifact_for_plan,
+                store,
+                catalog,
+                installation_id,
+                kind,
+                digest,
+                now=utc_now(),
+            )
+        except ValueError:
+            return JSONResponse({"error": "artifact_unavailable"}, status_code=404)
+        return JSONResponse(selected.to_json())
+
     return [
         *configuration_routes(ConfigurationImportStore(store.engine), catalog, utc_now),
         *local_channel_routes(catalog, utc_now),
@@ -225,19 +256,35 @@ def target_routes(
         Route("/v1/catalog/trust/approve", approve, methods=["POST"]),
         Route("/v1/catalog/import", import_catalog, methods=["POST"]),
         Route("/v1/installations/{installation_id}/recompute", recompute, methods=["POST"]),
+        Route(
+            "/v1/installations/{installation_id}/artifacts/{kind}/{digest}",
+            artifact,
+        ),
     ]
 
 
 def _run() -> None:
     parser = argparse.ArgumentParser(prog="fdai-hub-remote")
     parser.add_argument(
-        "command", choices=["prepare", "migrate", "serve", "schema", "bind-catalog"]
+        "command",
+        choices=[
+            "prepare",
+            "migrate",
+            "serve",
+            "schema",
+            "bind-catalog",
+            "publish-release",
+            "import-catalog",
+            "recompute",
+        ],
     )
     parser.add_argument("--actor")
     parser.add_argument("--reason")
     parser.add_argument("--config", type=Path)
     parser.add_argument("--ui", type=Path, default=Path("/app/ui"))
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--request", type=Path)
+    parser.add_argument("--request-env")
     args = parser.parse_args()
     config = (
         load_config(args.config)
@@ -257,6 +304,52 @@ def _run() -> None:
         from fdai_lifecycle_hub.remote_catalog import bind_catalog
 
         bind_catalog(engine, config.catalog, actor=args.actor, reason=args.reason)
+        return
+    if args.command in {"publish-release", "import-catalog", "recompute"}:
+        if (args.request is None) == (args.request_env is None):
+            raise ValueError("Hub operation requires exactly one private request source.")
+        raw = (
+            read_private_bytes(args.request.absolute(), max_bytes=2 * 1024 * 1024)
+            if args.request is not None
+            else os.environ.pop(str(args.request_env), "").encode()
+        )
+        if not raw or len(raw) > 2 * 1024 * 1024:
+            raise ValueError("Hub operation request is empty or exceeds its bound.")
+        actor = (args.actor or "").strip()
+        if not actor:
+            raise ValueError("Hub operation requires an attributed actor.")
+        if args.command == "publish-release":
+            if config.kind != "release":
+                raise ValueError("Release publication requires Release Hub.")
+            require_schema(engine, "release_hub")
+            receipt = publish_release(
+                engine,
+                remote_key(config.key_epoch),
+                ReleasePublicationRequest.model_validate_json(raw),
+                actor=actor,
+                now=utc_now(),
+            )
+        else:
+            if config.kind != "target" or config.catalog is None:
+                raise ValueError("Catalog operation requires a bound Lifecycle Hub.")
+            require_schema(engine, "lifecycle_hub")
+            catalog = RemoteCatalog(engine, config.catalog)
+            if args.command == "import-catalog":
+                receipt = approve_and_import_catalog(
+                    catalog,
+                    CatalogImportRequest.model_validate_json(raw),
+                    actor=actor,
+                    now=utc_now(),
+                )
+            else:
+                _outcome, receipt = recompute_installation(
+                    HubStore(engine),
+                    catalog,
+                    remote_key(config.key_epoch),
+                    RecomputeRequest.model_validate_json(raw),
+                    now=utc_now(),
+                )
+        print(json.dumps(receipt, sort_keys=True, separators=(",", ":")))
         return
     if args.command == "schema":
         require_schema(engine, namespace)

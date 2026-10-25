@@ -37,6 +37,21 @@ class _Export(BaseModel):
     recalls: list[RecallRecord]
 
 
+def _typed_recalls(document: dict[str, object]) -> None:
+    recalls = document.get("recalls")
+    if not isinstance(recalls, list):
+        raise ValueError("Release Hub export recalls are invalid")
+    try:
+        records = []
+        for record in recalls:
+            if not isinstance(record, dict):
+                raise ValueError
+            records.append(RecallRecord(**record))
+        document["recalls"] = records
+    except (TypeError, ValueError) as error:
+        raise ValueError("Release Hub export recalls are invalid") from error
+
+
 def load_pinned_export(
     raw: bytes,
     *,
@@ -59,8 +74,9 @@ def load_pinned_export(
     observed = hashlib.sha256(raw).hexdigest()
     if observed != expected_sha256:
         raise ValueError("Release Hub export digest does not match the trusted pin")
-    load_json_object(raw, label="local Release Hub export", max_bytes=MAX_EXPORT_BYTES)
-    export = _Export.model_validate_json(raw)
+    document = load_json_object(raw, label="local Release Hub export", max_bytes=MAX_EXPORT_BYTES)
+    _typed_recalls(document)
+    export = _Export.model_validate(document)
     expires_at = datetime.fromisoformat(export.expires_at)
     if now.tzinfo is None or expires_at.tzinfo is None or now >= expires_at:
         raise ValueError("Release Hub export is expired or has no timezone")

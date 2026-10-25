@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: d6ac863af5c486cc793d35247b2d72e3c04da759
+translation_source_sha: d0b5e33263e56098e7197f33289276eaf1fab282
 translation_revised: 2026-10-24
 ---
 # 런타임 배포 프로파일
@@ -17,7 +17,8 @@ translation_revised: 2026-10-24
 > **Hub 관리형 경로:** Hub 관리형 수명 주기는 AKS만 지원하며 클러스터 안에 수명 주기 에이전트를
 > 추가합니다. 개발용 Agent는 기본적으로 dry-run과 보고를 수행합니다. 명시적으로 선택한
 > 유한 적용에서는 기존 HTTP·이전 호환 프로필과 독립적으로 고정한
-> [비공개 실행 묶음 확장](lifecycle-runtime-bundles-ko.md)을 지원합니다.
+> [비공개 실행 묶음 확장](lifecycle-runtime-bundles-ko.md)을 지원하며, 여기에는 범위가 제한된
+> HorizontalPodAutoscaler가 포함됩니다. Agent 역할에는 이를 위한 `autoscaling` 동사만 추가합니다.
 > 기반 시설·신원 생성이나 FDAI 전체 설치 완료를 제공하지는 않습니다.
 > 네임스페이스 권한, 동일 스키마 사전 준비와 운영 검증은 별도로 유지합니다.
 
@@ -290,9 +291,16 @@ App Role을 계속 검증합니다. audience는 v2 액세스 토큰에 담기는
 ID이며, 모든 Terraform 루트는 `api://` App ID URI 형식을 거부합니다. 이 이전 형식으로 기록된 Entra
 영수증은 나머지가 현재 readback과 일치할 때만 업그레이드되며, 서비스 배포와 live 복구는 저장된
 `api://<client-id>` 서비스 audience를 클라이언트 ID로 정규화합니다. CORS(Cross-Origin Resource Sharing)는 정확한 Static Web Apps
-origin만 허용합니다. Azure Policy가 AKS 서브넷에 네트워크 보안 그룹을 연결하면 워크로드 플랜은
-정확한 공용 Service frontend 주소에 대해서만 TCP 포트 80을 허용합니다. APIM Consumption은
-source 규칙에 사용할 수 있는 고정 outbound 주소를 제공하지 않습니다.
+origin만 허용합니다. 공유 네트워크 모듈은 기반(substrate) 단계에서 Terraform이 관리하는 네트워크 보안
+그룹(`nsg-aks`)을 생성해 `snet-aks`에 연결하므로, 설치가 끝난 뒤 테넌트 정책 자동화가 규칙이 비어 있는
+비관리형 NSG를 새로 연결하지 않으며, 워크로드 단계는 브라우저 게이트웨이를 활성화할 때 연결된 서브넷
+NSG를 필수로 요구합니다. `AllowBrowserGatewayBackends` 규칙은 인바운드 TCP 포트 80의 출발지를
+`Internet` 대신 `AzureCloud` 서비스 태그로 제한하고 목적지를 두 공용 Service 프런트엔드 주소로만
+한정합니다. 보안상 절충점: APIM Consumption은 VNet 통합, 고정 송신 IP, `ApiManagement` 서비스
+태그를 지원하지 않으므로 비 Azure 인터넷 출발지를 차단하면서 게이트웨이 경로를 수용할 수 있는 가장 좁은
+범위가 `AzureCloud` 서비스 태그이며, 백엔드 API는 인증되지 않은 요청을 `401`로 거부하고 Microsoft
+Entra JWT, App Role, 정확한 origin CORS를 계속 강제합니다. 검증 단계에서는 관리형 호스트가
+Console을 게시하기 전에 실제 AKS 서브넷 NSG가 브라우저 게이트웨이 바인딩과 일치하는지 확인합니다.
 
 승인된 애플리케이션 플랜이 수렴하면 `fdaictl provision azure`는 각 Terraform 상태에서 SWA와
 APIM 연결을 읽고, 기존 Entra SPA 등록에 정확한 SWA redirect를 추가한 뒤, 서명된 키트의 미리
@@ -700,6 +708,15 @@ gateway 파사드는 인가, dry-run 결속, 멱등성 및 리소스 임대를 �
 신원 계약, 범위가 제한된 ARM 전송 및 범위가 지정된 Azure 리소스 읽기와 변경을 소유합니다.
 이 분리는 세 vertical 실행기 신원, 리소스 하나의 영향 범위, 효과 재확인, rollback 및 기본 권한
 없음 동작을 보존합니다.
+
+### Hub 경로의 Executor 역할
+
+워크로드 루트는 `hub_managed`(기본 `false`)를 받습니다. `true`이면 Lifecycle Agent가 런타임
+네임스페이스의 워크로드를 소유하므로, 루트는 그 네임스페이스에 Executor Kubernetes 효과 Role과
+RoleBinding을 만들지 않습니다. 따라서 Executor는 Hub가 관리하는 Deployment나 Pod를 patch하거나
+삭제할 수 없습니다. 계획 단계에서는 Hub 관리 네임스페이스가 Executor direct-API 허용 목록에 있는 경우도
+거부합니다. 다른 네임스페이스의 확장 대상은 런타임 네임스페이스 역할에 더 이상 의존하지 않으므로
+아래 설명대로 그대로 연결됩니다. 기본값 `false`는 Terraform 관리 동작을 바꾸지 않습니다.
 
 ### 외부 Deployment의 정확한 확장 대상
 

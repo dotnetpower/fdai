@@ -35,8 +35,23 @@ from sqlalchemy import Engine, create_engine, event, func, select
 from sqlalchemy.engine import Connection
 from sqlalchemy.pool import NullPool
 
+from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES
 from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.signing import HubSigningKey
+from fdai_release_hub.catalog_serialization import (
+    CATALOG_VIEW_LIMIT_MESSAGE,
+    EXPORT_LIMIT_MESSAGE,
+    BoundedJson,
+    catalog_position,
+    ensure_row_bound,
+    index_memberships,
+    release_channels,
+    stream,
+    write_channels,
+)
+from fdai_release_hub.catalog_serialization import (
+    CatalogError as CatalogError,
+)
 from fdai_release_hub.database import (
     catalog_metadata,
     event_actors,
@@ -55,12 +70,6 @@ def _is_custom_channel(value: str | None) -> bool:
         and len(value) <= 64
         and re.fullmatch(r"custom-[a-z0-9]+(?:-[a-z0-9]+)*", value) is not None
     )
-
-
-class CatalogError(ValueError):
-    def __init__(self, message: str, status: int = 422) -> None:
-        super().__init__(message)
-        self.status = status
 
 
 class CatalogConfirmation(BaseModel):
@@ -167,6 +176,20 @@ class ReleaseStore:
         except (InvalidSignature, ValueError) as error:
             raise CatalogError("Stored Release signature failed verification.", 503) from error
 
+    def _verify_release_state(
+        self,
+        manifest: str,
+        signature: str | None,
+        published_at: str | None,
+        recalled_at: str | None,
+    ) -> None:
+        if (published_at is not None or recalled_at is not None) and not signature:
+            self._verify_signature(manifest, signature)
+        if signature and published_at is None:
+            raise CatalogError("Stored Release publication state is inconsistent.", 503)
+        if signature:
+            self._verify_signature(manifest, signature)
+
     def renew(
         self, change: CatalogConfirmation, *, actor: str = "local-operator"
     ) -> dict[str, Any]:
@@ -194,10 +217,11 @@ class ReleaseStore:
                     releases.c.recalled_at,
                 )
             ):
-                if published_at is not None or recalled_at is not None or signature:
-                    self._verify_signature(manifest, signature)
+                self._verify_release_state(manifest, signature, published_at, recalled_at)
             self._record_event(db, "renew", "catalog", change, actor, now.isoformat())
-        return self.snapshot()
+            snapshot = self._snapshot_locked(db)
+            self.export_snapshot(snapshot)
+        return snapshot
 
     def change(
         self,
@@ -251,6 +275,12 @@ class ReleaseStore:
             else:
                 if row is None:
                     raise CatalogError("Release not found.", 404)
+                self._verify_release_state(
+                    row["manifest"],
+                    row["signature"],
+                    row["published_at"],
+                    row["recalled_at"],
+                )
                 if row["recalled_at"]:
                     raise CatalogError("Recalled Releases cannot be changed or re-promoted.", 409)
                 if action == "publish":
@@ -312,7 +342,9 @@ class ReleaseStore:
                 else:
                     raise CatalogError("Unsupported action.")
             self._record_event(db, action, release_id, change, actor, now, channel=change.channel)
-        return self.snapshot()
+            snapshot = self._snapshot_locked(db)
+            self.export_snapshot(snapshot)
+        return snapshot
 
     def change_capability(
         self,
@@ -369,6 +401,12 @@ class ReleaseStore:
                     or lifting_row["recalled_at"]
                 ):
                     raise CatalogError("Lifting Release must be published and not recalled.", 409)
+                self._verify_release_state(
+                    lifting_row["manifest"],
+                    lifting_row["signature"],
+                    lifting_row["published_at"],
+                    lifting_row["recalled_at"],
+                )
                 self._record_event(
                     db,
                     "lift_capability",
@@ -380,7 +418,9 @@ class ReleaseStore:
                 )
             else:
                 raise CatalogError("Unsupported capability action.")
-        return self.snapshot()
+            snapshot = self._snapshot_locked(db)
+            self.export_snapshot(snapshot)
+        return snapshot
 
     def promote_stage(
         self,
@@ -437,49 +477,56 @@ class ReleaseStore:
 
     def snapshot(self) -> dict[str, Any]:
         with self.connect() as db:
-            # Hold the same lock as writers so the multi-query snapshot cannot mix revisions.
-            if self.engine.dialect.name == "sqlite":
-                db.exec_driver_sql("BEGIN")
-            else:
-                db.execute(select(catalog_metadata).with_for_update()).all()
-            rows = db.execute(select(releases).order_by(releases.c.id.desc())).mappings().all()
-            history = [
-                dict(row)
-                for row in db.execute(select(events).order_by(events.c.revision.desc())).mappings()
-            ]
-            actors = dict(db.execute(select(event_actors)).tuples().all())
-            for event_record in history:
-                event_record["actor"] = actors.get(event_record["revision"], "legacy-unattributed")
-            memberships = (
-                db.execute(
-                    select(membership).order_by(
-                        membership.c.channel,
-                        membership.c.release_id,
-                    )
+            self._lock_snapshot(db)
+            return self._snapshot_locked(db)
+
+    def _lock_snapshot(self, db: Connection) -> None:
+        # Hold the same lock as writers so a multi-query read cannot mix revisions.
+        if self.engine.dialect.name == "sqlite":
+            db.exec_driver_sql("BEGIN")
+        else:
+            db.execute(select(catalog_metadata).with_for_update()).all()
+
+    def _snapshot_locked(self, db: Connection) -> dict[str, Any]:
+        rows = db.execute(select(releases).order_by(releases.c.id.desc())).mappings().all()
+        history = [
+            dict(row)
+            for row in db.execute(select(events).order_by(events.c.revision.desc())).mappings()
+        ]
+        actors = dict(db.execute(select(event_actors)).tuples().all())
+        for event_record in history:
+            event_record["actor"] = actors.get(event_record["revision"], "legacy-unattributed")
+        memberships = (
+            db.execute(
+                select(membership).order_by(
+                    membership.c.channel,
+                    membership.c.release_id,
                 )
-                .mappings()
-                .all()
             )
-            updated_at = (
-                history[0]["occurred_at"]
-                if history
-                else db.execute(select(catalog_metadata.c.created_at)).scalar_one()
-            )
-        channel_names = set(CHANNELS)
-        for member in memberships:
-            channel = member["channel"]
-            if channel not in CHANNELS and not _is_custom_channel(channel):
-                raise CatalogError("Stored catalog channel is invalid.")
-            channel_names.add(channel)
+            .mappings()
+            .all()
+        )
+        updated_at = (
+            history[0]["occurred_at"]
+            if history
+            else db.execute(select(catalog_metadata.c.created_at)).scalar_one()
+        )
+        channel_names, channels_by_release, releases_by_channel = index_memberships(
+            memberships, is_custom_channel=_is_custom_channel
+        )
         records = []
         for row in rows:
             record = dict(row)
+            self._verify_release_state(
+                record["manifest"],
+                record["signature"],
+                record["published_at"],
+                record["recalled_at"],
+            )
             record["signed_payload_sha256"] = hashlib.sha256(
                 record["manifest"].encode()
             ).hexdigest()
-            if record["signature"]:
-                self._verify_signature(record["manifest"], record["signature"])
-            record["channels"] = [m["channel"] for m in memberships if m["release_id"] == row["id"]]
+            record["channels"] = channels_by_release.get(row["id"], [])
             record["state"] = (
                 "recalled" if row["recalled_at"] else "published" if row["signature"] else "draft"
             )
@@ -496,14 +543,149 @@ class ReleaseStore:
             "key_id": self.key.key_id,
             "releases": records,
             "channels": {
-                c: [m["release_id"] for m in memberships if m["channel"] == c]
+                c: releases_by_channel.get(c, [])
                 for c in (*CHANNELS, *sorted(channel_names - set(CHANNELS)))
             },
             "events": history,
         }
 
-    def export(self) -> tuple[bytes, str]:
-        return self.export_snapshot(self.snapshot())
+    def catalog_view(self, maximum: int) -> bytes:
+        with self.connect() as db:
+            self._lock_snapshot(db)
+            ensure_row_bound(
+                db,
+                maximum=maximum,
+                message=CATALOG_VIEW_LIMIT_MESSAGE,
+                export_only=False,
+            )
+            _, export_digest = self._export_locked(db, MAX_EXPORT_BYTES)
+            revision, updated_at = catalog_position(db)
+            expires_at = (datetime.fromisoformat(updated_at) + timedelta(hours=24)).isoformat()
+            writer = BoundedJson(maximum, CATALOG_VIEW_LIMIT_MESSAGE)
+            writer.write(b'{"channels":')
+            write_channels(db, writer, is_custom_channel=_is_custom_channel)
+            writer.write(b',"events":[')
+            first = True
+            event_rows = stream(
+                db,
+                select(
+                    events,
+                    event_actors.c.actor,
+                )
+                .select_from(events.outerjoin(event_actors))
+                .order_by(events.c.revision.desc()),
+            )
+            for row in event_rows:
+                record = dict(row)
+                if record["actor"] is None:
+                    record["actor"] = "legacy-unattributed"
+                if not first:
+                    writer.write(b",")
+                first = False
+                writer.value(record)
+            writer.write(b'],"expired":')
+            writer.value(self.clock() >= datetime.fromisoformat(expires_at))
+            writer.write(b',"expires_at":')
+            writer.value(expires_at)
+            writer.write(b',"export_sha256":')
+            writer.value(export_digest)
+            writer.write(b',"key_id":')
+            writer.value(self.key.key_id)
+            writer.write(b',"mode":"local-development","releases":[')
+            first = True
+            for row in stream(db, select(releases).order_by(releases.c.id.desc())):
+                record = dict(row)
+                self._verify_release_state(
+                    record["manifest"],
+                    record["signature"],
+                    record["published_at"],
+                    record["recalled_at"],
+                )
+                record["signed_payload_sha256"] = hashlib.sha256(
+                    record["manifest"].encode()
+                ).hexdigest()
+                record["channels"] = release_channels(db, record["id"], writer.remaining)
+                record["state"] = (
+                    "recalled"
+                    if record["recalled_at"]
+                    else "published"
+                    if record["signature"]
+                    else "draft"
+                )
+                record["signature_status"] = (
+                    "development-key-verified" if record["signature"] else "unsigned"
+                )
+                if not first:
+                    writer.write(b",")
+                first = False
+                writer.value(record)
+            writer.write(b'],"revision":')
+            writer.value(revision)
+            writer.write(b',"updated_at":')
+            writer.value(updated_at)
+            writer.write(b"}")
+            return writer.finish()
+
+    def export(self, *, maximum: int = MAX_EXPORT_BYTES) -> tuple[bytes, str]:
+        with self.connect() as db:
+            self._lock_snapshot(db)
+            return self._export_locked(db, maximum)
+
+    def _export_locked(self, db: Connection, maximum: int) -> tuple[bytes, str]:
+        ensure_row_bound(
+            db,
+            maximum=maximum,
+            message=EXPORT_LIMIT_MESSAGE,
+            export_only=True,
+        )
+        revision, updated_at = catalog_position(db)
+        expires_at = (datetime.fromisoformat(updated_at) + timedelta(hours=24)).isoformat()
+        writer = BoundedJson(maximum, EXPORT_LIMIT_MESSAGE)
+        writer.write(b'{"channels":')
+        write_channels(db, writer, is_custom_channel=_is_custom_channel)
+        writer.write(b',"expires_at":')
+        writer.value(expires_at)
+        writer.write(b',"recalls":[')
+        first = True
+        recall_rows = stream(
+            db,
+            select(events)
+            .where(events.c.action.in_(("recall", "recall_capability", "lift_capability")))
+            .order_by(events.c.revision),
+        )
+        for row in recall_rows:
+            if not first:
+                writer.write(b",")
+            first = False
+            writer.value(self._recall_dicts([dict(row)])[0])
+        writer.write(b'],"releases":{')
+        first = True
+        for row in stream(db, select(releases).order_by(releases.c.id)):
+            record = dict(row)
+            self._verify_release_state(
+                record["manifest"],
+                record["signature"],
+                record["published_at"],
+                record["recalled_at"],
+            )
+            if not record["signature"]:
+                continue
+            if not first:
+                writer.write(b",")
+            first = False
+            writer.value(record["id"])
+            writer.write(b":")
+            writer.value(
+                {
+                    "manifest": record["manifest"],
+                    "signature": record["signature"],
+                }
+            )
+        writer.write(b'},"revision":')
+        writer.value(revision)
+        writer.write(b"}")
+        body = writer.finish()
+        return body, hashlib.sha256(body).hexdigest()
 
     @staticmethod
     def _recall_dicts(events_asc: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -550,4 +732,6 @@ class ReleaseStore:
                 "recalls": recalls,
             }
         )
+        if len(body) > MAX_EXPORT_BYTES:
+            raise CatalogError(EXPORT_LIMIT_MESSAGE, 503)
         return body, hashlib.sha256(body).hexdigest()

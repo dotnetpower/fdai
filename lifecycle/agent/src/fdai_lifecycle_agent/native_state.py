@@ -14,7 +14,7 @@ from fdai_deployment_cli.lifecycle_native import (
 )
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from fdai_lifecycle_agent.state import write_json_atomically
+from fdai_lifecycle_agent.state import _json_bytes, write_bytes_atomically
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
 from fdai_lifecycle_agent.workload import WorkloadError
 
@@ -92,15 +92,16 @@ class NativeStateStore:
         except OSError as error:
             raise WorkloadError("native_scope_state_unavailable") from error
         try:
-            document = load_json(raw, label="native scope state")
-            return NativeState.model_validate_json(canonical_bytes(document))
+            load_json(raw, label="native scope state")
+            return NativeState.model_validate_json(raw)
         except ValueError as error:
             raise WorkloadError("native_scope_state_invalid") from error
 
     def save(self, state: NativeState) -> None:
         try:
-            validated = NativeState.model_validate_json(state.model_dump_json())
-            write_json_atomically(self.path, validated.model_dump(mode="json"))
+            data = _json_bytes(state.model_dump(mode="json"))
+            NativeState.model_validate_json(data)
+            write_bytes_atomically(self.path, data)
         except OSError as error:
             raise WorkloadError("native_scope_state_unavailable") from error
 

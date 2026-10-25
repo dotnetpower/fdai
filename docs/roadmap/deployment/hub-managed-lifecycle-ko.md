@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: cd9fa0ec024d68a2c535f56ba39c209056b542c7
-translation_revised: 2026-10-23
+translation_source_sha: 74670b6ccbcb9ed506081ad07c59fcbddfc45eaa
+translation_revised: 2026-10-24
 ---
 # Hub 관리형 수명 주기
 
@@ -264,11 +264,14 @@ Agent 신원은 이 운영자 목록을 읽을 수 없습니다.
 ## 명시적으로 선택하는 설치 Agent 통신
 
 로컬 개발 구현은 설치본별로 명시적인 `auth.agent_principals` 연결을 받습니다.
-호출자는 직접 검증한 Entra 토큰에 정확한 애플리케이션 object/client 쌍, `idtyp=app`,
-`Agent.Access` 역할을 갖춰야 합니다. 해당 설치본의 Plan을 읽고 상태와 보고서를 제출할
-수 있을 뿐입니다. 운영자, 카탈로그 ID, Agent ID는 구분합니다. Agent는 등록, 승인,
-게시, 가져오기, 재계산을 할 수 없습니다. Release Hub는 Agent 연결을 받지 않으며,
-연결 목록이 비어 있으면 기존 차단 동작을 유지합니다.
+호출자는 직접 검증한 Entra 토큰에 정확한 애플리케이션 object/client 쌍, 위임된 `scp`
+claim이 없는 상태, `Agent.Access` 역할을 갖춰야 합니다. Entra가 `idtyp`을 발급하면
+값은 `app`이어야 합니다. v2 Managed Identity 토큰이 이 선택적 claim을 생략해도 정확한
+object, client, 앱 역할을 모두 대조하므로 애플리케이션 토큰으로 처리합니다. 해당
+설치본의 Plan을 읽고 상태와 보고서를 제출할 수 있을 뿐입니다. 운영자, 카탈로그 ID,
+Agent ID는 구분합니다. Agent는 등록, 승인, 게시, 가져오기, 재계산을 할 수 없습니다.
+Release Hub는 Agent 연결을 받지 않으며, 연결 목록이 비어 있으면 기존 차단 동작을
+유지합니다.
 
 명시적으로 연결한 설치본에 한해, 인증된 운영자는 서명된 등록 요청을
 `POST /v1/enrollments/{installation_id}/requests`로 제출할 수 있습니다.
@@ -294,10 +297,108 @@ Agent는 명시적으로 선택한 경우에만 AKS의 투영된 워크로드 ID
 네임스페이스의 Deployment, Service, Job 작업에만 한정합니다.
 [Agent 준비 안내](../../../lifecycle/agent/README.md#remote-development-preparation)를 참조하세요.
 
-이 선택 기능의 근거는 집중 로컬 테스트입니다. 실제 Entra 인증, 이미지, AKS, 볼륨 재연결,
-워크로드 변경 효과를 입증하지 않습니다. 이 준비 작업은 기존 Hub의 이미지, revision,
-카탈로그 연결, 네트워크 허용 목록을 변경하지 않습니다. 해당 변경에는 정확한 클라우드
-계획과 별도 승인이 먼저 필요합니다.
+연결된 설치본에서는 Agent가 `--artifact-source hub`를 선택할 수 있습니다. Agent는 서명된
+Plan을 받은 뒤 설치본에 결속된 `Agent.Access` 신원으로 해당 Plan이 지정한 정확한 Release와
+활성 구성 다이제스트만 요청합니다. Lifecycle Hub는 현재 유효한 Plan, 수락한 Release
+카탈로그 및 보존된 구성 가져오기 기록을 다시 검증한 뒤 원본 서명 바이트를 반환합니다.
+산출물 목록이나 다른 설치본의 입력은 제공하지 않습니다.
+
+Agent는 각 서명과 정규 다이제스트를 검증한 뒤 바이트를 비공개 상태 볼륨에 게시합니다.
+이후 poll은 같은 캐시 파일을 재사용하므로, 캐시 존재를 신뢰로 간주하지 않으면서 반복 Hub
+다운로드를 제거합니다. 입력이 없거나 변경되었거나 Plan에 결속되지 않았거나 사용할 수 없으면
+재시도 가능한 입력 보류 상태가 되고 Kubernetes 호출은 수행하지 않습니다. 공급업체와 고객의
+공개 키, 비공개 런타임 묶음, 설치 정책 및 복호화 자료는 계속 독립적인 설치본 입력으로
+제공합니다. 이 전송은 이미지를 미러링하거나 적용 권한을 부여하지 않습니다.
+
+독립 [Lifecycle Agent 배포 루트](../../../infra/lifecycle-agent/README.md)는 source/offline
+워크로드 루트를 변경하지 않고 AKS Agent 하나를 준비합니다. 전용 User-assigned Managed
+Identity, workload federation 연결 하나, 정확한 `Agent.Access` 앱 역할 할당, Agent
+네임스페이스와 영구 상태, 워크로드 네임스페이스에 한정된 Role을 만듭니다. Azure 관리
+리소스 쓰기 역할은 부여하지 않습니다. `enable_agent=false`는 poller를 시작하지 않고
+필수 조건만 준비합니다. 등록, 소유권, 보고 상태, 서명된 입력과 Plan이 모두 준비된 뒤
+정확한 후속 plan에서 Recreate 전략의 Agent 하나만 시작합니다. 설치본 신원 개인 키는
+Terraform 입력으로 사용하지 않습니다. 미리 배치하는 고객 구성 서명은 Terraform을 지나는
+동안 정규 Base64 형식을 유지하며 Kubernetes provider의 binary secret 필드를 사용합니다.
+UTF-8 텍스트로 디코딩하거나 Terraform 명령 인수로 노출하지 않습니다. 비활성 단계에서는
+`WaitForFirstConsumer` PVC를 만들되 `Bound` 상태를 기다리지 않습니다. Agent Pod를 예약한
+뒤에만 binding과 readiness를 독립적으로 검증합니다. 활성화는 제한된 일회성 초기화 Job을
+실행하고 완료를 기다린 다음 Agent Deployment를 생성하거나 갱신합니다. Job은 공개 입력과
+비공개 입력을 모두 read-only로 mount하므로, 선택적으로 미리 배치한 구성과 서명을 Agent
+프로세스 시작 전에 영구 검증 캐시로 옮길 수 있습니다. 로컬 정책과 선택적 native 신원
+입력도 PVC에서 현재 UID가 소유하고 mode가 정확히 `0700`인 `/state/private` 경계 아래의
+owner-only `0600` 파일로 복사합니다. main Agent는 Kubernetes Secret을 mount하지 않고
+이 비공개 상태 파일만 읽습니다. PVC root에 Agent group이 이미 설정된 뒤에는
+`fsGroupChangePolicy=OnRootMismatch`가 kubelet이 해당 mode를 재귀적으로 다시 넓히지
+않도록 합니다. main Agent는 필요한 PVC 파일만 `subPath`로 이미지의 UID 소유 mode-`0700`
+`/config/private` 디렉터리 아래에 bind mount합니다. 따라서 group이 관리하는 PVC root를
+비공개 입력 parent로 취급하지 않습니다. 초기화 컨테이너는 비공개 입력 디렉터리와 산출물
+캐시 디렉터리를 서로 다른 변수로 유지하므로 native 승인과 설치본 신원 파일이 구성 캐시로
+이동하지 않습니다. 초기화가 별도 Job이므로 kubelet이 Agent Pod를 준비하기 전에 모든 PVC
+`subPath` 원본이 존재합니다. Job을 실행할 때마다 보존된 Secret에서 mode-`0600` 임시
+파일을 쓰고 atomic replace하여 비공개 입력을 갱신하므로 기존 파일의 존재를 신뢰로
+간주하지 않습니다. 중단된 kubelet `subPath` 준비가 파일 위치에 디렉터리를 남기면 비어
+있을 때만 제거하며, 비어 있지 않은 디렉터리는 계속 fail-closed 처리합니다. 로컬 native
+Job Pod template은 모든 stage 입력의 digest를 결속합니다. 따라서 정책, 승인, native
+state, current state, 공개 신원 또는 구성 산출물이 바뀌면 Job을 교체해 다시 실행합니다.
+digest 앞 12자는 제한된 Job 이름에도 포함하므로 provider의 patch 동작이 필수 재실행을
+no-op으로 바꿀 수 없습니다. 로컬 native bootstrap 뒤 활성 Agent 입력에는 검증된
+`lifecycle-native-scope.json`을 포함합니다.
+초기화 Job은 설치본 개인 키를 Terraform에 복사하지 않고 이를 Agent 상태 경로에 atomic
+stage합니다. 모든 journal, current-state, native-state, 산출물 캐시 파일은 UID가 소유하고
+mode가 `0700`인 `/state/agent` 아래에 둡니다. group이 관리하는 PVC mount root는 Agent
+상태 디렉터리로 전달하지 않습니다. main container는 이 `agent` 하위 디렉터리만 이미지의
+UID 소유 mode-`0700` `/agent-state` 경로에 mount하므로 strict reader가 group-writable
+PVC mount root를 탐색하지 않습니다. 제한된 `64Mi` `emptyDir`가 Kubernetes dynamic
+discovery에 필요한 쓰기 가능한 `/tmp`를 제공하며 이미지 root filesystem은 read-only로
+유지합니다.
+
+Hub가 `apply-started`를 수락한 뒤 Agent는 첫 Kubernetes 변경 전에 Plan 만료를 다시
+확인합니다. 준비한 Plan이 만료되었으면 `reason_code=plan_expired`를 기록하고 정확한 Plan
+digest를 생략하며 summary를 비운 최종 `rejected` 보고를 먼저 영구 저장해 전달합니다. Agent는
+Hub가 이 보고를 수락한 뒤에만 준비 journal을 지웁니다. 그보다 앞선 영구 저장 경계에서
+실패하거나 재시작해도 Kubernetes를 변경하지 않고 동일한 보고를 재개합니다. Hub는 효과가
+없음을 나타내는 이 후속 보고만 수락하고 rollback 실패 억제 구간을 만들지 않습니다. 중복
+`apply-started`와 그 밖의 모든 시작 이후 거부 사유는 계속 유효하지 않습니다.
+
+native approval 만료는 attribution이 있는 운영자가 동일한 exact scope를 갱신할 수 있으므로
+재시도 가능한 로컬 보류입니다. Agent는 새 retryable 기록과 이 정확한 사유를 가진 기존
+non-retryable 기록을 모두 재평가하며 기존 sequence tombstone도 제거합니다. 다른 최종
+거부는 replay-safe 상태를 유지합니다.
+
+`fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
+깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,
+독립적으로 얻은 Hub/Release 공개 키에서 새 비공개 디렉터리를 만듭니다. 이 디렉터리에는
+변경 불가능한 게시 요청, 서명된 등록, 고객 서명 구성, 애플리케이션 연결 요청, Entity 설정,
+명시적인 빈 상태, native 범위 승인, Agent 정책과 캐시, 설치본 소유 키가 들어 있습니다.
+Hub, Azure 엔드포인트, 레지스트리 또는 클러스터에는 접촉하지 않으며 실패하면 일부만 만들어진
+대상을 제거합니다. 준비 증적에는 다이제스트만 포함하며 게시, 등록, 소유권, Plan 또는 적용
+권한을 부여하지 않습니다. 인프라와 카탈로그 단계가 제한된 등록 proof 유효 시간을 넘기면
+`refresh-enrollment`가 보존된 proof와 키 쌍을 검증합니다. 설치본 신원과 payload는 유지하고
+`requested_at`만 갱신한 mode-`0600` proof를 새 파일에 기록하며 원본은 덮어쓰지 않습니다.
+
+이 선택 기능에는 범위가 제한된 실제 개발 설치본 증적도 하나 있습니다. Release Hub가
+정확한 서명 Release를 게시하고 Lifecycle Hub가 가져왔습니다. 설치본에 결속된 Managed
+Identity가 Plan과 산출물을 가져왔으며, Agent는 FDAI Operator canary 하나를 적용하고 Ready
+상태를 독립적으로 확인한 뒤 `applied`를 보고했습니다. 새 recompute는 `up-to-date`를
+반환했고 반복 poll은 `no-plan`을 반환했습니다. 이 증적은 보존된 AKS 개발 설치본 하나만
+포괄하며 production, 볼륨 재연결, 신원 교체, 여러 Entity 업데이트 또는 구성 키 교체를
+입증하지 않습니다. 설치본의 기존 데이터베이스 Secret 참조는 워크로드 준비 중에
+연결했습니다. 이후 비공개 런타임 묶음에는 Plan 실행 전에 이러한 의존성을 모두 포함해야
+합니다. 기존 Hub 이미지, revision, 카탈로그 연결, 네트워크 허용 목록은 정확한 클라우드
+계획과 별도 승인을 통해서만 변경합니다.
+
+두 번째 범위 제한 증적은 새로 만든 고객 개발 AKS 클러스터에서 애플리케이션 중립적인
+수명 주기를 검증합니다. Release Hub는 nginx `2180.0.0`, 별도 업데이트 `2180.1.0`,
+통제된 실패 버전 `2180.2.0`을 게시했습니다. Lifecycle Hub는 각 exact catalog revision을
+가져와 설치본에 결속된 Plan을 발급했습니다. Agent는 nginx를 설치하고 업데이트한 뒤 실패
+이미지가 비정상 상태가 되자 `health_check_failed`와 함께 `rolled-back`을 보고했습니다.
+독립 readback에서 복원된 `2180.1.0` 이미지 다이제스트, Ready 1/1, HTTP 200, 변경되지 않은
+Service UID를 확인했습니다. 새 recompute는 Plan 없이 `waiting`을 반환해 실패 보류를
+유지했습니다. 다른 설치본에 대한 접근은 403을 반환했으며 Agent와 Hub replica를 교체해도
+상태가 유지되고 워크로드 효과가 중복되지 않았습니다. 검증 후 임시 AKS, 레지스트리, 신원,
+노드 리소스 그룹을 제거했고 Lifecycle Hub trust와 네트워크 입력은 zero-change plan으로
+복원했습니다. 이 증적은 #2180의 nginx gate를 검증하지만 #2181에서 추적하는 전체 FDAI
+topology를 검증하지는 않습니다.
 
 ## 제품별 독립 배포
 
@@ -313,9 +414,14 @@ Release Hub는 공급업체의 제품이고, Lifecycle Hub는 고객의 배포 �
 기본 로컬 백엔드는 영속 비공개 저장소의 절대 경로를 명시적으로 받아, Azure Storage 없이
 기존 로컬 state를 보존합니다. 원격 백엔드는 후보 고정 전에 별도로 검토하는 표준 Terraform
 재정의 설정으로 선택할 수 있으며, 실행 중 백엔드를 바꾸지는 않습니다.
-공유 내부 모듈은 선택한 제품의 자원만 만듭니다. 다른 Hub의 state, ID, NAT 주소를 읽지 않습니다.
-승인된 기존 레지스트리는 외부 입력입니다. FDAI 소스/오프라인 설치기, 본체 인프라 루트,
-Agent 또는 클러스터 배포는 바꾸지 않습니다.
+공유 내부 모듈은 선택한 제품의 자원만 만듭니다. 다른 Hub의 state, ID, NAT 주소를 읽지
+않습니다. 승인된 레지스트리는 두 제품 루트에 명시적으로 주입하는 외부 입력으로 유지합니다.
+제품별 배포는 Lifecycle Hub의 state 소유권을 넘기지 않고 공유 Hub 이미지 전송 수단을
+Release Hub 리소스 그룹에 배치할 수 있습니다. 검증된 개발 토폴로지는 Release Hub가 소유한
+전용 ACR 하나를 사용하고, 각 Hub의 Managed Identity에 `AcrPull`을 부여하며, 모든 앱과 Job을
+제품별 다이제스트에 고정합니다. 레지스트리 이전은 Hub 데이터베이스, Key Vault, 네트워크
+또는 설치 권한을 바꾸지 않습니다. FDAI 소스/오프라인 설치기, 본체 인프라 루트, Agent 또는
+클러스터 배포도 바꾸지 않습니다.
 
 Entra 앱 등록이 0개여도 각 루트는 Graph나 디렉터리 state 없이 계획할 수 있고,
 각 원격 앱은 자기 스키마 이행, 서버 기동, 상태/준비 확인과 UI 제공을 수행할 수 있습니다.
@@ -323,6 +429,14 @@ PostgreSQL/Key Vault 관리 ID, 인증서를 검증하는 TLS와 사람 DB 관�
 앱 소유의 제한된 SQL/Key Vault 초기화 명령은 임시 수동 Job에서 실행합니다.
 Terraform 기본 도구로 자원을 선언하고 Azure CLI로 Job을 시작하고 관측합니다.
 초기화 후 임시 권한은 영구 런타임 자원과 별도로 제거합니다.
+
+기동 후 각 제품은 브라우저 세션에 의존하지 않는 자동화를 위해 수동 trusted-operations
+Job 하나를 유지할 수 있습니다. Release Hub는 정확한 비공개 `publish-release` 요청만
+수락합니다. Lifecycle Hub는 정확한 `import-catalog` 또는 `recompute` 요청만 수락합니다.
+Job은 Key Vault에서 정확한 버전의 요청 하나를 읽고 해당 Hub의 Managed Identity와 트랜잭션
+저장소만 사용하며, 다이제스트만 포함한 범위가 제한된 증적을 출력합니다. 설치 적용 신원은
+보유하지 않습니다. 동일한 요청을 재시도하면 효과를 추가하지 않고 보존된 게시 또는 가져오기
+결과를 다시 읽습니다. 운영자 등록, 소유권 수락 및 Plan 적용은 계속 별도 경계입니다.
 
 로그인과 Lifecycle의 카탈로그 원본은 명시적으로 선택하는 연결이며 가짜 값을 넣지 않습니다.
 로그인이 없으면 관리 API는 503으로 차단하고 UI는 기능을 사용할 수 없다고 표시합니다.
@@ -1032,6 +1146,14 @@ Release에 새로 추가된 워크로드는 1단계에서 페더레이션 ID 자
 업데이트, 과거 상태 조정이 모두 포함됩니다. 그래서 Terraform과 에이전트가 같은 객체를 함께 쓰지
 않습니다.
 
+표시는 설치 작업 디렉터리의 owner-only 파일 `hub-ownership.json`입니다(스키마
+`fdai.hub-ownership-marker.v1`: 설치 id, 인계 receipt digest, 시각, 기록 digest). AKS 워크로드 루트의
+Terraform 단계를 활성화하는 단일 지점이 이 파일을 확인하므로, 일반 애플리케이션 단계, 서비스별
+업데이트, 과거 상태 조정이 모두 이 파일이 있는 동안 거부됩니다. 읽을 수 없거나 변조됐거나 심볼릭
+링크이거나 그룹이 읽을 수 있는 표시도 거부하므로, 손상으로 객체가 Terraform에 되돌아가지
+않습니다. 같은 인계에 대한 기록은 멱등이고 다른 인계를 덮어쓰지 않으며, 해제에는 롤백 receipt
+digest가 필요합니다. 워크로드 루트의 Hub용 변형은 아직 없으므로 현재 동작은 거부뿐입니다.
+
 **되돌리기:** 먼저 에이전트가 인수한 객체의 조정을 멈추고, 조정 리스를 놓고, 해제를 기록합니다.
 그런 다음 인프라 에이전트가 같은 주소에 대해 `import` 블록이 있는 정확한 계획을 적용하고, 이어지는
 계획에 변경이 없으면 Terraform 상태가 실행 중인 객체와 일치함이 증명됩니다. 2단계나 3단계에서
@@ -1052,6 +1174,17 @@ Hub 경로에서 카탈로그 검토와 초기 인벤토리를 실행하는 일�
 다이제스트를 Terraform 입력이 아니라 에이전트의 렌더링 증적에서 도출합니다.
 
 ### 이전 미해결 질문에 대한 결정
+
+분류 관문(`service_migrations.classification`)은 구현되어 있으며 마이그레이션을 import하지 않고
+동작합니다. Release는 `fdai.migration-classification.v1`(`revision`별 `expand` 또는 `contract`)을
+선언합니다. 보류 개정은 이미지의 개정에서 설치가 이미 적용한 버전을 뺀 것이므로, 등록 기준 시점
+이전 개정에는 선언이 필요 없습니다. 분류되지 않은 개정, 축소로 선언된 개정, 확장으로 선언했지만
+정적 분석에서 테이블, 열, 스키마, 타입을 삭제하거나 이름을 바꾸거나 열 타입을 바꾸거나 truncate하는
+것으로 확인된 개정이 있으면 계획은 업그레이드 전체를 안정적인 사유 코드로 거부합니다. 분석은
+`upgrade()`가 도달하는 코드만 읽으므로 삭제하는 `downgrade()`는 영향을 주지 않으며, 선언을 강화하기만
+합니다. 보수적이어서, 스스로 만드는 함수 본문 안에서 삭제하는 개정도 축소로 분류합니다. Release의
+마이그레이션 Job 템플릿, 증적을 포함한 설치 범위 리스, 이 관문을 호출하는 런타임은 #2472에 남아
+있습니다.
 
 Hub 관리형 수명 주기 담당자가 2026-10-07에 다음과 같이 결정했습니다.
 

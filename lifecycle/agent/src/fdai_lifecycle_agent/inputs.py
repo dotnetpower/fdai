@@ -159,6 +159,18 @@ def stage_artifact(
     root: Path, kind: InputKind, digest: str, artifact: SignedArtifact, verify: ArtifactVerifier
 ) -> None:
     """Stage independently pinned, signed bytes. Full semantic validation remains at admission."""
+    validate_artifact(kind, digest, artifact, verify)
+    directory = root / f"{kind}s"
+    # Publish the document last; an interrupted pair is rejected again during admission.
+    write_bytes_atomically(directory / f"{digest}.sig", artifact.signature)
+    write_bytes_atomically(directory / f"{digest}.json", artifact.payload)
+
+
+def validate_artifact(
+    kind: InputKind, digest: str, artifact: SignedArtifact, verify: ArtifactVerifier
+) -> None:
+    """Verify the exact bounded signature and digest used by staging and cache reuse."""
+
     if _HEX_DIGEST.fullmatch(digest) is None or kind not in ("release", "configuration"):
         raise ValueError("Signed input kind or digest is invalid.")
     if len(artifact.payload) > MAX_INPUT_BYTES or len(artifact.signature) != 64:
@@ -168,10 +180,6 @@ def stage_artifact(
     document = load_json(artifact.payload, label="signed input")
     if canonical_digest(document) != digest:
         raise ValueError("Signed input does not match the independently approved digest.")
-    directory = root / f"{kind}s"
-    # Publish the document last; an interrupted pair is rejected again during admission.
-    write_bytes_atomically(directory / f"{digest}.sig", artifact.signature)
-    write_bytes_atomically(directory / f"{digest}.json", artifact.payload)
 
 
 @dataclass(frozen=True, slots=True)

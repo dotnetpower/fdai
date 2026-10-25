@@ -95,14 +95,19 @@ the chain. This recovery adds no agent, approval, or execution authority.
 Gated-state reconciliation is repeatable, not a completed effect. It releases its replay claim,
 rearms an already-published worker outbox fact, and preserves the original payload and idempotency
 key. Saga can redeliver the exact already-sealed document decision when its original source fact
-is replayed. Inspection and indexing effects retain terminal claim deduplication. Logs identify
-audit receipt, stage, claim outcome, completion, and retry using upload UUIDs and exception types,
-without source names, document text, identities, broker keys, or exception messages.
+is replayed. The worker's multiplexed Kafka consumer batches offset commits across skipped
+non-document records on `fdai.pantheon.objects` and flushes on idle poll timeout or decode
+dead-letter, so high-volume runtime traffic does not starve `object.audit-entry` or
+`object.context-index` delivery. When worker-local stewardship environment variables are absent,
+`HandoverBootstrapConsumer` reads the Core-materialized stewardship coverage projection as its
+review-only baseline without granting map-write authority. Inspection and indexing effects retain
+terminal claim deduplication. Logs identify audit receipt, stage, claim outcome, completion, and
+retry using upload UUIDs and exception types, without source names, document text, identities,
+broker keys, or exception messages.
 
 Example: a `RECEIVED` upload whose first recovery attempt met audit backpressure remains gated,
 then republishes the same ingress fact on a later reconciliation cycle. Only Saga's audited
 admission unlocks inspection; handover-purpose indexing still requires Var's independent approval.
-Local tests establish recovery mechanics, not fresh-installation AKS throughput or acceptance.
 
 Cloud-reference rollback currently provides a manual review request. An `Owner` can submit an
 eligible retained version with a higher sequence, preserving source dates and the same independent

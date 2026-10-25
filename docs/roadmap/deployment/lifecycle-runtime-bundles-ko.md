@@ -1,8 +1,8 @@
 ---
 title: 애플리케이션 실행 묶음
 translation_of: lifecycle-runtime-bundles.md
-translation_source_sha: 88891d0044bece4822286013255b3ab9a2ba8568
-translation_revised: 2026-10-23
+translation_source_sha: abfb9f5caef3a377ffc2c4c577ee7cfb7f6b6c1a
+translation_revised: 2026-10-24
 ---
 # 애플리케이션 실행 묶음
 
@@ -43,7 +43,7 @@ Release v2는 `product`, `release_version`, `source_commit`, `platform_tag`와 �
 
 설치 내부 묶음은 형식, product, namespace와 크기가 제한된 객체 목록을 포함합니다.
 각 객체는 Entity, 종류, 이름과 비공개 구성을 지정합니다. 지원 범위는 Deployment,
-ClusterIP Service와 실행 범위가 제한된 CronJob입니다. 일반·초기화 컨테이너는 저장소,
+ClusterIP Service, 실행 범위가 제한된 CronJob, 범위가 제한된 HorizontalPodAutoscaler입니다. 일반·초기화 컨테이너는 저장소,
 태그나 이미지 주소가 아닌 승인된 release component를 지정합니다. Agent는 기존의
 독립적으로 승인된 Entity/component/저장소 대응 관계로 실제 이미지를 결정합니다.
 
@@ -60,6 +60,40 @@ namespace, 역할, 신원, Secret, PVC나 SecretProviderClass는 생성하지 �
 누락 입력이 드러납니다. 내용을 검사하기 위한 Secret 읽기 권한은 Agent에 부여하지 않습니다.
 비공개 실행 구성은 설치 내부의 보호된 저장소에 보관하며 보고나 Hub 정보로 보내지 않습니다.
 공개 설정은 참조 이름을 드러내지 않고 digest만 포함할 수 있습니다.
+
+## 자동 확장 Deployment
+
+HorizontalPodAutoscaler는 같은 Entity의 같은 이름 Deployment를 가리키는 제한된 객체입니다.
+`minReplicas`와 `maxReplicas`는 1에서 10 사이이고, `Utilization` 목표(1~100)를 가진 `Resource`
+지표(`cpu` 또는 `memory`)를 하나 또는 두 개 둡니다. behavior 정책, 사용자 지정·외부 지표, 묶음
+밖의 대상은 거부합니다.
+
+복제본 수는 autoscaler가 소유합니다. 따라서 autoscaler가 있는 Deployment는 `replicas`를 생략하고,
+`replicas`를 생략한 Deployment는 autoscaler가 있어야 하며 둘 다 고정하면 거부합니다. 렌더러는
+`scaleTargetRef`를 같은 이름의 Deployment에 묶고 Deployment 다음에 autoscaler를 적용합니다.
+Deployment spec을 교체하는 업데이트는 live 복제본 수를 1로 되돌리지 않고 유지합니다. 롤아웃 확인은
+컨트롤러가 보고한 복제본 수를 따르며 0일 때는 완료로 보지 않습니다. 네이티브 범위는
+`autoscaled_components`로 autoscaler를 묶고, 비어 있으면 생략하므로 기존 범위 digest와 승인은
+바뀌지 않습니다. Agent 역할에는 필요한 `autoscaling` `horizontalpodautoscalers` 동사만 추가합니다.
+
+## 설치 binding
+
+컨테이너 환경 변수는 정확히 하나의 출처를 가집니다. 기존 `valueFrom` 참조, 크기가 제한된 `value`
+리터럴, 또는 `binding` 키입니다. `binding`은 설치 소유자가 같은 owner-only 로컬 정책의 비공개
+`installation_binding` 객체(`format: fdai.installation-binding.v1`, 최대 128개 키의 맵)에 제공하는
+값을 가리킵니다. 인프라 에이전트가 Terraform 출력에서 이 객체를 기록하며, 이 문서는 읽는 쪽만
+소유합니다.
+
+binding 키는 소문자 식별자입니다. 값과 리터럴은 출력 가능한 1~1024자이며 자격 증명처럼 보이면
+안 됩니다. userinfo가 있는 URL, `Password=`, `AccountKey=`, `SharedAccessKey=`, PEM 헤더는 거부합니다.
+자격 증명을 뜻하는 이름(secret, password, token, DSN, key, signing 등)의 변수는 Secret 참조만
+받으며 리터럴이나 binding은 받지 않습니다. Agent는 묶음이 참조하지 않는 binding 키와 binding에
+없는 참조 키를 정책 로드와 렌더에서 모두 거부하고, 고정된 메시지로 값을 노출하지 않습니다.
+
+값은 렌더 시점에 일반 환경 값으로 풀리며 묶음에 포함되지 않습니다. 고정한 묶음 digest는 리터럴과
+binding 키 이름을 포함하므로 참조를 바꾸면 pin이 바뀌고 설치 로컬 값을 바꾸면 바뀌지 않습니다.
+configuration 키 출처는 여기서 구현하지 않았고 [#2471](https://github.com/dotnetpower/fdai/issues/2471)에
+남아 있습니다.
 
 ## Native 소유권과 실행 동작
 

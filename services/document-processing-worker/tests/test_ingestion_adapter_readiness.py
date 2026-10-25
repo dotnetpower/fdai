@@ -678,6 +678,62 @@ async def test_kafka_consumer_does_not_commit_when_decode_dlq_fails(
     assert bus.consumer_group_decode_dlq_count("object.event", "document-worker") == 0
 
 
+async def test_kafka_consumer_batches_commits_across_multiplexed_records(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class BurstKafkaConsumer(FakeKafkaConsumer):
+        def __init__(self, *_topics: str, **kwargs: object) -> None:
+            super().__init__(*_topics, **kwargs)
+            self.messages = [
+                SimpleNamespace(
+                    topic="fdai.pantheon.objects",
+                    key=b"doc-1",
+                    value=b'{"_fdai_logical_topic":"object.event"}',
+                    offset=index,
+                )
+                for index in range(5)
+            ] + [
+                SimpleNamespace(
+                    topic="fdai.pantheon.objects",
+                    key=b"doc-1",
+                    value=b'{"_fdai_logical_topic":"object.audit-entry","stage":"received"}',
+                    offset=5,
+                )
+            ]
+
+        async def getone(self) -> object:
+            if self.messages:
+                return self.messages.pop(0)
+            await asyncio.sleep(0)
+            raise TimeoutError
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", BurstKafkaConsumer)
+    bus = event_bus_module.MultiplexedEventBus(
+        bus=EventHubsKafkaBus(
+            config=EventHubsKafkaConfig(
+                bootstrap_servers="example.com:9093",
+                commit_max_records=3,
+                commit_interval_seconds=60.0,
+            ),
+            credential=OffsetCredential(),  # type: ignore[arg-type]
+        ),
+        logical_topics=frozenset({"object.audit-entry"}),
+        physical_topic="fdai.pantheon.objects",
+    )
+    events = bus.subscribe("object.audit-entry", "fdai-document-audit-gated-worker")
+
+    event = await anext(events)
+    assert event.offset == 5
+    consumer = FakeKafkaConsumer.latest
+    assert consumer is not None
+    assert consumer.commits == 1
+    task = asyncio.create_task(anext(events))
+    await asyncio.sleep(0.01)
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    assert consumer.commits == 2
+
+
 async def test_unconfigured_ocr_is_explicitly_unavailable_and_fails_closed() -> None:
     adapter = UnavailableImageOcr()
 

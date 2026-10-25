@@ -21,17 +21,43 @@ export type Change = {
   label?: string; manifest?: string;
 };
 
-export function releaseTitle(release: Release): string {
-  const manifest = JSON.parse(release.manifest) as { product?: string };
+export type ReleaseManifest = Record<string, unknown> & {
+  product?: string;
+  source_commit?: string;
+  platform_tag?: string;
+  schema?: { target: number; tolerates: { minimum: number; maximum: number } };
+};
+
+export function parseReleaseManifest(manifest: string): ReleaseManifest {
+  const parsed: unknown = JSON.parse(manifest);
+  if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid manifest.");
+  return parsed as ReleaseManifest;
+}
+
+export function releaseTitle(release: Release, manifest = parseReleaseManifest(release.manifest)): string {
   return `${manifest.product ?? "Release"} ${release.id}`;
 }
 
-export function schemaCompatibility(manifest: string): string {
-  const parsed = JSON.parse(manifest) as {
-    schema?: { target: number; tolerates: { minimum: number; maximum: number } };
-  };
-  if (!parsed.schema) return "Not declared (stateless package)";
-  return `${parsed.schema.tolerates.minimum} - ${parsed.schema.tolerates.maximum} (target ${parsed.schema.target})`;
+export function schemaCompatibility(manifest: ReleaseManifest): string {
+  if (!manifest.schema) return "Not declared (stateless package)";
+  return `${manifest.schema.tolerates.minimum} - ${manifest.schema.tolerates.maximum} (target ${manifest.schema.target})`;
+}
+
+function parseCatalog(value: unknown): Catalog {
+  if (typeof value !== "object" || value === null) throw new Error("Release Hub returned an invalid catalog.");
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.revision !== "number"
+    || !Number.isSafeInteger(candidate.revision)
+    || candidate.revision < 0
+    || !Array.isArray(candidate.releases)
+    || !Array.isArray(candidate.events)
+    || typeof candidate.channels !== "object"
+    || candidate.channels === null
+  ) {
+    throw new Error("Release Hub returned an invalid catalog.");
+  }
+  return candidate as Catalog;
 }
 
 export async function requestCatalog(path = "/v1/catalog", body?: Change): Promise<Catalog> {
@@ -41,13 +67,21 @@ export async function requestCatalog(path = "/v1/catalog", body?: Change): Promi
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     } : {}),
   });
+  let result: unknown;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error(response.ok
+      ? "Release Hub returned invalid JSON."
+      : `Request failed (${response.status}).`);
+  }
   if (!response.ok) {
-    const result: unknown = await response.json();
     const message = typeof result === "object" && result !== null && "error" in result
-      && typeof result.error === "string" ? result.error : `Request failed (${response.status}).`;
+      && typeof result.error === "string" && result.error.trim()
+      ? result.error : `Request failed (${response.status}).`;
     throw new Error(message);
   }
-  return response.json() as Promise<Catalog>;
+  return parseCatalog(result);
 }
 
 export function actionsFor(release: Release): Action[] {
@@ -55,14 +89,15 @@ export function actionsFor(release: Release): Action[] {
   return release.state === "draft" ? ["publish"] : ["contribute", "recall"];
 }
 
+export function releaseStateIndex(releases: Release[]): ReadonlyMap<string, Release["state"]> {
+  return new Map(releases.map((release) => [release.id, release.state]));
+}
+
 export function isCustomChannel(value: string): boolean {
   return value.length <= 64 && value === value.trim() && /^custom-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }
 
-export function artifacts(manifest: string): { component: string; digest: string; sbom: string }[] {
-  const parsed: unknown = JSON.parse(manifest);
-  if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid manifest.");
-  const root = parsed as Record<string, unknown>;
+export function artifacts(root: ReleaseManifest): { component: string; digest: string; sbom: string }[] {
   const result: { component: string; digest: string; sbom: string }[] = [];
   for (const section of ["services", "sidecars", "installation_agents", "workloads", "console", "deployment_support"]) {
     const group = root[section];
@@ -72,9 +107,13 @@ export function artifacts(manifest: string): { component: string; digest: string
     for (const [component, value] of entries) {
       if (typeof value !== "object" || value === null) continue;
       const record = value as Record<string, unknown>;
+      const digest = typeof record.image_digest === "string"
+        ? record.image_digest
+        : typeof record.archive_sha256 === "string" ? record.archive_sha256 : null;
+      if (!digest) throw new Error(`Artifact ${component} has no digest.`);
       result.push({
         component,
-        digest: typeof record.image_digest === "string" ? record.image_digest : String(record.archive_sha256),
+        digest,
         sbom: typeof record.sbom_sha256 === "string" ? record.sbom_sha256 : "Not declared",
       });
     }

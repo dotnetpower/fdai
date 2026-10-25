@@ -28,7 +28,9 @@ from fdai_lifecycle_hub.errors import (
     NotEnrolledError,
     NotPendingError,
     PlanDigestMismatchError,
+    ReportAttemptGapError,
     ReportConflictError,
+    ReportProgressionError,
     SchemaMigrationPendingError,
     StateRejectedError,
     UnknownInstallationError,
@@ -266,6 +268,12 @@ def create_app(
     async def conflict(request: Request, exc: Exception) -> Response:
         return _error(409, "report_conflict")
 
+    async def report_attempt_gap(request: Request, exc: Exception) -> Response:
+        return _error(409, "report_attempt_gap")
+
+    async def report_invalid(request: Request, exc: Exception) -> Response:
+        return _error(422, "report_invalid")
+
     async def digest_mismatch(request: Request, exc: Exception) -> Response:
         return _error(409, "plan_digest_mismatch")
 
@@ -352,6 +360,8 @@ def create_app(
             NotEnrolledError: not_found,
             InstallationExistsError: exists,
             ReportConflictError: conflict,
+            ReportAttemptGapError: report_attempt_gap,
+            ReportProgressionError: report_invalid,
             PlanDigestMismatchError: digest_mismatch,
             NotPendingError: not_pending,
             InstallationKeyMismatchError: key_mismatch,
