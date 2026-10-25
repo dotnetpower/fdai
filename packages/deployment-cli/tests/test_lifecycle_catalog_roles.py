@@ -11,14 +11,14 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
-from fdai_deployment_cli.lifecycle_catalog_integrity import (
+from fdai_service_contracts.catalog_integrity import (
     CatalogRootRecord,
     CatalogSnapshotRecord,
     CatalogTimestampRecord,
     catalog_key_id,
     role_signing_message,
 )
-from fdai_deployment_cli.lifecycle_catalog_roles import (
+from fdai_service_contracts.catalog_roles import (
     CatalogRootChainError,
     root_from_wire,
     root_to_wire,

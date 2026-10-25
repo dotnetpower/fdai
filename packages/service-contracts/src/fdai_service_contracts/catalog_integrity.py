@@ -8,8 +8,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
-from fdai_deployment_cli.lifecycle_plan import SignatureVerifier
+from fdai_service_contracts.catalog_canonical import (
+    SignatureVerifier,
+    canonical_bytes,
+    canonical_digest,
+)
 
 
 def _require_aware(value: datetime, field_name: str) -> None:

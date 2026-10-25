@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,8 +39,14 @@ def build_promotion_registry(
     container: Any,
     audit_store: Any,
     durable: bool,
+    environment: Mapping[str, str] | None = None,
 ) -> tuple[ActionPromotionRegistry, Any | None]:
-    """Bind durable enforcement only for the explicit governed-execution add-on."""
+    """Bind durable enforcement only for the explicit governed-execution add-on.
+
+    A selected catalog-freshness monitor keeps operator-override promotions in shadow mode while
+    the signed Release metadata is expired or unverifiable. It runs before every refresh, so a
+    failed durable refresh still leaves the current expiry flag set.
+    """
 
     if selection.governed_execution and durable:
         from fdai.delivery.persistence import (
@@ -53,7 +60,19 @@ def build_promotion_registry(
             persisted_authority_verifier=container.persisted_promotion_authority_verifier,
             override_authority_verifier=StateStoreOperatorOverrideAuthorityVerifier(audit_store),
         )
-        return registry, registry.refresh
+        from fdai.delivery.catalog_freshness import build_catalog_freshness_monitor
+
+        monitor = build_catalog_freshness_monitor(
+            os.environ if environment is None else environment
+        )
+        if monitor is None:
+            return registry, registry.refresh
+
+        async def refresh(action_type: str) -> None:
+            await monitor.apply(registry)
+            await registry.refresh(action_type)
+
+        return registry, refresh
     return (
         ActionPromotionRegistry(
             receipt_verifier=(

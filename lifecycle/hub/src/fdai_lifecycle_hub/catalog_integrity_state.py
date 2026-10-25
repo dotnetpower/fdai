@@ -11,7 +11,7 @@ import json
 from datetime import datetime
 from typing import Any
 
-from fdai_deployment_cli.lifecycle_catalog_roles import root_from_wire, root_to_wire
+from fdai_service_contracts.catalog_roles import root_from_wire, root_to_wire
 from sqlalchemy import Column, Integer, LargeBinary, MetaData, String, Table, Text, inspect, select
 from sqlalchemy.engine import Connection, RowMapping
 

@@ -383,6 +383,24 @@ signatures, monotonic versions, and recall-sequence continuity (`recall_sequence
 `StateStoreActionPromotionRegistry.set_catalog_timestamp_expired` returns operator-override
 promotions to shadow mode while timestamp metadata is expired.
 
+**Installation-side freshness.** The installation's Core verifies the public metadata itself, so
+no Agent, Hub or event carries authority for the result. When
+`FDAI_CATALOG_FRESHNESS_METADATA_URL` selects it, the Core fetches that URL, verifies the root
+chain against the pinned `FDAI_CATALOG_FRESHNESS_ROOT_KEY_IDS` (threshold
+`FDAI_CATALOG_FRESHNESS_ROOT_THRESHOLD`, default all keys) and applies `evaluate_catalog_integrity`
+before each promotion refresh, at most once per `FDAI_CATALOG_FRESHNESS_REFRESH_SECONDS` (default
+300, minimum 30). The flag is set when no metadata has been verified, when the signed timestamp,
+snapshot or root has expired on the local clock. A failed fetch, an unpinned root, a bad signature or a lower version never replaces
+the last verified state, so it cannot extend freshness and the local clock still ends it. The
+metadata URL must be `https` (or loopback `http`), carries no credentials, is fetched without
+redirects, and is bounded to 1 MiB. Selecting the feature without a root pin is a startup error;
+leaving it unselected changes nothing. The Core keeps its version floors in memory only, so a
+restart accepts any validly signed, unexpired metadata. Each transition logs
+`catalog_freshness_changed` with a stable reason. The verification code lives in
+`fdai_service_contracts` (`catalog_integrity`, `catalog_roles`, `catalog_metadata`), shared with the
+Hubs. The Container Apps Core service root exposes the settings as the optional `catalog_freshness`
+variable, which requires an `https` URL and unique ed25519 root key ids.
+
 ### Signed catalog roles in the Hubs
 
 The Hubs implement these roles as an opt-in mode that replaces the single development key. The
@@ -431,8 +449,8 @@ Keys for snapshot and timestamp come from secret references, so a hardware-backe
 operator choice that this design does not enforce.
 
 **Not yet implemented.** A production root ceremony with retained custody receipts, which stays
-an operator procedure. Wiring `demote_operator_overrides_to_shadow` to the promotion registry on
-an installation, which needs an authenticated Agent-to-Core event first. The standalone Release Hub
+an operator procedure. Wiring the installation freshness settings into the AKS workloads (the
+Container Apps Core root already takes `catalog_freshness`), and durable version floors for it. The standalone Release Hub
 root already installs the root through its operation Job, so the legacy paired fixture stays
 unchanged. Database inspection fingerprints the optional role tables when they exist.
 

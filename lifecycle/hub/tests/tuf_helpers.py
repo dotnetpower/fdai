@@ -6,12 +6,12 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from fdai_deployment_cli.lifecycle_catalog_integrity import (
+from fdai_service_contracts.catalog_integrity import (
     CatalogRootRecord,
     CatalogSnapshotRecord,
     CatalogTimestampRecord,
 )
-from fdai_deployment_cli.lifecycle_catalog_roles import root_to_wire
+from fdai_service_contracts.catalog_roles import root_to_wire
 
 from fdai_lifecycle_hub.catalog_trust import (
     CatalogTrust,

@@ -11,13 +11,13 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
-from fdai_deployment_cli.lifecycle_catalog_integrity import (
+from fdai_service_contracts.catalog_integrity import (
     MAX_ROOT_CHAIN_LENGTH,
     CatalogRootRecord,
     CatalogSnapshotRecord,
     CatalogTimestampRecord,
 )
-from fdai_deployment_cli.lifecycle_plan import SignatureVerifier
+from fdai_service_contracts.catalog_canonical import SignatureVerifier
 
 ED25519_SIGNATURE_BYTES = 64
 RootVerifierFactory = Callable[[Mapping[str, bytes]], SignatureVerifier]

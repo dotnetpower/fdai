@@ -4,7 +4,8 @@ run "core_control_plane_plan" {
   command = plan
   module { source = "../../services/core-control-plane" }
   variables {
-    name = "ca-fdai-core"
+    name            = "ca-fdai-core"
+    source_revision = "0123456789abcdef0123456789abcdef01234567"
     platform = {
       resource_group_name          = "rg-example"
       container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
@@ -47,6 +48,249 @@ run "core_control_plane_plan" {
   assert {
     condition     = output.rollback_contract.strategy == "previous-revision"
     error_message = "Core root must expose its rollback contract."
+  }
+}
+
+run "core_catalog_freshness_selected" {
+  command = plan
+  module { source = "../../services/core-control-plane" }
+  variables {
+    name            = "ca-fdai-core"
+    source_revision = "0123456789abcdef0123456789abcdef01234567"
+    platform = {
+      resource_group_name          = "rg-example"
+      container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
+      acr_login_server             = "registry.example.com"
+      kafka_bootstrap_servers      = "kafka.example.com:9093"
+    }
+    image = "registry.example.com/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    bootstrap = {
+      azure_tenant_id       = "tenant-example"
+      azure_subscription_id = "subscription-example"
+      azure_region          = "example-region"
+      postgres_host         = "postgres.example.com"
+      postgres_database     = "fdai"
+    }
+    identity     = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-core", client_id = "core-client" }
+    event_topics = { events = "object.event", executor_command = "object.executor-command", executor_receipt = "object.executor-receipt" }
+    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/core-dsn", host = "postgres.example.com", role = "fdai_core" }
+    llm = {
+      endpoint = "https://oai-fdai.openai.azure.com"
+      model_endpoints = {
+        "azure-openai:oai-fdai"         = "https://oai-fdai.openai.azure.com"
+        "azure-foundry:aif-fdai-models" = "https://aif-fdai-models.services.ai.azure.com"
+      }
+    }
+    observation_context = {
+      enabled                              = true
+      signing_seed_secret_id               = "https://example.vault.azure.net/secrets/ohl-signing-seed"
+      executor_credential_lineage          = "azure-managed-identity:executor"
+      vm_start_executor_credential_lineage = "azure-managed-identity:vm-start-executor"
+      source_credential_lineage            = "azure-managed-identity:inventory"
+      source_identity_client_id            = "00000000-0000-0000-0000-000000000003"
+    }
+    rollback    = { strategy = "previous-revision", previous_image = "registry.example.com/fdai@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
+    runtime_env = "dev"
+    catalog_freshness = {
+      metadata_url   = "https://releases.example.invalid/v1/catalog/metadata"
+      root_key_ids   = ["ed25519-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "ed25519-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+      root_threshold = 2
+    }
+  }
+  assert {
+    condition     = output.service.name == "ca-fdai-core"
+    error_message = "A valid catalog freshness selection must keep the Core root plannable."
+  }
+}
+
+run "core_catalog_freshness_requires_https" {
+  command = plan
+  module { source = "../../services/core-control-plane" }
+  expect_failures = [var.catalog_freshness]
+  variables {
+    name            = "ca-fdai-core"
+    source_revision = "0123456789abcdef0123456789abcdef01234567"
+    platform = {
+      resource_group_name          = "rg-example"
+      container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
+      acr_login_server             = "registry.example.com"
+      kafka_bootstrap_servers      = "kafka.example.com:9093"
+    }
+    image = "registry.example.com/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    bootstrap = {
+      azure_tenant_id       = "tenant-example"
+      azure_subscription_id = "subscription-example"
+      azure_region          = "example-region"
+      postgres_host         = "postgres.example.com"
+      postgres_database     = "fdai"
+    }
+    identity     = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-core", client_id = "core-client" }
+    event_topics = { events = "object.event", executor_command = "object.executor-command", executor_receipt = "object.executor-receipt" }
+    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/core-dsn", host = "postgres.example.com", role = "fdai_core" }
+    llm = {
+      endpoint = "https://oai-fdai.openai.azure.com"
+      model_endpoints = {
+        "azure-openai:oai-fdai"         = "https://oai-fdai.openai.azure.com"
+        "azure-foundry:aif-fdai-models" = "https://aif-fdai-models.services.ai.azure.com"
+      }
+    }
+    observation_context = {
+      enabled                              = true
+      signing_seed_secret_id               = "https://example.vault.azure.net/secrets/ohl-signing-seed"
+      executor_credential_lineage          = "azure-managed-identity:executor"
+      vm_start_executor_credential_lineage = "azure-managed-identity:vm-start-executor"
+      source_credential_lineage            = "azure-managed-identity:inventory"
+      source_identity_client_id            = "00000000-0000-0000-0000-000000000003"
+    }
+    rollback    = { strategy = "previous-revision", previous_image = "registry.example.com/fdai@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
+    runtime_env = "dev"
+    catalog_freshness = {
+      metadata_url = "http://releases.example.invalid/v1/catalog/metadata"
+      root_key_ids = ["ed25519-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+    }
+  }
+}
+
+run "core_catalog_freshness_requires_a_pin" {
+  command = plan
+  module { source = "../../services/core-control-plane" }
+  expect_failures = [var.catalog_freshness]
+  variables {
+    name            = "ca-fdai-core"
+    source_revision = "0123456789abcdef0123456789abcdef01234567"
+    platform = {
+      resource_group_name          = "rg-example"
+      container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
+      acr_login_server             = "registry.example.com"
+      kafka_bootstrap_servers      = "kafka.example.com:9093"
+    }
+    image = "registry.example.com/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    bootstrap = {
+      azure_tenant_id       = "tenant-example"
+      azure_subscription_id = "subscription-example"
+      azure_region          = "example-region"
+      postgres_host         = "postgres.example.com"
+      postgres_database     = "fdai"
+    }
+    identity     = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-core", client_id = "core-client" }
+    event_topics = { events = "object.event", executor_command = "object.executor-command", executor_receipt = "object.executor-receipt" }
+    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/core-dsn", host = "postgres.example.com", role = "fdai_core" }
+    llm = {
+      endpoint = "https://oai-fdai.openai.azure.com"
+      model_endpoints = {
+        "azure-openai:oai-fdai"         = "https://oai-fdai.openai.azure.com"
+        "azure-foundry:aif-fdai-models" = "https://aif-fdai-models.services.ai.azure.com"
+      }
+    }
+    observation_context = {
+      enabled                              = true
+      signing_seed_secret_id               = "https://example.vault.azure.net/secrets/ohl-signing-seed"
+      executor_credential_lineage          = "azure-managed-identity:executor"
+      vm_start_executor_credential_lineage = "azure-managed-identity:vm-start-executor"
+      source_credential_lineage            = "azure-managed-identity:inventory"
+      source_identity_client_id            = "00000000-0000-0000-0000-000000000003"
+    }
+    rollback    = { strategy = "previous-revision", previous_image = "registry.example.com/fdai@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
+    runtime_env = "dev"
+    catalog_freshness = {
+      metadata_url = "https://releases.example.invalid/v1/catalog/metadata"
+    }
+  }
+}
+
+run "core_catalog_freshness_rejects_a_pin_without_a_url" {
+  command = plan
+  module { source = "../../services/core-control-plane" }
+  expect_failures = [var.catalog_freshness]
+  variables {
+    name            = "ca-fdai-core"
+    source_revision = "0123456789abcdef0123456789abcdef01234567"
+    platform = {
+      resource_group_name          = "rg-example"
+      container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
+      acr_login_server             = "registry.example.com"
+      kafka_bootstrap_servers      = "kafka.example.com:9093"
+    }
+    image = "registry.example.com/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    bootstrap = {
+      azure_tenant_id       = "tenant-example"
+      azure_subscription_id = "subscription-example"
+      azure_region          = "example-region"
+      postgres_host         = "postgres.example.com"
+      postgres_database     = "fdai"
+    }
+    identity     = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-core", client_id = "core-client" }
+    event_topics = { events = "object.event", executor_command = "object.executor-command", executor_receipt = "object.executor-receipt" }
+    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/core-dsn", host = "postgres.example.com", role = "fdai_core" }
+    llm = {
+      endpoint = "https://oai-fdai.openai.azure.com"
+      model_endpoints = {
+        "azure-openai:oai-fdai"         = "https://oai-fdai.openai.azure.com"
+        "azure-foundry:aif-fdai-models" = "https://aif-fdai-models.services.ai.azure.com"
+      }
+    }
+    observation_context = {
+      enabled                              = true
+      signing_seed_secret_id               = "https://example.vault.azure.net/secrets/ohl-signing-seed"
+      executor_credential_lineage          = "azure-managed-identity:executor"
+      vm_start_executor_credential_lineage = "azure-managed-identity:vm-start-executor"
+      source_credential_lineage            = "azure-managed-identity:inventory"
+      source_identity_client_id            = "00000000-0000-0000-0000-000000000003"
+    }
+    rollback    = { strategy = "previous-revision", previous_image = "registry.example.com/fdai@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
+    runtime_env = "dev"
+    catalog_freshness = {
+      root_key_ids = ["ed25519-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+    }
+  }
+}
+
+run "core_catalog_freshness_rejects_a_fast_refresh" {
+  command = plan
+  module { source = "../../services/core-control-plane" }
+  expect_failures = [var.catalog_freshness]
+  variables {
+    name            = "ca-fdai-core"
+    source_revision = "0123456789abcdef0123456789abcdef01234567"
+    platform = {
+      resource_group_name          = "rg-example"
+      container_app_environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.App/managedEnvironments/cae-example"
+      acr_login_server             = "registry.example.com"
+      kafka_bootstrap_servers      = "kafka.example.com:9093"
+    }
+    image = "registry.example.com/fdai@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    bootstrap = {
+      azure_tenant_id       = "tenant-example"
+      azure_subscription_id = "subscription-example"
+      azure_region          = "example-region"
+      postgres_host         = "postgres.example.com"
+      postgres_database     = "fdai"
+    }
+    identity     = { resource_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-core", client_id = "core-client" }
+    event_topics = { events = "object.event", executor_command = "object.executor-command", executor_receipt = "object.executor-receipt" }
+    database     = { dsn_secret_id = "https://example.vault.azure.net/secrets/core-dsn", host = "postgres.example.com", role = "fdai_core" }
+    llm = {
+      endpoint = "https://oai-fdai.openai.azure.com"
+      model_endpoints = {
+        "azure-openai:oai-fdai"         = "https://oai-fdai.openai.azure.com"
+        "azure-foundry:aif-fdai-models" = "https://aif-fdai-models.services.ai.azure.com"
+      }
+    }
+    observation_context = {
+      enabled                              = true
+      signing_seed_secret_id               = "https://example.vault.azure.net/secrets/ohl-signing-seed"
+      executor_credential_lineage          = "azure-managed-identity:executor"
+      vm_start_executor_credential_lineage = "azure-managed-identity:vm-start-executor"
+      source_credential_lineage            = "azure-managed-identity:inventory"
+      source_identity_client_id            = "00000000-0000-0000-0000-000000000003"
+    }
+    rollback    = { strategy = "previous-revision", previous_image = "registry.example.com/fdai@sha256:1111111111111111111111111111111111111111111111111111111111111111" }
+    runtime_env = "dev"
+    catalog_freshness = {
+      metadata_url    = "https://releases.example.invalid/v1/catalog/metadata"
+      root_key_ids    = ["ed25519-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+      refresh_seconds = 5
+    }
   }
 }
 

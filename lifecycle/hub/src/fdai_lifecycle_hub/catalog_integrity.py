@@ -14,13 +14,13 @@ from datetime import datetime
 from typing import Any
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from fdai_deployment_cli.lifecycle_catalog_integrity import (
+from fdai_service_contracts.catalog_integrity import (
     CatalogRootRecord,
     CatalogSnapshotRecord,
     CatalogTimestampRecord,
     evaluate_catalog_integrity,
 )
-from fdai_deployment_cli.lifecycle_catalog_roles import (
+from fdai_service_contracts.catalog_roles import (
     CatalogRootChainError,
     verify_root_chain,
 )
