@@ -3319,6 +3319,7 @@
         "lifecycle/manager/**",
         "lifecycle/Dockerfile.agent",
         "infra/lifecycle-agent/**",
+        "infra/hub-stewardship-prerequisites/**",
         "tests/integration/services/test_lifecycle_agent_image.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_authorization.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_catalog_integrity.py",

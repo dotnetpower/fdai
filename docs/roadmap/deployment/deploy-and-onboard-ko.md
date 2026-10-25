@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 291854794cc086b85e9d3e19fbb4016aba5b9ac7
-translation_revised: 2026-10-25
+translation_source_sha: fcaaac09ce8498bee9ccf5d7830bcab77817bcac
+translation_revised: 2026-10-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
@@ -52,6 +52,9 @@ Hub 관리형 AKS 인계에서는 `enable_document_ingestion=true`로 공용 Azu
 `enable_document_ingestion_workloads=false`로 인제스트 API, 워커, 마이그레이션 Container Apps를
 생략할 수 있습니다. 소스·오프라인 Container Apps 배포의 기본값은 계속 `true`입니다. 검토한
 정확한 계획에서만 이 분리를 사용하며, Hub 소유권이나 적용 권한을 부여하지 않습니다.
+기존 설치에서는 별도 remote state key를 사용하는 `infra/hub-stewardship-prerequisites`에서 이
+계획을 실행합니다. 이 루트는 공용 플랫폼 리소스를 조회하고 애플리케이션 워크로드를 소유하지
+않으므로, 보존된 소스 워크로드 state를 묵시적으로 다시 계획할 수 없습니다.
 
 원격 개발 Agent를 연결할 때는 Lifecycle Hub 루트의 `operator_auth.agent_principals`에
 명시적인 연결 정보를 지정합니다. 각 항목은 하나의 설치, Entra 개체와 클라이언트를 식별합니다.
