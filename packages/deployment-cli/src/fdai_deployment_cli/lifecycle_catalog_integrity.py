@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+from base64 import b64encode
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -20,6 +22,33 @@ def _require_positive_int(value: int, field_name: str) -> None:
         raise ValueError(f"{field_name} MUST be a positive integer")
 
 
+KEY_ID_PREFIX = "ed25519-"
+ED25519_PUBLIC_KEY_BYTES = 32
+MAX_ROOT_CHAIN_LENGTH = 32
+# Every role signature has its own domain, so a signature made for one role or for an export
+# cannot be replayed as another. The export domain lives with the export signature itself.
+ROLE_SIGNATURE_DOMAINS: Mapping[str, bytes] = {
+    "root": b"fdai.catalog-root.v1\n",
+    "snapshot": b"fdai.catalog-snapshot.v1\n",
+    "timestamp": b"fdai.catalog-timestamp.v1\n",
+}
+
+
+def catalog_key_id(raw_public_key: bytes) -> str:
+    """Self-certifying key id: the full SHA-256 of the raw Ed25519 public key."""
+
+    return KEY_ID_PREFIX + hashlib.sha256(raw_public_key).hexdigest()
+
+
+def role_signing_message(role: str, payload: bytes) -> bytes:
+    """Domain-separate one role signature. An unknown role has no signing domain."""
+
+    try:
+        return ROLE_SIGNATURE_DOMAINS[role] + payload
+    except KeyError:
+        raise ValueError(f"unknown catalog role: {role}") from None
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CatalogRootRecord:
     """Signed TUF root role record naming authorized keys and threshold."""
@@ -32,6 +61,9 @@ class CatalogRootRecord:
     signed_at: datetime
     expires_at: datetime
     signatures: Mapping[str, bytes] = field(default_factory=dict)
+    # Optional extensions. Records that omit them keep their original canonical payload.
+    export_key_ids: frozenset[str] = frozenset()
+    public_keys: Mapping[str, bytes] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         _require_positive_int(self.version, "version")
@@ -42,20 +74,47 @@ class CatalogRootRecord:
         _require_aware(self.expires_at, "expires_at")
         if self.signed_at >= self.expires_at:
             raise ValueError("signed_at MUST precede expires_at")
+        if self.public_keys:
+            named = (
+                self.root_key_ids
+                | self.snapshot_key_ids
+                | self.timestamp_key_ids
+                | self.export_key_ids
+            )
+            if named != set(self.public_keys):
+                raise ValueError("public_keys MUST cover exactly the keys the roles name")
+            for key_id, raw in self.public_keys.items():
+                if len(raw) != ED25519_PUBLIC_KEY_BYTES or key_id != catalog_key_id(raw):
+                    raise ValueError("public key does not match its self-certifying key id")
+
+    def to_mapping(self) -> dict[str, object]:
+        mapping: dict[str, object] = {
+            "role": "root",
+            "version": self.version,
+            "threshold": self.threshold,
+            "root_key_ids": sorted(self.root_key_ids),
+            "snapshot_key_ids": sorted(self.snapshot_key_ids),
+            "timestamp_key_ids": sorted(self.timestamp_key_ids),
+            "signed_at": self.signed_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+        }
+        if self.export_key_ids:
+            mapping["export_key_ids"] = sorted(self.export_key_ids)
+        if self.public_keys:
+            mapping["public_keys"] = {
+                key_id: b64encode(raw).decode("ascii")
+                for key_id, raw in sorted(self.public_keys.items())
+            }
+        return mapping
 
     def canonical_payload(self) -> bytes:
-        return canonical_bytes(
-            {
-                "role": "root",
-                "version": self.version,
-                "threshold": self.threshold,
-                "root_key_ids": sorted(self.root_key_ids),
-                "snapshot_key_ids": sorted(self.snapshot_key_ids),
-                "timestamp_key_ids": sorted(self.timestamp_key_ids),
-                "signed_at": self.signed_at.isoformat(),
-                "expires_at": self.expires_at.isoformat(),
-            }
-        )
+        return canonical_bytes(self.to_mapping())
+
+    @property
+    def digest(self) -> str:
+        """Digest of the signed payload, used to detect two different roots at one version."""
+
+        return f"sha256:{canonical_digest(self.to_mapping())}"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -70,6 +129,9 @@ class CatalogSnapshotRecord:
     signed_at: datetime
     expires_at: datetime
     signature: bytes = b""
+    # Optional export binding. Records that omit it keep their original canonical payload.
+    export_digest: str | None = None
+    export_revision: int | None = None
 
     def __post_init__(self) -> None:
         _require_positive_int(self.version, "version")
@@ -81,9 +143,13 @@ class CatalogSnapshotRecord:
             raise ValueError("signed_at MUST precede expires_at")
         for seq in self.recall_sequences:
             _require_positive_int(seq, "recall_sequence")
+        if self.export_revision is not None and (
+            isinstance(self.export_revision, bool) or self.export_revision < 0
+        ):
+            raise ValueError("export_revision MUST be a non-negative integer")
 
     def to_mapping(self) -> dict[str, object]:
-        return {
+        mapping: dict[str, object] = {
             "role": "snapshot",
             "version": self.version,
             "channel_versions": dict(sorted(self.channel_versions.items())),
@@ -93,6 +159,11 @@ class CatalogSnapshotRecord:
             "signed_at": self.signed_at.isoformat(),
             "expires_at": self.expires_at.isoformat(),
         }
+        if self.export_digest is not None:
+            mapping["export_digest"] = self.export_digest
+        if self.export_revision is not None:
+            mapping["export_revision"] = self.export_revision
+        return mapping
 
     def canonical_payload(self) -> bytes:
         return canonical_bytes(self.to_mapping())
@@ -124,18 +195,19 @@ class CatalogTimestampRecord:
         if self.signed_at >= self.expires_at:
             raise ValueError("signed_at MUST precede expires_at")
 
+    def to_mapping(self) -> dict[str, object]:
+        return {
+            "role": "timestamp",
+            "version": self.version,
+            "snapshot_version": self.snapshot_version,
+            "snapshot_digest": self.snapshot_digest,
+            "key_id": self.key_id,
+            "signed_at": self.signed_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+        }
+
     def canonical_payload(self) -> bytes:
-        return canonical_bytes(
-            {
-                "role": "timestamp",
-                "version": self.version,
-                "snapshot_version": self.snapshot_version,
-                "snapshot_digest": self.snapshot_digest,
-                "key_id": self.key_id,
-                "signed_at": self.signed_at.isoformat(),
-                "expires_at": self.expires_at.isoformat(),
-            }
-        )
+        return canonical_bytes(self.to_mapping())
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

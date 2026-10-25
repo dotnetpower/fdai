@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from base64 import b64decode
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated
 
@@ -74,21 +75,39 @@ def _typed_recalls(document: dict[str, object]) -> None:
         raise ValueError("Release Hub export recalls are invalid") from error
 
 
+def _manifest_signed(payload: bytes, signature: str, keys: Sequence[Ed25519PublicKey]) -> bool:
+    try:
+        decoded = b64decode(signature, validate=True)
+    except ValueError:
+        return False
+    for key in keys:
+        try:
+            key.verify(decoded, payload)
+        except InvalidSignature:
+            continue
+        return True
+    return False
+
+
 def load_pinned_export(
     raw: bytes,
     *,
     expected_sha256: str,
-    public_key: Ed25519PublicKey,
+    public_key: Ed25519PublicKey | Sequence[Ed25519PublicKey],
     now: datetime,
     minimum_revision: int = 0,
     previous_sha256: str | None = None,
+    enforce_expiry: bool = True,
 ) -> ReleaseCatalog:
     """Verify a locally transported export against an out-of-band pin and trusted key.
 
     The caller owns durable pin and revision-floor retention. No network or TOFU is performed.
     A new channel/recall snapshot requires a new operator-supplied pin. Exact pin verification
     binds version labels and membership; individual signatures cover exact manifest bytes.
+    Several keys may be given when a signed root names more than one export key. The export's
+    own expiry is skipped only when a signed timestamp carries freshness instead.
     """
+    keys = (public_key,) if isinstance(public_key, Ed25519PublicKey) else tuple(public_key)
     if minimum_revision < 0:
         raise ValueError("Release Hub minimum revision must be non-negative")
     if len(raw) > MAX_EXPORT_BYTES:
@@ -100,7 +119,7 @@ def load_pinned_export(
     _typed_recalls(document)
     export = _Export.model_validate(document)
     expires_at = datetime.fromisoformat(export.expires_at)
-    if now.tzinfo is None or expires_at.tzinfo is None or now >= expires_at:
+    if now.tzinfo is None or expires_at.tzinfo is None or (enforce_expiry and now >= expires_at):
         raise ValueError("Release Hub export is expired or has no timezone")
     if export.revision < minimum_revision:
         raise ValueError("Release Hub export revision moved backwards")
@@ -113,10 +132,8 @@ def load_pinned_export(
     releases = {}
     for release_id, artifact in export.releases.items():
         payload = artifact.manifest.encode()
-        try:
-            public_key.verify(b64decode(artifact.signature, validate=True), payload)
-        except (InvalidSignature, ValueError) as error:
-            raise ValueError("Release Hub manifest signature verification failed") from error
+        if not _manifest_signed(payload, artifact.signature, keys):
+            raise ValueError("Release Hub manifest signature verification failed")
         release = parse_lifecycle_release_manifest(payload)
         if release.schema_version not in LIFECYCLE_RELEASE_SCHEMAS:
             raise ValueError("Release Hub export requires a supported lifecycle Release")

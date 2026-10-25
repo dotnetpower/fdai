@@ -85,7 +85,12 @@ variable "operation_job" {
   default = null
 }
 variable "secret_versions" {
-  type    = object({ database = optional(string), signing_key = optional(string) })
+  type = object({
+    database              = optional(string)
+    signing_key           = optional(string)
+    catalog_snapshot_key  = optional(string)
+    catalog_timestamp_key = optional(string)
+  })
   default = {}
 }
 variable "catalog" {
@@ -94,8 +99,13 @@ variable "catalog" {
     access                     = optional(string)
     token_scope                = optional(string)
     managed_identity_client_id = optional(string)
-    release_public_key         = string
-    check_interval_seconds     = optional(number)
+    release_public_key         = optional(string)
+    trust = optional(object({
+      mode           = string
+      root_key_ids   = list(string)
+      root_threshold = number
+    }))
+    check_interval_seconds = optional(number)
     adoption = optional(object({
       mode                     = optional(string)
       allowed_channels         = optional(list(string))

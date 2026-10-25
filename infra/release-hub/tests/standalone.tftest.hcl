@@ -305,3 +305,138 @@ run "timestamp_renewal_above_one_hour_is_rejected" {
   }
   expect_failures = [var.timestamp_renewal_check_seconds]
 }
+
+run "catalog_roles_are_omitted_by_default" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind        = "release"
+    enable_apps = true
+    secret_versions = {
+      database    = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  }
+  assert {
+    condition = (
+      !contains(keys(output.deployment.runtime_config), "catalog_roles") &&
+      length([for e in azurerm_container_app.hub["release"].template[0].container[0].env : e.name if startswith(e.name, "FDAI_HUB_CATALOG_")]) == 0
+    )
+    error_message = "Without signed roles the Release Hub must add no key, secret or environment variable."
+  }
+}
+
+run "catalog_roles_reach_runtime_with_separate_secret_references" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind        = "release"
+    enable_apps = true
+    catalog_roles = {
+      timestamp_ttl_seconds = 7200
+    }
+    secret_versions = {
+      database              = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key           = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      catalog_snapshot_key  = "cccccccccccccccccccccccccccccccc"
+      catalog_timestamp_key = "dddddddddddddddddddddddddddddddd"
+    }
+  }
+  assert {
+    condition = (
+      output.deployment.runtime_config.catalog_roles.timestamp_ttl_seconds == 7200 &&
+      !contains(keys(output.deployment.runtime_config.catalog_roles), "snapshot_ttl_seconds") &&
+      length([for e in azurerm_container_app.hub["release"].template[0].container[0].env : e.name if e.name == "FDAI_HUB_CATALOG_SNAPSHOT_KEY"]) == 1 &&
+      length([for e in azurerm_container_app.hub["release"].template[0].container[0].env : e.name if e.name == "FDAI_HUB_CATALOG_TIMESTAMP_KEY"]) == 1
+    )
+    error_message = "Signed roles need their own snapshot and timestamp secret references, never the development key."
+  }
+}
+
+run "catalog_roles_require_both_secret_versions" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind          = "release"
+    enable_apps   = true
+    catalog_roles = {}
+    secret_versions = {
+      database             = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key          = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      catalog_snapshot_key = "cccccccccccccccccccccccccccccccc"
+    }
+  }
+  expect_failures = [var.secret_versions]
+}
+
+run "catalog_roles_reject_a_short_timestamp_window" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind          = "release"
+    catalog_roles = { timestamp_ttl_seconds = 60 }
+  }
+  expect_failures = [var.catalog_roles]
+}
+
+run "catalog_roles_reject_a_snapshot_that_expires_before_the_timestamp" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind          = "release"
+    catalog_roles = { timestamp_ttl_seconds = 172800, snapshot_ttl_seconds = 86400 }
+  }
+  expect_failures = [var.catalog_roles]
+}
+
+run "root_installation_is_a_release_operation" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind          = "release"
+    catalog_roles = {}
+    secret_versions = {
+      database              = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key           = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      catalog_snapshot_key  = "cccccccccccccccccccccccccccccccc"
+      catalog_timestamp_key = "dddddddddddddddddddddddddddddddd"
+    }
+    operation_job = {
+      operation              = "install-catalog-root"
+      request_secret_version = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      actor                  = "example-operator"
+    }
+  }
+  assert {
+    condition     = length(azurerm_container_app_job.operation) == 1
+    error_message = "The offline-signed root is installed through the product-owned operation Job."
+  }
+}
+
+run "root_installation_is_rejected_for_the_lifecycle_hub" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    operation_job = {
+      operation              = "install-catalog-root"
+      request_secret_version = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      actor                  = "example-operator"
+    }
+  }
+  expect_failures = [var.operation_job]
+}

@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 import {
-  hubApi, type UpdateCandidate, type UpdateCheckRecord, type UpdateStatus,
+  hubApi, type IntegrityState, type UpdateCandidate, type UpdateCheckRecord, type UpdateStatus,
 } from "../api";
 import { AsyncBoundary } from "../components/async-boundary";
 import { Badge } from "../components/badge";
@@ -8,8 +8,9 @@ import { Link } from "../components/link";
 import { formatRelative, formatTimestamp } from "../format";
 import { useAsync } from "../hooks/use-async";
 import {
-  canApply, describeActionError, describeDetail, describePlanOutcome, describeSchedule,
-  hasUrgentRecall, outcomeBadge, shortDigest, summarizeChange,
+  canApply, describeActionError, describeDetail, describeIntegrity, describePlanOutcome,
+  describeSchedule, describeVersions, hasUrgentRecall, isTimestampExpired, outcomeBadge, shortDigest,
+  summarizeChange,
 } from "../update-status";
 
 type Notice = { kind: "error" | "info"; message: string };
@@ -22,17 +23,40 @@ function Expiry({ iso }: { iso: string }) {
   return <>{formatRelative(iso)} ({formatTimestamp(iso)})</>;
 }
 
+function Integrity({ state }: { state: IntegrityState }) {
+  const last = state.last;
+  const view = last ? describeIntegrity(last) : null;
+  // A persisted expiry is judged now, so an old check cannot make stale metadata look fresh.
+  const staleNow = isTimestampExpired(state) && view?.badge.variant === "ok";
+  const badge = staleNow
+    ? { label: "Timestamp expired", variant: "warn" as const }
+    : view?.badge ?? { label: "Not checked yet", variant: "mute" as const };
+  const lines = staleNow
+    ? ["The signed timestamp has expired. Only recall roll-off Plans are issued until fresh metadata arrives."]
+    : view && view.badge.variant !== "ok" ? view.lines : [];
+  return <>
+    <Badge variant={badge.variant}>{badge.label}</Badge>
+    <p class="note">{describeVersions(state)}.
+      {state.timestamp_expires_at
+        ? <> Timestamp expires <Expiry iso={state.timestamp_expires_at} />.</> : null}</p>
+    {lines.map(line => <p class="note" key={line}>{line}</p>)}
+  </>;
+}
+
 function CheckSummary({ record }: { record: UpdateCheckRecord }) {
   const badge = outcomeBadge(record.outcome);
   // The candidate panel below lists the reasons, so the summary does not repeat them.
   const lines = record.outcome === "review_required" && record.candidate
     ? ["A new catalog is waiting for your review."]
     : describeDetail(record.outcome, record.detail);
+  const integrity = record.outcome === "failed" && record.integrity && !record.integrity.verified
+    ? describeIntegrity(record.integrity).lines : [];
   return <>
     <span>{formatTimestamp(record.checked_at)} <Badge variant={badge.variant}>{badge.label}</Badge></span>
     {lines.length === 1
       ? <p class="note">{lines[0]}</p>
       : <ul class="update-list">{lines.map(line => <li key={line}>{line}</li>)}</ul>}
+    {integrity.map(line => <p class="note" key={line}>{line}</p>)}
   </>;
 }
 
@@ -51,6 +75,10 @@ function Summary({ status }: { status: UpdateStatus }) {
       <div class="k">Last check</div>
       <div class="v small">{check ? <CheckSummary record={check} /> : "No check has run yet"}</div>
     </div>
+    {status.integrity && <div>
+      <div class="k">Catalog integrity</div>
+      <div class="v small"><Integrity state={status.integrity} /></div>
+    </div>}
     {status.mode === "auto" && <div>
       <div class="k">Standing authorization</div>
       <div class="v small">{authorization
@@ -97,6 +125,7 @@ function CandidatePanel({ record, busy, onApply }: {
       <dt>Signature verified</dt><dd>{candidate.signature_verified
         ? `Yes${candidate.key_id ? ` (key ${candidate.key_id})` : ""}` : "No"}</dd>
     </dl>
+    {candidate.integrity && <CandidateIntegrity candidate={candidate} />}
     <h3 class="update-subtitle">Why a review is needed</h3>
     <ul class="update-list">{reasons.map(line => <li key={line}>{line}</li>)}</ul>
     <h3 class="update-subtitle">What changes</h3>
@@ -107,10 +136,33 @@ function CandidatePanel({ record, busy, onApply }: {
           Review and apply
         </button>
       </div>
-      : <p class="note" role="note">This candidate cannot be applied here because its signature could not be
-        verified. For an unsigned or offline export, use the{" "}
-        <Link href="/catalog">Catalog import</Link> page.</p>}
+      : candidate.signature_verified
+        ? <p class="note" role="note">This candidate cannot be applied now because the vendor's signed
+          timestamp has expired. Only recall changes are accepted until fresh metadata arrives.</p>
+        : <p class="note" role="note">This candidate cannot be applied here because its signature could not be
+          verified. For an unsigned or offline export, use the{" "}
+          <Link href="/catalog">Catalog import</Link> page.</p>}
   </section>;
+}
+
+function CandidateIntegrity({ candidate }: { candidate: UpdateCandidate }) {
+  const integrity = candidate.integrity!;
+  const view = describeIntegrity(integrity);
+  return <>
+    {(integrity.expired || integrity.root_rotation) && <div class="banner" role="alert">
+      <strong>{view.badge.label}</strong>
+      <span>{view.lines[0]}</span>
+    </div>}
+    <dl class="catalog-trust" aria-label="Catalog roles">
+      <dt>Catalog roles</dt><dd><Badge variant={view.badge.variant}>{view.badge.label}</Badge></dd>
+      <dt>Root</dt><dd>{integrity.root ? `v${integrity.root.version}` : "None"}
+        {integrity.root_rotation ? ` (was v${integrity.previous_root_version})` : ""}</dd>
+      <dt>Snapshot</dt><dd>{integrity.snapshot ? `v${integrity.snapshot.version}` : "None"}</dd>
+      <dt>Timestamp</dt><dd>{integrity.timestamp
+        ? <>v{integrity.timestamp.version}, expires <Expiry iso={integrity.timestamp.expires_at} /></>
+        : "None"}</dd>
+    </dl>
+  </>;
 }
 
 function PlanResults({ record }: { record: UpdateCheckRecord }) {

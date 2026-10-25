@@ -151,6 +151,11 @@ def plan_next(
             plan_type = "configuration-change"
         else:
             plan_type = "upgrade"
+        if catalog.plan_types is not None and plan_type not in catalog.plan_types:
+            checks.append(
+                CandidateCheck(release_id, (ConstraintBlock("catalog_timestamp_expired"),))
+            )
+            continue
         if not rolloff_required and any(
             state.release_id is not None and compare_release_ids(release_id, state.release_id) < 0
             for state in managed_states

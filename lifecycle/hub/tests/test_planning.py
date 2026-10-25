@@ -618,3 +618,25 @@ def test_boundary_registry_mirror_blocks_plan_until_every_required_digest_is_mir
     issued = plan_next(ready, now, catalog=catalog, key=key)
     assert isinstance(issued, Issued)
     assert issued.plan.target_release_id == "1.6.0"
+
+
+def test_a_stale_catalog_timestamp_blocks_every_plan_except_recall_rolloff(
+    installation: Installation, catalog: ReleaseCatalog, key: HubSigningKey, now: datetime
+) -> None:
+    stale = replace(catalog, plan_types=frozenset({"recall-rolloff"}))
+
+    blocked = plan_next(installation, now, catalog=stale, key=key)
+
+    assert isinstance(blocked, NoEligibleRelease)
+    assert blocked.checks and all(
+        {block.reason_code for block in check.blocks} == {"catalog_timestamp_expired"}
+        for check in blocked.checks
+    )
+    assert isinstance(plan_next(installation, now, catalog=catalog, key=key), Issued)
+
+    running = _with_core_release(installation, "1.6.0")
+    rolloff = plan_next(running, now, catalog=replace(stale, recalls=(_recall("1.6.0"),)), key=key)
+
+    assert isinstance(rolloff, Issued)
+    assert rolloff.plan.plan_type == "recall-rolloff"
+    assert rolloff.plan.target_release_id == "1.5.0"

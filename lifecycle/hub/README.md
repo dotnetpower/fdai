@@ -67,6 +67,19 @@ default is `review`; a missing signature, key, engine or authorization never ado
 `GET /v1/catalog/updates`, `POST /v1/catalog/updates/check` and `POST /v1/catalog/updates/apply`.
 Release Hub never calls this Hub. See [Automatic catalog adoption](../../docs/roadmap/deployment/lifecycle-releases-and-channels.md#automatic-catalog-adoption).
 
+With `catalog.trust` set to `{ "mode": "tuf", "root_key_ids": [...], "root_threshold": n }` in place
+of `release_public_key`, the poll verifies TUF-style signed roles instead of one key: the root
+chain from the pinned keys (rotation needs the previous threshold), the snapshot and timestamp,
+the export digest and revision they bind, and persisted anti-rollback floors
+(`catalog_integrity_state`, created by `bind-catalog`). The Rego policy gains `integrity` facts
+and the reasons `integrity_not_verified`, `timestamp_expired` and `root_rotation_requires_review`.
+An expired timestamp adopts only recalls and plans only `recall-rolloff`; a root rotation always
+waits for a person. **Updates** shows the root, snapshot and timestamp versions and expiry, and
+`GET /v1/catalog/updates` carries an `integrity` object. A bound database refuses a changed
+trust, so switching an installation from the single key needs a fresh binding. See
+[Catalog integrity](../../docs/roadmap/deployment/lifecycle-releases-and-channels.md#signed-catalog-roles-in-the-hubs)
+and the [operator guide](../../docs/runbooks/hub-lifecycle-operator-guide.md#c1-use-signed-catalog-roles-opt-in).
+
 The Catalog import screen separates independent exact-pin approval from one bounded outbound
 import using the customer's managed identity. Accepted bytes, digest, key binding, revision
 floor, and approval/import audit survive restart in PostgreSQL. The existing planner revalidates

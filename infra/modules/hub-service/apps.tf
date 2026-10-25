@@ -47,6 +47,10 @@ locals {
     )
     if catalog != null
   ]...)
+  catalog_role_secrets = var.catalog_roles == null ? {} : {
+    "catalog-snapshot-key"  = { env = "FDAI_HUB_CATALOG_SNAPSHOT_KEY", version = var.secret_versions.catalog_snapshot_key }
+    "catalog-timestamp-key" = { env = "FDAI_HUB_CATALOG_TIMESTAMP_KEY", version = var.secret_versions.catalog_timestamp_key }
+  }
   configs = {
     for kind in local.kinds : kind => merge(
       { kind = kind, key_epoch = 1 },
@@ -60,6 +64,7 @@ locals {
         )
       },
       kind == "target" && var.catalog != null ? { catalog = local.catalog_config } : {},
+      kind == "release" && var.catalog_roles != null ? { catalog_roles = { for key, value in var.catalog_roles : key => value if value != null } } : {},
       kind == "release" && var.timestamp_renewal_check_seconds > 0 ? { timestamp_renewal_check_seconds = var.timestamp_renewal_check_seconds } : {},
     )
   }
@@ -77,7 +82,7 @@ resource "azurerm_role_assignment" "registry_reader" {
 }
 resource "azurerm_role_assignment" "secret_reader" {
   for_each = {
-    for pair in setproduct(local.kinds, toset(["development-signing-key", "hub-database-url"])) :
+    for pair in setproduct(local.kinds, toset(concat(["development-signing-key", "hub-database-url"], keys(local.catalog_role_secrets)))) :
     "${pair[0]}-${pair[1]}" => { kind = pair[0], secret = pair[1] }
   }
   scope                = "${local.foundation[each.value.kind].vault_id}/secrets/${each.value.secret}"
@@ -123,6 +128,14 @@ resource "azurerm_container_app" "hub" {
     identity            = local.foundation[each.key].identity_id
     key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/hub-database-url/${var.secret_versions.database}"
   }
+  dynamic "secret" {
+    for_each = local.catalog_role_secrets
+    content {
+      name                = secret.key
+      identity            = local.foundation[each.key].identity_id
+      key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/${secret.key}/${secret.value.version}"
+    }
+  }
   ingress {
     external_enabled           = true
     allow_insecure_connections = false
@@ -160,6 +173,13 @@ resource "azurerm_container_app" "hub" {
       env {
         name        = "FDAI_HUB_DEVELOPMENT_SIGNING_KEY"
         secret_name = "development-signing-key"
+      }
+      dynamic "env" {
+        for_each = local.catalog_role_secrets
+        content {
+          name        = env.value.env
+          secret_name = env.key
+        }
       }
       env {
         name  = "FDAI_HUB_MANAGED_IDENTITY_CLIENT_ID"

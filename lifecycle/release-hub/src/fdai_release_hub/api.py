@@ -69,6 +69,20 @@ def create_app(
         except CatalogError as error:
             return JSONResponse({"error": str(error)}, status_code=error.status)
 
+    async def metadata(request: Request) -> Response:
+        try:
+            signed = await run_in_threadpool(store.signed_metadata)
+        except CatalogError as error:
+            return JSONResponse({"error": str(error)}, status_code=error.status)
+        etag = f'"{signed.digest}"'
+        offered = {
+            token.strip().removeprefix("W/")
+            for token in request.headers.get("if-none-match", "").split(",")
+        }
+        if etag in offered:
+            return Response(status_code=304, headers={"ETag": etag})
+        return Response(signed.raw, media_type="application/json", headers={"ETag": etag})
+
     async def change(request: Request, *, action: str) -> Response:
         media_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
         if media_type != "application/json":
@@ -154,6 +168,7 @@ def create_app(
         ),
         Route("/v1/catalog", catalog),
         Route("/v1/catalog/export", export),
+        Route("/v1/catalog/metadata", metadata),
         Route("/v1/catalog/renew", partial(change, action="renew"), methods=["POST"]),
     ]
     routes += [

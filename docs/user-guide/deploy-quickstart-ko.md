@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 복제한 저장소에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 80f0cb3c8c4fe5d9d866fff5e23a308b3be6590b
+translation_source_sha: 4a7ae88febb458099efa9ce28a26c7008a6c250f
 translation_revised: 2026-10-25
 ---
 
