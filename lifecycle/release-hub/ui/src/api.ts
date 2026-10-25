@@ -21,17 +21,26 @@ export type Change = {
   label?: string; manifest?: string;
 };
 
-export function releaseTitle(release: Release): string {
-  const manifest = JSON.parse(release.manifest) as { product?: string };
+export type ReleaseManifest = Record<string, unknown> & {
+  product?: string;
+  source_commit?: string;
+  platform_tag?: string;
+  schema?: { target: number; tolerates: { minimum: number; maximum: number } };
+};
+
+export function parseReleaseManifest(manifest: string): ReleaseManifest {
+  const parsed: unknown = JSON.parse(manifest);
+  if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid manifest.");
+  return parsed as ReleaseManifest;
+}
+
+export function releaseTitle(release: Release, manifest = parseReleaseManifest(release.manifest)): string {
   return `${manifest.product ?? "Release"} ${release.id}`;
 }
 
-export function schemaCompatibility(manifest: string): string {
-  const parsed = JSON.parse(manifest) as {
-    schema?: { target: number; tolerates: { minimum: number; maximum: number } };
-  };
-  if (!parsed.schema) return "Not declared (stateless package)";
-  return `${parsed.schema.tolerates.minimum} - ${parsed.schema.tolerates.maximum} (target ${parsed.schema.target})`;
+export function schemaCompatibility(manifest: ReleaseManifest): string {
+  if (!manifest.schema) return "Not declared (stateless package)";
+  return `${manifest.schema.tolerates.minimum} - ${manifest.schema.tolerates.maximum} (target ${manifest.schema.target})`;
 }
 
 function parseCatalog(value: unknown): Catalog {
@@ -80,14 +89,15 @@ export function actionsFor(release: Release): Action[] {
   return release.state === "draft" ? ["publish"] : ["contribute", "recall"];
 }
 
+export function releaseStateIndex(releases: Release[]): ReadonlyMap<string, Release["state"]> {
+  return new Map(releases.map((release) => [release.id, release.state]));
+}
+
 export function isCustomChannel(value: string): boolean {
   return value.length <= 64 && value === value.trim() && /^custom-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 }
 
-export function artifacts(manifest: string): { component: string; digest: string; sbom: string }[] {
-  const parsed: unknown = JSON.parse(manifest);
-  if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid manifest.");
-  const root = parsed as Record<string, unknown>;
+export function artifacts(root: ReleaseManifest): { component: string; digest: string; sbom: string }[] {
   const result: { component: string; digest: string; sbom: string }[] = [];
   for (const section of ["services", "sidecars", "installation_agents", "workloads", "console", "deployment_support"]) {
     const group = root[section];

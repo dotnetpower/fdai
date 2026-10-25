@@ -44,6 +44,7 @@ from fdai_release_hub.catalog_serialization import (
     BoundedJson,
     catalog_position,
     ensure_row_bound,
+    index_memberships,
     release_channels,
     stream,
     write_channels,
@@ -510,12 +511,9 @@ class ReleaseStore:
             if history
             else db.execute(select(catalog_metadata.c.created_at)).scalar_one()
         )
-        channel_names = set(CHANNELS)
-        for member in memberships:
-            channel = member["channel"]
-            if channel not in CHANNELS and not _is_custom_channel(channel):
-                raise CatalogError("Stored catalog channel is invalid.")
-            channel_names.add(channel)
+        channel_names, channels_by_release, releases_by_channel = index_memberships(
+            memberships, is_custom_channel=_is_custom_channel
+        )
         records = []
         for row in rows:
             record = dict(row)
@@ -528,7 +526,7 @@ class ReleaseStore:
             record["signed_payload_sha256"] = hashlib.sha256(
                 record["manifest"].encode()
             ).hexdigest()
-            record["channels"] = [m["channel"] for m in memberships if m["release_id"] == row["id"]]
+            record["channels"] = channels_by_release.get(row["id"], [])
             record["state"] = (
                 "recalled" if row["recalled_at"] else "published" if row["signature"] else "draft"
             )
@@ -545,7 +543,7 @@ class ReleaseStore:
             "key_id": self.key.key_id,
             "releases": records,
             "channels": {
-                c: [m["release_id"] for m in memberships if m["channel"] == c]
+                c: releases_by_channel.get(c, [])
                 for c in (*CHANNELS, *sorted(channel_names - set(CHANNELS)))
             },
             "events": history,

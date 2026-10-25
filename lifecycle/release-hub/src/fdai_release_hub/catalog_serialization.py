@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_bytes
@@ -84,10 +84,15 @@ def ensure_row_bound(
         release_count = release_count.where(release_filter)
     if event_filter is not None:
         event_count = event_count.where(event_filter)
-    row_count = (
-        int(db.scalar(release_count) or 0)
-        + int(db.scalar(event_count) or 0)
-        + int(db.scalar(select(func.count()).select_from(membership)) or 0)
+    row_count = int(
+        db.scalar(
+            select(
+                release_count.scalar_subquery()
+                + event_count.scalar_subquery()
+                + select(func.count()).select_from(membership).scalar_subquery()
+            )
+        )
+        or 0
     )
     if row_count > maximum:
         raise CatalogError(message, 503)
@@ -100,21 +105,34 @@ def write_channels(
     is_custom_channel: Callable[[str | None], bool],
 ) -> None:
     channel_names = set(BUILT_IN_CHANNELS)
-    encoded_size = sum(len(canonical_bytes(channel)) + 1 for channel in channel_names) + 2
+    encoded_size = 1 + sum(len(canonical_bytes(channel)) + 4 for channel in channel_names)
     channels = db.scalars(
         select(membership.c.channel)
         .distinct()
-        .order_by(membership.c.channel)
         .execution_options(stream_results=True, max_row_buffer=1, yield_per=1)
     ).yield_per(1)
     for channel in channels:
         if channel not in BUILT_IN_CHANNELS and not is_custom_channel(channel):
             raise CatalogError("Stored catalog channel is invalid.")
         if channel not in channel_names:
-            encoded_size += len(canonical_bytes(channel)) + 1
+            encoded_size += len(canonical_bytes(channel)) + 4
             if encoded_size > writer.remaining:
                 raise CatalogError(writer.message, 503)
         channel_names.add(channel)
+
+    memberships: dict[str, list[str]] = {channel: [] for channel in channel_names}
+    rows = stream(
+        db,
+        select(membership.c.channel, membership.c.release_id),
+    )
+    for row in rows:
+        releases = memberships.get(row["channel"])
+        if releases is None:
+            raise CatalogError("Stored catalog channel is invalid.")
+        encoded_size += len(canonical_bytes(row["release_id"])) + bool(releases)
+        if encoded_size > writer.remaining:
+            raise CatalogError(writer.message, 503)
+        releases.append(row["release_id"])
 
     writer.write(b"{")
     first_channel = True
@@ -125,19 +143,38 @@ def write_channels(
         writer.value(channel)
         writer.write(b":[")
         first_release = True
-        release_ids = db.scalars(
-            select(membership.c.release_id)
-            .where(membership.c.channel == channel)
-            .order_by(membership.c.release_id)
-            .execution_options(stream_results=True, max_row_buffer=1, yield_per=1)
-        ).yield_per(1)
-        for release_id in release_ids:
+        releases = memberships[channel]
+        releases.sort()
+        for release_id in releases:
             if not first_release:
                 writer.write(b",")
             first_release = False
             writer.value(release_id)
         writer.write(b"]")
     writer.write(b"}")
+
+
+def index_memberships(
+    rows: Iterable[Mapping[Any, Any]],
+    *,
+    is_custom_channel: Callable[[str | None], bool],
+) -> tuple[set[str], dict[str, list[str]], dict[str, list[str]]]:
+    """Index a snapshot's memberships in one pass for bounded repeated lookups."""
+
+    channel_names = set(BUILT_IN_CHANNELS)
+    by_release: dict[str, list[str]] = {}
+    by_channel: dict[str, list[str]] = {}
+    for row in rows:
+        channel = row["channel"]
+        release_id = row["release_id"]
+        if not isinstance(channel, str) or not isinstance(release_id, str):
+            raise CatalogError("Stored catalog membership is invalid.")
+        if channel not in BUILT_IN_CHANNELS and not is_custom_channel(channel):
+            raise CatalogError("Stored catalog channel is invalid.")
+        channel_names.add(channel)
+        by_release.setdefault(release_id, []).append(channel)
+        by_channel.setdefault(channel, []).append(release_id)
+    return channel_names, by_release, by_channel
 
 
 def release_channels(

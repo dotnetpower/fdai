@@ -18,7 +18,14 @@ from starlette.testclient import TestClient
 
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.signing import HubSigningKey
+from fdai_release_hub import catalog_serialization
 from fdai_release_hub.api import MAX_CATALOG_VIEW_BYTES, create_app
+from fdai_release_hub.catalog_serialization import (
+    BoundedJson,
+    ensure_row_bound,
+    index_memberships,
+    write_channels,
+)
 from fdai_release_hub.cli import main
 from fdai_release_hub.store import (
     CapabilityChange,
@@ -323,6 +330,121 @@ def test_streamed_catalog_read_preserves_canonical_contract(store: ReleaseStore)
     assert store.catalog_view(MAX_CATALOG_VIEW_BYTES) == canonical_bytes(
         {**snapshot, "export_sha256": digest}
     )
+
+
+@pytest.mark.parametrize("export_only", [False, True])
+def test_catalog_row_bound_uses_one_database_query(store: ReleaseStore, export_only: bool) -> None:
+    statements: list[str] = []
+
+    def record(_connection: object, _cursor: object, statement: str, *_args: object) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    sqlalchemy_event.listen(store.engine, "before_cursor_execute", record)
+    try:
+        with store.connect() as db:
+            ensure_row_bound(
+                db,
+                maximum=MAX_CATALOG_VIEW_BYTES,
+                message="catalog too large",
+                export_only=export_only,
+            )
+    finally:
+        sqlalchemy_event.remove(store.engine, "before_cursor_execute", record)
+
+    assert len(statements) == 1
+
+
+def test_channel_serialization_uses_two_streaming_queries(store: ReleaseStore) -> None:
+    publish(store)
+    change(store, "contribute", channel="RELEASE_CANDIDATE")
+    statements: list[str] = []
+
+    def record(_connection: object, _cursor: object, statement: str, *_args: object) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    sqlalchemy_event.listen(store.engine, "before_cursor_execute", record)
+    try:
+        with store.connect() as db:
+            writer = BoundedJson(MAX_CATALOG_VIEW_BYTES, "catalog too large")
+            write_channels(db, writer, is_custom_channel=lambda _value: False)
+            assert json.loads(writer.finish()) == {
+                "DEV": ["1.6.0"],
+                "RELEASE": [],
+                "RELEASE_CANDIDATE": ["1.6.0"],
+            }
+    finally:
+        sqlalchemy_event.remove(store.engine, "before_cursor_execute", record)
+
+    assert len(statements) == 2
+
+
+def test_channel_serialization_is_independent_of_membership_order(
+    store: ReleaseStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    publish(store)
+    change(
+        store,
+        "contribute",
+        channel="custom-pilot",
+        channel_confirmation="custom-pilot",
+    )
+    original_stream = catalog_serialization.stream
+    observed_order: list[str] = []
+    statements: list[str] = []
+
+    def reorder_memberships(db, statement):
+        rows = list(original_stream(db, statement))
+        rows.sort(key=lambda row: row["channel"] == "DEV")
+        observed_order.extend(row["channel"] for row in rows)
+        yield from rows
+
+    def record(_connection: object, _cursor: object, statement: str, *_args: object) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    monkeypatch.setattr(catalog_serialization, "stream", reorder_memberships)
+    sqlalchemy_event.listen(store.engine, "before_cursor_execute", record)
+    try:
+        with store.connect() as db:
+            writer = BoundedJson(MAX_CATALOG_VIEW_BYTES, "catalog too large")
+            write_channels(
+                db,
+                writer,
+                is_custom_channel=lambda value: value == "custom-pilot",
+            )
+            assert json.loads(writer.finish()) == {
+                "DEV": ["1.6.0"],
+                "RELEASE": [],
+                "RELEASE_CANDIDATE": [],
+                "custom-pilot": ["1.6.0"],
+            }
+    finally:
+        sqlalchemy_event.remove(store.engine, "before_cursor_execute", record)
+
+    assert observed_order == ["custom-pilot", "DEV"]
+    assert len(statements) == 2
+
+
+def test_snapshot_memberships_are_indexed_in_one_pass() -> None:
+    iterations = 0
+
+    def memberships():
+        nonlocal iterations
+        iterations += 1
+        yield {"channel": "DEV", "release_id": "1.0.0"}
+        yield {"channel": "RELEASE", "release_id": "1.0.0"}
+        yield {"channel": "DEV", "release_id": "1.1.0"}
+
+    names, by_release, by_channel = index_memberships(
+        memberships(), is_custom_channel=lambda _value: False
+    )
+    for _ in range(100):
+        assert by_release["1.0.0"] == ["DEV", "RELEASE"]
+        assert by_channel["DEV"] == ["1.0.0", "1.1.0"]
+    assert names == {"DEV", "RELEASE", "RELEASE_CANDIDATE"}
+    assert iterations == 1
 
 
 @pytest.mark.parametrize("release_id", ["../x", "1.0", "01.0.0", "1.0.0+build"])

@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
 from fdai_deployment_cli.lifecycle_native import NativeApproval, NativeScope
 
+from fdai_lifecycle_agent import native_state as native_state_module
 from fdai_lifecycle_agent.dry_run import EntityState, snapshot_document
 from fdai_lifecycle_agent.journal import ApplyJournal, WorkloadState, WorkloadStore
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
@@ -171,6 +172,45 @@ def manifests():
         "example-test",
         {("application", "frontend"): "example.test/frontend@sha256:" + "a" * 64},
     )
+
+
+def test_native_state_load_avoids_canonical_json_round_trip(native, monkeypatch) -> None:
+    _, store, *_ = native
+    bootstrap(native)
+    expected = store.load()
+    monkeypatch.setattr(
+        "fdai_lifecycle_agent.native_state.canonical_bytes",
+        lambda _document: (_ for _ in ()).throw(AssertionError("unexpected canonicalization")),
+    )
+
+    assert store.load() == expected
+
+
+def test_native_state_save_serializes_output_once(native, monkeypatch) -> None:
+    _, store, *_ = native
+    bootstrap(native)
+    state = store.load()
+    assert state is not None
+    json_bytes = native_state_module._json_bytes
+    serializations = 0
+
+    def serialize(document: object) -> bytes:
+        nonlocal serializations
+        serializations += 1
+        return json_bytes(document)
+
+    monkeypatch.setattr(native_state_module, "_json_bytes", serialize)
+    monkeypatch.setattr(
+        NativeStateStore.__module__ + ".NativeState.model_dump_json",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("unexpected validation serialization")
+        ),
+    )
+
+    store.save(state)
+
+    assert store.load() == state
+    assert serializations == 1
 
 
 def scheduled_manifest():
