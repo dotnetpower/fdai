@@ -1189,6 +1189,10 @@ value.
    VNet and AKS resources and owns only four workload identities and federated credentials,
    document storage/private endpoints, Document Intelligence/private endpoint, role-scoped DSN
    references and ACS Email. It declares no Container App, Container App Job or Kubernetes object.
+   When the operations VNet already uses an existing Blob private DNS zone, the document storage
+   endpoint remains associated with the application zone and the root publishes a managed A record
+   for the same private IP in the operations zone rather than attempting a second overlapping VNet
+   link.
 2. **Schema expand:** The Release ships its database migration as a Kubernetes Job template that
    uses the Core image, which already contains the migration and catalog tools. The Job runs the
    legacy migrations, the service-owned migrations in their declared order, and the authoritative
