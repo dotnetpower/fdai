@@ -36,6 +36,8 @@ module "hub" {
   enable_migration_jobs = var.enable_migration_jobs
   operation_job         = var.operation_job
   secret_versions       = var.secret_versions
+
+  timestamp_renewal_check_seconds = var.timestamp_renewal_check_seconds
 }
 
 output "deployment" {

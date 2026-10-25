@@ -49,8 +49,23 @@ def create_app(
 
     async def export(request: Request) -> Response:
         try:
-            raw, digest = await run_in_threadpool(store.export)
-            return Response(raw, media_type="application/json", headers={"ETag": f'"{digest}"'})
+            signed = await run_in_threadpool(store.signed_export)
+            etag = f'"{signed.digest}"'
+            offered = {
+                token.strip().removeprefix("W/")
+                for token in request.headers.get("if-none-match", "").split(",")
+            }
+            if etag in offered:
+                return Response(status_code=304, headers={"ETag": etag})
+            return Response(
+                signed.raw,
+                media_type="application/json",
+                headers={
+                    "ETag": etag,
+                    "X-FDAI-Export-Signature": signed.signature,
+                    "X-FDAI-Export-Key-Id": signed.key_id,
+                },
+            )
         except CatalogError as error:
             return JSONResponse({"error": str(error)}, status_code=error.status)
 

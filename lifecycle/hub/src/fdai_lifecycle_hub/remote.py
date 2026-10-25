@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Coroutine, Mapping
+from contextlib import asynccontextmanager
+from functools import partial
 from pathlib import Path
 from typing import Any, Literal
 
@@ -14,7 +17,7 @@ from azure.core.exceptions import AzureError
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai_deployment_cli.private_output import read_private_bytes
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import Connection, make_url
 from sqlalchemy.engine.interfaces import Dialect
@@ -27,6 +30,10 @@ from starlette.routing import Route
 
 from fdai_lifecycle_hub import models, schemas
 from fdai_lifecycle_hub.agent_artifacts import artifact_for_plan
+from fdai_lifecycle_hub.catalog_adoption import (
+    CatalogUpdater,
+    run_periodic,
+)
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_import_api import configuration_routes
 from fdai_lifecycle_hub.configuration_import_store import ConfigurationImportStore
@@ -44,6 +51,8 @@ from fdai_lifecycle_hub.operations import (
 )
 from fdai_lifecycle_hub.remote_auth import RemoteAuth
 from fdai_lifecycle_hub.remote_catalog import (
+    CandidateChangedError,
+    CatalogNotImportedError,
     CatalogSource,
     PinApproval,
     RemoteCatalog,
@@ -65,6 +74,9 @@ class RemoteConfig(BaseModel):
     origin: str | None = None
     catalog: CatalogSource | None = None
     key_epoch: int = 1
+    # Release Hub only: zero disables. Otherwise re-assert already published content before the
+    # development export expires; this can never add a Release, channel or recall.
+    timestamp_renewal_check_seconds: int = Field(default=0, ge=0, le=3600)
 
     @model_validator(mode="after")
     def validate_kind(self) -> RemoteConfig:
@@ -93,6 +105,12 @@ class RemoteConfig(BaseModel):
             raise ValueError("Target Hub does not accept Release Hub service identities.")
         if self.key_epoch < 1:
             raise ValueError("Signing key epoch must be positive.")
+        if self.timestamp_renewal_check_seconds and (
+            self.kind != "release" or self.timestamp_renewal_check_seconds < 60
+        ):
+            raise ValueError(
+                "Timestamp renewal is a Release Hub task that runs at most each minute."
+            )
         return self
 
 
@@ -169,6 +187,33 @@ def remote_key(epoch: int) -> HubSigningKey:
     return HubSigningKey(key, epoch)
 
 
+class ReviewedCandidate(BaseModel):
+    """The exact candidate an operator reviewed on the Updates screen."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    revision: int = Field(ge=0)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+def background_lifespan(
+    original: Any, factories: list[Callable[[], Coroutine[Any, Any, None]]]
+) -> Callable[[Any], Any]:
+    """Run bounded periodic tasks beside the server and stop them with it."""
+
+    @asynccontextmanager
+    async def lifespan(app: Any) -> Any:
+        tasks = [asyncio.create_task(factory()) for factory in factories]
+        try:
+            async with original(app):
+                yield
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    return lifespan
+
+
 def target_routes(
     store: HubStore,
     catalog: RemoteCatalog,
@@ -176,14 +221,24 @@ def target_routes(
     *,
     configuration_candidates: Mapping[str, tuple[ConfigurationRevisionCandidate, int]]
     | None = None,
+    updater: CatalogUpdater | None = None,
 ) -> list[Route]:
     """Optional server-owned configuration context never comes from the HTTP body."""
+
+    updates = updater or CatalogUpdater(
+        catalog, store, key, configuration_candidates=configuration_candidates
+    )
 
     async def releases(request: Request) -> Response:
         from fdai_lifecycle_hub.inventory import release_inventory
 
         try:
             admitted = await run_in_threadpool(catalog.catalog, utc_now())
+        except CatalogNotImportedError:
+            logger.warning("hub_catalog_unavailable reason=catalog_not_imported")
+            return JSONResponse(
+                {"error": "catalog_not_imported_approve_pin_and_import"}, status_code=503
+            )
         except ValueError:
             logger.warning("hub_catalog_unavailable reason=catalog_verification_failed")
             return JSONResponse(
@@ -193,6 +248,38 @@ def target_routes(
 
     async def status(request: Request) -> Response:
         return JSONResponse(await run_in_threadpool(catalog.status))
+
+    async def updates_status(request: Request) -> Response:
+        return JSONResponse(await run_in_threadpool(updates.status))
+
+    async def updates_check(request: Request) -> Response:
+        record = await run_in_threadpool(updates.check)
+        return JSONResponse(record.to_json())
+
+    async def updates_apply(request: Request) -> Response:
+        from pydantic import ValidationError
+
+        from fdai_lifecycle_hub.api import _read_limited
+
+        raw = await _read_limited(request, 4096)
+        if raw is None:
+            return JSONResponse({"error": "review_too_large"}, status_code=413)
+        try:
+            review = ReviewedCandidate.model_validate_json(raw)
+        except ValidationError:
+            return JSONResponse({"error": "review_invalid"}, status_code=422)
+        try:
+            record = await run_in_threadpool(
+                partial(
+                    updates.apply,
+                    revision=review.revision,
+                    sha256=review.sha256,
+                    actor=getattr(request.state, "operator", "local-operator"),
+                )
+            )
+        except CandidateChangedError:
+            return JSONResponse({"error": "candidate_changed"}, status_code=409)
+        return JSONResponse(record.to_json())
 
     async def approve(request: Request) -> Response:
         from fdai_lifecycle_hub.api import _read_limited
@@ -252,6 +339,9 @@ def target_routes(
         *configuration_routes(ConfigurationImportStore(store.engine), catalog, utc_now),
         *local_channel_routes(catalog, utc_now),
         Route("/v1/catalog/trust", status),
+        Route("/v1/catalog/updates", updates_status),
+        Route("/v1/catalog/updates/check", updates_check, methods=["POST"]),
+        Route("/v1/catalog/updates/apply", updates_apply, methods=["POST"]),
         Route("/v1/catalog/releases", releases),
         Route("/v1/catalog/trust/approve", approve, methods=["POST"]),
         Route("/v1/catalog/import", import_catalog, methods=["POST"]),
@@ -378,6 +468,13 @@ def _run() -> None:
         app = release_app(
             store, static_dir=args.ui, remote_auth=config.auth, remote_origin=config.origin
         )
+        if config.timestamp_renewal_check_seconds:
+            from fdai_release_hub.renewal import run_renewal
+
+            app.router.lifespan_context = background_lifespan(
+                app.router.lifespan_context,
+                [lambda: run_renewal(store, check_seconds=config.timestamp_renewal_check_seconds)],
+            )
     else:
         source = config.catalog
 
@@ -408,7 +505,11 @@ def _run() -> None:
         if source is not None:
             catalog = RemoteCatalog(engine, source)
             catalog.status()
-            app.routes[0:0] = target_routes(hub, catalog, key)
+            updater = CatalogUpdater(catalog, hub, key)
+            app.routes[0:0] = target_routes(hub, catalog, key, updater=updater)
+            app.router.lifespan_context = background_lifespan(
+                app.router.lifespan_context, [lambda: run_periodic(updater)]
+            )
         else:
 
             async def catalog_unavailable(request: Request) -> Response:

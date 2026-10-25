@@ -43,6 +43,15 @@ These priorities describe the operator journey, not a vulnerability severity ass
 | UXH-17 / P2 | Cleanup is remembered separately from what should remain running and billable | A retention summary for workload, Agent Jobs, cluster, identities and temporary permissions | Finite tests have UID-fenced cleanup and independent absence evidence; retained resources show an owner and cost acknowledgement |
 | UXH-18 / P2 | Vendor/customer/setup-owner handoffs rely on chat and have no acknowledgement | Durable tasks and role-specific notifications with a link to exact pending work | Each blocked step has an acknowledged owner; notifications contain public metadata only and never approve or execute work |
 
+## Status of delivered items
+
+- UXH-06: for development catalogs, signed export, pull-only polling, Rego policy adoption and the
+  **Updates** screen remove revision and digest transcription. The legacy pin flow remains for
+  unsigned and offline exports. Production TUF roles are still design.
+- UXH-08: `fdai-lifecycle-hub sign-enrollment` and the bound-installation selection remove file
+  path and ID transcription. Generating the reported state from the cluster and an Agent-submitted
+  pending enrollment remain open and need their own design review.
+
 ## Reuse what already works
 
 Execution-settings and application-binding forms already generate UUIDs, current Settings digests

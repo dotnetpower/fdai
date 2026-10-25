@@ -91,9 +91,19 @@ variable "secret_versions" {
 variable "catalog" {
   type = object({
     url                        = string
-    token_scope                = string
-    managed_identity_client_id = string
+    access                     = optional(string)
+    token_scope                = optional(string)
+    managed_identity_client_id = optional(string)
     release_public_key         = string
+    check_interval_seconds     = optional(number)
+    adoption = optional(object({
+      mode                     = optional(string)
+      allowed_channels         = optional(list(string))
+      max_new_releases         = optional(number)
+      authorized_by            = optional(string)
+      authorization_expires_at = optional(string)
+    }))
   })
-  default = null
+  default     = null
+  description = "Pull-only catalog source and adoption policy; the hub-service module validates every field."
 }

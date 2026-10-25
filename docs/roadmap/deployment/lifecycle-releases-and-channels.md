@@ -72,10 +72,86 @@ leaves publication state unchanged.
 
 Renewal appends an attributed `renew` event targeting `catalog`. It advances the revision and
 24-hour expiry, changing the export digest without changing manifests, signatures, channels,
-recalls or the signing key. Customer Hubs retain their old accepted bytes until an operator
-independently approves the new exact pin and explicitly imports it. Renewal never imports,
-plans or applies an installation change and does not replace production signed catalog roles.
+recalls or the signing key. Customer Hubs retain their old accepted bytes until either an
+operator independently approves the new exact pin and explicitly imports it, or
+[automatic adoption](#automatic-catalog-adoption) verifies the signature and the policy allows it.
+Renewal never imports, plans or applies an installation change and does not replace production
+signed catalog roles. An optional Release Hub task can perform the renewal automatically.
 The UI distinguishes read-only **Refresh catalog** from **Renew catalog freshness**.
+
+## Automatic catalog adoption
+
+The manual pin flow above makes a person copy a revision and digest for every catalog change,
+because the export bytes carry unsigned metadata. This section replaces that transcription with
+verification and policy. It keeps the same trust anchor: the Release public key that the customer
+Hub binds at deployment time.
+
+**Direction rule.** Release Hub never calls a customer. The Lifecycle Hub polls Release Hub, the
+installation Agent polls the Lifecycle Hub, and every connection starts inside the customer
+boundary. Release Hub stores no customer address, identity or schedule.
+
+| Concern | Decision |
+|---------|----------|
+| Signed export | Release Hub signs the exact export bytes with its Release key. The signed message is `fdai.catalog-export.v1`, a newline, then the body. The detached signature and key id travel in `X-FDAI-Export-Signature` and `X-FDAI-Export-Key-Id` on the same response, so the body and signature cannot come from different revisions. The body and its `ETag` digest are unchanged. |
+| Conditional poll | The Lifecycle Hub sends `If-None-Match` with its accepted digest. An unchanged catalog returns `304` after one cheap position query. Release Hub caches the last signed export by revision and builds at most one export at a time. |
+| Public read | `public_catalog_export` lets Release Hub serve `GET /v1/catalog/export` without a bearer token. The export holds manifests, signatures, channel membership and recalls only. Integrity comes from the signature, and images stay behind registry authorization. The default stays authenticated. |
+| Automatic freshness | An optional Release Hub renewal task appends an attributed `renew` event as `system:timestamp-renewal` when less than half of the validity remains. It re-asserts the already published content and cannot add a Release, channel or recall. |
+| Periodic check | The Lifecycle Hub checks on `check_interval_seconds` (300 to 86400, default 3600, zero disables) with jitter and capped retry. Each attempt is one bounded request without redirects. |
+| Adoption policy | Rego decides whether a verified candidate may replace the accepted catalog without a person. Input is the signature result, the change summary and the owner's standing authorization. Output is `allow` and the reasons a review is needed. The default is `review`. |
+| Fail closed | A missing signature, a wrong key, an expired candidate, a lower revision, an unavailable policy engine or an expired standing authorization never adopts automatically. The candidate waits for review. |
+| Review | One **Updates** screen shows the candidate revision, expiry, signature result and the change summary. **Review and apply** names the exact revision and digest that the Hub itself verified. If the source moved in the meantime, the Hub refuses and shows the new candidate. |
+| Atomic adoption | One transaction verifies the signature and the manifests, enforces the revision floor, requires that the accepted catalog is still the one the policy assessed, refuses to overwrite an operator-approved pin for the same revision, records the accepted bytes, and appends audit events attributed to the policy or the reviewing operator. |
+| After adoption | The Hub computes a Plan for every enrolled installation. Issuing a Plan never applies it. The Agent still verifies signatures and its local envelope before any effect. |
+
+The standing authorization is the existing human authorization from the constitution. Its
+`authorized_by` and `authorization_expires_at` are configuration, so a change is a reviewed
+deployment change. When it expires, adoption returns to review. Silence never approves.
+
+In `auto` mode, a candidate with a valid signature gets these outcomes. In `review` mode, which
+is the default, every change waits for a person.
+
+| Change | Outcome |
+|--------|---------|
+| First catalog, or the same releases, channels and recalls with a later expiry | Adopt |
+| New Release in an allowed channel, up to `max_new_releases` (not counted for the first catalog) | Adopt |
+| New recall with nothing else changed | Adopt |
+| Membership in a channel outside `allowed_channels`, a new channel outside that list, a removed or replaced Release, removed membership, a lifted or dropped recall or a widened schema range | Review |
+| Expired or missing standing authorization, or an unavailable or invalid policy engine | Review |
+| A missing signature, a signature from another key, a lower revision, an expired candidate or an unreachable source | No candidate; the Updates screen shows the failure and the legacy pin flow remains |
+
+A recall mixed with other changes waits for review, and the screen marks it urgent.
+
+### Configuration and interfaces
+
+The deployment supplies the standing authorization through the Lifecycle Hub `catalog` setting:
+`access` (`managed-identity` by default, or `anonymous`), `check_interval_seconds`, and an
+`adoption` object with `mode`, `allowed_channels`, `max_new_releases`, `authorized_by` and
+`authorization_expires_at`. `auto` requires both authorization fields. Release Hub gains
+`auth.public_catalog_export` and `timestamp_renewal_check_seconds`. Existing configurations keep
+their behavior because every new field is optional.
+
+| Interface | Purpose |
+|-----------|---------|
+| `GET /v1/catalog/updates` | Policy, accepted catalog, last check, candidate with decision and change summary, and recent events |
+| `POST /v1/catalog/updates/check` | Run one bounded poll now |
+| `POST /v1/catalog/updates/apply` | Adopt the reviewed `revision` and `sha256` if the source still offers exactly that candidate; otherwise `409 candidate_changed` |
+| `fdai-lifecycle-hub sign-enrollment` | Sign an enrollment request inside the installation boundary and write only the file the operator uploads |
+| `GET /v1/enrollments/bindable` | List the installations the deployment bound to an Agent, so the operator selects one and types nothing |
+
+**What stays a person's decision.** First trust of the vendor key, the choice of channels and
+standing authorization, installation enrollment, ownership, configuration signing and any
+effect on a workload. **What does not exist yet.** Threshold root keys and TUF snapshot and
+timestamp roles (see [Catalog integrity](#catalog-integrity)) remain production design. Until
+then the single development key signs the export, and the dev profile label stays.
+
+**Critique and revision.** Auto-adopting a digest taken from the download response would
+reintroduce the unsigned-metadata gap, so the signature, not the digest, is the evidence.
+Public read exposes release metadata to anyone, which the vendor accepts because it carries no
+image content or customer data and the signature prevents tampering. A mixed recall and release
+change cannot be split because adoption is atomic. Splitting would let unreviewed content ride
+along with a recall, so the design delays adoption and surfaces the recall instead. The renewal
+task is the timestamp role in miniature: it cannot widen content, only keep reviewed content
+fresh. The legacy pin approval and import remain for unsigned exports and offline use.
 
 ## Application package contract
 

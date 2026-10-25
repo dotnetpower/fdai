@@ -243,7 +243,8 @@ h3 {
   font-size: var(--cs-type-compact-size);
   color: var(--cs-text-soft);
 }
-.catalog-panel input {
+.catalog-panel input,
+.catalog-panel select {
   width: 100%;
 }
 .local-channels label { min-width: 0; grid-template-columns: minmax(0, 1fr); overflow-wrap: anywhere; }
@@ -787,5 +788,50 @@ table.t a:hover {
   }
   .list li > :last-child:not(:nth-child(2)) {
     grid-column: 2;
+  }
+}
+
+.updates-page .update-kv {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.updates-page .update-kv .note {
+  margin: 4px 0 0;
+}
+.updates-page .update-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: var(--cs-type-compact-size);
+}
+.updates-page .update-kv .update-list {
+  margin: 4px 0 0;
+}
+.updates-page .update-subtitle {
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+  color: var(--cs-text-soft);
+  margin: 16px 0 6px;
+}
+.updates-page .update-change {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: var(--cs-type-compact-size);
+}
+.updates-page .update-change dt {
+  font-weight: 600;
+}
+.updates-page .update-change dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.updates-page .update-change .update-list {
+  margin: 2px 0 0;
+}
+.updates-page .banner {
+  margin-top: 0;
+}
+@media (max-width: 760px) {
+  .updates-page .update-kv {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

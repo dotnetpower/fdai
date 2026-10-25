@@ -6,6 +6,7 @@ import { InstallationPage } from "./routes/installation";
 import { InstallationsPage } from "./routes/installations";
 import { PlanPage } from "./routes/plan";
 import { CatalogPage } from "./routes/catalog";
+import { UpdatesPage } from "./routes/updates";
 import { ConfigurationsPage, ReleasesPage } from "./routes/inventory";
 
 function useRoute(): Route {
@@ -18,6 +19,8 @@ function Screen({ route }: { route: Route }) {
   switch (route.kind) {
     case "catalog":
       return <CatalogPage />;
+    case "updates":
+      return <UpdatesPage />;
     case "releases":
       return <ReleasesPage />;
     case "configurations":

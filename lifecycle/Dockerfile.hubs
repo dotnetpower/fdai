@@ -1,8 +1,11 @@
 ARG NODE_IMAGE
 ARG PYTHON_IMAGE
 ARG UV_IMAGE
+ARG OPA_IMAGE
 
 FROM ${UV_IMAGE} AS uv-tool
+
+FROM ${OPA_IMAGE} AS opa-tool
 
 FROM scratch AS hub-dependencies
 
@@ -90,6 +93,7 @@ ENTRYPOINT ["python", "-m", "fdai_lifecycle_hub.remote"]
 CMD ["serve"]
 
 FROM base AS target
+COPY --from=opa-tool --chmod=0555 /opa /usr/local/bin/opa
 COPY --from=wheels /opt/hub /opt/hub
 COPY --from=lifecycle-ui /src/lifecycle/hub/ui/dist /app/ui
 

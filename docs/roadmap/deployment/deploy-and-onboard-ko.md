@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: bffd2b546595d2ef31753ebb75879c5b8e6dd2cb
+translation_source_sha: 5bd3867835c5a8723d0d8370775bb59ec657ee2b
 translation_revised: 2026-10-25
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -22,7 +22,14 @@ Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측�
 또는 고객의 [Lifecycle Hub 루트](../../../infra/lifecycle-hub/README.md)를 사용하세요. 각 루트는
 자신의 UI/API, 비공개 PostgreSQL과 지원 자원만 소유하며 별도 state를 사용합니다. 상대 Hub의
 입력은 필요하지 않습니다. 기본 로컬 백엔드는 명시한 영속 비공개 경로에서 기존 로컬 state를
-보존하며, 별도로 검토한 원격 백엔드는 선택 사항입니다. 로그인과 카탈로그 연결은 기동의
+보존하며, 별도로 검토한 원격 백엔드는 선택 사항입니다.
+Lifecycle Hub 이미지는 채택 정책이 `opa`를 실행하므로 digest로 고정한 `OPA_IMAGE` 빌드 인자가 필요하며,
+Release Hub 이미지에는 포함되지 않습니다. Lifecycle Hub `catalog` 설정에는 `access`,
+`check_interval_seconds`, `adoption` 객체가 추가되고, `auto` 모드에는 귀속되고 만료되는
+`authorized_by`와 `authorization_expires_at`이 필요합니다. Release Hub에는
+`auth.public_catalog_export`와 `timestamp_renewal_check_seconds`가 추가됩니다. 새 필드는 모두
+선택 사항이며 설정하지 않으면 실행 JSON에서 생략되므로 이전 이미지도 설정을 파싱합니다.
+[자동 카탈로그 채택](lifecycle-releases-and-channels-ko.md#자동-카탈로그-채택)을 참고하세요. 로그인과 카탈로그 연결은 기동의
 전제조건이 아닙니다. Entra 앱 등록 없이 migration, 상태/준비 검사와 정적 UI를 제공하며,
 인증을 설정하기 전까지 관리 API는 사용할 수 없습니다. 익명 관리 기능을 제공하거나 새로운
 FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 보존 및 기본 Terraform/Azure CLI

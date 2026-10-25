@@ -41,6 +41,24 @@ not a blocker for independent startup/UI preparation. A later UI/readiness-only 
 requires separate explicit authorization and isn't acceptance of anonymous management functionality.
 This change has local evidence only, not an Azure deployment receipt.
 
+### Catalog export and freshness
+
+Lifecycle Hubs pull the signed catalog export from `GET /v1/catalog/export`. The Release Hub
+never pushes to a customer installation. By default the request needs a bearer token for a
+service identity that `operator_auth.service_object_id` admits.
+
+| Input | Effect |
+|-------|--------|
+| `operator_auth.public_catalog_export = true` | Serves the signed, content-free export without a bearer token, so a Lifecycle Hub can use `access = "anonymous"`. Omitted or `false` keeps token-required access. Only the Release Hub accepts it. |
+| `timestamp_renewal_check_seconds` | Automatically renews the freshness of already published content. `0` (default) disables it; otherwise `60` to `3600`. It publishes no new content. |
+
+Set `public_catalog_export` only when the export carries no content you need to protect. The
+signature protects integrity, not confidentiality. Without it, a Lifecycle Hub configured for
+`access = "anonymous"` can't read the export. Each new field is written to the Hub configuration
+only when set, so an older image keeps parsing an unchanged configuration. Adoption settings
+(`review` or `auto`, and their expiring authorization) belong to each
+[Lifecycle Hub deployment](../lifecycle-hub/README.md#pull-only-catalog-adoption).
+
 ## Existing installations
 
 Don't apply this root over existing resources with an empty state. First follow the backed-up,

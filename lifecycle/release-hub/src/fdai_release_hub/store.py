@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
+import threading
 from base64 import b64decode, b64encode
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -35,7 +38,7 @@ from sqlalchemy import Engine, create_engine, event, func, select
 from sqlalchemy.engine import Connection
 from sqlalchemy.pool import NullPool
 
-from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES
+from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES, export_signing_message
 from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_release_hub.catalog_serialization import (
@@ -91,6 +94,17 @@ class CapabilityChange(CatalogConfirmation):
     lifting_release_id: str | None = Field(default=None, max_length=64)
 
 
+@dataclass(frozen=True, slots=True)
+class SignedExport:
+    """Exact export bytes, their digest and the Release key's detached signature."""
+
+    revision: int
+    raw: bytes
+    digest: str
+    signature: str
+    key_id: str
+
+
 class ReleaseStore:
     def __init__(
         self,
@@ -102,6 +116,8 @@ class ReleaseStore:
     ) -> None:
         self.path = path
         self.key = key
+        self._export_lock = threading.Lock()
+        self._signed_export: SignedExport | None = None
         self.clock = clock or (lambda: datetime.now(UTC))
         self.engine = (
             create_engine(f"sqlite:///{path}", poolclass=NullPool)
@@ -630,6 +646,63 @@ class ReleaseStore:
         with self.connect() as db:
             self._lock_snapshot(db)
             return self._export_locked(db, maximum)
+
+    def renew_if_due(
+        self,
+        *,
+        min_remaining: timedelta = timedelta(hours=12),
+        actor: str = "system:timestamp-renewal",
+    ) -> bool:
+        """Re-assert already published content when its validity is running out.
+
+        This is the timestamp role in miniature: the renewal appends an attributed event and moves
+        the expiry, and it cannot add, change or recall a Release or channel.
+        """
+
+        with self.engine.connect() as db:
+            revision, updated_at = catalog_position(db)
+        remaining = datetime.fromisoformat(updated_at) + timedelta(hours=24) - self.clock()
+        if remaining > min_remaining:
+            return False
+        try:
+            self.renew(
+                CatalogConfirmation(
+                    revision=revision,
+                    confirmation=f"renew {revision}",
+                    reason="Automatic freshness renewal of reviewed content",
+                ),
+                actor=actor,
+            )
+        except CatalogError as error:
+            if error.status == 409:
+                return False
+            raise
+        return True
+
+    def signed_export(self) -> SignedExport:
+        """Serve the signed export from a one-entry cache keyed by catalog revision.
+
+        Each change appends an event, so one revision names exactly one export. A request storm
+        therefore costs one position query, and at most one export is built at a time.
+        """
+
+        with self.engine.connect() as db:
+            revision = catalog_position(db)[0]
+        with self._export_lock:
+            cached = self._signed_export
+            if cached is not None and cached.revision == revision:
+                return cached
+            raw, digest = self.export()
+            built_revision = json.loads(raw)["revision"]
+            signed = SignedExport(
+                revision=built_revision,
+                raw=raw,
+                digest=digest,
+                signature=b64encode(self.key.sign(export_signing_message(raw))).decode("ascii"),
+                key_id=self.key.key_id,
+            )
+            self._signed_export = signed
+            return signed
 
     def _export_locked(self, db: Connection, maximum: int) -> tuple[bytes, str]:
         ensure_row_bound(

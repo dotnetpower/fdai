@@ -4,8 +4,14 @@ locals {
   }
   scope_ids = { for kind in local.kinds : kind => uuidv5("dns", "${var.prefix}.${kind}.Hub.Access") }
   read_role = uuidv5("dns", "${var.prefix}.Catalog.Read")
+  # Unset optional attributes are omitted so images that predate a key still parse the config.
+  catalog_adoption = merge([
+    for adoption in [var.catalog_adoption] :
+    { for key, value in adoption : key => value if value != null }
+    if adoption != null
+  ]...)
   configs = {
-    for kind in local.kinds : kind => {
+    for kind in local.kinds : kind => merge({
       kind = kind
       auth = {
         profile           = "remote-development"
@@ -19,14 +25,19 @@ locals {
         service_client_id = kind == "release" ? azurerm_user_assigned_identity.hub["target"].client_id : null
         service_role      = "Catalog.Read"
       }
-      catalog = kind == "target" ? {
+      catalog = kind == "target" ? merge({
         url                        = "${local.origins["release"]}/v1/catalog/export"
         token_scope                = "api://${azuread_application.api["release"].client_id}/.default"
         managed_identity_client_id = azurerm_user_assigned_identity.hub["target"].client_id
         release_public_key         = var.release_public_key
-      } : null
+        },
+        var.catalog_check_interval_seconds == null ? {} : { check_interval_seconds = var.catalog_check_interval_seconds },
+        length(local.catalog_adoption) == 0 ? {} : { adoption = local.catalog_adoption },
+      ) : null
       key_epoch = 1
-    }
+      },
+      kind == "release" && var.timestamp_renewal_check_seconds > 0 ? { timestamp_renewal_check_seconds = var.timestamp_renewal_check_seconds } : {},
+    )
   }
 }
 

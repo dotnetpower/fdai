@@ -212,3 +212,96 @@ run "invalid_custom_domain_zone_mismatch_is_rejected" {
   }
   expect_failures = [var.custom_domain]
 }
+
+run "defaults_preserve_older_runtime_config" {
+  command = plan
+  variables {
+    operator_auth = {
+      profile        = "remote-development"
+      tenant_id      = "00000000-0000-0000-0000-000000000001"
+      audience       = "example-api"
+      spa_client_id  = "example-browser"
+      operator_scope = "Hub.Access"
+      operator_ids   = ["example-operator"]
+
+    }
+  }
+  assert {
+    condition = (
+      !contains(keys(output.deployment.runtime_config.auth), "public_catalog_export") &&
+      !contains(keys(output.deployment.runtime_config), "timestamp_renewal_check_seconds")
+    )
+    error_message = "Default settings must not add keys that older Hub images reject."
+  }
+}
+
+run "public_catalog_export_reaches_runtime" {
+  command = plan
+  variables {
+    operator_auth = {
+      profile               = "remote-development"
+      tenant_id             = "00000000-0000-0000-0000-000000000001"
+      audience              = "example-api"
+      spa_client_id         = "example-browser"
+      operator_scope        = "Hub.Access"
+      operator_ids          = ["example-operator"]
+      public_catalog_export = true
+    }
+  }
+  assert {
+    condition = (
+      output.deployment.runtime_config.auth.public_catalog_export == true
+    )
+    error_message = "Anonymous catalog export must be an explicit Release Hub setting."
+  }
+}
+
+run "timestamp_renewal_reaches_runtime" {
+  command = plan
+  variables {
+    timestamp_renewal_check_seconds = 120
+  }
+  assert {
+    condition = (
+      output.deployment.runtime_config.timestamp_renewal_check_seconds == 120
+    )
+    error_message = "Freshness renewal must reach the Release Hub when enabled."
+  }
+}
+
+run "timestamp_renewal_zero_is_omitted" {
+  command = plan
+  variables {
+    timestamp_renewal_check_seconds = 0
+  }
+  assert {
+    condition = (
+      !contains(keys(output.deployment.runtime_config), "timestamp_renewal_check_seconds")
+    )
+    error_message = "Disabled renewal must not add a key."
+  }
+}
+
+run "timestamp_renewal_below_one_minute_is_rejected" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind                            = "release"
+    timestamp_renewal_check_seconds = 59
+  }
+  expect_failures = [var.timestamp_renewal_check_seconds]
+}
+
+run "timestamp_renewal_above_one_hour_is_rejected" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind                            = "release"
+    timestamp_renewal_check_seconds = 3601
+  }
+  expect_failures = [var.timestamp_renewal_check_seconds]
+}

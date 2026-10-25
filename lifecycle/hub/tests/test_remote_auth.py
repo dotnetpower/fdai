@@ -802,6 +802,36 @@ def test_operator_submits_bound_enrollment_without_approving_it(
     assert store.enrollment_status("installation-alpha").value == "pending"
 
 
+def test_operator_lists_bound_installations_without_typing_ids(
+    enrollment_remote, enrollment, store
+):
+    make_client, token = enrollment_remote
+    with make_client() as client:
+        listed = client.get("/v1/enrollments/bindable", headers=token())
+        assert listed.status_code == 200
+        assert listed.json() == {
+            "installations": [{"installation_id": "installation-alpha", "status": "unrequested"}]
+        }
+        path = "/v1/enrollments/installation-alpha/requests"
+        assert (
+            client.post(path, json=signed_enrollment_body(enrollment), headers=token()).status_code
+            == 202
+        )
+        pending = client.get("/v1/enrollments/bindable", headers=token()).json()
+        assert pending["installations"][0]["status"] == "pending"
+        assert client.get("/v1/enrollments/bindable").status_code == 401
+        agent = token(
+            oid="agent-object",
+            azp="agent-client",
+            scp=None,
+            idtyp="app",
+            roles=["Agent.Access"],
+        )
+        assert client.get("/v1/enrollments/bindable", headers=agent).status_code == 403
+    with make_client(bound=False) as unbound:
+        assert unbound.get("/v1/enrollments/bindable", headers=token()).status_code == 404
+
+
 def test_bound_enrollment_agent_protocol_and_durable_hub_restart(
     https_enrollment_remote, enrollment, installation, planner, key, now, tmp_path
 ):
@@ -1472,3 +1502,31 @@ def test_remote_readiness_rechecks_schema_and_default_business_routes_remain_pro
             connection.exec_driver_sql("DROP TABLE release_hub_schema_revision")
         assert client.get("/readyz").status_code == 503
         assert client.get("/healthz").status_code == 200
+
+
+def test_public_catalog_export_opens_only_the_signed_read_path(auth):
+    async def served(request):
+        return JSONResponse({"served": request.url.path})
+
+    def vendor_app(config, *, vendor=True):
+        return secure_app(
+            Starlette(
+                routes=[
+                    Route("/v1/catalog/export", served, methods=["GET", "POST"]),
+                    Route("/v1/catalog", served),
+                ]
+            ),
+            config,
+            vendor=vendor,
+        )
+
+    public = auth.model_copy(update={"public_catalog_export": True})
+    with TestClient(vendor_app(public), base_url=public.origin) as client:
+        assert client.get("/v1/catalog/export").status_code == 200
+        assert client.head("/v1/catalog/export").status_code == 200
+        assert client.post("/v1/catalog/export", json={}).status_code == 401
+        assert client.get("/v1/catalog").status_code == 401
+    with TestClient(vendor_app(auth), base_url=auth.origin) as closed:
+        assert closed.get("/v1/catalog/export").status_code == 401
+    with pytest.raises(ValueError, match="Only Release Hub"):
+        vendor_app(public, vendor=False)

@@ -254,6 +254,10 @@ human operational confirmation and the remaining evidence-backed workload prepar
 The read-only **Available releases** screen projects the already accepted catalog through
 `GET /v1/catalog/releases`, rechecking its pin, signatures and expiry without an outbound import.
 Unavailable catalog trust returns `503`; a verified empty catalog remains a distinct result.
+The **Updates** screen shows the pull-only check, the policy decision and a one-click
+**Review and apply**; see [Automatic catalog adoption](lifecycle-releases-and-channels.md#automatic-catalog-adoption).
+Before any pin is approved and imported, the `503` error is `catalog_not_imported_approve_pin_and_import`,
+not a verification or expiry failure.
 **Configuration packages** uses `GET /v1/configurations` for stored digests, counts, timestamps
 and current installation references, omitting values and sealed identifiers. It explicitly
 states that independent package signature provenance is not recorded. Neither listing proves
@@ -280,7 +284,14 @@ The original Agent enrollment route stays closed, and unbound installations cann
 operator route. The independent Lifecycle Terraform root forwards nonempty Agent bindings;
 empty bindings omit the runtime field for compatibility with older images.
 
-The **Enrollment requests** screen lets the operator enter the bound installation ID and
+`GET /v1/enrollments/bindable` lists the bound installation IDs with their status, so the
+**Enrollment requests** screen offers a selection. `fdai-lifecycle-hub sign-enrollment` signs the
+request inside the installation boundary and writes only the upload file, then prints the key id
+for the approver's independent comparison. Generating the request's reported state from the
+cluster, and an Agent-submitted pending enrollment, remain unimplemented: the second changes the
+rule that an Agent cannot enroll and needs its own design review.
+
+The **Enrollment requests** screen lets the operator select the bound installation and
 upload a signed request JSON file of at most 64 KiB. It sends only `signed_payload` and
 `proof`; private keys are never an upload input. Submission has a ten-second deadline and
 does not retry automatically. After an uncertain result, refresh the pending list before

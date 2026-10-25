@@ -186,6 +186,68 @@ export interface ConfigurationInventoryItem {
   signature_status: "not-recorded";
 }
 
+export interface UpdateChange {
+  added_releases: readonly { release_id: string; channels: readonly string[]; schema_target: number | null }[];
+  removed_releases: readonly string[];
+  changed_releases: readonly string[];
+  channel_additions: readonly { channel: string; release_id: string }[];
+  channel_removals: readonly { channel: string; release_id: string }[];
+  new_channels: readonly string[];
+  new_recalls: readonly { scope: string; target: string; sequence: number }[];
+  lifted_recalls: readonly { scope: string; target: string; sequence: number }[];
+  removed_recalls?: readonly { scope: string; target: string; sequence: number }[];
+  schema_widened: boolean;
+}
+
+export interface UpdateCandidate {
+  revision: number;
+  sha256: string;
+  expires_at: string;
+  signature_verified: boolean;
+  key_id: string | null;
+  accepted_revision: number | null;
+  decision: { allow: boolean; reasons: readonly string[] };
+  change: UpdateChange;
+}
+
+export type UpdateOutcome = "unchanged" | "adopted" | "review_required" | "failed";
+
+export interface UpdateCheckRecord {
+  checked_at: string;
+  outcome: UpdateOutcome;
+  detail: string;
+  candidate: UpdateCandidate | null;
+  plans: readonly { installation_id: string; outcome: string; reason?: string }[];
+}
+
+export interface UpdateEvent {
+  action: string;
+  actor: string;
+  revision: number;
+  sha256: string;
+  reason: string;
+  recorded_at: string;
+}
+
+export interface UpdateStatus {
+  mode: "review" | "auto";
+  allowed_channels: readonly string[];
+  max_new_releases: number;
+  check_interval_seconds: number;
+  access: "managed-identity" | "anonymous";
+  authorization: { authorized_by: string; expires_at: string; valid: boolean } | null;
+  accepted: { revision: number; sha256: string; expires_at: string; release_count: number } | null;
+  last_check: UpdateCheckRecord | null;
+  events: readonly UpdateEvent[];
+}
+
+export type BindableStatus = "unrequested" | "pending" | "enrolled";
+
+export interface BindableInstallation {
+  installation_id: string;
+  status: BindableStatus;
+}
+
 export class HubApiError extends Error {
   constructor(
     readonly status: number,
@@ -248,11 +310,35 @@ async function requestEnrollment(installationId: string, file: File): Promise<vo
   });
 }
 
+/** The bound installations, or null when the Hub has no Agent identity binding (404). */
+async function listBindableInstallations(): Promise<readonly BindableInstallation[] | null> {
+  try {
+    const { installations } = await request<{ installations: readonly BindableInstallation[] }>(
+      "/v1/enrollments/bindable", { signal: AbortSignal.timeout(10_000) },
+    );
+    return installations;
+  } catch (error) {
+    if (error instanceof HubApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
 export const hubApi = {
   requestEnrollment,
+  listBindableInstallations,
   listReleases: () =>
     request<{ releases: readonly ReleaseInventoryItem[] }>("/v1/catalog/releases", {
       signal: AbortSignal.timeout(10_000),
+    }),
+  getUpdateStatus: () =>
+    request<UpdateStatus>("/v1/catalog/updates", { signal: AbortSignal.timeout(10_000) }),
+  checkForUpdates: () =>
+    request<UpdateCheckRecord>("/v1/catalog/updates/check", {
+      method: "POST", signal: AbortSignal.timeout(10_000),
+    }),
+  applyUpdate: (revision: number, sha256: string) =>
+    request<UpdateCheckRecord>("/v1/catalog/updates/apply", {
+      method: "POST", body: JSON.stringify({ revision, sha256 }), signal: AbortSignal.timeout(10_000),
     }),
   listConfigurations: () =>
     request<{ configurations: readonly ConfigurationInventoryItem[] }>("/v1/configurations", {

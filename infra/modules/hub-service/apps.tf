@@ -34,18 +34,33 @@ locals {
       vault_uri          = azurerm_key_vault.hub[kind].vault_uri
     }
   }
+  # Unset optional attributes are omitted so images that predate a key still parse the config.
+  catalog_adoption = merge([
+    for adoption in [try(var.catalog.adoption, null)] :
+    { for key, value in adoption : key => value if value != null }
+    if adoption != null
+  ]...)
+  catalog_config = merge([
+    for catalog in [var.catalog] : merge(
+      { for key, value in catalog : key => value if value != null && key != "adoption" },
+      { for key, value in { adoption = local.catalog_adoption } : key => value if length(value) > 0 },
+    )
+    if catalog != null
+  ]...)
   configs = {
     for kind in local.kinds : kind => merge(
       { kind = kind, key_epoch = 1 },
       var.operator_auth == null ? { origin = local.origins[kind] } : {},
       var.operator_auth == null ? {} : {
         auth = merge(
-          { for key, value in var.operator_auth : key => value if key != "agent_principals" },
+          { for key, value in var.operator_auth : key => value if !contains(["agent_principals", "public_catalog_export"], key) },
           { origin = local.origins[kind] },
           length(var.operator_auth.agent_principals) == 0 ? {} : { agent_principals = var.operator_auth.agent_principals },
+          var.operator_auth.public_catalog_export ? { public_catalog_export = true } : {},
         )
       },
-      kind == "target" && var.catalog != null ? { catalog = var.catalog } : {},
+      kind == "target" && var.catalog != null ? { catalog = local.catalog_config } : {},
+      kind == "release" && var.timestamp_renewal_check_seconds > 0 ? { timestamp_renewal_check_seconds = var.timestamp_renewal_check_seconds } : {},
     )
   }
 }

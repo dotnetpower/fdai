@@ -252,3 +252,376 @@ run "custom_domain_propagates_to_operator_auth_origin" {
     error_message = "Custom domain and explicit resource group must bind the deployment output and operator_auth.origin."
   }
 }
+
+run "catalog_defaults_preserve_older_runtime_config" {
+  command = plan
+  variables {
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+    }
+  }
+  assert {
+    condition = (
+      length(keys(output.deployment.runtime_config.catalog)) == 4 &&
+      !contains(keys(output.deployment.runtime_config.catalog), "access") &&
+      !contains(keys(output.deployment.runtime_config.catalog), "adoption") &&
+      !contains(keys(output.deployment.runtime_config.catalog), "check_interval_seconds")
+    )
+    error_message = "A catalog without new settings must not add keys that older Hub images reject."
+  }
+}
+
+run "auto_adoption_reaches_runtime" {
+  command = plan
+  variables {
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      access                     = "managed-identity"
+      check_interval_seconds     = 900
+      adoption = {
+        mode                     = "auto"
+        allowed_channels         = ["stable"]
+        max_new_releases         = 2
+        authorized_by            = "example-owner"
+        authorization_expires_at = "2030-01-31T00:00:00Z"
+      }
+    }
+  }
+  assert {
+    condition = (
+      output.deployment.runtime_config.catalog.check_interval_seconds == 900 &&
+      output.deployment.runtime_config.catalog.adoption.mode == "auto" &&
+      output.deployment.runtime_config.catalog.adoption.allowed_channels[0] == "stable" &&
+      output.deployment.runtime_config.catalog.adoption.max_new_releases == 2 &&
+      output.deployment.runtime_config.catalog.adoption.authorized_by == "example-owner" &&
+      output.deployment.runtime_config.catalog.adoption.authorization_expires_at == "2030-01-31T00:00:00Z"
+    )
+    error_message = "Standing authorization must reach the Hub exactly as reviewed."
+  }
+}
+
+run "review_adoption_needs_no_authorization" {
+  command = plan
+  variables {
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      adoption = {
+        mode             = "review"
+        allowed_channels = ["stable"]
+      }
+    }
+  }
+  assert {
+    condition = (
+      output.deployment.runtime_config.catalog.adoption.mode == "review" &&
+      !contains(keys(output.deployment.runtime_config.catalog.adoption), "authorized_by") &&
+      !contains(keys(output.deployment.runtime_config.catalog.adoption), "max_new_releases")
+    )
+    error_message = "Review mode must not require or invent a standing authorization."
+  }
+}
+
+run "anonymous_catalog_omits_identity" {
+  command = plan
+  variables {
+    catalog = {
+      url                = "https://release.example.com/v1/catalog/export"
+      release_public_key = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      access             = "anonymous"
+    }
+  }
+  assert {
+    condition = (
+      output.deployment.runtime_config.catalog.access == "anonymous" &&
+      !contains(keys(output.deployment.runtime_config.catalog), "token_scope") &&
+      !contains(keys(output.deployment.runtime_config.catalog), "managed_identity_client_id")
+    )
+    error_message = "Anonymous catalog access must not carry an identity."
+  }
+}
+
+run "checks_can_be_disabled" {
+  command = plan
+  variables {
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      check_interval_seconds     = 0
+    }
+  }
+  assert {
+    condition = (
+      output.deployment.runtime_config.catalog.check_interval_seconds == 0
+    )
+    error_message = "Zero must be emitted so an operator can disable periodic checks."
+  }
+}
+
+run "anonymous_catalog_rejects_identity" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      access                     = "anonymous"
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "managed_identity_catalog_requires_identity" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                = "https://release.example.com/v1/catalog/export"
+      release_public_key = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "auto_adoption_requires_authorization" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      adoption = {
+        mode = "auto"
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "auto_adoption_requires_expiry" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      adoption = {
+        mode          = "auto"
+        authorized_by = "example-owner"
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "authorization_expiry_requires_timezone" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      adoption = {
+        mode                     = "auto"
+        authorized_by            = "example-owner"
+        authorization_expires_at = "2030-01-31T00:00:00"
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "adoption_rejects_unknown_mode" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      adoption = {
+        mode = "always"
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "adoption_rejects_duplicate_channels" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      adoption = {
+        allowed_channels = ["stable", "stable"]
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "adoption_rejects_oversized_release_budget" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      adoption = {
+        max_new_releases = 65
+      }
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "check_interval_below_five_minutes_is_rejected" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      check_interval_seconds     = 299
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "check_interval_above_one_day_is_rejected" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+      check_interval_seconds     = 86401
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "catalog_rejects_non_export_url" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    catalog = {
+      url                        = "https://release.example.com/v1/other"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "vendor_rejects_catalog_source" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "release"
+    catalog = {
+      url                        = "https://release.example.com/v1/catalog/export"
+      token_scope                = "api://example-release/.default"
+      managed_identity_client_id = "example-client"
+      release_public_key         = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAGb9ECWmEzf6FQbrBZ9w7lshQhqowtrbLDFw4rXAxZuE=\n-----END PUBLIC KEY-----\n"
+    }
+  }
+  expect_failures = [var.catalog]
+}
+
+run "target_rejects_public_catalog_export" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    operator_auth = {
+      profile               = "remote-development"
+      tenant_id             = "00000000-0000-0000-0000-000000000001"
+      audience              = "example-api"
+      spa_client_id         = "example-browser"
+      operator_scope        = "Hub.Access"
+      operator_ids          = ["example-operator"]
+      public_catalog_export = true
+    }
+  }
+  expect_failures = [var.operator_auth]
+}
+
+run "target_rejects_timestamp_renewal" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind                            = "target"
+    timestamp_renewal_check_seconds = 120
+  }
+  expect_failures = [var.timestamp_renewal_check_seconds]
+}

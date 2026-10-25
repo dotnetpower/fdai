@@ -16,12 +16,27 @@ Omitting it lets Azure assign a default that Terraform would subsequently plan t
 | `apps.tf` | Runtime grants and bundled UI/API |
 | `variables.tf` | Inputs shared by the two product roots |
 
+## Hub configuration inputs
+
+`apps.tf` assembles each Hub's runtime configuration from these inputs. It writes an optional
+key only when you set it, so an older image keeps parsing a configuration that doesn't use it.
+Variable validation rejects invalid combinations at plan time.
+
+| Input | Hub | Rules |
+|-------|-----|-------|
+| `catalog` | Lifecycle | `access` is `managed-identity` (default) or `anonymous`. Managed identity requires `token_scope` and `managed_identity_client_id`; anonymous forbids both. `check_interval_seconds` is `0` or `300` to `86400`. |
+| `catalog.adoption` | Lifecycle | `mode` is `review` (default) or `auto`; `auto` requires `authorized_by` and a timezone-qualified `authorization_expires_at`. `max_new_releases` is `0` to `64`. |
+| `operator_auth.public_catalog_export` | Release | Serves the signed export without a bearer token. |
+| `timestamp_renewal_check_seconds` | Release | `0` or `60` to `3600`. |
+
 ## Freeze one candidate
 
 Choose `ROOT` and `TARGET` from the owning product README. Work from a clean immutable candidate
 checkout with committed Python, npm and Terraform locks. Record its source SHA, lock hashes,
-three base image digests, Buildx metadata and resulting `linux/amd64` image digest privately.
-Choose approved Node 22 Bookworm, Python 3.13 Bookworm and uv 0.10.12 digest references.
+four base image digests, Buildx metadata and resulting `linux/amd64` image digest privately.
+Choose approved Node 22 Bookworm, Python 3.13 Bookworm, uv 0.10.12 and OPA static digest
+references. `OPA_IMAGE` is an `openpolicyagent/opa:<version>-static` image; only the Lifecycle Hub
+(`target`) image receives its binary, for the catalog adoption policy.
 The Node digest should resolve for the builder's native platform (or be a multi-platform index);
 Python and uv should resolve for the requested AMD64 target. Don't pin an AMD64-only Node leaf
 on an ARM builder and call it a native UI build.
@@ -32,7 +47,7 @@ set -euo pipefail
 umask 077
 SOURCE_SHA=$(git rev-parse HEAD)
 test -z "$(git status --porcelain --untracked-files=normal)"
-for image in "$NODE_IMAGE" "$PYTHON_IMAGE" "$UV_IMAGE"; do
+for image in "$NODE_IMAGE" "$PYTHON_IMAGE" "$UV_IMAGE" "$OPA_IMAGE"; do
   if ! [[ "$image" =~ @sha256:[0-9a-f]{64}$ ]]; then
     echo "All base images require approved digests." >&2
     exit 1
@@ -42,6 +57,7 @@ docker buildx build --platform linux/amd64 --target "$TARGET" \
   --build-arg NODE_IMAGE="$NODE_IMAGE" \
   --build-arg PYTHON_IMAGE="$PYTHON_IMAGE" \
   --build-arg UV_IMAGE="$UV_IMAGE" \
+  --build-arg OPA_IMAGE="$OPA_IMAGE" \
   --file lifecycle/Dockerfile.hubs --tag "$IMAGE_TAG" \
   --metadata-file "$PRIVATE_BUILD_METADATA" --load .
 test "$SOURCE_SHA" = "$(git rev-parse HEAD)"

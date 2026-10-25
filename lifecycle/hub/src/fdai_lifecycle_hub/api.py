@@ -214,6 +214,26 @@ def create_app(
         pending = await run_in_threadpool(store.list_pending_enrollments)
         return JSONResponse({"enrollments": [pending_enrollment_record(item) for item in pending]})
 
+    async def list_bindable(request: Request) -> Response:
+        """Installations the deployment bound to an Agent, so the operator picks, not types."""
+
+        pending, enrolled = await run_in_threadpool(
+            lambda: (store.list_pending_enrollments(), store.list_installations())
+        )
+        status = {item.installation.installation_id: "pending" for item in pending} | {
+            item.installation.installation_id: "enrolled" for item in enrolled
+        }
+        principals = remote_auth.agent_principals if remote_auth is not None else ()
+        bound = sorted({principal.installation_id for principal in principals})
+        return JSONResponse(
+            {
+                "installations": [
+                    {"installation_id": name, "status": status.get(name, "unrequested")}
+                    for name in bound
+                ]
+            }
+        )
+
     async def get_pending(request: Request) -> Response:
         installation_id = request.path_params["installation_id"]
         pending = await run_in_threadpool(store.pending_enrollment, installation_id)
@@ -323,6 +343,7 @@ def create_app(
         ),
     ]
     if remote_auth is not None and remote_auth.agent_principals:
+        routes.append(Route("/v1/enrollments/bindable", list_bindable))
         routes.append(
             Route(
                 "/v1/enrollments/{installation_id}/requests",
