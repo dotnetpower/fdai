@@ -4,7 +4,7 @@ run "core_control_plane_plan" {
   command = plan
   module { source = "../../services/core-control-plane" }
   variables {
-    name = "ca-fdai-core"
+    name            = "ca-fdai-core"
     source_revision = "0123456789abcdef0123456789abcdef01234567"
     platform = {
       resource_group_name          = "rg-example"
@@ -55,7 +55,7 @@ run "core_catalog_freshness_selected" {
   command = plan
   module { source = "../../services/core-control-plane" }
   variables {
-    name = "ca-fdai-core"
+    name            = "ca-fdai-core"
     source_revision = "0123456789abcdef0123456789abcdef01234567"
     platform = {
       resource_group_name          = "rg-example"
@@ -108,7 +108,7 @@ run "core_catalog_freshness_requires_https" {
   module { source = "../../services/core-control-plane" }
   expect_failures = [var.catalog_freshness]
   variables {
-    name = "ca-fdai-core"
+    name            = "ca-fdai-core"
     source_revision = "0123456789abcdef0123456789abcdef01234567"
     platform = {
       resource_group_name          = "rg-example"
@@ -156,7 +156,7 @@ run "core_catalog_freshness_requires_a_pin" {
   module { source = "../../services/core-control-plane" }
   expect_failures = [var.catalog_freshness]
   variables {
-    name = "ca-fdai-core"
+    name            = "ca-fdai-core"
     source_revision = "0123456789abcdef0123456789abcdef01234567"
     platform = {
       resource_group_name          = "rg-example"
@@ -203,7 +203,7 @@ run "core_catalog_freshness_rejects_a_pin_without_a_url" {
   module { source = "../../services/core-control-plane" }
   expect_failures = [var.catalog_freshness]
   variables {
-    name = "ca-fdai-core"
+    name            = "ca-fdai-core"
     source_revision = "0123456789abcdef0123456789abcdef01234567"
     platform = {
       resource_group_name          = "rg-example"
@@ -250,7 +250,7 @@ run "core_catalog_freshness_rejects_a_fast_refresh" {
   module { source = "../../services/core-control-plane" }
   expect_failures = [var.catalog_freshness]
   variables {
-    name = "ca-fdai-core"
+    name            = "ca-fdai-core"
     source_revision = "0123456789abcdef0123456789abcdef01234567"
     platform = {
       resource_group_name          = "rg-example"
