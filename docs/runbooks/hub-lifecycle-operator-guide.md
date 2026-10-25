@@ -202,6 +202,41 @@ Use `--kind configuration` with the customer's configuration public key for conf
 This command verifies an existing signature; it does not create a signed package, acquire trust
 from a bundled key, mirror registry images or make a target eligible.
 
+#### Single-Owner development profile and 14-day expiry
+
+Under [Constitution Article 8](../roadmap/architecture/fdai-constitution.md#article-8-safely-autonomous),
+an explicitly declared full-authority development profile (`full-authority-development`) in a
+disposable development scope (such as `rg-fdai-dev-wus3`) lets one authenticated Owner satisfy the
+Hub catalog export-pin, enrollment, native-ownership, application-binding and Plan approval steps
+inside that exact scope:
+
+- **Scope boundary:** Applies only to the named disposable development resource group and its
+  enrolled Hub installation. It grants no authority outside that test scope and never relaxes
+  production multi-operator quorum.
+- **Expiry:** The development-profile authorization is bounded to at most 14 days from approval
+  and must be renewed or cleared when the campaign ends; each per-run native creation approval
+  file (`native-approval.json`) retains its 4-hour execution window inside that 14-day campaign.
+- **Distinct identities:** The human Owner approves in the Hub and prepares local signed inputs;
+  the in-cluster lifecycle agent executes only through its dedicated workload identity and
+  namespace Role. Neither identity substitutes for the other.
+
+To generate the private runtime bundle (`runtime-bundle.json`), component-image map
+(`component-images.json`), matching native scope (`native-scope.json`) and pre-existing
+infrastructure reference inventory (`prerequisites.json`) for the FDAI operational ownership topology
+(`core-control-plane`, `operator-service`, `document-ingestion-api`,
+`document-processing-worker` with `clamav`, and the `analyzer`, `canary`, `inventory`, and
+`observation-campaign` CronJobs) from the AKS `workloads` and `scheduled_jobs` maps:
+
+```bash
+fdai-lifecycle-manager generate-runtime-bundle \
+  --topology-input <private-topology.json> \
+  --destination <new-private-bundle-dir> \
+  --installation-id <installation-id> \
+  --entity-id <entity-id> \
+  --product fdai \
+  --namespace fdai-runtime
+```
+
 #### Prepare execution windows
 
 This procedure requires a build with the execution-settings API and UI, an enrolled installation,

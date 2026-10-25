@@ -124,7 +124,10 @@ class RuntimeObject(BaseModel):
             _integer(self.spec.get("startingDeadlineSeconds", 60), 1, 300)
             for key in ("successfulJobsHistoryLimit", "failedJobsHistoryLimit"):
                 _integer(self.spec.get(key, 1), 0, 3)
-            _fields(self.spec["jobTemplate"], {"spec"}, set())
+            _fields(self.spec["jobTemplate"], {"spec"}, {"metadata"})
+            job_metadata = self.spec["jobTemplate"].get("metadata", {})
+            _fields(job_metadata, set(), {"labels"})
+            _labels(job_metadata.get("labels", {}))
             job = self.spec["jobTemplate"]["spec"]
             _fields(
                 job,
@@ -277,6 +280,10 @@ class RuntimeBundle(BaseModel):
                     "name": item.name,
                 }
             else:
+                if item.kind == "CronJob":
+                    spec["jobTemplate"].setdefault("metadata", {}).setdefault("labels", {}).update(
+                        labels
+                    )
                 workload = spec if item.kind == "Deployment" else spec["jobTemplate"]["spec"]
                 template = workload["template"]
                 template.setdefault("metadata", {}).setdefault("labels", {}).update(labels)
@@ -377,17 +384,19 @@ def _security(value: Any, *, container: bool) -> None:
         raise ValueError("runtime filesystem group policy is invalid")
 
 
+def _labels(labels: Any) -> None:
+    if not isinstance(labels, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str) or len(key) > 253 or len(value) > 63
+        for key, value in labels.items()
+    ):
+        raise ValueError("runtime Pod labels are invalid")
+
+
 def _pod_template(template: Any, *, scheduled: bool) -> None:
     _fields(template, {"spec"}, {"metadata"})
     metadata = template.get("metadata", {})
     _fields(metadata, set(), {"labels"})
-    if not isinstance(metadata.get("labels", {}), dict):
-        raise ValueError("runtime Pod labels are invalid")
-    if any(
-        not isinstance(key, str) or not isinstance(value, str) or len(key) > 253 or len(value) > 63
-        for key, value in metadata.get("labels", {}).items()
-    ):
-        raise ValueError("runtime Pod labels are invalid")
+    _labels(metadata.get("labels", {}))
     pod = template["spec"]
     _fields(
         pod,
@@ -495,12 +504,16 @@ def _container(item: Any, volumes: set[str], *, initializing: bool, scheduled: b
             raise ValueError("runtime arguments are unbounded")
     if item.get("imagePullPolicy", "IfNotPresent") not in ("Always", "IfNotPresent"):
         raise ValueError("runtime image pull policy is invalid")
+    seen_env_names: set[str] = set()
     for variable in _sequence(item.get("env", []), 128):
         _fields(variable, {"name"}, {"valueFrom", "value", "binding"})
         if not isinstance(variable["name"], str) or not re.fullmatch(
             r"[A-Za-z_][A-Za-z0-9_]{0,127}", variable["name"]
         ):
             raise ValueError("runtime environment name is invalid")
+        if variable["name"] in seen_env_names:
+            raise ValueError("runtime environment names must be unique")
+        seen_env_names.add(variable["name"])
         sources = [key for key in ("valueFrom", "value", "binding") if key in variable]
         if len(sources) != 1:
             raise ValueError("runtime environment requires exactly one value source")
@@ -519,6 +532,7 @@ def _container(item: Any, volumes: set[str], *, initializing: bool, scheduled: b
                     "metadata.name",
                     "metadata.namespace",
                     "spec.nodeName",
+                    "metadata.labels['batch.kubernetes.io/controller-uid']",
                 )
                 or reference["fieldRef"].get("apiVersion", "v1") != "v1"
             ):

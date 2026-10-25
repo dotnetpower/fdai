@@ -1,8 +1,8 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: d3004cdc1a52dc29087dc2fbf166ad25c4f4e352
-translation_revised: 2026-10-23
+translation_source_sha: 7aa3170ea6adc1e08db4e0c289cb8261d9c3e378
+translation_revised: 2026-10-25
 ---
 # Hub 수명 주기 운영자 가이드
 
@@ -205,6 +205,41 @@ fdai-lifecycle-agent stage-input --kind release \
 설정에는 `--kind configuration`과 고객의 설정 공개키를 사용합니다. 이 명령은 기존
 서명을 검증합니다. 서명된 패키지를 만들거나, 패키지에 동봉된 키를 신뢰하게 만들거나,
 이미지를 복제하거나, 대상을 배포 가능한 상태로 바꾸지 않습니다.
+
+#### 단일 Owner 개발 프로필과 14일 유효기간
+
+[헌법 제8조](../roadmap/architecture/fdai-constitution-ko.md#article-8-safely-autonomous)에 따라
+명시적으로 선언한 전체 권한 개발 프로필(`full-authority-development`)을 일회성 개발 범위
+(`rg-fdai-dev-wus3` 등)에 적용하면, 인증된 단일 Owner 한 명이 해당 범위 안에서 Hub
+카탈로그 내보내기 고정값, 등록, 네이티브 소유권, 애플리케이션 고정, Plan 승인 단계를 모두
+수행할 수 있습니다.
+
+- **범위 경계:** 지정된 일회성 개발 리소스 그룹과 등록된 Hub 설치본에만 적용됩니다. 해당
+  테스트 범위 밖으로는 어떠한 권한도 부여하지 않으며 운영 환경의 다중 운영자 정족수를
+  완화하지 않습니다.
+- **유효기간:** 개발 프로필 권한 부여는 승인 시점부터 최대 14일로 제한되며, 검증 캠페인이
+  끝나면 갱신하거나 해제해야 합니다. 실행 시점마다 생성하는 네이티브 생성 승인 파일
+  (`native-approval.json`)은 이 14일 기간 안에서도 4시간 실행 유효기간을 유지합니다.
+- **신원 분리:** 사람인 Owner는 Hub에서 승인하고 로컬 서명 입력을 준비하며, 클러스터 내부
+  수명 주기 에이전트는 전용 워크로드 신원과 네임스페이스 Role로만 실행합니다. 두 신원은 서로를
+  대신하지 않습니다.
+
+AKS `workloads` 및 `scheduled_jobs` 맵으로부터 FDAI 운영 책임 토폴로지
+(`core-control-plane`, `operator-service`, `document-ingestion-api`, `clamav` 사이드카를 포함한
+`document-processing-worker`, 그리고 `analyzer`, `canary`, `inventory`,
+`observation-campaign` CronJob)의 비공개 실행 묶음(`runtime-bundle.json`), 구성 요소 이미지
+맵(`component-images.json`), 일치하는 네이티브 범위(`native-scope.json`), 사전 구축 인프라 참조
+목록(`prerequisites.json`)을 생성하려면 다음 명령을 실행합니다.
+
+```bash
+fdai-lifecycle-manager generate-runtime-bundle \
+  --topology-input <private-topology.json> \
+  --destination <new-private-bundle-dir> \
+  --installation-id <installation-id> \
+  --entity-id <entity-id> \
+  --product fdai \
+  --namespace fdai-runtime
+```
 
 #### 실행 시간 준비
 

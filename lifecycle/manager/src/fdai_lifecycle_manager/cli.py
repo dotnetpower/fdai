@@ -15,6 +15,7 @@ from fdai_lifecycle_manager.operations import (
     write_native_acceptance,
 )
 from fdai_lifecycle_manager.preparation import prepare_installation, refresh_enrollment
+from fdai_lifecycle_manager.runtime_bundle_generator import write_generated_runtime_bundle
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -34,6 +35,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     prepare.add_argument("--channel", default="DEV")
     prepare.add_argument("--region", required=True)
     prepare.add_argument("--actor", required=True)
+    generate = command.add_parser("generate-runtime-bundle")
+    generate.add_argument("--topology-input", type=Path, required=True)
+    generate.add_argument("--destination", type=Path, required=True)
+    generate.add_argument("--installation-id", required=True)
+    generate.add_argument("--entity-id", default="fdai-workloads")
+    generate.add_argument("--product", default="fdai")
+    generate.add_argument("--namespace", default="fdai-runtime")
     refresh = command.add_parser("refresh-enrollment")
     refresh.add_argument("--prepared", type=Path, required=True)
     refresh.add_argument("--destination", type=Path, required=True)
@@ -79,6 +87,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                 actor=args.actor,
                 now=datetime.now(UTC),
             ).model_dump(mode="json")
+        elif args.command == "generate-runtime-bundle":
+            receipt = write_generated_runtime_bundle(
+                topology_input_path=args.topology_input,
+                destination=args.destination,
+                installation_id=args.installation_id,
+                entity_id=args.entity_id,
+                product=args.product,
+                namespace=args.namespace,
+            )
         elif args.command == "refresh-enrollment":
             receipt = refresh_enrollment(
                 prepared=args.prepared,
