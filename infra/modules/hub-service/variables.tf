@@ -93,6 +93,8 @@ variable "operator_auth" {
     service_object_id = optional(string)
     service_client_id = optional(string)
     service_role      = optional(string, "Catalog.Read")
+    # Release Hub only: serve the signed, content-free catalog export without a bearer token.
+    public_catalog_export = optional(bool, false)
     agent_principals = optional(list(object({
       installation_id = string
       object_id       = string
@@ -110,18 +112,119 @@ variable "operator_auth" {
     )
     error_message = "Supply complete verified operator bindings; Lifecycle Hub cannot admit a vendor service identity and Release Hub cannot admit Agents."
   }
+  validation {
+    condition     = var.operator_auth == null ? true : (var.kind == "release" || !var.operator_auth.public_catalog_export)
+    error_message = "Only the Release Hub can serve the signed catalog export without a bearer token."
+  }
+}
+variable "timestamp_renewal_check_seconds" {
+  type        = number
+  default     = 0
+  description = "Release Hub only: interval for automatic freshness renewal of already published content. 0 disables it."
+  validation {
+    condition = var.timestamp_renewal_check_seconds == floor(var.timestamp_renewal_check_seconds) && (
+      var.timestamp_renewal_check_seconds == 0 ||
+      (var.timestamp_renewal_check_seconds >= 60 && var.timestamp_renewal_check_seconds <= 3600)
+    )
+    error_message = "Use 0 to disable renewal, or a whole number of seconds from 60 through 3600."
+  }
+  validation {
+    condition     = var.timestamp_renewal_check_seconds == 0 || var.kind == "release"
+    error_message = "Only the Release Hub renews the freshness of published content."
+  }
 }
 variable "catalog" {
   type = object({
     url                        = string
-    token_scope                = string
-    managed_identity_client_id = string
+    access                     = optional(string)
+    token_scope                = optional(string)
+    managed_identity_client_id = optional(string)
     release_public_key         = string
+    check_interval_seconds     = optional(number)
+    adoption = optional(object({
+      mode                     = optional(string)
+      allowed_channels         = optional(list(string))
+      max_new_releases         = optional(number)
+      authorized_by            = optional(string)
+      authorization_expires_at = optional(string)
+    }))
   })
-  default = null
+  default     = null
+  description = "Lifecycle Hub pull-only catalog source. Unset optional attributes are omitted from the Hub configuration."
   validation {
     condition     = var.catalog == null || var.kind == "target"
     error_message = "Only Lifecycle Hub can optionally consume an explicitly approved catalog."
+  }
+  validation {
+    condition = var.catalog == null ? true : (
+      can(regex("^https://[^/?#@:]+(:443)?/v1/catalog/export$", var.catalog.url)) &&
+      contains(["managed-identity", "anonymous"], coalesce(var.catalog.access, "managed-identity"))
+    )
+    error_message = "Use one HTTPS /v1/catalog/export URL and access of managed-identity or anonymous."
+  }
+  validation {
+    condition = var.catalog == null ? true : (
+      coalesce(var.catalog.access, "managed-identity") == "anonymous" ? (
+        var.catalog.token_scope == null && var.catalog.managed_identity_client_id == null
+        ) : (
+        try(trimspace(var.catalog.token_scope) != "", false) &&
+        try(endswith(var.catalog.token_scope, "/.default"), false) &&
+        try(trimspace(var.catalog.managed_identity_client_id) != "", false)
+      )
+    )
+    error_message = "Managed-identity access requires token_scope ending in /.default and managed_identity_client_id; anonymous access must omit both."
+  }
+  validation {
+    condition = try(var.catalog.check_interval_seconds, null) == null ? true : (
+      var.catalog.check_interval_seconds == floor(var.catalog.check_interval_seconds) && (
+        var.catalog.check_interval_seconds == 0 ||
+        (var.catalog.check_interval_seconds >= 300 && var.catalog.check_interval_seconds <= 86400)
+      )
+    )
+    error_message = "Use check_interval_seconds of 0 to disable checks, or a whole number from 300 through 86400."
+  }
+  validation {
+    condition = try(var.catalog.adoption, null) == null ? true : (
+      contains(["review", "auto"], coalesce(var.catalog.adoption.mode, "review")) &&
+      alltrue([
+        for name in coalesce(var.catalog.adoption.allowed_channels, []) :
+        can(regex("^[A-Za-z][A-Za-z0-9_-]{0,63}$", name))
+      ]) &&
+      length(toset(coalesce(var.catalog.adoption.allowed_channels, []))) == length(coalesce(var.catalog.adoption.allowed_channels, [])) &&
+      (
+        var.catalog.adoption.max_new_releases == null ? true : (
+          var.catalog.adoption.max_new_releases == floor(var.catalog.adoption.max_new_releases) &&
+          var.catalog.adoption.max_new_releases >= 0 && var.catalog.adoption.max_new_releases <= 64
+        )
+      )
+    )
+    error_message = "Adoption needs mode review or auto, unique canonical channel names, and max_new_releases from 0 through 64."
+  }
+  validation {
+    condition = try(var.catalog.adoption, null) == null ? true : (
+      var.catalog.adoption.authorized_by == null ? true : (
+        trimspace(var.catalog.adoption.authorized_by) != "" && length(var.catalog.adoption.authorized_by) <= 160
+      )
+    )
+    error_message = "authorized_by must be a non-blank attribution of at most 160 characters."
+  }
+  validation {
+    condition = try(var.catalog.adoption, null) == null ? true : (
+      var.catalog.adoption.authorization_expires_at == null ? true : (
+        can(regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2})$", var.catalog.adoption.authorization_expires_at)) &&
+        can(timeadd(var.catalog.adoption.authorization_expires_at, "0s"))
+      )
+    )
+    error_message = "authorization_expires_at must be an ISO-8601 timestamp with an explicit timezone, such as 2027-01-31T00:00:00Z."
+  }
+  validation {
+    condition = try(var.catalog.adoption, null) == null ? true : (
+      coalesce(var.catalog.adoption.mode, "review") != "auto" || (
+        try(trimspace(var.catalog.adoption.authorized_by) != "", false) &&
+        var.catalog.adoption.authorization_expires_at != null
+      )
+    )
+    error_message = "Automatic adoption requires both authorized_by and authorization_expires_at."
   }
 }
 variable "enable_apps" {

@@ -39,8 +39,15 @@ variable "operator_auth" {
     service_object_id = optional(string)
     service_client_id = optional(string)
     service_role      = optional(string, "Catalog.Read")
+    # Serve the signed, content-free catalog export without a bearer token (anonymous consumers).
+    public_catalog_export = optional(bool, false)
   })
   default = null
+}
+variable "timestamp_renewal_check_seconds" {
+  type        = number
+  default     = 0
+  description = "Automatic freshness renewal interval for published content; 0 disables, otherwise 60-3600."
 }
 variable "enable_apps" {
   type    = bool

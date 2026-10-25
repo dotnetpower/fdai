@@ -40,13 +40,19 @@ def test_independent_image_build_inputs():
     assert "lifecycle/hub/ui/tsconfig.json" in release_ui
     assert "lifecycle/hub/ui/public" in release_ui
     assert "FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS ui-base" in dockerfile
-    for name in ("NODE_IMAGE", "PYTHON_IMAGE", "UV_IMAGE"):
+    for name in ("NODE_IMAGE", "PYTHON_IMAGE", "UV_IMAGE", "OPA_IMAGE"):
         assert f"ARG {name}\n" in dockerfile
+        assert not re.search(rf"^ARG {name}=", dockerfile, re.MULTILINE)
+    assert "FROM ${OPA_IMAGE} AS opa-tool\n" in dockerfile
     ignore = (root / "lifecycle/Dockerfile.hubs.dockerignore").read_text()
     assert "!lifecycle/hub/uv.lock\n" in ignore
     assert "!lifecycle/release-hub/uv.lock\n" in ignore
     target = dockerfile.split("FROM base AS target\n")[1].split("\nFROM ")[0]
     assert "--from=lifecycle-ui" in target and "--from=release" not in target
+    assert "COPY --from=opa-tool --chmod=0555 /opa /usr/local/bin/opa\n" in target
+    release = dockerfile.split("FROM base AS release\n")[1].split("\nFROM ")[0]
+    assert "opa" not in release
+    assert "apt" not in dockerfile.split("FROM ${PYTHON_IMAGE} AS base\n")[1].split("\nFROM ")[0]
     release_wheels = dockerfile.split("FROM wheels AS release-wheels\n")[1].split("\nFROM ")[0]
     assert "uv export --project lifecycle/release-hub --frozen" in release_wheels
     assert "--require-hashes -r /release-requirements.txt" in release_wheels
@@ -67,6 +73,16 @@ def docker(*arguments: str, timeout: int = 30) -> str:
             f"Task-owned Docker command failed: {arguments[0]}; inspect local Docker diagnostics."
         )
     return result.stdout.strip()
+
+
+def test_packaged_target_image_ships_opa_for_catalog_adoption():
+    image = os.environ.get("FDAI_TEST_TARGET_HUB_IMAGE")
+    if not image:
+        pytest.skip("Set explicit task-built Hub image references to run packaged-image checks.")
+    version = docker(
+        "run", "--rm", "--network", "none", "--entrypoint", "/usr/local/bin/opa", image, "version"
+    )
+    assert version.startswith("Version:")
 
 
 @pytest.mark.parametrize("kind", ["release", "target"])

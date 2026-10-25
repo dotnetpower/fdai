@@ -39,6 +39,60 @@ After standalone migration, use the explicit `bind-catalog --actor ... --reason 
 command with a separately approved source configuration before serving with that binding.
 Binding a key doesn't approve an export pin or download catalog bytes.
 
+### Pull-only catalog adoption
+
+When `catalog` is set, the Hub only pulls the signed catalog export from the Release Hub. The
+Release Hub never pushes to your installation. Each candidate is verified against
+`release_public_key` and then evaluated by the Hub's adoption policy.
+
+| `catalog` setting | Meaning |
+|-------------------|---------|
+| `url` | One HTTPS `/v1/catalog/export` URL |
+| `access` | `managed-identity` (default when omitted) or `anonymous` |
+| `token_scope`, `managed_identity_client_id` | Required for `managed-identity`; must be omitted for `anonymous` |
+| `check_interval_seconds` | `0` disables checks; otherwise `300` to `86400`. Omitted uses the Hub default of `3600` |
+| `adoption.mode` | `review` (default) or `auto` |
+| `adoption.allowed_channels` | Channel names that automatic adoption may add |
+| `adoption.max_new_releases` | `0` to `64`. Omitted uses the Hub default of `3` |
+| `adoption.authorized_by`, `adoption.authorization_expires_at` | Required for `auto`; see below |
+
+Choose `review` unless a named owner has decided that a signature-verified update may take effect
+without a person. In `review` mode every verified candidate waits for an operator decision in the
+Hub. In `auto` mode the policy adopts a candidate only when nothing needs judgement: removed or
+replaced releases, new channels outside `allowed_channels`, lifted recalls, widened schema ranges
+and more than `max_new_releases` new releases always wait for review. The Hub fails closed. If
+the policy runner is missing or errors, nothing is adopted automatically.
+
+`auto` is a standing authorization. It's attributed to `authorized_by` and expires at
+`authorization_expires_at`, which is an ISO-8601 timestamp with an explicit timezone such as
+`2027-01-31T00:00:00Z`. After it expires, the Hub returns to review behavior. Renewing it is a
+reviewed deployment change that sets a new expiry and applies this root again. The Hub can't
+extend it.
+
+```hcl
+catalog = {
+  url                        = "https://<release-hub-host>/v1/catalog/export"
+  token_scope                = "api://<release-hub-app-id>/.default"
+  managed_identity_client_id = "<lifecycle-hub-identity-client-id>"
+  release_public_key         = "<independently verified Ed25519 public key PEM>"
+  adoption = {
+    mode                     = "auto"
+    allowed_channels         = ["stable"]
+    authorized_by            = "<accountable owner>"
+    authorization_expires_at = "2027-01-31T00:00:00Z"
+  }
+}
+```
+
+`access = "anonymous"` only works when the Release Hub deploys with
+`operator_auth.public_catalog_export = true`; otherwise the export request is rejected. The export
+is signed and content-free, so integrity comes from the signature and not from the transport.
+
+Unset attributes aren't written to the Hub configuration, so an older image keeps parsing a
+configuration that doesn't use the new fields. Setting `access`, `check_interval_seconds` or
+`adoption` requires an image that supports them. The image must also include the `opa` policy
+runner, which the Dockerfile supplies from the digest-pinned `OPA_IMAGE`.
+
 Without `operator_auth`, management APIs return 503 and the UI explicitly shows unavailable
 functionality. Anonymous management API policy is deferred, not a blocker for independent
 startup/UI preparation. A later UI/readiness-only deployment requires separate explicit
