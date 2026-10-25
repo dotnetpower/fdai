@@ -82,6 +82,10 @@ replicas, approved ingress CIDRs, existing registry and the product's digest-pin
 `image` selects the new candidate for bootstrap and migration Jobs and, by default, the app.
 Optional `app_image` retains an independently approved serving digest during an existing
 installation's migration. It changes only the app; null preserves the single-image default.
+Optional `custom_domain` sets the Hub's public HTTPS hostname (`hostname`), optionally creates
+the `CNAME` and `asuid.<label>` `TXT` records in an existing Azure DNS zone (`dns_zone`), and
+binds `azurerm_container_app_custom_domain` while keeping `FDAI_HUB_REMOTE_CONFIG` and HTTP
+probe `Host` headers aligned with that hostname.
 Tenant identity here is for PostgreSQL and Key Vault, not a browser login requirement.
 `operator_auth` and Lifecycle's `catalog` default to absent.
 
@@ -598,6 +602,9 @@ This enumerates ownership, not permission to mutate live state.
 | `azurerm_role_assignment.registry_reader` | Selected product |
 | `azurerm_role_assignment.secret_reader` | Selected product, keys `<product>-<secret>` |
 | `azurerm_container_app.hub` | Selected product, if present |
+| `azurerm_dns_cname_record.hub_custom_domain` | Selected product, if custom domain DNS is enabled |
+| `azurerm_dns_txt_record.hub_custom_domain` | Selected product, if custom domain DNS is enabled |
+| `azurerm_container_app_custom_domain.hub` | Selected product, if custom domain is enabled |
 | `azurerm_container_app_job.migrate` | Selected product, if present |
 | `azuread_application.api`, `azuread_application.browser` | Existing directory owner, unchanged |
 | `azuread_application_identifier_uri.api` | Existing directory owner, unchanged |
