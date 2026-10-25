@@ -180,6 +180,7 @@ module "document_intelligence_private_endpoint" {
 }
 
 resource "azurerm_key_vault_secret" "ingestion_api_dsn" {
+  # checkov:skip=CKV_AZURE_41:This managed-identity DSN selects a database role; rotation follows coordinated role and workload rollout rather than an independent expiry.
   name         = "fdai-ingestion-api-dsn"
   value        = "${data.azurerm_key_vault_secret.state_store_dsn.value}&options=-c%20role%3Dfdai_ingestion_api"
   key_vault_id = data.azurerm_key_vault.target.id
@@ -188,6 +189,7 @@ resource "azurerm_key_vault_secret" "ingestion_api_dsn" {
 }
 
 resource "azurerm_key_vault_secret" "ingestion_worker_dsn" {
+  # checkov:skip=CKV_AZURE_41:This managed-identity DSN selects a database role; rotation follows coordinated role and workload rollout rather than an independent expiry.
   name         = "fdai-ingestion-worker-dsn"
   value        = "${data.azurerm_key_vault_secret.state_store_dsn.value}&options=-c%20role%3Dfdai_ingestion_worker"
   key_vault_id = data.azurerm_key_vault.target.id
