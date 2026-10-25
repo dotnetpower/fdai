@@ -5,7 +5,7 @@ import stat
 from pathlib import Path
 
 import pytest
-from fdai_deployment_cli.lifecycle_infrastructure_agent import write_installation_binding
+from fdai_deployment_cli.lifecycle_installation_binding import write_installation_binding
 
 
 def test_installation_binding_writer_writes_exact_private_envelope(tmp_path: Path) -> None:

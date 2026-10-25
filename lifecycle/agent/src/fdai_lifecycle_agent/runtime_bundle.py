@@ -8,7 +8,7 @@ from copy import deepcopy
 from typing import Annotated, Any, Literal, Self
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
-from fdai_deployment_cli.lifecycle_infrastructure_agent import (
+from fdai_deployment_cli.lifecycle_installation_binding import (
     validate_installation_binding_values,
 )
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, StringConstraints, model_validator
