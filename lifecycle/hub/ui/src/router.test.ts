@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { enrollmentPath, installationPath, parseRoute, planPath } from "./router";
+import { enrollmentPath, installationPath, parseRoute, planPath, updatesPath } from "./router";
 
 describe("parseRoute", () => {
   test("root and /installations list the installations screen", () => {
@@ -10,6 +10,13 @@ describe("parseRoute", () => {
   test("read-only inventory routes are distinct from catalog mutation", () => {
     expect(parseRoute("/available-releases")).toEqual({ kind: "releases" });
     expect(parseRoute("/configuration-packages")).toEqual({ kind: "configurations" });
+    expect(parseRoute("/catalog")).toEqual({ kind: "catalog" });
+  });
+
+  test("/updates selects the Updates screen, distinct from the legacy catalog import", () => {
+    expect(parseRoute("/updates")).toEqual({ kind: "updates" });
+    expect(parseRoute("/updates/extra")).toEqual({ kind: "not-found", path: "/updates/extra" });
+    expect(parseRoute(updatesPath())).toEqual({ kind: "updates" });
     expect(parseRoute("/catalog")).toEqual({ kind: "catalog" });
   });
 

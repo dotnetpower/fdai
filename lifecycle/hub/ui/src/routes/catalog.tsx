@@ -39,7 +39,8 @@ export function CatalogPage() {
   return <div class="catalog-page">
     <div class="m-head"><div>
       <h1>Release Catalog import</h1>
-      <p class="sub">Approve trust, import once, then compute a Plan.</p>
+      <p class="sub">For unsigned or offline exports: approve trust, import once, then compute a Plan.
+        Signed vendor catalogs are kept current on the Updates page.</p>
     </div><span class="badge warn">Development only</span></div>
     <div class="callout"><strong>Independent approval is required</strong>
     <p>Obtain the exact export digest and revision through your separately approved trust channel.

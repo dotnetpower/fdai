@@ -1,5 +1,6 @@
-import { useState } from "preact/hooks";
-import { hubApi, HubApiError } from "../api";
+import { useEffect, useState } from "preact/hooks";
+import { hubApi, HubApiError, type BindableInstallation } from "../api";
+import { effectiveSelection, isSelectable, optionLabel } from "../bindable-installations";
 import { AsyncBoundary } from "../components/async-boundary";
 import { Link } from "../components/link";
 import { formatTimestamp } from "../format";
@@ -68,16 +69,32 @@ function EnrollmentRequestForm({ onSubmitted }: { onSubmitted: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  // undefined while loading; null when the Hub offers no bound list (404, error, or empty),
+  // which keeps the typed Installation ID input available.
+  const [bindable, setBindable] = useState<readonly BindableInstallation[] | null | undefined>(undefined);
+  const [refreshes, setRefreshes] = useState(0);
+
+  useEffect(() => {
+    let current = true;
+    hubApi.listBindableInstallations().then(
+      list => { if (current) setBindable(list && list.length > 0 ? list : null); },
+      () => { if (current) setBindable(null); },
+    );
+    return () => { current = false; };
+  }, [refreshes]);
+
+  const selected = bindable ? effectiveSelection(bindable, installationId) : installationId.trim();
 
   async function submit() {
-    if (!file || busy) return;
+    if (!file || busy || !selected) return;
     setBusy(true);
     setError("");
     setSubmitted(false);
     try {
-      await hubApi.requestEnrollment(installationId.trim(), file);
+      await hubApi.requestEnrollment(selected, file);
       setSubmitted(true);
       onSubmitted();
+      setRefreshes(value => value + 1);
     } catch (cause) {
       setError(cause instanceof HubApiError
         ? `${cause.message}. Refresh before retrying. Check the installation binding and request freshness.`
@@ -96,14 +113,32 @@ function EnrollmentRequestForm({ onSubmitted }: { onSubmitted: () => void }) {
       <p class="note">Remote development only. The installation must already be bound to its Agent identity.
         Upload a request signed within five minutes, never a private key. Submission does not approve
         enrollment, manage Entities, or apply a Plan.</p>
-      <label>Installation ID
+      <p class="note">Create the file with `fdai-lifecycle-hub sign-enrollment` inside the installation
+        boundary; it prints the key id to compare at approval.</p>
+      {bindable === undefined && <p class="note" role="status">Loading bound installations...</p>}
+      {bindable && <>
+        <label>Installation
+          <select class="input" aria-label="Installation" disabled={busy} value={selected} onChange={event => {
+            setInstallationId(event.currentTarget.value);
+            setSubmitted(false);
+            setError("");
+          }}>
+            {selected === "" && <option value="" disabled>No installation can take a new request</option>}
+            {bindable.map(item => <option key={item.installation_id} value={item.installation_id}
+              disabled={!isSelectable(item)}>{optionLabel(item)}</option>)}
+          </select>
+        </label>
+        {selected === "" && <p class="note">Every bound installation already has a pending request or is
+          enrolled.</p>}
+      </>}
+      {bindable === null && <label>Installation ID
         <input class="input" required pattern="[a-z][a-z0-9-]{0,62}" maxLength={63}
           disabled={busy} value={installationId} onInput={event => {
             setInstallationId(event.currentTarget.value);
             setSubmitted(false);
             setError("");
           }} />
-      </label>
+      </label>}
       <label>Signed request JSON
         <input class="input" required type="file" accept=".json,application/json" disabled={busy}
           onChange={event => {
@@ -112,7 +147,7 @@ function EnrollmentRequestForm({ onSubmitted }: { onSubmitted: () => void }) {
             setError("");
           }} />
       </label>
-      <button class="btn primary" type="submit" disabled={busy || !file || submitted}>
+      <button class="btn primary" type="submit" disabled={busy || !file || submitted || !selected}>
         {busy ? "Submitting request..." : "Submit request"}
       </button>
       {error && <p class="banner fail" role="alert">{error}</p>}
