@@ -9,7 +9,7 @@ import json
 import logging
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from urllib.parse import urlsplit
@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Column, Engine, Integer, LargeBinary, MetaData, String, Table, Text, select
 from sqlalchemy.engine import Connection, RowMapping
 
+from fdai_lifecycle_hub import catalog_integrity_state as integrity_store
 from fdai_lifecycle_hub import local_channels as local_channel_store
 from fdai_lifecycle_hub.adoption_policy import AdoptionConfig
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
@@ -30,6 +31,15 @@ from fdai_lifecycle_hub.catalog_import import (
     load_pinned_export,
     verify_export_signature,
 )
+from fdai_lifecycle_hub.catalog_integrity import (
+    IntegrityAssessment,
+    IntegrityFloors,
+    assess_roles,
+    bind_export,
+    export_keys,
+    export_signature_verified,
+)
+from fdai_lifecycle_hub.catalog_trust import CatalogTrust, MetadataBundle
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import PlanOutcome
@@ -69,7 +79,9 @@ class CatalogSource(BaseModel):
     access: Literal["managed-identity", "anonymous"] = "managed-identity"
     token_scope: str | None = Field(default=None, min_length=1)
     managed_identity_client_id: str | None = Field(default=None, min_length=1)
-    release_public_key: str
+    # Legacy trust is one development Release key. `trust` replaces it with TUF-style roles.
+    release_public_key: str | None = None
+    trust: CatalogTrust | None = None
     # Zero disables the periodic check. Otherwise the Hub polls no faster than every 5 minutes.
     check_interval_seconds: int = Field(default=3600, ge=0, le=86400)
     adoption: AdoptionConfig = AdoptionConfig()
@@ -97,10 +109,23 @@ class CatalogSource(BaseModel):
             raise ValueError("Anonymous catalog access must not name an identity.")
         if 0 < self.check_interval_seconds < 300:
             raise ValueError("Catalog checks run at most every five minutes.")
-        self.public_key()
+        if (self.release_public_key is None) == (self.trust is None):
+            raise ValueError("Name exactly one catalog trust: a release public key or tuf roles.")
+        if self.release_public_key is not None:
+            self.public_key()
         return self
 
+    @property
+    def tuf(self) -> bool:
+        return self.trust is not None
+
+    @property
+    def metadata_url(self) -> str:
+        return self.url.removesuffix("/export") + "/metadata"
+
     def public_key(self) -> Ed25519PublicKey:
+        if self.release_public_key is None:
+            raise ValueError("Catalog trust uses signed roles, not one release key.")
         key = serialization.load_pem_public_key(self.release_public_key.encode())
         if not isinstance(key, Ed25519PublicKey):
             raise ValueError("Catalog trust key must be Ed25519.")
@@ -108,6 +133,8 @@ class CatalogSource(BaseModel):
 
     @property
     def key_digest(self) -> str:
+        if self.trust is not None:
+            return self.trust.key_digest
         return hashlib.sha256(
             self.public_key().public_bytes(
                 serialization.Encoding.Raw,
@@ -161,7 +188,7 @@ def _bearer(source: CatalogSource, deadline: float) -> str | None:
 
 
 def _download(
-    source: CatalogSource, *, if_none_match: str | None = None
+    source: CatalogSource, *, url: str | None = None, if_none_match: str | None = None
 ) -> tuple[int, bytes, Mapping[str, str]]:
     deadline = time.monotonic() + 15
     bearer = _bearer(source, deadline)
@@ -174,7 +201,7 @@ def _download(
     try:
         with httpx.stream(
             "GET",
-            source.url,
+            url or source.url,
             headers=headers,
             timeout=5,
             follow_redirects=False,
@@ -208,6 +235,12 @@ def fetch_export(source: CatalogSource) -> bytes:
     return _download(source)[1]
 
 
+def fetch_metadata(source: CatalogSource) -> bytes:
+    """One bounded request for the signed roles that accompany the export."""
+
+    return _download(source, url=source.metadata_url)[1]
+
+
 def fetch_signed_export(
     source: CatalogSource, *, accepted_digest: str | None = None
 ) -> FetchedExport | None:
@@ -239,9 +272,15 @@ class RemoteCatalog:
         *,
         fetch: Callable[[CatalogSource], bytes] = fetch_export,
         fetch_signed: Callable[..., FetchedExport | None] = fetch_signed_export,
+        fetch_roles: Callable[[CatalogSource], bytes] = fetch_metadata,
     ) -> None:
         self.engine, self.source, self.fetch = engine, source, fetch
         self.fetch_signed = fetch_signed
+        self.fetch_roles = fetch_roles
+
+    def _unavailable_in_tuf(self) -> None:
+        if self.source.tuf:
+            raise ValueError("Manual pin approval is not available with signed catalog roles.")
 
     def _locked(self, connection: Connection) -> RowMapping:
         begin_sqlite_write(connection)
@@ -262,6 +301,7 @@ class RemoteCatalog:
 
     def approve(self, pin: PinApproval, *, actor: str, now: datetime) -> None:
         """A customer operator supplies a pin from a separately approved channel, never an ETag."""
+        self._unavailable_in_tuf()
         with self.engine.begin() as connection:
             require_writable_schema(connection)
             row = self._locked(connection)
@@ -288,6 +328,7 @@ class RemoteCatalog:
             )
 
     def import_once(self, *, actor: str, now: datetime) -> dict[str, Any]:
+        self._unavailable_in_tuf()
         started = time.monotonic()
         with self.engine.connect() as connection:
             require_writable_schema(connection)
@@ -339,13 +380,17 @@ class RemoteCatalog:
         actor: str,
         reason: str,
         now: datetime,
+        roles: MetadataBundle | None = None,
+        allow_root_rotation: bool = False,
     ) -> dict[str, Any]:
         """Replace the accepted catalog with exact bytes the pinned Release key signed.
 
         The signature, the manifests, the revision floor and the write share one transaction, so
         a concurrent import, approval or recompute cannot interleave with the replacement. The
         caller names the accepted digest its policy decision was computed against, so a change
-        that was never assessed cannot ride along after the baseline moved.
+        that was never assessed cannot ride along after the baseline moved. With signed roles the
+        same transaction re-verifies the roles against the persisted floors and advances them; a
+        root rotation advances only when `allow_root_rotation` records a person's review.
         """
 
         started = time.monotonic()
@@ -353,11 +398,14 @@ class RemoteCatalog:
         with self.engine.begin() as connection:
             require_writable_schema(connection)
             row = self._locked(connection)
-            if not verify_export_signature(
-                fetched.raw, fetched.signature, self.source.public_key()
-            ):
-                raise ValueError("Catalog export signature does not verify.")
+            assessment, keys = self._trusted_export(
+                connection, fetched, roles, now, started, allow_root_rotation
+            )
             if row["previous_digest"] == digest:
+                if assessment is not None:
+                    integrity_store.persist(
+                        connection, assessment, now=now, accept_rotation=allow_root_rotation
+                    )
                 return {"adopted": False, "revision": row["floor"], "sha256": digest}
             if row["previous_digest"] != expected_previous_digest:
                 raise CandidateChangedError("The accepted catalog changed after assessment.")
@@ -367,7 +415,13 @@ class RemoteCatalog:
             ):
                 raise ValueError("Catalog adoption conflicts with an operator-approved pin.")
             effective = now + timedelta(seconds=time.monotonic() - started)
-            self._verify(fetched.raw, dict(row) | {"approval_digest": digest}, effective)
+            self._verify(
+                fetched.raw,
+                dict(row) | {"approval_digest": digest},
+                effective,
+                keys=keys,
+                enforce_expiry=assessment is None,
+            )
             revision = json.loads(fetched.raw)["revision"]
             if revision < max(row["floor"], row["approval_revision"]):
                 raise ValueError("Catalog adoption revision moved backwards.")
@@ -382,11 +436,76 @@ class RemoteCatalog:
                     payload=fetched.raw,
                 )
             )
+            if assessment is not None:
+                integrity_store.persist(
+                    connection, assessment, now=now, accept_rotation=allow_root_rotation
+                )
             self._audit(connection, "pin.approved", actor, revision, digest, reason, now)
             self._audit(
                 connection, "catalog.imported", actor, revision, digest, "signed_adoption", now
             )
         return {"adopted": True, "revision": revision, "sha256": digest}
+
+    def _trusted_export(
+        self,
+        connection: Connection,
+        fetched: FetchedExport,
+        roles: MetadataBundle | None,
+        now: datetime,
+        started: float,
+        allow_root_rotation: bool,
+    ) -> tuple[IntegrityAssessment | None, Ed25519PublicKey | tuple[Ed25519PublicKey, ...]]:
+        """Authenticate the export bytes under the configured trust, inside the caller's lock."""
+
+        trust = self.source.trust
+        if trust is None:
+            if not verify_export_signature(
+                fetched.raw, fetched.signature, self.source.public_key()
+            ):
+                raise ValueError("Catalog export signature does not verify.")
+            return None, self.source.public_key()
+        if roles is None:
+            raise ValueError("Signed catalog roles are required to adopt a catalog.")
+        floors = integrity_store.floors_of(integrity_store.read_integrity(connection, lock=True))
+        assessment = assess_roles(
+            roles,
+            trust=trust,
+            floors=floors,
+            now=now + timedelta(seconds=time.monotonic() - started),
+        )
+        if not assessment.verified or assessment.root is None:
+            raise ValueError("Catalog integrity does not verify.")
+        if assessment.root_rotation and not allow_root_rotation:
+            raise ValueError("A root rotation needs review before adoption.")
+        if not export_signature_verified(fetched.raw, fetched.signature, assessment.root):
+            raise ValueError("Catalog export signature does not verify.")
+        if bind_export(assessment, raw=fetched.raw, floors=floors) is not None:
+            raise ValueError("Catalog roles do not describe this export.")
+        return assessment, export_keys(assessment.root)
+
+    def integrity_floors(self) -> IntegrityFloors:
+        """The persisted anti-rollback floors. Only meaningful with signed roles."""
+
+        with self.engine.connect() as connection:
+            return integrity_store.floors_of(integrity_store.read_integrity(connection))
+
+    def integrity_status(self) -> dict[str, Any] | None:
+        """Floors and the last observation for display, or None with legacy trust."""
+
+        if not self.source.tuf:
+            return None
+        with self.engine.connect() as connection:
+            return integrity_store.public_state(integrity_store.read_integrity(connection))
+
+    def observe_integrity(self, assessment: IntegrityAssessment, *, now: datetime) -> None:
+        """Remember a verified observation, advancing floors unless a rotation awaits review."""
+
+        with self.engine.begin() as connection:
+            require_writable_schema(connection)
+            if assessment.verified and not assessment.root_rotation:
+                integrity_store.persist(connection, assessment, now=now)
+            else:
+                integrity_store.record_result(connection, assessment.to_json(), now=now)
 
     def accepted_baseline(self) -> tuple[ReleaseCatalog | None, str | None, str | None]:
         """The accepted catalog, its expiry and digest, even when expired, for diffing only."""
@@ -399,15 +518,29 @@ class RemoteCatalog:
             )
         if row is None or row["payload"] is None:
             return None, None, None
+        with self.engine.connect() as connection:
+            keys = self._accepted_keys(connection)
         previous = load_pinned_export(
             row["payload"],
             expected_sha256=row["previous_digest"],
-            public_key=self.source.public_key(),
+            public_key=keys,
             now=datetime(1970, 1, 1, tzinfo=UTC),
             minimum_revision=0,
             previous_sha256=None,
         )
         return previous, json.loads(row["payload"])["expires_at"], row["previous_digest"]
+
+    def _accepted_keys(
+        self, connection: Connection
+    ) -> Ed25519PublicKey | tuple[Ed25519PublicKey, ...]:
+        """Keys that vouch for the accepted bytes: the pinned key, or the accepted root's."""
+
+        if self.source.trust is None:
+            return self.source.public_key()
+        root = integrity_store.accepted_root(integrity_store.read_integrity(connection))
+        if root is None:
+            raise CatalogNotImportedError("No verified catalog root has been accepted.")
+        return export_keys(root)
 
     def record_review_needed(
         self, *, revision: int, digest: str, reason: str, now: datetime
@@ -469,7 +602,7 @@ class RemoteCatalog:
 
         with self.engine.begin() as connection:
             row = self._locked(connection)
-            admitted = self._accepted(row, now)
+            admitted = self._accepted(row, now, connection)
             release = admitted.releases.get(release_id)
             if release is None or release.digest != digest:
                 raise ValueError("Accepted catalog Release differs from the requested artifact.")
@@ -490,25 +623,48 @@ class RemoteCatalog:
                 raise ValueError("Accepted catalog Release signature is invalid.")
             return record["manifest"].encode(), signature
 
-    def _accepted(self, row: RowMapping, now: datetime) -> ReleaseCatalog:
+    def _accepted(
+        self, row: RowMapping, now: datetime, connection: Connection | None = None
+    ) -> ReleaseCatalog:
         if row["payload"] is None:
             raise CatalogNotImportedError("No verified catalog has been imported.")
+        if self.source.tuf and connection is None:
+            with self.engine.connect() as own:
+                return self._accepted(row, now, own)
         # A new approval does not replace accepted bytes until explicit import.
-        return load_pinned_export(
+        keys = (
+            self._accepted_keys(connection)
+            if connection is not None
+            else (self.source.public_key())
+        )
+        catalog = load_pinned_export(
             row["payload"],
             expected_sha256=row["previous_digest"],
-            public_key=self.source.public_key(),
+            public_key=keys,
             now=now,
             minimum_revision=row["floor"],
             previous_sha256=row["previous_digest"],
+            enforce_expiry=not self.source.tuf,
         )
+        if connection is None or not self.source.tuf:
+            return catalog
+        state = integrity_store.read_integrity(connection)
+        fresh_until = [
+            datetime.fromisoformat(value)
+            for value in (state["timestamp_expires_at"], state["snapshot_expires_at"])
+            if value
+        ]
+        if len(fresh_until) < 2 or now >= min(fresh_until):
+            # A stale signed timestamp leaves recall roll-off as the only safe plan type.
+            return replace(catalog, plan_types=frozenset({"recall-rolloff"}))
+        return catalog
 
     def _curated(
         self, connection: Connection, row: RowMapping, now: datetime
     ) -> tuple[ReleaseCatalog, dict[str, Any]]:
         return local_channel_store.view(
             connection,
-            self._accepted(row, now),
+            self._accepted(row, now, connection),
             accepted_sha256=row["previous_digest"],
             source_revision=row["floor"],
             key_digest=row["key_digest"],
@@ -536,7 +692,7 @@ class RemoteCatalog:
             require_writable_schema(connection)
             row = self._local_locked(connection)
             effective_now = now + timedelta(seconds=time.monotonic() - started)
-            admitted = self._accepted(row, effective_now)
+            admitted = self._accepted(row, effective_now, connection)
             local_channel_store.add(
                 connection,
                 request,
@@ -607,7 +763,9 @@ class RemoteCatalog:
             try:
                 result = operation(admitted, effective_now, connection)
                 if admitted.local_curation is not None:
-                    self._accepted(row, now + timedelta(seconds=time.monotonic() - started))
+                    self._accepted(
+                        row, now + timedelta(seconds=time.monotonic() - started), connection
+                    )
             except KeyBindingError as error:
                 failure = error
         if failure is not None:
@@ -629,25 +787,34 @@ class RemoteCatalog:
                 )
             if row["key_digest"] != self.source.key_digest:
                 raise ValueError("Catalog key differs from persisted trust.")
+            if self.source.tuf:
+                integrity_store.read_integrity(connection)
             return {
                 "approved_revision": row["approval_revision"],
                 "approved_sha256": row["approval_digest"],
                 "minimum_revision": row["floor"],
                 "accepted_sha256": row["previous_digest"],
                 "imported": row["payload"] is not None,
-                "mode": "development-pinned-export",
+                "mode": "tuf-catalog-roles" if self.source.tuf else "development-pinned-export",
             }
 
     def _verify(
-        self, raw: bytes, row: Mapping[str, Any] | RowMapping, now: datetime
+        self,
+        raw: bytes,
+        row: Mapping[str, Any] | RowMapping,
+        now: datetime,
+        *,
+        keys: Ed25519PublicKey | tuple[Ed25519PublicKey, ...] | None = None,
+        enforce_expiry: bool = True,
     ) -> ReleaseCatalog:
         return load_pinned_export(
             raw,
             expected_sha256=row["approval_digest"],
-            public_key=self.source.public_key(),
+            public_key=keys if keys is not None else self.source.public_key(),
             now=now,
             minimum_revision=row["floor"],
             previous_sha256=row["previous_digest"],
+            enforce_expiry=enforce_expiry,
         )
 
     @staticmethod
@@ -687,6 +854,8 @@ def initialize_trust(connection: Connection, source: CatalogSource) -> None:
                 key_digest=source.key_digest,
             )
         )
+    if source.tuf:
+        integrity_store.ensure_integrity_state(connection)
 
 
 def bind_catalog(engine: Engine, source: CatalogSource, *, actor: str, reason: str) -> None:
@@ -705,6 +874,8 @@ def bind_catalog(engine: Engine, source: CatalogSource, *, actor: str, reason: s
         if row is not None:
             if row["key_digest"] != source.key_digest:
                 raise ValueError("Catalog key differs; explicit key rotation is required.")
+            if source.tuf:
+                integrity_store.ensure_integrity_state(connection)
             return
         initialize_trust(connection, source)
         connection.execute(

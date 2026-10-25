@@ -32,6 +32,14 @@ from fdai_lifecycle_agent.agent import (
 )
 from fdai_lifecycle_agent.configuration_revision import load_full_revision_binding
 from fdai_lifecycle_agent.dry_run import load_current_state
+from fdai_lifecycle_agent.enrollment_cli import (
+    HubConnector,
+    SourceConnector,
+    connect_in_cluster_source,
+    connect_workload_identity_hub,
+    register_enroll_command,
+    run_enroll,
+)
 from fdai_lifecycle_agent.hub_artifacts import CachedHubArtifactStore
 from fdai_lifecycle_agent.hub_client import HttpHubClient, HubProtocolError
 from fdai_lifecycle_agent.inputs import (
@@ -95,6 +103,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
     register_reference_command(commands)
     register_native_command(commands)
+    register_enroll_command(commands)
     submit = commands.add_parser(
         "submit-native-proof", help="Deliver a private signed proof without accepting ownership."
     )
@@ -221,6 +230,8 @@ def main(
     connect_reference_source: Callable[
         [str, str], ReferenceStatusSource
     ] = _connect_reference_source,
+    connect_enrollment_source: SourceConnector = connect_in_cluster_source,
+    connect_enrollment_hub: HubConnector = connect_workload_identity_hub,
 ) -> int:
     """Run the command. ``clock``, ``connect_hub``, and ``connect_cluster`` are seams for tests;
     defaults are real."""
@@ -258,6 +269,13 @@ def main(
             return _EXIT_CONFIGURATION
         logging.info("lifecycle_agent.native_proof_submitted")
         return _EXIT_OK
+    if arguments.command == "enroll":
+        return run_enroll(
+            arguments,
+            clock=clock,
+            connect_source=connect_enrollment_source,
+            connect_hub=connect_enrollment_hub,
+        )
     if arguments.command == "reference-status":
         return run_reference_command(arguments, clock=clock, connect=connect_reference_source)
     if arguments.command == "bootstrap-slot":

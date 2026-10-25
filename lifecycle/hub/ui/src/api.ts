@@ -157,6 +157,9 @@ export interface PendingEnrollment {
   installation_id: string;
   installation_key_id: string;
   requested_at: string;
+  // Absent on a Hub that predates Agent-submitted enrollment.
+  requested_by?: string | null;
+  requested_via?: "agent" | "operator" | null;
   channel: string;
   version_range: string;
   region: string;
@@ -199,6 +202,40 @@ export interface UpdateChange {
   schema_widened: boolean;
 }
 
+export interface IntegrityRole {
+  version: number;
+  expires_at: string;
+}
+
+/** One verification of the vendor's signed catalog roles. It carries versions, never key material. */
+export interface IntegrityResult {
+  mode: "tuf";
+  verified: boolean;
+  reason: string;
+  root: IntegrityRole | null;
+  snapshot: IntegrityRole | null;
+  timestamp: IntegrityRole | null;
+  expired: boolean;
+  root_rotation: boolean;
+  previous_root_version: number;
+  max_recall_sequence: number;
+  allowed_plan_types: readonly string[];
+  demote_operator_overrides_to_shadow: boolean;
+}
+
+/** The anti-rollback floors this Hub has persisted, with the latest verification. */
+export interface IntegrityState {
+  mode: "tuf";
+  root_version: number;
+  snapshot_version: number;
+  snapshot_expires_at: string | null;
+  timestamp_version: number;
+  timestamp_expires_at: string | null;
+  max_recall_sequence: number;
+  observed_at: string | null;
+  last: IntegrityResult | null;
+}
+
 export interface UpdateCandidate {
   revision: number;
   sha256: string;
@@ -208,6 +245,7 @@ export interface UpdateCandidate {
   accepted_revision: number | null;
   decision: { allow: boolean; reasons: readonly string[] };
   change: UpdateChange;
+  integrity?: IntegrityResult;
 }
 
 export type UpdateOutcome = "unchanged" | "adopted" | "review_required" | "failed";
@@ -218,6 +256,7 @@ export interface UpdateCheckRecord {
   detail: string;
   candidate: UpdateCandidate | null;
   plans: readonly { installation_id: string; outcome: string; reason?: string }[];
+  integrity?: IntegrityResult;
 }
 
 export interface UpdateEvent {
@@ -239,6 +278,8 @@ export interface UpdateStatus {
   accepted: { revision: number; sha256: string; expires_at: string; release_count: number } | null;
   last_check: UpdateCheckRecord | null;
   events: readonly UpdateEvent[];
+  /** Present only when the Hub trusts signed catalog roles instead of one release key. */
+  integrity?: IntegrityState;
 }
 
 export type BindableStatus = "unrequested" | "pending" | "enrolled";

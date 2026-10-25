@@ -30,6 +30,9 @@ from fdai_lifecycle_hub.adoption_policy import (
     summarize_change,
 )
 from fdai_lifecycle_hub.catalog_import import load_pinned_export, verify_export_signature
+from fdai_lifecycle_hub.catalog_integrity import IntegrityAssessment, assess_roles
+from fdai_lifecycle_hub.catalog_trust import CatalogTrust, parse_metadata
+from fdai_lifecycle_hub.catalog_tuf_assessment import IntegrityCheckError, assess_tuf_candidate
 from fdai_lifecycle_hub.configuration import ConfigurationRevisionCandidate
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import utc_now
@@ -50,15 +53,19 @@ class CheckRecord:
     detail: str
     candidate: dict[str, Any] | None = None
     plans: tuple[dict[str, Any], ...] = ()
+    integrity: dict[str, Any] | None = None
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        record = {
             "checked_at": self.checked_at,
             "outcome": self.outcome,
             "detail": self.detail,
             "candidate": self.candidate,
             "plans": list(self.plans),
         }
+        if self.integrity is not None:
+            record["integrity"] = self.integrity
+        return record
 
 
 class CatalogUpdater:
@@ -94,6 +101,8 @@ class CatalogUpdater:
 
         with self._lock:
             now = self.clock()
+            if self.catalog.source.tuf:
+                return self._remember(self._apply_tuf(revision, sha256, actor, now))
             fetched = self._poll(None)
             if fetched is None:
                 raise CandidateChangedError("Catalog source did not return a candidate.")
@@ -126,6 +135,10 @@ class CatalogUpdater:
         now = self.clock()
         previous, expires_at, _digest_unused = self.catalog.accepted_baseline()
         state = self.catalog.status()
+        integrity = self.catalog.integrity_status()
+        if integrity is not None:
+            # Freshness comes from the signed timestamp, not from the export's own expiry.
+            expires_at = integrity["timestamp_expires_at"]
         return {
             "mode": adoption.mode,
             "allowed_channels": list(adoption.allowed_channels),
@@ -149,6 +162,7 @@ class CatalogUpdater:
             else None,
             "last_check": self._last.to_json() if self._last else None,
             "events": self.catalog.recent_events(),
+            **({"integrity": integrity} if integrity is not None else {}),
         }
 
     def _remember(self, record: CheckRecord) -> CheckRecord:
@@ -210,8 +224,172 @@ class CatalogUpdater:
         }
         return candidate, decision, view, baseline
 
+    def _observe(self, assessment: IntegrityAssessment, now: datetime) -> None:
+        """Persist the observation. A lost race only skips it, because adoption re-verifies."""
+
+        try:
+            self.catalog.observe_integrity(assessment, now=now)
+        except (ValueError, SQLAlchemyError) as error:
+            logger.warning("hub_integrity_observation_skipped category=%s", type(error).__name__)
+
+    def _trust(self) -> CatalogTrust:
+        trust = self.catalog.source.trust
+        if trust is None:
+            raise ValueError("Signed catalog roles are not configured.")
+        return trust
+
+    def _check_tuf(self, now: datetime) -> CheckRecord:
+        """Poll under signed roles: verify metadata first, then bind, decide and maybe adopt."""
+
+        trust = self._trust()
+        try:
+            state = self.catalog.status()
+            floors = self.catalog.integrity_floors()
+            raw_roles = self.catalog.fetch_roles(self.catalog.source)
+        except (ValueError, SQLAlchemyError):
+            return CheckRecord(now.isoformat(), "failed", "source_unavailable")
+        try:
+            roles = parse_metadata(raw_roles)
+        except ValueError:
+            return CheckRecord(now.isoformat(), "failed", "integrity_not_verified")
+        assessment = assess_roles(roles, trust=trust, floors=floors, now=now)
+        if not assessment.verified:
+            self._observe(assessment, now)
+            return CheckRecord(
+                now.isoformat(), "failed", "integrity_not_verified", integrity=assessment.to_json()
+            )
+        accepted = state["accepted_sha256"]
+        current = (
+            assessment.snapshot is not None
+            and assessment.snapshot.export_digest == accepted
+            and not assessment.root_rotation
+        )
+        try:
+            fetched = self._poll(accepted if current else None)
+        except (ValueError, SQLAlchemyError):
+            return CheckRecord(now.isoformat(), "failed", "source_unavailable")
+        if fetched is None:
+            if not current:
+                return CheckRecord(now.isoformat(), "failed", "source_unavailable")
+            self._observe(assessment, now)
+            return CheckRecord(
+                now.isoformat(),
+                "unchanged",
+                "source_reports_current",
+                integrity=assessment.to_json(),
+            )
+        if not fetched.signature:
+            return CheckRecord(now.isoformat(), "failed", "signature_missing")
+        try:
+            outcome = assess_tuf_candidate(
+                self.catalog, self.evaluate, fetched, assessment, floors, now
+            )
+        except IntegrityCheckError as failure:
+            self._observe(failure.assessment, now)
+            return CheckRecord(
+                now.isoformat(),
+                "failed",
+                failure.detail,
+                integrity=failure.assessment.to_json(),
+            )
+        except (ValueError, KeyError, SQLAlchemyError):
+            return CheckRecord(now.isoformat(), "failed", "candidate_invalid")
+        self._observe(assessment, now)
+        view, decision = outcome.view, outcome.decision
+        if current and _digest(fetched.raw) == accepted:
+            return CheckRecord(
+                now.isoformat(), "unchanged", "digest_already_accepted", integrity=view["integrity"]
+            )
+        if not decision.allow:
+            self.catalog.record_review_needed(
+                revision=view["revision"],
+                digest=view["sha256"],
+                reason=",".join(decision.reasons)[:500],
+                now=now,
+            )
+            return CheckRecord(
+                now.isoformat(),
+                "review_required",
+                ",".join(decision.reasons) if decision.reasons else "policy_allow",
+                view,
+                integrity=view["integrity"],
+            )
+        try:
+            self.catalog.adopt(
+                fetched,
+                expected_previous_digest=outcome.baseline,
+                actor=POLICY_ACTOR,
+                reason="policy_allow",
+                now=now,
+                roles=roles,
+            )
+        except (ValueError, SQLAlchemyError):
+            return CheckRecord(
+                now.isoformat(), "failed", "adoption_rejected", view, integrity=view["integrity"]
+            )
+        return CheckRecord(
+            now.isoformat(),
+            "adopted",
+            "policy_allow",
+            view,
+            self._recompute_all(now),
+            integrity=view["integrity"],
+        )
+
+    def _apply_tuf(self, revision: int, sha256: str, actor: str, now: datetime) -> CheckRecord:
+        """Adopt the candidate a person reviewed. Only here may a root rotation be accepted."""
+
+        trust = self._trust()
+        floors = self.catalog.integrity_floors()
+        roles = parse_metadata(self.catalog.fetch_roles(self.catalog.source))
+        assessment = assess_roles(roles, trust=trust, floors=floors, now=now)
+        if not assessment.verified:
+            raise ValueError("Catalog integrity does not verify; nothing was adopted.")
+        fetched = self._poll(None)
+        if fetched is None:
+            raise CandidateChangedError("Catalog source did not return a candidate.")
+        outcome = assess_tuf_candidate(
+            self.catalog, self.evaluate, fetched, assessment, floors, now
+        )
+        view = outcome.view
+        if view["revision"] != revision or view["sha256"] != sha256:
+            self._remember(
+                CheckRecord(
+                    now.isoformat(),
+                    "review_required",
+                    ",".join(outcome.decision.reasons) or "policy_allow",
+                    view,
+                    integrity=view["integrity"],
+                )
+            )
+            raise CandidateChangedError("The candidate changed; review the new one.")
+        if "timestamp_expired" in outcome.decision.reasons:
+            raise ValueError(
+                "The catalog timestamp is expired; only recall changes may be adopted."
+            )
+        reason = "operator_review:" + ",".join(outcome.decision.reasons or ("policy_allow",))
+        self.catalog.adopt(
+            fetched,
+            expected_previous_digest=outcome.baseline,
+            actor=actor,
+            reason=reason[:500],
+            now=now,
+            roles=roles,
+            allow_root_rotation=True,
+        )
+        return CheckRecord(
+            now.isoformat(),
+            "adopted",
+            "operator_review",
+            view,
+            self._recompute_all(now),
+            integrity=view["integrity"],
+        )
+
     def _check(self) -> CheckRecord:
         now = self.clock()
+        if self.catalog.source.tuf:
+            return self._check_tuf(now)
         try:
             state = self.catalog.status()
             fetched = self._poll(state["accepted_sha256"])

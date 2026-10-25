@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: 서명된 Release Hub 이미지, 명시적 소스 빌드 또는 서명된 오프라인 패키지로 FDAI를 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 8877939ee076dc47d98bddfffed7e1d19b7a0620
+translation_source_sha: ee7276f34ee44cf48b5dd0fa65cdf40fe1b35239
 translation_revised: 2026-10-25
 ---
 

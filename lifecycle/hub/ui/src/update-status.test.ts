@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
-import type { UpdateChange, UpdateCheckRecord } from "./api";
+import type { IntegrityResult, IntegrityState, UpdateChange, UpdateCheckRecord } from "./api";
 import {
-  canApply, describeActionError, describeDetail, describePlanOutcome, describeReason,
-  describeSchedule, hasUrgentRecall, outcomeBadge, shortDigest, summarizeChange,
+  canApply, describeActionError, describeDetail, describeIntegrity, describeIntegrityReason,
+  describePlanOutcome, describeReason, describeSchedule, describeVersions, hasUrgentRecall,
+  isTimestampExpired, outcomeBadge, shortDigest, summarizeChange,
 } from "./update-status";
 
 const emptyChange: UpdateChange = {
@@ -29,6 +30,7 @@ describe("describeReason", () => {
     "signature_not_verified", "release_removed", "release_replaced", "new_channel",
     "channel_membership_removed", "recall_lifted", "recall_dropped", "schema_range_widened", "too_many_new_releases",
     "policy_engine_unavailable", "policy_evaluation_failed", "policy_result_invalid",
+    "integrity_not_verified", "timestamp_expired", "root_rotation_requires_review",
   ])("%s maps to a sentence without the raw code", (code) => {
     const text = describeReason(code);
     expect(text).not.toContain(code);
@@ -46,7 +48,7 @@ describe("describeReason", () => {
 
 describe("describeDetail", () => {
   test.each(["source_unavailable", "signature_missing", "signature_invalid", "candidate_invalid",
-    "adoption_rejected"])("failed %s is mapped", (code) => {
+    "adoption_rejected", "integrity_not_verified"])("failed %s is mapped", (code) => {
     const [text] = describeDetail("failed", code);
     expect(text).not.toContain(code);
   });
@@ -178,5 +180,101 @@ describe("small helpers", () => {
     expect(shortDigest("a".repeat(64))).toHaveLength(12);
     expect(describePlanOutcome("issued")).toBe("Plan issued");
     expect(describePlanOutcome("odd")).toBe("odd");
+  });
+});
+
+function integrity(overrides: Partial<IntegrityResult> = {}): IntegrityResult {
+  return {
+    mode: "tuf", verified: true, reason: "allowed",
+    root: { version: 2, expires_at: "2027-10-25T00:00:00Z" },
+    snapshot: { version: 5, expires_at: "2026-11-01T00:00:00Z" },
+    timestamp: { version: 9, expires_at: "2026-10-26T00:00:00Z" },
+    expired: false, root_rotation: false, previous_root_version: 2, max_recall_sequence: 3,
+    allowed_plan_types: ["install", "upgrade", "recall-rolloff"],
+    demote_operator_overrides_to_shadow: false, ...overrides,
+  };
+}
+
+function integrityState(overrides: Partial<IntegrityState> = {}): IntegrityState {
+  return {
+    mode: "tuf", root_version: 2, snapshot_version: 5, snapshot_expires_at: "2026-11-01T00:00:00Z",
+    timestamp_version: 9, timestamp_expires_at: "2026-10-26T00:00:00Z", max_recall_sequence: 3,
+    observed_at: "2026-10-25T00:00:00Z", last: integrity(), ...overrides,
+  };
+}
+
+describe("describeIntegrity", () => {
+  test("a verified result is ok and says everything verified", () => {
+    const view = describeIntegrity(integrity());
+    expect(view.badge).toEqual({ label: "Verified", variant: "ok" });
+    expect(view.lines).toEqual(["All signed records verified."]);
+  });
+
+  test("an unverified result fails and explains the reason without the raw code", () => {
+    const view = describeIntegrity(integrity({ verified: false, reason: "catalog_version_rollback" }));
+    expect(view.badge.variant).toBe("fail");
+    expect(view.lines[0]).toContain("older version");
+    expect(view.lines[0]).not.toContain("catalog_version_rollback");
+  });
+
+  test("an expired timestamp warns that only recall roll-off proceeds and names the shadow return", () => {
+    const view = describeIntegrity(integrity({
+      expired: true, demote_operator_overrides_to_shadow: true, allowed_plan_types: ["recall-rolloff"],
+    }));
+    expect(view.badge).toEqual({ label: "Timestamp expired", variant: "warn" });
+    expect(view.lines[0]).toContain("Only recall roll-off");
+    expect(view.lines[1]).toContain("shadow mode");
+    expect(describeIntegrity(integrity({ expired: true })).lines).toHaveLength(1);
+  });
+
+  test("a root rotation waits for review and shows both versions", () => {
+    const view = describeIntegrity(integrity({
+      root_rotation: true, previous_root_version: 1, root: { version: 2, expires_at: "2027-10-25T00:00:00Z" },
+    }));
+    expect(view.badge.variant).toBe("warn");
+    expect(view.badge.label).toContain("Root rotation");
+    expect(view.lines[0]).toContain("root version 1 to 2");
+    expect(view.lines[0]).toContain("never adopted automatically");
+    expect(describeIntegrity(integrity({ root_rotation: true, root: null })).lines[0])
+      .toContain("a newer version");
+  });
+
+  test("failure reasons cover every code and show an unknown one verbatim", () => {
+    for (const code of [
+      "catalog_version_rollback", "catalog_root_signature_invalid", "catalog_root_pin_mismatch",
+      "catalog_root_rotation_unsigned_by_previous", "catalog_root_chain_invalid", "catalog_root_expired",
+      "catalog_root_export_key_missing", "catalog_root_equivocation", "catalog_snapshot_equivocation",
+      "catalog_timestamp_equivocation", "catalog_snapshot_signature_invalid",
+      "catalog_timestamp_signature_invalid", "timestamp_snapshot_mismatch", "recall_sequence_gap",
+      "export_digest_mismatch", "snapshot_export_mismatch", "catalog_timestamp_expired",
+    ]) {
+      const text = describeIntegrityReason(code);
+      expect(text).not.toContain(code);
+      expect(text.endsWith(".")).toBe(true);
+    }
+    expect(describeIntegrityReason("brand_new")).toContain("brand_new");
+  });
+});
+
+describe("persisted integrity state", () => {
+  test("a timestamp is judged against now, not against the last check", () => {
+    const state = integrityState();
+    expect(isTimestampExpired(state, new Date("2026-10-25T12:00:00Z"))).toBe(false);
+    expect(isTimestampExpired(state, new Date("2026-10-26T00:00:00Z"))).toBe(true);
+    expect(isTimestampExpired(integrityState({ timestamp_expires_at: null }))).toBe(true);
+    expect(isTimestampExpired(integrityState({ timestamp_expires_at: "garbage" }))).toBe(true);
+  });
+
+  test("versions read as one sentence fragment", () => {
+    expect(describeVersions(integrityState())).toBe("Root v2, snapshot v5, timestamp v9");
+  });
+
+  test("an expired-timestamp candidate cannot be applied, but other review candidates can", () => {
+    const expired = record();
+    expired.candidate!.decision = { allow: false, reasons: ["timestamp_expired"] };
+    expect(canApply(expired)).toBe(false);
+    const rotation = record();
+    rotation.candidate!.decision = { allow: false, reasons: ["root_rotation_requires_review"] };
+    expect(canApply(rotation)).toBe(true);
   });
 });

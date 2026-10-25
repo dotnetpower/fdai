@@ -84,7 +84,7 @@ RUN --mount=from=hub-dependencies,target=/wheelhouse \
 FROM ${PYTHON_IMAGE} AS base
 RUN test -s /etc/ssl/certs/ca-certificates.crt \
     && groupadd --gid 10001 hub && useradd --uid 10001 --gid hub --no-create-home hub \
-    && mkdir /state && chown hub:hub /state
+    && mkdir /state && chown hub:hub /state && chmod 700 /state
 ENV PATH="/opt/hub/bin:$PATH"
 WORKDIR /app
 USER 10001:10001

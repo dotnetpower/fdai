@@ -8,7 +8,10 @@ selected Lifecycle Hub API, and installs a single-writer Agent with durable loca
 
 - The Agent receives no Azure managed-resource write role.
 - Kubernetes permissions cover only Deployments, internal Services, Jobs, and CronJobs in the
-  exact target namespace.
+  exact target namespace. The Role also grants namespace-scoped `list` on Deployments and
+  CronJobs, which `fdai-lifecycle-agent enroll` uses to derive Entities read-only. No Secret,
+  write verb or cluster-wide permission is added. Applying this to an existing installation is an
+  in-place Role update that needs the usual reviewed saved plan.
 - Public signing keys and initial reported state use a ConfigMap. Local policy, runtime topology,
   and optional native approval use a private Kubernetes Secret in the private Terraform state.
 - A pre-staged configuration signature stays canonical Base64 in Terraform and is written through

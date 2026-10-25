@@ -17,6 +17,11 @@ Contract (Lifecycle I0, unauthenticated loopback Hub):
   ``202``, ``409 stale_state`` when its ``observed_at`` isn't newer, ``422 state_invalid``, or
   ``404``. ``503 concurrent_write`` is retried as for reports.
 
+* ``POST /v1/installations/{installation_id}/enrollment-request`` takes the signed enrollment
+  ``{"signed_payload", "proof"}`` and returns ``202`` for a pending request, ``409
+  installation_exists`` when any record exists, ``403`` for a refused identity or proof, and
+  ``422``. It never approves; only ``503 concurrent_write`` is resent.
+
 The client only moves bytes. It never trusts a Plan; admission decides that.
 """
 
@@ -212,6 +217,20 @@ class HttpHubClient:
             raise ValueError("Native proof installation binding does not match.")
         path = f"/v1/installations/{_segment(installation_id, 'installation_id')}/native-proofs"
         self._post(path, proof.model_dump(mode="json"), label="native proof")
+
+    def submit_enrollment_request(
+        self, installation_id: str, signed_payload: bytes, proof: bytes
+    ) -> None:
+        """Propose a pending enrollment; the Hub never decides it here, and 409 means it exists."""
+
+        path = (
+            f"/v1/installations/{_segment(installation_id, 'installation_id')}/enrollment-request"
+        )
+        body = {
+            "signed_payload": base64.b64encode(signed_payload).decode("ascii"),
+            "proof": base64.b64encode(proof).decode("ascii"),
+        }
+        self._post(path, body, label="enrollment")
 
     def fetch_artifact(
         self,

@@ -181,8 +181,14 @@ variable "catalog" {
     access                     = optional(string)
     token_scope                = optional(string)
     managed_identity_client_id = optional(string)
-    release_public_key         = string
-    check_interval_seconds     = optional(number)
+    release_public_key         = optional(string)
+    # Signed TUF roles replace the single release key: the initial root's offline key ids and threshold.
+    trust = optional(object({
+      mode           = string
+      root_key_ids   = list(string)
+      root_threshold = number
+    }))
+    check_interval_seconds = optional(number)
     adoption = optional(object({
       mode                     = optional(string)
       allowed_channels         = optional(list(string))
@@ -192,10 +198,29 @@ variable "catalog" {
     }))
   })
   default     = null
-  description = "Lifecycle Hub pull-only catalog source. Unset optional attributes are omitted from the Hub configuration."
+  description = "Lifecycle Hub pull-only catalog source. Name exactly one trust: release_public_key (development) or trust (signed roles). Unset optional attributes are omitted from the Hub configuration."
   validation {
     condition     = var.catalog == null || var.kind == "target"
     error_message = "Only Lifecycle Hub can optionally consume an explicitly approved catalog."
+  }
+  validation {
+    condition = var.catalog == null ? true : (
+      (try(var.catalog.release_public_key, null) == null) != (try(var.catalog.trust, null) == null)
+    )
+    error_message = "Name exactly one catalog trust: release_public_key or trust."
+  }
+  validation {
+    condition = try(var.catalog.trust, null) == null ? true : (
+      var.catalog.trust.mode == "tuf" &&
+      length(var.catalog.trust.root_key_ids) >= 1 &&
+      length(var.catalog.trust.root_key_ids) <= 16 &&
+      alltrue([for id in var.catalog.trust.root_key_ids : can(regex("^ed25519-[0-9a-f]{64}$", id))]) &&
+      length(toset(var.catalog.trust.root_key_ids)) == length(var.catalog.trust.root_key_ids) &&
+      var.catalog.trust.root_threshold == floor(var.catalog.trust.root_threshold) &&
+      var.catalog.trust.root_threshold >= 1 &&
+      var.catalog.trust.root_threshold <= length(var.catalog.trust.root_key_ids)
+    )
+    error_message = "Catalog trust mode tuf needs 1 to 16 unique ed25519 root key ids and a whole threshold from 1 through the number of keys."
   }
   validation {
     condition = var.catalog == null ? true : (
@@ -269,6 +294,38 @@ variable "catalog" {
     error_message = "Automatic adoption requires both authorized_by and authorization_expires_at."
   }
 }
+variable "catalog_roles" {
+  type = object({
+    timestamp_ttl_seconds = optional(number)
+    snapshot_ttl_seconds  = optional(number)
+  })
+  default     = null
+  description = "Release Hub only: serve signed TUF snapshot and timestamp metadata. The snapshot and timestamp keys come from the catalog_snapshot_key and catalog_timestamp_key secret versions, and the offline-signed root is installed by the install-catalog-root operation. Unset validity windows keep the Hub defaults (timestamp 86400, snapshot 604800)."
+  validation {
+    condition     = var.catalog_roles == null || var.kind == "release"
+    error_message = "Only the Release Hub serves signed catalog roles."
+  }
+  validation {
+    condition = try(var.catalog_roles.timestamp_ttl_seconds, null) == null ? true : (
+      var.catalog_roles.timestamp_ttl_seconds == floor(var.catalog_roles.timestamp_ttl_seconds) &&
+      var.catalog_roles.timestamp_ttl_seconds >= 3600 && var.catalog_roles.timestamp_ttl_seconds <= 604800
+    )
+    error_message = "Use a whole timestamp validity from 3600 through 604800 seconds."
+  }
+  validation {
+    condition = try(var.catalog_roles.snapshot_ttl_seconds, null) == null ? true : (
+      var.catalog_roles.snapshot_ttl_seconds == floor(var.catalog_roles.snapshot_ttl_seconds) &&
+      var.catalog_roles.snapshot_ttl_seconds >= 3600 && var.catalog_roles.snapshot_ttl_seconds <= 5184000
+    )
+    error_message = "Use a whole snapshot validity from 3600 through 5184000 seconds."
+  }
+  validation {
+    condition = var.catalog_roles == null ? true : (
+      coalesce(var.catalog_roles.snapshot_ttl_seconds, 604800) >= coalesce(var.catalog_roles.timestamp_ttl_seconds, 86400)
+    )
+    error_message = "The snapshot validity must outlast the timestamp validity."
+  }
+}
 variable "enable_apps" {
   type    = bool
   default = false
@@ -292,7 +349,7 @@ variable "operation_job" {
   validation {
     condition = var.operation_job == null ? true : (
       contains(
-        var.kind == "release" ? ["publish-release"] : ["import-catalog", "recompute"],
+        var.kind == "release" ? ["publish-release", "install-catalog-root"] : ["import-catalog", "recompute"],
         var.operation_job.operation,
       ) &&
       trimspace(var.operation_job.request_secret_version) != "" &&
@@ -302,7 +359,12 @@ variable "operation_job" {
   }
 }
 variable "secret_versions" {
-  type    = object({ database = optional(string), signing_key = optional(string) })
+  type = object({
+    database              = optional(string)
+    signing_key           = optional(string)
+    catalog_snapshot_key  = optional(string)
+    catalog_timestamp_key = optional(string)
+  })
   default = {}
   validation {
     condition = !(var.enable_apps || var.enable_migration_jobs) || (
@@ -310,5 +372,12 @@ variable "secret_versions" {
       (!var.enable_apps || can(regex("^[0-9a-fA-F]{32}$", var.secret_versions.signing_key)))
     )
     error_message = "Migration requires the DB secret version; serving also requires the signing-key version."
+  }
+  validation {
+    condition = var.catalog_roles == null || !(var.enable_apps || var.operation_job != null) || (
+      can(regex("^[0-9a-fA-F]{32}$", var.secret_versions.catalog_snapshot_key)) &&
+      can(regex("^[0-9a-fA-F]{32}$", var.secret_versions.catalog_timestamp_key))
+    )
+    error_message = "Serving signed catalog roles requires separate snapshot-key and timestamp-key secret versions."
   }
 }

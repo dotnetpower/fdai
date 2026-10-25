@@ -39,8 +39,15 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.pool import NullPool
 
 from fdai_lifecycle_hub.catalog_import import MAX_EXPORT_BYTES, export_signing_message
+from fdai_lifecycle_hub.catalog_trust import key_id_of
 from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.signing import HubSigningKey
+from fdai_release_hub.catalog_roles import (
+    CatalogRoleKeys,
+    CatalogRoleService,
+    SignedMetadata,
+    snapshot_content,
+)
 from fdai_release_hub.catalog_serialization import (
     CATALOG_VIEW_LIMIT_MESSAGE,
     EXPORT_LIMIT_MESSAGE,
@@ -113,6 +120,7 @@ class ReleaseStore:
         *,
         clock: Callable[[], datetime] | None = None,
         initialize: bool = True,
+        role_keys: CatalogRoleKeys | None = None,
     ) -> None:
         self.path = path
         self.key = key
@@ -123,6 +131,16 @@ class ReleaseStore:
             create_engine(f"sqlite:///{path}", poolclass=NullPool)
             if isinstance(path, Path)
             else path
+        )
+        self.roles = (
+            CatalogRoleService(
+                self.engine,
+                role_keys,
+                export_key_id=key_id_of(key.public_key),
+                clock=self.clock,
+            )
+            if role_keys is not None
+            else None
         )
         if self.engine.dialect.name == "sqlite":
 
@@ -650,15 +668,26 @@ class ReleaseStore:
     def renew_if_due(
         self,
         *,
-        min_remaining: timedelta = timedelta(hours=12),
+        min_remaining: timedelta | None = None,
         actor: str = "system:timestamp-renewal",
     ) -> bool:
         """Re-assert already published content when its validity is running out.
 
-        This is the timestamp role in miniature: the renewal appends an attributed event and moves
-        the expiry, and it cannot add, change or recall a Release or channel.
+        With signed roles this re-signs only the timestamp: no event is appended, the export
+        and its revision stay byte-identical, and versions only increase. Without roles it is
+        the legacy renewal, which appends an attributed event and moves the export expiry. In
+        both forms it cannot add, change or recall a Release or channel.
         """
 
+        if self.roles is not None and self.roles.installed():
+            signed = self.signed_export()
+            within = (
+                min_remaining if min_remaining is not None else self.roles.keys.timestamp_ttl / 2
+            )
+            return self.roles.renew_if_due(
+                signed.digest, lambda: snapshot_content(signed.raw, signed.digest), within
+            )
+        min_remaining = min_remaining if min_remaining is not None else timedelta(hours=12)
         with self.engine.connect() as db:
             revision, updated_at = catalog_position(db)
         remaining = datetime.fromisoformat(updated_at) + timedelta(hours=24) - self.clock()
@@ -678,6 +707,21 @@ class ReleaseStore:
                 return False
             raise
         return True
+
+    def signed_metadata(self) -> SignedMetadata:
+        """Signed root chain, snapshot and timestamp for the current export."""
+
+        if self.roles is None:
+            raise CatalogError("Signed catalog roles are not configured.", 404)
+        signed = self.signed_export()
+        return self.roles.served(signed.digest, lambda: snapshot_content(signed.raw, signed.digest))
+
+    def install_root(self, raw: bytes, *, actor: str) -> dict[str, Any]:
+        """Install the next offline-signed root. Private root keys never reach this process."""
+
+        if self.roles is None:
+            raise CatalogError("Signed catalog roles are not configured.", 404)
+        return self.roles.install_root(raw, actor=actor)
 
     def signed_export(self) -> SignedExport:
         """Serve the signed export from a one-entry cache keyed by catalog revision.

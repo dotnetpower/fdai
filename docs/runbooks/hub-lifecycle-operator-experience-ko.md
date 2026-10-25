@@ -1,8 +1,8 @@
 ---
 title: Hub 운영 경험 개선 사항
 translation_of: hub-lifecycle-operator-experience.md
-translation_source_sha: d80775fadd72d1bc7873bc8a56939699283e6a15
-translation_revised: 2026-10-23
+translation_source_sha: 012918a46c6f0edc241c1897fad28305dd4fe0d1
+translation_revised: 2026-10-25
 ---
 # Hub 운영 경험 개선 사항
 
@@ -51,8 +51,10 @@ P1은 안정적인 안내형 시험을 막는 항목입니다. P2는 반복 운�
   화면으로 리비전과 다이제스트를 옮겨 적는 일이 사라졌습니다. 기존 고정값 흐름은 서명되지 않은
   내보내기와 오프라인용으로 남습니다. 운영용 TUF 역할은 아직 설계 단계입니다.
 - UXH-08: `fdai-lifecycle-hub sign-enrollment`와 연결된 설치본 선택으로 파일 경로와 ID를
-  옮겨 적는 일이 사라졌습니다. 클러스터에서 보고 상태를 생성하는 일과 Agent가 승인 대기 등록을
-  직접 제출하는 일은 열려 있으며 별도의 설계 검토가 필요합니다.
+  옮겨 적는 일이 사라졌습니다. `fdai-lifecycle-agent enroll`은 운영자가 파일을 옮기는 일도
+  없앱니다. Agent가 자기 클러스터에서 Entity와 보고 상태를 도출해 승인 대기 요청을 제출하고,
+  운영자는 키 ID를 별도 경로로 대조한 뒤 승인합니다. native 증명 전달, 구성 키 보관, 운영 중인
+  Hub에 대한 실제 Agent 제출은 열려 있습니다.
 
 ## 이미 잘 되는 부분 재사용
 

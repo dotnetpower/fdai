@@ -24,6 +24,8 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 logger = logging.getLogger(__name__)
+# The signed export and the signed roles that vouch for it share one read policy.
+CATALOG_READ_PATHS = frozenset({"/v1/catalog/export", "/v1/catalog/metadata"})
 MAX_JWKS_BYTES = 256 * 1024
 JWKS_CACHE_SECONDS = 300
 MAX_JWKS_STALE_SECONDS = 900
@@ -316,7 +318,7 @@ def secure_app(
         public_export = (
             vendor
             and config.public_catalog_export
-            and path == "/v1/catalog/export"
+            and path in CATALOG_READ_PATHS
             and request.method in {"GET", "HEAD"}
         )
         public_intake = (
@@ -343,7 +345,7 @@ def secure_app(
                 allowed = (
                     vendor
                     and request.method in {"GET", "HEAD"}
-                    and path == "/v1/catalog/export"
+                    and path in CATALOG_READ_PATHS
                     and config.service_object_id is not None
                     and claims.get("oid") == config.service_object_id
                     and claims.get("azp") == config.service_client_id
@@ -363,7 +365,9 @@ def secure_app(
             if (
                 not vendor
                 and not service
-                and path.endswith(("/state", "/reports", "/plan", "/enrollment"))
+                and path.endswith(
+                    ("/state", "/reports", "/plan", "/enrollment", "/enrollment-request")
+                )
             ):
                 allowed = False
             if not allowed:
@@ -396,7 +400,8 @@ def secure_app(
 def _agent_allowed(config: RemoteAuth, claims: dict[str, Any], method: str, path: str) -> bool:
     match = re.fullmatch(
         r"/v1/installations/([A-Za-z0-9][A-Za-z0-9._-]{0,127})/"
-        r"(plan|state|native-proofs|plans/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/reports|"
+        r"(plan|state|native-proofs|enrollment-request|"
+        r"plans/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/reports|"
         r"artifacts/(?:release|configuration)/[0-9a-f]{64})",
         path,
         flags=re.ASCII,

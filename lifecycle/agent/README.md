@@ -18,7 +18,8 @@ for setup ownership, exact input pins, optional CronJob RBAC and unverified sche
 - Azure identity is loaded only when workload federation is explicitly selected. It requests
   only the configured Hub API scope; no Azure management client, CLI credential, or client secret
   is used. The default dry run loads neither Azure nor Kubernetes. Only `kube.py` imports a
-  Kubernetes client; explicit `--apply` or the read-only `reference-status` command loads it.
+  Kubernetes client; explicit `--apply` or the read-only `reference-status` and `enroll`
+  commands load it.
 - `hub_client.py` opens outbound Hub connections. Explicit federation also contacts Entra through
   the identity SDK. Bearer transport requires an exact HTTPS origin and never follows redirects.
   Plain HTTP is accepted only for the unauthenticated loopback profile.
@@ -176,8 +177,9 @@ register an application, grant a role, create an AKS cluster, or authorize workl
 Use a separately approved Hub build that supports `auth.agent_principals`. Each entry binds
 `installation_id`, `object_id` and `client_id` to one distinct application identity. The verified
 token also needs `idtyp=app` and the `Agent.Access` application role. The role permits only that
-installation's Plan GET/HEAD and state/report POST routes, never enrollment, catalog, operator
-approval or recomputation. Empty bindings retain denial by default.
+installation's Plan GET/HEAD, state/report POST and pending-enrollment request routes, never
+enrollment approval, catalog, operator approval or recomputation. Empty bindings retain denial by
+default.
 
 Select federation with `--hub-auth workload-identity --hub-scope api://<hub-api-id>/.default`.
 The AKS workload-identity webhook supplies `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and
@@ -227,6 +229,87 @@ local policy read-only. Use one Agent replica and a Recreate strategy with the R
 volume. Don't substitute `emptyDir` or container-local storage for the replay floor, pending
 reports, journal or current state. These are preparation templates, not an installed Agent
 image or evidence that a cloud Pod can authenticate, mount storage or recover after eviction.
+
+### Enrolling this installation
+
+`fdai-lifecycle-agent enroll` lets the Agent submit its own enrollment request, so the operator no
+longer carries a signed file. The Agent only proposes: the Hub records a pending request, and a
+human still accepts it after comparing the installation key id out of band.
+
+```bash
+fdai-lifecycle-agent enroll \
+  --installation-id <installation-id> \
+  --installation-key <owner-only-private-key.pem> \
+  --declaration <owner-only-declaration.json> \
+  --namespace <workload-namespace> \
+  --hub-url https://<hub-origin> \
+  --hub-scope api://<hub-api-id>/.default
+```
+
+The command:
+
+1. Loads the existing owner-only installation private key (`0600`, current UID, no symlink). It
+   never generates, prints, exports or logs the key.
+2. Derives Entities and reported state from the Agent's own namespace using the in-cluster
+   identity only; there is no kubeconfig option or fallback. It makes two bounded read-only list
+   calls (Deployments and CronJobs labelled `fdai.io/entity`), never reads Secrets, and refuses
+   a continuation page instead of enrolling a partial view.
+3. Reads the customer-owned settings and configuration from `--declaration`, a strict owner-only
+   JSON file of at most 64 KiB. The Agent never invents a setting, and the file cannot carry
+   `product`, `plan_duration` or `fencing_generation`.
+4. Signs the payload with the shared `fdai_deployment_cli.lifecycle_enrollment` implementation,
+   the same bytes `fdai-lifecycle-hub sign-enrollment` produces, and POSTs it with the workload
+   identity token to `POST /v1/installations/{id}/enrollment-request`.
+5. Prints only the installation id, installation key id, `pending` status and the submit-before
+   time (the five-minute proof window).
+
+The declaration uses this schema; any other field is rejected:
+
+```json
+{
+  "schema": "fdai.lifecycle-installation-declaration.v1",
+  "installation_id": "<installation-id>",
+  "settings": {
+    "channel": "stable",
+    "version_range": ">=1.4.0 <2.0.0",
+    "region": "korea-central",
+    "allowed_regions": ["korea-central"],
+    "windows": [
+      {"start": "11:30:00", "duration": "PT1H", "timezone": "Asia/Seoul", "allows_downtime": false}
+    ]
+  },
+  "configuration": {
+    "schema": {},
+    "environment": {},
+    "entity_overrides": []
+  }
+}
+```
+
+Cluster-derived facts. A workload belongs to an Entity when it carries `fdai.io/entity`; the value
+must be a Hub identifier. The Release id is the workload's canonical SemVer
+`app.kubernetes.io/version` label, the schema revision is its `fdai.io/schema-revision`
+annotation, artifact digests are its `@sha256:` image references, and health comes from
+Deployment rollout status. A workload without a version label reports the explicit empty state
+(`release_id: null`, health `unknown`). Mixed or non-canonical Release ids, an unobserved or
+inconsistent schema revision for an installed Entity, a workload outside the namespace, an invalid
+Entity id, more than 64 Entities, or no labelled workload stop the command before any Hub call.
+Unlabelled workloads are invisible to enrollment.
+
+Failure handling. Exit code `2` means nothing was sent (local input, key, cluster or identity
+problem). Exit code `3` means the Hub answered with a refusal; `installation_exists` means a
+pending, enrolled or rejected record already exists, so re-running is idempotent and changes
+nothing. Exit code `4` means the delivery result is unknown. The command never retries
+automatically after an uncertain result, because the Hub may have recorded the request; check the
+Hub's pending enrollment list before running it again. Only an explicit `503 concurrent_write`,
+which the Hub answers before committing, is resent by the shared transport.
+
+The command needs a namespace-scoped `list` on Deployments and CronJobs in addition to the
+existing `get`. The [enrollment read Role](deploy/enrollment-rbac.yaml) adds only that, and the
+independent Lifecycle Agent Terraform root includes the same rule. The installation private key
+and the declaration must reach the Pod's owner-only private state path outside Terraform; the key
+never becomes a Terraform input. Local tests do not prove a cloud Pod can authenticate, list or
+reach the Hub.
 
 ### What the agent applies
 
