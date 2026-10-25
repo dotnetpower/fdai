@@ -3322,7 +3322,7 @@
         "infra/hub-stewardship-prerequisites/**",
         "tests/integration/services/test_lifecycle_agent_image.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_authorization.py",
-        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_catalog_integrity.py",
+        "packages/service-contracts/src/fdai_service_contracts/catalog_integrity.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_commands.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_infrastructure_agent.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_installation_binding.py",

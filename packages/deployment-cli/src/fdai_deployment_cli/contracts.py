@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 import re
@@ -10,6 +9,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
+
+from fdai_service_contracts.catalog_canonical import canonical_bytes as canonical_bytes
+from fdai_service_contracts.catalog_canonical import canonical_digest as canonical_digest
 
 _ID = re.compile(r"^[a-z][a-z0-9._-]{0,127}$")
 _ENVIRONMENTS = frozenset({"dev", "staging", "prod"})
@@ -208,18 +210,6 @@ class SubscriptionProvisioningManifest:
             "profile_digest": self.profile_digest,
             "entries": [entry.to_mapping() for entry in self.entries],
         }
-
-
-def canonical_bytes(value: object) -> bytes:
-    """Serialize one machine record with stable ordering."""
-
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
-
-
-def canonical_digest(value: object) -> str:
-    """Return a lowercase SHA-256 over canonical JSON."""
-
-    return hashlib.sha256(canonical_bytes(value)).hexdigest()
 
 
 def _assert_acyclic(entries: Sequence[ManifestEntry]) -> None:

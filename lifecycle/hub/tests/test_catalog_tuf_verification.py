@@ -7,13 +7,13 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fdai_deployment_cli.lifecycle_catalog_integrity import (
+from fdai_service_contracts.catalog_integrity import (
     ROLE_SIGNATURE_DOMAINS,
     CatalogRootRecord,
     catalog_key_id,
     role_signing_message,
 )
-from fdai_deployment_cli.lifecycle_catalog_roles import (
+from fdai_service_contracts.catalog_roles import (
     CatalogRootChainError,
     root_from_wire,
     snapshot_from_wire,

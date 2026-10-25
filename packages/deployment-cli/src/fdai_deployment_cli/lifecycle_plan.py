@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, cast
@@ -15,6 +15,7 @@ from fdai_deployment_cli.lifecycle_configuration import (
     resolve_configuration_layers,
 )
 from fdai_deployment_cli.lifecycle_release import LIFECYCLE_IMAGE_SECTIONS, LifecycleRelease
+from fdai_service_contracts.catalog_canonical import SignatureVerifier as SignatureVerifier
 from fdai_deployment_cli.runtime_release import (
     RecallRecord,
     ReleaseDecision,
@@ -33,7 +34,6 @@ PlanType = Literal[
     "drift-reconciliation",
 ]
 SuppressionOrigin = Literal["manual", "failure"]
-SignatureVerifier = Callable[[str, bytes, bytes], bool]
 
 _MODE_ORDER: Mapping[CapabilityMode, int] = {"shadow": 0, "enforce": 1}
 _SCOPE_ID = re.compile(r"[a-z][a-z0-9._-]*\Z", re.ASCII)

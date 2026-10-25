@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 from cryptography.hazmat.primitives import serialization
 from fdai_deployment_cli.contracts import canonical_bytes
-from fdai_deployment_cli.lifecycle_catalog_roles import root_to_wire
+from fdai_service_contracts.catalog_roles import root_to_wire
 from lifecycle.hub.tests.tuf_helpers import Authority, ident, new_key
 from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.engine import make_url

@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: dee781a51269df2189b4a0d2724c69e3662b2da6
+translation_source_sha: cdd480972f4b9134601fa13d0fc5b643f8dc2d8b
 translation_revised: 2026-10-26
 ---
 # Lifecycle Release와 채널
@@ -379,6 +379,22 @@ timestamp 기록이 만료되면 설치는 회수 roll-off Plan만 받아들이�
 (`recall_sequence_gap`)을 검증하며, `StateStoreActionPromotionRegistry.set_catalog_timestamp_expired`는
 timestamp 메타데이터가 만료된 동안 운영자 재정의 승격을 `shadow` 모드로 되돌립니다.
 
+**설치 측 최신성.** 설치의 Core가 공개 메타데이터를 직접 검증하므로 Agent, Hub, 이벤트 어느 것도
+결과에 대한 권한을 갖지 않습니다. `FDAI_CATALOG_FRESHNESS_METADATA_URL`로 선택하면 Core가 해당
+URL을 가져와 고정된 `FDAI_CATALOG_FRESHNESS_ROOT_KEY_IDS`(임계값은
+`FDAI_CATALOG_FRESHNESS_ROOT_THRESHOLD`, 기본값은 모든 키)로 root 체인을 검증하고,
+승격 상태를 새로 읽기 전에 `evaluate_catalog_integrity`를 적용합니다. 호출은
+`FDAI_CATALOG_FRESHNESS_REFRESH_SECONDS`(기본 300초, 최소 30초)마다 최대 한 번입니다.
+검증된 메타데이터가 없거나, 서명된 timestamp, snapshot, root가 로컬 시계 기준으로 만료되면
+만료 플래그를 설정합니다. 가져오기 실패, 고정되지 않은 root, 잘못된 서명, 더 낮은 버전은
+마지막으로 검증된 상태를 바꾸지 못하므로 최신성을 연장할 수 없고 로컬 시계가 최신성을 끝냅니다.
+메타데이터 URL은 `https`(또는 loopback `http`)여야 하고 자격 증명을 담을 수 없으며, 리디렉션 없이
+가져오고 1 MiB로 제한합니다. root 고정 없이 기능을 선택하면 시작 오류이고, 선택하지 않으면
+아무것도 바뀌지 않습니다. Core는 버전 하한을 메모리에만 두므로 재시작하면 유효하게 서명된
+만료 전 메타데이터를 받아들입니다. 상태가 바뀔 때마다 안정적인 사유와 함께
+`catalog_freshness_changed`를 기록합니다. 검증 코드는 Hub와 공유하는 `fdai_service_contracts`
+(`catalog_integrity`, `catalog_roles`, `catalog_metadata`)에 있습니다.
+
 ### Hub의 서명된 카탈로그 역할
 
 Hub는 이 역할을 개발용 키 하나를 대체하는 선택적 모드로 구현합니다. Lifecycle Hub는
@@ -425,8 +441,8 @@ SHA-256이므로 id가 다른 키를 가리킬 수 없습니다. root는 공개 
 선택이며 이 설계가 강제하지 않습니다.
 
 **아직 구현하지 않은 것.** 보관 영수증을 남기는 프로덕션 root 설정 의식은 운영자 절차로 남습니다.
-설치본의 승격 레지스트리에 `demote_operator_overrides_to_shadow`를 연결하는 일은 Agent가 Core에
-인증된 이벤트를 보내는 경로가 먼저 필요해 남아 있습니다. 독립 Release Hub 루트는 이미 작업 Job으로
+설치 최신성 설정을 Terraform과 차트로 연결하는 일과 그 버전 하한을 영속화하는 일도 남아 있습니다.
+독립 Release Hub 루트는 이미 작업 Job으로
 root를 설치하므로 기존 두 Hub 검증 구성은 그대로 둡니다. 데이터베이스 검사는 선택 역할 테이블이
 존재하면 그 지문을 계산합니다.
 

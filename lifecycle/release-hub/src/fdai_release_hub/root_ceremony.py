@@ -15,8 +15,8 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from fdai_deployment_cli.lifecycle_catalog_integrity import CatalogRootRecord
-from fdai_deployment_cli.lifecycle_catalog_roles import (
+from fdai_service_contracts.catalog_integrity import CatalogRootRecord
+from fdai_service_contracts.catalog_roles import (
     CatalogRootChainError,
     root_from_wire,
     root_to_wire,
