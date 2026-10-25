@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: dd684cf4850601e04665562b621ee47e7fbf92ca
-translation_revised: 2026-10-23
+translation_source_sha: 5bd3867835c5a8723d0d8370775bb59ec657ee2b
+translation_revised: 2026-10-25
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
@@ -41,8 +41,7 @@ FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 
 유지하고, `image`로 새 마이그레이션 후보를 지정합니다. 기존 앱과 마이그레이션 Job은 활성화
 상태로 유지합니다. 수동 마이그레이션 성공과 독립적인 스키마 확인을 마친 뒤, 별도로 검토하고
 봉인한 활성화 계획에서 `app_image=null`을 지정합니다. 이 입력을 생략하면 기존 단일 이미지
-기동 방식이 유지됩니다. 전체 Job 검증과 실행 전 전체 변경 없음 계획도 유지하며, 상태 소유권,
-인증이나 승인 절차를 우회하지 않습니다.
+기동 방식이 유지됩니다. 선택적 `resource_group_name`으로 기본 리소스 그룹 이름을 재정의하고 `custom_domain`으로 공개 HTTPS 서브도메인·Azure DNS 레코드·런타임 origin·상태 검사 `Host` 헤더를 일치시킬 수 있습니다. 전체 Job 검증과 실행 전 전체 변경 없음 계획도 유지하며, 상태 소유권, 인증이나 승인 절차를 우회하지 않습니다.
 
 원격 개발 Agent를 연결할 때는 Lifecycle Hub 루트의 `operator_auth.agent_principals`에
 명시적인 연결 정보를 지정합니다. 각 항목은 하나의 설치, Entra 개체와 클라이언트를 식별합니다.

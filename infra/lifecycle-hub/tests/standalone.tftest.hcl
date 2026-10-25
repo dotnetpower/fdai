@@ -227,6 +227,32 @@ run "vendor_rejects_agent_bindings" {
   expect_failures = [var.operator_auth]
 }
 
+run "custom_domain_propagates_to_operator_auth_origin" {
+  command = plan
+  variables {
+    resource_group_name = "rg-example-dev-lc1"
+    custom_domain = {
+      hostname = "lifecycle.example.com"
+    }
+    operator_auth = {
+      profile        = "remote-development"
+      tenant_id      = "00000000-0000-0000-0000-000000000001"
+      audience       = "example-api"
+      spa_client_id  = "example-browser"
+      operator_scope = "Hub.Access"
+      operator_ids   = ["example-operator"]
+    }
+  }
+  assert {
+    condition = (
+      output.deployment.resource_group == "rg-example-dev-lc1" &&
+      output.deployment.origin == "https://lifecycle.example.com" &&
+      output.deployment.runtime_config.auth.origin == "https://lifecycle.example.com"
+    )
+    error_message = "Custom domain and explicit resource group must bind the deployment output and operator_auth.origin."
+  }
+}
+
 run "catalog_defaults_preserve_older_runtime_config" {
   command = plan
   variables {

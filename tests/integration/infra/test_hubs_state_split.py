@@ -290,6 +290,7 @@ def test_each_resource_has_exactly_one_owner_and_base_has_no_graph() -> None:
         source = "\n".join(file.read_text(encoding="utf-8") for file in path.glob("*.tf"))
         assert re.search(rf'kind\s*=\s*"{kind}"', source)
         assert re.search(r"app_image\s*=\s*var\.app_image", source)
+        assert re.search(r"custom_domain\s*=\s*var\.custom_domain", source)
         assert not _declarations(path)
         assert not re.search(r"\bazuread\b|\bazuread_|terraform_remote_state", source)
         assert not re.search(

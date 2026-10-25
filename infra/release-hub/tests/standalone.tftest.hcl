@@ -157,6 +157,62 @@ run "mutable_app_image_is_rejected" {
   expect_failures = [var.app_image]
 }
 
+run "custom_domain_binds_origin_probes_and_dns_records" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind                  = "release"
+    enable_apps           = true
+    enable_migration_jobs = true
+    secret_versions = {
+      database    = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+    custom_domain = {
+      hostname = "hub.example.com"
+      dns_zone = {
+        name                = "example.com"
+        resource_group_name = "rg-common"
+        ttl                 = 300
+      }
+    }
+  }
+  assert {
+    condition = (
+      output.deployment.origin == "https://hub.example.com" &&
+      output.deployment.runtime_config.origin == "https://hub.example.com" &&
+      azurerm_container_app.hub["release"].template[0].container[0].readiness_probe[0].header[0].value == "hub.example.com" &&
+      azurerm_container_app.hub["release"].template[0].container[0].liveness_probe[0].header[0].value == "hub.example.com" &&
+      azurerm_dns_cname_record.hub_custom_domain["release"].name == "hub" &&
+      azurerm_dns_cname_record.hub_custom_domain["release"].zone_name == "example.com" &&
+      azurerm_dns_cname_record.hub_custom_domain["release"].resource_group_name == "rg-common" &&
+      azurerm_dns_txt_record.hub_custom_domain["release"].name == "asuid.hub" &&
+      azurerm_container_app_custom_domain.hub["release"].name == "hub.example.com"
+    )
+    error_message = "Custom domain must bind the HTTPS origin, probe Host headers, DNS records and Container App custom domain."
+  }
+}
+
+run "invalid_custom_domain_zone_mismatch_is_rejected" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "release"
+    custom_domain = {
+      hostname = "hub.other.example.com"
+      dns_zone = {
+        name                = "example.com"
+        resource_group_name = "rg-common"
+      }
+    }
+  }
+  expect_failures = [var.custom_domain]
+}
+
 run "defaults_preserve_older_runtime_config" {
   command = plan
   variables {

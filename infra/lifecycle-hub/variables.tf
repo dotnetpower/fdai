@@ -2,6 +2,10 @@ variable "subscription_id" { type = string }
 variable "tenant_id" { type = string }
 variable "location" { type = string }
 variable "prefix" { type = string }
+variable "resource_group_name" {
+  type    = string
+  default = null
+}
 variable "tags" { type = map(string) }
 variable "network" {
   type = object({ vnet = string, apps = string, database = string, secrets = string })
@@ -27,6 +31,19 @@ variable "app_image" {
   description = "Retain the approved serving digest during migration; null uses image."
 }
 variable "ingress_cidrs" { type = set(string) }
+variable "custom_domain" {
+  type = object({
+    hostname                 = string
+    certificate_binding_type = optional(string)
+    certificate_id           = optional(string)
+    dns_zone = optional(object({
+      name                = string
+      resource_group_name = string
+      ttl                 = optional(number, 300)
+    }))
+  })
+  default = null
+}
 variable "replicas" { type = object({ min = number, max = number }) }
 variable "operator_auth" {
   type = object({
