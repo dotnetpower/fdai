@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 7c5814f43f3dbab4521ba0e81ad0dbb0e7561843
+translation_source_sha: e57681869f0601126ea79d5daa8946d58c94fe2d
 translation_revised: 2026-10-25
 ---
 # Hub 관리형 수명 주기
@@ -516,7 +516,8 @@ Terraform 기본 도구로 자원을 선언하고 Azure CLI로 Job을 시작하�
 
 기동 후 각 제품은 브라우저 세션에 의존하지 않는 자동화를 위해 수동 trusted-operations
 Job 하나를 유지할 수 있습니다. Release Hub는 정확한 비공개 `publish-release` 요청만
-수락합니다. Lifecycle Hub는 정확한 `import-catalog` 또는 `recompute` 요청만 수락합니다.
+수락합니다. Lifecycle Hub는 정확한 `import-catalog` 또는 `recompute` 요청과, 요청 비밀 대신 행위자와 사유를 받는
+`bind-catalog`, `rebind-catalog`만 수락합니다.
 Job은 Key Vault에서 정확한 버전의 요청 하나를 읽고 해당 Hub의 Managed Identity와 트랜잭션
 저장소만 사용하며, 다이제스트만 포함한 범위가 제한된 증적을 출력합니다. 설치 적용 신원은
 보유하지 않습니다. 동일한 요청을 재시도하면 효과를 추가하지 않고 보존된 게시 또는 가져오기

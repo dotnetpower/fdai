@@ -1,7 +1,7 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: a4bb21464e13cd1e030a78c40b30198ec0d2cda1
+translation_source_sha: 8052346d2691c26f4c47f091873c79cf27cd10ba
 translation_revised: 2026-10-25
 ---
 # Hub 수명 주기 운영자 가이드
@@ -232,8 +232,12 @@ revision은 재시작 대기 상태에 머무르므로 각 Hub의 새 revision�
 
 **고객: root를 pin합니다.** 검토된 배포 변경에서 `release_public_key`를
 `trust = { mode = "tuf", root_key_ids = [...], root_threshold = <n> }`로 바꾸고 `bind-catalog`를
-실행합니다. 이미 묶은 데이터베이스는 바뀐 신뢰를 거부하므로 기존 설치는 신뢰를 새로 묶어야 합니다.
-첫 root는 정확히 그 키와 임계값을 지정해야 합니다(MUST).
+실행합니다. 새 데이터베이스는 신뢰가 없으면 `migrate`가 묶습니다. 이미 묶은 데이터베이스는 바뀐 신뢰를
+거부하며, 행위자와 사유를 받아 Lifecycle Hub 작업 Job이 실행하는 감사되는 `rebind-catalog`가
+필요합니다. 재바인딩은 리비전 하한을 유지하고, 이전 신뢰를 명시한 `source.rebound` 이벤트를 기록하며,
+이전 신뢰만 검증한 수락 카탈로그 바이트를 폐기합니다. 다음 확인에서 새 신뢰로 현재 카탈로그를 다시
+검증하고 채택합니다. 서명된 root에서 단일 키로 되돌리는 재바인딩은 거부됩니다. 첫 root는 정확히 그
+키와 임계값을 지정해야 합니다(MUST).
 
 **Updates를 읽습니다.** **Catalog integrity** 영역에 root, snapshot, timestamp 버전과 timestamp 만료
 시각이 표시됩니다. timestamp가 만료되면 Hub는 회수만 채택하고 공급업체가 새 timestamp를 게시할 때까지

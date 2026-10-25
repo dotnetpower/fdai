@@ -1,3 +1,8 @@
+locals {
+  bind_operations = ["bind-catalog", "rebind-catalog"]
+  # Binding operations take an actor and a reason on the command line and read no request secret.
+  operation_uses_request = var.operation_job != null && !contains(local.bind_operations, var.operation_job.operation)
+}
 resource "azurerm_container_app_job" "operation" {
   for_each                     = var.operation_job == null ? toset([]) : local.kinds
   name                         = "caj-${var.prefix}-${each.key}-operation"
@@ -29,10 +34,13 @@ resource "azurerm_container_app_job" "operation" {
     identity            = local.foundation[each.key].identity_id
     key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/development-signing-key/${var.secret_versions.signing_key}"
   }
-  secret {
-    name                = "operation-request"
-    identity            = local.foundation[each.key].identity_id
-    key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/hub-operation-request/${try(var.operation_job.request_secret_version, "")}"
+  dynamic "secret" {
+    for_each = local.operation_uses_request ? ["operation-request"] : []
+    content {
+      name                = secret.value
+      identity            = local.foundation[each.key].identity_id
+      key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/hub-operation-request/${try(var.operation_job.request_secret_version, "")}"
+    }
   }
   dynamic "secret" {
     for_each = local.catalog_role_secrets
@@ -49,12 +57,18 @@ resource "azurerm_container_app_job" "operation" {
       cpu     = 0.5
       memory  = "1Gi"
       command = ["python", "-m", "fdai_lifecycle_hub.remote"]
-      args = [
+      args = local.operation_uses_request ? [
         try(var.operation_job.operation, ""),
         "--actor",
         try(var.operation_job.actor, ""),
         "--request-env",
         "FDAI_HUB_OPERATION_REQUEST",
+        ] : [
+        try(var.operation_job.operation, ""),
+        "--actor",
+        try(var.operation_job.actor, ""),
+        "--reason",
+        try(var.operation_job.reason, ""),
       ]
       env {
         name  = "FDAI_HUB_REMOTE_CONFIG"
@@ -68,9 +82,12 @@ resource "azurerm_container_app_job" "operation" {
         name        = "FDAI_HUB_DEVELOPMENT_SIGNING_KEY"
         secret_name = "development-signing-key"
       }
-      env {
-        name        = "FDAI_HUB_OPERATION_REQUEST"
-        secret_name = "operation-request"
+      dynamic "env" {
+        for_each = local.operation_uses_request ? ["FDAI_HUB_OPERATION_REQUEST"] : []
+        content {
+          name        = env.value
+          secret_name = "operation-request"
+        }
       }
       dynamic "env" {
         for_each = local.catalog_role_secrets

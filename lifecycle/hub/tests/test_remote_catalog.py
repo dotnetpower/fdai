@@ -59,7 +59,7 @@ def test_catalog_can_be_bound_after_standalone_migration(tmp_path, key):
             .decode()
         }
     )
-    with pytest.raises(ValueError, match="rotation"):
+    with pytest.raises(ValueError, match="rebinding"):
         bind_catalog(engine, other, actor="operator", reason="Must not silently rebind")
 
 

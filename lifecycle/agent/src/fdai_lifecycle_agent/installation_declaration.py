@@ -22,12 +22,16 @@ DECLARATION_SCHEMA = "fdai.lifecycle-installation-declaration.v1"
 MAX_DECLARATION_BYTES = 64 * 1024
 
 _IDENTIFIER = r"^[a-z][a-z0-9-]{0,62}$"
+# Built-in channels are upper case with underscores (DEV, RELEASE_CANDIDATE, RELEASE); custom
+# channels and legacy fixtures are lower case with hyphens.
+_CHANNEL = r"^[A-Za-z][A-Za-z0-9_-]{0,63}$"
 _RANGE = r"^[\x21-\x7e]+(?: [\x21-\x7e]+)*$"
 _WALL_CLOCK = r"^[0-2][0-9]:[0-5][0-9]:[0-5][0-9]$"
 _DURATION = r"^P(?:[0-9]+D)?(?:T(?:[0-9]+H)?(?:[0-9]+M)?(?:[0-9]+S)?)?$"
 _ZONE = r"^[A-Za-z][A-Za-z0-9_+/-]{0,63}$"
 
 type Identifier = Annotated[str, StringConstraints(pattern=_IDENTIFIER)]
+type Channel = Annotated[str, StringConstraints(pattern=_CHANNEL)]
 type VersionRange = Annotated[str, StringConstraints(max_length=128, pattern=_RANGE)]
 type WallClock = Annotated[str, StringConstraints(pattern=_WALL_CLOCK)]
 type Duration = Annotated[str, StringConstraints(max_length=32, pattern=_DURATION)]
@@ -46,7 +50,7 @@ class DeclaredWindow(BaseModel):
 class DeclaredSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
-    channel: Identifier
+    channel: Channel
     version_range: VersionRange
     region: Identifier
     allowed_regions: Annotated[tuple[Identifier, ...], Field(min_length=1, max_length=64)]

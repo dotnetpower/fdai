@@ -777,3 +777,129 @@ run "target_rejects_catalog_roles_serving" {
   }
   expect_failures = [var.catalog_roles]
 }
+
+run "rebind_operation_needs_an_actor_and_reason_and_no_request_secret" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    secret_versions = {
+      database    = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+    operation_job = {
+      operation = "rebind-catalog"
+      actor     = "example-operator"
+      reason    = "Move to signed catalog roles"
+    }
+  }
+  assert {
+    condition = (
+      length(azurerm_container_app_job.operation) == 1 &&
+      contains(azurerm_container_app_job.operation["target"].template[0].container[0].args, "--reason") &&
+      !contains(azurerm_container_app_job.operation["target"].template[0].container[0].args, "--request-env") &&
+      length(azurerm_role_assignment.operation_request_reader) == 0
+    )
+    error_message = "A binding operation reads no request secret and gets no request reader grant."
+  }
+}
+
+run "bind_operation_is_accepted" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    secret_versions = {
+      database    = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+    operation_job = {
+      operation = "bind-catalog"
+      actor     = "example-operator"
+      reason    = "Bind the independently approved source"
+    }
+  }
+  assert {
+    condition     = length(azurerm_container_app_job.operation) == 1
+    error_message = "bind-catalog is a Lifecycle Hub operation."
+  }
+}
+
+run "request_operation_still_uses_its_secret" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    secret_versions = {
+      database    = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+    operation_job = {
+      operation              = "recompute"
+      actor                  = "example-operator"
+      request_secret_version = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  }
+  assert {
+    condition = (
+      contains(azurerm_container_app_job.operation["target"].template[0].container[0].args, "--request-env") &&
+      length(azurerm_role_assignment.operation_request_reader) == 1
+    )
+    error_message = "A request operation keeps its request secret and reader grant."
+  }
+}
+
+run "bind_operation_without_a_reason_is_rejected" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    operation_job = {
+      operation = "rebind-catalog"
+      actor     = "example-operator"
+    }
+  }
+  expect_failures = [var.operation_job]
+}
+
+run "bind_operation_with_a_request_secret_is_rejected" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    operation_job = {
+      operation              = "bind-catalog"
+      actor                  = "example-operator"
+      reason                 = "Bind the independently approved source"
+      request_secret_version = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  }
+  expect_failures = [var.operation_job]
+}
+
+run "request_operation_with_a_reason_is_rejected" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "target"
+    operation_job = {
+      operation              = "recompute"
+      actor                  = "example-operator"
+      request_secret_version = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      reason                 = "not allowed here"
+    }
+  }
+  expect_failures = [var.operation_job]
+}

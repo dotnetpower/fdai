@@ -342,20 +342,30 @@ variable "enable_migration_jobs" {
 variable "operation_job" {
   type = object({
     operation              = string
-    request_secret_version = string
     actor                  = string
+    request_secret_version = optional(string)
+    reason                 = optional(string)
   })
   default = null
   validation {
     condition = var.operation_job == null ? true : (
       contains(
-        var.kind == "release" ? ["publish-release", "install-catalog-root"] : ["import-catalog", "recompute"],
+        var.kind == "release" ? ["publish-release", "install-catalog-root"] : ["import-catalog", "recompute", "bind-catalog", "rebind-catalog"],
         var.operation_job.operation,
       ) &&
-      trimspace(var.operation_job.request_secret_version) != "" &&
-      trimspace(var.operation_job.actor) != ""
+      trimspace(var.operation_job.actor) != "" &&
+      (
+        contains(["bind-catalog", "rebind-catalog"], var.operation_job.operation) ? (
+          length(try(trimspace(var.operation_job.reason), "")) >= 3 &&
+          length(try(var.operation_job.reason, "")) <= 500 &&
+          try(trimspace(var.operation_job.request_secret_version), "") == ""
+          ) : (
+          try(trimspace(var.operation_job.request_secret_version), "") != "" &&
+          try(trimspace(var.operation_job.reason), "") == ""
+        )
+      )
     )
-    error_message = "Choose one product-owned operation with an exact request secret version and attributed actor."
+    error_message = "Choose one product-owned operation with an attributed actor. A request operation needs an exact request secret version and no reason; bind-catalog and rebind-catalog need a reason of 3 to 500 characters and no request secret."
   }
 }
 variable "secret_versions" {
