@@ -222,7 +222,7 @@ inside that exact scope:
 
 To generate the private runtime bundle (`runtime-bundle.json`), component-image map
 (`component-images.json`), matching native scope (`native-scope.json`) and pre-existing
-infrastructure reference inventory (`prerequisites.json`) for the FDAI stewardship topology
+infrastructure reference inventory (`prerequisites.json`) for the FDAI operational ownership topology
 (`core-control-plane`, `operator-service`, `document-ingestion-api`,
 `document-processing-worker` with `clamav`, and the `analyzer`, `canary`, `inventory`, and
 `observation-campaign` CronJobs) from the AKS `workloads` and `scheduled_jobs` maps:

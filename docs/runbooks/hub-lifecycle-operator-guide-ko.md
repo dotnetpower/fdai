@@ -1,8 +1,8 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: bc91ae71854be412d642259d7a7e59451588f4ca
-translation_revised: 2026-10-24
+translation_source_sha: 7aa3170ea6adc1e08db4e0c289cb8261d9c3e378
+translation_revised: 2026-10-25
 ---
 # Hub 수명 주기 운영자 가이드
 
@@ -224,7 +224,7 @@ fdai-lifecycle-agent stage-input --kind release \
   수명 주기 에이전트는 전용 워크로드 신원과 네임스페이스 Role로만 실행합니다. 두 신원은 서로를
   대신하지 않습니다.
 
-AKS `workloads` 및 `scheduled_jobs` 맵으로부터 FDAI 거버넌스 스택 토폴로지
+AKS `workloads` 및 `scheduled_jobs` 맵으로부터 FDAI 운영 책임 토폴로지
 (`core-control-plane`, `operator-service`, `document-ingestion-api`, `clamav` 사이드카를 포함한
 `document-processing-worker`, 그리고 `analyzer`, `canary`, `inventory`,
 `observation-campaign` CronJob)의 비공개 실행 묶음(`runtime-bundle.json`), 구성 요소 이미지
