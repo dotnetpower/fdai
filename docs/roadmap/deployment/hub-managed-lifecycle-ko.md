@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 7febc6e7d7a748ba2ac699096fd6e03d7e837971
+translation_source_sha: 8a02491dc94d5fc8053f9284be501c43f7d8cc12
 translation_revised: 2026-10-25
 ---
 # Hub 관리형 수명 주기
@@ -253,7 +253,8 @@ UI는 이미 준비한 합성 설치본의 Plan을 계산합니다. 기존 검�
 
 **Available releases**는 `GET /v1/catalog/releases`로 이미 수락한 카탈로그를 조회합니다.
 외부 가져오기 없이 고정값, 서명, 만료를 다시 검증합니다. 신뢰를 확인할 수 없으면
-`503`을 반환하며, 검증한 빈 카탈로그와 구분합니다. **Configuration packages**는
+`503`을 반환하며, 검증한 빈 카탈로그와 구분합니다. 고정값을 승인해 가져오기 전에는 검증 또는 만료 실패가 아니라
+`catalog_not_imported_approve_pin_and_import` 오류를 반환합니다. **Configuration packages**는
 `GET /v1/configurations`로 저장된 다이제스트, 개수, 시각, 현재 설치본 참조만 표시합니다.
 값과 봉인된 식별자는 제외하고, 독립된 패키지 서명 출처를 기록하지 않았음을 명시합니다.
 두 목록은 이미지 가용성, 배포 자격, 서명된 입력 준비 완료를 입증하지 않습니다.

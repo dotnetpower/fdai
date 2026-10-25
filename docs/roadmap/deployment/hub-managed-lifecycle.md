@@ -254,6 +254,8 @@ human operational confirmation and the remaining evidence-backed workload prepar
 The read-only **Available releases** screen projects the already accepted catalog through
 `GET /v1/catalog/releases`, rechecking its pin, signatures and expiry without an outbound import.
 Unavailable catalog trust returns `503`; a verified empty catalog remains a distinct result.
+Before any pin is approved and imported, the `503` error is `catalog_not_imported_approve_pin_and_import`,
+not a verification or expiry failure.
 **Configuration packages** uses `GET /v1/configurations` for stored digests, counts, timestamps
 and current installation references, omitting values and sealed identifiers. It explicitly
 states that independent package signature provenance is not recorded. Neither listing proves
