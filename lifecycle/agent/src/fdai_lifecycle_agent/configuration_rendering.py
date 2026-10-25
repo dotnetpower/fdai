@@ -49,8 +49,16 @@ def validate_entity_configuration(
             )
             if values.get("runtime_bundle_digest") != runtime_bundle.digest:
                 raise WorkloadError("runtime_bundle_digest_mismatch")
-            if set(values) - {"runtime_bundle_digest", "region"}:
+            render_values = (
+                configuration.render_values.get(entity, values)
+                if configuration.render_values
+                else values
+            )
+            referenced = runtime_bundle.referenced_configuration_keys(entity)
+            if set(render_values) - {"runtime_bundle_digest", "region"} - referenced:
                 raise WorkloadError("runtime_bundle_configuration_unsupported")
+            if referenced - set(render_values):
+                raise WorkloadError("runtime_bundle_configuration_key_missing")
             if "region" in values and not isinstance(values["region"], str):
                 raise WorkloadError("workload_region_invalid")
             if runtime_bundle.components(entity) != components[entity]:
@@ -155,7 +163,15 @@ def prepare_workload(
         if runtime_bundle is None:
             raise WorkloadError("runtime_bundle_unavailable")
         store.require_private()
-        desired = runtime_bundle.render(workload.namespace, plan.entity_ids, images)
+        configuration_values = configuration.render_values or {
+            entity: configuration.values for entity in plan.entity_ids
+        }
+        desired = runtime_bundle.render(
+            workload.namespace,
+            plan.entity_ids,
+            images,
+            configuration_values=configuration_values,
+        )
     elif configuration.entity_values:
         store.require_private()
         desired = render_entity_configuration(

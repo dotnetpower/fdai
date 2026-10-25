@@ -1,8 +1,8 @@
 ---
 title: 애플리케이션 실행 묶음
 translation_of: lifecycle-runtime-bundles.md
-translation_source_sha: abfb9f5caef3a377ffc2c4c577ee7cfb7f6b6c1a
-translation_revised: 2026-10-24
+translation_source_sha: 2e1843b69508c0864bcd99ddb4a56c2117c0a37f
+translation_revised: 2026-10-25
 ---
 # 애플리케이션 실행 묶음
 
@@ -79,21 +79,24 @@ Deployment spec을 교체하는 업데이트는 live 복제본 수를 1로 되�
 ## 설치 binding
 
 컨테이너 환경 변수는 정확히 하나의 출처를 가집니다. 기존 `valueFrom` 참조, 크기가 제한된 `value`
-리터럴, 또는 `binding` 키입니다. `binding`은 설치 소유자가 같은 owner-only 로컬 정책의 비공개
+리터럴, `binding` 키 또는 `configuration` 키입니다. `binding`은 설치 소유자가 같은 owner-only 로컬 정책의 비공개
 `installation_binding` 객체(`format: fdai.installation-binding.v1`, 최대 128개 키의 맵)에 제공하는
-값을 가리킵니다. 인프라 에이전트가 Terraform 출력에서 이 객체를 기록하며, 이 문서는 읽는 쪽만
-소유합니다.
+값을 가리킵니다. 인프라 에이전트는 검토된 Terraform 출력 키 집합과 정확히 일치하는 값만 새로운
+소유자 전용 파일에 기록하며 기존 binding은 교체하지 않습니다.
 
 binding 키는 소문자 식별자입니다. 값과 리터럴은 출력 가능한 1~1024자이며 자격 증명처럼 보이면
 안 됩니다. userinfo가 있는 URL, `Password=`, `AccountKey=`, `SharedAccessKey=`, PEM 헤더는 거부합니다.
 자격 증명을 뜻하는 이름(secret, password, token, DSN, key, signing 등)의 변수는 Secret 참조만
-받으며 리터럴이나 binding은 받지 않습니다. Agent는 묶음이 참조하지 않는 binding 키와 binding에
-없는 참조 키를 정책 로드와 렌더에서 모두 거부하고, 고정된 메시지로 값을 노출하지 않습니다.
+받으며 리터럴이나 두 렌더 시점 키는 받지 않습니다. Agent는 묶음이 참조하지 않는 binding 키와
+binding에 없는 참조 키를 정책 로드와 렌더에서 모두 거부하고, 고정된 메시지로 값을 노출하지
+않습니다.
 
 값은 렌더 시점에 일반 환경 값으로 풀리며 묶음에 포함되지 않습니다. 고정한 묶음 digest는 리터럴과
-binding 키 이름을 포함하므로 참조를 바꾸면 pin이 바뀌고 설치 로컬 값을 바꾸면 바뀌지 않습니다.
-configuration 키 출처는 여기서 구현하지 않았고 [#2471](https://github.com/dotnetpower/fdai/issues/2471)에
-남아 있습니다.
+두 키 이름을 포함하므로 참조를 바꾸면 pin이 바뀌지만 설치 로컬 값이나 서명된 configuration 값을
+바꾸면 바뀌지 않습니다. `configuration` 키는 인증되고 서명된 Entity별 configuration 렌더 값의
+비밀이 아닌 필드 하나를 가리킵니다. Key Vault 조회, 암호화 키 또는 installation binding이 아닙니다.
+알 수 없거나 누락되거나 사용하지 않는 출처, 자격 증명 형태의 출처와 Entity 범위를 벗어난 출처는
+안전하게 거부합니다.
 
 ## Native 소유권과 실행 동작
 

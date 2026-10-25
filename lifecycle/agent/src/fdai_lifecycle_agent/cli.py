@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TypedDict, cast, get_args
 
 from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.lifecycle_infrastructure_agent import INSTALLATION_BINDING_FORMAT
 from fdai_deployment_cli.lifecycle_native import SignedNativeScope
 from fdai_deployment_cli.lifecycle_plan import CapabilityMode, LifecycleEffectEnvelope
 from fdai_deployment_cli.lifecycle_release import is_product_id
@@ -49,7 +50,7 @@ from fdai_lifecycle_agent.native_cli import (
 from fdai_lifecycle_agent.polling import PollLimits, poll_bounded
 from fdai_lifecycle_agent.reference_cli import register_reference_command, run_reference_command
 from fdai_lifecycle_agent.reference_state import ReferenceStatusSource
-from fdai_lifecycle_agent.runtime_bundle import INSTALLATION_BINDING_FORMAT, RuntimeBundle
+from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
 from fdai_lifecycle_agent.signatures import (
     Ed25519ArtifactVerifier,
     Ed25519HubKeyring,

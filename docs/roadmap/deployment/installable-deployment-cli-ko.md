@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: fc0acac20bd51a244ae256d481fbdf768d642cdc
-translation_revised: 2026-10-24
+translation_source_sha: 2ee1282b02e1a0978df6004a5d277f56fa39b41b
+translation_revised: 2026-10-25
 ---
 
 # 설치형 배포 CLI
@@ -35,6 +35,11 @@ Host에서 실행됩니다.
 | 런타임 신원 | 기본값은 범위가 제한된 읽기 전용 관찰 신원이며, 권한 있는 실행기는 명시적 `governed-execution` 추가 기능에서만 사용 |
 | GitHub 의존성 | 대상 환경 배포에는 없음 |
 | 공유 Hub 라이브러리 | 앱 파서와 기존 런타임 어댑터는 [Release 계약](lifecycle-releases-and-channels-ko.md#애플리케이션-패키지-계약)을 따르며 공개 소스/오프라인 명령은 그대로 유지합니다 |
+
+내부 Hub 인프라 에이전트 라이브러리는 검토된 Terraform 출력 키 집합과 정확히 일치하는 값으로
+`fdai.installation-binding.v1` 산출물 하나를 기록할 수 있습니다. 새로운 소유자 전용 파일만
+만들고 기존 binding을 교체하지 않으며, 출력 검토 권한을 부여하거나 공개 소스·오프라인 명령을
+변경하지 않습니다.
 
 GitHub Actions는 소스를 검증하고 이미지를 빌드하며 선택적으로 서명된 release를 게시할 수 있지만, 게시는 배포 검증의 필수 조건이 아닙니다. GitHub Actions는 대상 환경을 계획, 적용, 재개 또는 제거할 수 없습니다. 읽기 전용 [관측 산출물 사전 점검](../architecture/aks-outbound-connector-ko.md#산출물-사전-점검)은 정확한 Core 이미지에 같은 고정 신뢰 루트의 오프라인 키트·OCI 검증기를 재사용하며, 제한된 프로세스 결과로 새 release 신뢰나 승인·설치 권한을 만들지 않습니다. 같은 키트는 경로, profile id, source timestamp, 파일 digest 및 전체 manifest digest에 결속된 선택적 기본 Rule 활성화 profile도 포함할 수 있습니다. 준비 단계는 결정론적 Core 환경 바인딩만 출력하며 세대를 적용하거나 대상 환경 workload를 배포하지 않습니다.
 

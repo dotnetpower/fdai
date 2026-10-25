@@ -42,6 +42,172 @@ def render_env(bundle: Any) -> dict[str, Any]:
     return {item["name"]: item for item in env}
 
 
+def test_configuration_key_renders_plain_value_without_changing_digest() -> None:
+    document = with_environment(
+        {"name": "KAFKA_BOOTSTRAP_SERVERS", "configuration": "event-bus.endpoint"}
+    )
+    bundle = parse(document)
+    digest = bundle.digest
+
+    manifests = bundle.render(
+        "fdai-demo",
+        frozenset({"application"}),
+        IMAGES,
+        configuration_values={"application": {"event-bus.endpoint": "kafka:9093"}},
+    )
+    deployment = next(item for item in manifests if item["kind"] == "Deployment")
+    env = deployment["spec"]["template"]["spec"]["containers"][0]["env"]
+
+    assert {"name": "KAFKA_BOOTSTRAP_SERVERS", "value": "kafka:9093"} in env
+    assert bundle.digest == digest
+
+
+def test_configuration_key_missing_fails_without_value_disclosure() -> None:
+    bundle = parse(
+        with_environment({"name": "KAFKA_BOOTSTRAP_SERVERS", "configuration": "event-bus.endpoint"})
+    )
+
+    with pytest.raises(WorkloadError, match="configuration_key_missing") as caught:
+        bundle.render(
+            "fdai-demo",
+            frozenset({"application"}),
+            IMAGES,
+            configuration_values={"application": {}},
+        )
+
+    assert "event-bus.endpoint" not in str(caught.value)
+
+
+def test_configuration_key_is_resolved_only_from_its_entity() -> None:
+    bundle = parse(
+        with_environment({"name": "KAFKA_BOOTSTRAP_SERVERS", "configuration": "event-bus.endpoint"})
+    )
+
+    manifests = bundle.render(
+        "fdai-demo",
+        frozenset({"application"}),
+        IMAGES,
+        configuration_values={
+            "application": {"event-bus.endpoint": "application.kafka:9093"},
+            "other": {"event-bus.endpoint": "other.kafka:9093"},
+        },
+    )
+    deployment = next(item for item in manifests if item["kind"] == "Deployment")
+    env = deployment["spec"]["template"]["spec"]["containers"][0]["env"]
+
+    assert {
+        "name": "KAFKA_BOOTSTRAP_SERVERS",
+        "value": "application.kafka:9093",
+    } in env
+    assert all(item.get("value") != "other.kafka:9093" for item in env)
+
+
+def test_configuration_value_changes_leave_bundle_digest_unchanged() -> None:
+    bundle = parse(
+        with_environment({"name": "KAFKA_BOOTSTRAP_SERVERS", "configuration": "event-bus.endpoint"})
+    )
+    digest = bundle.digest
+
+    first = bundle.render(
+        "fdai-demo",
+        frozenset({"application"}),
+        IMAGES,
+        configuration_values={"application": {"event-bus.endpoint": "one:9093"}},
+    )
+    second = bundle.render(
+        "fdai-demo",
+        frozenset({"application"}),
+        IMAGES,
+        configuration_values={"application": {"event-bus.endpoint": "two:9093"}},
+    )
+
+    assert bundle.digest == digest
+    assert first != second
+
+
+def test_configuration_key_cannot_supply_a_credential_environment() -> None:
+    with pytest.raises(ValueError, match="requires a Secret reference"):
+        parse(with_environment({"name": "DATABASE_PASSWORD", "configuration": "database.password"}))
+
+
+def test_configuration_keys_match_authenticated_entity_values() -> None:
+    from types import SimpleNamespace
+
+    from fdai_deployment_cli.lifecycle_release import APPLICATION_COMPONENT_RELEASE_SCHEMA
+
+    from fdai_lifecycle_agent.configuration_rendering import validate_entity_configuration
+    from fdai_lifecycle_agent.inputs import VerifiedConfiguration
+
+    bundle = parse(
+        with_environment({"name": "KAFKA_BOOTSTRAP_SERVERS", "configuration": "event-bus.endpoint"})
+    )
+    values = {
+        "runtime_bundle_digest": bundle.digest,
+        "event-bus.endpoint": "kafka:9093",
+    }
+    configuration = VerifiedConfiguration(
+        digest="configuration-digest",
+        values={},
+        entity_values={"application": values},
+        render_values={"application": values},
+    )
+
+    validate_entity_configuration(
+        configuration,
+        {"application": frozenset({"frontend"})},
+        current_schema=0,
+        release=SimpleNamespace(
+            schema_version=APPLICATION_COMPONENT_RELEASE_SCHEMA,
+            schema_target=0,
+        ),
+        plan=SimpleNamespace(entity_ids=frozenset({"application"})),
+        runtime_bundle=bundle,
+    )
+
+
+@pytest.mark.parametrize(
+    ("extra_values", "reason"),
+    [
+        ({}, "runtime_bundle_configuration_key_missing"),
+        ({"event-bus.endpoint": "kafka:9093", "unused": "value"}, "unsupported"),
+    ],
+)
+def test_configuration_key_validation_rejects_missing_or_unused_values(
+    extra_values: dict[str, str],
+    reason: str,
+) -> None:
+    from types import SimpleNamespace
+
+    from fdai_deployment_cli.lifecycle_release import APPLICATION_COMPONENT_RELEASE_SCHEMA
+
+    from fdai_lifecycle_agent.configuration_rendering import validate_entity_configuration
+    from fdai_lifecycle_agent.inputs import VerifiedConfiguration
+
+    bundle = parse(
+        with_environment({"name": "KAFKA_BOOTSTRAP_SERVERS", "configuration": "event-bus.endpoint"})
+    )
+    values = {"runtime_bundle_digest": bundle.digest, **extra_values}
+    configuration = VerifiedConfiguration(
+        digest="configuration-digest",
+        values={},
+        entity_values={"application": values},
+        render_values={"application": values},
+    )
+
+    with pytest.raises(WorkloadError, match=reason):
+        validate_entity_configuration(
+            configuration,
+            {"application": frozenset({"frontend"})},
+            current_schema=0,
+            release=SimpleNamespace(
+                schema_version=APPLICATION_COMPONENT_RELEASE_SCHEMA,
+                schema_target=0,
+            ),
+            plan=SimpleNamespace(entity_ids=frozenset({"application"})),
+            runtime_bundle=bundle,
+        )
+
+
 def test_literal_and_binding_values_render_as_plain_values() -> None:
     bundle = parse(
         with_environment(
