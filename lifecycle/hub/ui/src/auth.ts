@@ -1,4 +1,7 @@
-import { PublicClientApplication } from "@azure/msal-browser";
+import {
+  BrowserAuthError, InteractionRequiredAuthError, PublicClientApplication,
+  type AccountInfo,
+} from "@azure/msal-browser";
 import "./auth.css";
 
 let authorization: (() => Promise<string>) | undefined;
@@ -18,6 +21,33 @@ async function runtimeProbe(path: "/healthz" | "/readyz"): Promise<unknown> {
       return null;
     }
     throw error;
+  }
+}
+
+const REDIRECT_GUARD_KEY = "fdai.hub.auth.redirect-at";
+const REDIRECT_GUARD_MS = 60_000;
+// The Hub forbids framing (frame-ancestors 'none'), so MSAL's hidden-iframe renewal can only
+// time out. Renew by top-level redirect instead.
+const REDIRECT_ERROR_CODES = new Set(["monitor_window_timeout", "hash_empty_error", "no_account_error"]);
+
+function needsInteractiveRenewal(error: unknown): boolean {
+  return error instanceof InteractionRequiredAuthError ||
+    (error instanceof BrowserAuthError && REDIRECT_ERROR_CODES.has(error.errorCode));
+}
+
+async function acquireAccessToken(
+  client: PublicClientApplication, account: AccountInfo, scopes: string[],
+): Promise<string> {
+  try {
+    const token = await client.acquireTokenSilent({ account, scopes });
+    return `Bearer ${token.accessToken}`;
+  } catch (error) {
+    if (!needsInteractiveRenewal(error)) throw error;
+    const last = Number(sessionStorage.getItem(REDIRECT_GUARD_KEY) ?? "0");
+    if (Date.now() - last < REDIRECT_GUARD_MS) throw error;
+    sessionStorage.setItem(REDIRECT_GUARD_KEY, String(Date.now()));
+    await client.acquireTokenRedirect({ account, scopes });
+    return new Promise<string>(() => undefined);
   }
 }
 
@@ -94,10 +124,7 @@ export async function initializeAuth(root: HTMLElement): Promise<boolean> {
     return false;
   }
   client.setActiveAccount(account);
-  authorization = async () => {
-    const token = await client.acquireTokenSilent({ account, scopes });
-    return `Bearer ${token.accessToken}`;
-  };
+  authorization = () => acquireAccessToken(client, account, scopes);
   return true;
 }
 
