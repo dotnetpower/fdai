@@ -107,6 +107,9 @@ def test_recovered_development_owner_can_approve_first_configuration(
                 ConfigurationImportStore(engine).read(harness.iid)["active_digest"]
                 == decision["digest"]
             )
+            recompute = harness.post("recompute", {})
+            assert recompute.status_code == 200, recompute.json()
+            assert recompute.json()["outcome"] == "issued"
     finally:
         engine.dispose()
 
