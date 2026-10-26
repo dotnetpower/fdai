@@ -15,6 +15,11 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from fdai_deployment_cli.lifecycle_native import NativeScope
+from fdai_deployment_cli.lifecycle_native_reconciliation import (
+    NativeScopeTransitionStateReconciliationCompletion,
+    NativeScopeTransitionStateReconciliationReceipt,
+    SignedNativeScopeTransitionStateReconciliationApproval,
+)
 from fdai_deployment_cli.lifecycle_native_transition import (
     NativeScopeTransitionCompletion,
     NativeScopeTransitionCompletionReceipt,
@@ -33,6 +38,10 @@ from fdai_lifecycle_agent.native_transition import (
     prepare_native_transition_request,
     transition_native_scope,
 )
+from fdai_lifecycle_agent.native_transition_reconciliation import (
+    prepare_native_transition_state_reconciliation_request,
+    reconcile_native_transition_state,
+)
 from fdai_lifecycle_agent.remote_auth import WorkloadIdentityAuthorization
 from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
 from fdai_lifecycle_agent.signatures import load_ed25519_public_key
@@ -47,6 +56,10 @@ from fdai_lifecycle_agent.workload import Cluster, WorkloadError
 type TransitionCompleter = Callable[
     [argparse.Namespace, NativeScopeTransitionCompletion],
     NativeScopeTransitionCompletionReceipt,
+]
+type ReconciliationCompleter = Callable[
+    [argparse.Namespace, NativeScopeTransitionStateReconciliationCompletion],
+    NativeScopeTransitionStateReconciliationReceipt,
 ]
 
 
@@ -102,6 +115,43 @@ def register_native_command(
     transition.add_argument("--hub-scope", required=True)
     transition.add_argument("--timeout-seconds", type=float, default=10.0)
     authentication = transition.add_mutually_exclusive_group(required=True)
+    authentication.add_argument("--kube-context")
+    authentication.add_argument("--in-cluster", action="store_true")
+    prepare_reconciliation = commands.add_parser(
+        "prepare-native-transition-reconciliation",
+        help="Create one bounded request for a legacy transition timestamp repair.",
+    )
+    prepare_reconciliation.add_argument("--state-dir", required=True, type=Path)
+    prepare_reconciliation.add_argument("--current-state", required=True, type=Path)
+    prepare_reconciliation.add_argument("--native-approval", required=True, type=Path)
+    prepare_reconciliation.add_argument(
+        "--hub-completion-receipt",
+        required=True,
+        type=Path,
+    )
+    prepare_reconciliation.add_argument(
+        "--installation-public-key",
+        required=True,
+        type=Path,
+    )
+    prepare_reconciliation.add_argument("--destination", required=True, type=Path)
+    reconcile = commands.add_parser(
+        "reconcile-native-transition-state",
+        help="Repair only Agent current-state from one audited Hub-authoritative approval.",
+    )
+    reconcile.add_argument("--state-dir", required=True, type=Path)
+    reconcile.add_argument("--current-state", required=True, type=Path)
+    reconcile.add_argument("--native-approval", required=True, type=Path)
+    reconcile.add_argument("--hub-completion-receipt", required=True, type=Path)
+    reconcile.add_argument("--hub-reconciliation-approval", required=True, type=Path)
+    reconcile.add_argument("--hub-public-key", required=True, type=Path)
+    reconcile.add_argument("--hub-key-id", required=True)
+    reconcile.add_argument("--hub-key-epoch", required=True, type=int)
+    reconcile.add_argument("--installation-public-key", required=True, type=Path)
+    reconcile.add_argument("--hub-url", required=True)
+    reconcile.add_argument("--hub-scope", required=True)
+    reconcile.add_argument("--timeout-seconds", type=float, default=10.0)
+    authentication = reconcile.add_mutually_exclusive_group(required=True)
     authentication.add_argument("--kube-context")
     authentication.add_argument("--in-cluster", action="store_true")
 
@@ -380,3 +430,112 @@ def complete_native_transition(
             )
     finally:
         authorization.close()
+
+
+def run_native_reconciliation_command(
+    arguments: argparse.Namespace,
+    *,
+    clock: Callable[[], datetime],
+    connect: Callable[[str | None, str, bool], Cluster],
+    complete: ReconciliationCompleter,
+) -> int:
+    approval = load_native_approval(arguments.native_approval)
+    completion_receipt = _load_transition_completion_receipt(arguments.hub_completion_receipt)
+    installation_public_key = load_ed25519_public_key(
+        arguments.installation_public_key
+    ).public_bytes_raw()
+    if arguments.command == "prepare-native-transition-reconciliation":
+        destination = arguments.destination.resolve()
+        if destination.is_relative_to(arguments.state_dir.resolve()) or destination in {
+            arguments.current_state.resolve(),
+            arguments.native_approval.resolve(),
+            arguments.hub_completion_receipt.resolve(),
+            arguments.installation_public_key.resolve(),
+        }:
+            raise WorkloadError("native_transition_reconciliation_output_conflict")
+        request = prepare_native_transition_state_reconciliation_request(
+            state_dir=arguments.state_dir,
+            current_state_path=arguments.current_state,
+            completion_receipt=completion_receipt,
+            native_approval=approval,
+            installation_public_key=installation_public_key,
+            now=clock(),
+        )
+        write_private_output(destination, request.model_dump_json(indent=2) + "\n")
+        print(json.dumps({"prepared": True, "request_digest": request.digest}))
+        return 0
+    signed_approval = _load_reconciliation_approval(arguments.hub_reconciliation_approval)
+    cluster = connect(
+        arguments.kube_context,
+        approval.scope.namespace,
+        arguments.in_cluster,
+    )
+    if not isinstance(cluster, UidCluster):
+        raise WorkloadError("native_scope_uid_provider_required")
+    receipt = reconcile_native_transition_state(
+        cluster,
+        state_dir=arguments.state_dir,
+        current_state_path=arguments.current_state,
+        native_approval=approval,
+        completion_receipt=completion_receipt,
+        signed_approval=signed_approval,
+        hub_public_key=load_ed25519_public_key(arguments.hub_public_key).public_bytes_raw(),
+        expected_hub_key_id=arguments.hub_key_id,
+        expected_hub_key_epoch=arguments.hub_key_epoch,
+        installation_public_key=installation_public_key,
+        now=clock(),
+        complete=lambda command: complete(arguments, command),
+    )
+    print(
+        json.dumps(
+            {
+                "reconciled": True,
+                "reported_state_digest": receipt.new_reported_state_digest,
+                "reconciliation_receipt_digest": receipt.receipt_digest,
+            }
+        )
+    )
+    return 0
+
+
+def complete_native_transition_reconciliation(
+    arguments: argparse.Namespace,
+    completion: NativeScopeTransitionStateReconciliationCompletion,
+) -> NativeScopeTransitionStateReconciliationReceipt:
+    """Submit corrected state and consume the exact committed Hub readback."""
+
+    authorization = WorkloadIdentityAuthorization(arguments.hub_scope)
+    try:
+        with HttpHubClient(
+            arguments.hub_url,
+            timeout_seconds=arguments.timeout_seconds,
+            authorization=authorization,
+        ) as hub:
+            return hub.submit_native_transition_state_reconciliation(
+                completion.approval.approval.request.installation_id,
+                completion,
+            )
+    finally:
+        authorization.close()
+
+
+def _load_transition_completion_receipt(
+    path: Path,
+) -> NativeScopeTransitionCompletionReceipt:
+    try:
+        raw = read_limited(path, limit=64 * 1024, label="Hub transition completion receipt")
+        load_json(raw, label="Hub transition completion receipt")
+        return NativeScopeTransitionCompletionReceipt.model_validate_json(raw)
+    except (OSError, ValueError) as error:
+        raise WorkloadError("native_transition_completion_receipt_invalid") from error
+
+
+def _load_reconciliation_approval(
+    path: Path,
+) -> SignedNativeScopeTransitionStateReconciliationApproval:
+    try:
+        raw = read_limited(path, limit=192 * 1024, label="Hub reconciliation approval")
+        load_json(raw, label="Hub reconciliation approval")
+        return SignedNativeScopeTransitionStateReconciliationApproval.model_validate_json(raw)
+    except (OSError, ValueError) as error:
+        raise WorkloadError("native_transition_reconciliation_approval_invalid") from error

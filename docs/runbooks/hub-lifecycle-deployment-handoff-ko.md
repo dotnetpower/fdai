@@ -1,7 +1,7 @@
 ---
 title: Hub 배포 인수인계
 translation_of: hub-lifecycle-deployment-handoff.md
-translation_source_sha: 607f7ce5ac4a80379c201e25f9a93f245e019e39
+translation_source_sha: c4924c62bde0e196398f2cef8708c10c6058c3dd
 translation_revised: 2026-10-27
 ---
 # Hub 배포 인수인계
@@ -196,6 +196,38 @@ anchor와 증명을 검증합니다. 운영자가 그 증명을 수락한 뒤 �
 Agent principal을 지정해 `fdai-lifecycle-hub complete-native-transition`을 사용할 수
 있습니다. 바뀐 바이트, 다른 신원, 열린 Plan이나 부분적인 Entity 관리 상태는 충돌입니다.
 관리 해제, 상태 기록, 새 관리 설정을 나누어 쓰는 근거가 아닙니다.
+
+완료된 전환을 밀리초 단위 이전 시각 생성기가 만들었다면 Plan을 요청하기 전에 변경할 수
+없는 로컬 전환 증적과 보존된 Hub 완료 증적을 비교합니다. 모든 정규 상태 필드가 같고, 로컬
+상태와 증적이 같은 밀리초 시각을 사용하며, Hub 완료 감사가 같은 순간의 더 늦은
+1밀리초 이하 값을 보존하고, Hub 상태가 아직 이전 밀리초 다이제스트를 가진 경우에만 조정을
+사용합니다. Entity, 범위, UID, 아티팩트 목록, 상태, 스키마 개정이 바뀌었거나 시각 차이가
+1밀리초보다 크면 이 절차를 사용하지 않습니다.
+
+1. 범위가 제한된 polling을 중지하고 Hub에 열린 Plan이 없으며 Agent에 보고하지 않은 Plan이나
+   `prepared`/`applying` 저널이 없는지 확인합니다. 로컬 전환 증적, Hub 완료 증적, 네이티브
+   승인, 설치 공개 키, Hub 공개 키와 current-state 경로를 보존합니다.
+2. `fdai-lifecycle-agent prepare-native-transition-reconciliation`에 `--state-dir`,
+   `--current-state`, `--native-approval`, `--hub-completion-receipt`,
+   `--installation-public-key`와 소유자 전용 `--destination`을 지정해 실행합니다. 이 명령은
+   Agent 상태 잠금을 사용하며 아무 상태도 변경하지 않습니다.
+3. 비공개 요청을 인증된 운영자 신원으로
+   `POST /v1/installations/{installation_id}/native-transition-state-reconciliation-approval`에
+   제출합니다. 반환된 서명 승인을 보존합니다. `409`는 중지 조건입니다. 시각 허용 범위를
+   넓히거나 어느 증적도 편집하지 않습니다.
+4. 같은 상태, 네이티브 승인, Hub 완료 증적, 설치 공개 키, 정확한 Hub 키 ID/세대와 공개 키,
+   반환된 `--hub-reconciliation-approval`, 인증된 `--hub-url`과 `--hub-scope`, 원래
+   Kubernetes context 또는 클러스터 내부 신원을 사용해
+   `fdai-lifecycle-agent reconcile-native-transition-state`를 실행합니다.
+5. 명령에서 `reported_state_digest`와 `reconciliation_receipt_digest`가 모두 반환되어야
+   합니다. 소유자 전용 롤백 및 조정 증적 파일을 확인합니다. 전환 증적, 네이티브 상태와
+   워크로드 저널은 바이트 단위로 바뀌지 않아야 합니다. Hub에서 다시 읽은 결과와 로컬
+   current-state의 전체 정밀도 시각 및 다이제스트가 같아진 뒤에만 다음 Plan을 요청합니다.
+
+대기 상태를 쓴 뒤 명령이 중단되면 정확히 같은 입력으로 다시 실행합니다. 명령은 재시도하기
+전에 보존한 current-state 바이트를 복원하며, 이미 커밋된 Hub 쓰기는 같은 결과를 반환하는
+완료로 처리합니다. 바뀐 요청, 다른 Agent 신원, 동시 Hub 상태 변경, 교체된 UID, 변경된 증적
+또는 서로 다른 이전 조정은 충돌입니다. 다른 복구를 시도하지 말고 조사해야 합니다.
 
 ## 보이지 않는 도우미 없이 실행하기
 

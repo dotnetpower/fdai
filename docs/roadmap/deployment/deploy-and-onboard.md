@@ -695,6 +695,9 @@ state lineage. A separate forget-only release plan must prove zero live destruct
 the generated import declarations and requires a final zero-change plan.
 Terraform 1.9 import plans may report an existing object in both `before` and `after`; the verifier
 accepts this only when both values are identical, the action is `no-op`, and the import id matches.
+Legacy completed transitions with a sub-millisecond state timestamp mismatch use the authenticated
+reconciliation command. It preserves the immutable transition receipt and rewrites only the
+Agent's durable current state to the Hub-authoritative canonical timestamp and digest.
 The prerequisite root owns only the identities, federated credentials, ServiceAccounts,
 SecretProviderClasses, ConfigMaps and secret bindings that this inventory references. It does not
 create any managed Deployment, Service, HorizontalPodAutoscaler or CronJob.

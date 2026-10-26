@@ -20,6 +20,13 @@ from fdai_deployment_cli.lifecycle_native import (
     NativeScopeClaim,
     sign_native_scope,
 )
+from fdai_deployment_cli.lifecycle_native_reconciliation import (
+    LegacyNativeScopeTransitionReceipt,
+    NativeScopeTransitionStateReconciliationCompletion,
+    NativeScopeTransitionStateReconciliationRequest,
+    SignedNativeScopeTransitionStateReconciliationApproval,
+    transition_reported_state_digest,
+)
 from fdai_deployment_cli.lifecycle_native_transition import (
     NativeScopeTransitionCompletion,
     NativeScopeTransitionReceipt,
@@ -39,7 +46,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.testclient import TestClient
 
-from fdai_lifecycle_hub import audit, models
+from fdai_lifecycle_hub import audit, mapping, models
 from fdai_lifecycle_hub.api import create_app
 from fdai_lifecycle_hub.configuration_key_store import ConfigurationKeyStore
 from fdai_lifecycle_hub.domain import Issued, NoEligibleRelease
@@ -47,9 +54,14 @@ from fdai_lifecycle_hub.execution_settings import ApplicationBindingRequest
 from fdai_lifecycle_hub.migrations import require_schema
 from fdai_lifecycle_hub.native_ownership import NativeOwnershipStore
 from fdai_lifecycle_hub.native_transition import NativeTransitionError, NativeTransitionStore
+from fdai_lifecycle_hub.native_transition_reconciliation import (
+    NativeTransitionReconciliationError,
+    NativeTransitionReconciliationStore,
+)
 from fdai_lifecycle_hub.remote import RemoteConfig, require_bound_agent_principal
 from fdai_lifecycle_hub.remote_auth import AgentPrincipal, DevelopmentRecoveryAuthorization
 from fdai_lifecycle_hub.signing import raw_public_key
+from fdai_lifecycle_hub.store import _native_transition_holds_planning
 
 
 @pytest.fixture
@@ -783,3 +795,393 @@ def test_exact_concurrent_completion_returns_one_receipt(completion_case) -> Non
             )
             == 1
         )
+
+
+def _legacy_reconciliation_case(case, monkeypatch):
+    local_at = case.now.replace(microsecond=787000) + timedelta(minutes=2)
+    hub_at = case.now.replace(microsecond=787619) + timedelta(minutes=2)
+    state_document = case.completion.reported_state.model_dump(mode="json")
+    state_document["observed_at"] = hub_at.isoformat().replace("+00:00", "Z")
+    state_document["digest"] = transition_reported_state_digest(
+        case.completion.reported_state.model_copy(update={"observed_at": hub_at}),
+        milliseconds=True,
+    )
+    source = NativeScopeTransitionReportedState.model_validate_json(json.dumps(state_document))
+    receipt_document = case.completion.transition_receipt.model_dump(mode="json")
+    receipt_document.pop("record_digest")
+    receipt_document["completed_at"] = local_at.isoformat(timespec="milliseconds").replace(
+        "+00:00", "Z"
+    )
+    receipt_document["new_reported_state_digest"] = source.digest
+    local = LegacyNativeScopeTransitionReceipt.model_validate_json(
+        json.dumps(
+            {
+                **receipt_document,
+                "record_digest": "sha256:" + canonical_digest(receipt_document),
+            }
+        )
+    )
+    legacy_completion = case.completion.model_copy(
+        update={
+            "transition_receipt": local,
+            "reported_state": source,
+        }
+    )
+    monkeypatch.setattr(
+        NativeTransitionStore,
+        "_validate_completion",
+        staticmethod(lambda *_args, **_kwargs: None),
+    )
+    completion_receipt = NativeTransitionStore(case.store).complete(
+        case.installation.installation_id,
+        legacy_completion,
+        principal="agent-executor",
+        now=hub_at,
+        key=case.key,
+    )
+    local_state = source.model_copy(update={"observed_at": local_at})
+    requested_at = hub_at + timedelta(seconds=1)
+    request_values = {
+        "schema_version": ("fdai.lifecycle-native-transition-state-reconciliation-request.v1"),
+        "request_id": uuid4(),
+        "transition_receipt": local,
+        "completion_receipt": completion_receipt,
+        "native_approval": case.completion.native_approval,
+        "legacy_reported_state": local_state,
+        "requested_at": requested_at,
+        "expires_at": requested_at + timedelta(minutes=10),
+    }
+    request_values["confirmation"] = (
+        f"reconcile native transition {local.installation_id} "
+        f"{local.record_digest} {completion_receipt.receipt_digest}"
+    )
+    request = NativeScopeTransitionStateReconciliationRequest.model_validate(request_values)
+    return SimpleNamespace(
+        request=request,
+        source=source,
+        local=local,
+        completion_receipt=completion_receipt,
+        requested_at=requested_at,
+    )
+
+
+def test_hub_reconciles_exact_legacy_timestamp_state_and_returns_exact_retry(
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    service = NativeTransitionReconciliationStore(case.store)
+
+    approved = service.approve(
+        case.installation.installation_id,
+        legacy.request,
+        operator="requester",
+        now=legacy.requested_at + timedelta(seconds=1),
+        key=case.key,
+    )
+    assert isinstance(approved, SignedNativeScopeTransitionStateReconciliationApproval)
+    assert approved.approval.source_hub_reported_state == legacy.source
+    authoritative = approved.approval.authoritative_reported_state
+    assert authoritative.observed_at.isoformat().endswith(".787619+00:00")
+    assert authoritative.digest == transition_reported_state_digest(authoritative)
+    assert authoritative.digest != legacy.source.digest
+    with Session(case.store.engine) as session:
+        row = session.get(models.Installation, case.installation.installation_id)
+        assert row is not None
+        assert _native_transition_holds_planning(
+            session,
+            mapping.to_domain(session, row),
+            legacy.requested_at + timedelta(seconds=1),
+        )
+    completion = NativeScopeTransitionStateReconciliationCompletion(
+        schema_version=("fdai.lifecycle-native-transition-state-reconciliation-completion.v1"),
+        approval=approved,
+        reported_state=authoritative,
+    )
+
+    receipt = service.complete(
+        case.installation.installation_id,
+        completion,
+        principal="agent-executor",
+        now=legacy.requested_at + timedelta(seconds=2),
+        key=case.key,
+    )
+    retry = NativeTransitionReconciliationStore(type(case.store)(case.store.engine)).complete(
+        case.installation.installation_id,
+        completion,
+        principal="agent-executor",
+        now=legacy.request.expires_at + timedelta(days=1),
+        key=case.key,
+    )
+
+    assert retry == receipt
+    assert receipt.authoritative_reported_state == authoritative
+    installation = case.store.load(case.installation.installation_id)
+    assert installation.reported.digest == authoritative.digest
+    assert installation.reported.observed_at == authoritative.observed_at
+    with Session(case.store.engine) as session:
+        row = session.get(models.Installation, case.installation.installation_id)
+        assert row is not None
+        assert not _native_transition_holds_planning(
+            session,
+            mapping.to_domain(session, row),
+            legacy.requested_at + timedelta(seconds=3),
+        )
+        records = session.scalars(
+            select(models.AuditRecord).where(
+                models.AuditRecord.action == "entity.native_transition_state_reconciled"
+            )
+        ).all()
+        assert len(records) == 1
+        assert audit.chain_intact(session)
+
+
+@pytest.mark.parametrize("fault", ["timestamp", "field", "plan", "repeat"])
+def test_hub_reconciliation_rejects_out_of_bounds_or_conflicting_state(
+    fault,
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    request = legacy.request
+    expected = ""
+    if fault == "timestamp":
+        request = request.model_copy(
+            update={
+                "legacy_reported_state": request.legacy_reported_state.model_copy(
+                    update={
+                        "observed_at": legacy.source.observed_at
+                        - timedelta(milliseconds=1, microseconds=1)
+                    }
+                )
+            }
+        )
+        expected = "receipt_mismatch"
+    elif fault == "field":
+        entity = next(iter(request.legacy_reported_state.entities.values()))
+        request = request.model_copy(
+            update={
+                "legacy_reported_state": request.legacy_reported_state.model_copy(
+                    update={
+                        "entities": {
+                            "fdai-workloads": entity.model_copy(update={"health": "degraded"})
+                        }
+                    }
+                )
+            }
+        )
+        expected = "non_time_difference"
+    elif fault == "plan":
+        with Session(case.store.engine) as session, session.begin():
+            session.add(
+                models.Plan(
+                    plan_id="reconciliation-blocking-plan",
+                    installation_id=case.installation.installation_id,
+                    sequence=999,
+                    plan_type="upgrade",
+                    target_release_id="1.6.0",
+                    source_state_digest=legacy.source.digest,
+                    configuration_digest=case.installation.configuration.digest,
+                    hub_key_id=case.key.key_id,
+                    entity_ids=["fdai-workloads"],
+                    signed_payload=b"test-plan",
+                    signature=b"test-signature",
+                    issued_at=case.now,
+                    expires_at=case.now + timedelta(hours=1),
+                )
+            )
+        expected = "plan_pending"
+    else:
+        service = NativeTransitionReconciliationStore(case.store)
+        service.approve(
+            case.installation.installation_id,
+            request,
+            operator="requester",
+            now=legacy.requested_at + timedelta(seconds=1),
+            key=case.key,
+        )
+        request = request.model_copy(update={"request_id": uuid4()})
+        expected = "repeat_conflict"
+
+    with pytest.raises(NativeTransitionReconciliationError, match=expected):
+        NativeTransitionReconciliationStore(case.store).approve(
+            case.installation.installation_id,
+            request,
+            operator="requester",
+            now=legacy.requested_at + timedelta(seconds=2),
+            key=case.key,
+        )
+
+
+def test_hub_reconciliation_rejects_concurrent_reported_state(
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    service = NativeTransitionReconciliationStore(case.store)
+    approved = service.approve(
+        case.installation.installation_id,
+        legacy.request,
+        operator="requester",
+        now=legacy.requested_at + timedelta(seconds=1),
+        key=case.key,
+    )
+    current = case.store.load(case.installation.installation_id).reported
+    changed_at = current.observed_at + timedelta(seconds=1)
+    changed_state = replace(
+        current,
+        observed_at=changed_at,
+        digest="f" * 64,
+    )
+    case.store.record_state(
+        case.installation.installation_id,
+        changed_state,
+        now=changed_at,
+    )
+    command = NativeScopeTransitionStateReconciliationCompletion(
+        schema_version=("fdai.lifecycle-native-transition-state-reconciliation-completion.v1"),
+        approval=approved,
+        reported_state=approved.approval.authoritative_reported_state,
+    )
+
+    with pytest.raises(NativeTransitionReconciliationError, match="concurrent_state"):
+        service.complete(
+            case.installation.installation_id,
+            command,
+            principal="agent-executor",
+            now=legacy.requested_at + timedelta(seconds=2),
+            key=case.key,
+        )
+
+
+@pytest.mark.parametrize("stage", ["state-recorded", "audit-appended"])
+def test_hub_reconciliation_interruption_rolls_back_state_and_audit(
+    stage,
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    service = NativeTransitionReconciliationStore(case.store)
+    approved = service.approve(
+        case.installation.installation_id,
+        legacy.request,
+        operator="requester",
+        now=legacy.requested_at + timedelta(seconds=1),
+        key=case.key,
+    )
+    command = NativeScopeTransitionStateReconciliationCompletion(
+        schema_version=("fdai.lifecycle-native-transition-state-reconciliation-completion.v1"),
+        approval=approved,
+        reported_state=approved.approval.authoritative_reported_state,
+    )
+
+    def interrupt(actual: str) -> None:
+        if actual == stage:
+            raise RuntimeError("simulated interruption")
+
+    with pytest.raises(RuntimeError, match="simulated interruption"):
+        service.complete(
+            case.installation.installation_id,
+            command,
+            principal="agent-executor",
+            now=legacy.requested_at + timedelta(seconds=2),
+            key=case.key,
+            after_write=interrupt,
+        )
+
+    installation = case.store.load(case.installation.installation_id)
+    assert installation.reported.digest == legacy.source.digest
+    assert installation.reported.observed_at == legacy.source.observed_at
+    assert set(installation.reported.entities) == set(legacy.source.entities)
+    with Session(case.store.engine) as session:
+        assert (
+            session.scalar(
+                select(models.AuditRecord).where(
+                    models.AuditRecord.action == "entity.native_transition_state_reconciled"
+                )
+            )
+            is None
+        )
+
+
+def test_reconciliation_api_requires_operator_then_exact_agent_identity(
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    assert (
+        NativeScopeTransitionStateReconciliationRequest.model_validate_json(
+            legacy.request.model_dump_json()
+        )
+        == legacy.request
+    )
+    auth = remote_auth(case.authorization).model_copy(
+        update={
+            "agent_principals": (
+                AgentPrincipal(
+                    installation_id=case.installation.installation_id,
+                    object_id="agent-executor",
+                    client_id="agent-client",
+                ),
+            )
+        }
+    )
+    app = create_app(
+        case.store,
+        clock=lambda: legacy.requested_at + timedelta(seconds=1),
+        remote_auth=auth,
+        transition_key=case.key,
+    )
+    token = tokens(app, auth)
+    base = f"/v1/installations/{case.installation.installation_id}"
+    with TestClient(app, base_url=auth.origin) as client:
+        denied = client.post(
+            base + "/native-transition-state-reconciliation-approval",
+            json=legacy.request.model_dump(mode="json"),
+        )
+        approved_response = client.post(
+            base + "/native-transition-state-reconciliation-approval",
+            json=legacy.request.model_dump(mode="json"),
+            headers=token("requester"),
+        )
+        approved = SignedNativeScopeTransitionStateReconciliationApproval.model_validate_json(
+            approved_response.content
+        )
+        command = NativeScopeTransitionStateReconciliationCompletion(
+            schema_version=("fdai.lifecycle-native-transition-state-reconciliation-completion.v1"),
+            approval=approved,
+            reported_state=approved.approval.authoritative_reported_state,
+        )
+        wrong = client.post(
+            base + "/native-transition-state-reconciliation",
+            json=command.model_dump(mode="json"),
+            headers=token(
+                "other-agent",
+                azp="agent-client",
+                roles=["Agent.Access"],
+                omit=("scp",),
+            ),
+        )
+        accepted = client.post(
+            base + "/native-transition-state-reconciliation",
+            json=command.model_dump(mode="json"),
+            headers=token(
+                "agent-executor",
+                azp="agent-client",
+                roles=["Agent.Access"],
+                omit=("scp",),
+            ),
+        )
+
+    assert denied.status_code == 401
+    assert approved_response.status_code == 200
+    assert wrong.status_code == 403
+    assert accepted.status_code == 200
+    assert accepted.json()["new_reported_state_digest"] == (
+        approved.approval.authoritative_reported_state.digest
+    )

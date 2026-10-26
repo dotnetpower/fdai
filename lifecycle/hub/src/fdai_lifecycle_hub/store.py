@@ -910,31 +910,40 @@ def _pending_enrollment(session: Session, row: models.Installation) -> domain.Pe
 def _native_transition_holds_planning(
     session: Session, installation: domain.Installation, now: datetime
 ) -> bool:
-    """Keep the approved source state Plan-free until the transition expires or reports a
-    new state."""
+    """Keep an approved transition or state repair Plan-free until completion or expiry."""
 
-    payload = session.scalar(
-        select(models.AuditRecord.payload)
+    records = session.scalars(
+        select(models.AuditRecord)
         .where(
-            models.AuditRecord.action == "entity.native_transition_approved",
+            models.AuditRecord.action.in_(
+                (
+                    "entity.native_transition_approved",
+                    "entity.native_transition_state_reconciliation_approved",
+                )
+            ),
             models.AuditRecord.installation_id == installation.installation_id,
         )
         .order_by(models.AuditRecord.sequence.desc())
-        .limit(1)
+        .limit(2)
     )
-    if (
-        not isinstance(payload, dict)
-        or payload.get("reported_state_digest") != installation.reported.digest
-    ):
-        return False
-    expires_at = payload.get("expires_at")
-    if not isinstance(expires_at, str):
-        return True
-    try:
-        expires = datetime.fromisoformat(expires_at)
-    except ValueError:
-        return True
-    return expires.utcoffset() is None or now < expires
+    for record in records:
+        payload = record.payload
+        source_digest = payload.get(
+            "reported_state_digest",
+            payload.get("source_hub_reported_state_digest"),
+        )
+        if source_digest != installation.reported.digest:
+            continue
+        expires_at = payload.get("expires_at")
+        if not isinstance(expires_at, str):
+            return True
+        try:
+            expires = datetime.fromisoformat(expires_at)
+        except ValueError:
+            return True
+        if expires.utcoffset() is None or now < expires:
+            return True
+    return False
 
 
 def _latest_evaluation(session: Session, row: models.Installation) -> domain.Evaluation | None:

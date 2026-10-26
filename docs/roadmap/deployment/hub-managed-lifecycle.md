@@ -1147,6 +1147,9 @@ atomic Hub completion succeeds, so a locally committed transition can't produce 
 The retained rollback record is audit and recovery evidence; there is no command that turns this
 one-way transition into an unreviewed reverse handoff.
 
+For the bounded recovery of a legacy sub-millisecond state-digest split, see
+[Native transition state reconciliation](native-transition-state-reconciliation.md).
+
 ## Workload rendering migration
 
 This section defines how a Hub-managed installation moves workload rendering from the Terraform

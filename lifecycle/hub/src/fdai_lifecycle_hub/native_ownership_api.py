@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance, SignedNativeScope
+from fdai_deployment_cli.lifecycle_native_reconciliation import (
+    NativeScopeTransitionStateReconciliationCompletion,
+    NativeScopeTransitionStateReconciliationRequest,
+)
 from fdai_deployment_cli.lifecycle_native_transition import (
     NativeScopeTransitionCompletion,
     SignedNativeScopeTransitionRequest,
@@ -17,6 +21,10 @@ from fdai_lifecycle_hub.domain import Clock
 from fdai_lifecycle_hub.native_ownership import NativeOwnershipError, NativeOwnershipStore
 from fdai_lifecycle_hub.native_proofs import NativeProofStore
 from fdai_lifecycle_hub.native_transition import NativeTransitionError, NativeTransitionStore
+from fdai_lifecycle_hub.native_transition_reconciliation import (
+    NativeTransitionReconciliationError,
+    NativeTransitionReconciliationStore,
+)
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
 
@@ -143,6 +151,85 @@ def native_ownership_routes(
             return JSONResponse({"error": str(error)}, status_code=409)
         return JSONResponse(result.model_dump(mode="json"))
 
+    async def approve_reconciliation(request: Request) -> Response:
+        from fdai_lifecycle_hub.api import _read_limited
+
+        if not authenticated or not getattr(request.state, "operator", None):
+            return JSONResponse({"error": "authenticated_operator_required"}, status_code=403)
+        if transition_key is None:
+            return JSONResponse({"error": "native_transition_signing_unavailable"}, status_code=503)
+        body = await _read_limited(request, 128 * 1024)
+        if body is None:
+            return JSONResponse(
+                {"error": "native_transition_reconciliation_too_large"},
+                status_code=413,
+            )
+        try:
+            load_json_object(
+                body,
+                label="native transition reconciliation",
+                max_bytes=128 * 1024,
+                strict=True,
+            )
+            command = NativeScopeTransitionStateReconciliationRequest.model_validate_json(body)
+        except ValueError:
+            return JSONResponse(
+                {"error": "native_transition_reconciliation_invalid"},
+                status_code=422,
+            )
+        try:
+            result = await run_in_threadpool(
+                NativeTransitionReconciliationStore(store).approve,
+                request.path_params["installation_id"],
+                command,
+                operator=request.state.operator,
+                now=clock(),
+                key=transition_key,
+            )
+        except NativeTransitionReconciliationError as error:
+            return JSONResponse({"error": str(error)}, status_code=409)
+        return JSONResponse(result.model_dump(mode="json"))
+
+    async def complete_reconciliation(request: Request) -> Response:
+        from fdai_lifecycle_hub.api import _read_limited
+
+        principal = getattr(request.state, "principal", None)
+        if not authenticated or not principal or getattr(request.state, "operator", None):
+            return JSONResponse({"error": "authenticated_agent_required"}, status_code=403)
+        if transition_key is None:
+            return JSONResponse({"error": "native_transition_signing_unavailable"}, status_code=503)
+        body = await _read_limited(request, 192 * 1024)
+        if body is None:
+            return JSONResponse(
+                {"error": "native_transition_reconciliation_completion_too_large"},
+                status_code=413,
+            )
+        try:
+            load_json_object(
+                body,
+                label="native transition reconciliation completion",
+                max_bytes=192 * 1024,
+                strict=True,
+            )
+            command = NativeScopeTransitionStateReconciliationCompletion.model_validate_json(body)
+        except ValueError:
+            return JSONResponse(
+                {"error": "native_transition_reconciliation_completion_invalid"},
+                status_code=422,
+            )
+        try:
+            result = await run_in_threadpool(
+                NativeTransitionReconciliationStore(store).complete,
+                request.path_params["installation_id"],
+                command,
+                principal=principal,
+                now=clock(),
+                key=transition_key,
+            )
+        except NativeTransitionReconciliationError as error:
+            return JSONResponse({"error": str(error)}, status_code=409)
+        return JSONResponse(result.model_dump(mode="json"))
+
     return [
         Route(
             "/v1/installations/{installation_id}/native-proofs",
@@ -162,6 +249,16 @@ def native_ownership_routes(
         Route(
             "/v1/installations/{installation_id}/native-transition-completion",
             complete_transition,
+            methods=["POST"],
+        ),
+        Route(
+            "/v1/installations/{installation_id}/native-transition-state-reconciliation-approval",
+            approve_reconciliation,
+            methods=["POST"],
+        ),
+        Route(
+            "/v1/installations/{installation_id}/native-transition-state-reconciliation",
+            complete_reconciliation,
             methods=["POST"],
         ),
     ]

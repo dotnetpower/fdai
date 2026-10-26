@@ -44,6 +44,10 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 from fdai_deployment_cli.lifecycle_native import SignedNativeScope
+from fdai_deployment_cli.lifecycle_native_reconciliation import (
+    NativeScopeTransitionStateReconciliationCompletion,
+    NativeScopeTransitionStateReconciliationReceipt,
+)
 from fdai_deployment_cli.lifecycle_native_transition import (
     NativeScopeTransitionCompletion,
     NativeScopeTransitionCompletionReceipt,
@@ -245,6 +249,35 @@ class HttpHubClient:
             return NativeScopeTransitionCompletionReceipt.model_validate_json(response.content)
         except ValueError as error:
             raise HubProtocolError("Hub native transition completion receipt is invalid") from error
+
+    def submit_native_transition_state_reconciliation(
+        self,
+        installation_id: str,
+        completion: NativeScopeTransitionStateReconciliationCompletion,
+    ) -> NativeScopeTransitionStateReconciliationReceipt:
+        request = completion.approval.approval.request
+        if request.installation_id != installation_id:
+            raise ValueError(
+                "Native transition reconciliation installation binding does not match."
+            )
+        path = (
+            f"/v1/installations/{_segment(installation_id, 'installation_id')}"
+            "/native-transition-state-reconciliation"
+        )
+        response = self._post_response(
+            path,
+            completion.model_dump(mode="json"),
+            label="native transition reconciliation",
+            accepted_status=200,
+        )
+        try:
+            return NativeScopeTransitionStateReconciliationReceipt.model_validate_json(
+                response.content
+            )
+        except ValueError as error:
+            raise HubProtocolError(
+                "Hub native transition reconciliation receipt is invalid"
+            ) from error
 
     def submit_enrollment_request(
         self, installation_id: str, signed_payload: bytes, proof: bytes

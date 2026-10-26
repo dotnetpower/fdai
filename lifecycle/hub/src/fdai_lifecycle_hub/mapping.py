@@ -19,7 +19,12 @@ from fdai_lifecycle_hub.models import PlanEventKind
 
 def to_domain(session: Session, row: models.Installation) -> domain.Installation:
     latest = session.scalars(
-        row.state_reports.select().order_by(models.StateReport.observed_at.desc()).limit(1)
+        row.state_reports.select()
+        .order_by(
+            models.StateReport.observed_at.desc(),
+            models.StateReport.id.desc(),
+        )
+        .limit(1)
     ).one()
     return domain.Installation(
         installation_id=row.installation_id,
