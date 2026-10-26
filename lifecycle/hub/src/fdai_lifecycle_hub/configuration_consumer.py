@@ -23,7 +23,10 @@ from fdai_lifecycle_hub.configuration_import_trust import (
     require_audit,
     scope_for,
 )
-from fdai_lifecycle_hub.configuration_key_store import resolve_binding
+from fdai_lifecycle_hub.configuration_key_store import (
+    resolve_binding,
+    single_owner_binding_audited,
+)
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 
 
@@ -62,7 +65,10 @@ def persisted_candidate(
     if (
         approval is None
         or approval.receipt_digest != active.receipt_digest
-        or approval.approved_by == active.requested_by
+        or (
+            approval.approved_by == active.requested_by
+            and not single_owner_binding_audited(session, installation, approval.approved_by)
+        )
         or not active.imported_at
         <= approval.approved_at
         < active.imported_at + timedelta(minutes=10)

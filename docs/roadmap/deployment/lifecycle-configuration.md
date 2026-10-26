@@ -568,7 +568,8 @@ protected authorization explicitly enables single-Owner approval, the recovered 
 current, key-binding version is zero, and the matching recovery audit exists. While that exact
 authorization remains current, the same Owner may also approve the signed configuration scope and
 change that use the audited version-1 binding. The durable recovery and key-approval audits prove
-those approvals after authorization expiry. Default and production behavior, plus later key
+those approvals after authorization expiry, and active configuration consumption rechecks that
+durable proof before planning. Default and production behavior, plus later key
 rotation, still requires a different authenticated operator. This implements ADR-0003's
 full-authority development exception without accepting a caller-selected key or making language, a
 package or a Plan grant authority.
