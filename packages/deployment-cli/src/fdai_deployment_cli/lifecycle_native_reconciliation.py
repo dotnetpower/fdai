@@ -79,31 +79,36 @@ ReportedStateReadback = Annotated[
 ]
 
 
-def _legacy_millisecond_timestamp(value: object) -> object:
+def _immutable_receipt_timestamp(value: object) -> object:
     if isinstance(value, str):
         if (
             re.fullmatch(
                 (
                     r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:"
-                    r"[0-9]{2}\.[0-9]{3}Z"
+                    r"[0-9]{2}\.(?:[0-9]{3}|[0-9]{6})(?:Z|\+00:00)"
                 ),
                 value,
                 flags=re.ASCII,
             )
             is None
         ):
-            raise ValueError("legacy transition timestamp must use exact UTC milliseconds")
+            raise ValueError("immutable transition timestamp must use exact UTC precision")
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if isinstance(value, datetime) and value.utcoffset() != timedelta(0):
+        raise ValueError("immutable transition timestamp must use UTC")
     return value
 
 
-LegacyMilliseconds = Annotated[
+def _serialize_immutable_receipt_timestamp(value: datetime) -> str:
+    timespec = "milliseconds" if value.microsecond % 1000 == 0 else "microseconds"
+    return value.astimezone(UTC).isoformat(timespec=timespec).replace("+00:00", "Z")
+
+
+ImmutableReceiptTimestamp = Annotated[
     AwareDatetime,
-    BeforeValidator(_legacy_millisecond_timestamp),
+    BeforeValidator(_immutable_receipt_timestamp),
     PlainSerializer(
-        lambda value: (
-            value.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
-        ),
+        _serialize_immutable_receipt_timestamp,
         return_type=str,
     ),
 ]
@@ -164,7 +169,7 @@ def same_transition_state_fields(
 
 
 class LegacyNativeScopeTransitionReceipt(BaseModel):
-    """Immutable pre-fix receipt retaining its exact millisecond timestamp text."""
+    """Immutable pre-fix receipt whose stored bytes retain their original precision."""
 
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
@@ -182,7 +187,7 @@ class LegacyNativeScopeTransitionReceipt(BaseModel):
     recovery_request_digest: Digest
     existing_resources_digest: Digest
     rollback_record_digest: Digest
-    completed_at: LegacyMilliseconds
+    completed_at: ImmutableReceiptTimestamp
     record_digest: Digest
 
     @model_validator(mode="before")
@@ -195,6 +200,18 @@ class LegacyNativeScopeTransitionReceipt(BaseModel):
         if digest != "sha256:" + canonical_digest(document):
             raise ValueError("legacy native transition receipt digest is invalid")
         return value
+
+
+def regenerated_transition_receipt_digest(
+    receipt: LegacyNativeScopeTransitionReceipt,
+    *,
+    new_reported_state_digest: str,
+) -> str:
+    """Reproduce the Hub transition receipt without changing the immutable receipt."""
+
+    document = receipt.model_dump(mode="json", exclude={"record_digest"})
+    document["new_reported_state_digest"] = new_reported_state_digest
+    return "sha256:" + canonical_digest(document)
 
 
 class NativeScopeTransitionStateReconciliationRequest(BaseModel):

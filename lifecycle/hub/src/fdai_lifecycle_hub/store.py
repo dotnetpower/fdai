@@ -927,6 +927,16 @@ def _native_transition_holds_planning(
         .limit(2)
     )
     for record in records:
+        if record.action == "entity.native_transition_state_reconciliation_approved":
+            completed = session.scalar(
+                select(models.AuditRecord.sequence).where(
+                    models.AuditRecord.installation_id == installation.installation_id,
+                    models.AuditRecord.action == "entity.native_transition_state_reconciled",
+                    models.AuditRecord.subject == record.subject,
+                )
+            )
+            if completed is not None:
+                continue
         payload = record.payload
         source_digest = payload.get(
             "reported_state_digest",

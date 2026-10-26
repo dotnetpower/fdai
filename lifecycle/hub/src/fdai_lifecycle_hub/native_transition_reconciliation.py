@@ -12,6 +12,7 @@ from fdai_deployment_cli.lifecycle_native_reconciliation import (
     NativeScopeTransitionStateReconciliationReceipt,
     NativeScopeTransitionStateReconciliationRequest,
     SignedNativeScopeTransitionStateReconciliationApproval,
+    regenerated_transition_receipt_digest,
     same_transition_state_fields,
     sign_transition_state_reconciliation_approval,
     transition_reported_state_digest,
@@ -304,7 +305,6 @@ class NativeTransitionReconciliationStore:
             )
         if (
             completed.installation_id != installation_id
-            or completed.transition_receipt_digest != local.record_digest
             or completed.request_digest != local.request_digest
             or completed.hub_approval_digest != local.hub_approval_digest
             or completed.old_entity_id != local.old_entity_id
@@ -312,9 +312,12 @@ class NativeTransitionReconciliationStore:
             or completed.old_scope_digest != local.old_scope_digest
             or completed.new_scope_digest != local.new_scope_digest
             or completed.old_reported_state_digest != local.old_reported_state_digest
-            or completed.new_reported_state_digest != local.new_reported_state_digest
+            or completed.transition_receipt_digest
+            != regenerated_transition_receipt_digest(
+                local,
+                new_reported_state_digest=completed.new_reported_state_digest,
+            )
             or legacy.digest != local.new_reported_state_digest
-            or legacy.observed_at != local.completed_at
         ):
             raise NativeTransitionReconciliationError(
                 "native_transition_reconciliation_receipt_mismatch"
@@ -329,6 +332,7 @@ class NativeTransitionReconciliationStore:
                 [item.model_dump(mode="json") for item in native.existing_resources]
             )
             != completed.authoritative_uids_digest
+            or local.existing_resources_digest != completed.authoritative_uids_digest
             or "sha256:"
             + canonical_digest(
                 [{"kind": kind, "name": name} for kind, name in sorted(native.scope.resources)]
@@ -340,16 +344,22 @@ class NativeTransitionReconciliationStore:
             )
         if (
             not same_transition_state_fields(legacy, source)
-            or source.digest != legacy.digest
-            or transition_reported_state_digest(source, milliseconds=True) != source.digest
             or transition_reported_state_digest(legacy, milliseconds=True) != legacy.digest
-            or transition_reported_state_digest(source) == source.digest
-            or source.observed_at != completed.completed_at
+            or legacy.observed_at
+            != local.completed_at.replace(
+                microsecond=(local.completed_at.microsecond // 1000) * 1000
+            )
+            or source.observed_at != local.completed_at
+            or source.digest != completed.new_reported_state_digest
+            or source.digest != transition_reported_state_digest(source)
+            or transition_reported_state_digest(source, milliseconds=True) != legacy.digest
+            or completed.completed_at < local.completed_at
+            or source.digest == legacy.digest
         ):
             raise NativeTransitionReconciliationError(
                 "native_transition_reconciliation_non_time_difference"
             )
-        precision_delta = source.observed_at - legacy.observed_at
+        precision_delta = local.completed_at - legacy.observed_at
         if precision_delta <= timedelta(0) or precision_delta > _MAX_PRECISION_DELTA:
             raise NativeTransitionReconciliationError(
                 "native_transition_reconciliation_precision_out_of_bounds"
@@ -359,6 +369,7 @@ class NativeTransitionReconciliationStore:
             .where(
                 models.AuditRecord.installation_id == installation_id,
                 models.AuditRecord.action == _TRANSITION_COMPLETION_ACTION,
+                models.AuditRecord.payload["request_digest"].as_string() == local.request_digest,
             )
             .order_by(models.AuditRecord.sequence.desc())
             .limit(1)
@@ -367,8 +378,10 @@ class NativeTransitionReconciliationStore:
             completion is None
             or completion.payload.get("agent_principal") != completed.agent_principal
             or completion.payload.get("request_digest") != local.request_digest
-            or completion.payload.get("transition_receipt_digest") != local.record_digest
-            or completion.payload.get("new_reported_state_digest") != legacy.digest
+            or completion.payload.get("transition_receipt_digest")
+            != completed.transition_receipt_digest
+            or completion.payload.get("new_reported_state_digest")
+            != completed.new_reported_state_digest
             or completion.payload.get("receipt") != completed.model_dump(mode="json")
         ):
             raise NativeTransitionReconciliationError(

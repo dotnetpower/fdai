@@ -23,8 +23,10 @@ from fdai_deployment_cli.lifecycle_native import (
     NativeScope,
 )
 from fdai_deployment_cli.lifecycle_native_reconciliation import (
+    LegacyNativeScopeTransitionReceipt,
     NativeScopeTransitionStateReconciliationApproval,
     NativeScopeTransitionStateReconciliationReceipt,
+    regenerated_transition_receipt_digest,
     sign_transition_state_reconciliation_approval,
     transition_reported_state_digest,
 )
@@ -32,7 +34,6 @@ from fdai_deployment_cli.lifecycle_native_transition import (
     NativeScopeTransitionApproval,
     NativeScopeTransitionCompletion,
     NativeScopeTransitionCompletionReceipt,
-    NativeScopeTransitionReceipt,
     existing_resources_digest,
     hub_key_id,
     sign_transition_approval,
@@ -544,7 +545,7 @@ def test_transition_command_reuses_exact_timestamp_across_restart_retry(
 
 def _prepare_reconciliation_case(harness, tmp_path: Path):
     case = _prepare_case(harness, tmp_path)
-    transitioned_at = case.now.replace(microsecond=787000)
+    transitioned_at = case.now.replace(microsecond=787619)
     _transition(case, now=transitioned_at)
     current_document = json.loads(case.current_path.read_text(encoding="utf-8"))
     current_document["observed_at"] = transitioned_at.isoformat(timespec="milliseconds").replace(
@@ -556,28 +557,35 @@ def _prepare_reconciliation_case(harness, tmp_path: Path):
     write_json_atomically(case.current_path, current_document)
     local_document = json.loads((case.state_dir / RECEIPT_FILE_NAME).read_text(encoding="utf-8"))
     local_document.pop("record_digest")
-    local_document["completed_at"] = current_document["observed_at"]
     local_document["new_reported_state_digest"] = current_document["digest"]
     local_document["record_digest"] = "sha256:" + canonical_digest(local_document)
     (case.state_dir / RECEIPT_FILE_NAME).write_text(
         json.dumps(local_document, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
     )
-    local = NativeScopeTransitionReceipt.model_validate(local_document)
-    hub_completed_at = transitioned_at.replace(microsecond=787619)
+    local = LegacyNativeScopeTransitionReceipt.model_validate(local_document)
+    legacy = _reported_state(case.current_path)
+    full_precision_digest = transition_reported_state_digest(
+        legacy,
+        observed_at=local.completed_at,
+    )
+    hub_completed_at = transitioned_at + timedelta(hours=2)
     completion_document = {
         "schema_version": "fdai.lifecycle-native-transition-completion-receipt.v1",
         "completion_digest": "sha256:" + "1" * 64,
         "request_digest": local.request_digest,
         "hub_approval_digest": local.hub_approval_digest,
-        "transition_receipt_digest": local.record_digest,
+        "transition_receipt_digest": regenerated_transition_receipt_digest(
+            local,
+            new_reported_state_digest=full_precision_digest,
+        ),
         "installation_id": local.installation_id,
         "old_entity_id": local.old_entity_id,
         "new_entity_id": local.new_entity_id,
         "old_scope_digest": local.old_scope_digest,
         "new_scope_digest": local.new_scope_digest,
         "old_reported_state_digest": local.old_reported_state_digest,
-        "new_reported_state_digest": local.new_reported_state_digest,
+        "new_reported_state_digest": full_precision_digest,
         "object_scope_digest": "sha256:"
         + canonical_digest(
             [{"kind": kind, "name": name} for kind, name in sorted(case.approval.scope.resources)]
@@ -603,8 +611,13 @@ def _prepare_reconciliation_case(harness, tmp_path: Path):
         installation_public_key=case.recovered_public,
         now=case.now + timedelta(minutes=3),
     )
-    source = request.legacy_reported_state.model_copy(update={"observed_at": hub_completed_at})
-    authoritative = source.model_copy(update={"digest": transition_reported_state_digest(source)})
+    source = request.legacy_reported_state.model_copy(
+        update={
+            "observed_at": local.completed_at,
+            "digest": completion.new_reported_state_digest,
+        }
+    )
+    authoritative = source
     hub_key = Ed25519PrivateKey.generate()
     hub_public = hub_key.public_key().public_bytes_raw()
     approval = NativeScopeTransitionStateReconciliationApproval(
@@ -710,6 +723,56 @@ def test_reconciliation_repairs_only_current_state_and_is_idempotent(harness, tm
     assert (case.state_dir / RECONCILIATION_ROLLBACK_FILE_NAME).exists()
     assert (case.state_dir / RECONCILIATION_RECEIPT_FILE_NAME).exists()
     assert not (case.state_dir / RECONCILIATION_PENDING_FILE_NAME).exists()
+
+
+@pytest.mark.parametrize(
+    ("fault", "value"),
+    [
+        ("state-digest", "f" * 64),
+        ("transition-digest", "sha256:" + "f" * 64),
+        ("field", "different-entity"),
+        ("timestamp", None),
+    ],
+)
+def test_reconciliation_prepare_rejects_wrong_hub_digest_timestamp_or_field(
+    fault,
+    value,
+    harness,
+    tmp_path,
+) -> None:
+    case = _prepare_reconciliation_case(harness, tmp_path)
+    completion_document = case.completion.model_dump(mode="json", exclude={"receipt_digest"})
+    if fault == "state-digest":
+        completion_document["new_reported_state_digest"] = value
+    elif fault == "transition-digest":
+        completion_document["transition_receipt_digest"] = value
+    elif fault == "field":
+        completion_document["new_entity_id"] = value
+    else:
+        completion_document["completed_at"] = (
+            case.request.transition_receipt.completed_at - timedelta(microseconds=1)
+        ).isoformat()
+    completion = NativeScopeTransitionCompletionReceipt.model_validate(
+        {
+            **completion_document,
+            "receipt_digest": "sha256:" + canonical_digest(completion_document),
+        }
+    )
+    transition_receipt_before = (case.state_dir / RECEIPT_FILE_NAME).read_bytes()
+    current_state_before = case.current_path.read_bytes()
+
+    with pytest.raises(WorkloadError, match="evidence_mismatch"):
+        prepare_native_transition_state_reconciliation_request(
+            state_dir=case.state_dir,
+            current_state_path=case.current_path,
+            completion_receipt=completion,
+            native_approval=case.approval,
+            installation_public_key=case.recovered_public,
+            now=case.request.requested_at,
+        )
+
+    assert (case.state_dir / RECEIPT_FILE_NAME).read_bytes() == transition_receipt_before
+    assert case.current_path.read_bytes() == current_state_before
 
 
 def test_reconciliation_cli_submits_and_reads_back_exact_state(

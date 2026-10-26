@@ -16,6 +16,7 @@ from fdai_deployment_cli.lifecycle_native_reconciliation import (
     NativeScopeTransitionStateReconciliationReceipt,
     NativeScopeTransitionStateReconciliationRequest,
     SignedNativeScopeTransitionStateReconciliationApproval,
+    regenerated_transition_receipt_digest,
     same_transition_state_fields,
     transition_reported_state_digest,
 )
@@ -272,6 +273,11 @@ def _validate_local_evidence(
     proof = native.proof
     if proof is None or not proof.verify(installation_public_key):
         raise WorkloadError("native_transition_reconciliation_native_proof_invalid")
+    precision_delta = local.completed_at - legacy.observed_at
+    full_precision_digest = transition_reported_state_digest(
+        legacy,
+        observed_at=local.completed_at,
+    )
     if (
         native.scope != approval.scope
         or native.scope.installation_id != local.installation_id
@@ -279,7 +285,6 @@ def _validate_local_evidence(
         or native.scope.digest != local.new_scope_digest
         or proof.claim.digest != local.ownership_claim_digest
         or completion.installation_id != local.installation_id
-        or completion.transition_receipt_digest != local.record_digest
         or completion.request_digest != local.request_digest
         or completion.hub_approval_digest != local.hub_approval_digest
         or completion.old_entity_id != local.old_entity_id
@@ -287,15 +292,25 @@ def _validate_local_evidence(
         or completion.old_scope_digest != local.old_scope_digest
         or completion.new_scope_digest != local.new_scope_digest
         or completion.old_reported_state_digest != local.old_reported_state_digest
-        or completion.new_reported_state_digest != local.new_reported_state_digest
+        or completion.new_reported_state_digest != full_precision_digest
+        or completion.transition_receipt_digest
+        != regenerated_transition_receipt_digest(
+            local,
+            new_reported_state_digest=completion.new_reported_state_digest,
+        )
         or existing_resources_digest(
             [item.model_dump(mode="json") for item in approval.existing_resources]
         )
         != completion.authoritative_uids_digest
+        or local.existing_resources_digest != completion.authoritative_uids_digest
         or legacy.digest != local.new_reported_state_digest
-        or legacy.observed_at != local.completed_at
         or transition_reported_state_digest(legacy, milliseconds=True) != legacy.digest
-        or transition_reported_state_digest(legacy) == legacy.digest
+        or legacy.observed_at
+        != local.completed_at.replace(microsecond=(local.completed_at.microsecond // 1000) * 1000)
+        or precision_delta <= timedelta(0)
+        or precision_delta > _MAX_PRECISION_DELTA
+        or completion.completed_at < local.completed_at
+        or full_precision_digest == legacy.digest
     ):
         raise WorkloadError("native_transition_reconciliation_evidence_mismatch")
 
@@ -307,17 +322,14 @@ def _validate_authoritative_approval(
     source = approval.source_hub_reported_state
     authoritative = approval.authoritative_reported_state
     legacy = request.legacy_reported_state
-    delta = source.observed_at - legacy.observed_at
     if (
         not same_transition_state_fields(legacy, source)
-        or not same_transition_state_fields(source, authoritative)
-        or source.digest != legacy.digest
-        or source.observed_at != request.completion_receipt.completed_at
-        or delta <= timedelta(0)
-        or delta > _MAX_PRECISION_DELTA
-        or authoritative.observed_at != source.observed_at
-        or authoritative.digest != transition_reported_state_digest(source)
-        or authoritative.digest == source.digest
+        or source.observed_at != request.transition_receipt.completed_at
+        or source.digest != request.completion_receipt.new_reported_state_digest
+        or source.digest != transition_reported_state_digest(source)
+        or source.digest == legacy.digest
+        or authoritative != source
+        or request.completion_receipt.completed_at < source.observed_at
     ):
         raise WorkloadError("native_transition_reconciliation_authoritative_state_invalid")
 

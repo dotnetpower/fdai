@@ -698,6 +698,8 @@ accepts this only when both values are identical, the action is `no-op`, and the
 Legacy completed transitions with a sub-millisecond state timestamp mismatch use the authenticated
 reconciliation command. It preserves the immutable transition receipt and rewrites only the
 Agent's durable current state to the Hub-authoritative canonical timestamp and digest.
+Legacy receipt validation keeps the stored receipt digest unchanged while independently verifying
+the millisecond state digest and the full-precision Hub completion digest.
 The prerequisite root owns only the identities, federated credentials, ServiceAccounts,
 SecretProviderClasses, ConfigMaps and secret bindings that this inventory references. It does not
 create any managed Deployment, Service, HorizontalPodAutoscaler or CronJob.
