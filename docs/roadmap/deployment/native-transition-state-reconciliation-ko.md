@@ -1,7 +1,7 @@
 ---
 title: 네이티브 전환 상태 조정
 translation_of: native-transition-state-reconciliation.md
-translation_source_sha: 1b75152a0b247b917de9b28f6582c65e147948c5
+translation_source_sha: 245a13554ec1c478effe2472ec674f2c6aac958d
 translation_revised: 2026-10-27
 ---
 # 네이티브 전환 상태 조정
@@ -9,6 +9,9 @@ translation_revised: 2026-10-27
 이 설계는 Agent 상태가 밀리초 타임스탬프를 사용하고 Hub 완료 기록은 같은 시각을 더 높은
 정밀도로 보존한 이전 네이티브 전환을 제한적으로 복구하는 방법을 정의합니다. 일반 상태 복구나
 증적 다시 쓰기를 허용하지 않습니다.
+
+> **구현 원장:** 전달 근거는
+> [네이티브 전환 상태 조정 구현 원장](../../roadmap-implementation/deployment/native-transition-state-reconciliation.md)에서 추적합니다.
 
 ## 이 문서에서 다루는 내용
 

@@ -7,6 +7,9 @@ This design defines the bounded recovery for a legacy native transition whose Ag
 millisecond timestamp while the Hub completion retained the same instant at greater precision. It
 does not permit general state repair or receipt rewriting.
 
+> **Implementation ledger:** Delivery evidence is tracked in the
+> [native transition state reconciliation implementation ledger](../../roadmap-implementation/deployment/native-transition-state-reconciliation.md).
+
 ## What this doc covers
 
 The Hub completion timestamp is authoritative. The immutable transition receipt remains unchanged,
