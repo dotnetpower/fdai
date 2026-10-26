@@ -543,7 +543,7 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   such as `inventory_observation_pending`, beside `resource_scope_incomplete`, settles an unobserved
   Resource as not matching only when the reviewed `UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE`
   declaration in `fdai_service_contracts/recorded_resource_state.py` excludes every requested state,
-  establishes running from a fresh `Available` fact only for a reviewed running-only lifecycle, and
+  establishes running from a fresh `Available` fact, or from an observed `Ready` for `postgresql-server` and `mysql-server`, only for a reviewed running-only lifecycle, and
   `query_source_handlers.py` logs the content-free materialization, refresh, and receipt timings of
   each ObjectSet read.
   `delivery/persistence/postgres_inventory_reconciliation.py` makes collection due when the
@@ -924,7 +924,7 @@ It preserves custom bindings and couples V-CLAIM/independent review to a durable
 Missing prerequisites hold; this cannot certify live truth or grant action or package authority.
 
 The complete seam catalog, including current-source read admission and governed typed-selection composition, is in [Project Structure Dependency Injection](project-structure-dependency-injection.md).
-Core result-handle storage follows the same rule: `ResultHandleStore` is injected at Core composition, with an in-memory local implementation and a PostgreSQL implementation that keep encrypted handle bodies Core-owned while Operator persists only opaque references. Ordinal follow-up binding over those references stays inside the default-off compiled-answer shadow path and adds no execution authority.
+Core result-handle storage follows the same rule: `ResultHandleStore` is injected at Core composition, with an in-memory local implementation and a PostgreSQL implementation that keep encrypted handle bodies Core-owned while Operator persists only opaque references. Ordinal follow-up binding over those references stays inside the default-off compiled-answer shadow path and adds no execution authority. Core composition builds the store only when `conversation.result_handles.enabled` is on and its database and key material exist, and otherwise keeps it off.
 The Core `ModelEvidenceView` builder is likewise a read-only conversation boundary: adaptive model evidence reads receive only the allowlisted projection, never raw query tables, provider bodies, handles, or retained snapshot cells. Verified-answer authoring uses a shared no-authority proposition contract and default-off author/reviewer ports; it does not change the current answer path until a promoted binding enables it.
 Azure operational evidence composition may inject a retained current-reuse source writer alongside the existing snapshot, safety, metric, branch, and effect-model seams. The writer only records verifier-readable evidence for `current-case-reuse`; it does not grant approval, execution, or promotion authority.
 

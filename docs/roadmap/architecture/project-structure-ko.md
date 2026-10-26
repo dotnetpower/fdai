@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 4cb242a8f4272cf19df6a39204de5440dea5db1c
+translation_source_sha: dba030f7c27f5509d697d4963bc3f40878c6c7bd
 translation_revised: 2026-10-26
 ---
 # 프로젝트 구조
@@ -547,7 +547,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   옆에 `inventory_observation_pending` 같은 타입 지정 원본 사유를 유지하며,
   `fdai_service_contracts/recorded_resource_state.py`의 검토된 `UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE`
   선언이 요청한 모든 상태를 제외할 때만 관측되지 않은 리소스를 조건에 맞지 않는 것으로 확정하며,
-  검토된 실행 중 전용 수명 주기에서만 신선한 `Available` 관측으로 실행 중을 확정하고,
+  검토된 실행 중 전용 수명 주기에서만 신선한 `Available` 관측으로(`postgresql-server`와 `mysql-server`는 관측된 `Ready`로) 실행 중을 확정하고,
   `query_source_handlers.py`는 ObjectSet 조회마다 내용 없이 구체화, 갱신, 영수증 단계의 시간을 기록합니다.
   `delivery/persistence/postgres_inventory_reconciliation.py`는 기존 온톨로지 변환 매니페스트가 활성 세대나
   `delivery/inventory_ontology_observer.py`가 프로세스마다 한 번 만드는 실행 중 release와 더 이상 맞지 않으면
@@ -918,7 +918,7 @@ USD 가격, 신원/클라이언트 및 계측이 있을 때 검증된 기본 표
 전제조건이 없으면 보류하며 실시간 사실을 인증하거나 작업 및 패키지 권한을 부여할 수 없습니다.
 
 현재 원본의 읽기 허용 검사와 적용 승인을 거치는 타입 선택 구성을 포함한 전체 경계 카탈로그는 [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)을 참조하세요.
-Core 결과 핸들 저장소도 같은 규칙을 따릅니다. `ResultHandleStore`는 Core 조립에서 주입되며, 인메모리 로컬 구현과 PostgreSQL 구현은 암호화된 핸들 본문을 Core 소유로 유지하고 Operator에는 불투명 참조만 영속화하게 합니다. 해당 참조의 서수 후속 질문 바인딩은 기본적으로 꺼진 compiled-answer shadow 경로 안에 머물며 실행 권한을 추가하지 않습니다.
+Core 결과 핸들 저장소도 같은 규칙을 따릅니다. `ResultHandleStore`는 Core 조립에서 주입되며, 인메모리 로컬 구현과 PostgreSQL 구현은 암호화된 핸들 본문을 Core 소유로 유지하고 Operator에는 불투명 참조만 영속화하게 합니다. 해당 참조의 서수 후속 질문 바인딩은 기본적으로 꺼진 compiled-answer shadow 경로 안에 머물며 실행 권한을 추가하지 않습니다. Core 조립은 `conversation.result_handles.enabled`가 켜져 있고 데이터베이스와 키 자료가 있을 때만 저장소를 만들며, 그렇지 않으면 꺼 둡니다.
 Core `ModelEvidenceView` 빌더도 읽기 전용 대화 경계입니다. 적응형 모델 근거 읽기는 원시 조회 표,
 프로바이더 본문, 핸들 또는 보관된 스냅숏 셀이 아니라 허용 목록이 적용된 변환 결과만 받습니다.
 검증된 답변 작성은 공유된 권한 없는 명제 계약과 기본값이 꺼진 작성자/검토자 포트를 사용하며, 승격된

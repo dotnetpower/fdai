@@ -163,9 +163,6 @@ approved grant, and fresh effective-access evidence is required before the actio
 - **Fail-closed**: if the secret injection layer or token issuer is unavailable at startup, the
   process fails fast - it does not fall back to a cached or embedded credential and never
   starts in a degraded state.
-- The result-handle material that binds a stored list reference to its conversation is one random
-  Key Vault secret. Only the Core identity reads it, and it never leaves Core. Core keeps the feature
-  off when the material or its database is missing.
 - Secrets MUST NOT appear in logs, audit entries, error messages, test fixtures, or LLM prompts.
 - Keep the repo customer-agnostic
   ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).

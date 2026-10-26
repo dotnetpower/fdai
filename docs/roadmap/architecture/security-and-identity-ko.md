@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 26df54e58aced5eb725cc256f908d3e65ded6750
-translation_revised: 2026-10-26
+translation_source_sha: 1dfd31c11f8a2a5726640d9fa74ea872e6c056b2
+translation_revised: 2026-10-23
 ---
 
 # 보안과 아이덴티티
@@ -161,8 +161,6 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - **실패 시 차단**: 시크릿 주입 레이어 또는 토큰 발급자가 시작 시 사용 불가하면 프로세스가
   fail fast - 캐시된 또는 임베디드 자격증명으로 대체 경로 하지 않으며 degraded 상태 로
   시작하지 않음.
-- 저장된 목록 참조를 대화에 묶는 결과 핸들 자료는 무작위 Key Vault 시크릿 하나입니다. Core 신원만 읽고 Core 밖으로
-  나가지 않으며, 자료나 데이터베이스가 없으면 Core는 이 기능을 끈 상태로 둡니다.
 - 시크릿은 로그, 감사 엔트리, 에러 메시지, 테스트 픽스처, LLM 프롬프트에 등장하면 안 됨.
 - 저장소를 고객-비종속으로 유지
   ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
