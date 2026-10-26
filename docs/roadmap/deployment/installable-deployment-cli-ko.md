@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 96f4915430a767ac2f8be312f36c0c2c6a5db51b
-translation_revised: 2026-10-25
+translation_source_sha: b7bcc175624d753e69fd2d531ffff16e65f2be4b
+translation_revised: 2026-10-27
 ---
 
 # 설치형 배포 CLI
@@ -759,6 +759,12 @@ Plan 검사도 포함합니다. `canonical_plan_payload`는 Hub 키가 서명하
 `decode_canonical_plan_payload`는 그 바이트를 다시 Plan으로 해석합니다. 디코더는 알 수 없거나
 빠졌거나 타입이 잘못된 필드와 시간대가 없는 만료 시각을 거부합니다. 서명은 검증하지 않으므로,
 에이전트는 `evaluate_plan_admission`이 수용한 Plan만 신뢰합니다.
+
+공유 [네이티브 전환 상태 조정](native-transition-state-reconciliation-ko.md) 계약은 이전 원본
+상태와 엄격한 명령 대상을 구분합니다. 이전 `available_artifact_digests`는 다이제스트 검증을
+위해 저장된 순서와 중복을 보존합니다. 권위 있는 대상은 멀티셋과 의미상 재고가 동등한지
+검증한 뒤에만 만들며, 결정적으로 정렬하고 중복을 제거합니다. 이러한 순수 계약은 승인이나
+실행 권한을 부여하지 않습니다.
 
 ## Standalone 배포 순서
 

@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
+import pytest
+
+from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.lifecycle_native_reconciliation import (
+    LegacyNativeScopeTransitionReportedState,
     LegacyNativeScopeTransitionReceipt,
+    canonical_transition_reported_state,
     regenerated_transition_receipt_digest,
     same_transition_state_fields,
+    same_transition_state_semantic_inventory,
     transition_reported_state_digest,
 )
 from fdai_deployment_cli.lifecycle_native_transition import (
@@ -89,7 +96,7 @@ def test_exact_live_receipt_preserves_immutable_and_regenerated_digests() -> Non
             ),
         }
     )
-    state = NativeScopeTransitionReportedState(
+    state = LegacyNativeScopeTransitionReportedState(
         digest="607467ac39f2b850df618896e0e8e65e96c61b59df0821812ca4ce6f619182eb",
         schema_revision=0,
         entities={
@@ -115,7 +122,10 @@ def test_exact_live_receipt_preserves_immutable_and_regenerated_digests() -> Non
         observed_at=receipt.completed_at,
     )
 
+    serialized_state = state.model_dump_json()
     assert transition_reported_state_digest(state, milliseconds=True) == state.digest
+    assert json.loads(serialized_state)["observed_at"] == "2026-10-26T14:32:49.787Z"
+    assert LegacyNativeScopeTransitionReportedState.model_validate_json(serialized_state) == state
     assert (
         full_precision_digest == "56fc0a52baf79eee894f942456cd1d5d3203f32141e6e7cb0ab8069e74b1a472"
     )
@@ -126,3 +136,89 @@ def test_exact_live_receipt_preserves_immutable_and_regenerated_digests() -> Non
         )
         == "sha256:6b1a3839fdc4caf6a8214219a483ab69a085c2b54c7b5fdbe4e5fba48d1e6452"
     )
+
+
+def _legacy_state(
+    artifacts: tuple[str, ...],
+    *,
+    health: str = "unknown",
+    digest: str | None = None,
+) -> LegacyNativeScopeTransitionReportedState:
+    document = {
+        "schema_revision": 0,
+        "entities": {
+            "fdai-workloads": {
+                "release_id": None,
+                "artifact_digests": [],
+                "health": health,
+            }
+        },
+        "observed_at": "2026-10-26T14:32:49.787619Z",
+        "available_artifact_digests": list(artifacts),
+    }
+    return LegacyNativeScopeTransitionReportedState.model_validate_json(
+        json.dumps(
+            {
+                "digest": digest or canonical_digest(document),
+                **document,
+            }
+        )
+    )
+
+
+def test_legacy_state_preserves_exact_live_artifact_order_and_duplicates() -> None:
+    first = "sha256:0aa882847026bb66d88d1d96fbb8e2cb1284bf05b45f3c92c838436da98659dc"
+    second = "sha256:3fb1717f3b1c034a6aca04802695d3dda6258895cd1b550d1c48db9d0b25c08f"
+    stored = (second, first, second)
+
+    source = _legacy_state(stored)
+    target = canonical_transition_reported_state(source)
+
+    assert source.available_artifact_digests == stored
+    assert source.digest == transition_reported_state_digest(source)
+    assert target.available_artifact_digests == (first, second)
+    assert target.digest == transition_reported_state_digest(target)
+    assert source.digest != target.digest
+    assert same_transition_state_semantic_inventory(source, target)
+
+
+def test_legacy_state_requires_exact_stored_digest() -> None:
+    artifact = "sha256:0aa882847026bb66d88d1d96fbb8e2cb1284bf05b45f3c92c838436da98659dc"
+
+    with pytest.raises(ValueError, match="reported state digest is invalid"):
+        _legacy_state((artifact, artifact), digest="f" * 64)
+
+
+def test_legacy_state_equivalence_distinguishes_multiset_and_non_artifact_fields() -> None:
+    first = "sha256:0aa882847026bb66d88d1d96fbb8e2cb1284bf05b45f3c92c838436da98659dc"
+    second = "sha256:3fb1717f3b1c034a6aca04802695d3dda6258895cd1b550d1c48db9d0b25c08f"
+    source = _legacy_state((second, first, second))
+    reordered = _legacy_state((first, second, second))
+    missing_duplicate = _legacy_state((first, second))
+    changed_health = _legacy_state((second, first, second), health="degraded")
+
+    assert same_transition_state_fields(source, reordered)
+    assert not same_transition_state_fields(source, missing_duplicate)
+    assert not same_transition_state_fields(source, changed_health)
+    assert same_transition_state_semantic_inventory(source, missing_duplicate)
+    assert not same_transition_state_semantic_inventory(source, changed_health)
+
+
+def test_strict_reconciliation_target_rejects_unsorted_artifacts() -> None:
+    first = "sha256:0aa882847026bb66d88d1d96fbb8e2cb1284bf05b45f3c92c838436da98659dc"
+    second = "sha256:3fb1717f3b1c034a6aca04802695d3dda6258895cd1b550d1c48db9d0b25c08f"
+
+    with pytest.raises(ValueError, match="unique and sorted"):
+        NativeScopeTransitionReportedState(
+            digest="f" * 64,
+            schema_revision=0,
+            entities={
+                "fdai-workloads": NativeScopeTransitionEntityState(
+                    release_id=None,
+                    artifact_digests=(),
+                    health="unknown",
+                )
+            },
+            observed_at=datetime.fromisoformat("2026-10-26T14:32:49.787619+00:00"),
+            available_artifact_digests=(second, first),
+        )

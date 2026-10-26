@@ -22,10 +22,12 @@ from fdai_deployment_cli.lifecycle_native import (
 )
 from fdai_deployment_cli.lifecycle_native_reconciliation import (
     LegacyNativeScopeTransitionReceipt,
+    LegacyNativeScopeTransitionReportedState,
     NativeScopeTransitionStateReconciliationCompletion,
     NativeScopeTransitionStateReconciliationRequest,
     SignedNativeScopeTransitionStateReconciliationApproval,
     regenerated_transition_receipt_digest,
+    same_transition_state_semantic_inventory,
     transition_reported_state_digest,
 )
 from fdai_deployment_cli.lifecycle_native_transition import (
@@ -799,26 +801,37 @@ def test_exact_concurrent_completion_returns_one_receipt(completion_case) -> Non
         )
 
 
-def _legacy_reconciliation_case(case, monkeypatch):
+def _legacy_reconciliation_case(
+    case,
+    monkeypatch,
+    *,
+    available_artifacts: tuple[str, ...] | None = None,
+):
     local_at = case.now.replace(microsecond=787000) + timedelta(minutes=2)
     transition_at = case.now.replace(microsecond=787619) + timedelta(minutes=2)
     legacy_document = case.completion.reported_state.model_dump(mode="json")
-    legacy_document["observed_at"] = local_at.isoformat().replace("+00:00", "Z")
-    legacy_document["digest"] = transition_reported_state_digest(
-        case.completion.reported_state.model_copy(update={"observed_at": local_at}),
-        milliseconds=True,
+    legacy_document["observed_at"] = local_at.isoformat(timespec="milliseconds").replace(
+        "+00:00", "Z"
     )
-    legacy_state = NativeScopeTransitionReportedState.model_validate_json(
+    if available_artifacts is not None:
+        legacy_document["available_artifact_digests"] = list(available_artifacts)
+    legacy_digest_document = {
+        key: value for key, value in legacy_document.items() if key != "digest"
+    }
+    if legacy_digest_document["available_artifact_digests"] is None:
+        legacy_digest_document.pop("available_artifact_digests")
+    legacy_document["digest"] = canonical_digest(legacy_digest_document)
+    legacy_state = LegacyNativeScopeTransitionReportedState.model_validate_json(
         json.dumps(legacy_document)
     )
-    source = legacy_state.model_copy(
-        update={
-            "observed_at": transition_at,
-            "digest": transition_reported_state_digest(
-                legacy_state,
-                observed_at=transition_at,
-            ),
-        }
+    source_document = legacy_state.model_dump(mode="json")
+    source_document["observed_at"] = transition_at.isoformat().replace("+00:00", "Z")
+    source_document["digest"] = transition_reported_state_digest(
+        legacy_state,
+        observed_at=transition_at,
+    )
+    source = LegacyNativeScopeTransitionReportedState.model_validate_json(
+        json.dumps(source_document)
     )
     receipt_document = case.completion.transition_receipt.model_dump(mode="json")
     receipt_document.pop("record_digest")
@@ -861,6 +874,18 @@ def _legacy_reconciliation_case(case, monkeypatch):
         now=transition_at + timedelta(hours=2),
         key=case.key,
     )
+    if available_artifacts is not None:
+        with Session(case.store.engine) as session, session.begin():
+            latest = session.scalars(
+                select(models.StateReport)
+                .where(models.StateReport.installation_id == case.installation.installation_id)
+                .order_by(
+                    models.StateReport.observed_at.desc(),
+                    models.StateReport.id.desc(),
+                )
+                .limit(1)
+            ).one()
+            latest.available_artifact_digests = list(available_artifacts)
     requested_at = transition_at + timedelta(hours=2, seconds=1)
     request_values = {
         "schema_version": ("fdai.lifecycle-native-transition-state-reconciliation-request.v1"),
@@ -886,6 +911,98 @@ def _legacy_reconciliation_case(case, monkeypatch):
     )
 
 
+def test_hub_reconciles_exact_legacy_duplicate_inventory_and_retries(
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    first = "sha256:0aa882847026bb66d88d1d96fbb8e2cb1284bf05b45f3c92c838436da98659dc"
+    second = "sha256:3fb1717f3b1c034a6aca04802695d3dda6258895cd1b550d1c48db9d0b25c08f"
+    stored = (second, first, second)
+    legacy = _legacy_reconciliation_case(
+        case,
+        monkeypatch,
+        available_artifacts=stored,
+    )
+    service = NativeTransitionReconciliationStore(case.store)
+
+    approved = service.approve(
+        case.installation.installation_id,
+        legacy.request,
+        operator="requester",
+        now=legacy.requested_at + timedelta(seconds=1),
+        key=case.key,
+    )
+    approval = approved.approval
+    assert approval.source_hub_reported_state.available_artifact_digests == stored
+    assert approval.source_hub_reported_state.digest == legacy.source.digest
+    assert approval.authoritative_reported_state.available_artifact_digests == (first, second)
+    assert approval.authoritative_reported_state.digest != approval.source_hub_reported_state.digest
+    unsorted_target = approval.authoritative_reported_state.model_copy(
+        update={"available_artifact_digests": (second, first)}
+    )
+    with pytest.raises(ValueError, match="unique and sorted"):
+        NativeScopeTransitionStateReconciliationCompletion(
+            schema_version=("fdai.lifecycle-native-transition-state-reconciliation-completion.v1"),
+            approval=approved,
+            reported_state=unsorted_target,
+        )
+    command = NativeScopeTransitionStateReconciliationCompletion(
+        schema_version="fdai.lifecycle-native-transition-state-reconciliation-completion.v1",
+        approval=approved,
+        reported_state=approval.authoritative_reported_state,
+    )
+
+    receipt = service.complete(
+        case.installation.installation_id,
+        command,
+        principal="agent-executor",
+        now=legacy.requested_at + timedelta(seconds=2),
+        key=case.key,
+    )
+    retry = NativeTransitionReconciliationStore(type(case.store)(case.store.engine)).complete(
+        case.installation.installation_id,
+        command,
+        principal="agent-executor",
+        now=legacy.request.expires_at + timedelta(days=1),
+        key=case.key,
+    )
+
+    assert retry == receipt
+    assert receipt.authoritative_reported_state.available_artifact_digests == (first, second)
+
+
+def test_hub_reconciliation_rejects_invalid_stored_source_digest(
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    with Session(case.store.engine) as session, session.begin():
+        latest = session.scalars(
+            select(models.StateReport)
+            .where(models.StateReport.installation_id == case.installation.installation_id)
+            .order_by(
+                models.StateReport.observed_at.desc(),
+                models.StateReport.id.desc(),
+            )
+            .limit(1)
+        ).one()
+        latest.digest = "f" * 64
+
+    with pytest.raises(
+        NativeTransitionReconciliationError,
+        match="source_state_invalid",
+    ):
+        NativeTransitionReconciliationStore(case.store).approve(
+            case.installation.installation_id,
+            legacy.request,
+            operator="requester",
+            now=legacy.requested_at + timedelta(seconds=1),
+            key=case.key,
+        )
+
+
 def test_hub_reconciles_exact_legacy_timestamp_state_and_returns_exact_retry(
     completion_case,
     monkeypatch,
@@ -906,7 +1023,8 @@ def test_hub_reconciles_exact_legacy_timestamp_state_and_returns_exact_retry(
     authoritative = approved.approval.authoritative_reported_state
     assert authoritative.observed_at.isoformat().endswith(".787619+00:00")
     assert authoritative.digest == transition_reported_state_digest(authoritative)
-    assert authoritative == legacy.source
+    assert same_transition_state_semantic_inventory(authoritative, legacy.source)
+    assert authoritative.digest == legacy.source.digest
     assert authoritative.digest != legacy.request.legacy_reported_state.digest
     with Session(case.store.engine) as session:
         row = session.get(models.Installation, case.installation.installation_id)

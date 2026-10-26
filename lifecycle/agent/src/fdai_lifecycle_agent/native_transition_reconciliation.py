@@ -11,6 +11,7 @@ from uuid import uuid4
 from fdai_deployment_cli.lifecycle_native import NativeApproval
 from fdai_deployment_cli.lifecycle_native_reconciliation import (
     LegacyNativeScopeTransitionReceipt,
+    LegacyNativeScopeTransitionReportedState,
     NativeScopeTransitionStateReconciliationApproval,
     NativeScopeTransitionStateReconciliationCompletion,
     NativeScopeTransitionStateReconciliationReceipt,
@@ -18,6 +19,7 @@ from fdai_deployment_cli.lifecycle_native_reconciliation import (
     SignedNativeScopeTransitionStateReconciliationApproval,
     regenerated_transition_receipt_digest,
     same_transition_state_fields,
+    same_transition_state_semantic_inventory,
     transition_reported_state_digest,
 )
 from fdai_deployment_cli.lifecycle_native_transition import (
@@ -68,7 +70,7 @@ def prepare_native_transition_state_reconciliation_request(
     with LocalStateStore(state_dir).lock():
         _require_idle(state_dir)
         local = _transition_receipt(state_dir)
-        legacy = _reported_state(current_state_path)
+        legacy = _legacy_reported_state(current_state_path)
         native = _require_native_state(NativeStateStore(state_dir).path)
         _validate_local_evidence(
             local,
@@ -180,7 +182,7 @@ def reconcile_native_transition_state(
             raise WorkloadError("native_transition_reconciliation_record_conflict")
         _require_idle(state_dir)
         local = _transition_receipt(state_dir)
-        legacy = _reported_state(current_state_path)
+        legacy = _legacy_reported_state(current_state_path)
         native = _require_native_state(NativeStateStore(state_dir).path)
         _validate_local_evidence(
             local,
@@ -263,7 +265,7 @@ def reconcile_native_transition_state(
 def _validate_local_evidence(
     local: LegacyNativeScopeTransitionReceipt,
     completion: NativeScopeTransitionCompletionReceipt,
-    legacy: NativeScopeTransitionReportedState,
+    legacy: LegacyNativeScopeTransitionReportedState,
     approval: NativeApproval,
     native: object,
     installation_public_key: bytes,
@@ -328,7 +330,8 @@ def _validate_authoritative_approval(
         or source.digest != request.completion_receipt.new_reported_state_digest
         or source.digest != transition_reported_state_digest(source)
         or source.digest == legacy.digest
-        or authoritative != source
+        or not same_transition_state_semantic_inventory(source, authoritative)
+        or authoritative.digest != transition_reported_state_digest(authoritative)
         or request.completion_receipt.completed_at < source.observed_at
     ):
         raise WorkloadError("native_transition_reconciliation_authoritative_state_invalid")
@@ -388,6 +391,15 @@ def _reported_state(path: Path) -> NativeScopeTransitionReportedState:
         raw = read_limited(path, limit=1024 * 1024, label="native transition reconciliation state")
         load_json(raw, label="native transition reconciliation state")
         return NativeScopeTransitionReportedState.model_validate_json(raw)
+    except (OSError, ValueError) as error:
+        raise WorkloadError("native_transition_reconciliation_state_invalid") from error
+
+
+def _legacy_reported_state(path: Path) -> LegacyNativeScopeTransitionReportedState:
+    try:
+        raw = read_limited(path, limit=1024 * 1024, label="native transition reconciliation state")
+        load_json(raw, label="native transition reconciliation state")
+        return LegacyNativeScopeTransitionReportedState.model_validate_json(raw)
     except (OSError, ValueError) as error:
         raise WorkloadError("native_transition_reconciliation_state_invalid") from error
 

@@ -756,6 +756,12 @@ Plan. The decoder rejects unknown, missing, or mistyped fields and an expiry wit
 doesn't verify the signature, so an agent trusts a decoded Plan only after `evaluate_plan_admission`
 admits it.
 
+The shared [native transition state reconciliation](native-transition-state-reconciliation.md)
+contract also distinguishes legacy source state from the strict command target. Legacy
+`available_artifact_digests` retains stored order and duplicates for digest verification. The
+authoritative target is derived only after multiset and semantic inventory checks, then uses a
+deterministic unique sort. These pure contracts grant no approval or execution authority.
+
 ## Standalone deployment sequence
 
 The coordinator performs these stages in order:

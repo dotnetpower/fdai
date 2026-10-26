@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import re
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, Literal, Self
 from uuid import UUID
@@ -30,6 +31,7 @@ from fdai_deployment_cli.lifecycle_native import Digest, NativeApproval, PathId
 from fdai_deployment_cli.lifecycle_native_transition import (
     HexDigest,
     NativeScopeTransitionCompletionReceipt,
+    NativeScopeTransitionEntityState,
     NativeScopeTransitionReportedState,
     hub_key_id,
 )
@@ -37,9 +39,50 @@ from fdai_deployment_cli.lifecycle_native_transition import (
 Actor = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9@._ -]{0,127}$")]
 
 
-def _reported_state(value: object) -> object:
+def _serialize_reported_state_timestamp(value: datetime) -> str:
+    timespec = "milliseconds" if value.microsecond % 1000 == 0 else "microseconds"
+    return value.astimezone(UTC).isoformat(timespec=timespec).replace("+00:00", "Z")
+
+
+LegacyReportedStateTimestamp = Annotated[
+    AwareDatetime,
+    PlainSerializer(
+        _serialize_reported_state_timestamp,
+        return_type=str,
+    ),
+]
+
+
+class LegacyNativeScopeTransitionReportedState(BaseModel):
+    """Exact legacy state whose artifact inventory retains its stored sequence."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    digest: HexDigest
+    schema_revision: Annotated[int, Field(ge=0, le=2**31 - 1)]
+    entities: dict[PathId, NativeScopeTransitionEntityState]
+    observed_at: LegacyReportedStateTimestamp
+    available_artifact_digests: tuple[Digest, ...] | None = None
+
+    @model_validator(mode="after")
+    def validate_stored_digest(self) -> Self:
+        document = self.model_dump(mode="json", exclude={"digest"})
+        if self.available_artifact_digests is None:
+            document.pop("available_artifact_digests")
+        if self.digest != canonical_digest(document):
+            raise ValueError("legacy transition reported state digest is invalid")
+        return self
+
+
+def _strict_reported_state(value: object) -> object:
     if isinstance(value, dict):
         return NativeScopeTransitionReportedState.model_validate_json(canonical_bytes(value))
+    return value
+
+
+def _legacy_reported_state(value: object) -> object:
+    if isinstance(value, dict):
+        return LegacyNativeScopeTransitionReportedState.model_validate_json(canonical_bytes(value))
     return value
 
 
@@ -73,9 +116,13 @@ def _signed_reconciliation_approval(value: object) -> object:
     return value
 
 
-ReportedStateReadback = Annotated[
+StrictReportedStateReadback = Annotated[
     NativeScopeTransitionReportedState,
-    BeforeValidator(_reported_state),
+    BeforeValidator(_strict_reported_state),
+]
+LegacyReportedStateReadback = Annotated[
+    LegacyNativeScopeTransitionReportedState,
+    BeforeValidator(_legacy_reported_state),
 ]
 
 
@@ -99,23 +146,18 @@ def _immutable_receipt_timestamp(value: object) -> object:
     return value
 
 
-def _serialize_immutable_receipt_timestamp(value: datetime) -> str:
-    timespec = "milliseconds" if value.microsecond % 1000 == 0 else "microseconds"
-    return value.astimezone(UTC).isoformat(timespec=timespec).replace("+00:00", "Z")
-
-
 ImmutableReceiptTimestamp = Annotated[
     AwareDatetime,
     BeforeValidator(_immutable_receipt_timestamp),
     PlainSerializer(
-        _serialize_immutable_receipt_timestamp,
+        _serialize_reported_state_timestamp,
         return_type=str,
     ),
 ]
 
 
 def transition_reported_state_document(
-    state: NativeScopeTransitionReportedState,
+    state: LegacyNativeScopeTransitionReportedState | NativeScopeTransitionReportedState,
     *,
     observed_at: datetime | None = None,
     milliseconds: bool = False,
@@ -143,7 +185,7 @@ def transition_reported_state_document(
 
 
 def transition_reported_state_digest(
-    state: NativeScopeTransitionReportedState,
+    state: LegacyNativeScopeTransitionReportedState | NativeScopeTransitionReportedState,
     *,
     observed_at: datetime | None = None,
     milliseconds: bool = False,
@@ -158,14 +200,69 @@ def transition_reported_state_digest(
 
 
 def same_transition_state_fields(
-    left: NativeScopeTransitionReportedState,
-    right: NativeScopeTransitionReportedState,
+    left: LegacyNativeScopeTransitionReportedState | NativeScopeTransitionReportedState,
+    right: LegacyNativeScopeTransitionReportedState | NativeScopeTransitionReportedState,
 ) -> bool:
+    """Compare non-time fields while preserving exact artifact multiplicity."""
+
+    left_artifacts = left.available_artifact_digests
+    right_artifacts = right.available_artifact_digests
     return (
         left.schema_revision == right.schema_revision
         and left.entities == right.entities
-        and left.available_artifact_digests == right.available_artifact_digests
+        and (
+            left_artifacts is None
+            and right_artifacts is None
+            or left_artifacts is not None
+            and right_artifacts is not None
+            and Counter(left_artifacts) == Counter(right_artifacts)
+        )
     )
+
+
+def same_transition_state_semantic_inventory(
+    left: LegacyNativeScopeTransitionReportedState | NativeScopeTransitionReportedState,
+    right: LegacyNativeScopeTransitionReportedState | NativeScopeTransitionReportedState,
+) -> bool:
+    """Compare a legacy source with its deduplicated authoritative target."""
+
+    left_artifacts = left.available_artifact_digests
+    right_artifacts = right.available_artifact_digests
+    return (
+        left.schema_revision == right.schema_revision
+        and left.entities == right.entities
+        and left.observed_at == right.observed_at
+        and (
+            left_artifacts is None
+            and right_artifacts is None
+            or left_artifacts is not None
+            and right_artifacts is not None
+            and set(left_artifacts) == set(right_artifacts)
+        )
+    )
+
+
+def canonical_transition_reported_state(
+    source: LegacyNativeScopeTransitionReportedState,
+) -> NativeScopeTransitionReportedState:
+    """Build the strict target without mutating or normalizing the legacy source."""
+
+    inventory = source.available_artifact_digests
+    document = source.model_dump(mode="python")
+    document["digest"] = "0" * 64
+    document["observed_at"] = source.observed_at
+    document["available_artifact_digests"] = (
+        None if inventory is None else tuple(sorted(set(inventory)))
+    )
+    provisional = NativeScopeTransitionReportedState.model_validate(document)
+    document["digest"] = transition_reported_state_digest(provisional)
+    return NativeScopeTransitionReportedState.model_validate(document)
+
+
+def _require_strict_target_inventory(state: NativeScopeTransitionReportedState) -> None:
+    inventory = state.available_artifact_digests
+    if inventory is not None and tuple(sorted(set(inventory))) != inventory:
+        raise ValueError("authoritative transition artifacts must be unique and sorted")
 
 
 class LegacyNativeScopeTransitionReceipt(BaseModel):
@@ -224,7 +321,7 @@ class NativeScopeTransitionStateReconciliationRequest(BaseModel):
     transition_receipt: LegacyNativeScopeTransitionReceipt
     completion_receipt: NativeScopeTransitionCompletionReceipt
     native_approval: Annotated[NativeApproval, BeforeValidator(_native_approval)]
-    legacy_reported_state: ReportedStateReadback
+    legacy_reported_state: LegacyReportedStateReadback
     requested_at: AwareDatetime
     expires_at: AwareDatetime
     confirmation: Annotated[str, StringConstraints(min_length=1, max_length=1024)]
@@ -258,8 +355,8 @@ class NativeScopeTransitionStateReconciliationApproval(BaseModel):
         NativeScopeTransitionStateReconciliationRequest,
         BeforeValidator(_reconciliation_request),
     ]
-    source_hub_reported_state: ReportedStateReadback
-    authoritative_reported_state: ReportedStateReadback
+    source_hub_reported_state: LegacyReportedStateReadback
+    authoritative_reported_state: StrictReportedStateReadback
     approved_by: Actor
     approved_at: AwareDatetime
     expires_at: AwareDatetime
@@ -269,6 +366,7 @@ class NativeScopeTransitionStateReconciliationApproval(BaseModel):
 
     @model_validator(mode="after")
     def validate_window(self) -> Self:
+        _require_strict_target_inventory(self.authoritative_reported_state)
         if (
             self.expires_at != self.request.expires_at
             or not self.request.requested_at <= self.approved_at < self.expires_at
@@ -336,6 +434,11 @@ class NativeScopeTransitionStateReconciliationCompletion(BaseModel):
     ]
     reported_state: NativeScopeTransitionReportedState
 
+    @model_validator(mode="after")
+    def validate_target_inventory(self) -> Self:
+        _require_strict_target_inventory(self.reported_state)
+        return self
+
     @property
     def digest(self) -> str:
         return "sha256:" + canonical_digest(self.model_dump(mode="json"))
@@ -356,7 +459,7 @@ class NativeScopeTransitionStateReconciliationReceipt(BaseModel):
     old_reported_state_digest: HexDigest
     new_reported_state_digest: HexDigest
     agent_principal: Actor
-    authoritative_reported_state: ReportedStateReadback
+    authoritative_reported_state: StrictReportedStateReadback
     completed_at: AwareDatetime
     receipt_digest: Digest
 
