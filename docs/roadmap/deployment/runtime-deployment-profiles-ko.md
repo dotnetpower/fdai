@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 4f4443d1dc8a8990366c2d4f1fe99301d14fbd4a
+translation_source_sha: 03e435e642c15a68c08989a0bedfc13fdb36ce71
 translation_revised: 2026-10-26
 ---
 # 런타임 배포 프로파일
@@ -731,7 +731,7 @@ Executor 실행 권한 전환을 활성화하지 않습니다.
 
 각 FDAI 워크로드는 현재 user-assigned Managed Identity를 유지합니다. AKS에서는 namespace에 속한
 Kubernetes ServiceAccount가 federated identity credential을 받습니다. 권한이 높은 Executor 신원은
-Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않습니다. 선택적 dev operations gateway는 reader와 executor identity를 분리합니다. 태그 수정 canary는 FDAI 애플리케이션 리소스 그룹의 `Tag Contributor`만 사용하며 reader 접근은 사전 점검, 쓰기 후 확인 및 rollback 확인을 담당합니다. ActionType 버전을 변경하면 두 convergence 테스트의 기대값을 포함한 정확한 ontology 및 Cost Governance 프로파일 pin을 다시 생성하지만 package를 활성화하지는 않습니다. 이 역할은 `remediate.tag-add`를 승격하지 않으며 배포와 ActionType 승격에는 각각 별도 승인이 필요합니다. Kubernetes 효과 경로를 구성하면 namespace Role 하나를 격리된 실행기 ServiceAccount에만 연결하고 Pod `get` 및 `delete`, Deployment `get` 및 `patch`, Deployment scale `get` 및 `update`만 허용합니다. 클러스터 전체 변경, 리소스 생성, secret 접근 또는 읽기 전용 인벤토리 작업 권한은 부여하지 않습니다. 런타임 구성은 자격 증명을 포함하지 않고 클러스터 내부 API 원점, 투영된 자격 증명 경로, 정확한 AKS 리소스 ID 및 `fdai-runtime` namespace 허용 목록을 연결합니다.
+Console, Operator Service, 작업 또는 다른 워크로드와 공유하지 않습니다. 선택적 dev operations gateway는 reader와 executor identity를 분리합니다. 태그 수정 canary는 FDAI 애플리케이션 리소스 그룹의 `Tag Contributor`만 사용하며 reader 접근은 사전 점검, 쓰기 후 확인 및 rollback 확인을 담당합니다. ActionType 버전을 변경하면 두 convergence 테스트의 기대값을 포함한 정확한 ontology 및 Cost Governance 프로파일 pin을 다시 생성하지만 package를 활성화하지는 않습니다. 이 역할은 `remediate.tag-add`를 승격하지 않으며 배포와 ActionType 승격에는 각각 별도 승인이 필요합니다. Kubernetes 효과 경로를 구성하면 namespace Role 하나를 격리된 실행기 ServiceAccount에만 연결하고 Pod `get` 및 `delete`, Deployment `get` 및 `patch`, Deployment scale `get` 및 `update`만 허용합니다. 클러스터 전체 변경, 리소스 생성, secret 접근 또는 읽기 전용 인벤토리 작업 권한은 부여하지 않습니다. 런타임 구성은 자격 증명을 포함하지 않고 클러스터 내부 API 원점, 투영된 자격 증명 경로, 정확한 AKS 리소스 ID 및 `fdai-runtime` namespace 허용 목록을 연결합니다. 루트는 결과 핸들 자료용 무작위 256비트 Key Vault 시크릿 하나도 만들고 그 참조를 `result_handle_binding`으로 노출합니다. Core 신원만 이를 읽으며, Core 서비스 모듈은 `result_handles.key_secret_id`가 설정된 경우에만 `FDAI_RESULT_HANDLE_MATERIAL`로 연결하므로 컴파일된 답변 경로가 증거와 함께 승격되기 전까지 이 바인딩은 비활성입니다.
 
 gateway 파사드는 인가, dry-run 결속, 멱등성 및 리소스 임대를 조정합니다. 목적별 모듈은 구성과
 신원 계약, 범위가 제한된 ARM 전송 및 범위가 지정된 Azure 리소스 읽기와 변경을 소유합니다.

@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 458f765b16222767b3ae2968e316c09d1ec77eb6
-translation_revised: 2026-10-23
+translation_source_sha: c759decb9442cebe6b1efa6fdf9bf00e64a88b6c
+translation_revised: 2026-10-26
 ---
 # 독립 운영 근거 발급
 
@@ -451,7 +451,7 @@ operating-intent 출처 개정과 일치하는 관측 범위 워터마크를 요
 범위와 목적의 digest, `case-history-read`, 활성 온톨로지 릴리스 digest.
 조회가 릴리스 digest를 묶으므로 운영 근거 밖의 온톨로지 함수 소스 수정을 포함한 모든 릴리스 변경은 새 조회를
 시작하고, 이전 릴리스에서 발급한 증적은 다시 쓰지 않습니다. 같은 변경에서 원본에 묶인 의미 보증 코퍼스도 다시
-생성합니다. 소스에서 파생되는 `query.resource_health_inventory` FunctionType을 수정하는 것도 이러한 릴리스 변경입니다.
+생성합니다. 소스에서 파생되는 `query.resource_health_inventory` FunctionType을 수정하는 것도 이러한 릴리스 변경입니다. `query.resource_state_inventory` 함수 버전을 올리는 것도 마찬가지입니다.
 E10 상태 목록과 E11 메트릭 컬렉션 FunctionType revision도 같은 규칙을 따릅니다. 해당 corpus
 갱신은 리포지토리 출처 정보만 기록하며 운영 증명을 발급하거나 이전 증명을 새 릴리스에 허용하지
 않습니다.

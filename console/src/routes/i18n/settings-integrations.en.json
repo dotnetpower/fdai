@@ -1,4 +1,6 @@
 {
+  "resultHandles.label": "Follow-up questions over earlier answers",
+  "resultHandles.hint": "Keep the rows of each answered list so a follow-up such as only the running ones refers to what was shown. Core stores them encrypted and expires them. Development environments default on; other environments default off. This setting never grants action authority. Changes apply after a restart.",
   "forecastHistory.group": "Forecast history",
   "forecastHistory.collectionLabel": "Collect forecast source histories",
   "forecastHistory.collectionHint": "Use the audited Settings preference to collect reviewed histories. Deployment variables cannot enable it. Missing source completeness or independent proofs still prevent scoring; this never grants execution authority.",

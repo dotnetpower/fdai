@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: bc31357f7636a16ad5baa9bcd4762dc7f10cba4a
-translation_revised: 2026-10-23
+translation_source_sha: 800aef7f23ca195d49b307b000e137e06572b6fc
+translation_revised: 2026-10-26
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -528,6 +528,10 @@ Operator는 근거 실행, 근거 검증, 답변 준비 같은 의미 턴 자체
 `semantic_turn`이고 `activity_id`가 `semantic:<phase>`이며 `execution` 기록이 없는 `activity`
 이벤트로 보고합니다. 이 이벤트는 읽기가 아니라 워크플로 사실이므로, 클라이언트는 표현 밀도를 정할 때
 이를 관찰된 읽기로 세지 않습니다.
+
+실시간 모델 호출 `activity`는 `stage`와, 알려진 경우 `model`, `duration_ms`를 가진 닫힌 `model_call` 객체도
+전달합니다. 클라이언트는 행 라벨과 상세를 콘솔 언어의 자체 카탈로그로 렌더링하고, 알 수 없는 단계는 서버의 `label`과
+`detail`로 대체합니다.
 
 최종 `done` 이벤트의 `trajectory_detail`에는 `work_progress_shape`, `turn_budget`,
 `context_receipts`가 들어갈 수 있습니다. Operator는 필드마다 따로 검증하고 잘못된 필드만 버립니다.

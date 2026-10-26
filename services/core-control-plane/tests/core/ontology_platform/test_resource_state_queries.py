@@ -46,6 +46,7 @@ from fdai_service_contracts.recorded_resource_state import (
     AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES,
     OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
+    READY_ESTABLISHES_RUNNING_RESOURCE_TYPES,
     UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE,
 )
 
@@ -197,7 +198,7 @@ async def _invoke(
 def test_state_function_declares_canonical_measure_concepts() -> None:
     declaration = resource_state_function_type()
 
-    assert declaration.version == "1.3.0"
+    assert declaration.version == "1.4.0"
     assert declaration.output_schema["x-fdai-measure-concepts"] == list(
         RESOURCE_STATE_QUERY_CONCEPTS
     )
@@ -511,6 +512,65 @@ async def test_list_mode_reports_an_availability_established_running_member() ->
     [row] = result["rows"]
     assert row["values"]["state_status"] == "observed"
     assert row["values"]["state_concept"] == "resource_state.running"
+
+
+async def test_an_observed_ready_settles_a_running_request_for_a_serving_database_server() -> None:
+    fresh = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource("database-a", "Ready", observed_at=fresh),
+                _resource("database-b", "Stopped", observed_at=fresh),
+                _resource("database-c", "Starting", observed_at=fresh),
+                _typed(_resource("mysql-a", "Ready", observed_at=fresh), "mysql-server"),
+                _typed(_resource("cluster-a", "Ready", observed_at=fresh), "kubernetes-cluster"),
+            )
+        ),
+        concepts=("resource_state.running",),
+    )
+
+    rows = {row["values"]["name"]: row["values"] for row in result["rows"]}
+    assert set(rows) == {"database-a", "mysql-a"}
+    assert rows["database-a"]["observed_state"] == "Ready"
+    assert rows["database-a"]["state_concept"] == "resource_state.ready"
+    assert rows["database-a"]["state_basis"] == "ready_on_serving_lifecycle"
+
+
+async def test_state_rows_are_named_by_their_resource_identity() -> None:
+    fresh = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource("database-a", "Ready", observed_at=fresh),
+                _resource("database-b", "Stopped", observed_at=fresh),
+            )
+        ),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+        list_members=True,
+    )
+
+    # A follow-up can bind these rows again only when the row id is the Resource id.
+    assert [row["row_id"] for row in result["rows"]] == [
+        "resource-database-a",
+        "resource-database-b",
+    ]
+
+
+async def test_a_ready_request_keeps_its_own_basis_free_row() -> None:
+    fresh = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result((_resource("database-a", "Ready", observed_at=fresh),)),
+        concepts=("resource_state.ready",),
+    )
+
+    [row] = result["rows"]
+    assert "state_basis" not in row["values"]
+
+
+def test_serving_ready_declarations_name_only_types_with_an_observed_state_path() -> None:
+    for resource_type in READY_ESTABLISHES_RUNNING_RESOURCE_TYPES:
+        assert resource_type in OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE
+        assert resource_type not in UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE
 
 
 def test_running_only_lifecycles_also_declare_every_other_steady_state_unreachable() -> None:

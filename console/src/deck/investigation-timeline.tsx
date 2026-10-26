@@ -14,6 +14,7 @@ import type { ContextReceipt, TurnBudgetTelemetry, WorkProgressShape } from "./b
 import { ContextReceiptDisclosure, plannedWorkText, TurnBudgetLimits } from "./investigation-roles";
 import { formatJsonValue } from "./json-code-block";
 import { isModelCallStep } from "./conversation-trajectory-presentation";
+import { modelCallDetail, modelCallLabel } from "./model-call-text";
 import { inventoryExecutionDisplay } from "./inventory-execution-display";
 
 /** How a read that never reported an end reads once its panel stops running. */
@@ -557,7 +558,7 @@ function ModelCallGroup({
   const detail = inFlight.length > 0
     ? [
         // The latest call in flight names the stage; the count covers the rest.
-        inFlight[inFlight.length - 1]?.label ?? "",
+        inFlight[inFlight.length - 1] ? modelCallLabel(inFlight[inFlight.length - 1]!) : "",
         t("deck.investigation.modelGroupRunning", {
           running: inFlight.length,
           done,
@@ -641,13 +642,13 @@ function ActivitySummary({
       )}
       <span class="deck-investigation-copy">
         <span class="deck-investigation-title-line">
-          <strong>{activity.label}</strong>
+          <strong>{modelCallLabel(activity)}</strong>
           {!metaNamesStatus && !modelCall &&
             (status === "running" || status === "pending" || status !== activity.status) ? (
             <em>{statusLabel(status)}</em>
           ) : null}
         </span>
-        {activity.detail ? <small>{activity.detail}</small> : null}
+        {modelCallDetail(activity) ? <small>{modelCallDetail(activity)}</small> : null}
       </span>
       {meta !== null ? (
         <span class="deck-investigation-meta muted">
@@ -732,7 +733,7 @@ export function InvestigationTimeline({
       : "deck.investigation.startingCommand", { tool: firstActivity.execution.tool })
     : visibleBranches[0]?.summary ?? (firstActivity && isModelCallStep(firstActivity)
       ? t("deck.investigation.modelGroupTitle")
-      : firstActivity?.label);
+      : firstActivity ? modelCallLabel(firstActivity) : undefined);
   const allObservedEventsSettled = eventCount > 0 && completedEventCount === eventCount;
   const phaseTitle = t(running
     ? "deck.investigation.runningTitle"

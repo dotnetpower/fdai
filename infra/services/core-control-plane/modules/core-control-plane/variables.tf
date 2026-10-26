@@ -95,6 +95,13 @@ variable "operator_request_receipts" {
   default = {}
 }
 
+variable "result_handles" {
+  type = object({
+    key_secret_id = optional(string, "")
+  })
+  default = {}
+}
+
 variable "rca_reader_identity" {
   type = object({
     resource_id = optional(string, "")

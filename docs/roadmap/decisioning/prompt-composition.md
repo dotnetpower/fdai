@@ -565,10 +565,12 @@ turn an unsupported claim into an answer.
 
 ### Runtime policy
 
-The revisioned runtime settings surface owns two independent controls:
+The revisioned runtime settings surface owns three independent controls:
 
 - `conversation.answer_continuity.enabled` enables useful safe-hold rendering after restart. The
   default is `false`.
+- `conversation.result_handles.enabled` keeps the rows of answered lists so a follow-up refers to
+  what was shown. Development environments default on and every other environment defaults off.
 - `conversation.prompt_ablation.profile` selects one reviewed evaluation profile. `none` is the
   production default. Other profiles can remove task packs, tool manifests, operator memory,
   runtime skills, or all optional context.

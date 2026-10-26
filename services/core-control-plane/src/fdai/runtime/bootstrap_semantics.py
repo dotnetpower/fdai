@@ -504,6 +504,7 @@ async def build_semantic_runtime(
             runtime_values["conversation.answer_continuity.enabled"] is True
         ),
         runtime_settings=runtime_settings,
+        result_handles_enabled=runtime_values["conversation.result_handles.enabled"] is True,
         runtime_readiness=model_identity_readiness,
         context_selection_policy_authority=container.context_selection_policy_authority,
         context_selection_shadow_runner=container.context_selection_shadow_runner,

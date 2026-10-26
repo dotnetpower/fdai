@@ -99,6 +99,26 @@ The threat review must pass before H2 ships:
 cross-conversation bindings, and the rendered-order digest equals the Console's order on the fixture
 graph.
 
+**Enablement:** The typed runtime setting `conversation.result_handles.enabled` decides, and it is
+the promotion switch. Its environment default is `FDAI_SEMANTIC_RESULT_HANDLES`; development
+environments default on and every other environment defaults off. An audited Owner override changes
+the value, takes effect after a restart, and grants no action authority. Core builds the store only
+when the setting is on and the venue supplies a state-store DSN and key material. When either input
+is missing, follow-ups stay off and Core logs `semantic_result_handles_unavailable`, because an
+environment default must never stop Core from starting. Without a handle a follow-up such as "only
+the running ones" after a list has nothing to bind and ends as a clarification. The local launcher
+supplies a generated key kept in an ignored file.
+
+The question-form path that reads a follow-up runs only in the local execution venue today, so a
+deployed venue gains nothing from the setting until that path is promoted there. That promotion
+needs the evidence in [P5](ontology-reasoning-promotion-program.md#p5-promotion-and-removal).
+Deployment already owns the key material: the platform creates the random 256-bit Key Vault secret
+`fdai-result-handle-material`, grants only Core's identity read access, and publishes the
+versionless reference as the `result_handle_binding` output. The Core service module binds a
+`result_handles.key_secret_id` value as the `FDAI_RESULT_HANDLE_MATERIAL` secret on the container
+app. Supplying the key never turns follow-ups on. Copying the output into the service tfvars is a
+deployment step that stays manual until the service deployment workflow hydrates it.
+
 ## H3 Property follow-ups
 
 A question such as "what is the SKU of storage account X" asks for a property that the form can't

@@ -418,6 +418,13 @@ output "operator_request_receipt_binding" {
   }
 }
 
+output "result_handle_binding" {
+  description = "Deployment-owned Key Vault secret reference for the result-handle encryption key; set it as result_handles.key_secret_id in the Core service tfvars."
+  value = {
+    key_secret_id = "https://${local.key_vault_name}.vault.azure.net/secrets/fdai-result-handle-material"
+  }
+}
+
 output "stewardship_gitops_binding" {
   description = "Deployment-owned stewardship delivery binding. Null when disabled; auth_mode console means Console-governed revisions with no Git host."
   value = var.enable_stewardship_governance ? {

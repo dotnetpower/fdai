@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import re
 import secrets
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
@@ -30,6 +32,20 @@ _NONCE_BYTES = 12
 _HANDLE_REF_BYTES = 32
 _DEFAULT_CURRENT_MATERIAL_REF = "FDAI_RESULT_HANDLE_MATERIAL"
 _DEFAULT_PREVIOUS_MATERIAL_REF = "FDAI_RESULT_HANDLE_PREVIOUS_MATERIAL"
+_MACHINE_TOKEN = re.compile(r"^[a-z][a-z0-9_.-]{0,79}$")
+
+
+def result_handle_conversation_id(session_id: str) -> str:
+    """Return the machine-token conversation key a handle binds to for one session.
+
+    A session id is any bounded text, such as a screen-scoped id with a path, while a handle
+    stores a lowercase machine token. A token-shaped id is kept; any other is replaced by a
+    digest, so the same session always maps to the same key on write and on read.
+    """
+
+    if _MACHINE_TOKEN.fullmatch(session_id):
+        return session_id
+    return f"session-{hashlib.sha256(session_id.encode()).hexdigest()[:48]}"
 
 
 class ResultHandleGetStatus(StrEnum):
@@ -437,4 +453,5 @@ __all__ = [
     "StaticResultHandleKeyProvider",
     "reauthorize_result_handle_rows",
     "rendered_order_digest",
+    "result_handle_conversation_id",
 ]

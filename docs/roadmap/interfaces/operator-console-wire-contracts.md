@@ -557,6 +557,10 @@ and answer prepared, as `activity` events with `kind` `semantic_turn`, an `activ
 `semantic:<phase>`, and no `execution` record. They state workflow facts, not reads, so clients
 don't count them as observed reads when they choose the presentation density.
 
+A live model-call `activity` also carries a closed `model_call` object with `stage`, and `model` and
+`duration_ms` when known. Clients render the row label and detail from their own catalog in the
+console language and fall back to the server `label` and `detail` for an unknown stage.
+
 The terminal `done` event's `trajectory_detail` may carry `work_progress_shape`, `turn_budget`, and
 `context_receipts`. Operator validates each field separately and drops a malformed field alone. It
 keeps at most eight activities within 60 KiB and counts the rest in `omitted.activities`.

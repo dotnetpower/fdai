@@ -239,7 +239,13 @@ async def test_semantic_iterator_streams_model_calls_as_live_steps_in_core_order
     assert running.data["activity_id"] == "semantic:model:1"
     assert running.data["label"] == "질문 해석 모델 호출"
     assert running.data["detail"] == "narrator-gpt-5-4-mini 응답 대기 중"
+    assert running.data["model_call"] == {"stage": "form", "model": "narrator-gpt-5-4-mini"}
     assert completed.data["status"] == "completed"
     assert completed.data["detail"] == "narrator-gpt-5-4-mini · 2.3초 · 완료"
+    assert completed.data["model_call"] == {
+        "stage": "form",
+        "model": "narrator-gpt-5-4-mini",
+        "duration_ms": 2300,
+    }
     assert read.data["kind"] == "ontology_query"
     await iterator.aclose()

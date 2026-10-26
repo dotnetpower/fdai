@@ -16,6 +16,7 @@ import type {
   InvestigationActivityStatus,
   InvestigationExecutionTarget,
   InvestigationMilestone,
+  InvestigationModelCall,
   ModelUsage,
   RetrievalSourcePreview,
   ResourceContext,
@@ -603,6 +604,20 @@ function machineToken(value: unknown): value is string {
     /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value);
 }
 
+function parseModelCall(raw: unknown): InvestigationModelCall | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const record = raw as Record<string, unknown>;
+  if (!machineToken(record.stage)) return undefined;
+  return {
+    stage: record.stage,
+    ...(machineToken(record.model) ? { model: record.model } : {}),
+    ...(typeof record.duration_ms === "number" && Number.isFinite(record.duration_ms) &&
+      record.duration_ms >= 0
+      ? { durationMs: record.duration_ms }
+      : {}),
+  };
+}
+
 export function parseInvestigationActivity(raw: unknown): InvestigationActivity | null {
   if (typeof raw !== "object" || raw === null) return null;
   const record = raw as Record<string, unknown>;
@@ -618,6 +633,7 @@ export function parseInvestigationActivity(raw: unknown): InvestigationActivity 
   const total = finiteProgress(record.total);
   if (completed !== null && total !== null && completed > total) return null;
   const execution = parseInvestigationExecution(record.execution);
+  const modelCall = parseModelCall(record.model_call);
   return {
     activityId: record.activity_id,
     kind: record.kind,
@@ -638,6 +654,7 @@ export function parseInvestigationActivity(raw: unknown): InvestigationActivity 
       ? { observedAt: record.observed_at }
       : {}),
     ...(execution ? { execution } : {}),
+    ...(modelCall ? { modelCall } : {}),
     ...(nonemptyBoundedString(record.branch_id, MAX_BRANCH_ID_CHARS)
       ? { branchId: record.branch_id }
       : {}),

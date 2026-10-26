@@ -277,6 +277,12 @@ export interface InvestigationExecutionTarget {
   };
 }
 
+export interface InvestigationModelCall {
+  readonly stage: string;
+  readonly model?: string;
+  readonly durationMs?: number;
+}
+
 export interface InvestigationActivity {
   readonly activityId: string;
   readonly kind: string;
@@ -290,6 +296,7 @@ export interface InvestigationActivity {
   readonly observedAt?: string;
   readonly execution?: InvestigationExecutionEvidence;
   readonly branchId?: string;
+  readonly modelCall?: InvestigationModelCall;
 }
 
 export interface InvestigationMilestone {

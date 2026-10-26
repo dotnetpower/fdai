@@ -2762,6 +2762,30 @@ resource "azurerm_key_vault_secret" "operator_request_operator_signing_seed" {
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
 }
 
+resource "random_id" "result_handle_material" {
+  byte_length = 32
+}
+
+resource "azurerm_key_vault_secret" "result_handle_material" {
+  # checkov:skip=CKV_AZURE_41:This key encrypts stored result handles, which expire within minutes, and rotates through a versioned key with the previous key kept for decryption only.
+  name         = "fdai-result-handle-material"
+  value        = sensitive(random_id.result_handle_material.hex)
+  key_vault_id = module.key_vault.id
+  content_type = "aes-256-key-hex"
+  tags         = local.tags
+
+  depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]
+}
+
+# Core is the only reader: it encrypts the rows of an answered list so a follow-up question can
+# refer to them, and the runtime setting conversation.result_handles.enabled decides its use.
+resource "azurerm_role_assignment" "core_result_handle_material_reader" {
+  scope                = azurerm_key_vault_secret.result_handle_material.resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.identity.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 # Core signs its own operator_request receipts and verifies Operator receipts from the
 # Operator seed; the Operator API signs with its seed. Each reader is scoped to one secret.
 resource "azurerm_role_assignment" "core_operator_request_core_seed_reader" {

@@ -123,6 +123,14 @@ variable "operator_request_receipts" {
   default = {}
 }
 
+variable "result_handles" {
+  description = "Key Vault secret reference for the AES-256-GCM key that encrypts stored result handles. Empty = no handle key; follow-up questions stay off."
+  type = object({
+    key_secret_id = optional(string, "")
+  })
+  default = {}
+}
+
 variable "rca_reader_identity" {
   description = "Optional read-only Azure identity for Activity Log-backed T1 RCA."
   type = object({

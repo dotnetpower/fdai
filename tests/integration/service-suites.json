@@ -63,6 +63,7 @@
           "services/core-control-plane/tests/test_semantic_query_progress.py",
           "services/core-control-plane/tests/test_semantic_reading_holds.py",
           "services/core-control-plane/tests/test_semantic_recent_change_accounting.py",
+          "services/core-control-plane/tests/test_semantic_result_handle_wiring.py",
           "services/core-control-plane/tests/test_semantic_subscription_scope_answer.py",
           "services/core-control-plane/tests/test_semantic_target_suggestions.py",
           "services/core-control-plane/tests/test_semantic_turn_processor.py",

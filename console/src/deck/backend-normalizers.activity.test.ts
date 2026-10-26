@@ -21,6 +21,31 @@ function activity(execution: Record<string, unknown>) {
   };
 }
 
+describe("parseInvestigationActivity model calls", () => {
+  const base = {
+    activity_id: "semantic:model:1",
+    kind: "model_call",
+    status: "running",
+    label: "개념 선택 모델 호출",
+    completed: null,
+    total: null,
+  };
+
+  it("keeps the closed stage, model, and duration so the Console can localize the row", () => {
+    expect(parseInvestigationActivity({
+      ...base,
+      model_call: { stage: "concept_chooser", model: "narrator-mini", duration_ms: 2300 },
+    })?.modelCall).toEqual({ stage: "concept_chooser", model: "narrator-mini", durationMs: 2300 });
+  });
+
+  it("drops an unknown stage and falls back to the server label", () => {
+    const parsed = parseInvestigationActivity({ ...base, model_call: { stage: "free text" } });
+
+    expect(parsed?.modelCall).toBeUndefined();
+    expect(parsed?.label).toBe("개념 선택 모델 호출");
+  });
+});
+
 describe("parseResourceContext", () => {
   it("accepts only bounded server-backed context", () => {
     expect(parseResourceContext({
