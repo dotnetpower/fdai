@@ -1,8 +1,8 @@
 ---
 title: Hub 배포 인수인계
 translation_of: hub-lifecycle-deployment-handoff.md
-translation_source_sha: 8b170ce2b3a3e9356a35dd4ab46772df44689dc1
-translation_revised: 2026-10-26
+translation_source_sha: 607f7ce5ac4a80379c201e25f9a93f245e019e39
+translation_revised: 2026-10-27
 ---
 # Hub 배포 인수인계
 
@@ -182,6 +182,20 @@ anchor와 증명을 검증합니다. 운영자가 그 증명을 수락한 뒤 �
 기존이라고 선언했지만 사라진 객체, 부재 집합에 새로 나타난 객체가 있으면 다시 관찰하고
 승인해야 합니다. 네이티브 상태를 편집하거나 `kubectl`로 레이블을 패치하거나 바뀐 UID에
 이전 승인을 재사용하지 마세요.
+
+설치된 이전 Entity를 전환하려면 `transition-native-scope`를 실행하기 전에 별도의 Hub 전환
+승인을 준비하고 받아야 합니다. 인증된 `--hub-url`과 정확한 `--hub-scope`를 지정합니다.
+장애에 안전한 로컬 커밋이 끝나면 이 명령은 다이제스트로 고정한 증적, 새 빈 상태와 승인된
+전체 종류/이름/UID 목록을 Agent 워크로드 신원으로 자동 제출합니다. 반환된 Hub 완료 증적이
+있어야 성공입니다. 다음 Plan을 요청하기 전에 이 증적을 확인하세요.
+
+로컬 커밋 뒤 Hub 전송에 실패하면 어느 상태도 편집하지 말고 일반 상태 엔드포인트로 새 상태를
+따로 제출하지 마세요. 같은 `transition-native-scope` 명령과 입력을 다시 사용합니다. 로컬
+재시도는 원래 로컬 증적을 반환하고, Hub의 정확한 완료 재시도는 원래 Hub 증적을 반환합니다.
+신뢰할 수 있는 Hub 호스트는 범위가 제한된 복구를 위해 같은 비공개 완료 문서와 실행을 담당한
+Agent principal을 지정해 `fdai-lifecycle-hub complete-native-transition`을 사용할 수
+있습니다. 바뀐 바이트, 다른 신원, 열린 Plan이나 부분적인 Entity 관리 상태는 충돌입니다.
+관리 해제, 상태 기록, 새 관리 설정을 나누어 쓰는 근거가 아닙니다.
 
 ## 보이지 않는 도우미 없이 실행하기
 

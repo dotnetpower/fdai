@@ -376,6 +376,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
     artifact = "/v1/installations/installation-alpha/artifacts/release/" + "a" * 64
     state = "/v1/installations/installation-alpha/state"
     reports = "/v1/installations/installation-alpha/plans/plan-one/reports"
+    completion = "/v1/installations/installation-alpha/native-transition-completion"
     plan_detail = "/v1/installations/installation-alpha/plans/plan-one"
     app = secure_app(
         Starlette(
@@ -384,6 +385,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
                 Route(artifact, ok),
                 Route(state, ok, methods=["POST"]),
                 Route(reports, ok, methods=["POST"]),
+                Route(completion, ok, methods=["POST"]),
                 Route(plan_detail, ok),
                 Route("/v1/catalog", ok),
             ]
@@ -401,6 +403,7 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
         assert client.get(artifact, headers=token(**service)).status_code == 200
         assert client.post(state, headers=token(**service), json={}).status_code == 200
         assert client.post(reports, headers=token(**service), json={}).status_code == 200
+        assert client.post(completion, headers=token(**service), json={}).status_code == 200
         for path in (
             "/v1/catalog",
             "/v1/catalog/releases",
@@ -1325,6 +1328,7 @@ def test_agent_can_neither_decide_nor_reach_any_other_route(enrollment_remote, e
         ("POST", "/v1/installations/{installation_id}/state"),
         ("POST", "/v1/installations/{installation_id}/plans/{plan_id}/reports"),
         ("POST", "/v1/installations/{installation_id}/native-proofs"),
+        ("POST", "/v1/installations/{installation_id}/native-transition-completion"),
         ("POST", "/v1/installations/{installation_id}/enrollment-request"),
     }
     with make_client() as client:

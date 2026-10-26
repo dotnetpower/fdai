@@ -112,7 +112,7 @@ def tokens(app, auth):
         {"test-only": jwt.PyJWK.from_dict(public)},
     )
 
-    def token(actor="requester", **changes):
+    def token(actor="requester", *, omit=(), **changes):
         now = datetime.now(UTC)
         claims = {
             "iss": auth.issuer,
@@ -128,6 +128,8 @@ def tokens(app, auth):
             "exp": now + timedelta(minutes=5),
         }
         claims.update(changes)
+        for name in omit:
+            claims.pop(name, None)
         return {
             "Authorization": "Bearer "
             + jwt.encode(claims, key, algorithm="RS256", headers={"kid": "test-only"})

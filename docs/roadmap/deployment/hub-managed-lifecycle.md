@@ -1125,12 +1125,25 @@ The transition uses two separately signed decisions:
    journal and a true empty state for the new Entity through crash-safe file replacement. A
    digest-bound completion receipt is the commit point. An interrupted attempt restores the old bytes before returning a failure;
    an exact completed retry returns the original receipt without another write.
+5. After the local commit, the Agent sends the signed approval, local completion receipt, exact
+   full native approval and new reported state to
+   `POST /v1/installations/{installation_id}/native-transition-completion` with its bound
+   `Agent.Access` workload identity. Under one installation row lock, the Hub verifies the
+   transition and receipt digests, old and new scopes, execution identity, authoritative existing
+   UIDs, full object scope, exact old managed Entity set, new empty Entity state and absence of an
+   open Plan. One transaction then unmanages the old Entity, records the new state, transfers the
+   Entity settings to the new native Entity, appends the audit record and retains the completion
+   receipt. Any mismatch, conflict or interruption rolls back every Hub write. An exact retry
+   returns the retained receipt.
 
 The bounded `operator-hub-canary` to `fdai-workloads` development transition approves seven exact
 existing objects and requires the other nine scope objects to be absent. The next ordinary signed
 Plan can therefore adopt those seven and create those nine through the existing mixed-scope
 pipeline. A wrong UID, changed scope or state digest, expired approval, missing recovery proof,
-changed Hub signature, open Plan, applying journal or incomplete recovery blocks the transition.
+changed Hub signature, wrong Agent identity, wrong completion receipt, open Plan, applying journal
+or incomplete recovery blocks the transition. Planning remains held on the old Hub state until
+atomic Hub completion succeeds, so a locally committed transition can't produce an
+`EntityNotReported` planning gap.
 The retained rollback record is audit and recovery evidence; there is no command that turns this
 one-way transition into an unreviewed reverse handoff.
 

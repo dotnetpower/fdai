@@ -44,6 +44,10 @@ from urllib.parse import quote, urlsplit
 
 import httpx
 from fdai_deployment_cli.lifecycle_native import SignedNativeScope
+from fdai_deployment_cli.lifecycle_native_transition import (
+    NativeScopeTransitionCompletion,
+    NativeScopeTransitionCompletionReceipt,
+)
 
 from fdai_lifecycle_agent.strict_json import load_json
 
@@ -220,6 +224,28 @@ class HttpHubClient:
         path = f"/v1/installations/{_segment(installation_id, 'installation_id')}/native-proofs"
         self._post(path, proof.model_dump(mode="json"), label="native proof")
 
+    def submit_native_transition_completion(
+        self,
+        installation_id: str,
+        completion: NativeScopeTransitionCompletion,
+    ) -> NativeScopeTransitionCompletionReceipt:
+        if completion.transition_receipt.installation_id != installation_id:
+            raise ValueError("Native transition completion installation binding does not match.")
+        path = (
+            f"/v1/installations/{_segment(installation_id, 'installation_id')}"
+            "/native-transition-completion"
+        )
+        response = self._post_response(
+            path,
+            completion.model_dump(mode="json"),
+            label="native transition completion",
+            accepted_status=200,
+        )
+        try:
+            return NativeScopeTransitionCompletionReceipt.model_validate_json(response.content)
+        except ValueError as error:
+            raise HubProtocolError("Hub native transition completion receipt is invalid") from error
+
     def submit_enrollment_request(
         self, installation_id: str, signed_payload: bytes, proof: bytes
     ) -> None:
@@ -285,6 +311,18 @@ class HttpHubClient:
     def _post(self, path: str, body: Mapping[str, object], *, label: str) -> None:
         """POST ``body``; resend it after ``503 concurrent_write``, otherwise raise unless 202."""
 
+        self._post_response(path, body, label=label, accepted_status=202)
+
+    def _post_response(
+        self,
+        path: str,
+        body: Mapping[str, object],
+        *,
+        label: str,
+        accepted_status: int,
+    ) -> httpx.Response:
+        """POST one stable body and retry only a serialized concurrent write."""
+
         for retry in range(MAX_CONCURRENT_WRITE_RETRIES + 1):
             try:
                 headers = self._headers()
@@ -303,8 +341,8 @@ class HttpHubClient:
                 raise HubProtocolError(
                     f"Hub {label} request failed: {type(error).__name__}"
                 ) from error
-            if response.status_code == 202:
-                return
+            if response.status_code == accepted_status:
+                return response
             concurrent_write = (
                 response.status_code == 503 and _error_code(response) == "concurrent_write"
             )

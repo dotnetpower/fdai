@@ -181,6 +181,21 @@ manager, a missing object that was declared existing, or an object that appears 
 requires a new observation and approval. Never edit native state, patch labels with `kubectl`, or
 reuse the old approval for a changed UID.
 
+For an installed legacy Entity, prepare and obtain the separate Hub transition approval before
+running `transition-native-scope`. Supply the authenticated `--hub-url` and exact `--hub-scope`.
+After the crash-safe local commit, the command automatically submits its digest-bound receipt,
+new empty state and complete approved kind/name/UID inventory through the Agent workload identity.
+Success requires the returned Hub completion receipt. Inspect that receipt before requesting the
+next Plan.
+
+If Hub delivery fails after the local commit, don't edit either state or submit the new state
+through the ordinary state endpoint. Retry the same `transition-native-scope` command and inputs.
+The local retry returns the original local receipt, and the Hub returns its original receipt after
+an exact completed retry. A trusted Hub host can use `fdai-lifecycle-hub
+complete-native-transition` with the same private completion document and attributed Agent
+principal for bounded recovery. Changed bytes, a different identity, an open Plan or partial
+Entity management is a conflict, not a reason to split the unmanage, state and manage writes.
+
 ## Execute without an invisible helper
 
 1. Follow the existing guide to enroll and accept installation identity. Do not regenerate the

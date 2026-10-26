@@ -6,7 +6,7 @@ import base64
 import binascii
 import hashlib
 from datetime import datetime, timedelta
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
 from cryptography.exceptions import InvalidSignature
@@ -18,7 +18,11 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstrai
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_enrollment import installation_key_id
-from fdai_deployment_cli.lifecycle_native import Digest, PathId
+from fdai_deployment_cli.lifecycle_native import (
+    Digest,
+    NativeApproval,
+    PathId,
+)
 
 type HexDigest = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 type InstallationKeyId = Annotated[str, StringConstraints(pattern=r"^installation-[0-9a-f]{16}$")]
@@ -175,6 +179,132 @@ class SignedNativeScopeTransitionApproval(BaseModel):
         except (InvalidSignature, ValueError):
             return False
         return True
+
+
+class NativeScopeTransitionReceipt(BaseModel):
+    """Agent-local commit proof for the crash-safe native scope replacement."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["fdai.lifecycle-native-transition-receipt.v1"]
+    request_digest: Digest
+    hub_approval_digest: Digest
+    installation_id: PathId
+    old_entity_id: PathId
+    new_entity_id: PathId
+    old_scope_digest: Digest
+    new_scope_digest: Digest
+    old_reported_state_digest: HexDigest
+    new_reported_state_digest: HexDigest
+    ownership_claim_digest: Digest
+    recovery_request_digest: Digest
+    existing_resources_digest: Digest
+    rollback_record_digest: Digest
+    completed_at: AwareDatetime
+    record_digest: Digest
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_record_digest(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        document = dict(value)
+        digest = document.pop("record_digest", None)
+        if digest != "sha256:" + canonical_digest(document):
+            raise ValueError("native transition receipt digest is invalid")
+        return value
+
+
+class NativeScopeTransitionEntityState(BaseModel):
+    """The Entity portion of the state committed by the local transition."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    release_id: Annotated[str, StringConstraints(min_length=1, max_length=64)] | None
+    artifact_digests: tuple[Digest, ...]
+    health: Literal["healthy", "degraded", "unhealthy", "unknown"]
+
+    @model_validator(mode="after")
+    def validate_uninstalled_state(self) -> Self:
+        if self.release_id is None and (self.artifact_digests or self.health == "healthy"):
+            raise ValueError("an uninstalled transition Entity cannot report artifacts or health")
+        if tuple(sorted(set(self.artifact_digests))) != self.artifact_digests:
+            raise ValueError("transition artifact digests must be unique and sorted")
+        return self
+
+
+class NativeScopeTransitionReportedState(BaseModel):
+    """Exact Hub state snapshot produced by the local transition."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    digest: HexDigest
+    schema_revision: Annotated[int, Field(ge=0, le=2**31 - 1)]
+    entities: dict[PathId, NativeScopeTransitionEntityState]
+    observed_at: AwareDatetime
+    available_artifact_digests: tuple[Digest, ...] | None = None
+
+    @model_validator(mode="after")
+    def validate_artifact_inventory(self) -> Self:
+        if self.available_artifact_digests is not None and (
+            tuple(sorted(set(self.available_artifact_digests))) != self.available_artifact_digests
+        ):
+            raise ValueError("available transition artifacts must be unique and sorted")
+        return self
+
+
+class NativeScopeTransitionCompletion(BaseModel):
+    """Authenticated Agent claim that the approved local transition committed."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    schema_version: Literal["fdai.lifecycle-native-transition-completion.v1"]
+    approval: SignedNativeScopeTransitionApproval
+    transition_receipt: NativeScopeTransitionReceipt
+    native_approval: NativeApproval
+    reported_state: NativeScopeTransitionReportedState
+
+    @property
+    def digest(self) -> str:
+        return "sha256:" + canonical_digest(self.model_dump(mode="json"))
+
+
+class NativeScopeTransitionCompletionReceipt(BaseModel):
+    """Durable Hub result returned unchanged for an exact completion retry."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: Literal["fdai.lifecycle-native-transition-completion-receipt.v1"]
+    completion_digest: Digest
+    request_digest: Digest
+    hub_approval_digest: Digest
+    transition_receipt_digest: Digest
+    installation_id: PathId
+    old_entity_id: PathId
+    new_entity_id: PathId
+    old_scope_digest: Digest
+    new_scope_digest: Digest
+    old_reported_state_digest: HexDigest
+    new_reported_state_digest: HexDigest
+    object_scope_digest: Digest
+    authoritative_uids_digest: Digest
+    source_settings_digest: HexDigest
+    agent_principal: Annotated[
+        str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9@._ -]{0,127}$")
+    ]
+    completed_at: AwareDatetime
+    receipt_digest: Digest
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_receipt_digest(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        document = dict(value)
+        digest = document.pop("receipt_digest", None)
+        if digest != "sha256:" + canonical_digest(document):
+            raise ValueError("native transition completion receipt digest is invalid")
+        return value
 
 
 def sign_transition_request(

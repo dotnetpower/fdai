@@ -5,9 +5,11 @@ from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.lifecycle_enrollment import installation_key_id
 from fdai_deployment_cli.lifecycle_native_transition import (
     NativeScopeTransitionApproval,
+    NativeScopeTransitionReceipt,
     NativeScopeTransitionRequest,
     hub_key_id,
     sign_transition_approval,
@@ -86,3 +88,40 @@ def test_transition_request_rejects_ambiguous_or_expired_authority(change: str) 
     }[change]
     with pytest.raises(ValidationError):
         NativeScopeTransitionRequest.model_validate(original.model_dump(mode="json") | updates)
+
+
+def test_local_transition_receipt_is_digest_bound_and_json_stable() -> None:
+    digest = "sha256:" + "a" * 64
+    document = {
+        "schema_version": "fdai.lifecycle-native-transition-receipt.v1",
+        "request_digest": digest,
+        "hub_approval_digest": digest,
+        "installation_id": "installation-alpha",
+        "old_entity_id": "operator-hub-canary",
+        "new_entity_id": "fdai-workloads",
+        "old_scope_digest": digest,
+        "new_scope_digest": "sha256:" + "b" * 64,
+        "old_reported_state_digest": "c" * 64,
+        "new_reported_state_digest": "d" * 64,
+        "ownership_claim_digest": digest,
+        "recovery_request_digest": digest,
+        "existing_resources_digest": digest,
+        "rollback_record_digest": digest,
+        "completed_at": NOW.isoformat().replace("+00:00", "Z"),
+    }
+    receipt = NativeScopeTransitionReceipt.model_validate(
+        {
+            **document,
+            "record_digest": "sha256:" + canonical_digest(document),
+        }
+    )
+
+    assert NativeScopeTransitionReceipt.model_validate_json(receipt.model_dump_json()) == receipt
+    with pytest.raises(ValidationError, match="receipt digest"):
+        NativeScopeTransitionReceipt.model_validate(
+            {
+                **document,
+                "new_entity_id": "other",
+                "record_digest": receipt.record_digest,
+            }
+        )

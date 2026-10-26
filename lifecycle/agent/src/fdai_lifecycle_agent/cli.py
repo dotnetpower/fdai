@@ -51,6 +51,8 @@ from fdai_lifecycle_agent.inputs import (
 )
 from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.native_cli import (
+    TransitionCompleter,
+    complete_native_transition,
     compose_native_cluster,
     register_native_command,
     run_native_bootstrap,
@@ -237,6 +239,7 @@ def main(
     ] = _connect_reference_source,
     connect_enrollment_source: SourceConnector = connect_in_cluster_source,
     connect_enrollment_hub: HubConnector = connect_workload_identity_hub,
+    complete_transition: TransitionCompleter = complete_native_transition,
 ) -> int:
     """Run the command. ``clock``, ``connect_hub``, and ``connect_cluster`` are seams for tests;
     defaults are real."""
@@ -327,11 +330,13 @@ def main(
                 arguments,
                 clock=clock,
                 connect=connect_transition,
+                complete=complete_transition,
             )
-        except (ValueError, OSError, WorkloadError, AgentStateError) as error:
+        except (ValueError, OSError, WorkloadError, AgentStateError, HubProtocolError) as error:
             logging.error(
-                "lifecycle_agent.native_transition_failed error_type=%s",
+                "lifecycle_agent.native_transition_failed error_type=%s reason=%s",
                 type(error).__name__,
+                str(error),
             )
             print(
                 "Native transition failed; verify Hub approval, recovered identity, "
