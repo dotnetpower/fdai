@@ -203,6 +203,41 @@ run "explicit_agent_bindings_reach_runtime" {
   }
 }
 
+run "development_recovery_reaches_target_runtime" {
+  command = plan
+  variables {
+    operator_auth = {
+      profile        = "remote-development"
+      tenant_id      = "00000000-0000-0000-0000-000000000001"
+      audience       = "example-api"
+      spa_client_id  = "example-browser"
+      operator_scope = "Hub.Access"
+      operator_ids   = ["example-operator"]
+      development_recovery = {
+        profile                                   = "full-authority-development"
+        installation_id                           = "installation-alpha"
+        scope                                     = "rg-example-dev"
+        operator_id                               = "example-operator"
+        previous_identity_key_id                  = "installation-0123456789abcdef"
+        replacement_identity_public_key           = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+        authorized_at                             = "2026-10-26T00:00:00Z"
+        authorization_expires_at                  = "2026-11-09T00:00:00Z"
+        allow_single_owner_configuration_approval = true
+        reason                                    = "Recover one exact development installation."
+      }
+    }
+  }
+  assert {
+    condition = (
+      output.deployment.runtime_config.auth.development_recovery.installation_id == "installation-alpha" &&
+      output.deployment.runtime_config.auth.development_recovery.operator_id == "example-operator" &&
+      output.deployment.runtime_config.auth.development_recovery.scope == "rg-example-dev" &&
+      output.deployment.runtime_config.auth.development_recovery.allow_single_owner_configuration_approval
+    )
+    error_message = "The target Hub must retain every protected development recovery binding."
+  }
+}
+
 run "vendor_rejects_agent_bindings" {
   command = plan
   module {
@@ -222,6 +257,37 @@ run "vendor_rejects_agent_bindings" {
         object_id       = "example-agent-object"
         client_id       = "example-agent-client"
       }]
+    }
+  }
+  expect_failures = [var.operator_auth]
+}
+
+run "vendor_rejects_development_recovery" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "release"
+    operator_auth = {
+      profile        = "remote-development"
+      tenant_id      = "00000000-0000-0000-0000-000000000001"
+      audience       = "example-api"
+      spa_client_id  = "example-browser"
+      operator_scope = "Hub.Access"
+      operator_ids   = ["example-operator"]
+      development_recovery = {
+        profile                                   = "full-authority-development"
+        installation_id                           = "installation-alpha"
+        scope                                     = "rg-example-dev"
+        operator_id                               = "example-operator"
+        previous_identity_key_id                  = "installation-0123456789abcdef"
+        replacement_identity_public_key           = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+        authorized_at                             = "2026-10-26T00:00:00Z"
+        authorization_expires_at                  = "2026-11-09T00:00:00Z"
+        allow_single_owner_configuration_approval = true
+        reason                                    = "Recover one exact development installation."
+      }
     }
   }
   expect_failures = [var.operator_auth]

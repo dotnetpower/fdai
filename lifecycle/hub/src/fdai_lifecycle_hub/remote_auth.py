@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import time
+from datetime import datetime, timedelta
 from threading import Condition
 from typing import Any, Literal
 from urllib.parse import quote, urlsplit
@@ -14,7 +15,7 @@ import httpx
 import jwt
 from jwt import PyJWK
 from jwt.exceptions import PyJWTError
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -23,6 +24,9 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+from fdai_lifecycle_hub.configuration_keys import _validate_signing_public_key
+from fdai_lifecycle_hub.signing import installation_key_id
 
 logger = logging.getLogger(__name__)
 # The signed export and the signed roles that vouch for it share one read policy.
@@ -41,6 +45,44 @@ class AgentPrincipal(BaseModel):
     installation_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
     object_id: str = Field(min_length=1)
     client_id: str = Field(min_length=1)
+
+
+class DevelopmentRecoveryAuthorization(BaseModel):
+    """Protected, expiring authority for one exact development identity recovery."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    profile: Literal["full-authority-development"]
+    installation_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+    scope: str = Field(min_length=1, max_length=256)
+    operator_id: str = Field(min_length=1)
+    previous_identity_key_id: str = Field(pattern=r"^installation-[0-9a-f]{16}$")
+    replacement_identity_public_key: str = Field(pattern=r"^[0-9a-f]{64}$")
+    authorized_at: AwareDatetime
+    authorization_expires_at: AwareDatetime
+    allow_single_owner_configuration_approval: Literal[True]
+    reason: str = Field(min_length=3, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_recovery(self) -> DevelopmentRecoveryAuthorization:
+        replacement = bytes.fromhex(self.replacement_identity_public_key)
+        _validate_signing_public_key(replacement)
+        if self.previous_identity_key_id == installation_key_id(replacement) or not timedelta(
+            0
+        ) < self.authorization_expires_at - self.authorized_at <= timedelta(days=14):
+            raise ValueError("Development recovery authorization is invalid.")
+        return self
+
+    @property
+    def replacement_identity_key_id(self) -> str:
+        return installation_key_id(bytes.fromhex(self.replacement_identity_public_key))
+
+    def is_current(self, *, installation_id: str, operator_id: str, now: datetime) -> bool:
+        return (
+            installation_id == self.installation_id
+            and operator_id == self.operator_id
+            and self.authorized_at <= now < self.authorization_expires_at
+        )
 
 
 MAX_REDIRECT_HOSTS = 4
@@ -65,6 +107,7 @@ class RemoteAuth(BaseModel):
     # Public Release Hub export and metadata-only request intake; vendor management stays private.
     public_catalog_export: bool = False
     agent_principals: tuple[AgentPrincipal, ...] = ()
+    development_recovery: DevelopmentRecoveryAuthorization | None = None
     # Former hostnames whose GET and HEAD requests are redirected to `origin`. They never serve.
     redirect_hosts: tuple[str, ...] = ()
 
@@ -106,6 +149,11 @@ class RemoteAuth(BaseModel):
             raise ValueError(
                 "Agent identities must be distinct from operator and catalog identities."
             )
+        if self.development_recovery is not None and (
+            self.development_recovery.operator_id not in self.operator_ids
+            or self.profile != "remote-development"
+        ):
+            raise ValueError("Development recovery requires one configured operator identity.")
         return self
 
     @property
@@ -341,6 +389,8 @@ def secure_app(
     verifier = EntraVerifier(config)
     if vendor and config.agent_principals:
         raise ValueError("Release Hub does not accept Agent principals.")
+    if vendor and config.development_recovery is not None:
+        raise ValueError("Release Hub does not accept development recovery authority.")
     if config.public_catalog_export and not vendor:
         raise ValueError("Only Release Hub may serve a public catalog export.")
     app.state.entra_verifier = verifier

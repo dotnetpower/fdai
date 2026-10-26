@@ -1,7 +1,7 @@
 ---
 translation_of: lifecycle-configuration-key-onboarding.md
-translation_source_sha: aef41451d569907c692adba498e8d6ea05ece8d7
-translation_revised: 2026-10-21
+translation_source_sha: d3556f675de386792e5809e0eb6d8ee68ebd278e
+translation_revised: 2026-10-26
 ---
 # 수명 주기 구성 키 등록
 
@@ -109,6 +109,28 @@ uv run --no-sync pytest -q --no-cov \
 개정 이력을 보존하세요. 키 교체가 갈라진 개정 이력이나 기록 초기화를 허용하지는 않습니다.
 개인 키를 잃어버렸거나 보관 상태가 불확실하면 검토된 운영 교체와 독립 재확인이 성공할 때까지
 새 게시를 보류하세요. 소스 전용 API와 합성 테스트는 이 절차를 실제로 수행하지 않습니다.
+
+등록된 개발 설치의 신원 개인 키를 사용할 수 없으면 Hub 행이나 Agent 파일을 직접 바꾸지 마세요.
+Lifecycle Hub 배포가 `operator_auth.development_recovery`에 정확한 설치, 범위, Owner object ID,
+이전 키 ID, 대체 공개 키, 사유와 최대 14일의 승인 구간을 고정한 뒤에만 전권 개발 복구를
+사용합니다.
+
+1. 선택한 대체 개인 키는 승인된 비공개 키 디렉터리에 유지합니다. 배포 입력에는 공개 키만
+   파생해 사용합니다.
+2. 정규 `fdai.development-identity-recovery.v1` 바이트를 만들고 정확한 대체 키로 서명합니다.
+   요청 확인문에는 설치, 이전 키 ID와 대체 키 ID를 포함합니다.
+3. 정확히 구성된 Owner로
+   `POST /v1/installations/{installation_id}/configuration-keys/recover-identity`에 서명 요청을
+   제출합니다. 정확한 재시도는 같은 다이제스트를 반환합니다.
+4. 구성 서명자 바인딩을 요청하기 전에 새 설치 키 ID와 추가 전용 복구 감사 기록을 다시
+   확인합니다.
+5. 보호된 승인이 명시적으로 허용할 때만 같은 Owner가 첫 바인딩을 승인할 수 있습니다. 이후
+   교체와 개발 외 모든 설치에는 계속 다른 운영자가 필요합니다.
+6. 첫 바인딩 뒤 복구 승인을 제거하고 Hub의 변경 없음 계획을 확인합니다.
+
+Plan이 열려 있거나, 구성 신뢰 또는 대기 중인 키 요청이 이미 있거나, 증명이 5분보다 오래됐거나,
+고정 입력이 하나라도 다르면 복구를 중단합니다. 무결성 서명 키를 다른 용도로 사용하거나 이력을
+다시 쓰거나 Hub로 개인 키 바이트를 전달하지 않습니다.
 
 ## 다음 단계
 

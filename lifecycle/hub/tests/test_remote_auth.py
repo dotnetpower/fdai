@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from jwt.algorithms import RSAAlgorithm
 from lifecycle.hub.tests.remote_auth_helpers import seed_entra_key_cache
 from starlette.applications import Starlette
@@ -21,11 +22,55 @@ from starlette.testclient import TestClient
 from fdai_lifecycle_hub.remote_auth import (
     MAX_JWKS_STALE_SECONDS,
     AgentPrincipal,
+    DevelopmentRecoveryAuthorization,
     EntraVerifier,
     RemoteAuth,
     _strict_json,
     secure_app,
 )
+
+
+def test_development_recovery_authorization_is_exact_bounded_and_operator_owned():
+    now = datetime.now(UTC)
+    replacement = Ed25519PrivateKey.generate().public_key().public_bytes_raw().hex()
+    recovery = DevelopmentRecoveryAuthorization(
+        profile="full-authority-development",
+        installation_id="installation-dev",
+        scope="rg-fdai-dev",
+        operator_id="approved-human",
+        previous_identity_key_id="installation-0123456789abcdef",
+        replacement_identity_public_key=replacement,
+        authorized_at=now,
+        authorization_expires_at=now + timedelta(days=14),
+        allow_single_owner_configuration_approval=True,
+        reason="Recover one exact development installation.",
+    )
+    configured = RemoteAuth(
+        profile="remote-development",
+        tenant_id="00000000-0000-0000-0000-000000000000",
+        audience="hub-api",
+        origin="https://hub.example.com",
+        spa_client_id="browser",
+        operator_scope="Hub.Access",
+        operator_ids=frozenset({"approved-human"}),
+        development_recovery=recovery,
+    )
+
+    assert configured.development_recovery is recovery
+    assert recovery.is_current(
+        installation_id="installation-dev", operator_id="approved-human", now=now
+    )
+    assert not recovery.is_current(installation_id="other", operator_id="approved-human", now=now)
+    with pytest.raises(ValueError, match="invalid"):
+        recovery.model_copy(
+            update={"authorization_expires_at": now + timedelta(days=14, seconds=1)}
+        ).validate_recovery()
+    with pytest.raises(ValueError, match="operator"):
+        configured.model_copy(
+            update={"development_recovery": recovery.model_copy(update={"operator_id": "other"})}
+        ).validate_boundary()
+    with pytest.raises(ValueError, match="does not accept development recovery"):
+        secure_app(Starlette(), configured, vendor=True)
 
 
 @pytest.mark.parametrize(

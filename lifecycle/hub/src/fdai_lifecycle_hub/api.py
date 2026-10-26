@@ -343,7 +343,12 @@ def create_app(
         *execution_settings_routes(store, clock, authenticated=remote_auth is not None),
         *native_ownership_routes(store, clock, authenticated=remote_auth is not None),
         *key_routes(
-            ConfigurationKeyStore(store.engine), clock, authenticated=remote_auth is not None
+            ConfigurationKeyStore(store.engine),
+            clock,
+            authenticated=remote_auth is not None,
+            recovery_authorization=(
+                None if remote_auth is None else remote_auth.development_recovery
+            ),
         ),
         Route("/auth/config", lambda request: JSONResponse({"profile": "local-development"})),
         Route("/healthz", healthz),

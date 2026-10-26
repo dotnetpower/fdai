@@ -543,6 +543,33 @@ Rotation cannot overwrite a row or reset a version after revocation, and schema 
 cannot be called a migration. Private keys, credentials and customer identifiers are not stored.
 No live enrollment, Azure operation, Agent/CSI delivery or production qualification is included.
 
+### Full-authority development identity recovery
+
+A development installation whose enrolled identity private key is unavailable may use one
+deployment-authorized recovery only when the Hub's protected remote configuration fixes every
+authority-bearing input:
+
+- profile `full-authority-development`, exact installation, test scope, authenticated Owner,
+  previous installation key id, replacement Ed25519 public key, authorization start and expiry,
+  and a nonblank reason;
+- a maximum 14-day authorization interval and a five-minute possession proof signed by the exact
+  replacement private key;
+- no open Plan, no accepted or pending configuration-key binding, and no prior different recovery;
+- one canonical request id and payload digest retained in the existing append-only Hub audit.
+
+The request body cannot select any of those values. The installation row lock rechecks the current
+key and fixed authorization before an atomic replacement. Exact retries return the original
+recovery identity; changed bytes, keys, scope, operator or timing fail closed. This recovery cannot
+rotate an installation that already has configuration trust or rewrite enrollment, Plan, report,
+configuration or audit history.
+
+After the exact recovery, the same Owner may satisfy only the first configuration-key approval
+when the protected authorization explicitly enables single-Owner approval, the recovered key is
+still current, key-binding version is zero, and the matching recovery audit exists. Default,
+production and later rotation behavior still requires a different authenticated operator. This
+implements ADR-0003's full-authority development exception without accepting a caller-selected
+key or making language, a package or a Plan grant authority.
+
 ## Atomic import and configured consumption: design and critique
 
 This bounded source path separates five decisions: scope binding, package import, configuration
