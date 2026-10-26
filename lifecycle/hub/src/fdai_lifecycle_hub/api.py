@@ -53,7 +53,7 @@ from fdai_lifecycle_hub.schemas import (
     plan_record,
     reported_state_json,
 )
-from fdai_lifecycle_hub.signing import verify_key_proof
+from fdai_lifecycle_hub.signing import HubSigningKey, verify_key_proof
 from fdai_lifecycle_hub.store import HubStore
 
 MAX_REPORT_BYTES = 16 * 1024
@@ -73,6 +73,7 @@ def create_app(
     static_dir: Path | None = None,
     remote_auth: RemoteAuth | None = None,
     remote_origin: str | None = None,
+    transition_key: HubSigningKey | None = None,
 ) -> Starlette:
     """The agent API, plus the read-only and approval routes the operator UI calls.
 
@@ -341,7 +342,12 @@ def create_app(
 
     routes: list[BaseRoute] = [
         *execution_settings_routes(store, clock, authenticated=remote_auth is not None),
-        *native_ownership_routes(store, clock, authenticated=remote_auth is not None),
+        *native_ownership_routes(
+            store,
+            clock,
+            authenticated=remote_auth is not None,
+            transition_key=transition_key,
+        ),
         *key_routes(
             ConfigurationKeyStore(store.engine),
             clock,

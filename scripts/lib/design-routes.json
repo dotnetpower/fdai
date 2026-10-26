@@ -3309,7 +3309,9 @@
       "id": "hub-managed-lifecycle",
       "paths": [
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_native.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_native_transition.py",
         "packages/deployment-cli/tests/test_lifecycle_native.py",
+        "packages/deployment-cli/tests/test_lifecycle_native_transition.py",
         "lifecycle/agent/src/fdai_lifecycle_agent/native_*.py",
         "lifecycle/agent/src/fdai_lifecycle_agent/adoption.py",
         "lifecycle/agent/tests/test_native*.py",

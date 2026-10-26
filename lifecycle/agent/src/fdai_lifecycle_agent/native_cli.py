@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import stat
@@ -14,11 +15,17 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from fdai_deployment_cli.lifecycle_native import NativeScope
+from fdai_deployment_cli.lifecycle_native_transition import SignedNativeScopeTransitionApproval
+from fdai_deployment_cli.private_output import write_private_output
 
 from fdai_lifecycle_agent.journal import HALT_FILE_NAME, WORKLOAD_FILE_NAME
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import NativeCluster, UidCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore, load_native_approval
+from fdai_lifecycle_agent.native_transition import (
+    prepare_native_transition_request,
+    transition_native_scope,
+)
 from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
 from fdai_lifecycle_agent.signatures import load_ed25519_public_key
 from fdai_lifecycle_agent.state import (
@@ -26,6 +33,7 @@ from fdai_lifecycle_agent.state import (
     STATE_FILE_NAME,
     write_json_atomically,
 )
+from fdai_lifecycle_agent.strict_json import load_json, read_limited
 from fdai_lifecycle_agent.workload import Cluster, WorkloadError
 
 
@@ -53,6 +61,33 @@ def register_native_command(
     authentication.add_argument("--in-cluster", action="store_true")
     command.add_argument("--timeout-seconds", type=float, default=120)
     command.add_argument("--apply", action="store_true")
+    prepare = commands.add_parser(
+        "prepare-native-transition",
+        help="Create a recovered-installation proof for one exact legacy-to-native transition.",
+    )
+    prepare.add_argument("--state-dir", required=True, type=Path)
+    prepare.add_argument("--current-state", required=True, type=Path)
+    prepare.add_argument("--new-native-state", required=True, type=Path)
+    prepare.add_argument("--native-approval", required=True, type=Path)
+    prepare.add_argument("--installation-key", required=True, type=Path)
+    prepare.add_argument("--recovery-request-digest", required=True)
+    prepare.add_argument("--destination", required=True, type=Path)
+    transition = commands.add_parser(
+        "transition-native-scope",
+        help="Atomically activate one Hub-approved native scope and retain legacy rollback state.",
+    )
+    transition.add_argument("--state-dir", required=True, type=Path)
+    transition.add_argument("--current-state", required=True, type=Path)
+    transition.add_argument("--new-native-state", required=True, type=Path)
+    transition.add_argument("--native-approval", required=True, type=Path)
+    transition.add_argument("--hub-approval", required=True, type=Path)
+    transition.add_argument("--hub-public-key", required=True, type=Path)
+    transition.add_argument("--hub-key-id", required=True)
+    transition.add_argument("--hub-key-epoch", required=True, type=int)
+    transition.add_argument("--installation-public-key", required=True, type=Path)
+    authentication = transition.add_mutually_exclusive_group(required=True)
+    authentication.add_argument("--kube-context")
+    authentication.add_argument("--in-cluster", action="store_true")
 
 
 def validate_native_policy(
@@ -223,4 +258,56 @@ def run_native_bootstrap(
     if proof is not None and arguments.apply:
         write_json_atomically(arguments.proof_output, proof.model_dump(mode="json"))
     logging.info("lifecycle_agent.native_bootstrap complete=true applied=%s", arguments.apply)
+    return 0
+
+
+def run_native_transition_command(
+    arguments: argparse.Namespace,
+    *,
+    clock: Callable[[], datetime],
+    connect: Callable[[str | None, str, bool], Cluster],
+) -> int:
+    approval = load_native_approval(arguments.native_approval)
+    if arguments.command == "prepare-native-transition":
+        request = prepare_native_transition_request(
+            state_dir=arguments.state_dir,
+            current_state_path=arguments.current_state,
+            new_native_state_path=arguments.new_native_state,
+            approval=approval,
+            recovery_request_digest=arguments.recovery_request_digest,
+            installation_key=load_installation_identity(arguments.installation_key),
+            now=clock(),
+        )
+        write_private_output(arguments.destination, request.model_dump_json(indent=2) + "\n")
+        print(json.dumps({"prepared": True, "request_digest": request.request.digest}))
+        return 0
+    try:
+        raw = read_limited(arguments.hub_approval, limit=16 * 1024, label="Hub transition approval")
+        load_json(raw, label="Hub transition approval")
+        hub_approval = SignedNativeScopeTransitionApproval.model_validate_json(raw)
+    except (OSError, ValueError) as error:
+        raise WorkloadError("native_transition_hub_approval_invalid") from error
+    cluster = connect(
+        arguments.kube_context,
+        approval.scope.namespace,
+        arguments.in_cluster,
+    )
+    if not isinstance(cluster, UidCluster):
+        raise WorkloadError("native_scope_uid_provider_required")
+    receipt = transition_native_scope(
+        cluster,
+        state_dir=arguments.state_dir,
+        current_state_path=arguments.current_state,
+        new_native_state_path=arguments.new_native_state,
+        approval=approval,
+        signed_approval=hub_approval,
+        hub_public_key=load_ed25519_public_key(arguments.hub_public_key).public_bytes_raw(),
+        expected_hub_key_id=arguments.hub_key_id,
+        expected_hub_key_epoch=arguments.hub_key_epoch,
+        installation_public_key=load_ed25519_public_key(
+            arguments.installation_public_key
+        ).public_bytes_raw(),
+        now=clock(),
+    )
+    print(json.dumps({"transitioned": True, "receipt_digest": receipt["record_digest"]}))
     return 0

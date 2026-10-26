@@ -586,10 +586,14 @@ def _run() -> None:
         hub = HubStore(engine)
         from fdai_lifecycle_hub.api import create_app
 
-        app = create_app(
-            hub, static_dir=args.ui, remote_auth=config.auth, remote_origin=config.origin
-        )
         key = remote_key(config.key_epoch)
+        app = create_app(
+            hub,
+            static_dir=args.ui,
+            remote_auth=config.auth,
+            remote_origin=config.origin,
+            transition_key=key,
+        )
         if source is not None:
             catalog = RemoteCatalog(engine, source)
             catalog.status()

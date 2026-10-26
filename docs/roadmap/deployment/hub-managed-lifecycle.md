@@ -1096,6 +1096,44 @@ finish proof generation only when the original API-assigned anchor UID was alrea
 Existing namespace-level RBAC and pre/post anchor checks are not an atomic namespace-lifetime
 transaction. A lost or replaced anchor is never reported as a healthy successful effect.
 
+### Installed legacy native-scope transition
+
+An installed development Agent can move from one legacy native Entity to one already accepted
+mixed native scope without editing its durable files by hand. This is a one-way preparation step,
+not a Lifecycle Plan or a workload effect. It is available only under a current
+`full-authority-development` approval.
+
+The transition uses two separately signed decisions:
+
+1. `fdai-lifecycle-agent prepare-native-transition` reads the locked active native state, current
+   reported state, staged new native state, recovered installation key and exact local approval.
+   It writes an installation-signed request that binds the installation, old and new Entity and
+   scope digests, old reported-state digest, accepted ownership claim, identity-recovery request,
+   recovered key id and the digest of every approved existing kind, name and UID.
+2. An authenticated operator sends that request to
+   `POST /v1/installations/{installation_id}/native-transition-approval`. The Lifecycle Hub
+   rechecks the recovered-key audit, the accepted native-ownership audit and scope, the exact old
+   installed and new uninstalled reported state, and the absence of an open Plan. It appends one
+   hash-chained audit record and signs the exact approval with the current Hub key. Planning stays
+   held while that approval is current and the old reported-state digest remains active.
+3. `fdai-lifecycle-agent transition-native-scope` verifies both signatures, Hub key id and epoch,
+   current local and Hub approvals, exact old and new scope state, and the absence of an unreported
+   Plan or a prepared/applying journal. It independently reads the new anchor UID, all approved
+   existing UIDs, and the absence of every other scoped object before changing local state.
+4. The Agent retains the exact old native, workload and reported-state bytes in an owner-only
+   rollback record, records pending intent, and publishes the new native state, an empty workload
+   journal and a true empty state for the new Entity through crash-safe file replacement. A
+   digest-bound completion receipt is the commit point. An interrupted attempt restores the old bytes before returning a failure;
+   an exact completed retry returns the original receipt without another write.
+
+The bounded `operator-hub-canary` to `fdai-workloads` development transition approves seven exact
+existing objects and requires the other nine scope objects to be absent. The next ordinary signed
+Plan can therefore adopt those seven and create those nine through the existing mixed-scope
+pipeline. A wrong UID, changed scope or state digest, expired approval, missing recovery proof,
+changed Hub signature, open Plan, applying journal or incomplete recovery blocks the transition.
+The retained rollback record is audit and recovery evidence; there is no command that turns this
+one-way transition into an unreviewed reverse handoff.
+
 ## Workload rendering migration
 
 This section defines how a Hub-managed installation moves workload rendering from the Terraform
