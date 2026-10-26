@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 8a2591b1e330414e7696a8bdaf376fe1d35b3b13
+translation_source_sha: f4c79caf44b387cf26de3e13b09419eff13414ec
 translation_revised: 2026-10-26
 ---
 # 런타임 배포 프로파일
@@ -729,6 +729,11 @@ gateway 파사드는 인가, dry-run 결속, 멱등성 및 리소스 임대를 �
 신원 계약, 범위가 제한된 ARM 전송 및 범위가 지정된 Azure 리소스 읽기와 변경을 소유합니다.
 이 분리는 세 vertical 실행기 신원, 리소스 하나의 영향 범위, 효과 재확인, rollback 및 기본 권한
 없음 동작을 보존합니다.
+
+루트는 결과 핸들 자료용 무작위 256비트 Key Vault 시크릿 하나를 만들고 그 참조를 `result_handle_binding`으로
+노출합니다. Core 신원만 이를 읽으며, Core 서비스 모듈은 `result_handles.key_secret_id`가 설정된 경우에만
+`FDAI_RESULT_HANDLE_MATERIAL`로 연결합니다. 이 바인딩은 기본적으로 비활성입니다. 컴파일된 답변 경로가 증거와 함께
+승격되기 전까지 어떤 워크플로도 이 참조를 제공하지 않습니다.
 
 ### Hub 경로의 Executor 역할
 

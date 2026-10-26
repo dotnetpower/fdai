@@ -695,6 +695,12 @@ Focused modules own configuration and identity contracts, bounded ARM transport,
 resource reads and mutations. The split preserves the three vertical executor identities, one-resource
 blast radius, effect readback, rollback, and no-authority defaults.
 
+The root creates one random 256-bit Key Vault secret for result-handle material and exposes its
+reference as `result_handle_binding`. Only the Core identity reads it, and the Core service module
+maps it to `FDAI_RESULT_HANDLE_MATERIAL` only when its `result_handles.key_secret_id` is set. The
+binding is inert by default: no workflow supplies the reference until the compiled answer path is
+promoted with evidence.
+
 ### Executor role on the Hub path
 
 The workload root accepts `hub_managed` (default `false`). When it is `true`, the Lifecycle Agent
