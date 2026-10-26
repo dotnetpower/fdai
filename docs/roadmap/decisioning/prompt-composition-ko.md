@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 9c8d4bfb4c97c9d7047f346b2fe741c1d5602c4b
-translation_revised: 2026-10-22
+translation_source_sha: 1f426ad4b18159776cc416b18cb02fb553563a0a
+translation_revised: 2026-10-26
 ---
 
 # 진화하는 시스템 프롬프트

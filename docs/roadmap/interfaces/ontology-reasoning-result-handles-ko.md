@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 추론 결과 핸들과 이어 읽기
 translation_of: ontology-reasoning-result-handles.md
-translation_source_sha: 0496e188cabf60f9ffd3ced66f4af26d1d81584d
-translation_revised: 2026-10-02
+translation_source_sha: 854b37fe92d306ba1fd6881eff1efec6621992d5
+translation_revised: 2026-10-26
 ---
 # 온톨로지 추론 결과 핸들과 이어 읽기
 
