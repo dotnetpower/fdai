@@ -350,6 +350,7 @@ def main(
             return _EXIT_CONFIGURATION
     if arguments.command in {
         "prepare-native-transition-reconciliation",
+        "prepare-native-transition-reconciliation-renewal",
         "reconcile-native-transition-state",
     }:
 

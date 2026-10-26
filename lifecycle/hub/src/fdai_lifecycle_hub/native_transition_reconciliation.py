@@ -9,17 +9,23 @@ from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_native_reconciliation import (
     LegacyNativeScopeTransitionReportedState,
     NativeScopeTransitionStateReconciliationApproval,
+    NativeScopeTransitionStateReconciliationApprovalRequest,
     NativeScopeTransitionStateReconciliationCompletion,
     NativeScopeTransitionStateReconciliationReceipt,
+    NativeScopeTransitionStateReconciliationRenewalRequest,
     NativeScopeTransitionStateReconciliationRequest,
     SignedNativeScopeTransitionStateReconciliationApproval,
     canonical_transition_reported_state,
+    reconciliation_request_evidence_digest,
     regenerated_transition_receipt_digest,
     same_transition_state_fields,
     sign_transition_state_reconciliation_approval,
     transition_reported_state_digest,
 )
-from fdai_deployment_cli.lifecycle_native_transition import existing_resources_digest
+from fdai_deployment_cli.lifecycle_native_transition import (
+    NativeScopeTransitionReportedState,
+    existing_resources_digest,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -45,7 +51,7 @@ class NativeTransitionReconciliationStore:
     def approve(
         self,
         installation_id: str,
-        request: NativeScopeTransitionStateReconciliationRequest,
+        request: NativeScopeTransitionStateReconciliationApprovalRequest,
         *,
         operator: str,
         now: datetime,
@@ -78,7 +84,6 @@ class NativeTransitionReconciliationStore:
                 return SignedNativeScopeTransitionStateReconciliationApproval.model_validate_json(
                     canonical_bytes(previous.payload["signed_approval"])
                 )
-            self._require_no_other_attempt(session, installation_id, request)
             installation = mapping.to_domain(session, row)
             try:
                 request.require_current(now)
@@ -96,13 +101,30 @@ class NativeTransitionReconciliationStore:
                 raise NativeTransitionReconciliationError(
                     "native_transition_reconciliation_source_state_invalid"
                 ) from error
+            authoritative = canonical_transition_reported_state(source)
+            supersedes_approval_digest: str | None = None
+            if isinstance(
+                request,
+                NativeScopeTransitionStateReconciliationRenewalRequest,
+            ):
+                previous_approval = self._validate_renewal(
+                    session,
+                    installation_id,
+                    request,
+                    operator=operator,
+                    now=now,
+                    source=source,
+                    authoritative=authoritative,
+                )
+                supersedes_approval_digest = previous_approval.digest
+            else:
+                self._require_no_other_attempt(session, installation_id, request)
             completion_audit = self._validate_evidence(
                 session,
                 installation_id,
                 request,
                 source,
             )
-            authoritative = canonical_transition_reported_state(source)
             approval = NativeScopeTransitionStateReconciliationApproval(
                 schema_version=(
                     "fdai.lifecycle-native-transition-state-reconciliation-approval.v1"
@@ -121,24 +143,28 @@ class NativeTransitionReconciliationStore:
                 approval,
                 key.private_key,
             )
+            payload = {
+                "operator": operator,
+                "request_digest": request.digest,
+                "approval_digest": approval.digest,
+                "transition_receipt_digest": request.transition_receipt.record_digest,
+                "hub_completion_receipt_digest": (request.completion_receipt.receipt_digest),
+                "legacy_reported_state_digest": request.legacy_reported_state.digest,
+                "source_hub_reported_state_digest": source.digest,
+                "authoritative_reported_state_digest": authoritative.digest,
+                "expires_at": request.expires_at.isoformat(),
+                "completion_audit_digest": approval.completion_audit_digest,
+                "signed_approval": signed.model_dump(mode="json"),
+            }
+            if supersedes_approval_digest is not None:
+                payload["supersedes_approval_digest"] = supersedes_approval_digest
             audit.append(
                 session,
                 now,
                 _APPROVAL_ACTION,
                 installation_id,
                 subject,
-                {
-                    "operator": operator,
-                    "request_digest": request.digest,
-                    "transition_receipt_digest": request.transition_receipt.record_digest,
-                    "hub_completion_receipt_digest": (request.completion_receipt.receipt_digest),
-                    "legacy_reported_state_digest": request.legacy_reported_state.digest,
-                    "source_hub_reported_state_digest": source.digest,
-                    "authoritative_reported_state_digest": authoritative.digest,
-                    "expires_at": request.expires_at.isoformat(),
-                    "completion_audit_digest": approval.completion_audit_digest,
-                    "signed_approval": signed.model_dump(mode="json"),
-                },
+                payload,
             )
             return signed
 
@@ -291,10 +317,109 @@ class NativeTransitionReconciliationStore:
                 )
 
     @staticmethod
+    def _validate_renewal(
+        session: Session,
+        installation_id: str,
+        request: NativeScopeTransitionStateReconciliationRenewalRequest,
+        *,
+        operator: str,
+        now: datetime,
+        source: LegacyNativeScopeTransitionReportedState,
+        authoritative: NativeScopeTransitionReportedState,
+    ) -> NativeScopeTransitionStateReconciliationApproval:
+        approval_records = tuple(
+            session.scalars(
+                select(models.AuditRecord)
+                .where(
+                    models.AuditRecord.installation_id == installation_id,
+                    models.AuditRecord.action == _APPROVAL_ACTION,
+                )
+                .order_by(models.AuditRecord.sequence)
+            )
+        )
+        if any(
+            record.payload.get("supersedes_approval_digest") == request.supersedes_approval_digest
+            for record in approval_records
+        ):
+            raise NativeTransitionReconciliationError(
+                "native_transition_reconciliation_renewal_conflict"
+            )
+        parents: list[
+            tuple[models.AuditRecord, NativeScopeTransitionStateReconciliationApproval]
+        ] = []
+        for record in approval_records:
+            if (
+                record.payload.get("transition_receipt_digest")
+                != request.transition_receipt.record_digest
+            ):
+                continue
+            try:
+                signed = SignedNativeScopeTransitionStateReconciliationApproval.model_validate(
+                    record.payload["signed_approval"]
+                )
+            except (KeyError, ValueError) as error:
+                raise NativeTransitionReconciliationError(
+                    "native_transition_reconciliation_renewal_source_invalid"
+                ) from error
+            if signed.approval.digest == request.supersedes_approval_digest:
+                parents.append((record, signed.approval))
+        if len(parents) != 1:
+            raise NativeTransitionReconciliationError(
+                "native_transition_reconciliation_renewal_source_invalid"
+            )
+        parent_record, parent = parents[0]
+        if now.utcoffset() is None or now < parent.expires_at:
+            raise NativeTransitionReconciliationError(
+                "native_transition_reconciliation_approval_active"
+            )
+        if (
+            request.request_id == parent.request.request_id
+            or request.requested_at < parent.expires_at
+        ):
+            raise NativeTransitionReconciliationError(
+                "native_transition_reconciliation_renewal_window_invalid"
+            )
+        if parent_record.payload.get("operator") != operator or parent.approved_by != operator:
+            raise NativeTransitionReconciliationError(
+                "native_transition_reconciliation_renewal_operator_mismatch"
+            )
+        completions = session.scalars(
+            select(models.AuditRecord).where(
+                models.AuditRecord.installation_id == installation_id,
+                models.AuditRecord.action == _COMPLETION_ACTION,
+            )
+        )
+        if any(
+            record.subject == parent_record.subject
+            or record.payload.get("transition_receipt_digest")
+            == request.transition_receipt.record_digest
+            for record in completions
+        ):
+            raise NativeTransitionReconciliationError(
+                "native_transition_reconciliation_approval_consumed"
+            )
+        if reconciliation_request_evidence_digest(
+            request
+        ) != reconciliation_request_evidence_digest(parent.request):
+            raise NativeTransitionReconciliationError(
+                "native_transition_reconciliation_renewal_evidence_mismatch"
+            )
+        if (
+            request.completion_receipt.agent_principal
+            != parent.request.completion_receipt.agent_principal
+            or source != parent.source_hub_reported_state
+            or authoritative != parent.authoritative_reported_state
+        ):
+            raise NativeTransitionReconciliationError(
+                "native_transition_reconciliation_renewal_state_mismatch"
+            )
+        return parent
+
+    @staticmethod
     def _validate_evidence(
         session: Session,
         installation_id: str,
-        request: NativeScopeTransitionStateReconciliationRequest,
+        request: NativeScopeTransitionStateReconciliationApprovalRequest,
         source: LegacyNativeScopeTransitionReportedState,
     ) -> models.AuditRecord:
         local = request.transition_receipt

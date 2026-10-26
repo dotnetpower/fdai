@@ -49,6 +49,38 @@ deterministically sorting and deduplicating `available_artifact_digests`. Its co
 strict: an unsorted or duplicate target is invalid. The Hub computes a new target digest without
 changing the signed legacy source or its stored digest.
 
+### Expired unconsumed approval renewal
+
+An approval that expires before the Agent changes local state can be renewed without weakening
+the evidence checks. The Agent prepares a renewal request that names the exact expired approval
+digest and carries the same immutable transition receipt, Hub completion receipt, native approval,
+and legacy reported state. It refuses renewal when a local reconciliation pending, rollback, or
+completion record shows that an attempt already started. Only `request_id`, `requested_at`, and
+`expires_at` can change.
+
+Under the installation row lock, the Hub requires all of these conditions:
+
+- The superseded approval is present in the hash-chained audit, has expired, and was approved by
+  the same operator.
+- No reconciliation completion receipt or completion audit exists for the superseded approval or
+  its transition receipt.
+- The authenticated Agent principal in the retained completion receipt, installation, Entity and
+  scope digests, authoritative UID digest, native approval, and every other authority-bearing
+  field are unchanged.
+- The current Hub state still equals the superseded approval's source state, and no Plan is open.
+- The superseded approval has no other renewal. An exact retry of the same renewal request is safe
+  to retry (idempotent), while a different child request is a conflict.
+
+The Hub records `supersedes_approval_digest` in the new approval audit and signs a new bounded
+approval. If that approval also expires unconsumed, a later renewal must supersede the latest
+approval rather than branch from an earlier one.
+
+**Critique and revision:** Extending an active approval would silently widen existing authority.
+Treating the same transition receipt as sufficient would miss changed Hub state, Agent evidence,
+operator identity, or a completion whose response was lost. Renewal therefore creates a new
+signed decision only after expiry and repeats current-state, no-Plan, identity, scope, UID, and
+completion checks under the installation lock. It never changes or re-signs the old approval.
+
 ## Agent reconciliation
 
 The Hub signs the exact full-precision legacy source and the strict authoritative replacement.

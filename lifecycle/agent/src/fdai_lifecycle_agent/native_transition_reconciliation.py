@@ -15,8 +15,10 @@ from fdai_deployment_cli.lifecycle_native_reconciliation import (
     NativeScopeTransitionStateReconciliationApproval,
     NativeScopeTransitionStateReconciliationCompletion,
     NativeScopeTransitionStateReconciliationReceipt,
+    NativeScopeTransitionStateReconciliationRenewalRequest,
     NativeScopeTransitionStateReconciliationRequest,
     SignedNativeScopeTransitionStateReconciliationApproval,
+    reconciliation_request_evidence_digest,
     regenerated_transition_receipt_digest,
     same_transition_state_fields,
     same_transition_state_semantic_inventory,
@@ -68,32 +70,105 @@ def prepare_native_transition_state_reconciliation_request(
     """Build a bounded operator request without changing any durable state."""
 
     with LocalStateStore(state_dir).lock():
-        _require_idle(state_dir)
-        local = _transition_receipt(state_dir)
-        legacy = _legacy_reported_state(current_state_path)
-        native = _require_native_state(NativeStateStore(state_dir).path)
-        _validate_local_evidence(
-            local,
-            completion_receipt,
-            legacy,
-            native_approval,
-            native,
-            installation_public_key,
-        )
-        return NativeScopeTransitionStateReconciliationRequest(
-            schema_version=("fdai.lifecycle-native-transition-state-reconciliation-request.v1"),
-            request_id=uuid4(),
-            transition_receipt=local,
+        return _prepare_reconciliation_request_locked(
+            state_dir=state_dir,
+            current_state_path=current_state_path,
             completion_receipt=completion_receipt,
             native_approval=native_approval,
-            legacy_reported_state=legacy,
-            requested_at=now,
-            expires_at=now + lifetime,
-            confirmation=(
-                f"reconcile native transition {local.installation_id} "
-                f"{local.record_digest} {completion_receipt.receipt_digest}"
-            ),
+            installation_public_key=installation_public_key,
+            now=now,
+            lifetime=lifetime,
         )
+
+
+def prepare_native_transition_state_reconciliation_renewal_request(
+    *,
+    state_dir: Path,
+    current_state_path: Path,
+    completion_receipt: NativeScopeTransitionCompletionReceipt,
+    native_approval: NativeApproval,
+    expired_approval: SignedNativeScopeTransitionStateReconciliationApproval,
+    installation_public_key: bytes,
+    now: datetime,
+    lifetime: timedelta = timedelta(minutes=10),
+) -> NativeScopeTransitionStateReconciliationRenewalRequest:
+    """Prepare a fresh request only for the same expired approval evidence."""
+
+    previous = expired_approval.approval
+    if now.utcoffset() is None or now < previous.expires_at:
+        raise WorkloadError("native_transition_reconciliation_approval_active")
+    with LocalStateStore(state_dir).lock():
+        if any(
+            (state_dir / name).exists()
+            for name in (
+                RECONCILIATION_PENDING_FILE_NAME,
+                RECONCILIATION_ROLLBACK_FILE_NAME,
+                RECONCILIATION_RECEIPT_FILE_NAME,
+            )
+        ):
+            raise WorkloadError("native_transition_reconciliation_renewal_local_attempt_exists")
+        request = _prepare_reconciliation_request_locked(
+            state_dir=state_dir,
+            current_state_path=current_state_path,
+            completion_receipt=completion_receipt,
+            native_approval=native_approval,
+            installation_public_key=installation_public_key,
+            now=now,
+            lifetime=lifetime,
+        )
+    if reconciliation_request_evidence_digest(
+        previous.request
+    ) != reconciliation_request_evidence_digest(request):
+        raise WorkloadError("native_transition_reconciliation_renewal_evidence_mismatch")
+    return NativeScopeTransitionStateReconciliationRenewalRequest.model_validate_json(
+        json.dumps(
+            {
+                **request.model_dump(mode="json"),
+                "schema_version": (
+                    "fdai.lifecycle-native-transition-state-reconciliation-renewal-request.v1"
+                ),
+                "supersedes_approval_digest": previous.digest,
+            }
+        )
+    )
+
+
+def _prepare_reconciliation_request_locked(
+    *,
+    state_dir: Path,
+    current_state_path: Path,
+    completion_receipt: NativeScopeTransitionCompletionReceipt,
+    native_approval: NativeApproval,
+    installation_public_key: bytes,
+    now: datetime,
+    lifetime: timedelta,
+) -> NativeScopeTransitionStateReconciliationRequest:
+    _require_idle(state_dir)
+    local = _transition_receipt(state_dir)
+    legacy = _legacy_reported_state(current_state_path)
+    native = _require_native_state(NativeStateStore(state_dir).path)
+    _validate_local_evidence(
+        local,
+        completion_receipt,
+        legacy,
+        native_approval,
+        native,
+        installation_public_key,
+    )
+    return NativeScopeTransitionStateReconciliationRequest(
+        schema_version=("fdai.lifecycle-native-transition-state-reconciliation-request.v1"),
+        request_id=uuid4(),
+        transition_receipt=local,
+        completion_receipt=completion_receipt,
+        native_approval=native_approval,
+        legacy_reported_state=legacy,
+        requested_at=now,
+        expires_at=now + lifetime,
+        confirmation=(
+            f"reconcile native transition {local.installation_id} "
+            f"{local.record_digest} {completion_receipt.receipt_digest}"
+        ),
+    )
 
 
 def reconcile_native_transition_state(

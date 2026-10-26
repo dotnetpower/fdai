@@ -5,13 +5,14 @@ from __future__ import annotations
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance, SignedNativeScope
 from fdai_deployment_cli.lifecycle_native_reconciliation import (
+    NativeScopeTransitionStateReconciliationApprovalRequest,
     NativeScopeTransitionStateReconciliationCompletion,
-    NativeScopeTransitionStateReconciliationRequest,
 )
 from fdai_deployment_cli.lifecycle_native_transition import (
     NativeScopeTransitionCompletion,
     SignedNativeScopeTransitionRequest,
 )
+from pydantic import TypeAdapter
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -27,6 +28,10 @@ from fdai_lifecycle_hub.native_transition_reconciliation import (
 )
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
+
+_RECONCILIATION_APPROVAL_REQUEST: TypeAdapter[
+    NativeScopeTransitionStateReconciliationApprovalRequest
+] = TypeAdapter(NativeScopeTransitionStateReconciliationApprovalRequest)
 
 
 def native_ownership_routes(
@@ -171,7 +176,7 @@ def native_ownership_routes(
                 max_bytes=128 * 1024,
                 strict=True,
             )
-            command = NativeScopeTransitionStateReconciliationRequest.model_validate_json(body)
+            command = _RECONCILIATION_APPROVAL_REQUEST.validate_json(body)
         except ValueError:
             return JSONResponse(
                 {"error": "native_transition_reconciliation_invalid"},

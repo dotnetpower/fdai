@@ -102,9 +102,13 @@ def _native_approval(value: object) -> object:
 
 def _reconciliation_request(value: object) -> object:
     if isinstance(value, dict):
-        return NativeScopeTransitionStateReconciliationRequest.model_validate_json(
-            canonical_bytes(value)
+        model = (
+            NativeScopeTransitionStateReconciliationRenewalRequest
+            if value.get("schema_version")
+            == "fdai.lifecycle-native-transition-state-reconciliation-renewal-request.v1"
+            else NativeScopeTransitionStateReconciliationRequest
         )
+        return model.model_validate_json(canonical_bytes(value))
     return value
 
 
@@ -339,12 +343,11 @@ def regenerated_transition_receipt_digest(
     return "sha256:" + canonical_digest(document)
 
 
-class NativeScopeTransitionStateReconciliationRequest(BaseModel):
-    """Operator request carrying all immutable legacy and Hub completion evidence."""
+class _NativeScopeTransitionStateReconciliationRequest(BaseModel):
+    """Common immutable evidence and bounded timing for approval requests."""
 
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
-    schema_version: Literal["fdai.lifecycle-native-transition-state-reconciliation-request.v1"]
     request_id: UUID
     transition_receipt: LegacyNativeScopeTransitionReceipt
     completion_receipt: NativeScopeTransitionCompletionReceipt
@@ -373,6 +376,48 @@ class NativeScopeTransitionStateReconciliationRequest(BaseModel):
             raise ValueError("native transition reconciliation request is not current")
 
 
+class NativeScopeTransitionStateReconciliationRequest(
+    _NativeScopeTransitionStateReconciliationRequest
+):
+    """Operator request carrying all immutable legacy and Hub completion evidence."""
+
+    schema_version: Literal["fdai.lifecycle-native-transition-state-reconciliation-request.v1"]
+
+
+class NativeScopeTransitionStateReconciliationRenewalRequest(
+    _NativeScopeTransitionStateReconciliationRequest
+):
+    """Fresh bounded request that supersedes one expired unconsumed approval."""
+
+    schema_version: Literal[
+        "fdai.lifecycle-native-transition-state-reconciliation-renewal-request.v1"
+    ]
+    supersedes_approval_digest: Digest
+
+
+type NativeScopeTransitionStateReconciliationApprovalRequest = (
+    NativeScopeTransitionStateReconciliationRequest
+    | NativeScopeTransitionStateReconciliationRenewalRequest
+)
+
+
+def reconciliation_request_evidence_digest(
+    request: NativeScopeTransitionStateReconciliationApprovalRequest,
+) -> str:
+    """Digest every request field that renewal is not allowed to change."""
+
+    document = request.model_dump(mode="json")
+    for field in (
+        "schema_version",
+        "request_id",
+        "requested_at",
+        "expires_at",
+        "supersedes_approval_digest",
+    ):
+        document.pop(field, None)
+    return "sha256:" + canonical_digest(document)
+
+
 class NativeScopeTransitionStateReconciliationApproval(BaseModel):
     """Hub-authoritative state correction signed after completion-audit verification."""
 
@@ -380,7 +425,7 @@ class NativeScopeTransitionStateReconciliationApproval(BaseModel):
 
     schema_version: Literal["fdai.lifecycle-native-transition-state-reconciliation-approval.v1"]
     request: Annotated[
-        NativeScopeTransitionStateReconciliationRequest,
+        NativeScopeTransitionStateReconciliationApprovalRequest,
         BeforeValidator(_reconciliation_request),
     ]
     source_hub_reported_state: LegacyReportedStateReadback
