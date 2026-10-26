@@ -94,11 +94,15 @@ variable "browser_gateway" {
         var.workloads["operator-service"].external &&
         var.workloads["document-ingestion-api"].external &&
         coalesce(var.workloads["operator-service"].service_port, var.workloads["operator-service"].port) == 80 &&
-        coalesce(var.workloads["document-ingestion-api"].service_port, var.workloads["document-ingestion-api"].port) == 80,
+        coalesce(var.workloads["document-ingestion-api"].service_port, var.workloads["document-ingestion-api"].port) == 80 &&
+        can(regex("^[0-9a-fA-F-]{36}$", var.workloads["operator-service"].environment["FDAI_API_AUDIENCE"])) &&
+        can(regex("^https://[^/?#:]+$", var.workloads["operator-service"].environment["FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"])) &&
+        var.workloads["document-ingestion-api"].environment["FDAI_INGESTION_CORS_ALLOW_ORIGINS"] ==
+        var.workloads["operator-service"].environment["FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"],
         false,
       )
     )
-    error_message = "browser_gateway requires external operator-service and document-ingestion-api workloads on Service port 80."
+    error_message = "browser_gateway requires external Operator and ingestion workloads on Service port 80 with one GUID API audience and the same exact HTTPS Console CORS origin."
   }
 }
 

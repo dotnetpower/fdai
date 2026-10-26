@@ -1,6 +1,11 @@
 variable "name" {
   description = "Static Web App resource name (CAF: stapp-<workload>[-env][-region])."
   type        = string
+
+  validation {
+    condition     = can(regex("^stapp-[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])$", var.name)) && length(var.name) <= 40
+    error_message = "name must be a valid Static Web App CAF name of at most 40 characters."
+  }
 }
 
 variable "location" {
