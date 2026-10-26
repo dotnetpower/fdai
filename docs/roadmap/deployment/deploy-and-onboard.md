@@ -36,6 +36,14 @@ storage endpoint remains associated with the application zone and the root publi
 A record for the same private IP in the operations zone instead of attempting a second
 overlapping VNet link.
 
+An optional Lifecycle Hub `operator_auth.development_recovery` input can recover one development
+installation identity whose private key is unavailable. Use it only with the exact
+`full-authority-development` installation, scope, Owner, old and replacement public keys, reason
+and authorization interval. Release Hub rejects this input. The Lifecycle Hub still requires
+replacement-key possession, no open Plan or existing configuration trust, append-only audit and
+first-binding-only single-Owner approval. Remove the input after verified recovery and key
+registration; it is not a production or general enrollment-rotation setting.
+
 The Lifecycle Hub image now needs a digest-pinned `OPA_IMAGE` build argument because the adoption policy runs `opa`; the Release Hub image doesn't contain it. The Lifecycle Hub `catalog` setting adds `access`, `check_interval_seconds` and an `adoption` object whose `auto` mode requires an attributed, expiring `authorized_by` and `authorization_expires_at`. Release Hub adds `auth.public_catalog_export` and `timestamp_renewal_check_seconds`. Each new field is optional and is omitted from the runtime JSON when unset, so older images keep parsing their configuration. See [Automatic catalog adoption](lifecycle-releases-and-channels.md#automatic-catalog-adoption). Signed catalog roles add two more optional inputs: the Lifecycle Hub `catalog.trust` object (`mode = "tuf"`, `root_key_ids`, `root_threshold`) replaces `release_public_key`, and the Release Hub `catalog_roles` object adds separate snapshot-key and timestamp-key secret versions. The offline-signed root is installed through the `install-catalog-root` operation. See [Signed catalog roles](lifecycle-releases-and-channels.md#signed-catalog-roles-in-the-hubs). The Lifecycle Hub operation Job also accepts `bind-catalog` and `rebind-catalog`; they take an attributed `actor` and a `reason` instead of a request secret, and a rebinding keeps the revision floor.
 
 The unchanged [legacy paired fixture](../../../infra/hubs-development/README.md) retains separate networks, identities/keys, migrations, Entra operator/service boundaries and catalog-pin approval for current state owners.

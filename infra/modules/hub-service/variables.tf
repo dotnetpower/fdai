@@ -145,6 +145,18 @@ variable "operator_auth" {
       object_id       = string
       client_id       = string
     })), [])
+    development_recovery = optional(object({
+      profile                                   = string
+      installation_id                           = string
+      scope                                     = string
+      operator_id                               = string
+      previous_identity_key_id                  = string
+      replacement_identity_public_key           = string
+      authorized_at                             = string
+      authorization_expires_at                  = string
+      allow_single_owner_configuration_approval = bool
+      reason                                    = string
+    }))
   })
   default = null
   validation {
@@ -153,13 +165,27 @@ variable "operator_auth" {
       length(var.operator_auth.operator_ids) > 0 &&
       var.operator_auth.audience != "" && var.operator_auth.spa_client_id != "" &&
       (var.kind == "release" || var.operator_auth.service_object_id == null) &&
-      (var.kind == "target" || length(var.operator_auth.agent_principals) == 0)
+      (var.kind == "target" || length(var.operator_auth.agent_principals) == 0) &&
+      (var.kind == "target" || var.operator_auth.development_recovery == null)
     )
     error_message = "Supply complete verified operator bindings; Lifecycle Hub cannot admit a vendor service identity and Release Hub cannot admit Agents."
   }
   validation {
     condition     = var.operator_auth == null ? true : (var.kind == "release" || !var.operator_auth.public_catalog_export)
     error_message = "Only the Release Hub can serve the signed catalog export without a bearer token."
+  }
+  validation {
+    condition = var.operator_auth == null ? true : (
+      var.operator_auth.development_recovery == null ? true : (
+        var.operator_auth.development_recovery.profile == "full-authority-development" &&
+        contains(var.operator_auth.operator_ids, var.operator_auth.development_recovery.operator_id) &&
+        can(regex("^installation-[0-9a-f]{16}$", var.operator_auth.development_recovery.previous_identity_key_id)) &&
+        can(regex("^[0-9a-f]{64}$", var.operator_auth.development_recovery.replacement_identity_public_key)) &&
+        var.operator_auth.development_recovery.allow_single_owner_configuration_approval &&
+        length(trimspace(var.operator_auth.development_recovery.reason)) >= 3
+      )
+    )
+    error_message = "Development recovery must fix the full-authority profile, exact operator, key identities, single-Owner selection and attributed reason."
   }
 }
 variable "timestamp_renewal_check_seconds" {

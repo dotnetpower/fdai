@@ -62,6 +62,18 @@ variable "operator_auth" {
       object_id       = string
       client_id       = string
     })), [])
+    development_recovery = optional(object({
+      profile                                   = string
+      installation_id                           = string
+      scope                                     = string
+      operator_id                               = string
+      previous_identity_key_id                  = string
+      replacement_identity_public_key           = string
+      authorized_at                             = string
+      authorization_expires_at                  = string
+      allow_single_owner_configuration_approval = bool
+      reason                                    = string
+    }))
   })
   default = null
 }

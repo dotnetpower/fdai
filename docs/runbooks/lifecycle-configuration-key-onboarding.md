@@ -108,6 +108,31 @@ a key does not authorize a fork or a history reset. If the private key is lost o
 uncertain, hold new publication until reviewed operational rotation and independent readback
 succeed. The source-only API and synthetic tests do not perform that ceremony.
 
+For an enrolled development installation whose identity private key is unavailable, don't replace
+the Hub row or Agent files manually. Use the full-authority development recovery only after the
+Lifecycle Hub deployment fixes the exact installation, scope, Owner object id, previous key id,
+replacement public key, reason, and authorization interval of at most 14 days in
+`operator_auth.development_recovery`.
+
+1. Keep the selected replacement private key in the approved private key directory. Derive only
+   its public key for deployment input.
+2. Build canonical `fdai.development-identity-recovery.v1` bytes and sign them with that exact
+   replacement key. The request confirmation names the installation, previous key id, and
+   replacement key id.
+3. Submit the signed request to
+   `POST /v1/installations/{installation_id}/configuration-keys/recover-identity` as the exact
+   configured Owner. A successful exact retry returns the same digest.
+4. Read back the new installation key id and the append-only recovery audit before requesting a
+   configuration signer binding.
+5. The same Owner can approve only the first binding when the protected authorization explicitly
+   permits it. Later rotations and every non-development installation still need a different
+   operator.
+6. Remove the recovery authorization after the first binding and verify a zero-change Hub plan.
+
+Recovery stops when a Plan is open, configuration trust or a pending key request already exists,
+the proof is older than five minutes, or any fixed input differs. It never repurposes the integrity
+signing key, rewrites history, or carries private key bytes to the Hub.
+
 ## Next steps
 
 | To learn about | Read |

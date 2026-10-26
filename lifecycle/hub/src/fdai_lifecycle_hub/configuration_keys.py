@@ -149,6 +149,68 @@ class SignedKeyRequest(BaseModel):
         return result
 
 
+class DevelopmentIdentityRecoveryRequest(BaseModel):
+    """One exact replacement identity selected by protected development configuration."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    format: Literal["fdai.development-identity-recovery.v1"]
+    installation_id: schemas.Identifier
+    scope: Annotated[str, Field(min_length=1, max_length=256)]
+    request_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    previous_identity_key_id: schemas.InstallationKeyId
+    replacement_identity_public_key: PublicKey
+    requested_at: AwareDatetime
+    confirmation: str
+
+    @model_validator(mode="after")
+    def validate_recovery(self) -> DevelopmentIdentityRecoveryRequest:
+        replacement = bytes.fromhex(self.replacement_identity_public_key)
+        _validate_signing_public_key(replacement)
+        replacement_key_id = installation_key_id(replacement)
+        if self.previous_identity_key_id == replacement_key_id or self.confirmation != (
+            f"recover installation identity {self.installation_id} "
+            f"{self.previous_identity_key_id} {replacement_key_id}"
+        ):
+            raise ValueError("Development identity recovery confirmation differs.")
+        return self
+
+    @property
+    def payload(self) -> bytes:
+        return canonical_bytes(self.model_dump(mode="json"))
+
+    @property
+    def digest(self) -> str:
+        return public_digest(self.payload)
+
+    @property
+    def replacement_key_id(self) -> str:
+        return installation_key_id(bytes.fromhex(self.replacement_identity_public_key))
+
+    def verify_possession(self, proof: bytes, *, now: datetime) -> None:
+        if abs(now - self.requested_at) > PROOF_CLOCK_WINDOW:
+            raise KeyBindingError("development_identity_recovery_expired")
+        try:
+            Ed25519PublicKey.from_public_bytes(
+                bytes.fromhex(self.replacement_identity_public_key)
+            ).verify(proof, self.payload)
+        except (InvalidSignature, ValueError):
+            raise KeyBindingError("development_identity_recovery_proof_invalid") from None
+
+
+class SignedDevelopmentIdentityRecovery(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    signed_payload: schemas.Base64
+    proof: schemas.Base64
+
+    def parsed(self) -> DevelopmentIdentityRecoveryRequest:
+        result = DevelopmentIdentityRecoveryRequest.model_validate_json(self.signed_payload)
+        if result.payload != self.signed_payload:
+            raise KeyBindingError("development_identity_recovery_not_canonical")
+        return result
+
+
 class KeyDecision(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

@@ -8,7 +8,12 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from fdai_deployment_cli.contracts import canonical_bytes
-from lifecycle.hub.tests.configuration_key_helpers import remote_auth, request_for, tokens
+from lifecycle.hub.tests.configuration_key_helpers import (
+    recovery_for,
+    remote_auth,
+    request_for,
+    tokens,
+)
 from lifecycle.hub.tests.test_configuration_revision import plan_case as plan_case
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -20,6 +25,8 @@ from fdai_lifecycle_hub.api import create_app
 from fdai_lifecycle_hub.configuration_key_store import ConfigurationKeyStore
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import Issued
+from fdai_lifecycle_hub.remote_auth import DevelopmentRecoveryAuthorization
+from fdai_lifecycle_hub.signing import installation_key_id, raw_public_key
 from fdai_lifecycle_hub.store import HubStore
 
 
@@ -30,6 +37,270 @@ def keys(enrolled_store, installation, installation_key, now):
         installation_key, signer, recipient, now, installation_id=installation.installation_id
     )
     return ConfigurationKeyStore(enrolled_store.engine), request, signed, signer, recipient
+
+
+def _recovery_authorization(replacement, installation, installation_key, now, **changes):
+    values = {
+        "profile": "full-authority-development",
+        "installation_id": installation.installation_id,
+        "scope": "rg-fdai-dev-wus3",
+        "operator_id": "requester",
+        "previous_identity_key_id": installation_key_id(raw_public_key(installation_key)),
+        "replacement_identity_public_key": raw_public_key(replacement).hex(),
+        "authorized_at": now - timedelta(minutes=1),
+        "authorization_expires_at": now + timedelta(days=14) - timedelta(minutes=1),
+        "allow_single_owner_configuration_approval": True,
+        "reason": "Recover the exact issue 2468 development installation identity.",
+    }
+    values.update(changes)
+    return DevelopmentRecoveryAuthorization.model_validate(values)
+
+
+def test_full_authority_development_recovery_and_first_same_owner_approval(
+    enrolled_store, installation, installation_key, now
+):
+    replacement = Ed25519PrivateKey.generate()
+    authorization = _recovery_authorization(replacement, installation, installation_key, now)
+    recovery, signed_recovery = recovery_for(
+        replacement,
+        now,
+        installation_id=installation.installation_id,
+        previous_identity_key_id=authorization.previous_identity_key_id,
+    )
+    auth = remote_auth(authorization)
+    app = create_app(enrolled_store, clock=lambda: now, remote_auth=auth)
+    token = tokens(app, auth)
+    root = f"/v1/installations/{installation.installation_id}/configuration-keys"
+    signer, recipient = Ed25519PrivateKey.generate(), X25519PrivateKey.generate()
+    request, signed = request_for(
+        replacement,
+        signer,
+        recipient,
+        now,
+        installation_id=installation.installation_id,
+    )
+
+    with TestClient(app, base_url=auth.origin) as client:
+        recovery_body = signed_recovery.model_dump(mode="json")
+        assert (
+            client.post(root + "/recover-identity", json=recovery_body, headers=token()).status_code
+            == 202
+        )
+        assert (
+            client.post(root + "/recover-identity", json=recovery_body, headers=token()).status_code
+            == 202
+        )
+        assert (
+            client.post(
+                root + "/request", json=signed.model_dump(mode="json"), headers=token()
+            ).status_code
+            == 202
+        )
+        assert (
+            client.post(
+                root + "/approve",
+                json={"request_digest": request.digest},
+                headers=token(),
+            ).status_code
+            == 202
+        )
+        next_signer, next_recipient = (
+            Ed25519PrivateKey.generate(),
+            X25519PrivateKey.generate(),
+        )
+        next_request, next_signed = request_for(
+            replacement,
+            next_signer,
+            next_recipient,
+            now,
+            installation_id=installation.installation_id,
+            version=2,
+            predecessor=request.digest,
+        )
+        assert (
+            client.post(
+                root + "/request",
+                json=next_signed.model_dump(mode="json"),
+                headers=token(),
+            ).status_code
+            == 202
+        )
+        assert (
+            client.post(
+                root + "/approve",
+                json={"request_digest": next_request.digest},
+                headers=token(),
+            ).status_code
+            == 409
+        )
+
+    registry = ConfigurationKeyStore(enrolled_store.engine)
+    assert (
+        registry.recover_identity(
+            installation.installation_id,
+            signed_recovery,
+            actor="requester",
+            now=now + timedelta(days=15),
+            authorization=authorization,
+        )
+        == recovery.digest
+    )
+    assert registry.status(installation.installation_id) == {
+        "version": 1,
+        "request_digest": request.digest,
+        "revoked": False,
+        "approved_by": "requester",
+    }
+    with Session(enrolled_store.engine) as session:
+        recovered = session.get(models.Installation, installation.installation_id)
+        assert recovered.installation_key == raw_public_key(replacement)
+        records = session.scalars(
+            select(models.AuditRecord).where(
+                models.AuditRecord.action == "configuration.identity.development-recovered"
+            )
+        ).all()
+        assert len(records) == 1
+        assert records[0].subject == recovery.digest
+        assert audit.chain_intact(session)
+
+
+@pytest.mark.parametrize("fault", ["proof", "replacement", "expired"])
+def test_development_recovery_rejects_changed_proof_key_and_time(
+    fault, enrolled_store, installation, installation_key, now
+):
+    replacement = Ed25519PrivateKey.generate()
+    authorization = _recovery_authorization(replacement, installation, installation_key, now)
+    _, signed = recovery_for(
+        replacement,
+        now,
+        installation_id=installation.installation_id,
+        previous_identity_key_id=authorization.previous_identity_key_id,
+    )
+    if fault == "proof":
+        signed = signed.model_copy(update={"proof": b"x" * 64})
+        expected = "proof_invalid"
+    elif fault == "replacement":
+        other = Ed25519PrivateKey.generate()
+        _, signed = recovery_for(
+            other,
+            now,
+            installation_id=installation.installation_id,
+            previous_identity_key_id=authorization.previous_identity_key_id,
+        )
+        expected = "not_authorized"
+    else:
+        authorization = authorization.model_copy(update={"authorization_expires_at": now})
+        expected = "not_authorized"
+
+    with pytest.raises(KeyBindingError, match=expected):
+        ConfigurationKeyStore(enrolled_store.engine).recover_identity(
+            installation.installation_id,
+            signed,
+            actor="requester",
+            now=now,
+            authorization=authorization,
+        )
+    with Session(enrolled_store.engine) as session:
+        retained = session.get(models.Installation, installation.installation_id)
+        assert retained.installation_key == raw_public_key(installation_key)
+        assert audit.chain_intact(session)
+
+
+def test_development_recovery_is_denied_without_exact_authorization(
+    enrolled_store, installation, installation_key, now
+):
+    replacement = Ed25519PrivateKey.generate()
+    authorization = _recovery_authorization(replacement, installation, installation_key, now)
+    _, signed = recovery_for(
+        replacement,
+        now,
+        installation_id=installation.installation_id,
+        previous_identity_key_id=authorization.previous_identity_key_id,
+    )
+    registry = ConfigurationKeyStore(enrolled_store.engine)
+
+    with pytest.raises(KeyBindingError, match="not_authorized"):
+        registry.recover_identity(
+            installation.installation_id,
+            signed,
+            actor="requester",
+            now=now,
+            authorization=None,
+        )
+    with pytest.raises(KeyBindingError, match="not_authorized"):
+        registry.recover_identity(
+            installation.installation_id,
+            signed,
+            actor="approver",
+            now=now,
+            authorization=authorization,
+        )
+    with Session(enrolled_store.engine) as session:
+        retained = session.get(models.Installation, installation.installation_id)
+        assert retained.installation_key == raw_public_key(installation_key)
+        assert audit.chain_intact(session)
+
+
+def test_development_recovery_refuses_open_plan_and_existing_configuration_state(
+    enrolled_store, installation, installation_key, planner, enroll, now
+):
+    replacement = Ed25519PrivateKey.generate()
+    authorization = _recovery_authorization(replacement, installation, installation_key, now)
+    _, signed = recovery_for(
+        replacement,
+        now,
+        installation_id=installation.installation_id,
+        previous_identity_key_id=authorization.previous_identity_key_id,
+    )
+    registry = ConfigurationKeyStore(enrolled_store.engine)
+    assert isinstance(
+        enrolled_store.recompute(installation.installation_id, planner, now=now),
+        Issued,
+    )
+
+    with pytest.raises(KeyBindingError, match="conflict"):
+        registry.recover_identity(
+            installation.installation_id,
+            signed,
+            actor="requester",
+            now=now,
+            authorization=authorization,
+        )
+
+    other_installation = replace(installation, installation_id="recovery-with-pending-request")
+    enroll(enrolled_store, other_installation)
+    signer, recipient = Ed25519PrivateKey.generate(), X25519PrivateKey.generate()
+    _, pending = request_for(
+        installation_key,
+        signer,
+        recipient,
+        now,
+        installation_id=other_installation.installation_id,
+    )
+    other_registry = ConfigurationKeyStore(enrolled_store.engine)
+    other_registry.request(
+        other_installation.installation_id,
+        pending,
+        actor="requester",
+        now=now,
+    )
+    other_authorization = authorization.model_copy(
+        update={"installation_id": other_installation.installation_id}
+    )
+    _, other_recovery = recovery_for(
+        replacement,
+        now,
+        installation_id=other_installation.installation_id,
+        previous_identity_key_id=other_authorization.previous_identity_key_id,
+    )
+    with pytest.raises(KeyBindingError, match="conflict"):
+        other_registry.recover_identity(
+            other_installation.installation_id,
+            other_recovery,
+            actor="requester",
+            now=now,
+            authorization=other_authorization,
+        )
 
 
 def test_actual_authenticated_independent_approval_and_restart(
