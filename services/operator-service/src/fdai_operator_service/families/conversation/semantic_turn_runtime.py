@@ -292,6 +292,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         kind: str = "semantic_turn",
         detail: str | None = None,
         observed_at: str | None = None,
+        model_call: JsonObject | None = None,
     ) -> None:
         """Queue one bounded step record for the observed-process timeline."""
         if status == "running":
@@ -317,6 +318,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                         "total": total,
                         **({"detail": detail} if detail is not None else {}),
                         **({"observed_at": observed_at} if observed_at is not None else {}),
+                        **({"model_call": model_call} if model_call is not None else {}),
                         **({"execution": execution} if execution is not None else {}),
                     },
                 ),

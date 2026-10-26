@@ -99,6 +99,13 @@ The threat review must pass before H2 ships:
 cross-conversation bindings, and the rendered-order digest equals the Console's order on the fixture
 graph.
 
+**Enablement:** Core builds the store only when the venue sets `FDAI_SEMANTIC_RESULT_HANDLES=1` and
+supplies a state-store DSN and key material; opting in without either fails at startup instead of
+silently dropping follow-up context. Without the opt-in no handle is issued, so a follow-up such as
+"only the running ones" after a list has nothing to bind and ends as a clarification. The local
+launcher opts in with a generated key kept in an ignored file; deployed venues stay off until
+promotion.
+
 ## H3 Property follow-ups
 
 A question such as "what is the SKU of storage account X" asks for a property that the form can't

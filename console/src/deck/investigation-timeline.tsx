@@ -113,6 +113,32 @@ function formatDuration(durationMs: number): string {
     : `${(durationMs / 1000).toFixed(1)} s`;
 }
 
+// A model-call row names its stage and outcome from closed codes, so it follows the Console
+// language even when the answer follows the language of the question.
+function modelCallLabel(activity: InvestigationActivity): string {
+  return activity.modelCall
+    ? t("deck.investigation.modelCallLabel", {
+        stage: t(`deck.investigation.modelStage.${activity.modelCall.stage}`),
+      })
+    : activity.label;
+}
+
+function modelCallDetail(activity: InvestigationActivity): string | undefined {
+  const call = activity.modelCall;
+  if (!call) return activity.detail;
+  const model = call.model ?? t("deck.investigation.modelCallModel");
+  if (activity.status === "running" || activity.status === "pending") {
+    return t("deck.investigation.modelCallWaiting", { model });
+  }
+  return t("deck.investigation.modelCallSettled", {
+    model,
+    duration: formatDuration(call.durationMs ?? 0),
+    outcome: t(activity.status === "completed"
+      ? "deck.investigation.modelCallCompleted"
+      : "deck.investigation.modelCallFailed"),
+  });
+}
+
 function terminalDuration(
   branches: readonly EvidenceBranch[],
   activities: readonly InvestigationActivity[],
@@ -557,7 +583,7 @@ function ModelCallGroup({
   const detail = inFlight.length > 0
     ? [
         // The latest call in flight names the stage; the count covers the rest.
-        inFlight[inFlight.length - 1]?.label ?? "",
+        inFlight[inFlight.length - 1] ? modelCallLabel(inFlight[inFlight.length - 1]!) : "",
         t("deck.investigation.modelGroupRunning", {
           running: inFlight.length,
           done,
@@ -641,13 +667,13 @@ function ActivitySummary({
       )}
       <span class="deck-investigation-copy">
         <span class="deck-investigation-title-line">
-          <strong>{activity.label}</strong>
+          <strong>{modelCallLabel(activity)}</strong>
           {!metaNamesStatus && !modelCall &&
             (status === "running" || status === "pending" || status !== activity.status) ? (
             <em>{statusLabel(status)}</em>
           ) : null}
         </span>
-        {activity.detail ? <small>{activity.detail}</small> : null}
+        {modelCallDetail(activity) ? <small>{modelCallDetail(activity)}</small> : null}
       </span>
       {meta !== null ? (
         <span class="deck-investigation-meta muted">
