@@ -13,6 +13,7 @@ from fdai_deployment_cli.lifecycle_configuration_package import (
     decrypt_installation_configuration_identifiers,
 )
 from lifecycle.hub.tests.configuration_import_helpers import make_harness
+from lifecycle.hub.tests.configuration_key_helpers import recovery_for
 from lifecycle.hub.tests.test_configuration_revision import plan_case as plan_case
 from lifecycle.hub.tests.test_remote_catalog import approve
 from sqlalchemy import create_engine, func, select
@@ -26,6 +27,8 @@ from fdai_lifecycle_hub.configuration_import_models import (
 )
 from fdai_lifecycle_hub.configuration_import_store import ConfigurationImportStore
 from fdai_lifecycle_hub.planning import plan_next
+from fdai_lifecycle_hub.remote_auth import DevelopmentRecoveryAuthorization
+from fdai_lifecycle_hub.signing import installation_key_id, raw_public_key
 from fdai_lifecycle_hub.store import HubStore
 from fdai_release_hub.store import Change, ReleaseStore
 
@@ -40,6 +43,70 @@ def imported(tmp_path, plan_case, installation_key, key, now, sign, monkeypatch)
         with harness.client:
             harness.register_keys()
             yield harness
+    finally:
+        engine.dispose()
+
+
+def test_recovered_development_owner_can_approve_first_configuration(
+    tmp_path, plan_case, installation_key, key, now, sign, monkeypatch
+):
+    replacement = Ed25519PrivateKey.generate()
+    authorization = DevelopmentRecoveryAuthorization.model_validate(
+        {
+            "profile": "full-authority-development",
+            "installation_id": plan_case.installation.installation_id,
+            "scope": "rg-fdai-dev-wus3",
+            "operator_id": "requester",
+            "previous_identity_key_id": installation_key_id(raw_public_key(installation_key)),
+            "replacement_identity_public_key": raw_public_key(replacement).hex(),
+            "authorized_at": now - timedelta(minutes=1),
+            "authorization_expires_at": now + timedelta(days=14) - timedelta(minutes=1),
+            "allow_single_owner_configuration_approval": True,
+            "reason": "Complete the exact recovered development configuration.",
+        }
+    )
+    engine = create_engine(f"sqlite:///{tmp_path / 'single-owner-import.db'}")
+    harness = make_harness(
+        engine,
+        plan_case,
+        installation_key,
+        key,
+        now,
+        sign,
+        tmp_path,
+        monkeypatch,
+        recovery=authorization,
+    )
+    try:
+        with harness.client:
+            request, signed = recovery_for(
+                replacement,
+                harness.now,
+                installation_id=harness.iid,
+                previous_identity_key_id=authorization.previous_identity_key_id,
+            )
+            response = harness.post("configuration-keys/recover-identity", signed)
+            assert response.status_code == 202, response.json()
+            assert response.json()["request_digest"] == request.digest
+            harness.identity = replacement
+            harness.register_keys(approver="requester")
+            scope, signed_scope = harness.scope_request()
+            assert harness.post("configuration-scope/request", signed_scope).status_code == 202
+            assert (
+                harness.post(
+                    "configuration-scope/approve",
+                    {"digest": scope.digest},
+                    actor="requester",
+                ).status_code
+                == 202
+            )
+            harness.scope_digest = scope.digest
+            decision = harness.stage()
+            harness.activate(decision, approver="requester")
+            assert (
+                ConfigurationImportStore(engine).read(harness.iid)["active_digest"]
+                == decision["digest"]
+            )
     finally:
         engine.dispose()
 

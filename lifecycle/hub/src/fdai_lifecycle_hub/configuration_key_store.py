@@ -409,7 +409,10 @@ def _verified_binding(
     if (
         now < binding.approved_at
         or now >= request.binding_expires_at
-        or row.requested_by == binding.approved_by
+        or (
+            row.requested_by == binding.approved_by
+            and not single_owner_binding_audited(session, installation, binding.approved_by)
+        )
         or binding.approved_at < row.recorded_at
         or binding.approved_at >= request.approval_expires_at
     ):
@@ -437,6 +440,29 @@ def _verified_binding(
     ):
         raise KeyBindingError("configuration_binding_unprovable")
     return request
+
+
+def single_owner_binding_audited(
+    session: Session,
+    installation: models.Installation,
+    actor: str,
+) -> bool:
+    binding = session.get(models.ConfigurationKeyBinding, (installation.installation_id, 1))
+    if binding is None or binding.approved_by != actor:
+        return False
+    records = session.scalars(
+        select(models.AuditRecord).where(
+            models.AuditRecord.action == "configuration.identity.development-recovered",
+            models.AuditRecord.installation_id == installation.installation_id,
+        )
+    ).all()
+    current_key_id = installation_key_id(installation.installation_key)
+    return any(
+        record.payload.get("actor") == actor
+        and record.payload.get("replacement_identity_key_id") == current_key_id
+        and record.record_hash == audit.record_hash(record)
+        for record in records
+    )
 
 
 def _head(session: Session, installation_id: str) -> models.ConfigurationKeyBinding | None:
