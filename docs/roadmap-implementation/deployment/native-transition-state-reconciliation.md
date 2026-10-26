@@ -11,11 +11,11 @@ The implementation covers Hub approval, Agent state locking, immutable receipt v
 canonical state replacement, rollback backup, audited submission, exact retry, and planning
 resumption. It does not authorize general state repair.
 
-| Capability | Status | Evidence |
-|------------|--------|----------|
-| Hub approval and completion | Implemented | Focused API/store tests |
-| Agent atomic reconciliation | Implemented | Advancing-clock, restart, rollback and retry tests |
-| Legacy precision bounds | Implemented | Exact millisecond/microsecond canonical digest regressions |
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Hub approval and completion | Implemented | Focused API/store tests | Exact installation row lock |
+| Agent atomic reconciliation | Implemented | Advancing-clock, restart, rollback and retry tests | Current state only |
+| Legacy precision bounds | Implemented | Exact millisecond/microsecond canonical digest regressions | Maximum one millisecond |
 
 ### Implementation history
 
@@ -25,5 +25,5 @@ resumption. It does not authorize general state repair.
 
 ### Remaining work
 
-- Record one successful live reconciliation and the first admitted Plan that uses the reconciled
+- [ ] Record one successful live reconciliation and the first admitted Plan that uses the reconciled
   source-state digest.
