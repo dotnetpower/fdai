@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from fdai_deployment_cli.private_output import copy_private_file
+from fdai_deployment_cli.private_output import copy_private_file, read_private_bytes
 
 
 def _private_directory(path: Path) -> Path:
@@ -26,6 +26,16 @@ def test_copy_private_file_publishes_new_mode_0600_file(tmp_path: Path) -> None:
     assert destination.read_bytes() == b"verified appliance"
     assert destination.stat().st_mode & 0o777 == 0o600
     assert not list(private.glob(".destination.bin.copy-*"))
+
+
+def test_read_private_file_accepts_owner_only_setgid_directory(tmp_path: Path) -> None:
+    private = _private_directory(tmp_path / "private")
+    private.chmod(0o2700)
+    source = private / "source.bin"
+    source.write_bytes(b"kubernetes state")
+    source.chmod(0o600)
+
+    assert read_private_bytes(source, max_bytes=1024) == b"kubernetes state"
 
 
 def test_copy_private_file_rejects_links_and_existing_destination(tmp_path: Path) -> None:

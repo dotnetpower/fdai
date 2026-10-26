@@ -26,7 +26,9 @@ Foundation uses a bounded local control-plane exception before the first Azure e
 - **Local boundary:** The signed-in human creates groups, private state, networking, identity, and
   host; no Key Vault, PostgreSQL, model, or application data-plane writes.
 - **State cache:** Use `umask 077`, mode-`0700` directories, mode-`0600` regular files, no links or
-  secret inputs, and bounded lifetime. Record the digest; never upload state as evidence.
+  secret inputs, and bounded lifetime. Owner-only permission bits remain exact. A setgid bit added
+  by a Kubernetes `fsGroup` is acceptable only when group and other permission bits remain zero.
+  Record the digest; never upload state as evidence.
 - **Stable names:** Derive globally unique names once, publish only digests, and reuse on resume.
   Never choose another state account after a partial Foundation attempt.
 - **Remote authority:** Migrate Terraform state, matching lineage, serial, addresses, IDs, and

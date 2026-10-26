@@ -43,10 +43,15 @@ from fdai_lifecycle_hub.configuration_import_trust import (
     scope_for,
     validate_scope,
 )
-from fdai_lifecycle_hub.configuration_key_store import resolve_binding
+from fdai_lifecycle_hub.configuration_key_store import (
+    DevelopmentRecoveryAuthorizationLike,
+    resolve_binding,
+    single_owner_binding_audited,
+)
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.errors import ConcurrentWriteError
 from fdai_lifecycle_hub.migrations import require_writable_schema
+from fdai_lifecycle_hub.signing import installation_key_id
 
 
 class ConfigurationImportStore:
@@ -150,6 +155,7 @@ class ConfigurationImportStore:
         actor: str,
         now: datetime,
         catalog: ReleaseCatalog,
+        recovery_authorization: DevelopmentRecoveryAuthorizationLike | None = None,
     ) -> dict[str, Any]:
         def decide(session: Session, installation: models.Installation) -> dict[str, Any]:
             request = session.get(ConfigurationScopeRequest, digest)
@@ -160,7 +166,16 @@ class ConfigurationImportStore:
                 scope.digest != digest
                 or scope.payload != request.payload
                 or scope.requester != request.requested_by
-                or actor == request.requested_by
+                or (
+                    actor == request.requested_by
+                    and not _single_owner_configuration_allowed(
+                        session,
+                        installation,
+                        actor=actor,
+                        now=now,
+                        authorization=recovery_authorization,
+                    )
+                )
                 or now < request.recorded_at
                 or now >= scope.approval_expires_at
                 or session.get(ConfigurationScopeApproval, digest) is not None
@@ -291,11 +306,19 @@ class ConfigurationImportStore:
         actor: str,
         now: datetime,
         catalog: ReleaseCatalog,
+        recovery_authorization: DevelopmentRecoveryAuthorizationLike | None = None,
     ) -> dict[str, Any]:
         def decide(session: Session, installation: models.Installation) -> dict[str, Any]:
             row = self._current(session, installation, decision, catalog, now)
             if (
                 actor == row.requested_by
+                and not _single_owner_configuration_allowed(
+                    session,
+                    installation,
+                    actor=actor,
+                    now=now,
+                    authorization=recovery_authorization,
+                )
                 or not row.imported_at <= now < row.imported_at + timedelta(minutes=10)
             ):
                 raise KeyBindingError("configuration_change_approval_invalid")
@@ -321,6 +344,7 @@ class ConfigurationImportStore:
         actor: str,
         now: datetime,
         catalog: ReleaseCatalog,
+        recovery_authorization: DevelopmentRecoveryAuthorizationLike | None = None,
     ) -> dict[str, Any]:
         def decide(session: Session, installation: models.Installation) -> dict[str, Any]:
             row = self._current(session, installation, decision, catalog, now)
@@ -328,7 +352,16 @@ class ConfigurationImportStore:
             if (
                 approval is None
                 or approval.receipt_digest != row.receipt_digest
-                or approval.approved_by == row.requested_by
+                or (
+                    approval.approved_by == row.requested_by
+                    and not _single_owner_configuration_allowed(
+                        session,
+                        installation,
+                        actor=actor,
+                        now=now,
+                        authorization=recovery_authorization,
+                    )
+                )
                 or not row.imported_at <= approval.approved_at <= now
                 or now >= row.imported_at + timedelta(minutes=10)
             ):
@@ -404,3 +437,40 @@ class ConfigurationImportStore:
                 "digest": row.digest,
                 "request": ScopeRequest.model_validate_json(row.payload).model_dump(mode="json"),
             }
+
+
+def _single_owner_configuration_allowed(
+    session: Session,
+    installation: models.Installation,
+    *,
+    actor: str,
+    now: datetime,
+    authorization: DevelopmentRecoveryAuthorizationLike | None,
+) -> bool:
+    if (
+        authorization is None
+        or not authorization.allow_single_owner_configuration_approval
+        or not authorization.is_current(
+            installation_id=installation.installation_id,
+            operator_id=actor,
+            now=now,
+        )
+        or installation_key_id(installation.installation_key)
+        != authorization.replacement_identity_key_id
+        or not single_owner_binding_audited(session, installation, actor)
+    ):
+        return False
+    records = session.scalars(
+        select(models.AuditRecord).where(
+            models.AuditRecord.action == "configuration.identity.development-recovered",
+            models.AuditRecord.installation_id == installation.installation_id,
+        )
+    ).all()
+    return any(
+        record.payload.get("actor") == actor
+        and record.payload.get("scope") == authorization.scope
+        and record.payload.get("previous_identity_key_id") == authorization.previous_identity_key_id
+        and record.payload.get("replacement_identity_key_id")
+        == authorization.replacement_identity_key_id
+        for record in records
+    )

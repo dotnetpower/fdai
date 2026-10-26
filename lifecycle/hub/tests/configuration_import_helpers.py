@@ -29,7 +29,7 @@ from fdai_lifecycle_hub.configuration_import_contracts import (
 )
 from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.remote import target_routes
-from fdai_lifecycle_hub.remote_auth import RemoteAuth
+from fdai_lifecycle_hub.remote_auth import DevelopmentRecoveryAuthorization, RemoteAuth
 from fdai_lifecycle_hub.remote_catalog import RemoteCatalog, initialize_trust, metadata
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
@@ -66,7 +66,16 @@ class ImportHarness:
             headers=self.token(actor),
         )
 
-    def register_keys(self, *, signer=None, recipient=None, version=1, predecessor=None, **changes):
+    def register_keys(
+        self,
+        *,
+        signer=None,
+        recipient=None,
+        version=1,
+        predecessor=None,
+        approver="approver",
+        **changes,
+    ):
         request, signed = request_for(
             self.identity,
             signer or self.case.signing,
@@ -80,7 +89,7 @@ class ImportHarness:
         response = self.post("configuration-keys/request", signed)
         assert response.status_code == 202, response.json()
         response = self.post(
-            "configuration-keys/approve", {"request_digest": request.digest}, actor="approver"
+            "configuration-keys/approve", {"request_digest": request.digest}, actor=approver
         )
         assert response.status_code == 202, response.json()
         return request
@@ -158,10 +167,10 @@ class ImportHarness:
         assert response.status_code == 202, response.json()
         return response.json()
 
-    def activate(self, decision):
-        response = self.post("configuration/approve", decision, actor="approver")
+    def activate(self, decision, *, approver="approver", activator="requester"):
+        response = self.post("configuration/approve", decision, actor=approver)
         assert response.status_code == 202, response.json()
-        response = self.post("configuration/activate", decision)
+        response = self.post("configuration/activate", decision, actor=activator)
         assert response.status_code == 202, response.json()
 
     def child(self, revision, *, history=None, signer=None, recipient=None, bindings=None):
@@ -191,6 +200,7 @@ def make_harness(
     monkeypatch,
     *,
     plan_duration=timedelta(minutes=20),
+    recovery: DevelopmentRecoveryAuthorization | None = None,
 ):
     source = source_for(key)
 
@@ -243,12 +253,12 @@ def make_harness(
     catalog = RemoteCatalog(engine, source, fetch=lambda _: raw)
     approve(catalog, raw, now)
     catalog.import_once(actor="approver", now=now)
-    auth = remote_auth()
+    auth = remote_auth(recovery)
     harness = ImportHarness(engine, store, catalog, case, identity, key, now, auth)
     app = create_app(store, clock=lambda: harness.now, remote_auth=auth)
     monkeypatch.setattr("fdai_lifecycle_hub.remote.utc_now", lambda: harness.now)
     # This is exactly the default configured composition. No candidate/map injection.
-    app.routes[0:0] = target_routes(store, catalog, key)
+    app.routes[0:0] = target_routes(store, catalog, key, recovery_authorization=recovery)
     harness.client = TestClient(app, base_url=auth.origin)
     harness.token = tokens(app, auth)
     return harness
