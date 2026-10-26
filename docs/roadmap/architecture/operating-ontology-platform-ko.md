@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: f9036e0bb7f8dedcb4bc3b497a5280ef84e3ebc5
-translation_revised: 2026-10-26
+translation_source_sha: de21c8baca18333fea7075bf52a1c4f509487225
+translation_revised: 2026-10-16
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -555,11 +555,6 @@ FunctionType은 하나의 대상 집합 다이제스트, 쿼리 개정, 기한, 
 `resource_scope_incomplete`와 함께 보안 처리된 스냅샷의 타입 지정 원본 사유(예:
 `inventory_observation_pending`)를 보고하므로, 답변은 범위가 왜 불완전한지 설명할 수 있습니다. 이
 사유는 공백을 설명할 뿐이며 범위를 완전하게 만들거나 누락된 Resource를 확정하지 않습니다.
-
-`query.resource_state_inventory`는 관측된 상태 개념으로 상태 필터를 일치시킵니다. 검토된 수명 주기 선언만이
-다른 관측 상태가 요청을 충족하도록 허용합니다. 서비스 중일 때 `Ready`를 보고하는 `postgresql-server`와
-`mysql-server`에서는 관측된 `Ready`가 `running`을 충족하며, 그 행은 관측값과 `state_basis`
-`ready_on_serving_lifecycle`을 유지합니다.
 
 ## 제공 순서
 

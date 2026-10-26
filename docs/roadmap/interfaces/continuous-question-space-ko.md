@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 5e6c4b046f712a12a2305a02f6b68deee870b25d
+translation_source_sha: 8ff9e8c7df7ff0d1ae6bafd8a13ae060f9067451
 translation_revised: 2026-10-26
 ---
 # 지속형 질문 공간
@@ -544,18 +544,11 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 요청은 확인되지 않은 상태로 남습니다. 선언은 함수 원본의 일부이므로 릴리스 다이제스트와 재생이 이를
 결속합니다.
 
-수명 주기에 실행 중 외의 정상 상태가 없는 ResourceType, 현재 `nosql-database`와 `cache`는 신선한 공급자 가용성
-관측으로도 실행 중 요청을 확정할 수 있습니다. Resource Health가 `Available`로 보고한 그 유형의 리소스는 서비스를
-제공하고 있고 다른 정상 상태에 있을 수 없으므로 실행 중입니다. 그 행은 관측값과 `state_basis`
-`availability_on_running_only_lifecycle`을 유지하므로 답변이 근거를 밝힙니다. 다른 가용성 값, 오래되거나 충돌하는
-관측, 다른 ResourceType은 아무것도 확정하지 않으며, 관측된 운영 상태가 언제나 우선합니다. 그 밖의 곳에서는 여전히
-건강 상태가 상태를 대신하지 않습니다.
-
-관리형 데이터베이스 서버는 서비스 중일 때 `Running`이 아니라 `Ready`로 보고합니다. 검토된 유형인
-`postgresql-server`와 `mysql-server`는 관측된 `Ready`가 실행 중 요청을 충족하므로, "실행 중인 데이터베이스"
-질문이 일치 없음 대신 해당 서버를 나열합니다. 그 행은 관측된 `Ready` 상태를 유지하고 `state_basis`
-`ready_on_serving_lifecycle`을 가집니다. `Stopped`, `Starting` 등 다른 상태와 다른 ResourceType은 여전히 일치하지
-않습니다.
+수명 주기에 실행 중 외의 정상 상태가 없는 ResourceType은 신선한 공급자 관측으로 실행 중 요청을 확정할 수 있습니다. `nosql-database`와 `cache`는
+Resource Health `Available`로, 서비스 중일 때 `Ready`를 보고하는 `postgresql-server`와 `mysql-server`는 관측된
+`Ready`로 확정합니다. 그 행은 관측값과 `state_basis` `availability_on_running_only_lifecycle` 또는
+`ready_on_serving_lifecycle`을 유지합니다. 다른 값, 오래되거나 충돌하는 관측, 다른 ResourceType은 아무것도 확정하지 않으며, 관측된 운영 상태가
+언제나 우선합니다. 그 밖의 곳에서는 여전히 건강 상태가 상태를 대신하지 않습니다.
 
 ## 관련 문서
 

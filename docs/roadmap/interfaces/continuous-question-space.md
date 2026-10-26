@@ -551,19 +551,13 @@ wins over the declaration, and a list request or a reachable state, such as `run
 unverified. The declaration is part of the function source, so the release digest and replay bind
 it.
 
-A ResourceType whose lifecycle has no steady state other than running, today `nosql-database` and
-`cache`, also lets a fresh provider availability fact settle a running request. A Resource of that type
-that Resource Health reports `Available` is running, because it is serving and cannot be in any other
-steady state; its row keeps the observed value and `state_basis`
-`availability_on_running_only_lifecycle`, so the answer names the basis. Any other availability value,
-a stale or conflicting fact, or another ResourceType establishes nothing, and an observed operational
-state always wins. Health still never stands in for state anywhere else.
-
-A managed database server reports `Ready`, not `Running`, while it serves. For the reviewed types
-`postgresql-server` and `mysql-server`, an observed `Ready` therefore satisfies a running request, so
-"which databases are running" lists them instead of reporting no match. The row keeps the observed
-`Ready` state and carries `state_basis` `ready_on_serving_lifecycle`; `Stopped`, `Starting`, and every
-other state, and every other ResourceType, still do not match.
+A ResourceType whose lifecycle has no steady state other than running lets a fresh provider fact
+settle a running request: `nosql-database` and `cache` through Resource Health `Available`, and
+`postgresql-server` and `mysql-server`, which report `Ready` while serving, through an observed
+`Ready`. The row keeps the observed value and `state_basis` `availability_on_running_only_lifecycle`
+or `ready_on_serving_lifecycle`. Any other value, a stale or conflicting fact, or another
+ResourceType establishes nothing, and an observed operational state always wins. Health still never
+stands in for state anywhere else.
 
 ## Related docs
 
