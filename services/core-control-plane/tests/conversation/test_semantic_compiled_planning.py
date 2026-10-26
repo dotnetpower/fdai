@@ -366,6 +366,34 @@ def test_an_ambiguous_judgment_keeps_its_clarification_unless_one_reading_is_fou
     assert answered.reason == "compiled_answer_marker"
 
 
+def _targetless_current_state() -> SemanticJudgmentProposal:
+    return SemanticJudgmentProposal.model_validate(
+        _proposal(
+            primary_intent="query.resource_current_state",
+            targets=[],
+            requested_facets=["current_state"],
+        )
+    )
+
+
+def test_a_pre_frame_clarification_yields_to_a_released_reading_on_a_third_verdict() -> None:
+    boundary = _Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=_targetless_current_state())
+    kept = _Path()
+    outcome, _model = _plan(boundary, kept)
+    settled = _Path()
+    settled.ticket.one_reading = True
+    answered, _same = _plan(
+        _Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=_targetless_current_state()),
+        settled,
+    )
+
+    # The judgment's own words name no resource, so the deterministic check clarifies; the form
+    # path is still consulted instead of cancelled unread.
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert kept.ticket.consumed and not kept.ticket.cancelled
+    assert answered.reason == "compiled_answer_marker"
+
+
 def test_a_turn_that_needs_document_evidence_never_starts_the_form_path() -> None:
     path = _Path()
     _outcome, _model = _plan(

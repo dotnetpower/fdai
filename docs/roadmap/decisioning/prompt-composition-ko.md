@@ -547,10 +547,12 @@ PR review comment on rem PR     --/         v
 
 ### 런타임 정책
 
-리비전 기반 런타임 설정 표면은 서로 독립적인 두 control을 소유합니다.
+리비전 기반 런타임 설정 표면은 서로 독립적인 세 control을 소유합니다.
 
 - `conversation.answer_continuity.enabled`는 재시작 후 유용한 안전 보류 렌더링을 켭니다.
   기본값은 `false`입니다.
+- `conversation.result_handles.enabled`는 답변한 목록의 행을 보관해 후속 질문이 방금 보여 준 대상을
+  가리키게 합니다. 개발 환경은 기본값이 켜짐이고 다른 모든 환경은 꺼짐입니다.
 - `conversation.prompt_ablation.profile`은 검토된 평가 profile 하나를 선택합니다. 프로덕션
   기본값은 `none`입니다. 다른 profile은 task pack, tool manifest, operator memory,
   runtime skill 또는 모든 선택적 context를 제거할 수 있습니다.

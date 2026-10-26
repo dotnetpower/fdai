@@ -279,22 +279,29 @@ def build_semantic_turn_processor(
     )
 
 
-def result_handle_store_from_config(config: Mapping[str, str]) -> ResultHandleStore | None:
+def result_handle_store_from_config(
+    config: Mapping[str, str], *, enabled: bool | None = None
+) -> ResultHandleStore | None:
     """Build the encrypted result-handle store only when the venue opts into follow-ups.
 
     A follow-up such as "only the running ones" refers to the rows the operator just saw, and
-    only a stored handle can bind it. A venue that opts in without a state-store DSN or key
-    material fails at startup rather than silently dropping follow-up context.
+    only a stored handle can bind it. ``enabled`` is the typed runtime setting, which carries an
+    audited operator override; without it the environment flag alone decides. Opting in without
+    a state-store DSN or key material leaves follow-ups off and says so in the log, because an
+    environment default must never stop Core from starting.
     """
 
-    flag = config.get(RESULT_HANDLES_ENV, "").strip().lower()
-    if flag not in {"1", "true", "yes"}:
+    if enabled is None:
+        enabled = config.get(RESULT_HANDLES_ENV, "").strip().lower() in {"1", "true", "yes"}
+    if not enabled:
         return None
     dsn = config.get("FDAI_STATE_STORE_DSN", "").strip()
     if not dsn or not config.get(RESULT_HANDLE_MATERIAL_ENV, "").strip():
-        raise RuntimeError(
-            f"{RESULT_HANDLES_ENV} requires FDAI_STATE_STORE_DSN and {RESULT_HANDLE_MATERIAL_ENV}"
+        _LOGGER.warning(
+            "semantic_result_handles_unavailable",
+            extra={"reason": "state_store_dsn_or_key_material_missing"},
         )
+        return None
     from fdai.delivery.persistence.postgres_result_handle_store import (
         PostgresResultHandleStore,
         PostgresResultHandleStoreConfig,
@@ -319,6 +326,7 @@ def semantic_turn_binding_from_config(
     runtime_readiness: SemanticRuntimeReadiness | None = None,
     context_selection_policy_authority: ContextSelectionPolicyAuthority | None = None,
     context_selection_shadow_runner: ContextSelectionShadowRunner | None = None,
+    result_handles_enabled: bool | None = None,
 ) -> SemanticTurnConsumerBinding | None:
     """Build the consumer only when both transport topics are configured.
 
@@ -365,7 +373,9 @@ def semantic_turn_binding_from_config(
             runtime_readiness=runtime_readiness,
             context_selection_policy_authority=context_selection_policy_authority,
             context_selection_shadow_runner=context_selection_shadow_runner,
-            result_handle_store=result_handle_store_from_config(config),
+            result_handle_store=result_handle_store_from_config(
+                config, enabled=result_handles_enabled
+            ),
         ),
         available=runtime is not None,
         unavailable_reason=(

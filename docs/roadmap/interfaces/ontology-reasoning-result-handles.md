@@ -99,12 +99,21 @@ The threat review must pass before H2 ships:
 cross-conversation bindings, and the rendered-order digest equals the Console's order on the fixture
 graph.
 
-**Enablement:** Core builds the store only when the venue sets `FDAI_SEMANTIC_RESULT_HANDLES=1` and
-supplies a state-store DSN and key material; opting in without either fails at startup instead of
-silently dropping follow-up context. Without the opt-in no handle is issued, so a follow-up such as
-"only the running ones" after a list has nothing to bind and ends as a clarification. The local
-launcher opts in with a generated key kept in an ignored file; deployed venues stay off until
-promotion.
+**Enablement:** The typed runtime setting `conversation.result_handles.enabled` decides, and it is
+the promotion switch. Its environment default is `FDAI_SEMANTIC_RESULT_HANDLES`; development
+environments default on and every other environment defaults off. An audited Owner override changes
+the value, takes effect after a restart, and grants no action authority. Core builds the store only
+when the setting is on and the venue supplies a state-store DSN and key material. When either input
+is missing, follow-ups stay off and Core logs `semantic_result_handles_unavailable`, because an
+environment default must never stop Core from starting. Without a handle a follow-up such as "only
+the running ones" after a list has nothing to bind and ends as a clarification. The local launcher
+supplies a generated key kept in an ignored file.
+
+The question-form path that reads a follow-up runs only in the local execution venue today, so a
+deployed venue gains nothing from the setting until that path is promoted there. That promotion
+needs the evidence in [P5](ontology-reasoning-promotion-program.md#p5-promotion-and-removal), and it
+also needs deployment-owned key material: a Key Vault secret, its reader assignment, and the
+`FDAI_RESULT_HANDLE_MATERIAL` binding on the Core container app.
 
 ## H3 Property follow-ups
 
