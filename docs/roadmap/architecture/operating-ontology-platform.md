@@ -548,6 +548,12 @@ reports `resource_scope_incomplete` together with the typed source reason of the
 such as `inventory_observation_pending`, so the answer can state why the scope is incomplete. The
 reason explains the gap; it never completes the scope or settles a missing Resource.
 
+`query.resource_state_inventory` matches a state filter on the observed state concept. A reviewed
+lifecycle declaration is the only way a different observed state satisfies a request: an observed
+`Ready` satisfies `running` for `postgresql-server` and `mysql-server`, whose providers report
+`Ready` while serving, and the row keeps the observed value with `state_basis`
+`ready_on_serving_lifecycle`.
+
 ## Delivery sequence
 
 | Slice | Deliverable | Exit criteria |
