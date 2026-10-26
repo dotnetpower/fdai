@@ -171,6 +171,8 @@ exact approved Kubernetes object inventory before producing a forget-only releas
 plan must report `destroy=false` for every object. Rollback uses the generated exact import
 declarations and ends with a zero-change plan. Neither root edits live workloads or hand-edits
 Terraform state.
+Import verification accepts Terraform 1.9's no-op readback of an existing object only when its
+`before` and `after` values are identical and the exact import id matches.
 
 ## Related docs
 
