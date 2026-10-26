@@ -22,7 +22,11 @@ from fdai_service_contracts.ontology_query import (
     project_intent_graph,
 )
 
-from fdai.core.conversation.result_handle_store import ResultHandleBinding, ResultHandleStore
+from fdai.core.conversation.result_handle_store import (
+    ResultHandleBinding,
+    ResultHandleStore,
+    result_handle_conversation_id,
+)
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.shared.contracts.models import CeilingRole
@@ -398,7 +402,7 @@ class CompiledAnswerPath:
             binding = ResultHandleBinding(
                 deployment_scope_digest=manifest.release_digest,
                 principal_digest=manifest.manifest_digest,
-                conversation_id=stored_context.session_id,
+                conversation_id=result_handle_conversation_id(stored_context.session_id),
                 purpose=purpose,
                 manifest_digest=manifest.manifest_digest,
                 now=self._clock(),

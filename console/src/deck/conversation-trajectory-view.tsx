@@ -2,6 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 
 import { t } from "../i18n";
+import { modelCallDetail, modelCallLabel } from "./model-call-text";
 import { consoleDateTimeLocale } from "../time-format";
 import type {
   EvidenceBranch,
@@ -647,8 +648,8 @@ function EvidenceTimeline({ activities, branches, milestones }: {
           return (
         <li key={activity.activityId} data-status={activity.status}>
           <details><summary><span class="deck-trajectory-kind is-activity">{activity.execution?.inputKind ?? activity.kind}</span>
-            <strong>{activity.label}</strong><Timestamp value={observedAt} /></summary>
-            {activity.detail ? <p>{activity.detail}</p> : null}
+            <strong>{modelCallLabel(activity)}</strong><Timestamp value={observedAt} /></summary>
+            {modelCallDetail(activity) ? <p>{modelCallDetail(activity)}</p> : null}
             <dl class="deck-trajectory-facts">
               <dt>{t("deck.trajectory.status")}</dt><dd>{t(`deck.investigation.${activity.status}`)}</dd>
               <dt>{t("deck.trajectory.agent")}</dt><dd>{activity.agent ?? t("deck.trajectory.none")}</dd>

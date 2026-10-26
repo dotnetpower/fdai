@@ -14,6 +14,7 @@ import type { ContextReceipt, TurnBudgetTelemetry, WorkProgressShape } from "./b
 import { ContextReceiptDisclosure, plannedWorkText, TurnBudgetLimits } from "./investigation-roles";
 import { formatJsonValue } from "./json-code-block";
 import { isModelCallStep } from "./conversation-trajectory-presentation";
+import { modelCallDetail, modelCallLabel } from "./model-call-text";
 import { inventoryExecutionDisplay } from "./inventory-execution-display";
 
 /** How a read that never reported an end reads once its panel stops running. */
@@ -111,32 +112,6 @@ function formatDuration(durationMs: number): string {
   return durationMs < 1000
     ? `${Math.round(durationMs)} ms`
     : `${(durationMs / 1000).toFixed(1)} s`;
-}
-
-// A model-call row names its stage and outcome from closed codes, so it follows the Console
-// language even when the answer follows the language of the question.
-function modelCallLabel(activity: InvestigationActivity): string {
-  return activity.modelCall
-    ? t("deck.investigation.modelCallLabel", {
-        stage: t(`deck.investigation.modelStage.${activity.modelCall.stage}`),
-      })
-    : activity.label;
-}
-
-function modelCallDetail(activity: InvestigationActivity): string | undefined {
-  const call = activity.modelCall;
-  if (!call) return activity.detail;
-  const model = call.model ?? t("deck.investigation.modelCallModel");
-  if (activity.status === "running" || activity.status === "pending") {
-    return t("deck.investigation.modelCallWaiting", { model });
-  }
-  return t("deck.investigation.modelCallSettled", {
-    model,
-    duration: formatDuration(call.durationMs ?? 0),
-    outcome: t(activity.status === "completed"
-      ? "deck.investigation.modelCallCompleted"
-      : "deck.investigation.modelCallFailed"),
-  });
 }
 
 function terminalDuration(
@@ -758,7 +733,7 @@ export function InvestigationTimeline({
       : "deck.investigation.startingCommand", { tool: firstActivity.execution.tool })
     : visibleBranches[0]?.summary ?? (firstActivity && isModelCallStep(firstActivity)
       ? t("deck.investigation.modelGroupTitle")
-      : firstActivity?.label);
+      : firstActivity ? modelCallLabel(firstActivity) : undefined);
   const allObservedEventsSettled = eventCount > 0 && completedEventCount === eventCount;
   const phaseTitle = t(running
     ? "deck.investigation.runningTitle"

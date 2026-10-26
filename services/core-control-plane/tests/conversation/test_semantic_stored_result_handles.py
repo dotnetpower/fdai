@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
 from fdai.core.conversation.result_handle_store import (
     InMemoryResultHandleStore,
     ResultHandleBinding,
     ResultHandleKey,
     StaticResultHandleKeyProvider,
     rendered_order_digest,
+    result_handle_conversation_id,
 )
 from fdai.core.conversation.semantic_reasoning_compiler import GoalStatus, compile_question_form
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain
@@ -354,6 +356,55 @@ def test_result_handle_projection_keeps_core_only_row_identities() -> None:
     assert handle.row_identities == ("vm-1", "aks-1")
 
 
+@pytest.mark.parametrize(
+    "session_id",
+    ["screen:ce739f1e:/agent-activity", "Session With Capitals And Spaces", "s" * 256],
+)
+def test_a_session_id_that_is_not_a_machine_token_still_issues_a_handle(session_id: str) -> None:
+    request = SemanticTurnRequest(
+        principal={"subject_id": "operator", "roles": ["Reader"]},
+        session_id=session_id,
+        turn_id="turn-a",
+        turn_sequence=1,
+        purpose=PURPOSE,
+        locale="en",
+        utterance="show resources",
+        deadline_at=NOW + timedelta(seconds=30),
+    )
+    result = SemanticTurnResult(
+        disposition=SemanticTurnDisposition.ANSWERED,
+        reason_code="semantic_plan_verified",
+        semantic_route="verified_query_plan",
+        session_id=session_id,
+        turn_id="turn-a",
+        turn_sequence=1,
+        ontology_release_digest=production_manifest().release_digest,
+        principal_manifest_digest=production_manifest().manifest_digest,
+        plan_digest="sha256:" + "1" * 64,
+        execution_receipt_digest="sha256:" + "2" * 64,
+        evidence_refs=("evidence:1",),
+        checks_completed=1,
+        checks_total=1,
+        answer="Verified answer.",
+    )
+    handle = result_handle_from_technical_details(
+        request,
+        result,
+        technical_details={
+            "outputs": [
+                {"node_id": "resources", "rows": [{"row_id": "vm-1", "values": {"name": "vm"}}]}
+            ]
+        },
+    )
+
+    # The key the handle is written under is the key a later request binds to.
+    assert handle is not None
+    assert handle.conversation_id == result_handle_conversation_id(session_id)
+    assert result_handle_conversation_id(session_id) == result_handle_conversation_id(session_id)
+    assert result_handle_conversation_id("session-a") == "session-a"
+    assert result_handle_conversation_id(session_id + "x") != handle.conversation_id
+
+
 async def test_an_ordinal_property_follow_up_answers_the_exact_value_of_the_stored_row() -> None:
     zone = "resilience.database.zone_redundant.enabled"
     utterance = "Is zone redundancy enabled on the second one?"
@@ -419,3 +470,58 @@ async def test_an_ordinal_property_follow_up_answers_the_exact_value_of_the_stor
     assert answer is not None
     assert answer.splitlines()[0] == f"## {zone} of sql-app"
     assert f"- {zone}: true" in answer
+
+
+async def test_a_failing_handle_store_never_withholds_a_verified_answer() -> None:
+    from types import SimpleNamespace
+
+    from fdai_core_service.semantic_turn_processor import SemanticTurnProcessor
+
+    class FailingStore:
+        async def put(self, *_args: object, **_kwargs: object) -> object:
+            raise OSError("state store unavailable")
+
+    request = SemanticTurnRequest(
+        principal={"subject_id": "operator", "roles": ["Reader"]},
+        session_id="session-a",
+        turn_id="turn-a",
+        turn_sequence=1,
+        purpose=PURPOSE,
+        locale="en",
+        utterance="show resources",
+        deadline_at=NOW + timedelta(seconds=30),
+    )
+    result = SemanticTurnResult(
+        disposition=SemanticTurnDisposition.ANSWERED,
+        reason_code="semantic_plan_verified",
+        semantic_route="verified_query_plan",
+        session_id="session-a",
+        turn_id="turn-a",
+        turn_sequence=1,
+        ontology_release_digest=production_manifest().release_digest,
+        principal_manifest_digest=production_manifest().manifest_digest,
+        plan_digest="sha256:" + "1" * 64,
+        execution_receipt_digest="sha256:" + "2" * 64,
+        evidence_refs=("evidence:1",),
+        checks_completed=1,
+        checks_total=1,
+        answer="Verified answer.",
+    )
+    processor = SemanticTurnProcessor(
+        runtime=None,
+        results=SimpleNamespace(),  # type: ignore[arg-type]
+        result_handle_store=FailingStore(),  # type: ignore[arg-type]
+        result_handles_enabled=True,
+    )
+    extensions = SimpleNamespace(
+        technical_details={
+            "outputs": [
+                {"node_id": "resources", "rows": [{"row_id": "vm-1", "values": {"name": "vm"}}]}
+            ]
+        }
+    )
+
+    returned = await processor._with_result_handle_ref(request, result, extensions)  # type: ignore[arg-type]
+
+    assert returned is result
+    assert returned.result_handle_ref is None
