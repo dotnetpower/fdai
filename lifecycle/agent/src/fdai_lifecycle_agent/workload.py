@@ -10,9 +10,12 @@ import re
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from fdai_deployment_cli.lifecycle_release import HttpWorkload
+
+if TYPE_CHECKING:
+    from fdai_lifecycle_agent.adoption import AdoptionExpectation
 
 FIELD_MANAGER = "fdai-lifecycle-agent"
 MANAGED_BY_LABEL = "app.kubernetes.io/managed-by"
@@ -69,6 +72,13 @@ class Cluster(Protocol):
     def delete(self, kind: str, name: str) -> None:
         """Delete the object; an absent object is not an error."""
         ...
+
+
+@runtime_checkable
+class OwnershipTransitionCluster(Cluster, Protocol):
+    def transition_owned(self, kind: str, name: str, uid: str) -> bool: ...
+
+    def transition_live(self, kind: str, name: str, uid: str) -> Manifest | None: ...
 
 
 def is_dns_label(value: str) -> bool:
@@ -310,7 +320,13 @@ class Workload:
             raise WorkloadError("schema_check_cleanup_failed")
         return True
 
-    def roll_back(self, desired: Sequence[Manifest], previous: Sequence[Manifest]) -> bool:
+    def roll_back(
+        self,
+        desired: Sequence[Manifest],
+        previous: Sequence[Manifest],
+        *,
+        adoptions: Sequence[AdoptionExpectation] = (),
+    ) -> bool:
         """Restore the recorded healthy objects, delete the desired objects that had none, and
         return whether that state was verified in time."""
 
@@ -344,7 +360,22 @@ class Workload:
             )
         ):
             return False
+        transition = self.cluster if isinstance(self.cluster, OwnershipTransitionCluster) else None
+        adoption_by_key = {item.key: item for item in adoptions}
+        unadopted_previous: list[Manifest] = []
+        previous_to_apply: list[Manifest] = []
         for manifest in previous:
+            key = object_key(manifest)
+            expectation = adoption_by_key.get(key)
+            if (
+                expectation is not None
+                and transition is not None
+                and not transition.transition_owned(*key, expectation.uid)
+            ):
+                unadopted_previous.append(manifest)
+            else:
+                previous_to_apply.append(manifest)
+        for manifest in previous_to_apply:
             self.cluster.apply(
                 _suspended_schedule(manifest)
                 if manifest["kind"] == "CronJob" and unproved_scheduled_effect
@@ -360,8 +391,16 @@ class Workload:
                         _suspended_schedule(item)
                         if item["kind"] == "CronJob" and unproved_scheduled_effect
                         else item
-                        for item in previous
+                        for item in previous_to_apply
                     )
+                )
+                and all(
+                    transition is not None
+                    and (expectation := adoption_by_key.get(object_key(item))) is not None
+                    and (live := transition.transition_live(*object_key(item), expectation.uid))
+                    is not None
+                    and _contains(live.get("spec"), item.get("spec"))
+                    for item in unadopted_previous
                 )
                 and all(
                     self.cluster.get(kind, name) is None

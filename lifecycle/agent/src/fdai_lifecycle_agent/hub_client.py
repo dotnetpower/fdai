@@ -16,6 +16,8 @@ Contract (Lifecycle I0, unauthenticated loopback Hub):
 * ``POST /v1/installations/{installation_id}/state`` takes a reported-state snapshot and returns
   ``202``, ``409 stale_state`` when its ``observed_at`` isn't newer, ``422 state_invalid``, or
   ``404``. ``503 concurrent_write`` is retried as for reports.
+* A native Plan's signed ``ownership_digests`` maps its selected Entity to the operator-accepted
+  native creation claim. Exact Kubernetes names and UIDs remain in the local approval.
 
 * ``POST /v1/installations/{installation_id}/enrollment-request`` takes the signed enrollment
   ``{"signed_payload", "proof"}`` and returns ``202`` for a pending request, ``409

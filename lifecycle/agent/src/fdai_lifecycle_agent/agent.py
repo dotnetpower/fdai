@@ -506,7 +506,7 @@ class LifecycleAgent:
                 retryable=phase_decision.reason_code == AgentReason.EARLIER_PHASE_RECEIPT_MISSING,
             )
         try:
-            desired, previous = prepare_workload(
+            desired, previous, adoptions = prepare_workload(
                 plan,
                 release,
                 configuration,
@@ -528,9 +528,15 @@ class LifecycleAgent:
             entity_images=entity_images,
             desired=desired,
             previous=previous,
+            adoptions=adoptions,
         )
         apply.store.save(replace(workload_state, journal=journal))
-        return replace(admitted, outcome="apply-started", reason_code=AgentReason.APPLY_STARTED)
+        return replace(
+            admitted,
+            outcome="apply-started",
+            reason_code=AgentReason.APPLY_STARTED,
+            summary=_with_adoptions(admitted.summary, count=len(adoptions)),
+        )
 
     def _deliver_then_apply(
         self, state: AgentState, plan_id: str, record: PlanRecord
@@ -563,6 +569,15 @@ class LifecycleAgent:
         apply.store.save(replace(workload_state, journal=journal))
         _log("lifecycle_agent.apply_begun", plan_id=plan_id)
         try:
+            if journal.adoptions:
+                cluster = apply.workload.cluster
+                if not isinstance(cluster, NativeCluster):
+                    raise WorkloadError("native_adoption_cluster_required")
+                cluster.adopt_existing(
+                    journal.desired,
+                    journal.adoptions,
+                    plan_id=journal.plan_id,
+                )
             healthy = apply.workload.apply(
                 journal.desired,
                 can_continue=lambda: self._deps.clock() < journal.expires_at,
@@ -676,7 +691,16 @@ class LifecycleAgent:
             # This Plan's rollback already failed before a restart; never retry it automatically.
             return False
         try:
-            restored = apply.workload.roll_back(journal.desired, journal.previous)
+            if journal.adoptions:
+                cluster = apply.workload.cluster
+                if not isinstance(cluster, NativeCluster):
+                    raise WorkloadError("native_adoption_cluster_required")
+                cluster.recover_adoptions(journal.adoptions)
+            restored = apply.workload.roll_back(
+                journal.desired,
+                journal.previous,
+                adoptions=journal.adoptions,
+            )
         except WorkloadError as error:
             _log(
                 "lifecycle_agent.rollback_failed",
@@ -909,6 +933,16 @@ def _with_rollback(summary: str, *, verified: bool) -> str:
 
     document = json.loads(summary) if summary else {}
     document["rollback"] = "verified" if verified else "failed"
+    return canonical_bytes(document).decode("ascii")
+
+
+def _with_adoptions(summary: str, *, count: int) -> str:
+    """Add the exact count of approved ownership transfers without exposing identities."""
+
+    if count == 0:
+        return summary
+    document = json.loads(summary) if summary else {}
+    document["ownership_adoptions"] = count
     return canonical_bytes(document).decode("ascii")
 
 

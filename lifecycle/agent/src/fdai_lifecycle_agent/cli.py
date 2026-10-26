@@ -170,7 +170,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--in-cluster", action="store_true", help="Use the projected Kubernetes identity."
     )
     poll.add_argument("--namespace", help="The only namespace to change; required with --apply.")
-    poll.add_argument("--native-approval", type=Path, help="Independent local creation approval.")
+    poll.add_argument(
+        "--native-approval",
+        type=Path,
+        help="Independent local creation and exact existing-object adoption approval.",
+    )
     poll.add_argument("--installation-public-key", type=Path, help="Enrolled identity PEM key.")
     poll.add_argument(
         "--health-timeout-seconds",

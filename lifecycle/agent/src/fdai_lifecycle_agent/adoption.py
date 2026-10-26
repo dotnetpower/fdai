@@ -59,18 +59,29 @@ def adopt_runtime_objects(
     installation_id: str,
     release_id: str,
     destination: Path,
+    authorization_digest: str | None = None,
+    ownership_digest: str | None = None,
 ) -> dict[str, object]:
     """Adopt exact live objects and durably checkpoint each successful transfer."""
 
     if _ID.fullmatch(installation_id) is None or _ID.fullmatch(release_id) is None:
         raise ValueError("adoption identity is invalid")
+    for digest in (authorization_digest, ownership_digest):
+        if digest is not None and re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None:
+            raise ValueError("adoption authorization digest is invalid")
     desired = {object_key(manifest): manifest for manifest in manifests}
     expected = {item.key: item for item in expectations}
     if len(desired) != len(manifests) or len(expected) != len(expectations):
         raise ValueError("adoption objects must be unique")
     if set(desired) != set(expected):
         raise ValueError("adoption expectations must exactly match rendered objects")
-    retained = _load(destination, installation_id=installation_id, release_id=release_id)
+    retained = _load(
+        destination,
+        installation_id=installation_id,
+        release_id=release_id,
+        authorization_digest=authorization_digest,
+        ownership_digest=ownership_digest,
+    )
     retained_objects = cast(list[dict[str, object]], retained["objects"])
     records = {(str(item["kind"]), str(item["name"])): item for item in retained_objects}
     for key in sorted(desired):
@@ -118,6 +129,8 @@ def adopt_runtime_objects(
             release_id=release_id,
             records=records,
             complete=False,
+            authorization_digest=authorization_digest,
+            ownership_digest=ownership_digest,
         )
     return _write(
         destination,
@@ -125,6 +138,8 @@ def adopt_runtime_objects(
         release_id=release_id,
         records=records,
         complete=True,
+        authorization_digest=authorization_digest,
+        ownership_digest=ownership_digest,
     )
 
 
@@ -163,7 +178,14 @@ def release_adoption_reconciliation(
     return document
 
 
-def _load(destination: Path, *, installation_id: str, release_id: str) -> dict[str, object]:
+def _load(
+    destination: Path,
+    *,
+    installation_id: str,
+    release_id: str,
+    authorization_digest: str | None,
+    ownership_digest: str | None,
+) -> dict[str, object]:
     if not destination.exists():
         return {"objects": []}
     try:
@@ -179,6 +201,8 @@ def _load(destination: Path, *, installation_id: str, release_id: str) -> dict[s
             document.get("schema_version") != ADOPTION_SCHEMA
             or document.get("installation_id") != installation_id
             or document.get("release_id") != release_id
+            or document.get("authorization_digest") != authorization_digest
+            or document.get("ownership_digest") != ownership_digest
             or not isinstance(objects, list)
             or not all(isinstance(item, dict) for item in objects)
             or not isinstance(document.get("complete"), bool)
@@ -197,6 +221,8 @@ def _write(
     release_id: str,
     records: Mapping[tuple[str, str], Mapping[str, object]],
     complete: bool,
+    authorization_digest: str | None,
+    ownership_digest: str | None,
 ) -> dict[str, object]:
     body: dict[str, object] = {
         "schema_version": ADOPTION_SCHEMA,
@@ -205,6 +231,10 @@ def _write(
         "objects": [dict(records[key]) for key in sorted(records)],
         "complete": complete,
     }
+    if authorization_digest is not None:
+        body["authorization_digest"] = authorization_digest
+    if ownership_digest is not None:
+        body["ownership_digest"] = ownership_digest
     receipt = body | {"receipt_digest": "sha256:" + canonical_digest(body)}
     write_json_atomically(destination, receipt)
     return receipt

@@ -105,6 +105,20 @@ class NativeScope(BaseModel):
         )
 
 
+class NativeObjectIdentity(BaseModel):
+    """One existing Kubernetes object that a local approval permits the Agent to adopt."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    kind: Literal["Deployment", "Service", "CronJob", "HorizontalPodAutoscaler"]
+    name: DnsName
+    uid: Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")]
+
+    @property
+    def key(self) -> tuple[str, str]:
+        return self.kind, self.name
+
+
 class NativeApproval(BaseModel):
     """Local human approval. A signed package or Hub request cannot supply this input."""
 
@@ -116,6 +130,7 @@ class NativeApproval(BaseModel):
     approved_by: Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9@._ -]{0,127}$")]
     approved_at: datetime
     expires_at: datetime
+    existing_resources: tuple[NativeObjectIdentity, ...] = ()
 
     @model_validator(mode="after")
     def validate_interval(self) -> Self:
@@ -123,7 +138,21 @@ class NativeApproval(BaseModel):
             raise ValueError("native approval requires timezone-aware timestamps")
         if not timedelta(0) < self.expires_at - self.approved_at <= timedelta(hours=4):
             raise ValueError("native approval duration must be positive and at most four hours")
+        keys = tuple(item.key for item in self.existing_resources)
+        if tuple(sorted(set(keys))) != keys:
+            raise ValueError("existing native resources must be unique and sorted")
+        if not set(keys) <= self.scope.resources:
+            raise ValueError("existing native resources exceed the approved scope")
         return self
+
+    @model_serializer(mode="wrap")
+    def preserve_creation_only_approval(
+        self, handler: SerializerFunctionWrapHandler
+    ) -> dict[str, object]:
+        document: dict[str, object] = handler(self)
+        if not self.existing_resources:
+            document.pop("existing_resources", None)
+        return document
 
     def require_current(self, now: datetime) -> None:
         if now.utcoffset() is None or not self.approved_at <= now < self.expires_at:

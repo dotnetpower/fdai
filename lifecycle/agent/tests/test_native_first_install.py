@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import json
+from copy import deepcopy
 from dataclasses import replace
 from datetime import timedelta
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from fdai_deployment_cli.lifecycle_native import NativeApproval, NativeScope
+from fdai_deployment_cli.lifecycle_native import (
+    NativeApproval,
+    NativeObjectIdentity,
+    NativeScope,
+)
 from lifecycle.agent.tests.test_application_release import prepare, release
 from lifecycle.agent.tests.test_native_scope import UidProvider
 
@@ -20,7 +26,12 @@ from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import NativeCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore
 from fdai_lifecycle_agent.state import write_json_atomically
-from fdai_lifecycle_agent.workload import CreationRejectedError, WorkloadError
+from fdai_lifecycle_agent.workload import (
+    CreationRejectedError,
+    WorkloadError,
+    object_key,
+    render,
+)
 
 
 def test_idle_legacy_agent_rechecks_mode_after_bootstrap_under_poll_lock(harness, monkeypatch):
@@ -194,3 +205,139 @@ def test_signed_native_first_install_update_recovery_and_restart_replay(
     assert live["spec"]["template"]["spec"]["containers"][0]["image"].endswith(
         harness.image("frontend-updated")
     )
+
+
+@pytest.mark.parametrize("interrupt_after_adoption", [False, True])
+def test_agent_plan_adopts_existing_deployment_and_creates_absent_service(
+    harness, interrupt_after_adoption
+) -> None:
+    settings = prepare(harness)
+    clock = harness.dependencies().clock
+    configuration = harness.add_configuration(
+        {
+            "schema": {},
+            "environment": {},
+            "entity_overrides": [{"versions": ">=0.0.0", "values": {}}],
+        }
+    )
+    release_digest = release(harness, version="0.0.0", label="healthy")
+    image_digest = harness.image("frontend-healthy")
+    harness.current_state = parse_current_state(
+        snapshot_document(
+            {"application": EntityState(None, frozenset())},
+            schema_revision=0,
+            observed_at=harness.current_state.observed_at,
+            available_artifact_digests=frozenset({image_digest}),
+        )
+    )
+    write_json_atomically(harness.state_file, harness.state_document())
+    approval = NativeApproval(
+        schema_version="fdai.lifecycle-native-approval.v1",
+        scope=NativeScope(
+            installation_id=settings.installation_id,
+            entity_id="application",
+            product=settings.product,
+            namespace=harness.namespace,
+            components=("frontend",),
+        ),
+        profile="full-authority-development",
+        approved_by="owner",
+        approved_at=clock() - timedelta(minutes=1),
+        expires_at=clock() + timedelta(hours=1),
+        existing_resources=(
+            NativeObjectIdentity(
+                kind="Deployment",
+                name="frontend",
+                uid="uid-existing-frontend",
+            ),
+        ),
+    )
+    provider = UidProvider()
+    desired = render(
+        harness.namespace,
+        {
+            ("application", "frontend"): (
+                f"{settings.component_repositories['frontend']}@{image_digest}"
+            )
+        },
+    )
+    deployment = next(item for item in desired if item["kind"] == "Deployment")
+    existing = deepcopy(dict(deployment))
+    existing["metadata"] = dict(existing["metadata"]) | {
+        "uid": "uid-existing-frontend",
+        "resourceVersion": "7",
+        "managedFields": [{"manager": "Terraform"}],
+    }
+    provider.objects[object_key(existing)] = existing
+    key = Ed25519PrivateKey.generate()
+    store = NativeStateStore(harness.state_store.path.parent)
+    proof = bootstrap_native_scope(
+        provider,
+        store,
+        approval,
+        key,
+        current_state_path=harness.state_file,
+        clock=clock,
+        apply=True,
+    )
+    assert proof is not None
+    settings = replace(settings, native_scope_digest=approval.scope.digest)
+    plan = harness.plan(
+        plan_id="native-adoption-plan",
+        sequence=8,
+        entity_ids=frozenset({"application"}),
+        capability_ids=(),
+        envelope=settings.maximum_envelope,
+        target_release_id="0.0.0",
+        target_release_digest=release_digest,
+        configuration_revision_digest=configuration,
+        source_state_digest=harness.current_state.digest,
+        ownership_digests={"application": proof.claim.digest},
+    )
+    harness.serve(plan)
+    wrapped = NativeCluster(
+        provider,
+        store,
+        approval,
+        key.public_key().public_bytes_raw(),
+        clock,
+    )
+    dependencies = harness.dependencies(
+        apply=harness.apply_mode(wrapped),
+        read_current_state=lambda: load_current_state(harness.state_file),
+    )
+
+    if interrupt_after_adoption:
+        provider.lose_adoption_response = True
+        with pytest.raises(SystemExit, match="simulated process interruption"):
+            LifecycleAgent(settings, dependencies).poll_once()
+        assert dependencies.apply is not None
+        assert dependencies.apply.store.load().journal.phase == "applying"
+        assert LifecycleAgent(settings, dependencies).poll_once().outcome == "rolled-back"
+        harness.current_state = load_current_state(harness.state_file)
+        harness.serve(
+            harness.plan(
+                plan_id="native-adoption-retry",
+                sequence=9,
+                entity_ids=frozenset({"application"}),
+                capability_ids=(),
+                envelope=settings.maximum_envelope,
+                target_release_id="0.0.0",
+                target_release_digest=release_digest,
+                configuration_revision_digest=configuration,
+                source_state_digest=harness.current_state.digest,
+                ownership_digests={"application": proof.claim.digest},
+            )
+        )
+
+    result = LifecycleAgent(settings, dependencies).poll_once()
+    assert result.outcome == "applied"
+    assert store.load().resources == {
+        "Deployment/frontend": "uid-existing-frontend",
+        "Service/frontend": provider.objects[("Service", "frontend")]["metadata"]["uid"],
+    }
+    assert provider.adopted == [("Deployment", "frontend")]
+    started = next(
+        report for _, _, report in harness.hub.reports if report.outcome == "apply-started"
+    )
+    assert json.loads(started.summary)["ownership_adoptions"] == 1
