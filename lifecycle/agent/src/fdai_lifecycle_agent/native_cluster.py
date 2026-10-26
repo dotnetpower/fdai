@@ -6,10 +6,13 @@ import re
 from collections.abc import Callable
 from copy import deepcopy
 from datetime import datetime
+from hashlib import sha256
 from typing import Protocol, runtime_checkable
 
-from fdai_deployment_cli.lifecycle_native import NativeApproval
+from fdai_deployment_cli.lifecycle_native import NativeApproval, NativeObjectIdentity
+from fdai_deployment_cli.lifecycle_plan import LifecyclePlan
 
+from fdai_lifecycle_agent.adoption import AdoptionExpectation, adopt_runtime_objects
 from fdai_lifecycle_agent.native_state import NativeState, NativeStateStore
 from fdai_lifecycle_agent.workload import (
     COMPONENT_LABEL,
@@ -44,6 +47,19 @@ class UidCluster(Cluster, Protocol):
     def delete_owned(
         self, kind: str, name: str, uid: str, *, before_submit: Callable[[], None]
     ) -> None: ...
+
+
+@runtime_checkable
+class AdoptionUidCluster(UidCluster, Protocol):
+    def adopt_terraform_owned(
+        self,
+        manifest: Manifest,
+        *,
+        uid: str,
+        resource_version: str,
+        dry_run: bool = False,
+        before_submit: Callable[[], None] | None = None,
+    ) -> Manifest: ...
 
 
 def live_uid(live: Manifest | None) -> str:
@@ -122,6 +138,9 @@ class NativeCluster:
             raise WorkloadError("native_resource_outside_scope")
         return f"{kind}/{name}"
 
+    def _approved_existing(self) -> dict[tuple[str, str], NativeObjectIdentity]:
+        return {item.key: item for item in self._approval.existing_resources}
+
     @staticmethod
     def _selector(state: NativeState, name: str) -> dict[str, str]:
         return {
@@ -179,6 +198,163 @@ class NativeCluster:
             raise WorkloadError("native_resource_isolation_changed")
         return live
 
+    def prepare_adoptions(
+        self,
+        plan: LifecyclePlan,
+        desired: tuple[Manifest, ...],
+        *,
+        recorded: frozenset[tuple[str, str]] = frozenset(),
+    ) -> tuple[tuple[AdoptionExpectation, ...], tuple[Manifest, ...]]:
+        """Pin exact existing objects for the admitted Plan without changing them."""
+
+        state = self._guard()
+        proof = state.proof
+        if proof is None:
+            raise WorkloadError("native_scope_proof_invalid")
+        expected_ownership = {state.scope.entity_id: proof.claim.digest}
+        if self._approval.existing_resources and dict(plan.ownership_digests) != expected_ownership:
+            raise WorkloadError("native_ownership_plan_mismatch")
+        if not self._approval.existing_resources and dict(plan.ownership_digests) not in (
+            {},
+            expected_ownership,
+        ):
+            raise WorkloadError("native_ownership_plan_mismatch")
+        approved = self._approved_existing()
+        desired_by_key = {object_key(item): item for item in desired}
+        if not set(approved) <= desired_by_key.keys():
+            raise WorkloadError("native_adoption_scope_mismatch")
+        if approved and not isinstance(self._cluster, AdoptionUidCluster):
+            raise WorkloadError("native_adoption_provider_required")
+        expectations: list[AdoptionExpectation] = []
+        previous: list[Manifest] = []
+        for key, _manifest in sorted(desired_by_key.items()):
+            resource = self._resource(state, *key)
+            live = self._cluster.get(*key)
+            owned_uid = state.resources.get(resource)
+            identity = approved.get(key)
+            if owned_uid is not None:
+                if live is None:
+                    raise WorkloadError("native_owned_resource_missing")
+                if live_uid(live) != owned_uid:
+                    raise WorkloadError("native_resource_identity_changed")
+                if identity is not None and identity.uid != owned_uid:
+                    raise WorkloadError("native_adoption_uid_conflict")
+                if identity is not None and key not in recorded:
+                    previous.append(deepcopy(dict(live)))
+                continue
+            if identity is None:
+                if live is not None:
+                    raise WorkloadError("native_resource_collision")
+                continue
+            if live is None:
+                raise WorkloadError("native_adoption_object_missing")
+            metadata = live.get("metadata", {})
+            if live_uid(live) != identity.uid:
+                raise WorkloadError("native_adoption_uid_conflict")
+            if metadata.get("deletionTimestamp") is not None:
+                raise WorkloadError("native_resource_terminating")
+            version = metadata.get("resourceVersion")
+            if not isinstance(version, str) or not version:
+                raise WorkloadError("native_resource_identity_unavailable")
+            expectations.append(AdoptionExpectation(key[0], key[1], identity.uid, version))
+            previous.append(deepcopy(dict(live)))
+        return tuple(expectations), tuple(previous)
+
+    def adopt_existing(
+        self,
+        desired: tuple[Manifest, ...],
+        expectations: tuple[AdoptionExpectation, ...],
+        *,
+        plan_id: str,
+    ) -> None:
+        """Adopt the journaled exact objects and retain a per-object transition receipt."""
+
+        if not expectations:
+            return
+        desired_by_key = {object_key(item): item for item in desired}
+        manifests = tuple(desired_by_key[item.key] for item in expectations)
+        receipt_id = sha256(plan_id.encode("ascii")).hexdigest()[:24]
+        proof = self._load().proof
+        if proof is None:
+            raise WorkloadError("native_scope_proof_invalid")
+        adopt_runtime_objects(
+            _NativeAdoptionAdapter(self),
+            manifests,
+            expectations,
+            installation_id=self._approval.scope.installation_id,
+            release_id=plan_id,
+            destination=self._store.path.parent / f"lifecycle-native-adoption-{receipt_id}.json",
+            authorization_digest=self._approval.digest,
+            ownership_digest=proof.claim.digest,
+        )
+
+    def adopt_terraform_owned(
+        self,
+        manifest: Manifest,
+        *,
+        uid: str,
+        resource_version: str,
+    ) -> Manifest:
+        """Transfer one independently approved object and retain its UID before continuing."""
+
+        state = self._guard(mutation=True)
+        if not isinstance(self._cluster, AdoptionUidCluster):
+            raise WorkloadError("native_adoption_provider_required")
+        kind, name = object_key(manifest)
+        key = self._resource(state, kind, name)
+        identity = self._approved_existing().get((kind, name))
+        if identity is None or identity.uid != uid or key in state.deleting:
+            raise WorkloadError("native_adoption_not_approved")
+        live = self._cluster.get(kind, name)
+        metadata = (live or {}).get("metadata", {})
+        if metadata.get("uid") != uid or metadata.get("resourceVersion") != resource_version:
+            raise WorkloadError("adoption_resource_drifted")
+        owned = self._owned_manifest(state, manifest)
+        adopted = self._cluster.adopt_terraform_owned(
+            owned,
+            uid=uid,
+            resource_version=resource_version,
+            before_submit=self._require_current,
+        )
+        if live_uid(adopted) != uid:
+            raise WorkloadError("adoption_receipt_invalid")
+        self._store.save(state.model_copy(update={"resources": state.resources | {key: uid}}))
+        return adopted
+
+    def recover_adoptions(self, expectations: tuple[AdoptionExpectation, ...]) -> None:
+        """Recover a confirmed SSA whose response or local UID write was interrupted."""
+
+        state = self._load()
+        resources = dict(state.resources)
+        changed = False
+        for expectation in expectations:
+            key = f"{expectation.kind}/{expectation.name}"
+            if resources.get(key) == expectation.uid:
+                continue
+            live = self._cluster.get(expectation.kind, expectation.name)
+            if live is None or live_uid(live) != expectation.uid:
+                continue
+            if self._has_ownership_marker(state, live, expectation.name):
+                resources[key] = expectation.uid
+                changed = True
+        if changed:
+            self._store.save(state.model_copy(update={"resources": resources}))
+
+    def transition_owned(self, kind: str, name: str, uid: str) -> bool:
+        state = self._load()
+        return state.resources.get(f"{kind}/{name}") == uid
+
+    def transition_live(self, kind: str, name: str, uid: str) -> Manifest | None:
+        state = self._load()
+        live = self._cluster.get(kind, name)
+        if live is None or live_uid(live) != uid:
+            return None
+        if state.resources.get(f"{kind}/{name}") is None and self._has_ownership_marker(
+            state, live, name
+        ):
+            raise WorkloadError("native_adoption_outcome_unknown")
+        return live
+
     def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
         state = self._guard(mutation=True)
         check_scope((manifest,), state.scope.namespace)
@@ -191,34 +367,30 @@ class NativeCluster:
             or key in state.deleting
         ):
             raise WorkloadError("native_resource_outside_scope")
-        live = self.get(kind, name)
         owned_uid = state.resources.get(key)
-        owned_manifest = deepcopy(dict(manifest)) | {
-            "metadata": dict(manifest["metadata"])
-            | {
-                "ownerReferences": [
-                    {
-                        "apiVersion": "v1",
-                        "kind": "Service",
-                        "name": state.scope.anchor_name,
-                        "uid": state.anchor_uid,
-                        "controller": True,
-                        "blockOwnerDeletion": False,
-                    }
-                ]
-            }
-        }
-        selector = self._selector(state, name)
-        owned_manifest["metadata"]["labels"] = dict(labels) | selector
-        if kind == "Deployment":
-            owned_manifest["spec"]["selector"]["matchLabels"] = selector
-            owned_manifest["spec"]["template"]["metadata"]["labels"].update(selector)
-        elif kind == "CronJob":
-            owned_manifest["spec"]["jobTemplate"]["spec"]["template"]["metadata"]["labels"].update(
-                selector
+        owned_manifest = self._owned_manifest(state, manifest)
+        identity = self._approved_existing().get((kind, name))
+        if owned_uid is None and identity is not None:
+            if not isinstance(self._cluster, AdoptionUidCluster):
+                raise WorkloadError("native_adoption_provider_required")
+            live = self._cluster.get(kind, name)
+            metadata = (live or {}).get("metadata", {})
+            if metadata.get("uid") != identity.uid:
+                raise WorkloadError("native_adoption_uid_conflict")
+            version = metadata.get("resourceVersion")
+            if not isinstance(version, str) or not version:
+                raise WorkloadError("native_resource_identity_unavailable")
+            if not dry_run:
+                raise WorkloadError("native_adoption_required")
+            self._cluster.adopt_terraform_owned(
+                owned_manifest,
+                uid=identity.uid,
+                resource_version=version,
+                dry_run=True,
+                before_submit=self._require_current,
             )
-        elif kind == "Service":
-            owned_manifest["spec"]["selector"] = selector
+            return
+        live = self.get(kind, name)
         if owned_uid is not None:
             if live is None:
                 raise WorkloadError("native_owned_resource_missing")
@@ -245,6 +417,56 @@ class NativeCluster:
                 )
         self._guard()
 
+    def _owned_manifest(self, state: NativeState, manifest: Manifest) -> Manifest:
+        kind, name = object_key(manifest)
+        labels = manifest["metadata"]["labels"]
+        owned_manifest = deepcopy(dict(manifest)) | {
+            "metadata": dict(manifest["metadata"])
+            | {
+                "ownerReferences": [
+                    {
+                        "apiVersion": "v1",
+                        "kind": "Service",
+                        "name": state.scope.anchor_name,
+                        "uid": state.anchor_uid,
+                        "controller": True,
+                        "blockOwnerDeletion": False,
+                    }
+                ]
+            }
+        }
+        selector = self._selector(state, name)
+        owned_manifest["metadata"]["labels"] = dict(labels) | selector
+        if kind == "Deployment":
+            owned_manifest["spec"]["selector"]["matchLabels"] = selector
+            owned_manifest["spec"]["template"]["metadata"]["labels"].update(selector)
+        elif kind == "CronJob":
+            owned_manifest["spec"]["jobTemplate"]["spec"]["template"]["metadata"]["labels"].update(
+                selector
+            )
+        elif kind == "Service":
+            owned_manifest["spec"]["selector"] = selector
+        return owned_manifest
+
+    def _has_ownership_marker(self, state: NativeState, live: Manifest, name: str) -> bool:
+        metadata = live.get("metadata", {})
+        expected_owner = {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "name": state.scope.anchor_name,
+            "uid": state.anchor_uid,
+            "controller": True,
+            "blockOwnerDeletion": False,
+        }
+        return (
+            metadata.get("annotations", {}).get("fdai.io/adopted-from") == "Terraform"
+            and expected_owner in metadata.get("ownerReferences", [])
+            and all(
+                metadata.get("labels", {}).get(label) == value
+                for label, value in self._selector(state, name).items()
+            )
+        )
+
     def delete(self, kind: str, name: str) -> None:
         state = self._guard(mutation=True)
         key = self._resource(state, kind, name)
@@ -262,3 +484,26 @@ class NativeCluster:
             raise
         self._guard()
         self.get(kind, name)
+
+
+class _NativeAdoptionAdapter:
+    """Expose raw reads while routing the exact adoption effect through NativeCluster."""
+
+    def __init__(self, owner: NativeCluster) -> None:
+        self._owner = owner
+
+    def get(self, kind: str, name: str) -> Manifest | None:
+        return self._owner._cluster.get(kind, name)
+
+    def adopt_terraform_owned(
+        self,
+        manifest: Manifest,
+        *,
+        uid: str,
+        resource_version: str,
+    ) -> Manifest:
+        return self._owner.adopt_terraform_owned(
+            manifest,
+            uid=uid,
+            resource_version=resource_version,
+        )

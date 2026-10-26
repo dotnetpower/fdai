@@ -32,7 +32,7 @@ input contract. Do not substitute a renamed HTTP manifest for the full FDAI topo
 | 4. Vendor release operator | Build immutable images, sign the exact manifest bytes, register/publish and maintain recall state | Source/image digests, signature verification, channel/catalog revision and pin | Build/sign/publish pipeline; no customer approval |
 | 5. Customer catalog approver | Obtain publisher key and exact catalog pin independently; approve, then import | Accepted key ID, revision, pin, freshness and import result | Transfer and compare public metadata without retyping; never trust a downloaded pin merely because it downloaded |
 | 6. Customer setup operator | Preserve installation ID/key, submit fresh enrollment, then obtain separate human acceptance | Public key ID, enrollment decision and durable installation identity | Supported enrollment commands; resumable UI handoff is still needed |
-| 7. Customer ownership approver | Review exact native object scope; run `bootstrap-slot` dry-run, then approved creation; submit and separately accept proof | Approval, scope digest, anchor UID and signed proof in private storage | `bootstrap-slot` and `submit-native-proof`; proof creation never approves ownership |
+| 7. Customer ownership approver | Review exact native object scope and, for a development transition, every existing kind/name/UID; run `bootstrap-slot` dry-run, then approved anchor creation; submit and separately accept proof | Approval, exact existing-object list, scope digest, anchor UID and signed proof in private storage | `bootstrap-slot` and `submit-native-proof`; proof creation never approves ownership or adopts a workload |
 | 8. Customer runtime/configuration owner | Review private bundle, existing references and image repositories; pin its digest in signed configuration | Owner-only local policy, signed configuration bytes, key ID and exact digests | Schema validation and digest generation; a guided private bundle editor is not shipped |
 | 9. Installation input operator | Transfer verified release/configuration document and detached signature pairs; mirror images | Atomic staged files and independent signature/digest checks | `stage-inputs`; there is no automatic file transfer merely because a Plan exists |
 | 10. Customer execution approver | Set explicit execution window, current Settings/constraints and exact Plan approval | Actor, source-state digest, Plan expiry and confirmation | Existing forms generate IDs/digests; preserve approval |
@@ -152,6 +152,35 @@ input file, and absolute backend path. Verify the exact rollback import plan, ap
 zero-change plan. Only after that receipt exists may the installation release its Hub ownership
 marker. Never edit a state file or use `terraform state rm` as a substitute.
 
+## Adopt exact existing objects in a mixed scope
+
+Use this transition only with an explicitly approved `full-authority-development` native scope.
+Keep the same `scope` in `native-approval.json` and add `existing_resources`, sorted by kind and
+name. Each entry contains exactly `kind`, `name`, and the Kubernetes `uid` read from the current
+object. Do not list an object that is absent, terminating, owned by another field manager, or
+outside the generated runtime bundle. Every scope object omitted from `existing_resources` must be
+absent.
+
+Run `bootstrap-slot` without `--apply` first. It verifies the existing UIDs and absence set while
+keeping the anchor create-only. For an existing native state, it verifies the retained anchor and
+proof instead of recreating them. Obtain a fresh Hub Plan only after the operator has accepted that
+proof. The signed Plan must carry the same claim digest in `ownership_digests`; a Plan without that
+binding cannot perform adoption.
+
+Run the bounded Agent apply with the same private approval and persistent state. The preflight
+captures resource versions and original manifests and server-dry-runs every adoption. After the Hub
+accepts `apply-started`, the Agent checkpoints adopted objects one by one, writes their UIDs into
+native state, and creates only objects that the approval declared absent. Preserve the adoption
+receipt. It binds the approval, accepted ownership claim, Plan, rendered objects, UIDs and resource
+versions without sending the private inventory to the Hub.
+
+If the run stops, restart with the same state and approval. The Agent recognizes only the exact
+anchor marker and UID, rolls adopted specs back to their captured versions, and leaves not-yet
+adopted objects untouched. A new Plan may retry the remaining set. A UID conflict, another field
+manager, a missing object that was declared existing, or an object that appears in the absent set
+requires a new observation and approval. Never edit native state, patch labels with `kubectl`, or
+reuse the old approval for a changed UID.
+
 ## Execute without an invisible helper
 
 1. Follow the existing guide to enroll and accept installation identity. Do not regenerate the
@@ -161,6 +190,8 @@ marker. Never edit a state file or use `terraform state rm` as a substitute.
    `--installation-key`, and either `--in-cluster` or an explicitly selected `--kube-context`.
    The default is dry-run. Only the separately authorized creation adds `--apply` and
    `--proof-output`. Transfer public proof through `submit-native-proof` and obtain human acceptance.
+   For a mixed transition, include the exact `existing_resources` list described above. Bootstrap
+   still creates only the anchor; the signed Plan execution performs adoption.
 3. Stage signed inputs using the guide's `stage-inputs` command. Verify mirrored image digests.
 4. Obtain a fresh exact Plan. A default `poll-once` validates admission without loading Kubernetes
    or creating a journal; it is not a server-side Kubernetes dry-run.
@@ -204,6 +235,9 @@ gap rather than changing a product name or expanding permission as a workaround.
   independently before an authorized repair. Do not delete a halt marker merely to retry.
 - Unknown native creation is not adoption permission. Preserve UID evidence and pending state.
   Resume with the same installation key and state; do not overwrite an existing object by name.
+  A supported development adoption requires the exact local kind/name/UID approval and the
+  Hub-signed ownership digest. Its rollback keeps the ownership marker while restoring the prior
+  spec; only the separate reconciliation-release and Terraform import procedure reverses ownership.
 - Environment retention, the execution schedule, local native approval validity and Plan expiry
   are separate limits. Keeping AKS online does not authorize unlimited ongoing changes.
 - Retain durable Agent storage, installation identity and exact evidence. Cleanup requires an

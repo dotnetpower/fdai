@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_native import (
     NativeApproval,
+    NativeObjectIdentity,
     NativeScope,
     NativeScopeClaim,
     sign_native_scope,
@@ -120,6 +121,58 @@ def test_approval_duration_cannot_be_unbounded(hours):
             approved_by="owner",
             approved_at=now,
             expires_at=now + timedelta(hours=hours),
+        )
+
+
+def test_approval_binds_sorted_exact_existing_object_identities():
+    approval = NativeApproval(
+        schema_version="fdai.lifecycle-native-approval.v1",
+        scope=scope(),
+        profile="full-authority-development",
+        approved_by="owner",
+        approved_at=datetime(2026, 10, 5, tzinfo=UTC),
+        expires_at=datetime(2026, 10, 5, 1, tzinfo=UTC),
+        existing_resources=(
+            NativeObjectIdentity(kind="Deployment", name="frontend", uid="uid-frontend"),
+        ),
+    )
+
+    assert approval.model_dump(mode="json")["existing_resources"] == [
+        {"kind": "Deployment", "name": "frontend", "uid": "uid-frontend"}
+    ]
+    assert (
+        approval.digest
+        != NativeApproval(
+            schema_version="fdai.lifecycle-native-approval.v1",
+            scope=scope(),
+            profile="full-authority-development",
+            approved_by="owner",
+            approved_at=datetime(2026, 10, 5, tzinfo=UTC),
+            expires_at=datetime(2026, 10, 5, 1, tzinfo=UTC),
+        ).digest
+    )
+
+
+@pytest.mark.parametrize(
+    "resources",
+    [
+        (
+            NativeObjectIdentity(kind="Service", name="frontend", uid="uid-service"),
+            NativeObjectIdentity(kind="Deployment", name="frontend", uid="uid-deployment"),
+        ),
+        (NativeObjectIdentity(kind="CronJob", name="worker", uid="uid-worker"),),
+    ],
+)
+def test_approval_rejects_unsorted_or_out_of_scope_existing_resources(resources):
+    with pytest.raises(ValidationError):
+        NativeApproval(
+            schema_version="fdai.lifecycle-native-approval.v1",
+            scope=scope(),
+            profile="full-authority-development",
+            approved_by="owner",
+            approved_at=datetime(2026, 10, 5, tzinfo=UTC),
+            expires_at=datetime(2026, 10, 5, 1, tzinfo=UTC),
+            existing_resources=resources,
         )
 
 

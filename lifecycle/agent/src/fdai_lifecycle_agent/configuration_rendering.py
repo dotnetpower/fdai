@@ -11,8 +11,10 @@ from fdai_deployment_cli.lifecycle_release import (
     APPLICATION_RELEASE_SCHEMAS,
 )
 
+from fdai_lifecycle_agent.adoption import AdoptionExpectation
 from fdai_lifecycle_agent.inputs import VerifiedConfiguration, VerifiedRelease
 from fdai_lifecycle_agent.journal import WorkloadStore
+from fdai_lifecycle_agent.native_cluster import NativeCluster
 from fdai_lifecycle_agent.operator_workload import render_operator, validate_profile
 from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
 from fdai_lifecycle_agent.schema_expand import render_schema_expand_job
@@ -147,7 +149,11 @@ def prepare_workload(
     store: WorkloadStore,
     runtime_bundle: RuntimeBundle | None = None,
     current_schema: int | None = None,
-) -> tuple[tuple[Manifest, ...], tuple[Manifest, ...]]:
+) -> tuple[
+    tuple[Manifest, ...],
+    tuple[Manifest, ...],
+    tuple[AdoptionExpectation, ...],
+]:
     """Render and server-dry-run approved workloads before writing the intent journal."""
     _validate_release_profile(release, configuration)
     try:
@@ -226,8 +232,16 @@ def prepare_workload(
             elif entity in plan.entity_ids:
                 raise WorkloadError("runtime_bundle_topology_removal_unsupported")
     previous = tuple(healthy[key] for key in map(object_key, desired) if key in healthy)
+    adoptions: tuple[AdoptionExpectation, ...] = ()
+    if isinstance(workload.cluster, NativeCluster):
+        adoptions, adopted_previous = workload.cluster.prepare_adoptions(
+            plan,
+            desired,
+            recorded=frozenset(healthy),
+        )
+        previous = (*previous, *adopted_previous)
     workload.preflight(desired, previous)
-    return desired, previous
+    return desired, previous, adoptions
 
 
 def _validate_release_profile(
