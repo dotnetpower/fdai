@@ -101,7 +101,7 @@ def resource_state_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=RESOURCE_STATE_FUNCTION_NAME,
-        version="1.3.0",
+        version="1.4.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}",
         publisher="fdai",
@@ -208,7 +208,7 @@ def resource_state_inventory_function(
                 if list_members:
                     rows.append(
                         QueryRow.from_values(
-                            f"resource-state-{len(rows) + 1:04d}",
+                            target.id,
                             unknown_resource_state_values(
                                 target, observation_cutoff=secured.receipt.observation_cutoff
                             ),
@@ -223,7 +223,7 @@ def resource_state_inventory_function(
                 values = {**values, "state_status": "observed"}
             rows.append(
                 QueryRow.from_values(
-                    f"resource-state-{len(rows) + 1:04d}",
+                    target.id,
                     values,
                 )
             )

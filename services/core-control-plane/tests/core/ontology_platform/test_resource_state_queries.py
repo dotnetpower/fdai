@@ -198,7 +198,7 @@ async def _invoke(
 def test_state_function_declares_canonical_measure_concepts() -> None:
     declaration = resource_state_function_type()
 
-    assert declaration.version == "1.3.0"
+    assert declaration.version == "1.4.0"
     assert declaration.output_schema["x-fdai-measure-concepts"] == list(
         RESOURCE_STATE_QUERY_CONCEPTS
     )
@@ -534,6 +534,26 @@ async def test_an_observed_ready_settles_a_running_request_for_a_serving_databas
     assert rows["database-a"]["observed_state"] == "Ready"
     assert rows["database-a"]["state_concept"] == "resource_state.ready"
     assert rows["database-a"]["state_basis"] == "ready_on_serving_lifecycle"
+
+
+async def test_state_rows_are_named_by_their_resource_identity() -> None:
+    fresh = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource("database-a", "Ready", observed_at=fresh),
+                _resource("database-b", "Stopped", observed_at=fresh),
+            )
+        ),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+        list_members=True,
+    )
+
+    # A follow-up can bind these rows again only when the row id is the Resource id.
+    assert [row["row_id"] for row in result["rows"]] == [
+        "resource-database-a",
+        "resource-database-b",
+    ]
 
 
 async def test_a_ready_request_keeps_its_own_basis_free_row() -> None:
