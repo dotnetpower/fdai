@@ -109,8 +109,11 @@ DSN과 키 자료를 제공할 때만 저장소를 만듭니다. 둘 중 하나�
 
 후속 질문을 읽는 질문 형식 경로는 현재 로컬 실행 환경에서만 동작하므로, 배포 환경은 그 경로가 승격되기 전에는 이 설정으로
 얻는 것이 없습니다. 그 승격에는 [P5](ontology-reasoning-promotion-program-ko.md#p5-승격과-제거)의 근거가 필요하고,
-배포가 소유하는 키 자료도 필요합니다. 곧 Key Vault 비밀, 그 읽기 권한 할당, Core 컨테이너 앱의
-`FDAI_RESULT_HANDLE_MATERIAL` 바인딩입니다.
+배포가 소유하는 키 자료는 이미 준비되어 있습니다. 플랫폼이 무작위 256비트 Key Vault 비밀
+`fdai-result-handle-material`을 만들고, Core ID에만 읽기 권한을 주며, 버전 없는 참조를
+`result_handle_binding` 출력으로 게시합니다. Core 서비스 모듈은 `result_handles.key_secret_id` 값을 컨테이너 앱의
+`FDAI_RESULT_HANDLE_MATERIAL` 비밀로 바인딩합니다. 키를 제공해도 후속 질문이 켜지지는 않습니다. 출력값을 서비스
+tfvars에 복사하는 일은 서비스 배포 워크플로가 이를 주입하기 전까지 수동 배포 단계로 남습니다.
 
 ## H3 속성 후속 질문
 

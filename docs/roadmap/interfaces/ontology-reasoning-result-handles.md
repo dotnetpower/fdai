@@ -111,9 +111,13 @@ supplies a generated key kept in an ignored file.
 
 The question-form path that reads a follow-up runs only in the local execution venue today, so a
 deployed venue gains nothing from the setting until that path is promoted there. That promotion
-needs the evidence in [P5](ontology-reasoning-promotion-program.md#p5-promotion-and-removal), and it
-also needs deployment-owned key material: a Key Vault secret, its reader assignment, and the
-`FDAI_RESULT_HANDLE_MATERIAL` binding on the Core container app.
+needs the evidence in [P5](ontology-reasoning-promotion-program.md#p5-promotion-and-removal).
+Deployment already owns the key material: the platform creates the random 256-bit Key Vault secret
+`fdai-result-handle-material`, grants only Core's identity read access, and publishes the
+versionless reference as the `result_handle_binding` output. The Core service module binds a
+`result_handles.key_secret_id` value as the `FDAI_RESULT_HANDLE_MATERIAL` secret on the container
+app. Supplying the key never turns follow-ups on. Copying the output into the service tfvars is a
+deployment step that stays manual until the service deployment workflow hydrates it.
 
 ## H3 Property follow-ups
 
