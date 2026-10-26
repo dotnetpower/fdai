@@ -53,49 +53,51 @@ def test_legacy_millisecond_and_hub_microsecond_state_have_distinct_canonical_di
     assert source.observed_at - local.observed_at < datetime.resolution * 1000
 
 
+def _live_legacy_receipt_document() -> dict[str, str]:
+    return {
+        "schema_version": "fdai.lifecycle-native-transition-receipt.v1",
+        "request_digest": (
+            "sha256:50ff7151b77c8caf798aecfeddfa5e0ba483d5d3eebcd457f5c6d5be1b923c3c"
+        ),
+        "hub_approval_digest": (
+            "sha256:982e6855ebfe71a181f9670f815af36d97fa85177b46be35981b2105532ad3f2"
+        ),
+        "installation_id": "installation-fdai-dev-wus3",
+        "old_entity_id": "operator-hub-canary",
+        "new_entity_id": "fdai-workloads",
+        "old_scope_digest": (
+            "sha256:cd55fa30684cbc0fd41510801f7ebfce86f0ca1920c13d7628fa40b1027f35e2"
+        ),
+        "new_scope_digest": (
+            "sha256:ae6de3ca13961df13d67598caf19b21264fdfa1d6b1bce0269ac2374c22c072c"
+        ),
+        "old_reported_state_digest": (
+            "575e1cb97a8925aff24d4f6e908a91abc4680511f62bb12453b632ec5ab6aafc"
+        ),
+        "new_reported_state_digest": (
+            "607467ac39f2b850df618896e0e8e65e96c61b59df0821812ca4ce6f619182eb"
+        ),
+        "ownership_claim_digest": (
+            "sha256:416a9c50ebe7b21ee9a43cf47d5a2d9a4d2dff8e61ae52675784bd68006bf30f"
+        ),
+        "recovery_request_digest": (
+            "sha256:83f30788afec202ba879d073e9f4af8cbf0fd9e0b83950f78455d3c6d96dd64a"
+        ),
+        "existing_resources_digest": (
+            "sha256:3d77eb510a685392612a41eebd147513a2ae1ae662a610b116a5cd5d5ba5b44f"
+        ),
+        "rollback_record_digest": (
+            "sha256:a8ad890bdc8e6fb20c9f588550788339740b2c3b1d79714a2814663d6d7166e3"
+        ),
+        "completed_at": "2026-10-26T14:32:49.787619+00:00",
+        "record_digest": (
+            "sha256:95eeeeeaf0899c66d5e927d71d9d9b2b84bdadda7113bac95b175da3db720a69"
+        ),
+    }
+
+
 def test_exact_live_receipt_preserves_immutable_and_regenerated_digests() -> None:
-    receipt = LegacyNativeScopeTransitionReceipt.model_validate(
-        {
-            "schema_version": "fdai.lifecycle-native-transition-receipt.v1",
-            "request_digest": (
-                "sha256:50ff7151b77c8caf798aecfeddfa5e0ba483d5d3eebcd457f5c6d5be1b923c3c"
-            ),
-            "hub_approval_digest": (
-                "sha256:982e6855ebfe71a181f9670f815af36d97fa85177b46be35981b2105532ad3f2"
-            ),
-            "installation_id": "installation-fdai-dev-wus3",
-            "old_entity_id": "operator-hub-canary",
-            "new_entity_id": "fdai-workloads",
-            "old_scope_digest": (
-                "sha256:cd55fa30684cbc0fd41510801f7ebfce86f0ca1920c13d7628fa40b1027f35e2"
-            ),
-            "new_scope_digest": (
-                "sha256:ae6de3ca13961df13d67598caf19b21264fdfa1d6b1bce0269ac2374c22c072c"
-            ),
-            "old_reported_state_digest": (
-                "575e1cb97a8925aff24d4f6e908a91abc4680511f62bb12453b632ec5ab6aafc"
-            ),
-            "new_reported_state_digest": (
-                "607467ac39f2b850df618896e0e8e65e96c61b59df0821812ca4ce6f619182eb"
-            ),
-            "ownership_claim_digest": (
-                "sha256:416a9c50ebe7b21ee9a43cf47d5a2d9a4d2dff8e61ae52675784bd68006bf30f"
-            ),
-            "recovery_request_digest": (
-                "sha256:83f30788afec202ba879d073e9f4af8cbf0fd9e0b83950f78455d3c6d96dd64a"
-            ),
-            "existing_resources_digest": (
-                "sha256:3d77eb510a685392612a41eebd147513a2ae1ae662a610b116a5cd5d5ba5b44f"
-            ),
-            "rollback_record_digest": (
-                "sha256:a8ad890bdc8e6fb20c9f588550788339740b2c3b1d79714a2814663d6d7166e3"
-            ),
-            "completed_at": "2026-10-26T14:32:49.787619+00:00",
-            "record_digest": (
-                "sha256:95eeeeeaf0899c66d5e927d71d9d9b2b84bdadda7113bac95b175da3db720a69"
-            ),
-        }
-    )
+    receipt = LegacyNativeScopeTransitionReceipt.model_validate(_live_legacy_receipt_document())
     state = LegacyNativeScopeTransitionReportedState(
         digest="607467ac39f2b850df618896e0e8e65e96c61b59df0821812ca4ce6f619182eb",
         schema_revision=0,
@@ -136,6 +138,41 @@ def test_exact_live_receipt_preserves_immutable_and_regenerated_digests() -> Non
         )
         == "sha256:6b1a3839fdc4caf6a8214219a483ab69a085c2b54c7b5fdbe4e5fba48d1e6452"
     )
+
+
+def test_hub_reserialized_live_receipt_accepts_only_legacy_record_digest() -> None:
+    document = _live_legacy_receipt_document()
+    document["completed_at"] = document["completed_at"].replace("+00:00", "Z")
+
+    receipt = LegacyNativeScopeTransitionReceipt.model_validate_json(json.dumps(document))
+
+    assert receipt.record_digest == _live_legacy_receipt_document()["record_digest"]
+    assert json.loads(receipt.model_dump_json())["completed_at"] == "2026-10-26T14:32:49.787619Z"
+    hub_document = {key: value for key, value in document.items() if key != "record_digest"}
+    hub_digest = "sha256:" + canonical_digest(hub_document)
+    with pytest.raises(ValueError, match="receipt digest is invalid"):
+        LegacyNativeScopeTransitionReceipt.model_validate({**document, "record_digest": hub_digest})
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("completed_at", "2026-10-26T23:32:49.787619+09:00"),
+        ("completed_at", "2026-10-26T14:32:49.787620Z"),
+        ("record_digest", "sha256:" + "f" * 64),
+        ("new_entity_id", "different-entity"),
+    ],
+)
+def test_hub_reserialized_live_receipt_rejects_non_exact_evidence(
+    field: str,
+    value: str,
+) -> None:
+    document = _live_legacy_receipt_document()
+    document["completed_at"] = document["completed_at"].replace("+00:00", "Z")
+    document[field] = value
+
+    with pytest.raises(ValueError, match="receipt digest is invalid"):
+        LegacyNativeScopeTransitionReceipt.model_validate_json(json.dumps(document))
 
 
 def _legacy_state(

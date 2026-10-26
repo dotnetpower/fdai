@@ -835,7 +835,7 @@ def _legacy_reconciliation_case(
     )
     receipt_document = case.completion.transition_receipt.model_dump(mode="json")
     receipt_document.pop("record_digest")
-    receipt_document["completed_at"] = transition_at.isoformat().replace("+00:00", "Z")
+    receipt_document["completed_at"] = transition_at.isoformat()
     receipt_document["new_reported_state_digest"] = legacy_state.digest
     local = LegacyNativeScopeTransitionReceipt.model_validate_json(
         json.dumps(
