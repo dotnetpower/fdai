@@ -24,6 +24,7 @@ from fdai_deployment_cli.lifecycle_native_reconciliation import (
     LegacyNativeScopeTransitionReceipt,
     LegacyNativeScopeTransitionReportedState,
     NativeScopeTransitionStateReconciliationCompletion,
+    NativeScopeTransitionStateReconciliationRenewalRequest,
     NativeScopeTransitionStateReconciliationRequest,
     SignedNativeScopeTransitionStateReconciliationApproval,
     regenerated_transition_receipt_digest,
@@ -911,6 +912,31 @@ def _legacy_reconciliation_case(
     )
 
 
+def _renewal_request(
+    approved: SignedNativeScopeTransitionStateReconciliationApproval,
+    *,
+    requested_at=None,
+) -> NativeScopeTransitionStateReconciliationRenewalRequest:
+    previous = approved.approval
+    values = previous.request.model_dump(mode="json")
+    values.pop("supersedes_approval_digest", None)
+    start = requested_at or previous.expires_at
+    return NativeScopeTransitionStateReconciliationRenewalRequest.model_validate_json(
+        json.dumps(
+            {
+                **values,
+                "schema_version": (
+                    "fdai.lifecycle-native-transition-state-reconciliation-renewal-request.v1"
+                ),
+                "request_id": str(uuid4()),
+                "requested_at": start.isoformat(),
+                "expires_at": (start + timedelta(minutes=10)).isoformat(),
+                "supersedes_approval_digest": previous.digest,
+            }
+        )
+    )
+
+
 def test_hub_reconciles_exact_legacy_duplicate_inventory_and_retries(
     completion_case,
     monkeypatch,
@@ -970,6 +996,280 @@ def test_hub_reconciles_exact_legacy_duplicate_inventory_and_retries(
 
     assert retry == receipt
     assert receipt.authoritative_reported_state.available_artifact_digests == (first, second)
+
+
+def test_hub_renews_expired_unconsumed_reconciliation_and_retries(
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    service = NativeTransitionReconciliationStore(case.store)
+    original = service.approve(
+        case.installation.installation_id,
+        legacy.request,
+        operator="requester",
+        now=legacy.requested_at + timedelta(seconds=1),
+        key=case.key,
+    )
+    renewal = _renewal_request(original)
+
+    renewed = service.approve(
+        case.installation.installation_id,
+        renewal,
+        operator="requester",
+        now=renewal.requested_at + timedelta(seconds=1),
+        key=case.key,
+    )
+    retry = NativeTransitionReconciliationStore(type(case.store)(case.store.engine)).approve(
+        case.installation.installation_id,
+        renewal,
+        operator="requester",
+        now=renewal.requested_at + timedelta(seconds=2),
+        key=case.key,
+    )
+
+    assert retry == renewed
+    assert renewed.approval.request == renewal
+    with Session(case.store.engine) as session:
+        record = session.scalars(
+            select(models.AuditRecord)
+            .where(
+                models.AuditRecord.action
+                == "entity.native_transition_state_reconciliation_approved"
+            )
+            .order_by(models.AuditRecord.sequence.desc())
+            .limit(1)
+        ).one()
+        assert record.payload["supersedes_approval_digest"] == original.approval.digest
+        assert record.payload["approval_digest"] == renewed.approval.digest
+        assert audit.chain_intact(session)
+
+
+@pytest.mark.parametrize(
+    ("fault", "expected"),
+    [
+        ("active", "approval_active"),
+        ("operator", "operator_mismatch"),
+        ("native-approval", "evidence_mismatch"),
+        ("agent", "evidence_mismatch"),
+        ("uid", "evidence_mismatch"),
+        ("state", "state_mismatch"),
+        ("plan", "plan_pending"),
+    ],
+)
+def test_hub_reconciliation_renewal_rejects_changed_authority_or_state(
+    fault,
+    expected,
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    service = NativeTransitionReconciliationStore(case.store)
+    original = service.approve(
+        case.installation.installation_id,
+        legacy.request,
+        operator="requester",
+        now=legacy.requested_at + timedelta(seconds=1),
+        key=case.key,
+    )
+    requested_at = (
+        original.approval.expires_at - timedelta(seconds=1)
+        if fault == "active"
+        else original.approval.expires_at
+    )
+    renewal = _renewal_request(original, requested_at=requested_at)
+    operator = "different-operator" if fault == "operator" else "requester"
+    if fault == "native-approval":
+        renewal = renewal.model_copy(
+            update={
+                "native_approval": renewal.native_approval.model_copy(
+                    update={"approved_by": "different-owner"}
+                )
+            }
+        )
+    elif fault == "agent":
+        completion_document = renewal.completion_receipt.model_dump(
+            mode="json",
+            exclude={"receipt_digest"},
+        )
+        completion_document["agent_principal"] = "different-agent"
+        changed_completion = NativeScopeTransitionCompletionReceipt.model_validate(
+            {
+                **completion_document,
+                "receipt_digest": "sha256:" + canonical_digest(completion_document),
+            }
+        )
+        renewal = renewal.model_copy(update={"completion_receipt": changed_completion})
+    elif fault == "uid":
+        identities = list(renewal.native_approval.existing_resources)
+        identities[0] = identities[0].model_copy(update={"uid": "changed-uid"})
+        renewal = renewal.model_copy(
+            update={
+                "native_approval": renewal.native_approval.model_copy(
+                    update={"existing_resources": tuple(identities)}
+                )
+            }
+        )
+    elif fault == "state":
+        changed = original.approval.authoritative_reported_state.model_copy(
+            update={
+                "observed_at": (
+                    original.approval.authoritative_reported_state.observed_at
+                    + timedelta(seconds=1)
+                )
+            }
+        )
+        changed = changed.model_copy(update={"digest": transition_reported_state_digest(changed)})
+        case.store.record_state(
+            case.installation.installation_id,
+            changed,
+            now=changed.observed_at,
+        )
+    elif fault == "plan":
+        with Session(case.store.engine) as session, session.begin():
+            session.add(
+                models.Plan(
+                    plan_id="renewal-blocking-plan",
+                    installation_id=case.installation.installation_id,
+                    sequence=1000,
+                    plan_type="upgrade",
+                    target_release_id="1.6.0",
+                    source_state_digest=legacy.source.digest,
+                    configuration_digest=case.installation.configuration.digest,
+                    hub_key_id=case.key.key_id,
+                    entity_ids=["fdai-workloads"],
+                    signed_payload=b"test-plan",
+                    signature=b"test-signature",
+                    issued_at=case.now,
+                    expires_at=case.now + timedelta(hours=1),
+                )
+            )
+
+    with pytest.raises(NativeTransitionReconciliationError, match=expected):
+        service.approve(
+            case.installation.installation_id,
+            renewal,
+            operator=operator,
+            now=renewal.requested_at,
+            key=case.key,
+        )
+
+
+def test_hub_reconciliation_renewal_rejects_consumed_and_conflicting_children(
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    service = NativeTransitionReconciliationStore(case.store)
+    original = service.approve(
+        case.installation.installation_id,
+        legacy.request,
+        operator="requester",
+        now=legacy.requested_at + timedelta(seconds=1),
+        key=case.key,
+    )
+    first_renewal = _renewal_request(original)
+    renewed = service.approve(
+        case.installation.installation_id,
+        first_renewal,
+        operator="requester",
+        now=first_renewal.requested_at,
+        key=case.key,
+    )
+    conflicting = _renewal_request(
+        original,
+        requested_at=first_renewal.requested_at + timedelta(seconds=1),
+    )
+    with pytest.raises(NativeTransitionReconciliationError, match="renewal_conflict"):
+        service.approve(
+            case.installation.installation_id,
+            conflicting,
+            operator="requester",
+            now=conflicting.requested_at,
+            key=case.key,
+        )
+
+    chained = _renewal_request(
+        renewed,
+        requested_at=renewed.approval.expires_at,
+    )
+    chained_approval = service.approve(
+        case.installation.installation_id,
+        chained,
+        operator="requester",
+        now=chained.requested_at,
+        key=case.key,
+    )
+    command = NativeScopeTransitionStateReconciliationCompletion(
+        schema_version=("fdai.lifecycle-native-transition-state-reconciliation-completion.v1"),
+        approval=chained_approval,
+        reported_state=chained_approval.approval.authoritative_reported_state,
+    )
+    service.complete(
+        case.installation.installation_id,
+        command,
+        principal="agent-executor",
+        now=chained.requested_at + timedelta(seconds=2),
+        key=case.key,
+    )
+    consumed = _renewal_request(
+        chained_approval,
+        requested_at=chained_approval.approval.expires_at,
+    )
+    with pytest.raises(NativeTransitionReconciliationError, match="approval_consumed"):
+        service.approve(
+            case.installation.installation_id,
+            consumed,
+            operator="requester",
+            now=consumed.requested_at,
+            key=case.key,
+        )
+
+
+@pytest.mark.integration
+def test_postgres_serializes_conflicting_reconciliation_renewals(
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    if case.store.engine.dialect.name != "postgresql":
+        pytest.skip("PostgreSQL row-lock concurrency test")
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    original = NativeTransitionReconciliationStore(case.store).approve(
+        case.installation.installation_id,
+        legacy.request,
+        operator="requester",
+        now=legacy.requested_at + timedelta(seconds=1),
+        key=case.key,
+    )
+    renewals = (
+        _renewal_request(original),
+        _renewal_request(original),
+    )
+    barrier = Barrier(2)
+
+    def approve(request):
+        barrier.wait()
+        try:
+            result = NativeTransitionReconciliationStore(case.store).approve(
+                case.installation.installation_id,
+                request,
+                operator="requester",
+                now=request.requested_at + timedelta(seconds=1),
+                key=case.key,
+            )
+            return "approved", result.approval.digest
+        except NativeTransitionReconciliationError as error:
+            return "rejected", str(error)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = tuple(executor.map(approve, renewals))
+
+    assert sorted(result[0] for result in results) == ["approved", "rejected"]
+    assert any("renewal_conflict" in result[1] for result in results)
 
 
 def test_hub_reconciliation_rejects_invalid_stored_source_digest(
@@ -1373,3 +1673,51 @@ def test_reconciliation_api_requires_operator_then_exact_agent_identity(
     assert accepted.json()["new_reported_state_digest"] == (
         approved.approval.authoritative_reported_state.digest
     )
+
+
+def test_reconciliation_api_renews_expired_approval_with_exact_retry(
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    original = NativeTransitionReconciliationStore(case.store).approve(
+        case.installation.installation_id,
+        legacy.request,
+        operator="requester",
+        now=legacy.requested_at + timedelta(seconds=1),
+        key=case.key,
+    )
+    renewal = _renewal_request(original)
+    auth = remote_auth(case.authorization)
+    app = create_app(
+        case.store,
+        clock=lambda: renewal.requested_at + timedelta(seconds=1),
+        remote_auth=auth,
+        transition_key=case.key,
+    )
+    token = tokens(app, auth)
+    path = (
+        f"/v1/installations/{case.installation.installation_id}"
+        "/native-transition-state-reconciliation-approval"
+    )
+
+    with TestClient(app, base_url=auth.origin) as client:
+        response = client.post(
+            path,
+            json=renewal.model_dump(mode="json"),
+            headers=token("requester"),
+        )
+        retry = client.post(
+            path,
+            json=renewal.model_dump(mode="json"),
+            headers=token("requester"),
+        )
+
+    assert response.status_code == 200
+    assert retry.status_code == 200
+    assert retry.json() == response.json()
+    signed = SignedNativeScopeTransitionStateReconciliationApproval.model_validate_json(
+        response.content
+    )
+    assert signed.approval.request == renewal

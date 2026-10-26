@@ -26,6 +26,7 @@ from fdai_deployment_cli.lifecycle_native_reconciliation import (
     LegacyNativeScopeTransitionReceipt,
     NativeScopeTransitionStateReconciliationApproval,
     NativeScopeTransitionStateReconciliationReceipt,
+    NativeScopeTransitionStateReconciliationRenewalRequest,
     canonical_transition_reported_state,
     regenerated_transition_receipt_digest,
     sign_transition_state_reconciliation_approval,
@@ -69,6 +70,7 @@ from fdai_lifecycle_agent.native_transition_reconciliation import (
     RECONCILIATION_RECEIPT_FILE_NAME,
     RECONCILIATION_ROLLBACK_FILE_NAME,
     _reported_state,
+    prepare_native_transition_state_reconciliation_renewal_request,
     prepare_native_transition_state_reconciliation_request,
     reconcile_native_transition_state,
 )
@@ -742,6 +744,86 @@ def test_reconciliation_repairs_only_current_state_and_is_idempotent(harness, tm
     assert not (case.state_dir / RECONCILIATION_PENDING_FILE_NAME).exists()
 
 
+def test_reconciliation_prepares_expired_renewal_and_uses_new_approval(
+    harness,
+    tmp_path,
+) -> None:
+    case = _prepare_reconciliation_case(harness, tmp_path)
+    with pytest.raises(WorkloadError, match="approval_active"):
+        prepare_native_transition_state_reconciliation_renewal_request(
+            state_dir=case.state_dir,
+            current_state_path=case.current_path,
+            completion_receipt=case.completion,
+            native_approval=case.approval,
+            expired_approval=case.reconciliation_approval,
+            installation_public_key=case.recovered_public,
+            now=case.request.expires_at - timedelta(microseconds=1),
+        )
+    with pytest.raises(WorkloadError, match="renewal_evidence_mismatch"):
+        prepare_native_transition_state_reconciliation_renewal_request(
+            state_dir=case.state_dir,
+            current_state_path=case.current_path,
+            completion_receipt=case.completion,
+            native_approval=case.approval.model_copy(update={"approved_by": "different-owner"}),
+            expired_approval=case.reconciliation_approval,
+            installation_public_key=case.recovered_public,
+            now=case.request.expires_at,
+        )
+    local_pending = case.state_dir / RECONCILIATION_PENDING_FILE_NAME
+    local_pending.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(WorkloadError, match="renewal_local_attempt_exists"):
+        prepare_native_transition_state_reconciliation_renewal_request(
+            state_dir=case.state_dir,
+            current_state_path=case.current_path,
+            completion_receipt=case.completion,
+            native_approval=case.approval,
+            expired_approval=case.reconciliation_approval,
+            installation_public_key=case.recovered_public,
+            now=case.request.expires_at,
+        )
+    local_pending.unlink()
+
+    renewal = prepare_native_transition_state_reconciliation_renewal_request(
+        state_dir=case.state_dir,
+        current_state_path=case.current_path,
+        completion_receipt=case.completion,
+        native_approval=case.approval,
+        expired_approval=case.reconciliation_approval,
+        installation_public_key=case.recovered_public,
+        now=case.request.expires_at,
+    )
+    approval = NativeScopeTransitionStateReconciliationApproval(
+        schema_version="fdai.lifecycle-native-transition-state-reconciliation-approval.v1",
+        request=renewal,
+        source_hub_reported_state=case.source,
+        authoritative_reported_state=case.authoritative,
+        approved_by="owner",
+        approved_at=renewal.requested_at,
+        expires_at=renewal.expires_at,
+        completion_audit_digest="sha256:" + "3" * 64,
+        hub_key_id=case.reconciliation_approval.approval.hub_key_id,
+        hub_key_epoch=case.reconciliation_approval.approval.hub_key_epoch,
+    )
+    signed = sign_transition_state_reconciliation_approval(
+        approval,
+        case.reconciliation_hub_key,
+    )
+
+    receipt = _reconcile(
+        case,
+        lambda command: _reconciliation_receipt_for(
+            command,
+            completed_at=renewal.requested_at + timedelta(seconds=2),
+        ),
+        signed_approval=signed,
+        now=renewal.requested_at + timedelta(seconds=1),
+    )
+
+    assert renewal.supersedes_approval_digest == case.reconciliation_approval.approval.digest
+    assert receipt.request_digest == renewal.digest
+    assert receipt.approval_digest == approval.digest
+
+
 def test_reconciliation_rejects_tampered_hub_reserialized_approval(
     harness,
     tmp_path,
@@ -916,6 +998,66 @@ def test_reconciliation_cli_submits_and_reads_back_exact_state(
     assert result == 0
     assert output["reconciled"] is True
     assert output["reported_state_digest"] == case.authoritative.digest
+
+
+def test_reconciliation_cli_prepares_expired_renewal(
+    harness,
+    tmp_path,
+    capsys,
+) -> None:
+    case = _prepare_reconciliation_case(harness, tmp_path)
+    inputs = tmp_path / "renewal-inputs"
+    inputs.mkdir(mode=0o700)
+    native_approval_path = inputs / "native-approval.json"
+    completion_receipt_path = inputs / "hub-completion.json"
+    expired_approval_path = inputs / "expired-reconciliation-approval.json"
+    installation_public_path = inputs / "installation.pub.pem"
+    destination = inputs / "renewal-request.json"
+    native_approval_path.write_text(case.approval.model_dump_json(), encoding="utf-8")
+    completion_receipt_path.write_text(case.completion.model_dump_json(), encoding="utf-8")
+    expired_approval_path.write_text(
+        case.reconciliation_approval.model_dump_json(),
+        encoding="utf-8",
+    )
+    installation_public_path.write_bytes(
+        Ed25519PublicKey.from_public_bytes(case.recovered_public).public_bytes(
+            Encoding.PEM,
+            PublicFormat.SubjectPublicKeyInfo,
+        )
+    )
+
+    result = main(
+        [
+            "prepare-native-transition-reconciliation-renewal",
+            "--state-dir",
+            str(case.state_dir),
+            "--current-state",
+            str(case.current_path),
+            "--native-approval",
+            str(native_approval_path),
+            "--hub-completion-receipt",
+            str(completion_receipt_path),
+            "--expired-hub-reconciliation-approval",
+            str(expired_approval_path),
+            "--installation-public-key",
+            str(installation_public_path),
+            "--destination",
+            str(destination),
+        ],
+        clock=lambda: case.request.expires_at,
+    )
+
+    output = json.loads(capsys.readouterr().out)
+    renewal = NativeScopeTransitionStateReconciliationRenewalRequest.model_validate_json(
+        destination.read_bytes()
+    )
+    assert result == 0
+    assert output == {
+        "prepared": True,
+        "renewal": True,
+        "request_digest": renewal.digest,
+    }
+    assert renewal.supersedes_approval_digest == case.reconciliation_approval.approval.digest
 
 
 def test_reconciliation_restart_retries_and_failure_restores_exact_bytes(harness, tmp_path) -> None:

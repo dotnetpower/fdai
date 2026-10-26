@@ -1,7 +1,7 @@
 ---
 title: Hub 배포 인수인계
 translation_of: hub-lifecycle-deployment-handoff.md
-translation_source_sha: c4924c62bde0e196398f2cef8708c10c6058c3dd
+translation_source_sha: 07905bf7762019abc40b01f3c0e87906b52c5fcc
 translation_revised: 2026-10-27
 ---
 # Hub 배포 인수인계
@@ -215,6 +215,14 @@ Agent principal을 지정해 `fdai-lifecycle-hub complete-native-transition`을 
    `POST /v1/installations/{installation_id}/native-transition-state-reconciliation-approval`에
    제출합니다. 반환된 서명 승인을 보존합니다. `409`는 중지 조건입니다. 시각 허용 범위를
    넓히거나 어느 증적도 편집하지 않습니다.
+   4단계를 시작하기 전에 승인이 만료되고 Agent가 현재 상태를 변경하지 않았다면 같은 근거,
+   설치 공개 키, 만료된 `--expired-hub-reconciliation-approval`, 새 비공개 대상 경로를
+   지정해 `fdai-lifecycle-agent prepare-native-transition-reconciliation-renewal`을
+   실행합니다. 갱신 요청을 같은 승인 경로에 제출하고 새로 반환된 승인을 사용합니다.
+   이전 승인이 만료됐지만 사용되지 않았고 현재 Hub 상태와 모든 Agent 근거 필드가 바뀌지
+   않았으며 같은 운영자가 제출하고 열린 Plan과 기존 갱신이 없을 때만 Hub가 수락합니다.
+   준비 명령은 보존된 로컬 조정 대기, 롤백 또는 완료 기록이 있어도 중단합니다. 유효하거나
+   이미 사용한 승인은 갱신하지 않습니다.
 4. 같은 상태, 네이티브 승인, Hub 완료 증적, 설치 공개 키, 정확한 Hub 키 ID/세대와 공개 키,
    반환된 `--hub-reconciliation-approval`, 인증된 `--hub-url`과 `--hub-scope`, 원래
    Kubernetes context 또는 클러스터 내부 신원을 사용해

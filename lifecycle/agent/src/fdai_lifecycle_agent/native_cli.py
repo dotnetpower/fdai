@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from fdai_deployment_cli.lifecycle_native import NativeScope
 from fdai_deployment_cli.lifecycle_native_reconciliation import (
+    NativeScopeTransitionStateReconciliationApprovalRequest,
     NativeScopeTransitionStateReconciliationCompletion,
     NativeScopeTransitionStateReconciliationReceipt,
     SignedNativeScopeTransitionStateReconciliationApproval,
@@ -39,6 +40,7 @@ from fdai_lifecycle_agent.native_transition import (
     transition_native_scope,
 )
 from fdai_lifecycle_agent.native_transition_reconciliation import (
+    prepare_native_transition_state_reconciliation_renewal_request,
     prepare_native_transition_state_reconciliation_request,
     reconcile_native_transition_state,
 )
@@ -135,6 +137,25 @@ def register_native_command(
         type=Path,
     )
     prepare_reconciliation.add_argument("--destination", required=True, type=Path)
+    prepare_renewal = commands.add_parser(
+        "prepare-native-transition-reconciliation-renewal",
+        help="Renew one expired, unconsumed reconciliation approval without changing evidence.",
+    )
+    prepare_renewal.add_argument("--state-dir", required=True, type=Path)
+    prepare_renewal.add_argument("--current-state", required=True, type=Path)
+    prepare_renewal.add_argument("--native-approval", required=True, type=Path)
+    prepare_renewal.add_argument("--hub-completion-receipt", required=True, type=Path)
+    prepare_renewal.add_argument(
+        "--expired-hub-reconciliation-approval",
+        required=True,
+        type=Path,
+    )
+    prepare_renewal.add_argument(
+        "--installation-public-key",
+        required=True,
+        type=Path,
+    )
+    prepare_renewal.add_argument("--destination", required=True, type=Path)
     reconcile = commands.add_parser(
         "reconcile-native-transition-state",
         help="Repair only Agent current-state from one audited Hub-authoritative approval.",
@@ -444,25 +465,53 @@ def run_native_reconciliation_command(
     installation_public_key = load_ed25519_public_key(
         arguments.installation_public_key
     ).public_bytes_raw()
-    if arguments.command == "prepare-native-transition-reconciliation":
+    if arguments.command in {
+        "prepare-native-transition-reconciliation",
+        "prepare-native-transition-reconciliation-renewal",
+    }:
         destination = arguments.destination.resolve()
-        if destination.is_relative_to(arguments.state_dir.resolve()) or destination in {
+        input_paths = {
             arguments.current_state.resolve(),
             arguments.native_approval.resolve(),
             arguments.hub_completion_receipt.resolve(),
             arguments.installation_public_key.resolve(),
-        }:
+        }
+        request: NativeScopeTransitionStateReconciliationApprovalRequest
+        if arguments.command == "prepare-native-transition-reconciliation-renewal":
+            input_paths.add(arguments.expired_hub_reconciliation_approval.resolve())
+        if destination.is_relative_to(arguments.state_dir.resolve()) or destination in input_paths:
             raise WorkloadError("native_transition_reconciliation_output_conflict")
-        request = prepare_native_transition_state_reconciliation_request(
-            state_dir=arguments.state_dir,
-            current_state_path=arguments.current_state,
-            completion_receipt=completion_receipt,
-            native_approval=approval,
-            installation_public_key=installation_public_key,
-            now=clock(),
-        )
+        if arguments.command == "prepare-native-transition-reconciliation-renewal":
+            request = prepare_native_transition_state_reconciliation_renewal_request(
+                state_dir=arguments.state_dir,
+                current_state_path=arguments.current_state,
+                completion_receipt=completion_receipt,
+                native_approval=approval,
+                expired_approval=_load_reconciliation_approval(
+                    arguments.expired_hub_reconciliation_approval
+                ),
+                installation_public_key=installation_public_key,
+                now=clock(),
+            )
+        else:
+            request = prepare_native_transition_state_reconciliation_request(
+                state_dir=arguments.state_dir,
+                current_state_path=arguments.current_state,
+                completion_receipt=completion_receipt,
+                native_approval=approval,
+                installation_public_key=installation_public_key,
+                now=clock(),
+            )
         write_private_output(destination, request.model_dump_json(indent=2) + "\n")
-        print(json.dumps({"prepared": True, "request_digest": request.digest}))
+        print(
+            json.dumps(
+                {
+                    "prepared": True,
+                    "renewal": arguments.command.endswith("-renewal"),
+                    "request_digest": request.digest,
+                }
+            )
+        )
         return 0
     signed_approval = _load_reconciliation_approval(arguments.hub_reconciliation_approval)
     cluster = connect(

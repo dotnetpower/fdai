@@ -215,6 +215,15 @@ timestamp difference greater than one millisecond.
    `POST /v1/installations/{installation_id}/native-transition-state-reconciliation-approval`.
    Preserve the returned signed approval. A `409` is a stop condition; do not broaden a timestamp
    tolerance or edit either receipt.
+   If this approval expires before step 4 starts and the Agent has not changed current state, run
+   `fdai-lifecycle-agent prepare-native-transition-reconciliation-renewal` with the same evidence,
+   installation public key, the expired `--expired-hub-reconciliation-approval`, and a new private
+   destination. Submit that renewal request to the same approval route and use the newly returned
+   approval. The Hub accepts it only when the earlier approval is expired and unconsumed, current
+   Hub state and every Agent evidence field are unchanged, the same operator submits it, no Plan is
+   open, and no other renewal already supersedes it. The prepare command also refuses a retained
+   local reconciliation pending, rollback, or completion record. Do not renew an active or
+   consumed approval.
 4. Run `fdai-lifecycle-agent reconcile-native-transition-state` with the same state, native
    approval, Hub completion receipt, installation public key, exact Hub key id/epoch and public
    key, returned `--hub-reconciliation-approval`, authenticated `--hub-url` and `--hub-scope`, and
