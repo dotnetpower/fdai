@@ -558,6 +558,7 @@ def _prepare_reconciliation_case(harness, tmp_path: Path):
     write_json_atomically(case.current_path, current_document)
     local_document = json.loads((case.state_dir / RECEIPT_FILE_NAME).read_text(encoding="utf-8"))
     local_document.pop("record_digest")
+    local_document["completed_at"] = transitioned_at.isoformat()
     local_document["new_reported_state_digest"] = current_document["digest"]
     local_document["record_digest"] = "sha256:" + canonical_digest(local_document)
     (case.state_dir / RECEIPT_FILE_NAME).write_text(
@@ -633,16 +634,20 @@ def _prepare_reconciliation_case(harness, tmp_path: Path):
         hub_key_id=hub_key_id(hub_public),
         hub_key_epoch=4,
     )
+    signed_approval = sign_transition_state_reconciliation_approval(
+        approval,
+        hub_key,
+    )
+    reserialized_approval = type(signed_approval).model_validate_json(
+        signed_approval.model_dump_json()
+    )
     return SimpleNamespace(
         **vars(case),
         completion=completion,
         request=request,
         source=source,
         authoritative=authoritative,
-        reconciliation_approval=sign_transition_state_reconciliation_approval(
-            approval,
-            hub_key,
-        ),
+        reconciliation_approval=reserialized_approval,
         reconciliation_hub_public=hub_public,
         reconciliation_hub_key=hub_key,
     )
@@ -699,6 +704,17 @@ def test_reconciliation_repairs_only_current_state_and_is_idempotent(harness, tm
     native_before = NativeStateStore(case.state_dir).path.read_bytes()
     workload_before = (case.state_dir / WORKLOAD_FILE_NAME).read_bytes()
     transition_receipt_before = (case.state_dir / RECEIPT_FILE_NAME).read_bytes()
+    stored_transition_receipt = json.loads(transition_receipt_before)
+    hub_approval = json.loads(case.reconciliation_approval.model_dump_json())
+    expected_legacy_timestamp = case.request.transition_receipt.completed_at.isoformat()
+    assert stored_transition_receipt["completed_at"] == expected_legacy_timestamp
+    assert hub_approval["approval"]["request"]["transition_receipt"][
+        "completed_at"
+    ] == expected_legacy_timestamp.replace("+00:00", "Z")
+    assert (
+        hub_approval["approval"]["request"]["transition_receipt"]["record_digest"]
+        == stored_transition_receipt["record_digest"]
+    )
     submissions = []
 
     def complete(command):
@@ -724,6 +740,30 @@ def test_reconciliation_repairs_only_current_state_and_is_idempotent(harness, tm
     assert (case.state_dir / RECONCILIATION_ROLLBACK_FILE_NAME).exists()
     assert (case.state_dir / RECONCILIATION_RECEIPT_FILE_NAME).exists()
     assert not (case.state_dir / RECONCILIATION_PENDING_FILE_NAME).exists()
+
+
+def test_reconciliation_rejects_tampered_hub_reserialized_approval(
+    harness,
+    tmp_path,
+) -> None:
+    case = _prepare_reconciliation_case(harness, tmp_path)
+    current_state_before = case.current_path.read_bytes()
+    approval_document = json.loads(case.reconciliation_approval.model_dump_json())
+    approval_document["approval"]["approved_by"] = "different-owner"
+    tampered = type(case.reconciliation_approval).model_validate(approval_document)
+
+    with pytest.raises(WorkloadError, match="hub_approval_invalid"):
+        _reconcile(
+            case,
+            lambda command: _reconciliation_receipt_for(
+                command,
+                completed_at=case.request.requested_at + timedelta(seconds=2),
+            ),
+            signed_approval=tampered,
+        )
+
+    assert case.current_path.read_bytes() == current_state_before
+    assert not (case.state_dir / RECONCILIATION_ROLLBACK_FILE_NAME).exists()
 
 
 @pytest.mark.parametrize(

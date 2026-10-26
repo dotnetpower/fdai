@@ -52,6 +52,14 @@ LegacyReportedStateTimestamp = Annotated[
     ),
 ]
 
+_IMMUTABLE_RECEIPT_TIMESTAMP_PATTERN = re.compile(
+    (
+        r"(?P<instant>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:"
+        r"[0-9]{2}\.(?:[0-9]{3}|[0-9]{6}))(?P<zone>Z|\+00:00)"
+    ),
+    flags=re.ASCII,
+)
+
 
 class LegacyNativeScopeTransitionReportedState(BaseModel):
     """Exact legacy state whose artifact inventory retains its stored sequence."""
@@ -128,17 +136,7 @@ LegacyReportedStateReadback = Annotated[
 
 def _immutable_receipt_timestamp(value: object) -> object:
     if isinstance(value, str):
-        if (
-            re.fullmatch(
-                (
-                    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:"
-                    r"[0-9]{2}\.(?:[0-9]{3}|[0-9]{6})(?:Z|\+00:00)"
-                ),
-                value,
-                flags=re.ASCII,
-            )
-            is None
-        ):
+        if _IMMUTABLE_RECEIPT_TIMESTAMP_PATTERN.fullmatch(value) is None:
             raise ValueError("immutable transition timestamp must use exact UTC precision")
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     if isinstance(value, datetime) and value.utcoffset() != timedelta(0):
@@ -154,6 +152,29 @@ ImmutableReceiptTimestamp = Annotated[
         return_type=str,
     ),
 ]
+
+
+def _immutable_receipt_record_digests(
+    document: dict[str, Any],
+) -> tuple[str, str] | None:
+    """Digest the same exact UTC receipt with its legacy and Hub timestamp spellings."""
+
+    completed_at = document.get("completed_at")
+    if not isinstance(completed_at, str):
+        return None
+    match = _IMMUTABLE_RECEIPT_TIMESTAMP_PATTERN.fullmatch(completed_at)
+    if match is None:
+        return None
+    instant = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+    if instant.utcoffset() != timedelta(0):
+        return None
+    timestamp = match.group("instant")
+    legacy_document = {**document, "completed_at": timestamp + "+00:00"}
+    hub_document = {**document, "completed_at": timestamp + "Z"}
+    return (
+        "sha256:" + canonical_digest(legacy_document),
+        "sha256:" + canonical_digest(hub_document),
+    )
 
 
 def transition_reported_state_document(
@@ -294,7 +315,14 @@ class LegacyNativeScopeTransitionReceipt(BaseModel):
             return value
         document = dict(value)
         digest = document.pop("record_digest", None)
-        if digest != "sha256:" + canonical_digest(document):
+        expected = _immutable_receipt_record_digests(document)
+        if expected is None:
+            raise ValueError("legacy native transition receipt digest is invalid")
+        legacy_digest, hub_digest = expected
+        serialized_digest = (
+            hub_digest if str(document["completed_at"]).endswith("Z") else legacy_digest
+        )
+        if digest != legacy_digest or serialized_digest != "sha256:" + canonical_digest(document):
             raise ValueError("legacy native transition receipt digest is invalid")
         return value
 

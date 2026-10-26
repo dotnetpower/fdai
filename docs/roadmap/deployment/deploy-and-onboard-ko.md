@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: f7561149eb61cd99e4524ed578303a80050d1ce9
+translation_source_sha: 5a325ceeda12b6f54e57501ae78d7308e877a646
 translation_revised: 2026-10-27
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -729,6 +729,7 @@ Terraform 1.9 가져오기 계획은 기존 객체를 `before`와 `after`에 모
 정규 타임스탬프와 다이제스트로 다시 씁니다.
 이전 증적 검증은 저장된 증적 다이제스트를 바꾸지 않고 밀리초 상태 다이제스트와 전체 정밀도
 Hub 완료 다이제스트를 각각 독립적으로 검증합니다.
+동일한 UTC 시각의 `+00:00`과 `Z` 형식은 저장된 증적 다이제스트를 검증한 뒤에만 허용합니다.
 선행 조건 루트는 이 재고가 참조하는 신원, 페더레이션 자격 증명, ServiceAccount,
 SecretProviderClass, ConfigMap, 비밀 바인딩만 소유합니다. 관리 대상 Deployment, Service,
 HorizontalPodAutoscaler, CronJob은 만들지 않습니다.
