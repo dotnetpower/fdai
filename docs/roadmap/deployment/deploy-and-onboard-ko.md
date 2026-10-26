@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a292e43590d5b50afd20ed2f8b7bce57dd89126d
+translation_source_sha: e75b8d231216abf8b9169d6e2d89d83151b7079d
 translation_revised: 2026-10-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -58,6 +58,13 @@ Hub 관리형 AKS 인계에서는 `enable_document_ingestion=true`로 공용 Azu
 운영 VNet이 기존 Blob 비공개 DNS 영역에 이미 연결되어 있으면 문서 스토리지 엔드포인트는
 애플리케이션 영역과의 연결을 유지합니다. 루트는 겹치는 VNet 연결을 다시 만드는 대신 동일한
 비공개 IP의 관리형 A 레코드를 운영 영역에 게시합니다.
+
+선택적 Lifecycle Hub `operator_auth.development_recovery` 입력으로 개인 키를 사용할 수 없는
+개발 설치 신원 하나를 복구할 수 있습니다. 정확한 `full-authority-development` 설치, 범위,
+Owner, 이전 및 대체 공개 키, 사유와 승인 구간에만 사용합니다. Release Hub는 이 입력을
+수락하지 않습니다. Lifecycle Hub는 계속 대체 키 소유 증명, 열린 Plan과 기존 구성 신뢰가
+없음, 추가 전용 감사와 첫 바인딩에 한정된 single-Owner 승인을 요구합니다. 복구와 키 등록을
+확인한 뒤 이 입력을 제거하세요. 프로덕션 또는 일반 등록 키 교체 설정이 아닙니다.
 
 원격 개발 Agent를 연결할 때는 Lifecycle Hub 루트의 `operator_auth.agent_principals`에
 명시적인 연결 정보를 지정합니다. 각 항목은 하나의 설치, Entra 개체와 클라이언트를 식별합니다.
