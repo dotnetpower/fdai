@@ -1134,7 +1134,8 @@ objects only through exact plans that use `removed` and `import` blocks.
 
 | Objects | Scope | Owner |
 |---------|-------|-------|
-| Deployment, HorizontalPodAutoscaler, PodDisruptionBudget, NetworkPolicy, internal Service, ServiceAccount, SecretProviderClass, CronJob, and the identity-bridge ConfigMap | FDAI namespace | Lifecycle agent |
+| Deployment, HorizontalPodAutoscaler, PodDisruptionBudget, NetworkPolicy, internal Service, and CronJob | FDAI namespace | Lifecycle agent |
+| ServiceAccount, environment ConfigMap, SecretProviderClass and bootstrap Secret, including the migration identity binding | FDAI namespace | Infrastructure prerequisite roots. These objects remain Terraform-owned across workload handoff; CSI synchronizes Secret data after startup. |
 | External LoadBalancer Services for the Operator API and the Document Ingestion API | FDAI namespace | Infrastructure agent, because API Management binds to their addresses |
 | Executor external-scale Roles and RoleBindings | Exact target namespaces outside FDAI | Infrastructure agent, because they grant authority |
 | Namespace, and the inventory-reader ClusterRole and ClusterRoleBinding | Cluster | Infrastructure agent |
@@ -1186,9 +1187,16 @@ value.
    workload renderer.
    Existing installations use the dedicated `infra/hub-stewardship-prerequisites` root and a
    separate remote state key. It reads the retained ACR, Key Vault, Event Hubs, Log Analytics,
-   VNet and AKS resources and owns only four workload identities and federated credentials,
-   document storage/private endpoints, Document Intelligence/private endpoint, role-scoped DSN
-   references and ACS Email. It declares no Container App, Container App Job or Kubernetes object.
+   VNet and AKS resources and owns six workload identities and federated credentials, including
+   dedicated Operator API and command identities. It also owns document storage/private endpoints,
+   Document Intelligence/private endpoint, role-scoped DSN references, ACS Email, and the exact
+   generated ServiceAccounts, environment ConfigMaps, SecretProviderClasses and bootstrap Secrets
+   that were absent from the retained namespace. Secret values come directly from Key Vault and
+   remain in protected Terraform state rather than variables or outputs. Deployment-specific
+   names, identifiers, endpoints, ConfigMap data and secret names enter through private variables. Its retained
+   ownership output and topology-generation output keep these prerequisites separate from the
+   Lifecycle Agent's objects. It declares no Container App, Container App Job, Deployment,
+   Service, HorizontalPodAutoscaler or CronJob.
    When the operations VNet already uses an existing Blob private DNS zone, the document storage
    endpoint remains associated with the application zone and the root publishes a managed A record
    for the same private IP in the operations zone rather than attempting a second overlapping VNet

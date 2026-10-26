@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: f5cb1a8dc0f6d07b1b3a747dc1b4716dcdd911dd
+translation_source_sha: ccee2ad822c4f9f0b10b9314bc0352f613e2e7c7
 translation_revised: 2026-10-26
 ---
 # Hub 관리형 수명 주기
@@ -1127,7 +1127,8 @@ JSON Patch를 사용합니다. 생성 응답을
 
 | 객체 | 범위 | 소유자 |
 |------|------|--------|
-| Deployment, HorizontalPodAutoscaler, PodDisruptionBudget, NetworkPolicy, 내부 Service, ServiceAccount, SecretProviderClass, CronJob, identity-bridge ConfigMap | FDAI 네임스페이스 | 수명 주기 에이전트 |
+| Deployment, HorizontalPodAutoscaler, PodDisruptionBudget, NetworkPolicy, 내부 Service, CronJob | FDAI 네임스페이스 | 수명 주기 에이전트 |
+| ServiceAccount, 환경 ConfigMap, SecretProviderClass와 부트스트랩 Secret, 마이그레이션 신원 바인딩 | FDAI 네임스페이스 | 인프라 선행 조건 루트. 워크로드 소유권을 넘긴 뒤에도 Terraform이 이 객체를 계속 소유하고, 시작 후에는 CSI가 Secret 데이터를 동기화합니다 |
 | Operator API와 Document Ingestion API의 외부 LoadBalancer Service | FDAI 네임스페이스 | 인프라 에이전트. API Management가 이 주소에 바인딩되기 때문입니다 |
 | 실행기의 외부 스케일용 Role과 RoleBinding | FDAI 밖의 지정된 대상 네임스페이스 | 인프라 에이전트. 권한을 부여하기 때문입니다 |
 | 네임스페이스, 인벤토리 조회용 ClusterRole과 ClusterRoleBinding | 클러스터 | 인프라 에이전트 |
@@ -1177,9 +1178,15 @@ JSON Patch를 사용합니다. 생성 응답을
    스토리지, 비공개 엔드포인트, 역할 바인딩을 수렴시키면서 두 번째 워크로드 렌더러를 만들지 않습니다.
    기존 설치는 별도 remote state key를 사용하는 `infra/hub-stewardship-prerequisites` 전용 루트를
    사용합니다. 이 루트는 기존 ACR, Key Vault, Event Hubs, Log Analytics, VNet, AKS 리소스를
-   조회하고 워크로드 신원 4개와 페더레이션 자격 증명, 문서 스토리지와 비공개 엔드포인트, Document
-   Intelligence와 비공개 엔드포인트, 역할 범위 DSN 참조, ACS Email만 소유합니다. Container App,
-   Container App Job, Kubernetes 객체는 선언하지 않습니다.
+   조회하고 전용 Operator API 신원과 명령 신원을 포함한 워크로드 신원 6개 및 페더레이션 자격
+   증명을 소유합니다. 또한 문서 스토리지와 비공개 엔드포인트, Document Intelligence와 비공개
+   엔드포인트, 역할 범위 DSN 참조, ACS Email, 보존된 네임스페이스에 없던 생성 결과의 정확한
+   ServiceAccount, 환경 ConfigMap, SecretProviderClass, 부트스트랩 Secret을 소유합니다. 비밀 값은
+   Key Vault에서 직접 읽고 변수나 출력이 아닌 보호된 Terraform state에만 보존합니다. 배포별 이름,
+   식별자, 엔드포인트, ConfigMap 데이터, 비밀 이름은 비공개 변수를 통해 전달합니다. 보존
+   소유권 출력과 토폴로지 생성 출력으로 이러한 선행 조건을 수명 주기 에이전트의 객체와
+   분리합니다. Container App, Container App Job, Deployment, Service,
+   HorizontalPodAutoscaler, CronJob은 선언하지 않습니다.
    운영 VNet이 기존 Blob 비공개 DNS 영역을 사용하고 있으면 문서 스토리지 엔드포인트는
    애플리케이션 영역과의 연결을 유지합니다. 루트는 겹치는 VNet 연결을 다시 만드는 대신 동일한
    비공개 IP의 관리형 A 레코드를 운영 영역에 게시합니다.
