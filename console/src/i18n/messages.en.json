@@ -2074,12 +2074,6 @@
               "hint": "Return a useful evidence-aware safe hold instead of a generic unavailable response. This setting never grants action authority."
             }
           },
-          "result_handles": {
-            "enabled": {
-              "label": "Follow-up questions over earlier answers",
-              "hint": "Keep the rows of each answered list so a follow-up such as only the running ones refers to what was shown. Core stores them encrypted and expires them. Development environments default on; other environments default off. This setting never grants action authority. Changes apply after a restart."
-            }
-          },
           "t2_escalation": {
             "aggressive_enabled": {
               "label": "Aggressive T2 answer recovery",

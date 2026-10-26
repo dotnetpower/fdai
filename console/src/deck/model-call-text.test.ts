@@ -38,4 +38,11 @@ describe("model call text", () => {
     expect(modelCallLabel(plain)).toBe("Server label");
     expect(modelCallDetail(plain)).toBe("Server detail");
   });
+
+  it("keeps the server text for a stage this Console does not know", () => {
+    const unknown = call({ modelCall: { stage: "future_stage" } });
+
+    expect(modelCallLabel(unknown)).toBe("개념 선택 모델 호출");
+    expect(modelCallDetail(unknown)).toBe("narrator-mini 응답 대기 중");
+  });
 });

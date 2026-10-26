@@ -226,6 +226,10 @@ function runtimeSettingText(key: string, part: "label" | "hint"): string {
     return settingsIntegrationsText(part === "label"
       ? "forecastHistory.collectionLabel" : "forecastHistory.collectionHint");
   }
+  if (key === "conversation.result_handles.enabled") {
+    return settingsIntegrationsText(part === "label"
+      ? "resultHandles.label" : "resultHandles.hint");
+  }
   return t(`settings.runtimePolicies.fields.${key}.${part}`);
 }
 

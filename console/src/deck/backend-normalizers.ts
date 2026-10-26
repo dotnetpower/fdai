@@ -17,7 +17,6 @@ import type {
   InvestigationExecutionTarget,
   InvestigationMilestone,
   InvestigationModelCall,
-  ModelCallStage,
   ModelUsage,
   RetrievalSourcePreview,
   ResourceContext,
@@ -27,7 +26,6 @@ import type {
   SemanticAssurancePathStep,
   SemanticProjectionReceipt,
 } from "./backend-types";
-import { MODEL_CALL_STAGES } from "./backend-types";
 import { PANTHEON_NAME_SET } from "../pantheon-names";
 export { parseRouter } from "./backend-router-normalizer";
 
@@ -606,14 +604,12 @@ function machineToken(value: unknown): value is string {
     /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value);
 }
 
-const MODEL_CALL_STAGE_SET: ReadonlySet<string> = new Set(MODEL_CALL_STAGES);
-
 function parseModelCall(raw: unknown): InvestigationModelCall | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const record = raw as Record<string, unknown>;
-  if (typeof record.stage !== "string" || !MODEL_CALL_STAGE_SET.has(record.stage)) return undefined;
+  if (!machineToken(record.stage)) return undefined;
   return {
-    stage: record.stage as ModelCallStage,
+    stage: record.stage,
     ...(machineToken(record.model) ? { model: record.model } : {}),
     ...(typeof record.duration_ms === "number" && Number.isFinite(record.duration_ms) &&
       record.duration_ms >= 0

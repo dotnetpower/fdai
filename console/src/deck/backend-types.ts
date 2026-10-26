@@ -277,21 +277,8 @@ export interface InvestigationExecutionTarget {
   };
 }
 
-export const MODEL_CALL_STAGES = [
-  "preflight",
-  "judgment",
-  "form",
-  "blind_review",
-  "concept_chooser",
-  "direction_reader",
-  "ambiguity_reader",
-  "frame",
-  "plan",
-] as const;
-export type ModelCallStage = (typeof MODEL_CALL_STAGES)[number];
-
 export interface InvestigationModelCall {
-  readonly stage: ModelCallStage;
+  readonly stage: string;
   readonly model?: string;
   readonly durationMs?: number;
 }
