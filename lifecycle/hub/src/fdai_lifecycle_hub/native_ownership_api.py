@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance, SignedNativeScope
+from fdai_deployment_cli.lifecycle_native_transition import SignedNativeScopeTransitionRequest
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -12,10 +13,18 @@ from starlette.routing import Route
 from fdai_lifecycle_hub.domain import Clock
 from fdai_lifecycle_hub.native_ownership import NativeOwnershipError, NativeOwnershipStore
 from fdai_lifecycle_hub.native_proofs import NativeProofStore
+from fdai_lifecycle_hub.native_transition import NativeTransitionError, NativeTransitionStore
+from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
 
 
-def native_ownership_routes(store: HubStore, clock: Clock, *, authenticated: bool) -> list[Route]:
+def native_ownership_routes(
+    store: HubStore,
+    clock: Clock,
+    *,
+    authenticated: bool,
+    transition_key: HubSigningKey | None = None,
+) -> list[Route]:
     async def submit(request: Request) -> Response:
         from fdai_lifecycle_hub.api import _read_limited
 
@@ -67,6 +76,34 @@ def native_ownership_routes(store: HubStore, clock: Clock, *, authenticated: boo
             return JSONResponse({"error": str(error)}, status_code=409)
         return JSONResponse(result)
 
+    async def approve_transition(request: Request) -> Response:
+        from fdai_lifecycle_hub.api import _read_limited
+
+        if not authenticated or not getattr(request.state, "operator", None):
+            return JSONResponse({"error": "authenticated_operator_required"}, status_code=403)
+        if transition_key is None:
+            return JSONResponse({"error": "native_transition_signing_unavailable"}, status_code=503)
+        body = await _read_limited(request, 16384)
+        if body is None:
+            return JSONResponse({"error": "native_transition_too_large"}, status_code=413)
+        try:
+            load_json_object(body, label="native transition", max_bytes=16384, strict=True)
+            command = SignedNativeScopeTransitionRequest.model_validate_json(body)
+        except ValueError:
+            return JSONResponse({"error": "native_transition_invalid"}, status_code=422)
+        try:
+            result = await run_in_threadpool(
+                NativeTransitionStore(store).approve,
+                request.path_params["installation_id"],
+                command,
+                operator=request.state.operator,
+                now=clock(),
+                key=transition_key,
+            )
+        except NativeTransitionError as error:
+            return JSONResponse({"error": str(error)}, status_code=409)
+        return JSONResponse(result.model_dump(mode="json"))
+
     return [
         Route(
             "/v1/installations/{installation_id}/native-proofs",
@@ -76,6 +113,11 @@ def native_ownership_routes(store: HubStore, clock: Clock, *, authenticated: boo
         Route(
             "/v1/installations/{installation_id}/native-ownership",
             accept,
+            methods=["POST"],
+        ),
+        Route(
+            "/v1/installations/{installation_id}/native-transition-approval",
+            approve_transition,
             methods=["POST"],
         ),
     ]

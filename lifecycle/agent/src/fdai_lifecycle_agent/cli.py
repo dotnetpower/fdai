@@ -54,6 +54,7 @@ from fdai_lifecycle_agent.native_cli import (
     compose_native_cluster,
     register_native_command,
     run_native_bootstrap,
+    run_native_transition_command,
 )
 from fdai_lifecycle_agent.polling import PollLimits, poll_bounded
 from fdai_lifecycle_agent.reference_cli import register_reference_command, run_reference_command
@@ -309,6 +310,32 @@ def main(
             )
             print(
                 "Native bootstrap failed; verify local approval, policy, identity and state.",
+                file=sys.stderr,
+            )
+            return _EXIT_CONFIGURATION
+    if arguments.command in {"prepare-native-transition", "transition-native-scope"}:
+
+        def connect_transition(context: str | None, namespace: str, in_cluster: bool) -> Cluster:
+            if in_cluster:
+                return _connect_in_cluster(namespace)
+            if context is None:
+                raise ValueError("Native transition requires an explicit Kubernetes context.")
+            return connect_cluster(context, namespace)
+
+        try:
+            return run_native_transition_command(
+                arguments,
+                clock=clock,
+                connect=connect_transition,
+            )
+        except (ValueError, OSError, WorkloadError, AgentStateError) as error:
+            logging.error(
+                "lifecycle_agent.native_transition_failed error_type=%s",
+                type(error).__name__,
+            )
+            print(
+                "Native transition failed; verify Hub approval, recovered identity, "
+                "local approval, inventory and durable state.",
                 file=sys.stderr,
             )
             return _EXIT_CONFIGURATION

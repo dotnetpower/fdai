@@ -666,20 +666,24 @@ class HubStore:
         with self._write() as session:
             row = rows.lock_enrolled(session, installation_id)
             installation = mapping.to_domain(session, row)
-            try:
-                outcome = evaluate(session, row, installation)
-            except KeyBindingError as error:
-                failure = error
-                # Keep the denial durable without withdrawing an unrelated legacy Plan.
+            outcome: domain.PlanOutcome
+            if _native_transition_holds_planning(session, installation, now):
                 outcome = domain.NoEligibleRelease(())
-                audit.append(
-                    session,
-                    now,
-                    "configuration.keys.denied",
-                    installation_id,
-                    installation_id,
-                    {"operation": "planning", "reason": str(error)},
-                )
+            else:
+                try:
+                    outcome = evaluate(session, row, installation)
+                except KeyBindingError as error:
+                    failure = error
+                    # Keep the denial durable without withdrawing an unrelated legacy Plan.
+                    outcome = domain.NoEligibleRelease(())
+                    audit.append(
+                        session,
+                        now,
+                        "configuration.keys.denied",
+                        installation_id,
+                        installation_id,
+                        {"operation": "planning", "reason": str(error)},
+                    )
             evaluation = mapping.evaluation_row(outcome, now)
             match outcome:
                 case domain.Issued(plan=plan):
@@ -901,6 +905,36 @@ def _pending_enrollment(session: Session, row: models.Installation) -> domain.Pe
         if requested_by and requested_via in ("agent", "operator")
         else None,
     )
+
+
+def _native_transition_holds_planning(
+    session: Session, installation: domain.Installation, now: datetime
+) -> bool:
+    """Keep the approved source state Plan-free until the transition expires or reports a
+    new state."""
+
+    payload = session.scalar(
+        select(models.AuditRecord.payload)
+        .where(
+            models.AuditRecord.action == "entity.native_transition_approved",
+            models.AuditRecord.installation_id == installation.installation_id,
+        )
+        .order_by(models.AuditRecord.sequence.desc())
+        .limit(1)
+    )
+    if (
+        not isinstance(payload, dict)
+        or payload.get("reported_state_digest") != installation.reported.digest
+    ):
+        return False
+    expires_at = payload.get("expires_at")
+    if not isinstance(expires_at, str):
+        return True
+    try:
+        expires = datetime.fromisoformat(expires_at)
+    except ValueError:
+        return True
+    return expires.utcoffset() is None or now < expires
 
 
 def _latest_evaluation(session: Session, row: models.Installation) -> domain.Evaluation | None:
