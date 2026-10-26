@@ -508,7 +508,7 @@ have run; the frame model no longer reinterprets the utterance without the judgm
 the second reader, and the composition honors the flag only in the local execution venue. The planner then starts the form path beside
 the judgment on every unbound operational turn that needs no document evidence, with its own provider calls and budget scope, an
 absolute deadline, and anchor reads under the same role, purpose, and principal scope as the turn's executor. The planner consults the
-path only after the deterministic pre-frame checks, and an ambiguous judgment's clarification wins over it unless the closed ambiguity reader in
+path only after the deterministic pre-frame checks, and a clarification, whether the judgment's own or one of those checks, wins over it unless the closed ambiguity reader in
 [Review and hold refinements](#review-and-hold-refinements) finds one plausible reading. The path answers only when
 it is released and its single retained compilation holds exactly one goal compiled into one verified batch, with no continuation and no
 limitation. The planner then stamps the plan with the gateway's current cutoff, verifies it again, and answers from that compiled
@@ -781,7 +781,9 @@ rounds traced. Each stays in the local profile and grants no authority.
 - **Closed ambiguity reader**: When the judgment ends with a clarification but the path released a reading
   that passes every selection rule, a reader of a third model family answers one closed question from the
   masked question alone, never seeing either reading: whether the question has one plausible reading,
-  several, or is unclear. Only one lets the released reading answer; any other verdict, no answer, a
+  several, or is unclear. When the conversation holds a stored earlier result, the reader is also told
+  only that earlier results are in hand, so a reference such as only the running ones is not ambiguous
+  for naming no kind of resource; it sees neither the earlier text nor the reading. Only one lets the released reading answer; any other verdict, no answer, a
   timeout, or a failure keeps the clarification. The plan takes the gateway's cutoff only after that
   verdict, because the gateway accepts a cutoff only within seconds of its own. The composition gives the check to the reasoning direction
   reader only when it is neither the judgment and proposer's family nor the blind reviewer's; otherwise the

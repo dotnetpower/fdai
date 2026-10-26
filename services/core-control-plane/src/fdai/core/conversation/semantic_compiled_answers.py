@@ -22,7 +22,11 @@ from fdai_service_contracts.ontology_query import (
     project_intent_graph,
 )
 
-from fdai.core.conversation.result_handle_store import ResultHandleBinding, ResultHandleStore
+from fdai.core.conversation.result_handle_store import (
+    ResultHandleBinding,
+    ResultHandleStore,
+    result_handle_conversation_id,
+)
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.shared.contracts.models import CeilingRole
@@ -398,7 +402,7 @@ class CompiledAnswerPath:
             binding = ResultHandleBinding(
                 deployment_scope_digest=manifest.release_digest,
                 principal_digest=manifest.manifest_digest,
-                conversation_id=stored_context.session_id,
+                conversation_id=result_handle_conversation_id(stored_context.session_id),
                 purpose=purpose,
                 manifest_digest=manifest.manifest_digest,
                 now=self._clock(),
@@ -437,6 +441,7 @@ class CompiledAnswerPath:
             self._owner_loop,
         )
         reader = self._ambiguity_reader
+        earlier_results = bool(stored_context is not None and stored_context.references)
 
         def ambiguity() -> concurrent.futures.Future[Mapping[str, Any] | None]:
             async def ask() -> Mapping[str, Any] | None:
@@ -444,7 +449,10 @@ class CompiledAnswerPath:
                     return None
                 async with bind_adaptive_model_budget(collector):
                     return await reader.check_ambiguity(
-                        utterance=utterance, context=context, locale=locale
+                        utterance=utterance,
+                        context=context,
+                        locale=locale,
+                        **({"earlier_results": True} if earlier_results else {}),
                     )
 
             return asyncio.run_coroutine_threadsafe(ask(), self._owner_loop)
@@ -519,8 +527,11 @@ def settled_clarification(
     manifest_digest: str,
     observations: MutableSequence[Any],
 ) -> SemanticPlanningOutcome:
-    """Keep the judgment's clarification unless a third reader finds one plausible reading."""
+    """Keep a clarification, the judgment's or a deterministic check's, unless a third reader
+    finds one plausible reading. Any other outcome passes through."""
 
+    if clarified.disposition is not SemanticPlanningDisposition.CLARIFICATION:
+        return clarified
     settled = (
         ticket.outcome_over_clarification(
             manifest_digest=manifest_digest, observations=observations

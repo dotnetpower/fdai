@@ -19,6 +19,7 @@ from fdai.core.conversation.model_call_progress import (
     ModelCallProgress,
     bind_model_call_progress_observer,
 )
+from fdai.core.conversation.result_handle_store import ResultHandleStore
 from fdai.core.conversation.semantic_runtime import (
     SemanticConversationRuntime,
     bind_semantic_query_progress_observer,
@@ -36,6 +37,7 @@ from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 
 from .development_decisions import bind_decision_events
 from .semantic_context_shadow import build_semantic_context_shadow
+from .semantic_result_handle_config import result_handle_store_from_config
 from .semantic_turn_processor import (
     OperationalEvidenceProjectionReader,
     RuntimeSettingsReader,
@@ -246,6 +248,8 @@ def build_semantic_turn_processor(
     runtime_readiness: SemanticRuntimeReadiness | None = None,
     context_selection_policy_authority: ContextSelectionPolicyAuthority | None = None,
     context_selection_shadow_runner: ContextSelectionShadowRunner | None = None,
+    result_handle_store: ResultHandleStore | None = None,
+    result_handle_ttl_seconds: int = 900,
 ) -> SemanticTurnProcessor:
     """Bind the durable store and an optional composed semantic runtime.
 
@@ -265,6 +269,9 @@ def build_semantic_turn_processor(
             context_selection_policy_authority,
             context_selection_shadow_runner,
         ),
+        result_handle_store=result_handle_store,
+        result_handles_enabled=result_handle_store is not None,
+        result_handle_ttl_seconds=result_handle_ttl_seconds,
     )
 
 
@@ -280,6 +287,7 @@ def semantic_turn_binding_from_config(
     runtime_readiness: SemanticRuntimeReadiness | None = None,
     context_selection_policy_authority: ContextSelectionPolicyAuthority | None = None,
     context_selection_shadow_runner: ContextSelectionShadowRunner | None = None,
+    result_handles_enabled: bool | None = None,
 ) -> SemanticTurnConsumerBinding | None:
     """Build the consumer only when both transport topics are configured.
 
@@ -326,6 +334,9 @@ def semantic_turn_binding_from_config(
             runtime_readiness=runtime_readiness,
             context_selection_policy_authority=context_selection_policy_authority,
             context_selection_shadow_runner=context_selection_shadow_runner,
+            result_handle_store=result_handle_store_from_config(
+                config, enabled=result_handles_enabled
+            ),
         ),
         available=runtime is not None,
         unavailable_reason=(

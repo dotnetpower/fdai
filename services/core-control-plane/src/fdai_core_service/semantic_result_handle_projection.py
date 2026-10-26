@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from fdai.core.conversation.result_handle_store import ResultHandleStore, rendered_order_digest
+from fdai.core.conversation.result_handle_store import (
+    ResultHandleStore,
+    rendered_order_digest,
+    result_handle_conversation_id,
+)
 from fdai.core.conversation.semantic_stored_result_handles import StoredReferenceContext
 from fdai_service_contracts import SemanticTurnDisposition, SemanticTurnRequest
 from fdai_service_contracts.ontology_query import content_digest
@@ -71,7 +75,7 @@ def result_handle_from_technical_details(
         {
             "deployment_scope_digest": result.ontology_release_digest,
             "principal_digest": result.principal_manifest_digest,
-            "conversation_id": request.session_id,
+            "conversation_id": result_handle_conversation_id(request.session_id),
             "purpose": request.purpose,
             "manifest_digest": result.principal_manifest_digest,
             "rendered_order_digest": rendered_order_digest(ordered),

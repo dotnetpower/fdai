@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TypedDict
 
+from fdai_operator_service.families.conversation.contracts import JsonObject
 from fdai_service_contracts.semantic_model_call_progress import SemanticModelCallProgress
 
 
@@ -16,6 +17,7 @@ class ModelCallActivity(TypedDict):
     kind: str
     detail: str
     observed_at: str
+    model_call: JsonObject
 
 
 # Reviewed stage names in the operator's language; the stage itself stays a closed code.
@@ -62,6 +64,12 @@ def model_call_activity(call: SemanticModelCallProgress, *, locale: str) -> Mode
         "kind": "model_call",
         "detail": detail,
         "observed_at": (call.completed_at or call.started_at).isoformat(),
+        # Closed codes let the Console render this row in its own language, not the answer's.
+        "model_call": {
+            "stage": call.stage,
+            **({"model": call.model} if call.model else {}),
+            **({"duration_ms": call.duration_ms} if call.duration_ms is not None else {}),
+        },
     }
 
 

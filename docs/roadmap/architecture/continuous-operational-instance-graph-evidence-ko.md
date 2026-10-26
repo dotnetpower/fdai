@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph-evidence.md
-translation_source_sha: 103fc4772c3080206683d3519813fd3a8153f477
-translation_revised: 2026-10-21
+translation_source_sha: 5147cd6bb09920c3c746fd4361802b91977ddc9f
+translation_revised: 2026-10-26
 ---
 
 # 지속형 운영 인스턴스 그래프 근거
@@ -96,6 +96,13 @@ Event Hubs는 관측을 전달하고 OpenTelemetry는 진단을 보고하며, �
 출처 정보가 생길 때까지 현재 상태로만 유지합니다. 모든 구간은 `initial_state_only` 또는
 `snapshot_interval_only`이며, 완전한 스냅샷도 중간 전이 부재를 증명하지 못합니다. 정확히
 보존된 워터마크만 해당 커버리지를 높일 수 있습니다.
+
+## 대화 소비자
+
+대화 턴은 이 그래프를 형식화된 프로젝션으로만 읽고 쓰지 않습니다. Operator는 각 모델 호출 활동을 텍스트와 함께
+단계, 배포, 소요 시간의 닫힌 코드로 전달하므로 Console이 자체 언어로 렌더링합니다. Core는
+`conversation.result_handles.enabled`가 켜져 있고 데이터베이스와 키 입력이 있을 때만 응답한 목록의 결과 핸들
+저장소를 만듭니다. 어느 쪽도 원장, 범위 기록, 권한을 바꾸지 않습니다.
 
 ## 관련 문서
 

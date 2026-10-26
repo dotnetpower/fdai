@@ -106,11 +106,16 @@ async def bind_stored_references(
             mention.position,
             handle_ref=references[0].handle_ref,
             row_keys=handle.row_keys if handle is not None else (),
+            truncated=handle.truncated if handle is not None else False,
             row_map=row_map,
             fallback=outcome,
             source_generation=source_generation,
         )
     return ReferenceReceipt(tuple(bindings.values()))
+
+
+def _dump(key: TypedRowKey) -> str:
+    return key.model_dump_json()
 
 
 def _bind_one(
@@ -120,6 +125,7 @@ def _bind_one(
     *,
     handle_ref: str,
     row_keys: tuple[TypedRowKey, ...],
+    truncated: bool,
     row_map: dict[str, tuple[str, str | None]],
     fallback: ReferenceOutcome,
     source_generation: str | None,
@@ -129,11 +135,23 @@ def _bind_one(
     if not row_keys:
         return ReferenceBinding(mention_id, ReferenceOutcome.EMPTY, form, handle_id=handle_ref)
     if form is MentionForm.ANAPHOR:
-        if len(row_keys) != 1:
+        # An anaphor names every row the operator saw; a row that can no longer be read
+        # is dropped, so it never reaches the answer.
+        rows = tuple(row_map[key] for key in map(_dump, row_keys) if key in row_map)
+        if not rows:
             return ReferenceBinding(
-                mention_id, ReferenceOutcome.AMBIGUOUS, form, handle_id=handle_ref
+                mention_id, ReferenceOutcome.UNAVAILABLE, form, handle_id=handle_ref
             )
-        selected = row_keys[0]
+        return ReferenceBinding(
+            mention_id,
+            ReferenceOutcome.BOUND,
+            form,
+            row_ids=tuple(object_id for object_id, _ in rows),
+            handle_id=handle_ref,
+            truncated=truncated,
+            source_generation=source_generation,
+            resource_type=rows[0][1] if len(rows) == 1 else None,
+        )
     else:
         if position is None or position == 0:
             return ReferenceBinding(

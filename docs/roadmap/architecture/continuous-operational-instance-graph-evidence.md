@@ -92,6 +92,14 @@ Provisioning remains current-state only until it carries equivalent provenance. 
 `initial_state_only` or `snapshot_interval_only`; complete snapshots cannot prove that no intermediate
 transition occurred, and only exact retained watermarks can raise that coverage.
 
+## Conversation consumers
+
+Conversation turns read this graph only through typed projections and never write to it. The Operator
+relays each model-call activity with closed stage, deployment, and duration codes beside its text so the
+Console renders it in its own language. Core builds the result-handle store for answered lists only when
+`conversation.result_handles.enabled` is on and its database and key inputs exist. Neither changes the
+ledger, a coverage record, or any authority.
+
 ## Related docs
 
 | To learn about | Read |

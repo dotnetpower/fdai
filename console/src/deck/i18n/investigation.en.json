@@ -30,5 +30,22 @@
   "receiptObserved": "Observed {time}",
   "modelGroupTitle": "Planning the answer",
   "modelGroupRunning": "{running} in progress · {done} of {total} done",
-  "modelGroupDone": "{count} model calls"
+  "modelGroupDone": "{count} model calls",
+  "modelCallLabel": "{stage} model call",
+  "modelCallModel": "model",
+  "modelCallWaiting": "waiting for {model}",
+  "modelCallSettled": "{model} · {duration} · {outcome}",
+  "modelCallCompleted": "completed",
+  "modelCallFailed": "failed",
+  "modelStage": {
+    "preflight": "Question routing",
+    "judgment": "Meaning judgment",
+    "form": "Question reading",
+    "blind_review": "Independent constraint reading",
+    "concept_chooser": "Concept selection",
+    "direction_reader": "Relation direction check",
+    "ambiguity_reader": "Ambiguity check",
+    "frame": "Question framing",
+    "plan": "Read planning"
+  }
 }

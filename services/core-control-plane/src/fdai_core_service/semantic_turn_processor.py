@@ -1029,19 +1029,27 @@ class SemanticTurnProcessor:
             or extensions.technical_details is None
         ):
             return result
-        handle = result_handle_from_technical_details(
-            request,
-            result,
-            technical_details=extensions.technical_details,
-        )
-        if handle is None:
+        try:
+            handle = result_handle_from_technical_details(
+                request,
+                result,
+                technical_details=extensions.technical_details,
+            )
+            if handle is None:
+                return result
+            issued_at = _aware_utc(self._now(), field="semantic processor clock")
+            reference = await store.put(
+                handle,
+                issued_at=issued_at,
+                expires_at=issued_at + timedelta(seconds=self._result_handle_ttl_seconds),
+            )
+        except Exception as error:
+            # A follow-up reference is auxiliary; its failure never withholds a verified answer.
+            _LOGGER.warning(
+                "semantic_result_handle_unavailable",
+                extra={"error_type": type(error).__name__},
+            )
             return result
-        issued_at = _aware_utc(self._now(), field="semantic processor clock")
-        reference = await store.put(
-            handle,
-            issued_at=issued_at,
-            expires_at=issued_at + timedelta(seconds=self._result_handle_ttl_seconds),
-        )
         return result.model_copy(update={"result_handle_ref": reference})
 
     def _projection(

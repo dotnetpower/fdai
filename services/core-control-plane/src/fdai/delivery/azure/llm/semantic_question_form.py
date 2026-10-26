@@ -481,11 +481,13 @@ class AzureOpenAIQuestionFormModel:
         utterance: str,
         context: tuple[str, ...],
         locale: str,
+        earlier_results: bool = False,
     ) -> Mapping[str, Any] | None:
         """Ask a third model family whether the question has one plausible reading.
 
-        The reader sees only the masked question and its locale, never the judgment's
-        clarification or the released reading, so it cannot side with either reader.
+        The reader sees only the masked question, its locale, and whether earlier results are
+        in hand, never the judgment's clarification or the released reading, so it cannot side
+        with either reader.
         Without a configured prompt or third family it returns nothing, and the
         judgment's clarification stands.
         """
@@ -499,7 +501,11 @@ class AzureOpenAIQuestionFormModel:
         mask = IdentityMask(utterance, ())
         return await self._complete(
             system_prompt=self._config.ambiguity_system_prompt,
-            user_payload={"utterance": mask.utterance, "locale": locale},
+            user_payload={
+                "utterance": mask.utterance,
+                "locale": locale,
+                **({"earlier_results_available": True} if earlier_results else {}),
+            },
             schema=ambiguity_schema(),
             name="semantic-ambiguity-check",
             max_tokens=self._config.ambiguity_max_tokens,

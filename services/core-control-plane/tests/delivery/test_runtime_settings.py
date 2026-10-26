@@ -270,6 +270,27 @@ async def test_answer_continuity_and_prompt_ablation_are_safe_startup_settings()
     assert _setting(updated, "conversation.prompt_ablation.profile")["restart_required"] is True
 
 
+async def test_result_handles_default_on_only_in_development_and_take_an_audited_override() -> None:
+    key = "conversation.result_handles.enabled"
+    development = RuntimeSettingsService(store=InMemoryStateStore(), env={"RUNTIME_ENV": "dev"})
+    store = InMemoryStateStore()
+    production = RuntimeSettingsService(store=store, env={"RUNTIME_ENV": "prod"})
+    local_flag = RuntimeSettingsService(
+        store=InMemoryStateStore(), env={"FDAI_SEMANTIC_RESULT_HANDLES": "1"}
+    )
+
+    assert _setting(await development.projection(can_manage=True), key)["effective_value"] is True
+    assert _setting(await production.projection(can_manage=True), key)["effective_value"] is False
+    assert _setting(await local_flag.projection(can_manage=True), key)["effective_value"] is True
+
+    await production.update(actor_id="owner-1", changes={key: True}, expected_revision=0)
+    promoted = _setting(await production.projection(can_manage=True), key)
+
+    assert promoted["effective_value"] is True
+    assert promoted["restart_required"] is True
+    assert len(tuple(store.audit_entries)) == 1
+
+
 async def test_aggressive_t2_defaults_off_and_updates_without_restart() -> None:
     development = RuntimeSettingsService(
         store=InMemoryStateStore(),

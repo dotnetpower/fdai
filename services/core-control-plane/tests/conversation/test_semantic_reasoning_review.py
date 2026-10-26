@@ -1285,6 +1285,52 @@ def test_an_exclusion_attached_to_a_name_needs_an_unsupported_constraint() -> No
     )
 
 
+_TERSE = "실행중인것만"
+_TERSE_EXTRACTION = {
+    "constraints": [
+        _constraint("실행중인", "restricts"),
+        _constraint("것만", "names"),
+        _constraint("만", "negates"),
+    ],
+    "literals": [_quote("실행중인")],
+}
+
+
+def _terse_form(anaphor: str) -> dict[str, Any]:
+    return {
+        "mentions": [
+            {"id": "m1", "form": "anaphor", "domain": "instance", "span": _quote(anaphor)},
+            {"id": "m2", "form": "value", "domain": "state", "span": _quote("실행중인")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "prior_result",
+                "filters": [{"role": "state", "mention": "m2"}],
+                "cue": _quote("실행중인"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+
+
+def test_an_exclusivity_particle_inside_the_anaphor_mention_needs_no_unsupported_constraint() -> (
+    None
+):
+    absorbed = _typed(_terse_form("것만"), _TERSE)
+    detached = _typed(_terse_form("것"), _TERSE)
+
+    # A mention absorbs the particle attached to it; a particle left outside every mention
+    # states an exclusion that no closed field expresses.
+    assert review_forms((absorbed,), _TERSE_EXTRACTION, utterance=_TERSE) == FormReview("faithful")
+    assert "review_unexpressible:negates:5-6" in (
+        review_forms((detached,), _TERSE_EXTRACTION, utterance=_TERSE).reasons
+    )
+
+
 def test_a_comparison_absorbed_into_a_measure_cue_is_never_stated() -> None:
     utterance = "Which VMs run above 80% CPU?"
     form = {

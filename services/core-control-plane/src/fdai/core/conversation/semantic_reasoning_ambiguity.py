@@ -4,8 +4,10 @@ The judgment may end ambiguous while the question-form path released one reading
 blind review found faithful. Neither reader decides alone. A third reader of another model
 family answers one closed question from the masked question only: whether it has one
 plausible reading or several that would change what is read or answered. It never sees
-either reading, so it cannot side with one. Only a concrete ``one`` lets the released
-reading answer; ``several``, ``unclear``, no answer, or a failure keeps the clarification.
+either reading, so it cannot side with one. It is told only that earlier results are in hand,
+because a reference to them is plain once the operator was just shown a list. Only a concrete
+``one`` lets the released reading answer; ``several``, ``unclear``, no answer, or a failure keeps
+the clarification.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ class AmbiguityReader(Protocol):
         utterance: str,
         context: tuple[str, ...],
         locale: str,
+        earlier_results: bool = False,
     ) -> Mapping[str, Any] | None: ...
 
 
