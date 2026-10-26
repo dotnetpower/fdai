@@ -33,13 +33,19 @@ def register_native_command(
     commands: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     command = commands.add_parser(
-        "bootstrap-slot", help="Dry-run creation of a private workload anchor; never deploy an app."
+        "bootstrap-slot",
+        help="Dry-run a private workload anchor and exact existing-object inventory.",
     )
     command.add_argument("--installation-id", required=True)
     command.add_argument("--state-dir", required=True, type=Path)
     command.add_argument("--local-policy", required=True, type=Path)
     command.add_argument("--current-state", required=True, type=Path)
-    command.add_argument("--native-approval", required=True, type=Path)
+    command.add_argument(
+        "--native-approval",
+        required=True,
+        type=Path,
+        help="Bounded local creation and exact existing-object adoption approval.",
+    )
     command.add_argument("--installation-key", required=True, type=Path)
     command.add_argument("--proof-output", type=Path)
     authentication = command.add_mutually_exclusive_group(required=True)

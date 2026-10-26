@@ -84,6 +84,8 @@ class KubernetesCluster:
         *,
         uid: str,
         resource_version: str,
+        dry_run: bool = False,
+        before_submit: Callable[[], None] | None = None,
     ) -> Manifest:
         """Transfer only a Terraform-managed spec through one identity-fenced SSA."""
 
@@ -117,9 +119,11 @@ class KubernetesCluster:
                 namespace=self._namespace,
                 field_manager=FIELD_MANAGER,
                 force_conflicts=True,
+                dry_run="All" if dry_run else None,
                 _request_timeout=self._timeout,
             ),
             missing_ok=False,
+            before_submit=before_submit,
         )
         result = dict(adopted.to_dict())
         adopted_metadata = result.get("metadata", {})

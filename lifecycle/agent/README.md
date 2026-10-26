@@ -154,8 +154,12 @@ artifact synchronization, Agent rollout or production trust is established by so
 ## Apply mode
 
 Apply mode defaults to the narrow demo path for one development namespace. The signed
-configuration can instead select the [Operator profile](#same-schema-operator-profile). Neither
-path implements the full renderer or ownership handoff of #1946.
+configuration can instead select the [Operator profile](#same-schema-operator-profile) or the
+independently pinned private runtime bundle. A full-authority development native approval may list
+exact existing kind/name/UID objects for a mixed adoption-and-create Plan. The Hub-signed Plan must
+bind the accepted native claim in `ownership_digests`; the Agent keeps names and UIDs private,
+adopts only Terraform-owned fields, and creates only omitted objects that remain absent. See the
+[deployment handoff](../../docs/runbooks/hub-lifecycle-deployment-handoff.md#adopt-exact-existing-objects-in-a-mixed-scope).
 
 ```bash
 fdai-lifecycle-agent poll-once <options above> \
@@ -168,6 +172,8 @@ fdai-lifecycle-agent poll-once <options above> \
 | `--kube-context` | Select one kubeconfig context, or select `--in-cluster`, with `--apply`. |
 | `--in-cluster` | Use the Pod's projected Kubernetes identity and CA, without kubeconfig fallback. |
 | `--namespace` | The only namespace the agent reads or changes. Required with `--apply`. |
+| `--native-approval` | Independent local approval for the exact native scope and optional sorted existing kind/name/UID objects. |
+| `--installation-public-key` | Enrolled installation public key used to verify the retained native proof. |
 | `--health-timeout-seconds` | How long each rollout and each rollback has to complete. Default `180`. |
 
 ### Remote development preparation

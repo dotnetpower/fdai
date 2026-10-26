@@ -313,6 +313,13 @@ def _draft(
         expires_at=max(open_window_ends, default=now + settings.plan_duration),
         signed_payload=b"",
         signature=b"",
+        ownership_digests={
+            entity.entity_id: entity.ownership.native_creation_receipt_digest
+            for entity in installation.entities
+            if entity.entity_id in entity_ids
+            and entity.ownership is not None
+            and entity.ownership.native_creation_receipt_digest is not None
+        },
     )
 
 

@@ -30,7 +30,7 @@ from fdai_lifecycle_hub.domain import (
     UpToDate,
     Waiting,
 )
-from fdai_lifecycle_hub.entity import EntitySettings
+from fdai_lifecycle_hub.entity import Entity, EntitySettings, OwnershipEvidence
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import HubSigningKey, signature_verifier
 
@@ -86,6 +86,34 @@ def test_issues_signed_plan_for_newest_eligible_release(
     assert verify(plan.hub_key_id, plan.signed_payload, plan.signature)
     assert outcome.checks[0].release_id == "1.6.0"
     assert outcome.checks[0].blocks == ()
+
+
+def test_native_plan_binds_operator_accepted_creation_claim(
+    installation: Installation, planner: Planner, now: datetime
+) -> None:
+    core = next(entity for entity in installation.entities if entity.entity_id == "core")
+    claim_digest = "sha256:" + "a" * 64
+    native = Entity(
+        entity_id=core.entity_id,
+        kind="native-workload-scope",
+        ownership=OwnershipEvidence(native_creation_receipt_digest=claim_digest),
+        settings=core.settings,
+    )
+
+    outcome = planner(
+        replace(
+            installation,
+            entities=frozenset(
+                native if entity.entity_id == core.entity_id else entity
+                for entity in installation.entities
+            ),
+        ),
+        now,
+    )
+
+    assert isinstance(outcome, Issued)
+    assert outcome.plan.ownership_digests == {"core": claim_digest}
+    assert b'"ownership_digests":{"core":"' in outcome.plan.signed_payload
 
 
 def test_closed_window_waits_for_newest_release_without_falling_back(
