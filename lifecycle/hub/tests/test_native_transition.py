@@ -251,7 +251,7 @@ def completion_case(
         now=now + timedelta(minutes=1),
         key=key,
     )
-    completed_at = now + timedelta(minutes=2)
+    completed_at = now + timedelta(minutes=2, microseconds=619)
     state_document = {
         "schema_revision": live.reported.schema_revision,
         "entities": {
@@ -261,7 +261,7 @@ def completion_case(
                 "health": "unknown",
             }
         },
-        "observed_at": completed_at.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+        "observed_at": completed_at.isoformat().replace("+00:00", "Z"),
     }
     if live.reported.available_artifact_digests is not None:
         state_document["available_artifact_digests"] = sorted(

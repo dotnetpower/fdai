@@ -151,10 +151,11 @@ def transition_native_scope(
             expected_hub_key_epoch=expected_hub_key_epoch,
             installation_public_key=installation_public_key,
         )
+        checked_at = _aware_transition_timestamp(now)
         try:
-            request.require_current(now)
-            signed_approval.approval.require_current(now)
-            approval.require_current(now)
+            request.require_current(checked_at)
+            signed_approval.approval.require_current(checked_at)
+            approval.require_current(checked_at)
         except ValueError as error:
             raise WorkloadError("native_transition_approval_expired") from error
         old = _require_native_state(NativeStateStore(state_dir).path)
@@ -165,11 +166,16 @@ def transition_native_scope(
         _require_recovered_proof(new, installation_public_key)
         _require_idle(state_dir)
         _verify_inventory(cluster, new, approval)
+        transitioned_at = (
+            checked_at
+            if retained_rollback is None
+            else _rollback_transition_timestamp(retained_rollback)
+        )
         rollback = retained_rollback or _rollback_record(
             request_digest=request.digest,
             state_dir=state_dir,
             current_state_path=current_state_path,
-            now=now,
+            transitioned_at=transitioned_at,
         )
         rollback_path = state_dir / ROLLBACK_FILE_NAME
         if retained_rollback is None:
@@ -179,7 +185,7 @@ def transition_native_scope(
                 "schema_version": "fdai.lifecycle-native-transition-pending.v1",
                 "request_digest": request.digest,
                 "rollback_record_digest": rollback["record_digest"],
-                "started_at": now.isoformat(),
+                "started_at": _format_transition_timestamp(transitioned_at),
             }
         )
         pending_path = state_dir / PENDING_FILE_NAME
@@ -196,8 +202,9 @@ def transition_native_scope(
             new_snapshot = snapshot_document(
                 {request.new_entity_id: EntityState(None, frozenset())},
                 schema_revision=current.schema_revision,
-                observed_at=now,
+                observed_at=transitioned_at,
                 available_artifact_digests=current.available_artifact_digests,
+                preserve_timestamp_precision=True,
             )
             write_json_atomically(current_state_path, new_snapshot)
             if after_write is not None:
@@ -218,7 +225,7 @@ def transition_native_scope(
                     "recovery_request_digest": request.recovery_request_digest,
                     "existing_resources_digest": request.existing_resources_digest,
                     "rollback_record_digest": rollback["record_digest"],
-                    "completed_at": now.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+                    "completed_at": _format_transition_timestamp(transitioned_at),
                 }
             )
             _write_new_record(state_dir / RECEIPT_FILE_NAME, receipt)
@@ -226,7 +233,7 @@ def transition_native_scope(
             return receipt
         except Exception as error:
             _restore(state_dir, current_state_path, rollback)
-            _write_recovery_record(state_dir, request.digest, now)
+            _write_recovery_record(state_dir, request.digest, transitioned_at)
             _unlink_fsync(pending_path)
             raise WorkloadError("native_transition_failed_restored") from error
 
@@ -355,13 +362,13 @@ def _rollback_record(
     request_digest: str,
     state_dir: Path,
     current_state_path: Path,
-    now: datetime,
+    transitioned_at: datetime,
 ) -> dict[str, object]:
     return _record(
         {
             "schema_version": "fdai.lifecycle-native-transition-rollback.v1",
             "request_digest": request_digest,
-            "created_at": now.isoformat(),
+            "created_at": _format_transition_timestamp(transitioned_at),
             "files": {
                 "native_state": _encoded_file(NativeStateStore(state_dir).path, required=True),
                 "current_state": _encoded_file(current_state_path, required=True),
@@ -369,6 +376,30 @@ def _rollback_record(
             },
         }
     )
+
+
+def _aware_transition_timestamp(value: datetime) -> datetime:
+    if value.utcoffset() is None:
+        raise WorkloadError("native_transition_timestamp_invalid")
+    return value.astimezone(UTC)
+
+
+def _format_transition_timestamp(value: datetime) -> str:
+    return _aware_transition_timestamp(value).isoformat().replace("+00:00", "Z")
+
+
+def _rollback_transition_timestamp(rollback: dict[str, object]) -> datetime:
+    value = rollback.get("created_at")
+    if not isinstance(value, str):
+        raise AgentStateError("native transition rollback timestamp is invalid")
+    try:
+        timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise AgentStateError("native transition rollback timestamp is invalid") from error
+    try:
+        return _aware_transition_timestamp(timestamp)
+    except WorkloadError as error:
+        raise AgentStateError("native transition rollback timestamp is invalid") from error
 
 
 def _encoded_file(path: Path, *, required: bool) -> dict[str, str] | None:
