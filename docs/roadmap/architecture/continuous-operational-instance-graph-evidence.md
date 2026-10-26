@@ -38,6 +38,11 @@ Protected receipt readback resolves the storage account through an account-speci
 ops-owned Blob private DNS zone linked to the deploy runner VNet. Workload resolution remains in the
 app-owned zone. This split grants neither public network access nor storage key authentication.
 
+Synthetic OI-16 finalization unit tests inject their projection-state reader, including an explicit
+unavailable reader, and reject real PostgreSQL state-store construction. Avoiding synthetic
+connection waits does not replace database-backed integration, deployed-binding, or production-data
+evidence.
+
 ## Projection allocation admission
 
 The pure inventory projection admits at most 2,000,000 expanded values (including containers and
