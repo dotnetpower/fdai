@@ -25,10 +25,12 @@ from fdai_deployment_cli.lifecycle_native_reconciliation import (
     NativeScopeTransitionStateReconciliationCompletion,
     NativeScopeTransitionStateReconciliationRequest,
     SignedNativeScopeTransitionStateReconciliationApproval,
+    regenerated_transition_receipt_digest,
     transition_reported_state_digest,
 )
 from fdai_deployment_cli.lifecycle_native_transition import (
     NativeScopeTransitionCompletion,
+    NativeScopeTransitionCompletionReceipt,
     NativeScopeTransitionReceipt,
     NativeScopeTransitionReportedState,
     NativeScopeTransitionRequest,
@@ -799,20 +801,29 @@ def test_exact_concurrent_completion_returns_one_receipt(completion_case) -> Non
 
 def _legacy_reconciliation_case(case, monkeypatch):
     local_at = case.now.replace(microsecond=787000) + timedelta(minutes=2)
-    hub_at = case.now.replace(microsecond=787619) + timedelta(minutes=2)
-    state_document = case.completion.reported_state.model_dump(mode="json")
-    state_document["observed_at"] = hub_at.isoformat().replace("+00:00", "Z")
-    state_document["digest"] = transition_reported_state_digest(
-        case.completion.reported_state.model_copy(update={"observed_at": hub_at}),
+    transition_at = case.now.replace(microsecond=787619) + timedelta(minutes=2)
+    legacy_document = case.completion.reported_state.model_dump(mode="json")
+    legacy_document["observed_at"] = local_at.isoformat().replace("+00:00", "Z")
+    legacy_document["digest"] = transition_reported_state_digest(
+        case.completion.reported_state.model_copy(update={"observed_at": local_at}),
         milliseconds=True,
     )
-    source = NativeScopeTransitionReportedState.model_validate_json(json.dumps(state_document))
+    legacy_state = NativeScopeTransitionReportedState.model_validate_json(
+        json.dumps(legacy_document)
+    )
+    source = legacy_state.model_copy(
+        update={
+            "observed_at": transition_at,
+            "digest": transition_reported_state_digest(
+                legacy_state,
+                observed_at=transition_at,
+            ),
+        }
+    )
     receipt_document = case.completion.transition_receipt.model_dump(mode="json")
     receipt_document.pop("record_digest")
-    receipt_document["completed_at"] = local_at.isoformat(timespec="milliseconds").replace(
-        "+00:00", "Z"
-    )
-    receipt_document["new_reported_state_digest"] = source.digest
+    receipt_document["completed_at"] = transition_at.isoformat().replace("+00:00", "Z")
+    receipt_document["new_reported_state_digest"] = legacy_state.digest
     local = LegacyNativeScopeTransitionReceipt.model_validate_json(
         json.dumps(
             {
@@ -821,9 +832,20 @@ def _legacy_reconciliation_case(case, monkeypatch):
             }
         )
     )
+    regenerated_document = local.model_dump(mode="json", exclude={"record_digest"})
+    regenerated_document["new_reported_state_digest"] = source.digest
+    regenerated = NativeScopeTransitionReceipt.model_validate(
+        {
+            **regenerated_document,
+            "record_digest": regenerated_transition_receipt_digest(
+                local,
+                new_reported_state_digest=source.digest,
+            ),
+        }
+    )
     legacy_completion = case.completion.model_copy(
         update={
-            "transition_receipt": local,
+            "transition_receipt": regenerated,
             "reported_state": source,
         }
     )
@@ -836,18 +858,17 @@ def _legacy_reconciliation_case(case, monkeypatch):
         case.installation.installation_id,
         legacy_completion,
         principal="agent-executor",
-        now=hub_at,
+        now=transition_at + timedelta(hours=2),
         key=case.key,
     )
-    local_state = source.model_copy(update={"observed_at": local_at})
-    requested_at = hub_at + timedelta(seconds=1)
+    requested_at = transition_at + timedelta(hours=2, seconds=1)
     request_values = {
         "schema_version": ("fdai.lifecycle-native-transition-state-reconciliation-request.v1"),
         "request_id": uuid4(),
         "transition_receipt": local,
         "completion_receipt": completion_receipt,
         "native_approval": case.completion.native_approval,
-        "legacy_reported_state": local_state,
+        "legacy_reported_state": legacy_state,
         "requested_at": requested_at,
         "expires_at": requested_at + timedelta(minutes=10),
     }
@@ -885,7 +906,8 @@ def test_hub_reconciles_exact_legacy_timestamp_state_and_returns_exact_retry(
     authoritative = approved.approval.authoritative_reported_state
     assert authoritative.observed_at.isoformat().endswith(".787619+00:00")
     assert authoritative.digest == transition_reported_state_digest(authoritative)
-    assert authoritative.digest != legacy.source.digest
+    assert authoritative == legacy.source
+    assert authoritative.digest != legacy.request.legacy_reported_state.digest
     with Session(case.store.engine) as session:
         row = session.get(models.Installation, case.installation.installation_id)
         assert row is not None
@@ -937,7 +959,7 @@ def test_hub_reconciles_exact_legacy_timestamp_state_and_returns_exact_retry(
         assert audit.chain_intact(session)
 
 
-@pytest.mark.parametrize("fault", ["timestamp", "field", "plan", "repeat"])
+@pytest.mark.parametrize("fault", ["timestamp", "field", "uid", "plan", "repeat"])
 def test_hub_reconciliation_rejects_out_of_bounds_or_conflicting_state(
     fault,
     completion_case,
@@ -958,7 +980,7 @@ def test_hub_reconciliation_rejects_out_of_bounds_or_conflicting_state(
                 )
             }
         )
-        expected = "receipt_mismatch"
+        expected = "non_time_difference"
     elif fault == "field":
         entity = next(iter(request.legacy_reported_state.entities.values()))
         request = request.model_copy(
@@ -973,6 +995,17 @@ def test_hub_reconciliation_rejects_out_of_bounds_or_conflicting_state(
             }
         )
         expected = "non_time_difference"
+    elif fault == "uid":
+        identities = list(request.native_approval.existing_resources)
+        identities[0] = identities[0].model_copy(update={"uid": "uid-replaced"})
+        request = request.model_copy(
+            update={
+                "native_approval": request.native_approval.model_copy(
+                    update={"existing_resources": tuple(identities)}
+                )
+            }
+        )
+        expected = "scope_mismatch"
     elif fault == "plan":
         with Session(case.store.engine) as session, session.begin():
             session.add(
@@ -1011,6 +1044,43 @@ def test_hub_reconciliation_rejects_out_of_bounds_or_conflicting_state(
             request,
             operator="requester",
             now=legacy.requested_at + timedelta(seconds=2),
+            key=case.key,
+        )
+
+
+def test_hub_reconciliation_rejects_completion_identity_not_in_exact_audit(
+    completion_case,
+    monkeypatch,
+) -> None:
+    case = completion_case
+    legacy = _legacy_reconciliation_case(case, monkeypatch)
+    completion_document = legacy.completion_receipt.model_dump(
+        mode="json",
+        exclude={"receipt_digest"},
+    )
+    completion_document["agent_principal"] = "other-agent"
+    completion_receipt = NativeScopeTransitionCompletionReceipt.model_validate(
+        {
+            **completion_document,
+            "receipt_digest": "sha256:" + canonical_digest(completion_document),
+        }
+    )
+    request = legacy.request.model_copy(
+        update={
+            "completion_receipt": completion_receipt,
+            "confirmation": (
+                f"reconcile native transition {legacy.local.installation_id} "
+                f"{legacy.local.record_digest} {completion_receipt.receipt_digest}"
+            ),
+        }
+    )
+
+    with pytest.raises(NativeTransitionReconciliationError, match="completion_not_audited"):
+        NativeTransitionReconciliationStore(case.store).approve(
+            case.installation.installation_id,
+            request,
+            operator="requester",
+            now=legacy.requested_at + timedelta(seconds=1),
             key=case.key,
         )
 
