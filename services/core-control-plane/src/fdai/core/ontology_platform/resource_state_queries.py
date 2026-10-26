@@ -12,6 +12,7 @@ from typing import Any, cast
 from fdai_service_contracts.recorded_resource_state import (
     AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
+    READY_ESTABLISHES_RUNNING_RESOURCE_TYPES,
     UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE,
 )
 
@@ -215,7 +216,9 @@ def resource_state_inventory_function(
                     )
                 continue
             if not include_all_observed and values["state_concept"] not in requested:
-                continue
+                if not _ready_satisfies_running(values, requested):
+                    continue
+                values = {**values, "state_basis": "ready_on_serving_lifecycle"}
             if list_members:
                 values = {**values, "state_status": "observed"}
             rows.append(
@@ -261,6 +264,16 @@ def _scope_incomplete_reason(secured: SecuredObjectSetQueryResult) -> str:
             if _SOURCE_REASON_PART.fullmatch(part)
         )
     return "+".join(dict.fromkeys(parts))
+
+
+def _ready_satisfies_running(values: Mapping[str, object], requested: frozenset[str]) -> bool:
+    """Return whether an observed Ready settles a running request for a reviewed serving type."""
+
+    return (
+        "resource_state.running" in requested
+        and values.get("state_concept") == "resource_state.ready"
+        and values.get("type") in READY_ESTABLISHES_RUNNING_RESOURCE_TYPES
+    )
 
 
 def _never_reaches(target: OntologyObjectRecord, requested: frozenset[str]) -> bool:

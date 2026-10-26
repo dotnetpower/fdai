@@ -551,6 +551,12 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 관측, 다른 ResourceType은 아무것도 확정하지 않으며, 관측된 운영 상태가 언제나 우선합니다. 그 밖의 곳에서는 여전히
 건강 상태가 상태를 대신하지 않습니다.
 
+관리형 데이터베이스 서버는 서비스 중일 때 `Running`이 아니라 `Ready`로 보고합니다. 검토된 유형인
+`postgresql-server`와 `mysql-server`는 관측된 `Ready`가 실행 중 요청을 충족하므로, "실행 중인 데이터베이스"
+질문이 일치 없음 대신 해당 서버를 나열합니다. 그 행은 관측된 `Ready` 상태를 유지하고 `state_basis`
+`ready_on_serving_lifecycle`을 가집니다. `Stopped`, `Starting` 등 다른 상태와 다른 ResourceType은 여전히 일치하지
+않습니다.
+
 ## 관련 문서
 
 | 알아볼 내용 | 문서 |

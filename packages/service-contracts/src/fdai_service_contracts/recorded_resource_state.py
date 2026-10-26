@@ -193,6 +193,11 @@ UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE: Mapping[str, frozenset[str]] = 
 # availability value establishes nothing. Every entry MUST also declare stopped, deallocated, and
 # paused unreachable above, and an observed operational state always wins.
 AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES = frozenset({"cache", "nosql-database"})
+# Reviewed lifecycle facts: a ResourceType whose provider reports a serving server as Ready and has
+# no other state that serves. Azure Database for PostgreSQL and MySQL flexible servers report Ready
+# while running, so an observed Ready satisfies a running request. The row keeps the observed Ready
+# value, and an observed state other than Ready never satisfies it.
+READY_ESTABLISHES_RUNNING_RESOURCE_TYPES = frozenset({"postgresql-server", "mysql-server"})
 AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
     "alert-rule": AVAILABILITY_STATE_PATHS,
     "api-gateway": AVAILABILITY_STATE_PATHS,
@@ -368,6 +373,7 @@ __all__ = [
     "OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE",
     "PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES",
     "PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES",
+    "READY_ESTABLISHES_RUNNING_RESOURCE_TYPES",
     "RECORDED_STATE_UNAVAILABLE_REASONS",
     "SERVING_STATE_PATHS",
     "SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE",

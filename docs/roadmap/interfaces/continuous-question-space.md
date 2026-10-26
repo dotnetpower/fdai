@@ -559,6 +559,12 @@ steady state; its row keeps the observed value and `state_basis`
 a stale or conflicting fact, or another ResourceType establishes nothing, and an observed operational
 state always wins. Health still never stands in for state anywhere else.
 
+A managed database server reports `Ready`, not `Running`, while it serves. For the reviewed types
+`postgresql-server` and `mysql-server`, an observed `Ready` therefore satisfies a running request, so
+"which databases are running" lists them instead of reporting no match. The row keeps the observed
+`Ready` state and carries `state_basis` `ready_on_serving_lifecycle`; `Stopped`, `Starting`, and every
+other state, and every other ResourceType, still do not match.
+
 ## Related docs
 
 | To learn about | Read |
