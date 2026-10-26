@@ -95,6 +95,40 @@ async def test_the_third_family_reads_only_the_masked_question() -> None:
     assert "an earlier turn" not in json.dumps(body)
 
 
+async def test_the_third_family_is_told_only_that_earlier_results_are_in_hand() -> None:
+    sent: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps({"readings": "one"})}}]}
+        )
+
+    model = AzureOpenAIQuestionFormModel(
+        identity=_Identity(),  # type: ignore[arg-type]
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        config=AzureOpenAIQuestionFormConfig(
+            candidates=(_target("form-model"),),
+            form_system_prompt="Return the closed question form.",
+            concept_system_prompt="Choose concepts.",
+            extraction_candidates=(_target("review-model"),),
+            ambiguity_system_prompt="Decide whether one reading exists.",
+            ambiguity_candidates=(_target("reasoning-model"),),
+        ),
+    )
+
+    await model.check_ambiguity(utterance="실행중인것만", context=("list",), locale="ko")
+    await model.check_ambiguity(
+        utterance="실행중인것만", context=("list",), locale="ko", earlier_results=True
+    )
+
+    plain, informed = (json.loads(body["messages"][-1]["content"]) for body in sent)
+    assert set(plain) == {"utterance", "locale"}
+    # The flag carries no reading and no earlier text, so the reader still cannot side with one.
+    assert informed == {**plain, "earlier_results_available": True}
+    assert "list" not in json.dumps(sent[1]["messages"][-1])
+
+
 def test_the_ambiguity_prompt_composes_within_its_budget() -> None:
     registry = FileSystemPromptRegistry(_ROOT / "rule-catalog")
 

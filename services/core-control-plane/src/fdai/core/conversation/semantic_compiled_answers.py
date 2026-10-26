@@ -441,6 +441,7 @@ class CompiledAnswerPath:
             self._owner_loop,
         )
         reader = self._ambiguity_reader
+        earlier_results = bool(stored_context is not None and stored_context.references)
 
         def ambiguity() -> concurrent.futures.Future[Mapping[str, Any] | None]:
             async def ask() -> Mapping[str, Any] | None:
@@ -448,7 +449,10 @@ class CompiledAnswerPath:
                     return None
                 async with bind_adaptive_model_budget(collector):
                     return await reader.check_ambiguity(
-                        utterance=utterance, context=context, locale=locale
+                        utterance=utterance,
+                        context=context,
+                        locale=locale,
+                        **({"earlier_results": True} if earlier_results else {}),
                     )
 
             return asyncio.run_coroutine_threadsafe(ask(), self._owner_loop)

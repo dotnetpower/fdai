@@ -781,7 +781,9 @@ rounds traced. Each stays in the local profile and grants no authority.
 - **Closed ambiguity reader**: When the judgment ends with a clarification but the path released a reading
   that passes every selection rule, a reader of a third model family answers one closed question from the
   masked question alone, never seeing either reading: whether the question has one plausible reading,
-  several, or is unclear. Only one lets the released reading answer; any other verdict, no answer, a
+  several, or is unclear. When the conversation holds a stored earlier result, the reader is also told
+  only that earlier results are in hand, so a reference such as only the running ones is not ambiguous
+  for naming no kind of resource; it sees neither the earlier text nor the reading. Only one lets the released reading answer; any other verdict, no answer, a
   timeout, or a failure keeps the clarification. The plan takes the gateway's cutoff only after that
   verdict, because the gateway accepts a cutoff only within seconds of its own. The composition gives the check to the reasoning direction
   reader only when it is neither the judgment and proposer's family nor the blind reviewer's; otherwise the
