@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest, load_json_object
+from fdai_deployment_cli.hub_workload_handoff_inputs import write_handoff_operator_inputs
 from fdai_deployment_cli.lifecycle_native import NativeScope
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
 from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle, RuntimeObject
@@ -417,11 +418,19 @@ def _build_deployment_and_service(
     config_map_data: dict[str, dict[str, str]],
     secret_bindings: dict[str, dict[str, str]],
     identity_bindings: dict[str, dict[str, Any]],
-) -> tuple[RuntimeObject, RuntimeObject]:
+) -> tuple[RuntimeObject, RuntimeObject, RuntimeObject]:
     label = f"workload {name}"
     _record_component_image(component_images, name, _validate_image(workload.get("image"), label))
     _validate_and_record_identity(workload, name, label, identity_bindings)
     replicas = _require_int(workload, "replicas", label, default=2, minimum=1, maximum=3)
+    max_replicas = _require_int(
+        workload,
+        "max_replicas",
+        label,
+        default=replicas,
+        minimum=replicas,
+        maximum=10,
+    )
     port = _require_int(workload, "port", label, default=8000, minimum=1, maximum=65535)
     raw_svc_port = workload.get("service_port")
     service_port = (
@@ -544,7 +553,6 @@ def _build_deployment_and_service(
         name=name,
         kind="Deployment",
         spec={
-            "replicas": replicas,
             "strategy": {
                 "type": "RollingUpdate",
                 "rollingUpdate": {"maxSurge": 1, "maxUnavailable": 0},
@@ -573,7 +581,28 @@ def _build_deployment_and_service(
             ],
         },
     )
-    return deployment_obj, service_obj
+    autoscaler_obj = RuntimeObject(
+        entity_id=entity_id,
+        name=name,
+        kind="HorizontalPodAutoscaler",
+        spec={
+            "minReplicas": replicas,
+            "maxReplicas": max_replicas,
+            "metrics": [
+                {
+                    "type": "Resource",
+                    "resource": {
+                        "name": "cpu",
+                        "target": {
+                            "type": "Utilization",
+                            "averageUtilization": 70,
+                        },
+                    },
+                }
+            ],
+        },
+    )
+    return deployment_obj, service_obj, autoscaler_obj
 
 
 def _build_cron_job(
@@ -740,7 +769,7 @@ def generate_fdai_runtime_bundle(
     canary_scheduled = "canary" in scheduled_jobs
 
     for name in sorted(workloads):
-        deployment_obj, service_obj = _build_deployment_and_service(
+        deployment_obj, service_obj, autoscaler_obj = _build_deployment_and_service(
             name=name,
             workload=workloads[name],
             entity_id=entity_id,
@@ -757,7 +786,7 @@ def generate_fdai_runtime_bundle(
             secret_bindings=secret_bindings,
             identity_bindings=identity_bindings,
         )
-        objects.extend((deployment_obj, service_obj))
+        objects.extend((deployment_obj, service_obj, autoscaler_obj))
 
     for job_name in sorted(scheduled_jobs):
         cron_obj = _build_cron_job(
@@ -788,6 +817,9 @@ def generate_fdai_runtime_bundle(
     deployments = tuple(sorted(item.name for item in bundle.objects if item.kind == "Deployment"))
     services = tuple(sorted(item.name for item in bundle.objects if item.kind == "Service"))
     schedules = tuple(sorted(item.name for item in bundle.objects if item.kind == "CronJob"))
+    autoscalers = tuple(
+        sorted(item.name for item in bundle.objects if item.kind == "HorizontalPodAutoscaler")
+    )
     native_scope = NativeScope(
         installation_id=installation_id,
         entity_id=entity_id,
@@ -796,6 +828,7 @@ def generate_fdai_runtime_bundle(
         components=deployments,
         service_components=services,
         scheduled_components=schedules,
+        autoscaled_components=autoscalers,
     )
     prerequisites = PreExistingReferences(
         service_accounts=tuple(sorted(service_accounts)),
@@ -867,6 +900,16 @@ def write_generated_runtime_bundle(
         destination / "prerequisites.json",
         canonical_bytes(generated.prerequisites.model_dump(mode="json")) + b"\n",
     )
+    rendered = generated.bundle.render(
+        namespace,
+        frozenset({entity_id}),
+        {(entity_id, name): image for name, image in generated.component_images.items()},
+    )
+    inventory_path, tfvars_path, commands_path = write_handoff_operator_inputs(
+        destination,
+        generated.native_scope.model_dump(mode="json"),
+        rendered,
+    )
     return {
         "schema_version": "fdai.generated-runtime-topology.v1",
         "runtime_bundle_digest": generated.bundle.digest,
@@ -875,6 +918,10 @@ def write_generated_runtime_bundle(
         "deployments": list(generated.native_scope.components),
         "services": list(generated.native_scope.service_components or ()),
         "scheduled_jobs": list(generated.native_scope.scheduled_components),
+        "autoscalers": list(generated.native_scope.autoscaled_components),
         "components": sorted(generated.component_images),
+        "workload_handoff_inventory": str(inventory_path),
+        "workload_handoff_tfvars": str(tfvars_path),
+        "workload_handoff_commands": str(commands_path),
         "destination": str(destination),
     }

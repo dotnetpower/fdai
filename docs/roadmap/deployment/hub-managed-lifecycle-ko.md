@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 0aa4e0c4119cff81b756f9d2935c4aa94a0ab131
+translation_source_sha: f5cb1a8dc0f6d07b1b3a747dc1b4716dcdd911dd
 translation_revised: 2026-10-26
 ---
 # Hub 관리형 수명 주기
@@ -1260,6 +1260,17 @@ digest가 유효한 인수 증적만 `record-hub-workload-handoff`가 받아 소
 되돌리기 import를 검증하기 전에 Agent는 완료한 인수 증적에 결속된 별도 조정 해제 증적을
 기록합니다. 이는 로컬 실행 계약이며 실제 Terraform 상태 해제, 클러스터 인수, 되돌리기 import 또는
 변경 없는 계획이 실행됐다는 근거는 아닙니다.
+
+이전 워크로드 상태가 더 이상 없으면 상태를 직접 편집하거나 `kubectl`로 워크로드를 변경해
+복원하지 않습니다. 생성기가 만든 정확한 비공개 입력과 별도로 선택한 절대 로컬 backend 경로 하나를
+`infra/hub-workload-state-handoff/import`에 사용합니다. import 전용 루트는 `prevent_destroy`를
+적용하고 원하는 필드의 차이를 무시하므로, 처음 수락할 수 있는 계획은 기존 `namespace/name`
+객체를 가져오는 작업만 포함합니다. 해제 단계 전에 이어지는 계획이 완전하고 적용할 수 없으며
+변경이 없는지 확인해야 합니다. 짝을 이루는 `infra/hub-workload-state-handoff/release` 루트는
+각 전체 리소스 블록을 `removed { lifecycle { destroy = false } }`로 바꿉니다. 검증기는 digest로
+고정된 정확한 목록과 `forget` 작업만 허용합니다. 생성된 명령 순서는 최초 import, 해제, 되돌리기
+import, 마지막 변경 없는 계획에 같은 backend를 사용합니다. 각 단계는 비공개 검증 증적을
+보존하며 워크로드 변경 권한을 부여하지 않습니다.
 
 **되돌리기:** 먼저 에이전트가 인수한 객체의 조정을 멈추고, 조정 리스를 놓고, 해제를 기록합니다.
 그런 다음 인프라 에이전트가 같은 주소에 대해 `import` 블록이 있는 정확한 계획을 적용하고, 이어지는

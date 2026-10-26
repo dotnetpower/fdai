@@ -1276,6 +1276,18 @@ contracts. Before a rollback import can be verified, the Agent records a separat
 release receipt bound to the complete adoption receipt. This is not evidence that a live Terraform
 state release, cluster adoption, rollback import or zero-change plan has run.
 
+If the earlier workloads state no longer exists, don't recreate it by editing state or by changing
+workloads with `kubectl`. Use `infra/hub-workload-state-handoff/import` with the generator's exact
+private inputs and one separately selected absolute local backend path. The import-only root has a
+`prevent_destroy` guard and ignores desired-field differences, so its only accepted first plan
+imports the existing `namespace/name` objects. A following plan must be complete, non-applyable,
+and zero-change before the release phase. The paired
+`infra/hub-workload-state-handoff/release` root replaces each whole resource block with
+`removed { lifecycle { destroy = false } }`. Its verifier requires the exact digest-bound
+inventory and only `forget` actions. The generated command sequence reuses the same backend for
+initial import, release, rollback import, and the final zero-change plan. Each phase retains a
+private verification receipt and grants no workload mutation authority.
+
 **Rollback:** First, the agent stops reconciling the adopted objects, releases its reconciliation
 lease, and records the release. Then the infrastructure agent applies an exact plan with `import`
 blocks for the same addresses, and a following zero-change plan proves that Terraform state matches

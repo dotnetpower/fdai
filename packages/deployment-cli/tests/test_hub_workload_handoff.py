@@ -8,7 +8,11 @@ import pytest
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.hub_workload_handoff import (
     WorkloadStateObject,
+    build_handoff_inventory,
+    read_handoff_inventory,
+    verify_handoff_plan,
     verify_handoff_plans,
+    write_handoff_operator_inputs,
     write_handoff_terraform_files,
 )
 
@@ -30,13 +34,33 @@ def objects() -> tuple[WorkloadStateObject, ...]:
     )
 
 
-def plan(actions: dict[str, list[str]]) -> dict[str, object]:
+def plan(
+    actions: dict[str, list[str]],
+    *,
+    importing: dict[str, str] | None = None,
+) -> dict[str, object]:
+    changes = []
+    for address, change_actions in actions.items():
+        before = None if importing is not None else {"id": address}
+        after = None if change_actions == ["forget"] else {"id": address}
+        change: dict[str, object] = {
+            "actions": change_actions,
+            "before": before,
+            "after": after,
+        }
+        if importing is not None:
+            change["importing"] = {"id": importing[address]}
+        changes.append({"address": address, "change": change})
     return {
         "format_version": "1.2",
-        "resource_changes": [
-            {"address": address, "change": {"actions": change}}
-            for address, change in actions.items()
-        ],
+        "complete": True,
+        "errored": False,
+        "applyable": any(value != ["no-op"] for value in actions.values()) or importing is not None,
+        "resource_changes": changes,
+        "resource_drift": [],
+        "deferred_changes": [],
+        "output_changes": {},
+        "checks": [{"status": "pass"}],
     }
 
 
@@ -71,6 +95,111 @@ def test_handoff_files_use_destroy_false_and_exact_rollback_imports(tmp_path: Pa
     assert all(path.stat().st_mode & 0o777 == 0o600 for path in (release_path, rollback_path))
 
 
+def rendered_manifests() -> list[dict[str, object]]:
+    return [
+        {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {"name": "core-control-plane", "namespace": "fdai-runtime"},
+            "spec": {"template": {}},
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {"name": "core-control-plane", "namespace": "fdai-runtime"},
+            "spec": {"ports": []},
+        },
+        {
+            "apiVersion": "batch/v1",
+            "kind": "CronJob",
+            "metadata": {"name": "inventory", "namespace": "fdai-runtime"},
+            "spec": {"schedule": "0 * * * *"},
+        },
+        {
+            "apiVersion": "autoscaling/v2",
+            "kind": "HorizontalPodAutoscaler",
+            "metadata": {"name": "core-control-plane", "namespace": "fdai-runtime"},
+            "spec": {"minReplicas": 1},
+        },
+    ]
+
+
+def native_scope() -> dict[str, object]:
+    return {
+        "installation_id": "installation-alpha",
+        "entity_id": "fdai-workloads",
+        "product": "fdai",
+        "namespace": "fdai-runtime",
+        "components": ["core-control-plane"],
+        "service_components": ["core-control-plane"],
+        "scheduled_components": ["inventory"],
+        "autoscaled_components": ["core-control-plane"],
+    }
+
+
+def test_builds_exact_inventory_and_private_operator_inputs(tmp_path: Path) -> None:
+    inventory = build_handoff_inventory(native_scope(), rendered_manifests())
+
+    assert len(read_handoff_inventory(inventory)) == 4
+    variables = inventory["terraform_variables"]
+    assert isinstance(variables, dict)
+    assert variables["deployments"] == {"core-control-plane": "fdai-runtime/core-control-plane"}
+    assert variables["horizontal_pod_autoscalers"] == {
+        "core-control-plane": "fdai-runtime/core-control-plane"
+    }
+
+    paths = write_handoff_operator_inputs(tmp_path, native_scope(), rendered_manifests())
+    assert all(path.stat().st_mode & 0o777 == 0o600 for path in paths)
+    commands = paths[2].read_text(encoding="utf-8")
+    assert "hub-workload-state-handoff/release" in commands
+    assert "<rollback-import-plan>" in commands
+    assert "--phase zero-change" in commands
+
+
+def test_inventory_rejects_scope_or_digest_drift() -> None:
+    with pytest.raises(ValueError, match="differs from the native scope"):
+        build_handoff_inventory(native_scope(), rendered_manifests()[:-1])
+
+    inventory = build_handoff_inventory(native_scope(), rendered_manifests())
+    inventory["namespace"] = "other"
+    with pytest.raises(ValueError, match="inventory is invalid"):
+        read_handoff_inventory(inventory)
+
+
+def test_exact_import_release_and_zero_change_plan_phases() -> None:
+    expected = objects()
+    import_ids = {item.address: item.import_id for item in expected}
+    import_receipt = verify_handoff_plan(
+        plan(
+            {item.address: ["no-op"] for item in expected},
+            importing=import_ids,
+        ),
+        expected,
+        phase="import",
+        inventory_digest=DIGEST,
+    )
+    release_receipt = verify_handoff_plan(
+        plan({item.address: ["forget"] for item in expected}),
+        expected,
+        phase="release",
+        inventory_digest=DIGEST,
+    )
+    zero_receipt = verify_handoff_plan(
+        plan({item.address: ["no-op"] for item in expected}),
+        expected,
+        phase="zero-change",
+        inventory_digest=DIGEST,
+    )
+
+    assert import_receipt["state_effect"] == "import-only"
+    assert release_receipt["state_effect"] == "forgotten-without-destroy"
+    assert zero_receipt["state_effect"] == "zero-change"
+    assert all(
+        receipt["live_mutation_authorized"] is False
+        for receipt in (import_receipt, release_receipt, zero_receipt)
+    )
+
+
 def test_exact_forget_and_zero_change_plans_create_receipt() -> None:
     expected = objects()
     release = plan({item.address: ["forget"] for item in expected})
@@ -93,7 +222,7 @@ def test_exact_forget_and_zero_change_plans_create_receipt() -> None:
     [
         (["delete"], ["no-op"], "forget-only"),
         (["update"], ["no-op"], "forget-only"),
-        (["forget"], ["update"], "zero-change"),
+        (["forget"], ["update"], "metadata|zero-change"),
     ],
 )
 def test_handoff_plan_rejects_destroy_update_or_rollback_drift(
@@ -122,7 +251,7 @@ def test_handoff_plan_rejects_unknown_or_missing_object() -> None:
         }
     )
 
-    with pytest.raises(ValueError, match="forget-only"):
+    with pytest.raises(ValueError, match="inventory differs"):
         verify_handoff_plans(
             release,
             rollback,
@@ -144,4 +273,50 @@ def test_rollback_plan_requires_agent_reconciliation_release() -> None:
             rollback,
             expected,
             adoption_release=invalid,
+        )
+
+
+@pytest.mark.parametrize(
+    ("phase", "damage", "message"),
+    [
+        ("import", "changed-id", "import-only"),
+        ("release", "delete", "forget-only"),
+        ("zero-change", "missing", "inventory differs"),
+        ("zero-change", "drift", "metadata"),
+        ("zero-change", "move", "resource change"),
+    ],
+)
+def test_plan_verifier_rejects_unsafe_or_incomplete_plans(
+    phase: str,
+    damage: str,
+    message: str,
+) -> None:
+    expected = objects()
+    import_ids = {item.address: item.import_id for item in expected}
+    if phase == "import":
+        candidate = plan(
+            {item.address: ["no-op"] for item in expected},
+            importing=import_ids,
+        )
+    elif phase == "release":
+        candidate = plan({item.address: ["forget"] for item in expected})
+    else:
+        candidate = plan({item.address: ["no-op"] for item in expected})
+    if damage == "changed-id":
+        candidate["resource_changes"][0]["change"]["importing"]["id"] = "other"
+    elif damage == "delete":
+        candidate["resource_changes"][0]["change"]["actions"] = ["delete"]
+    elif damage == "missing":
+        candidate["resource_changes"].pop()
+    elif damage == "drift":
+        candidate["resource_drift"] = [{"address": expected[0].address}]
+    else:
+        candidate["resource_changes"][0]["previous_address"] = "old.address"
+
+    with pytest.raises(ValueError, match=message):
+        verify_handoff_plan(
+            candidate,
+            expected,
+            phase=phase,
+            inventory_digest=DIGEST,
         )

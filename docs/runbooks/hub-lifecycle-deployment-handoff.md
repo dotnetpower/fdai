@@ -124,6 +124,34 @@ It carries immutable images, product/version/source/platform and optional existi
 not private templates. Preserve detached signatures over exact bytes and the existing canonical
 digest convention when publishing and staging.
 
+## Reconstruct workload state without changing workloads
+
+`generate-runtime-bundle` now writes three owner-only handoff files beside the bundle:
+
+| File | Purpose |
+|------|---------|
+| `workload-handoff-inventory.json` | Digest-bound Terraform address, exact `namespace/name` import ID, and render digest for every approved object |
+| `workload-handoff.tfvars.json` | Complete Deployment, Service, CronJob, and HorizontalPodAutoscaler maps for the handoff roots |
+| `workload-handoff-commands.txt` | Initial import, zero-change check, forget-only release, rollback import, and final zero-change commands |
+
+Use this path only when the retained workloads state is unavailable. Keep one new private absolute
+local backend path and use it for every command in the generated sequence. Start with `umask 077`
+so plan JSON and receipts remain owner-only. Supply the exact private
+kubeconfig and context separately. Review `terraform show -json` through
+`verify-workload-handoff-plan` before every apply.
+
+The first import plan may contain only exact import records with `no-op` actions. Apply it, then
+require the next plan to return Terraform detailed exit code 0 and pass the `zero-change` verifier.
+The release plan may contain only `forget` actions for the same digest-bound inventory. Its
+`removed` blocks all set `destroy = false`, so the apply releases state ownership without deleting
+live objects. Don't continue if a plan contains create, update, delete, replace, drift, a moved
+address, a deferred change, or an unapproved import ID.
+
+For rollback, first retain the Agent's reconciliation-release receipt. Reuse the same import root,
+input file, and absolute backend path. Verify the exact rollback import plan, apply it, then require a second
+zero-change plan. Only after that receipt exists may the installation release its Hub ownership
+marker. Never edit a state file or use `terraform state rm` as a substitute.
+
 ## Execute without an invisible helper
 
 1. Follow the existing guide to enroll and accept installation identity. Do not regenerate the

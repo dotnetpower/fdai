@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: e75b8d231216abf8b9169d6e2d89d83151b7079d
+translation_source_sha: b17114f91ab234da269b20ff46b2082b38581a70
 translation_revised: 2026-10-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -715,6 +715,13 @@ migration은 URL로 인코딩된 자격 증명을 안전하게 보존하고 격�
 - [x] 초기 의미 기준선 - 서명된 정확한 리비전 번들의 스키마 유효 범용 카탈로그 항목 전체이며 [구독 초기 구성 매니페스트](subscription-genesis-provisioning-ko.md#데이터베이스-및-의미-초기-구성)에서 열거합니다.
 - [x] Core -> Isolated 실행기 **목표 경계** - 5개 서비스 프로그램에 필수이며 권한
   전환은 모든 binary 게이트와 롤백 증적을 기다립니다.
+
+## Hub 워크로드 상태 인수인계
+
+기존 AKS 워크로드 상태 스냅샷을 사용할 수 없으면 Hub 인수인계 흐름은 승인된 Deployment,
+Service, HorizontalPodAutoscaler, CronJob 재고를 비공개 상태 계보로 정확히 가져옵니다.
+별도의 forget-only 해제 계획은 실제 객체 삭제가 0임을 입증해야 합니다. 롤백은 생성된
+가져오기 선언을 사용하고 마지막 변경 없음 계획을 요구합니다.
 
 ## 관련 문서
 

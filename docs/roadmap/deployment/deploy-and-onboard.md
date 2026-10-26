@@ -687,6 +687,13 @@ monthly envelope they produce. This heading remains as a stable target for exist
 - [x] Core -> Isolated Executor **target boundary** - required for the five-service program;
   authority cutover waits for every binary gate and rollback receipt.
 
+## Hub workload state handoff
+
+When an existing AKS workload state snapshot is unavailable, the Hub handoff workflow imports the
+exact approved Deployment, Service, HorizontalPodAutoscaler and CronJob inventory into a private
+state lineage. A separate forget-only release plan must prove zero live destruction. Rollback uses
+the generated import declarations and requires a final zero-change plan.
+
 ## Related docs
 
 | To learn about | Read |

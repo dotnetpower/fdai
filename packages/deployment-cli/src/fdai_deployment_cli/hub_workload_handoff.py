@@ -1,40 +1,100 @@
-"""Exact Terraform state-release and rollback-import contract for Hub workload handoff."""
+"""Exact Terraform import, state-release, and rollback contract for Hub workload handoff."""
 
 from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
+from fdai_deployment_cli.hub_workload_handoff_inputs import (
+    INVENTORY_SCHEMA,
+    WorkloadStateObject,
+    build_handoff_inventory,
+    read_handoff_inventory,
+    write_handoff_operator_inputs,
+)
 from fdai_deployment_cli.private_output import write_private_bytes
 
 TRANSITION_SCHEMA = "fdai.hub-workload-state-transition.v1"
 RECEIPT_SCHEMA = "fdai.hub-workload-state-transition-receipt.v1"
 ADOPTION_RELEASE_SCHEMA = "fdai.runtime-adoption-release.v1"
-_ADDRESS = re.compile(
-    r"kubernetes_(?:deployment_v1|service_v1|cron_job_v1|horizontal_pod_autoscaler_v2)"
-    r"\.[a-z][a-z0-9_]*(?:\[[\"'][a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?[\"']\])?\Z",
-    re.ASCII,
-)
-_IMPORT_ID = re.compile(r"[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?/[A-Za-z0-9._/-]{1,253}\Z")
+PLAN_RECEIPT_SCHEMA = "fdai.hub-workload-plan-verification.v1"
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z", re.ASCII)
 
+__all__ = [
+    "WorkloadStateObject",
+    "build_handoff_inventory",
+    "read_handoff_inventory",
+    "verify_handoff_plan",
+    "verify_handoff_plans",
+    "write_handoff_operator_inputs",
+    "write_handoff_terraform_files",
+]
 
-@dataclass(frozen=True, slots=True)
-class WorkloadStateObject:
-    address: str
-    import_id: str
-    render_digest: str
 
-    def __post_init__(self) -> None:
-        if (
-            _ADDRESS.fullmatch(self.address) is None
-            or _IMPORT_ID.fullmatch(self.import_id) is None
-            or _DIGEST.fullmatch(self.render_digest) is None
+def verify_handoff_plan(
+    plan: Mapping[str, object],
+    objects: Sequence[WorkloadStateObject],
+    *,
+    phase: str,
+    inventory_digest: str,
+) -> dict[str, object]:
+    """Verify an exact import, forget-only release, or post-import zero-change plan."""
+
+    if (
+        phase not in {"import", "release", "zero-change"}
+        or _DIGEST.fullmatch(inventory_digest) is None
+    ):
+        raise ValueError("Hub handoff plan verification inputs are invalid")
+    expected = {item.address: item for item in objects}
+    if not expected or len(expected) != len(objects):
+        raise ValueError("Hub handoff plan objects must be unique")
+    _plan_header(plan, applyable=phase != "zero-change")
+    changes = _plan_changes(plan)
+    if set(changes) != set(expected):
+        raise ValueError(f"Hub handoff {phase} plan inventory differs")
+    for address, change in changes.items():
+        actions = change.get("actions")
+        importing = change.get("importing")
+        if phase == "import":
+            if (
+                actions != ["no-op"]
+                or not isinstance(importing, Mapping)
+                or importing.get("id") != expected[address].import_id
+                or change.get("before") is not None
+            ):
+                raise ValueError("Hub handoff import plan is not exact import-only")
+        elif phase == "release":
+            if (
+                actions != ["forget"]
+                or importing is not None
+                or change.get("before") is None
+                or change.get("after") is not None
+            ):
+                raise ValueError("Hub handoff release plan is not exact forget-only")
+        elif (
+            actions != ["no-op"]
+            or importing is not None
+            or "before" not in change
+            or change.get("before") != change.get("after")
         ):
-            raise ValueError("Hub workload state object is invalid")
+            raise ValueError("Hub handoff plan is not zero-change")
+    body: dict[str, object] = {
+        "schema_version": PLAN_RECEIPT_SCHEMA,
+        "phase": phase,
+        "inventory_digest": inventory_digest,
+        "plan_digest": "sha256:" + canonical_digest(plan),
+        "object_count": len(expected),
+        "live_mutation_authorized": False,
+        "state_effect": {
+            "import": "import-only",
+            "release": "forgotten-without-destroy",
+            "zero-change": "zero-change",
+        }[phase],
+    }
+    return body | {"receipt_digest": "sha256:" + canonical_digest(body)}
 
 
 def write_handoff_terraform_files(
@@ -93,21 +153,31 @@ def verify_handoff_plans(
 ) -> dict[str, object]:
     """Require exact forget-only release and zero-change rollback plans."""
 
-    expected = {item.address for item in objects}
-    if not expected or len(expected) != len(objects):
-        raise ValueError("Hub handoff plan objects must be unique")
     adoption_release_digest = _adoption_release_digest(adoption_release)
-    release_changes = _changes(release_plan)
-    if set(release_changes) != expected or any(
-        actions != ("forget",) for actions in release_changes.values()
-    ):
-        raise ValueError("Hub handoff release plan is not exact forget-only")
-    rollback_changes = _changes(rollback_plan)
-    if any(actions != ("no-op",) for actions in rollback_changes.values()):
-        raise ValueError("Hub handoff rollback plan is not zero-change")
-    unexpected = set(rollback_changes) - expected
-    if unexpected:
-        raise ValueError("Hub handoff rollback plan contains unknown objects")
+    inventory_body = {
+        "schema_version": INVENTORY_SCHEMA,
+        "objects": [
+            {
+                "address": item.address,
+                "import_id": item.import_id,
+                "render_digest": item.render_digest,
+            }
+            for item in sorted(objects, key=lambda value: value.address)
+        ],
+    }
+    inventory_digest = "sha256:" + canonical_digest(inventory_body)
+    release_verification = verify_handoff_plan(
+        release_plan,
+        objects,
+        phase="release",
+        inventory_digest=inventory_digest,
+    )
+    rollback_verification = verify_handoff_plan(
+        rollback_plan,
+        objects,
+        phase="zero-change",
+        inventory_digest=inventory_digest,
+    )
     body: dict[str, object] = {
         "schema_version": RECEIPT_SCHEMA,
         "objects": [
@@ -120,6 +190,8 @@ def verify_handoff_plans(
         ],
         "release_plan_digest": "sha256:" + canonical_digest(release_plan),
         "rollback_plan_digest": "sha256:" + canonical_digest(rollback_plan),
+        "release_verification_digest": release_verification["receipt_digest"],
+        "rollback_verification_digest": rollback_verification["receipt_digest"],
         "adoption_release_receipt_digest": adoption_release_digest,
         "release_state": "forgotten-without-destroy",
         "rollback_state": "zero-change",
@@ -143,22 +215,49 @@ def _adoption_release_digest(receipt: Mapping[str, object]) -> str:
     return digest
 
 
-def _changes(plan: Mapping[str, object]) -> dict[str, tuple[str, ...]]:
-    changes = plan.get("resource_changes", [])
+def _plan_header(plan: Mapping[str, object], *, applyable: bool) -> None:
+    if (
+        plan.get("format_version") not in {"1.1", "1.2"}
+        or plan.get("complete") is not True
+        or plan.get("errored") is not False
+        or plan.get("applyable") is not applyable
+        or plan.get("resource_drift", []) != []
+        or plan.get("deferred_changes", []) != []
+    ):
+        raise ValueError("Hub handoff plan metadata is invalid")
+    output_changes = plan.get("output_changes", {})
+    if not isinstance(output_changes, Mapping):
+        raise ValueError(  # noqa: TRY004 - normalize untrusted plan JSON
+            "Hub handoff plan outputs are invalid"
+        )
+    if phase_changes := [
+        value
+        for value in output_changes.values()
+        if not isinstance(value, Mapping) or value.get("actions") != ["no-op"]
+    ]:
+        raise ValueError(f"Hub handoff plan contains {len(phase_changes)} output changes")
+    checks = plan.get("checks", [])
+    if not isinstance(checks, list) or any(
+        not isinstance(check, Mapping) or check.get("status") != "pass" for check in checks
+    ):
+        raise ValueError("Hub handoff plan checks must pass")
+
+
+def _plan_changes(plan: Mapping[str, object]) -> dict[str, dict[str, Any]]:
+    changes = plan.get("resource_changes")
     if not isinstance(changes, list):
-        raise ValueError("Terraform plan resource changes are invalid")
-    parsed: dict[str, tuple[str, ...]] = {}
+        raise ValueError(  # noqa: TRY004 - normalize untrusted plan JSON
+            "Terraform plan resource changes are invalid"
+        )
+    result: dict[str, dict[str, Any]] = {}
     for item in changes:
         if (
             not isinstance(item, Mapping)
-            or not isinstance(item.get("address"), str)
+            or not isinstance(address := item.get("address"), str)
+            or item.get("previous_address") is not None
             or not isinstance(change := item.get("change"), Mapping)
-            or not isinstance(actions := change.get("actions"), list)
-            or not all(isinstance(action, str) for action in actions)
+            or address in result
         ):
             raise ValueError("Terraform plan resource change is invalid")
-        address = str(item["address"])
-        if address in parsed:
-            raise ValueError("Terraform plan resource addresses must be unique")
-        parsed[address] = tuple(str(action) for action in actions)
-    return parsed
+        result[address] = dict(change)
+    return result
