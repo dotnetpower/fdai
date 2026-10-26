@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 07106461049c3129f14367fc80957b0e729acb70
+translation_source_sha: 3165de2d342935719883608020ee3694de33738a
 translation_revised: 2026-10-27
 ---
 # Hub 관리형 수명 주기
@@ -1144,6 +1144,7 @@ Plan은 기존 혼합 범위 파이프라인으로 7개를 인수하고 9개를 
 
 이전 상태 다이제스트의 1밀리초 미만 정밀도 불일치에 대한 제한된 복구는
 [네이티브 전환 상태 조정](native-transition-state-reconciliation-ko.md)을 참조하세요.
+이 복구는 이전 산출물 순서를 보존하고 중복 없이 정렬된 권위 있는 대상만 생성합니다.
 
 ## 워크로드 렌더링 마이그레이션
 

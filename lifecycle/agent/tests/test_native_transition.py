@@ -26,6 +26,7 @@ from fdai_deployment_cli.lifecycle_native_reconciliation import (
     LegacyNativeScopeTransitionReceipt,
     NativeScopeTransitionStateReconciliationApproval,
     NativeScopeTransitionStateReconciliationReceipt,
+    canonical_transition_reported_state,
     regenerated_transition_receipt_digest,
     sign_transition_state_reconciliation_approval,
     transition_reported_state_digest,
@@ -617,7 +618,7 @@ def _prepare_reconciliation_case(harness, tmp_path: Path):
             "digest": completion.new_reported_state_digest,
         }
     )
-    authoritative = source
+    authoritative = canonical_transition_reported_state(source)
     hub_key = Ed25519PrivateKey.generate()
     hub_public = hub_key.public_key().public_bytes_raw()
     approval = NativeScopeTransitionStateReconciliationApproval(

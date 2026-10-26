@@ -33,19 +33,29 @@ Validation uses two independent canonical forms:
 - The Hub completion receipt must reproduce its own `receipt_digest`. Its state digest uses the
   immutable receipt's full-precision `completed_at`, and its transition-receipt digest must
   reproduce the same receipt fields with only that full-precision state digest substituted.
+- A legacy reported-state source retains the stored `available_artifact_digests` sequence,
+  including order and duplicates, and must reproduce its own digest from those exact canonical
+  bytes. Parsing this source never normalizes its sequence or replaces its digest.
 
-The local millisecond state and Hub full-precision state must have identical non-time fields. The
-positive difference from the local `observed_at` to the immutable receipt's `completed_at` must be
-no more than one millisecond. Installation, Entity, scope, UID inventory, execution identity, and
-the exact completion audit must also match. Any other difference, altered digest, concurrent state,
-different retry, or missing audit blocks approval.
+The local millisecond state and Hub full-precision source must have identical non-artifact fields
+and equivalent artifact multisets. Artifact order can differ, but each digest must have the same
+duplicate count. The positive difference from the local `observed_at` to the immutable receipt's
+`completed_at` must be no more than one millisecond. Installation, Entity, scope, UID inventory,
+execution identity, and the exact completion audit must also match. Any other difference, altered
+digest, concurrent state, different retry, or missing audit blocks approval.
+
+The authoritative replacement preserves the source's semantic artifact inventory while
+deterministically sorting and deduplicating `available_artifact_digests`. Its contract remains
+strict: an unsorted or duplicate target is invalid. The Hub computes a new target digest without
+changing the signed legacy source or its stored digest.
 
 ## Agent reconciliation
 
-The Hub signs the exact full-precision source and authoritative replacement. Under the Agent state lock,
-`reconcile-native-transition-state` verifies that signature, the immutable receipt, scope, UID
-inventory, current state, and absence of an unreported Plan or active journal. It retains the
-original bytes in an immutable rollback record and atomically replaces only current state.
+The Hub signs the exact full-precision legacy source and the strict authoritative replacement.
+Under the Agent state lock, `reconcile-native-transition-state` verifies that signature, the
+immutable receipt, artifact inventory equivalence, scope, UID inventory, current state, and absence
+of an unreported Plan or active journal. It retains the original bytes in an immutable rollback
+record and atomically replaces only current state.
 
 The Agent submits the signed replacement through its `Agent.Access` workload identity. The Hub
 rejects identity or state drift, appends the canonical state and hash-chained audit, and returns the

@@ -7,24 +7,23 @@ from datetime import datetime, timedelta
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_native_reconciliation import (
+    LegacyNativeScopeTransitionReportedState,
     NativeScopeTransitionStateReconciliationApproval,
     NativeScopeTransitionStateReconciliationCompletion,
     NativeScopeTransitionStateReconciliationReceipt,
     NativeScopeTransitionStateReconciliationRequest,
     SignedNativeScopeTransitionStateReconciliationApproval,
+    canonical_transition_reported_state,
     regenerated_transition_receipt_digest,
     same_transition_state_fields,
     sign_transition_state_reconciliation_approval,
     transition_reported_state_digest,
 )
-from fdai_deployment_cli.lifecycle_native_transition import (
-    NativeScopeTransitionReportedState,
-    existing_resources_digest,
-)
+from fdai_deployment_cli.lifecycle_native_transition import existing_resources_digest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from fdai_lifecycle_hub import audit, domain, mapping, models, rows, schemas
+from fdai_lifecycle_hub import audit, mapping, models, rows, schemas
 from fdai_lifecycle_hub.migrations import require_schema
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
@@ -91,18 +90,19 @@ class NativeTransitionReconciliationStore:
                 raise NativeTransitionReconciliationError(
                     "native_transition_reconciliation_plan_pending"
                 )
-            source = _reported_state_model(installation.reported)
+            try:
+                source = _reported_state_model(session, row)
+            except ValueError as error:
+                raise NativeTransitionReconciliationError(
+                    "native_transition_reconciliation_source_state_invalid"
+                ) from error
             completion_audit = self._validate_evidence(
                 session,
                 installation_id,
                 request,
                 source,
             )
-            authoritative = source.model_copy(
-                update={
-                    "digest": transition_reported_state_digest(source),
-                }
-            )
+            authoritative = canonical_transition_reported_state(source)
             approval = NativeScopeTransitionStateReconciliationApproval(
                 schema_version=(
                     "fdai.lifecycle-native-transition-state-reconciliation-approval.v1"
@@ -220,7 +220,12 @@ class NativeTransitionReconciliationStore:
                 raise NativeTransitionReconciliationError(
                     "native_transition_reconciliation_approval_not_audited"
                 )
-            current = _reported_state_model(installation.reported)
+            try:
+                current = _reported_state_model(session, row)
+            except ValueError as error:
+                raise NativeTransitionReconciliationError(
+                    "native_transition_reconciliation_concurrent_state"
+                ) from error
             if (
                 current != approval.source_hub_reported_state
                 or command.reported_state != approval.authoritative_reported_state
@@ -290,7 +295,7 @@ class NativeTransitionReconciliationStore:
         session: Session,
         installation_id: str,
         request: NativeScopeTransitionStateReconciliationRequest,
-        source: NativeScopeTransitionReportedState,
+        source: LegacyNativeScopeTransitionReportedState,
     ) -> models.AuditRecord:
         local = request.transition_receipt
         completed = request.completion_receipt
@@ -390,10 +395,34 @@ class NativeTransitionReconciliationStore:
         return completion
 
 
-def _reported_state_model(state: domain.ReportedState) -> NativeScopeTransitionReportedState:
-    return NativeScopeTransitionReportedState.model_validate_json(
-        canonical_bytes(schemas.reported_state_json.dump_python(state, mode="json"))
-    )
+def _reported_state_model(
+    session: Session,
+    row: models.Installation,
+) -> LegacyNativeScopeTransitionReportedState:
+    latest = session.scalars(
+        row.state_reports.select()
+        .order_by(
+            models.StateReport.observed_at.desc(),
+            models.StateReport.id.desc(),
+        )
+        .limit(1)
+    ).one()
+    document: dict[str, object] = {
+        "digest": latest.digest,
+        "schema_revision": latest.schema_revision,
+        "entities": {
+            state.entity_id: {
+                "release_id": state.release_id,
+                "artifact_digests": list(state.artifact_digests),
+                "health": state.health,
+            }
+            for state in sorted(latest.entity_states, key=lambda item: item.entity_id)
+        },
+        "observed_at": latest.observed_at.isoformat().replace("+00:00", "Z"),
+    }
+    if latest.available_artifact_digests is not None:
+        document["available_artifact_digests"] = list(latest.available_artifact_digests)
+    return LegacyNativeScopeTransitionReportedState.model_validate_json(canonical_bytes(document))
 
 
 def _reconciliation_receipt(

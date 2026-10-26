@@ -1149,6 +1149,7 @@ one-way transition into an unreviewed reverse handoff.
 
 For the bounded recovery of a legacy sub-millisecond state-digest split, see
 [Native transition state reconciliation](native-transition-state-reconciliation.md).
+It preserves legacy artifact ordering while producing a unique, sorted authoritative target.
 
 ## Workload rendering migration
 
