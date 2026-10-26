@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance, SignedNativeScope
-from fdai_deployment_cli.lifecycle_native_transition import SignedNativeScopeTransitionRequest
+from fdai_deployment_cli.lifecycle_native_transition import (
+    NativeScopeTransitionCompletion,
+    SignedNativeScopeTransitionRequest,
+)
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -104,6 +107,42 @@ def native_ownership_routes(
             return JSONResponse({"error": str(error)}, status_code=409)
         return JSONResponse(result.model_dump(mode="json"))
 
+    async def complete_transition(request: Request) -> Response:
+        from fdai_lifecycle_hub.api import _read_limited
+
+        principal = getattr(request.state, "principal", None)
+        if not authenticated or not principal or getattr(request.state, "operator", None):
+            return JSONResponse({"error": "authenticated_agent_required"}, status_code=403)
+        if transition_key is None:
+            return JSONResponse({"error": "native_transition_signing_unavailable"}, status_code=503)
+        body = await _read_limited(request, 64 * 1024)
+        if body is None:
+            return JSONResponse(
+                {"error": "native_transition_completion_too_large"}, status_code=413
+            )
+        try:
+            load_json_object(
+                body,
+                label="native transition completion",
+                max_bytes=64 * 1024,
+                strict=True,
+            )
+            command = NativeScopeTransitionCompletion.model_validate_json(body)
+        except ValueError:
+            return JSONResponse({"error": "native_transition_completion_invalid"}, status_code=422)
+        try:
+            result = await run_in_threadpool(
+                NativeTransitionStore(store).complete,
+                request.path_params["installation_id"],
+                command,
+                principal=principal,
+                now=clock(),
+                key=transition_key,
+            )
+        except NativeTransitionError as error:
+            return JSONResponse({"error": str(error)}, status_code=409)
+        return JSONResponse(result.model_dump(mode="json"))
+
     return [
         Route(
             "/v1/installations/{installation_id}/native-proofs",
@@ -118,6 +157,11 @@ def native_ownership_routes(
         Route(
             "/v1/installations/{installation_id}/native-transition-approval",
             approve_transition,
+            methods=["POST"],
+        ),
+        Route(
+            "/v1/installations/{installation_id}/native-transition-completion",
+            complete_transition,
             methods=["POST"],
         ),
     ]

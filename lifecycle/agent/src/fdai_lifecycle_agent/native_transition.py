@@ -7,7 +7,7 @@ import hashlib
 import json
 import os
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -218,7 +218,7 @@ def transition_native_scope(
                     "recovery_request_digest": request.recovery_request_digest,
                     "existing_resources_digest": request.existing_resources_digest,
                     "rollback_record_digest": rollback["record_digest"],
-                    "completed_at": now.isoformat(),
+                    "completed_at": now.astimezone(UTC).isoformat().replace("+00:00", "Z"),
                 }
             )
             _write_new_record(state_dir / RECEIPT_FILE_NAME, receipt)

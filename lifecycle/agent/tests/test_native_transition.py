@@ -406,6 +406,7 @@ def test_transition_command_wires_verified_inputs_without_printing_proofs(
         )
     )
 
+    completions = []
     result = main(
         [
             "transition-native-scope",
@@ -427,15 +428,25 @@ def test_transition_command_wires_verified_inputs_without_printing_proofs(
             str(hub_key.hub_key_epoch),
             "--installation-public-key",
             str(installation_public_path),
+            "--hub-url",
+            "https://hub.example.test",
+            "--hub-scope",
+            "api://hub.example.test/.default",
             "--kube-context",
             "test-context",
         ],
         clock=lambda: case.now,
         connect_cluster=lambda _context, _namespace: case.provider,
+        complete_transition=lambda _arguments, completion: (
+            completions.append(completion) or SimpleNamespace(receipt_digest="sha256:" + "e" * 64)
+        ),
     )
 
     output = capsys.readouterr()
     assert result == 0
     assert '"transitioned": true' in output.out
+    assert '"hub_completion_receipt_digest": "sha256:' in output.out
+    assert len(completions) == 1
+    assert completions[0].reported_state.entities.keys() == {"fdai-workloads"}
     assert case.signed_approval.hub_signature not in output.out + output.err
     assert case.signed_approval.approval.request.installation_proof not in (output.out + output.err)

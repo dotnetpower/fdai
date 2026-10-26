@@ -15,9 +15,16 @@ from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from fdai_deployment_cli.lifecycle_native import NativeScope
-from fdai_deployment_cli.lifecycle_native_transition import SignedNativeScopeTransitionApproval
+from fdai_deployment_cli.lifecycle_native_transition import (
+    NativeScopeTransitionCompletion,
+    NativeScopeTransitionCompletionReceipt,
+    NativeScopeTransitionReceipt,
+    NativeScopeTransitionReportedState,
+    SignedNativeScopeTransitionApproval,
+)
 from fdai_deployment_cli.private_output import write_private_output
 
+from fdai_lifecycle_agent.hub_client import HttpHubClient
 from fdai_lifecycle_agent.journal import HALT_FILE_NAME, WORKLOAD_FILE_NAME
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import NativeCluster, UidCluster
@@ -26,6 +33,7 @@ from fdai_lifecycle_agent.native_transition import (
     prepare_native_transition_request,
     transition_native_scope,
 )
+from fdai_lifecycle_agent.remote_auth import WorkloadIdentityAuthorization
 from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
 from fdai_lifecycle_agent.signatures import load_ed25519_public_key
 from fdai_lifecycle_agent.state import (
@@ -35,6 +43,11 @@ from fdai_lifecycle_agent.state import (
 )
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
 from fdai_lifecycle_agent.workload import Cluster, WorkloadError
+
+type TransitionCompleter = Callable[
+    [argparse.Namespace, NativeScopeTransitionCompletion],
+    NativeScopeTransitionCompletionReceipt,
+]
 
 
 def register_native_command(
@@ -85,6 +98,9 @@ def register_native_command(
     transition.add_argument("--hub-key-id", required=True)
     transition.add_argument("--hub-key-epoch", required=True, type=int)
     transition.add_argument("--installation-public-key", required=True, type=Path)
+    transition.add_argument("--hub-url", required=True)
+    transition.add_argument("--hub-scope", required=True)
+    transition.add_argument("--timeout-seconds", type=float, default=10.0)
     authentication = transition.add_mutually_exclusive_group(required=True)
     authentication.add_argument("--kube-context")
     authentication.add_argument("--in-cluster", action="store_true")
@@ -266,6 +282,7 @@ def run_native_transition_command(
     *,
     clock: Callable[[], datetime],
     connect: Callable[[str | None, str, bool], Cluster],
+    complete: TransitionCompleter,
 ) -> int:
     approval = load_native_approval(arguments.native_approval)
     if arguments.command == "prepare-native-transition":
@@ -309,5 +326,57 @@ def run_native_transition_command(
         ).public_bytes_raw(),
         now=clock(),
     )
-    print(json.dumps({"transitioned": True, "receipt_digest": receipt["record_digest"]}))
+    try:
+        state_document = load_json(
+            read_limited(
+                arguments.current_state,
+                limit=1024 * 1024,
+                label="native transition reported state",
+            ),
+            label="native transition reported state",
+        )
+        completion = NativeScopeTransitionCompletion(
+            schema_version="fdai.lifecycle-native-transition-completion.v1",
+            approval=hub_approval,
+            transition_receipt=NativeScopeTransitionReceipt.model_validate_json(
+                json.dumps(receipt)
+            ),
+            native_approval=approval,
+            reported_state=NativeScopeTransitionReportedState.model_validate_json(
+                json.dumps(state_document)
+            ),
+        )
+    except ValueError as error:
+        raise WorkloadError("native_transition_completion_invalid") from error
+    hub_receipt = complete(arguments, completion)
+    print(
+        json.dumps(
+            {
+                "transitioned": True,
+                "receipt_digest": receipt["record_digest"],
+                "hub_completion_receipt_digest": hub_receipt.receipt_digest,
+            }
+        )
+    )
     return 0
+
+
+def complete_native_transition(
+    arguments: argparse.Namespace,
+    completion: NativeScopeTransitionCompletion,
+) -> NativeScopeTransitionCompletionReceipt:
+    """Submit the committed local receipt under the Agent's workload identity."""
+
+    authorization = WorkloadIdentityAuthorization(arguments.hub_scope)
+    try:
+        with HttpHubClient(
+            arguments.hub_url,
+            timeout_seconds=arguments.timeout_seconds,
+            authorization=authorization,
+        ) as hub:
+            return hub.submit_native_transition_completion(
+                completion.transition_receipt.installation_id,
+                completion,
+            )
+    finally:
+        authorization.close()

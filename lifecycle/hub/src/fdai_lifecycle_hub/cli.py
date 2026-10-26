@@ -19,6 +19,7 @@ from uuid import UUID
 
 from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
 from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance
+from fdai_deployment_cli.lifecycle_native_transition import NativeScopeTransitionCompletion
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 from fdai_deployment_cli.private_output import write_private_bytes
 from sqlalchemy.engine import Connection
@@ -32,8 +33,10 @@ from fdai_lifecycle_hub.errors import HubStoreError, SchemaMismatchError
 from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.native_ownership import NativeOwnershipStore
 from fdai_lifecycle_hub.native_proofs import NativeProofStore
+from fdai_lifecycle_hub.native_transition import NativeTransitionStore
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import (
+    HubSigningKey,
     generate_development_key,
     load_private_key,
     load_public_key,
@@ -139,6 +142,17 @@ def _parser() -> argparse.ArgumentParser:
     native.add_argument("--reason")
     native.add_argument("--confirmation")
     native.add_argument("--operator", required=True)
+
+    complete_transition = command(
+        "complete-native-transition",
+        _complete_native_transition,
+        "atomically finalize an Agent-completed native scope transition",
+    )
+    complete_transition.add_argument("installation_id")
+    complete_transition.add_argument("path", type=Path)
+    complete_transition.add_argument("--agent-principal", required=True)
+    complete_transition.add_argument("--key", type=Path)
+    complete_transition.add_argument("--key-epoch", type=int, default=1)
 
     binding = command(
         "bind-application", _bind_application, "bind an application with a private operator request"
@@ -379,6 +393,47 @@ def _accept_native_ownership(args: argparse.Namespace) -> int:
     )
     _print({"accepted": True, "changed": result["changed"]})
     return 0
+
+
+def _complete_native_transition(args: argparse.Namespace) -> int:
+    try:
+        with args.path.open("rb") as handle:
+            body = handle.read(64 * 1024 + 1)
+        load_json_object(
+            body,
+            label="native transition completion",
+            max_bytes=64 * 1024,
+            strict=True,
+        )
+        command = NativeScopeTransitionCompletion.model_validate_json(body)
+    except (OSError, ValueError) as error:
+        raise ValueError("native_transition_completion_invalid") from error
+    key = _native_transition_key(args)
+    result = NativeTransitionStore(_store()).complete(
+        args.installation_id,
+        command,
+        principal=args.agent_principal,
+        now=domain.utc_now(),
+        key=key,
+    )
+    _print(result.model_dump(mode="json"))
+    return 0
+
+
+def _native_transition_key(args: argparse.Namespace) -> HubSigningKey:
+    if "FDAI_HUB_REMOTE_CONFIG" in os.environ:
+        from fdai_lifecycle_hub.remote import RemoteConfig, remote_key
+
+        try:
+            config = RemoteConfig.model_validate_json(os.environ["FDAI_HUB_REMOTE_CONFIG"])
+        except ValueError:
+            raise ValueError("Trusted Lifecycle CLI remote configuration is invalid.") from None
+        if config.kind != "target" or args.key is not None:
+            raise ValueError("Remote native transition completion uses the configured Hub key.")
+        return remote_key(config.key_epoch)
+    if args.key is None:
+        raise ValueError("Local native transition completion requires --key.")
+    return load_signing_key(args.key, epoch=args.key_epoch)
 
 
 def _bind_application(args: argparse.Namespace) -> int:

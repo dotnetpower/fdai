@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from azure.core.exceptions import AzureError
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fdai_deployment_cli.lifecycle_native_transition import NativeScopeTransitionCompletion
 from fdai_deployment_cli.private_output import read_private_bytes
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Engine, create_engine, event
@@ -236,6 +237,20 @@ class ReviewedCandidate(BaseModel):
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+def require_bound_agent_principal(
+    config: RemoteConfig,
+    installation_id: str,
+    actor: str,
+) -> None:
+    """Require the configured installation Agent for trusted-host completion."""
+
+    if config.auth is None or not any(
+        principal.installation_id == installation_id and principal.object_id == actor
+        for principal in config.auth.agent_principals
+    ):
+        raise ValueError("Native transition completion requires the bound Agent principal.")
+
+
 def background_lifespan(
     original: Any, factories: list[Callable[[], Coroutine[Any, Any, None]]]
 ) -> Callable[[Any], Any]:
@@ -414,6 +429,7 @@ def _run() -> None:
             "publish-release",
             "import-catalog",
             "recompute",
+            "complete-native-transition",
             "install-catalog-root",
         ],
     )
@@ -473,7 +489,12 @@ def _run() -> None:
         ).install_root(root_bytes, actor=actor)
         print(json.dumps(installed, sort_keys=True, separators=(",", ":")))
         return
-    if args.command in {"publish-release", "import-catalog", "recompute"}:
+    if args.command in {
+        "publish-release",
+        "import-catalog",
+        "recompute",
+        "complete-native-transition",
+    }:
         if (args.request is None) == (args.request_env is None):
             raise ValueError("Hub operation requires exactly one private request source.")
         raw = (
@@ -496,6 +517,26 @@ def _run() -> None:
                 ReleasePublicationRequest.model_validate_json(raw),
                 actor=actor,
                 now=utc_now(),
+            )
+        elif args.command == "complete-native-transition":
+            if config.kind != "target":
+                raise ValueError("Native transition completion requires Lifecycle Hub.")
+            require_schema(engine, "lifecycle_hub")
+            from fdai_lifecycle_hub.native_transition import NativeTransitionStore
+
+            command = NativeScopeTransitionCompletion.model_validate_json(raw)
+            installation_id = command.transition_receipt.installation_id
+            require_bound_agent_principal(config, installation_id, actor)
+            receipt = (
+                NativeTransitionStore(HubStore(engine))
+                .complete(
+                    installation_id,
+                    command,
+                    principal=actor,
+                    now=utc_now(),
+                    key=remote_key(config.key_epoch),
+                )
+                .model_dump(mode="json")
             )
         else:
             if config.kind != "target" or config.catalog is None:
