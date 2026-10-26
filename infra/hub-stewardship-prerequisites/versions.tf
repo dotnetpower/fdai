@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.14"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.36"
+    }
   }
 }
 
@@ -18,4 +22,9 @@ provider "azurerm" {
       purge_soft_delete_on_destroy = true
     }
   }
+}
+
+provider "kubernetes" {
+  config_path    = var.kubeconfig_path
+  config_context = var.kubeconfig_context
 }

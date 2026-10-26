@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b17114f91ab234da269b20ff46b2082b38581a70
+translation_source_sha: 83892335046412685e60abc06726a94181674895
 translation_revised: 2026-10-26
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -722,6 +722,9 @@ migration은 URL로 인코딩된 자격 증명을 안전하게 보존하고 격�
 Service, HorizontalPodAutoscaler, CronJob 재고를 비공개 상태 계보로 정확히 가져옵니다.
 별도의 forget-only 해제 계획은 실제 객체 삭제가 0임을 입증해야 합니다. 롤백은 생성된
 가져오기 선언을 사용하고 마지막 변경 없음 계획을 요구합니다.
+선행 조건 루트는 이 재고가 참조하는 신원, 페더레이션 자격 증명, ServiceAccount,
+SecretProviderClass, ConfigMap, 비밀 바인딩만 소유합니다. 관리 대상 Deployment, Service,
+HorizontalPodAutoscaler, CronJob은 만들지 않습니다.
 
 ## 관련 문서
 

@@ -71,23 +71,33 @@ locals {
   identities = {
     ingestion = {
       component       = "document-ingestion-api"
-      identity_suffix = "ingestion"
+      name            = var.identity_names.ingestion
       service_account = "document-ingestion-api"
     }
     worker = {
       component       = "document-ingestion-worker"
-      identity_suffix = "ingestion-worker"
+      name            = var.identity_names.worker
       service_account = "document-processing-worker"
     }
     migration = {
       component       = "document-ingestion-migration"
-      identity_suffix = "ingestion-migration"
+      name            = var.identity_names.migration
       service_account = "fdai-schema-migration"
     }
     notification = {
       component       = "notification-delivery"
-      identity_suffix = "notification"
+      name            = var.identity_names.notification
       service_account = "core-control-plane"
+    }
+    operator_api = {
+      component       = "operator-api"
+      name            = var.identity_names.operator_api
+      service_account = "operator-service"
+    }
+    command = {
+      component       = "operator-command"
+      name            = var.identity_names.command
+      service_account = "operator-service"
     }
   }
 }
@@ -95,20 +105,19 @@ locals {
 module "identity" {
   for_each            = local.identities
   source              = "../modules/identity/user-assigned-mi"
-  name                = "id-fdai-dev-wus3-${each.value.identity_suffix}"
+  name                = each.value.name
   resource_group_name = data.azurerm_resource_group.target.name
   location            = var.location
   tags                = merge(local.tags, { "fdai:component" = each.value.component })
 }
 
 resource "azurerm_federated_identity_credential" "workload" {
-  for_each            = local.identities
-  name                = "fic-${each.value.service_account}"
-  resource_group_name = data.azurerm_resource_group.target.name
-  parent_id           = module.identity[each.key].resource_id
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = data.azurerm_kubernetes_cluster.target.oidc_issuer_url
-  subject             = "system:serviceaccount:${var.namespace}:${each.value.service_account}"
+  for_each  = local.identities
+  name      = "fic-${each.value.service_account}"
+  parent_id = module.identity[each.key].resource_id
+  audience  = ["api://AzureADTokenExchange"]
+  issuer    = data.azurerm_kubernetes_cluster.target.oidc_issuer_url
+  subject   = "system:serviceaccount:${var.namespace}:${each.value.service_account}"
 }
 
 module "document_storage" {
@@ -131,7 +140,7 @@ module "document_storage" {
 module "document_intelligence" {
   source = "../modules/document-intelligence"
 
-  account_name               = "di-fdai-dev-wus3-${var.name_suffix}"
+  account_name               = var.document_intelligence_name
   location                   = var.location
   resource_group_name        = data.azurerm_resource_group.target.name
   private_networking_enabled = true
@@ -142,7 +151,7 @@ module "document_intelligence" {
 module "document_blob_private_endpoint" {
   source = "../modules/private-endpoint"
 
-  name                  = "pe-${var.document_storage_name}-blob"
+  name                  = var.document_blob_private_endpoint_name
   location              = var.location
   resource_group_name   = data.azurerm_resource_group.target.name
   subnet_id             = data.azurerm_subnet.private_endpoints.id
@@ -169,7 +178,7 @@ resource "azurerm_private_dns_a_record" "document_blob_ops" {
 module "document_dfs_private_endpoint" {
   source = "../modules/private-endpoint"
 
-  name                  = "pe-${var.document_storage_name}-dfs"
+  name                  = var.document_dfs_private_endpoint_name
   location              = var.location
   resource_group_name   = data.azurerm_resource_group.target.name
   subnet_id             = data.azurerm_subnet.private_endpoints.id
@@ -184,7 +193,7 @@ module "document_dfs_private_endpoint" {
 module "document_intelligence_private_endpoint" {
   source = "../modules/private-endpoint"
 
-  name                  = "pe-di-fdai-dev-wus3-${var.name_suffix}"
+  name                  = var.document_intelligence_private_endpoint_name
   location              = var.location
   resource_group_name   = data.azurerm_resource_group.target.name
   subnet_id             = data.azurerm_subnet.private_endpoints.id
@@ -288,14 +297,14 @@ resource "azurerm_role_assignment" "ocr_user" {
 }
 
 resource "azurerm_communication_service" "notifications" {
-  name                = "acs-fdai-dev-wus3-${var.name_suffix}"
+  name                = var.communication_service_name
   resource_group_name = data.azurerm_resource_group.target.name
   data_location       = var.email_data_location
   tags                = merge(local.tags, { "fdai:component" = "notification-delivery" })
 }
 
 resource "azurerm_email_communication_service" "notifications" {
-  name                = "ec-fdai-dev-wus3-${var.name_suffix}"
+  name                = var.email_communication_service_name
   resource_group_name = data.azurerm_resource_group.target.name
   data_location       = var.email_data_location
   tags                = merge(local.tags, { "fdai:component" = "notification-delivery" })

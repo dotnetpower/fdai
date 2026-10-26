@@ -693,6 +693,9 @@ When an existing AKS workload state snapshot is unavailable, the Hub handoff wor
 exact approved Deployment, Service, HorizontalPodAutoscaler and CronJob inventory into a private
 state lineage. A separate forget-only release plan must prove zero live destruction. Rollback uses
 the generated import declarations and requires a final zero-change plan.
+The prerequisite root owns only the identities, federated credentials, ServiceAccounts,
+SecretProviderClasses, ConfigMaps and secret bindings that this inventory references. It does not
+create any managed Deployment, Service, HorizontalPodAutoscaler or CronJob.
 
 ## Related docs
 

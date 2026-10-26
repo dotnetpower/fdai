@@ -48,17 +48,54 @@ variable "aks_name" {
   type = string
 }
 
+variable "kubeconfig_path" {
+  description = "Private kubeconfig used only for the reviewed prerequisite objects."
+  type        = string
+  sensitive   = true
+}
+
+variable "kubeconfig_context" {
+  description = "Exact kubeconfig context for the reviewed AKS target."
+  type        = string
+}
+
 variable "namespace" {
   type    = string
   default = "fdai-runtime"
-}
-
-variable "name_suffix" {
-  type = string
 
   validation {
-    condition     = can(regex("^[a-z0-9]{6}$", var.name_suffix))
-    error_message = "name_suffix MUST be exactly six lowercase alphanumeric characters."
+    condition     = can(regex("^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$", var.namespace))
+    error_message = "namespace must be one Kubernetes DNS label."
+  }
+}
+
+variable "tenant_id" {
+  description = "Microsoft Entra tenant used for AKS workload identity."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9a-fA-F-]{36}$", var.tenant_id))
+    error_message = "tenant_id must be a GUID."
+  }
+}
+
+variable "identity_names" {
+  description = "Deployment-owned names for the six prerequisite user-assigned managed identities."
+  type = object({
+    ingestion    = string
+    worker       = string
+    migration    = string
+    notification = string
+    operator_api = string
+    command      = string
+  })
+
+  validation {
+    condition = alltrue([
+      for name in values(var.identity_names) :
+      can(regex("^[A-Za-z0-9_-]{3,128}$", name))
+    ]) && length(toset(values(var.identity_names))) == 6
+    error_message = "identity_names must contain six distinct valid managed identity names."
   }
 }
 
@@ -71,8 +108,81 @@ variable "document_storage_name" {
   }
 }
 
+variable "document_intelligence_name" {
+  type = string
+}
+
+variable "document_blob_private_endpoint_name" {
+  type = string
+}
+
+variable "document_dfs_private_endpoint_name" {
+  type = string
+}
+
+variable "document_intelligence_private_endpoint_name" {
+  type = string
+}
+
+variable "communication_service_name" {
+  type = string
+}
+
+variable "email_communication_service_name" {
+  type = string
+}
+
 variable "deployer_principal_id" {
   type = string
+}
+
+variable "config_map_data" {
+  description = "Exact non-secret runtime environment maps emitted by full-topology generation."
+  type        = map(map(string))
+
+  validation {
+    condition = toset(keys(var.config_map_data)) == toset([
+      "analyzer-job-env",
+      "canary-job-env",
+      "core-control-plane-env",
+      "document-ingestion-api-env",
+      "document-processing-worker-env",
+      "inventory-job-env",
+      "observation-campaign-job-env",
+      "operator-service-env",
+      ]) && alltrue(flatten([
+        for values_by_name in values(var.config_map_data) : [
+          for name, value in values_by_name :
+          can(regex("^[A-Za-z_][A-Za-z0-9_]{0,127}$", name)) &&
+          length(value) <= 4096
+        ]
+    ]))
+    error_message = "config_map_data must contain the exact eight generated environment ConfigMaps with valid entries."
+  }
+}
+
+variable "secret_bindings" {
+  description = "Exact environment variable to Key Vault secret-name bindings emitted by full-topology generation. Values are references, never secret values."
+  type        = map(map(string))
+
+  validation {
+    condition = (
+      toset(keys(var.secret_bindings)) == toset([
+        "document-ingestion-api",
+        "document-processing-worker",
+        "operator-service",
+      ]) &&
+      length(var.secret_bindings["document-ingestion-api"]) == 1 &&
+      var.secret_bindings["document-ingestion-api"]["FDAI_DATABASE_URL"] == "fdai-ingestion-api-dsn" &&
+      length(var.secret_bindings["document-processing-worker"]) == 1 &&
+      var.secret_bindings["document-processing-worker"]["FDAI_DATABASE_URL"] == "fdai-ingestion-worker-dsn" &&
+      length(var.secret_bindings["operator-service"]) == 3 &&
+      var.secret_bindings["operator-service"]["FDAI_COST_PSEUDONYM_KEY"] == "fdai-cost-pseudonym-key" &&
+      var.secret_bindings["operator-service"]["FDAI_DATABASE_URL"] == "fdai-state-store-dsn" &&
+      var.secret_bindings["operator-service"]["FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED"] == "fdai-operator-request-operator-signing-seed"
+    )
+    error_message = "secret_bindings must contain the exact three generated environment-to-Key Vault Secret bindings."
+  }
 }
 
 variable "email_data_location" {
