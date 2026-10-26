@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_enrollment import installation_key_id
@@ -457,7 +457,7 @@ def _reported_state_digest(state: NativeScopeTransitionReportedState) -> str:
             }
             for entity_id, entity in sorted(state.entities.items())
         },
-        "observed_at": state.observed_at.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+        "observed_at": state.observed_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
     }
     if state.available_artifact_digests is not None:
         document["available_artifact_digests"] = list(state.available_artifact_digests)

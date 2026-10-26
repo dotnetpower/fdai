@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 from copy import deepcopy
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -14,6 +16,7 @@ from cryptography.hazmat.primitives.serialization import (
     Encoding,
     PublicFormat,
 )
+from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.lifecycle_native import (
     NativeApproval,
     NativeObjectIdentity,
@@ -21,6 +24,8 @@ from fdai_deployment_cli.lifecycle_native import (
 )
 from fdai_deployment_cli.lifecycle_native_transition import (
     NativeScopeTransitionApproval,
+    NativeScopeTransitionCompletion,
+    NativeScopeTransitionCompletionReceipt,
     hub_key_id,
     sign_transition_approval,
 )
@@ -378,7 +383,7 @@ def test_applying_journal_blocks_transition_before_any_state_change(harness, tmp
     assert not (case.state_dir / ROLLBACK_FILE_NAME).exists()
 
 
-def test_transition_command_wires_verified_inputs_without_printing_proofs(
+def test_transition_command_reuses_exact_timestamp_across_restart_retry(
     harness, tmp_path, capsys
 ) -> None:
     case = _prepare_case(harness, tmp_path)
@@ -406,47 +411,104 @@ def test_transition_command_wires_verified_inputs_without_printing_proofs(
         )
     )
 
-    completions = []
-    result = main(
-        [
-            "transition-native-scope",
-            "--state-dir",
-            str(case.state_dir),
-            "--current-state",
-            str(case.current_path),
-            "--new-native-state",
-            str(case.staged_path),
-            "--native-approval",
-            str(approval_path),
-            "--hub-approval",
-            str(hub_approval_path),
-            "--hub-public-key",
-            str(hub_public_path),
-            "--hub-key-id",
-            hub_key.hub_key_id,
-            "--hub-key-epoch",
-            str(hub_key.hub_key_epoch),
-            "--installation-public-key",
-            str(installation_public_path),
-            "--hub-url",
-            "https://hub.example.test",
-            "--hub-scope",
-            "api://hub.example.test/.default",
-            "--kube-context",
-            "test-context",
-        ],
-        clock=lambda: case.now,
-        connect_cluster=lambda _context, _namespace: case.provider,
-        complete_transition=lambda _arguments, completion: (
-            completions.append(completion) or SimpleNamespace(receipt_digest="sha256:" + "e" * 64)
-        ),
+    arguments = [
+        "transition-native-scope",
+        "--state-dir",
+        str(case.state_dir),
+        "--current-state",
+        str(case.current_path),
+        "--new-native-state",
+        str(case.staged_path),
+        "--native-approval",
+        str(approval_path),
+        "--hub-approval",
+        str(hub_approval_path),
+        "--hub-public-key",
+        str(hub_public_path),
+        "--hub-key-id",
+        hub_key.hub_key_id,
+        "--hub-key-epoch",
+        str(hub_key.hub_key_epoch),
+        "--installation-public-key",
+        str(installation_public_path),
+        "--hub-url",
+        "https://hub.example.test",
+        "--hub-scope",
+        "api://hub.example.test/.default",
+        "--kube-context",
+        "test-context",
+    ]
+    transitioned_at = case.now + timedelta(microseconds=619)
+    clock_values = iter((transitioned_at, transitioned_at + timedelta(microseconds=619)))
+    clock_calls = 0
+
+    def advancing_clock() -> datetime:
+        nonlocal clock_calls
+        clock_calls += 1
+        return next(clock_values)
+
+    completions: list[NativeScopeTransitionCompletion] = []
+
+    def capture_completion(
+        _arguments: object,
+        completion: NativeScopeTransitionCompletion,
+    ) -> NativeScopeTransitionCompletionReceipt:
+        completions.append(completion)
+        return cast(
+            NativeScopeTransitionCompletionReceipt,
+            SimpleNamespace(receipt_digest="sha256:" + "e" * 64),
+        )
+
+    def run_transition() -> int:
+        return main(
+            arguments,
+            clock=advancing_clock,
+            connect_cluster=lambda _context, _namespace: case.provider,
+            complete_transition=capture_completion,
+        )
+
+    result = run_transition()
+    persisted_after_first_run = (
+        (case.state_dir / RECEIPT_FILE_NAME).read_bytes(),
+        (case.state_dir / ROLLBACK_FILE_NAME).read_bytes(),
+        case.current_path.read_bytes(),
     )
+    retry_result = run_transition()
 
     output = capsys.readouterr()
     assert result == 0
+    assert retry_result == 0
+    assert clock_calls == 2
     assert '"transitioned": true' in output.out
     assert '"hub_completion_receipt_digest": "sha256:' in output.out
-    assert len(completions) == 1
+    assert len(completions) == 2
+    assert completions[0] == completions[1]
     assert completions[0].reported_state.entities.keys() == {"fdai-workloads"}
+    expected_timestamp = transitioned_at.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    receipt = json.loads((case.state_dir / RECEIPT_FILE_NAME).read_text(encoding="utf-8"))
+    rollback = json.loads((case.state_dir / ROLLBACK_FILE_NAME).read_text(encoding="utf-8"))
+    state = json.loads(case.current_path.read_text(encoding="utf-8"))
+    assert receipt["completed_at"] == expected_timestamp
+    assert rollback["created_at"] == expected_timestamp
+    assert state["observed_at"] == expected_timestamp
+    assert completions[0].transition_receipt.completed_at == transitioned_at
+    assert completions[0].reported_state.observed_at == transitioned_at
+    assert receipt["record_digest"] == "sha256:" + canonical_digest(
+        {key: value for key, value in receipt.items() if key != "record_digest"}
+    )
+    assert rollback["record_digest"] == "sha256:" + canonical_digest(
+        {key: value for key, value in rollback.items() if key != "record_digest"}
+    )
+    assert state["digest"] == canonical_digest(
+        {key: value for key, value in state.items() if key != "digest"}
+    )
+    serialized_completion = completions[0].model_dump_json()
+    assert type(completions[0]).model_validate_json(serialized_completion) == completions[0]
+    assert json.loads(serialized_completion)["reported_state"]["observed_at"] == expected_timestamp
+    assert (
+        (case.state_dir / RECEIPT_FILE_NAME).read_bytes(),
+        (case.state_dir / ROLLBACK_FILE_NAME).read_bytes(),
+        case.current_path.read_bytes(),
+    ) == persisted_after_first_run
     assert case.signed_approval.hub_signature not in output.out + output.err
     assert case.signed_approval.approval.request.installation_proof not in (output.out + output.err)
