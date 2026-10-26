@@ -200,6 +200,25 @@ def test_exact_import_release_and_zero_change_plan_phases() -> None:
     )
 
 
+def test_import_accepts_terraform_1_9_existing_object_readback() -> None:
+    expected = objects()
+    imported = plan(
+        {item.address: ["no-op"] for item in expected},
+        importing={item.address: item.import_id for item in expected},
+    )
+    for resource in imported["resource_changes"]:
+        resource["change"]["before"] = resource["change"]["after"]
+
+    receipt = verify_handoff_plan(
+        imported,
+        expected,
+        phase="import",
+        inventory_digest=DIGEST,
+    )
+
+    assert receipt["state_effect"] == "import-only"
+
+
 def test_exact_forget_and_zero_change_plans_create_receipt() -> None:
     expected = objects()
     release = plan({item.address: ["forget"] for item in expected})

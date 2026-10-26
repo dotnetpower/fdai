@@ -1,7 +1,7 @@
 ---
 title: Release Hub 이미지로 배포
 translation_of: hub-image-deployment.md
-translation_source_sha: cb4c8047aa6e1165ea6bfa7326341957d7de9fea
+translation_source_sha: 073c3c7c2aa71caf864a9e7a8e5d42969f6504c3
 translation_revised: 2026-10-26
 ---
 # Release Hub 이미지로 배포
@@ -171,6 +171,8 @@ Hub 모드의 해체는 구현되지 않았습니다. Hub 실행을 해체하거
 `destroy=false`를 보고해야 합니다. 롤백은 생성된 정확한 가져오기 선언을 사용하며 변경 없음
 계획으로 끝납니다. 어느 루트도 실제 워크로드를 편집하거나 Terraform 상태를 직접 수정하지
 않습니다.
+가져오기 검증은 `before`와 `after` 값이 같고 정확한 가져오기 ID가 일치할 때만 Terraform
+1.9의 기존 객체 변경 없음 재조회를 허용합니다.
 
 ## 관련 문서
 
