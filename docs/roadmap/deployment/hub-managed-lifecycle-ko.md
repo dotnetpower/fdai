@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 6ecf3aacb8a5cb6ab03415fe8276ab79a304e07c
+translation_source_sha: 6fdccf780cf16fd0191807895abcb691231f04a2
 translation_revised: 2026-10-27
 ---
 # Hub 관리형 수명 주기
@@ -1141,6 +1141,42 @@ Plan은 기존 혼합 범위 파이프라인으로 7개를 인수하고 9개를 
 로컬 전환이 커밋된 뒤 `EntityNotReported` 계획 공백이 생기지 않습니다. 보존된 롤백 기록은
 감사와 복구를 위한 증적입니다. 이 단방향 전환을 검토 없이 역방향 인계로 바꾸는 명령은
 없습니다.
+
+### 이전 네이티브 전환 상태 조정
+
+밀리초 단위만 기록하던 이전 생성기가 전환을 완료하면 로컬에는 유효한 증적과 보고 상태
+다이제스트가 남지만, Hub 완료 감사에는 같은 시각이 더 높은 정밀도로 남을 수 있습니다.
+범위가 제한된 조정 경로는 이 과거 정밀도 불일치만 복구합니다. Hub 완료 시각을 권위 있는
+값으로 사용하고, 이 시각에서 계산한 전체 정밀도 정규 상태 다이제스트를 새 보고 상태
+다이제스트로 사용합니다. 변경할 수 없는 전환 증적은 다시 쓰지 않습니다.
+
+인증된 운영자는 `fdai.lifecycle-native-transition-state-reconciliation-request.v1`을
+`POST /v1/installations/{installation_id}/native-transition-state-reconciliation-approval`에
+제출합니다. Hub는 설치 행을 잠근 상태에서 원래 완료 감사와 증적, 설치, 이전 및 새 Entity와
+범위 다이제스트, 전체 네이티브 승인과 권위 있는 UID 다이제스트, 원래 Agent 실행 신원, 현재
+보고 상태, 열린 Plan이 없음을 검증합니다. 이전 로컬 상태와 Hub 상태의 정규 필드는
+`observed_at`을 제외하고 모두 같아야 합니다. 로컬 밀리초 다이제스트는 이전 정규화 방식으로
+검증되어야 하며, Hub 시각은 원래 Hub 완료 증적과 일치해야 합니다. 양수인 정밀도 차이는
+1밀리초 이하여야 합니다. 그 밖의 차이, 이미 조정된 상태, 변경된 증적, 동시 상태 변경, 서로
+다른 재시도나 누락된 감사 기록이 있으면 승인을 차단합니다.
+
+Hub는 정확한 원본 Hub 상태와 전체 정밀도로 계산한 권위 있는 대체 상태를 함께 서명합니다.
+승인이 유효하고 이전 다이제스트가 활성 상태인 동안에는 계획 생성을 보류합니다. Agent 상태
+잠금 아래에서 `reconcile-native-transition-state`는 Hub 서명, 변경할 수 없는 로컬 증적,
+복구된 네이티브 증명, 범위, 전체 종류/이름/UID 목록, 현재 로컬 상태, 보고하지 않은 Plan이나
+`prepared`/`applying` 저널이 없음을 다시 확인합니다. 원래 current-state 바이트를 변경할 수
+없는 롤백 기록에 보존하고 대기 기록을 쓴 다음, Agent의 영구 current-state 파일만 원자적으로
+교체합니다.
+
+Agent는 원래 `Agent.Access` 워크로드 신원으로 정확히 서명된 대체 상태를
+`POST /v1/installations/{installation_id}/native-transition-state-reconciliation`에
+제출합니다. Hub는 같은 설치 행 잠금 아래에서 신원이나 상태가 바뀌지 않았는지 확인하고,
+정규 상태와 해시 체인 감사를 추가합니다. 반환하는 다이제스트 고정 증적에는 커밋한 정확한
+상태가 다시 읽은 결과로 포함됩니다. Agent는 이 결과를 검증한 뒤 재시도해도 같은 결과를
+내는 조정 증적을 보존합니다. 제출이 중단되거나 실패하면 원래 current-state 바이트를
+복원합니다. 롤백 기록은 그대로 남으며, Hub 쓰기가 이미 커밋된 경우 정확한 재시도는 기존
+Hub 증적을 재사용합니다. 완료된 상태는 활성 다이제스트를 바꾸고 계획 보류를 해제하므로,
+다음 일반 서명 Plan은 Hub와 Agent에서 같은 원본 다이제스트를 사용할 수 있습니다.
 
 ## 워크로드 렌더링 마이그레이션
 

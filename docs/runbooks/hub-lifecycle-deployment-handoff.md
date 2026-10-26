@@ -196,6 +196,41 @@ complete-native-transition` with the same private completion document and attrib
 principal for bounded recovery. Changed bytes, a different identity, an open Plan or partial
 Entity management is a conflict, not a reason to split the unmanage, state and manage writes.
 
+If that completed transition came from the legacy millisecond timestamp producer, compare the
+immutable local transition receipt with the retained Hub completion receipt before requesting a
+Plan. Use reconciliation only when all canonical state fields match, the local state and receipt
+use the same millisecond timestamp, the Hub completion audit retains a later sub-millisecond value
+for that same instant, and the Hub state still carries the legacy millisecond digest. Do not use
+this procedure for a changed Entity, scope, UID, artifact inventory, health, schema revision, or
+timestamp difference greater than one millisecond.
+
+1. Stop bounded polling and confirm that the Hub has no open Plan and the Agent has no unreported
+   Plan or prepared/applying journal. Preserve the local transition receipt, Hub completion
+   receipt, native approval, installation public key, Hub public key, and current-state path.
+2. Run `fdai-lifecycle-agent prepare-native-transition-reconciliation` with `--state-dir`,
+   `--current-state`, `--native-approval`, `--hub-completion-receipt`,
+   `--installation-public-key`, and an owner-only `--destination`. This command takes the Agent
+   state lock and creates no mutation.
+3. Submit the private request as an authenticated operator to
+   `POST /v1/installations/{installation_id}/native-transition-state-reconciliation-approval`.
+   Preserve the returned signed approval. A `409` is a stop condition; do not broaden a timestamp
+   tolerance or edit either receipt.
+4. Run `fdai-lifecycle-agent reconcile-native-transition-state` with the same state, native
+   approval, Hub completion receipt, installation public key, exact Hub key id/epoch and public
+   key, returned `--hub-reconciliation-approval`, authenticated `--hub-url` and `--hub-scope`, and
+   the original Kubernetes context or in-cluster identity.
+5. Require the command to return both `reported_state_digest` and
+   `reconciliation_receipt_digest`. Inspect the owner-only rollback and reconciliation receipt
+   files. The transition receipt, native state, and workload journal must remain byte-for-byte
+   unchanged. Request the next Plan only after Hub readback and local current-state carry the same
+   full-precision timestamp and digest.
+
+If the command stops after writing pending state, rerun it with the exact same inputs. It restores
+the retained current-state bytes before retrying and treats a committed Hub write as an exact
+idempotent completion. A changed request, different Agent identity, concurrent Hub state, replaced
+UID, altered receipt, or different prior reconciliation is a conflict that requires investigation,
+not another recovery attempt.
+
 ## Execute without an invisible helper
 
 1. Follow the existing guide to enroll and accept installation identity. Do not regenerate the

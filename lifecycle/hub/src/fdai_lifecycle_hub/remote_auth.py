@@ -504,7 +504,8 @@ def secure_app(
 def _agent_allowed(config: RemoteAuth, claims: dict[str, Any], method: str, path: str) -> bool:
     match = re.fullmatch(
         r"/v1/installations/([A-Za-z0-9][A-Za-z0-9._-]{0,127})/"
-        r"(plan|state|native-proofs|native-transition-completion|enrollment-request|"
+        r"(plan|state|native-proofs|native-transition-completion|"
+        r"native-transition-state-reconciliation|enrollment-request|"
         r"plans/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/reports|"
         r"artifacts/(?:release|configuration)/[0-9a-f]{64})",
         path,

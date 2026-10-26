@@ -1147,6 +1147,45 @@ atomic Hub completion succeeds, so a locally committed transition can't produce 
 The retained rollback record is audit and recovery evidence; there is no command that turns this
 one-way transition into an unreviewed reverse handoff.
 
+### Legacy native-transition state reconciliation
+
+A transition completed by the legacy millisecond producer can retain a locally valid receipt and
+reported-state digest while the Hub completion audit retains the same instant at greater precision.
+The bounded reconciliation path repairs only this historical precision split. The Hub completion
+timestamp is authoritative, and the full-precision canonical state digest derived from it becomes
+the new reported-state digest. The immutable transition receipt is never rewritten.
+
+An authenticated operator submits
+`fdai.lifecycle-native-transition-state-reconciliation-request.v1` to
+`POST /v1/installations/{installation_id}/native-transition-state-reconciliation-approval`.
+Under the installation row lock, the Hub verifies the original completion audit and receipt,
+installation, old and new Entity and scope digests, complete native approval and authoritative
+UID digest, original Agent execution identity, current reported state, and absence of an open Plan.
+The legacy local state and Hub state must have identical canonical fields except `observed_at`.
+The local millisecond digest must verify under the legacy canonicalization, the Hub timestamp must
+match the original Hub completion receipt, and the positive precision difference must be no more
+than one millisecond. Any other difference, already corrected state, altered receipt, concurrent
+state, different retry, or missing audit blocks approval.
+
+The Hub signs both the exact source Hub state and its full-precision authoritative replacement.
+Planning remains held while that approval is current and the legacy digest is active. Under the
+Agent state lock, `reconcile-native-transition-state` rechecks the Hub signature, immutable local
+receipt, recovered native proof, scope, complete kind/name/UID inventory, current local state, and
+absence of an unreported Plan or prepared/applying journal. It retains the original current-state
+bytes in an immutable rollback record, writes a pending record, and atomically replaces only the
+durable Agent current-state file.
+
+The Agent then submits the exact signed replacement through its original `Agent.Access` workload
+identity to
+`POST /v1/installations/{installation_id}/native-transition-state-reconciliation`. Under the same
+installation row lock, the Hub rejects identity or state drift, appends the canonical state and
+hash-chained audit, and returns a digest-bound receipt containing the exact committed state as
+readback. The Agent verifies that readback before retaining its idempotent reconciliation receipt.
+An interrupted or failed submission restores the original current-state bytes; the rollback
+record remains available, and an exact retry reuses the Hub receipt after a committed Hub write.
+The completed state changes the active digest, releases the planning hold, and lets the next
+ordinary signed Plan use the same source digest on both Hub and Agent.
+
 ## Workload rendering migration
 
 This section defines how a Hub-managed installation moves workload rendering from the Terraform

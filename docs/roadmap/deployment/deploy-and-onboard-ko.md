@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: d481f6a995117c5c34551e8da331a25c75b9456a
-translation_revised: 2026-10-26
+translation_source_sha: 2b711d74953ce20432063b87381a446ae8244bf7
+translation_revised: 2026-10-27
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
@@ -724,6 +724,9 @@ Service, HorizontalPodAutoscaler, CronJob 재고를 비공개 상태 계보로 �
 가져오기 선언을 사용하고 마지막 변경 없음 계획을 요구합니다.
 Terraform 1.9 가져오기 계획은 기존 객체를 `before`와 `after`에 모두 보고할 수 있습니다.
 검증기는 두 값이 같고 작업이 `no-op`이며 가져오기 ID가 일치할 때만 이를 허용합니다.
+완료된 이전 전환에서 1밀리초 미만의 상태 타임스탬프 불일치가 있으면 인증된 조정 명령을
+사용합니다. 이 명령은 불변 전환 증적을 유지하고 Agent의 영구 현재 상태만 Hub 권위의
+정규 타임스탬프와 다이제스트로 다시 씁니다.
 선행 조건 루트는 이 재고가 참조하는 신원, 페더레이션 자격 증명, ServiceAccount,
 SecretProviderClass, ConfigMap, 비밀 바인딩만 소유합니다. 관리 대상 Deployment, Service,
 HorizontalPodAutoscaler, CronJob은 만들지 않습니다.

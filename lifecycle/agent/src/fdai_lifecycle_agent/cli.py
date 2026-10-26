@@ -51,11 +51,14 @@ from fdai_lifecycle_agent.inputs import (
 )
 from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.native_cli import (
+    ReconciliationCompleter,
     TransitionCompleter,
     complete_native_transition,
+    complete_native_transition_reconciliation,
     compose_native_cluster,
     register_native_command,
     run_native_bootstrap,
+    run_native_reconciliation_command,
     run_native_transition_command,
 )
 from fdai_lifecycle_agent.polling import PollLimits, poll_bounded
@@ -240,6 +243,7 @@ def main(
     connect_enrollment_source: SourceConnector = connect_in_cluster_source,
     connect_enrollment_hub: HubConnector = connect_workload_identity_hub,
     complete_transition: TransitionCompleter = complete_native_transition,
+    complete_reconciliation: ReconciliationCompleter = (complete_native_transition_reconciliation),
 ) -> int:
     """Run the command. ``clock``, ``connect_hub``, and ``connect_cluster`` are seams for tests;
     defaults are real."""
@@ -341,6 +345,43 @@ def main(
             print(
                 "Native transition failed; verify Hub approval, recovered identity, "
                 "local approval, inventory and durable state.",
+                file=sys.stderr,
+            )
+            return _EXIT_CONFIGURATION
+    if arguments.command in {
+        "prepare-native-transition-reconciliation",
+        "reconcile-native-transition-state",
+    }:
+
+        def connect_reconciliation(
+            context: str | None,
+            namespace: str,
+            in_cluster: bool,
+        ) -> Cluster:
+            if in_cluster:
+                return _connect_in_cluster(namespace)
+            if context is None:
+                raise ValueError(
+                    "Native transition reconciliation requires an explicit Kubernetes context."
+                )
+            return connect_cluster(context, namespace)
+
+        try:
+            return run_native_reconciliation_command(
+                arguments,
+                clock=clock,
+                connect=connect_reconciliation,
+                complete=complete_reconciliation,
+            )
+        except (ValueError, OSError, WorkloadError, AgentStateError, HubProtocolError) as error:
+            logging.error(
+                "lifecycle_agent.native_transition_reconciliation_failed error_type=%s reason=%s",
+                type(error).__name__,
+                str(error),
+            )
+            print(
+                "Native transition reconciliation failed; verify immutable receipts, "
+                "Hub approval, exact inventory, idle state and workload identity.",
                 file=sys.stderr,
             )
             return _EXIT_CONFIGURATION
