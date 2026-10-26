@@ -525,3 +525,87 @@ async def test_a_failing_handle_store_never_withholds_a_verified_answer() -> Non
 
     assert returned is result
     assert returned.result_handle_ref is None
+
+
+async def test_an_anaphor_binds_every_stored_row_the_operator_saw() -> None:
+    manifest = production_manifest()
+    gateway = await fixture_gateway()
+    store = InMemoryResultHandleStore(
+        keys=StaticResultHandleKeyProvider(
+            current=ResultHandleKey("result-handle-key-v1", b"1" * 32)
+        ),
+        handle_ref_factory=lambda: "OpaqueHandleRef0123456789abcdefABCDEF",
+    )
+    row_keys = (_row_key("vm-1"), _row_key("aks-1"))
+    handle = ResultHandle.model_validate(
+        {
+            "deployment_scope_digest": manifest.release_digest,
+            "principal_digest": manifest.manifest_digest,
+            "conversation_id": "session-a",
+            "purpose": PURPOSE,
+            "manifest_digest": manifest.manifest_digest,
+            "rendered_order_digest": rendered_order_digest(row_keys),
+            "row_keys": row_keys,
+            "page": PageDescriptor(page_number=1, page_size=2),
+            "truncated": False,
+        },
+        context={"allowed_snapshot_fields": set()},
+    )
+    handle_ref = await store.put(handle, issued_at=NOW, expires_at=NOW + timedelta(minutes=15))
+    utterance = "Only the running ones"
+    admission = admitted(
+        {
+            "mentions": [
+                {
+                    "id": "m1",
+                    "form": "anaphor",
+                    "domain": "instance",
+                    "span": span(utterance, "ones"),
+                },
+                {
+                    "id": "m2",
+                    "form": "value",
+                    "domain": "state",
+                    "span": span(utterance, "running"),
+                },
+            ],
+            "goals": [
+                {
+                    "id": "g1",
+                    "level": "instance",
+                    "operation": "select",
+                    "subject": "m1",
+                    "subject_scope": "prior_result",
+                    "filters": [{"role": "state", "mention": "m2"}],
+                    "cue": span(utterance, "Only the"),
+                    "confidence": 0.9,
+                }
+            ],
+        },
+        utterance,
+    )
+
+    references = await bind_stored_references(
+        admission,
+        references=(handle_ref,),
+        store=store,
+        binding=ResultHandleBinding(
+            deployment_scope_digest=manifest.release_digest,
+            principal_digest=manifest.manifest_digest,
+            conversation_id="session-a",
+            purpose=PURPOSE,
+            manifest_digest=manifest.manifest_digest,
+            now=NOW + timedelta(minutes=1),
+        ),
+        gateway=gateway,
+        projection_request=ProjectionRequest(
+            caller_role=CeilingRole.READER,
+            declared_purposes=frozenset({PURPOSE}),
+        ),
+        purpose=PURPOSE,
+        as_of=NOW,
+    )
+
+    bound = references.binding("m1")  # type: ignore[union-attr]
+    assert bound is not None and bound.bound
+    assert bound.row_ids == ("vm-1", "aks-1")
