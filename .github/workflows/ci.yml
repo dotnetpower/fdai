@@ -115,7 +115,18 @@ jobs:
           terraform_wrapper: false
 
       - name: Run regression shard
+        env:
+          FDAI_PYTEST_DURATION_REPORT: ${{ runner.temp }}/pytest-regression-durations.json
         run: bash scripts/quality/ci/run-python-tests.sh
+
+      - name: Upload regression timing evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pytest-regression-durations-${{ matrix.shard }}
+          path: ${{ runner.temp }}/pytest-regression-durations.json
+          if-no-files-found: warn
+          retention-days: 7
 
   python-coverage-shards:
     name: pytest safety-core coverage shard ${{ matrix.shard }}/3
@@ -173,7 +184,18 @@ jobs:
         uses: ./.github/actions/setup-opa
 
       - name: Run safety-core coverage shard
+        env:
+          FDAI_PYTEST_DURATION_REPORT: ${{ runner.temp }}/pytest-coverage-durations.json
         run: bash scripts/quality/ci/run-python-tests.sh
+
+      - name: Upload coverage timing evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pytest-coverage-durations-${{ matrix.shard }}
+          path: ${{ runner.temp }}/pytest-coverage-durations.json
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Prepare coverage data
         run: mv .coverage ".coverage.${{ matrix.shard }}"
@@ -785,7 +807,18 @@ jobs:
         uses: ./.github/actions/setup-opa
 
       - name: Run integration test shard
+        env:
+          FDAI_PYTEST_DURATION_REPORT: ${{ runner.temp }}/pytest-integration-durations.json
         run: bash scripts/quality/ci/run-python-tests.sh
+
+      - name: Upload integration timing evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pytest-integration-durations-${{ matrix.shard }}
+          path: ${{ runner.temp }}/pytest-integration-durations.json
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Prepare service migration database
         if: matrix.shard == 1

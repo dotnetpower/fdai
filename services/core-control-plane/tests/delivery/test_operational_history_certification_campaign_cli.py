@@ -60,6 +60,14 @@ SCOPE_REF = "synthetic/oi16-certification/campaign-a"
 NOW = datetime(2026, 3, 1, 12, tzinfo=UTC)
 
 
+@pytest.fixture(autouse=True)
+def _require_injected_projection(monkeypatch: pytest.MonkeyPatch) -> None:
+    def reject_database(**_kwargs: object) -> None:
+        pytest.fail("Synthetic campaign tests must inject a projection reader")
+
+    monkeypatch.setattr(campaign_cli, "PostgresStateStore", reject_database)
+
+
 def _env(**overrides: str) -> dict[str, str]:
     values = {
         "FDAI_ENV": "dev",
@@ -570,7 +578,13 @@ def test_container_entrypoint_translates_positional_arguments(
 
 async def test_summary_is_sanitized_and_carries_no_paths(tmp_path: Path) -> None:
     summary = await finalize_campaign(
-        _manifest(), _options(tmp_path), _env(), now=NOW, sink=_Sink(), certify=_certified()
+        _manifest(),
+        _options(tmp_path),
+        _env(),
+        now=NOW,
+        sink=_Sink(),
+        certify=_certified(),
+        projection=_Projection(record=False),
     )
     assert_sanitized(summary)
     rendered = json.dumps(summary, sort_keys=True)
@@ -634,6 +648,7 @@ async def test_blocked_finalization_preserves_no_merged_artifact(
         now=NOW,
         sink=sink,
         certify=certifier,
+        projection=_Projection(record=False),
     )
     assert sink.calls == []
     assert sink.artifacts.blobs == {}
@@ -654,7 +669,13 @@ async def test_passing_evidence_preserves_the_merged_artifact_before_certifying(
     sink = _Sink()
     certifier = _certified()
     summary = await finalize_campaign(
-        _manifest(), _options(tmp_path), _env(), now=NOW, sink=sink, certify=certifier
+        _manifest(),
+        _options(tmp_path),
+        _env(),
+        now=NOW,
+        sink=sink,
+        certify=certifier,
+        projection=_Projection(record=False),
     )
     assert sink.calls == [(CAMPAIGN_ID, CampaignPhase.MERGED)]
     assert sink.manifests.rows
@@ -674,6 +695,7 @@ async def test_blocked_finalization_summary_stays_sanitized(tmp_path: Path) -> N
         now=NOW,
         sink=_Sink(),
         certify=_certified(),
+        projection=_Projection(record=False),
     )
     assert_sanitized(summary)
     assert summary["merged_artifact_digest"] is None

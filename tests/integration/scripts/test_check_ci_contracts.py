@@ -432,6 +432,30 @@ def test_workflow_accepts_reviewed_immutable_action_ref(
     assert module._validate_action_runtime_versions() == []
 
 
+@pytest.mark.parametrize(
+    ("job_name", "mode"),
+    [
+        ("python-tests", "regression"),
+        ("python-coverage-shards", "coverage"),
+        ("db-integration", "integration"),
+    ],
+)
+def test_ci_preserves_complete_shard_timing_evidence(job_name: str, mode: str) -> None:
+    workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    job = workflow["jobs"][job_name]
+    timing_path = f"${{{{ runner.temp }}}}/pytest-{mode}-durations.json"
+    runner = next(
+        step
+        for step in job["steps"]
+        if step.get("run") == "bash scripts/quality/ci/run-python-tests.sh"
+    )
+    assert runner["env"]["FDAI_PYTEST_DURATION_REPORT"] == timing_path
+    upload = next(step for step in job["steps"] if step.get("with", {}).get("path") == timing_path)
+    assert upload["if"] == "always()"
+    assert upload["with"]["name"] == f"pytest-{mode}-durations-${{{{ matrix.shard }}}}"
+    assert upload["with"]["retention-days"] == 7
+
+
 def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards() -> None:
     workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
     jobs = workflow["jobs"]
