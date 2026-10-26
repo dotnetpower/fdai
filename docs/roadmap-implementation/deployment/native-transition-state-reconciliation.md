@@ -13,9 +13,9 @@ resumption. It does not authorize general state repair.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Hub approval and completion | Implemented | Focused API/store tests | Exact installation row lock |
-| Agent atomic reconciliation | Implemented | Advancing-clock, restart, rollback and retry tests | Current state only |
-| Legacy precision bounds | Implemented | Exact millisecond/microsecond canonical digest regressions | Maximum one millisecond |
+| Hub approval and completion | implemented | Focused API/store tests | Exact installation row lock |
+| Agent atomic reconciliation | implemented | Advancing-clock, restart, rollback and retry tests | Current state only |
+| Legacy precision bounds | implemented | Exact millisecond/microsecond canonical digest regressions | Maximum one millisecond |
 
 ### Implementation history
 
