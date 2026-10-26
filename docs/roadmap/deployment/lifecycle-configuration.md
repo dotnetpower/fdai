@@ -563,12 +563,15 @@ recovery identity; changed bytes, keys, scope, operator or timing fail closed. T
 rotate an installation that already has configuration trust or rewrite enrollment, Plan, report,
 configuration or audit history.
 
-After the exact recovery, the same Owner may satisfy only the first configuration-key approval
-when the protected authorization explicitly enables single-Owner approval, the recovered key is
-still current, key-binding version is zero, and the matching recovery audit exists. Default,
-production and later rotation behavior still requires a different authenticated operator. This
-implements ADR-0003's full-authority development exception without accepting a caller-selected
-key or making language, a package or a Plan grant authority.
+After the exact recovery, the same Owner may satisfy the first configuration-key approval when the
+protected authorization explicitly enables single-Owner approval, the recovered key is still
+current, key-binding version is zero, and the matching recovery audit exists. While that exact
+authorization remains current, the same Owner may also approve the signed configuration scope and
+change that use the audited version-1 binding. The durable recovery and key-approval audits prove
+those approvals after authorization expiry. Default and production behavior, plus later key
+rotation, still requires a different authenticated operator. This implements ADR-0003's
+full-authority development exception without accepting a caller-selected key or making language, a
+package or a Plan grant authority.
 
 ## Atomic import and configured consumption: design and critique
 

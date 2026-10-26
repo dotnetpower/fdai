@@ -51,7 +51,7 @@ from fdai_lifecycle_hub.operations import (
     publish_release,
     recompute_installation,
 )
-from fdai_lifecycle_hub.remote_auth import RemoteAuth
+from fdai_lifecycle_hub.remote_auth import DevelopmentRecoveryAuthorization, RemoteAuth
 from fdai_lifecycle_hub.remote_catalog import (
     CandidateChangedError,
     CatalogNotImportedError,
@@ -263,6 +263,7 @@ def target_routes(
     configuration_candidates: Mapping[str, tuple[ConfigurationRevisionCandidate, int]]
     | None = None,
     updater: CatalogUpdater | None = None,
+    recovery_authorization: DevelopmentRecoveryAuthorization | None = None,
 ) -> list[Route]:
     """Optional server-owned configuration context never comes from the HTTP body."""
 
@@ -377,7 +378,12 @@ def target_routes(
         return JSONResponse(selected.to_json())
 
     return [
-        *configuration_routes(ConfigurationImportStore(store.engine), catalog, utc_now),
+        *configuration_routes(
+            ConfigurationImportStore(store.engine),
+            catalog,
+            utc_now,
+            recovery_authorization=recovery_authorization,
+        ),
         *local_channel_routes(catalog, utc_now),
         Route("/v1/catalog/trust", status),
         Route("/v1/catalog/updates", updates_status),
@@ -588,7 +594,15 @@ def _run() -> None:
             catalog = RemoteCatalog(engine, source)
             catalog.status()
             updater = CatalogUpdater(catalog, hub, key)
-            app.routes[0:0] = target_routes(hub, catalog, key, updater=updater)
+            app.routes[0:0] = target_routes(
+                hub,
+                catalog,
+                key,
+                updater=updater,
+                recovery_authorization=(
+                    None if config.auth is None else config.auth.development_recovery
+                ),
+            )
             app.router.lifespan_context = background_lifespan(
                 app.router.lifespan_context, [lambda: run_periodic(updater)]
             )

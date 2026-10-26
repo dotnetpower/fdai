@@ -20,6 +20,7 @@ from fdai_lifecycle_hub.configuration_import_contracts import (
     SignedScopeRequest,
 )
 from fdai_lifecycle_hub.configuration_import_store import ConfigurationImportStore
+from fdai_lifecycle_hub.configuration_key_store import DevelopmentRecoveryAuthorizationLike
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.domain import Clock
 from fdai_lifecycle_hub.remote_catalog import RemoteCatalog
@@ -29,6 +30,8 @@ def configuration_routes(
     store: ConfigurationImportStore,
     catalog: RemoteCatalog,
     clock: Clock,
+    *,
+    recovery_authorization: DevelopmentRecoveryAuthorizationLike | None = None,
 ) -> list[Route]:
     async def change(request: Request) -> Response:
         from fdai_lifecycle_hub.api import _read_limited
@@ -80,10 +83,22 @@ def configuration_routes(
                     )
                 if isinstance(value, ScopeDecision):
                     return bound.approve_scope(
-                        installation_id, value.digest, actor=actor, now=now, catalog=admitted
+                        installation_id,
+                        value.digest,
+                        actor=actor,
+                        now=now,
+                        catalog=admitted,
+                        recovery_authorization=recovery_authorization,
                     )
                 method = bound.approve_change if operation == "approve" else bound.activate
-                return method(installation_id, value, actor=actor, now=now, catalog=admitted)
+                return method(
+                    installation_id,
+                    value,
+                    actor=actor,
+                    now=now,
+                    catalog=admitted,
+                    recovery_authorization=recovery_authorization,
+                )
 
             result = await run_in_threadpool(catalog.configuration_operation, execute, now=clock())
         except ValidationError:

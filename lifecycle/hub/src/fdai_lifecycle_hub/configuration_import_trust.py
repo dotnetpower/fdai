@@ -32,7 +32,10 @@ from fdai_lifecycle_hub.configuration_import_models import (
     ConfigurationScopeApproval,
     ConfigurationScopeRequest,
 )
-from fdai_lifecycle_hub.configuration_key_store import resolve_retained_binding
+from fdai_lifecycle_hub.configuration_key_store import (
+    resolve_retained_binding,
+    single_owner_binding_audited,
+)
 from fdai_lifecycle_hub.configuration_keys import ConfigurationKeyRequest, KeyBindingError
 
 
@@ -67,7 +70,10 @@ def scope_for(
         or row.installation_id != installation.installation_id
         or approval.installation_id != installation.installation_id
         or row.requested_by != scope.requester
-        or row.requested_by == approval.approved_by
+        or (
+            row.requested_by == approval.approved_by
+            and not single_owner_binding_audited(session, installation, approval.approved_by)
+        )
         or approval.approved_at < row.recorded_at
         or approval.approved_at >= scope.approval_expires_at
         or now < approval.approved_at
