@@ -59,11 +59,12 @@ def verify_handoff_plan(
         actions = change.get("actions")
         importing = change.get("importing")
         if phase == "import":
+            before = change.get("before")
             if (
                 actions != ["no-op"]
                 or not isinstance(importing, Mapping)
                 or importing.get("id") != expected[address].import_id
-                or change.get("before") is not None
+                or (before is not None and before != change.get("after"))
             ):
                 raise ValueError("Hub handoff import plan is not exact import-only")
         elif phase == "release":
