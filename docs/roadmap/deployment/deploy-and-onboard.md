@@ -700,6 +700,7 @@ reconciliation command. It preserves the immutable transition receipt and rewrit
 Agent's durable current state to the Hub-authoritative canonical timestamp and digest.
 Legacy receipt validation keeps the stored receipt digest unchanged while independently verifying
 the millisecond state digest and the full-precision Hub completion digest.
+Equivalent UTC `+00:00` and `Z` forms are accepted only after the stored receipt digest verifies.
 The prerequisite root owns only the identities, federated credentials, ServiceAccounts,
 SecretProviderClasses, ConfigMaps and secret bindings that this inventory references. It does not
 create any managed Deployment, Service, HorizontalPodAutoscaler or CronJob.
