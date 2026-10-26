@@ -43,7 +43,7 @@
     {
       "kind": "declarations",
       "case_count": 15560,
-      "case_ids_digest": "sha256:1fb2313cde1620cf83248a93f51a2fe22509605a4afdc92f4ee86e6fd906237b",
+      "case_ids_digest": "sha256:177c6a73956ef1249d3690c14f01777b87522f8e8276490aaaf2253bebdbd5c3",
       "locales": {
         "en": 7780,
         "ko": 7780
@@ -64,8 +64,8 @@
         "stale": "sha256:3e1aeb1af4ed4a4837969550d1c3618e3e47670e1cbf704280578671612ad0c1",
         "unavailable": "sha256:e44c2aacfd4bee7848ff54dc6fa405928cd15c8536948786f05db17dbe7a74c7"
       },
-      "ontology_release_digest": "sha256:5684cded5d242ddb46275bfe368d4dd39ebe283833910b25f81bbbff07408f6b",
-      "principal_manifest_digest": "sha256:b92bdd80b076e10c06d3331b5f6be29a699d6181f233c7e1acc473b50971316c",
+      "ontology_release_digest": "sha256:45a06f1457c54d7109b1a17b9c2853b615489b7e9c81b6229e1959e8225e316b",
+      "principal_manifest_digest": "sha256:a592383762cfe73d7b5d8ae1a2ad463d94f005c7d5de540d21b7ac5ad39c4114",
       "readable_declaration_count": 318
     },
     {
@@ -89,5 +89,5 @@
   ],
   "total_case_count": 16164,
   "total_exclusion_count": 0,
-  "manifest_digest": "sha256:9347487a49c9377a1c3bfca839f07683cdeab2c865e9444272d8238601eba613"
+  "manifest_digest": "sha256:b33e6eef1e150894cbb402f56e577af766351ec88f0f3569b8cd45d46377f73b"
 }

@@ -19,10 +19,7 @@ from fdai.core.conversation.model_call_progress import (
     ModelCallProgress,
     bind_model_call_progress_observer,
 )
-from fdai.core.conversation.result_handle_store import (
-    ResultHandleStore,
-    SecretProviderResultHandleKeyProvider,
-)
+from fdai.core.conversation.result_handle_store import ResultHandleStore
 from fdai.core.conversation.semantic_runtime import (
     SemanticConversationRuntime,
     bind_semantic_query_progress_observer,
@@ -40,6 +37,7 @@ from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 
 from .development_decisions import bind_decision_events
 from .semantic_context_shadow import build_semantic_context_shadow
+from .semantic_result_handle_config import result_handle_store_from_config
 from .semantic_turn_processor import (
     OperationalEvidenceProjectionReader,
     RuntimeSettingsReader,
@@ -55,8 +53,6 @@ _MAX_PROGRESS_RECORDS = 128
 # The progress contracts bound their shared per-request sequence at 256.
 _MAX_PROGRESS_SEQUENCE = 256
 MODEL_CALL_PROGRESS_ENV = "FDAI_SEMANTIC_MODEL_CALL_PROGRESS"
-RESULT_HANDLES_ENV = "FDAI_SEMANTIC_RESULT_HANDLES"
-RESULT_HANDLE_MATERIAL_ENV = "FDAI_RESULT_HANDLE_MATERIAL"
 _ProgressRecord = SemanticQueryProgress | SemanticWorkProgress | SemanticModelCallProgress
 _PROGRESS_DRAIN_SECONDS = 0.5
 _RUNTIME_CALL_LOG_SCHEMA = "fdai.runtime-call-endpoint-log@1.0.0"
@@ -276,41 +272,6 @@ def build_semantic_turn_processor(
         result_handle_store=result_handle_store,
         result_handles_enabled=result_handle_store is not None,
         result_handle_ttl_seconds=result_handle_ttl_seconds,
-    )
-
-
-def result_handle_store_from_config(
-    config: Mapping[str, str], *, enabled: bool | None = None
-) -> ResultHandleStore | None:
-    """Build the encrypted result-handle store only when the venue opts into follow-ups.
-
-    A follow-up such as "only the running ones" refers to the rows the operator just saw, and
-    only a stored handle can bind it. ``enabled`` is the typed runtime setting, which carries an
-    audited operator override; without it the environment flag alone decides. Opting in without
-    a state-store DSN or key material leaves follow-ups off and says so in the log, because an
-    environment default must never stop Core from starting.
-    """
-
-    if enabled is None:
-        enabled = config.get(RESULT_HANDLES_ENV, "").strip().lower() in {"1", "true", "yes"}
-    if not enabled:
-        return None
-    dsn = config.get("FDAI_STATE_STORE_DSN", "").strip()
-    if not dsn or not config.get(RESULT_HANDLE_MATERIAL_ENV, "").strip():
-        _LOGGER.warning(
-            "semantic_result_handles_unavailable",
-            extra={"reason": "state_store_dsn_or_key_material_missing"},
-        )
-        return None
-    from fdai.delivery.persistence.postgres_result_handle_store import (
-        PostgresResultHandleStore,
-        PostgresResultHandleStoreConfig,
-    )
-    from fdai.shared.providers.local import EnvSecretProvider
-
-    return PostgresResultHandleStore(
-        config=PostgresResultHandleStoreConfig(dsn=dsn),
-        keys=SecretProviderResultHandleKeyProvider(EnvSecretProvider(env=config)),
     )
 
 
@@ -795,13 +756,10 @@ def _claim_audit(action_kind: str) -> dict[str, str]:
 
 
 __all__ = [
-    "RESULT_HANDLES_ENV",
-    "RESULT_HANDLE_MATERIAL_ENV",
     "RuntimeCallEndpointObserver",
     "SemanticTurnConsumerBinding",
     "StateStoreSemanticTurnResultStore",
     "build_semantic_turn_processor",
     "consume_semantic_turns",
-    "result_handle_store_from_config",
     "semantic_turn_binding_from_config",
 ]

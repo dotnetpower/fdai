@@ -527,8 +527,11 @@ def settled_clarification(
     manifest_digest: str,
     observations: MutableSequence[Any],
 ) -> SemanticPlanningOutcome:
-    """Keep the judgment's clarification unless a third reader finds one plausible reading."""
+    """Keep a clarification, the judgment's or a deterministic check's, unless a third reader
+    finds one plausible reading. Any other outcome passes through."""
 
+    if clarified.disposition is not SemanticPlanningDisposition.CLARIFICATION:
+        return clarified
     settled = (
         ticket.outcome_over_clarification(
             manifest_digest=manifest_digest, observations=observations

@@ -5,11 +5,13 @@ from __future__ import annotations
 import pytest
 from fdai.delivery.persistence.postgres_result_handle_store import PostgresResultHandleStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
-from fdai_core_service.semantic_turn_consumer import (
+from fdai_core_service.semantic_result_handle_config import (
     RESULT_HANDLE_MATERIAL_ENV,
     RESULT_HANDLES_ENV,
-    build_semantic_turn_processor,
     result_handle_store_from_config,
+)
+from fdai_core_service.semantic_turn_consumer import (
+    build_semantic_turn_processor,
     semantic_turn_binding_from_config,
 )
 

@@ -453,7 +453,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                 )
                 semantic_judgment = None
                 judgment_proposal = None
-            pre_frame_outcome = deterministic_pre_frame_outcome(
+            pre_frame = deterministic_pre_frame_outcome(
                 judgment=judgment_proposal,
                 utterance=utterance,
                 context=context,
@@ -464,14 +464,10 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                 locale=locale,
                 typed_only=self._compiled_answers is not None and self._compiled_answers.typed_only,
             )
-            if pre_frame_outcome is not None:
-                if pre_frame_outcome.disposition is SemanticPlanningDisposition.CLARIFICATION:
-                    # A deterministic clarification is a reading of the judgment's words, so a
-                    # released typed reading answers over it on the same third-reader verdict.
-                    pre_frame_outcome = settled_clarification(
-                        ticket, pre_frame_outcome, manifest_digest, model_observations
-                    )
-                return preflight_router.finish(pre_frame_outcome)
+            if pre_frame is not None:
+                return preflight_router.finish(
+                    settled_clarification(ticket, pre_frame, manifest_digest, model_observations)
+                )
             typed_recent_change_frame = (
                 deterministic_pre_frame_selection(
                     judgment=judgment_proposal,
