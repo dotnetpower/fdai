@@ -293,13 +293,13 @@ substrate does not create Azure Front Door for this path.
 APIM tags derive from the stable workload labels under Azure-safe names. For example,
 `fdai.io/source-commit` becomes `fdai:source-commit`, because Azure tag names reject `/`.
 
-APIM does not replace Microsoft Entra authentication. The APIs continue to validate token issuer,
-audience, lifetime, and App Roles. The audience is the `fdai-api` application (client) ID that v2
-access tokens carry, and every Terraform root rejects the `api://` App ID URI form. An Entra receipt
-recorded with that legacy form is upgraded only when it otherwise matches the current readback, and
-service deployment and live recovery canonicalize a stored `api://<client-id>` service audience.
-Cross-origin resource sharing (CORS) accepts only the exact
-Static Web Apps origin. The shared network module creates and attaches a Terraform-managed network
+The separate `infra/development-console-gateway` root binds the same modules to existing HTTPS
+development backends and owns only the two browser-edge resources in a dedicated state. It exports
+exact publication and reachability bindings but does not publish, update Entra, own a backend, or receive an executor identity.
+
+APIM does not replace Microsoft Entra authentication. Its policies restrict CORS to the exact Static Web App origin and validate the tenant and API client audience on every non-preflight, non-health request, while the APIs independently validate token issuer, audience, lifetime, and App Roles.
+The audience is the `fdai-api` application client ID carried by v2 access tokens; every Terraform root rejects the `api://` App ID URI form. A legacy-form Entra receipt is upgraded only when it otherwise matches current readback, and deployment and recovery canonicalize a stored `api://<client-id>` audience.
+The shared network module creates and attaches a Terraform-managed network
 security group (`nsg-aks`) to `snet-aks` during the substrate stage so tenant policy remediation
 never attaches an empty unmanaged NSG after installation, and the workload stage requires that
 attached NSG whenever the browser gateway is enabled. The `AllowBrowserGatewayBackends` rule

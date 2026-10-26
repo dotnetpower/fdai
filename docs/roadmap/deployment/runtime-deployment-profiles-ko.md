@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 8a2591b1e330414e7696a8bdaf376fe1d35b3b13
+translation_source_sha: 4f4443d1dc8a8990366c2d4f1fe99301d14fbd4a
 translation_revised: 2026-10-26
 ---
 # 런타임 배포 프로파일
@@ -307,12 +307,20 @@ Static Web Apps는 미리 빌드된 Console을 호스팅합니다. API Managemen
 APIM 태그는 안정적인 워크로드 레이블에서 Azure에 안전한 이름으로 파생됩니다. 예를 들어 Azure 태그
 이름은 `/`를 허용하지 않으므로 `fdai.io/source-commit`은 `fdai:source-commit`이 됩니다.
 
-APIM은 Microsoft Entra 인증을 대체하지 않습니다. API는 token issuer, audience, lifetime 및
-App Role을 계속 검증합니다. audience는 v2 액세스 토큰에 담기는 `fdai-api` 애플리케이션(클라이언트)
-ID이며, 모든 Terraform 루트는 `api://` App ID URI 형식을 거부합니다. 이 이전 형식으로 기록된 Entra
+별도 `infra/development-console-gateway` 루트는 기존 HTTPS 개발 백엔드의 상태를 가져오지 않고
+같은 Static Web App 및 APIM 모듈에 연결할 수 있습니다. 전용 backend key에서 이 두 브라우저 경계
+리소스만 소유하고 게시, 상태 확인, 인증되지 않은 요청 확인에 사용할 정확한 URL을 출력합니다.
+Console 바이트를 게시하거나 Entra 등록을 갱신하지 않으며, 두 백엔드를 소유하거나 실행기 ID를 받지
+않습니다.
+
+APIM은 Microsoft Entra 인증을 대체하지 않습니다. APIM 정책은 CORS를 정확한 Static Web App
+origin으로 제한하고, preflight와 상태 확인을 제외한 모든 요청의 tenant 및 API 클라이언트 audience를
+검증합니다. API도 token issuer, audience, lifetime 및 App Role을 독립적으로 계속 검증합니다.
+audience는 v2 액세스 토큰에 담기는 `fdai-api` 애플리케이션(클라이언트) ID이며, 모든 Terraform
+루트는 `api://` App ID URI 형식을 거부합니다. 이 이전 형식으로 기록된 Entra
 영수증은 나머지가 현재 readback과 일치할 때만 업그레이드되며, 서비스 배포와 live 복구는 저장된
-`api://<client-id>` 서비스 audience를 클라이언트 ID로 정규화합니다. CORS(Cross-Origin Resource Sharing)는 정확한 Static Web Apps
-origin만 허용합니다. 공유 네트워크 모듈은 기반(substrate) 단계에서 Terraform이 관리하는 네트워크 보안
+`api://<client-id>` 서비스 audience를 클라이언트 ID로 정규화합니다. 공유 네트워크 모듈은
+기반(substrate) 단계에서 Terraform이 관리하는 네트워크 보안
 그룹(`nsg-aks`)을 생성해 `snet-aks`에 연결하므로, 설치가 끝난 뒤 테넌트 정책 자동화가 규칙이 비어 있는
 비관리형 NSG를 새로 연결하지 않으며, 워크로드 단계는 브라우저 게이트웨이를 활성화할 때 연결된 서브넷
 NSG를 필수로 요구합니다. `AllowBrowserGatewayBackends` 규칙은 인바운드 TCP 포트 80의 출발지를

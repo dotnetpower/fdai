@@ -19,7 +19,7 @@ _ALLOWED_CHANGES = {
     'kubernetes_horizontal_pod_autoscaler_v2.workload["document-ingestion-api"]': ("create",),
     'kubernetes_horizontal_pod_autoscaler_v2.workload["document-processing-worker"]': ("create",),
     'kubernetes_horizontal_pod_autoscaler_v2.workload["operator-service"]': ("create",),
-    "azurerm_network_security_rule.browser_gateway[0]": ("create",),
+    "module.browser_gateway.azurerm_network_security_rule.browser_gateway[0]": ("create",),
 }
 
 
