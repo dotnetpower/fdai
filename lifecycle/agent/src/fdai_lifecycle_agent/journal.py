@@ -47,7 +47,7 @@ _JOURNAL_KEYS_V1 = frozenset(
         "snapshot",
     }
 )
-_JOURNAL_KEYS = _JOURNAL_KEYS_V1 | {"adoptions"}
+_JOURNAL_KEYS = frozenset([*_JOURNAL_KEYS_V1, "adoptions"])
 
 type Phase = Literal["prepared", "applying", "done"]
 
