@@ -6,6 +6,15 @@ locals {
 }
 
 resource "kubernetes_deployment_v1" "workload" {
+  # checkov:skip=CKV_K8S_28:Import-only placeholder; mandatory import plus ignore_changes/prevent_destroy means this container is never created or executed.
+  # checkov:skip=CKV_K8S_29:Import-only placeholder; the live Deployment pod security context is retained without Terraform mutation.
+  # checkov:skip=CKV_K8S_13:Import-only placeholder; live memory requests are imported and ignored, never replaced by this configuration.
+  # checkov:skip=CKV_K8S_12:Import-only placeholder; live memory limits are imported and ignored, never replaced by this configuration.
+  # checkov:skip=CKV_K8S_11:Import-only placeholder; live CPU limits are imported and ignored, never replaced by this configuration.
+  # checkov:skip=CKV_K8S_30:Import-only placeholder; the live container security context is retained without Terraform mutation.
+  # checkov:skip=CKV_K8S_8:Import-only placeholder; live liveness probes are imported and ignored, never replaced by this configuration.
+  # checkov:skip=CKV_K8S_10:Import-only placeholder; live CPU requests are imported and ignored, never replaced by this configuration.
+  # checkov:skip=CKV_K8S_9:Import-only placeholder; live readiness probes are imported and ignored, never replaced by this configuration.
   for_each = var.deployments
 
   metadata {
