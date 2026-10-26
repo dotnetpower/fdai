@@ -1,8 +1,8 @@
 ---
 title: Hub 배포 인수인계
 translation_of: hub-lifecycle-deployment-handoff.md
-translation_source_sha: 958edc2201c7052ee9a690a0213154af52584206
-translation_revised: 2026-10-23
+translation_source_sha: 969dba50b7d5098b408184802d6df5680accf991
+translation_revised: 2026-10-26
 ---
 # Hub 배포 인수인계
 
@@ -125,6 +125,34 @@ v2 실행 경로는 설정 해석 결과에서 이 고정 해시와 선택적인
 `components.<name>.image_digest`를 사용합니다. 불변 이미지, 제품·버전·소스·플랫폼과
 선택적인 기존 스키마 정보를 전달하며 비공개 구성은 포함하지 않습니다.
 게시와 입력 배치에서는 정확한 바이트의 분리된 서명과 기존 정규화 해시 규칙을 유지합니다.
+
+## 워크로드를 변경하지 않고 상태 재구성
+
+`generate-runtime-bundle`은 번들 옆에 소유자만 읽을 수 있는 인계 파일 세 개를 기록합니다.
+
+| 파일 | 용도 |
+|------|------|
+| `workload-handoff-inventory.json` | 승인한 각 객체의 digest로 고정된 Terraform 주소, 정확한 `namespace/name` import ID, 렌더링 digest |
+| `workload-handoff.tfvars.json` | 인계 루트에서 사용할 전체 Deployment, Service, CronJob, HorizontalPodAutoscaler 맵 |
+| `workload-handoff-commands.txt` | 최초 import, 변경 없음 확인, forget 전용 해제, 되돌리기 import, 마지막 변경 없음 확인 명령 |
+
+보존한 워크로드 상태를 사용할 수 없을 때만 이 경로를 사용합니다. 새로운 비공개 절대 로컬
+backend 경로 하나를 준비하고 생성된 모든 명령에서 같은 경로를 사용합니다. 계획 JSON과 증적을
+소유자 전용으로 유지하도록 먼저 `umask 077`을 설정합니다. 정확한 비공개 kubeconfig와 context는
+별도로 제공합니다. 적용하기 전에 모든 `terraform show -json` 출력을
+`verify-workload-handoff-plan`으로 검토합니다.
+
+첫 import 계획에는 정확한 import 레코드와 `no-op` 작업만 포함할 수 있습니다. 이 계획을 적용한
+다음 Terraform 상세 종료 코드가 0이고 `zero-change` 검증을 통과하는 계획을 확인합니다. 해제
+계획에는 같은 digest 고정 목록의 `forget` 작업만 포함할 수 있습니다. 모든 `removed` 블록은
+`destroy = false`이므로 적용해도 실행 중인 객체를 삭제하지 않고 상태 소유권만 해제합니다.
+계획에 생성, 수정, 삭제, 교체, drift, 이동한 주소, 지연된 변경, 승인하지 않은 import ID가 있으면
+계속 진행하지 않습니다.
+
+되돌리기 전에 Agent의 조정 해제 증적을 보존합니다. 같은 import 루트, 입력 파일, backend 경로를
+다시 사용합니다. 정확한 되돌리기 import 계획을 검증하고 적용한 다음 두 번째 변경 없음 계획을
+요구합니다. 이 증적이 있어야 설치의 Hub 소유 표시를 해제할 수 있습니다. 상태 파일을 직접
+편집하거나 `terraform state rm`으로 대신하지 않습니다.
 
 ## 보이지 않는 도우미 없이 실행하기
 

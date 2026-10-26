@@ -9,6 +9,10 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
+from fdai_deployment_cli.hub_workload_handoff import verify_handoff_plan
+from fdai_deployment_cli.hub_workload_handoff_inputs import read_handoff_inventory
+from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
+
 from fdai_lifecycle_manager.operations import (
     write_agent_tfvars,
     write_catalog_requests,
@@ -16,6 +20,16 @@ from fdai_lifecycle_manager.operations import (
 )
 from fdai_lifecycle_manager.preparation import prepare_installation, refresh_enrollment
 from fdai_lifecycle_manager.runtime_bundle_generator import write_generated_runtime_bundle
+
+
+def _private_json(path: Path, label: str) -> dict[str, object]:
+    try:
+        document = json.loads(read_private_bytes(path.absolute(), max_bytes=64 * 1024 * 1024))
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise ValueError(f"{label} is invalid") from error
+    if not isinstance(document, dict) or any(not isinstance(key, str) for key in document):
+        raise ValueError(f"{label} is invalid")
+    return document
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -42,6 +56,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     generate.add_argument("--entity-id", default="fdai-workloads")
     generate.add_argument("--product", default="fdai")
     generate.add_argument("--namespace", default="fdai-runtime")
+    verify_handoff = command.add_parser("verify-workload-handoff-plan")
+    verify_handoff.add_argument(
+        "--phase",
+        choices=("import", "release", "zero-change"),
+        required=True,
+    )
+    verify_handoff.add_argument("--inventory", type=Path, required=True)
+    verify_handoff.add_argument("--plan-json", type=Path, required=True)
+    verify_handoff.add_argument("--destination", type=Path, required=True)
     refresh = command.add_parser("refresh-enrollment")
     refresh.add_argument("--prepared", type=Path, required=True)
     refresh.add_argument("--destination", type=Path, required=True)
@@ -95,6 +118,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 entity_id=args.entity_id,
                 product=args.product,
                 namespace=args.namespace,
+            )
+        elif args.command == "verify-workload-handoff-plan":
+            inventory = _private_json(args.inventory, "workload handoff inventory")
+            receipt = verify_handoff_plan(
+                _private_json(args.plan_json, "workload handoff plan"),
+                read_handoff_inventory(inventory),
+                phase=args.phase,
+                inventory_digest=str(inventory.get("inventory_digest", "")),
+            )
+            write_private_bytes(
+                args.destination.absolute(),
+                (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(),
             )
         elif args.command == "refresh-enrollment":
             receipt = refresh_enrollment(

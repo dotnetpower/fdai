@@ -164,6 +164,14 @@ Hub, publication of a compatible Release, registry access in another subscriptio
 accepted Azure installation. Publication and rollout of the new Hub/CLI builds remain separate
 authorized operations.
 
+## Existing workload handoff
+
+An installation without retained workload state uses the dedicated handoff roots to import the
+exact approved Kubernetes object inventory before producing a forget-only release plan. The release
+plan must report `destroy=false` for every object. Rollback uses the generated exact import
+declarations and ends with a zero-change plan. Neither root edits live workloads or hand-edits
+Terraform state.
+
 ## Related docs
 
 | To learn about | Read |

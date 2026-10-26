@@ -1,8 +1,8 @@
 ---
 title: 애플리케이션 실행 묶음
 translation_of: lifecycle-runtime-bundles.md
-translation_source_sha: 96a17c1d43272633545cb9e05dbc651f29c768a9
-translation_revised: 2026-10-25
+translation_source_sha: 4e5cff26f2c3bdd2099bd6c4e8dcb4c7b21d02c7
+translation_revised: 2026-10-26
 ---
 # 애플리케이션 실행 묶음
 
@@ -82,6 +82,14 @@ Deployment spec을 교체하는 업데이트는 live 복제본 수를 1로 되�
 컨트롤러가 보고한 복제본 수를 따르며 0일 때는 완료로 보지 않습니다. 네이티브 범위는
 `autoscaled_components`로 autoscaler를 묶고, 비어 있으면 생략하므로 기존 범위 digest와 승인은
 바뀌지 않습니다. Agent 역할에는 필요한 `autoscaling` `horizontalpodautoscalers` 동사만 추가합니다.
+
+FDAI 토폴로지 생성기는 AKS Terraform 루트와 같은 구성을 만듭니다. 생성된 Core, Operator,
+수집 API, 문서 작업자 Deployment마다 검토된 `replicas`와 `max_replicas` 값으로 같은 이름의
+autoscaler를 하나씩 만들고, 기존 CPU 사용률 목표 70을 적용합니다. Deployment에서는 복제본 수를
+생략하고 네 이름을 `autoscaled_components`에도 기록합니다. 또한 생성기는 네이티브 범위의 모든
+Deployment, Service, CronJob, autoscaler에 대해 digest로 고정된 상태 인계 목록과 정확한
+`namespace/name` import 변수를 기록합니다. 이 파일은 상태 소유권만 기술합니다. Kubernetes 객체를
+가져오거나 수정하거나 삭제하지 않습니다.
 
 ## 설치 binding
 

@@ -1,8 +1,8 @@
 ---
 title: Release Hub 이미지로 배포
 translation_of: hub-image-deployment.md
-translation_source_sha: 780e10441f214fd6bc4b5fcdba7516a37142cbca
-translation_revised: 2026-10-25
+translation_source_sha: cb4c8047aa6e1165ea6bfa7326341957d7de9fea
+translation_revised: 2026-10-26
 ---
 # Release Hub 이미지로 배포
 
@@ -163,6 +163,14 @@ Hub 모드의 해체는 구현되지 않았습니다. Hub 실행을 해체하거
 확인할 수 있습니다. 실제 Hub 가용성, 호환 Release 게시 여부, 다른 구독에서의 레지스트리
 접근이나 Azure 설치 인수를 입증하지는 못합니다. 새 Hub와 CLI 빌드의 게시와 배포에는
 별도의 승인이 필요합니다.
+
+## 기존 워크로드 인수인계
+
+워크로드 상태가 보존되지 않은 설치는 전용 인수인계 루트로 승인된 Kubernetes 객체 재고를
+정확히 가져온 뒤 forget-only 해제 계획을 만듭니다. 해제 계획은 모든 객체에 대해
+`destroy=false`를 보고해야 합니다. 롤백은 생성된 정확한 가져오기 선언을 사용하며 변경 없음
+계획으로 끝납니다. 어느 루트도 실제 워크로드를 편집하거나 Terraform 상태를 직접 수정하지
+않습니다.
 
 ## 관련 문서
 

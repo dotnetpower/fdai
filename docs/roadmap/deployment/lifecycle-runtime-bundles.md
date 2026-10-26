@@ -84,6 +84,14 @@ complete at zero. The native scope binds the autoscaler in `autoscaled_component
 omitted when empty so existing scope digests and approvals do not change. The Agent role gains the
 `autoscaling` `horizontalpodautoscalers` verbs it needs and nothing wider.
 
+The FDAI topology generator mirrors the AKS Terraform root: every generated Core, Operator,
+ingestion API, and document-worker Deployment gets one same-name autoscaler from its reviewed
+`replicas` and `max_replicas` values, with the existing CPU utilization target of 70. It omits
+Deployment replicas and emits the same four names in `autoscaled_components`. The generator also
+writes a digest-bound state-handoff inventory and exact `namespace/name` import variables for all
+Deployments, Services, CronJobs, and autoscalers in the native scope. These files describe state
+ownership only. They don't import, update, or delete a Kubernetes object.
+
 ## Installation binding
 
 A container environment variable takes exactly one source: an existing `valueFrom` reference, a

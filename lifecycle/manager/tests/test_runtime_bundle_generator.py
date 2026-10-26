@@ -230,6 +230,12 @@ def test_generator_matches_native_scope_and_terraform_workload_parity() -> None:
         "inventory",
         "observation-campaign",
     )
+    assert generated.native_scope.autoscaled_components == (
+        "core-control-plane",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "operator-service",
+    )
     assert set(generated.component_images) == {
         "clamav",
         "core-control-plane",
@@ -266,12 +272,12 @@ def test_generator_matches_native_scope_and_terraform_workload_parity() -> None:
         images,
     )
     by_kind_name = {(m["kind"], m["metadata"]["name"]): m for m in rendered}
-    assert len(rendered) == 12
+    assert len(rendered) == 16
 
     # Verify Deployment parity against infra/runtimes/aks/workloads/main.tf
     for name, w_spec in workloads.items():
         dep = by_kind_name[("Deployment", name)]
-        assert dep["spec"]["replicas"] == w_spec["replicas"]
+        assert "replicas" not in dep["spec"]
         assert dep["spec"]["strategy"] == {
             "type": "RollingUpdate",
             "rollingUpdate": {"maxSurge": 1, "maxUnavailable": 0},
@@ -320,6 +326,28 @@ def test_generator_matches_native_scope_and_terraform_workload_parity() -> None:
                 "protocol": "TCP",
             }
         ]
+        autoscaler = by_kind_name[("HorizontalPodAutoscaler", name)]
+        assert autoscaler["spec"] == {
+            "minReplicas": w_spec["replicas"],
+            "maxReplicas": w_spec["max_replicas"],
+            "metrics": [
+                {
+                    "type": "Resource",
+                    "resource": {
+                        "name": "cpu",
+                        "target": {
+                            "type": "Utilization",
+                            "averageUtilization": 70,
+                        },
+                    },
+                }
+            ],
+            "scaleTargetRef": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": name,
+            },
+        }
 
     # Verify ClamAV sidecar and initContainer parity on document-processing-worker
     worker_deployment = by_kind_name[("Deployment", "document-processing-worker")]
@@ -475,6 +503,38 @@ def test_cli_generates_bundle_and_prepares_fourteen_day_development_approval(
         ]
     )
     assert exit_code == 0
+    assert json.loads((bundle_dir / "native-scope.json").read_text())["autoscaled_components"] == [
+        "core-control-plane",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "operator-service",
+    ]
+    handoff_variables = json.loads(
+        (bundle_dir / "workload-handoff.tfvars.json").read_text(encoding="utf-8")
+    )
+    assert handoff_variables["horizontal_pod_autoscalers"] == {
+        name: f"fdai-runtime/{name}"
+        for name in (
+            "core-control-plane",
+            "document-ingestion-api",
+            "document-processing-worker",
+            "operator-service",
+        )
+    }
+    assert set(handoff_variables["cron_jobs"]) == {
+        "analyzer",
+        "canary",
+        "inventory",
+        "observation-campaign",
+    }
+    assert all(
+        (bundle_dir / name).stat().st_mode & 0o777 == 0o600
+        for name in (
+            "workload-handoff-inventory.json",
+            "workload-handoff.tfvars.json",
+            "workload-handoff-commands.txt",
+        )
+    )
 
     hub_key = Ed25519PrivateKey.generate()
     release_key = Ed25519PrivateKey.generate()
@@ -531,3 +591,88 @@ def test_cli_generates_bundle_and_prepares_fourteen_day_development_approval(
             installation_id="installation-fdai-dev-wus3",
         )
     _ = write_generated_runtime_bundle
+
+
+def test_cli_verifies_generated_import_plan(tmp_path: Path) -> None:
+    workloads, scheduled_jobs = _stewardship_topology_fixture()
+    topology_path = tmp_path / "topology.json"
+    topology_path.write_text(
+        json.dumps(
+            {
+                "workloads": workloads,
+                "scheduled_jobs": scheduled_jobs,
+                "identity_bridge_config_map": "fdai-identity-bridge",
+            }
+        ),
+        encoding="utf-8",
+    )
+    topology_path.chmod(0o600)
+    destination = tmp_path / "generated"
+    assert (
+        main(
+            [
+                "generate-runtime-bundle",
+                "--topology-input",
+                str(topology_path),
+                "--destination",
+                str(destination),
+                "--installation-id",
+                "installation-fdai-dev-wus3",
+            ]
+        )
+        == 0
+    )
+    inventory_path = destination / "workload-handoff-inventory.json"
+    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    changes = [
+        {
+            "address": item["address"],
+            "change": {
+                "actions": ["no-op"],
+                "before": None,
+                "after": {"id": item["import_id"]},
+                "importing": {"id": item["import_id"]},
+            },
+        }
+        for item in inventory["objects"]
+    ]
+    plan_path = tmp_path / "import-plan.json"
+    plan_path.write_text(
+        json.dumps(
+            {
+                "format_version": "1.2",
+                "complete": True,
+                "errored": False,
+                "applyable": True,
+                "resource_changes": changes,
+                "resource_drift": [],
+                "deferred_changes": [],
+                "output_changes": {},
+                "checks": [{"status": "pass"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    plan_path.chmod(0o600)
+    receipt_path = tmp_path / "verification.json"
+
+    assert (
+        main(
+            [
+                "verify-workload-handoff-plan",
+                "--phase",
+                "import",
+                "--inventory",
+                str(inventory_path),
+                "--plan-json",
+                str(plan_path),
+                "--destination",
+                str(receipt_path),
+            ]
+        )
+        == 0
+    )
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert receipt["state_effect"] == "import-only"
+    assert receipt["object_count"] == 16
+    assert receipt["live_mutation_authorized"] is False
