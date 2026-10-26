@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 4b665f2673d929aedea7b2bfb6a1b5677d73988c
+translation_source_sha: 07106461049c3129f14367fc80957b0e729acb70
 translation_revised: 2026-10-27
 ---
 # Hub 관리형 수명 주기
@@ -1142,12 +1142,8 @@ Plan은 기존 혼합 범위 파이프라인으로 7개를 인수하고 9개를 
 감사와 복구를 위한 증적입니다. 이 단방향 전환을 검토 없이 역방향 인계로 바꾸는 명령은
 없습니다.
 
-### 이전 네이티브 전환 상태 조정
-
-이전 상태 다이제스트의 1밀리초 미만 정밀도 불일치를 복구하는 제한된 경로는
-[네이티브 전환 상태 조정](native-transition-state-reconciliation-ko.md)에서 정의합니다.
-이 경로는 불변 전환 증적을 유지하고 Hub가 승인한 정규 재조회 뒤에만 Agent의 영구 현재
-상태를 변경합니다.
+이전 상태 다이제스트의 1밀리초 미만 정밀도 불일치에 대한 제한된 복구는
+[네이티브 전환 상태 조정](native-transition-state-reconciliation-ko.md)을 참조하세요.
 
 ## 워크로드 렌더링 마이그레이션
 
