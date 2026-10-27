@@ -613,7 +613,7 @@ an undeclared mention names the citing role, such as `form_goal_filter_cites_an_
 the one repair and the trace point at the field to fix. In the typed-only local profile no cascade follows,
 so a first reading the T1 reader cannot form ends the turn. With a resolved T2 target, only the replacement
 sample is read by a T2 reader and the turn records `form_escalated`; that form passes the same admission,
-grounding, blind review, and selection, and T1 reads every first sample.
+grounding, blind review, and selection, and T1 reads every first sample. Each call picks its token field from the resolved family.
 
 A selected compilation may carry only reviewed limitations that the answer states as catalog notices:
 the applied, default, or model-judged history window, a cause that is not established, and an impact
