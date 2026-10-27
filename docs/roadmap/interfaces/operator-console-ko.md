@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 9cc6bb5437cb5db69537baf5d21861140242719f
+translation_source_sha: 02057f3147aa51d7c0fca9732cf9e6cb41648693
 translation_revised: 2026-10-27
 ---
 # FDAI Console 대화
@@ -74,7 +74,8 @@ Outcome Assurance 상세 화면은 기존 Operating outcomes, Control assurance,
 승격되기 전까지 Console 답변은 현재 검증된 경로를 계속 사용합니다.
 검증된 데이터 대체 표현은 스칼라 결과와 전송용 표를 구분합니다. 완전하고 그룹화되지 않은 단일
 개수는 한 행 표나 전송 행 회계 없이 간결한 검증 값으로 표시합니다. 그룹화되었거나 불완전하거나
-잘렸거나 여러 행인 결과는 기존 표와 한계 설명을 유지합니다. 관측 작업 타임라인의 각 최종 요약
+잘렸거나 여러 행인 결과는 기존 표와 한계 설명을 유지하며, 그룹화된 집계는 개수 앞에 그룹 필드를
+Core 답변 행에서 선행 열로 표시합니다. 관측 작업 타임라인의 각 최종 요약
 표시는 세부 기록과 같은 세로 흐름선의 중심에 맞춥니다. 이 정렬은 표현만 바꿉니다.
 Run Record는 의도적으로 본문을 보관하지 않은 모델 추적과 메시지 0개를 전달한 프로바이더 요청을
 구분합니다. 본문을 보관하지 않은 추적은 요청 및 응답 본문을 보관하지 않았음을 표시하면서 요청과

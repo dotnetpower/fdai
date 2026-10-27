@@ -135,3 +135,42 @@ def test_the_ambiguity_prompt_composes_within_its_budget() -> None:
     composed = compose_static_selection(registry.resolve("semantic.ambiguity_check"))
 
     assert composed.system_text
+
+
+async def test_a_capability_named_t2_target_is_called_with_its_family_token_field() -> None:
+    sent: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps({"readings": "one"})}}]}
+        )
+
+    # A T2 target without an endpoint binding is named after its capability, so only its
+    # resolved family says that the model bounds output with completion tokens.
+    reasoner = ModelRequestTarget(
+        endpoint="https://example.com",
+        deployment="t2.reasoner.primary",
+        api_version="2024-06-01",
+        auth_audience="https://example.com/.default",
+        model_family="gpt-5.4",
+    )
+    model = AzureOpenAIQuestionFormModel(
+        identity=_Identity(),  # type: ignore[arg-type]
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        config=AzureOpenAIQuestionFormConfig(
+            candidates=(_target("form-model"),),
+            form_system_prompt="Return the closed question form.",
+            concept_system_prompt="Choose concepts.",
+            extraction_candidates=(_target("review-model"),),
+            ambiguity_system_prompt="Decide whether one reading exists.",
+            ambiguity_candidates=(reasoner,),
+        ),
+    )
+
+    assert await model.check_ambiguity(utterance="Why?", context=(), locale="en") == {
+        "readings": "one"
+    }
+    ((body,),) = [(item,) for item in sent]
+    assert "max_completion_tokens" in body
+    assert "max_tokens" not in body and "temperature" not in body

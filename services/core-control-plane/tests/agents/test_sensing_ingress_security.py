@@ -682,3 +682,69 @@ async def test_loki_reservation_journal_rejects_unsafe_target_identifiers() -> N
             targets=("x" * 513,),
             reserved_at=NOW.isoformat(),
         )
+
+
+def _arg_change_event(*, props: dict[str, object], source_revision: str = "r") -> dict[str, object]:
+    return _raw_event(
+        idempotency_key="arg-resource-change:scope:change-1",
+        event_id="event:arg-change-1",
+        event_type="inventory.resource_changed",
+        source="fdai.delivery.azure.arg_resource_changes",
+        resource_id=None,
+        resource_ref="resource:disk-1",
+        payload={
+            "signal_kind": "azure.resource_graph_change_feed",
+            "inventory_change": {
+                "kind": "upsert",
+                "observation_kind": "full",
+                "source_revision": source_revision,
+                "properties_complete": True,
+                "property_mask": sorted(props),
+                "tombstone_confirmed": False,
+                "scope_ref": "scope:example",
+                "resource": {
+                    "resource_id": "resource:disk-1",
+                    "type": "example.resource",
+                    "props": props,
+                    "provider_ref": None,
+                    "last_seen": NOW.isoformat(),
+                },
+                "links": [],
+                "links_complete": False,
+            },
+        },
+    )
+
+
+async def test_huginn_preserves_a_deep_provider_change_without_flattening_it() -> None:
+    props: dict[str, object] = {"properties": {"creationData": {"createOption": {"a": {"b": "x"}}}}}
+    raw = _arg_change_event(props=props, source_revision="r" * 600)
+
+    payload = await Huginn(clock=lambda: NOW).ingest(raw)
+
+    assert payload is not None
+    change = payload["inventory_change"]
+    assert change["resource"]["props"] == props
+    assert change["source_revision"] == "r" * 600
+
+
+async def test_provider_change_limits_do_not_widen_other_inventory_changes() -> None:
+    props: dict[str, object] = {"value": "bounded"}
+    for index in range(12):
+        props = {f"level_{index}": props}
+    raw = _arg_change_event(props=props)
+    raw["source"] = "azure.activity_log"
+
+    with pytest.raises(HuginnIngressRejected) as exc:
+        await Huginn(clock=lambda: NOW).ingest(raw)
+
+    assert exc.value.reason_code == "raw_depth_exceeded"
+
+
+async def test_an_oversized_provider_change_is_still_rejected() -> None:
+    raw = _arg_change_event(props={"blob": ["x" * 4_000] * 100})
+
+    with pytest.raises(HuginnIngressRejected) as exc:
+        await Huginn(clock=lambda: NOW).ingest(raw)
+
+    assert exc.value.reason_code in {"raw_payload_too_large", "raw_list_too_large"}

@@ -810,7 +810,7 @@ def test_hold_details_stay_closed_codes_on_held_outcomes_only() -> None:
         )
 
 
-async def test_a_failed_form_is_read_once_more_and_never_more_than_twice(
+async def test_a_failed_form_is_read_again_and_never_more_than_three_times(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     invalid = _observation(released=False, passes=(ShadowPass(0, "invalid"),), compilations=())
@@ -832,6 +832,29 @@ async def test_a_failed_form_is_read_once_more_and_never_more_than_twice(
     assert result.model_calls == invalid.model_calls + 4
     # The replaced sample stays attached so the turn can record why it was declined.
     assert result.discarded_sample is invalid
+
+
+@pytest.mark.parametrize("third_released", [True, False])
+async def test_a_second_invalid_form_is_read_a_third_time_and_then_stops(
+    monkeypatch: pytest.MonkeyPatch, third_released: bool
+) -> None:
+    def invalid() -> ReasoningShadowObservation:
+        return _observation(released=False, passes=(ShadowPass(0, "invalid"),), compilations=())
+
+    samples = [invalid(), invalid(), _observation() if third_released else invalid()]
+    calls: list[int] = []
+
+    async def shadow(**_arguments: Any) -> ReasoningShadowObservation:
+        calls.append(1)
+        return samples.pop(0)
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    collector = semantic_compiled_answers._ObservationCollector()
+
+    result = await semantic_compiled_answers._run_form_path(object(), collector)  # type: ignore[arg-type]
+
+    assert len(calls) == 3
+    assert result.released is third_released
 
 
 async def test_the_second_reading_uses_the_escalation_reader_when_one_is_configured(

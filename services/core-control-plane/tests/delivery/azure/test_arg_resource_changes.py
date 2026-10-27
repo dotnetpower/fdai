@@ -1341,6 +1341,8 @@ async def test_forward_resumes_from_the_persisted_cursor() -> None:
         "last_event_cursor": None,
         "last_polled_at": "2026-07-10T06:01:00+00:00",
         "pending_event_ids": [],
+        "pending_poll_cursor": None,
+        "pending_redrive_count": 0,
         "published_event_count": 0,
     }
 
@@ -1379,6 +1381,7 @@ async def test_forward_preserves_an_uningested_batch_without_polling() -> None:
             topic="inventory.events",
             scope=_SCOPE,
             ingestion_fence=PendingFence(),
+            clock=lambda: datetime(2026, 7, 10, 6, 1, 30, tzinfo=UTC),
         )
     finally:
         await client.aclose()
@@ -1386,6 +1389,101 @@ async def test_forward_preserves_an_uningested_batch_without_polling() -> None:
     assert published == 0
     assert calls == 0
     assert await state_store.read_state(key) == retained
+
+
+class _NeverFenced:
+    async def contains(self, event_ids: tuple[str, ...]) -> bool:
+        return False
+
+
+def _retained_pending(**extra: Any) -> dict[str, Any]:
+    return {
+        "complete": True,
+        "cursor": "2026-07-10T06:00:00+00:00\x1fc1",
+        "last_event_cursor": "2026-07-10T06:00:00+00:00\x1fc1",
+        "last_polled_at": "2026-07-10T06:01:00+00:00",
+        "pending_event_ids": ["event-1"],
+        "pending_poll_cursor": "2026-07-10T05:59:00+00:00\x1f__fdai_initial__",
+        "published_event_count": 1,
+        **extra,
+    }
+
+
+@pytest.mark.asyncio
+async def test_forward_redrives_a_batch_that_stays_unfenced_past_the_grace_window() -> None:
+    vocab = _vocab()
+    _, arm_type = _arm_type_for(vocab)
+    arm_id = _arm_id(arm_type, "thing-a")
+    seen_queries: list[str] = []
+
+    async def on_changes(request: httpx.Request) -> httpx.Response:
+        seen_queries.append(json.loads(request.content.decode("utf-8"))["query"])
+        return _changes_response(
+            [
+                _change_row(
+                    change_id="c1",
+                    change_time="2026-07-10T06:00:00Z",
+                    change_type="Delete",
+                    arm_id=arm_id,
+                    arm_type=arm_type,
+                )
+            ]
+        )
+
+    feed, client, _ = _factory(_router(on_changes=on_changes), vocab=vocab)
+    state_store = InMemoryStateStore()
+    key = f"arg_resource_change_cursor:{_SCOPE}"
+    await state_store.write_state(key, _retained_pending())
+    event_bus = InMemoryEventBus()
+    try:
+        published = await forward_arg_resource_changes(
+            feed=feed,
+            state_store=state_store,
+            event_bus=event_bus,
+            topic="inventory.events",
+            scope=_SCOPE,
+            ingestion_fence=_NeverFenced(),
+            clock=lambda: datetime(2026, 7, 10, 6, 10, tzinfo=UTC),
+        )
+    finally:
+        await client.aclose()
+
+    assert published == 1
+    assert len(event_bus._records["inventory.events"]) == 1
+    assert "2026-07-10T05:59:00" in seen_queries[0]
+    assert "2026-07-10T06:00:00" not in seen_queries[0]
+    saved = await state_store.read_state(key)
+    assert saved is not None
+    assert saved["pending_redrive_count"] == 1
+    assert saved["pending_poll_cursor"] == "2026-07-10T05:59:00+00:00\x1f__fdai_initial__"
+    assert saved["coverage_gap_at"] is None
+
+
+@pytest.mark.asyncio
+async def test_forward_records_a_gap_when_a_batch_never_reaches_the_journal() -> None:
+    feed, client, _ = _factory(_router(on_changes=lambda _r: _changes_response([])))
+    state_store = InMemoryStateStore()
+    key = f"arg_resource_change_cursor:{_SCOPE}"
+    await state_store.write_state(key, _retained_pending(pending_redrive_count=2))
+    try:
+        await forward_arg_resource_changes(
+            feed=feed,
+            state_store=state_store,
+            event_bus=InMemoryEventBus(),
+            topic="inventory.events",
+            scope=_SCOPE,
+            ingestion_fence=_NeverFenced(),
+            clock=lambda: datetime(2026, 7, 10, 6, 20, tzinfo=UTC),
+        )
+    finally:
+        await client.aclose()
+
+    saved = await state_store.read_state(key)
+    assert saved is not None
+    assert saved["coverage_gap_at"] == "2026-07-10T06:00:00+00:00"
+    assert saved["pending_event_ids"] == []
+    assert saved["pending_redrive_count"] == 0
+    assert saved["last_polled_at"] == "2026-07-10T06:20:00+00:00"
 
 
 @pytest.mark.asyncio

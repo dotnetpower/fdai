@@ -41,7 +41,7 @@ from fdai.core.conversation.semantic_reasoning_repair import FormRepair
 from fdai.core.conversation.semantic_reasoning_review import extraction_schema
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
 from fdai.core.prompts import PromptReplayManifest
-from fdai.delivery.azure.llm.completion_body import completion_body_params
+from fdai.delivery.azure.llm.completion_body import structured_body_params
 from fdai.delivery.azure.llm.identity_masking import IdentityMask
 from fdai.delivery.azure.llm.input_detection import (
     contained,
@@ -600,9 +600,7 @@ class AzureOpenAIQuestionFormModel:
                     body: dict[str, Any] = {
                         "messages": messages,
                         "response_format": dict(response_format),
-                        **completion_body_params(
-                            target.deployment, temperature=0.0, max_tokens=max_tokens
-                        ),
+                        **structured_body_params(target, max_tokens=max_tokens),
                     }
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
