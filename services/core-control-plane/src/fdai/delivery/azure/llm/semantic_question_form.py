@@ -76,6 +76,8 @@ _MAX_SHARD_VERDICTS = 64
 _MAX_PROMPT_CHARS = 32_768
 _MAX_RESPONSE_BYTES = 65_536
 _MAX_REQUEST_TOKENS = 131_072
+# The form calls return short structured objects, so hidden reasoning stays bounded.
+_FORM_REASONING_EFFORT = "low"
 _MAX_CONTEXT_ITEMS = 8
 _CONCEPT_CHOICE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -600,7 +602,12 @@ class AzureOpenAIQuestionFormModel:
                     body: dict[str, Any] = {
                         "messages": messages,
                         "response_format": dict(response_format),
-                        **target_body_params(target, temperature=0.0, max_tokens=max_tokens),
+                        **target_body_params(
+                            target,
+                            temperature=0.0,
+                            max_tokens=max_tokens,
+                            reasoning_effort=_FORM_REASONING_EFFORT,
+                        ),
                     }
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field

@@ -16,17 +16,29 @@ def completion_body_params(
     *,
     temperature: float,
     max_tokens: int,
+    reasoning_effort: str | None = None,
 ) -> dict[str, Any]:
-    """Return token and temperature fields accepted by the model family."""
+    """Return token and temperature fields accepted by the model family.
+
+    A reasoning family counts hidden reasoning against its completion tokens, so a caller
+    that needs a short structured answer may bound that reasoning with ``reasoning_effort``.
+    """
 
     normalized = model_family_or_deployment.strip().lower()
     if _COMPLETION_TOKEN_FAMILY.search(normalized):
-        return {"max_completion_tokens": max_tokens}
+        body: dict[str, Any] = {"max_completion_tokens": max_tokens}
+        if reasoning_effort is not None:
+            body["reasoning_effort"] = reasoning_effort
+        return body
     return {"temperature": temperature, "max_tokens": max_tokens}
 
 
 def target_body_params(
-    target: ModelRequestTarget, *, temperature: float, max_tokens: int
+    target: ModelRequestTarget,
+    *,
+    temperature: float,
+    max_tokens: int,
+    reasoning_effort: str | None = None,
 ) -> dict[str, Any]:
     """Return the fields for one request target, choosing by its resolved family first.
 
@@ -35,7 +47,10 @@ def target_body_params(
     """
 
     return completion_body_params(
-        target.model_family or target.deployment, temperature=temperature, max_tokens=max_tokens
+        target.model_family or target.deployment,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
     )
 
 

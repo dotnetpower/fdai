@@ -136,6 +136,7 @@ def build_second_reader(
             ambiguity_candidates=(third,) if ambiguity is not None and third is not None else (),
             ambiguity_max_tokens=2_048 if ambiguity is not None else 64,
             timeout_seconds=60.0 if direction is not None else 40.0,
+            max_request_tokens=65_536,
         )
 
     try:

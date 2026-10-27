@@ -45,3 +45,12 @@ def test_a_capability_named_target_chooses_its_token_field_by_family() -> None:
         "temperature": 0.0,
         "max_tokens": 64,
     }
+
+
+def test_a_reasoning_effort_bounds_only_the_families_that_reason() -> None:
+    assert completion_body_params(
+        "gpt-5.4", temperature=0.0, max_tokens=64, reasoning_effort="low"
+    ) == {"max_completion_tokens": 64, "reasoning_effort": "low"}
+    assert completion_body_params(
+        "gpt-4.1-mini", temperature=0.0, max_tokens=64, reasoning_effort="low"
+    ) == {"temperature": 0.0, "max_tokens": 64}

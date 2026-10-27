@@ -78,7 +78,7 @@ class CompiledAnswerSettings:
     """Bounds for one turn's form path; the defaults match the live evaluation harness."""
 
     default_lookback_seconds: int = 86_400
-    deadline_seconds: float = 45.0
+    deadline_seconds: float = 75.0
     budget: ShadowBudget = field(default_factory=ShadowBudget)
     # Typed-only answering: a read answers only from the form path, never the legacy cascade.
     typed_only: bool = False
@@ -571,6 +571,9 @@ def typed_only_outcome(
     return _outcome(disposition, reason, manifest_digest=manifest_digest, hold_details=details)
 
 
+_MAX_REPLACEMENT_SAMPLES = 2
+
+
 async def _run_form_path(
     model: QuestionFormModel,
     collector: _ObservationCollector,
@@ -578,12 +581,12 @@ async def _run_form_path(
     escalation_model: QuestionFormModel | None = None,
     **arguments: Any,
 ) -> ReasoningShadowObservation:
-    """Read the question once, and once more only when the first reading failed as a form.
+    """Read the question once, and again only while the latest reading failed as a form.
 
-    A second sample passes the same admission, grounding, blind review, and selection
+    A later sample passes the same admission, grounding, blind review, and selection
     rules, so it never lowers the bar; it only replaces a reading whose form was invalid,
-    unreviewed, or mislabeled one mention's kind. At most two samples are taken. When an
-    escalation reader is configured, only that replacement sample uses it, so the stronger
+    unreviewed, or mislabeled one mention's kind. At most three samples are taken. When an
+    escalation reader is configured, only the replacement samples use it, so the stronger
     tier is spent on a reading the first reader could not form and never on an ordinary turn.
     """
 
@@ -591,22 +594,29 @@ async def _run_form_path(
         first = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
         if not resample_worthy(first):
             return first
-        second = await run_reasoning_shadow(
-            model=escalation_model or model, retain_compilations=True, **arguments
-        )
-    escalated = ("form_escalated",) if escalation_model is not None else ()
-    if isinstance(single_compiled_batch(second), str):
-        return replace(
-            first,
-            notes=(*first.notes, *escalated, "form_resampled_unanswered"),
-            discarded_sample=second,
-        )
+        latest = first
+        total_calls, total_ms = first.model_calls, first.elapsed_ms
+        for _attempt in range(_MAX_REPLACEMENT_SAMPLES):
+            sample = await run_reasoning_shadow(
+                model=escalation_model or model, retain_compilations=True, **arguments
+            )
+            total_calls += sample.model_calls
+            total_ms += sample.elapsed_ms
+            escalated = ("form_escalated",) if escalation_model is not None else ()
+            if not isinstance(single_compiled_batch(sample), str):
+                return replace(
+                    sample,
+                    model_calls=total_calls,
+                    elapsed_ms=total_ms,
+                    notes=(*sample.notes, *escalated, "form_resampled"),
+                    discarded_sample=latest,
+                )
+            if not resample_worthy(sample):
+                break
     return replace(
-        second,
-        model_calls=first.model_calls + second.model_calls,
-        elapsed_ms=first.elapsed_ms + second.elapsed_ms,
-        notes=(*second.notes, *escalated, "form_resampled"),
-        discarded_sample=first,
+        first,
+        notes=(*first.notes, *escalated, "form_resampled_unanswered"),
+        discarded_sample=sample,
     )
 
 
