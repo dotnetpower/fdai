@@ -612,6 +612,12 @@ more than two samples. The turn records why the replaced sample was declined as 
 an undeclared mention names the citing role, such as `form_goal_filter_cites_an_undeclared_mention`, so
 the one repair and the trace point at the field to fix.
 
+In the typed-only local profile the path never falls back to the planning cascade, so a first reading the T1
+reader cannot form would end the turn as `semantic_reading_unverified`. When a resolved T2 reasoner target
+exists, only the replacement sample is read by a T2 reader, and the turn records `form_escalated`. The
+escalated form passes the same admission, grounding, blind review, and selection, so the stronger tier changes
+who proposes the form and never what is released. The T1 reader still takes every first sample.
+
 A selected compilation may carry only reviewed limitations that the answer states as catalog notices:
 the applied, default, or model-judged history window, a cause that is not established, and an impact
 that is possible rather than observed. The compiler

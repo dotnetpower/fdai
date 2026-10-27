@@ -51,7 +51,7 @@ from fdai.delivery.azure.llm.semantic_question_form import (
 from fdai.rule_catalog.schema.llm_resolver import ResolvedModels
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
-from .semantic_query_model_targets import t1_model_targets
+from .semantic_query_model_targets import t1_model_targets, t2_model_targets
 
 SECOND_READER_ENV = "FDAI_SEMANTIC_SECOND_READER"
 COMPILED_ANSWERS_ENV = "FDAI_SEMANTIC_COMPILED_ANSWERS"
@@ -108,11 +108,14 @@ def build_second_reader(
     )
     third = ambiguity_reader_target(targets, second)
 
-    def reader_config(with_direction: bool) -> AzureOpenAIQuestionFormConfig:
+    def reader_config(
+        with_direction: bool,
+        form_targets: tuple[ModelRequestTarget, ...] = targets[:1],
+    ) -> AzureOpenAIQuestionFormConfig:
         direction = direction_prompt if with_direction else None
         ambiguity = ambiguity_prompt if with_direction and third is not None else None
         return AzureOpenAIQuestionFormConfig(
-            candidates=targets[:1],
+            candidates=form_targets,
             form_system_prompt=form_prompt.system_text,
             form_prompt_manifest=form_prompt.replay_manifest(),
             concept_system_prompt=concept_prompt.system_text,
@@ -149,6 +152,16 @@ def build_second_reader(
         http_client=http_client,
         config=config,
     )
+    escalation_reader = _escalation_reader(
+        typed_only=typed_only and compiled,
+        resolved=resolved,
+        endpoint=endpoint,
+        endpoint_resolver=endpoint_resolver,
+        held_capabilities=held_capabilities,
+        config_for=lambda form_targets: reader_config(compiled, form_targets),
+        identity=identity,
+        http_client=http_client,
+    )
     return SemanticSecondReader(
         type_grounding=ResourceTypeGrounding(chooser=reader, owner_loop=owner_loop),
         coverage_review=JudgmentCoverageReview(extractor=reader, owner_loop=owner_loop),
@@ -166,12 +179,50 @@ def build_second_reader(
                         speculative_start=speculative_form_start_enabled(),
                     ),
                     ambiguity_reader=reader,
+                    escalation_model=escalation_reader,
                 )
             )
             if compiled
             else None
         ),
     )
+
+
+def _escalation_reader(
+    *,
+    typed_only: bool,
+    resolved: ResolvedModels,
+    endpoint: str | None,
+    endpoint_resolver: Callable[[str], str] | None,
+    held_capabilities: frozenset[str],
+    config_for: Callable[[tuple[ModelRequestTarget, ...]], AzureOpenAIQuestionFormConfig],
+    identity: WorkloadIdentity,
+    http_client: httpx.AsyncClient,
+) -> AzureOpenAIQuestionFormModel | None:
+    """Return a T2 reader for the replacement sample of a typed-only local turn.
+
+    Typed-only answering never falls back to the planning cascade, so a first reading that
+    the T1 reader cannot form would end the turn. The T2 reader reads only that replacement
+    sample, and its form passes the same admission, grounding, blind review, and selection.
+    """
+
+    if not typed_only:
+        return None
+    t2_targets = t2_model_targets(
+        resolved,
+        endpoint=endpoint,
+        endpoint_resolver=endpoint_resolver,
+        held_capabilities=held_capabilities,
+    )
+    if not t2_targets:
+        _LOGGER.info("semantic_form_escalation_disabled", extra={"reason": "t2_target_absent"})
+        return None
+    try:
+        config = config_for(t2_targets[:1])
+    except ValueError:
+        _LOGGER.warning("semantic_form_escalation_disabled", extra={"reason": "config_invalid"})
+        return None
+    return AzureOpenAIQuestionFormModel(identity=identity, http_client=http_client, config=config)
 
 
 def compiled_answers_enabled(environment: Mapping[str, str] | None = None) -> bool:

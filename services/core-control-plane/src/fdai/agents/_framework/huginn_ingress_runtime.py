@@ -276,6 +276,9 @@ class HuginnIngressMixin:
         retained: Any,
     ) -> bool:
         """Redrive one retained claim; return whether it completed in this pass."""
+        projector = self._discovery_projector
+        if projector is None:  # pragma: no cover - guarded by the caller
+            raise RuntimeError("inventory discovery projector is unavailable")
         async with self._key_lock(key):
             try:
                 claim = await journal.claim(
@@ -290,7 +293,7 @@ class HuginnIngressMixin:
             if claim.duplicate:
                 return False
             async with asyncio.timeout(_DISCOVERY_PROJECTOR_TIMEOUT_SECONDS):
-                await self._discovery_projector(claim.payload)
+                await projector(claim.payload)
             cancelled = await self._publish_event_change(
                 claim.payload,
                 claim.change_projection,
