@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 69d4e20ed2eea10ee266f01d2425ddde0e3cea7d
+translation_source_sha: 8d98b1be808e006169abbecf796294d1216b7da1
 translation_revised: 2026-10-27
 ---
 # 온톨로지 추론 컴파일러

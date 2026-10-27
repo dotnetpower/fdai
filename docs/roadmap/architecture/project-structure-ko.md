@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3da3139490d8a21753867f7b87e5672f32bcabf2
+translation_source_sha: 219ef6aa5668ea3fa473c1749b157cd07c7e6e17
 translation_revised: 2026-10-27
 ---
 # 프로젝트 구조

@@ -406,9 +406,7 @@ start the form path beside the preflight. `core/conversation/semantic_planning_s
 gives the planner the matching start, and the planner adopts the ticket only for the same question.
 The form path runs on the owner loop, outside the turn's decision collector, so
 `semantic_compiled_answers.py` carries the sample a resample replaced on the returned observation
-and logs its decline on the turn's own context.
-In the typed-only local profile the same module also builds a T2 reader from the resolved T2 targets, and
-the form path reads only a replacement sample with it.
+and logs its decline on the turn's own context. The same module builds a T2 reader that reads only a replacement sample.
 Repair feedback may repeat the judged words to
 the model, but rejection logs keep only its location, type, and reason. `semantic_judgment_review.py`
 owns both the second-tier review requirement and the promotion of a grounded state collection, so
