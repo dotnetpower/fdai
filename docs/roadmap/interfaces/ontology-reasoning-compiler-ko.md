@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 5263dd00827afa3d5691eac013929b08c509f569
-translation_revised: 2026-10-26
+translation_source_sha: 8d98b1be808e006169abbecf796294d1216b7da1
+translation_revised: 2026-10-27
 ---
 # 온톨로지 추론 컴파일러
 
@@ -640,6 +640,12 @@ V-SEM은 그 함수의 상태 개념을 바인딩된 상태와 대조합니다. 
 샘플링했거나 보류된 턴도 진단할 수 있습니다. 선언되지 않은 언급을 참조하는 형식은
 `form_goal_filter_cites_an_undeclared_mention`처럼 참조한 역할을 밝히므로, 한 번의 수리와 추적 기록이 고칠
 필드를 가리킵니다.
+
+typed-only 로컬 프로필에서는 경로가 계획 cascade로 되돌아가지 않으므로, T1 리더가 첫 해석을 형식으로 만들지
+못하면 턴이 `semantic_reading_unverified`로 끝납니다. 확인된 T2 reasoner 대상이 있으면 대체 샘플만 T2 리더가
+읽고, 턴은 `form_escalated`를 기록합니다. 에스컬레이션된 형식도 같은 수용, 근거화, 블라인드 검토, 선택을
+통과해야 하므로 더 강한 계층은 형식을 제안하는 주체만 바꾸고 무엇이 공개되는지는 바꾸지 않습니다. 모든 첫
+샘플은 계속 T1 리더가 읽습니다.
 
 선택된 컴파일은 답변이 카탈로그 안내로 밝히는 검토된 제한만 가질 수 있습니다. 적용한 이력 기간, 기본
 이력 기간, 모델이 판단한 이력 기간, 원인이 확정되지 않았다는 사실, 그리고 영향이 관측된 것이 아니라 가능한

@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: dba030f7c27f5509d697d4963bc3f40878c6c7bd
-translation_revised: 2026-10-26
+translation_source_sha: 219ef6aa5668ea3fa473c1749b157cd07c7e6e17
+translation_revised: 2026-10-27
 ---
 # 프로젝트 구조
 
@@ -412,7 +412,7 @@ Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡
 `core/conversation/semantic_planning_speculation.py`는 계획기에 해당 시작 기능을 제공하며, 계획기는 같은 질문에서만
 티켓을 채택합니다. 질문 구조화 경로는 턴의 결정 수집기 밖인 소유 루프에서 실행되므로,
 `semantic_compiled_answers.py`는 다시 샘플링으로 대체된 샘플을 반환 관측값에 담아 두고 그 거절 이유를 턴
-자신의 컨텍스트에서 기록합니다. 수정 피드백은 판단한 발화의 단어를 모델에 다시 보여 줄 수 있지만, 거부
+자신의 컨텍스트에서 기록합니다. typed-only 로컬 프로필에서는 같은 모듈이 확인된 T2 대상으로 T2 판독기도 만들며, 질문 구조화 경로는 대체 샘플만 이 판독기로 읽습니다. 수정 피드백은 판단한 발화의 단어를 모델에 다시 보여 줄 수 있지만, 거부
 로그에는 위치, 유형, 사유만 남깁니다. `semantic_judgment_review.py`는 두 번째 계층 검토 요건과 근거화된
 상태 수집의 승격을 함께 소유하므로, 검토 결정과 계획되는 계열이 서로 어긋날 수 없습니다. 제안 복구나 독립 검토 복구 전에 Core는 같은 goal에 허용된 동일 역할의 companion filter가 있거나, goal이 하나인 form에 다른 곳에서 참조하지 않는 허용된 operand가 정확히 하나 있고 라벨도 다른 곳에서 참조하지 않을 때만 중복 PROPERTY 라벨을 context로 옮길 수 있습니다. 정규화기는 정확히 이 span과 mention에 전혀 겹치지 않는 domain-valid typed filter cue에만 비공개 syntactic-label receipt를 발급합니다. 타입이 지정된 판독을 보존하는 수락된 복구는 receipt를 유지합니다. Blind review는 독립 판독기가 해당 속성 라벨을 이름으로 분류할 때만 이 receipt를 사용할 수 있습니다. 제외와 다른 모든 역할은 계속 전체 검토 대상이고, 모델이 작성한 일반 context도 의미를 충족하지 못합니다. goal이 하나인 인스턴스 컬렉션 `select`에서 격리된 `resource_type` subject와 격리된 `object_type` type filter가 하나씩 있으면 Core는 두 참조를 교환해 더 넓은 ObjectType을 subject, 더 좁은 ResourceType을 filter로 정규화합니다. 두 번째 goal, 경쟁 판독 또는 다른 참조가 있으면 교환하지 않습니다. 이는 lexical 의미 추론이 아니라 구조 정규화입니다.
 `composition/typed_selection_shadow.py`는 `FDAI_ONTOLOGY_TYPED_SELECTION_SHADOW=enabled`일 때만
