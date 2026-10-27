@@ -22,7 +22,6 @@ import { setChatAuth } from "./deck/auth";
 import { buildFallbackViewSnapshot, ViewContextProvider } from "./deck/context";
 import { deckUserFromAuth, setDeckUser } from "./deck/deck-user";
 import { setWorkflowAuth } from "./workflow/validate";
-import { setPythonTaskAuth } from "./workflow/python-task";
 import { setUserContextAuth } from "./user-context-client";
 import type { IamSelfStatus } from "./routes/settings-iam.model";
 import { t } from "./i18n";
@@ -245,6 +244,7 @@ export function App() {
         );
         setDeckUser(deckUserFromAuth(auth));
         setWorkflowAuth(auth);
+        const { setPythonTaskAuth } = await import("./workflow/python-task");
         setPythonTaskAuth(auth);
         setUserContextAuth(auth);
         setChatAuth(auth);
