@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: b3ef10e430e049438498057c313b051f15120828
+translation_source_sha: b47d0c0224e2135d646877e31eaa1686ed373cd6
 translation_revised: 2026-10-27
 ---
 # Hub 관리형 수명 주기

@@ -961,26 +961,20 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
    intent; no API request has occurred in that case.
    Every apply poll rechecks native versus legacy mode under the exclusive state lock before
    fetching a Plan or recovering a journal; a legacy client composed before bootstrap stops.
-7. A full-authority development approval may also list exact existing workload objects by kind,
-   name and Kubernetes UID. The list is a subset of the unchanged `NativeScope`; every other
-   object in that scope must be absent. The Hub signs the operator-accepted native claim digest
-   into the Plan's `ownership_digests`, while names and UIDs stay in the private local approval.
-   Before `apply-started`, the Agent verifies each UID, captures its resource version and original
-   manifest, and performs a server dry run that can force only Terraform-owned fields. After the
-   Hub accepts `apply-started`, the Agent runs the existing per-object adoption checkpoint and
-   creates only the approved absent objects. Each receipt binds the local approval digest, accepted
-   ownership digest, Plan id, render digest, UID and resulting resource version.
-   The desired render always carries the Agent ownership label. The captured pre-adoption rollback
-   manifest may retain its Terraform ownership label only when its exact kind and name have a
-   UID-fenced adoption expectation. Preflight and rollback apply this same narrow exception; an
-   unlisted unmanaged object remains outside scope. When rollback restores an already adopted
-   object, the native owner reapplies the Agent ownership marker before submitting the manifest.
-   A conflicting UID or field manager stops before mutation. An interruption recovers only objects
-   carrying the exact anchor ownership marker, restores the captured manifests through UID-fenced
-   rollback, and leaves unadopted objects unchanged. A later Plan safely retries only the remaining
-   objects. The ownership marker remains after workload rollback so reconciliation never silently
-   returns to two writers; the separate Terraform import procedure owns any reversal of the
-   ownership handoff.
+7. A full-authority development approval may list exact existing objects by kind, name and
+   Kubernetes UID. The list is a subset of the unchanged `NativeScope`; every other object must be
+   absent. The Hub signs the accepted claim digest into the Plan's `ownership_digests`; names and
+   UIDs stay in the private approval. Before `apply-started`, the Agent verifies each UID, captures
+   its resource version and original manifest, and dry-runs only Terraform-owned fields. The desired
+   render always carries the Agent ownership label. A pre-adoption rollback manifest may retain its
+   Terraform label only for an exact kind/name UID-fenced expectation; unlisted unmanaged objects
+   remain outside scope. Rollback reapplies the Agent marker before submitting an adopted object.
+   After Hub acceptance, the Agent runs the per-object checkpoint and creates only approved absent
+   objects. Each receipt binds the approval and ownership digests, Plan id, render digest, UID and
+   resulting resource version. Conflicting UIDs or field managers stop before mutation. Recovery
+   uses the exact anchor marker and UID-fenced rollback, leaves unadopted objects unchanged, and
+   retries only the residual set. The ownership marker remains after workload rollback; the
+   separate Terraform import procedure owns any reversal of the ownership handoff.
 
 The initial surface is limited to application-package Deployments and internal Services.
 It adds no namespace, RoleBinding, Azure resource, secret read, database migration execution,
