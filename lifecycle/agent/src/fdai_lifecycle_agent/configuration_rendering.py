@@ -239,6 +239,7 @@ def prepare_workload(
             desired,
             recorded=frozenset(healthy),
         )
+        desired = workload.cluster.bind_adoption_selectors(desired, adoptions)
         previous = (*previous, *adopted_previous)
     workload.preflight(desired, previous, adoptions=adoptions)
     return desired, previous, adoptions
