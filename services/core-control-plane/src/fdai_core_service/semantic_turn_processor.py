@@ -3182,11 +3182,20 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
         declaration_values = _ontology_declaration_answer_values(values)
         if declaration_values is not None:
             return declaration_values
+    group = values.get("group")
+    # An aggregate row names its group in a mapping; its scalar fields lead the row.
     projected = {
         field: _redact_answer_scalar(field, value)
-        for field, value in values.items()
+        for field, value in (group.items() if isinstance(group, Mapping) else ())
         if isinstance(field, str) and field and not isinstance(value, Mapping | list)
     }
+    projected.update(
+        {
+            field: _redact_answer_scalar(field, value)
+            for field, value in values.items()
+            if isinstance(field, str) and field and not isinstance(value, Mapping | list)
+        }
+    )
     projected.update(reviewed_structured_cells(values, redact=_redact_answer_scalar))
     if values.get("record_kind") == "excerpt" and values.get("cloud_source") is not None:
         from fdai_service_contracts.cloud_knowledge import CloudSourceEvidence

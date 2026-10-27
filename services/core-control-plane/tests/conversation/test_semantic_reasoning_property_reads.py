@@ -647,3 +647,26 @@ def test_a_reviewed_provider_path_requires_every_in_selected_type_to_be_reviewed
             ),
             manifest=production_manifest(),
         )
+
+
+def test_an_aggregate_row_leads_with_the_scalar_fields_of_its_group() -> None:
+    row = _answer_row_values(
+        {"group": {"properties.type": "kubernetes-cluster"}, "operation": "count", "value": 2}
+    )
+
+    assert list(row) == ["properties.type", "operation", "value"]
+    assert row["properties.type"] == "kubernetes-cluster"
+
+
+def test_an_aggregate_group_redacts_sensitive_values_and_keeps_row_fields() -> None:
+    row = _answer_row_values(
+        {
+            "group": {"name": "/subscriptions/hidden/x", "value": "shadowed", "nested": {"a": 1}},
+            "value": 3,
+        }
+    )
+
+    assert row["name"] == "<redacted>"
+    assert row["value"] == 3
+    assert "nested" not in row
+    assert "group" not in row
