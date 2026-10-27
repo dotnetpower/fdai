@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 02057f3147aa51d7c0fca9732cf9e6cb41648693
+translation_source_sha: ffeaa88021f7198ec1b8f19da8a4186829d8e630
 translation_revised: 2026-10-27
 ---
 # FDAI Console 대화
@@ -607,7 +607,8 @@ pull 어댑터 추가. 콘솔은 이제:
   감사 이력을 생성하는지 확인합니다.
 - **세션 복구** - principal 범위로 한정된 `ConversationHistoryStore`에서 세션 id로 이전 턴을
   reload하고 고정된 요청 멱등성이 중복 덧붙이기를 막는지 검증. 감사/온톨로지에는
-  raw 대화 기록이 아니라 해시와 참조만 남습니다.
+  raw 대화 기록이 아니라 해시와 참조만 남습니다. 기록 목록은 저널에 남은 semantic turn 세션도 한 번씩
+  보여 주므로 브라우저 캐시가 사라진 뒤에도 대화가 목록에 남습니다.
 ## 12. 실패 모드
 
 - **Narrator 사용 불가** - Chat T0 direct-hit로 fall through; 턴이

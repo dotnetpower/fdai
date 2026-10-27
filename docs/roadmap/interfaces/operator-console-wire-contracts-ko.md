@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: f56a9bb98b39caafdd218841d287f0717acd833a
+translation_source_sha: f0fc9909b793b2a27311e6a2bef04006b46e630a
 translation_revised: 2026-10-26
 ---
 
@@ -253,7 +253,7 @@ Resource 목록이나 선언 목록이 불완전하면 제한 문장은 알려�
 답변 문장은 공급자 lifecycle 상태, 시간대가 있는 시각(UTC), 원본 완전성을 답변 언어로 표시하고
 `execution_authority=false` 표시와 함께 읽기 전용 경계를 설명하는 문장을 제공합니다. Resource
 이름이 없는 최근 변경 행은 참조의 마지막 구간을 표시합니다. wire 행과 기술 상세에는 정확한 공급자
-값이 그대로 남으며 집계 행은 그룹의 스칼라 필드로 시작합니다.
+값이 그대로 남으며 집계 행은 그룹의 스칼라 필드로 시작합니다. `GET /me/conversations`는 기존 대화 행과 저널에 남은 semantic turn 세션을 최신순으로 함께 페이지로 반환합니다.
 Operator의 PostgreSQL 제품군 facade도 변경 불가능한 레코드, 행 변환 및 근거 디코딩을 위임하며
 조회 매개 변수, 제안 claim, 재생 순서 또는 wire 필드를 바꾸지 않습니다.
 Operator terminal 표현은 Pantheon 품질 보증, 현지화된 Incident 블록 및 내용이 제거된 읽기

@@ -269,7 +269,7 @@ machine code; localized text never replaces it.
 Answer text names provider lifecycle states, timezone-aware instants in UTC, and source
 completeness in the answer language, and pairs the `execution_authority=false` marker with a
 sentence that states the read-only boundary. A recent-change row without a Resource name shows the
-last segment of its reference. Wire rows and technical details keep the exact provider values; an aggregate row leads with its group's scalar fields.
+last segment of its reference. Wire rows and technical details keep the exact provider values; an aggregate row leads with its group's scalar fields. `GET /me/conversations` pages legacy conversation rows together with journaled semantic-turn sessions, newest first.
 Operator's PostgreSQL family facade similarly delegates immutable records, row projection, and
 evidence decoding without changing query parameters, proposal claims, replay order, or wire fields.
 Operator terminal presentation delegates Pantheon assurance, localized Incident blocks, and
