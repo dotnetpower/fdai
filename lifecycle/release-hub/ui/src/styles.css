@@ -41,7 +41,7 @@ small { font-size: var(--cs-type-compact-size); color: var(--cs-text-soft); }
 .brand { display: flex; gap: 12px; align-items: center; padding: 0 8px 32px; font-weight: 600; }
 .brand img { width: 32px; height: 24px; object-fit: contain; }
 .brand small { display: block; font-weight: 400; margin-top: 4px; }
-.nav-link { text-decoration: none; min-height: 44px; padding: 10px 12px; color: var(--cs-text); border: 1px solid transparent; border-radius: var(--cs-radius-sm); }
+.nav-link { text-decoration: none; min-height: 44px; min-width: 0; overflow-wrap: anywhere; padding: 10px 12px; color: var(--cs-text); border: 1px solid transparent; border-radius: var(--cs-radius-sm); }
 .nav-link:hover { background: var(--cs-card); }
 .nav-link.current { border-color: var(--rh-accent); background: var(--rh-tint); color: var(--rh-accent); font-weight: 600; }
 .side-note { margin-top: auto; padding: 24px 8px 0; font-size: var(--cs-type-compact-size); color: var(--cs-text-soft); }
@@ -62,6 +62,15 @@ small { font-size: var(--cs-type-compact-size); color: var(--cs-text-soft); }
 .status.recalled { color: #963a34; background: #fcf0ed; border-color: #b87870; }
 .row-next, .back { color: var(--rh-accent); font-size: var(--cs-type-compact-size); }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.release-next { margin-top: 32px; }
+.release-workspace .facts > div, .release-workspace .activity strong { min-width: 0; overflow-wrap: anywhere; }
+.release-stages { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.release-stages li { display: grid; gap: 8px; padding: 16px 0; border-top: 1px solid var(--cs-hairline); overflow-wrap: anywhere; }
+.release-stages span { color: var(--cs-text-soft); }
+.release-disclosure { border-top: 1px solid var(--cs-hairline); margin-top: 32px; }
+.release-disclosure > summary { font-weight: 600; }
+.release-disclosure .actions { margin: 16px 0; }
+.next-link { display: inline-block; padding: 12px 0; min-height: 44px; font-weight: 600; }
 .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; padding: 24px 0; border-block: 1px solid var(--cs-hairline); }
 .facts > div { display: grid; align-content: start; gap: 8px; }
 .facts span:first-child { color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); }
@@ -109,6 +118,7 @@ dialog footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 
   .main { padding: 16px 16px 48px; }
   .page-head { flex-direction: column; gap: 16px; }
   .artifact-list { grid-template-columns: 1fr; }
+  .release-stages { grid-template-columns: 1fr; gap: 8px; }
   .facts { gap: 24px 16px; }
   dl { grid-template-columns: 1fr; gap: 8px; }
   dd { margin-bottom: 16px; }
