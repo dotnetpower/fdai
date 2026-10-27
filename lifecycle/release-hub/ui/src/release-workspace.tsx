@@ -100,7 +100,7 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
         <dt>{t("Signed payload SHA-256", "서명된 페이로드 SHA-256")}</dt><dd><code class="digest">{release.signed_payload_sha256}</code></dd>
         <dt>{t("Source commit", "소스 커밋")}</dt><dd><code class="digest">{manifest.source_commit}</code></dd>
         <dt>{t("Platform", "플랫폼")}</dt><dd>{manifest.platform_tag}</dd>
-        <dt>{t("Schema compatibility", "스키마 호환성")}</dt><dd>{schemaCompatibility(manifest)}</dd>
+        <dt>{t("Schema compatibility", "스키마 호환성")}</dt><dd lang="en">{schemaCompatibility(manifest)}</dd>
         <dt>{t("Development key", "개발용 키")}</dt><dd><code class="digest">{catalog.key_id}</code></dd>
         <dt>{t("Published", "발행 시각")}</dt><dd>{release.published_at ?? t("Not published", "발행되지 않음")}</dd>
         <dt>{t("All channels", "모든 채널")}</dt><dd>{release.channels.join(" / ") || t("None", "없음")}</dd>
@@ -109,7 +109,7 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
       <p>{t("Declared digests only. No registry, SBOM or provenance verification is established by this view.", "선언된 다이제스트만 표시합니다. 이 화면은 레지스트리, SBOM 또는 출처 검증을 입증하지 않습니다.")}</p>
       <div class="artifact-list">{artifacts(manifest).map((artifact) => <article key={artifact.component}>
         <h3>{artifact.component}</h3><code class="digest">{artifact.digest}</code>
-        <details><summary>{t("SBOM digest", "SBOM 다이제스트")}</summary><code class="digest">{artifact.sbom}</code></details>
+        <details><summary>{t("SBOM digest", "SBOM 다이제스트")}</summary><code class="digest" lang="en">{artifact.sbom}</code></details>
       </article>)}</div>
       <details><summary>{t("Exact manifest and detached signature", "정확한 매니페스트 및 분리된 서명")}</summary>
         <pre>{release.manifest}</pre><code class="digest">{release.signature || t("No signature", "서명 없음")}</code>
