@@ -657,7 +657,7 @@ profiles:
     packs:
       - {id: semantic-question-form-azure-resources, version: 1, layer: pack}
     system_token_budget: 18432
-    request_token_budget: 32768
+    request_token_budget: 65536
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
     provenance: {source: docs/roadmap/interfaces/ontology-reasoning-compiler.md}

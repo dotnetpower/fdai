@@ -528,7 +528,7 @@ and keeps each reached endpoint once. A Resource state filter binds through
 a reviewed state catalog built from the state inventory function's declared concepts and labels, and the collection is
 read through that function, whose state concepts V-PROV and V-SEM check against the bound state. A state filter on
 another ObjectType stays `filter_unsupported:state`, because no reviewed reader holds that lifecycle.
-A count grouped by container groups members by their direct parent, the `from` end of `contains`, and V-SEM rejects
+A count grouped by container groups members by their direct parent, the `from` end of `contains`, answer rows lead with the group, and V-SEM rejects
 an aggregate whose grouping differs from the stated one. The routing preflight's context now also yields newest-first
 within its smaller bound: before, a context longer than that bound skipped the preflight, so after a few long
 answers a standalone question went to the adaptive planner, which could answer it from general knowledge. A trimmed
@@ -605,9 +605,9 @@ rollback release.
 
 When the first reading fails only as a form, because it was invalid, clarified by an unused mention or a
 competing reading, not faithful to the blind review, or mislabeled one mention's kind, the path reads the
-question once more. The second sample passes the same admission, grounding, review, and selection
+question again, at most twice. Each replacement sample passes the same admission, grounding, review, and selection
 rules and never lowers the bar; a reading with an unsupported atom is never resampled, and no turn takes
-more than two samples. The turn records why the replaced sample was declined as a content-free
+more than three samples. The turn records why the replaced sample was declined as a content-free
 `semantic_form_sample_declined` event, so a resampled or held turn stays diagnosable. A form that cites
 an undeclared mention names the citing role, such as `form_goal_filter_cites_an_undeclared_mention`, so
 the one repair and the trace point at the field to fix. In the typed-only local profile no cascade follows,
@@ -789,7 +789,7 @@ rounds traced. Each stays in the local profile and grants no authority.
   for naming no kind of resource; it sees neither the earlier text nor the reading. Only one lets the released reading answer; any other verdict, no answer, a
   timeout, or a failure keeps the clarification. The plan takes the gateway's cutoff only after that
   verdict, because the gateway accepts a cutoff only within seconds of its own. The composition gives the check to the reasoning direction
-  reader only when it is neither the judgment and proposer's family nor the blind reviewer's; otherwise the
+  reader only when it is neither the judgment and proposer's family nor the blind reviewer's, else to a T2 reasoner that is neither; without either the
   clarification always wins.
 
 **Current-path plans**

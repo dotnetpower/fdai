@@ -73,7 +73,7 @@ ports behind Core. Until promoted, Console answers continue to use the current v
 The verified data fallback distinguishes a scalar result from its transport table. One complete,
 ungrouped count renders as a compact verified value without the one-row table or transport-row
 accounting. Grouped, incomplete, truncated, or multi-row results keep their table and limitation
-presentation, and a grouped aggregate shows its group fields as leading columns before the count.
+presentation, and a grouped aggregate shows its group fields as leading columns before the count, from the Core answer rows.
 In observed-work timelines, each terminal summary mark is centered on the same
 vertical flow rail as its detail records; this alignment changes presentation only.
 The Run Record also distinguishes an intentionally content-free model trace from a provider request

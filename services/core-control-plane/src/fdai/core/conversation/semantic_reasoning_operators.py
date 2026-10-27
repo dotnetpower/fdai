@@ -60,6 +60,7 @@ from .semantic_reasoning_history_window import (
     stated_window,
 )
 from .semantic_reasoning_lineage_counts import lineage_count_goal
+from .semantic_reasoning_lookup_filters import lookup_filter_failure
 from .semantic_reasoning_measure_reads import health_lookup, state_history
 from .semantic_reasoning_measures import listed_measure, stated_measure
 from .semantic_reasoning_metric_selection import WINDOW_LIMITATIONS, metric_stage
@@ -569,8 +570,9 @@ def _relation_count(
 def _lookup_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if goal.measure is None or goal.subject is None:
         return OperatorResult(unsupported=("measure_required",))
-    if goal.filters:
-        return OperatorResult(unsupported=("filter_unsupported_for_operation:lookup",))
+    restated = lookup_filter_failure(goal, ctx)
+    if restated is not None:
+        return restated
     # A metric is read over a window, so it states its own time; a state is read now.
     if goal.measure.kind is MeasureKind.METRIC:
         return _metric_lookup(goal, ctx)
