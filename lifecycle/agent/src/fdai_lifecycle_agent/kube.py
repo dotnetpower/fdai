@@ -100,7 +100,7 @@ class KubernetesCluster:
             for item in metadata.get("managedFields", [])
             if not item.get("subresource")
         }
-        if managers != {"Terraform"}:
+        if managers not in (set(), {"Terraform"}):
             raise WorkloadError("adoption_field_manager_conflict")
         body = dict(manifest) | {
             "metadata": dict(manifest["metadata"])

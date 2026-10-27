@@ -207,7 +207,14 @@ def test_adoption_refuses_unknown_or_drifted_objects(
     assert cluster.adopted == []
 
 
-def test_kubernetes_adoption_forces_only_a_terraform_managed_object() -> None:
+@pytest.mark.parametrize(
+    "managed_fields",
+    [[], [{"manager": "Terraform"}]],
+    ids=["legacy-empty", "terraform"],
+)
+def test_kubernetes_adoption_forces_only_a_terraform_managed_object(
+    managed_fields: list[dict[str, str]],
+) -> None:
     cluster = object.__new__(KubernetesCluster)
     cluster._namespace = "fdai-demo"
     cluster._timeout = 10
@@ -216,7 +223,7 @@ def test_kubernetes_adoption_forces_only_a_terraform_managed_object() -> None:
             "metadata": {
                 "uid": "uid-first",
                 "resourceVersion": "1",
-                "managedFields": [{"manager": "Terraform"}],
+                "managedFields": managed_fields,
             }
         }
     )
