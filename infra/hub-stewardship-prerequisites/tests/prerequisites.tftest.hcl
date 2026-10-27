@@ -69,6 +69,20 @@ override_data {
 }
 
 override_data {
+  target = data.azurerm_eventhub.change_events
+  values = {
+    id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai-example/providers/Microsoft.EventHub/namespaces/evhns-fdai-example/eventhubs/fdai.change.events"
+  }
+}
+
+override_data {
+  target = data.azurerm_eventhub.hil_decisions
+  values = {
+    id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai-example/providers/Microsoft.EventHub/namespaces/evhns-fdai-example/eventhubs/fdai.hil.decisions"
+  }
+}
+
+override_data {
   target = data.azurerm_log_analytics_workspace.target
   values = {
     id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai-example/providers/Microsoft.OperationalInsights/workspaces/log-fdai-example"
@@ -178,6 +192,8 @@ run "plans_only_stewardship_prerequisites" {
       length(azurerm_role_assignment.acr_pull) == 3 &&
       length(azurerm_role_assignment.document_data) == 2 &&
       length(azurerm_role_assignment.operator_secret_reader) == 3 &&
+      length(azurerm_role_assignment.command_sender) == 3 &&
+      length(azurerm_role_assignment.command_receiver) == 2 &&
       length(kubernetes_service_account_v1.prerequisite) == 4 &&
       length(kubernetes_config_map_v1.runtime_environment) == 8 &&
       length(kubernetes_manifest.secret_provider) == 3 &&
@@ -201,6 +217,14 @@ run "plans_only_stewardship_prerequisites" {
         for name, role in azurerm_role_assignment.operator_secret_reader :
         role.role_definition_name == "Key Vault Secrets User" &&
         role.scope == data.azurerm_key_vault_secret.runtime[name].resource_versionless_id
+      ]) &&
+      alltrue([
+        for role in values(azurerm_role_assignment.command_sender) :
+        role.role_definition_name == "Azure Event Hubs Data Sender"
+      ]) &&
+      alltrue([
+        for role in values(azurerm_role_assignment.command_receiver) :
+        role.role_definition_name == "Azure Event Hubs Data Receiver"
       ]) &&
       azurerm_role_assignment.notification_sender.role_definition_name == "Communication and Email Service Owner"
     )

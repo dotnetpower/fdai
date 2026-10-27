@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 3c13f5d1f2c9c3ebcb5b01f2c21630ddab80fdd6
+translation_source_sha: 49c2a2de4b874691022363d80c6c31391289d169
 translation_revised: 2026-10-27
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -736,6 +736,8 @@ SecretProviderClass, ConfigMap, 비밀 바인딩만 소유합니다. 관리 대�
 HorizontalPodAutoscaler, CronJob은 만들지 않습니다.
 Operator API 신원에는 생성된 세 secret 리소스 ID에 대해서만 `Key Vault Secrets User`를
 부여하며, Key Vault 전체 범위 권한은 부여하지 않습니다.
+별도 Operator command 신원에는 변경, 의미 처리, 사람 승인, 파이프라인에 사용하는 정확한
+Event Hub 토픽 5개에 대해서만 sender와 receiver 역할을 부여합니다.
 
 ## 관련 문서
 
