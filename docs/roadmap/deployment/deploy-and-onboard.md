@@ -707,6 +707,8 @@ SecretProviderClasses, ConfigMaps and secret bindings that this inventory refere
 create any managed Deployment, Service, HorizontalPodAutoscaler or CronJob.
 The Operator API identity receives `Key Vault Secrets User` only on its exact three generated
 secret resource ids; the root does not grant it vault-wide access.
+The separate Operator command identity receives Event Hubs sender and receiver roles only on the
+five exact change, semantic, human-approval, and pipeline topic bindings.
 
 ## Related docs
 
