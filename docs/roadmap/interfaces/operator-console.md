@@ -285,8 +285,9 @@ correlation, or idempotency selector continues to require server-owned action li
 ## 2. Three-layer architecture
 
 Forecast-history controls keep their English/Korean messages in the existing lazy Settings route
-catalog with English fallback. This preserves the initial 500000-byte raw/150000-byte gzip budget
-without changing visible text, server contracts or authority.
+catalog with English fallback. The Python task client likewise loads only after authenticated
+startup establishes its auth context. These boundaries preserve the initial 500000-byte
+raw/150000-byte gzip budget without changing visible behavior, server contracts or authority.
 
 ![2. Three-layer architecture. The main stages are CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\nT1 translation default\nT2 translation escalation, Intent classify\n(read | simulate | approve | breakglass), RBAC gate\n(per-tool role floor), Verifier re-check\n(no auto-execute), Session state\n(audit-log-backed), ControlLoop, RuleIndex / T0Engine, QualityGate.](../../diagrams/generated/fdai-operator-console-01.en.svg)
 
