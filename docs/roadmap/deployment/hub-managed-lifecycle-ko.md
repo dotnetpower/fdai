@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 87202d39b9f9937de103b2b4b461724de2628286
+translation_source_sha: 176952d3b569b61854370bcc4150fda20dae0a7d
 translation_revised: 2026-10-27
 ---
 # Hub 관리형 수명 주기
@@ -972,7 +972,8 @@ cell이 다른 고객의 cell에 영향을 줄 수 없습니다.
    기존 Deployment는 불변 selector를 유지하고 그 일치 label을 목표 Pod 템플릿에 복사합니다.
    UID나 필드 관리자가 충돌하면 변경 전에 중지합니다. 중단되면 정확한 anchor 소유 표시가
    있는 객체만 복구하고 UID 조건 롤백으로 보존한 매니페스트를 복원하며, 인수하지 않은
-   객체는 바꾸지 않습니다. 이후 Plan은 남은 객체만 안전하게 재시도합니다. 워크로드를
+   객체는 바꾸지 않습니다. 보존된 모든 소유 UID를 롤백 상태로 복원한 뒤 이후 Plan에서 남은
+   객체만 안전하게 재시도합니다. 워크로드를
    롤백해도 소유 표시는 유지하므로 두 작성자가 조용히 다시 활성화되지 않습니다.
    소유권 인계를 되돌리는 작업은 별도의 Terraform 가져오기 절차가 담당합니다.
 
