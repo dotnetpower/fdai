@@ -10,6 +10,8 @@ The root creates:
   federated identity credentials;
 - document storage and private endpoints, Document Intelligence, ACS Email, role bindings, and
   role-scoped DSN references;
+- secret-scoped `Key Vault Secrets User` assignments for the Operator API identity's exact three
+  generated secret bindings;
 - the exact missing ServiceAccounts and environment ConfigMaps from full-topology generation; and
 - SecretProviderClasses whose CSI `secretObjects` bind generated environment variables to Key
   Vault secret names, plus the three bootstrap Kubernetes Secrets required before the managed
