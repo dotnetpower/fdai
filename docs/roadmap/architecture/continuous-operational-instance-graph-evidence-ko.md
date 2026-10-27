@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph-evidence.md
-translation_source_sha: 5147cd6bb09920c3c746fd4361802b91977ddc9f
+translation_source_sha: 8f2a2c5fa339d599c9f4d10a55ca291dfeca64b9
 translation_revised: 2026-10-26
 ---
 
@@ -27,6 +27,7 @@ binding을
 |------|------|-----------|
 | 공급자 push ingress | implemented | Event Grid 쓰기와 삭제가 raw Event Hub에 도달하고 `_consume_resource_changes`가 정식 inventory 이벤트로 정규화합니다. |
 | 재개 가능한 delta cursor | implemented | `forward_inventory_delta`는 final fence 이후에만 durable Activity Log cursor를 전진시킵니다. |
+| fence 미충족 변경 배치 복구 | implemented | `forward_arg_resource_changes`는 120초 후에도 fence가 충족되지 않은 ARG 배치를 보존한 poll cursor부터 최대 두 번 다시 구동하고, 이후에는 coverage gap을 기록한 뒤 재개하여 변경 coverage를 막지 않습니다. |
 | 완전 reconciliation | implemented | `InventorySyncCoordinator.run`은 범위가 제한된 ARG 또는 ARM 관측을 준비하고 완전한 stream만 수락합니다. 프로바이더, 출처와 보강 단계 및 기존 1 MiB 저장 청크의 바이트 검사는 JSON 형태 레코드를 복사하거나 정규화하거나 문자열 전체를 인코딩하기 전에 크기를 확인하며 내용을 자르지 않습니다. [정규화 레코드의 메모리 할당 사전 검사](../interfaces/azure-resource-discovery-commands-ko.md#정규화-레코드의-메모리-할당-사전-검사)는 기존 인코더의 정확한 계산을 유지하고 남은 할당 제한을 명시합니다. |
 | 정규화된 observation ingress | implemented | `PostgresInventoryDeltaProjector.__call__`은 타입이 지정된 관측 의미를 검증하고 기존 overlay를 갱신하기 전에 Core 소유 추가 전용 관측 원장에 이중 기록합니다. |
 | Snapshot promotion | implemented | `PostgresInventorySnapshotStore.promote`는 promotion lock 아래에서 활성 세대를 원자적으로 전진시키고 정확한 Resource 및 Link 개수를 기록합니다. Operator 활동 읽기는 이 불변 요약을 사용하고, 개수가 없는 혼합 버전 행에만 범위가 제한된 하위 행 집계를 사용합니다. |
