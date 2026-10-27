@@ -261,6 +261,22 @@ def write_artifact(target: Path, content: str) -> None:
         os.unlink(temporary)
 
 
+def _pinned_subscription(repo_root: Path) -> str:
+    """Return the pinned local subscription, so a changed Azure CLI default cannot move it."""
+
+    value = os.environ.get("FDAI_LOCAL_SUBSCRIPTION_ID", "").strip()
+    if not value:
+        try:
+            lines = (repo_root / "console/.env.local").read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return ""
+        prefix = "FDAI_LOCAL_SUBSCRIPTION_ID="
+        value = next((line[len(prefix) :].strip() for line in lines if line.startswith(prefix)), "")
+    if value and not re.fullmatch(r"[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}", value):
+        raise ValueError("FDAI_LOCAL_SUBSCRIPTION_ID MUST be a subscription GUID")
+    return value
+
+
 def main() -> int:
     """Reuse a selected artifact or create one privately from bounded read-only discovery."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -320,8 +336,11 @@ def main() -> int:
 
     if not re.fullmatch(r"[A-Za-z0-9._()-]{1,90}", args.resource_group):
         raise ValueError("model discovery requires an explicitly selected resource group")
-    identity = azure("account", "show")
+    pinned = _pinned_subscription(args.repo_root)
+    identity = azure("account", "show", *(("--subscription", pinned) if pinned else ()))
     subscription = identity["id"]
+    if pinned and subscription != pinned:
+        raise ValueError("the Azure CLI login does not match the pinned local subscription")
     principal = azure("ad", "signed-in-user", "show", "--query", "id")
     accounts = azure(
         "cognitiveservices",

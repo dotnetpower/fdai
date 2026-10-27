@@ -312,3 +312,38 @@ def test_missing_default_settings_use_only_scoped_reads(tmp_path, monkeypatch, d
         assert MODULE.validate_artifact(target).narrator.deployment == "narrator-small"
         assert stat.S_IMODE(target.stat().st_mode) == 0o600
         assert len(calls) == 5
+
+
+def test_a_pinned_subscription_is_read_explicitly_instead_of_the_cli_default(tmp_path, monkeypatch):
+    pin = "00000000-0000-0000-0000-0000000000a1"
+    (tmp_path / "console").mkdir()
+    (tmp_path / "console/.env.local").write_text(
+        f"FDAI_LOCAL_SUBSCRIPTION_ID={pin}\n", encoding="utf-8"
+    )
+    monkeypatch.delenv("FDAI_LOCAL_SUBSCRIPTION_ID", raising=False)
+    seen = []
+
+    def observed_command(arguments, **kwargs):
+        seen.append(arguments)
+        if arguments[0] == "git":
+            return MODULE.subprocess.CompletedProcess(arguments, 0, "", "")
+        if arguments[1:3] == ["account", "show"]:
+            return MODULE.subprocess.CompletedProcess(
+                arguments, 0, json.dumps({"id": "00000000-0000-0000-0000-0000000000b2"}), ""
+            )
+        raise AssertionError("no read may follow a mismatched login")
+
+    monkeypatch.setattr(MODULE.subprocess, "run", observed_command)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["ensure-local-models", "--repo-root", str(tmp_path), "--resource-group", "rg-example"],
+    )
+    monkeypatch.setattr(MODULE, "load_llm_registry_from_yaml", lambda path: registry())
+    monkeypatch.delenv("FDAI_LOCAL_RESOLVED_MODELS_PATH", raising=False)
+
+    with pytest.raises(ValueError, match="pinned local subscription"):
+        MODULE.main()
+
+    show = next(call for call in seen if call[1:3] == ["account", "show"])
+    assert show[show.index("--subscription") + 1] == pin

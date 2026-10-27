@@ -298,8 +298,36 @@ if [[ ! "$local_resource_group" =~ ^[A-Za-z0-9._()-]+$ ]]; then
   echo "FDAI_LOCAL_RESOURCE_GROUP MUST name an existing, explicitly selected read scope" >&2
   exit 1
 fi
-subscription_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --query id -o tsv)"
-tenant_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --query tenantId -o tsv)"
+# The Azure CLI default subscription is shared mutable state: any other terminal or project can
+# change it. The local runtime therefore pins its subscription. An explicit pin selects that
+# logged-in account; without one, the first preparation follows the login and records it.
+local_subscription_id="${FDAI_LOCAL_SUBSCRIPTION_ID:-}"
+subscription_pattern='^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$'
+if [[ -n "$local_subscription_id" ]]; then
+  if [[ ! "$local_subscription_id" =~ $subscription_pattern ]]; then
+    echo "FDAI_LOCAL_SUBSCRIPTION_ID MUST be a subscription GUID" >&2
+    exit 1
+  fi
+  if ! subscription_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show \
+    --subscription "$local_subscription_id" --query id -o tsv 2>/dev/null)" \
+    || [[ "$subscription_id" != "$local_subscription_id" ]]; then
+    echo "FDAI_LOCAL_SUBSCRIPTION_ID is not available to the Azure CLI login; run 'az login' or update it in console/.env.local" >&2
+    exit 1
+  fi
+  default_subscription_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --query id -o tsv 2>/dev/null || true)"
+  if [[ -n "$default_subscription_id" && "$default_subscription_id" != "$subscription_id" ]]; then
+    echo "the Azure CLI default subscription differs from the pinned local subscription; using the pinned one" >&2
+  fi
+else
+  subscription_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --query id -o tsv)"
+  if [[ ! "$subscription_id" =~ $subscription_pattern ]]; then
+    echo "the Azure CLI login did not return a subscription GUID" >&2
+    exit 1
+  fi
+  printf 'FDAI_LOCAL_SUBSCRIPTION_ID=%s\n' "$subscription_id" >> "$SOURCE_ENV"
+  echo "pinned the local subscription to the current Azure CLI login in console/.env.local" >&2
+fi
+tenant_id="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" account show --subscription "$subscription_id" --query tenantId -o tsv)"
 echo "preparing local Docker state with an explicitly selected Azure read scope" >&2
 resource_group="$local_resource_group"
 region="$(env -u AZURE_CONFIG_DIR "$AZ_BIN" group show --subscription "$subscription_id" --name "$resource_group" --query location -o tsv)"
@@ -402,7 +430,7 @@ PY
 operator_request_core_seed="$(<"$operator_request_core_seed_file")"
 operator_request_operator_seed="$(<"$operator_request_operator_seed_file")"
 
-grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_SECURITY_PROTOCOL|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|FDAI_EXECUTION_VENUE|AUTONOMY_MODE_DEFAULT|FDAI_PRODUCT_PROFILE_JSON|LLM_MODE|LLM_RESOLVED_MODELS_PATH|LLM_RESOLVED_MODELS_SHA256|FDAI_LLM_ENDPOINT|FDAI_WEB_SEARCH_ENABLED|FDAI_DATABASE_URL|FDAI_VALIDATION_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_CHAT_ASSURANCE_READINESS_RECEIPT|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_REQUEST_TOPIC|FDAI_SEMANTIC_TURN_PROJECTION_TOPIC|FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC|FDAI_OPERATING_MODEL_TOPIC|FDAI_READ_INVESTIGATION_REQUEST_TOPIC|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_OPERATOR_API_CONSUMER_INSTANCE|FDAI_OPERATOR_REQUEST_(CORE|OPERATOR)_SIGNING_SEED|FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED|FDAI_OPERATOR_REQUEST_(CORE|OPERATOR)_PRODUCER_ID|FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_MONITOR_WORKSPACE_ID|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE|FDAI_LOCAL_KUBERNETES_LIFECYCLE|FDAI_LOCAL_KUBERNETES_BINDINGS_PATH|FDAI_TEAMS_NOTIFICATION_ACTIVATION|FDAI_KUBERNETES_[A-Z0-9_]+)=' "$SOURCE_ENV" > "$temp_env" || true
+grep -vE '^(AZURE_TENANT_ID|AZURE_SUBSCRIPTION_ID|AZURE_RESOURCE_GROUP|AZURE_REGION|KAFKA_BOOTSTRAP_SERVERS|KAFKA_SECURITY_PROTOCOL|KAFKA_TOPIC_EVENTS|POSTGRES_HOST|POSTGRES_DATABASE|RUNTIME_ENV|FDAI_EXECUTION_VENUE|AUTONOMY_MODE_DEFAULT|FDAI_PRODUCT_PROFILE_JSON|LLM_MODE|LLM_RESOLVED_MODELS_PATH|LLM_RESOLVED_MODELS_SHA256|FDAI_LLM_ENDPOINT|FDAI_WEB_SEARCH_ENABLED|FDAI_DATABASE_URL|FDAI_VALIDATION_DATABASE_URL|FDAI_STATE_STORE_DSN|FDAI_METERING_DSN|FDAI_CHAT_ASSURANCE_READINESS_RECEIPT|FDAI_KAFKA_BOOTSTRAP_SERVERS|FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS|FDAI_SEMANTIC_TURN_REQUEST_TOPIC|FDAI_SEMANTIC_TURN_PROJECTION_TOPIC|FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC|FDAI_OPERATING_MODEL_TOPIC|FDAI_READ_INVESTIGATION_REQUEST_TOPIC|FDAI_STAGE_TOPIC|FDAI_PANTHEON_OBJECT_TOPIC|FDAI_CANARY_TOPIC|FDAI_INVENTORY_RAW_TOPIC|FDAI_HIL_DECISION_TOPIC|FDAI_START_CONSUMER|FDAI_START_PANTHEON|FDAI_RUNTIME_LOCAL_AZURE_CLI|FDAI_CORE_CONSUMER_GROUP_ID|FDAI_PANTHEON_CONSUMER_GROUP_PREFIX|FDAI_OPERATOR_API_CONSUMER_INSTANCE|FDAI_OPERATOR_REQUEST_(CORE|OPERATOR)_SIGNING_SEED|FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED|FDAI_OPERATOR_REQUEST_(CORE|OPERATOR)_PRODUCER_ID|FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID|FDAI_LOCAL_SUBSCRIPTION_ID|FDAI_AZURE_READER_SUBSCRIPTION_ID|FDAI_AZURE_READER_RESOURCE_GROUPS|FDAI_MONITOR_WORKSPACE_ID|FDAI_DEV_OPERATIONS_GATEWAY_URL|FDAI_DEV_OPERATIONS_GATEWAY_AUDIENCE|FDAI_DIRECT_API_FAKE|FDAI_LOCAL_KUBERNETES_LIFECYCLE|FDAI_LOCAL_KUBERNETES_BINDINGS_PATH|FDAI_TEAMS_NOTIFICATION_ACTIVATION|FDAI_KUBERNETES_[A-Z0-9_]+)=' "$SOURCE_ENV" > "$temp_env" || true
 if [[ "$local_kubernetes_lifecycle" == "1" ]]; then
   printf '%s\n' "${kubernetes_lifecycle_lines[@]}" >> "$temp_env"
 fi

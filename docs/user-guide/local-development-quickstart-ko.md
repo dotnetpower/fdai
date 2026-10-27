@@ -2,7 +2,7 @@
 title: 로컬 개발 빠른 시작
 description: Linux 또는 WSL 워크스테이션에서 Docker, 로컬 상태, 인증 및 전체 FDAI Console 스택을 구성합니다.
 translation_of: local-development-quickstart.md
-translation_source_sha: d83564fa8cb55f04178094868e588077b3163070
+translation_source_sha: f98da2395f5cb6f1dcd541308bcf1dc912d84ef4
 translation_revised: 2026-09-27
 ---
 
@@ -147,8 +147,14 @@ env -u AZURE_CONFIG_DIR az account show \
 #### Azure 읽기 범위 선택
 
 모든 로컬 Console 스택에 `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>`를 설정하세요.
-준비 스크립트는 활성 Azure CLI 구독에서 해당 그룹을 검증하고 리전을 읽습니다. 범위가 없거나
+준비 스크립트는 고정된 로컬 구독에서 해당 그룹을 검증하고 리전을 읽습니다. 범위가 없거나
 잘못되면 준비를 중단하며, 리소스 그룹을 만들어 내거나 구독 전체를 암묵적으로 선택하지 않습니다.
+
+Azure CLI 기본 구독은 다른 터미널과 프로젝트가 바꿀 수 있는 공유 상태이므로 로컬 스택은 이를
+따르지 않습니다. 첫 준비에서 현재 `az login`의 구독을 `console/.env.local`의
+`FDAI_LOCAL_SUBSCRIPTION_ID`로 기록하고, 이후 준비는 항상 그 구독을 명시적으로 읽습니다. 고정한 구독을
+로그인에서 사용할 수 없으면 준비를 중단하고 `az login` 또는 올바른 값을 요청합니다. 스택을 의도적으로
+옮길 때만 이 값을 수정하세요.
 
 VS Code 작업에서 같은 명시적 범위를 재사용하려면 아래에서 설명하는 Git에서 무시되는
 `console/.env.local` 파일에 이 설정을 추가합니다.
