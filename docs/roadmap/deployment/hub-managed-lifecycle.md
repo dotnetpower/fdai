@@ -1319,7 +1319,7 @@ Two exact plans prepare the handoff and run before step 1:
    of the workloads root, which the Release ships. A `removed` block requires its resource block to
    be absent, so that variant replaces each agent-owned resource block with a `removed` block with
    `destroy = false`. Terraform 1.7 and later support these blocks, and the pinned toolchain is
-   1.9.8. The plan must show no destroy and no update.
+   1.16.1. The plan must show no destroy and no update.
 3. **Adopt:** The agent applies the same render with server-side apply under the
    `fdai-lifecycle-agent` field manager. It forces conflicts only on fields that the Terraform field
    manager owns, and stops on any other conflict. It adopts one object at a time and records a

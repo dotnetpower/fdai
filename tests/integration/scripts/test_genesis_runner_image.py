@@ -395,7 +395,7 @@ def _plan_projection(values: dict[str, object]) -> dict[str, object]:
 
     return {
         "format_version": "1.2",
-        "terraform_version": "1.9.8",
+        "terraform_version": "1.16.1",
         "complete": True,
         "errored": False,
         "applyable": True,
@@ -429,12 +429,12 @@ def test_inputs_pin_reviewed_toolchain_and_exact_source_image(tmp_path: Path) ->
     values = json.loads(destination.read_text(encoding="utf-8"))
     assert values["source_image_version"] == "24.04.202608270"
     assert values["github_runner_version"] == "2.337.0"
-    assert values["terraform_version"] == "1.9.8"
+    assert values["terraform_version"] == "1.16.1"
     assert values["terraform_sha256"] == (
-        "186e0145f5e5f2eb97cbd785bc78f21bae4ef15119349f6ad4fa535b83b10df8"
+        "745d33b4b02b7980c62a38ec1beea24ee084ea8caf3f503c200554bd9a0cbe49"
     )
     assert values["terraform_binary_sha256"] == (
-        "7386e89a97d0f24024955acc79ccf693b75b97f7c6383cb9d966e7d59aa5b223"
+        "0b5a4e400548d9538af88a4c5a2726b97b38751b8f577aa6687ad051ba2070f2"
     )
     assert values["opa_version"] == "0.68.0"
     assert inputs.source_commit == SOURCE
