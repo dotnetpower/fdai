@@ -11,6 +11,7 @@ import type {
   EvidenceFreshnessContext,
   GroundedCodeArtifact,
   ModelTrace,
+  ModelUsage,
   PresentationArtifact,
   TurnTiming,
   TrajectoryDetail,
@@ -31,6 +32,7 @@ import {
   parseConversationAssessmentId,
   parseDelegation,
   parseEvidenceFreshnessContext,
+  parseModelUsage,
   parseResourceContext,
   parseRouter,
   parseSemanticProjectionReceipt,
@@ -62,6 +64,8 @@ export interface RestoredTurn {
   readonly codeArtifacts?: readonly GroundedCodeArtifact[];
   readonly modelTrace?: ModelTrace;
   readonly turnTiming?: TurnTiming;
+  readonly modelUsage?: ModelUsage;
+  readonly modelLatencyMs?: number;
   readonly trajectoryDetail?: TrajectoryDetail;
   readonly resourceContext?: ResourceContext;
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
@@ -117,6 +121,9 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
   const codeArtifacts = parseGroundedCodeArtifacts(replay?.code_artifacts);
   const modelTrace = parseModelTrace(replay?.model_trace);
   const turnTiming = parseTurnTiming(replay?.turn_timing);
+  const modelUsage = parseModelUsage(replay?.usage);
+  const modelLatencyMs = typeof replay?.latency_ms === "number" && Number.isFinite(replay.latency_ms) &&
+    replay.latency_ms >= 0 ? Math.round(replay.latency_ms) : undefined;
   const trajectoryDetail = parseTrajectoryDetail(replay?.trajectory_detail);
   const resourceContext = parseResourceContext(replay?.resource_context);
   const evidenceFreshnessContext = parseEvidenceFreshnessContext(
@@ -158,6 +165,8 @@ export function restoredTurn(turn: ConversationTurnPayload): RestoredTurn {
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(modelTrace ? { modelTrace } : {}),
     ...(turnTiming ? { turnTiming } : {}),
+    ...(modelUsage ? { modelUsage } : {}),
+    ...(modelLatencyMs !== undefined ? { modelLatencyMs } : {}),
     ...(trajectoryDetail ? { trajectoryDetail } : {}),
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),

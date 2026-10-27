@@ -95,7 +95,7 @@ records, but the contract itself does not issue independent operational evidence
 or prove live provider state.
 Resource Health narration claims are answer-validation companions to a typed read receipt. They
 can preserve or reject narration before presentation, but they are not admissions from the
-independent operational-evidence verifier and cannot satisfy any governed decision source.
+independent operational-evidence verifier and cannot satisfy any governed decision source. Their coverage gaps, such as no record or an unresolved target, are explained in the operator's language beside the exact code.
 Forseti may carry a pinned single-operator approval-profile revision on a Verdict so Var and the
 HIL resume path can record original and effective quorum. That profile metadata is approval
 context only. It is not a verifier source artifact, a `DecisionEvidenceAdmission`, or proof of live

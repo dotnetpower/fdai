@@ -65,7 +65,7 @@ again, rejects a digest mismatch, and writes one `stewardship_activation:*` rece
 changes nothing. The request carries no YAML, role, or approval claim and grants no IAM,
 deployment, or Azure authority.
 
-The existing numeric `usage` map may include `model_calls` beside token totals. This is
+The existing numeric `usage` map may include `model_calls` and a provider-reported `cached_tokens` beside token totals; `cached_tokens` appears only when a call measured it. This is
 recorded conversation-call telemetry, not detailed prompt capture, action authority, or
 independent operational evidence. Missing values remain unavailable; older consumers may
 ignore the additive numeric key without changing answer verification or Incident handling.

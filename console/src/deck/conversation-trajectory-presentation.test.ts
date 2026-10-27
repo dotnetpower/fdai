@@ -304,6 +304,22 @@ describe("buildTrajectoryPresentation", () => {
     expect(result.modelCallCountRecorded).toBe(true);
   });
 
+  it("reports cached prompt tokens only when the provider measured them", () => {
+    const cached = buildTrajectoryPresentation(trajectory({
+      modelUsage: { prompt_tokens: 1600, completion_tokens: 142, total_tokens: 1742, cached_tokens: 1024 },
+    }));
+    const uncached = buildTrajectoryPresentation(trajectory({
+      modelUsage: { prompt_tokens: 1600, completion_tokens: 142, total_tokens: 1742 },
+    }));
+    const zero = buildTrajectoryPresentation(trajectory({
+      modelUsage: { prompt_tokens: 1600, completion_tokens: 142, total_tokens: 1742, cached_tokens: 0 },
+    }));
+
+    expect(cached.cachedTokens).toBe(1024);
+    expect(uncached.cachedTokens).toBeUndefined();
+    expect(zero.cachedTokens).toBe(0);
+  });
+
   it("keeps missing usage distinct from measured zero", () => {
     const missing = buildTrajectoryPresentation(trajectory({}));
     expect(missing.inputTokens).toBeUndefined();
