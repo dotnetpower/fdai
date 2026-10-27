@@ -940,11 +940,16 @@ def test_native_transition_adopts_seven_exact_objects_and_creates_nine(harness) 
         for index, component in enumerate(components[:7])
     )
     for index, manifest in enumerate(desired[:7]):
-        provider.objects[object_key(manifest)] = _foreign_object(
+        foreign = _foreign_object(
             manifest,
             uid=identities[index].uid,
             version=str(index + 1),
         )
+        if index == 0:
+            legacy_selector = {"app.kubernetes.io/name": "core-control-plane"}
+            foreign["spec"]["selector"]["matchLabels"] = legacy_selector
+            foreign["spec"]["template"]["metadata"]["labels"].update(legacy_selector)
+        provider.objects[object_key(manifest)] = foreign
     clock = harness.dependencies().clock
     scope = NativeScope(
         installation_id=harness.settings().installation_id,
@@ -979,6 +984,7 @@ def test_native_transition_adopts_seven_exact_objects_and_creates_nine(harness) 
     cluster = NativeCluster(provider, store, approval, key.public_key().public_bytes_raw(), clock)
     plan = _transition_plan(harness, proof)
     expectations, previous = cluster.prepare_adoptions(plan, desired)
+    desired = cluster.bind_adoption_selectors(desired, expectations)
     workload = Workload(
         cluster=cluster,
         namespace=harness.namespace,
@@ -994,6 +1000,9 @@ def test_native_transition_adopts_seven_exact_objects_and_creates_nine(harness) 
     assert len(expectations) == len(previous) == 7
     assert len(provider.adopted) == 7
     assert len(store.load().resources) == 16
+    assert provider.objects[object_key(desired[0])]["spec"]["selector"]["matchLabels"] == {
+        "app.kubernetes.io/name": "core-control-plane"
+    }
     receipts = list(store.path.parent.glob("lifecycle-native-adoption-*.json"))
     assert len(receipts) == 1
     receipt = json.loads(receipts[0].read_text())
@@ -1129,6 +1138,7 @@ def test_interrupted_existing_native_state_transition_rolls_back_and_retries(har
     )
     plan = _transition_plan(harness, proof)
     expectations, previous = cluster.prepare_adoptions(plan, desired)
+    desired = cluster.bind_adoption_selectors(desired, expectations)
     workload = Workload(
         cluster=cluster,
         namespace=harness.namespace,
@@ -1149,6 +1159,7 @@ def test_interrupted_existing_native_state_transition_rolls_back_and_retries(har
     provider.fail_adoption_name = None
     retry_plan = _transition_plan(harness, proof, plan_id="native-transition-2")
     retry_expectations, retry_previous = cluster.prepare_adoptions(retry_plan, desired)
+    desired = cluster.bind_adoption_selectors(desired, retry_expectations)
     workload.preflight(desired, retry_previous, adoptions=retry_expectations)
     cluster.adopt_existing(
         desired,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from copy import deepcopy
 from datetime import datetime
 from hashlib import sha256
@@ -176,9 +176,35 @@ class NativeCluster:
         spec = live.get("spec", {})
         if kind == "Deployment":
             template_labels = spec.get("template", {}).get("metadata", {}).get("labels", {})
-            isolated = spec.get("selector") == {"matchLabels": selector} and all(
-                template_labels.get(label) == value for label, value in selector.items()
-            )
+            if (kind, name) in self._approved_existing():
+                existing_selector = spec.get("selector")
+                match_labels = (
+                    existing_selector.get("matchLabels", {})
+                    if isinstance(existing_selector, Mapping)
+                    else {}
+                )
+                match_expressions = (
+                    existing_selector.get("matchExpressions", [])
+                    if isinstance(existing_selector, Mapping)
+                    else ()
+                )
+                isolated = (
+                    bool(match_labels)
+                    and not match_expressions
+                    and all(
+                        isinstance(label, str)
+                        and isinstance(value, str)
+                        and template_labels.get(label) == value
+                        for label, value in match_labels.items()
+                    )
+                    and all(
+                        template_labels.get(label) == value for label, value in selector.items()
+                    )
+                )
+            else:
+                isolated = spec.get("selector") == {"matchLabels": selector} and all(
+                    template_labels.get(label) == value for label, value in selector.items()
+                )
         elif kind == "CronJob":
             template_labels = (
                 spec.get("jobTemplate", {})
@@ -290,6 +316,27 @@ class NativeCluster:
             ownership_digest=proof.claim.digest,
         )
 
+    def bind_adoption_selectors(
+        self,
+        desired: tuple[Manifest, ...],
+        expectations: tuple[AdoptionExpectation, ...],
+    ) -> tuple[Manifest, ...]:
+        """Bind immutable live Deployment selectors into the exact adoption journal."""
+
+        adoption_by_key = {item.key: item for item in expectations}
+        bound: list[Manifest] = []
+        for manifest in desired:
+            key = object_key(manifest)
+            expectation = adoption_by_key.get(key)
+            if manifest["kind"] != "Deployment" or expectation is None:
+                bound.append(manifest)
+                continue
+            live = self._cluster.get(*key)
+            if live is None or live_uid(live) != expectation.uid:
+                raise WorkloadError("native_adoption_uid_conflict")
+            bound.append(self._preserve_deployment_selector(manifest, live))
+        return tuple(bound)
+
     def adopt_terraform_owned(
         self,
         manifest: Manifest,
@@ -311,7 +358,7 @@ class NativeCluster:
         metadata = (live or {}).get("metadata", {})
         if metadata.get("uid") != uid or metadata.get("resourceVersion") != resource_version:
             raise WorkloadError("adoption_resource_drifted")
-        owned = self._owned_manifest(state, manifest)
+        owned = self._owned_manifest(state, manifest, existing=live)
         adopted = self._cluster.adopt_terraform_owned(
             owned,
             uid=uid,
@@ -374,7 +421,6 @@ class NativeCluster:
             or key in state.deleting
         ):
             raise WorkloadError("native_resource_outside_scope")
-        owned_manifest = self._owned_manifest(state, manifest)
         identity = self._approved_existing().get((kind, name))
         if owned_uid is None and identity is not None:
             if not isinstance(self._cluster, AdoptionUidCluster):
@@ -388,6 +434,7 @@ class NativeCluster:
                 raise WorkloadError("native_resource_identity_unavailable")
             if not dry_run:
                 raise WorkloadError("native_adoption_required")
+            owned_manifest = self._owned_manifest(state, manifest, existing=live)
             self._cluster.adopt_terraform_owned(
                 owned_manifest,
                 uid=identity.uid,
@@ -400,10 +447,12 @@ class NativeCluster:
         if owned_uid is not None:
             if live is None:
                 raise WorkloadError("native_owned_resource_missing")
+            owned_manifest = self._owned_manifest(state, manifest, existing=live)
             self._cluster.replace_owned(
                 owned_manifest, owned_uid, dry_run=dry_run, before_submit=self._require_current
             )
         else:
+            owned_manifest = self._owned_manifest(state, manifest)
             if not dry_run:
                 self._store.save(state.model_copy(update={"pending": key}))
             try:
@@ -423,8 +472,16 @@ class NativeCluster:
                 )
         self._guard()
 
-    def _owned_manifest(self, state: NativeState, manifest: Manifest) -> Manifest:
+    def _owned_manifest(
+        self,
+        state: NativeState,
+        manifest: Manifest,
+        *,
+        existing: Manifest | None = None,
+    ) -> Manifest:
         kind, name = object_key(manifest)
+        if kind == "Deployment" and existing is not None:
+            manifest = self._preserve_deployment_selector(manifest, existing)
         labels = manifest["metadata"]["labels"]
         owned_manifest = deepcopy(dict(manifest)) | {
             "metadata": dict(manifest["metadata"])
@@ -446,7 +503,8 @@ class NativeCluster:
             dict(labels) | {MANAGED_BY_LABEL: FIELD_MANAGER} | selector
         )
         if kind == "Deployment":
-            owned_manifest["spec"]["selector"]["matchLabels"] = selector
+            if existing is None:
+                owned_manifest["spec"]["selector"]["matchLabels"] = selector
             owned_manifest["spec"]["template"]["metadata"]["labels"].update(selector)
         elif kind == "CronJob":
             owned_manifest["spec"]["jobTemplate"]["spec"]["template"]["metadata"]["labels"].update(
@@ -455,6 +513,28 @@ class NativeCluster:
         elif kind == "Service":
             owned_manifest["spec"]["selector"] = selector
         return owned_manifest
+
+    @staticmethod
+    def _preserve_deployment_selector(manifest: Manifest, existing: Manifest) -> Manifest:
+        existing_selector = existing.get("spec", {}).get("selector")
+        if not isinstance(existing_selector, Mapping):
+            raise WorkloadError("native_deployment_selector_unsupported")
+        match_labels = existing_selector.get("matchLabels")
+        match_expressions = existing_selector.get("matchExpressions", [])
+        if (
+            not isinstance(match_labels, Mapping)
+            or not match_labels
+            or any(
+                not isinstance(key, str) or not isinstance(value, str)
+                for key, value in match_labels.items()
+            )
+            or match_expressions
+        ):
+            raise WorkloadError("native_deployment_selector_unsupported")
+        bound = deepcopy(dict(manifest))
+        bound["spec"]["selector"] = deepcopy(dict(existing_selector))
+        bound["spec"]["template"]["metadata"]["labels"].update(match_labels)
+        return bound
 
     def _has_ownership_marker(self, state: NativeState, live: Manifest, name: str) -> bool:
         metadata = live.get("metadata", {})
