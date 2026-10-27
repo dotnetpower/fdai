@@ -482,7 +482,7 @@ def create_review(
         "lifecycle_actions": lifecycle_actions,
         "effect_summary": effect_summary,
         "created_at": now.isoformat(),
-        "expires_at": (now + timedelta(hours=1)).isoformat(),
+        "expires_at": (now + timedelta(hours=24)).isoformat(),
         "apply_authorized": False,
         "mutation_performed": False,
         "subscription_ready": False,
@@ -526,7 +526,7 @@ def load_review(
         or created.utcoffset() != timedelta(0)
         or expires.tzinfo is None
         or expires.utcoffset() != timedelta(0)
-        or expires - created != timedelta(hours=1)
+        or expires - created != timedelta(hours=24)
         or created > now
         or (require_unexpired and now >= expires)
     ):
