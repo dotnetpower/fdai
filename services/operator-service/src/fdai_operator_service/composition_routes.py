@@ -65,6 +65,10 @@ from fdai_operator_service.postgres_cost_governance import (
     PostgresCostGovernanceReader,
     UnavailableCostGovernanceReader,
 )
+from fdai_operator_service.postgres_dialogue_snapshot import (
+    PostgresDialogueSnapshotConfig,
+    PostgresDialogueSnapshotStore,
+)
 from fdai_operator_service.postgres_family_store import PostgresFamilyStore
 from fdai_operator_service.postgres_read_investigation_replay import (
     PostgresReadInvestigationReplayConfig,
@@ -204,6 +208,13 @@ def _build_route_families(
             revision_owner=model_revision_owner,
             fallback_projections=postgres_conversation,
             fallback_streams=postgres_conversation,
+            dialogue_snapshots=PostgresDialogueSnapshotStore(
+                PostgresDialogueSnapshotConfig(
+                    dsn=database_url,
+                    connect_timeout_s=store._config.connect_timeout_s,
+                    statement_timeout_ms=store._config.statement_timeout_ms,
+                )
+            ),
         )
     conversation = local_narrator or postgres_conversation
     semantic_adapters = (

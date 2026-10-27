@@ -443,7 +443,7 @@ Both model calls are reserved before generation, reviewer usage is metered separ
 generation still retains measured cost. The operator locale is bound to the request. These are
 implemented source mechanics, not a live quality, latency, cost or deployment acceptance receipt.
 
-## Structured dialogue state (design, not implemented)
+## Structured dialogue state (shadow mode)
 
 Long Console conversations currently lose context by truncation: the Operator narrator keeps the
 newest 12 history items and Core keeps the newest 8. Older turns, including a target, scope or time
@@ -455,11 +455,15 @@ authority; approval and execution are re-derived from current evidence on every 
 entities with effective time, open questions and clarifications already answered, cited evidence and
 result handles, and the compacted turn range with its digest.
 
-**Tiers.** T2 is not used. T0 copies fields from already-typed semantic results and keeps only ids
-and digests for older turns; it never infers meaning from text. T1 MAY summarize the residue that
-has no typed form with a small model, and a verifier MUST check the summary against the source
-turns. When T1 abstains or fails, the request falls back to the current truncation and the receipt
-records that fallback. A coding session never invokes a live model for this path.
+**Tiers.** T2 is not used. T0 keeps only exact accounting: ids, roles and a digest of the compacted
+range. It never infers meaning from text, because conversation grounding forbids lexical meaning.
+T1 MAY propose anchors (target, scope, time, constraint, decision, open question) with a small
+model. Each anchor cites an exact source span, and deterministic code accepts a proposal only when
+every span reproduces its value verbatim; otherwise the whole proposal is rejected. An absent,
+abstaining, failing or rejected proposer leaves the T0 state with a typed fallback reason
+(`t1_unconfigured`, `t1_abstained`, `t1_failed`, `t1_rejected_unverified_anchor`). Every
+compacted turn stays accounted for, so nothing is dropped silently. A coding session never invokes
+a live model for this path.
 
 **Storage.** The Operator service owns durable conversation history in its Postgres store
 (`conversation_turn` is append-only and principal-scoped). Snapshots are an append-only derived
@@ -474,9 +478,19 @@ counts next to the existing truncation receipt, and the request is unchanged. Pr
 through the authoritative promotion registry on gate evidence. The Console MAY show that earlier
 turns were compacted.
 
-**Delivery plan.** (1) Contract, snapshot schema and migration. (2) Operator T0 compactor and shadow
-comparison, including the narrator. (3) Core request field, `adaptive_service` use and the T1 seam.
-(4) Console indicator and promotion gate.
+**Implemented in shadow mode.** The `DialogueState` contract and verifier
+(`fdai_service_contracts.dialogue_state`), the Operator `conversation_dialogue_snapshot` table (an
+Operator-owned service migration with update and delete triggers), the narrator shadow receipt
+(`context_selection.dialogue_state_shadow`, counts and digests only) with best-effort snapshot
+retention keyed by principal and `conversation_id`, and a Core observation of the prior turns it
+already receives beyond the adaptive history window. None of these changes the model request. The
+shadow state is derived from the history the Console sends, so a client that sends a sliding window
+produces a new compacted digest per turn; the snapshot id excludes the kept window to dedupe the
+rest.
+
+**Remaining.** Bind a concrete T1 proposer and record shadow comparison evidence; add a versioned
+`SemanticTurnRequest` field so Core receives the Operator's state instead of observing it
+separately; show the Console indicator; and promote only through the registry.
 
 ## Authority boundary
 

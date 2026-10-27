@@ -8,6 +8,9 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
+from fdai_service_contracts.dialogue_state import DialogueState
+
+from fdai_operator_service.adapters.narrator_dialogue_shadow import shadow_dialogue_state
 from fdai_operator_service.adapters.narrator_latency import NarratorTarget
 from fdai_operator_service.adapters.narrator_token_budget import (
     NarratorContextReceipt,
@@ -39,6 +42,7 @@ class NarratorMessagePlan:
 
     messages: list[dict[str, Any]]
     receipt: NarratorContextReceipt
+    dialogue_state: DialogueState
 
 
 def narrator_targets(payload: object) -> tuple[NarratorTarget, ...]:
@@ -151,6 +155,7 @@ def narrator_message_plan(
     )
     return NarratorMessagePlan(
         messages=messages,
+        dialogue_state=shadow_dialogue_state(valid_history, kept=len(selected)),
         receipt=NarratorContextReceipt(
             request_token_estimate=estimate,
             request_token_budget=NARRATOR_REQUEST_TOKEN_BUDGET,

@@ -105,6 +105,7 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V18,
 )
 from .development_decisions import observe_semantic_decision, record_decision_observations
+from .dialogue_state_shadow import DialogueStateShadow
 from .semantic_answer_presentation import (
     authority_line,
     completeness_text,
@@ -348,6 +349,7 @@ class SemanticTurnProcessor:
         runtime_settings: RuntimeSettingsReader | None = None,
         runtime_readiness: SemanticRuntimeReadiness | None = None,
         context_selection_shadow: SemanticContextShadow | None = None,
+        dialogue_state_shadow: DialogueStateShadow | None = None,
         result_handle_store: ResultHandleStore | None = None,
         result_handles_enabled: bool = False,
         result_handle_ttl_seconds: int = 900,
@@ -371,6 +373,7 @@ class SemanticTurnProcessor:
         self._runtime_settings = runtime_settings
         self._runtime_readiness = runtime_readiness
         self._context_selection_shadow = context_selection_shadow
+        self._dialogue_state_shadow = dialogue_state_shadow
         self._result_handle_store = result_handle_store
         self._result_handles_enabled = result_handles_enabled
         self._result_handle_ttl_seconds = result_handle_ttl_seconds
@@ -903,6 +906,10 @@ class SemanticTurnProcessor:
             )
         )
         prior_turns = _prior_turns(request, requested_at=requested_at)
+        if self._dialogue_state_shadow is not None:
+            self._dialogue_state_shadow.observe(
+                session_id=request.session_id, prior_turns=request.prior_turns
+            )
         if self._context_selection_shadow is not None:
             await self._context_selection_shadow.schedule(
                 session_id=request.session_id,
