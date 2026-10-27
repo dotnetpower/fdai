@@ -611,6 +611,10 @@ change approval, activation, and upgrade planning. None grants execution or prom
   exact receipt within ten minutes; explicit activation rechecks current trust, complete history,
   selected scope and accepted-head compare-and-swap. Activation only selects configuration for
   the existing upgrade planner. It neither schedules a same-Release action nor applies anything.
+- The Agent artifact endpoint serves the current Plan's active configuration and only its complete
+  accepted predecessor chain. It rechecks the Plan's retained import receipt, every predecessor
+  link, acceptance receipt, audit, key binding and scope before returning an artifact. Siblings,
+  successors and unrelated revisions remain unavailable.
 - Default configured recomputation reads the persisted activated head within the planning
   transaction, without injected candidates. Missing configuration leaves legacy planning intact;
   staged but unactivated configuration holds only this capability and preserves unrelated legacy
@@ -622,6 +626,12 @@ A map in an HTTP body is still self-asserted even when its package verifies. The
 and sealed classification need their own installation proof and independent exact-digest approval,
 reusing the key-approval principal separation rather than inventing an enrollment grant. Existing
 enrolled identifiers and signed Plan identifiers stay unchanged; no customer identifier is hashed.
+
+Serving only the active configuration digest can deadlock a valid successor when its predecessor
+was accepted but never activated, for example after the predecessor's approval window expired.
+Serving arbitrary stored revisions would expose unrelated history. The revised boundary walks only
+the current Plan import's bounded predecessor chain and repeats the existing receipt, audit, binding,
+scope and package verification before returning a historical artifact.
 
 Rechecking all ancestors with the newest signer breaks valid rotation, while trusting previously
 parsed dictionaries hides tampering. The canonical package reader and builder therefore accept

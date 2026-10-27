@@ -31,6 +31,7 @@ from fdai_lifecycle_hub.configuration_import_models import (
     ConfigurationChangeApproval,
     ConfigurationHead,
     ConfigurationImport,
+    ConfigurationPlanImport,
     ConfigurationScopeApproval,
     ConfigurationScopeRequest,
 )
@@ -419,6 +420,40 @@ class ConfigurationImportStore:
                     "accepted_digest": head.accepted_digest if head else None,
                     "active_digest": head.active_digest if head else None,
                 }
+            row = session.get(ConfigurationImport, digest)
+            if row is None or row.installation_id != installation_id:
+                raise KeyBindingError("configuration_revision_missing")
+            return {
+                "digest": row.digest,
+                "receipt_digest": row.receipt_digest,
+                "signed_container": b64encode(row.container).decode("ascii"),
+            }
+
+    def read_plan_artifact(
+        self,
+        installation_id: str,
+        plan_id: str,
+        active_digest: str,
+        digest: str,
+        catalog: ReleaseCatalog,
+    ) -> dict[str, Any]:
+        from base64 import b64encode
+
+        with self._sessions() as session:
+            installation = rows.get_installation(session, installation_id)
+            retained = session.get(ConfigurationPlanImport, plan_id)
+            active = session.get(ConfigurationImport, active_digest)
+            if (
+                retained is None
+                or active is None
+                or active.installation_id != installation_id
+                or retained.import_digest != active.digest
+                or retained.receipt_digest != active.receipt_digest
+            ):
+                raise KeyBindingError("configuration_plan_receipt_unprovable")
+            history, _ = accepted_history(session, installation, active_digest, catalog)
+            if digest not in {package.digest for package in history}:
+                raise KeyBindingError("configuration_revision_missing")
             row = session.get(ConfigurationImport, digest)
             if row is None or row.installation_id != installation_id:
                 raise KeyBindingError("configuration_revision_missing")

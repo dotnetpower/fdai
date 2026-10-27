@@ -20,12 +20,14 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
 from fdai_lifecycle_hub import audit, models
+from fdai_lifecycle_hub.agent_artifacts import artifact_for_plan
 from fdai_lifecycle_hub.configuration_import_models import (
     ConfigurationHead,
     ConfigurationImport,
     ConfigurationPlanImport,
 )
 from fdai_lifecycle_hub.configuration_import_store import ConfigurationImportStore
+from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.remote_auth import DevelopmentRecoveryAuthorization
 from fdai_lifecycle_hub.signing import installation_key_id, raw_public_key
@@ -271,6 +273,24 @@ def test_old_revision_fork_retry_bytes_and_activation_cas(imported):
     )
     h.activate(second)
     assert h.post("recompute", {}).json()["outcome"] == "issued"
+    ancestor = artifact_for_plan(
+        h.store,
+        h.catalog,
+        h.iid,
+        "configuration",
+        first["digest"],
+        now=h.now,
+    )
+    assert ancestor.payload == h.case.candidate.package.payload
+    with pytest.raises(KeyBindingError, match="configuration_revision_missing"):
+        artifact_for_plan(
+            h.store,
+            h.catalog,
+            h.iid,
+            "configuration",
+            "f" * 64,
+            now=h.now,
+        )
     retry = h.import_request(child, predecessor=first["digest"])
     assert h.post("configuration/import", retry).json()["error"] == "configuration_retry_conflict"
 
