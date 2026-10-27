@@ -252,6 +252,15 @@ resource "azurerm_role_assignment" "migration_secret_reader" {
   principal_type       = "ServicePrincipal"
 }
 
+resource "azurerm_role_assignment" "operator_secret_reader" {
+  for_each = toset(values(var.secret_bindings["operator-service"]))
+
+  scope                = data.azurerm_key_vault_secret.runtime[each.key].resource_versionless_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.identity["operator_api"].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 resource "azurerm_role_assignment" "document_data" {
   for_each             = toset(["ingestion", "worker"])
   scope                = module.document_storage.id

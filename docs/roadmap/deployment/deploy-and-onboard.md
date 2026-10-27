@@ -705,6 +705,8 @@ An expired, unconsumed approval may be renewed only when all evidence and live s
 The prerequisite root owns only the identities, federated credentials, ServiceAccounts,
 SecretProviderClasses, ConfigMaps and secret bindings that this inventory references. It does not
 create any managed Deployment, Service, HorizontalPodAutoscaler or CronJob.
+The Operator API identity receives `Key Vault Secrets User` only on its exact three generated
+secret resource ids; the root does not grant it vault-wide access.
 
 ## Related docs
 

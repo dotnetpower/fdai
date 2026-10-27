@@ -46,6 +46,15 @@ override_data {
 }
 
 override_data {
+  target = data.azurerm_key_vault_secret.runtime
+  values = {
+    id                      = "https://kv-fdai-example.vault.azure.net/secrets/runtime-secret/version"
+    resource_versionless_id = "https://kv-fdai-example.vault.azure.net/secrets/runtime-secret"
+    value                   = "synthetic-runtime-secret"
+  }
+}
+
+override_data {
   target = data.azurerm_eventhub.pantheon_objects
   values = {
     id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-fdai-example/providers/Microsoft.EventHub/namespaces/evhns-fdai-example/eventhubs/fdai.pantheon.objects"
@@ -168,6 +177,7 @@ run "plans_only_stewardship_prerequisites" {
       length(azurerm_federated_identity_credential.workload) == 6 &&
       length(azurerm_role_assignment.acr_pull) == 3 &&
       length(azurerm_role_assignment.document_data) == 2 &&
+      length(azurerm_role_assignment.operator_secret_reader) == 3 &&
       length(kubernetes_service_account_v1.prerequisite) == 4 &&
       length(kubernetes_config_map_v1.runtime_environment) == 8 &&
       length(kubernetes_manifest.secret_provider) == 3 &&
@@ -187,6 +197,11 @@ run "plans_only_stewardship_prerequisites" {
       azurerm_role_assignment.api_secret_reader.role_definition_name == "Key Vault Secrets User" &&
       azurerm_role_assignment.worker_secret_reader.role_definition_name == "Key Vault Secrets User" &&
       azurerm_role_assignment.migration_secret_reader.role_definition_name == "Key Vault Secrets User" &&
+      alltrue([
+        for name, role in azurerm_role_assignment.operator_secret_reader :
+        role.role_definition_name == "Key Vault Secrets User" &&
+        role.scope == data.azurerm_key_vault_secret.runtime[name].resource_versionless_id
+      ]) &&
       azurerm_role_assignment.notification_sender.role_definition_name == "Communication and Email Service Owner"
     )
     error_message = "The Hub prerequisite root must retain the reviewed secret and notification role ceilings."
