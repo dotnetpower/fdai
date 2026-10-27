@@ -55,6 +55,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
+- [ ] Compose `PostgresDialogueSnapshotStore` into the Operator runtime narrator (`composition_routes.py`), which needs the
+  broader composition design-doc sweep, so retention is not yet active in a deployed runtime.
 - [ ] Bind a concrete small-model (T1) `DialogueStateProposer` with a reviewed prompt, then record shadow comparison
   evidence against the current truncation before any promotion. T2 stays excluded.
 - [ ] Add a versioned `SemanticTurnRequest` dialogue-state field so Core receives the Operator's state, show the compaction

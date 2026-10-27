@@ -482,13 +482,13 @@ turns were compacted.
 (`fdai_service_contracts.dialogue_state`), the Operator `conversation_dialogue_snapshot` table (an
 Operator-owned service migration with update and delete triggers), the narrator shadow receipt
 (`context_selection.dialogue_state_shadow`, counts and digests only) with best-effort snapshot
-retention keyed by principal and `conversation_id`, and a Core observation of the prior turns it
+retention keyed by principal and `conversation_id` when a writer is composed, and a Core observation of the prior turns it
 already receives beyond the adaptive history window. None of these changes the model request. The
 shadow state is derived from the history the Console sends, so a client that sends a sliding window
 produces a new compacted digest per turn; the snapshot id excludes the kept window to dedupe the
 rest.
 
-**Remaining.** Bind a concrete T1 proposer and record shadow comparison evidence; add a versioned
+**Remaining.** Compose the Postgres snapshot writer into the Operator runtime; bind a concrete T1 proposer and record shadow comparison evidence; add a versioned
 `SemanticTurnRequest` field so Core receives the Operator's state instead of observing it
 separately; show the Console indicator; and promote only through the registry.
 

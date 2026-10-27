@@ -104,6 +104,8 @@ bounded PostgreSQL insert of its content-free authentication receipt (10-second 
 20-second statement limits) before the bridge accepts it. That write adds to turn acceptance latency
 but does not change narrator routing, preferences, or health.
 
+The narrator's `context_selection` receipt also carries `dialogue_state_shadow`: counts, a range digest and a typed fallback reason for the history turns the request did not carry verbatim. It is shadow-only, contains no turn text, and changes neither the model request nor routing. When a snapshot writer is composed and the body names a `conversation_id`, the narrator retains the compacted state best-effort; a storage failure is logged and never affects the turn. See [Pantheon Conversational Deliberation](../agents/conversational-deliberation.md#structured-dialogue-state-shadow-mode).
+
 The Console keeps the persistent connection badge concise and places deployment identity and
 candidate timing details in its tooltip. The tooltip distinguishes sample counts and measured,
 stale, unmeasured, or failed status. An open, visible Command Deck polls health every 30 seconds;
