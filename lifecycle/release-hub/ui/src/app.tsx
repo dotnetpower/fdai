@@ -5,6 +5,7 @@ import { ReleaseWorkspace } from "./release-workspace";
 
 const TITLES = { register: "Register release", publish: "Publish to DEV", contribute: "Add to channel", recall: "Recall release", renew: "Renew catalog freshness" };
 type Pending = { action: Action; release: Release | null };
+type RegistrationDraft = Pick<Release, "id" | "label" | "manifest">;
 type ConfirmationState = {
   action: Action;
   busy: boolean;
@@ -28,17 +29,17 @@ export function isConfirmationDisabled(state: ConfirmationState): boolean {
       && state.channelConfirmation !== state.channel);
 }
 
-function Confirm({ pending, catalog, close, done, failed }: {
+function Confirm({ pending, catalog, registration, setRegistration, close, done, failed }: {
   pending: Pending; catalog: Catalog; close: () => void; done: (id: string, change: Change) => Promise<void>;
+  registration: RegistrationDraft; setRegistration: (draft: RegistrationDraft) => void;
   failed: (failure: unknown) => Promise<void>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
-  const [id, setId] = useState(pending.release?.id ?? "");
+  const id = pending.action === "register" ? registration.id : pending.release?.id ?? "";
   const [confirmation, setConfirmation] = useState("");
   const [reason, setReason] = useState("");
-  const [manifest, setManifest] = useState("");
-  const [label, setLabel] = useState("");
+  const { manifest, label } = registration;
   const [channel, setChannel] = useState(
     Object.keys(catalog.channels).find((name) => !pending.release?.channels.includes(name)) ?? "",
   );
@@ -76,9 +77,9 @@ function Confirm({ pending, catalog, close, done, failed }: {
     <form onSubmit={submit}>
       <header><h2 id="confirm-title">{TITLES[action]}</h2><p>Development validation only. No registry publication or installation changes.</p></header>
       {action === "register" && <>
-        <label>Release id (SemVer)<input required value={id} onInput={(e) => setId(e.currentTarget.value)} placeholder="1.0.0" /></label>
-        <label>Release label (optional)<input maxLength={160} value={label} onInput={(e) => setLabel(e.currentTarget.value)} /></label>
-        <label>Lifecycle release manifest<textarea required rows={7} spellcheck={false} value={manifest} onInput={(e) => setManifest(e.currentTarget.value)} /></label>
+        <label>Release id (SemVer)<input required value={id} onInput={(e) => setRegistration({ ...registration, id: e.currentTarget.value })} placeholder="1.0.0" /></label>
+        <label>Release label (optional)<input maxLength={160} value={label} onInput={(e) => setRegistration({ ...registration, label: e.currentTarget.value })} /></label>
+        <label>Lifecycle release manifest<textarea required rows={7} spellcheck={false} value={manifest} onInput={(e) => setRegistration({ ...registration, manifest: e.currentTarget.value })} /></label>
         <p>Metadata validation only. Artifact files and registry availability are not checked.</p>
       </>}
       {pending.release && <p><strong>{releaseTitle(pending.release)}</strong><code class="digest">{pending.release.digest}</code></p>}
@@ -138,6 +139,7 @@ export function App() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [registration, setRegistration] = useState<RegistrationDraft>({ id: "", label: "", manifest: "" });
   const [notice, setNotice] = useState("");
   const [uncertain, setUncertain] = useState(false);
   const heading = useRef<HTMLElement>(null);
@@ -196,11 +198,12 @@ export function App() {
             </section><section><h2>Not available in this build</h2><p>Production signing, key rotation, production contributor governance, TUF freshness, automatic sync, registry mirroring and upgrade bundle import.</p></section>
           </> : <><h1>Page not found</h1><a href="#/releases">Back to releases</a></>}
       </>}
-      {pending && catalog && <Confirm pending={pending} catalog={catalog} close={() => setPending(null)} done={async (id, change) => {
+      {pending && catalog && <Confirm pending={pending} catalog={catalog} registration={registration} setRegistration={setRegistration} close={() => setPending(null)} done={async (id, change) => {
         const renewed = pending.action === "renew";
         setUncertain(false);
         setPending(null); location.hash = renewed ? "/trust" : `/releases/${id}`; const readBack = await refresh();
         const observed = readBack && catalogChangeObserved(readBack, pending.action, id, change);
+        if (observed && pending.action === "register") setRegistration({ id: "", label: "", manifest: "" });
         setUncertain(!observed);
         setNotice(observed
           ? renewed
