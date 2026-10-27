@@ -21,6 +21,9 @@ describe("release workspace decisions", () => {
     expect(nextReleaseStep(release, { ...catalog, expired: true })).toBe("renew");
     expect(nextReleaseStep({ ...release, state: "recalled" }, { ...catalog, expired: true })).toBe("recall");
   });
+  it("publishes an expired draft without a separate catalog renewal", () => {
+    expect(nextReleaseStep({ ...release, state: "draft" }, { ...catalog, expired: true })).toBe("publish");
+  });
   it("reports only recorded built-in membership, independent of channel order", () => {
     expect(recordedStage(release)).toBe("DEV");
     expect(recordedStage({ ...release, channels: ["RELEASE_CANDIDATE", "DEV"] })).toBe("RELEASE_CANDIDATE");

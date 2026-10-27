@@ -10,8 +10,9 @@ export function recordedStage(release: Release): string | null {
 
 export function nextReleaseStep(release: Release, catalog: Catalog): "recall" | "renew" | "publish" | "review" {
   if (release.state === "recalled") return "recall";
+  if (release.state === "draft") return "publish";
   if (catalog.expired) return "renew";
-  return release.state === "draft" ? "publish" : "review";
+  return "review";
 }
 
 export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: {
@@ -114,6 +115,6 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
         <pre>{release.manifest}</pre><code class="digest">{release.signature || t("No signature", "서명 없음")}</code>
       </details>
     </details>
-    <section ref={history} tabIndex={-1}><h2>{t("Release activity", "릴리스 활동")}</h2>{activity}</section>
+    <section ref={history} tabIndex={-1}><h2>{t("Release activity", "릴리스 활동")}</h2><div lang="en">{activity}</div></section>
   </div>;
 }
