@@ -1079,7 +1079,7 @@ remain open.
   major and ship a migration note. Complete promoted inventory observations use the shared
   `inventory_observation.py` transport contract. The producer and Huginn validate the same finite
   byte, depth, object-key, list-length, and string-length limits so complete properties cross the
-  event bus without truncation, while an oversized observation fails before broker acceptance.
+  event bus without truncation, while an oversized observation fails before broker acceptance. The hydrated provider change feed uses the same bounds through `validate_inventory_change_event`.
   Runtime instance storage for those types is covered in
   [llm-strategy.md § Ontology Storage Layout](llm-strategy.md#ontology-storage-layout).
 - Tests for `services/core-control-plane/src/fdai/core/tiers/t0_deterministic` (the

@@ -50,7 +50,10 @@ from fdai.agents._framework.huginn_operator_receipt import (
 from fdai.agents._framework.huginn_schema_learning import HuginnSchemaLearningLedger
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.case_history import OperationalCaseInput
-from fdai.shared.contracts.inventory_observation import is_inventory_observation_event
+from fdai.shared.contracts.inventory_observation import (
+    is_inventory_change_event,
+    is_inventory_observation_event,
+)
 
 if TYPE_CHECKING:
     from fdai.agents._framework.bus import PantheonBus
@@ -443,7 +446,12 @@ class HuginnIngressMixin:
         if isinstance(severity, str) and severity.strip():
             payload["severity"] = _bound(severity)
         if isinstance(inventory_change, Mapping):
-            payload["inventory_change"] = _bound_json(inventory_change)
+            # A validated provider change keeps its full typed shape; others are bounded.
+            payload["inventory_change"] = (
+                _copy_validated_json(inventory_change)
+                if is_inventory_change_event(raw)
+                else _bound_json(inventory_change)
+            )
             signal_kind = canonical_payload.get("signal_kind")
             if isinstance(signal_kind, str):
                 payload["attributes"]["signal_kind"] = _bound(signal_kind)

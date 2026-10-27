@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0259bd1d23af9a9d52986029a8b01b4fc2bf98f5
+translation_source_sha: 076db1033be503c639733c82553b44e24613483f
 translation_revised: 2026-10-27
 ---
 # 프로젝트 구조
@@ -1069,7 +1069,7 @@ risk-gate를 호출합니다. 리포트는 정확한 소유권 이전 신원을 
   완전한 승격 인벤토리 관찰은 공유 `inventory_observation.py` 전송 계약을 사용합니다.
   생산자와 Huginn은 동일한 유한 바이트 크기, 깊이, 객체 키 수, 목록 길이 및 문자열 길이
   상한을 검증합니다. 따라서 완전한 속성은 잘리지 않고 이벤트 버스를 통과하며, 크기 상한을
-  넘는 관찰은 브로커가 수락하기 전에 실패합니다. 이들 타입의 런타임 인스턴스 저장은
+  넘는 관찰은 브로커가 수락하기 전에 실패합니다. 조회된 공급자 변경 피드도 `validate_inventory_change_event`로 같은 상한을 적용합니다. 이들 타입의 런타임 인스턴스 저장은
   [llm-strategy-ko.md § 온톨로지 Storage 배치](llm-strategy-ko.md#ontology-storage-layout)
   에서 다룹니다.
 - `services/core-control-plane/src/fdai/core/tiers/t0_deterministic` (deterministic-engine)과
