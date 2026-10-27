@@ -11,7 +11,9 @@ from typing import Any
 
 from fdai.shared.contracts.inventory_observation import (
     InventoryObservationTransportError,
+    is_inventory_change_event,
     is_inventory_observation_event,
+    validate_inventory_change_event,
     validate_inventory_observation_event,
 )
 
@@ -174,9 +176,12 @@ def _validate_raw_ingress(raw: Mapping[str, Any]) -> None:
             raise HuginnIngressRejected("invalid_idempotency_key", field=field)
         if len(value.strip()) > _MAX_FIELD_CHARS or _has_control_characters(value):
             raise HuginnIngressRejected("invalid_idempotency_key", field=field)
-    if is_inventory_observation_event(raw):
+    if is_inventory_observation_event(raw) or is_inventory_change_event(raw):
         try:
-            validate_inventory_observation_event(raw)
+            if is_inventory_change_event(raw):
+                validate_inventory_change_event(raw)
+            else:
+                validate_inventory_observation_event(raw)
         except InventoryObservationTransportError as exc:
             raise HuginnIngressRejected(exc.reason_code, field=exc.field) from exc
     else:

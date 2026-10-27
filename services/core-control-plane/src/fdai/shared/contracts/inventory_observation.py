@@ -9,6 +9,9 @@ from typing import Any
 
 INVENTORY_OBSERVATION_EVENT_TYPE = "inventory.resource_observed"
 INVENTORY_OBSERVATION_SOURCE = "fdai.delivery.inventory_configuration_events"
+INVENTORY_CHANGE_EVENT_TYPE = "inventory.resource_changed"
+INVENTORY_CHANGE_SOURCE = "fdai.delivery.azure.arg_resource_changes"
+INVENTORY_CHANGE_SIGNAL_KIND = "azure.resource_graph_change_feed"
 MAX_INVENTORY_OBSERVATION_BYTES = 131_072
 MAX_INVENTORY_OBSERVATION_DEPTH = 24
 MAX_INVENTORY_OBSERVATION_KEYS = 256
@@ -33,6 +36,31 @@ def is_inventory_observation_event(value: Mapping[str, Any]) -> bool:
         value.get("event_type") == INVENTORY_OBSERVATION_EVENT_TYPE
         and value.get("source") == INVENTORY_OBSERVATION_SOURCE
     )
+
+
+def is_inventory_change_event(value: Mapping[str, Any]) -> bool:
+    """Return whether ``value`` claims the exact hydrated provider change-feed identity."""
+    payload = value.get("payload")
+    return (
+        value.get("event_type") == INVENTORY_CHANGE_EVENT_TYPE
+        and value.get("source") == INVENTORY_CHANGE_SOURCE
+        and isinstance(payload, Mapping)
+        and payload.get("signal_kind") == INVENTORY_CHANGE_SIGNAL_KIND
+    )
+
+
+def validate_inventory_change_event(value: Mapping[str, Any]) -> None:
+    """Validate one hydrated provider change against the same finite transport bounds."""
+    payload = value.get("payload")
+    change = payload.get("inventory_change") if isinstance(payload, Mapping) else None
+    resource = change.get("resource") if isinstance(change, Mapping) else None
+    if (
+        not is_inventory_change_event(value)
+        or not isinstance(resource, Mapping)
+        or not isinstance(resource.get("props"), Mapping)
+    ):
+        raise InventoryObservationTransportError("inventory_observation_shape", field="payload")
+    _validate_bounded_event(value)
 
 
 def validate_inventory_observation_event(value: Mapping[str, Any]) -> None:
@@ -66,6 +94,10 @@ def validate_inventory_observation_event(value: Mapping[str, Any]) -> None:
             "inventory_observation_shape",
             field="payload",
         )
+    _validate_bounded_event(value)
+
+
+def _validate_bounded_event(value: Mapping[str, Any]) -> None:
     _validate_value(value, path="raw")
     try:
         encoded = json.dumps(
@@ -119,11 +151,16 @@ __all__ = [
     "INVENTORY_OBSERVATION_EVENT_TYPE",
     "INVENTORY_OBSERVATION_SOURCE",
     "InventoryObservationTransportError",
+    "INVENTORY_CHANGE_EVENT_TYPE",
+    "INVENTORY_CHANGE_SIGNAL_KIND",
+    "INVENTORY_CHANGE_SOURCE",
     "MAX_INVENTORY_OBSERVATION_BYTES",
     "MAX_INVENTORY_OBSERVATION_DEPTH",
     "MAX_INVENTORY_OBSERVATION_KEYS",
     "MAX_INVENTORY_OBSERVATION_LIST_ITEMS",
     "MAX_INVENTORY_OBSERVATION_STRING_CHARS",
+    "is_inventory_change_event",
     "is_inventory_observation_event",
+    "validate_inventory_change_event",
     "validate_inventory_observation_event",
 ]
