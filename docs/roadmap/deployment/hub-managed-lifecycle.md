@@ -968,7 +968,8 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
    its resource version and original manifest, and dry-runs only Terraform-owned fields. The desired
    render always carries the Agent ownership label. A pre-adoption rollback manifest may retain its
    Terraform label only for an exact kind/name UID-fenced expectation; unlisted unmanaged objects
-   remain outside scope. Rollback reapplies the Agent marker before submitting an adopted object.
+   remain outside scope. Rollback reapplies the Agent marker. Legacy objects with no non-status
+   `managedFields` require this exact development approval; any named non-Terraform manager conflicts.
    After Hub acceptance, the Agent runs the per-object checkpoint and creates only approved absent
    objects. Each receipt binds the approval and ownership digests, Plan id, render digest, UID and
    resulting resource version. Conflicting UIDs or field managers stop before mutation. Recovery
