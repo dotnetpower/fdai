@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 417a8906bb464ff3b8c7ee93074b84a7a3f4297d
-translation_revised: 2026-10-15
+translation_source_sha: d93f4515a49ac71a5a1dd85a499cb30bdb957fed
+translation_revised: 2026-10-28
 ---
 # 판테온 대화형 숙의
 
