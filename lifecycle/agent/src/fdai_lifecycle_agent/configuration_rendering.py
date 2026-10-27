@@ -240,7 +240,7 @@ def prepare_workload(
             recorded=frozenset(healthy),
         )
         previous = (*previous, *adopted_previous)
-    workload.preflight(desired, previous)
+    workload.preflight(desired, previous, adoptions=adoptions)
     return desired, previous, adoptions
 
 

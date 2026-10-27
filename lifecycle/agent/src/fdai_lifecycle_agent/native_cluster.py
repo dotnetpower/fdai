@@ -17,6 +17,8 @@ from fdai_lifecycle_agent.native_state import NativeState, NativeStateStore
 from fdai_lifecycle_agent.workload import (
     COMPONENT_LABEL,
     ENTITY_LABEL,
+    FIELD_MANAGER,
+    MANAGED_BY_LABEL,
     Cluster,
     CreationRejectedError,
     Manifest,
@@ -357,9 +359,14 @@ class NativeCluster:
 
     def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
         state = self._guard(mutation=True)
-        check_scope((manifest,), state.scope.namespace)
         kind, name = object_key(manifest)
         key = self._resource(state, kind, name)
+        owned_uid = state.resources.get(key)
+        check_scope(
+            (manifest,),
+            state.scope.namespace,
+            unmanaged_adoptions=frozenset({(kind, name)}) if owned_uid is not None else frozenset(),
+        )
         labels = manifest["metadata"]["labels"]
         if (
             labels.get(ENTITY_LABEL) != state.scope.entity_id
@@ -367,7 +374,6 @@ class NativeCluster:
             or key in state.deleting
         ):
             raise WorkloadError("native_resource_outside_scope")
-        owned_uid = state.resources.get(key)
         owned_manifest = self._owned_manifest(state, manifest)
         identity = self._approved_existing().get((kind, name))
         if owned_uid is None and identity is not None:
@@ -436,7 +442,9 @@ class NativeCluster:
             }
         }
         selector = self._selector(state, name)
-        owned_manifest["metadata"]["labels"] = dict(labels) | selector
+        owned_manifest["metadata"]["labels"] = (
+            dict(labels) | {MANAGED_BY_LABEL: FIELD_MANAGER} | selector
+        )
         if kind == "Deployment":
             owned_manifest["spec"]["selector"]["matchLabels"] = selector
             owned_manifest["spec"]["template"]["metadata"]["labels"].update(selector)

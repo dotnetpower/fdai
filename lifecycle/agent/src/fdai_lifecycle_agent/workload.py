@@ -205,20 +205,29 @@ def _service(metadata: Mapping[str, object], selector: Mapping[str, str]) -> Man
     }
 
 
-def check_scope(manifests: Iterable[Manifest], namespace: str) -> None:
+def check_scope(
+    manifests: Iterable[Manifest],
+    namespace: str,
+    *,
+    unmanaged_adoptions: frozenset[ObjectKey] = frozenset(),
+) -> None:
     """Require agent-managed Deployments, internal Services, Jobs or CronJobs in ``namespace``."""
 
     for manifest in manifests:
         metadata = manifest.get("metadata")
+        kind = manifest.get("kind", "")
+        name = metadata.get("name") if isinstance(metadata, Mapping) else None
         if not (
             isinstance(metadata, Mapping)
-            and API_VERSIONS.get(manifest.get("kind", "")) == manifest.get("apiVersion")
+            and API_VERSIONS.get(kind) == manifest.get("apiVersion")
             and metadata.get("namespace") == namespace
-            and isinstance(metadata.get("name"), str)
+            and isinstance(name, str)
             and isinstance(labels := metadata.get("labels"), Mapping)
-            and labels.get(MANAGED_BY_LABEL) == FIELD_MANAGER
             and (
-                manifest.get("kind") != "Service"
+                labels.get(MANAGED_BY_LABEL) == FIELD_MANAGER or (kind, name) in unmanaged_adoptions
+            )
+            and (
+                kind != "Service"
                 or manifest.get("spec", {}).get("type", "ClusterIP") == "ClusterIP"
             )
         ):
@@ -253,7 +262,13 @@ class Workload:
     monotonic: Callable[[], float] = time.monotonic
     sleep: Callable[[float], None] = time.sleep
 
-    def preflight(self, desired: Sequence[Manifest], previous: Sequence[Manifest]) -> None:
+    def preflight(
+        self,
+        desired: Sequence[Manifest],
+        previous: Sequence[Manifest],
+        *,
+        adoptions: Sequence[AdoptionExpectation] = (),
+    ) -> None:
         """Check before the apply-started report, without changing the cluster.
 
         The change stays in scope, every desired object without a recorded healthy version is
@@ -261,7 +276,12 @@ class Workload:
         server-side dry run of each object.
         """
 
-        check_scope([*desired, *previous], self.namespace)
+        check_scope(desired, self.namespace)
+        check_scope(
+            previous,
+            self.namespace,
+            unmanaged_adoptions=frozenset(item.key for item in adoptions),
+        )
         recorded = {object_key(manifest) for manifest in previous}
         for key in map(object_key, desired):
             if key not in recorded and self.cluster.get(*key) is not None:
@@ -330,7 +350,12 @@ class Workload:
         """Restore the recorded healthy objects, delete the desired objects that had none, and
         return whether that state was verified in time."""
 
-        check_scope([*desired, *previous], self.namespace)
+        check_scope(desired, self.namespace)
+        check_scope(
+            previous,
+            self.namespace,
+            unmanaged_adoptions=frozenset(item.key for item in adoptions),
+        )
         # A suspended/missing template cannot prove that an earlier activation never ran.
         unproved_scheduled_effect = any(
             item["kind"] == "CronJob" and item.get("spec", {}).get("suspend") is not True

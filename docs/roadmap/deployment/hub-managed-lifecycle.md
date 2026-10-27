@@ -970,6 +970,11 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
    Hub accepts `apply-started`, the Agent runs the existing per-object adoption checkpoint and
    creates only the approved absent objects. Each receipt binds the local approval digest, accepted
    ownership digest, Plan id, render digest, UID and resulting resource version.
+   The desired render always carries the Agent ownership label. The captured pre-adoption rollback
+   manifest may retain its Terraform ownership label only when its exact kind and name have a
+   UID-fenced adoption expectation. Preflight and rollback apply this same narrow exception; an
+   unlisted unmanaged object remains outside scope. When rollback restores an already adopted
+   object, the native owner reapplies the Agent ownership marker before submitting the manifest.
    A conflicting UID or field manager stops before mutation. An interruption recovers only objects
    carrying the exact anchor ownership marker, restores the captured manifests through UID-fenced
    rollback, and leaves unadopted objects unchanged. A later Plan safely retries only the remaining
