@@ -258,8 +258,9 @@ These customer-agnostic helpers keep both deployment routes repeatable:
   Both fail closed on unsafe runner storage or deallocation without changing the ops hub or state account.
 - [`check-runner-terraform.sh`](../../../scripts/deployment/azure/check-runner-terraform.sh) runs
   inside the shared `login-deploy-identity.sh` helper before its first Azure call. It refuses a
-  protected workflow on any runner whose Terraform is older than the validated 1.16.1. That includes
-  a Genesis-image runner, which still pins Terraform 1.9.8.
+  protected workflow on any runner whose Terraform is older than the validated 1.16.1. A
+  Genesis-image runner now pins Terraform 1.16.1 and meets that floor; an enrolled runner built
+  from an older image must re-run the runner image plan and apply to pick up the raised pin.
 
 #### Production hardening knobs
 

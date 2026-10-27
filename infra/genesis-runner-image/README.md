@@ -32,17 +32,20 @@ registration token only through SSH standard input over an exact Azure Bastion t
 
 ## Supported toolchain
 
-`toolchain.json` currently pins Terraform 1.9.8 and Azure CLI 2.88.0. These versions support the
+`toolchain.json` pins Terraform 1.16.1 and Azure CLI 2.88.0. These versions support the
 Foundation, enrollment, state handoff, and the private-runner application path over Azure Bastion.
-They're older than the Terraform 1.16.1 and Azure CLI 2.90.0 that the protected
-`[self-hosted, fdai-deploy, fdai-deploy-candidate]` workflows are validated on. The azurerm backend in
-Terraform 1.9.8 rejects the managed-identity Azure CLI session those workflows use.
+Terraform 1.16.1 meets the Terraform 1.16.1 minimum that the protected
+`[self-hosted, fdai-deploy, fdai-deploy-candidate]` workflows validate on; Azure CLI 2.88.0 stays
+older than the 2.90.0 those workflows are validated on, but `check-runner-terraform.sh` only gates
+on the Terraform version. The azurerm backend in a Terraform older than 1.16.1 rejects the
+managed-identity Azure CLI session those workflows use.
 
 Enrollment still applies the `fdai-deploy` labels, because the Genesis GitHub transport dispatches
 `deploy-dev.yml` to the enrolled runner. To stop a Genesis-image runner from failing later inside a
 protected job, `scripts/deployment/azure/login-deploy-identity.sh` first runs
 `check-runner-terraform.sh`. That check refuses any Terraform older than 1.16.1 before the first
-Azure call. Raise the pinned toolchain before you rely on a Genesis runner for protected workflows.
+Azure call. Re-run the runner image plan and apply so every Genesis-image runner picks up the
+raised pin before it serves a protected workflow.
 
 ## Files
 

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 49c2a2de4b874691022363d80c6c31391289d169
+translation_source_sha: 5e8916d4e4dd468e465ed0ec8388bfb55c6cf912
 translation_revised: 2026-10-27
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -288,8 +288,9 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   두 도구 모두 ops 허브나 상태 계정을 변경하지 않고 안전하지 않은 실행기 저장소 또는 할당 해제를 차단합니다.
 - [`check-runner-terraform.sh`](../../../scripts/deployment/azure/check-runner-terraform.sh)는 공유
   `login-deploy-identity.sh` 도우미 안에서 첫 Azure 호출 전에 실행됩니다. 실행기의 Terraform이
-  검증된 1.16.1보다 오래되었으면 보호된 워크플로를 거부합니다. 아직 Terraform 1.9.8을 고정하는
-  Genesis 이미지 실행기도 여기에 해당합니다.
+  검증된 1.16.1보다 오래되었으면 보호된 워크플로를 거부합니다. Genesis 이미지 실행기는 이제
+  Terraform 1.16.1을 고정해 이 기준을 충족하며, 이전 이미지로 만들어진 등록된 실행기는 러너
+  이미지 plan과 apply를 다시 실행해야 올라간 고정 버전을 반영합니다.
 
 #### 프로덕션 하드닝 knob
 
