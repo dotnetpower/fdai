@@ -51,7 +51,7 @@ def artifact_for_plan(
     *,
     now: datetime,
 ) -> AgentArtifact:
-    """Return one signed input only when the current eligible Plan names it exactly."""
+    """Return one signed input only when the current eligible Plan proves its lineage."""
 
     if _DIGEST.fullmatch(digest) is None:
         raise ValueError("Agent artifact digest is invalid.")
@@ -68,9 +68,15 @@ def artifact_for_plan(
             now=now,
         )
     elif kind == "configuration":
-        if plan.configuration_digest != digest:
-            raise ValueError("Agent artifact differs from the current Plan configuration.")
-        record = ConfigurationImportStore(store.engine).read(installation_id, digest)
+        if plan.configuration_digest is None:
+            raise ValueError("Agent artifact requires a current Plan configuration.")
+        record = ConfigurationImportStore(store.engine).read_plan_artifact(
+            installation_id,
+            plan.plan_id,
+            plan.configuration_digest,
+            digest,
+            catalog.catalog(now),
+        )
         payload, signature = _configuration_artifact(record["signed_container"], digest)
     else:
         raise ValueError("Agent artifact kind is unsupported.")
