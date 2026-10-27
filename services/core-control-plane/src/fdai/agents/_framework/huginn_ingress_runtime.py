@@ -246,6 +246,7 @@ class HuginnIngressMixin:
             self.record_behavior("ingress_recovery:unbound")
             return 0
         recovered = 0
+        first_failure: Exception | None = None
         async with asyncio.timeout(45):
             for key, digest, retained in await journal.pending_inventory_claims():
                 if (
@@ -255,39 +256,58 @@ class HuginnIngressMixin:
                     raise ValueError(
                         "retained inventory ingress has invalid ownership or authority"
                     )
-                async with self._key_lock(key):
-                    try:
-                        claim = await journal.claim(
-                            idempotency_key=key,
-                            request_digest=digest,
-                            payload=retained.payload,
-                            change_projection=retained.change_projection,
-                        )
-                    except HuginnClaimInProgressError:
-                        self.record_behavior("ingress_recovery:lease_active")
-                        continue
-                    if claim.duplicate:
-                        continue
-                    async with asyncio.timeout(_DISCOVERY_PROJECTOR_TIMEOUT_SECONDS):
-                        await self._discovery_projector(claim.payload)
-                    cancelled = await self._publish_event_change(
-                        claim.payload,
-                        claim.change_projection,
-                        idempotency_key=key,
-                        request_digest=digest,
-                        published_topics=claim.published_topics,
-                    )
-                    await journal.complete(
-                        idempotency_key=key,
-                        request_digest=digest,
-                        require_published_topics=True,
-                    )
-                    self._remember_key(key)
-                    self.record_behavior("ingress_recovery:completed")
-                    recovered += 1
-                    if cancelled:
-                        raise asyncio.CancelledError
+                try:
+                    if await self._redrive_pending_claim(journal, key, digest, retained):
+                        recovered += 1
+                except Exception as exc:  # noqa: BLE001 - one claim must not starve the page
+                    # The claim stays pending with its retained evidence; the page continues.
+                    self.record_behavior("ingress_recovery:claim_failed")
+                    if first_failure is None:
+                        first_failure = exc
+        if first_failure is not None:
+            raise first_failure
         return recovered
+
+    async def _redrive_pending_claim(
+        self,
+        journal: Any,
+        key: str,
+        digest: str,
+        retained: Any,
+    ) -> bool:
+        """Redrive one retained claim; return whether it completed in this pass."""
+        async with self._key_lock(key):
+            try:
+                claim = await journal.claim(
+                    idempotency_key=key,
+                    request_digest=digest,
+                    payload=retained.payload,
+                    change_projection=retained.change_projection,
+                )
+            except HuginnClaimInProgressError:
+                self.record_behavior("ingress_recovery:lease_active")
+                return False
+            if claim.duplicate:
+                return False
+            async with asyncio.timeout(_DISCOVERY_PROJECTOR_TIMEOUT_SECONDS):
+                await self._discovery_projector(claim.payload)
+            cancelled = await self._publish_event_change(
+                claim.payload,
+                claim.change_projection,
+                idempotency_key=key,
+                request_digest=digest,
+                published_topics=claim.published_topics,
+            )
+            await journal.complete(
+                idempotency_key=key,
+                request_digest=digest,
+                require_published_topics=True,
+            )
+            self._remember_key(key)
+            self.record_behavior("ingress_recovery:completed")
+            if cancelled:
+                raise asyncio.CancelledError
+            return True
 
     async def maintenance_tick(self) -> None:
         maintenance_tick = getattr(super(), "maintenance_tick", None)

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 6975603a187cc7efecc26417f733ae933e77337e
-translation_revised: 2026-10-19
+translation_source_sha: e72629b4af68bb8bfe2bd5fad895656298ba4e62
+translation_revised: 2026-10-27
 ---
 
 # 에이전트 판테온 구현 계획
@@ -139,6 +139,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-27 | implemented | Huginn의 제한된 대기 복구 패스에서 보존된 인벤토리 claim을 각각 독립적으로 재처리하도록 격리했습니다. 결정적으로 실패하는 claim 하나가 같은 페이지의 나머지 claim을 더 이상 막지 않습니다. 실패한 claim은 보존된 증거와 함께 대기 상태로 남고 `ingress_recovery:claim_failed`가 기록되며, 페이지 처리가 끝난 뒤 첫 실패를 다시 발생시킵니다. 역할, 토픽, 소유권, 권한은 바꾸지 않았습니다. | `현재 변경`; Huginn 복구 테스트 7개와 에이전트 레이아웃 테스트 통과; Ruff 검사와 형식 확인 통과. | 현재 incarnation이 없는 관측을 가진 claim의 격리 또는 타입 지정 거부, 그리고 로컬 인벤토리 스냅샷이 갱신되는지에 대한 라이브 확인. |
 | 2026-10-19 | implemented | 실행 계획의 타입 지정 메타데이터를 Operator와 Bragi를 거쳐 Norns의 이동 주간 집계 및 Mimir의 기존 후보 입력에 연결했습니다. 현재 게시 게이트, 원본 재현, 담당 원장 실패 재시도, 유한한 기한과 일반 답변의 전송 한도를 보존합니다. | `현재 변경`; 반복 질의, 의미 처리기 및 브리지, 학습, 발행, 초기화, 배치 및 일치 여부 선택자 571개 통과, 건너뛴 검사 없음; 실제 격리 PostgreSQL 시나리오 4개와 소스 10개의 mypy 통과 | 설치 환경 전송과 실제 집단을 검증해야 합니다. 일일 작업, 운영 결정과 상위 H02 안정화는 미완료로 유지합니다. |
 | 2026-10-19 | implemented | 에이전트 역할, 토픽, 모델 정책과 권한을 바꾸지 않고 영속 복구를 포함한 기존 Bragi-to-Norns 교정문 경계를 강화했습니다. | `현재 변경`; 발행, 소비, outbox, ingress, 초기화, 적격성, 배치와 일치 여부 집중 검사 91개; 두 소스 strict mypy | 실제 운영의 권위 있는 동의와 실제 의미 기반 검토 입력을 연결해야 합니다. 배포 환경 재시작, 현재 동의 재확인과 H02 반복 질의 검증은 별도 조건으로 남습니다. |
 | 2026-10-15 | implemented | 전역 StateStore 작업 결속을 보존하고, 지문 변경을 직렬화하며, 해시만 포함한 표식으로 모호한 효과를 복구하고, 이슈·댓글 식별자를 독립적으로 다시 읽는 선택적 Saga GitHub App 이슈 어댑터를 추가했습니다. | `현재 변경`, `github_issue_tracker.py`, `bootstrap_saga_issue_tracker.py`, 원격·내구성·초기화·이슈·레이아웃 검사 122개와 strict mypy·Ruff | 실제 GitHub App 설치, 네트워크, 배포 복제본·재시작 수락을 제공하고 검증해야 합니다. 어댑터는 병합, 승격, 승인 또는 실행 권한을 부여하지 않습니다. |
