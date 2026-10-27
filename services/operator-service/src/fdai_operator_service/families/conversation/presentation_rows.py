@@ -26,6 +26,8 @@ _LIFTED_ROW_FIELDS = (
     "status",
     "location",
 )
+_GROUP_FIELD = "group"
+_AGGREGATE_MEASURE_FIELDS = frozenset({"operation", "value"})
 _TECHNICAL_IDENTITY_FIELDS = frozenset({"id", "object_type"})
 _INTERNAL_ROW_FIELDS = frozenset(
     {
@@ -57,6 +59,12 @@ _REDACTED_VALUE = "<redacted>"
 def readable_row(values: Mapping[str, object]) -> dict[str, object]:
     """Keep direct scalars and lift allowlisted leaves from bounded nested bags."""
     readable: dict[str, object] = {}
+    # An aggregate row names its group in a mapping, so its scalar fields lead the row.
+    group = values.get(_GROUP_FIELD)
+    if isinstance(group, Mapping):
+        for field, value in group.items():
+            if isinstance(field, str) and field and not isinstance(value, Mapping | list):
+                readable[field] = _redact_scalar(field, value)
     for field, value in values.items():
         if not isinstance(field, str) or not field or isinstance(value, Mapping | list):
             continue
@@ -92,7 +100,14 @@ def ordered_columns(fields: Sequence[str]) -> list[str]:
     if business_fields:
         selected = business_fields
     leading = [field for field in _LIFTED_ROW_FIELDS if field in selected]
-    return leading + [field for field in selected if field not in leading]
+    ordered = leading + [field for field in selected if field not in leading]
+    # An aggregate row reads its measure after the group it measures.
+    if _AGGREGATE_MEASURE_FIELDS <= set(ordered) and len(ordered) > len(_AGGREGATE_MEASURE_FIELDS):
+        return [field for field in ordered if field not in _AGGREGATE_MEASURE_FIELDS] + [
+            "operation",
+            "value",
+        ]
+    return ordered
 
 
 def _nested_mappings(

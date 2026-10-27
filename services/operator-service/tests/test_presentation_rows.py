@@ -63,3 +63,41 @@ def test_model_deployment_summary_is_readable_without_raw_provider_bags() -> Non
         "capacity_tpm_source",
         "type",
     ]
+
+
+def test_an_aggregate_group_keeps_its_group_fields_as_leading_columns() -> None:
+    first = readable_row(
+        {
+            "group": {"resource_type": "Microsoft.Network/networkSecurityGroups"},
+            "operation": "count",
+            "value": 5,
+        }
+    )
+    second = readable_row(
+        {"group": {"resource_type": "Microsoft.KeyVault/vaults"}, "operation": "count", "value": 1}
+    )
+
+    assert first["resource_type"] == "Microsoft.Network/networkSecurityGroups"
+    assert "group" not in first
+    assert ordered_columns(list(first)) == ["resource_type", "operation", "value"]
+    assert second["resource_type"] == "Microsoft.KeyVault/vaults"
+
+
+def test_group_values_are_redacted_and_never_overwrite_the_row_own_fields() -> None:
+    row = readable_row(
+        {
+            "group": {"resource_id": "/subscriptions/00000000/resourceGroups/rg", "value": "x"},
+            "operation": "count",
+            "value": 3,
+        }
+    )
+
+    assert row["resource_id"] == "<redacted>"
+    assert row["value"] == 3
+
+
+def test_an_ungrouped_aggregate_has_no_group_column() -> None:
+    row = readable_row({"group": {}, "operation": "count", "value": 25})
+
+    assert row == {"operation": "count", "value": 25}
+    assert ordered_columns(list(row)) == ["operation", "value"]
