@@ -31,6 +31,18 @@ data "azurerm_eventhub" "pipeline_stages" {
   resource_group_name = var.resource_group_name
 }
 
+data "azurerm_eventhub" "change_events" {
+  name                = "fdai.change.events"
+  namespace_name      = var.eventhub_namespace_name
+  resource_group_name = var.resource_group_name
+}
+
+data "azurerm_eventhub" "hil_decisions" {
+  name                = "fdai.hil.decisions"
+  namespace_name      = var.eventhub_namespace_name
+  resource_group_name = var.resource_group_name
+}
+
 data "azurerm_log_analytics_workspace" "target" {
   name                = var.log_analytics_workspace_name
   resource_group_name = var.resource_group_name
@@ -295,6 +307,31 @@ resource "azurerm_role_assignment" "pipeline_receiver" {
   scope                = data.azurerm_eventhub.pipeline_stages.id
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.identity["worker"].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "command_sender" {
+  for_each = {
+    change_events    = data.azurerm_eventhub.change_events.id
+    hil_decisions    = data.azurerm_eventhub.hil_decisions.id
+    pantheon_objects = data.azurerm_eventhub.pantheon_objects.id
+  }
+
+  scope                = each.value
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.identity["command"].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "command_receiver" {
+  for_each = {
+    pantheon_objects = data.azurerm_eventhub.pantheon_objects.id
+    pipeline_stages  = data.azurerm_eventhub.pipeline_stages.id
+  }
+
+  scope                = each.value
+  role_definition_name = "Azure Event Hubs Data Receiver"
+  principal_id         = module.identity["command"].principal_id
   principal_type       = "ServicePrincipal"
 }
 

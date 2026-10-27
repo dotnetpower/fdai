@@ -12,6 +12,8 @@ The root creates:
   role-scoped DSN references;
 - secret-scoped `Key Vault Secrets User` assignments for the Operator API identity's exact three
   generated secret bindings;
+- Event Hub-scoped sender and receiver assignments for the Operator command identity's exact
+  semantic, change, human-approval, and pipeline topics;
 - the exact missing ServiceAccounts and environment ConfigMaps from full-topology generation; and
 - SecretProviderClasses whose CSI `secretObjects` bind generated environment variables to Key
   Vault secret names, plus the three bootstrap Kubernetes Secrets required before the managed

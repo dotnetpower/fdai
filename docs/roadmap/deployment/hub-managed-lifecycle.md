@@ -973,8 +973,8 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
    After Hub acceptance, the Agent runs the per-object checkpoint and creates only approved absent
    objects. Each receipt binds the approval and ownership digests, Plan id, render digest, UID and
    resulting resource version. Conflicting UIDs or field managers stop before mutation. Recovery
-   uses the exact anchor marker and UID-fenced rollback, leaves unadopted objects unchanged, and
-   retries only the residual set. The ownership marker remains after workload rollback; the
+   uses the exact anchor marker and UID-fenced rollback, leaves unadopted objects unchanged, restores
+   every retained owned UID as rollback state, and retries only the residual set. The ownership marker remains after workload rollback; the
    separate Terraform import procedure owns any reversal of the ownership handoff.
 
 The initial surface is limited to application-package Deployments and internal Services.
