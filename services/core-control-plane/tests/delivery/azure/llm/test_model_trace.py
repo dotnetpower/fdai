@@ -145,7 +145,7 @@ def test_prepare_embedding_input_holds_fully_redacted_payload() -> None:
     assert caught.value.receipt.transmittable_item_count == 0
 
 
-def test_observed_usage_keeps_cached_prompt_tokens_outside_the_trace_usage() -> None:
+def test_observed_usage_reports_cached_prompt_tokens_in_the_trace_usage() -> None:
     usage = {
         "prompt_tokens": 4197,
         "completion_tokens": 70,
@@ -167,7 +167,7 @@ def test_observed_usage_keeps_cached_prompt_tokens_outside_the_trace_usage() -> 
         response_content="{}",
         usage=usage,
     )
-    assert "cached_tokens" not in trace["usage"]
+    assert trace["usage"]["cached_tokens"] == 3968
     # A malformed or missing detail never invents a cached count.
     assert "cached_tokens" not in (
         observed_usage({**usage, "prompt_tokens_details": {"cached_tokens": -1}}) or {}

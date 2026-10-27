@@ -135,6 +135,11 @@ from .semantic_resource_change_answer import render_resource_change_answer
 from .semantic_resource_condition_answer import (
     render_resource_condition_answer as _render_resource_condition_answer,
 )
+from .semantic_resource_health_summary import (
+    health_summary_lines,
+    order_health_rows,
+    summarize_health_rows,
+)
 from .semantic_result_handle_projection import (
     result_handle_from_technical_details,
     stored_reference_arguments,
@@ -1946,6 +1951,17 @@ def _semantic_model_extensions(
         for key in usage_keys
     }
     measured = any(observation.usage is not None for observation in observations)
+    # Cached prompt tokens are reported only when some provider call measured them.
+    cache_reported = any(
+        observation.usage is not None and "cached_tokens" in observation.usage
+        for observation in observations
+    )
+    if cache_reported:
+        usage["cached_tokens"] = sum(
+            observation.usage.get("cached_tokens", 0)
+            for observation in observations
+            if observation.usage is not None
+        )
     measured_usage = {**usage, "model_calls": len(observations)} if measured else None
     calls: list[dict[str, object]] = []
     latency_ms = 0
@@ -3048,13 +3064,16 @@ def _render_query_answer(
             return None, None
         table = result.value
         rows: list[dict[str, object]] = []
+        source_rows = (
+            order_health_rows(table.rows) if output_shape == "resource_health_list" else table.rows
+        )
         if inventory_document:
-            projected_rows = table.rows[:1000]
-        elif len(table.rows) <= 40:
-            projected_rows = table.rows
+            projected_rows = source_rows[:1000]
+        elif len(source_rows) <= 40:
+            projected_rows = source_rows
         else:
             projected_rows = (
-                table.rows[-20:] if output_shape == "resource_event_history" else table.rows[:20]
+                source_rows[-20:] if output_shape == "resource_event_history" else source_rows[:20]
             )
         for row_index, row in enumerate(projected_rows, start=1):
             candidate_rows: list[dict[str, object]] = [
@@ -3082,14 +3101,17 @@ def _render_query_answer(
             if len(_answer_json(candidate).encode("utf-8")) > answer_output_limit - reserved:
                 break
             rows = candidate_rows
-        outputs.append(
-            _answer_output(
-                node_id=node_id,
-                table=table,
-                rows=rows,
-                evidence_refs=result.evidence_refs,
-            )
+        shown_output = _answer_output(
+            node_id=node_id,
+            table=table,
+            rows=rows,
+            evidence_refs=result.evidence_refs,
         )
+        if output_shape == "resource_health_list":
+            health_summary = summarize_health_rows(table.rows)
+            if health_summary is not None:
+                shown_output["health_summary"] = health_summary
+        outputs.append(shown_output)
     if rule_search is not None and not projected_rule_search:
         return None, None
     if incident_evidence is not None and not projected_incident:
@@ -3617,6 +3639,7 @@ def _render_general_query_answer(
                 if korean
                 else f"- Verified {returned} of {total} rows."
             )
+            lines.extend(health_summary_lines(output.get("health_summary"), korean=korean))
             lines.extend(verified_rows_table(output, korean=korean, leading=measure_concepts))
             if output.get("source_complete") is False:
                 notice = output.get("source_truncation_reason")

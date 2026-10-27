@@ -61,6 +61,12 @@ export function ConversationTrajectoryView({
   const numberFormat = new Intl.NumberFormat(consoleDateTimeLocale());
   const tokenValue = (value: number | undefined) => value === undefined
     ? t("deck.trajectory.notRecorded") : numberFormat.format(value);
+  const summaryTokens = presentation.cachedTokens !== undefined && presentation.totalTokens !== undefined
+    ? runRecordText("tokensWithCached", {
+      total: numberFormat.format(presentation.totalTokens),
+      cached: numberFormat.format(presentation.cachedTokens),
+    })
+    : tokenValue(presentation.totalTokens);
 
   return (
     <div class={`deck-trajectory-cluster is-${presentation.workProgress}`}>
@@ -87,7 +93,7 @@ export function ConversationTrajectoryView({
             modelDuration: presentation.modelLatencyMs === undefined
               ? t("deck.trajectory.notRecorded")
               : formatDuration(presentation.modelLatencyMs),
-            tokens: tokenValue(presentation.totalTokens),
+            tokens: summaryTokens,
           })}
         </span>
         <span class="deck-trajectory-duration cs-run-record-duration">
@@ -138,6 +144,12 @@ export function ConversationTrajectoryView({
               <dt>{runRecordText("outputTokens")}</dt>
               <dd>{tokenValue(presentation.outputTokens)}</dd>
             </div>
+            {presentation.cachedTokens !== undefined ? (
+              <div data-metric="cached">
+                <dt>{runRecordText("cachedTokens")}</dt>
+                <dd>{tokenValue(presentation.cachedTokens)}</dd>
+              </div>
+            ) : null}
             <div data-metric="total">
               <dt>{runRecordText("totalTokens")}</dt>
               <dd>{tokenValue(presentation.totalTokens)}</dd>

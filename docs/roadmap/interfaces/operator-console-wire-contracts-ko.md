@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: f0fc9909b793b2a27311e6a2bef04006b46e630a
+translation_source_sha: 47a97324e795aa4596f7e97e99509ddbc1bec601
 translation_revised: 2026-10-26
 ---
 
@@ -68,7 +68,7 @@ Core는 실제 수신기 생존 상태, 보호된 준비 상태, 저장된 비�
 아무것도 바꾸지 않습니다. 요청은 YAML, 역할, 승인 주장을 담지 않으며 IAM, 배포, Azure 권한을
 부여하지 않습니다.
 
-기존 숫자 `usage` 맵은 토큰 합계와 함께 `model_calls`를 포함할 수 있습니다. 이는 기록된
+기존 숫자 `usage` 맵은 토큰 합계와 함께 `model_calls`와 프로바이더가 보고한 `cached_tokens`를 포함할 수 있으며, `cached_tokens`는 호출이 측정한 경우에만 나타납니다. 이는 기록된
 대화 호출 계측이며, 상세 프롬프트 수집, 행동 권한, 독립 운영 근거가 아닙니다. 없는 값은
 사용 불가로 유지하며, 이전 소비자는 추가 숫자 키를 무시해도 답변 검증이나 Incident 처리를
 바꾸지 않습니다.

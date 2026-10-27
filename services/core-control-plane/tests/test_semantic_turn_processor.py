@@ -5369,6 +5369,48 @@ async def test_answered_turn_projects_measured_usage_and_opt_in_trace(
     assert projection["semantic_result"]["execution_authority"] is False
 
 
+async def test_turn_usage_totals_the_cached_prompt_tokens_only_when_measured() -> None:
+    def observation(usage: dict[str, int]) -> SemanticJudgmentObservation:
+        return SemanticJudgmentObservation(
+            model="semantic-test",
+            usage=usage,
+            trace_call={
+                "call_id": "adapter-call",
+                "kind": "semantic-judgment",
+                "model": "semantic-test",
+                "status": "completed",
+                "started_at": "2026-08-11T12:00:00+00:00",
+                "completed_at": "2026-08-11T12:00:00.025000+00:00",
+                "duration_ms": 25,
+                "request": {"messages": [], "sha256": "a" * 64},
+                "response": {"role": "assistant", "content": "{}", "sha256": "b" * 64},
+                "usage": usage,
+                "redactions": [],
+            },
+        )
+
+    cached = {"prompt_tokens": 12, "completion_tokens": 3, "total_tokens": 15, "cached_tokens": 8}
+    plain = {"prompt_tokens": 8, "completion_tokens": 2, "total_tokens": 10}
+    with_cache = _projection(
+        await _processor(
+            _Runtime(
+                _runtime_result(
+                    "answered", model_observations=(observation(cached), observation(plain))
+                )
+            )
+        ).process(_request())
+    )
+    without_cache = _projection(
+        await _processor(
+            _Runtime(_runtime_result("answered", model_observations=(observation(plain),)))
+        ).process(_request())
+    )
+
+    assert with_cache["payload"]["usage"]["cached_tokens"] == 8
+    assert with_cache["payload"]["usage"]["total_tokens"] == 25
+    assert "cached_tokens" not in without_cache["payload"]["usage"]
+
+
 async def test_selected_t2_reports_the_answer_author_instead_of_the_reviewer() -> None:
     def observation(model: str, kind: str) -> SemanticJudgmentObservation:
         return SemanticJudgmentObservation(

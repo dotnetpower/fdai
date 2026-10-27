@@ -129,7 +129,7 @@ def complete_model_trace(
             "content": redacted,
             "sha256": _sha256(response_content),
         },
-        "usage": bounded_usage(usage),
+        "usage": observed_usage(usage),
         "redactions": [
             {"rule": rule, "replacements": count} for rule, count in sorted(redactions.items())
         ],
@@ -171,8 +171,9 @@ def bounded_usage(value: Mapping[str, Any] | None) -> dict[str, int] | None:
 def observed_usage(value: Mapping[str, Any] | None) -> dict[str, int] | None:
     """Return bounded usage plus the provider's cached prompt-token count, when reported.
 
-    The cached count is Core-internal call metadata for latency diagnostics. It stays out of
-    the model trace and wire usage, which keep exactly the ``bounded_usage`` counters.
+    The cached count is the portion of the prompt the provider served from its prompt cache.
+    It rides with the call's trace usage and the turn's total so the operator sees how much of
+    the input was cached; a missing or malformed detail never invents a count.
     """
     output = bounded_usage(value)
     details = value.get("prompt_tokens_details") if value is not None else None
