@@ -1167,6 +1167,75 @@ def test_direct_apply_without_exact_approval_is_denied(
         )
 
 
+def test_auto_approve_derives_approval_from_current_operator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        command, "current_actor_digest", lambda run_binding: f"operator:{run_binding}"
+    )
+    review = {
+        "run_digest": "a" * 64,
+        "source_commit": "b" * 40,
+        "review_digest": "c" * 64,
+        "plan_digest": "d" * 64,
+    }
+    approval = command._require_apply_approval(None, review=review, auto_approve=True)
+    assert approval.stage == "runner-image"
+    assert approval.actor_digest == "operator:" + "a" * 64
+    assert approval.authorizes("runner-image", review_digest="c" * 64, plan_digest="d" * 64)
+
+
+def test_auto_approve_rejects_a_non_human_operator(monkeypatch: pytest.MonkeyPatch) -> None:
+    def not_human(_run_binding: str) -> str:
+        raise ValueError("Genesis exact approval requires an authenticated human operator")
+
+    monkeypatch.setattr(command, "current_actor_digest", not_human)
+    with pytest.raises(ValueError, match="authenticated human operator"):
+        command._require_apply_approval(
+            None,
+            review={
+                "run_digest": "a" * 64,
+                "source_commit": "b" * 40,
+                "review_digest": "c" * 64,
+                "plan_digest": "d" * 64,
+            },
+            auto_approve=True,
+        )
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        [],
+        ["--approve"],
+        ["--auto-approve", "--approval-file", "approval.json"],
+        ["--approve", "--auto-approve", "--approval-file", "approval.json"],
+    ],
+)
+def test_apply_rejects_conflicting_or_missing_approval_flags(
+    tmp_path: Path, extra_args: list[str]
+) -> None:
+    args = [
+        "apply",
+        "--work-dir",
+        str(tmp_path / "missing-work-dir"),
+        "--profile",
+        str(tmp_path / "missing-profile.json"),
+        "--terraform",
+        str(tmp_path / "missing-terraform"),
+        "--expected-review-digest",
+        "c" * 64,
+        "--expected-plan-digest",
+        "d" * 64,
+        "--repository",
+        "example/repository",
+        "--output",
+        "json",
+        *extra_args,
+    ]
+    assert command.main(args) == 3
+
+
 @pytest.mark.parametrize("name", ["TF_VAR_password", "TF_LOG", "ARM_CLIENT_SECRET"])
 def test_terraform_environment_rejects_ambient_authority_controls(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str
