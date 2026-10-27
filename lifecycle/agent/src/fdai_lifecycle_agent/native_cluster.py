@@ -333,19 +333,28 @@ class NativeCluster:
         desired: tuple[Manifest, ...],
         expectations: tuple[AdoptionExpectation, ...],
     ) -> tuple[Manifest, ...]:
-        """Bind immutable live Deployment selectors into the exact adoption journal."""
+        """Bind immutable live Deployment selectors into the exact apply journal."""
 
+        state = self._guard()
         adoption_by_key = {item.key: item for item in expectations}
         bound: list[Manifest] = []
         for manifest in desired:
             key = object_key(manifest)
             expectation = adoption_by_key.get(key)
-            if manifest["kind"] != "Deployment" or expectation is None:
+            owned_uid = state.resources.get(f"{key[0]}/{key[1]}")
+            if manifest["kind"] != "Deployment" or (expectation is None and owned_uid is None):
                 bound.append(manifest)
                 continue
             live = self._cluster.get(*key)
-            if live is None or live_uid(live) != expectation.uid:
+            if live is None:
+                if expectation is not None:
+                    raise WorkloadError("native_adoption_uid_conflict")
+                raise WorkloadError("native_owned_resource_missing")
+            if expectation is not None and live_uid(live) != expectation.uid:
                 raise WorkloadError("native_adoption_uid_conflict")
+            if owned_uid is not None:
+                if live_uid(live) != owned_uid:
+                    raise WorkloadError("native_resource_identity_changed")
             bound.append(self._preserve_deployment_selector(manifest, live))
         return tuple(bound)
 

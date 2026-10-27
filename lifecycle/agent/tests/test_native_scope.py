@@ -1013,7 +1013,12 @@ def test_native_transition_adopts_seven_exact_objects_and_creates_nine(harness) 
     retry_expectations, recovered_previous = cluster.prepare_adoptions(retry_plan, desired)
     assert retry_expectations == ()
     assert len(recovered_previous) == 16
-    workload.preflight(desired, recovered_previous)
+    retry_desired = cluster.bind_adoption_selectors(desired, retry_expectations)
+    assert retry_desired[0]["spec"]["selector"]["matchLabels"] == {
+        "app.kubernetes.io/name": "core-control-plane"
+    }
+    workload.preflight(retry_desired, recovered_previous)
+    assert workload.apply(retry_desired)
 
 
 def test_existing_native_state_transition_refuses_conflicting_uid(harness) -> None:
