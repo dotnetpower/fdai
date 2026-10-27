@@ -891,7 +891,10 @@ def _transition_manifests(namespace: str, components: tuple[str, ...]) -> tuple[
 
 def _foreign_object(manifest: Manifest, *, uid: str, version: str) -> Manifest:
     foreign = deepcopy(dict(manifest))
+    labels = dict(foreign["metadata"]["labels"])
+    labels["app.kubernetes.io/managed-by"] = "Terraform"
     foreign["metadata"] = dict(foreign["metadata"]) | {
+        "labels": labels,
         "uid": uid,
         "resourceVersion": version,
         "managedFields": [{"manager": "Terraform"}],
@@ -984,7 +987,7 @@ def test_native_transition_adopts_seven_exact_objects_and_creates_nine(harness) 
         sleep=lambda _seconds: None,
     )
 
-    workload.preflight(desired, previous)
+    workload.preflight(desired, previous, adoptions=expectations)
     cluster.adopt_existing(desired, expectations, plan_id=plan.plan_id)
 
     assert workload.apply(desired)
@@ -1133,7 +1136,7 @@ def test_interrupted_existing_native_state_transition_rolls_back_and_retries(har
         poll_interval_seconds=0,
         sleep=lambda _seconds: None,
     )
-    workload.preflight(desired, previous)
+    workload.preflight(desired, previous, adoptions=expectations)
     provider.fail_adoption_name = "worker"
 
     with pytest.raises(WorkloadError, match="injected_adoption_interruption"):
@@ -1146,7 +1149,7 @@ def test_interrupted_existing_native_state_transition_rolls_back_and_retries(har
     provider.fail_adoption_name = None
     retry_plan = _transition_plan(harness, proof, plan_id="native-transition-2")
     retry_expectations, retry_previous = cluster.prepare_adoptions(retry_plan, desired)
-    workload.preflight(desired, retry_previous)
+    workload.preflight(desired, retry_previous, adoptions=retry_expectations)
     cluster.adopt_existing(
         desired,
         retry_expectations,
