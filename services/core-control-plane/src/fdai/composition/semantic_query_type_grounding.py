@@ -106,7 +106,14 @@ def build_second_reader(
         if compiled or production_shadow
         else None
     )
-    third = ambiguity_reader_target(targets, second)
+    third = ambiguity_reader_target(targets, second) or _t2_ambiguity_target(
+        targets,
+        second,
+        resolved=resolved,
+        endpoint=endpoint,
+        endpoint_resolver=endpoint_resolver,
+        held_capabilities=held_capabilities,
+    )
 
     def reader_config(
         with_direction: bool,
@@ -187,6 +194,32 @@ def build_second_reader(
             else None
         ),
     )
+
+
+def _t2_ambiguity_target(
+    targets: tuple[ModelRequestTarget, ...],
+    second: ModelRequestTarget,
+    *,
+    resolved: ResolvedModels,
+    endpoint: str | None,
+    endpoint_resolver: Callable[[str], str] | None,
+    held_capabilities: frozenset[str],
+) -> ModelRequestTarget | None:
+    """Return the T2 reasoner as the ambiguity reader when no T1 deployment is a third reader.
+
+    The check reads only the masked question and runs only when the judgment clarifies a
+    question whose released reading already passed verification and blind review, so a
+    stronger deployment that differs from both T1 readers is the least costly independent verdict.
+    """
+
+    t2_targets = t2_model_targets(
+        resolved,
+        endpoint=endpoint,
+        endpoint_resolver=endpoint_resolver,
+        held_capabilities=held_capabilities,
+    )
+    taken = {targets[0].deployment, second.deployment}
+    return next((target for target in t2_targets if target.deployment not in taken), None)
 
 
 def _escalation_reader(

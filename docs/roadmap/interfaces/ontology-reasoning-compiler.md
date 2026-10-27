@@ -789,7 +789,7 @@ rounds traced. Each stays in the local profile and grants no authority.
   for naming no kind of resource; it sees neither the earlier text nor the reading. Only one lets the released reading answer; any other verdict, no answer, a
   timeout, or a failure keeps the clarification. The plan takes the gateway's cutoff only after that
   verdict, because the gateway accepts a cutoff only within seconds of its own. The composition gives the check to the reasoning direction
-  reader only when it is neither the judgment and proposer's family nor the blind reviewer's; otherwise the
+  reader only when it is neither the judgment and proposer's family nor the blind reviewer's, else to a T2 reasoner that is neither; without either the
   clarification always wins.
 
 **Current-path plans**
