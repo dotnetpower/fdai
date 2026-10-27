@@ -93,6 +93,15 @@ Another stage, changed digest, expired record, or silence grants no authority. T
 plan review it approves carries the same 24-hour freshness bound, so a reviewed plan and its
 approval expire together.
 
+The runner-image `apply` command's `--auto-approve` collapses the separate approval-file-authoring
+step into the apply invocation itself: it derives the approval directly from the currently
+authenticated Azure operator (the same `current_actor_digest` check `--approval-file` approvals
+already require, so a service-principal or non-human session is still refused) instead of reading a
+pre-authored file. It accepts exactly one of `--approve` with `--approval-file`, `--auto-approve`,
+or `--resume-verification`; it is reachable only under the same dev manual single-approver profile
+every runner-image apply already requires, and every other check (profile match, plan and Terraform
+digests, source revision, provider drift, claim idempotency) stays unchanged.
+
 Run Command bundle staging applies the same boundary before transport. Its private approval binds
 the exact provision profile and complete target descriptor. The coordinator recomputes the
 tenant/subscription binding from the active Azure account, verifies the current human actor, and

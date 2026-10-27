@@ -1,7 +1,7 @@
 ---
 title: 구독 초기 구성 보증
 translation_of: subscription-genesis-assurance.md
-translation_source_sha: 024f7e25d0c445320a139d6f188122ae3f3ce7cb
+translation_source_sha: 92e8d3feaad53754fa2d08bca0bec5a52ce72477
 translation_revised: 2026-10-28
 ---
 # 구독 초기 구성 보증
@@ -94,6 +94,15 @@ Azure Run Command 페이로드, 로그, 채팅에 넣지 않습니다.
 다른 단계, 변경된 다이제스트, 만료된 기록, 응답 없음은 권한을 부여하지 않습니다. 승인이
 검토하는 runner-image 계획 검토도 동일한 24시간 신선도 한도를 가지므로, 검토된 계획과 그
 승인은 함께 만료됩니다.
+
+runner-image `apply` 명령의 `--auto-approve`는 별도의 승인 파일 작성 단계를 apply 호출 자체에
+합칩니다. 미리 작성된 파일을 읽는 대신, 현재 인증된 Azure 운영자에게서 직접 승인을 도출합니다
+(`--approval-file` 승인이 이미 요구하는 동일한 `current_actor_digest` 검사를 그대로 사용하므로,
+서비스 프린시펄이나 사람이 아닌 세션은 여전히 거부됩니다). `--approve`와 `--approval-file`의
+조합, `--auto-approve`, `--resume-verification` 중 정확히 하나만 받아들이며, 모든 runner-image
+apply가 이미 요구하는 동일한 dev 수동 단일 승인자 프로필에서만 도달 가능하고, 다른 모든 검사
+(프로필 일치, 계획과 Terraform 다이제스트, 소스 리비전, 공급자 드리프트, 청구 멱등성)는
+변경되지 않습니다.
 
 Run Command 실행 묶음 staging도 전송 전에 같은 경계를 적용합니다. 비공개 승인은 정확한
 프로비저닝 프로파일과 전체 대상 서술자에 연결됩니다. 조정기는 활성 Azure 계정에서 테넌트와
