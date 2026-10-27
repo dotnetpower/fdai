@@ -72,16 +72,18 @@ delivery should normally consume one workflow attempt.
    caveats, and the closing issue reference. Verify the PR head SHA after creation.
 5. **Drive the PR to a terminal outcome.**
    - Observe the exact PR head and its required checks once. Do not poll.
-   - If checks are pending and repository policy supports auto-merge, enable protected auto-merge
-     with the repository's established merge method. Record that external evidence is pending.
+   - If checks are pending, record that external evidence is pending. Do not manually enable
+     native auto-merge: `--auto` can merge immediately when pending checks are not required.
    - When Merge Queue is unavailable and delivery is authorized through merge, start the canonical
      one-time coordinator described below, then attach its local-state waiter through an async
      terminal. The coordinator owns subsequent bounded GitHub observations and behind-branch
-     updates; the waiter only reports its terminal state, and the interactive agent does not poll
-     alongside either process.
+     updates. It waits for every observed check to pass or skip before invoking native auto-merge
+     with the repository's established method; GitHub still enforces required reviews and policies.
+     The waiter only reports terminal state, and the interactive agent does not poll alongside it.
    - If a required check fails, use the `ci-diagnosis` skill on that exact attempt, fix only the
      established cause locally, rerun the narrowest falsifying check, commit, push, and update the
-     existing PR. Restore auto-merge, restart the coordinator, and attach a new waiter. Continue
+     existing PR. Restart the coordinator and attach a new waiter; it restores auto-merge only
+     after the new head's checks complete successfully. Continue
      this bounded diagnose-fix-validate-publish-monitor loop until merge or a genuine blocker.
    - Address actionable review comments within the authorized scope. Escalate ambiguous,
      scope-expanding, security-sensitive, or authority-changing requests instead of guessing.
@@ -102,7 +104,9 @@ delivery should normally consume one workflow attempt.
 ## One-Time Delivery Coordinator
 
 Use `scripts/automation/pr_delivery_daemon.py` only after the task commit is pushed, the PR exists,
-its exact local and remote head match, and protected auto-merge is permitted. If the canonical
+its exact local and remote head match, and the repository's native merge method is permitted.
+The coordinator must wait for all observed CI, even when no required-check protection is present;
+it never bypasses any existing protection or review requirement. If the canonical
 script is absent, first create it and its focused regressions as task-owned repository source,
 validate that implementation, and resume delivery only from a checkout that contains it. Never
 substitute an inline polling loop, downloaded executable, GitHub content API commit, or cloud agent.
@@ -155,7 +159,8 @@ The coordinator may:
   branch no longer matches the verified head. GitHub can still report `BEHIND` right after it merges
   the PR and deletes the branch, and pushing then would recreate the branch.
 - Push the exact local topic branch without force and verify the remote SHA.
-- Restore the repository's existing protected auto-merge method.
+- Restore the repository's existing native auto-merge method only after all observed checks pass
+  or skip. Missing, queued or in-progress checks keep it waiting without a merge command.
 - Verify that the reported merge commit is contained by the remote base.
 
 It stops without repair when a check fails, the PR closes, a conflict occurs, local or remote
@@ -175,7 +180,7 @@ coordinator does not inherit the exception because it did not perform the verifi
 ## Waiting and resumption
 
 GitHub Actions and reviews are external evidence. Do not repeatedly query them interactively. When
-checks are still running, enable auto-merge if allowed, start the one-time coordinator, and attach
+checks are still running, start the one-time coordinator without manually enabling auto-merge, and attach
 the async local-state waiter. Do not report delivery complete or end an active delivery turn merely
 because CI is pending. Resume from that same PR when the waiter emits a terminal notification. A
 failed check, conflict, or behind-head update returns control for the bounded remediation loop; a
@@ -186,7 +191,7 @@ switch revisions.
 ## Example
 
 - **Right:** `commit and push` commits only task-owned paths, publishes the topic branch, creates
-  or updates its PR, enables protected auto-merge while checks run, verifies the eventual merge,
+  or updates its PR, lets the coordinator wait for all observed CI before native auto-merge, verifies the merge,
   and removes the now-unused local topic branch.
 - **Wrong:** push the branch, report the task complete, leave no PR, or delete the local branch
   before GitHub proves that its exact head was merged.

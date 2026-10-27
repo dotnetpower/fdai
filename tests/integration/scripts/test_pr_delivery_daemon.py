@@ -338,6 +338,62 @@ def test_auto_merge_phase_records_enabled_state_immediately(tmp_path: Path) -> N
     assert any(command[-2:] == ("--match-head-commit", _A) for command in fake.commands)
 
 
+@pytest.mark.parametrize(
+    "checks",
+    [
+        [],
+        [{"status": "QUEUED", "conclusion": ""}],
+        [{"status": "IN_PROGRESS", "conclusion": ""}],
+        [
+            {"status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"status": "IN_PROGRESS", "conclusion": ""},
+        ],
+    ],
+)
+def test_daemon_waits_for_all_observed_checks_before_enabling_auto_merge(
+    tmp_path: Path,
+    checks: list[dict[str, str]],
+) -> None:
+    fake = FakeRunner(
+        tmp_path,
+        [
+            _payload(auto_merge=False, checks=checks),
+            _payload(auto_merge=False),
+            _payload(state="MERGED", merge_commit=_C),
+        ],
+    )
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
+    coordinator.stop_event.wait = lambda _seconds: False  # type: ignore[method-assign]
+
+    assert coordinator.run() == 0
+
+    observations = [
+        index for index, command in enumerate(fake.commands) if command[:3] == ("gh", "pr", "view")
+    ]
+    merge_commands = [
+        index for index, command in enumerate(fake.commands) if command[:3] == ("gh", "pr", "merge")
+    ]
+    assert len(merge_commands) == 1
+    assert observations[1] < merge_commands[0] < observations[2]
+
+
+def test_daemon_never_enables_auto_merge_before_a_pending_check_fails(tmp_path: Path) -> None:
+    fake = FakeRunner(
+        tmp_path,
+        [
+            _payload(auto_merge=False, checks=[{"status": "IN_PROGRESS", "conclusion": ""}]),
+            _payload(auto_merge=False, checks=[{"status": "COMPLETED", "conclusion": "FAILURE"}]),
+        ],
+    )
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
+    coordinator.stop_event.wait = lambda _seconds: False  # type: ignore[method-assign]
+
+    assert coordinator.run() == 4
+    assert not any(command[:3] == ("gh", "pr", "merge") for command in fake.commands)
+
+
 def test_daemon_locally_updates_a_behind_branch_and_restores_auto_merge(tmp_path: Path) -> None:
     fake = FakeRunner(
         tmp_path,
