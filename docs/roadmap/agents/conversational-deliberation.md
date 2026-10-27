@@ -443,6 +443,41 @@ Both model calls are reserved before generation, reviewer usage is metered separ
 generation still retains measured cost. The operator locale is bound to the request. These are
 implemented source mechanics, not a live quality, latency, cost or deployment acceptance receipt.
 
+## Structured dialogue state (design, not implemented)
+
+Long Console conversations currently lose context by truncation: the Operator narrator keeps the
+newest 12 history items and Core keeps the newest 8. Older turns, including a target, scope or time
+the operator already fixed, disappear. The designed replacement compacts older turns into a typed
+`DialogueState` and never into free-text summary alone. The state is context only and grants no
+authority; approval and execution are re-derived from current evidence on every request.
+
+**State fields.** Resolved intent (goal, target, scope, time, constraints), grounded ontology
+entities with effective time, open questions and clarifications already answered, cited evidence and
+result handles, and the compacted turn range with its digest.
+
+**Tiers.** T2 is not used. T0 copies fields from already-typed semantic results and keeps only ids
+and digests for older turns; it never infers meaning from text. T1 MAY summarize the residue that
+has no typed form with a small model, and a verifier MUST check the summary against the source
+turns. When T1 abstains or fails, the request falls back to the current truncation and the receipt
+records that fallback. A coding session never invokes a live model for this path.
+
+**Storage.** The Operator service owns durable conversation history in its Postgres store
+(`conversation_turn` is append-only and principal-scoped). Snapshots are an append-only derived
+table in the same store, keyed by principal and conversation, with the source turn range, its
+digest, the state JSON, the tier and the creation time. A new state is a new row, never an update,
+so every request context can be replayed. Snapshots follow the retention of the source turns. The
+Operator narrator reads the table directly. Core never reads Operator storage; the Operator passes
+the state in a schema-validated `SemanticTurnRequest` field.
+
+**Rollout.** The capability starts in shadow mode: it computes the state and records content-free
+counts next to the existing truncation receipt, and the request is unchanged. Promotion goes
+through the authoritative promotion registry on gate evidence. The Console MAY show that earlier
+turns were compacted.
+
+**Delivery plan.** (1) Contract, snapshot schema and migration. (2) Operator T0 compactor and shadow
+comparison, including the narrator. (3) Core request field, `adaptive_service` use and the T1 seam.
+(4) Console indicator and promotion gate.
+
 ## Authority boundary
 
 Neither T1 discussion nor T2 synthesis may issue or change:

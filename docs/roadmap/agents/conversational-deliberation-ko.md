@@ -431,6 +431,38 @@ V-CLAIM이 정확한 값, 이름, 참조, 제한 사항 및 전체 행 집계를
 사용량은 따로 계측하며 잘못된 생성 응답도 측정 비용을 보존합니다. 운영자 언어는 요청에
 결합됩니다. 이는 구현된 소스 동작이며 실제 품질, 지연, 비용 또는 배포 수락 증적은 아닙니다.
 
+## 구조화된 대화 상태 (설계, 미구현)
+
+긴 Console 대화는 현재 truncation 때문에 맥락을 잃습니다. Operator narrator는 최근 history
+12개, Core는 최근 8개만 유지하므로 운영자가 이미 정한 대상, 범위, 시간을 포함해 오래된 turn이
+사라집니다. 설계된 대안은 오래된 turn을 자유 텍스트 요약만이 아니라 typed `DialogueState`로
+압축하는 것입니다. 이 상태는 맥락일 뿐 권한을 부여하지 않으며, 승인과 실행은 매 요청마다 현재
+근거에서 다시 도출합니다.
+
+**상태 필드.** 확정된 intent(goal, target, scope, time, constraints), 유효 시간이 있는 grounded
+ontology entity, 이미 답한 미해결 질문과 clarification, 인용한 근거와 result handle, 압축한 turn
+범위와 digest입니다.
+
+**Tier.** T2는 사용하지 않습니다. T0는 이미 typed인 semantic 결과에서 필드를 복사하고 오래된
+turn은 id와 digest만 남기며, 텍스트에서 의미를 추론하지 않습니다. T1은 typed 형태가 없는 잔여분을
+작은 모델로 요약할 수 있고, verifier가 원본 turn과 대조해야 합니다(MUST). T1이 abstain하거나
+실패하면 현재 truncation으로 돌아가고 receipt에 그 fallback을 기록합니다. 코딩 세션은 이 경로에서
+실제 모델을 호출하지 않습니다.
+
+**저장.** Operator 서비스가 자신의 Postgres 저장소에서 대화 이력을 소유합니다(`conversation_turn`은
+append-only이며 principal 범위로 격리). snapshot은 같은 저장소의 append-only 파생 테이블이며
+principal과 conversation을 키로 하고 원본 turn 범위, digest, 상태 JSON, tier, 생성 시각을 담습니다.
+새 상태는 UPDATE가 아니라 새 행이므로 모든 요청 context를 replay할 수 있습니다. snapshot은 원본
+turn의 보존 정책을 따릅니다. Operator narrator는 이 테이블을 직접 읽고, Core는 Operator 저장소를
+읽지 않으며 Operator가 schema 검증된 `SemanticTurnRequest` 필드로 상태를 전달합니다.
+
+**롤아웃.** shadow mode로 시작합니다. 상태를 계산해 기존 truncation receipt 옆에 내용 없는
+집계만 기록하고 요청은 바꾸지 않습니다. 승격은 gate 근거로 authoritative promotion registry를
+통해서만 합니다. Console은 이전 turn이 압축되었음을 표시할 수 있습니다(MAY).
+
+**전달 계획.** (1) 계약, snapshot schema, migration. (2) Operator T0 compactor와 narrator를 포함한
+shadow 비교. (3) Core 요청 필드, `adaptive_service` 사용, T1 seam. (4) Console 표시와 승격 gate.
+
 ## 권한 경계
 
 T1 discussion과 T2 종합은 다음을 발행하거나 변경할 수 없습니다.
