@@ -41,7 +41,7 @@ from fdai.core.conversation.semantic_reasoning_repair import FormRepair
 from fdai.core.conversation.semantic_reasoning_review import extraction_schema
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
 from fdai.core.prompts import PromptReplayManifest
-from fdai.delivery.azure.llm.completion_body import target_body_params
+from fdai.delivery.azure.llm.completion_body import structured_body_params
 from fdai.delivery.azure.llm.identity_masking import IdentityMask
 from fdai.delivery.azure.llm.input_detection import (
     contained,
@@ -76,8 +76,6 @@ _MAX_SHARD_VERDICTS = 64
 _MAX_PROMPT_CHARS = 32_768
 _MAX_RESPONSE_BYTES = 65_536
 _MAX_REQUEST_TOKENS = 131_072
-# The form calls return short structured objects, so hidden reasoning stays bounded.
-_FORM_REASONING_EFFORT = "low"
 _MAX_CONTEXT_ITEMS = 8
 _CONCEPT_CHOICE_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -602,12 +600,7 @@ class AzureOpenAIQuestionFormModel:
                     body: dict[str, Any] = {
                         "messages": messages,
                         "response_format": dict(response_format),
-                        **target_body_params(
-                            target,
-                            temperature=0.0,
-                            max_tokens=max_tokens,
-                            reasoning_effort=_FORM_REASONING_EFFORT,
-                        ),
+                        **structured_body_params(target, max_tokens=max_tokens),
                     }
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field

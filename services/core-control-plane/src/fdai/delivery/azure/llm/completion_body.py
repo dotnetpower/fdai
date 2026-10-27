@@ -54,10 +54,23 @@ def target_body_params(
     )
 
 
+def structured_body_params(target: ModelRequestTarget, *, max_tokens: int) -> dict[str, Any]:
+    """Return the fields for a short structured answer, bounding a reasoning family's thinking."""
+
+    return target_body_params(
+        target, temperature=0.0, max_tokens=max_tokens, reasoning_effort="low"
+    )
+
+
 def uses_completion_token_budget(model_family_or_deployment: str) -> bool:
     """Return whether a family bounds output with completion tokens that include reasoning."""
 
     return bool(_COMPLETION_TOKEN_FAMILY.search(model_family_or_deployment.strip().lower()))
 
 
-__all__ = ["completion_body_params", "target_body_params", "uses_completion_token_budget"]
+__all__ = [
+    "completion_body_params",
+    "structured_body_params",
+    "target_body_params",
+    "uses_completion_token_budget",
+]
