@@ -26,11 +26,15 @@ class AdoptionExpectation:
     name: str
     uid: str
     resource_version: str
+    source_digest: str | None = None
 
     def __post_init__(self) -> None:
         if any(
             _ID.fullmatch(value) is None
             for value in (self.kind, self.name, self.uid, self.resource_version)
+        ) or (
+            self.source_digest is not None
+            and re.fullmatch(r"sha256:[0-9a-f]{64}", self.source_digest) is None
         ):
             raise ValueError("adoption expectation is invalid")
 
@@ -94,22 +98,34 @@ def adopt_runtime_objects(
             metadata = (live or {}).get("metadata", {})
             if metadata.get("uid") != expectation.uid:
                 raise WorkloadError("adoption_resource_identity_changed")
-            if metadata.get("resourceVersion") != records[key]["resource_version"]:
+            retained_source = records[key].get("source_digest")
+            if isinstance(retained_source, str):
+                unchanged = live is not None and adoption_source_digest(live) == retained_source
+            else:
+                unchanged = (
+                    metadata.get("resourceVersion") == records[key]["resource_version"]
+                    or metadata.get("annotations", {}).get("fdai.io/adopted-from") == "Terraform"
+                )
+            if not unchanged:
                 raise WorkloadError("adoption_resource_drifted")
             continue
         live = cluster.get(*key)
         metadata = (live or {}).get("metadata", {})
-        if live is None:
+        version = metadata.get("resourceVersion")
+        if live is None or not isinstance(version, str):
             raise WorkloadError("adoption_object_unknown")
-        if (
-            metadata.get("uid") != expectation.uid
-            or metadata.get("resourceVersion") != expectation.resource_version
+        if metadata.get("uid") != expectation.uid or (
+            version != expectation.resource_version
+            and (
+                expectation.source_digest is None
+                or adoption_source_digest(live) != expectation.source_digest
+            )
         ):
             raise WorkloadError("adoption_resource_drifted")
         adopted = cluster.adopt_terraform_owned(
             manifest,
             uid=expectation.uid,
-            resource_version=expectation.resource_version,
+            resource_version=version,
         )
         adopted_metadata = adopted.get("metadata", {})
         if adopted_metadata.get("uid") != expectation.uid or not isinstance(
@@ -122,6 +138,7 @@ def adopt_runtime_objects(
             "uid": expectation.uid,
             "resource_version": adopted_metadata["resourceVersion"],
             "render_digest": render_digest,
+            "source_digest": adoption_source_digest(adopted),
         }
         _write(
             destination,
@@ -176,6 +193,22 @@ def release_adoption_reconciliation(
     document = release | {"receipt_digest": "sha256:" + canonical_digest(release)}
     write_json_atomically(destination, document)
     return document
+
+
+def adoption_source_digest(manifest: Manifest) -> str:
+    metadata = manifest.get("metadata", {})
+    return "sha256:" + canonical_digest(
+        {
+            "apiVersion": manifest.get("apiVersion"),
+            "kind": manifest.get("kind"),
+            "metadata": {
+                key: metadata.get(key)
+                for key in ("name", "namespace", "labels", "annotations", "ownerReferences")
+                if metadata.get(key) is not None
+            },
+            "spec": manifest.get("spec"),
+        }
+    )
 
 
 def _load(

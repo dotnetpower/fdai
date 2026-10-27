@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: fe0e51174bd070010e40648c2bc11f33d363c6b0
+translation_source_sha: 87202d39b9f9937de103b2b4b461724de2628286
 translation_revised: 2026-10-27
 ---
 # Hub 관리형 수명 주기
@@ -967,6 +967,8 @@ cell이 다른 고객의 cell에 영향을 줄 수 없습니다.
    매니페스트를 제출하기 전에 Agent 소유 표시를 다시 적용합니다.
    상태 이외의 `managedFields`가 없는 기존 객체는 이 정확한 개발 승인에서만 허용합니다. 단일
    `Terraform` 또는 `HashiCorp` provider manager도 허용하며, 다른 manager는 충돌로 처리합니다.
+   상태만 바뀌어 리소스 버전이 달라지면 UID와 상태 이외의 소스 다이제스트가 정확히 같을 때만
+   최신 버전을 다시 바인딩합니다.
    기존 Deployment는 불변 selector를 유지하고 그 일치 label을 목표 Pod 템플릿에 복사합니다.
    UID나 필드 관리자가 충돌하면 변경 전에 중지합니다. 중단되면 정확한 anchor 소유 표시가
    있는 객체만 복구하고 UID 조건 롤백으로 보존한 매니페스트를 복원하며, 인수하지 않은

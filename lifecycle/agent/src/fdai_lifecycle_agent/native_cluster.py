@@ -12,7 +12,11 @@ from typing import Protocol, runtime_checkable
 from fdai_deployment_cli.lifecycle_native import NativeApproval, NativeObjectIdentity
 from fdai_deployment_cli.lifecycle_plan import LifecyclePlan
 
-from fdai_lifecycle_agent.adoption import AdoptionExpectation, adopt_runtime_objects
+from fdai_lifecycle_agent.adoption import (
+    AdoptionExpectation,
+    adopt_runtime_objects,
+    adoption_source_digest,
+)
 from fdai_lifecycle_agent.native_state import NativeState, NativeStateStore
 from fdai_lifecycle_agent.workload import (
     COMPONENT_LABEL,
@@ -284,7 +288,15 @@ class NativeCluster:
             version = metadata.get("resourceVersion")
             if not isinstance(version, str) or not version:
                 raise WorkloadError("native_resource_identity_unavailable")
-            expectations.append(AdoptionExpectation(key[0], key[1], identity.uid, version))
+            expectations.append(
+                AdoptionExpectation(
+                    key[0],
+                    key[1],
+                    identity.uid,
+                    version,
+                    adoption_source_digest(live),
+                )
+            )
             previous.append(deepcopy(dict(live)))
         return tuple(expectations), tuple(previous)
 
