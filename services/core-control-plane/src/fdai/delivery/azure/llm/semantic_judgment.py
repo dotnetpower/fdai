@@ -521,7 +521,7 @@ class AzureOpenAISemanticJudgmentModel:
                         "messages": messages,
                         "response_format": response_format,
                         **completion_body_params(
-                            target.deployment,
+                            target.model_family or target.deployment,
                             temperature=temperature,
                             max_tokens=max_tokens,
                         ),

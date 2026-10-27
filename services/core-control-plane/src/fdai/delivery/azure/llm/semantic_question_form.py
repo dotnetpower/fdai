@@ -601,7 +601,9 @@ class AzureOpenAIQuestionFormModel:
                         "messages": messages,
                         "response_format": dict(response_format),
                         **completion_body_params(
-                            target.deployment, temperature=0.0, max_tokens=max_tokens
+                            target.model_family or target.deployment,
+                            temperature=0.0,
+                            max_tokens=max_tokens,
                         ),
                     }
                     if request.model_body_field is not None:
