@@ -274,6 +274,9 @@ rows as incomplete and advances the stable keyset cursor after their ingestion f
 The first poll persists its calculated lookback boundary as an initial cursor, so incomplete empty
 or hydration retries cannot drift forward and skip changes. This anchor is committed before the
 first provider query or publication, so a failed first attempt reuses the same boundary.
+A published batch whose ingestion fence stays unsatisfied for two minutes is redriven from the
+retained poll cursor at most twice. After that budget the feed records the batch time as a coverage
+gap and resumes, so one unconsumed event never blocks change coverage indefinitely.
 Snapshot-covered events still append a history-only observation so recent-change evidence remains
 queryable while the newer snapshot remains authoritative for current state. The history-only path
 does not bind resource incarnations, create pending tombstones, or mutate the current overlay. When the ontology graph has already committed the covering active generation, the same transaction advances the ontology projection fence across the contiguous covered journal tail. A late provider delivery therefore cannot hold deployment closure or scheduler demand open, while a change newer than that generation still waits for complete reconciliation.

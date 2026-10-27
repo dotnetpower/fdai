@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 334111cff8d61e512e116bd9320a658ba4985298
+translation_source_sha: c2024a9fad0f5921829dc02de20b0611d9a08775
 translation_revised: 2026-10-24
 ---
 # 지속형 운영 인스턴스 그래프
@@ -292,6 +292,9 @@ fence 한도를 넘을 수 없습니다. 프로바이더가 여전히 잘림을 
 첫 폴링은 계산한 lookback 경계를 초기 cursor로 영속화하므로 불완전한 빈 응답이나 재조회 재시도가
 앞으로 이동하여 변경을 건너뛸 수 없습니다. 이 anchor는 첫 프로바이더 조회나 게시 전에 커밋되므로
 첫 시도가 실패해도 동일한 경계를 다시 사용합니다.
+게시한 배치의 수신 fence가 2분 동안 충족되지 않으면 보존한 poll cursor부터 최대 두 번 다시
+구동합니다. 이 횟수를 넘으면 feed는 해당 배치 시각을 coverage gap으로 기록하고 재개하므로 소비되지
+않은 이벤트 하나가 변경 coverage를 무기한 막지 않습니다.
 Snapshot에 포함된 이벤트도 이력 전용 관측을
 추가하므로 최신 snapshot이 현재 상태의 권위 있는 출처로 유지되는 동안 최근 변경 근거를 조회할 수
 있습니다. 이력 전용 경로는 Resource incarnation을 연결하거나 보류 중인 tombstone을 만들거나
