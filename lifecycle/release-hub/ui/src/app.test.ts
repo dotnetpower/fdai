@@ -31,6 +31,14 @@ afterEach(() => {
 });
 
 describe("confirmation retry state", () => {
+  it("requires a fresh reason and confirmation for a retained registration target", () => {
+    const state = { ...validConfirmation, action: "register" as Action, target: "2.0.0", reason: "", confirmation: "" };
+    expect(isConfirmationDisabled(state)).toBe(true);
+    expect(isConfirmationDisabled({ ...state, reason: "Reviewed after readback" })).toBe(true);
+    expect(isConfirmationDisabled({ ...state, confirmation: "2.0.0" })).toBe(true);
+    expect(isConfirmationDisabled({ ...state, reason: "Reviewed after readback", confirmation: "2.0.0" })).toBe(false);
+  });
+
   it("keeps in-flight and validation failures disabled", () => {
     expect(isConfirmationDisabled({ ...validConfirmation, busy: true })).toBe(true);
     expect(isConfirmationDisabled({ ...validConfirmation, confirmation: "renew 2" })).toBe(true);

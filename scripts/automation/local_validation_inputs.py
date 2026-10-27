@@ -38,6 +38,17 @@ GATE_ENVIRONMENT = (
     "SUBSYSTEM_FANOUT_FAIL",
     "SUBSYSTEM_FANOUT_MODE",
 )
+TRANSPORT_ENVIRONMENT = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+    "no_proxy",
+    "SSL_CERT_FILE",
+)
 
 
 def digest(value: object) -> str:
@@ -144,6 +155,8 @@ def execution_environment(state: Path) -> tuple[dict[str, str], str]:
 
     Caller Python paths, queue database settings, uv overrides and Git hook
     pointers never enter structural execution or its cache identity.
+    Existing proxy and CA transport settings are retained and fingerprinted;
+    their values and certificate bytes are not persisted in receipts.
     """
     search_path = os.pathsep.join(
         part
@@ -176,7 +189,18 @@ def execution_environment(state: Path) -> tuple[dict[str, str], str]:
         "GIT_CONFIG_KEY_0": "core.excludesFile",
         "GIT_CONFIG_VALUE_0": os.devnull,
     }
-    environment.update({name: os.environ[name] for name in GATE_ENVIRONMENT if name in os.environ})
+    environment.update(
+        {
+            name: os.environ[name]
+            for name in (*GATE_ENVIRONMENT, *TRANSPORT_ENVIRONMENT)
+            if name in os.environ
+        }
+    )
+    certificate_digest = None
+    if certificate_file := environment.get("SSL_CERT_FILE"):
+        certificate_path = Path(certificate_file).resolve()
+        environment["SSL_CERT_FILE"] = str(certificate_path)
+        certificate_digest = hashlib.sha256(certificate_path.read_bytes()).hexdigest()
     tool_identity = {
         name: (path, hashlib.sha256(Path(path).read_bytes()).hexdigest())
         for name, path in tool_paths.items()
@@ -186,5 +210,6 @@ def execution_environment(state: Path) -> tuple[dict[str, str], str]:
             "tools": tool_identity,
             "platform": platform.platform(),
             "environment": environment,
+            "certificate": certificate_digest,
         }
     )

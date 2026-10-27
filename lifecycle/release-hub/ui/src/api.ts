@@ -20,6 +20,41 @@ export type Change = {
   revision: number; confirmation: string; reason: string; channel?: string; channel_confirmation?: string;
   label?: string; manifest?: string;
 };
+
+export class CatalogRequestError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "CatalogRequestError";
+  }
+}
+
+export function catalogRecovery(failure: unknown): string {
+  if (failure instanceof CatalogRequestError) {
+    if (failure.status === 401) return "Session expired. Sign in again, then refresh the catalog before another action.";
+    if (failure.status === 403) return "Operator access denied. Ask the Hub owner to review your existing access; do not expand permissions.";
+    if (failure.status === 409) return "Catalog state changed or a server guard blocked the request. Refresh and review the release activity.";
+    if (failure.status === 503) return "Hub configuration or service readiness is unavailable. Ask the Hub owner to inspect readiness.";
+    return `The Hub rejected the request (${failure.status}). Review the input and current catalog before another action.`;
+  }
+
+  if (failure instanceof DOMException && ["AbortError", "TimeoutError"].includes(failure.name)) {
+    return "The request timed out. Read the catalog before another action.";
+  }
+  if (failure instanceof Error && failure.name === "InteractionRequiredAuthError") {
+    return "Session renewal requires sign-in. Sign in again, then refresh the catalog before another action.";
+  }
+  return "The Hub response is unavailable or invalid. Refresh the catalog and inspect the current state before another action.";
+}
+
+export function catalogChangeObserved(catalog: Catalog, action: Action, id: string, change: Change): boolean {
+  return catalog.revision > change.revision && catalog.events.some((event) =>
+    event.revision === change.revision + 1
+    && event.action === action
+    && event.release_id === (action === "renew" ? "catalog" : id)
+    && event.reason === change.reason.trim()
+    && event.channel === (action === "contribute" ? change.channel : null));
+}
+
 export type DeploymentRequest = {
   request_id: string; subscription_id: string; release_id: string; channel: string;
   region: string; source_commit: string; catalog_digest: string; recorded_at: string;
@@ -98,6 +133,7 @@ function parseCatalog(value: unknown): Catalog {
 
 export async function requestCatalog(path = "/v1/catalog", body?: Change): Promise<Catalog> {
   const response = await authenticatedFetch(path, {
+    cache: "no-store",
     signal: AbortSignal.timeout(10_000),
     ...(body ? {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -107,15 +143,14 @@ export async function requestCatalog(path = "/v1/catalog", body?: Change): Promi
   try {
     result = await response.json();
   } catch {
-    throw new Error(response.ok
-      ? "Release Hub returned invalid JSON."
-      : `Request failed (${response.status}).`);
+    if (!response.ok) throw new CatalogRequestError(`Request failed (${response.status}).`, response.status);
+    throw new Error("Release Hub returned invalid JSON.");
   }
   if (!response.ok) {
     const message = typeof result === "object" && result !== null && "error" in result
       && typeof result.error === "string" && result.error.trim()
       ? result.error : `Request failed (${response.status}).`;
-    throw new Error(message);
+    throw new CatalogRequestError(message, response.status);
   }
   return parseCatalog(result);
 }
