@@ -443,7 +443,7 @@ Both model calls are reserved before generation, reviewer usage is metered separ
 generation still retains measured cost. The operator locale is bound to the request. These are
 implemented source mechanics, not a live quality, latency, cost or deployment acceptance receipt.
 
-## Structured dialogue state (shadow mode)
+## Structured dialogue state (observation mode)
 
 Long Console conversations currently lose context by truncation: the Operator narrator keeps the
 newest 12 history items and Core keeps the newest 8. Older turns, including a target, scope or time
@@ -473,12 +473,12 @@ so every request context can be replayed. Snapshots follow the retention of the 
 Operator narrator reads the table directly. Core never reads Operator storage; the Operator passes
 the state in a schema-validated `SemanticTurnRequest` field.
 
-**Rollout.** The capability starts in shadow mode: it computes the state and records content-free
+**Rollout.** The capability starts in observation mode: it computes the state and records content-free
 counts next to the existing truncation receipt, and the request is unchanged. Promotion goes
 through the authoritative promotion registry on gate evidence. The Console MAY show that earlier
 turns were compacted.
 
-**Implemented in shadow mode.** The `DialogueState` contract and verifier
+**Implemented in observation mode.** The `DialogueState` contract and verifier
 (`fdai_service_contracts.dialogue_state`), the Operator `conversation_dialogue_snapshot` table (an
 Operator-owned service migration with update and delete triggers), the narrator shadow receipt
 (`context_selection.dialogue_state_shadow`, counts and digests only) with best-effort snapshot

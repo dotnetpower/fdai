@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 08fd662b0377d843a4e57e0e91b7fe4c2e513888
+translation_source_sha: a8dafb65b6f5642af67602fb49aaa8177a19c748
 translation_revised: 2026-10-28
 ---
 # 프로젝트 구조
@@ -586,8 +586,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `core/conversation_assurance/quality_qualification.py`는 미리 측정하고 정규화한 관측값만
   받아 설치된 계약에 따라 축약합니다. 원시 근거 상태에서 하드 상한을 계산하고 반올림 전 임계값 판정을 보존합니다.
   v1은 `locale_statistical_evidence_missing`을 기록하며 자격을 충족할 수 없습니다. 모델 호출, 프로바이더 읽기, 정책 승격, 요청 승인 또는 작업 실행도 할 수 없습니다.
-  Conversation Assurance 평가 및 분쟁 테이블의 스키마 소유권은 Operator 마이그레이션에 남습니다. Core 서비스 마이그레이션은 `fdai_core`에 `SELECT`와 `INSERT`만 부여하며, 갱신, 삭제, 스키마, 승인, 승격 또는 실행 권한은 부여하지 않습니다.
-  shadow mode 대화 상태는 `fdai_service_contracts.dialogue_state`(typed 계약과 verifier)에 있습니다. Operator는 서비스 migration으로 `conversation_dialogue_snapshot` 테이블을 소유하며, 이 테이블은 insert 전용이고 update·delete trigger와 `fdai_operator`에 대한 `SELECT`/`INSERT` 권한만 있으며 `conversation_turn`에서 파생됩니다. Operator narrator는 `narrator_dialogue_shadow.py`와 `postgres_dialogue_snapshot.py`를, Core는 prior turn을 관찰만 하는 `fdai_core_service/dialogue_state_shadow.py`를 추가합니다. 어느 것도 모델 요청을 바꾸거나 권한을 부여하지 않습니다. [판테온 대화형 숙의](../agents/conversational-deliberation-ko.md#구조화된-대화-상태-shadow-mode)를 참고하세요.
+  Conversation Assurance 평가 및 분쟁 테이블의 스키마 소유권은 Operator 마이그레이션에 남습니다. Core 서비스 마이그레이션은 `fdai_core`에 `SELECT`와 `INSERT`만 부여하며, 갱신, 삭제, 스키마, 승인, 승격 또는 실행 권한은 부여하지 않습니다. shadow mode 대화 상태는 `fdai_service_contracts.dialogue_state`(typed 계약과 verifier)에 있습니다. Operator는 서비스 migration으로 `conversation_dialogue_snapshot` 테이블을 소유하며, 이 테이블은 insert 전용이고 update·delete trigger와 `fdai_operator`에 대한 `SELECT`/`INSERT` 권한만 있으며 `conversation_turn`에서 파생됩니다. Operator narrator는 `narrator_dialogue_shadow.py`와 `postgres_dialogue_snapshot.py`를, Core는 prior turn을 관찰만 하는 `fdai_core_service/dialogue_state_shadow.py`를 추가합니다. 어느 것도 모델 요청을 바꾸거나 권한을 부여하지 않습니다. [판테온 대화형 숙의](../agents/conversational-deliberation-ko.md#구조화된-대화-상태-관찰-모드)를 참고하세요.
   중복 키 차단을 포함한 JSON 구문 분석과 원자적 산출물 교체는 리포지토리가 소유하는
   `scripts/evaluation/chatops-quality-qualification.py` 경계에 남습니다. 완료된 턴 관측 adapter는
   콘텐츠가 없는 공용 계약을 사용하고 런타임 및 근거 참조를 해시하며, 지원하지 않는 모든 차원을

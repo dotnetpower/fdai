@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 872f2a9968bd245ef4bc57f1cac08250424c7b17
+translation_source_sha: 3048cd018d315d4e438b3c9a109e7dc6db8b4e8c
 translation_revised: 2026-10-28
 ---
 # 판테온 대화형 숙의
@@ -431,7 +431,7 @@ V-CLAIM이 정확한 값, 이름, 참조, 제한 사항 및 전체 행 집계를
 사용량은 따로 계측하며 잘못된 생성 응답도 측정 비용을 보존합니다. 운영자 언어는 요청에
 결합됩니다. 이는 구현된 소스 동작이며 실제 품질, 지연, 비용 또는 배포 수락 증적은 아닙니다.
 
-## 구조화된 대화 상태 (shadow mode)
+## 구조화된 대화 상태 (관찰 모드)
 
 긴 Console 대화는 현재 truncation 때문에 맥락을 잃습니다. Operator narrator는 최근 history
 12개, Core는 최근 8개만 유지하므로 운영자가 이미 정한 대상, 범위, 시간을 포함해 오래된 turn이
@@ -459,11 +459,11 @@ principal과 conversation을 키로 하고 원본 turn 범위, digest, 상태 JS
 turn의 보존 정책을 따릅니다. Operator narrator는 이 테이블을 직접 읽고, Core는 Operator 저장소를
 읽지 않으며 Operator가 schema 검증된 `SemanticTurnRequest` 필드로 상태를 전달합니다.
 
-**롤아웃.** shadow mode로 시작합니다. 상태를 계산해 기존 truncation receipt 옆에 내용 없는
+**롤아웃.** 관찰 모드로 시작합니다. 상태를 계산해 기존 truncation receipt 옆에 내용 없는
 집계만 기록하고 요청은 바꾸지 않습니다. 승격은 gate 근거로 authoritative promotion registry를
 통해서만 합니다. Console은 이전 turn이 압축되었음을 표시할 수 있습니다(MAY).
 
-**shadow mode로 구현된 부분.** `DialogueState` 계약과 verifier(`fdai_service_contracts.dialogue_state`),
+**관찰 모드로 구현된 부분.** `DialogueState` 계약과 verifier(`fdai_service_contracts.dialogue_state`),
 Operator 소유 서비스 migration의 `conversation_dialogue_snapshot` 테이블(update·delete 방지 trigger 포함),
 narrator shadow receipt(`context_selection.dialogue_state_shadow`, 집계와 digest만)와 principal 및
 `conversation_id` 기준의 best-effort snapshot 보존(writer가 조립된 경우), 그리고 Core가 이미 받는 prior turn 중 adaptive history
