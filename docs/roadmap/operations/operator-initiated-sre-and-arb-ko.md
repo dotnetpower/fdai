@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: beeac3375950348aed6f1239ef2fc74315315008
-translation_revised: 2026-10-24
+translation_source_sha: 95875d91542264efe30a35fce31280c98c82dc54
+translation_revised: 2026-10-28
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -83,6 +83,8 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 수명 주기 소유권 또는 Operator 권한을 바꾸지 않습니다. 의미 계획은 공급자 I/O 전에
 후보 배포마다 전체 요청을 계산하고 가장 엄격한 결과를 구성된 요청 예산에 적용합니다.
 예산을 넘는 요청은 Incident, ActionProposal, 승인 또는 실행 권한을 만들지 않고 보류됩니다.
+
+Core는 초안을 만드는 턴을 포함한 각 의미 턴의 prior turn도 로그 전용 dialogue-state shadow로 관찰합니다. 내용 없는 개수만 기록하고 모델을 호출하지 않으며 Incident, ActionProposal 또는 ARB workflow를 만들거나 확인하거나 변경하지 않습니다.
 
 ![설계 요약. 주요 단계는 오퍼레이터 요청, 문제 대응인가?, Correlation ID 및 선택적 Process ID, Incident registry, Typed ActionProposal, Trust 및 risk gate, 판단, journal, audit, 승격된 executor adapter, 승인 후 재개, Stage stream입니다.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.ko.svg)
 

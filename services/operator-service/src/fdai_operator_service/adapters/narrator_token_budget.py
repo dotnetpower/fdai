@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import codecs
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -63,6 +64,28 @@ def chat_request_tokens(
     return total
 
 
+def _fit_encoded_prefix(encoding: Encoding, prefix_tokens: list[int], token_budget: int) -> str:
+    """Decode ``prefix_tokens`` to the longest whole-character text within ``token_budget``.
+
+    A token boundary may split one UTF-8 character, so the incomplete trailing
+    byte sequence is dropped instead of being decoded to a replacement character.
+    """
+
+    decoder = codecs.getincrementaldecoder("utf-8")()
+    candidate = decoder.decode(encoding.decode_bytes(prefix_tokens), final=False)
+    if len(encoding.encode(candidate, disallowed_special=())) <= token_budget:
+        return candidate
+    # Re-encoding a text prefix can merge differently than the original token prefix.
+    low, high = 0, len(candidate)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if len(encoding.encode(candidate[:middle], disallowed_special=())) <= token_budget:
+            low = middle
+        else:
+            high = middle - 1
+    return candidate[:low]
+
+
 def fit_text(text: str, *, model: str, token_budget: int) -> tuple[str, bool]:
     """Return the longest prefix that fits an exact model token budget."""
 
@@ -73,7 +96,7 @@ def fit_text(text: str, *, model: str, token_budget: int) -> tuple[str, bool]:
         tokens = encoding.encode(text, disallowed_special=())
         if len(tokens) <= token_budget:
             return text, False
-        return encoding.decode(tokens[:token_budget]), True
+        return _fit_encoded_prefix(encoding, tokens[:token_budget], token_budget), True
     if len(text.encode("utf-8")) <= token_budget:
         return text, False
     low, high = 0, len(text)

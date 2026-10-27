@@ -36,6 +36,7 @@ from fdai_service_contracts.semantic_work_progress import SemanticWorkProgress, 
 from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 
 from .development_decisions import bind_decision_events
+from .dialogue_state_shadow import DialogueStateShadow
 from .semantic_context_shadow import build_semantic_context_shadow
 from .semantic_result_handle_config import result_handle_store_from_config
 from .semantic_turn_processor import (
@@ -269,6 +270,7 @@ def build_semantic_turn_processor(
             context_selection_policy_authority,
             context_selection_shadow_runner,
         ),
+        dialogue_state_shadow=DialogueStateShadow(),
         result_handle_store=result_handle_store,
         result_handles_enabled=result_handle_store is not None,
         result_handle_ttl_seconds=result_handle_ttl_seconds,

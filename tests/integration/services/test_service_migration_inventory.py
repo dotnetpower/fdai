@@ -133,6 +133,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "target_dispatch_fence",
         "executor_receipt_outbox",
         "conversation_channel_message_claim",
+        "conversation_dialogue_snapshot",
         "cost_collection_cursor",
         "cost_observation_current",
         "cost_governance_analytics_run_receipt",

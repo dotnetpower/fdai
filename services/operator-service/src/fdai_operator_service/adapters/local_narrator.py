@@ -16,11 +16,17 @@ from typing import Any, Protocol, cast
 from urllib.parse import quote
 
 import httpx
+from fdai_service_contracts.dialogue_state import DialogueState
 
 from fdai_operator_service.adapters.azure_cli_token import (
     AZURE_CLI_TOKEN_TIMEOUT_SECONDS,
     AZURE_OPENAI_AUDIENCE,
     azure_cli_token,
+)
+from fdai_operator_service.adapters.narrator_dialogue_shadow import (
+    DialogueSnapshotWriter,
+    dialogue_shadow_receipt,
+    retain_dialogue_shadow,
 )
 from fdai_operator_service.adapters.narrator_events import NarratorEventIterator
 from fdai_operator_service.adapters.narrator_latency import (
@@ -93,6 +99,7 @@ class LocalAzureNarratorAdapters:
     timeout_seconds: float = 90.0
     vision_targets: tuple[NarratorTarget, ...] = ()
     clock: MonotonicClock = monotonic
+    dialogue_snapshots: DialogueSnapshotWriter | None = None
     _owns_http_client: bool = field(default=False, repr=False)
     _pool: NarratorLatencyPool = field(init=False, repr=False)
     _refresh_task: asyncio.Task[None] | None = field(default=None, init=False, repr=False)
@@ -159,6 +166,7 @@ class LocalAzureNarratorAdapters:
         fallback_streams: ConversationStreamReader,
         token_provider: TokenProvider | None = None,
         http_client: AsyncHttpClient | None = None,
+        dialogue_snapshots: DialogueSnapshotWriter | None = None,
     ) -> LocalAzureNarratorAdapters:
         """Build a narrator from one startup-owned immutable revision."""
         if len(content.encode("utf-8")) > _MAX_ARTIFACT_BYTES:
@@ -178,6 +186,7 @@ class LocalAzureNarratorAdapters:
             token_provider=token_provider or azure_cli_token,
             http_client=resolved_http_client,
             vision_targets=resolved_vision_targets,
+            dialogue_snapshots=dialogue_snapshots,
             _owns_http_client=owned_http_client,
         )
 
@@ -243,7 +252,15 @@ class LocalAzureNarratorAdapters:
                 "invalid_prompt",
                 "prompt MUST be non-empty and bounded",
             )
-        answer, model, usage, context_receipt = await self._answer(prompt.strip(), request.body)
+        answer, model, usage, context_receipt, dialogue_state = await self._answer(
+            prompt.strip(), request.body
+        )
+        await retain_dialogue_shadow(
+            self.dialogue_snapshots,
+            principal_id=request.scope.subject_id,
+            conversation_id=request.body.get("conversation_id"),
+            state=dialogue_state,
+        )
         verification: JsonObject = {
             "status": "unverified",
             "authority": "model-knowledge",
@@ -275,7 +292,7 @@ class LocalAzureNarratorAdapters:
 
     async def _answer(
         self, prompt: str, body: Mapping[str, Any]
-    ) -> tuple[str, str, dict[str, int] | None, JsonObject]:
+    ) -> tuple[str, str, dict[str, int] | None, JsonObject, DialogueState]:
         vision = has_images(body)
         if vision:
             raise ConversationBoundaryError(
@@ -324,8 +341,12 @@ class LocalAzureNarratorAdapters:
                                     "omitted_history_items": plan.receipt.omitted_history_items,
                                     "shortened_history_items": plan.receipt.shortened_history_items,
                                     "context_shortened": plan.receipt.context_shortened,
+                                    "dialogue_state_shadow": dialogue_shadow_receipt(
+                                        plan.dialogue_state
+                                    ),
                                 },
                             ),
+                            plan.dialogue_state,
                         )
                     self._record_failure(target=target, vision=vision, elapsed_ms=latency_ms)
                     failures.append(status)
@@ -520,6 +541,7 @@ class StartupOwnedLocalAzureNarratorAdapters:
     fallback_streams: ConversationStreamReader
     token_provider: TokenProvider | None = None
     http_client: AsyncHttpClient | None = None
+    dialogue_snapshots: DialogueSnapshotWriter | None = None
     _inner: LocalAzureNarratorAdapters | None = field(default=None, init=False, repr=False)
 
     async def start(self) -> None:
@@ -554,6 +576,7 @@ class StartupOwnedLocalAzureNarratorAdapters:
             fallback_streams=self.fallback_streams,
             token_provider=self.token_provider,
             http_client=self.http_client,
+            dialogue_snapshots=self.dialogue_snapshots,
         )
         return self._inner
 

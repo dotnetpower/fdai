@@ -26,11 +26,13 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Independently verified synthesis boundary | implemented | `ConversationSynthesisVerifier`; `SynthesisVerification`; model-binding/bootstrap wiring; focused deliberation, layout and bootstrap checks: 82 passed | Unbound verification makes no generator call. Exact request, conclusion and evidence binding, rejection, identity separation and failure are tested. A real production verifier remains unbound. |
 | Complete participant accounting | implemented | `deliberation.py`; `test_deliberation_accounts_for_failed_peers_without_claiming_completion`; focused deliberation and layout checks: 60 passed | Failed and unattempted selected peers remain visible. A partial discussion cannot start T2 or claim complete participation. |
 | Current production invocation boundary | in-progress | `bootstrap_pantheon.py` now constructs verified default synthesis through exact independent targets and prompt packs when prerequisites exist. | This supersedes the earlier source-adapter absence only. Operator group discussion and governed runtime quality/cost receipts remain open. |
+| Structured dialogue state (shadow) | in-progress | `packages/service-contracts/src/fdai_service_contracts/dialogue_state.py`; `services/operator-service/src/fdai_operator_service/adapters/narrator_dialogue_shadow.py`; `services/operator-service/src/fdai_operator_service/postgres_dialogue_snapshot.py`; `service-migrations/branches/operator-service/versions/20261028_operator_dialogue_state_snapshot.py`; `services/core-control-plane/src/fdai_core_service/dialogue_state_shadow.py`; focused contract, Operator, Core and loopback PostgreSQL tests. | T0 accounting, verified-span anchors, the T1 proposer seam and the append-only snapshot table run beside the existing truncation in shadow mode only; the model request is unchanged and no T2 model is used. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-28 | implemented | Added the shadow-mode structured dialogue state: exact accounting of every compacted turn, verified-span T1 anchors behind a proposer seam with typed fallbacks, an immutable per-principal snapshot table, a narrator shadow receipt, and a Core shadow observation. | `current change`; `test_dialogue_state.py`; `test_narrator_dialogue_shadow.py`; `test_postgres_dialogue_snapshot.py`; `test_dialogue_state_shadow.py`; service migration inventory tests. | Bind a concrete T1 proposer, deliver the state to Core in a versioned request field, and promote through the registry on shadow-comparison evidence. |
 | 2026-09-30 | implemented | Documented the Round 5 conversational port behavior that reuses the verified semantic route, forwards locale, bounds T2 synthesis, and limits fixed assurance facts to internal scenarios. | `current change`; `services/core-control-plane/tests/agents/test_conversation_port_boundaries.py`; `services/core-control-plane/tests/agents/test_conversation_tool_fact_contract.py`; `services/core-control-plane/tests/agents/test_bragi_session_handoff_reentry.py`. | Live-model conversation qualification stays out of scope for local evidence. |
 | 2026-09-19 | implemented | Separated semantic routing identity from terminal answer authorship and retained rejected-model identity only for bounded diagnosis. | `current change`; focused Wave 4, Pantheon assurance, and presentation tests passed within the 468-test slice; Ruff and strict mypy passed. | Retain a future unique live case whose independent semantic reviews are valid before claiming assurance success. |
 | 2026-09-03 | implemented | Added explicit function-backed collection semantics to the versioned judgment prompt and deterministic typed-frame reuse. | `current change`; semantic judgment prompt registry and focused semantic planning checks. | Retain a bilingual authenticated runtime receipt for the five Console starter questions. |
@@ -53,6 +55,12 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 ### Remaining work
 
+- [ ] Compose `PostgresDialogueSnapshotStore` into the Operator runtime narrator (`composition_routes.py`), which needs the
+  broader composition design-doc sweep, so retention is not yet active in a deployed runtime.
+- [ ] Bind a concrete small-model (T1) `DialogueStateProposer` with a reviewed prompt, then record shadow comparison
+  evidence against the current truncation before any promotion. T2 stays excluded.
+- [ ] Add a versioned `SemanticTurnRequest` dialogue-state field so Core receives the Operator's state, show the compaction
+  indicator in the Console, and promote the capability only through the authoritative promotion registry.
 - [ ] Bind a concrete `T2ConversationSynthesizer` with `conversation_metering`,
   `conversation_pricing`, and `conversation_t2_model_key` in a deployed composition, then record a
   focused integration result that proves successful synthesis and the exact budget and metering
