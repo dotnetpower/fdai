@@ -81,7 +81,7 @@ that carried zero messages. For a content-free trace, it shows that request and 
 weren't retained while preserving the request and response hashes, timing, usage, prompt layers,
 and redaction counts. Evidence-phase accounting counts each unique evidence branch and standalone
 observed read once; live model-call progress never counts as evidence.
-Turn-wide model-call totals remain in the Run Record summary and provider lanes. They aren't
+The Run Record summary and metrics also show the provider-reported cached share of the input tokens when it was measured, and a restored historical turn keeps its recorded usage and model time. Turn-wide model-call totals remain in the Run Record summary and provider lanes. They aren't
 repeated under the answer-generation phase, which reports only the source that rendered the
 verified answer.
 

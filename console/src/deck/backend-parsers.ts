@@ -435,7 +435,7 @@ function parseModelTraceUsage(raw: unknown): Readonly<Record<string, number>> | 
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
   const usage = raw as Record<string, unknown>;
   const output: Record<string, number> = {};
-  for (const key of ["prompt_tokens", "completion_tokens", "total_tokens"] as const) {
+  for (const key of ["prompt_tokens", "completion_tokens", "total_tokens", "cached_tokens"] as const) {
     const value = usage[key];
     if (value !== undefined) {
       if (!boundedInteger(value, 0, Number.MAX_SAFE_INTEGER)) return undefined;

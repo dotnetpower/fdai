@@ -426,6 +426,8 @@ export interface ModelTrace {
 export interface ModelUsage {
   readonly prompt_tokens?: number;
   readonly completion_tokens?: number;
+  /** Provider-reported prompt tokens served from the prompt cache, when reported. */
+  readonly cached_tokens?: number;
   readonly model_calls?: number;
   readonly total_tokens: number;
 }

@@ -91,6 +91,55 @@ _DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "선행 조회 단계가 완료되지 않았습니다",
         "a prerequisite query step did not complete",
     ),
+    "no_record": (
+        "일부 리소스는 Azure Resource Health에 상태 기록이 없습니다",
+        "Azure Resource Health has no status record for some resources",
+    ),
+    "target_unresolved": (
+        "일부 리소스는 Resource Health를 조회할 공급자 식별자를 확인하지 못했습니다",
+        "the provider identity needed to query Resource Health could not be resolved for "
+        "some resources",
+    ),
+    "not_modeled": (
+        "일부 리소스 유형은 Resource Health가 다루지 않습니다",
+        "Resource Health does not cover some resource types",
+    ),
+    "modeling_unknown": (
+        "일부 리소스 유형의 Resource Health 지원 여부를 확인하지 못했습니다",
+        "whether Resource Health covers some resource types could not be determined",
+    ),
+    "scope_unreadable": (
+        "일부 범위는 권한 또는 범위 문제로 읽을 수 없었습니다",
+        "some scopes could not be read because of permissions or scope limits",
+    ),
+    "duplicate_record": (
+        "일부 리소스에 중복된 Resource Health 기록이 있습니다",
+        "some resources have duplicate Resource Health records",
+    ),
+    "response_invalid": (
+        "일부 Resource Health 응답이 유효하지 않았습니다",
+        "some Resource Health responses were invalid",
+    ),
+    "response_truncated": (
+        "일부 Resource Health 응답이 잘렸습니다",
+        "some Resource Health responses were truncated",
+    ),
+    "state_changed": (
+        "조회하는 동안 일부 리소스의 상태가 바뀌었습니다",
+        "some resource states changed while they were being read",
+    ),
+    "source_unavailable": (
+        "공급자 상태 원본에 접근할 수 없었습니다",
+        "the provider status source was unavailable",
+    ),
+    "transport_unavailable": (
+        "공급자 상태 원본과 통신하지 못했습니다",
+        "the provider status source could not be reached",
+    ),
+    "unauthorized": (
+        "공급자 상태 원본을 읽을 권한이 없습니다",
+        "the caller is not authorized to read the provider status source",
+    ),
     "source_incomplete": (
         "원본 완전성을 확인할 수 없습니다",
         "source completeness could not be verified",

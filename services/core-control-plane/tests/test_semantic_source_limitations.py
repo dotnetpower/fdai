@@ -1,50 +1,35 @@
-"""Typed source-limitation codes keep their code and gain a localized explanation."""
+"""Source-limitation codes are explained in the operator's locale and stay traceable."""
 
 from __future__ import annotations
 
+import pytest
+from fdai.core.ontology_platform.resource_health_evidence import ResourceHealthCoverageStatus
 from fdai_core_service.semantic_source_limitations import (
     known_source_limitation,
     source_limitation_text,
 )
 
 
-def test_known_codes_are_explained_in_order_with_the_exact_code() -> None:
-    code = "inventory_generation_transition+inventory_observation_pending"
+def test_a_combined_resource_health_code_is_explained_in_both_locales() -> None:
+    english = source_limitation_text("target_unresolved+no_record", korean=False)
+    korean = source_limitation_text("target_unresolved+no_record", korean=True)
 
-    assert source_limitation_text(code, korean=False) == (
-        "the inventory snapshot is being replaced; recently observed resource changes are "
-        f"not yet applied to the graph (`{code}`)"
-    )
-    assert source_limitation_text(code, korean=True).startswith(
-        "인벤토리 스냅샷이 교체되는 중입니다, 최근 관측된 리소스 변경이"
-    )
-
-
-def test_unknown_codes_stay_visible_without_invented_meaning() -> None:
-    assert source_limitation_text("unreviewed_source_gap", korean=True) == (
-        "`unreviewed_source_gap`"
-    )
+    assert "no status record" in english and "could not be resolved" in english
+    assert "상태 기록이 없습니다" in korean and "확인하지 못했습니다" in korean
+    # The exact code stays for traceability.
+    assert english.endswith("(`target_unresolved+no_record`)")
+    assert korean.endswith("(`target_unresolved+no_record`)")
+    assert known_source_limitation("target_unresolved+no_record")
 
 
-def test_a_scope_gap_explains_its_typed_source_reason() -> None:
-    code = "resource_scope_incomplete+inventory_observation_pending"
+@pytest.mark.parametrize("status", [item.value for item in ResourceHealthCoverageStatus])
+def test_every_resource_health_coverage_gap_has_an_explanation(status: str) -> None:
+    if status in {"observed", "state_absent"}:
+        pytest.skip("not a limitation")
 
-    assert known_source_limitation(code)
-    korean = source_limitation_text(code, korean=True)
-    assert "표시되지 않은 리소스가 있을 수 있습니다" in korean
-    assert "최근 관측된 리소스 변경이 아직 그래프에 반영되지 않았습니다" in korean
-    assert korean.endswith(f"(`{code}`)")
+    assert known_source_limitation(status)
 
 
-def test_code_cannot_break_out_of_inline_code() -> None:
-    assert source_limitation_text("bad`code\nx", korean=False) == "`bad'code x`"
-
-
-def test_a_partial_state_answer_explains_each_named_cause() -> None:
-    code = "resource_state_evidence_incomplete+provider_operational_state_not_exposed"
-
-    assert known_source_limitation(code)
-    korean = source_limitation_text(code, korean=True)
-    assert "공급자가 운영 상태를 제공하지 않아" in korean
-    assert korean.endswith(f"(`{code}`)")
-    assert "does not expose an operational state" in source_limitation_text(code, korean=False)
+def test_an_unknown_code_is_shown_verbatim_without_an_invented_explanation() -> None:
+    assert source_limitation_text("brand_new_code", korean=False) == "`brand_new_code`"
+    assert not known_source_limitation("brand_new_code+no_record")

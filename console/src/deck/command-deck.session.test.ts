@@ -285,6 +285,40 @@ describe("durable transcript restoration", () => {
     }]);
   });
 
+  test("restores the recorded token usage and model latency of a historical turn", () => {
+    const assistant = restoredTurn({
+      turn_id: "turn-3",
+      conversation_id: "conversation-1",
+      turn_index: 1,
+      role: "assistant",
+      content: "Verified.",
+      recorded_at: "2026-07-16T07:00:03Z",
+      metadata: {
+        replay_payload: JSON.stringify({
+          answer: "Verified.",
+          model: "test-model",
+          latency_ms: 18123.4,
+          usage: {
+            model_calls: 8,
+            prompt_tokens: 28555,
+            completion_tokens: 1328,
+            total_tokens: 29883,
+            cached_tokens: 20480,
+          },
+        }),
+      },
+    });
+
+    expect(assistant.modelUsage).toEqual({
+      model_calls: 8,
+      prompt_tokens: 28555,
+      completion_tokens: 1328,
+      total_tokens: 29883,
+      cached_tokens: 20480,
+    });
+    expect(assistant.modelLatencyMs).toBe(18123);
+  });
+
   test("restores bounded terminal replay metadata for historical trajectories", () => {
     const presentationRef = "inventory:snapshot";
     const assistant = restoredTurn({

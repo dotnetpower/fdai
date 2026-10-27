@@ -32,6 +32,8 @@ _LEADING_FIELDS = (
 )
 # The identity and ObjectType of a named row stay in technical details, where they are exact.
 _DETAIL_FIELDS = frozenset({"id", "object_type"})
+# A health row's collection window repeats on every row and answers nothing the table asks.
+_HEALTH_DETAIL_FIELDS = frozenset({"collection_started_at", "collection_completed_at"})
 # A related pair that names both ends keeps its identifiers and path in technical details.
 _LINEAGE_DETAIL_FIELDS = frozenset({"member_id", "root_id", "path_evidence", "source_generation"})
 
@@ -83,9 +85,10 @@ def verified_rows_table(
     first = ["name"] if named else []
     ordered = [*first, *(key for key in (*leading, *_LEADING_FIELDS) if key in seen)]
     ordered = list(dict.fromkeys(ordered))
-    hidden = (_DETAIL_FIELDS if named else frozenset()) | (
-        _LINEAGE_DETAIL_FIELDS if "member_name" in seen and "root_name" in seen else frozenset()
-    )
+    hidden = (
+        (_DETAIL_FIELDS if named else frozenset())
+        | (_HEALTH_DETAIL_FIELDS if "availability_state" in seen else frozenset())
+    ) | (_LINEAGE_DETAIL_FIELDS if "member_name" in seen and "root_name" in seen else frozenset())
     columns = [key for key in ordered if key not in hidden] + [
         key for key in seen if key not in ordered and key not in hidden
     ]
