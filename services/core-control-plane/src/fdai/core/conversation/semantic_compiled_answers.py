@@ -342,8 +342,10 @@ class CompiledAnswerPath:
         clock: Callable[[], datetime],
         settings: CompiledAnswerSettings | None = None,
         ambiguity_reader: AmbiguityReader | None = None,
+        escalation_model: QuestionFormModel | None = None,
     ) -> None:
         self._model = model
+        self._escalation_model = escalation_model
         self._ambiguity_reader = ambiguity_reader
         self._owner_loop = owner_loop
         self._gateway = gateway
@@ -426,6 +428,7 @@ class CompiledAnswerPath:
             _run_form_path(
                 self._model,
                 collector,
+                escalation_model=self._escalation_model,
                 utterance=utterance,
                 context=context,
                 locale=locale,
@@ -571,31 +574,38 @@ def typed_only_outcome(
 async def _run_form_path(
     model: QuestionFormModel,
     collector: _ObservationCollector,
+    *,
+    escalation_model: QuestionFormModel | None = None,
     **arguments: Any,
 ) -> ReasoningShadowObservation:
     """Read the question once, and once more only when the first reading failed as a form.
 
     A second sample passes the same admission, grounding, blind review, and selection
     rules, so it never lowers the bar; it only replaces a reading whose form was invalid,
-    unreviewed, or mislabeled one mention's kind. At most two samples are taken.
+    unreviewed, or mislabeled one mention's kind. At most two samples are taken. When an
+    escalation reader is configured, only that replacement sample uses it, so the stronger
+    tier is spent on a reading the first reader could not form and never on an ordinary turn.
     """
 
     async with bind_adaptive_model_budget(collector):
         first = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
         if not resample_worthy(first):
             return first
-        second = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
+        second = await run_reasoning_shadow(
+            model=escalation_model or model, retain_compilations=True, **arguments
+        )
+    escalated = ("form_escalated",) if escalation_model is not None else ()
     if isinstance(single_compiled_batch(second), str):
         return replace(
             first,
-            notes=(*first.notes, "form_resampled_unanswered"),
+            notes=(*first.notes, *escalated, "form_resampled_unanswered"),
             discarded_sample=second,
         )
     return replace(
         second,
         model_calls=first.model_calls + second.model_calls,
         elapsed_ms=first.elapsed_ms + second.elapsed_ms,
-        notes=(*second.notes, "form_resampled"),
+        notes=(*second.notes, *escalated, "form_resampled"),
         discarded_sample=first,
     )
 

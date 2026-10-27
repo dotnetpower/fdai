@@ -131,3 +131,25 @@ async def test_recovery_rejects_retained_inventory_with_authority_drift():
         await reader.recover_pending_inventory()
     assert bus.messages_on("object.event") == []
     assert await store.read_states("pantheon/huginn/ingress-dedup/terminal/", limit=8) == ()
+
+
+async def test_one_failing_claim_does_not_block_the_other_pending_claims():
+    store, now, bus, _ = await _pending(count=3)
+    now[0] += timedelta(minutes=2)
+
+    async def project_except_first(payload):
+        if payload.get("event_id") == "pending-0":
+            raise ValueError("sparse or tombstone observation has no current incarnation")
+
+    reader = Huginn(
+        state_store=store,
+        bus=bus,
+        clock=lambda: now[0],
+        dedup_clock=lambda: now[0],
+        discovery_projector=project_except_first,
+    )
+    with pytest.raises(ValueError, match="no current incarnation"):
+        await reader.recover_pending_inventory()
+    assert len(bus.messages_on("object.event")) == 2
+    assert reader.behavior_snapshot()["ingress_recovery:claim_failed"] == 1
+    assert reader.behavior_snapshot()["ingress_recovery:completed"] == 2
