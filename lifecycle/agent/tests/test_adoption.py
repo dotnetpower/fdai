@@ -209,8 +209,8 @@ def test_adoption_refuses_unknown_or_drifted_objects(
 
 @pytest.mark.parametrize(
     "managed_fields",
-    [[], [{"manager": "Terraform"}]],
-    ids=["legacy-empty", "terraform"],
+    [[], [{"manager": "Terraform"}], [{"manager": "HashiCorp"}]],
+    ids=["legacy-empty", "terraform", "hashicorp-provider"],
 )
 def test_kubernetes_adoption_forces_only_a_terraform_managed_object(
     managed_fields: list[dict[str, str]],

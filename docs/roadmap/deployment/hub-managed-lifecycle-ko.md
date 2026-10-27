@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 21d11d3d3447210f77d059d4969011d67f6a1c60
+translation_source_sha: b61ba8ba0b70b19973721709d616391d21361938
 translation_revised: 2026-10-27
 ---
 # Hub 관리형 수명 주기
@@ -965,8 +965,8 @@ cell이 다른 고객의 cell에 영향을 줄 수 없습니다.
    사전 실행과 롤백은 이 제한된 예외를 동일하게 적용하며, 목록에 없는 미관리 객체는 계속
    범위 밖으로 처리합니다. 이미 인수한 객체를 롤백으로 복원할 때는 네이티브 소유자가
    매니페스트를 제출하기 전에 Agent 소유 표시를 다시 적용합니다.
-   상태 이외의 `managedFields`가 없는 기존 객체는 이 정확한 개발 승인에서만 허용합니다.
-   이름이 있는 Terraform 이외의 manager는 계속 충돌로 처리합니다.
+   상태 이외의 `managedFields`가 없는 기존 객체는 이 정확한 개발 승인에서만 허용합니다. 단일
+   `Terraform` 또는 `HashiCorp` provider manager도 허용하며, 다른 manager는 충돌로 처리합니다.
    UID나 필드 관리자가 충돌하면 변경 전에 중지합니다. 중단되면 정확한 anchor 소유 표시가
    있는 객체만 복구하고 UID 조건 롤백으로 보존한 매니페스트를 복원하며, 인수하지 않은
    객체는 바꾸지 않습니다. 이후 Plan은 남은 객체만 안전하게 재시도합니다. 워크로드를
