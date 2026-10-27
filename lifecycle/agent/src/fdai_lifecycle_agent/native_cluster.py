@@ -271,7 +271,7 @@ class NativeCluster:
                     raise WorkloadError("native_resource_identity_changed")
                 if identity is not None and identity.uid != owned_uid:
                     raise WorkloadError("native_adoption_uid_conflict")
-                if identity is not None and key not in recorded:
+                if key not in recorded:
                     previous.append(deepcopy(dict(live)))
                 continue
             if identity is None:

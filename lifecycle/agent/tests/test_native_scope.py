@@ -1009,6 +1009,11 @@ def test_native_transition_adopts_seven_exact_objects_and_creates_nine(harness) 
     assert len(receipt["objects"]) == 7
     assert receipt["authorization_digest"] == approval.digest
     assert receipt["ownership_digest"] == proof.claim.digest
+    retry_plan = _transition_plan(harness, proof, plan_id="native-transition-restart")
+    retry_expectations, recovered_previous = cluster.prepare_adoptions(retry_plan, desired)
+    assert retry_expectations == ()
+    assert len(recovered_previous) == 16
+    workload.preflight(desired, recovered_previous)
 
 
 def test_existing_native_state_transition_refuses_conflicting_uid(harness) -> None:
