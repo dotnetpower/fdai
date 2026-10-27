@@ -330,14 +330,58 @@ def test_controlled_environment_drops_caller_python_and_queue_inputs(
     monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "/unrelated/environment")
     monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://example.invalid/database")
     monkeypatch.setenv("FILE_LOC_MODE", "warn")
+    monkeypatch.setenv("GH_TOKEN", "test-only-value")
+    monkeypatch.setenv("GITHUB_TOKEN", "test-only-value")
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
     environment, before = inputs.execution_environment(tmp_path)
     assert "PYTHONPATH" not in environment
     assert "FDAI_DATABASE_URL" not in environment
+    assert "GH_TOKEN" not in environment
+    assert "GITHUB_TOKEN" not in environment
     assert environment["UV_PROJECT_ENVIRONMENT"] == str(tmp_path / "venv")
     monkeypatch.setenv("FILE_LOC_MODE", "enforce")
     assert inputs.execution_environment(tmp_path)[1] != before
     executable.write_bytes(b"changed tool")
     assert inputs.execution_environment(tmp_path)[1] != before
+
+
+@pytest.mark.parametrize(
+    "name", [name for name in inputs.TRANSPORT_ENVIRONMENT if name != "SSL_CERT_FILE"]
+)
+def test_transport_settings_are_retained_and_invalidate_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    executable = tmp_path / "tool"
+    executable.write_bytes(b"tool")
+    monkeypatch.setattr(inputs.shutil, "which", lambda _name, **_kwargs: str(executable))
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+    monkeypatch.delenv(name, raising=False)
+    _, absent = inputs.execution_environment(tmp_path)
+    monkeypatch.setenv(name, "http://127.0.0.1:8080")
+    environment, before = inputs.execution_environment(tmp_path)
+    assert environment[name] == "http://127.0.0.1:8080"
+    assert before != absent
+    monkeypatch.setenv(name, "http://127.0.0.1:8081")
+    assert inputs.execution_environment(tmp_path)[1] != before
+
+
+def test_certificate_contents_are_bound_to_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    executable = tmp_path / "tool"
+    executable.write_bytes(b"tool")
+    monkeypatch.setattr(inputs.shutil, "which", lambda _name, **_kwargs: str(executable))
+    monkeypatch.chdir(tmp_path)
+    certificate = tmp_path / "ca.pem"
+    certificate.write_bytes(b"first certificate")
+    monkeypatch.setenv("SSL_CERT_FILE", "ca.pem")
+    environment, before = inputs.execution_environment(tmp_path)
+    assert environment["SSL_CERT_FILE"] == str(certificate)
+    certificate.write_bytes(b"changed certificate")
+    assert inputs.execution_environment(tmp_path)[1] != before
+    certificate.unlink()
+    with pytest.raises(FileNotFoundError):
+        inputs.execution_environment(tmp_path)
 
 
 def test_main_reports_validation_failure_detail(

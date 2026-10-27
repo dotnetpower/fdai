@@ -45,6 +45,18 @@ These priorities describe the operator journey, not a vulnerability severity ass
 
 ## Status of delivered items
 
+- UXH-01/05/11/12/15, vendor increment (#2532 / #2534): the release detail workspace puts
+  publication state, recorded built-in channel, catalog revision and one next step before
+  technical evidence. Membership is not a verified promotion history. Digests, exact manifest
+  bytes, signatures, custom membership, manual curation, recall and attributed activity remain
+  accessible. New workspace copy supports English and Korean; the existing shell, activity
+  records and confirmation dialogs retain their current language behavior.
+- UXH-02/04/16, bounded recovery: catalog errors distinguish expired sessions, denied access,
+  conflicts, readiness and timeouts without displaying arbitrary server diagnostics. After a
+  failed or uncertain write, the dialog closes and the UI reads authoritative catalog state
+  before offering a new confirmation. Failed reads disable mutations. Successful HTTP responses
+  are not shown as confirmed changes unless readback contains the exact revision, action,
+  target, destination and reason event. Reload never replays a write.
 - UXH-06: for development catalogs, signed export, pull-only polling, Rego policy adoption and the
   **Updates** screen remove revision and digest transcription. The legacy pin flow remains for
   unsigned and offline exports. Production TUF roles are still design.
@@ -53,6 +65,39 @@ These priorities describe the operator journey, not a vulnerability severity ass
   derives Entities and reported state from its cluster and submits a pending request, and the
   operator compares the key id out of band and accepts. Native proof handoff, configuration-key
   custody and a live Agent submission to an operating Hub remain open.
+
+### Vendor increment boundary
+
+Stencil implementation is deferred. This increment improves the existing single FDAI Release
+workspace; it adds no feature catalog, variants, Stencil grants, licensing, or build orchestrator.
+The design hypothesis is that one next step plus native evidence disclosures reduces competing
+actions while preserving audit and exact-target confirmation.
+
+The critique is that a browser can confuse channel membership with passed promotion gates, and
+an accepted request with an observed change. The revised implementation labels membership as
+recorded state, leaves missing gate results explicitly unavailable, and verifies the attributed
+event on readback. The existing server-side promotion evaluator and its source-membership,
+labels, canary, soak, timeout and recall checks are unchanged. Manual channel curation is not
+renamed or presented as gated promotion.
+
+The catalog API does not expose promotion-run receipts or durable build/publication job status.
+Those are still open under #2532, together with transcription-free publication/promotion,
+session recovery across real sign-in, and complete UXH-16/18 durable task handoff. No new required
+approval step is introduced, and no completion of these outcomes is claimed.
+
+Focused checks for this increment:
+
+```bash
+npm --prefix lifecycle/release-hub/ui test
+npm --prefix lifecycle/release-hub/ui run typecheck
+npm --prefix lifecycle/release-hub/ui run build
+```
+
+The actual Release Hub route is checked with synthetic catalog responses, not a live vendor
+publication. Desktop precedes constrained/mobile measurements. Authentication-provider recovery
+and genuine durable-job resume still require their own evidence. See the
+[implementation ledger](../roadmap-implementation/deployment/lifecycle-releases-and-channels.md)
+for the delivered boundary and remaining work; this increment is not a whole-product UX score.
 
 ## Reuse what already works
 
