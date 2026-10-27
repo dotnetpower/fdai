@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 5c677efd3da968f667ccfe53fa99ceecb67ca0b0
+translation_source_sha: 3a9cb2e42ad027317b2b072a71c482c490406a16
 translation_revised: 2026-10-27
 ---
 # Hub 관리형 수명 주기
@@ -1313,7 +1313,7 @@ Release에 새로 추가된 워크로드는 1단계에서 페더레이션 ID 자
 2. **Terraform에서 해제:** 인프라 에이전트가 Release에 들어 있는 Hub용 워크로드 루트 변형의
    정확한 계획을 적용합니다. `removed` 블록은 해당 리소스 블록이 설정에 없어야 하므로, 이 변형은
    에이전트 소유 리소스 블록을 각각 `destroy = false`인 `removed` 블록으로 바꿉니다. 이 블록은
-   Terraform 1.7 이상에서 지원되며, 고정된 도구 체인은 1.9.8입니다. 계획에는 삭제와 수정이 없어야
+   Terraform 1.7 이상에서 지원되며, 고정된 도구 체인은 1.16.1입니다. 계획에는 삭제와 수정이 없어야
    합니다.
 3. **인수:** 에이전트는 `fdai-lifecycle-agent` 필드 관리자로 같은 렌더링 결과를 server-side
    apply로 적용합니다. Terraform 필드 관리자가 소유한 필드에서만 충돌을 강제로 넘겨받고, 다른

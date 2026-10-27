@@ -177,10 +177,10 @@ def test_release_scripts_use_the_installable_distribution() -> None:
     assert "signing key must be a regular non-symlink file" in stage
     assert 'rm -f "$OUT/bundle.tar.gz" "$OUT/cli-requirements.txt"' in stage
     assert 'aarch64|arm64) PLATFORM_TAG="linux-aarch64"' in drill
-    assert 'TERRAFORM_VERSION="1.9.8"' in stage
+    assert 'TERRAFORM_VERSION="1.16.1"' in stage
     assert 'OPA_VERSION="0.68.0"' in stage
-    assert "186e0145f5e5f2eb97cbd785bc78f21bae4ef15119349f6ad4fa535b83b10df8" in stage
-    assert "f85868798834558239f6148834884008f2722548f84034c9b0f62934b2d73ebb" in stage
+    assert "745d33b4b02b7980c62a38ec1beea24ee084ea8caf3f503c200554bd9a0cbe49" in stage
+    assert "423288a23ab024d42ac05c409972585f7ec0cf1be572b773ad952f9a1c41387d" in stage
     assert "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa" in stage
     assert "1a583e593cdf4931c0b0bbedd3c9f585012953449115bcc3e15b3806d0f5ee68" in stage
     assert 'cp "$(command -v terraform)"' not in stage
