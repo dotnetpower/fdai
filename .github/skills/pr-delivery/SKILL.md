@@ -111,6 +111,10 @@ script is absent, first create it and its focused regressions as task-owned repo
 validate that implementation, and resume delivery only from a checkout that contains it. Never
 substitute an inline polling loop, downloaded executable, GitHub content API commit, or cloud agent.
 
+Existing auto-merge must be disabled and its removal verified before pending CI or a base update.
+The coordinator refuses to wait or replace the head while that unsafe setting remains enabled;
+handle the explicit failure interactively, verify removal, then restart the same coordinator.
+
 Start it from the clean isolated topic-branch worktree with that worktree's selected Python:
 
 ```bash
@@ -161,6 +165,8 @@ The coordinator may:
 - Push the exact local topic branch without force and verify the remote SHA.
 - Restore the repository's existing native auto-merge method only after all observed checks pass
   or skip. Missing, queued or in-progress checks keep it waiting without a merge command.
+  Both CheckRun conclusions and legacy StatusContext states are interpreted; failure/error states
+  stop delivery, and unknown terminal values fail closed.
 - Verify that the reported merge commit is contained by the remote base.
 
 It stops without repair when a check fails, the PR closes, a conflict occurs, local or remote

@@ -416,6 +416,13 @@ class DeliveryDaemon:
             if current.merge_state == "DIRTY":
                 self._record("blocked", reason="merge_conflict", terminal=True)
                 return 5
+            if current.auto_merge_enabled and (
+                current.checks_state == "pending" or current.merge_state == "BEHIND"
+            ):
+                raise DeliveryError(
+                    "disable existing auto-merge and verify its removal before "
+                    "waiting for checks or updating the base"
+                )
             if current.merge_state == "BEHIND":
                 self._sync_base(current.head_sha)
                 continue

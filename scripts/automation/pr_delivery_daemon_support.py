@@ -245,13 +245,21 @@ def is_matching_process(pid: object, config: DeliveryConfig) -> bool:
 
 
 def checks_state(checks: object) -> str:
-    """Reduce Check Runs to pending, success, or failure without interpreting names."""
+    """Reduce CheckRun and StatusContext rollups without interpreting check names."""
     if not isinstance(checks, list) or not checks:
         return "pending"
     pending = False
     for check in checks:
         if not isinstance(check, dict):
             return "failed"
+        if "state" in check:
+            state = str(check["state"]).upper()
+            if state == "SUCCESS":
+                continue
+            if state not in {"EXPECTED", "PENDING"}:
+                return "failed"
+            pending = True
+            continue
         status = str(check.get("status", "")).upper()
         conclusion = str(check.get("conclusion", "")).upper()
         if conclusion in _FAILED_CONCLUSIONS:
