@@ -121,6 +121,32 @@ def test_approval_rejects_an_expired_window(tmp_path: Path) -> None:
         load_genesis_approval(path, run_binding=RUN_BINDING, source_commit=SOURCE_COMMIT)
 
 
+def test_approval_accepts_a_24_hour_window_but_rejects_wider(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    approved_at = datetime.now(timezone.utc).replace(  # noqa: UP017 - mirrors Python 3.10 script
+        microsecond=0
+    )
+    evidence = {"foundation_receipt_digest": "c" * 64}
+
+    within_path = tmp_path / "within.json"
+    within = _approval("runner-enrollment", evidence)
+    within["approved_at"] = approved_at.isoformat()
+    within["expires_at"] = (approved_at + timedelta(hours=24)).isoformat()
+    _write(within_path, within)
+    approval = load_genesis_approval(
+        within_path, run_binding=RUN_BINDING, source_commit=SOURCE_COMMIT
+    )
+    assert approval.authorizes("runner-enrollment", **evidence)
+
+    wider_path = tmp_path / "wider.json"
+    wider = _approval("runner-enrollment", evidence)
+    wider["approved_at"] = approved_at.isoformat()
+    wider["expires_at"] = (approved_at + timedelta(hours=24, minutes=1)).isoformat()
+    _write(wider_path, wider)
+    with pytest.raises(ValueError, match="expired"):
+        load_genesis_approval(wider_path, run_binding=RUN_BINDING, source_commit=SOURCE_COMMIT)
+
+
 class _TtyInput(io.StringIO):
     def isatty(self) -> bool:
         return True

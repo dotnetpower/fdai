@@ -82,7 +82,7 @@ def load_genesis_approval(
     approved_at = _utc_timestamp(value.get("approved_at"))
     expires_at = _utc_timestamp(value.get("expires_at"))
     now = datetime.now(timezone.utc)  # noqa: UP017 - Python 3.10 entrypoint
-    if expires_at - approved_at > timedelta(hours=1) or approved_at > now or now >= expires_at:
+    if expires_at - approved_at > timedelta(hours=24) or approved_at > now or now >= expires_at:
         raise GenesisApprovalExpiredError(
             "Genesis approval is expired or outside its current window"
         )

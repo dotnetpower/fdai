@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 from dataclasses import replace
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -215,7 +216,7 @@ def _write_review_for_receipt(directory: Path, receipt: dict[str, object]) -> No
         "provider_digest": "5" * 64,
         "plan_digest": command.hashlib.sha256(plan).hexdigest(),
         "created_at": "2026-09-10T00:00:00+00:00",
-        "expires_at": "2026-09-10T01:00:00+00:00",
+        "expires_at": "2026-09-11T00:00:00+00:00",
         "apply_authorized": False,
         "mutation_performed": False,
         "subscription_ready": False,
@@ -491,6 +492,9 @@ def test_review_binds_plan_projection_and_rejects_tampering(tmp_path: Path) -> N
     )
 
     verified = load_review(work, expected_review_digest=str(review["review_digest"]))
+    created = datetime.fromisoformat(str(verified["created_at"]))
+    expires = datetime.fromisoformat(str(verified["expires_at"]))
+    assert expires - created == timedelta(hours=24)
     assert verified["plan_digest"] == review["plan_digest"]
     assert verified["create_count"] == 30
     assert verified["retained_resource_count"] == 26
@@ -534,7 +538,7 @@ def test_expired_image_review_is_usable_only_for_claimed_effect_verification(
     )
     retained = json.loads((work / REVIEW_NAME).read_text(encoding="utf-8"))
     retained["created_at"] = "2000-01-01T00:00:00+00:00"
-    retained["expires_at"] = "2000-01-01T01:00:00+00:00"
+    retained["expires_at"] = "2000-01-02T00:00:00+00:00"
     retained.pop("review_digest")
     retained["review_digest"] = canonical_digest(retained)
     (work / REVIEW_NAME).unlink()

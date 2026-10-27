@@ -88,8 +88,10 @@ process arguments, Azure Run Command payloads, logs, or chat.
 The local router requires complete absolute artifact, trust, profile, variable, and access paths
 for Foundation plan/apply, Bastion enrollment, attestation, and state handoff.
 Each new effect needs mode-`0600` approval bound to run, source, stage, exact evidence digests, and
-at most one UTC hour. Single-human files are `dev`-only; staging/production retain protected quorum.
-Another stage, changed digest, expired record, or silence grants no authority.
+at most 24 UTC hours. Single-human files are `dev`-only; staging/production retain protected quorum.
+Another stage, changed digest, expired record, or silence grants no authority. The runner-image
+plan review it approves carries the same 24-hour freshness bound, so a reviewed plan and its
+approval expire together.
 
 Run Command bundle staging applies the same boundary before transport. Its private approval binds
 the exact provision profile and complete target descriptor. The coordinator recomputes the
