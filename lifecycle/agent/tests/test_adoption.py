@@ -9,6 +9,7 @@ import pytest
 from fdai_lifecycle_agent.adoption import (
     AdoptionExpectation,
     adopt_runtime_objects,
+    adoption_source_digest,
     release_adoption_reconciliation,
 )
 from fdai_lifecycle_agent.kube import KubernetesCluster
@@ -47,6 +48,7 @@ class _Cluster:
             ("Deployment", "second"): {"metadata": {"uid": "uid-second", "resourceVersion": "1"}},
         }
         self.adopted: list[tuple[str, str]] = []
+        self.adopted_versions: list[str] = []
         self.fail_name: str | None = None
 
     def get(self, kind: str, name: str) -> Manifest | None:
@@ -59,11 +61,11 @@ class _Cluster:
         uid: str,
         resource_version: str,
     ) -> Manifest:
-        del resource_version
         key = manifest["kind"], manifest["metadata"]["name"]
         if key[1] == self.fail_name:
             raise WorkloadError("injected")
         self.adopted.append(key)
+        self.adopted_versions.append(resource_version)
         self.objects[key] = {"metadata": {"uid": uid, "resourceVersion": "2"}}
         return self.objects[key]
 
@@ -93,6 +95,30 @@ def test_adoption_records_exact_per_object_receipts(tmp_path: Path) -> None:
     assert all(str(item["render_digest"]).startswith("sha256:") for item in receipt["objects"])
     assert all(item["resource_version"] == "2" for item in receipt["objects"])
     assert destination.stat().st_mode & 0o777 == 0o600
+
+
+def test_status_only_resource_version_change_rebinds_before_adoption(tmp_path: Path) -> None:
+    cluster = _Cluster()
+    live = cluster.objects[("Deployment", "first")]
+    expectation = AdoptionExpectation(
+        "Deployment",
+        "first",
+        "uid-first",
+        "1",
+        adoption_source_digest(live),
+    )
+    live["metadata"]["resourceVersion"] = "2"
+
+    adopt_runtime_objects(
+        cluster,
+        (_manifest("first"),),
+        (expectation,),
+        installation_id="installation-alpha",
+        release_id="release-1",
+        destination=tmp_path / "adoption-receipt.json",
+    )
+
+    assert cluster.adopted_versions == ["2"]
 
 
 def test_interrupted_adoption_resumes_after_last_receipt(tmp_path: Path) -> None:
@@ -141,6 +167,7 @@ def test_resume_refuses_drift_after_a_retained_object_receipt(tmp_path: Path) ->
         )
     cluster.fail_name = None
     cluster.objects[("Deployment", "first")]["metadata"]["resourceVersion"] = "3"
+    cluster.objects[("Deployment", "first")]["spec"] = {"replicas": 2}
 
     with pytest.raises(WorkloadError, match="adoption_resource_drifted"):
         adopt_runtime_objects(
