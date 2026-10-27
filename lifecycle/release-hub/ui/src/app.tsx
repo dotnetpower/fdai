@@ -210,7 +210,7 @@ export function App() {
             ? "Freshness renewal recorded and read back. Customers still need separate pin approval and import; no deployment was performed."
             : "Catalog change recorded and read back; no deployment was performed."
           : "The API accepted the request, but the exact attributed change is not confirmed by catalog readback. Review activity and refresh before another action.");
-        if (renewed) heading.current?.focus();
+        heading.current?.focus();
       }} failed={async (failure) => {
         setPending(null);
         setUncertain(true);
