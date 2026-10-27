@@ -613,7 +613,8 @@ and the authoritative registry, never inferred from phase names in this document
   `Narrator` produce byte-identical audit trails (given fixed
   timestamps and idempotency keys).
 - **Session recovery** - principal-scoped `ConversationHistoryStore` reloads prior turns by session
-  id, while stable request idempotency prevents duplicate appends. Audit/ontology retain hashes and
+  id, while stable request idempotency prevents duplicate appends. The history list also names each
+  journaled semantic-turn session once, so a chat stays listed after the browser cache is gone. Audit/ontology retain hashes and
   references rather than raw transcripts.
 ## 12. Failure modes
 
