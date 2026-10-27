@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 8d98b1be808e006169abbecf796294d1216b7da1
+translation_source_sha: 8bef207a1bc115a575c16b1915d82b0ac8364bba
 translation_revised: 2026-10-27
 ---
 # 온톨로지 추론 컴파일러
@@ -645,7 +645,7 @@ typed-only 로컬 프로필에서는 경로가 계획 cascade로 되돌아가지
 못하면 턴이 `semantic_reading_unverified`로 끝납니다. 확인된 T2 reasoner 대상이 있으면 대체 샘플만 T2 리더가
 읽고, 턴은 `form_escalated`를 기록합니다. 에스컬레이션된 형식도 같은 수용, 근거화, 블라인드 검토, 선택을
 통과해야 하므로 더 강한 계층은 형식을 제안하는 주체만 바꾸고 무엇이 공개되는지는 바꾸지 않습니다. 모든 첫
-샘플은 계속 T1 리더가 읽습니다.
+샘플은 계속 T1 리더가 읽습니다. 각 호출은 확인된 모델 계열로 토큰 필드를 고릅니다.
 
 선택된 컴파일은 답변이 카탈로그 안내로 밝히는 검토된 제한만 가질 수 있습니다. 적용한 이력 기간, 기본
 이력 기간, 모델이 판단한 이력 기간, 원인이 확정되지 않았다는 사실, 그리고 영향이 관측된 것이 아니라 가능한
