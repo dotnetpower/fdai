@@ -241,7 +241,12 @@ def _strings(items: object) -> list[str]:
 
 def _adoptions(items: list[object]) -> tuple[AdoptionExpectation, ...]:
     if not all(
-        isinstance(item, dict) and set(item) == {"kind", "name", "uid", "resource_version"}
+        isinstance(item, dict)
+        and set(item)
+        in (
+            {"kind", "name", "uid", "resource_version"},
+            {"kind", "name", "uid", "resource_version", "source_digest"},
+        )
         for item in items
     ):
         raise ValueError("journal adoptions are invalid")
@@ -252,6 +257,9 @@ def _adoptions(items: list[object]) -> tuple[AdoptionExpectation, ...]:
             name=str(item["name"]),
             uid=str(item["uid"]),
             resource_version=str(item["resource_version"]),
+            source_digest=(
+                str(item["source_digest"]) if item.get("source_digest") is not None else None
+            ),
         )
         for item in documents
     )

@@ -969,7 +969,7 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
    render always carries the Agent ownership label. A pre-adoption rollback manifest may retain its
    Terraform label only for an exact kind/name UID-fenced expectation; other objects stay outside.
    Rollback reapplies the Agent marker. Exact approval accepts empty `managedFields` or a sole
-   `Terraform`/`HashiCorp` manager; others conflict. Existing Deployments keep their immutable selector and copy its match labels to the desired Pod template.
+   `Terraform`/`HashiCorp` manager; others conflict. A status-only resource-version change is rebound only when UID and non-status source digest stay exact. Existing Deployments keep their immutable selector and copy its match labels to the desired Pod template.
    After Hub acceptance, the Agent runs the per-object checkpoint and creates only approved absent
    objects. Each receipt binds the approval and ownership digests, Plan id, render digest, UID and
    resulting resource version. Conflicting UIDs or field managers stop before mutation. Recovery
