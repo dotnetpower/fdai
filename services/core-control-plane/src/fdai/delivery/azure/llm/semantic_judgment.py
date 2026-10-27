@@ -33,7 +33,7 @@ from fdai.core.conversation.semantic_judgment import (
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
 from fdai.core.prompts import PromptAssembler, PromptReplayManifest
 from fdai.core.prompts.types import PromptLayer
-from fdai.delivery.azure.llm.completion_body import completion_body_params
+from fdai.delivery.azure.llm.completion_body import target_body_params
 from fdai.delivery.azure.llm.model_trace import (
     complete_model_trace,
     observed_usage,
@@ -520,10 +520,8 @@ class AzureOpenAISemanticJudgmentModel:
                     body: dict[str, Any] = {
                         "messages": messages,
                         "response_format": response_format,
-                        **completion_body_params(
-                            target.model_family or target.deployment,
-                            temperature=temperature,
-                            max_tokens=max_tokens,
+                        **target_body_params(
+                            target, temperature=temperature, max_tokens=max_tokens
                         ),
                     }
                     if (
