@@ -89,7 +89,12 @@ function safeTarget(path) {
   try {
     const target = new URL(path, self.location.origin);
     const scopePath = new URL(self.registration.scope).pathname.replace(/\/$/, "");
-    const allowedPaths = [`${scopePath}/audit`, `${scopePath}/incidents`, `${scopePath}/detection-coverage`];
+    const allowedPaths = [
+      `${scopePath}/approvals`,
+      `${scopePath}/audit`,
+      `${scopePath}/incidents`,
+      `${scopePath}/detection-coverage`,
+    ];
     return target.origin === self.location.origin && allowedPaths.includes(target.pathname)
       ? target
       : null;

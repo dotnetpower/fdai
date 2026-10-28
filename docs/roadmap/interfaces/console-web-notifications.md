@@ -82,9 +82,10 @@ Only `runtime-observed` approval, denial, and failure frames are eligible. Repla
 synthetic-development, unknown-source, and routine successful frames are rejected.
 
 Notifications contain localized generic text, a bounded opaque event tag, a claim token, and a
-same-origin Audit link filtered by the server-provided correlation identifier. A live frame does
-not establish canonical Incident membership: approval and failure events can have audit history
-without an Incident. Audit remains an authoritative-only route even when the tab prefers Sample.
+same-origin link. An approval alert opens the live approval queue. Denial and failure alerts open
+an Audit link filtered by the server-provided correlation identifier. A live frame does not
+establish canonical Incident membership: approval and failure events can have audit history
+without an Incident. Both routes stay authoritative-only even when the tab prefers Sample.
 Notifications contain no raw error, resource identifier, approval control, or execution link.
 
 ## Delivery ledger
@@ -122,7 +123,7 @@ navigates an unrelated same-origin window outside a subpath deployment. It focus
 returned by navigation; if navigation cannot produce a window, it opens the same validated target.
 It never treats a fire-and-forget `postMessage()` call as acknowledgement delivery.
 
-Navigation admits only the scoped Audit route and the legacy Incident route. Previously displayed
+Navigation admits only the scoped Approvals, Audit, and legacy Incident routes. Previously displayed
 notifications retain their original Incident destination. When that live Incident selection is
 unavailable, **View related audit history** opens the same correlation in Audit without inventing
 an Incident, changing filters, or claiming operational success. Sample selections do not expose

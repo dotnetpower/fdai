@@ -145,6 +145,7 @@ function sessionNotificationClickDetails(
   }
   const target = new URL(record.path, origin);
   const allowedPaths = [
+    browserNotificationTargetPath("/approvals", baseUrl),
     browserNotificationTargetPath("/audit", baseUrl),
     browserNotificationTargetPath("/incidents", baseUrl),
     browserNotificationTargetPath("/detection-coverage", baseUrl),
