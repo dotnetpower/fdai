@@ -69,3 +69,12 @@ test("render fallbacks use the Calm Slate semantic palette", async () => {
   assert.match(svg, /var\(--fdai-diagram-edge-request, #315f82\)/);
   assert.match(svg, /var\(--fdai-diagram-tone-input-fill, #edf2f5\)/);
 });
+
+test("reference profiles pin the light theme when embedded in a dark host", () => {
+  const css = standaloneThemeCss(true);
+  assert.match(
+    css,
+    /svg\[data-profile="azure-reference"\], svg\[data-profile="network-azure-reference"\] \{ --fdai-diagram-canvas:#f6f7f6/u,
+  );
+  assert.doesNotMatch(standaloneThemeCss(false), /data-profile="azure-reference"\], svg/u);
+});

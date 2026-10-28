@@ -180,8 +180,13 @@ export function standaloneThemeCss(preserveLightTheme = false): string {
   const darkThemeSelector = preserveLightTheme
     ? 'svg[data-diagram-id]:not([data-embedded]):not([data-profile="azure-reference"])'
     : "svg[data-diagram-id]:not([data-embedded])";
+  // Reference profiles use fixed light surfaces and Azure icons, so they keep the
+  // light variables even when an embedding host selects the dark theme.
+  const pinnedLightTheme = preserveLightTheme
+    ? `\n    svg[data-profile="azure-reference"], svg[data-profile="network-azure-reference"] { ${declarations(CALM_SLATE_LIGHT)}; }`
+    : "";
   return `
-    svg[data-diagram-id]:not([data-embedded]) { ${declarations(CALM_SLATE_LIGHT)}; }
+    svg[data-diagram-id]:not([data-embedded]) { ${declarations(CALM_SLATE_LIGHT)}; }${pinnedLightTheme}
     @media (prefers-color-scheme: dark) {
       ${darkThemeSelector} { ${declarations(CALM_SLATE_DARK)}; }
     }
