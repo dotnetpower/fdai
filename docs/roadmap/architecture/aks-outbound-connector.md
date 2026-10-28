@@ -231,7 +231,10 @@ failure records an unknown outcome instead of retrying. Two-phase audit records,
 per-target lock, and a stable idempotency key cover the apply.
 
 Apply leaves the CronJob suspended. `activate` resumes it only when the live installation still
-equals the approved plan. `wait-observed` then reads the existing authenticated snapshot inbox:
+equals the approved plan. `activate` and `deactivate` change only `spec.suspend` under a separate
+field manager, forcing just that field, so a stop never waits on another owner and a partial apply
+never deletes the install manager's fields. `deactivate` is the stop condition and needs only a
+target-bound approval; re-applying while activated is refused as a field conflict until it runs. `wait-observed` then reads the existing authenticated snapshot inbox:
 operational success is claimed only after the gateway admits a fresh snapshot. `rollback` deletes
 only resources labeled for this observer, in reverse order, and retains the namespace. The local
 lock serializes one host only; concurrent operators on other hosts rely on server-side conflicts.

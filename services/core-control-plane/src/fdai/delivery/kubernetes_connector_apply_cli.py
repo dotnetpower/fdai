@@ -23,6 +23,7 @@ from fdai.delivery.kubernetes_connector_apply import (
     activate_observer,
     apply_observer_installation,
     await_first_observation,
+    deactivate_observer,
     rollback_observer_installation,
 )
 from fdai.delivery.kubernetes_connector_installation import (
@@ -37,7 +38,8 @@ APPROVAL_SECONDS = 600
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "operation", choices=("apply", "activate", "rollback", "export", "wait-observed")
+        "operation",
+        choices=("apply", "activate", "deactivate", "rollback", "export", "wait-observed"),
     )
     parser.add_argument("--inputs", type=Path)
     parser.add_argument("--proposal", type=Path)
@@ -49,7 +51,7 @@ def _parser() -> argparse.ArgumentParser:
         help="apply or activate: the exact manifest digest printed by the dry-run",
     )
     parser.add_argument(
-        "--approve-target-ref", help="rollback: type the target reference to confirm removal"
+        "--approve-target-ref", help="deactivate or rollback: type the target reference to confirm"
     )
     parser.add_argument("--audit-file", type=Path)
     parser.add_argument("--lock-directory", type=Path)
@@ -217,18 +219,21 @@ def run(args: argparse.Namespace, *, now: datetime | None = None) -> dict[str, o
         "audit": _audit_sink(_need(args.audit_file, "audit-file")),
         "now": clock,
     }
-    if args.operation == "rollback":
+    if args.operation in {"deactivate", "rollback"}:
         inputs = ObserverInstallationInput.model_validate_json(
             private_file(_need(args.inputs, "inputs"))
         )
         if args.approve_target_ref != inputs.target_ref:
-            raise ValueError("rollback requires --approve-target-ref equal to the target reference")
-        return rollback_observer_installation(
-            inputs,
-            _approval(args, inputs, None, operation="rollback", now=now),
-            transport=_transport(inputs, args),
-            **common,
+            raise ValueError(
+                f"{args.operation} requires --approve-target-ref equal to the target reference"
+            )
+        stop_approval = _approval(args, inputs, None, operation=args.operation, now=now)
+        handler = (
+            deactivate_observer
+            if args.operation == "deactivate"
+            else rollback_observer_installation
         )
+        return handler(inputs, stop_approval, transport=_transport(inputs, args), **common)
     inputs, rendered = _render(args, now)
     approved = args.approve_manifest_digest is not None
     if approved and args.approve_manifest_digest != rendered["manifest_digest"]:

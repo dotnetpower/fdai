@@ -15,6 +15,7 @@ from fdai.delivery.kubernetes_connector_apply import (
     activate_observer,
     apply_observer_installation,
     await_first_observation,
+    deactivate_observer,
     rollback_observer_installation,
     target_lock,
 )
@@ -30,6 +31,17 @@ from .test_kubernetes_connector_planning import context
 from .test_kubernetes_connector_spool import NOW
 
 UID = "cluster-uid-example"
+
+
+def merge(base, overlay):
+    """Server-side apply merges the applied fields into the live object."""
+    result = copy.deepcopy(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = merge(result[key], value)
+        else:
+            result[key] = value
+    return result
 
 
 def server_normalized(value):
@@ -79,14 +91,15 @@ class FakeCluster:
             if "--dry-run=server" not in args:
                 for item in items:
                     live = server_normalized(copy.deepcopy(item))
-                    live["metadata"]["uid"] = "server-uid"
-                    live["status"] = {}
                     key = (
                         item["kind"].lower(),
                         item["metadata"].get("namespace"),
                         item["metadata"]["name"],
                     )
-                    self.objects[key] = live
+                    merged = merge(self.objects.get(key, {}), live)
+                    merged["metadata"]["uid"] = "server-uid"
+                    merged["status"] = {}
+                    self.objects[key] = merged
             return KubeResult(0, "serverside-applied")
         if verb == "patch":
             self.objects[("cronjob", namespace, args[2])]["spec"]["suspend"] = json.loads(
@@ -621,3 +634,68 @@ def test_server_omitted_defaults_do_not_count_as_drift_but_security_fields_still
     pod["containers"][0]["securityContext"].pop("allowPrivilegeEscalation")
     with pytest.raises(ValueError, match="CronJob"):
         activate_observer(rendered, inputs, activation, **kwargs)
+
+
+def test_activation_and_deactivation_use_a_state_manager_limited_to_the_suspend_field(
+    installation,
+) -> None:
+    inputs, rendered, _, tmp_path = installation
+    cluster = FakeCluster()
+    run_apply(installation, cluster, approval_for(inputs, rendered))
+    kwargs = {
+        "transport": cluster,
+        "lock_directory": tmp_path / "locks",
+        "audit": lambda _: None,
+        "now": lambda: NOW,
+    }
+    cluster.calls.clear()
+    activate_observer(
+        rendered, inputs, approval_for(inputs, rendered, operation="activate"), **kwargs
+    )
+    stop = approval_for(
+        inputs, rendered, operation="deactivate", manifest_digest=None, proposal_digest=None
+    )
+    result = deactivate_observer(inputs, stop, **kwargs)
+    assert result["state"] == "installed_suspended"
+    assert not [call for call, _ in cluster.calls if call[0] == "patch"]
+    toggles = [call for call, body in cluster.calls if call[0] == "apply"]
+    assert len(toggles) == 2
+    assert all(
+        {"--field-manager=fdai-observer-state", "--force-conflicts", "--validate=false"}
+        <= set(call)
+        for call in toggles
+    )
+    assert [
+        json.loads(body)["items"][0]["spec"] for call, body in cluster.calls if call[0] == "apply"
+    ] == [{"suspend": False}, {"suspend": True}]
+    assert cluster.objects[("cronjob", inputs.namespace, inputs.name)]["spec"]["suspend"] is True
+    # A later full apply of the same plan converges without a field-ownership conflict.
+    run_apply(installation, cluster, approval_for(inputs, rendered))
+
+
+def test_deactivation_needs_its_own_target_bound_approval(installation) -> None:
+    inputs, rendered, _, tmp_path = installation
+    kwargs = {
+        "transport": FakeCluster(),
+        "lock_directory": tmp_path / "locks",
+        "audit": lambda _: None,
+        "now": lambda: NOW,
+    }
+    wrong = approval_for(
+        inputs, rendered, operation="rollback", manifest_digest=None, proposal_digest=None
+    )
+    with pytest.raises(ValueError, match="approval"):
+        deactivate_observer(inputs, wrong, **kwargs)
+
+
+def test_failure_detail_shows_the_error_not_the_successful_lines() -> None:
+    from fdai.delivery.kubernetes_connector_apply import _checked
+
+    output = (
+        "serviceaccount/a serverside-applied\n"
+        "clusterrole/b serverside-applied\n"
+        "Error: conflict on .spec.suspend"
+    )
+    with pytest.raises(ValueError, match="conflict on .spec.suspend") as caught:
+        _checked(KubeResult(1, output), "apply failed")
+    assert "serviceaccount" not in str(caught.value)

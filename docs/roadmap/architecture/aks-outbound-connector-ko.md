@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 51b1e68dc9c1ce2216b11f71c1e1d0e10d197054
+translation_source_sha: c9aedfc1aa55058a86bd2a1a1f5a765f560dea99
 translation_revised: 2026-10-28
 ---
 # AKS 역방향 커넥터
@@ -229,6 +229,9 @@ server-side apply로 적용하므로 다른 소유자는 보존됩니다. 네임
 멱등성 키가 적용을 보호합니다.
 
 적용 후 CronJob은 중지된 상태로 남습니다. `activate`는 실제 설치가 승인된 계획과 같을 때만 재개합니다.
+`activate`와 `deactivate`는 별도 field manager로 `spec.suspend`만 바꾸고 그 한 필드만 강제하므로, 중지가
+다른 소유자를 기다리지 않고 부분 적용이 설치 manager의 필드를 지우지도 않습니다. `deactivate`는 중지 조건이며
+대상에 묶인 승인만 필요합니다. 활성화된 상태에서 다시 적용하면 `deactivate`를 실행할 때까지 필드 충돌로 거부됩니다.
 이어서 `wait-observed`가 기존 인증된 스냅샷 수신함을 읽으며, 게이트웨이가 새 스냅샷을 승인한 뒤에만
 운영 성공으로 판단합니다. `rollback`은 이 observer의 레이블이 붙은 리소스만 역순으로 삭제하고
 네임스페이스는 유지합니다. 로컬 잠금은 한 호스트 안에서만 직렬화하며, 다른 호스트의 동시 작업은

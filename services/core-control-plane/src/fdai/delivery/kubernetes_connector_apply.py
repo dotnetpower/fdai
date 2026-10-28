@@ -37,6 +37,7 @@ from fdai.delivery.kubernetes_connector_material import MATERIAL_FILES, material
 from fdai.delivery.kubernetes_connector_runtime import private_file
 
 FIELD_MANAGER = "fdai-observer-install"
+STATE_MANAGER = "fdai-observer-state"
 MANIFEST_FILE = "@manifest"
 MAX_APPROVAL_SECONDS = 1800
 _OWNER_LABEL = "app.kubernetes.io/managed-by"
@@ -86,7 +87,7 @@ class KubeTransport(Protocol):
 class ObserverApplyApproval(ConnectorContract):
     """A short-lived human approval bound to one exact target, plan, and operation."""
 
-    operation: Literal["apply", "activate", "rollback"]
+    operation: Literal["apply", "activate", "deactivate", "rollback"]
     approver_ref: Annotated[str, Field(min_length=1, max_length=256, pattern=_TEXT)]
     target_ref: Annotated[str, Field(min_length=1, max_length=512, pattern=_TEXT)]
     cluster_uid: Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9-]+$")]
@@ -104,7 +105,7 @@ class ObserverApplyApproval(ConnectorContract):
         approved, expires = connector_time(self.approved_at), connector_time(self.expires_at)
         if not approved < expires <= approved + timedelta(seconds=MAX_APPROVAL_SECONDS):
             raise ValueError("observer approval must expire within thirty minutes")
-        if self.operation != "rollback" and (
+        if self.operation in {"apply", "activate"} and (
             self.manifest_digest is None or self.proposal_digest is None
         ):
             raise ValueError("observer approval must bind the exact rendered manifest")
@@ -225,7 +226,12 @@ def _record(audit: Audit, now: datetime, phase: str, **fields: object) -> None:
 
 def _checked(result: KubeResult, reason: str, *, secret: bool = False) -> KubeResult:
     if result.exit_code != 0:
-        detail = "" if secret else f": {' '.join(result.output.split())[:300]}"
+        lines = [
+            line
+            for line in result.output.splitlines()
+            if not line.rstrip().endswith(("serverside-applied", "(server dry run)"))
+        ]
+        detail = "" if secret else f": {' '.join(' '.join(lines or [result.output]).split())[:400]}"
         raise ValueError(f"{reason} (exit {result.exit_code}){detail}")
     return result
 
@@ -586,25 +592,7 @@ def activate_observer(
         _cluster_identity(transport, approval.cluster_uid)
         _verify_installed_either(transport, documents)
         _record(audit, now(), "intent", step="activate", **common)
-        patch = json.dumps({"spec": {"suspend": False}})
-        _checked(
-            transport.run(
-                [
-                    "patch",
-                    "cronjob",
-                    inputs.name,
-                    "--namespace",
-                    inputs.namespace,
-                    "--type",
-                    "merge",
-                    "--patch",
-                    patch,
-                ],
-                manifest=None,
-                timeout=90,
-            ),
-            "observer activation failed",
-        )
+        _set_suspend(transport, inputs, suspend=False, reason="observer activation failed")
         _verify_installed(transport, documents, suspended=False)
         _record(audit, now(), "result", step="activate", outcome="activated", **common)
     return {
@@ -624,6 +612,60 @@ def _verify_installed_either(
         _verify_installed(transport, documents, suspended=True)
     except ValueError:
         _verify_installed(transport, documents, suspended=False)
+
+
+def _set_suspend(
+    transport: KubeTransport, inputs: ObserverInstallationInput, *, suspend: bool, reason: str
+) -> None:
+    """Own only spec.suspend under a separate field manager.
+
+    A partial apply under the install manager would delete the fields that it omits. Forcing is
+    limited to this single field, so stopping never waits on another manager's ownership.
+    """
+    document = {
+        "apiVersion": "batch/v1",
+        "kind": "CronJob",
+        "metadata": {"name": inputs.name, "namespace": inputs.namespace},
+        "spec": {"suspend": suspend},
+    }
+    arguments = [
+        "apply",
+        "--server-side",
+        f"--field-manager={STATE_MANAGER}",
+        "--force-conflicts",
+        "--validate=false",
+        "--filename",
+        MANIFEST_FILE,
+    ]
+    _checked(transport.run(arguments, manifest=_bundle(document), timeout=120), reason)
+
+
+def deactivate_observer(
+    inputs: ObserverInstallationInput,
+    approval: ObserverApplyApproval,
+    *,
+    transport: KubeTransport,
+    lock_directory: Path,
+    audit: Audit,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+) -> dict[str, object]:
+    """Stop collection by suspending the CronJob; this is the observer's stop condition."""
+    _authorize(approval, operation="deactivate", inputs=inputs, rendered=None, now=now())
+    common: dict[str, object] = {
+        "operation": "deactivate",
+        "target_ref": inputs.target_ref,
+        "executor": transport.name,
+        "approver_ref": approval.approver_ref,
+    }
+    with target_lock(lock_directory, f"{inputs.target_ref}/{inputs.namespace}/{inputs.name}"):
+        _cluster_identity(transport, approval.cluster_uid)
+        _record(audit, now(), "intent", step="deactivate", **common)
+        _set_suspend(transport, inputs, suspend=True, reason="observer deactivation failed")
+        live = _get(transport, "CronJob", inputs.name, inputs.namespace)
+        if live is None or live.get("spec", {}).get("suspend") is not True:
+            raise ValueError("observer deactivation was not confirmed by readback")
+        _record(audit, now(), "result", step="deactivate", outcome="suspended", **common)
+    return {"schema_version": "1.0.0", "operation": "deactivate", "state": "installed_suspended"}
 
 
 def rollback_observer_installation(
@@ -702,6 +744,7 @@ __all__ = [
     "ObserverApplyApproval",
     "activate_observer",
     "apply_observer_installation",
+    "deactivate_observer",
     "await_first_observation",
     "rollback_observer_installation",
     "target_lock",
