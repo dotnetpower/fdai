@@ -38,6 +38,17 @@ KubernetesName = Annotated[
 ]
 
 
+# Kubernetes applies the pod fsGroup to a volume on every mount: the directory becomes set-group-ID
+# (02770) and existing files become group-writable (0660). The spool accepts only owner-only modes,
+# so each start resets the directory and its files with direct chmod calls, which clear those bits.
+_SPOOL_DIRECTORY_SCRIPT = (
+    "import os; p = '/spool/snapshots'; os.makedirs(p, mode=0o700, exist_ok=True); "
+    "os.chmod(p, 0o700); "
+    "[os.chmod(f, 0o600) for f in (os.path.join(p, n) for n in os.listdir(p)) "
+    "if os.path.isfile(f) and not os.path.islink(f)]"
+)
+
+
 class ObserverInstallationInput(ConnectorContract):
     """Exact preview inputs. A referenced digest is not a release signature or plan approval."""
 
@@ -270,7 +281,13 @@ def render_observer_installation(
                     {"name": "material-input", "mountPath": "/input", "readOnly": True},
                     {"name": "private-material", "mountPath": "/private"},
                 ],
-            }
+            },
+            {
+                **common,
+                "name": "spool-directory",
+                "command": ["python", "-c", _SPOOL_DIRECTORY_SCRIPT],
+                "volumeMounts": [{"name": "spool", "mountPath": "/spool"}],
+            },
         ],
         "containers": [
             {
