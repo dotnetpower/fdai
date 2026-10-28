@@ -187,6 +187,12 @@ instead. Regenerate local service environments after binding to refresh their mo
 This verifies configuration, not network reachability or model inference. Keep
 `FDAI_NARRATOR_AUTO_OPEN_AOAI=0` in the private Console environment when reusing a restricted account.
 
+To confirm that the T1 embedding and T2 reasoner deployments answer, and whether the T1 pattern
+library is durable, run `python -m fdai.delivery.tier_readiness_probe --live` with the local
+runtime environment loaded. It makes three embedding calls and one one-token chat call, never
+retries, and stops on a provider error such as `429`. It reports scores, status codes, and the
+pattern count without printing a DSN or response body.
+
 ## 6. Start the local stack
 
 The canonical topology is the console SPA (`5273`) plus all five independent backend services:
