@@ -197,6 +197,13 @@ population hop by hop, collection metric reads can apply reviewed qualitative re
 stopped metric read can issue a leased continuation. Every one of these reads stays read-only.
 
 ## Design at a glance
+
+Analyzer availability-policy validation and current-Finding contracts live in `core/readiness`;
+provider observation adapters and production bindings stay in `delivery`. Core maintains a derived
+CAS-protected Finding index separate from bounded publication history. Operator serves its
+authenticated paginated projection without provider calls. The Console lazily loads the global
+Finding feed and browser receiver, preserving the initial bundle budget, and reads only this
+projection. These helpers add no agent, execution identity, or approval path.
 Core's handover bootstrap checks actual document/line/quote/person grounding before directory
 resolution; the model supplies no identity id and only a governance draft survives. Freyr's
 read-only source binding stays in runtime and delivery, reusing current inventory identities

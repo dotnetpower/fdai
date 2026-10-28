@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Derived analyzer Finding reference boundary | implemented | `finding_projection.py`; `resource_availability_evidence.py`; focused projection, availability and target tests | Current Finding records reference existing logical Resources. The route and time-bounded assessor add no ontology declaration, provider observation or authority. |
 | Governed typed-selection deployment metadata boundary | implemented | Exact Sol capability/prompt config, composition, bootstrap and focused regressions | The model stage precedes the unchanged deterministic Function. Model deployment metadata creates no ontology identity, qualification, promotion or action authority. |
 | Optional current-source graph read admission | implemented | `2273f0be85`; `source_read_admission.py`, secured gateway, focused source/gateway tests and three actual isolated PostgreSQL source-change cases: 85 passed | Before/after source admission can withhold queries, paths and index-stage results. No deployment document source reader, active document writer, cached-result reauthorization or upload E2E is supplied. |
 | Exact causal path and metric-comparison evidence | implemented | `causal_topology.py`; `metric_semantics.py`; `query_metric_handlers.py`; `test_causal_topology.py`; `test_causal_investigation_execution.py` | Retained secured historical views prove a typed, directed path in one time slice. Unproven paths, correlation failures, and unevaluated competitors stay unresolved; no inverse relationship or execution authority is inferred. |
@@ -52,6 +53,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-28 | implemented | Kept the new analyzer Finding route and resource-availability assessor outside ontology identity and classification changes. | `current change`; paired authority-boundary note; focused Finding projection, resource-availability and target-admission tests passed. | This is an analyzer-domain derived index, not cross-domain Finding unification or a new provider fact source. |
 | 2026-10-23 | not-applicable | Clarified that profile-correct installation governance review and protected repository source review remain outside ontology identity and authority. | `current change`; #2000; paired authority-boundary note and focused governance review regressions. | No ontology declaration, relationship, provider observation, or execution authority changed. |
 | 2026-10-20 | implemented | Bound the governed typed-selection pre-Function model stage to one exact reviewed Sol capability and prompt without changing the deterministic Function or ontology release identity. | `current change`; config, composition, bootstrap and exact-target tests. | Live v2 qualification and governed promotion remain separate evidence gates. |
 | 2026-10-19 | implemented | Recorded the optional current-source read boundary in the structural owner after its route-specific documentation check. The existing graph's declarations and provider truth remain unchanged. | `2273f0be85`; `source_read_admission.py`, `query_gateway.py`; 85 focused checks including three isolated PostgreSQL source-change cases; Ruff and strict two-source typing passed. | #2256 G02 still requires exact-diff approval, authoritative deployment source admission, graph materialization/readback/rollback, cached-result reauthorization, and actual governed-upload evidence. |
@@ -194,6 +196,9 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-10-17 | implemented | Added complete exact-scope independent competitor assessment consumption to metric joins. Unknown, supported, stale, partial, mismatched, absent and over-bound source assessments retain explicit unresolved outcomes and citations; only complete independently refuted competitors release the limitation. Observation history remains bounded evidence metadata rather than a new ontology declaration or authority edge. | `current change`; #2188; owning assessment/metric/topology/composition checks passed inside the 351-test convergence cohort; strict mypy and Ruff passed; actual empty-history, 65-generation and attempted node-injection regressions are covered. | Production sources must still independently issue authenticated assessments; no default fabricated provider or live qualification was introduced. |
 
 ### Remaining work
+
+- [x] Preserve logical Resource identity and no-authority semantics in the derived Finding index;
+  covered by the focused 2026-10-28 projection and assessment tests.
 
 - [x] Require exact path, time, effect identity, and competing-explanation accounting in causal
   joins, with passing focused regressions for [#2184](https://github.com/dotnetpower/fdai/issues/2184).

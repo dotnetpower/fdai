@@ -143,6 +143,7 @@ class AnalyzerTargetResolution:
     truncated: bool = False
     resource_types: tuple[AnalyzerResourceTypeResolution, ...] = ()
     coverage_unavailable_reason: str | None = None
+    inventory_generation: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -169,6 +170,7 @@ async def resolve_analyzer_targets(
     decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
     provider_references: AnalyzerProviderReferenceReader | None = None,
     discovered_hold_reasons: Mapping[str, str] | None = None,
+    availability_resources: Mapping[str, str] | None = None,
 ) -> AnalyzerTargetResolution:
     """Return the configured targets plus every eligible inventory-backed one.
 
@@ -188,6 +190,9 @@ async def resolve_analyzer_targets(
             logical Resource id to the provider-native metric query identity.
         discovered_hold_reasons: Resource type to deterministic reason for
             withholding inventory-discovered targets before provider queries.
+        availability_resources: Exact logical ids and types from the enabled,
+            validated availability policy. These retain inventory admission but
+            do not require a metric source.
 
     Raises:
         ValueError: ``now`` is naive or ``max_discovered`` is out of bounds.
@@ -198,6 +203,15 @@ async def resolve_analyzer_targets(
         raise ValueError("resolve_analyzer_targets requires a timezone-aware now")
     if not 1 <= max_discovered <= MAX_DISCOVERED_CEILING:
         raise ValueError(f"max_discovered MUST be in [1, {MAX_DISCOVERED_CEILING}]")
+    availability_resources = availability_resources or {}
+    analyzer_kinds = {
+        **analyzer_kinds,
+        **{
+            resource_type: "resource_availability"
+            for resource_type in availability_resources.values()
+            if resource_type not in analyzer_kinds
+        },
+    }
     hold_reasons = discovered_hold_reasons or {}
     if any(
         resource_type not in analyzer_kinds or not reason or len(reason) > 128
@@ -210,7 +224,7 @@ async def resolve_analyzer_targets(
             _target_with_resource_type(target, analyzer_kinds=analyzer_kinds)
             for target in _deduplicate_configured_targets(configured)
         )
-        provider_bound_kinds = frozenset(analyzer_kinds.values())
+        provider_bound_kinds = frozenset(analyzer_kinds.values()) - {"kubernetes_pod"}
         if any(
             _looks_like_azure_provider_ref(target.resource_ref)
             or (target.resource_kind in provider_bound_kinds and target.provider_query_ref is None)
@@ -292,6 +306,7 @@ async def resolve_analyzer_targets(
             skipped=skipped,
             decision_evidence=decision_evidence,
             discovered_hold_reasons=hold_reasons,
+            availability_resources=availability_resources,
         )
         candidate_hold_reasons.append(
             None if candidate is not None else _new_skip_reason(before_skipped, skipped)
@@ -317,11 +332,20 @@ async def resolve_analyzer_targets(
     provider_resource_types.update(
         {target.resource_ref: str(target.resource_type) for target in selected}
     )
+    provider_resource_types = {
+        resource_ref: resource_type
+        for resource_ref, resource_type in provider_resource_types.items()
+        if resource_type != "kubernetes.pod"
+    }
     try:
-        provider_query_refs = await read_provider_query_references(
-            provider_references,
-            expected_resource_types=provider_resource_types,
-            expected_snapshot_id=snapshot.source_generation,
+        provider_query_refs = (
+            await read_provider_query_references(
+                provider_references,
+                expected_resource_types=provider_resource_types,
+                expected_snapshot_id=snapshot.source_generation,
+            )
+            if provider_resource_types
+            else {}
         )
     except AnalyzerInventoryIdentityError as exc:
         raise AnalyzerTargetResolutionError(str(exc)) from exc
@@ -349,11 +373,11 @@ async def resolve_analyzer_targets(
                 resource_ref=target.resource_ref,
                 resource_kind=target.resource_kind,
                 resource_type=target.resource_type,
-                provider_query_ref=provider_query_refs[target.resource_ref],
+                provider_query_ref=provider_query_refs.get(target.resource_ref),
             )
         )
 
-    provider_bound_kinds = frozenset(analyzer_kinds.values())
+    provider_bound_kinds = frozenset(analyzer_kinds.values()) - {"kubernetes_pod"}
     if any(
         target.resource_kind in provider_bound_kinds and target.provider_query_ref is None
         for target in ordered
@@ -381,6 +405,7 @@ async def resolve_analyzer_targets(
         truncated=snapshot.truncated or withheld,
         resource_types=resource_types,
         coverage_unavailable_reason=coverage_reason,
+        inventory_generation=snapshot.source_generation,
     )
 
 
@@ -616,6 +641,7 @@ async def _eligible_target(
     skipped: Counter[str],
     decision_evidence: DecisionEvidenceAdmissionProvider | None,
     discovered_hold_reasons: Mapping[str, str],
+    availability_resources: Mapping[str, str],
 ) -> AnalyzerTarget | None:
     """Return one analyzable target, or ``None`` with a recorded skip reason."""
     resource_id = record.properties.get("id")
@@ -629,11 +655,14 @@ async def _eligible_target(
         return None
     normalized_resource_type = resource_type.strip()
     analyzer_kind = analyzer_kinds.get(normalized_resource_type)
-    if analyzer_kind is None:
+    availability_selected = availability_resources.get(resource_id) == normalized_resource_type
+    if analyzer_kind is None or (
+        analyzer_kind == "resource_availability" and not availability_selected
+    ):
         skipped[SKIP_UNMAPPED_RESOURCE_TYPE] += 1
         return None
     hold_reason = discovered_hold_reasons.get(normalized_resource_type)
-    if hold_reason is not None:
+    if hold_reason is not None and not availability_selected:
         skipped[hold_reason] += 1
         return None
     provider_properties = record.properties.get("properties")

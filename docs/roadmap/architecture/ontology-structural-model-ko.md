@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: eec7cba63dad98d4f6c5d740c0b01b036f988498
+translation_source_sha: f4d1032551f930784279fa727ca33e0a1b46ac29
 translation_revised: 2026-10-28
 ---
 # 온톨로지 구조 모델
@@ -21,6 +21,9 @@ translation_revised: 2026-10-28
 > 코드 보안 작업자 heartbeat를 포함한 비온톨로지 Operator 경로는 운영 변환 결과로 유지합니다.
 > 공유 경로 매니페스트에 이를 등록해도 온톨로지 타입, 관계, 쿼리 권한 또는 구조 모델 의존성을
 > 만들지 않습니다.
+> 분석기의 `/findings` 조회 결과도 기존 논리 Resource 식별자를 참조합니다. 가용성 평가기는
+> 명시적인 기대 상태와 유효 시간이 정해진 공급자 관측을 비교합니다. 파생된 Finding 색인이나
+> 해당 경로는 온톨로지 타입, 관계, 공급자 관측 또는 실행 권한을 만들지 않습니다.
 >
 > **호환성 경계:** 기존 `Resource`, `ResourceType`, LinkType 아이덴티티, 저장된 링크 방향,
 > 과거 온톨로지 release는 계속 유효합니다. 새 구조 표면은 추가 방식으로 도입하며 읽기 전용

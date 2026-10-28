@@ -147,6 +147,7 @@ function sessionNotificationClickDetails(
   const allowedPaths = [
     browserNotificationTargetPath("/audit", baseUrl),
     browserNotificationTargetPath("/incidents", baseUrl),
+    browserNotificationTargetPath("/detection-coverage", baseUrl),
   ];
   if (target.origin !== origin || !allowedPaths.includes(target.pathname)) {
     throw new Error("Console web notification click target is outside the allowed scope.");

@@ -9,6 +9,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Production Pod analyzer binding | implemented | `delivery/pod_runtime_binding.py`, `pod_tick_cache.py`, `kubernetes_pod_observations.py`, `pod_recovery.py`; focused runtime, coalescing, status and recovery tests | Reuses the inventory-reader DSN, scoped identity, relationship catalog and durable history. One tick shares an immutable generation; failures, stale evidence and missing history never become healthy observations. |
 | Reusable quantity accounting foundation | implemented | `kubernetes_quantity.py`, `kubernetes_resource_accounting.py`; 109 focused helper and observer-recipe cases passed. | Pure CPU/memory arithmetic and byte conversion do not change diagnostic normalization, source collection or execution authority. Capacity/storage integration remains in the connector ledger. |
 | Private discovery proposal handoff | implemented | `aks_subscription_discovery.py`, `inventory_sync_cli.py`, connector proposal modules; 48 focused discovery/selection/storage tests passed. | Explicit private facts survive credential failure; recommendations grant no source binding, diagnosis, readiness or installation authority. Constraint collectors and Operator delivery remain open in the connector ledger. |
 | Safe metric failure context | implemented | `MetricProviderError` and the Azure metric adapters; focused regressions in `services/core-control-plane/tests/providers/test_metric_error.py`, `services/core-control-plane/tests/delivery/azure/test_metric_failure_context.py`, and `services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py`. | Bounded reason and HTTP status survive identity redaction without claiming diagnostic coverage or historical cause. |
@@ -28,6 +29,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-28 | implemented | Bound the scheduled analyzer to production Pod observations and lifecycle history. Added deterministic CrashLoopBackOff, explicit OOM, abnormal termination, probe failure, failed and unready Findings, plus exact-prior recovery and shared cluster/UID reads. | `current change`; focused `test_kubernetes_pod_status.py`, `test_kubernetes_pod_evidence.py`, `test_pod_runtime_binding.py`, `test_pod_tick_cache.py`, `test_pod_recovery.py` and `test_analyzer_pod_composition.py` passed under `services/core-control-plane/tests/`; changed source strict mypy and Ruff passed. | No live Pod deletion or load injection was performed. A Pod absent before observation cannot be reconstructed without independent retained history. |
 | 2026-10-07 | implemented | Added exact-target compatibility routing before metric dispatch and the reviewed VM `Percentage CPU` Metrics API template. | [Issue #1964](https://github.com/dotnetpower/fdai/issues/1964); `current change`; focused routed-provider and Metrics API regressions passed 25 cases. | Retain exact-head protected CI and governed live metric evidence. |
 | 2026-09-20 | implemented | Connected separate GET-only resource preflight to existing quantity helpers and verifier grants without changing diagnostic collection, source bindings or execution authority. | `current change`; 47 resource tests and three signing-mode tests passed, including real loopback TLS and actual observer recipe rendering. | Selected-cluster observations and protected lifecycle effects remain with the connector owner. |
 | 2026-09-20 | implemented | Added bounded reusable Kubernetes quantity parsing and ordinary Pod resource accounting without changing normalized diagnostic records or source promotion. | `current change`; 109 parser/accounting/recipe cases and strict typing for both helpers passed. | Authenticated capacity/storage collection and signed facts remain separate connector requirements. |
@@ -92,6 +94,10 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 | 2026-10-19 | implemented | Reconciled the shared semantic-bootstrap boundary with the default-disabled governed typed-read binder. Existing AKS provider/runner authority, observations and diagnostic routing are unchanged. | Current change for #2275; `runtime/bootstrap_semantics.py`; [governed read owner](../../roadmap/interfaces/governed-typed-selection-read.md); 145 prior focused local checks, not AKS runtime or deployment evidence. | Full bootstrap, database, AKS live evidence and operational qualification remain unverified by this bounded change. |
 
 ### Remaining work
+
+- [x] Connect production Pod evidence to deterministic fault Findings and independently observed
+  recovery, retaining reader credentials, cancellation isolation, immutable generation and bounded
+  failure behavior; covered by the 2026-10-28 focused tests.
 
 - [x] Preserve safe failure categories without changing empty-result or fail-closed behavior; covered by the focused regressions in the scope table.
 - [x] Pass focused tests for fleet-safe bindings and exact resource resolution.

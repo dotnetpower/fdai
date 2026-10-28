@@ -16,6 +16,7 @@ import sys
 import time
 from collections import Counter, defaultdict
 from collections.abc import Awaitable, Callable, Mapping
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -49,6 +50,7 @@ from fdai.delivery.analyzer_tick_cli_composition import (
     build_publication_ledger,
     build_publication_reconciler,
     build_receipt_store,
+    read_availability_target_policy,
 )
 from fdai.delivery.analyzer_tick_cli_config import (
     BUDGET_ENV,
@@ -93,6 +95,9 @@ from fdai.delivery.azure.trace_continuity import (
     AzureTraceContinuitySource,
 )
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.pod_runtime_binding import build_production_pod_analyzer
+from fdai.delivery.resource_availability_binding import build_resource_availability_analyzers
+from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickReport,
     TraceContinuityTickRunner,
@@ -440,6 +445,10 @@ async def run_once() -> AnalyzerJobReport:
     max_discovered = parse_max_discovered(os.environ.get(MAX_DISCOVERED_ENV, ""))
 
     inventory = build_inventory_sources()
+    availability_resources = await read_availability_target_policy()
+    telemetry_holds = discovered_telemetry_holds(
+        monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID")
+    )
     decision_evidence = build_decision_evidence_admission_provider()
     try:
         resolution = await resolve_analyzer_targets(
@@ -449,9 +458,8 @@ async def run_once() -> AnalyzerJobReport:
             max_discovered=max_discovered,
             decision_evidence=decision_evidence,
             provider_references=(inventory.provider_references if inventory is not None else None),
-            discovered_hold_reasons=discovered_telemetry_holds(
-                monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID")
-            ),
+            discovered_hold_reasons=telemetry_holds,
+            availability_resources=availability_resources,
         )
     finally:
         close = getattr(decision_evidence, "aclose", None)
@@ -459,6 +467,20 @@ async def run_once() -> AnalyzerJobReport:
             await close()
     _LOGGER.info("analyzer_tick_targets_resolved", extra=resolution.to_dict())
     targets = resolution.targets
+    metric_target_refs = frozenset(
+        target.resource_ref
+        for target in targets
+        if target.resource_type not in telemetry_holds
+        or any(
+            target.resource_kind == pinned.resource_kind
+            and pinned.resource_ref.casefold()
+            in {
+                target.resource_ref.casefold(),
+                (target.provider_query_ref or "").casefold(),
+            }
+            for pinned in configured
+        )
+    )
     if not targets and not trace_topologies:
         _LOGGER.info("analyzer_tick_no_targets")
         report = AnalyzerJobReport(
@@ -473,9 +495,12 @@ async def run_once() -> AnalyzerJobReport:
         raise RuntimeError("KAFKA_BOOTSTRAP_SERVERS is required")
     topic = resolve_finding_topic(os.environ)
 
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
-    ) as http_client:
+    async with (
+        AsyncExitStack() as observer_stack,
+        httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
+        ) as http_client,
+    ):
         venue = resolve_execution_venue()
         identity = _build_identity(http_client, venue=venue)
         container = attach_metric_provider(
@@ -501,10 +526,43 @@ async def run_once() -> AnalyzerJobReport:
                 receipt_store = build_receipt_store()
                 lifecycle_recorder = build_lifecycle_recorder()
                 try:
+                    pod_binding = await build_production_pod_analyzer(
+                        stack=observer_stack,
+                        identity=identity,
+                        dsn=os.environ.get(INVENTORY_DSN_ENV, ""),
+                        environ=os.environ,
+                    )
+                    availability = await build_resource_availability_analyzers(
+                        settings=RuntimeSettingsService(
+                            store=receipt_store.state_store,
+                            env=os.environ,
+                            durable=True,
+                        ),
+                        inventory=inventory.provider_references if inventory is not None else None,
+                        inventory_generation=resolution.inventory_generation,
+                        targets=targets,
+                        state_store=receipt_store.state_store,
+                    )
+                    for detector, reason in (
+                        ("kubernetes_pod", pod_binding.unavailable_reason),
+                        ("resource_availability", availability.unavailable_reason),
+                    ):
+                        if reason:
+                            _LOGGER.info(
+                                "analyzer_binding_unavailable",
+                                extra={
+                                    "detector": detector,
+                                    "reason": reason,
+                                },
+                            )
                     analyzer_report = await AnalyzerTickRunner(
                         coordinator=build_analyzer_coordinator(
                             container.metric_provider,
                             targets=targets,
+                            metric_target_refs=metric_target_refs,
+                            pod_analyzer=pod_binding.analyzer,
+                            additional_analyzers=tuple(availability.analyzers),
+                            state_store=receipt_store.state_store,
                         ),
                         event_bus=bus,
                         publication_ledger=build_publication_ledger(),

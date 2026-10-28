@@ -7,10 +7,9 @@ Pod reducers require, so a malformed or partially observed document fails at
 composition time with the environment key named, instead of reaching a reducer
 as a plausible-looking but unverified conclusion.
 
-The binding is the same shape ``FDAI_TRACE_TOPOLOGIES_JSON`` uses: a venue that
-resolves Pod evidence ahead of the tick declares it here, and a venue that
-declares nothing simply runs without a Pod analyzer. It carries no credential,
-no endpoint, and no tenant value.
+The explicit JSON binding remains available for replay. Production composition
+can supply a live source; absence of both bindings stays unavailable rather than
+creating synthetic observations. This decoder carries no credentials or endpoints.
 """
 
 from __future__ import annotations
@@ -22,8 +21,14 @@ from datetime import datetime
 from typing import Any, cast
 
 from fdai.core.investigation import (
+    KubernetesPodLifecycleAnalyzer,
     PodLifecycleEvidence,
+    PodLifecycleEvidenceSource,
     StaticPodLifecycleEvidenceSource,
+)
+from fdai.core.investigation.kubernetes_pod_status import (
+    KubernetesPodFailureAnalyzer,
+    PodFailureEvidenceSource,
 )
 from fdai.core.ontology_platform.kubernetes_pod_recovery_evidence import (
     PodOwnerDeploymentObservation,
@@ -178,18 +183,35 @@ class PodEvidenceBindingError(ValueError):
 
 def build_pod_lifecycle_evidence_source(
     environ: Mapping[str, str] | None = None,
-) -> StaticPodLifecycleEvidenceSource | None:
+    *,
+    live_source: PodLifecycleEvidenceSource | None = None,
+) -> PodLifecycleEvidenceSource | None:
     """Return the declared Pod evidence source, or ``None`` when unbound.
 
-    An unbound source is a supported posture: the tick simply carries no Pod
-    analyzer, and any configured Pod target is reported as an unsupported
-    target rather than assessed from evidence nothing observed.
+    Explicit replay JSON takes precedence over the injected live source.
+    Without JSON, the production source is returned unchanged. An entirely
+    unbound source stays unsupported, not an empty healthy observation.
     """
 
     raw = (environ if environ is not None else os.environ).get(POD_EVIDENCE_ENV, "").strip()
     if not raw:
-        return None
+        return live_source
     return StaticPodLifecycleEvidenceSource(parse_pod_lifecycle_evidence(raw))
+
+
+def build_pod_analyzer(
+    environ: Mapping[str, str] | None = None,
+    *,
+    live_source: PodLifecycleEvidenceSource | None = None,
+) -> KubernetesPodLifecycleAnalyzer | KubernetesPodFailureAnalyzer | None:
+    """Keep replay compatibility and compose live lifecycle/status reads once per target."""
+
+    source = build_pod_lifecycle_evidence_source(environ, live_source=live_source)
+    if source is None:
+        return None
+    if isinstance(source, PodFailureEvidenceSource):
+        return KubernetesPodFailureAnalyzer(source)
+    return KubernetesPodLifecycleAnalyzer(source)
 
 
 def parse_pod_lifecycle_evidence(raw: str) -> tuple[PodLifecycleEvidence, ...]:
@@ -477,6 +499,7 @@ def pod_evidence_summary(evidence: Sequence[PodLifecycleEvidence]) -> dict[str, 
 __all__ = [
     "POD_EVIDENCE_ENV",
     "PodEvidenceBindingError",
+    "build_pod_analyzer",
     "build_pod_lifecycle_evidence_source",
     "parse_pod_lifecycle_evidence",
     "pod_evidence_summary",

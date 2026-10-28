@@ -8,6 +8,12 @@ surface or implicit permission to a conversation. Its candidate-only result requ
 qualified registry state and exact authenticated evidence; a missing prerequisite holds. Local
 consumer tests are not Console foreground, bootstrap, database or live-model validation.
 
+Current analyzer Findings use the authenticated Reader projection and the
+[Console web notification contract](console-web-notifications.md), independently of Incident
+creation. Availability expectations use the existing Owner-only, revision-checked, audited Runtime
+Settings path, with a validated structured policy. Reading a Finding, selecting a browser channel,
+or storing an expected state grants no resource-execution, approval, or reporting authority.
+
 How a human operator talks *back to* FDAI through CLI, Teams, Slack, and web chat. This FDAI Console capability owns the **conversational surface**, not a separate product: layered architecture, tool catalog, LLM tiers, session persistence, per-tool RBAC, safety invariants, and rollout status. FDAI Console is a governed operator surface, not a read-only product. It can submit server-authorized typed requests, while managed-resource execution remains outside the browser and high-risk actions still require human approval. Module splits keep proposal claim types with their focused model owner, preserve public assurance facades, generated CQAS inventory, and canonical visual mappings, and do not change request or execution authority. Extracting runtime catalog loaders while preserving their facade import names changes no human-report, approval-routing, RBAC, or Console request contract. Registering Rule activation tests under their owning Core and Operator service suites changes test selection only and grants no reporting or approval authority. Regenerating question-bank and CQAS artifacts after Console catalog or deck presentation-contract changes updates source commitments only; it does not change question identities, reporting authority, or conversation execution authority.
 The rule catalog's Rule column displays the readable title from the detail matching the exact
 origin and rule ID. A missing or blank title falls back to the rule ID. This list-only presentation

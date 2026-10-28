@@ -63,6 +63,20 @@ or a delivery-ledger receipt. Failure of both receivers leaves selection unavail
 
 ## Event admission
 
+Analyzer Findings also arrive through authenticated, paginated `GET /findings`, independently of
+Incident creation. This derived feed retains distinct signals on one Resource and does not inherit
+Sample data. The foreground shows a count, transient notice, and evidence inbox. The selected
+background receiver uses a stable Finding identity and notification version for new/reopened
+Findings, increased severity, and verified recovery. Repeated polls and reloads do not create new
+alerts. Rate-limited updates remain pending and visible in the inbox, including a fault that recovers
+before its browser notification can be displayed. A zero count is not proof of detection coverage.
+
+Finding links open the exact record in live Detection coverage. The worker and session receiver
+allow this closed destination in addition to Audit and legacy Incident recovery. Bodies remain
+generic, selection and leadership remain principal-scoped, and local history errors remain visible.
+This feed is the analyzer domain's projection, not a claim that every rule or compliance domain has
+joined a single cross-domain Finding store.
+
 The selected leader keeps authenticated `GET /live/stream` connected while the tab is backgrounded.
 Only `runtime-observed` approval, denial, and failure frames are eligible. Replay,
 synthetic-development, unknown-source, and routine successful frames are rejected.

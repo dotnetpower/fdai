@@ -19356,6 +19356,15 @@ body.agent-organization-dialog-open {
 }
 .settings-runtime-boundary p { margin: 0; max-width: 78ch; line-height: 1.55; }
 .settings-runtime-row { align-items: center; gap: 24px; }
+.settings-runtime-row[data-value-type="object"] { display: grid; grid-template-columns: minmax(0, 1fr); }
+.settings-runtime-row[data-value-type="object"] .settings-runtime-control { grid-template-columns: minmax(0, 1fr) auto; }
+.settings-runtime-row[data-value-type="object"] .settings-runtime-flags { grid-column: 1 / -1; }
+.settings-runtime-row[data-value-type="object"] .settings-runtime-meta { overflow-wrap: anywhere; }
+.settings-runtime-control textarea { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; }
+@media (max-width: 640px) {
+  .settings-runtime-row[data-value-type="object"] .settings-runtime-control { grid-template-columns: minmax(0, 1fr); }
+  .settings-runtime-row[data-value-type="object"] .settings-runtime-control > button { justify-self: start; }
+}
 .settings-runtime-copy { min-width: 0; display: grid; gap: 4px; }
 .settings-runtime-meta { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 5px; color: var(--fg-muted); font-size: 10px; }
 .settings-runtime-control { display: grid; grid-template-columns: auto minmax(128px, 180px) auto; align-items: center; justify-content: end; gap: 8px; min-width: min(100%, 360px); }

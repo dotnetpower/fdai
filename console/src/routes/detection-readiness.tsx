@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { CurrentFindings } from "../components/finding-attention";
 
 import { isOptionalOperatorApiUnavailable, OperatorApiError, type OperatorApiClient } from "../api";
 import {
@@ -251,6 +252,7 @@ export function DetectionReadinessRoute({
   return (
     <div class="stack detection-readiness-route">
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
+      <CurrentFindings client={client} enabled={dataMode === "live"} />
       <AsyncBoundary state={state} resourceLabel={t("resourceLabel")}>
         {(data) => (
           <DetectionReadinessBody

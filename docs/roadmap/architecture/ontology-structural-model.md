@@ -19,6 +19,10 @@ or a second source of provider truth. Optional source admission fences reads wit
 > Additive non-ontology Operator routes, including the code-security worker heartbeat, remain
 > operational projections. Registering them in the shared route manifest creates no ontology type,
 > relationship, query authority, or structural-model dependency.
+> The analyzer's `/findings` projection likewise references existing logical Resource identities.
+> Its availability assessor evaluates time-bounded provider observations against explicit
+> expectations; neither the derived Finding index nor its route creates an ontology type,
+> relationship, provider observation, or execution authority.
 >
 > **Compatibility boundary:** Existing `Resource`, `ResourceType`, LinkType identities, stored link
 > directions, and historical ontology releases remain valid. New structural surfaces are additive

@@ -32,7 +32,7 @@ class RuntimeSettingSpec:
     key: str
     env_name: str | None
     group: str
-    value_type: Literal["boolean", "integer", "number", "enum"]
+    value_type: Literal["boolean", "integer", "number", "enum", "object"]
     default: object
     minimum: float | None = None
     maximum: float | None = None
@@ -41,6 +41,14 @@ class RuntimeSettingSpec:
     development_default: object | None = None
 
     def validate(self, value: object) -> object:
+        if self.value_type == "object":
+            if self.key != "detection.resource_availability":
+                raise ValueError("unregistered structured runtime setting")
+            from fdai.core.readiness.resource_availability_settings import (
+                validate_resource_availability_setting,
+            )
+
+            return validate_resource_availability_setting(value)
         if self.value_type == "boolean":
             if not isinstance(value, bool):
                 raise ValueError(f"{self.key} MUST be a boolean")
@@ -71,6 +79,13 @@ class RuntimeSettingSpec:
 
 
 RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
+    RuntimeSettingSpec(
+        "detection.resource_availability",
+        None,
+        "investigation",
+        "object",
+        {"enabled": False, "resource_types": [], "max_age_seconds": 300.0, "resources": {}},
+    ),
     RuntimeSettingSpec(
         "forecast.history_collection.enabled",
         None,

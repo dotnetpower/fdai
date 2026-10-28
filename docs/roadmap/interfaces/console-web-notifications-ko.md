@@ -1,7 +1,7 @@
 ---
 title: Console Web 알림
 translation_of: console-web-notifications.md
-translation_source_sha: 6d41e2ff7f5c3b39c382fd1c704e9bbeb8f7a990
+translation_source_sha: deee2fda68df7f95e0ba3e9f771ff6b3fbf83dd0
 translation_revised: 2026-10-28
 ---
 
@@ -62,6 +62,20 @@ SHA-256 앞 128비트를 32자 16진수로 표현해 사용합니다. 원본 이
 사용 불가 또는 다시 시도 상태를 유지합니다.
 
 ## 이벤트 허용
+
+분석기 Finding은 Incident 생성과 별개로 인증된 `GET /findings`에서 페이지 단위로 가져옵니다.
+이 파생 조회는 한 Resource의 서로 다른 시그널을 보존하며 Sample 데이터를 사용하지 않습니다.
+전경에서는 개수, 일시적인 알림과 근거 알림함을 표시합니다. 선택된 백그라운드 수신기는 안정적인
+Finding 식별자와 알림 버전으로 새 Finding, 재발, 중요도 상승과 검증된 복구를 전달합니다.
+반복 조회나 새로 고침은 새 알림을 만들지 않습니다. 전송 한도에 걸린 갱신은 대기 상태와 알림함에
+남기며, 브라우저 알림 표시 전에 복구된 장애도 포함합니다. 개수가 0이어도 감지 범위를 보장하지는
+않습니다.
+
+Finding 링크는 운영용 감지 범위에서 해당 레코드를 엽니다. 워커와 세션 수신기는 감사 로그 및
+기존 Incident 복구 경로와 함께 이 닫힌 형식의 목적지만 허용합니다. 본문은 일반 문구로 유지하며
+선택과 리더 권한은 principal별로 구분합니다. 로컬 알림 이력 오류도 명시적으로 표시합니다.
+이 조회는 분석기 영역의 결과이며 모든 규칙이나 규정 준수 영역이 하나의 Finding 저장소로
+통합됐다는 뜻은 아닙니다.
 
 선택된 리더는 탭이 백그라운드에 있을 때 인증된 `GET /live/stream` 연결을 유지합니다.
 `runtime-observed` 승인, 거부 및 실패 프레임만 허용합니다. 재생, 합성 개발, 출처 미확인 및

@@ -55,6 +55,7 @@ from fdai.core.investigation import (
     InvestigationCoordinator,
     InvestigationRequest,
 )
+from fdai.core.readiness.finding_state import is_operational_finding
 from fdai.delivery.analyzer_finding_receipt import (
     AnalyzerEvidenceState,
     AnalyzerFindingReceipt,
@@ -293,6 +294,8 @@ def analyzer_idempotency_key(
             str(bucket),
         )
     )
+    if finding.assessment is not None and finding.assessment.recovery_closed is True:
+        identity += "\0recovered"
     return f"analyzer:{uuid5(_EVENT_ID_NAMESPACE, identity).hex}"
 
 
@@ -683,7 +686,15 @@ class AnalyzerTickRunner:
             },
             detected_at=finding.occurred_at,
             ingested_at=ingested_at,
-            incident_correlation=IncidentCorrelation.CORRELATE,
+            incident_correlation=(
+                IncidentCorrelation.NONE
+                if (finding.assessment is not None and finding.assessment.recovery_closed is True)
+                or not is_operational_finding(
+                    finding.signal,
+                    finding.assessment.status if finding.assessment else None,
+                )
+                else IncidentCorrelation.CORRELATE
+            ),
             mode=self._mode,
         )
 
@@ -750,7 +761,21 @@ def _finding_receipt(
         recorded_at=at,
         current_state=_metadata_text(finding.metadata, "current_state") or "unknown",
         evidence_state=_evidence_state(finding, evidence_complete=evidence_complete),
+        severity=finding.severity,
+        observation=finding.observation,
+        assessment_status=assessment.status if assessment is not None else None,
+        recovery_finding_ref=_metadata_text(finding.metadata, "recovery_finding_ref"),
+        recovery_prior_revision=_recovery_prior_revision(finding),
     )
+
+
+def _recovery_prior_revision(finding: AnalyzerFinding) -> int | None:
+    value = _metadata_text(finding.metadata, "recovery_prior_revision")
+    if value is None:
+        return None
+    if not value.isascii() or not value.isdecimal() or len(value) > 10 or int(value) < 1:
+        raise ValueError("Recovery prior revision MUST be a bounded positive revision")
+    return int(value)
 
 
 def _metadata_bool(metadata: Mapping[str, Any], key: str) -> bool | None:
