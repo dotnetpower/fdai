@@ -4,7 +4,7 @@ title: Implementation Compatibility Record (2026-07-06 Standard Set)
 
 # Implementation Compatibility Record (2026-07-06 Standard Set)
 
-Use this compatibility record to find identifiers from the 2026-07-06 standard-set proposal that are still cited
+This document preserves identifiers from the 2026-07-06 standard-set proposal that are still cited
 by source, schemas, and tests. It is not a current implementation plan. Current behavior and future
 work belong to the linked subsystem owner documents.
 
