@@ -441,6 +441,9 @@ export function LivePanels({
             <div class="live-kpi-unavailable">
               <strong>{t("live.kpi.noTier")}</strong>
               <small>{t("live.kpi.controlOnly")}</small>
+              {view.unroutedCount > 0 ? (
+                <small>{t("live.kpi.unrouted", { count: view.unroutedCount })}</small>
+              ) : null}
             </div>
           ) : <div class="live-tier-plot">
             {(["t0", "t1", "t2"] as const).map((key) => (
@@ -451,6 +454,12 @@ export function LivePanels({
               </div>
             ))}
             <div class="live-tier-axis"><span>0</span><span>50</span><span>100%</span></div>
+            {metrics.tierCounts.t1 + metrics.tierCounts.t2 === 0 ? (
+              <small class="live-kpi-meta">{t("live.kpi.noResidual")}</small>
+            ) : null}
+            {view.unroutedCount > 0 ? (
+              <small class="live-kpi-meta">{t("live.kpi.unrouted", { count: view.unroutedCount })}</small>
+            ) : null}
           </div>}
           <span class="live-kpi-meta">{t("live.kpi.routed", { count: view.tierTotal })}</span>
         </a>

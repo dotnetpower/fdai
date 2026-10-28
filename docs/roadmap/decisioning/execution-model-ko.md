@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: b13357336d9d94323b3276c2b95c5e51ba602111
+translation_source_sha: ec6eb848bdc9ff63a9947befde54a1c019c58587
 translation_revised: 2026-09-29
 ---
 
@@ -123,6 +123,11 @@ Trust 라우터 로부터.
 | T0 (결정론적) | `enforce_auto` 허용 - T0 판정은 policy-as-code 통과 |
 | T1 (lightweight 유사도) | 업스트림 카탈로그 상한은 보수적이며 오버레이는 자율성을 낮출 수만 있습니다. 권한 상향은 별도 통제된 승격 경로를 사용하며 dispatch-time 재정의가 아닙니다. |
 | T2 (frontier reasoning) | 카탈로그 로더가 T2를 `shadow_only`로 hard-cap합니다. Hard 상한 변경은 검토된 업스트림 정책 변경이며 포크 오버레이가 아닙니다. |
+
+T2 제안기는 trust router가 반환한 후보 규칙 범위 안에서만 동작하므로, 일치하는 규칙이 없는
+이벤트는 도달하지 않습니다. T1이 abstain하고, 그 잔여 사례에서 유일한 적응형 단계는 근거만 다루는
+T2 근본 원인 분석입니다. 덕분에 모든 T2 제안이 카탈로그 규칙과 그 hard 상한에 묶입니다. 컨트롤 루프는
+T2를 건너뛴 이유를 티어 없이 `t2_skip_reason`으로 기록합니다.
 
 ### 2.2 축 C - ActionType 상한
 

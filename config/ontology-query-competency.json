@@ -9,8 +9,8 @@
       "receipt_source": "deterministic_fixture",
       "reason_code": "semantic_execution_completed",
       "semantic_route": "verified_query_plan",
-      "ontology_release_digest": "sha256:96eb5f32c257785d3ae7701a73111b7a55c1df1e545d75d17688a18b3fb5b45c",
-      "principal_manifest_digest": "sha256:f1ed5049cdc09f17fd211991f24e77959b5f8b6a2ff543083a3a4f64eb28d6da",
+      "ontology_release_digest": "sha256:ad7570530715239b174d04d5957784632ae68f70c4e92ad36c7256a89d528249",
+      "principal_manifest_digest": "sha256:1aea4a461e35b580272f9413686f16e4fd733d9e4357ed949807404b17cd9e2c",
       "plan_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "execution_receipt_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
       "evidence_refs": [
@@ -31,8 +31,8 @@
       "receipt_source": "deterministic_fixture",
       "reason_code": "semantic_execution_completed",
       "semantic_route": "verified_query_plan",
-      "ontology_release_digest": "sha256:96eb5f32c257785d3ae7701a73111b7a55c1df1e545d75d17688a18b3fb5b45c",
-      "principal_manifest_digest": "sha256:f1ed5049cdc09f17fd211991f24e77959b5f8b6a2ff543083a3a4f64eb28d6da",
+      "ontology_release_digest": "sha256:ad7570530715239b174d04d5957784632ae68f70c4e92ad36c7256a89d528249",
+      "principal_manifest_digest": "sha256:1aea4a461e35b580272f9413686f16e4fd733d9e4357ed949807404b17cd9e2c",
       "plan_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       "execution_receipt_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
       "evidence_refs": [
@@ -101,8 +101,8 @@
       "receipt_source": "deterministic_fixture",
       "reason_code": "semantic_execution_completed",
       "semantic_route": "verified_query_plan",
-      "ontology_release_digest": "sha256:96eb5f32c257785d3ae7701a73111b7a55c1df1e545d75d17688a18b3fb5b45c",
-      "principal_manifest_digest": "sha256:f1ed5049cdc09f17fd211991f24e77959b5f8b6a2ff543083a3a4f64eb28d6da",
+      "ontology_release_digest": "sha256:ad7570530715239b174d04d5957784632ae68f70c4e92ad36c7256a89d528249",
+      "principal_manifest_digest": "sha256:1aea4a461e35b580272f9413686f16e4fd733d9e4357ed949807404b17cd9e2c",
       "plan_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
       "execution_receipt_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
       "evidence_refs": [
@@ -123,8 +123,8 @@
       "receipt_source": "deterministic_fixture",
       "reason_code": "semantic_execution_completed",
       "semantic_route": "verified_query_plan",
-      "ontology_release_digest": "sha256:96eb5f32c257785d3ae7701a73111b7a55c1df1e545d75d17688a18b3fb5b45c",
-      "principal_manifest_digest": "sha256:f1ed5049cdc09f17fd211991f24e77959b5f8b6a2ff543083a3a4f64eb28d6da",
+      "ontology_release_digest": "sha256:ad7570530715239b174d04d5957784632ae68f70c4e92ad36c7256a89d528249",
+      "principal_manifest_digest": "sha256:1aea4a461e35b580272f9413686f16e4fd733d9e4357ed949807404b17cd9e2c",
       "plan_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       "execution_receipt_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
       "evidence_refs": [

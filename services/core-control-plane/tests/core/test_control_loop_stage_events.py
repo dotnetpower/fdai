@@ -154,6 +154,21 @@ async def test_t1_unavailable_emits_ingest_route_audit(tmp_path: Path) -> None:
     assert audit_evt.detail["outcome"] == "abstained_routing"
 
 
+@pytest.mark.asyncio
+async def test_t2_skip_reason_is_emitted_without_a_tier(tmp_path: Path) -> None:
+    recorder = RecordingStagePublisher()
+    loop = _make_loop(stage_publisher=recorder, tmp_path=tmp_path)
+    loop._t2_engine = object()  # type: ignore[assignment]  # noqa: SLF001
+    result = await loop.process(_event_dict("evt-t2-skip"))
+    assert result.outcome is ControlLoopOutcome.ABSTAINED_ROUTING
+
+    verify = recorder.by_stage(StageName.VERIFY)
+    assert [e.detail for e in verify] == [
+        {"t2_skipped": True, "t2_skip_reason": "t2_missing_target_ref"}
+    ]
+    assert "tier" not in verify[0].detail
+
+
 # ---------------------------------------------------------------------------
 # Dedupe path: no Event object, so no emits (documented behaviour).
 # ---------------------------------------------------------------------------

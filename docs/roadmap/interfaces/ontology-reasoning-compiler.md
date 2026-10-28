@@ -586,6 +586,10 @@ compilation. Otherwise, the only change is what happens after the form path:
    reaches the legacy frame and plan cascade, its keyword signals, stated-value matching,
    recoveries, or the frame model.
 
+An accepted judgment whose `action_posture` is `draft_only`, such as an Incident creation request,
+is not a read. It skips the form path's answer and the typed outcome above, and continues to the
+frame stage that produces the no-authority action draft and its confirmation.
+
 | Decision | Planner outcome | Meaning |
 |----------|-----------------|---------|
 | `unsupported` | unsupported, `semantic_stated_constraint_unsupported` | A released reading states an atom no reviewed builder reads |
