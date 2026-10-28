@@ -29,8 +29,10 @@ export function summarizeCurrentDecisionMix(
 ) {
   const tierCounts = { t0: 0, t1: 0, t2: 0 };
   const gateCounts = { auto: 0, hil: 0, abstain: 0, deny: 0 };
+  let unroutedCount = 0;
   for (const tile of tiles) {
     if (tile === null) continue;
+    if (tile.tier === "abstain") unroutedCount += 1;
     const tier = LIVE_METRIC_TIERS.find((value) => value === tile.tier);
     if (tier) tierCounts[tier] += 1;
     const gate = LIVE_METRIC_GATES.find((value) => value === tile.gate_decision);
@@ -43,6 +45,7 @@ export function summarizeCurrentDecisionMix(
     gateCounts,
     tierTotal,
     gateTotal,
+    unroutedCount,
     autoShare: gateTotal === 0 ? 0 : Math.round(gateCounts.auto / gateTotal * 100),
   };
 }
@@ -61,7 +64,7 @@ export function useLiveViewModel(
     () => summarizeCurrentDecisionMix(state.tiles),
     [state.tiles],
   );
-  const { gateTotal, tierTotal, gateCounts, tierCounts, autoShare } = currentMix;
+  const { gateTotal, tierTotal, gateCounts, tierCounts, autoShare, unroutedCount } = currentMix;
   const displayMetrics = useMemo(
     () => ({ ...metrics, ...currentMix }),
     [currentMix, metrics],
@@ -262,6 +265,7 @@ export function useLiveViewModel(
     eps,
     gateTotal,
     tierTotal,
+    unroutedCount,
     autoShare,
     attention,
     attentionTotal,

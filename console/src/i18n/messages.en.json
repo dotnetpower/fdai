@@ -1480,6 +1480,9 @@
       "unknown": "Unknown"
     },
     "empty": "No incidents match this filter.",
+    "emptyScope": "Incidents list only confirmed operational incidents. Inventory refreshes and compliance findings are recorded as audit evidence and approval requests, not as incidents.",
+    "emptyOpenApprovals": "Open Approvals",
+    "emptyOpenAudit": "Open Audit",
     "roster": "Incident roster",
     "summary": {
       "title": "Incident operational summary",

@@ -418,7 +418,7 @@ async def test_complete_inventory_baseline_without_rule_skips_model_fallback(
     result = await loop.process(event)
 
     assert result.outcome is ControlLoopOutcome.ABSTAINED_ROUTING
-    assert result.tier == "t0"
+    assert result.tier == "abstain"
     assert result.reason == "inventory_baseline_no_rule_match"
     loop._t1_engine.evaluate.assert_not_awaited()  # type: ignore[union-attr]  # noqa: SLF001
     loop._analyze_t2_rca_on_abstain.assert_not_awaited()  # type: ignore[attr-defined]  # noqa: SLF001
