@@ -16,7 +16,6 @@ import sys
 import time
 from collections import Counter, defaultdict
 from collections.abc import Awaitable, Callable, Mapping
-from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -24,13 +23,16 @@ from typing import Any
 import httpx
 
 from fdai.composition import attach_metric_provider, default_container_from_env
+from fdai.delivery.analyzer_coverage import (
+    coverage_by_resource_type,
+    normalize_publication_counts,
+)
 from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
 from fdai.delivery.analyzer_run_receipt import (
     AnalyzerRunReceiptPersistenceError,
     record_analyzer_run_receipt,
 )
 from fdai.delivery.analyzer_targets import (
-    AnalyzerResourceTypeResolution,
     AnalyzerTargetResolution,
     AnalyzerTargetResolutionError,
     resolve_analyzer_targets,
@@ -38,15 +40,14 @@ from fdai.delivery.analyzer_targets import (
 from fdai.delivery.analyzer_telemetry_admission import discovered_telemetry_holds
 from fdai.delivery.analyzer_tick import (
     DEFAULT_PUBLICATION_WINDOW_SECONDS,
-    AnalyzerPublicationStatus,
     AnalyzerTickReport,
     AnalyzerTickRunner,
 )
 from fdai.delivery.analyzer_tick_cli_composition import (
-    build_analyzer_coordinator,
     build_decision_evidence_admission_provider,
     build_inventory_sources,
     build_lifecycle_recorder,
+    build_production_coordinator,
     build_publication_ledger,
     build_publication_reconciler,
     build_receipt_store,
@@ -95,9 +96,6 @@ from fdai.delivery.azure.trace_continuity import (
     AzureTraceContinuitySource,
 )
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
-from fdai.delivery.pod_runtime_binding import build_production_pod_analyzer
-from fdai.delivery.resource_availability_binding import build_resource_availability_analyzers
-from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickReport,
     TraceContinuityTickRunner,
@@ -113,8 +111,6 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
 _TARGET_RESOLUTION_RETRY_SECONDS = 5.0
-
-_PUBLICATION_STATES = tuple(item.value for item in AnalyzerPublicationStatus)
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,20 +238,20 @@ class AnalyzerJobReport:
                     "unsupported_count": unsupported_count,
                     "error_count": evaluation_error_count + delivery_errors[resource_ref],
                     "error_codes": sorted(error_codes_by_resource[resource_ref]),
-                    "publication_counts": _publication_counts(
+                    "publication_counts": normalize_publication_counts(
                         publication_by_resource[resource_ref]
                     ),
                 }
             )
 
         try:
-            by_resource_type = _coverage_by_resource_type(
+            by_resource_type = coverage_by_resource_type(
                 self.target_resolution.resource_types,
                 resources,
             )
         except ValueError:
             return _unavailable_coverage("resource_type_totals_unreconciled")
-        publication_counts = _publication_counts(
+        publication_counts = normalize_publication_counts(
             Counter(receipt.publication.value for receipt in self.analyzer.receipts)
         )
         evaluated_count = sum(
@@ -350,88 +346,6 @@ def _unavailable_coverage(reason: str) -> dict[str, object]:
     }
 
 
-def _publication_counts(counts: Mapping[str, int]) -> dict[str, int]:
-    return {state: counts.get(state, 0) for state in _PUBLICATION_STATES}
-
-
-def _coverage_by_resource_type(
-    resolutions: tuple[AnalyzerResourceTypeResolution, ...],
-    resources: list[dict[str, object]],
-) -> list[dict[str, object]]:
-    rows: dict[str, dict[str, object]] = {
-        resolution.resource_type: {
-            "resource_type": resolution.resource_type,
-            "candidate_count": resolution.candidate_count,
-            "selected_count": resolution.selected_count,
-            "evaluated_count": 0,
-            "held_count": resolution.held_count,
-            "held_reason_counts": dict(resolution.held_reason_counts),
-            "finding_count": 0,
-            "unsupported_count": 0,
-            "error_count": 0,
-            "error_codes": [],
-            "publication_counts": _publication_counts({}),
-        }
-        for resolution in resolutions
-    }
-    observed_selected: Counter[str] = Counter()
-    for resource in resources:
-        resource_type = resource.get("resource_type")
-        evaluation_state = resource.get("evaluation_state")
-        finding_count = resource.get("finding_count")
-        unsupported_count = resource.get("unsupported_count")
-        error_count = resource.get("error_count")
-        error_codes = resource.get("error_codes")
-        publication_counts = resource.get("publication_counts")
-        if (
-            not isinstance(resource_type, str)
-            or resource_type not in rows
-            or not isinstance(evaluation_state, str)
-            or not isinstance(finding_count, int)
-            or not isinstance(unsupported_count, int)
-            or not isinstance(error_count, int)
-            or not isinstance(error_codes, list)
-            or any(not isinstance(code, str) for code in error_codes)
-            or not isinstance(publication_counts, Mapping)
-        ):
-            raise ValueError("analyzer coverage resource row is malformed")
-        row = rows[resource_type]
-        observed_selected[resource_type] += 1
-        if evaluation_state in {"evaluated_no_finding", "finding"}:
-            _increment_coverage_count(row, "evaluated_count", 1)
-        _increment_coverage_count(row, "finding_count", finding_count)
-        _increment_coverage_count(row, "unsupported_count", unsupported_count)
-        _increment_coverage_count(row, "error_count", error_count)
-        row_error_codes = row["error_codes"]
-        if not isinstance(row_error_codes, list):
-            raise ValueError("analyzer coverage error codes are malformed")
-        row["error_codes"] = sorted(set(row_error_codes) | set(error_codes))
-        row_publications = row["publication_counts"]
-        if not isinstance(row_publications, dict):
-            raise ValueError("analyzer coverage publication counts are malformed")
-        for state in _PUBLICATION_STATES:
-            value = publication_counts.get(state)
-            current = row_publications.get(state)
-            if not isinstance(value, int) or not isinstance(current, int):
-                raise ValueError("analyzer coverage publication count is malformed")
-            row_publications[state] = current + value
-    for resolution in resolutions:
-        if observed_selected[resolution.resource_type] != resolution.selected_count:
-            raise ValueError("analyzer coverage selected totals MUST reconcile")
-    return [rows[resource_type] for resource_type in sorted(rows)]
-
-
-def _increment_coverage_count(
-    row: dict[str, object],
-    key: str,
-    increment: int,
-) -> None:
-    current = row.get(key)
-    if not isinstance(current, int):
-        raise ValueError("analyzer coverage count is malformed")
-    row[key] = current + increment
-
-
 async def run_once() -> AnalyzerJobReport:
     """Compose the tick from the environment and run one analyzer pass."""
     configured = parse_targets(os.environ.get(TARGETS_ENV, ""))
@@ -446,9 +360,6 @@ async def run_once() -> AnalyzerJobReport:
 
     inventory = build_inventory_sources()
     availability_resources = await read_availability_target_policy()
-    telemetry_holds = discovered_telemetry_holds(
-        monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID")
-    )
     decision_evidence = build_decision_evidence_admission_provider()
     try:
         resolution = await resolve_analyzer_targets(
@@ -458,7 +369,9 @@ async def run_once() -> AnalyzerJobReport:
             max_discovered=max_discovered,
             decision_evidence=decision_evidence,
             provider_references=(inventory.provider_references if inventory is not None else None),
-            discovered_hold_reasons=telemetry_holds,
+            discovered_hold_reasons=discovered_telemetry_holds(
+                monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID")
+            ),
             availability_resources=availability_resources,
         )
     finally:
@@ -467,20 +380,6 @@ async def run_once() -> AnalyzerJobReport:
             await close()
     _LOGGER.info("analyzer_tick_targets_resolved", extra=resolution.to_dict())
     targets = resolution.targets
-    metric_target_refs = frozenset(
-        target.resource_ref
-        for target in targets
-        if target.resource_type not in telemetry_holds
-        or any(
-            target.resource_kind == pinned.resource_kind
-            and pinned.resource_ref.casefold()
-            in {
-                target.resource_ref.casefold(),
-                (target.provider_query_ref or "").casefold(),
-            }
-            for pinned in configured
-        )
-    )
     if not targets and not trace_topologies:
         _LOGGER.info("analyzer_tick_no_targets")
         report = AnalyzerJobReport(
@@ -495,12 +394,9 @@ async def run_once() -> AnalyzerJobReport:
         raise RuntimeError("KAFKA_BOOTSTRAP_SERVERS is required")
     topic = resolve_finding_topic(os.environ)
 
-    async with (
-        AsyncExitStack() as observer_stack,
-        httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
-        ) as http_client,
-    ):
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
+    ) as http_client:
         venue = resolve_execution_venue()
         identity = _build_identity(http_client, venue=venue)
         container = attach_metric_provider(
@@ -526,54 +422,28 @@ async def run_once() -> AnalyzerJobReport:
                 receipt_store = build_receipt_store()
                 lifecycle_recorder = build_lifecycle_recorder()
                 try:
-                    pod_binding = await build_production_pod_analyzer(
-                        stack=observer_stack,
-                        identity=identity,
-                        dsn=os.environ.get(INVENTORY_DSN_ENV, ""),
-                        environ=os.environ,
-                    )
-                    availability = await build_resource_availability_analyzers(
-                        settings=RuntimeSettingsService(
-                            store=receipt_store.state_store,
-                            env=os.environ,
-                            durable=True,
-                        ),
-                        inventory=inventory.provider_references if inventory is not None else None,
-                        inventory_generation=resolution.inventory_generation,
+                    async with build_production_coordinator(
+                        container.metric_provider,
                         targets=targets,
-                        state_store=receipt_store.state_store,
-                    )
-                    for detector, reason in (
-                        ("kubernetes_pod", pod_binding.unavailable_reason),
-                        ("resource_availability", availability.unavailable_reason),
-                    ):
-                        if reason:
-                            _LOGGER.info(
-                                "analyzer_binding_unavailable",
-                                extra={
-                                    "detector": detector,
-                                    "reason": reason,
-                                },
-                            )
-                    analyzer_report = await AnalyzerTickRunner(
-                        coordinator=build_analyzer_coordinator(
-                            container.metric_provider,
-                            targets=targets,
-                            metric_target_refs=metric_target_refs,
-                            pod_analyzer=pod_binding.analyzer,
-                            additional_analyzers=tuple(availability.analyzers),
-                            state_store=receipt_store.state_store,
-                        ),
-                        event_bus=bus,
-                        publication_ledger=build_publication_ledger(),
-                        publication_reconciler=build_publication_reconciler(
-                            bootstrap_servers, venue, identity
-                        ),
+                        configured=configured,
+                        monitor_workspace_id=_optional("FDAI_MONITOR_WORKSPACE_ID"),
+                        inventory=inventory,
+                        inventory_generation=resolution.inventory_generation,
                         receipt_store=receipt_store,
-                        window_seconds=window_seconds,
-                        publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
-                        topic=topic,
-                    ).run_once(targets)
+                        identity=identity,
+                    ) as coordinator:
+                        analyzer_report = await AnalyzerTickRunner(
+                            coordinator=coordinator,
+                            event_bus=bus,
+                            publication_ledger=build_publication_ledger(),
+                            publication_reconciler=build_publication_reconciler(
+                                bootstrap_servers, venue, identity
+                            ),
+                            receipt_store=receipt_store,
+                            window_seconds=window_seconds,
+                            publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
+                            topic=topic,
+                        ).run_once(targets)
                     await lifecycle_recorder.record_report(
                         analyzer_report,
                         at=datetime.now(tz=UTC),
@@ -828,7 +698,7 @@ __all__ = [
     "TRACE_WINDOW_ENV",
     "WINDOW_ENV",
     "AnalyzerJobReport",
-    "build_analyzer_coordinator",
+    "build_production_coordinator",
     "build_decision_evidence_admission_provider",
     "build_inventory_sources",
     "build_lifecycle_recorder",

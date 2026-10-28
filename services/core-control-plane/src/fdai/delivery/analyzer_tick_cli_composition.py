@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fdai_service_contracts.resource_availability_settings import (
     RESOURCE_AVAILABILITY_SETTING_KEY,
@@ -21,6 +22,7 @@ from fdai.delivery.analyzer_inventory import (
 from fdai.delivery.analyzer_metric_provider import AnalyzerMetricProvider
 from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
 from fdai.delivery.analyzer_recovery import RecoveryAwareAnalyzer
+from fdai.delivery.analyzer_telemetry_admission import discovered_telemetry_holds
 from fdai.delivery.analyzer_tick import AnalyzerTarget
 from fdai.delivery.analyzer_tick_cli_config import INVENTORY_DSN_ENV, STATE_STORE_DSN_ENV
 from fdai.delivery.azure.analyzer_publication_reconciler import (
@@ -40,6 +42,8 @@ from fdai.delivery.persistence.postgres_idempotency import PostgresIdempotencySt
 from fdai.delivery.pod_evidence_binding import (
     build_pod_analyzer,
 )
+from fdai.delivery.pod_runtime_binding import build_production_pod_analyzer
+from fdai.delivery.resource_availability_binding import build_resource_availability_analyzers
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime.venue import ExecutionVenue, bus_security_protocol, uses_workload_identity
 from fdai.shared.providers.metric import MetricProvider
@@ -240,10 +244,71 @@ def build_analyzer_coordinator(
     )
 
 
+@asynccontextmanager
+async def build_production_coordinator(
+    metric_provider: MetricProvider,
+    *,
+    targets: tuple[AnalyzerTarget, ...],
+    configured: Sequence[AnalyzerTarget],
+    monitor_workspace_id: str | None,
+    inventory: AnalyzerInventorySources | None,
+    inventory_generation: str | None,
+    receipt_store: StateStoreAnalyzerReceiptStore,
+    identity: WorkloadIdentity,
+) -> AsyncIterator[InvestigationCoordinator]:
+    """Bind metric, Pod and availability detectors to their authoritative sources.
+
+    A metric detector is held for a discovered resource whose telemetry source is unbound,
+    while explicitly pinned targets and the independent availability detector still run.
+    """
+    telemetry_holds = discovered_telemetry_holds(monitor_workspace_id=monitor_workspace_id)
+    pinned = {(item.resource_kind, item.resource_ref.casefold()) for item in configured}
+    metric_target_refs = frozenset(
+        target.resource_ref
+        for target in targets
+        if target.resource_type not in telemetry_holds
+        or (target.resource_kind, target.resource_ref.casefold()) in pinned
+        or (target.resource_kind, (target.provider_query_ref or "").casefold()) in pinned
+    )
+    async with AsyncExitStack() as observer_stack:
+        pod_binding = await build_production_pod_analyzer(
+            stack=observer_stack,
+            identity=identity,
+            dsn=os.environ.get(INVENTORY_DSN_ENV, ""),
+            environ=os.environ,
+        )
+        availability = await build_resource_availability_analyzers(
+            settings=RuntimeSettingsService(
+                store=receipt_store.state_store, env=os.environ, durable=True
+            ),
+            inventory=inventory.provider_references if inventory is not None else None,
+            inventory_generation=inventory_generation,
+            targets=targets,
+            state_store=receipt_store.state_store,
+        )
+        for detector, reason in (
+            ("kubernetes_pod", pod_binding.unavailable_reason),
+            ("resource_availability", availability.unavailable_reason),
+        ):
+            if reason:
+                _LOGGER.info(
+                    "analyzer_binding_unavailable", extra={"detector": detector, "reason": reason}
+                )
+        yield build_analyzer_coordinator(
+            metric_provider,
+            targets=targets,
+            metric_target_refs=metric_target_refs,
+            pod_analyzer=pod_binding.analyzer,
+            additional_analyzers=tuple(availability.analyzers),
+            state_store=receipt_store.state_store,
+        )
+
+
 __all__ = [
     "build_analyzer_coordinator",
     "build_decision_evidence_admission_provider",
     "build_inventory_sources",
+    "build_production_coordinator",
     "build_lifecycle_recorder",
     "build_publication_ledger",
     "build_publication_reconciler",
