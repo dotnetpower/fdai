@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: ae57f19c83064bed2b35fd0747492e5928f75788
-translation_revised: 2026-10-28
+translation_source_sha: f31bbdfb2061c64e849f868e2b83d824e987f89b
+translation_revised: 2026-10-29
 ---
 
 # Operator Console - 데이터 and Wire Contracts
