@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: b302f0a43d3cc1415200844a553ab0eeb765acc0
+translation_source_sha: 01eb5b46f28150dfebc4eaf742c5f197ffc3dc53
 translation_revised: 2026-10-28
 ---
 # 온톨로지 추론 컴파일러
@@ -616,6 +616,10 @@ V-SEM은 그 함수의 상태 개념을 바인딩된 상태와 대조합니다. 
    경로를 실행하지 않습니다.
 3. 그렇지 않으면 형식 경로의 태그된 결정이 형식화된 결과로 턴을 끝냅니다. 이 턴은 기존 프레임·계획
    단계, 그 키워드 신호, 밝힌 값 대조, 복구 경로, 프레임 모델에 도달하지 않습니다.
+
+`action_posture`가 `draft_only`인 수락된 판단은 인시던트 생성 요청처럼 조회가 아닙니다. 이 판단은 형식
+경로의 답변과 위의 형식화된 결과를 건너뛰고, 권한 없는 작업 초안과 그 확인을 만드는 프레임 단계로
+이어집니다.
 
 | 결정 | 플래너 결과 | 의미 |
 |------|-------------|------|
