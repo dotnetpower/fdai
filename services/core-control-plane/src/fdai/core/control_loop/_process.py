@@ -16,6 +16,7 @@ from fdai.core.control_loop._execution_outcomes import (
 from fdai.core.control_loop._execution_outcomes import (
     is_execution_success as _is_execution_success,
 )
+from fdai.core.control_loop._growth_context import record_growth_context
 from fdai.core.control_loop._helpers import (
     _extract_resource_id,
     _extract_resource_props,
@@ -468,6 +469,9 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
                 _synthetic_action_build_failure(event=event, finding=finding, reason=str(exc))
             )
             continue
+        await record_growth_context(
+            host._audit_store, event=event, action=action, rule=rule, incident_id=incident_id
+        )
 
         if cs_decision is not None and cs_decision.attribution is ChangeAttribution.OUT_OF_BAND:
             evidence_decision = await evaluate_change_safety_pre_authority(
