@@ -117,7 +117,7 @@ The task-backed `console: start full stack` supervisor additionally starts Manua
 
 The process launcher sets `FDAI_EXECUTION_VENUE=local` independently from `RUNTIME_ENV`. Local
 state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning service role, and local event
-transport uses Redpanda on `127.0.0.1:19092`. Console preparation checks a 1 GiB development
+transport uses Redpanda on `127.0.0.1:19092`. Console preparation checks a 2 GiB development
 database bound by default. Exceeding `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES` blocks preparation
 with an actionable message and preserves the existing database and broker. An ordinary start
 or restart never authorizes deletion.
