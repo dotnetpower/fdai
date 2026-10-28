@@ -699,3 +699,45 @@ def test_failure_detail_shows_the_error_not_the_successful_lines() -> None:
     with pytest.raises(ValueError, match="conflict on .spec.suspend") as caught:
         _checked(KubeResult(1, output), "apply failed")
     assert "serviceaccount" not in str(caught.value)
+
+
+@pytest.mark.parametrize(("verb", "calls", "ok"), [("get", 2, True), ("apply", 1, False)])
+def test_run_command_retries_an_unparseable_read_once_and_never_a_write(verb, calls, ok) -> None:
+    seen = []
+
+    def flaky(vector, **kwargs):
+        seen.append(vector)
+        if len(seen) == 1:
+            return subprocess.CompletedProcess(vector, 1, "", "deserialization warning")
+        return subprocess.CompletedProcess(vector, 0, json.dumps({"exitCode": 0, "logs": "x"}), "")
+
+    transport = AksRunCommandTransport(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        resource_group="rg-example",
+        cluster_name="aks-example",
+        run=flaky,
+    )
+    if ok:
+        assert transport.run([verb, "namespace", "x"], manifest=None, timeout=5).output == "x"
+    else:
+        with pytest.raises(ValueError, match="unavailable"):
+            transport.run([verb, "--filename", "@manifest"], manifest=b"{}", timeout=5)
+    assert len(seen) == calls
+
+
+def test_run_command_does_not_retry_a_timeout() -> None:
+    seen = []
+
+    def slow(vector, **kwargs):
+        seen.append(vector)
+        raise subprocess.TimeoutExpired(vector, 5)
+
+    transport = AksRunCommandTransport(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        resource_group="rg-example",
+        cluster_name="aks-example",
+        run=slow,
+    )
+    with pytest.raises(ValueError, match="outcome is unknown"):
+        transport.run(["get", "namespace", "x"], manifest=None, timeout=5)
+    assert len(seen) == 1
