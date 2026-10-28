@@ -123,8 +123,7 @@ Execution authorization resolves through the provider-neutral capability ontolog
 policy assignments described in
 [Execution Authorization Ontology](../decisioning/execution-authorization-ontology.md). Action
 approval never grants executor access. A missing permission holds the original action and may
-create a separate exact-plan `AccessGrantRequest`; a distinct protected deployer applies an
-approved grant, and fresh effective-access evidence is required before the action is re-evaluated.
+create a separate exact-plan `AccessGrantRequest`; a distinct protected deployer applies an approved grant, and fresh effective-access evidence is required before the action is re-evaluated.
 
 - Map every action to the minimum role/permission needed; **deny by default**.
 - Enforce least privilege mechanically, not by convention: the action whitelist is
