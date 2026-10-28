@@ -515,6 +515,16 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
             t1_decision=t1,
         )
 
+    async def _skip_t2(self, event_id: str, correlation_id: str, skip_reason: str) -> None:
+        # No "tier" key: a tier on a done verify stage would count as a T2 decision in Live.
+        await self._emit_stage(
+            event_id=event_id,
+            correlation_id=correlation_id,
+            stage=StageName.VERIFY,
+            phase=StagePhase.DONE,
+            detail={"t2_skipped": True, "t2_skip_reason": skip_reason},
+        )
+
     async def _consult_t2(
         self,
         *,
@@ -535,7 +545,7 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
             if isinstance(candidate_ref, str) and candidate_ref:
                 target_ref = candidate_ref
         if not target_ref or not decision.resource_type:
-            return None
+            return await self._skip_t2(event_id, correlation_id, "t2_missing_target_ref")
         allowed_rules = tuple(
             rule
             for rule_id in decision.candidate_rule_ids
@@ -543,7 +553,7 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
             and rule.resource_type == decision.resource_type
         )
         if not allowed_rules:
-            return None
+            return await self._skip_t2(event_id, correlation_id, "t2_no_candidate_rules")
         context = T2ProposalContext(
             event=event,
             target_resource_ref=target_ref,
