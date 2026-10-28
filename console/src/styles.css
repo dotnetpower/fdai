@@ -6535,6 +6535,8 @@ dl.analytics-evidence > div { display: flex; gap: 6px; align-items: baseline; }
 .incident-status-dot.status-resolved { background: var(--cs-sage); }
 .incident-roster-updated { color: var(--fg-muted); font-size: 10px; overflow-wrap: anywhere; }
 .incidents-roster-empty { margin: 0; padding: 20px 14px; color: var(--fg-muted); font-size: 12px; }
+.incidents-roster-empty p { margin: 0 0 8px; line-height: 1.5; }
+.incidents-roster-empty-links { display: flex; gap: 12px; flex-wrap: wrap; }
 .incidents-roster-foot { display: grid; gap: 8px; padding: 10px 13px; border-top: 1px solid var(--border); }
 .incidents-roster-foot .primary { justify-self: stretch; }
 .incident-selection { min-width: 0; }
