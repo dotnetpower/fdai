@@ -587,8 +587,8 @@ compilation. Otherwise, the only change is what happens after the form path:
    recoveries, or the frame model.
 
 An accepted judgment whose `action_posture` is `draft_only`, such as an Incident creation request,
-is not a read. It skips the form path's answer and the typed outcome above, and continues to the
-frame stage that produces the no-authority action draft and its confirmation.
+or any accepted turn bound to an Incident is not an unbound read, because the form path never starts
+for it. Such a turn skips the typed outcome above and continues to the frame stage.
 
 | Decision | Planner outcome | Meaning |
 |----------|-----------------|---------|
