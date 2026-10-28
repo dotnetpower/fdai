@@ -1,8 +1,8 @@
 {
   "id": "fdai-azure-aks-deployment",
   "kind": "deployment",
-  "version": 1,
-  "updated": "2026-09-16",
+  "version": 2,
+  "updated": "2026-10-28",
   "locales": {
     "en": {
       "title": "FDAI on Azure Kubernetes Service",
@@ -351,6 +351,16 @@
       "to": "storage",
       "kind": "request",
       "label": null
+    },
+    {
+      "id": "workload-dependencies",
+      "from": "fdai-workloads",
+      "to": "shared-platform",
+      "kind": "approval",
+      "label": {
+        "en": "Identity, secrets, images, and models",
+        "ko": "ID, 비밀, 이미지 및 모델"
+      }
     },
     {
       "id": "approved-effects",

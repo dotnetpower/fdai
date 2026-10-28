@@ -7,6 +7,9 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 
 from fdai_service_contracts import DocumentOcrPolicy, ModelBindingPolicy
+from fdai_service_contracts.resource_availability_settings import (
+    validate_resource_availability_setting,
+)
 from pydantic import ValidationError
 
 from fdai_operator_service.families.iam.contracts import (
@@ -160,6 +163,10 @@ def validate_runtime_setting_value(setting: Mapping[str, object], value: object)
     value_type = setting.get("value_type")
     if not isinstance(key, str):
         raise IamUnavailableError("runtime setting key is malformed")
+    if value_type == "object":
+        if key != "detection.resource_availability":
+            raise IamUnavailableError("unregistered structured runtime setting")
+        return validate_resource_availability_setting(value)
     if value_type == "boolean":
         if not isinstance(value, bool):
             raise ValueError(f"{key} MUST be a boolean")

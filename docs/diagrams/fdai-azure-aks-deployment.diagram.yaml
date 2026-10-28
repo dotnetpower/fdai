@@ -1,8 +1,8 @@
 id: fdai-azure-aks-deployment
-version: 1
+version: 2
 kind: deployment
 formats: [svg]
-updated: 2026-09-16
+updated: 2026-10-28
 locales:
   en:
     title: FDAI on Azure Kubernetes Service
@@ -25,7 +25,7 @@ groups:
     presentation: panel
     layout: row
     gap: 64
-    label: { en: Access to runtime to Azure services, ko: 접근 경로에서 런타임과 Azure 서비스로 }
+    label: { en: "Access, runtime, and Azure services", ko: "접근, 런타임 및 Azure 서비스" }
   - id: browser-access
     parent: deployment-flow
     kind: layer
@@ -59,21 +59,21 @@ groups:
     presentation: band
     layout: column
     gap: 24
-    label: { en: APIs and scheduled work, ko: API 및 예약 작업 }
+    label: { en: APIs and jobs, ko: API 및 작업 }
   - id: api-services
     parent: api-and-jobs
     kind: layer
     presentation: band
     layout: column
     gap: 36
-    label: { en: Authenticated APIs, ko: 인증된 API }
+    label: { en: HTTP APIs, ko: 인증된 API }
   - id: event-consumers
     parent: fdai-workloads
     kind: layer
     presentation: band
     layout: column
     gap: 36
-    label: { en: Event consumers, ko: 이벤트 소비자 }
+    label: { en: Consumers, ko: 이벤트 소비자 }
   - id: azure-services
     parent: deployment-flow
     kind: layer
@@ -87,7 +87,7 @@ groups:
     presentation: panel
     layout: column
     gap: 36
-    label: { en: Shared data services, ko: 공유 데이터 서비스 }
+    label: { en: Data services, ko: 공유 데이터 서비스 }
   - id: shared-platform
     kind: layer
     presentation: panel
@@ -298,6 +298,12 @@ edges:
     to: storage
     kind: request
     route: orthogonal-horizontal
+  - id: workload-dependencies
+    from: fdai-workloads
+    to: shared-platform
+    kind: approval
+    label: { en: "Identity, secrets, images, and models", ko: "ID, 비밀, 이미지 및 모델" }
+    route: orthogonal
   - id: approved-effects
     from: executor
     to: targets

@@ -11,6 +11,8 @@ from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
 
 ANALYZER_METRICS_BY_RESOURCE_TYPE: Mapping[str, frozenset[str]] = MappingProxyType(
     {
+        "compute.vm": frozenset({"host.cpu.percent"}),
+        "compute.vm-scale-set": frozenset({"host.vmss.cpu.percent"}),
         "api-gateway": frozenset({"backend_latency_ms", "http_5xx_rate"}),
         "kubernetes-cluster": frozenset(
             {"node_cpu_percent", "pod_restart_count", "rollout_stall_duration_seconds"}

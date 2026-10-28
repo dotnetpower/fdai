@@ -205,7 +205,9 @@ def azure_metrics_api_queries() -> Mapping[str, MetricsApiTemplate]:
     observed consumption, not a capacity-to-TPM conversion. Templates request
     aggregate series, never an unbounded dimension split.
     """
-    return _QUERIES
+    from fdai.delivery.azure.host_cpu_queries import vmss_cpu_metric_templates
+
+    return MappingProxyType({**_QUERIES, **vmss_cpu_metric_templates()})
 
 
 __all__ = [

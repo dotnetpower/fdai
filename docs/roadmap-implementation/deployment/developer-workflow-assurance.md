@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Production analyzer observation composition | implemented | `analyzer_tick_cli.py`, `analyzer_tick_cli_composition.py`; Operator source registry; focused target, Pod, policy and routed-tick tests | Local and deployed entry points share production evidence bindings. Inventory reader and state writer credentials remain separate; no service restart or live model validation is implied. |
 | Explicit lifecycle example-server tasks | implemented | #2402; `.vscode/tasks.json`; `test_workspace_exposes_explicit_local_lifecycle_previews` | Both tasks are opt-in, permit one instance, and match their own loopback readiness URL. They neither initialize keys nor change developer diagnostic or execution authority. |
 | Bounded diagnostic output | implemented | `start-console-services.sh`; `shared/telemetry/logging.py`; 143 focused logging/rotation/supervisor tests | Supervisor lifecycle/readiness and startup failures remain visible without duplicating high-volume child stdout. Service rings and shared warning byte retention do not replace operational audit evidence. No live process restart is claimed. |
 | Image-scan dependency remediation | implemented | Root and service dependency manifests; shared `uv.lock`; 59 service image/distribution/wheelhouse checks | CI-discovered fixed versions are package maintenance. They grant no validation authority and use no vulnerability ignore. |
@@ -43,6 +44,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-28 | implemented | Connected production Pod and availability observation factories plus current-Finding source registration to the existing analyzer entry point without changing the developer diagnostic channel. | `current change`; focused analyzer target, production Pod composition, Runtime Settings, routed-tick and Operator tests passed; Python strict mypy and Ruff passed. | The running stack was not restarted. Live resource mutation, Pod deletion, load injection, deployment and operational latency validation require their own authorized scope. |
 | 2026-10-23 | implemented | Raised the OpenTelemetry runtime floor to the first release fixing the CI image-scan finding and added a manifest-plus-lock regression. | `current change`; `opentelemetry-api`, SDK and OTLP exporter `1.45.1`; focused telemetry and service-distribution checks. | Exact-head container image scanning remains the integration authority. |
 | 2026-10-22 | implemented | Added local Hub and Release Hub preview tasks and regression coverage for exact commands, private state bindings, singleton limits, and loopback readiness. | #2402; `current change`; focused profile and workspace task-contract tests. | No live process, Console restart, or deployment evidence is claimed. |
 | 2026-10-22 | implemented | Pinned `OPA_KLAUSPOST_COMPRESS_VERSION=v1.18.7` in the Core, Cost Governance, and SREGym OPA builder stages and removed the CVE-2026-63209 exemption from `.trivyignore.yaml` (#2383). Normalized the exact `klauspost/compress` security override lines in `check-rule-revision-identities.py` so all 52 Rule revisions remain unchanged. | `current change` for #2383; `go version -m /go/bin/opa` verified `github.com/klauspost/compress v1.18.7` inside the pinned Go 1.27.3 builder; `check-rule-revision-identities.py --base-ref origin/main` reports 52 current, 52 retained; 22 focused tests pass. | Retain green Core and Cost Governance `pr-build-scan` jobs on the pushed head. |
@@ -168,6 +170,9 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-10-22 | implemented | Raised the OpenTelemetry package family to the first image-scan-fixed release after exact-head CI identified `CVE-2026-114603` in the Core and Cost Governance images. | `current change`; root and Core manifests; `uv.lock`; service-distribution fixed-floor regression; focused telemetry checks. | Rebuild and scan the corrected exact PR head in required CI. |
 
 ### Remaining work
+
+- [x] Use production evidence factories and isolated service credentials for current-Finding
+  detection in the existing analyzer command; covered by the focused 2026-10-28 composition tests.
 
 - [x] Separate synthetic connector mechanics from the anonymous public-provider probe on reader
   commit `aa246b1f5398`; retain only shape results and make no installed-runtime or model claim.

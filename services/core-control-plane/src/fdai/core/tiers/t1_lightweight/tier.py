@@ -329,7 +329,7 @@ class T1Tier:
     async def _retrieve(
         self, *, event: Event
     ) -> tuple[T1Decision | None, tuple[SimilarityMatch, ...]]:
-        query_text = _event_text(event)
+        query_text = event_embedding_projection(event)
         try:
             vector = await self._embed.embed(query_text)
             matches = await self._library.search(vector, k=_RETRIEVAL_LIMIT)
@@ -617,8 +617,10 @@ def _learned_action_reasons(action: LearnedAction) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def _event_text(event: Event) -> str:
+def event_embedding_projection(event: Event) -> str:
     """Deterministic text projection of an event for embedding.
+
+    Retrieval and pattern growth MUST embed this same projection, so both live in one vector space.
 
     Includes only fields the pattern library can reasonably look up
     against; the resource props subset is intentional to keep vectors
@@ -637,6 +639,9 @@ def _event_text(event: Event) -> str:
             keys = sorted(str(k) for k in props.keys())
             props_summary = ",".join(keys)
     return f"event_type={event.event_type};resource_type={resource_type};props={props_summary}"
+
+
+_event_text = event_embedding_projection
 
 
 def cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
@@ -667,4 +672,5 @@ __all__ = [
     "T1Outcome",
     "T1Tier",
     "cosine_similarity",
+    "event_embedding_projection",
 ]
