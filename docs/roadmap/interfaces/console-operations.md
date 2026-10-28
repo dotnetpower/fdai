@@ -100,7 +100,7 @@ Operations reuses existing objects and links:
 | Operational concern | Authoritative objects and links | Console behavior |
 |---------------------|---------------------------------|------------------|
 | Governed review | `Process -> runs_review -> ReviewCase -> resolved_by -> Decision` | Shows review state, prior decisions, evidence, and the next accountable owner. |
-| Human approval | `ReviewCase -> has_approval -> Approval` and action-bound approvals | Shows quorum, no-self-approval state, deadline, and evidence. |
+| Human approval | `ReviewCase -> has_approval -> Approval` and action-bound approvals | Shows quorum, no-self-approval state, deadline, and evidence. The decision reason is optional, and an expired, already-decided, or failed decision gets an explanatory message instead of a raw status. |
 | Workflow run | `WorkflowDefinition`, `WorkflowBinding`, and `Process` | Shows immutable definition, current step, revision, target, and compensation state. |
 | Access change | `AccessGrantRequest` | Streams eligible pending requests and shows the immutable authorization lifecycle without applying access. |
 | Execution follow-up | `ActionRun`, rollback, and audit references | Shows outcome and recovery state without an execute-again shortcut. |

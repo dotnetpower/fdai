@@ -365,7 +365,7 @@ The PostgreSQL evidence provider follows these boundaries:
   production profile is the only production exception: one named operator may approve, and the
   audit records the original quorum with an effective quorum of one
   ([Operator Governance Profiles](../decisioning/operator-governance-profiles.md)). Canonical subject identity blocks spelling, case, or surrounding-space variants from becoming a second approver. Core implements this rule; runtime approval paths don't pass an active profile revision yet.
-- Human access-role requests keep independent review even with an optional reviewer note. The original justification, authenticated actors, decision, target, and time remain durable audit evidence; a requester cannot decide their own request.
+- Human access-role requests keep independent review even with an optional reviewer note. The original justification, authenticated actors, decision, target, and time remain durable audit evidence; a requester cannot decide their own request. A runtime approval or rejection needs no written reason: it is optional audit text up to 2000 characters, authority comes only from the verified identity and the exact bound request, and an absent reason is recorded as empty.
 - Approvers authenticate with MFA/phishing-resistant credentials; each approval is bound to a
   specific action + idempotency key so it **cannot be replayed** against a different action.
 - **Timeout is fail-closed**: an HIL item without current approval or a valid pre-existing standing

@@ -10,7 +10,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final
 
-from fdai_operator_service.families.iam.contracts import HilApprovalDecision
+from fdai_operator_service.families.iam.contracts import (
+    MAX_HIL_IDEMPOTENCY_KEY_CHARS,
+    HilApprovalDecision,
+)
 from fdai_operator_service.families.iam.hil_callback_authority import HilCallbackChannel
 from starlette.requests import Request
 
@@ -117,12 +120,12 @@ def authenticate_and_parse(
         raise CallbackError("callback channel MUST be teams or slack") from exc
     return CallbackBody(
         decision=decision,
-        justification=_text(parsed, "justification", maximum=1_000),
+        justification=_optional_text(parsed, "justification", maximum=1_000),
         channel=channel,
         provider_actor_id=_text(parsed, "provider_actor_id", maximum=200),
         audience=_text(parsed, "audience", maximum=512),
         correlation_id=_text(parsed, "correlation_id", maximum=256),
-        idempotency_key=_text(parsed, "idempotency_key", maximum=256),
+        idempotency_key=_text(parsed, "idempotency_key", maximum=MAX_HIL_IDEMPOTENCY_KEY_CHARS),
         action_hash=_text(parsed, "action_hash", maximum=256),
         signed_at=signed_at,
     )
@@ -193,6 +196,14 @@ def _text(value: Mapping[str, object], key: str, *, maximum: int) -> str:
     item = value.get(key)
     if not isinstance(item, str) or not item.strip() or len(item.strip()) > maximum:
         raise CallbackError(f"'{key}' MUST be bounded non-empty text")
+    return item.strip()
+
+
+def _optional_text(value: Mapping[str, object], key: str, *, maximum: int) -> str:
+    """Return a bounded text that MAY be blank, such as the optional decision reason."""
+    item = value.get(key)
+    if not isinstance(item, str) or len(item.strip()) > maximum:
+        raise CallbackError(f"'{key}' MUST be bounded text")
     return item.strip()
 
 
