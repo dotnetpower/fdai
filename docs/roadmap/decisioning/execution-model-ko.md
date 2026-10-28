@@ -1,7 +1,7 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: b13357336d9d94323b3276c2b95c5e51ba602111
+translation_source_sha: ec6eb848bdc9ff63a9947befde54a1c019c58587
 translation_revised: 2026-09-29
 ---
 
