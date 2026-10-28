@@ -212,8 +212,35 @@ async def test_growth_writer_uses_exact_configured_pattern_dsn(
     monkeypatch.setattr(measurement_runner_cli, "PostgresStateStore", lambda **_: store)
     monkeypatch.setattr(measurement_runner_cli, "PostgresShadowPatternWriter", Writer)
     monkeypatch.setattr(measurement_runner_cli, "PatternGrowthIntakeRunner", Runner)
+    steps: list[str] = []
+
+    class StatisticsWriter:
+        def __init__(self, *, config: Any) -> None:
+            writes.append(config.dsn)
+
+    class EvidenceSource:
+        def __init__(self, *, dsn: str) -> None:
+            assert dsn == state_dsn
+
+    class Producer:
+        def __init__(self, **kwargs: Any) -> None:
+            assert kwargs["state_store"] is store
+
+        async def publish_holdout_evidence(self) -> Any:
+            steps.append("holdout")
+            return SimpleNamespace(outcomes=0, envelopes_written=0, complete_envelopes=0)
+
+        async def apply_measured_statistics(self) -> Any:
+            steps.append("statistics")
+            return SimpleNamespace(patterns_updated=0)
+
+    monkeypatch.setattr(measurement_runner_cli, "PostgresPatternStatisticsWriter", StatisticsWriter)
+    monkeypatch.setattr(measurement_runner_cli, "PostgresPatternEvidenceSource", EvidenceSource)
+    monkeypatch.setattr(measurement_runner_cli, "PatternEvidenceProducer", Producer)
     assert await measurement_runner_cli._run_pattern_growth() == 0
-    assert writes == [pattern_dsn if configured else state_dsn]
+    expected = pattern_dsn if configured else state_dsn
+    assert writes == [expected, expected]
+    assert steps == ["holdout", "statistics"]
 
 
 def test_operational_promotion_missing_required_env_returns_three(
