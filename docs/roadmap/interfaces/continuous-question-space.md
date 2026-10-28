@@ -135,7 +135,8 @@ second model-dependent frame or plan decision without introducing a phrase or ke
 The Azure and incident intent contract includes English and Korean original-plus-three cohorts for
 targetless review-only incident mitigation requirements. Every case requires `action_requirements`,
 a source-grounded `Incident` type, `advise_only`, no incident identity, and no authority. The
-separate targetless draft control remains a typed incident-identity clarification.
+separate targetless draft control remains a typed incident-identity clarification. In a typed-only
+profile, an accepted `draft_only` judgment is not a read, so the read form path never answers or ends it.
 
 Unsupported slices are `not_scored`; an empty denominator never becomes 100%. Promotion requires
 scored support for every required topic, locale, discourse mode, evidence posture, action posture,

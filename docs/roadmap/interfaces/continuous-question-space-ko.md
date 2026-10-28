@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 8ff9e8c7df7ff0d1ae6bafd8a13ae060f9067451
-translation_revised: 2026-10-26
+translation_source_sha: bf309fb3b600c80a3042d265e2ca7f3dcc4aac94
+translation_revised: 2026-10-28
 ---
 # 지속형 질문 공간
 
@@ -139,7 +139,8 @@ Core는 정확한 매니페스트 개수, 선언 상세 정보 또는 단일 Obj
 Azure 및 인시던트 의도 계약에는 대상 없는 검토 전용 장애 완화 요구사항의 영어와 한국어 원문 및
 유사 질문 3개씩이 포함됩니다. 모든 사례는 `action_requirements`, 원문에 근거한 `Incident` 유형,
 `advise_only`, 장애 신원 없음, 권한 없음을 요구합니다. 별도의 대상 없는 초안 대조 사례는 형식화된
-장애 신원 명확화로 유지됩니다.
+장애 신원 명확화로 유지됩니다. `typed_only` 프로필에서 수락된 `draft_only` 판단은 읽기가 아니므로
+읽기 형식 경로가 이를 답하거나 종료하지 않습니다.
 
 지원되지 않는 구간은 `not_scored`이며 빈 분모를 100%로 만들지 않습니다. 승격하려면 필요한
 모든 주제, 로캘, 담화 모드, 근거 상태, 작업 자세, 표현 시나리오에 채점 사례가 있어야 합니다.
