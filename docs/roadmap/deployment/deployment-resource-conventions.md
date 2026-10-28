@@ -380,6 +380,10 @@ role assignment, or deployment-runner label. Internet access uses an outbound-on
 Keep Terraform variables and the explicit local-backend state path outside source control.
 Supply observed policy-owned IP tags instead of replacing an address to remove them.
 
+The subnet-level network security group (NSG) remains authoritative, and VM creation waits
+for its association. A NIC-scoped Trivy `AZU-0068` annotation records the scanner limitation;
+regression tests retain the subnet binding and creation dependency instead of opening inbound access.
+
 The OS disk uses Premium SSD. Local temporary SSD storage holds disposable workspaces and caches;
 the runner refuses to start if that mount is missing. Enrollment uses a short-lived token passed
 through Azure protected environment parameters, not Terraform or command-line values.
