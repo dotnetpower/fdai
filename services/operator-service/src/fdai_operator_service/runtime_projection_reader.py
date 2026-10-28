@@ -52,6 +52,7 @@ from fdai_operator_service.families.operations import (
     ProjectionReader,
     ProjectionUnavailableError,
 )
+from fdai_operator_service.finding_projection import read_findings
 from fdai_operator_service.investigation_projection import (
     project_adaptive_investigation,
 )
@@ -111,6 +112,8 @@ class RuntimeProjectionReader:
             return await self._skills()
         if query.operation == "detection.readiness":
             return await self._detection_readiness()
+        if query.operation == "finding.list":
+            return await read_findings(self._fetch_all, query)
         if query.operation == "configuration-baselines":
             return await self._configuration_baselines()
         if query.operation == "runtime.operational-state":

@@ -16,7 +16,6 @@ import {
 import { panelPath } from "../router";
 import { AccessGrantAttention } from "./access-grant-attention";
 import { IncidentAttention } from "./incident-attention";
-import { browserNotificationText } from "./i18n/browser-notifications";
 import { NavigationShell } from "./navigation-shell";
 import { NavigationTitleProvider } from "./navigation-title";
 import type { ConsoleDataMode } from "../console-data-mode";
@@ -28,9 +27,9 @@ const AccountMenu = lazy(async () => {
   return { default: module.AccountMenu };
 });
 
-const BrowserNotificationControl = lazy(async () => {
-  const module = await import("./browser-notification-control");
-  return { default: module.BrowserNotificationControl };
+const FindingNotifications = lazy(async () => {
+  const module = await import("./finding-notifications");
+  return { default: module.FindingNotifications };
 });
 
 interface ShellProps {
@@ -117,18 +116,19 @@ export function Shell({
             <button
               type="button"
               class="topbar-control browser-notification-control"
-              aria-label={browserNotificationText("enabling")}
+              aria-label={t("shared.loading")}
+              aria-busy="true"
               aria-pressed="false"
               disabled
             >
-              <span class="browser-notification-indicator" aria-hidden="true" />
-              <span class="topbar-control-label">{browserNotificationText("label")}</span>
+              <span class="browser-notification-indicator skeleton-shimmer" aria-hidden="true" />
+              <span class="topbar-control-label">{t("shared.loading")}</span>
               <span class="browser-notification-state" role="status" aria-live="polite">
-                {browserNotificationText("stateEnabling")}
+                ...
               </span>
             </button>
           )}>
-            <BrowserNotificationControl
+            <FindingNotifications
               client={client}
               principalId={auth.account?.homeAccountId ?? null}
             />

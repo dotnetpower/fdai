@@ -1,5 +1,5 @@
-export type RuntimeSettingValue = boolean | number | string;
-export type RuntimeSettingValueType = "boolean" | "integer" | "number" | "enum";
+export type RuntimeSettingValue = boolean | number | string | Readonly<Record<string, unknown>>;
+export type RuntimeSettingValueType = "boolean" | "integer" | "number" | "enum" | "object";
 
 export interface RuntimeSettingView {
   readonly key: string;
@@ -313,7 +313,7 @@ function decodeRuntimeDiagnostics(value: unknown): RuntimeDiagnosticsView {
 }
 
 function settingType(value: unknown, path: string): RuntimeSettingValueType {
-  if (value === "boolean" || value === "integer" || value === "number" || value === "enum") {
+  if (value === "boolean" || value === "integer" || value === "number" || value === "enum" || value === "object") {
     return value;
   }
   throw new Error(`${path} is invalid`);
@@ -324,11 +324,24 @@ function settingValue(
   valueType: RuntimeSettingValueType,
   path: string,
 ): RuntimeSettingValue {
+  if (valueType === "object") return record(value, path);
   if (valueType === "boolean") return boolean(value, path);
   if (valueType === "enum") return nonEmptyString(value, path);
   if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`${path} MUST be finite`);
   if (valueType === "integer" && !Number.isInteger(value)) throw new Error(`${path} MUST be an integer`);
   return value;
+}
+
+export function normalizeRuntimeSettingChanges(
+  view: Pick<RuntimeSettingsView, "settings">,
+  changes: Readonly<Record<string, RuntimeSettingValue | null>>,
+): Readonly<Record<string, RuntimeSettingValue | null>> {
+  return Object.fromEntries(Object.entries(changes).map(([key, value]) => {
+    const setting = view.settings.find((entry) => entry.key === key);
+    if (setting?.valueType !== "object" || value === null) return [key, value];
+    const parsed: unknown = typeof value === "string" ? JSON.parse(value) : value;
+    return [key, record(parsed, key)];
+  }));
 }
 
 function record(value: unknown, path: string): Record<string, unknown> {

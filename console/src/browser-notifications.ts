@@ -47,7 +47,7 @@ interface BrowserAlertDeliveryEntry {
   readonly acknowledgedAt: number | null;
 }
 
-export type BrowserAlertKind = "approval" | "denied" | "failed";
+export type BrowserAlertKind = "approval" | "denied" | "failed" | "finding";
 
 export interface BrowserAlert {
   readonly kind: BrowserAlertKind;
@@ -485,7 +485,6 @@ export function browserNotificationsSupported(
 ): boolean {
   return environment.secureContext
     && environment.notificationApi
-    && environment.serviceWorkerApi
     && environment.lockManagerApi;
 }
 

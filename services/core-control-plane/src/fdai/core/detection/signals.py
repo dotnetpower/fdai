@@ -59,7 +59,7 @@ you need one, author a distinct signal instead."""
 
 # Host / IaaS
 SIGNAL_HOST_CPU = "host_cpu"
-"""Guest OS CPU sustained above threshold on a VM / VMSS instance (T0).
+"""Observed CPU exceeds the declared VM / VMSS threshold policy (T0).
 Distinct from ``node_cpu`` which is a Kubernetes-node measurement.
 Scenario S5."""
 
@@ -233,6 +233,28 @@ _KNOWN_SIGNALS: Mapping[str, SignalSpec] = MappingProxyType(
         spec.signal: spec
         for spec in (
             SignalSpec(
+                signal="resource_availability",
+                description="Managed-resource state violates an explicit expected-state policy.",
+                tier_hint="T0",
+                rca_hint="resource_availability",
+            ),
+            *(
+                SignalSpec(
+                    signal=signal,
+                    description="Canonical Pod status evidence identifies a workload fault.",
+                    tier_hint="T0",
+                    rca_hint="kubernetes_pod_status",
+                )
+                for signal in (
+                    "pod_crash_loop_back_off",
+                    "pod_oom_killed",
+                    "pod_abnormal_termination",
+                    "pod_probe_failure",
+                    "pod_failed",
+                    "pod_unready",
+                )
+            ),
+            SignalSpec(
                 signal=SIGNAL_NODE_CPU,
                 description="Kubernetes node/pod CPU utilization elevated.",
                 tier_hint="T0+T1",
@@ -259,7 +281,7 @@ _KNOWN_SIGNALS: Mapping[str, SignalSpec] = MappingProxyType(
             ),
             SignalSpec(
                 signal=SIGNAL_HOST_CPU,
-                description="VM guest OS CPU sustained above threshold.",
+                description="VM or VMSS CPU exceeds the declared threshold policy.",
                 tier_hint="T0",
                 rca_hint="host_cpu",
             ),

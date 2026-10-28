@@ -1337,7 +1337,7 @@ def test_durable_console_evidence_routes_declare_authoritative_sources() -> None
     expected = {
         "configuration-baseline": "/configuration-baselines",
         "conversation-delivery": "/conversation-delivery",
-        "detection-readiness": ("/detection-coverage", "/detection-readiness"),
+        "detection-readiness": ("/detection-coverage", "/detection-readiness", "/findings"),
         "runtime-skill": "/skills",
         "forecast-learning": "/forecast-learning",
         "operator-memory": "/operator-memory",
