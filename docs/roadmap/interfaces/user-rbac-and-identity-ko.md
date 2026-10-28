@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: c70be8ca7ef9ecfa4c0f5d7ab0eeb4dfffa1068a
-translation_revised: 2026-10-20
+translation_source_sha: 943cf505be75ca9f9bd52d262ded8bc082f7c6f1
+translation_revised: 2026-10-29
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -277,7 +277,8 @@ App Roles를 정본 표면으로 쓰는 이유:
 ## 5. 거버넌스 액션 강제 (CI + CODEOWNERS)
 
 Coarse 롤은 PR과 API 레이어에서 **quorum + justification + 저자≠승인자** 검사로 안전하게
-만들어짐:
+만들어짐. 런타임 승인이나 반려는 선택 사유만 받습니다. 검사는 자유 텍스트가 아니라 검증된 신원과
+정확히 결속된 요청에 있기 때문입니다.
 
 > **구현 상태**: 런타임 기능 검사, `RoleEnforcer.no_self_approval`, risk-gate quorum을
 > 구현했습니다. CI는 이제 exact-head GitHub PR, commit, review, Check Run 사실을 구성된 trusted

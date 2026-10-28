@@ -589,10 +589,10 @@ def test_console_hil_decision_fails_closed_for_incomplete_expired_or_role_invali
 @pytest.mark.parametrize(
     "json_body",
     [
-        {"decision": "approve"},
         {"decision": "allow", "justification": "Reviewed."},
-        {"decision": "reject", "justification": " "},
         {"decision": "reject", "justification": "Reviewed.", "actor": "owner-1"},
+        {"justification": "Reviewed."},
+        {"decision": "reject", "justification": 7},
     ],
 )
 def test_console_hil_decision_rejects_malformed_or_authority_bearing_body(
@@ -2084,62 +2084,65 @@ def test_signed_hil_callback_binds_path_rejects_self_approval_and_enqueues_recei
     assert self_registry.command is None
 
 
-def test_signed_hil_callback_requires_non_empty_justification() -> None:
+def test_signed_hil_callback_keeps_its_field_contract_but_allows_a_blank_reason() -> None:
     config = HilCallbackConfig(secret="test-secret")
     timestamp = datetime.now(UTC).isoformat()
 
-    for payload in (
-        {
-            "decision": "approve",
-            "channel": "slack",
-            "provider_actor_id": "slack-owner",
-            "audience": "slack:slack-team",
-            "correlation_id": "correlation-1",
-            "idempotency_key": "hil-key-1",
-            "action_hash": "action-hash-1",
+    payload = {
+        "decision": "approve",
+        "channel": "slack",
+        "provider_actor_id": "slack-owner",
+        "audience": "slack:slack-team",
+        "correlation_id": "correlation-1",
+        "idempotency_key": "hil-key-1",
+        "action_hash": "action-hash-1",
+    }
+    registry = RecordingHilRegistry()
+    body = json.dumps(payload, separators=(",", ":")).encode()
+    signature = compute_hmac(
+        secret=config.secret,
+        timestamp=timestamp,
+        approval_id="approval-1",
+        payload=body,
+    )
+    response = _client(
+        hil_registry=registry,
+        hil_outbox=RecordingHilOutbox(),
+        hil_config=config,
+        hil_authority=RecordingHilAuthority(),
+        hil_audit=RecordingHilAudit(),
+        hil_context=registry,
+    ).post(
+        "/hil/approval-1/decision",
+        content=body,
+        headers={
+            "X-FDAI-Timestamp": timestamp,
+            "X-FDAI-Signature": f"sha256={signature}",
         },
-        {
-            "decision": "reject",
-            "channel": "slack",
-            "provider_actor_id": "slack-owner",
-            "audience": "slack:slack-team",
-            "correlation_id": "correlation-1",
-            "idempotency_key": "hil-key-1",
-            "action_hash": "action-hash-1",
-            "justification": "   ",
-        },
-    ):
-        registry = RecordingHilRegistry()
-        body = json.dumps(payload, separators=(",", ":")).encode()
-        signature = compute_hmac(
-            secret=config.secret,
-            timestamp=timestamp,
-            approval_id="approval-1",
-            payload=body,
-        )
+    )
 
-        response = _client(
-            hil_registry=registry,
+    assert response.status_code == 400
+    assert response.json()["error"]["message"] == "callback body fields do not match the contract"
+    assert registry.command is None
+
+    for decision in ("approve", "reject"):
+        blank_registry = RecordingHilRegistry()
+        blank_client = _client(
+            hil_registry=blank_registry,
             hil_outbox=RecordingHilOutbox(),
             hil_config=config,
             hil_authority=RecordingHilAuthority(),
             hil_audit=RecordingHilAudit(),
-            hil_context=registry,
-        ).post(
-            "/hil/approval-1/decision",
-            content=body,
-            headers={
-                "X-FDAI-Timestamp": timestamp,
-                "X-FDAI-Signature": f"sha256={signature}",
-            },
+            hil_context=blank_registry,
         )
-
-        assert response.status_code == 400
-        assert response.json()["error"]["message"] in {
-            "callback body fields do not match the contract",
-            "'justification' MUST be bounded non-empty text",
-        }
-        assert registry.command is None
+        accepted = _signed_callback(
+            blank_client,
+            config,
+            body=_callback_body(decision=decision, justification="   "),
+        )
+        assert accepted.status_code == 200
+        assert blank_registry.command is not None
+        assert blank_registry.command.justification == ""
 
 
 def _callback_body(**overrides: object) -> bytes:

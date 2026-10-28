@@ -114,21 +114,24 @@ def make_hil_operator_decision_route(
         if _IDEMPOTENCY_KEY.fullmatch(request_key) is None:
             return error_response(400, "valid Idempotency-Key header is required")
         body = await read_json_object(request, maximum=_MAX_BODY_BYTES)
-        if set(body) != _FIELDS:
+        if "decision" not in body or not set(body) <= _FIELDS:
             return error_response(
                 400,
-                "Console HIL decision body MUST contain only decision and justification",
+                "Console HIL decision body MUST contain decision and an optional justification",
             )
         raw_decision = require_string(body, "decision")
         try:
             decision = HilApprovalDecision(raw_decision)
         except ValueError:
             return error_response(400, "decision MUST be approve or reject")
-        justification = require_string(body, "justification").strip()
-        if not justification or len(justification) > _MAX_JUSTIFICATION_CHARS:
+        # The reason is optional; an absent or blank one is recorded as the empty string.
+        justification = (
+            require_string(body, "justification").strip() if "justification" in body else ""
+        )
+        if len(justification) > _MAX_JUSTIFICATION_CHARS:
             return error_response(
                 400,
-                "justification MUST be between 1 and 2000 characters",
+                "justification MUST be at most 2000 characters",
             )
 
         canonical_intent = json.dumps(

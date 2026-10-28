@@ -278,7 +278,8 @@ define this App Role or the `auth_time` optional claim yet; see
 ## 5. Governance Action Enforcement (CI + CODEOWNERS)
 
 Coarse roles are made safe by **quorum + justification + author≠approver** checks at the
-PR and API layer:
+PR and API layer. A runtime approval or rejection takes only an optional reason, because the
+check is the verified identity and the exact bound request rather than free text:
 
 > **Implementation status**: Runtime capability checks, `RoleEnforcer.no_self_approval`, and
 > risk-gate quorum are implemented. CI now joins exact-head GitHub PR, commit, review, and Check Run
