@@ -13,7 +13,6 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation scope
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Operational Finding delivery boundary | implemented | `core/readiness/finding_state.py`; `delivery/analyzer_finding_state.py`; `fdai_operator_service/finding_projection.py`; `console/src/findings.ts`; focused detector, current-state, API and browser tests | Core derives current analyzer state after verified publication. Operator exposes authenticated read-only pages; Console presents attention without Incident creation or execution authority. |
 | Inventory normalization-work ownership | implemented | `core/ontology_platform/inventory_projection_bounds.py`; focused projection/runtime cohort (`142 passed`, full guard branch-inclusive coverage) | Core admits expanded-value/character work; delivery retains encoded-record byte admission. No new service, proof issuer, permission or process-RSS guarantee. |
 | Diagnostic versus operational retention boundary | implemented | `shared/telemetry/logging.py`; `test_warning_log_bounds.py`; local parity ledger; 143 focused logging/rotation/supervisor checks | Shared diagnostic JSONL is age- and byte-bounded with explicit eviction markers; authoritative event, Incident, audit and activity persistence remains unchanged. Existing running writers adopt the cap on a future authorized start. |
 | Canary lifecycle and execution identity | implemented | Core `_canary.py`, delivery `canary_cli.py`, persisted-audit/lifecycle/CLI and AKS job/environment regressions; final combined local and isolated PostgreSQL cohort: 133 passed | Bounded consumed-attempt facts and retry-stable platform metadata do not qualify a latest scheduled result or grant authority; #2251 remains open. |
@@ -153,7 +152,6 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
-| 2026-10-28 | implemented | Added portable availability/CPU/Pod assessment, delivery-owned production evidence bindings and current-Finding persistence, an Operator read projection, and a lazy Console attention/notification consumer. Reused the versioned Owner Settings path for explicit availability expectations. | `current change`; focused Core/Operator detector, target, receipt, state and Settings tests passed; changed Python strict mypy and Ruff passed; Console typecheck, production build and seven scoped browser scenarios passed. | Analyzer-domain Findings are not a cross-domain configuration/compliance store. Publication, live cloud fault injection and deployment remain separate boundaries. |
 | 2026-10-26 | implemented | Recorded that signed catalog verification (`catalog_integrity`, `catalog_roles`, `catalog_metadata`, `catalog_canonical`) lives in `fdai_service_contracts`, shared by the Hubs, the deployment CLI and the Core (#2489). | `current change`; `packages/service-contracts/src/fdai_service_contracts/catalog_*.py`; affected Hub, deployment-cli, Core and persistence suites passed. | None for this record. |
 | 2026-10-23 | implemented | Routed the subscription tag action through the isolated Executor change identity and a distinct Core reader instead of requiring the optional development gateway. | `current change`; isolated adapter and composition, Core effect observer, focused direct execution and readback tests. | The #1623 live Owner sign-in and retained runtime receipts remain open. |
 | 2026-10-23 | implemented | Added a separate subscription tag target and development-gateway operation without widening the existing resource tag action. | `current change`; shared executor target contract, Core and isolated gateway bindings, focused direct-API and gateway tests. | Retain the #1623 live Owner run and remove its temporary profile and subscription role after evidence capture. |
@@ -518,10 +516,6 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-10-21 | implemented | Skipped local diagnostic warning-file replacement when the retained contents are unchanged, without altering the 24-hour window, shared cleanup cadence, atomic expiry, or audit retention. | `e709023921`; `services/core-control-plane/src/fdai/shared/telemetry/logging.py` and `services/core-control-plane/tests/telemetry/test_logging.py`; focused logging/setup selection: 29 passed. Three cleanup checks over 11585 synthetic retained rows reduced payload rewrites from 9766155 bytes to zero with identical contents. Changed production-source mypy and scoped Ruff/format passed. | Running services were not restarted; post-restart runtime observation and VS Code/Copilot transport-log remediation are not established by these local checks. |
 
 ### Remaining work
-
-- [x] Keep detection, current-state persistence, Reader projection and browser attention in their
-  owning layers, with no executor identity or new agent/service boundary; covered by the focused
-  2026-10-28 checks.
 
 - [x] Preserve warning retention, concurrent appends, and newline repair while skipping unchanged
   payload rewrites; the 2026-10-21 focused tests and synthetic write comparison are recorded above.

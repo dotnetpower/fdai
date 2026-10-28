@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 257e1c5dcec1c1c4724e4fe5302eee21f836d1e7
+translation_source_sha: 242ca086427b6023c47be356af3a6ab035c10ed0
 translation_revised: 2026-10-28
 ---
 # 프로젝트 구조
@@ -200,13 +200,6 @@ Core가 소유한 같은 스케줄러가 기존 잔여 호출 예산 검사 안�
 발급할 수 있습니다. 이 읽기는 모두 읽기 전용으로 유지됩니다.
 
 ## 설계 개요
-
-분석기 가용성 정책 검증과 현재 Finding 계약은 `core/readiness`에 두며, 공급자 관측 어댑터와
-운영용 연결은 `delivery`에 유지합니다. Core는 게시 이력의 보존 한도와 별개로 버전을 비교해
-원자적으로 갱신하는 파생 Finding 색인을 유지합니다. Operator는 공급자를 호출하지 않고 인증된
-페이지 단위 조회를 제공합니다. Console은 초기 번들 크기 제한을 유지하도록 전역 Finding 조회와
-브라우저 수신기를 지연 로딩하며 이 조회 결과만 읽습니다. 이 함수들은 에이전트, 실행 신원이나
-승인 경로를 추가하지 않습니다.
 Core의 인수인계 부트스트랩은 디렉터리 조회 전에 실제 문서·행·인용·사람 근거를 확인합니다.
 모델은 정체성 ID를 제공하지 않으며 거버넌스 초안만 남습니다. Freyr의 읽기 전용 출처 연결은
 런타임과 delivery에서 현재 인벤토리 정체성과 검토된 메트릭 선언을 재사용합니다. 두 변경
