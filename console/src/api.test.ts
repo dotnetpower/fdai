@@ -187,6 +187,29 @@ describe("Operator API response decoders", () => {
     });
   });
 
+  test("keeps the optional read-time actor display label on an audit item", () => {
+    const base = {
+      seq: 7,
+      event_id: "event-7",
+      correlation_id: "incident-one",
+      actor: "subject-example-1",
+      action_kind: "incident.open",
+      mode: "shadow",
+      entry: {},
+      entry_hash: "hash-7",
+      previous_hash: "hash-6",
+      recorded_at: "2026-10-28T12:26:41Z",
+    };
+    const labelled = decodeAuditPage({
+      items: [{ ...base, actor_display: "Example Operator" }],
+      next_cursor: null,
+    });
+    const unlabelled = decodeAuditPage({ items: [base], next_cursor: null });
+
+    expect(labelled.items[0]?.actor_display).toBe("Example Operator");
+    expect("actor_display" in (unlabelled.items[0] ?? {})).toBe(false);
+  });
+
   test("decodes authoritative audit context and ledger summary evidence", () => {
     const decoded = decodeAuditPage({
       items: [{

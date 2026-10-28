@@ -29,12 +29,17 @@ export function auditContextRecord(item: AuditItem) {
   };
 }
 
+/** The directory label when one was resolved, otherwise the recorded actor identity. */
+export function auditActorLabel(item: AuditItem): string {
+  return item.actor_display?.trim() ? item.actor_display : item.actor;
+}
+
 /** Search the loaded page, never imply a search across the complete ledger. */
 export function searchAuditItems(items: readonly AuditItem[], query: string): readonly AuditItem[] {
   const search = query.trim().toLocaleLowerCase();
   if (!search) return items;
   return items.filter((item) => [
-    String(item.seq), item.action_kind, item.actor, item.event_id, item.correlation_id,
+    String(item.seq), item.action_kind, item.actor, item.actor_display, item.event_id, item.correlation_id,
     item.context?.target, item.context?.idempotency_key,
     auditEntryText(item.entry, "rule_id"), auditEntryText(item.entry, "idempotency_key"),
   ].some((value) => value?.toLocaleLowerCase().includes(search)));
