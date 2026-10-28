@@ -39,10 +39,14 @@ def main() -> int:
         return 0
     except (KeyboardInterrupt, SystemExit):
         raise
-    except Exception:
+    except Exception as error:
         print(
             json.dumps(
-                {"status": "unavailable", "reason": "connector_configuration_or_runtime_failed"}
+                {
+                    "status": "unavailable",
+                    "reason": "connector_configuration_or_runtime_failed",
+                    "error_type": type(error).__name__,
+                }
             )
         )
         return 1
