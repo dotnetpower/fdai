@@ -34,6 +34,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
+from fdai_operator_service.actor_display import ActorDisplayResolver
 from fdai_operator_service.alert_quality import (
     ALERT_QUALITY_ROUTE_MANIFEST,
     AlertQualityDependencies,
@@ -210,6 +211,7 @@ def build_operator_app(
 ) -> Starlette:
     """Build the complete Operator API without executor or FDAI imports."""
     incident_attention_poller = IncidentAttentionPoller(read_model)
+    actor_display = ActorDisplayResolver(route_families.iam.directory)
     _validate_data_sources(data_sources)
     ownership = aggregate_route_manifest(
         route_families.operation_panels,
@@ -265,7 +267,9 @@ def build_operator_app(
             )
         except ValueError as exc:
             raise _BadQueryError(str(exc)) from exc
-        return JSONResponse(redact_projection(page.to_dict()))
+        projection = redact_projection(page.to_dict())
+        await actor_display.annotate(projection)
+        return JSONResponse(projection)
 
     async def get_agent_activity(request: Request) -> Response:
         authorize(request)
