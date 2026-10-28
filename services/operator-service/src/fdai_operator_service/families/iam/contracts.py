@@ -688,6 +688,11 @@ class HilPendingItem:
     metadata: Mapping[str, str] = field(default_factory=dict)
 
 
+# A parked key embeds the event subject (for example a full resource id), so it can exceed the
+# 256 characters accepted for a caller-supplied key. It is hashed before it is stored.
+MAX_HIL_IDEMPOTENCY_KEY_CHARS = 1024
+
+
 @dataclass(frozen=True, slots=True)
 class HilDecisionReceipt:
     """Durable decision receipt whose delivery can be replayed through the outbox."""

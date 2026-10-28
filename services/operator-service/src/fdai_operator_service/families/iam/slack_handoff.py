@@ -436,9 +436,11 @@ def make_slack_handoff_routes(
         if (
             set(body) != {"justification"}
             or not isinstance(body["justification"], str)
-            or not 1 <= len(body["justification"].strip()) <= 2_000
+            or len(body["justification"].strip()) > 2_000
         ):
-            return error_response(400, "only a non-empty justification is accepted")
+            return error_response(
+                400, "only a justification of at most 2000 characters is accepted"
+            )
         try:
             existing = await registry.get_decision_by_approval_id(str(record["approval_id"]))
         except Exception:  # noqa: BLE001 - no decision without terminal state read.
