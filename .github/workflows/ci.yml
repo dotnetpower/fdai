@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Exact protected origin/main commit for a manual CI run."
+        type: string
+        required: true
 
 # Cancel only superseded PR runs. Integrated and manually requested revisions
 # retain independent terminal evidence.
@@ -22,6 +27,10 @@ env:
 jobs:
   changes:
     name: test change scope
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     outputs:
       python: ${{ steps.scope.outputs.python }}
@@ -36,6 +45,17 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+
+      - name: Verify manual CI revision matches this run
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          REQUESTED_SHA: ${{ inputs.commit_sha }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          test "$REQUESTED_SHA" = "$RUN_SHA" || {
+            echo "::error::Manual CI must select the exact commit of this workflow run."
+            exit 1
+          }
 
       - name: Resolve test scope
         id: scope
@@ -56,7 +76,11 @@ jobs:
   python-tests:
     name: pytest regression shard ${{ matrix.shard }}/4
     needs: changes
-    if: needs.changes.outputs.python == 'true'
+    if: >-
+      needs.changes.outputs.python == 'true' &&
+      (vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true' ||
+      github.ref != 'refs/heads/main' ||
+      github.event_name == 'pull_request')
     strategy:
       fail-fast: false
       matrix:
@@ -69,7 +93,7 @@ jobs:
       FDAI_PYTEST_MODE: regression
       FDAI_PYTEST_SHARD_COUNT: "4"
       FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
-    steps:
+    steps: &python-regression-steps
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -116,6 +140,56 @@ jobs:
 
       - name: Run regression shard
         run: bash scripts/quality/ci/run-python-tests.sh
+
+  protected-ci-source:
+    name: verify SSD CI source
+    needs: changes
+    if: >-
+      needs.changes.outputs.python == 'true' &&
+      vars.FDAI_CI_SSD_RUNNER_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+
+      - name: Verify protected workflow source
+        id: protected-source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ github.sha }}
+          workflow-path: .github/workflows/ci.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
+  python-tests-ssd:
+    name: pytest regression shard ${{ matrix.shard }}/4 (SSD)
+    needs: [changes, protected-ci-source]
+    if: >-
+      needs.changes.outputs.python == 'true' &&
+      vars.FDAI_CI_SSD_RUNNER_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request'
+    runs-on: [self-hosted, Linux, X64, fdai-ci, fdai-ci-ssd]
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
+    timeout-minutes: 20
+    env:
+      FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
+      FDAI_PYTEST_MAX_WORKERS: "3"
+      FDAI_PYTEST_MODE: regression
+      FDAI_PYTEST_SHARD_COUNT: "4"
+      FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
+    steps: *python-regression-steps
 
   python-coverage-shards:
     name: pytest safety-core coverage shard ${{ matrix.shard }}/3
@@ -585,6 +659,10 @@ jobs:
           uv build --wheel benchmarks/cybergym
 
   secret-scan:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     name: gitleaks
     runs-on: ubuntu-24.04
     steps:
@@ -1015,6 +1093,8 @@ jobs:
     needs:
       - changes
       - python-tests
+      - protected-ci-source
+      - python-tests-ssd
       - python-coverage-shards
       - python-coverage
       - operator-surfaces

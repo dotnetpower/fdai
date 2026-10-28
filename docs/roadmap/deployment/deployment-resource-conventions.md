@@ -372,6 +372,30 @@ once (e.g. `core` vs `worker`), mirroring the naming convention above.
 - **Keep query values stable and lowercase**: Cost Management and Resource Graph group on
   literal values such as `true`, `dev`, and `resilience`; drift breaks aggregation.
 
+## CI-only SSD runner boundary
+
+The standalone [`infra/ci-runner`](../../../infra/ci-runner/README.md) root owns a separate
+CI resource group and unpeered network. Its VM has no public IP, managed identity, deployment
+role assignment, or deployment-runner label. Internet access uses an outbound-only NAT address.
+Keep Terraform variables and the explicit local-backend state path outside source control.
+Supply observed policy-owned IP tags instead of replacing an address to remove them.
+
+The subnet-level network security group (NSG) remains authoritative, and VM creation waits
+for its association. A NIC-scoped Trivy `AZU-0068` annotation records the scanner limitation;
+regression tests retain the subnet binding and creation dependency instead of opening inbound access.
+
+The OS disk uses Premium SSD. Local temporary SSD storage holds disposable workspaces and caches;
+the runner refuses to start if that mount is missing. Enrollment uses a short-lived token passed
+through Azure protected environment parameters, not Terraform or command-line values.
+
+Optional acceleration moves all four regression shards to a pool of up to five listeners
+on the same VM. Each shard uses three pytest workers; each listener has separate distribution,
+workspace, and cache paths and a systemd limit of 3 CPUs and 12 GiB RAM.
+Enrollment preserves matching idle registrations and refuses busy or mismatched runners.
+It requires protected-main provenance verification and `FDAI_CI_SSD_RUNNER_ENABLED=true`.
+All pull requests and the disabled path stay GitHub-hosted. Runner readiness, workflow publication,
+route activation, and measured CI improvement are distinct evidence levels; none implies the next.
+
 ## Related docs
 
 | To learn about | Read |
