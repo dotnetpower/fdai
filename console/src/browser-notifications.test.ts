@@ -215,7 +215,13 @@ describe("browser notification boundary", () => {
     })).toThrow(/storage is unavailable/);
   });
 
-  test("requires every secure browser capability", () => {
+  test("requires secure notification and locking capabilities before receiver verification", () => {
+    expect(browserNotificationsSupported({
+      secureContext: true,
+      notificationApi: true,
+      serviceWorkerApi: false,
+      lockManagerApi: true,
+    })).toBe(true);
     expect(browserNotificationsSupported({
       secureContext: true,
       notificationApi: true,

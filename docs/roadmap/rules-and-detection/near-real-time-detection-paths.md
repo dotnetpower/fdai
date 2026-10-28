@@ -20,6 +20,97 @@ Faster push paths remain opt-in through Terraform and composition seams.
 > ordinary ingest topic. Both paths remain `implemented`, not `validated`, until governed live
 > latency and delivery evidence is retained.
 
+## Detected issue lifecycle and user delivery
+
+Resource availability, host CPU, and Kubernetes lifecycle/status detectors remain read-only,
+evidence-backed producers. A resource name, missing sample, stale snapshot, or operator utterance
+cannot establish a fault, its cause, or recovery. Expected-state policy, maintenance intent, exact
+resource/Pod identity, source scope, and observation time remain explicit. Routine healthy readings
+are observations, not new Findings. New capabilities do not authorize remediation.
+
+Published analyzer observations also maintain a derived current-Finding index keyed by logical
+resource kind, Resource identity, and signal. Compare-and-set revisions reject stale or conflicting
+updates. Current Findings are not evicted by the bounded historical receipt retention. Notification
+versions change only for a new/reopened Finding, increased severity, or verified recovery; repeated
+observations update freshness without creating a new alert. Missing or failed observations never
+close a Finding, and recovery requires fresh positive evidence tied to a prior Finding.
+
+Operator exposes a paginated, authenticated read projection using its existing Reader boundary.
+Every retained row is accounted for through counts and continuation; a bound does not silently drop
+active Findings. Console uses that projection for a foreground inbox and transient notices, and
+the selected, verified browser receiver for background notifications. Browser bodies remain generic.
+Clicks open the exact Finding in Detection readiness. Client receipts remain convenience-channel
+evidence and never satisfy Core delivery or execution authority.
+
+| Boundary review | Required revision |
+|-----------------|-------------------|
+| An ARG change could be mistaken for an outage | Hydrate the exact resource and evaluate declared expected state; keep unknown or planned state explicit |
+| Pod deletion or a counter reset could be mistaken for a restart | Correlate immutable Pod UID, owner, termination/status, retained history, and recovery evidence |
+| A tick or reconnect could produce repeated alerts | Retain a stable Finding identity and notification version, independent of publication-window identity |
+| Retention or partial evidence could erase an active fault | Keep current state separate from bounded history; never infer recovery from absence |
+| Frontend delivery could imply Incident or execution authority | Use a read-only Finding projection and closed evidence links; keep Incident promotion and actions unchanged |
+
+These are implementation contracts, not live latency claims. Focused fixtures and local browser
+checks do not establish that a deployment's Azure or Kubernetes observation bindings are available.
+
+### Configure availability observations
+
+Use the Owner-managed `detection.resource_availability` policy in Runtime Settings. It defaults
+disabled until you declare logical Resource identities and their expected states. For example:
+
+```json
+{
+  "enabled": true,
+  "resource_types": ["compute.vm"],
+  "max_age_seconds": 300,
+  "resources": {
+    "resource:example": {
+      "resource_type": "compute.vm",
+      "reference": "policy:expected-running",
+      "expected_state": "running",
+      "planned_stops": []
+    }
+  }
+}
+```
+
+Replace the example identity with the installation's logical Resource identity, not an ARM ID.
+Planned stops carry bounded `since`/`until` times and an opaque maintenance or change reference.
+The same pure validator runs at the Operator boundary and in Core; updates retain the existing
+Owner, revision, and audit checks. Unknown expectations, stale inventory, and unavailable sources
+remain explicit rather than becoming outages or recovery.
+
+VM and VMSS CPU join the default analyzer map. VMSS CPU is a parent aggregate, not an instance
+diagnosis. A declared threshold policy is not an implicit promise of continuous high CPU for a
+particular duration. Independent same-kind detectors retain their own results and errors, so a
+missing CPU source cannot erase a positively observed availability Finding.
+
+Availability-only Web App, Function, Container App, and Kubernetes node-pool targets join discovery
+only for exact logical resources in the enabled policy. Inventory identity, scope, generation, and
+state-evidence admission remain required. A missing Metrics or Logs source holds the metric detector,
+not the inventory-backed availability detector. Existing explicitly configured metric targets retain
+their admission behavior.
+
+Automatic recovery is bound to the typed host CPU, resource availability, and six Pod status
+assessors. Legacy generic threshold Findings, including AKS node CPU and MySQL CPU, remain active
+without independently observed typed recovery; an empty metric response never closes them.
+
+The Pod binding reuses the production Inventory Job configuration, its inventory reader DSN,
+scoped Kubernetes authentication, relationship catalog, and lifecycle history. A tick shares one
+immutable cluster/generation snapshot and history cursor across Pod targets; exact-UID Event reads
+are coalesced, and failed requests are not retried as empty healthy observations. Canonical
+`kubernetes.pod` targets do not require ARM metric aliases. Status Findings cover CrashLoopBackOff,
+explicit OOM termination, abnormal termination, probe failure, failed phase, and unready state.
+Exit code 137 alone does not establish OOM. A completed rollout is not an unexplained failure.
+An already disappeared Pod cannot be reconstructed from current inventory alone, and distinct-UID
+replacement and full recovery remain partial without the required independent history.
+
+Freshly observed historical restarts or replacements remain Findings even when recovery is already
+verified. Routine healthy samples create none. Recovery uses a separate publication identity, no
+Incident candidate, and an exact prior-Finding revision fence before changing the current projection.
+ARG changes remain freshness hints: hydrate current state before assessment, and include provider
+publication delay, analyzer cadence, and the Console's 15-second polling interval in latency claims.
+
 ## Latency envelope at a glance
 
 | Path | End-to-end latency | Wired by | Shape |

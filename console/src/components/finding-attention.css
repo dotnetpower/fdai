@@ -1,0 +1,27 @@
+.finding-attention { display: flex; align-items: center; }
+.finding-toast {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+.finding-toast button { min-width: 44px; min-height: 44px; }
+.current-findings { min-width: 0; overflow-wrap: anywhere; gap: 16px; }
+.current-findings h2, .current-findings p { margin: 0; }
+.finding-list { list-style: none; padding: 0; margin: 0; }
+.finding-list > li { display: grid; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.finding-list > li > a, .finding-list summary { display: flex; align-items: center; min-height: 44px; }
+.finding-list summary { display: list-item; align-content: center; }
+.finding-list strong { display: block; }
+.current-findings nav button { min-width: 44px; min-height: 44px; }
+@media (max-width: 640px) { .finding-toast { right: 16px; } }

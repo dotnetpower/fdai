@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
+from fdai.delivery.analyzer_finding_state import AnalyzerFindingStateStore
 from fdai.delivery.analyzer_tick import AnalyzerFindingReceipt
 from fdai.shared.providers.state_store import StateStore
 
@@ -68,6 +69,7 @@ class StateStoreAnalyzerReceiptStore:
             ANALYZER_RECEIPT_STATE_PREFIX,
             retain_newest=self.retain_newest,
         )
+        await AnalyzerFindingStateStore(self.state_store).record(receipt)
 
 
 @dataclass(frozen=True, slots=True)

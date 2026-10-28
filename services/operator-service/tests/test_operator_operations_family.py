@@ -81,6 +81,7 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/views/process/{process_id:str}/events", "process_events"),
     (("GET", "HEAD"), "/detection-coverage", "handler"),
     (("GET", "HEAD"), "/detection-readiness", "handler"),
+    (("GET", "HEAD"), "/findings", "handler"),
     (("GET", "HEAD"), "/operations/runtime-state", "runtime_operational_state"),
     (("GET", "HEAD"), "/automation-blueprints", "handler"),
     (("POST",), "/automation-blueprints/accept", "handler"),
@@ -318,7 +319,25 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 56
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 57
+
+
+def test_findings_route_requires_reader_authentication_and_never_submits_actions() -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+    assert client.get("/findings").status_code == 401
+    assert not dependencies.queries
+    cursor = "a" * 64
+    response = client.get(f"/findings?limit=2&cursor={cursor}", headers=HEADERS)
+    assert response.status_code == 200
+    query = dependencies.queries[-1]
+    assert query.operation == "finding.list"
+    assert query.principal_id == "reader-oid"
+    assert query.roles == frozenset({OperatorRole.READER})
+    assert query.limit == 2
+    assert query.cursor == cursor
+    assert client.post("/findings", headers=HEADERS, json={}).status_code == 405
+    assert not dependencies.proposals
 
 
 def test_observer_proposals_require_authentication_and_never_submit_actions() -> None:

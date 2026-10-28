@@ -4,7 +4,7 @@ import type { AuthContext } from "../auth";
 import { ErrorState, LoadingState, PageHeader, StatusPill } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
+import { getLocale, t } from "../i18n";
 import {
   RuntimeSettingsCommandError,
   saveRuntimeSettings,
@@ -12,6 +12,7 @@ import {
 import {
   decodeRuntimeSettings,
   initialRuntimeDraft,
+  normalizeRuntimeSettingChanges,
   type RuntimeSettingsView,
   type RuntimeSettingValue,
   type RuntimeSettingView,
@@ -91,7 +92,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
       const next = await saveRuntimeSettings(
         auth,
         client.operatorApiBaseUrl,
-        changes,
+        normalizeRuntimeSettingChanges(view, changes),
         view.revision,
       );
       if (generation.current === current) {
@@ -131,7 +132,9 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
       capturedAt: new Date().toISOString(),
       facts: view?.settings.map((setting) => ({
         key: setting.key,
-        value: setting.effectiveValue,
+        value: typeof setting.effectiveValue === "object"
+          ? "Structured policy; inspect the Settings editor for complete values."
+          : setting.effectiveValue,
         group: setting.group,
       })) ?? [],
       records: {},
@@ -222,6 +225,19 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
 }
 
 function runtimeSettingText(key: string, part: "label" | "hint"): string {
+  if (key === "detection.resource_availability") {
+    const text = {
+      en: {
+        label: "Resource availability policy",
+        hint: "Declare enabled, resource_types, and resources keyed by logical Resource identity. Each resource can declare expected_state and planned_stops with evidence references. Unknown expectations never imply an outage. This is observation-only and never authorizes a restart.",
+      },
+      ko: {
+        label: "리소스 가용성 정책",
+        hint: "enabled, resource_types와 논리 Resource 식별자를 키로 하는 resources를 선언합니다. 각 리소스에 expected_state와 근거 참조가 있는 planned_stops를 지정할 수 있습니다. 기대 상태를 모르면 장애로 판단하지 않습니다. 이 설정은 관측 전용이며 재시작 권한을 부여하지 않습니다.",
+      },
+    };
+    return (getLocale() === "ko" ? text.ko[part] : text.en[part]) || text.en[part];
+  }
   if (key === "forecast.history_collection.enabled") {
     return settingsIntegrationsText(part === "label"
       ? "forecastHistory.collectionLabel" : "forecastHistory.collectionHint");
@@ -253,7 +269,7 @@ function RuntimeSettingRow({
   const disabled = !canManage || !setting.available || saving;
   const hasOverride = setting.overrideValue !== null || changed;
   return (
-    <div class="settings-row settings-runtime-row">
+    <div class="settings-row settings-runtime-row" data-value-type={setting.valueType}>
       <div class="settings-runtime-copy">
         <strong>{runtimeSettingText(setting.key, "label")}</strong>
         <small class="muted">{runtimeSettingText(setting.key, "hint")}</small>
@@ -311,6 +327,18 @@ function SettingControl({
   readonly onChange: (value: RuntimeSettingValue) => void;
 }) {
   const label = runtimeSettingText(setting.key, "label");
+  if (setting.valueType === "object") {
+    return (
+      <textarea
+        aria-label={label}
+        rows={10}
+        value={typeof value === "string" ? value : JSON.stringify(value, null, 2)}
+        disabled={disabled}
+        spellcheck={false}
+        onInput={(event) => onChange(event.currentTarget.value)}
+      />
+    );
+  }
   if (setting.valueType === "boolean") {
     return (
       <label class="settings-toggle-control" aria-label={label}>
@@ -351,6 +379,7 @@ function SettingControl({
 }
 
 function formatValue(value: RuntimeSettingValue): string {
+  if (typeof value === "object") return JSON.stringify(value);
   if (typeof value === "boolean") {
     return value ? t("settings.enabled") : t("settings.disabled");
   }

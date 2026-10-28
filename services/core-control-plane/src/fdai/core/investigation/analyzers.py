@@ -197,15 +197,18 @@ def api_management_analyzer(
 
 #: Reviewed map from the neutral ``rule-catalog/vocabulary/resource-types.yaml``
 #: id an inventory projection records on ``Resource.type`` to the analyzer kind
-#: that observes it. Only these five reference analyzers ship, so an inventory
+#: that observes it. An inventory
 #: resource type absent from this map has no analyzer and is never guessed at.
 ANALYZER_KIND_BY_RESOURCE_TYPE: Mapping[str, str] = MappingProxyType(
     {
         "api-gateway": KIND_API_MANAGEMENT,
         "kubernetes-cluster": KIND_AKS,
+        "kubernetes.pod": KIND_KUBERNETES_POD,
         "llm-endpoint": KIND_AZURE_OPENAI,
         "mysql-server": KIND_MYSQL,
         "network.application-gateway": KIND_APP_GATEWAY,
+        "compute.vm": "virtual_machine",
+        "compute.vm-scale-set": "virtual_machine_scale_set",
     }
 )
 
@@ -223,12 +226,16 @@ def default_analyzers(
     targets unsupported rather than analyzed on absent observations, so a
     receipt never reports a lifecycle conclusion nobody observed.
     """
+    from fdai.core.investigation.host_cpu import HostCpuAnalyzer
+
     return (
         app_gateway_analyzer(provider, wall_clock=wall_clock),
         mysql_analyzer(provider, wall_clock=wall_clock),
         azure_openai_analyzer(provider, wall_clock=wall_clock),
         aks_analyzer(provider, wall_clock=wall_clock),
         api_management_analyzer(provider, wall_clock=wall_clock),
+        HostCpuAnalyzer(provider, wall_clock=wall_clock),
+        HostCpuAnalyzer(provider, resource_kind="virtual_machine_scale_set", wall_clock=wall_clock),
         *(
             (KubernetesPodLifecycleAnalyzer(pod_lifecycle_evidence),)
             if pod_lifecycle_evidence is not None
