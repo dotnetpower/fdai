@@ -13283,7 +13283,7 @@ main { padding-bottom: 60px !important; }
 .rule-facet-search { width: min(300px, 100%); margin-left: auto; }
 .rule-facet-search input { width: 100%; min-height: 32px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; }
 .rule-table-identity { display: grid; gap: 3px; min-width: 220px; }
-.rule-table-identity code { color: var(--fg); }
+.rule-table-identity > span { color: var(--fg); }
 .rule-table-identity small { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg-muted); font-size: 10.5px; }
 .rule-category-pill { display: inline-flex; padding: 2px 7px; border-radius: 999px; color: var(--cs-steel); background: color-mix(in oklab, var(--cs-steel) 10%, transparent); font-size: 10.5px; }
 .rule-category-pill.is-remediation { color: var(--cs-sage); background: color-mix(in oklab, var(--cs-sage) 10%, transparent); }
@@ -13579,7 +13579,7 @@ main { padding-bottom: 60px !important; }
 .rules-route .data-table tbody td { padding: 9px 11px; }
 .rules-route .data-table td.mono { overflow-wrap: anywhere; }
 .rules-route .rule-table-identity { min-width: 0; }
-.rules-route .rule-table-identity code {
+.rules-route .rule-table-identity > span {
   overflow-wrap: anywhere;
   white-space: normal;
 }
