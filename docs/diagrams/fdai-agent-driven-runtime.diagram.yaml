@@ -1,7 +1,7 @@
 id: fdai-agent-driven-runtime
-version: 1
+version: 2
 kind: data-flow
-updated: 2026-09-09
+updated: 2026-10-28
 locales:
   en:
     title: FDAI agent-driven runtime
@@ -29,6 +29,7 @@ nodes:
   - id: typed-event-bus
     parent: agent-runtime
     kind: service
+    icon: event-hubs
     label: { en: Shared typed event bus, ko: 공유 typed event bus }
     description: { en: "Schema validation, subscriber isolation, retry, dead-letter, and replay", ko: "Schema validation, subscriber isolation, retry, dead-letter 및 replay" }
   - id: huginn

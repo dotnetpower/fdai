@@ -1,7 +1,7 @@
 id: fdai-system-overview
-version: 1
+version: 2
 kind: container
-updated: 2026-09-09
+updated: 2026-10-28
 locales:
   en:
     title: FDAI system architecture
@@ -109,7 +109,7 @@ nodes:
     description: { en: "Idempotent action with lock, stop condition, and rollback", ko: "잠금, 중지 조건, 롤백을 갖춘 재시도 가능한 작업" }
     ports:
       - id: approval-in
-        side: SOUTH
+        side: NORTH
   - id: held-for-review
     parent: control-flow
     kind: service

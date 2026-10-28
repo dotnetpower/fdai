@@ -48,20 +48,38 @@ test("architecture pages preserve bilingual diagram parity and alt-text consiste
     readFile(new URL("src/content/docs/ko/architecture.md", root), "utf8"),
   ]);
 
-  // Seven diagrams are embedded; two of them (fdai-system-overview and
-  // fdai-reference-architecture) are additionally re-embedded later on the
-  // page via plain markdown image syntax, which the fdai-diagrams remark
-  // plugin transforms into the identical interactive wrapper at build time.
+  // Six diagrams are embedded through the explicit wrapper. The code and data
+  // boundaries diagram uses plain markdown image syntax, which the
+  // fdai-diagrams remark plugin transforms into the identical interactive
+  // wrapper at build time. No diagram is embedded twice.
   assert.equal(
     [...english.matchAll(/<fdai-architecture-diagram /gu)].length,
-    7,
+    6,
   );
   assert.equal(
     [...korean.matchAll(/<fdai-architecture-diagram /gu)].length,
-    7,
+    6,
   );
-  assert.equal(english.match(/^!\[/gmu)?.length, 2);
-  assert.equal(korean.match(/^!\[/gmu)?.length, 2);
+  assert.equal(english.match(/^!\[/gmu)?.length, 1);
+  assert.equal(korean.match(/^!\[/gmu)?.length, 1);
+  for (const page of [english, korean]) {
+    for (const name of [
+      "fdai-conceptual-control-loop",
+      "fdai-reference-architecture",
+      "fdai-system-overview",
+      "fdai-azure-aks-deployment",
+      "fdai-azure-resource-network-flow",
+      "fdai-agent-driven-runtime",
+      "fdai-code-dependency-boundaries",
+    ]) {
+      assert.equal(
+        [...page.matchAll(new RegExp(`${name}\\.(?:en|ko)\\.svg`, "gu"))].length,
+        1,
+        `${name} must be embedded exactly once`,
+      );
+    }
+    assert.doesNotMatch(page, /fdai-azure-deployment-topology/u);
+  }
 
   // Every embed of a diagram (primary wrapper and any markdown duplicate)
   // must carry alt text that matches the diagram's own canonical alt for
@@ -71,6 +89,7 @@ test("architecture pages preserve bilingual diagram parity and alt-text consiste
     "fdai-system-overview",
     "fdai-azure-resource-network-flow",
     "fdai-azure-aks-deployment",
+    "fdai-code-dependency-boundaries",
   ]) {
     const manifest = await loadManifest(name);
     for (const locale of ["en", "ko"]) {

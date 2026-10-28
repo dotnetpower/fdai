@@ -98,6 +98,8 @@ const messages = {
     outgoing: "To",
     closeDetails: "Clear component selection",
     zoomLevel: "Zoom level",
+    smallHint: "Labels are small at this width. Zoom in or open fullscreen to read them.",
+    panHint: "Drag to pan. Use plus and minus to zoom, or Fit overview to see the whole diagram.",
     status: "Status",
     progress: "Progress",
     value: "Value",
@@ -116,6 +118,8 @@ const messages = {
     outgoing: "출력",
     closeDetails: "Component 선택 해제",
     zoomLevel: "확대 비율",
+    smallHint: "이 폭에서는 글자가 작게 보입니다. 확대하거나 전체 화면으로 열어 확인하세요.",
+    panHint: "끌어서 이동하고 더하기와 빼기로 확대 또는 축소하며, 전체 보기로 다이어그램 전체를 확인하세요.",
     status: "상태",
     progress: "진행률",
     value: "값",
@@ -319,6 +323,11 @@ class ArchitectureDiagramElement extends HTMLElement {
       .stage.dragging { cursor: grabbing; }
       .stage:focus-visible { outline: 3px solid var(--sl-color-text-accent, #0078d4); outline-offset: -3px; }
       svg { display: block; width: 100%; height: 100%; user-select: none; }
+      .hint { display: none; align-items: center; gap: 0.6rem; padding: 0.4rem 0.75rem; border-top: 1px solid var(--sl-color-hairline, var(--fdai-diagram-border)); color: var(--fdai-diagram-muted); font-size: 0.8rem; line-height: 1.35; }
+      .hint.visible { display: flex; }
+      .hint span { flex: 1 1 auto; min-width: 0; }
+      .hint button { flex: 0 0 auto; width: auto; height: auto; padding: 0.25rem 0.6rem; border-color: var(--sl-color-hairline, #cbd5e1); font: inherit; }
+      .shell:fullscreen .hint { display: none; }
       .details { box-sizing: border-box; display: none; position: relative; grid-template-columns: minmax(12rem, 0.7fr) 1.3fr; gap: 1rem; width: 100%; padding: 1rem 3.5rem 1rem 1.25rem; border-top: 1px solid var(--sl-color-hairline, var(--fdai-diagram-border)); background: var(--fdai-diagram-surface); color: var(--fdai-diagram-text); }
       .details.open { display: grid; }
       .details-close { position: absolute; inset-block-start: 0.65rem; inset-inline-end: 0.65rem; }
@@ -361,8 +370,30 @@ class ArchitectureDiagramElement extends HTMLElement {
     details.className = "details";
     details.setAttribute("aria-live", "polite");
 
+    const hint = document.createElement("div");
+    hint.className = "hint";
+    const hintText = document.createElement("span");
+    hintText.setAttribute("role", "note");
+    const hintAction = toolbarButton(Maximize2, labels.fullscreen, () => {
+      void shell.requestFullscreen().catch(() => undefined);
+    });
+    hintAction.textContent = labels.fullscreen;
+    hint.append(hintText, hintAction);
+    // Below this ratio the smallest labels render under roughly 6 px.
+    const READABLE_SCALE = 0.5;
+    const updateHint = (): void => {
+      const stageWidth = stage.clientWidth;
+      if (stageWidth <= 0) return;
+      const scale = stageWidth / viewBox.width;
+      const panning =
+        viewBox.width < contentBounds.width || viewBox.height < contentBounds.height;
+      const small = scale < READABLE_SCALE;
+      hintText.textContent = compact && panning ? labels.panHint : labels.smallHint;
+      hint.classList.toggle("visible", small || (compact && panning));
+    };
     const applyViewBox = (): void => {
       setViewBox(svg, viewBox);
+      updateHint();
       zoomStatus.value = `${zoomPercentage(viewBox, contentBounds)}%`;
       stage.classList.toggle(
         "can-pan",
@@ -508,8 +539,9 @@ class ArchitectureDiagramElement extends HTMLElement {
       this.selectNode(null, manifest, svg, details, locale, labels);
     });
 
-    shell.append(toolbar, stage, details);
+    shell.append(toolbar, stage, hint, details);
     shadow.append(style, shell);
+    new ResizeObserver(updateHint).observe(stage);
   }
 
   private selectNode(
