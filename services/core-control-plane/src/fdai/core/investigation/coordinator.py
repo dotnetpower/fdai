@@ -111,10 +111,9 @@ class InvestigationCoordinator:
         analyzer_timeout_seconds: float | None = None,
         max_concurrency: int = 1,
     ) -> None:
-        # Index analyzers by the single resource kind each declares.
-        self._analyzers: dict[str, ResourceAnalyzer] = {
-            analyzer.resource_kind: analyzer for analyzer in analyzers
-        }
+        self._analyzers: dict[str, list[ResourceAnalyzer]] = {}
+        for analyzer in analyzers:
+            self._analyzers.setdefault(analyzer.resource_kind, []).append(analyzer)
         self._monotonic: Callable[[], float] = monotonic or time.monotonic
         self._wall_clock: Callable[[], datetime] = wall_clock or (lambda: datetime.now(tz=UTC))
         if analyzer_timeout_seconds is not None and analyzer_timeout_seconds <= 0:
@@ -136,8 +135,10 @@ class InvestigationCoordinator:
                     resource_kind=resource_kind,
                     window=request.window_seconds,
                     semaphore=semaphore,
+                    analyzer=analyzer,
                 )
                 for resource_ref, resource_kind in request.resources
+                for analyzer in (self._analyzers.get(resource_kind) or (None,))
             )
         )
         findings = [finding for result, _error, _matched in results for finding in result]
@@ -180,8 +181,8 @@ class InvestigationCoordinator:
         resource_kind: str,
         window: float,
         semaphore: asyncio.Semaphore,
+        analyzer: ResourceAnalyzer | None,
     ) -> tuple[Sequence[AnalyzerFinding], tuple[str, str] | None, int]:
-        analyzer = self._analyzers.get(resource_kind)
         if analyzer is None:
             return (), (resource_ref, f"no_analyzer_for_kind:{resource_kind}"), 0
         try:

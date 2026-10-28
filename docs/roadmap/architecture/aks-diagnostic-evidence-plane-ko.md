@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 7160a9641484cd75db266a1bd28a33ed9ec7f4fc
-translation_revised: 2026-10-07
+translation_source_sha: 5c34b9a1f919a8dd5a12a1542b97c694215c4618
+translation_revised: 2026-10-28
 ---
 # AKS 진단 근거 플레인
 
@@ -44,6 +44,14 @@ Azure 관측은 정확한 대상을 검증한 뒤에만 결합됩니다. 결정�
 | D12 | FDAI가 무엇을 할 수 있나요? | 항상 `execution_authority=false`; 작업 계획과 실행은 이 플레인 밖에 유지 |
 
 ## 클러스터 출처 연결
+
+분석 주기는 `build_production_pod_analyzer`로 운영용 Pod 출처를 연결합니다. 기존 Inventory
+Job 구성과 인벤토리 읽기 DSN을 사용하며 Core 쓰기 DSN으로 대체하지 않습니다. 한 주기의
+대상들은 동일한 클러스터 및 세대의 불변 관측과 소유 관계 이력을 공유합니다. 정확한 UID의 Event
+조회를 하나로 묶고 수집 실패를 보존하며 정상 데이터로 재시도하지 않습니다. 명시적인 재생 JSON도
+지원하지만 실환경 검증을 뜻하지는 않습니다. 상태 장애와 새로운 정상 관측에 기반한 복구는 형식이
+정해진 분석기 평가를 사용합니다. 근거 공백이나 일반 롤아웃은 운영 장애 후보가 아닙니다. 현재
+인벤토리만으로 사라진 옛 Pod를 복원하거나 UID가 다른 Pod 교체 이력이 완전함을 입증할 수 없습니다.
 
 재사용 가능한 수량 변환과 일반 Pod CPU·메모리 계산은
 [커넥터 사전 점검 경계](aks-outbound-connector-ko.md#용량-및-저장소-사전-점검)에 정의합니다.
