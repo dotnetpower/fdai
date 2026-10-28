@@ -1,7 +1,7 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: e5804a581aa157fdfa829ef0ef7e9186173d4f93
-translation_revised: 2026-10-24
+translation_source_sha: 16f822cc2c1d4b4f414f8ea8f0c63ce3daa9c220
+translation_revised: 2026-10-29
 title: 사람 보고선 및 승인 라우팅
 ---
 # 사람 보고선 및 승인 라우팅
@@ -238,6 +238,10 @@ governed Direct Line 사용자 지정 채널을 선택하지 않습니다. 시�
 결정이 도착할 때와 실행 직전에 적격성, 그래프 리비전, 동의 만료, Action 무결성 및 자기 승인
 금지를 다시 검사합니다. 이 검사들보다 먼저 도착한 결정이 Operator의 영속 결정 영수증과 일치해야
 하므로, Operator가 기록한 적 없는 메시지로는 경로 결정을 내릴 수 없습니다.
+
+주체당 열린 요청은 최대 하나입니다. 같은 작업, 대상, 규칙에 대한 반복 제안은 새 요청을 열지 않고 해당
+요청의 제한된 관찰 요약을 갱신하므로 report-line 경로 계획, 동의, 알림은 하나의 요청에 속합니다.
+만료된 요청은 같은 계보의 다음 revision으로 다시 열리고, 반려된 주체는 내용이 같은 동안 닫혀 있습니다.
 
 Report-line 정책과 런타임은 quorum `1`만 허용합니다. 더 높은 quorum이 필요한 ActionType은
 별도로 검토된 다중 slot report-line 계약이 구현될 때까지 기존 workflow 또는 human-access

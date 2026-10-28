@@ -54,7 +54,7 @@ export function SlackApprovalHandoff({
     setToken(null);
   };
   const record = async () => {
-    if (!preview || !reauthRequested || !justification.trim() || status !== "ready") return;
+    if (!preview || !reauthRequested || status !== "ready") return;
     setStatus("recording");
     setError(null);
     try {
@@ -100,7 +100,7 @@ export function SlackApprovalHandoff({
           <textarea id="slack-handoff-justification" class="form-input" value={justification}
             onInput={(event) => setJustification(event.currentTarget.value)} maxLength={2000} />
           <button type="button" class="btn btn-primary"
-            disabled={status === "recording" || !reauthRequested || !justification.trim()}
+            disabled={status === "recording" || !reauthRequested}
             onClick={() => void record()}>
             {status === "recording" ? t("approvals.recordingDecision") : t("approvals.slackRecord")}
           </button>

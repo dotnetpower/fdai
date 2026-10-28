@@ -17,6 +17,7 @@ from fdai_service_contracts.development_approval import (
 )
 from psycopg.rows import dict_row
 
+from fdai_operator_service.families.iam.contracts import MAX_HIL_IDEMPOTENCY_KEY_CHARS
 from fdai_operator_service.families.iam.hil_development_approval import (
     development_self_approval_admitted,
 )
@@ -453,7 +454,7 @@ def _hil_decision_delivery_key(idempotency_key: str) -> str:
 def _proposal_key(family: str, idempotency_key: str) -> str:
     if not family or len(family) > 256:
         raise ValueError("family MUST be a bounded non-empty string")
-    if not idempotency_key.strip() or len(idempotency_key) > 256:
+    if not idempotency_key.strip() or len(idempotency_key) > MAX_HIL_IDEMPOTENCY_KEY_CHARS:
         raise ValueError("idempotency_key MUST be a bounded non-empty string")
     digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
     return f"operator-proposal:{family}:{digest}"

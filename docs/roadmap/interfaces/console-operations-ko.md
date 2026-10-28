@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 3ea0b0e5a55154426c3ca8ede301ca60ec780ca8
-translation_revised: 2026-10-22
+translation_source_sha: 6e4a0dd07ffa312d8c30cfc9f8fdcce5a468b52a
+translation_revised: 2026-10-29
 ---
 
 # 콘솔 운영
@@ -99,7 +99,7 @@ Operations는 기존 객체와 링크를 재사용합니다.
 | 운영 관심사 | 권위 있는 객체와 링크 | 콘솔 동작 |
 |-------------|-----------------------------|-----------|
 | 통제된 검토 | `Process -> runs_review -> ReviewCase -> resolved_by -> Decision` | 검토 상태, 이전 결정, 근거, 다음 책임 소유자를 보여줍니다. |
-| 사람 승인 | `ReviewCase -> has_approval -> Approval`과 action-bound 승인 | 정족수, 자기 승인 방지 상태, 기한, 근거를 보여줍니다. |
+| 사람 승인 | `ReviewCase -> has_approval -> Approval`과 action-bound 승인 | 정족수, 자기 승인 방지 상태, 기한, 근거를 보여줍니다. 결정 사유는 선택 사항이며, 만료되었거나 이미 결정되었거나 실패한 결정은 원시 상태 코드 대신 설명 메시지를 보여줍니다. |
 | 작업 흐름 실행 | `WorkflowDefinition`, `WorkflowBinding`, `Process` | 변경할 수 없는 정의, 현재 단계, 개정 번호, 대상, 보상 상태를 보여줍니다. |
 | 접근 변경 | `AccessGrantRequest` | 적격한 pending 요청을 스트림하고 접근을 적용하지 않은 채 변경할 수 없는 권한 확인 수명 주기를 보여줍니다. |
 | 실행 후속 조치 | `ActionRun`, 롤백, 감사 참조 | Execute-again 바로 가기 없이 결과와 복구 상태를 보여줍니다. |
