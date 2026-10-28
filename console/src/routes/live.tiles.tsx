@@ -15,6 +15,12 @@ import type { LiveStageName } from "../hooks/use-live-stream";
 import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import { routeHref } from "../router";
 import { t } from "./i18n/live";
+import {
+  tileAuthorityLabel,
+  tileEffectLabel,
+  tileReasonLabel,
+  tileScopeLabel,
+} from "./live.absence";
 import { LiveDetailShell } from "./live.detail-shell";
 import { liveSampleStory } from "./operations.sample-live-stories";
 import {
@@ -129,9 +135,9 @@ export function liveControlState(tile: TileState): LiveControlState {
             : t("live.control.notStarted");
   return {
     policy: tile.gate_decision ? decisionLabel(tile.gate_decision) : t("live.work.pending"),
-    authority: normalizedAutonomy(tile.autonomy) ?? t("live.control.notObserved"),
+    authority: tileAuthorityLabel(normalizedAutonomy(tile.autonomy)),
     execution,
-    effect: outcomeLabel(tile.outcome),
+    effect: tile.outcome ? outcomeLabel(tile.outcome) : tileEffectLabel(tile, null),
   };
 }
 
@@ -238,13 +244,13 @@ export function LiveTile({ tile, filter, selected, now, onClick, sample = false 
         <span>{story ? t(`live.sample.target.${story.key}`) : targetLabel(tile)}</span>
       </div>
       <div class="live-tile-reason">
-        {t("live.work.why", { reason: story ? t(`live.sample.reason.${story.key}`) : tile.reason ?? t("live.control.notObserved") })}
+        {t("live.work.why", { reason: story ? t(`live.sample.reason.${story.key}`) : tileReasonLabel(tile) })}
       </div>
       <div class="live-tile-foot">
         <span class="live-tile-owner">
           {tile.last_agent ? `${tile.last_agent} · ${stageLabel(tile.last_stage)}` : stageLabel(tile.last_stage)}
         </span>
-        <span class="live-tile-scope">{tile.scope ?? t("live.control.notObserved")}</span>
+        <span class="live-tile-scope">{tileScopeLabel(tile)}</span>
       </div>
       <span class="live-tile-bar" role="meter" aria-label={t("live.work.progress")}
         aria-valuemin={0} aria-valuemax={STAGE_ORDER.length}
@@ -534,7 +540,7 @@ export function DetailPanel({
           <h3 id="live-work-summary-heading">{t("live.detail.workSummary")}</h3>
           <dl class="live-detail-list">
           <dt>{t("live.detail.reason")}</dt>
-          <dd>{tile.reason ?? t("live.control.notObserved")}</dd>
+          <dd>{tileReasonLabel(tile)}</dd>
           <dt>{t("live.detail.target")}</dt>
           <dd>{targetLabel(tile)}</dd>
           <dt>{t("live.detail.rule")}</dt>
