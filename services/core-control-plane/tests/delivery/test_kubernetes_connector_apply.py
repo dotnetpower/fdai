@@ -73,7 +73,9 @@ class FakeCluster:
         return [
             call
             for call in self.calls
-            if call[0][0] in {"apply", "patch", "delete"} and "--dry-run=server" not in call[0]
+            if call[0][0] in {"apply", "patch", "delete"}
+            and "--dry-run=server" not in call[0]
+            and not (call[0][0] == "delete" and call[0][1] == "lease")
         ]
 
     def run(self, args, *, manifest, timeout):
@@ -106,6 +108,18 @@ class FakeCluster:
                 args[args.index("--patch") + 1]
             )["spec"]["suspend"]
             return KubeResult(0, "patched")
+        if verb in {"create", "replace"}:
+            item = json.loads(manifest)
+            key = (
+                item["kind"].lower(),
+                item["metadata"].get("namespace"),
+                item["metadata"]["name"],
+            )
+            if verb == "create" and key in self.objects:
+                return KubeResult(1, "AlreadyExists")
+            item["metadata"]["resourceVersion"] = "1"
+            self.objects[key] = item
+            return KubeResult(0, "created")
         if verb == "delete":
             self.objects.pop((args[1], namespace, args[2]), None)
             return KubeResult(0, "deleted")
@@ -159,6 +173,11 @@ def test_gitops_method_has_no_cluster_apply_approval(tmp_path) -> None:
         approval_for(inputs, rendered)
 
 
+def fresh_approval(inputs, rendered, **changes):
+    """A new approval for a repeated operation; an earlier one is single use."""
+    return approval_for(inputs, rendered, approved_at=NOW - timedelta(seconds=1), **changes)
+
+
 def approval_for(inputs, rendered, *, operation="apply", **changes):
     value = {
         "operation": operation,
@@ -169,8 +188,7 @@ def approval_for(inputs, rendered, *, operation="apply", **changes):
         "namespace": inputs.namespace,
         "name": inputs.name,
         "inputs_digest": canonical_digest(inputs.model_dump(mode="json")),
-        "proposal_digest": rendered["proposal_digest"],
-        "manifest_digest": rendered["manifest_digest"],
+        "recipe_digest": rendered["recipe_digest"],
         "approved_at": NOW,
         "expires_at": NOW + timedelta(minutes=10),
         **changes,
@@ -265,8 +283,7 @@ def test_missing_namespace_is_created_then_the_rest_is_dry_run_before_apply(inst
 @pytest.mark.parametrize(
     "change",
     [
-        {"manifest_digest": "sha256:" + "0" * 64},
-        {"proposal_digest": "sha256:" + "0" * 64},
+        {"recipe_digest": "sha256:" + "0" * 64},
         {"target_ref": "another-cluster"},
         {"namespace": "elsewhere"},
         {"inputs_digest": "sha256:" + "0" * 64},
@@ -287,10 +304,8 @@ def test_approval_cannot_outlive_thirty_minutes_or_omit_the_manifest(installatio
     with pytest.raises(ValueError):
         approval_for(inputs, rendered, expires_at=NOW + timedelta(hours=2))
     with pytest.raises(ValueError):
-        approval_for(inputs, rendered, manifest_digest=None)
-    assert approval_for(
-        inputs, rendered, operation="rollback", manifest_digest=None, proposal_digest=None
-    )
+        approval_for(inputs, rendered, recipe_digest=None)
+    assert approval_for(inputs, rendered, operation="rollback", recipe_digest=None)
 
 
 @pytest.mark.parametrize(
@@ -443,9 +458,7 @@ def test_rollback_removes_only_owned_resources_and_keeps_the_namespace(installat
     inputs, rendered, _, tmp_path = installation
     cluster = FakeCluster()
     run_apply(installation, cluster, approval_for(inputs, rendered))
-    approval = approval_for(
-        inputs, rendered, operation="rollback", manifest_digest=None, proposal_digest=None
-    )
+    approval = approval_for(inputs, rendered, operation="rollback", recipe_digest=None)
     kwargs = dict(
         transport=cluster, lock_directory=tmp_path / "locks", audit=lambda _: None, now=lambda: NOW
     )
@@ -469,9 +482,7 @@ def test_rollback_stops_at_a_resource_this_observer_does_not_own(installation) -
     cluster = FakeCluster()
     run_apply(installation, cluster, approval_for(inputs, rendered))
     cluster.objects[("clusterrole", None, inputs.name)]["metadata"]["labels"] = {}
-    approval = approval_for(
-        inputs, rendered, operation="rollback", manifest_digest=None, proposal_digest=None
-    )
+    approval = approval_for(inputs, rendered, operation="rollback", recipe_digest=None)
     with pytest.raises(ValueError, match="not owned"):
         rollback_observer_installation(
             inputs,
@@ -652,9 +663,7 @@ def test_activation_and_deactivation_use_a_state_manager_limited_to_the_suspend_
     activate_observer(
         rendered, inputs, approval_for(inputs, rendered, operation="activate"), **kwargs
     )
-    stop = approval_for(
-        inputs, rendered, operation="deactivate", manifest_digest=None, proposal_digest=None
-    )
+    stop = approval_for(inputs, rendered, operation="deactivate", recipe_digest=None)
     result = deactivate_observer(inputs, stop, **kwargs)
     assert result["state"] == "installed_suspended"
     assert not [call for call, _ in cluster.calls if call[0] == "patch"]
@@ -670,7 +679,7 @@ def test_activation_and_deactivation_use_a_state_manager_limited_to_the_suspend_
     ] == [{"suspend": False}, {"suspend": True}]
     assert cluster.objects[("cronjob", inputs.namespace, inputs.name)]["spec"]["suspend"] is True
     # A later full apply of the same plan converges without a field-ownership conflict.
-    run_apply(installation, cluster, approval_for(inputs, rendered))
+    run_apply(installation, cluster, fresh_approval(inputs, rendered))
 
 
 def test_deactivation_needs_its_own_target_bound_approval(installation) -> None:
@@ -681,9 +690,7 @@ def test_deactivation_needs_its_own_target_bound_approval(installation) -> None:
         "audit": lambda _: None,
         "now": lambda: NOW,
     }
-    wrong = approval_for(
-        inputs, rendered, operation="rollback", manifest_digest=None, proposal_digest=None
-    )
+    wrong = approval_for(inputs, rendered, operation="rollback", recipe_digest=None)
     with pytest.raises(ValueError, match="approval"):
         deactivate_observer(inputs, wrong, **kwargs)
 
@@ -758,13 +765,11 @@ def test_applying_to_an_active_observer_says_to_deactivate_first(installation) -
     )
     cluster.calls.clear()
     with pytest.raises(ValueError, match="deactivate before applying"):
-        run_apply(installation, cluster, approval_for(inputs, rendered))
+        run_apply(installation, cluster, fresh_approval(inputs, rendered))
     assert cluster.effects() == []
-    stop = approval_for(
-        inputs, rendered, operation="deactivate", manifest_digest=None, proposal_digest=None
-    )
+    stop = approval_for(inputs, rendered, operation="deactivate", recipe_digest=None)
     deactivate_observer(inputs, stop, **kwargs)
     assert (
-        run_apply(installation, cluster, approval_for(inputs, rendered))["state"]
+        run_apply(installation, cluster, fresh_approval(inputs, rendered))["state"]
         == "installed_suspended"
     )

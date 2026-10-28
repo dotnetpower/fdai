@@ -230,11 +230,25 @@ python -m fdai.delivery.kubernetes_connector_apply_cli apply --inputs ... --prop
   --lock-directory ... --audit-file ... --approver <human>
 ```
 
-Without `--approve-manifest-digest`, the command only checks the cluster identity and runs a
-server-side dry-run, then prints the exact manifest digest to approve. Repeat it with that digest
-to install. The apply, `activate`, and `rollback` operations each need their own short-lived
-(at most 30 minutes) approval bound to the target, namespace, name, inputs, proposal, and manifest
-digests. The transport follows the proposal's pinned method and never falls back: `existing_host`
+Without an approval, the command only checks the cluster identity and runs a server-side dry-run,
+then prints the stable `recipe_digest` to approve. The recipe digest covers the installable
+documents without the proposal annotation, so a proposal refresh (its signed facts live five
+minutes) does not invalidate a human review, while any change to the installed bytes does. The
+venue still renders from a current unblocked proposal and records its digest in the audit. The
+apply, `activate`, and `rollback` operations each need their own short-lived (at most 30 minutes)
+approval bound to the target, namespace, name, inputs, and recipe digest.
+
+An approval is one of two kinds. A `sign-approval` signed by an enrolled approver key
+(`ObserverApproverGrant`: approver, key, target, operation set, validity, revocation) names the
+executor that may use it, and the executor must be a different identity from the approver. The
+single-operator development profile may instead pass `--development-self-approval` with the
+reviewed digest; the result reports `approval_mode` as `signed` or `development_self_issued`.
+Before the first mutating call, the apply and `activate` operations write an exclusive claim, so an
+approval is single use. A claim without an outcome means the result is unknown: the operator runs
+`verify` and requests a fresh approval, and the same approval is never replayed. Once the observer
+namespace exists, an operation also holds a Kubernetes `Lease` there (ten minutes, taken over only
+when expired), so two hosts cannot operate on one target. Before the namespace exists only the host
+lock applies, and the audit records the `lock_scope`. The transport follows the proposal's pinned method and never falls back: `existing_host`
 and `managed_host` run `kubectl` with a kubeconfig, `run_command` uses `az aks command invoke`
 (Azure RBAC only, no network line of sight; Azure Policy can disable command invoke), and `gitops`
 uses `export` to write reviewable documents without credentials.
