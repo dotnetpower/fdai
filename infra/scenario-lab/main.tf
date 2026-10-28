@@ -17,6 +17,7 @@ resource "terraform_data" "deploy_runner_identity_fence" {
 locals {
   suffix                   = "fdai-sre-${var.environment}-${var.region_short}"
   unique_suffix            = substr(sha1("${data.azurerm_client_config.current.subscription_id}:${var.environment}:${var.region}"), 0, 6)
+  runner_peering_enabled   = var.runner_vnet != null
   operator_enabled         = var.operator_access != null
   store_front_dns_label    = "fdai-store-${var.environment}-${var.region_short}-${local.unique_suffix}"
   store_front_dns_hostname = "${local.store_front_dns_label}.${var.region}.cloudapp.azure.com"
@@ -43,6 +44,8 @@ resource "azurerm_user_assigned_identity" "aks" {
 }
 
 resource "azurerm_virtual_network_peering" "lab_to_runner" {
+  count = local.runner_peering_enabled ? 1 : 0
+
   name                         = "peer-${local.suffix}-to-runner"
   resource_group_name          = data.azurerm_resource_group.scenario_lab.name
   virtual_network_name         = azurerm_virtual_network.scenario_lab.name
@@ -52,6 +55,8 @@ resource "azurerm_virtual_network_peering" "lab_to_runner" {
 }
 
 resource "azurerm_virtual_network_peering" "runner_to_lab" {
+  count = local.runner_peering_enabled ? 1 : 0
+
   name                         = "peer-runner-to-${local.suffix}"
   resource_group_name          = var.runner_vnet.resource_group_name
   virtual_network_name         = var.runner_vnet.name

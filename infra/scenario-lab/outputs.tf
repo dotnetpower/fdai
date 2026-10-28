@@ -40,19 +40,19 @@ output "enforce_environment" {
     store_front_dns_label = local.store_front_dns_label
     store_front_hostname  = local.store_front_dns_hostname
     vm_name               = azurerm_linux_virtual_machine.stress.name
-    mysql_host            = azurerm_mysql_flexible_server.scenario_lab.fqdn
-    mysql_user            = var.mysql_admin_login
-    mysql_server          = azurerm_mysql_flexible_server.scenario_lab.name
+    mysql_host            = var.data_services_enabled ? azurerm_mysql_flexible_server.scenario_lab[0].fqdn : ""
+    mysql_user            = var.data_services_enabled ? var.mysql_admin_login : ""
+    mysql_server          = var.data_services_enabled ? azurerm_mysql_flexible_server.scenario_lab[0].name : ""
     mysql_password        = random_password.mysql_admin.result
-    azure_openai_endpoint = module.azure_openai.endpoint
+    azure_openai_endpoint = var.data_services_enabled ? module.azure_openai[0].endpoint : ""
     # The llm_endpoint chaos scenarios bind this exact ARM id as their mutation
     # scope, so it is read from the module rather than derived from the endpoint.
-    azure_openai_resource_id = module.azure_openai.resource_id
-    azure_openai_deployment = lookup(
-      module.azure_openai.deployments,
+    azure_openai_resource_id = var.data_services_enabled ? module.azure_openai[0].resource_id : ""
+    azure_openai_deployment = var.data_services_enabled ? lookup(
+      module.azure_openai[0].deployments,
       var.azure_openai_deployment_name,
       var.azure_openai_deployment_name,
-    )
+    ) : ""
     commerce_enabled             = var.commerce_enabled
     commerce_namespace           = var.commerce_namespace
     commerce_identity_client_id  = var.commerce_enabled ? azurerm_user_assigned_identity.commerce[0].client_id : null
