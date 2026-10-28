@@ -51,6 +51,7 @@ def test_delivered_state_is_compared_with_core_accounting(caplog: pytest.LogCapt
     assert local is not None
     other = DialogueStateShadow().observe(session_id="s2", prior_turns=turns)
     assert other is not None
+    caplog.clear()
 
     with caplog.at_level(logging.INFO, logger="fdai_core_service.dialogue_state_shadow"):
         DialogueStateShadow().observe(session_id="s1", prior_turns=turns, delivered=local)
