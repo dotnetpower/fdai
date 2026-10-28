@@ -42,6 +42,7 @@ from tests.conversation.test_semantic_planning import (
     _Model,
     _typed_fixture,
 )
+from tests.conversation.test_semantic_planning_tier_routing import _frame
 from tests.conversation.test_semantic_reasoning_compiler import (
     _compile_bound,
     _relation_form,
@@ -624,3 +625,60 @@ def test_the_speculative_start_follows_the_local_setting() -> None:
     assert _speculating_service(disabled).speculative_form_enabled is False
     assert _speculating_service(disabled).start_speculative_form(**arguments) is None
     assert disabled.starts == []
+
+
+def test_typed_only_still_drafts_an_accepted_incident_creation_request() -> None:
+    utterance = "Create a SEV2 incident for aks-store-demo"
+    judgment = SemanticJudgmentProposal.model_validate(
+        {
+            "primary_intent": "action_request",
+            "requested_facets": ["incident_create"],
+            "targets": [
+                {
+                    "kind": "severity",
+                    "value": "SEV2",
+                    "source_start": utterance.index("SEV2"),
+                    "source_end": utterance.index("SEV2") + 4,
+                },
+                {
+                    "kind": "resource",
+                    "value": "aks-store-demo",
+                    "source_start": utterance.index("aks-store-demo"),
+                    "source_end": utterance.index("aks-store-demo") + 14,
+                },
+            ],
+            "confidence": 0.99,
+            "ambiguous": False,
+            "action_posture": "draft_only",
+            "action_subject": "Incident",
+        }
+    )
+    path = _Path(result=None, typed_only=True)
+    path.ticket.decision = "clarification"
+    manifest, _definition = _typed_fixture(groups=(_VM_GROUP,))
+    model = _Model(frame=_frame(), plan=None)  # type: ignore[arg-type]
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        now=lambda: NOW,
+        semantic_judgment=_Boundary(  # type: ignore[arg-type]
+            SemanticJudgmentDisposition.ACCEPTED, proposal=judgment
+        ),
+        compiled_answers=path,  # type: ignore[arg-type]
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        locale="en",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.ACTION_DRAFT
+    assert outcome.incident_creation_intent is not None
+    assert outcome.incident_creation_intent.arguments.model_dump() == {
+        "severity": "sev2",
+        "target": "aks-store-demo",
+    }
