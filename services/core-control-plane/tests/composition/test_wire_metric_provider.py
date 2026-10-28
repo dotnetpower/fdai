@@ -12,6 +12,7 @@ from fdai.composition.wire_azure import AzureWireOverrides
 from fdai.composition.wire_metric_provider import attach_metric_provider
 from fdai.core.operator_memory import InMemoryOperatorMemoryStore
 from fdai.delivery.azure.metrics_api import AzureMonitorMetricsProvider, MetricsApiTemplate
+from fdai.shared.providers.metric import MetricQuery
 from fdai.shared.providers.routed_metric import RoutedMetricProvider
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -108,3 +109,49 @@ async def test_route_order_preserves_prometheus_native_then_logs(container: Cont
     assert provider.route_for("model.response.429.count") == "AzureMonitorMetricsProvider"
     assert provider.route_for("gateway.total_time") == "AzureMonitorMetricsProvider"
     assert provider.route_for("http_429_rate") == "AzureMonitorLogsMetricProvider"
+
+
+async def test_aks_node_cpu_is_served_natively_without_prometheus_or_a_workspace(
+    container: Container,
+) -> None:
+    async with httpx.AsyncClient() as client:
+        bound = attach_metric_provider(
+            container,
+            identity=cast(WorkloadIdentity, object()),
+            http_client=client,
+            monitor_workspace_id=None,
+            monitor_queries=None,
+            metrics_api_queries=None,
+            prometheus_base_url=None,
+            prometheus_queries=None,
+            prometheus_audience=None,
+        )
+    provider = bound.metric_provider
+    assert isinstance(provider, AzureMonitorMetricsProvider)
+    cluster = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example"
+        "/providers/Microsoft.ContainerService/managedClusters/example"
+    )
+    assert provider.serves(MetricQuery("node_cpu_percent", {"resource_id": cluster}))
+    assert not provider.serves(MetricQuery("node_cpu_percent", {"resource_id": "example"}))
+
+
+async def test_logs_remain_the_fallback_route_behind_the_native_node_cpu_template(
+    container: Container,
+) -> None:
+    async with httpx.AsyncClient() as client:
+        bound = attach_metric_provider(
+            container,
+            identity=cast(WorkloadIdentity, object()),
+            http_client=client,
+            monitor_workspace_id="example-workspace",
+            monitor_queries=None,
+            metrics_api_queries=None,
+            prometheus_base_url=None,
+            prometheus_queries=None,
+            prometheus_audience=None,
+        )
+    provider = bound.metric_provider
+    assert isinstance(provider, RoutedMetricProvider)
+    assert provider.route_for("node_cpu_percent") == "AzureMonitorMetricsProvider"
+    assert provider.route_for("pod_restart_count") == "AzureMonitorLogsMetricProvider"
