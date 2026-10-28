@@ -130,6 +130,7 @@
           "services/operator-service/tests/test_local_auth.py",
           "services/operator-service/tests/test_local_narrator.py",
           "services/operator-service/tests/test_model_catalog.py",
+          "services/operator-service/tests/test_narrator_dialogue_proposer.py",
           "services/operator-service/tests/test_narrator_dialogue_shadow.py",
           "services/operator-service/tests/test_narrator_periodic_scheduler.py",
           "services/operator-service/tests/test_narrator_preference_persistence.py",

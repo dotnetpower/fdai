@@ -1020,7 +1020,7 @@ path provides reviewable evidence:
   the cluster, losing the last verified management path or allowing the browser to mutate Azure.
 
 Source and provider tests prove implementation. Live receipts are required before the AKS path is
-classified as validated or advertised as ready for production.
+classified as validated or advertised as ready for production. Two opt-in Operator settings control the dialogue state, both off by default: `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED` emits the schema 1.12.0 `dialogue_state` field only after every Core consumer accepts 1.12.0, and `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED` lets the dev local narrator run the T1 proposer. Neither adds a deployment profile, role, grant beyond `SELECT` and `INSERT` on `conversation_dialogue_snapshot`, or authority.
 
 ## Related docs
 

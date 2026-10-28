@@ -13,6 +13,7 @@ The existing runtime-state projection can include process-owned first-tier-decis
 source and unavailable state; this adds no Incident command, approval or execution authority.
 
 Semantic request 1.11.0 adds the explicit no-authority `presentation_mode=agent_discussion`.
+Semantic request 1.12.0 adds the optional no-authority `dialogue_state`: exact accounting of the prior turns beyond the verbatim window (turn ids and a range digest, no turn text). The Operator emits it only when `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED` is on, after every Core consumer accepts 1.12.0; a 1.11.0 consumer rejects it by schema. Core only compares it with its own accounting in a log-only observation.
 The ordinary default stays absent from serialized requests. Operator requires Owner and retained
 authentication receipts; Core independently admits the exact current installation read grant.
 Discussion uses existing stream, cancellation, deadline and durable terminal projection fields,

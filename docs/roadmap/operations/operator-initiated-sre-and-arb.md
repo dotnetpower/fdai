@@ -81,7 +81,7 @@ I/O, semantic planning estimates the complete request for every candidate deploy
 strictest result to the configured request budget. An over-budget request is held without creating
 an Incident, ActionProposal, approval, or execution authority.
 
-Core also observes the prior turns of each semantic turn, including a draft-creating turn, in a log-only dialogue-state shadow. It records content-free counts, calls no model, and creates, confirms, or mutates no Incident, ActionProposal, or ARB workflow.
+Core also observes the prior turns of each semantic turn, including a draft-creating turn, in a log-only dialogue-state shadow. It records content-free counts, calls no model, and creates, confirms, or mutates no Incident, ActionProposal, or ARB workflow. It also compares the optional 1.12.0 `dialogue_state` the Operator delivers with its own accounting, still log-only.
 
 ![Design at a glance. The main stages are Operator request, Problem response?, Correlation ID and optional Process ID, Incident registry, Typed ActionProposal, Trust and risk gates, Judge, journal, and audit, Promoted executor adapter, Approval then resume, Stage stream.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.en.svg)
 

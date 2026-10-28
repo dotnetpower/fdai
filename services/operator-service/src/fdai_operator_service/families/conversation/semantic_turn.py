@@ -35,6 +35,7 @@ from fdai_service_contracts.adaptive_relationship import (
     AdaptiveRelationshipUnknownReason,
 )
 from fdai_service_contracts.codec import MAX_WIRE_BYTES, encode_wire_object
+from fdai_service_contracts.semantic_turn import compact_prior_turns
 from pydantic import TypeAdapter
 
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
@@ -57,11 +58,13 @@ class SemanticTurnEnvelopeBuilder:
         clock: Clock | None = None,
         selection_registry: ContextSelectionRegistry | None = None,
         emit_authentication_receipt_ref: bool = False,
+        emit_dialogue_state: bool = False,
     ) -> None:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._validator = JsonSchemaContractValidator(PackageResourceSchemaRegistry())
         self._selection_registry = selection_registry
         self._emit_authentication_receipt_ref = emit_authentication_receipt_ref
+        self._emit_dialogue_state = emit_dialogue_state
 
     def build(
         self,
@@ -106,6 +109,7 @@ class SemanticTurnEnvelopeBuilder:
             if not self._emit_authentication_receipt_ref or proposal.authentication_receipt is None:
                 raise ValueError("agent discussion requires retained authentication receipts")
         purpose = _optional_text(proposal.body, "purpose", default="operations-review")
+        prior_turns = _prior_turns(proposal.body.get("history"))
         semantic_turn = SemanticTurnRequest(
             authentication_receipt_ref=(
                 str(proposal.authentication_receipt["receipt_digest"])
@@ -136,7 +140,10 @@ class SemanticTurnEnvelopeBuilder:
             ),
             investigation_continuation=investigation_continuation,
             recent_result_handles=recent_result_handles,
-            prior_turns=_prior_turns(proposal.body.get("history")),
+            prior_turns=prior_turns,
+            dialogue_state=(
+                compact_prior_turns(session_id, prior_turns) if self._emit_dialogue_state else None
+            ),
             planning_profile=_planning_profile(proposal.body),
             conversation_model_tier=_conversation_model_tier(proposal.body),
             document_context=_document_context(proposal.body.get("document_context")),
@@ -151,7 +158,9 @@ class SemanticTurnEnvelopeBuilder:
         )
         semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
         schema_version = (
-            "1.11.0"
+            "1.12.0"
+            if semantic_turn.dialogue_state is not None
+            else "1.11.0"
             if semantic_turn.presentation_mode == "agent_discussion"
             else "1.10.0"
             if semantic_turn.recent_result_handles

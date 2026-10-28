@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 0f3b654dc407bf5cadb70b7fb8d302c1ddf5c305
+translation_source_sha: 77443a9f70f4f596adc31b38a0107cba22a3eaab
 translation_revised: 2026-10-28
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -276,6 +276,8 @@ UTF-8이어야 합니다. 유효하지 않은 내용은 replacement 문자로 pr
 검증 워크플로는 현재 PostgreSQL 온톨로지에서 topology에 연결된 Workload를 정확히 하나 선택한
 후 비공개 러너에서 해당 Workload의 현재 목록 세대와 Azure 관리 계층을 읽습니다. 후보가 없거나
 여러 개이면 프로바이더 관측 전에 실패합니다. Terraform apply는 실행하지 않습니다.
+
+Operator 대화 상태 snapshot과 요청 필드는 평가 출처, 발견 사항, 프레임워크 매핑을 추가하지 않습니다.
 
 ## 관련 문서
 

@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 2a24fd5c8321490197437b963dc92deb7fc9f773
+translation_source_sha: 4076f3325459fcf27f54bea6f3aa0c6b6da541b0
 translation_revised: 2026-10-28
 ---
 # WARA 근거 기반 평가
@@ -332,6 +332,8 @@ WARA 근거를 충족하거나, 넓히거나, 대체할 수 없습니다.
 연결은 WARA 범위, 소비자 필터링, 근거 승인 또는 shadow 전용 평가 수명 주기를 바꾸지 않습니다.
 같은 Operator 조립은 브로커 수락 뒤에 권한이 없는 런타임 호출 증표를 내보낼 수 있습니다. 이
 텔레메트리는 WARA 범위, 근거 승인 또는 평가 결과에 들어가지 않습니다.
+
+Operator 대화 상태 snapshot과 요청 필드는 평가 출처, 발견 사항, WARA 매핑을 추가하지 않습니다.
 
 ## 관련 문서
 

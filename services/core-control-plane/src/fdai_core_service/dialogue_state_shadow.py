@@ -1,8 +1,9 @@
 """Off-path dialogue-state shadow for one Core semantic turn.
 
 Core keeps only the newest adaptive-history window verbatim. The shadow accounts for the older
-prior turns as a T0 ``DialogueState`` and logs content-free counts. It never changes the active
-turn: a failure is logged and ignored, and no model (T1 or T2) is called.
+prior turns as a T0 ``DialogueState`` and logs content-free counts. When the Operator delivered its
+own state, the shadow also records whether it matches Core's independent accounting. It never
+changes the active turn: it calls no model (T1 or T2) and grants no authority.
 """
 
 from __future__ import annotations
@@ -11,47 +12,32 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from fdai_service_contracts.dialogue_state import (
-    DialogueRole,
-    DialogueState,
-    DialogueTurn,
-    compact_dialogue,
-)
-from fdai_service_contracts.semantic_turn import SemanticPriorTurn
+from fdai_service_contracts.dialogue_state import DIALOGUE_VERBATIM_WINDOW, DialogueState
+from fdai_service_contracts.semantic_turn import SemanticPriorTurn, compact_prior_turns
 
 _LOGGER = logging.getLogger(__name__)
-ADAPTIVE_HISTORY_WINDOW = 8
-"""Verbatim history window of the adaptive conversation path."""
+ADAPTIVE_HISTORY_WINDOW = DIALOGUE_VERBATIM_WINDOW
 
 
 @dataclass(frozen=True, slots=True)
 class DialogueStateShadow:
     """Compute the candidate state beside the active truncation."""
 
-    keep_recent: int = ADAPTIVE_HISTORY_WINDOW
-
     def observe(
-        self, *, session_id: str, prior_turns: Sequence[SemanticPriorTurn]
+        self,
+        *,
+        session_id: str,
+        prior_turns: Sequence[SemanticPriorTurn],
+        delivered: DialogueState | None = None,
     ) -> DialogueState | None:
-        """Return the candidate state; ``None`` when nothing is compacted or it failed."""
+        """Return Core's own accounting; ``None`` when nothing is compacted or it failed."""
 
         try:
-            state = compact_dialogue(
-                [
-                    DialogueTurn(
-                        turn_id=f"{session_id}:prior:{index}",
-                        role=DialogueRole(turn.role),
-                        content=turn.content,
-                    )
-                    for index, turn in enumerate(prior_turns)
-                ],
-                keep_recent=self.keep_recent,
-                fallback_reason="t1_unconfigured",
-            )
+            state = compact_prior_turns(session_id, tuple(prior_turns))
         except ValueError:
             _LOGGER.warning("dialogue_state_shadow_failed", exc_info=True)
             return None
-        if not state.compacted_turn_ids:
+        if state is None:
             return None
         _LOGGER.info(
             "dialogue_state_shadow",
@@ -61,6 +47,13 @@ class DialogueStateShadow:
                 "compacted_turns": len(state.compacted_turn_ids),
                 "kept_turns": len(state.kept_turn_ids),
                 "fallback_reason": state.fallback_reason,
+                "delivered": delivered is not None,
+                "delivered_matches": (
+                    None
+                    if delivered is None
+                    else delivered.compacted_digest == state.compacted_digest
+                    and delivered.compacted_turn_ids == state.compacted_turn_ids
+                ),
             },
         )
         return state

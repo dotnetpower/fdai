@@ -785,7 +785,7 @@ The revision is implemented as a local opt-in path. Implementation fixed these b
 
 ## Source-to-store implementation audit
 
-The complete implementation audit and transition ledger are in [Continuous Operational Instance Graph Evidence](continuous-operational-instance-graph-evidence.md).
+The complete implementation audit and transition ledger are in [Continuous Operational Instance Graph Evidence](continuous-operational-instance-graph-evidence.md). The observation-mode dialogue state (the Operator `conversation_dialogue_snapshot` table, the 1.12.0 `dialogue_state` request field and Core's log-only observation) is conversation context. It adds no ontology entity, relationship, instance-graph node or edge, and no evidence authority.
 
 ## Related docs
 

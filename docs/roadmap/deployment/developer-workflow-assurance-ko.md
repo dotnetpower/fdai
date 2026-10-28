@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 0b0b6a8fb4e59d3edebff20dc1fd321bb7e44b07
-translation_revised: 2026-10-26
+translation_source_sha: 486c2db5a9ddf87cc689a04ee82bf3051bcec531
+translation_revised: 2026-10-28
 ---
 
 # 개발 워크플로 보증
@@ -646,6 +646,8 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
   cohort를 파괴하지 않고 이후 실행도 재생할 수 없으며, live turn을 수행하지 않은 실행은
   `interrupted`로 보고되고 release 권한을 갖지 않으므로 production-ready 아티팩트를 보고할 수
   없습니다.
+
+개발 전용 로컬 내레이터는 `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED`가 설정되면 응답 경로 밖에서 T1 dialogue-state proposer를 실행할 수 있습니다. 내레이터 시간 제한을 받고, 어떤 실패에서도 typed T0 fallback으로 내려가며, 진단 채널 기능이나 개발 근거의 출처가 아닙니다.
 
 ## 관련 문서
 

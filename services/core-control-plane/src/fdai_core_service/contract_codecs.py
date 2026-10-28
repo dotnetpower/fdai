@@ -81,6 +81,11 @@ OPERATOR_REQUEST_CONSUMER_V111 = ConsumerCodec(
     "N",
     (*OPERATOR_REQUEST_CONSUMER_V110.accepted_versions, "1.11.0"),
 )
+OPERATOR_REQUEST_CONSUMER_V112 = ConsumerCodec(
+    "operator-core-request",
+    "N",
+    (*OPERATOR_REQUEST_CONSUMER_V111.accepted_versions, "1.12.0"),
+)
 BACKGROUND_TASK_PROJECTION_PRODUCER_V1 = ProducerCodec(
     "background-task-projection",
     "N",
@@ -109,4 +114,8 @@ __all__ = [
     if name.endswith(
         ("_V1", "_V11", "_V12", "_V13", "_V14", "_V15", "_V16", "_V17", "_V18", "_V19")
     )
-] + ["OPERATOR_REQUEST_CONSUMER_V110", "OPERATOR_REQUEST_CONSUMER_V111"]
+] + [
+    "OPERATOR_REQUEST_CONSUMER_V110",
+    "OPERATOR_REQUEST_CONSUMER_V111",
+    "OPERATOR_REQUEST_CONSUMER_V112",
+]

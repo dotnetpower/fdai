@@ -692,7 +692,7 @@ See [Code Security Findings](../operations/code-security-findings.md#result-impo
 
 - No new agent or topic, no `owns`, `subscribes`, or role-binding change, and no execution or promotion authority.
 - No reuse of the `deployment-apply` policy, its workflow proofs, or its container.
-- No operational-evidence role for the Operator `conversation_dialogue_snapshot` table: it is derived conversation context and adds no issuance, grant, readback, or proof.
+- No operational-evidence role for the Operator `conversation_dialogue_snapshot` table: it is derived conversation context and adds no issuance, grant, readback, or proof. The 1.12.0 `dialogue_state` request field carries no operational evidence either.
 - Consumers stay fail-closed, including the existing self-review rejection; only their hold reasons gain classes.
 - Out of scope: raw history (#1021), the Console workflow (#1023), Pattern-to-T1 intake (#1024), and P0-P6
   qualification (#1026). No tenant values, secrets, or live Azure, model, or deployment activity.

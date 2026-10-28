@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 334111cff8d61e512e116bd9320a658ba4985298
-translation_revised: 2026-10-24
+translation_source_sha: 87ffc835bcca5cc85e9c205cb2e8dc46ab20aa96
+translation_revised: 2026-10-28
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -786,6 +786,8 @@ receipt도 구분합니다.
 ## 원본부터 저장소까지 구현 감사
 
 전체 구현 감사와 상태 전이 원장은 [지속형 운영 인스턴스 그래프 근거](continuous-operational-instance-graph-evidence-ko.md)를 참조하세요.
+
+관찰 모드 대화 상태(Operator `conversation_dialogue_snapshot` 테이블, 1.12.0 `dialogue_state` 요청 필드, Core의 로그 전용 관찰)는 대화 맥락입니다. 온톨로지 엔터티, 관계, 인스턴스 그래프 노드나 엣지를 추가하지 않으며 근거 권한도 없습니다.
 
 ## 관련 문서
 
