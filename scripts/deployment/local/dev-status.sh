@@ -91,6 +91,15 @@ else
     echo "az CLI not on PATH"
 fi
 
+hr "database growth"
+if [[ -f .fdai/local-runtime.env ]]; then
+    (set -a; . .fdai/local-runtime.env; set +a; \
+        uv run python scripts/deployment/local/report-database-growth.py 2>&1 | head -12) \
+        || echo "database growth report unavailable"
+else
+    echo "no local runtime environment"
+fi
+
 if [[ $run_gates -eq 1 ]]; then
     hr "fast gates"
     bash scripts/verify.sh --fast || true

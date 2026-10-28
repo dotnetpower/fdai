@@ -14,34 +14,38 @@ import fcntl
 import hashlib
 import json
 import os
-import re
-import shlex
-import subprocess
-import tempfile
 from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
-from dataclasses import dataclass
+from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Any, Literal, Protocol
+from typing import Annotated, Any, Literal
 
 from fdai_service_contracts.cluster_connector import ConnectorContract, Digest, connector_time
 from fdai_service_contracts.compatibility import canonical_digest
 from pydantic import Field, model_validator
 
+from fdai.delivery.kubernetes_connector_claim import MANIFEST_FILE, claim_effect, cluster_lock
 from fdai.delivery.kubernetes_connector_installation import (
+    PROPOSAL_ANNOTATION,
     ObserverInstallationInput,
+    recipe_digest,
     validate_installation_material,
 )
+from fdai.delivery.kubernetes_connector_kube_transport import (
+    AksRunCommandTransport as AksRunCommandTransport,
+)
+from fdai.delivery.kubernetes_connector_kube_transport import (
+    KubectlTransport as KubectlTransport,
+)
+from fdai.delivery.kubernetes_connector_kube_transport import KubeResult as KubeResult
+from fdai.delivery.kubernetes_connector_kube_transport import KubeTransport as KubeTransport
 from fdai.delivery.kubernetes_connector_material import MATERIAL_FILES, material_digest
 from fdai.delivery.kubernetes_connector_runtime import private_file
 
 FIELD_MANAGER = "fdai-observer-install"
 STATE_MANAGER = "fdai-observer-state"
-MANIFEST_FILE = "@manifest"
 MAX_APPROVAL_SECONDS = 1800
 _OWNER_LABEL = "app.kubernetes.io/managed-by"
-_PROPOSAL_ANNOTATION = "fdai.dev/proposal-digest"
 _AUTHORITY_ANNOTATION = "fdai.dev/execution-authority"
 _EXPECTED_KINDS = frozenset(
     {
@@ -62,27 +66,10 @@ _ROLLBACK_ORDER = (
     "PersistentVolumeClaim",
     "ServiceAccount",
 )
-_READ_ONLY_VERBS = frozenset({"get", "logs"})
 _HOST_FLAGS = frozenset({"hostNetwork", "hostPID", "hostIPC"})
 _TEXT = r"^[A-Za-z0-9][A-Za-z0-9@._:/=+-]*$"
 
 Audit = Callable[[dict[str, object]], None]
-
-
-@dataclass(frozen=True, slots=True)
-class KubeResult:
-    """One Kubernetes command outcome; the output is never trusted as authority."""
-
-    exit_code: int
-    output: str
-
-
-class KubeTransport(Protocol):
-    """Run one fixed kubectl argument vector against exactly one cluster."""
-
-    name: str
-
-    def run(self, args: Sequence[str], *, manifest: bytes | None, timeout: int) -> KubeResult: ...
 
 
 class ObserverApplyApproval(ConnectorContract):
@@ -98,8 +85,7 @@ class ObserverApplyApproval(ConnectorContract):
     namespace: Annotated[str, Field(min_length=1, max_length=63)]
     name: Annotated[str, Field(min_length=1, max_length=63)]
     inputs_digest: Digest
-    proposal_digest: Digest | None = None
-    manifest_digest: Digest | None = None
+    recipe_digest: Digest | None = None
     approved_at: datetime
     expires_at: datetime
 
@@ -108,123 +94,9 @@ class ObserverApplyApproval(ConnectorContract):
         approved, expires = connector_time(self.approved_at), connector_time(self.expires_at)
         if not approved < expires <= approved + timedelta(seconds=MAX_APPROVAL_SECONDS):
             raise ValueError("observer approval must expire within thirty minutes")
-        if self.operation in {"apply", "activate", "verify"} and (
-            self.manifest_digest is None or self.proposal_digest is None
-        ):
-            raise ValueError("observer approval must bind the exact rendered manifest")
+        if self.operation in {"apply", "activate", "verify"} and self.recipe_digest is None:
+            raise ValueError("observer approval must bind the exact installable recipe")
         return self
-
-
-class KubectlTransport:
-    """Direct kubectl for an existing or managed host that already reaches the private API."""
-
-    name = "kubectl"
-
-    def __init__(self, *, kubeconfig: Path, kubectl: str = "kubectl", tools: Path | None = None):
-        if not kubeconfig.is_file():
-            raise ValueError("observer apply kubeconfig is unavailable")
-        self._kubeconfig, self._kubectl, self._tools = kubeconfig, kubectl, tools
-
-    def run(self, args: Sequence[str], *, manifest: bytes | None, timeout: int) -> KubeResult:
-        environment = dict(os.environ)
-        if self._tools is not None:
-            environment["PATH"] = f"{self._tools}{os.pathsep}{environment.get('PATH', '')}"
-        command = [
-            self._kubectl,
-            f"--kubeconfig={self._kubeconfig}",
-            "--request-timeout=60s",
-            *("-" if item == MANIFEST_FILE else item for item in args),
-        ]
-        try:
-            done = subprocess.run(  # noqa: S603 - fixed vector, no shell
-                command,
-                input=manifest,
-                capture_output=True,
-                timeout=timeout,
-                check=False,
-                env=environment,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise ValueError("kubectl did not finish; the outcome is unknown") from exc
-        return KubeResult(done.returncode, (done.stdout + done.stderr).decode(errors="replace"))
-
-
-class AksRunCommandTransport:
-    """AKS Run Command for a private cluster; it needs Azure RBAC, not network line of sight."""
-
-    name = "aks-run-command"
-
-    def __init__(
-        self,
-        *,
-        subscription_id: str,
-        resource_group: str,
-        cluster_name: str,
-        az: str = "az",
-        run: Callable[..., Any] = subprocess.run,
-    ) -> None:
-        if (
-            re.fullmatch(r"[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", subscription_id)
-            is None
-            or re.fullmatch(r"[A-Za-z0-9._()-]{1,90}", resource_group) is None
-            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,62}", cluster_name) is None
-        ):
-            raise ValueError("AKS Run Command target identity is invalid")
-        self._target = (subscription_id, resource_group, cluster_name)
-        self._az, self._run = az, run
-
-    def run(self, args: Sequence[str], *, manifest: bytes | None, timeout: int) -> KubeResult:
-        subscription, group, cluster = self._target
-        command = "kubectl " + shlex.join(
-            "manifest.json" if item == MANIFEST_FILE else item for item in args
-        )
-        vector = [
-            self._az,
-            "aks",
-            "command",
-            "invoke",
-            "--subscription",
-            subscription,
-            "--resource-group",
-            group,
-            "--name",
-            cluster,
-            "--command",
-            command,
-            "--output",
-            "json",
-        ]
-        with tempfile.TemporaryDirectory(prefix="fdai-observer-") as directory:
-            if manifest is not None:
-                path = Path(directory) / "manifest.json"
-                descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-                with os.fdopen(descriptor, "wb") as stream:
-                    stream.write(manifest)
-                vector += ["--file", str(path)]
-            # A read has no effect, so one unparseable service response may be retried. A write is
-            # never repeated here: its unknown outcome is reported to the caller instead.
-            attempts = 2 if args and args[0] in _READ_ONLY_VERBS else 1
-            for attempt in range(attempts):
-                try:
-                    done = self._run(
-                        vector, capture_output=True, text=True, timeout=timeout, check=False
-                    )
-                except (OSError, subprocess.TimeoutExpired) as exc:
-                    raise ValueError(
-                        "AKS Run Command did not finish; the outcome is unknown"
-                    ) from exc
-                try:
-                    payload = json.loads(done.stdout)
-                    return KubeResult(int(payload["exitCode"]), str(payload.get("logs") or ""))
-                except (ValueError, KeyError, TypeError) as exc:
-                    if attempt + 1 < attempts:
-                        continue
-                    detail = " ".join(str(done.stderr).split())[:200]
-                    raise ValueError(
-                        "AKS Run Command is unavailable; check that command invoke is enabled "
-                        f"and permitted for the caller ({detail})"
-                    ) from exc
-        raise AssertionError("unreachable")  # pragma: no cover
 
 
 def _record(audit: Audit, now: datetime, phase: str, **fields: object) -> None:
@@ -294,11 +166,10 @@ def _authorize(
     ):
         raise ValueError("observer approval does not match this operation, target, or time")
     if rendered is not None and (
-        approval.manifest_digest != rendered.get("manifest_digest")
-        or approval.proposal_digest != rendered.get("proposal_digest")
+        approval.recipe_digest != rendered.get("recipe_digest")
         or rendered.get("material_digest") != inputs.material_digest
     ):
-        raise ValueError("observer approval does not match the rendered manifest")
+        raise ValueError("observer approval does not match the rendered recipe")
 
 
 def _verified_documents(
@@ -309,6 +180,7 @@ def _verified_documents(
     if (
         not isinstance(documents, list)
         or canonical_digest(documents) != rendered.get("manifest_digest")
+        or recipe_digest(documents) != rendered.get("recipe_digest")
         or rendered.get("execution_authority") is not False
         or rendered.get("recommended") is not True
         or rendered.get("missing") != []
@@ -363,7 +235,7 @@ def _namespace_document(inputs: ObserverInstallationInput, proposal_digest: str)
                 _OWNER_LABEL: FIELD_MANAGER,
                 "pod-security.kubernetes.io/enforce": "restricted",
             },
-            "annotations": {_PROPOSAL_ANNOTATION: proposal_digest, _AUTHORITY_ANNOTATION: "false"},
+            "annotations": {PROPOSAL_ANNOTATION: proposal_digest, _AUTHORITY_ANNOTATION: "false"},
         },
     }
 
@@ -384,7 +256,7 @@ def _secret_document(
             "name": inputs.material_secret,
             "namespace": inputs.namespace,
             "labels": _labels(inputs),
-            "annotations": {_PROPOSAL_ANNOTATION: proposal_digest, _AUTHORITY_ANNOTATION: "false"},
+            "annotations": {PROPOSAL_ANNOTATION: proposal_digest, _AUTHORITY_ANNOTATION: "false"},
         },
         "data": {name: base64.b64encode(contents[name]).decode("ascii") for name in contents},
     }
@@ -510,6 +382,8 @@ def apply_observer_installation(
         "operation": "apply",
         "target_ref": inputs.target_ref,
         "manifest_digest": rendered["manifest_digest"],
+        "recipe_digest": rendered["recipe_digest"],
+        "proposal_digest": proposal_digest,
         "idempotency_key": key,
         "executor": transport.name,
         "approver_ref": approval.approver_ref if approval else None,
@@ -529,7 +403,21 @@ def apply_observer_installation(
             secret=secret,
         )
 
-    with target_lock(lock_directory, f"{inputs.target_ref}/{inputs.namespace}/{inputs.name}"):
+    with (
+        target_lock(lock_directory, f"{inputs.target_ref}/{inputs.namespace}/{inputs.name}"),
+        (
+            cluster_lock(
+                transport,
+                namespace=inputs.namespace,
+                name=inputs.name,
+                holder=f"{transport.name}:{key[7:23]}",
+                now=now(),
+            )
+            if approval is not None
+            else nullcontext("none")
+        ) as lock_scope,
+    ):
+        common = common | {"lock_scope": lock_scope}
         _cluster_identity(transport, cluster_uid)
         live_job = _get(transport, "CronJob", inputs.name, inputs.namespace)
         if live_job is not None and live_job.get("spec", {}).get("suspend") is False:
@@ -552,10 +440,12 @@ def apply_observer_installation(
                 "operation": "apply",
                 "state": "dry_run_passed",
                 "manifest_digest": rendered["manifest_digest"],
+                "recipe_digest": rendered["recipe_digest"],
                 "dry_run_scope": "namespace_only" if create_namespace else "complete",
                 "approval_required": True,
                 "operational_success": False,
             }
+        claim = claim_effect(lock_directory, key, operation="apply", at=now())
         _record(audit, now(), "intent", step="apply", **common)
         try:
             if create_namespace:
@@ -567,17 +457,20 @@ def apply_observer_installation(
             verified = _verify_installed(transport, documents, suspended=True)
             _cluster_identity(transport, cluster_uid)
         except ValueError as exc:
+            claim.settle("unknown", at=now())
             _record(audit, now(), "result", step="apply", outcome="unknown", **common)
             raise ValueError(
-                f"{exc}; the outcome is unknown, so read the cluster state before retrying "
-                "or run the approved rollback"
+                f"{exc}; the outcome is unknown, so run verify against the cluster, then request "
+                "a fresh approval or run the approved rollback"
             ) from exc
+        claim.settle("installed_suspended", at=now())
         _record(audit, now(), "result", step="apply", outcome="installed_suspended", **common)
     return {
         "schema_version": "1.0.0",
         "operation": "apply",
         "state": "installed_suspended",
         "manifest_digest": rendered["manifest_digest"],
+        "recipe_digest": rendered["recipe_digest"],
         "idempotency_key": key,
         "resources": verified,
         "activation_required": True,
@@ -602,15 +495,34 @@ def activate_observer(
         "operation": "activate",
         "target_ref": inputs.target_ref,
         "manifest_digest": rendered["manifest_digest"],
+        "recipe_digest": rendered["recipe_digest"],
+        "proposal_digest": rendered["proposal_digest"],
         "executor": transport.name,
         "approver_ref": approval.approver_ref,
     }
-    with target_lock(lock_directory, f"{inputs.target_ref}/{inputs.namespace}/{inputs.name}"):
+    key = canonical_digest([approval.model_dump(mode="json"), documents])
+    with (
+        target_lock(lock_directory, f"{inputs.target_ref}/{inputs.namespace}/{inputs.name}"),
+        cluster_lock(
+            transport,
+            namespace=inputs.namespace,
+            name=inputs.name,
+            holder=f"{transport.name}:{key[7:23]}",
+            now=now(),
+        ) as lock_scope,
+    ):
+        common = common | {"lock_scope": lock_scope}
         _cluster_identity(transport, approval.cluster_uid)
         _verify_installed_either(transport, documents)
+        claim = claim_effect(lock_directory, key, operation="activate", at=now())
         _record(audit, now(), "intent", step="activate", **common)
-        _set_suspend(transport, inputs, suspend=False, reason="observer activation failed")
-        _verify_installed(transport, documents, suspended=False)
+        try:
+            _set_suspend(transport, inputs, suspend=False, reason="observer activation failed")
+            _verify_installed(transport, documents, suspended=False)
+        except ValueError:
+            claim.settle("unknown", at=now())
+            raise
+        claim.settle("activated", at=now())
         _record(audit, now(), "result", step="activate", outcome="activated", **common)
     return {
         "schema_version": "1.0.0",

@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: f819ee32ea8944a771cc0e4b7b8efd52ac75d7b0
+translation_source_sha: 13995998860058e6b3551156faca6eb282ed83dd
 translation_revised: 2026-10-29
 ---
 # AKS 역방향 커넥터
@@ -226,10 +226,22 @@ python -m fdai.delivery.kubernetes_connector_apply_cli apply --inputs ... --prop
   --lock-directory ... --audit-file ... --approver <human>
 ```
 
-`--approve-manifest-digest` 없이 실행하면 클러스터 신원 확인과 서버 측 dry-run만 수행하고, 승인할
-정확한 manifest digest를 출력합니다. 그 digest를 넣어 다시 실행하면 설치합니다. 적용, `activate`,
-`rollback`은 각각 대상, 네임스페이스, 이름, 입력, 제안, manifest digest에 묶인 짧은 승인(최대 30분)이
-필요합니다. 전송 방식은 제안에 고정된 방법을 따르며 대체하지 않습니다. `existing_host`와
+승인 없이 실행하면 클러스터 신원 확인과 서버 측 dry-run만 수행하고, 승인할 안정적인
+`recipe_digest`를 출력합니다. recipe digest는 제안 주석을 뺀 설치 문서를 대상으로 하므로, 제안이
+갱신되어도(서명된 사실의 유효 시간은 5분입니다) 사람의 검토가 무효가 되지 않고, 설치되는 바이트가
+바뀌면 값도 바뀝니다. 적용 지점은 여전히 현재의 차단 없는 제안으로 렌더링하며 그 digest를 감사
+기록에 남깁니다. 적용, `activate`, `rollback`은 각각 대상, 네임스페이스, 이름, 입력, recipe digest에
+묶인 짧은 승인(최대 30분)이 필요합니다.
+
+승인은 두 종류입니다. 등록된 승인자 키(`ObserverApproverGrant`: 승인자, 키, 대상, 작업 집합, 유효
+기간, 철회)가 `sign-approval`로 서명한 승인은 사용할 실행자를 지정하며, 실행자는 승인자와 다른
+신원이어야 합니다. 단일 운영자 개발 프로필은 검토한 digest와 함께 `--development-self-approval`을
+쓸 수 있고, 결과의 `approval_mode`가 `signed` 또는 `development_self_issued`로 표시됩니다. 적용과
+`activate`는 첫 변경 호출 전에 배타적 claim을 기록하므로 승인은 한 번만 쓸 수 있습니다. 결과 없는
+claim은 결과를 알 수 없다는 뜻이며, 운영자는 `verify`로 확인하고 새 승인을 받아야 하고 같은 승인을
+다시 쓰지 않습니다. 관찰자 네임스페이스가 있으면 작업은 그 안의 Kubernetes `Lease`(10분, 만료되었을
+때만 인수)도 잡아 두 호스트가 한 대상을 동시에 다루지 못합니다. 네임스페이스가 생기기 전에는 호스트
+잠금만 적용되며 감사 기록에 `lock_scope`가 남습니다. 전송 방식은 제안에 고정된 방법을 따르며 대체하지 않습니다. `existing_host`와
 `managed_host`는 kubeconfig로 `kubectl`을 실행하고, `run_command`는 `az aks command invoke`를
 사용합니다(Azure RBAC만 필요하고 네트워크 경로는 필요 없습니다. Azure Policy가 command invoke를
 막을 수 있습니다). `gitops`는 `export`로 자격 증명 없는 검토용 문서를 만듭니다.

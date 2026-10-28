@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 7f8051de3bff192e29a446bbae88126cada11775
-translation_revised: 2026-10-28
+translation_source_sha: b1c033d18dac179e556ec0e64006f0f238ad37d7
+translation_revised: 2026-10-29
 ---
 # 독립 운영 근거 발급
 
@@ -388,7 +388,7 @@ resource group 범위에서 `Monitoring Reader`를 가져야 하며, own-role �
 시각의 충돌 기록을 다루며, 최신성은 출처 워터마크부터 3,600초이되 출처별 이력의 `valid_until`을 넘지
 않습니다. 범위 소속은 `FDAI_FORECAST_TARGETS_JSON`이 아니라 검토된 운영 범위에서 가져옵니다. 원본 이력
 생산은 계속 [#1021](https://github.com/dotnetpower/fdai/issues/1021) 범위이며, 구현되지 않은 출처에는 발급하지
-않습니다.
+않습니다. AKS 진단 영수증은 권한이 없는 증거 행이며 최근 N건(승격 8회분)으로 보존하므로, 반복 승격이 추적 상태를 무한히 늘리지 않습니다.
 
 **설계 참고: `forecast-history-actions`.** 작업 생산자는 기존 Thor/Saga StateStore 감사 체인을 읽지만 Thor,
 Saga, 검토자, 실행자가 되지 않습니다. 고정 매개변수 `SECURITY DEFINER` 함수는 요청 구간의 각

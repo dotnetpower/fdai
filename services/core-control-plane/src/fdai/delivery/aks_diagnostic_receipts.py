@@ -26,6 +26,10 @@ from fdai.shared.providers.state_store import StateStore
 
 AKS_DIAGNOSTIC_RECEIPT_PREFIX: Final = "aks-diagnostic-receipt:v1:"
 MAX_PROMOTION_DIAGNOSTIC_TARGETS: Final = 1_024
+# Receipts are evidence rows written once per target per promoted snapshot, so they grow without
+# bound. Keep the newest eight promotions' worth; the sweep runs for about 1 in 256 receipts.
+AKS_DIAGNOSTIC_RECEIPT_RETENTION: Final = 8 * MAX_PROMOTION_DIAGNOSTIC_TARGETS
+_RETENTION_SAMPLE_MODULUS: Final = 256
 _KUBERNETES_SOURCE = "kubernetes_runtime_inventory"
 _RECORD_TYPE = "aks_diagnostic_evidence_receipt"
 
@@ -76,6 +80,11 @@ class StateStoreAksDiagnosticReceiptWriter:
             },
         )
         if created:
+            if int(record_digest[7:15], 16) % _RETENTION_SAMPLE_MODULUS == 0:
+                await self.store.delete_states_beyond(
+                    AKS_DIAGNOSTIC_RECEIPT_PREFIX,
+                    retain_newest=AKS_DIAGNOSTIC_RECEIPT_RETENTION,
+                )
             return receipt
         existing = await self.store.read_state(key)
         if existing != value:

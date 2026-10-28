@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import ipaddress
 import json
 from datetime import UTC, datetime
@@ -227,7 +228,7 @@ def render_observer_installation(
         "app.kubernetes.io/instance": inputs.name,
     }
     annotation = {
-        "fdai.dev/proposal-digest": proposal.proposal_digest,
+        PROPOSAL_ANNOTATION: proposal.proposal_digest,
         "fdai.dev/execution-authority": "false",
     }
 
@@ -463,11 +464,29 @@ def render_observer_installation(
         "inputs_digest": canonical_digest(inputs.model_dump(mode="json")),
         "material_digest": inputs.material_digest,
         "manifest_digest": canonical_digest(documents),
+        "recipe_digest": recipe_digest(documents),
         "documents": documents,
         "execution_authority": False,
         "approval_required": True,
         "installation_ready": False,
     }
+
+
+PROPOSAL_ANNOTATION = "fdai.dev/proposal-digest"
+
+
+def recipe_digest(documents: list[dict[str, Any]] | Any) -> str:
+    """Digest the installable recipe without the proposal that rendered it.
+
+    A proposal is refreshed within minutes, so a human approval cannot bind its digest. The
+    recipe digest stays equal across refreshes while any change to the installed bytes changes it.
+    """
+    stripped = copy.deepcopy(documents)
+    for document in stripped:
+        annotations = document.get("metadata", {}).get("annotations")
+        if isinstance(annotations, dict):
+            annotations.pop(PROPOSAL_ANNOTATION, None)
+    return canonical_digest(stripped)
 
 
 def main() -> int:
