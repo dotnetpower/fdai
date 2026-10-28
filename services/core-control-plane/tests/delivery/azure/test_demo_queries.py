@@ -190,6 +190,7 @@ def test_analyzer_catalog_covers_the_reference_analyzers() -> None:
         ANALYZER_KIND_BY_RESOURCE_TYPE,
         default_analyzers,
     )
+    from fdai.core.investigation.host_cpu import HostCpuAnalyzer
     from fdai.delivery.analyzer_telemetry_admission import ANALYZER_METRICS_BY_RESOURCE_TYPE
 
     class _NullProvider:
@@ -199,22 +200,28 @@ def test_analyzer_catalog_covers_the_reference_analyzers() -> None:
     seen: set[str] = set()
     seen_by_kind: dict[str, frozenset[str]] = {}
     for analyzer in default_analyzers(_NullProvider()):  # type: ignore[arg-type]
-        assert isinstance(analyzer, ThresholdAnalyzer)
         kind_metrics: set[str] = set()
-        for threshold in analyzer._thresholds:  # type: ignore[attr-defined]
-            assert isinstance(threshold, Threshold)
-            seen.add(threshold.metric)
-            kind_metrics.add(threshold.metric)
+        if isinstance(analyzer, HostCpuAnalyzer):
+            kind_metrics.add(analyzer._metric)  # type: ignore[attr-defined]
+        else:
+            assert isinstance(analyzer, ThresholdAnalyzer)
+            for threshold in analyzer._thresholds:  # type: ignore[attr-defined]
+                assert isinstance(threshold, Threshold)
+                kind_metrics.add(threshold.metric)
+        seen.update(kind_metrics)
         seen_by_kind[analyzer.resource_kind] = frozenset(kind_metrics)
-    catalog = set(sre_demo_analyzer_queries().keys())
+    from fdai.delivery.azure.metrics_api_queries import azure_metrics_api_queries
+
+    catalog = set(sre_demo_analyzer_queries()) | set(azure_metrics_api_queries())
     missing = seen - catalog
     assert not missing, (
         f"analyzer metrics without a KQL template: {sorted(missing)} - "
-        "add each one to sre_demo_analyzer_queries() before shipping"
+        "add each one to a reviewed metric template catalog before shipping"
     )
     assert ANALYZER_METRICS_BY_RESOURCE_TYPE == {
         resource_type: seen_by_kind[resource_kind]
         for resource_type, resource_kind in ANALYZER_KIND_BY_RESOURCE_TYPE.items()
+        if resource_kind in seen_by_kind
     }
 
 

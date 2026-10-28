@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import {
   acknowledgeBrowserAlertDeliveryForClaim,
@@ -12,7 +12,6 @@ import {
   isBrowserNotificationPreferenceStorageKey,
   isBrowserNotificationPreferenceChange,
   browserNotificationsSupported,
-  browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
   readBrowserAlertAcknowledgementToken,
   readBrowserAlertDeliveryStatus,
@@ -20,11 +19,15 @@ import {
   recordBrowserAlertDelivered,
   releaseBrowserAlertDelivery,
   requireBrowserNotificationPreferenceWrite,
-  withBrowserNotificationDeadline,
   writeBrowserNotificationPreference,
   type BrowserAlertKind,
+  type BrowserAlert,
   type BrowserAlertDeliveryStatus,
 } from "../browser-notifications";
+import {
+  prepareBrowserNotificationTransport,
+  type BrowserNotificationTransport,
+} from "../browser-notification-transport";
 import { useExclusiveBrowserStreamLeader } from "../hooks/browser-stream-leader";
 import { useLiveStream } from "../hooks/use-live-stream";
 import {
@@ -32,15 +35,23 @@ import {
   type BrowserNotificationTextKey,
 } from "./i18n/browser-notifications";
 import { NotificationBellIcon } from "./notification-bell-icon";
+import { Tooltip } from "./tooltip";
+import { findingNotificationText } from "./i18n/finding-notifications";
+import {
+  findingBrowserAlert, findingNeedsAttention, markFindingPending, rememberFinding,
+  type CurrentFinding,
+} from "../findings";
 
 interface Props {
   readonly client: OperatorApiClient;
   readonly principalId?: string | null;
   readonly presentation?: "header" | "settings";
+  readonly findings?: readonly CurrentFinding[];
 }
 
 type ControlState = "off" | "enabling" | "on" | "blocked" | "unsupported" | "error";
 const COMPACT_STATUS_QUERY = "(max-width: 640px)";
+const EMPTY_FINDINGS: readonly CurrentFinding[] = [];
 
 const CONTROL_LABEL_KEYS: Readonly<Record<ControlState, BrowserNotificationTextKey>> = {
   off: "off",
@@ -66,13 +77,13 @@ const DELIVERY_STATE_KEYS: Readonly<Record<BrowserAlertDeliveryStatus, BrowserNo
   acknowledged: "stateAcknowledged",
 };
 
-const ALERT_TITLE_KEYS: Readonly<Record<BrowserAlertKind, BrowserNotificationTextKey>> = {
+const ALERT_TITLE_KEYS: Readonly<Record<Exclude<BrowserAlertKind, "finding">, BrowserNotificationTextKey>> = {
   approval: "approvalTitle",
   denied: "deniedTitle",
   failed: "failedTitle",
 };
 
-const ALERT_BODY_KEYS: Readonly<Record<BrowserAlertKind, BrowserNotificationTextKey>> = {
+const ALERT_BODY_KEYS: Readonly<Record<Exclude<BrowserAlertKind, "finding">, BrowserNotificationTextKey>> = {
   approval: "approvalBody",
   denied: "deniedBody",
   failed: "failedBody",
@@ -82,7 +93,10 @@ export function BrowserNotificationControl({
   client,
   principalId,
   presentation = "header",
+  findings = EMPTY_FINDINGS,
 }: Props) {
+  const activePrincipal = useRef(principalId);
+  activePrincipal.current = principalId;
   const supported = browserNotificationsSupported();
   const [selected, setSelected] = useState(
     () => readBrowserNotificationPreference(principalId),
@@ -93,6 +107,7 @@ export function BrowserNotificationControl({
   );
   const [compactStatus, setCompactStatus] = useState(isCompactNotificationStatus);
   const [workerReady, setWorkerReady] = useState(false);
+  const [receiverKind, setReceiverKind] = useState<BrowserNotificationTransport["kind"] | null>(null);
 
   useEffect(() => {
     const media = window.matchMedia(COMPACT_STATUS_QUERY);
@@ -163,12 +178,16 @@ export function BrowserNotificationControl({
   useEffect(() => {
     if (state !== "on") {
       setWorkerReady(false);
+      setReceiverKind(null);
       return undefined;
     }
     let cancelled = false;
-    void ensureNotificationWorker()
-      .then(() => {
-        if (!cancelled) setWorkerReady(true);
+    void prepareBrowserNotificationTransport(import.meta.env.BASE_URL)
+      .then((receiver) => {
+        if (!cancelled) {
+          setReceiverKind(receiver.kind);
+          setWorkerReady(true);
+        }
       })
       .catch(() => {
         if (!cancelled) setState("error");
@@ -186,7 +205,10 @@ export function BrowserNotificationControl({
         writeBrowserNotificationPreference(false, principalId);
         setWorkerReady(false);
       }
-      setState(initialState(supported, principalId));
+      setState((current) => Notification.permission === "granted" &&
+        (current === "error" || current === "enabling")
+        ? current
+        : initialState(supported, principalId));
     };
     window.addEventListener("focus", syncPermission);
     void navigator.permissions
@@ -244,6 +266,58 @@ export function BrowserNotificationControl({
     },
   );
 
+  const deliverAlert = async (alert: BrowserAlert): Promise<"delivered" | "deferred"> => {
+    const claim = await claimBrowserAlertDelivery(alert.tag, principalId);
+    if (claim === "duplicate" || claim === "rate-limited") return "deferred";
+    if (claim === "unavailable") throw new Error("Browser notification claim is unavailable");
+    const acknowledgementToken = readBrowserAlertAcknowledgementToken(alert.tag, principalId);
+    if (acknowledgementToken === null) throw new Error("Browser notification claim has no token");
+    try {
+      const receiver = await prepareBrowserNotificationTransport(import.meta.env.BASE_URL);
+      if (activePrincipal.current !== principalId || !document.hidden
+          || Notification.permission !== "granted" || !readBrowserNotificationPreference(principalId)) {
+        await releaseBrowserAlertDelivery(alert.tag, acknowledgementToken, principalId);
+        return "deferred";
+      }
+      const title = alert.kind === "finding" ? findingNotificationText("title")
+        : browserNotificationText(ALERT_TITLE_KEYS[alert.kind]);
+      const body = alert.kind === "finding" ? findingNotificationText("body")
+        : browserNotificationText(ALERT_BODY_KEYS[alert.kind]);
+      await receiver.show(title, {
+        body,
+        tag: alert.tag,
+        data: browserAlertNotificationData(alert, import.meta.env.BASE_URL, acknowledgementToken),
+      });
+      const receipt = await recordBrowserAlertDelivered(alert.tag, acknowledgementToken, principalId);
+      if (receipt === null) throw new Error("Browser notification display receipt could not be recorded");
+      setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
+      return "delivered";
+    } catch (error) {
+      await releaseBrowserAlertDelivery(alert.tag, acknowledgementToken, principalId);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    if (!streamEnabled || !streamLeader || !document.hidden) return;
+    let cancelled = false;
+    const deliver = async () => {
+      try {
+        for (const finding of findings) {
+          if (cancelled || activePrincipal.current !== principalId || !document.hidden) return;
+          if (!findingNeedsAttention(finding, principalId)) continue;
+          markFindingPending(finding, principalId);
+          const result = await deliverAlert(findingBrowserAlert(finding));
+          if (result === "delivered") rememberFinding(finding, principalId);
+        }
+      } catch {
+        if (!cancelled) setState("error");
+      }
+    };
+    void deliver();
+    return () => { cancelled = true; };
+  }, [findings, streamEnabled, streamLeader, principalId]);
+
   useLiveStream({
     url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/live/stream`,
     enabled: streamEnabled && streamLeader,
@@ -260,54 +334,7 @@ export function BrowserNotificationControl({
       }
       const alert = browserAlertForLiveEvent(event);
       if (alert === null) return;
-      void claimBrowserAlertDelivery(alert.tag, principalId).then(async (claim) => {
-        if (claim === "duplicate" || claim === "rate-limited") return;
-        if (claim === "unavailable") {
-          setState("error");
-          return;
-        }
-        const acknowledgementToken = readBrowserAlertAcknowledgementToken(
-          alert.tag,
-          principalId,
-        );
-        if (acknowledgementToken === null) {
-          setState("error");
-          return;
-        }
-        try {
-          const registration = await ensureNotificationWorker();
-          await registration.showNotification(
-            browserNotificationText(ALERT_TITLE_KEYS[alert.kind]),
-            {
-              body: browserNotificationText(ALERT_BODY_KEYS[alert.kind]),
-              tag: alert.tag,
-              data: browserAlertNotificationData(
-                alert,
-                import.meta.env.BASE_URL,
-                acknowledgementToken,
-              ),
-            },
-          );
-          const receipt = await recordBrowserAlertDelivered(
-            alert.tag,
-            acknowledgementToken,
-            principalId,
-          );
-          if (receipt === null) {
-            await releaseBrowserAlertDelivery(
-              alert.tag,
-              acknowledgementToken,
-              principalId,
-            );
-            setState("error");
-            return;
-          }
-          setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
-        } catch {
-          await releaseBrowserAlertDelivery(alert.tag, acknowledgementToken, principalId);
-          setState("error");
-        }
-      });
+      void deliverAlert(alert).catch(() => setState("error"));
     },
   });
 
@@ -330,53 +357,70 @@ export function BrowserNotificationControl({
         setState(permission === "denied" ? "blocked" : "off");
         return;
       }
-      await ensureNotificationWorker();
+      const receiver = await prepareBrowserNotificationTransport(import.meta.env.BASE_URL, true);
+      if (Notification.permission !== "granted") {
+        writeBrowserNotificationPreference(false, principalId);
+        setSelected(false);
+        setWorkerReady(false);
+        setState(Notification.permission === "denied" ? "blocked" : "off");
+        return;
+      }
       requireBrowserNotificationPreferenceWrite(true, principalId);
+      setReceiverKind(receiver.kind);
       setSelected(true);
       setWorkerReady(true);
       setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
       setState("on");
     } catch {
       setWorkerReady(false);
-      setState("error");
+      setState(Notification.permission === "denied" ? "blocked" : "error");
     }
   };
 
-  const disabled = state === "unsupported" || state === "blocked" || state === "enabling";
-  const label = selected && state === "error"
+  const preparing = state === "enabling" || (state === "on" && !workerReady);
+  const disabled = state === "unsupported" || state === "blocked" || preparing;
+  const label = selected && state === "error" && presentation === "settings"
     ? browserNotificationText("on")
     : browserNotificationText(CONTROL_LABEL_KEYS[state]);
   const stateLabel = browserNotificationText(
-    state === "on" ? DELIVERY_STATE_KEYS[deliveryState] : CONTROL_STATE_KEYS[state],
+    preparing ? "stateEnabling" : state === "on"
+      ? deliveryState === "ready" && receiverKind === "session"
+        ? "stateOnSession"
+        : DELIVERY_STATE_KEYS[deliveryState]
+      : CONTROL_STATE_KEYS[state],
   );
   const visibleStateLabel = compactStatus
     && state === "on"
     && deliveryState === "acknowledged"
     ? browserNotificationText("stateAcknowledgedCompact")
     : stateLabel;
+  const sessionDetail = receiverKind === "session" ? browserNotificationText("sessionDetail") : undefined;
   if (presentation === "settings") {
     return (
-      <label class="settings-toggle-control">
-        <input
-          type="checkbox"
-          checked={selected}
-          aria-label={`${label}: ${stateLabel}`}
-          disabled={disabled}
-          onChange={(event) => { void setSelection(event.currentTarget.checked); }}
-        />
-        <span aria-hidden="true" />
-        <strong role="status" aria-live="polite">{stateLabel}</strong>
-      </label>
+      <Tooltip content={sessionDetail}>
+        <label class="settings-toggle-control">
+          <input
+            type="checkbox"
+            checked={selected}
+            aria-label={`${label}: ${stateLabel}`}
+            disabled={disabled}
+            onChange={(event) => { void setSelection(event.currentTarget.checked); }}
+          />
+          <span aria-hidden="true" />
+          <strong role="status" aria-live="polite">{stateLabel}</strong>
+        </label>
+      </Tooltip>
     );
   }
   return (
+    <Tooltip content={sessionDetail}>
     <button
       type="button"
       class={`topbar-control browser-notification-control ${selected ? "is-active" : ""}`}
       aria-pressed={selected}
       aria-label={`${label}: ${stateLabel}`}
       disabled={disabled}
-      onClick={() => { void setSelection(!selected); }}
+      onClick={() => { void setSelection(state === "error" ? true : !selected); }}
     >
       <span class="browser-notification-indicator" aria-hidden="true" />
       <NotificationBellIcon />
@@ -385,6 +429,7 @@ export function BrowserNotificationControl({
         {visibleStateLabel}
       </span>
     </button>
+    </Tooltip>
   );
 }
 
@@ -402,19 +447,3 @@ function initialState(supported: boolean, principalId?: string | null): ControlS
     ? "on"
     : "off";
 }
-
-async function ensureNotificationWorker(): Promise<ServiceWorkerRegistration> {
-  if (workerRegistrationPromise !== null) return workerRegistrationPromise;
-  const { scriptUrl, scope } = browserNotificationWorkerPaths(import.meta.env.BASE_URL);
-  workerRegistrationPromise = withBrowserNotificationDeadline(
-    navigator.serviceWorker.register(scriptUrl, { scope, updateViaCache: "none" }),
-  )
-    .then(() => withBrowserNotificationDeadline(navigator.serviceWorker.ready))
-    .catch((error: unknown) => {
-      workerRegistrationPromise = null;
-      throw error;
-    });
-  return workerRegistrationPromise;
-}
-
-let workerRegistrationPromise: Promise<ServiceWorkerRegistration> | null = null;

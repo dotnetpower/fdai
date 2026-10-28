@@ -371,6 +371,7 @@ async def test_over_max_points_fails_closed() -> None:
 
 async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
     """Every shipped template serves a reviewed concept or a legacy analyzer."""
+    from fdai.core.investigation.host_cpu import METRIC_VMSS_CPU_PERCENT
     from fdai.delivery.azure.demo_queries import (
         METRIC_CONTAINER_APP_MEMORY_PERCENT,
         METRIC_CONTAINER_APP_REQUEST_TIMEOUTS,
@@ -386,7 +387,7 @@ async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
     registry = load_metric_semantic_registry(
         Path(__file__).resolve().parents[5] / "rule-catalog/vocabulary/metric-semantics.yaml"
     )
-    assert set(shipped) - {METRIC_SERVICE_REQUEST_DURATION_MS} <= (
+    assert set(shipped) - {METRIC_SERVICE_REQUEST_DURATION_MS, METRIC_VMSS_CPU_PERCENT} <= (
         set(sre_demo_analyzer_queries())
         | set(resource_metric_queries())
         | {item.provider_metric for item in registry.definitions.values()}
@@ -405,4 +406,4 @@ async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
     assert vm_cpu.azure_metric_name == "Percentage CPU"
     assert vm_cpu.aggregation == "Average"
     assert vm_cpu.resource_type == "Microsoft.Compute/virtualMachines"
-    assert len(shipped) == 35
+    assert len(shipped) == 36
