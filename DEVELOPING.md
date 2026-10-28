@@ -275,8 +275,13 @@ Manual equivalents for each service are documented in
 ## 7. Verify before you push
 
 ```bash
-make check               # lint + gates + test + operator (CI parity)
+make ci-preflight        # run the CI jobs this diff triggers, locally (BASE=origin/main)
+make check               # lint + gates + test + operator (broad local run)
 ```
+
+`make ci-preflight` merges nothing and pushes nothing. It stops when your branch is behind its
+base, because a base update after the push costs a second CI attempt. Sharded pytest, the database
+integration shards, the coverage floor, gitleaks, and Terraform validation remain CI-only.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md#everyday-workflow) for the per-target
 breakdown.
