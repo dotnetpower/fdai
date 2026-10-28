@@ -255,7 +255,12 @@ zero.
 When several routes declare one provider-neutral metric, a concrete provider may reject an
 incompatible exact target before dispatch. The router then considers the next declared route; it
 never catches a provider failure to manufacture fallback. The Azure Metrics API catalog uses this
-boundary to bind VM `Percentage CPU` only to `Microsoft.Compute/virtualMachines`.
+boundary to bind VM `Percentage CPU` only to `Microsoft.Compute/virtualMachines`, and the analyzer's
+`node_cpu_percent` only to `Microsoft.ContainerService/managedClusters`. AKS publishes
+`node_cpu_usage_percentage` as a platform metric, so that route needs no Container Insights agent, data
+collection rule or workspace. It requests the unsplit `Maximum`, which preserves the Logs template's
+meaning that any node above the bound fires, and it carries a cluster-wide value without a node label.
+Prometheus still wins when it is composed, and Azure Monitor Logs remains the fallback behind it.
 Azure Managed Prometheus's default `cluster` label is a cluster-name alias, not an exact ARM
 identity. Inventory-backed analyzer routing therefore remains on Azure Monitor Logs unless an
 explicitly composed PromQL catalog preserves an exact `resource_id` label. A Prometheus response
