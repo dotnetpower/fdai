@@ -37,6 +37,9 @@ query_groups:
   - id: cache-services
     terms: [cache, caches, cache service, cache services]
     members: [cache, redis-enterprise]
+  - id: alert-rules
+    terms: [alert rule, alert rules, 알림 규칙, 알림 규칙들, 경고 규칙, 경고 규칙들]
+    members: [alert-rule, anomaly-alert-rule, metric-alert-rule]
 types:
   # ── compute ───────────────────────────────────────────────────────────
   - id: compute.vm
@@ -589,7 +592,7 @@ types:
     category: observability
     description: Scheduled query rule that raises an alert when its condition holds.
     azure_arm_type: Microsoft.Insights/scheduledQueryRules
-    query_terms: [alert rule, alert rules, scheduled query rule, log alert, 경고 규칙, 알림 규칙]
+    query_terms: [scheduled query rule, scheduled query rules, log alert, log alert rule, 로그 경고 규칙, 로그 알림 규칙]
     typical_parents: [resource-group]
   - id: action-group
     category: observability
