@@ -21,6 +21,11 @@ from fdai.core.hil_resume.integrity import (
 from fdai.core.hil_resume.load_control import ApprovalLoadController
 from fdai.core.hil_resume.report_line import ReportLineHilCoordinator
 from fdai.core.hil_resume.results import RequestApprovalResult, RequestOutcome
+from fdai.core.hil_resume.subject_index import (
+    SubjectAdmission,
+    admit_subject,
+    subject_key,
+)
 from fdai.core.human_reporting import ReportLineRouteUnavailableError
 from fdai.core.oncall import OnCallResolution, OnCallResolver
 from fdai.shared.contracts.models import Action, Rule
@@ -128,6 +133,51 @@ class HilRequestMixin:
         parked_at = self._request_clock()
         action_payload = action.model_dump(mode="json")
         action_hash = action_payload_hash(action_payload)
+        subject: str | None = None
+        lineage = 1
+        previous_approval_id: str | None = None
+        if approval_id is None:
+            # An explicit approval id names a caller-owned request; only generated ones dedupe.
+            subject = subject_key(
+                action=action,
+                rule=rule,
+                submitter_oid=normalized_submitter,
+                development_digest=(
+                    str(development_authority["block_digest"])
+                    if development_authority is not None
+                    else None
+                ),
+                operator_policy_digest=(
+                    str(operator_policy["policy_digest"]) if operator_policy is not None else None
+                ),
+            )
+            admission = await admit_subject(
+                self._state_store,
+                key=subject,
+                candidate_approval_id=aid,
+                event_id=str(action.event_id),
+                now=parked_at,
+            )
+            if admission.admission is SubjectAdmission.OPEN_REQUEST:
+                return RequestApprovalResult(
+                    outcome=RequestOutcome.ALREADY_OPEN,
+                    approval_id=admission.approval_id,
+                )
+            if admission.admission is SubjectAdmission.REJECTED:
+                if admission.newly_suppressed:
+                    await self._audit(
+                        action_kind="hil.request.suppressed_after_rejection",
+                        idempotency_key=f"{admission.approval_id}:hil_subject_suppressed",
+                        approval_id=admission.approval_id,
+                        correlation_id=correlation_id,
+                        detail={"subject_key": subject, "event_id": str(action.event_id)},
+                    )
+                return RequestApprovalResult(
+                    outcome=RequestOutcome.REJECTED_SUBJECT,
+                    approval_id=admission.approval_id,
+                )
+            lineage = admission.lineage
+            previous_approval_id = admission.previous_approval_id
         try:
             route_plan, contact_consent = (
                 await self._report_line_hil.prepare_request(
@@ -217,6 +267,11 @@ class HilRequestMixin:
                 contact_consent.expires_at.isoformat() if contact_consent is not None else None
             ),
         }
+        if subject is not None:
+            parked["subject_key"] = subject
+            parked["lineage"] = lineage
+            if previous_approval_id is not None:
+                parked["previous_approval_id"] = previous_approval_id
         if development_authority is not None:
             parked["development_authority"] = dict(development_authority)
         if approval_profile is not None:
@@ -276,6 +331,9 @@ class HilRequestMixin:
                 "event_id": str(action.event_id),
                 "action_id": str(action.action_id),
                 "action_type": action.action_type,
+                "subject_key": subject,
+                "lineage": lineage,
+                "previous_approval_id": previous_approval_id,
                 "workflow_action": (
                     action.workflow_action.model_dump(mode="json")
                     if action.workflow_action is not None
