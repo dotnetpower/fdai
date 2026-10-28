@@ -553,9 +553,11 @@ export function browserAlertForLiveEvent(event: LiveStageEvent): BrowserAlert | 
   return {
     kind,
     tag: `fdai:${event.event_id}`,
-    path: routeHref("audit", {
-      params: { correlation: event.correlation_id, data: "live" },
-    }),
+    path: kind === "approval"
+      ? routeHref("hil-queue", { params: { data: "live" } })
+      : routeHref("audit", {
+        params: { correlation: event.correlation_id, data: "live" },
+      }),
   };
 }
 
