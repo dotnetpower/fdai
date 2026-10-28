@@ -44,6 +44,8 @@ export interface AuditItem {
   readonly event_id: string;
   readonly correlation_id: string | null;
   readonly actor: string;
+  /** Read-time directory label for a human subject id; never stored in the ledger. */
+  readonly actor_display?: string | null;
   readonly action_kind: string;
   readonly mode: "shadow" | "enforce";
   readonly entry: Record<string, unknown>;
