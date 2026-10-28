@@ -19,7 +19,9 @@ operational audit retention nor activity projections.
 >
 > The local product default is the headless observation-first profile. Console full stack,
 > notifications, enterprise identity, and governed execution remain explicit independent add-ons;
-> developer tooling and package presence cannot select them.
+> developer tooling and package presence cannot select them. The no-authority `console-inbox`
+> alert channel is an exception because it has no external effect: it is enabled by default and
+> `FDAI_CONSOLE_INBOX=0` removes it.
 
 ## Design at a glance
 

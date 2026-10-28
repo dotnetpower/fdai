@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: e2e642a4a6881bbbdb86fc42252f6e20c4c8029d
+translation_source_sha: 3521b3db69da96b0b69e86bed8ab66f25b0e1ef3
 translation_revised: 2026-10-29
 ---
 # 온톨로지 구조 모델
@@ -42,7 +42,8 @@ translation_revised: 2026-10-29
 근거가 검증된 경로가 있어야 합니다. 메트릭 비교는 정확히 일치하는 결과 대상, 단위, 현재
 구간에만 적용합니다. 경로 누락, 잘못된 관계 근거, 상관 검증 실패, 미평가 경쟁 설명은
 미해결 상태로 유지합니다. 이 검증은 선언 종류, 역방향 관계, 인과 증명 또는 실행 권한을
-추가하지 않습니다.
+추가하지 않습니다. Operator의 `GET /notifications/inbox` Console 알림함 프로젝션은 온톨로지 밖의
+추적 상태이며 ObjectType이나 LinkType을 추가하지 않습니다.
 
 독립적으로 발행된 경쟁 가설 평가는 정확한 리소스, 메트릭, 토폴로지와 출처 세대, 시간 범위
 안에서 모든 경쟁 가설을 집계하고 반증한 경우에만 경쟁 가설 한계를 해소할 수 있습니다.
