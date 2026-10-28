@@ -48,6 +48,7 @@ from fdai.core.measurement.runners import (
     PatternGrowthIntakeRunner,
 )
 from fdai.core.operator_memory import InMemoryOperatorMemoryStore
+from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.measurement.admitted_operational_promotion import (
     AdmittedOperationalPromotionEvidenceSource,
@@ -95,9 +96,11 @@ from fdai.delivery.persistence import (
     StateStoreOperationalPromotionReceiptStore,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
-from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
+from fdai.runtime.configuration import _model_endpoint_resolver
+from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue, uses_developer_identity
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.delivery.measurement_runner_cli")
 
@@ -207,13 +210,20 @@ async def _azure_learning_container() -> AsyncIterator[Container]:
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(connect=5.0, read=60.0, write=15.0, pool=5.0)
     ) as client:
-        identity = ManagedIdentityWorkloadIdentity(http_client=client)
+        identity: WorkloadIdentity = (
+            AsyncAzureCliWorkloadIdentity.from_env()
+            if uses_developer_identity(resolve_execution_venue())
+            else ManagedIdentityWorkloadIdentity(http_client=client)
+        )
         container = await wire_azure_container(
             container,
             http_client=client,
             identity=identity,
             overrides=AzureWireOverrides(
                 endpoint=endpoint,
+                model_endpoint_resolver=_model_endpoint_resolver(
+                    endpoint, os.environ.get("FDAI_MODEL_ENDPOINTS_JSON")
+                ),
                 catalog_root=_repo_root() / "rule-catalog",
                 operator_memory_store=InMemoryOperatorMemoryStore(),
             ),
