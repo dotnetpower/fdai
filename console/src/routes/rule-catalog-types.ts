@@ -5,6 +5,7 @@ import type { DetailState as RuleDetailState } from "./rule-catalog-state";
 
 export interface RuleDto {
   readonly id: string;
+  readonly title?: string | null;
   readonly origin: string;
   readonly version: string;
   readonly source: string;

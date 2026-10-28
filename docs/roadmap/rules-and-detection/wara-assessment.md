@@ -19,6 +19,9 @@ Semantic result-handle persistence reuses shared Operator semantic storage only 
 conversation references. It does not change WARA scope, APRL measurement, assessment admission, or
 authority.
 
+Readable titles in the shared rule catalog list come from the matching rule detail. They are
+presentation metadata and do not change WARA scope, APRL measurements, or assessment results.
+
 ## Design at a glance
 
 The assessment has five deterministic stages:

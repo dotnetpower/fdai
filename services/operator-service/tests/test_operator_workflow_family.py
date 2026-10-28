@@ -28,6 +28,7 @@ from fdai_operator_service.postgres_family_store import (
     StoredProposal,
 )
 from fdai_operator_service.process_transition_projection import ProcessTransitionDeniedError
+from fdai_operator_service.workflow_rule_projection import _rule_catalog_payload
 from fdai_service_contracts import (
     GoalTaskReceipt,
     OperatorPrincipal,
@@ -481,10 +482,46 @@ async def test_postgres_rule_catalog_projects_filters_pagination_and_detail() ->
 
     assert listing.payload["total"] == 2
     assert listing.payload["filtered_total"] == 1
-    assert listing.payload["rules"] == [stored["rules"][0]]
+    assert listing.payload["rules"] == [{**stored["rules"][0], "title": None}]
     assert listing.payload["facets"]["by_origin"] == {"active": 1, "collected": 1}
     assert detail.payload == stored["details"]["active:rule.critical"]
     assert detail.provenance.revision == "catalog-sha256"
+
+
+@pytest.mark.parametrize(
+    ("detail", "expected_title"),
+    [
+        (
+            {"explanation": {"title": "Workload identity must use least privilege"}},
+            "Workload identity must use least privilege",
+        ),
+        ({"explanation": {"title": None}}, None),
+        ({"explanation": {}}, None),
+        ({}, None),
+        (None, None),
+    ],
+)
+def test_rule_list_uses_only_the_matching_detail_title(
+    detail: dict[str, object] | None, expected_title: str | None
+) -> None:
+    rule = {"id": "identity.least-privilege", "origin": "active", "resource_type": "identity"}
+    details = {
+        "active:identity.least-privilege": detail,
+        "collected:identity.least-privilege": {
+            "explanation": {"title": "A different origin must not supply the title"}
+        },
+    }
+    request = WorkflowReadRequest(
+        operation=WorkflowOperation.RULE_LIST,
+        principal_id="operator-a",
+        query={},
+        path_parameters={},
+    )
+
+    payload = _rule_catalog_payload({"rules": [rule], "details": details}, request)
+
+    assert payload["rules"] == [{**rule, "title": expected_title}]
+    assert "title" not in rule
 
 
 async def test_missing_rule_findings_projection_is_explicitly_not_evaluated() -> None:
