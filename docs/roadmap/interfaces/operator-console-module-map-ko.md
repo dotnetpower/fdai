@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: a637a9a6664f3c1a0b66e5b42c1cd2afc51fbbe2
-translation_revised: 2026-10-21
+translation_source_sha: 1b637f0909e54a982722284382323f651bb1942c
+translation_revised: 2026-10-28
 ---
 # Operator Console 모듈 지도 and Boundaries
 

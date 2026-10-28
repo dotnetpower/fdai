@@ -1,8 +1,8 @@
 ---
 title: Console Web 알림
 translation_of: console-web-notifications.md
-translation_source_sha: 8d74be3154c67aabc8627c66598053da18a3259f
-translation_revised: 2026-09-15
+translation_source_sha: 7d8f904ed6843b48ff57215c849d6933cdc2b3ca
+translation_revised: 2026-10-28
 ---
 
 # Console Web 알림
