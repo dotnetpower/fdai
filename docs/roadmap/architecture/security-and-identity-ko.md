@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 1dfd31c11f8a2a5726640d9fa74ea872e6c056b2
-translation_revised: 2026-10-23
+translation_source_sha: 130e85d3c6169db471035aa5ebc2b8e8ada3fb62
+translation_revised: 2026-10-28
 ---
 
 # 보안과 아이덴티티
@@ -172,7 +172,7 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - 전송 중(TLS)과 정지 중 암호화; 키는 시크릿/키 저장소에서 관리, 코드에 없음.
 - **LLM 데이터 처리**: T2 프롬프트는 신뢰 경계를 떠나기 전에 시크릿과 PII가 redact됨; 외부
   모델 벤더에 대한 데이터 잔류지와 no-retention 조건 강제. 감출 수 없는 민감 데이터가 필요한
-  프롬프트는 전송되지 않고 HIL로 라우팅됨.
+  프롬프트는 전송되지 않고 HIL로 라우팅됨. 개발 전용 Phoenix 트레이스 관찰자(`core/metering/observed.py`, `FDAI_PHOENIX_TRACING_ENABLED`를 설정하지 않으면 꺼짐)는 내구 계량 기록 뒤에 실행되고, 제한된 메타데이터만 내보내며(프롬프트와 응답 본문은 제외), `FDAI_PHOENIX_ALLOW_REMOTE_ENDPOINT` 없이는 loopback이 아닌 엔드포인트를 거부하고, 모델 호출을 실패시키지 않음. [tools/phoenix](../../../tools/phoenix/README.md)를 참고.
 - **근거 출처 격리**: 독립 읽기 전용 출처는 별도의 유한 deadline을 사용합니다. 한 출처의
   timeout이 다른 출처에서 이미 완료된 근거를 버릴 수 없으며, 사용할 수 없거나 빈 근거가 정상
   관측, 원인 주장 또는 실행 권한으로 바뀌지 않습니다.

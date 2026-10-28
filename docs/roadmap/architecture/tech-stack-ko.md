@@ -1,8 +1,8 @@
 ---
 title: 기술 스택
 translation_of: tech-stack.md
-translation_source_sha: 8147120dcfa2170480d7e0bcd183f57834427724
-translation_revised: 2026-08-29
+translation_source_sha: a06db7ef6167a33cc2269d851b049c987fd1b3f3
+translation_revised: 2026-10-28
 ---
 
 # 기술 스택
@@ -61,6 +61,7 @@ translation_revised: 2026-08-29
 | HIL 채널 | **Bot Framework / Teams** Adaptive Cards | 운영자가 있는 곳에서 도달 | Slack 어댑터; notifier 인터페이스 뒤의 이메일/웹훅 대체 경로 - [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) 참조 |
 | LLM 접근 (T2) | 2개 이상 별개 모델을 감싸는 provider-agnostic 게이트웨이/라우터 | [llm-strategy-ko.md](llm-strategy-ko.md)의 mixed-model 교차 검사; 모델은 capability-preferences 레지스트리에서 해석되며 주간 proposal-only 조정기는 활성화 권한 없이 검토용 draft 교체를 엽니다. 만료 보류와 관리되는 실행 근거는 아직 불완전합니다 - [llm-strategy-ko.md](llm-strategy-ko.md#model-provisioning-and-lifecycle) | LiteLLM/OpenRouter 스타일 라우터 |
 | Observability | OpenTelemetry (traces/metrics/logs) → 수집기 → 백엔드 (**Log Analytics** + 여기에 바인딩된 App Insights - 별도 APM 리소스 없음) | measurement-first는 일급 원격측정 필요; 보존은 기본 30일, UI에서 설정 가능 ([deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md#azure-resource-inventory-minimum-set)) | Prometheus + Grafana + Tempo/Loki (OSS); 벤더 APM |
+| LLM 트레이스 뷰어 (개발 전용) | Arize Phoenix. 측정된 LLM 호출을 OTLP로 내보내 확인하며, `FDAI_PHOENIX_TRACING_ENABLED` 뒤에서 기본적으로 꺼져 있음 ([tools/phoenix](../../../tools/phoenix/README.md)) | 수집기를 배포하지 않고도 측정된 토큰 사용량, 지연 시간, 대화별 묶음을 확인; 제한된 메타데이터만 내보내며 프롬프트와 응답 본문은 보내지 않고, 계량 저장소가 계속 기준 기록 | Langfuse; OTLP 호환 트레이스 백엔드 |
 
 ## 데이터 저장소 선택 기준
 

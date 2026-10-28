@@ -174,7 +174,7 @@ approved grant, and fresh effective-access evidence is required before the actio
 - Encrypt in transit (TLS) and at rest; keys are managed in the secret/key store, not in code.
 - **LLM data handling**: T2 prompts are redacted of secrets and PII before leaving the trust
   boundary; enforce data-residency and no-retention terms for any external model vendor. A
-  prompt that would require unredactable sensitive data is routed to HIL instead of sent.
+  prompt that would require unredactable sensitive data is routed to HIL instead of sent. The development-only Phoenix trace observer (`core/metering/observed.py`, off unless `FDAI_PHOENIX_TRACING_ENABLED`) runs after the durable metering write, exports bounded metadata only (never prompt or completion text), refuses a non-loopback endpoint without `FDAI_PHOENIX_ALLOW_REMOTE_ENDPOINT`, and never fails the model call; see [tools/phoenix](../../../tools/phoenix/README.md).
 - **Evidence-source isolation**: Independent read-only sources use separate finite deadlines. One
   source timeout cannot discard evidence already completed by another source, and unavailable or
   empty evidence never becomes a healthy observation, a cause claim, or execution authority.
