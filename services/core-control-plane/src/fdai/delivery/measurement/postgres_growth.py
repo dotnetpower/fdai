@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
 from collections.abc import AsyncIterator, Mapping, Sequence
 from typing import Any
 
 import psycopg
+from fdai.core.measurement.pattern_evidence import pattern_signature
 from fdai.core.measurement.pattern_growth import OutcomeRecord
 from fdai.core.tiers.t1_lightweight import EmbeddingModel, LearnedAction, OperationalCaseContext
 from fdai.delivery.measurement.outcome_contract import accepted_outcome_timestamp
@@ -226,24 +226,14 @@ class PostgresVerifiedPatternBuilder:
             raise ValueError(f"growth embedding dim MUST be 384; got {len(vector)}")
         if any(not math.isfinite(float(value)) for value in vector):
             raise ValueError("growth embedding values MUST be finite")
-        signature_material = {
-            "action_type_id": record.action_type_id,
-            "operational_case": (
-                operational_case.to_mapping() if operational_case is not None else None
-            ),
-            "params": dict(params),
-            "rule_id": rule_id,
-        }
-        try:
-            encoded_signature = json.dumps(
-                signature_material,
-                separators=(",", ":"),
-                sort_keys=True,
-                allow_nan=False,
-            ).encode()
-        except (TypeError, ValueError):
+        signature = pattern_signature(
+            action_type_id=record.action_type_id,
+            params=params,
+            rule_id=rule_id,
+            operational_case=operational_case,
+        )
+        if signature is None:
             return None
-        signature = hashlib.sha256(encoded_signature).hexdigest()
         return (
             vector,
             LearnedAction(

@@ -66,24 +66,30 @@ def _event(event_id: str, *, resource: str) -> Event:
     )
 
 
-def _action(mode: Mode) -> Action:
+def _action(
+    mode: Mode,
+    *,
+    number: int = 10,
+    start: datetime = _NOW,
+    tag_value: str = "team-example",
+) -> Action:
     return Action.model_validate(
         {
             "schema_version": "1.0.0",
-            "action_id": "00000000-0000-0000-0000-000000000010",
-            "idempotency_key": "example-action-1",
+            "action_id": f"00000000-0000-0000-0000-{number:012d}",
+            "idempotency_key": f"example-action-{number}",
             "event_id": "00000000-0000-0000-0000-000000000001",
             "action_type": "remediate.tag-add",
             "target_resource_ref": _TARGET,
             "operation": "tag",
-            "params": {"tag": "owner", "value": "team-example"},
+            "params": {"tag": "owner", "value": tag_value},
             "stop_condition": "provider_api_error_streak",
             "stop_conditions": [{"kind": "provider_api_error_streak", "count": 3}],
             "rollback_ref": {"kind": "state_forward_only"},
             "blast_radius": {"scope": "resource", "count": 1, "rate_per_minute": 5},
             "mode": mode.value,
             "citing_rules": [_RULE_ID],
-            "created_at": _NOW.isoformat(),
+            "created_at": start.isoformat(),
             "action_type_ref": {
                 "kind": "action",
                 "name": "remediate.tag-add",
@@ -124,11 +130,12 @@ class _LocalResource:
 
     def __init__(self) -> None:
         self.tags: dict[str, str] = {}
+        self.apply_effect = True
 
 
 class _Clock:
-    def __init__(self) -> None:
-        self._now = _NOW
+    def __init__(self, start: datetime = _NOW) -> None:
+        self._now = start
 
     def __call__(self) -> datetime:
         current = self._now
@@ -136,9 +143,12 @@ class _Clock:
         return current
 
 
-def _loop(audit: InMemoryStateStore, resource: _LocalResource) -> ControlLoop:
+def _loop(
+    audit: InMemoryStateStore | Any, resource: _LocalResource, *, start: datetime = _NOW
+) -> ControlLoop:
     async def execute(*, action: Action, rule: Rule, **_: Any) -> ExecutionResult:
-        resource.tags[str(action.params["tag"])] = str(action.params["value"])
+        if resource.apply_effect:
+            resource.tags[str(action.params["tag"])] = str(action.params["value"])
         return ExecutionResult(
             action_id=str(action.action_id),
             outcome=ExecutorOutcome.PUBLISHED,
@@ -152,8 +162,8 @@ def _loop(audit: InMemoryStateStore, resource: _LocalResource) -> ControlLoop:
             metric="tag_present",
             acceptable_min=1.0,
             acceptable_max=1.0,
-            predicted_at=_NOW,
-            observation_deadline=_NOW + timedelta(minutes=5),
+            predicted_at=start,
+            observation_deadline=start + timedelta(minutes=5),
         )
 
     async def observe(action: Action, expected: ExpectedEffect) -> ObservedEffect:
@@ -163,12 +173,12 @@ def _loop(audit: InMemoryStateStore, resource: _LocalResource) -> ControlLoop:
             target_ref=expected.target_ref,
             metric=expected.metric,
             value=1.0 if present else 0.0,
-            observed_at=_NOW + timedelta(minutes=1),
+            observed_at=start + timedelta(minutes=1),
         )
 
     executor = MagicMock()
     executor.execute = AsyncMock(side_effect=execute)
-    clock = _Clock()
+    clock = _Clock(start)
     builder = MagicMock()
     builder.clock = clock
     return ControlLoop(
