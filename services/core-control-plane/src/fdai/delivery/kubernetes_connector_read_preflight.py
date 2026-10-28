@@ -36,6 +36,13 @@ def snapshot_read_attributes() -> tuple[dict[str, str], ...]:
     )
 
 
+def _without_empty(value: object) -> object:
+    """The API server omits empty strings such as the core group from an echoed review spec."""
+    if isinstance(value, dict):
+        return {key: _without_empty(item) for key, item in value.items() if item != ""}
+    return value
+
+
 def _unique(pairs: list[tuple[str, object]]) -> dict[str, object]:
     values: dict[str, object] = {}
     for key, value in pairs:
@@ -109,7 +116,8 @@ class KubernetesObserverReadPreflight:
                     if (
                         value.get("apiVersion") != "authorization.k8s.io/v1"
                         or value.get("kind") != "SelfSubjectAccessReview"
-                        or value.get("spec") != {"resourceAttributes": attributes}
+                        or _without_empty(value.get("spec"))
+                        != _without_empty({"resourceAttributes": attributes})
                     ):
                         raise ValueError("Kubernetes preflight response binding is invalid")
                     status = value.get("status")
