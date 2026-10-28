@@ -623,3 +623,21 @@ def test_every_lifecycle_domain_pins_its_projection_enum_and_a_readable_status()
         assert domain.values == tuple(sorted(item.value for item in enums[domain.object_type]))
         assert domain.lifecycle_state is True
         assert readable[domain.object_type]["status"]["lifecycle_state"] is True
+
+
+def test_generic_alert_rule_wording_grounds_to_one_group_of_every_alert_rule_type() -> None:
+    from fdai.composition.semantic_query_value_domains import resource_type_value_domains
+    from fdai.runtime.control_loop_catalogs import load_resource_types
+
+    domain = resource_type_value_domains(load_resource_types())[0]
+    descriptors = [
+        {"kind": "object", "name": "Resource", "properties": {"type": domain.projection()}}
+    ]
+    catalog = concept_catalogs(descriptors)[MentionDomain.RESOURCE_TYPE]
+    group = next(item for item in catalog if item.id == "group:alert-rules")
+
+    assert set(group.values) == {"alert-rule", "anomaly-alert-rule", "metric-alert-rule"}
+    assert "알림 규칙" in group.labels
+    # The scheduled-query type no longer claims the generic wording for itself.
+    single = next(item for item in catalog if item.values == ("alert-rule",))
+    assert "알림 규칙" not in single.labels
