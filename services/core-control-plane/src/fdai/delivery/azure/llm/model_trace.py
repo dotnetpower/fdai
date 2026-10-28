@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Any, Final, Literal
@@ -20,6 +21,34 @@ _MAX_MESSAGES: Final[int] = 24
 _MAX_REQUEST_CHARS: Final[int] = 12_000
 _MAX_RESPONSE_CHARS: Final[int] = 6_000
 _TRUNCATED: Final[str] = "\n[TRUNCATED]"
+
+_LOGGER = logging.getLogger(__name__)
+
+ModelTraceObserver = Callable[[Mapping[str, object]], None]
+_OBSERVERS: list[ModelTraceObserver] = []
+
+
+def register_model_trace_observer(observer: ModelTraceObserver) -> None:
+    """Mirror every completed model-call trace to a best-effort observer.
+
+    The trace is already redacted and bounded. Observers run synchronously on the caller's
+    task, so they MUST be cheap and non-blocking; a failure is logged and never raised.
+    """
+    if observer not in _OBSERVERS:
+        _OBSERVERS.append(observer)
+
+
+def clear_model_trace_observers() -> None:
+    """Remove every observer; intended for composition teardown and tests."""
+    _OBSERVERS.clear()
+
+
+def _notify_observers(trace: Mapping[str, object]) -> None:
+    for observer in tuple(_OBSERVERS):
+        try:
+            observer(trace)
+        except Exception:
+            _LOGGER.warning("model_trace_observer_failed", exc_info=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +144,7 @@ def complete_model_trace(
     redacted, response_redactions = _redact(response_content, max_chars=_MAX_RESPONSE_CHARS)
     redactions = start.redactions.copy()
     redactions.update(response_redactions)
-    return {
+    trace: dict[str, object] = {
         "call_id": call_id[:128],
         "kind": kind[:128],
         "model": model[:128],
@@ -134,6 +163,8 @@ def complete_model_trace(
             {"rule": rule, "replacements": count} for rule, count in sorted(redactions.items())
         ],
     }
+    _notify_observers(trace)
+    return trace
 
 
 def content_free_model_trace(trace: Mapping[str, object]) -> dict[str, object]:
@@ -377,12 +408,15 @@ def _now() -> str:
 __all__ = [
     "ModelInputMinimizationError",
     "ModelInputMinimizationReceipt",
+    "ModelTraceObserver",
     "PreparedEmbeddingInput",
     "PreparedModelMessages",
     "bounded_usage",
+    "clear_model_trace_observers",
     "complete_model_trace",
     "observed_usage",
     "prepare_embedding_input",
     "prepare_model_messages",
+    "register_model_trace_observer",
     "start_model_trace",
 ]

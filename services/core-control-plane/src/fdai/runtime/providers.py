@@ -350,9 +350,19 @@ def _build_metering_store() -> Any:
         return store
 
     from fdai.core.metering import ObservedMeteringStore
+    from fdai.delivery.azure.llm.model_trace import register_model_trace_observer
 
-    _LOGGER.info("metering_observer", extra={"observer": "phoenix", "project": config.project_name})
-    return ObservedMeteringStore(store, (PhoenixMeteringSink.from_config(config),))
+    sink = PhoenixMeteringSink.from_config(config)
+    register_model_trace_observer(sink.record_model_trace)
+    _LOGGER.info(
+        "metering_observer",
+        extra={
+            "observer": "phoenix",
+            "project": config.project_name,
+            "capture_content": config.capture_content,
+        },
+    )
+    return ObservedMeteringStore(store, (sink,))
 
 
 def _build_primary_metering_store() -> Any:
