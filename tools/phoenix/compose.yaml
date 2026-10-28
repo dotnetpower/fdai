@@ -1,0 +1,18 @@
+# Local Arize Phoenix for FDAI LLM-trace inspection (development only).
+# Ports bind to loopback; nothing here is part of the FDAI runtime.
+name: fdai-phoenix
+
+services:
+  phoenix:
+    image: arizephoenix/phoenix:version-20.26.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6006:6006" # UI and OTLP/HTTP
+      - "127.0.0.1:4317:4317" # OTLP/gRPC, used by FDAI
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+    volumes:
+      - phoenix-data:/mnt/data
+
+volumes:
+  phoenix-data:

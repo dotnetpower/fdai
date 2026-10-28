@@ -340,6 +340,22 @@ def _build_operator_memory_store() -> Any:
 
 
 def _build_metering_store() -> Any:
+    """Select the durable metering sink, mirrored to Phoenix only when enabled."""
+    store = _build_primary_metering_store()
+
+    from fdai.delivery.phoenix import PhoenixMeteringSink, phoenix_config_from_env
+
+    config = phoenix_config_from_env(os.environ)
+    if config is None:
+        return store
+
+    from fdai.core.metering import ObservedMeteringStore
+
+    _LOGGER.info("metering_observer", extra={"observer": "phoenix", "project": config.project_name})
+    return ObservedMeteringStore(store, (PhoenixMeteringSink.from_config(config),))
+
+
+def _build_primary_metering_store() -> Any:
     """Select the durable metering sink used by Azure LLM adapters."""
     dsn = (
         os.environ.get("FDAI_METERING_DSN", "").strip()

@@ -36,6 +36,7 @@ from fdai.core.metering.aggregate import (
 )
 from fdai.core.metering.context import current_invocation_scope, with_invocation_scope
 from fdai.core.metering.emitter import MeteringEmitter
+from fdai.core.metering.observed import ObservedMeteringStore
 from fdai.core.metering.pricing import ModelPricing, PricingTable
 from fdai.core.metering.records import (
     InvocationDisposition,
@@ -56,6 +57,7 @@ __all__ = [
     "MeteringReader",
     "MeteringSink",
     "ModelPricing",
+    "ObservedMeteringStore",
     "PricingTable",
     "TokenUsage",
     "UsageSummary",
