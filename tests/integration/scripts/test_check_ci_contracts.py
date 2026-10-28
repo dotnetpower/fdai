@@ -459,7 +459,14 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards()
     for job_name, scope in scoped_jobs.items():
         job = jobs[job_name]
         assert job["needs"] == "changes"
-        assert job["if"] == f"needs.changes.outputs.{scope} == 'true'"
+        if job_name == "python-tests":
+            assert " ".join(job["if"].split()) == (
+                "needs.changes.outputs.python == 'true' && "
+                "(vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true' || "
+                "github.ref != 'refs/heads/main' || github.event_name == 'pull_request')"
+            )
+        else:
+            assert job["if"] == f"needs.changes.outputs.{scope} == 'true'"
 
     freeze = jobs["freeze-scenarios"]
     assert freeze["needs"] == "changes"
@@ -1699,6 +1706,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
 
     assert privileged == {
         "automatic-version.yml",
+        "ci.yml",
         "cohort-observation-import.yml",
         "cohort-readiness.yml",
         "container-supply-chain.yml",
