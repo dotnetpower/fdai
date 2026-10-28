@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 835ae0a0dae2805e42193fc2ed81c9edca30e8b4
+translation_source_sha: 081b8b276b7d6e63fb5a0fccaa10bf82b90d5a01
 translation_revised: 2026-10-28
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -122,7 +122,7 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 프로세스 실행기는 `RUNTIME_ENV`와 독립적으로 `FDAI_EXECUTION_VENUE=local`을 설정합니다.
 로컬 상태는 `127.0.0.1:5432`의 Docker PostgreSQL과 담당 서비스 역할을 사용하며, 로컬
 이벤트 전송은 `127.0.0.1:19092`의 Redpanda를 사용합니다. Console 준비 과정은 기본적으로
-개발 데이터베이스의 1 GiB 상한을 검사합니다. `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`를
+개발 데이터베이스의 2 GiB 상한을 검사합니다. `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`를
 초과하면 조치 방법을 안내하며 준비를 차단하고, 기존 데이터베이스와 브로커는 보존합니다.
 일반적인 시작이나 재시작은 삭제 권한을 부여하지 않습니다.
 
