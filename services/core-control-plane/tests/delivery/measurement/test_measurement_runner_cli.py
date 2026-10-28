@@ -387,3 +387,39 @@ async def test_policy_cli_composition_handles_partial_stale_and_rollback(
     assert report.processed_count == 3
     assert report.rejected_count == 2
     assert report.rollback_count == 1
+
+
+@pytest.mark.parametrize(("venue", "developer"), [("local", True), ("deployed", False)])
+async def test_learning_container_uses_the_developer_identity_only_on_the_local_venue(
+    monkeypatch: pytest.MonkeyPatch,
+    venue: str,
+    developer: bool,
+) -> None:
+    monkeypatch.setenv("FDAI_EXECUTION_VENUE", venue)
+    monkeypatch.setenv("FDAI_LLM_ENDPOINT", "https://account.openai.azure.com")
+    seen: list[type] = []
+
+    resolvers: list[Any] = []
+
+    async def wire(container: Any, *, identity: Any, overrides: Any, **_: Any) -> Any:
+        seen.append(type(identity))
+        resolvers.append(overrides.model_endpoint_resolver)
+        return container
+
+    class _Managed:
+        def __init__(self, *, http_client: Any) -> None:
+            pass
+
+    monkeypatch.setattr(
+        measurement_runner_cli,
+        "default_container_from_env",
+        lambda: SimpleNamespace(config=SimpleNamespace(llm=SimpleNamespace(mode="azure"))),
+    )
+    monkeypatch.setattr(measurement_runner_cli, "wire_azure_container", wire)
+    monkeypatch.setattr(measurement_runner_cli, "ManagedIdentityWorkloadIdentity", _Managed)
+    async with measurement_runner_cli._azure_learning_container():  # noqa: SLF001
+        pass
+    expected = measurement_runner_cli.AsyncAzureCliWorkloadIdentity if developer else _Managed
+    assert seen == [expected]
+    # Resolved endpoint bindings need a resolver, or the job cannot bind any model.
+    assert resolvers[0]("azure-openai:account") == "https://account.openai.azure.com"

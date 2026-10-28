@@ -193,6 +193,8 @@ runtime environment loaded. It makes three embedding calls and one one-token cha
 retries, and stops on a provider error such as `429`. It reports scores, status codes, and the
 pattern count without printing a DSN or response body.
 
+The scheduled pattern-growth job also runs locally: with the local runtime environment loaded, `python -m fdai.delivery.measurement_runner_cli pattern-growth` uses the Azure CLI identity on the local venue and the same model endpoint resolver as the Core runtime. It reads verified outcomes, so it reports zero outcomes until an enforce-mode action has been verified.
+
 ## 6. Start the local stack
 
 The canonical topology is the console SPA (`5273`) plus all five independent backend services:
