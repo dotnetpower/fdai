@@ -62,7 +62,7 @@ def _dsn() -> str:
     dsn = raw.replace("postgresql+psycopg://", "postgresql://", 1)
     host = psycopg.conninfo.conninfo_to_dict(dsn).get("host")
     if host not in _LOOPBACK:
-        pytest.fail("the local learning loop requires a loopback database")
+        pytest.skip("the local learning loop only runs against a loopback database")
     return dsn
 
 
