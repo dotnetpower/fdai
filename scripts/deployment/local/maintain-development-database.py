@@ -16,7 +16,7 @@ import psycopg
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-_DEFAULT_MAX_BYTES = 1024 * 1024 * 1024
+_DEFAULT_MAX_BYTES = 2 * 1024 * 1024 * 1024
 _MIN_MAX_BYTES = 64 * 1024 * 1024
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _PRESERVED_STATE_VERSION = "1.0.0"

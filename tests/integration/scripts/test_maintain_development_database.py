@@ -44,8 +44,8 @@ def test_target_rejects_non_runtime_database(database_url: str) -> None:
         _MODULE._target(database_url)
 
 
-def test_max_bytes_defaults_to_one_gibibyte_and_rejects_unsafe_floor() -> None:
-    assert _MODULE._max_bytes(None) == 1024 * 1024 * 1024
+def test_max_bytes_defaults_to_two_gibibytes_and_rejects_unsafe_floor() -> None:
+    assert _MODULE._max_bytes(None) == 2 * 1024 * 1024 * 1024
 
     with pytest.raises(ValueError, match="MUST be at least"):
         _MODULE._max_bytes(str(64 * 1024 * 1024 - 1))
@@ -65,7 +65,7 @@ def test_over_limit_never_recreates_without_explicit_permission(monkeypatch, cap
         def execute(self, query, parameters=()):
             statements.append(str(query))
             assert query == "SELECT pg_database_size(%s)"
-            return SimpleNamespace(fetchone=lambda: (2 * 1024 * 1024 * 1024,))
+            return SimpleNamespace(fetchone=lambda: (3 * 1024 * 1024 * 1024,))
 
     monkeypatch.setattr(_MODULE.psycopg, "connect", lambda *_args, **_kwargs: Connection())
     monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://fdai@127.0.0.1:5432/fdai")
@@ -99,7 +99,7 @@ def test_explicit_recreation_keeps_active_connection_guard(monkeypatch, active_c
             rendered = query if isinstance(query, str) else query.as_string()
             statements.append(rendered)
             result = (
-                2 * 1024 * 1024 * 1024 if "pg_database_size" in rendered else active_connections
+                3 * 1024 * 1024 * 1024 if "pg_database_size" in rendered else active_connections
             )
             return SimpleNamespace(fetchone=lambda: (result,))
 

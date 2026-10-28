@@ -826,7 +826,14 @@ function IncidentBody({
             })}
           </ul>
         ) : (
-          <p class="incidents-roster-empty">{t("incidents.empty")}</p>
+          <div class="incidents-roster-empty">
+            <p>{t("incidents.empty")}</p>
+            <p>{t("incidents.emptyScope")}</p>
+            <p class="incidents-roster-empty-links">
+              <a href={routeHref("hil-queue")}>{t("incidents.emptyOpenApprovals")}</a>
+              <a href={routeHref("audit")}>{t("incidents.emptyOpenAudit")}</a>
+            </p>
+          </div>
         )}
         <footer class="incidents-roster-foot">
           {pageError ? (

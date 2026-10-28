@@ -222,6 +222,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
             model_observations=model_observations,
         )
         ticket: CompiledAnswerTicket | None = speculative_ticket
+        typed_only = self._compiled_answers is not None and self._compiled_answers.typed_only
         try:
             context = _bounded_context(prior_turns)
             preflight_outcome = preflight_router.run(context)
@@ -404,9 +405,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                 if judgment_decision.accepted and judgment_decision.proposal is not None:
                     accepted = promoted_state_collection(judgment_decision.proposal)
                     accepted = reground_constraint_slots(accepted, manifest=manifest)
-                    if self._type_grounding is not None and not (
-                        self._compiled_answers is not None and self._compiled_answers.typed_only
-                    ):
+                    if self._type_grounding is not None and not typed_only:
                         grounding = self._type_grounding.ground(
                             utterance=utterance,
                             judgment=accepted,
@@ -462,7 +461,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                 bound_incident=bound_incident is not None,
                 judgment_accepted=(judgment_decision is not None and judgment_decision.accepted),
                 locale=locale,
-                typed_only=self._compiled_answers is not None and self._compiled_answers.typed_only,
+                typed_only=typed_only,
             )
             if pre_frame is not None:
                 return preflight_router.finish(
@@ -479,8 +478,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                     inventory_query_language=self._inventory_query_language,
                     bound_incident=bound_incident is not None,
                 )
-                if self._compiled_answers is not None
-                and self._compiled_answers.typed_only
+                if typed_only
                 and judgment_decision is not None
                 and judgment_decision.accepted
                 and judgment_proposal is not None
@@ -493,20 +491,22 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                 return preflight_router.finish(
                     settled_clarification(ticket, clarified, manifest_digest, model_observations)
                 )
+            typed_action_draft = (  # a no-authority draft is not a read
+                typed_only
+                and judgment_decision is not None
+                and judgment_decision.accepted
+                and getattr(judgment_proposal, "action_posture", None) == "draft_only"
+            )
             compiled = (
                 ticket.outcome(
                     manifest_digest=manifest.manifest_digest, observations=model_observations
                 )
-                if ticket is not None
+                if ticket is not None and not typed_action_draft
                 else None
             )
             if compiled is not None:
                 return preflight_router.finish(compiled)
-            if (
-                self._compiled_answers is not None
-                and self._compiled_answers.typed_only
-                and typed_recent_change_frame is None
-            ):
+            if typed_only and typed_recent_change_frame is None and not typed_action_draft:
                 return preflight_router.finish(
                     typed_only_outcome(ticket, manifest_digest=manifest_digest)
                 )
