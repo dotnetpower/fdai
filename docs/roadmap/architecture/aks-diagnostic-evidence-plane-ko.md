@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 5c34b9a1f919a8dd5a12a1542b97c694215c4618
-translation_revised: 2026-10-28
+translation_source_sha: dfbd18c8ae0bc2eb1f253f1369c1f85bd0543d3b
+translation_revised: 2026-10-29
 ---
 # AKS 진단 근거 플레인
 
@@ -244,7 +244,12 @@ EndpointSlice 준비 상태에서 생략되거나 null인 `ready` 값은 `ready_
 여러 경로가 하나의 공급자 중립 메트릭을 선언하면 구체 프로바이더가 dispatch 전에 호환되지
 않는 정확한 대상을 거부할 수 있습니다. 그러면 라우터는 다음 선언 경로를 검토하며, 프로바이더
 실패를 포착해 fallback을 만들지 않습니다. Azure Metrics API 카탈로그는 이 경계를 사용해 VM
-`Percentage CPU`를 `Microsoft.Compute/virtualMachines`에만 결속합니다.
+`Percentage CPU`를 `Microsoft.Compute/virtualMachines`에만, 분석기의 `node_cpu_percent`를
+`Microsoft.ContainerService/managedClusters`에만 결속합니다. AKS는 `node_cpu_usage_percentage`를 플랫폼
+메트릭으로 게시하므로 이 경로는 Container Insights 에이전트, 데이터 수집 규칙, 워크스페이스가 필요 없습니다.
+분할하지 않은 `Maximum`을 요청해 "임의 노드가 기준을 넘으면 발화한다"는 Logs 템플릿의 의미를 유지하며,
+노드 레이블 없이 클러스터 전체 값을 전달합니다. Prometheus를 구성하면 계속 우선하고 Azure Monitor Logs는 그
+뒤의 fallback으로 남습니다.
 Azure Managed Prometheus의 기본 `cluster` 레이블은 정확한 ARM 신원이 아니라 cluster 이름
 alias입니다. 따라서 인벤토리 기반 analyzer는 명시적으로 조립된 PromQL 카탈로그가 정확한
 `resource_id` 레이블을 보존하지 않으면 Azure Monitor Logs 경로를 유지합니다. 요청한 신원
