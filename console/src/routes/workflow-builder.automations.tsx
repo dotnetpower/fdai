@@ -6,7 +6,7 @@ import {
   type WorkflowDefinitionCatalogResponse,
   type WorkflowDefinitionEntry,
 } from "../workflow/validate";
-import { StatusPill } from "../components/ui";
+import { Tooltip } from "../components/tooltip";
 import { formatNumber, t, triggerLabel } from "./i18n/workflow";
 import { browserTimeZone, describeSchedule, isFiveFieldCron } from "./workflow-builder.browse";
 import { signalLabel } from "./workflow-builder.helpers";
@@ -139,11 +139,11 @@ export function WorkflowAutomations({
                   <strong>{workflowName}</strong>
                   <span>{triggerLabel(binding.trigger)}</span>
                   <small>{detail}</small>
-                  <StatusPill
-                    kind="neutral"
-                    label={t("workflow.automations.dispatchInactive")}
-                    title={t("workflow.automations.dispatchInactiveHint")}
-                  />
+                  <Tooltip content={t("workflow.automations.dispatchInactiveHint")}>
+                    <span class="status-pill status-pill-neutral">
+                      {t("workflow.automations.dispatchInactive")}
+                    </span>
+                  </Tooltip>
                 </div>
                 {confirming ? (
                   <div class="workflow-binding-confirm" role="group" aria-label={t("workflow.automations.removeConfirm", { workflow: workflowName })}>

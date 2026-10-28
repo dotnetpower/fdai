@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
@@ -138,7 +139,9 @@ export function WorkflowDetail({
               >
                 <span>
                   <strong>{entry.name}</strong>
-                  <small title={triggerSummary(entry.trigger)}>{triggerSummary(entry.trigger)}</small>
+                  <Tooltip content={triggerSummary(entry.trigger)}>
+                    <small>{triggerSummary(entry.trigger)}</small>
+                  </Tooltip>
                 </span>
                 <span>{t("workflow.catalog.stepCount", { count: formatNumber(entry.step_count) })}</span>
               </button>
