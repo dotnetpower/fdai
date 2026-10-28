@@ -182,7 +182,7 @@ member digest, and answer assembly reserves bounded room for later outputs inste
 large table invalidate the whole verified answer.
 The same typed-only boundary may reuse an independently certified direct read before legacy
 judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
-existing gates. Numeric call accounting adds no prompt capture or execution authority.
+existing gates. A no-authority `draft_only` action is not a read, so the typed-only form path never answers or ends it. Numeric call accounting adds no prompt capture or execution authority.
 When a form compilation declines, an accepted closed recent-change preflight may reuse only the
 reviewed deterministic recent-change frame and verified plan. It does not reopen the general legacy
 frame model or lexical recovery path.
