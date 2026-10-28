@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: fee8484edc865ba05cdcab8a3088c3ce6ae5178f
+translation_source_sha: a34ac98c687df0cf5dcc75eee7069f7374008b8d
 translation_revised: 2026-10-28
 ---
 # FDAI Console 대화
@@ -186,6 +186,14 @@ Settings > Models는 현재 상태, 카탈로그 정책, 라우팅 근거, 웹 �
 Settings 모달은 데스크톱과 모바일에서 사용권 워터마크 위에 공간을 확보하며 Command Deck 맥락은
 가려진 배경 경로가 아니라 현재 Models 화면을 따릅니다. 이러한 표시 및 포커스 규칙은 모델을
 프로비전하거나 정책을 활성화하거나 실행 권한을 추가하지 않습니다.
+
+### 운영 성과 근거 표시
+
+운영 성과와 성과 보증 상세 보기는 근거 시각을 원시 ISO 문자열이 아니라 공용 콘솔 시각 포매터로
+운영자의 시간대에 맞춰 표시합니다. 형식이 정해진 사용 불가 사유는 기계 코드 대신 현지화된 라벨로
+표시합니다. 신뢰도 근거가 없는 측정값에는 참고용임을 알리는 안내를 함께 표시합니다. 누락된 값은
+계속 근거 없음으로 남으며 예시 값이나 0으로 대체하지 않습니다. 이러한 표시 규칙은 읽기, 승인,
+실행 권한을 추가하지 않습니다.
 
 ## 공통 답변 표시
 

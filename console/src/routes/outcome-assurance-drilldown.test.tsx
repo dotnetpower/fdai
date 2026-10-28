@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { decodeOutcomeAssuranceProjection } from "../api-outcome-assurance";
-import { OutcomeAssuranceDrilldown } from "./outcome-assurance-drilldown";
+import { getLocale, setLocale } from "../i18n";
+import {
+  OutcomeAssuranceDrilldown,
+  outcomeAssuranceUnavailableMessage,
+} from "./outcome-assurance-drilldown";
 
 const COMPLETE = {
   type: "outcome-assurance.projection",
@@ -162,6 +166,39 @@ describe("Outcome Assurance drill-down", () => {
         sample_size: null,
       }),
     ]);
+  });
+  it("names the typed unavailable reason in the active locale instead of a raw code", () => {
+    const original = getLocale();
+    const unavailable = decodeOutcomeAssuranceProjection({
+      ...COMPLETE,
+      state: "unavailable",
+      reason: "projection_missing",
+      sources: [{ ...COMPLETE.sources[0], state: "unavailable", reason: "projection_missing" }],
+      outcomes: [],
+      guards: { ...COMPLETE.guards, state: "unavailable", reason: "projection_missing" },
+    });
+    try {
+      setLocale("ko");
+      const korean = outcomeAssuranceUnavailableMessage(unavailable);
+      expect(korean).toContain("집계 결과가 아직 저장되지 않음");
+      expect(korean).not.toContain("projection_missing");
+      setLocale("en");
+      expect(outcomeAssuranceUnavailableMessage(unavailable)).toContain("projection not yet retained");
+    } finally {
+      setLocale(original);
+    }
+  });
+
+  it("renders evidence times without raw ISO offsets or microseconds", () => {
+    const projection = decodeOutcomeAssuranceProjection({
+      ...COMPLETE,
+      provenance: { ...COMPLETE.provenance, as_of: "2026-10-04T00:00:00.900195Z" },
+    });
+    const evidence = childAt(OutcomeAssuranceDrilldown({ projection }), 2);
+    const text = JSON.stringify(evidence.props["children"]);
+
+    expect(text).not.toContain("900195");
+    expect(text).not.toContain("2026-10-04T00:00:00");
   });
 });
 
