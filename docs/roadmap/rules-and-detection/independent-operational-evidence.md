@@ -391,7 +391,7 @@ For every kind, the evidence proof is the recomputed slice digest, the conflict 
 the corroboration or same-instant conflicting records, and freshness is 3,600 seconds from the source watermark,
 never past the slice's `valid_until`. Scope membership comes from the reviewed operating scope, not from
 `FDAI_FORECAST_TARGETS_JSON`. Raw history production remains [#1021](https://github.com/dotnetpower/fdai/issues/1021),
-and an unimplemented source means no issuance.
+and an unimplemented source means no issuance. AKS diagnostic receipts are non-authoritative evidence rows kept as a newest-N window (eight promotions' worth), so repeated promotions do not grow tracked state without bound.
 
 **Design note: `forecast-history-actions`.** The action producer reads the existing Thor/Saga StateStore audit chain
 without becoming a Thor, Saga, reviewer, or executor. A fixed-parameter `SECURITY DEFINER` function returns hash

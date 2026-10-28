@@ -321,7 +321,7 @@ Operator service suite exactly once; this test ownership does not add a report-l
 A control-plane Deployment Preflight toggle signal reaches Forseti without an ActionType, because
 ingress honors a payload-supplied ActionType only for an explicit operator request. Forseti binds
 `remediate.apply-preflight-toggle` from its own event-type table and keeps the default human-review
-verdict, so the proposal is routed to an approver rather than granted any autonomous authority.
+verdict, so the proposal is routed to an approver rather than granted any autonomous authority. Forseti's per-event no-rule fold markers are kept as a bounded newest window, so an unmatched event never grows durable state without bound.
 
 ## Privacy and retention
 

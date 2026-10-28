@@ -29,6 +29,7 @@ from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.state_store import StateStore
 
 BASELINE_EVALUATION_OUTCOME_PREFIX = "baseline-evaluation:outcomes:"
+BASELINE_EVALUATION_MIN_RETENTION = 10_000
 BASELINE_EVALUATION_COMPLETION_PREFIX = "baseline-evaluation:completions:"
 _SIGNAL_TYPE = "inventory.resource_observed"
 _MAX_DENOMINATOR = 10_000_000
@@ -239,6 +240,11 @@ async def _completion_record(
     )
     completion = BaselineEvaluationCompletion.model_validate(completion_values)
     await state_store.write_state(_completion_key(completion), completion.model_dump(mode="json"))
+    # Only the covered generation's outcomes are read, so keep it and the one before it.
+    await state_store.delete_states_beyond(
+        BASELINE_EVALUATION_OUTCOME_PREFIX,
+        retain_newest=max(2 * len(outcomes), BASELINE_EVALUATION_MIN_RETENTION),
+    )
     return completion
 
 
