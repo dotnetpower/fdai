@@ -30,7 +30,8 @@ def guard_reuse_resource_type(
     if decision.outcome is not T1Outcome.REUSED or decision.best_match is None:
         return decision
     rule = rules_by_id.get(decision.best_match.action.rule_id)
-    if rule is None or resource_type is None or rule.resource_type == resource_type:
+    rule_type = getattr(rule, "resource_type", None)
+    if rule_type is None or resource_type is None or rule_type == resource_type:
         return decision
     return replace(
         decision,
