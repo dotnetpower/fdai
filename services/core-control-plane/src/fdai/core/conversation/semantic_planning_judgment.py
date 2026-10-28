@@ -51,6 +51,18 @@ class _JudgmentDecision:
         return hold_details(f"role:{role}" for role in self.uncovered_roles)
 
 
+def typed_only_exempt(decision: _JudgmentDecision | None, typed_only: bool, bound: bool) -> bool:
+    """Report an accepted draft or bound-conversation turn that never starts the typed-only form.
+
+    The form path answers unbound reads only, so ending these turns as an unavailable read would
+    hold every incident-bound question and every Incident creation draft.
+    """
+
+    if not typed_only or decision is None or not decision.accepted:
+        return False
+    return bound or getattr(decision.proposal, "action_posture", None) == "draft_only"
+
+
 _OPERATIONAL_DESCRIPTOR_NAMES = {
     "create.document": frozenset({"Resource"}),
     "query.contextual_resources": frozenset({"Resource"}),

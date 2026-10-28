@@ -53,6 +53,7 @@ import {
   secondaryEvidencePostureIssueKind,
   verificationAttentionKind,
   verificationIssueDetailLabel,
+  isActionDraftVerification,
   unverifiedDetailLabel,
   verificationIssueKind,
   verificationPrimaryLabel,
@@ -139,7 +140,8 @@ export function GroundedReply({
   const evidenceReferences = hasEvidenceReferenceCitations(cites);
   const groundingIssue = groundingAttentionIssueKind(verification, semanticReceipt);
   const groundingIncomplete = groundingIssue === "partialEvidence";
-  const groundingAttention = groundingIssue !== null || verification?.status === "unverified";
+  const groundingAttention = groundingIssue !== null
+    || (verification?.status === "unverified" && !isActionDraftVerification(verification));
   const marks = citationMarks(sources);
   const verificationIssue = verification
     ? verificationAttentionKind(verification, semanticReceipt)
@@ -601,7 +603,7 @@ export function primaryAnswerText(
   verification: AnswerVerification | undefined,
   semanticReceipt?: SemanticProjectionReceipt,
 ): string {
-  if (verification?.status === "unverified") {
+  if (verification?.status === "unverified" && !isActionDraftVerification(verification)) {
     const clarification = text.trim();
     if (
       preservesTypedEvidenceHold(verification, semanticReceipt)

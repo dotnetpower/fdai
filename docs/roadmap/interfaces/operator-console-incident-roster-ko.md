@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 70019828275ed134c48036baeb7a33acf81deb41
-translation_revised: 2026-10-03
+translation_source_sha: ccc6020b6a2d0426a339c0a1af15da140db54aae
+translation_revised: 2026-10-28
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -29,7 +29,7 @@ API 계약은 다음과 같습니다.
 | `POST /incidents/{correlation_id}/interventions` | 관리 리소스 실행 권한 없이 인증된 정확한 상태의 Incident 개입 요청 하나를 대기열에 넣습니다. |
 | `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | 선택한 인시던트의 추가 전용 이력을 반환합니다. |
 | `GET /audit/{correlation_id}/trace` | 순서가 지정된 연관 감사 활동과 기록된 파이프라인 단계를 재구성합니다. |
-| `POST /chat/stream` | 레코드를 생성하지 않고 자연어에서 타입이 지정된 인시던트 초안을 만듭니다. |
+| `POST /chat/stream` | 레코드를 생성하지 않고 자연어에서 타입이 지정된 인시던트 초안을 만들며, Console은 이를 근거 없는 답변이나 실패가 아니라 검토용 초안으로 표시합니다. |
 | `POST /chat/action/confirm` | 타입이 지정된 인시던트 생성 요청을 다시 검증하고 영속 대기열에 넣습니다. |
 
 목록 조회는 읽기 전용으로 유지됩니다. 인증된 상세 패널에서는 범위가 제한된 개입 요청을

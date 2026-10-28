@@ -26,7 +26,7 @@ The API contract is:
 | `POST /incidents/{correlation_id}/interventions` | Queue one authenticated, exact-state Incident intervention without managed-resource execution authority. |
 | `GET /audit?correlation_id=<id>&limit=<n>&cursor=<opaque>` | Return the selected incident's append-only history. |
 | `GET /audit/{correlation_id}/trace` | Reconstruct ordered correlated audit activity and any recorded pipeline stages. |
-| `POST /chat/stream` | Produce a typed incident draft from natural language without creating a record. |
+| `POST /chat/stream` | Produce a typed incident draft from natural language without creating a record; the Console shows it as a draft for review, never as an unsupported or failed answer. |
 | `POST /chat/action/confirm` | Revalidate and durably queue one typed Incident creation request. |
 
 The roster query stays read-only. The authenticated detail panel can submit a bounded intervention
