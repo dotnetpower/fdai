@@ -817,3 +817,80 @@ def test_spool_directory_step_undoes_the_volume_group_mode_changes(tmp_path) -> 
         [sys.executable, "-c", script.replace(str(spool), str(fresh))], check=True
     )
     assert stat.S_IMODE(fresh.stat().st_mode) == 0o700
+
+
+def egress_rules(inputs, tmp_path):
+    from fdai.delivery.kubernetes_connector_installation import render_observer_installation
+    from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
+
+    from .test_kubernetes_connector_planning import context
+    from .test_kubernetes_connector_spool import NOW
+
+    directory, digest, target = installation_material(tmp_path)
+    inputs = inputs.model_copy(update={"target_ref": target, "material_digest": digest})
+    proposal = propose_observer_deployment(
+        context(
+            target_ref=target,
+            observed_at=NOW,
+            expires_at=NOW.replace(minute=10),
+            facts=tuple(
+                fact.model_copy(
+                    update={
+                        "target_ref": target,
+                        "observed_at": NOW,
+                        "expires_at": NOW.replace(minute=5),
+                    }
+                )
+                for fact in context().facts
+            ),
+        ),
+        now=NOW,
+    )
+    rendered = render_observer_installation(inputs, proposal, now=NOW, material_directory=directory)
+    policy = next(item for item in rendered["documents"] if item["kind"] == "NetworkPolicy")
+    return policy["spec"]["egress"]
+
+
+def test_dns_egress_always_selects_the_cluster_resolver_pods(tmp_path) -> None:
+    dns = egress_rules(install_inputs(), tmp_path)[2]
+    assert {"ipBlock": {"cidr": "192.0.2.3/32"}} in dns["to"]
+    assert {
+        "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}},
+        "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}},
+    } in dns["to"]
+    assert dns["ports"] == [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}]
+
+
+def test_an_in_cluster_gateway_is_selected_by_pod_labels_not_by_address(tmp_path) -> None:
+    from fdai.delivery.kubernetes_connector_installation import GatewayPeer
+
+    peer = GatewayPeer(namespace="fdai-gateway", labels={"app": "gateway", "tier": "core"})
+    gateway = egress_rules(install_inputs(gateway_cidrs=(), gateway_peer=peer), tmp_path)[0]
+    assert gateway["to"] == [
+        {
+            "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "fdai-gateway"}},
+            "podSelector": {"matchLabels": {"app": "gateway", "tier": "core"}},
+        }
+    ]
+    second = tmp_path / "second"
+    second.mkdir()
+    both = egress_rules(install_inputs(gateway_peer=peer), second)[0]["to"]
+    assert {"ipBlock": {"cidr": "192.0.2.1/32"}} in both and len(both) == 2
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"gateway_cidrs": ()},
+        {
+            "gateway_cidrs": (),
+            "gateway_peer": {"namespace": "kube-system", "labels": {"app": "x"}},
+        },
+        {"gateway_peer": {"namespace": "fdai-gateway", "labels": {}}},
+        {"gateway_peer": {"namespace": "fdai-gateway", "labels": {"app": "bad value"}}},
+        {"gateway_peer": {"namespace": "fdai-gateway", "labels": {"app": "x"}, "extra": 1}},
+    ],
+)
+def test_gateway_destination_must_be_bounded_and_not_a_system_namespace(changes) -> None:
+    with pytest.raises(ValueError):
+        install_inputs(**changes)

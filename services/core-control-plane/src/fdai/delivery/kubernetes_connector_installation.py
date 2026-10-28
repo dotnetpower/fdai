@@ -7,7 +7,7 @@ import ipaddress
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 from urllib.parse import urlsplit
 
 from fdai_service_contracts.cluster_connector import (
@@ -22,7 +22,7 @@ from fdai_service_contracts.observer_deployment import (
     ObserverDeploymentProposal,
     TargetRef,
 )
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from fdai.delivery.kubernetes_connector_material import MATERIAL_FILES, material_digest
 from fdai.delivery.kubernetes_connector_read_preflight import snapshot_read_attributes
@@ -49,6 +49,30 @@ _SPOOL_DIRECTORY_SCRIPT = (
 )
 
 
+LabelText = Annotated[
+    str, Field(min_length=1, max_length=63, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+]
+
+
+class GatewayPeer(ConnectorContract):
+    """An in-cluster gateway selected by namespace and labels.
+
+    A policy engine evaluates egress after service translation, so a Service address never matches
+    an address block for a Pod. Name the backend Pods here and set ``gateway_port`` to their
+    container port. A gateway outside the cluster keeps using ``gateway_cidrs``.
+    """
+
+    namespace: KubernetesName
+    labels: Annotated[dict[LabelText, LabelText], Field(min_length=1, max_length=4)]
+
+    @field_validator("namespace")
+    @classmethod
+    def _not_system(cls, value: str) -> str:
+        if value.startswith("kube-"):
+            raise ValueError("an in-cluster gateway cannot live in a system namespace")
+        return value
+
+
 class ObserverInstallationInput(ConnectorContract):
     """Exact preview inputs. A referenced digest is not a release signature or plan approval."""
 
@@ -67,9 +91,16 @@ class ObserverInstallationInput(ConnectorContract):
     storage_class: KubernetesName
     gateway_port: Annotated[int, Field(strict=True, ge=1, le=65535)]
     api_port: Annotated[int, Field(strict=True, ge=1, le=65535)]
-    gateway_cidrs: Annotated[tuple[str, ...], Field(min_length=1, max_length=8)]
+    gateway_cidrs: Annotated[tuple[str, ...], Field(max_length=8)] = ()
+    gateway_peer: GatewayPeer | None = None
     api_cidrs: Annotated[tuple[str, ...], Field(min_length=1, max_length=8)]
     dns_cidrs: Annotated[tuple[str, ...], Field(min_length=1, max_length=8)]
+
+    @model_validator(mode="after")
+    def _gateway_destination(self) -> Self:
+        if not self.gateway_cidrs and self.gateway_peer is None:
+            raise ValueError("the gateway needs bounded networks or an in-cluster peer")
+        return self
 
     @field_validator("namespace")
     @classmethod
@@ -331,13 +362,31 @@ def render_observer_installation(
             {"name": "spool", "persistentVolumeClaim": {"claimName": inputs.name}},
         ],
     }
-    egress = [
-        {"to": [{"ipBlock": {"cidr": cidr}} for cidr in networks], "ports": ports}
-        for networks, ports in (
-            (inputs.gateway_cidrs, [{"protocol": "TCP", "port": inputs.gateway_port}]),
-            (inputs.api_cidrs, [{"protocol": "TCP", "port": inputs.api_port}]),
-            (inputs.dns_cidrs, [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}]),
+
+    def blocks(networks: tuple[str, ...]) -> list[dict[str, Any]]:
+        return [{"ipBlock": {"cidr": cidr}} for cidr in networks]
+
+    gateway_to = blocks(inputs.gateway_cidrs)
+    if inputs.gateway_peer is not None:
+        gateway_to.append(
+            {
+                "namespaceSelector": {
+                    "matchLabels": {"kubernetes.io/metadata.name": inputs.gateway_peer.namespace}
+                },
+                "podSelector": {"matchLabels": dict(sorted(inputs.gateway_peer.labels.items()))},
+            }
         )
+    # The cluster resolver is a Pod, which an address block cannot select, so DNS always names it.
+    dns_to = blocks(inputs.dns_cidrs) + [
+        {
+            "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}},
+            "podSelector": {"matchLabels": {"k8s-app": "kube-dns"}},
+        }
+    ]
+    egress = [
+        {"to": gateway_to, "ports": [{"protocol": "TCP", "port": inputs.gateway_port}]},
+        {"to": blocks(inputs.api_cidrs), "ports": [{"protocol": "TCP", "port": inputs.api_port}]},
+        {"to": dns_to, "ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}]},
     ]
     documents = [
         resource("v1", "ServiceAccount", {"automountServiceAccountToken": False}),

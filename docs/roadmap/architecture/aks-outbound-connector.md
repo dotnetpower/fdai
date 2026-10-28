@@ -125,8 +125,12 @@ The renderer verifies the exact private material digest, current single observer
 observer namespace, TLS key/certificate binding, fixed volume paths and API/gateway ports. The API
 origin must be the in-cluster endpoint, and the full-read profile requires cluster-resource transfer.
 It outputs six resources, with the CronJob suspended until a separate authorized activation.
-No Namespace or Secret is created, and the bounded NetworkPolicy does not prove effective egress:
-other policies, DNS, address translation and the installed CNI still need independent checks.
+No Namespace or Secret is created. The bounded NetworkPolicy denies all ingress and allows egress only to the
+gateway, the API server and DNS. A policy engine evaluates egress after service translation, so an
+address block never matches a Pod: DNS therefore always selects the `kube-system` `k8s-app=kube-dns`
+Pods besides any `dns_cidrs`, and an in-cluster gateway is named by `gateway_peer` (namespace and
+labels, with `gateway_port` as the Pod port) instead of an address. A gateway outside the cluster keeps
+`gateway_cidrs`. Other policies and address translation still need independent checks.
 
 ```bash
 python -m fdai.delivery.kubernetes_connector_installation \
@@ -135,8 +139,8 @@ python -m fdai.delivery.kubernetes_connector_installation \
 ```
 
 Inputs explicitly name `target_ref`, `method`, `egress`, `namespace`, `name`, digest-pinned `image`, `material_secret`,
-`material_digest`, `storage_class`, `gateway_port`, `api_port`, and bounded `gateway_cidrs`,
-`api_cidrs`, `dns_cidrs`. Private files are `0600`; the material directory contains `config.json`,
+`material_digest`, `storage_class`, `gateway_port`, `api_port`, and bounded `gateway_cidrs`
+and/or `gateway_peer`, `api_cidrs`, `dns_cidrs`. Private files are `0600`; the material directory contains `config.json`,
 `registrations.json`, `ca.pem`, `client.pem`, and `client.key`. Runtime paths are fixed to
 `/private/material`, `/api-identity` and `/spool/snapshots`. The preview binds inputs, proposal and
 manifest digests and always reports `installation_ready=false` and `execution_authority=false`.
@@ -189,8 +193,9 @@ credential. Its mode-`0700` spool directory binds to one enrollment and stream a
 snapshots in a mode-`0600` SQLite database. Exact acknowledgment removes only the oldest packet;
 lost acknowledgment replays its original bytes and clock before new collection. Capacity exhaustion
 and expired pending evidence stop the cycle without silently dropping data. Recovering an expired
-unaccepted stream requires an explicitly revised enrollment and a new spool directory; automatic
-stream reset and lifecycle-gap recovery are not implemented.
+unaccepted stream requires an explicitly revised enrollment and a new spool database. The `recover`
+operation (below) retires the old database by renaming it; automatic stream reset and lifecycle-gap
+recovery are not implemented.
 
 The Inventory Job selects this source with `FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH` and
 `FDAI_KUBERNETES_CONNECTOR_PRINCIPAL_REF`. The independent
@@ -232,6 +237,16 @@ before it is applied. The credential Secret is built in memory from digest-check
 and its command output is never logged. Readback must equal the approved plan, and an ambiguous
 failure records an unknown outcome instead of retrying. Two-phase audit records, an owner-only
 per-target lock, and a stable idempotency key cover the apply.
+
+`verify` runs the installed CronJob once as a smoke Job after checking that the live installation
+equals the approved plan, then removes the Job. It reports `delivered` only when the observer logged an
+accepted or duplicate delivery, and names `image_pull_failed` (grant the cluster pull access to the image
+registry), `job_failed` (with the observer's error type), `completed_without_delivery`, or
+`not_finished`. Delivery is the observer's own report, not observation; `wait-observed` stays the
+independent check. `recover` suspends the observer, removes its Jobs, and renames the spool database
+to `*.retired-<time>` through a short Pod, so a gateway reset or a revised enrollment can start a new
+stream without deleting evidence. Revise the enrollment and stream on the gateway first, then run
+`recover`, `apply` with matching material, `activate`, and `verify`.
 
 Apply leaves the CronJob suspended. `activate` resumes it only when the live installation still
 equals the approved plan. `activate` and `deactivate` change only `spec.suspend` under a separate

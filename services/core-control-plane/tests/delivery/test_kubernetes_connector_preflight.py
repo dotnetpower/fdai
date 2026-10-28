@@ -603,3 +603,46 @@ async def test_read_collector_composition_signs_only_its_observed_fact(
     JsonSchemaContractValidator(PackageResourceSchemaRegistry()).validate(
         "observer-preflight-receipt", receipt.model_dump(mode="json")
     )
+
+
+@pytest.mark.parametrize(("forge", "expected"), [(False, "allowed"), (True, "unknown")])
+async def test_read_preflight_accepts_the_echo_a_real_server_returns(forge, expected) -> None:
+    """A real API server omits empty strings such as the core group from the echoed spec."""
+    import json
+    import ssl
+
+    import httpx
+    from fdai.delivery.kubernetes_connector_read_preflight import KubernetesObserverReadPreflight
+
+    class Auth:
+        async def headers(self):
+            return {"Authorization": "******"}
+
+    def handler(request):
+        if request.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "apiVersion": "v1",
+                    "kind": "Namespace",
+                    "metadata": {"name": "kube-system", "uid": "cluster-uid"},
+                },
+            )
+        value = json.loads(request.content)
+        attributes = {k: v for k, v in value["spec"]["resourceAttributes"].items() if v != ""}
+        if forge:
+            attributes["resource"] = "secrets"
+        value["spec"] = {"resourceAttributes": attributes}
+        value["status"] = {"allowed": True}
+        return httpx.Response(201, json=value)
+
+    probe = KubernetesObserverReadPreflight(
+        origin="https://cluster.example",
+        target_ref="cluster-example",
+        namespace_uid="cluster-uid",
+        auth=Auth(),
+        tls=ssl.create_default_context(),
+        now=lambda: NOW,
+        transport=httpx.MockTransport(handler),
+    )
+    assert (await probe.collect()).state == expected
