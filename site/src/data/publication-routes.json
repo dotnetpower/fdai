@@ -35,8 +35,8 @@
     "diagram_ids": [
       "fdai-agent-driven-runtime",
       "fdai-azure-aks-deployment",
-      "fdai-azure-deployment-topology",
       "fdai-azure-resource-network-flow",
+      "fdai-code-dependency-boundaries",
       "fdai-conceptual-control-loop",
       "fdai-reference-architecture",
       "fdai-system-overview"
@@ -434,8 +434,8 @@
     "diagram_ids": [
       "fdai-agent-driven-runtime",
       "fdai-azure-aks-deployment",
-      "fdai-azure-deployment-topology",
       "fdai-azure-resource-network-flow",
+      "fdai-code-dependency-boundaries",
       "fdai-conceptual-control-loop",
       "fdai-reference-architecture",
       "fdai-system-overview"

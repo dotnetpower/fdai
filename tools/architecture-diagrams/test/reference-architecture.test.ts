@@ -19,7 +19,7 @@ test("FDAI reference architecture renders every governed relationship", async ()
   const svg = await renderSvg(spec, layout, "en");
   const koSvg = await renderSvg(spec, layout, "ko");
 
-  assert.equal(spec.version, 12);
+  assert.equal(spec.version, 13);
   assert.equal(spec.kind, "context");
   assert.deepEqual(spec.formats, ["svg"]);
   assert.equal(layout.edges.length, spec.edges.length);
