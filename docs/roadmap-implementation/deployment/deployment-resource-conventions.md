@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Isolated SSD CI host and guarded routing | implemented | `893fdc9b1b`; `infra/ci-runner/`; `tests/integration/infra/test_ci_ssd_runner.py`; 160 focused tests passed; [#2623](https://github.com/dotnetpower/fdai/issues/2623) | Infrastructure readiness was independently observed. Workflow publication, protected-main opt-in, and exact-workload speedup evidence remain separate open outcomes. |
 | Bootstrap ephemeral disk and observation delegation | implemented | `infra/bootstrap/main.tf`; offline-host Terraform tests, 14 passed | Required ReadOnly cache and GUID-only condition operands preserve the existing disk placement, role list and principal restriction. Actual partial recovery still requires exact approval and independent effect evidence. |
 | Core control plane startup probe | not-applicable | `current change`; `terraform fmt` and `terraform validate` pass on the service root | Three attempts sized a startup probe to cover a boot that opened the health port late. The runtime now opens that port before startup readiness runs, so liveness answers immediately and the probe is unnecessary. The protected update contract also rejected it, because it proves rollback only for an image and revision-suffix change. |
 | CAF naming and `fdai:` ownership tags | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, and focused Terraform tests | Terraform computes names and tags; runtime code consumes outputs. |
@@ -161,7 +162,13 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-28 | implemented | Added the 12 reported Terraform-to-ARM mappings and evaluated policy at subscription, application, and declared cross-scope ops boundaries. | Failed plan-only run `33122246033`; `current change`; actionlint and focused workflow/preflight checks. | Rerun and retain an apply-eligible plan or explicit blocker. |
 | 2026-08-28 | implemented | Completed an exact-revision staging plan with ChatOps model validation after every declared live policy scope returned clear. | Merge `bbb113dad`; successful plan-only run `33124447506`; `155 add / 0 change / 0 destroy`; protected plan `plan-33124447506-1`. | Obtain explicit apply approval before expiry; retain model readback, runtime binding, and provider-channel evidence after apply. |
 
+| 2026-10-28 | implemented | Added a separately owned SSD CI root, protected-environment registration, and optional protected-main-only regression shard acceleration without changing deployment-runner authority. | `893fdc9b1b`; focused infrastructure/registration/CI-contract tests: 160 passed; Terraform validation and actionlint passed; Checkov: 15 passed with one documented VM-agent exception. | Publish the workflow, explicitly activate the verified runner, and compare the same CI workload before claiming a speedup. |
+
 ### Remaining work
+
+- [ ] Publish the SSD CI workflow from `893fdc9b1b`, enable its opt-in only after an online-runner
+  readback, and retain exact-SHA CI results plus a comparable workload timing measurement in
+  [#2623](https://github.com/dotnetpower/fdai/issues/2623).
 
 - [ ] Apply a protected development replacement that creates
   `id-<workload>-<env>-<region>-operator-api` and

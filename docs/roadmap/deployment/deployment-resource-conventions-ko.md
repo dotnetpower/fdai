@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 60d583b0da594b455a483107bdca16340a3bcc16
-translation_revised: 2026-10-02
+translation_source_sha: df6b681068cfb9da44a04b7b2b10df5daafc5bbc
+translation_revised: 2026-10-28
 ---
 # 배포 리소스 규약
 
@@ -361,6 +361,24 @@ additional_tags = {
   않은 `*.tfvars`의 `additional_tags`에 둡니다.
 - **질의 값을 안정적인 소문자로 유지합니다**: 비용 관리와 Resource Graph는 `true`,
   `dev`, `resilience` 같은 리터럴 값으로 그룹화하므로 표류가 발생하면 집계가 깨집니다.
+
+## CI 전용 SSD 러너 경계
+
+독립적인 [`infra/ci-runner`](../../../infra/ci-runner/README.md) 루트는 별도의
+CI 리소스 그룹과 피어링하지 않은 네트워크를 소유합니다. VM에는 공인 IP, Managed Identity,
+배포 역할 할당 또는 배포 러너 라벨을 부여하지 않습니다. 인터넷에는 아웃바운드 전용 NAT
+주소로 접근합니다. Terraform 변수와 명시적인 로컬 백엔드 상태 경로는 소스 관리 대상에서
+제외합니다. 정책이 추가한 IP 태그는 관측된 값을 입력하며, 태그를 제거하려고 주소를 교체하지 않습니다.
+
+OS 디스크는 Premium SSD를 사용합니다. 로컬 임시 SSD에는 삭제되어도 재생성할 수 있는 작업 공간과
+캐시를 저장합니다. 해당 디스크가 마운트되지 않으면 러너가 시작되지 않습니다. 등록할 때는 수명이 짧은
+토큰을 Azure의 보호된 환경 매개변수로 전달하며, Terraform이나 명령줄 값에 넣지 않습니다.
+
+선택적 가속은 우선 회귀 테스트 샤드 4만 워커 8개를 사용하는 리스너 하나로 이동합니다.
+보호된 main의 소스 출처 검증을 통과하고 `FDAI_CI_SSD_RUNNER_ENABLED=true`가 설정되어야 합니다.
+모든 끌어오기 요청과 비활성화 경로는 GitHub 호스팅 러너를 계속 사용합니다. 러너 준비 상태,
+워크플로 게시, 경로 활성화, 측정된 CI 개선은 각각 별도의 근거가 필요하며, 한 단계의 확인이
+다음 단계의 완료를 의미하지 않습니다.
 
 ## 관련 문서
 
