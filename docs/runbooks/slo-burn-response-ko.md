@@ -1,9 +1,9 @@
 ---
 title: SLO 오류 예산 소진 대응 런북
-description: 감지된 오류 예산 소진 문제를 검증하고 통제된 대응 절차로 연결하는 템플릿입니다.
+description: 감지된 오류 예산 소진 문제를 검증하고 통제된 대응 절차로 연결할 때 사용하는 템플릿입니다.
 translation_of: slo-burn-response.md
-translation_source_sha: 2fc1abd5d40cb69d776c4e31eb9a547754d0fba6
-translation_revised: 2026-10-16
+translation_source_sha: a9f01a2293bce086d3f84bca860aff1020e312f6
+translation_revised: 2026-10-22
 ---
 
 # SLO 오류 예산 소진 대응 런북

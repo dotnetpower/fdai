@@ -1,12 +1,12 @@
 ---
 title: 온톨로지 기반 ARB 전달 계획
 translation_of: delivery-plan.md
-translation_source_sha: 9e263ea6de93b7bcbe2e8d8d07017e9e5af32faa
-translation_revised: 2026-08-29
+translation_source_sha: bdb7e068028c8c5f1db214a4899f3b50efb70365
+translation_revised: 2026-10-22
 ---
 # 온톨로지 기반 ARB 전달 계획
 
-이 계획은 현재 매니페스트 중심 검토를 온톨로지에 기반하고 에이전트가 책임지는 폐쇄 루프로
+이 계획을 사용해 현재 매니페스트 중심 검토를 온톨로지에 기반하고 에이전트가 책임지는 폐쇄 루프로
 바꾸는 최소 변경 순서를 정의합니다. 각 작업 패키지에는 실행으로 확인할 수 있는 종료 조건이
 있으며, 권한을 수반하는 변경에는 기존 FDAI 게이트를 계속 적용합니다.
 

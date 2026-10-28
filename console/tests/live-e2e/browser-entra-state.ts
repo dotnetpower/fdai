@@ -4,9 +4,15 @@ export const BROWSER_ENTRA_SESSION_BOOTSTRAP_KEY = "fdai:e2e:browser-entra-sessi
 
 export async function restoreBrowserEntraSessionStorage(page: Page): Promise<void> {
   await page.addInitScript((bootstrapKey) => {
-    const serialized = localStorage.getItem(bootstrapKey);
-    if (serialized === null) return;
-    localStorage.removeItem(bootstrapKey);
+    if (window !== window.top) return;
+    let serialized: string | null = null;
+    try {
+      serialized = localStorage.getItem(bootstrapKey);
+      if (serialized === null) return;
+      localStorage.removeItem(bootstrapKey);
+    } catch {
+      return;
+    }
 
     const entries = JSON.parse(serialized) as unknown;
     if (!Array.isArray(entries)) return;

@@ -1,6 +1,6 @@
 ---
 title: FDAI Function Readiness Assessment
-description: Evidence-backed readiness decisions and remaining conditions for the 52 FDAI product subfunctions.
+description: Review evidence-backed readiness decisions and remaining conditions for the 52 FDAI product subfunctions.
 ---
 
 # FDAI Function Readiness Assessment

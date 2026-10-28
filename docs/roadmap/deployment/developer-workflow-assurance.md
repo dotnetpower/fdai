@@ -6,6 +6,12 @@ This document defines the repository controls that keep concurrent FDAI developm
 resumable, and fail-closed. It owns developer workflow diagnostics and latency evidence, not the
 product control plane or its execution authority.
 
+Full-stack task output keeps supervisor lifecycle/readiness and startup errors visible without
+duplicating high-volume service stdout. Service-owned rotating files remain the diagnostic
+source, while shared warning JSONL has a cross-process byte ceiling and explicit eviction marker.
+The [local logging contract](dev-and-deploy-parity.md) owns those bounds; this changes neither
+operational audit retention nor activity projections.
+
 > Scope: issue [#116](https://github.com/dotnetpower/fdai/issues/116) tracks this bounded campaign.
 > A workflow optimization never bypasses design context, focused checks, SHA-addressed CI,
 > identity verification, or deployment approval. A local validation queue is an opt-in diagnostic,

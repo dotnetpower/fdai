@@ -1,15 +1,16 @@
 ---
 title: 프리플라이트 능동 플랜 재조립 (policy blocker에서 재렌더된 terraform으로)
 translation_of: preflight-active-reassembly.md
-translation_source_sha: 031ff4019abd208f90496caa80e54a69861f47a0
-translation_revised: 2026-10-01
+translation_source_sha: f71201f3f97bc97ef17fbf6bc1a10b663a7321a6
+translation_revised: 2026-10-22
 ---
 # 프리플라이트 능동 플랜 재조립 (정책 차단 요인에서 재렌더된 terraform으로)
 
-[deployment-preflight](deployment-preflight-ko.md)가 등록된 capability-mode 토글을
-가진 `policy_guardrail` 또는 `supply_chain_egress` 차단 요인을 보고할 때, 이미 제공되는
-순수 함수 루프는 **terraform 플랜을 능동적으로 다시 렌더링**할 재정의를 계산하고 재검증할 수
-있습니다. 지원되는 대체 형태는 애초에 거부되는 연산을 발행하지 않습니다. 기존
+이 설계에서는 [deployment-preflight](deployment-preflight-ko.md)가 등록된
+capability-mode 토글을 가진 `policy_guardrail` 또는 `supply_chain_egress` 차단 요인을
+보고할 때 순수 함수 루프가 대응하는 방식을 설명합니다. 루프는 **terraform 플랜을
+능동적으로 다시 렌더링**할 재정의를 계산하고 재검증할 수 있습니다. 지원되는 대체 형태는
+애초에 거부되는 연산을 발행하지 않습니다. 기존
 [실행기](../architecture/project-structure-ko.md)를 통한 교정 PR 전달은 실제 운영 조립
 배선이 완료된 뒤 활성화됩니다.
 

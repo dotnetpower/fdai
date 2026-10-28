@@ -6,6 +6,8 @@ ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 INFRA_DIR="${ROOT_DIR}/infra"
 PROFILE_DIR="${FDAI_DEV_ACCESS_PROFILE_DIR:-${ROOT_DIR}/.profiles}"
 
+source "${SCRIPT_DIR}/workspace.sh"
+
 for command_name in az curl python3 terraform; do
   if ! command -v "${command_name}" >/dev/null 2>&1; then
     printf 'error: required command is unavailable: %s\n' "${command_name}" >&2
@@ -21,12 +23,6 @@ dns_resolver_ip="$(terraform output -raw dns_resolver_inbound_ip)"
 routing_domains_json="$(terraform output -json fdai_private_dns_routing_domains)"
 extra_routing_domains_json="${FDAI_DEV_ACCESS_EXTRA_DNS_DOMAINS_JSON:-[]}"
 popd >/dev/null
-
-active_subscription_id="$(az account show --query id --output tsv)"
-if [[ "${active_subscription_id}" != "${subscription_id}" ]]; then
-  printf 'error: active Azure subscription does not own the dev-access stack\n' >&2
-  exit 1
-fi
 
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf -- "${temporary_directory}"' EXIT

@@ -1,9 +1,9 @@
 ---
 title: 로컬 개발 빠른 시작
-description: Linux 또는 WSL 워크스테이션에서 Docker, 로컬 상태, 인증 및 전체 FDAI Console 스택을 구성합니다.
+description: Linux 또는 WSL 워크스테이션에서 Docker, 로컬 상태, 인증, 전체 FDAI Console 스택을 구성하는 방법을 알아봅니다.
 translation_of: local-development-quickstart.md
-translation_source_sha: f98da2395f5cb6f1dcd541308bcf1dc912d84ef4
-translation_revised: 2026-09-27
+translation_source_sha: 4868f9a37f0876e93b5eaec218ff87c7775f3763
+translation_revised: 2026-10-28
 ---
 
 # 로컬 개발 빠른 시작
@@ -333,7 +333,7 @@ Azure 기반 화면을 사용할 수 없다는 사실이 자동으로 Docker 실
 
 Azure 읽기를 활성화해도 로컬 서비스는 루프백 PostgreSQL과 Redpanda를 사용합니다. Azure
 PostgreSQL DSN을 생성된 로컬 환경에 복사하거나 로컬 DSN을 배포 구성으로 복사하거나 로컬
-레코드를 배포 근거로 제시하지 마세요. 로컬 Isolated Executor는 관리 리소스 신원 없이 shadow
+기록을 배포 근거로 제시하지 마세요. 로컬 Isolated Executor는 관리 리소스 신원 없이 shadow
 소비자로 유지됩니다.
 
 ## 다음 단계

@@ -1,9 +1,9 @@
 ---
 title: 운영자 콘솔 사용하기(Work in the operator console)
-description: FDAI 콘솔의 각 영역이 무엇을 보여 주는지, 무엇을 제출할 수 있는지, 읽기 전용 콘솔이 왜 제약이 아니라 보안 기능인지 설명합니다.
+description: FDAI Console의 각 영역에서 확인하고 제출할 수 있는 내용과 읽기 전용 접근이 보안 기능인 이유를 알아봅니다.
 translation_of: use-console-operations.md
-translation_source_sha: b91d27a831aa601bbc910efc0dfe969b1788e23b
-translation_revised: 2026-08-25
+translation_source_sha: a72dc2383bc4181825abf32ea00a721ee87cc1fa
+translation_revised: 2026-10-22
 ---
 
 <span id="운영자-콘솔-사용하기작업-in-the-운영자-콘솔"></span>

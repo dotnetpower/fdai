@@ -1,29 +1,20 @@
 ---
 title: FDAI 기능정의서
-description: FDAI의 운영 기능, 공통 자동화, 거버넌스, 제품 기반 기능을 계층적으로 정의하고 처리 흐름 및 구현 상태와 구분합니다.
+description: FDAI의 운영 기능, 공통 자동화, 거버넌스, 제품 기반 기능을 계층별로 살펴보고 처리 흐름 및 구현 상태와 구분합니다.
 translation_of: functional-specification.md
-translation_source_sha: 30ed8d2eef86ab2e8b20c62acc53e69139b753c0
-translation_revised: 2026-10-24
+translation_source_sha: b6ec7defcc203a7ecbca90a791c59665f7ee50d5
+translation_revised: 2026-10-28
 ---
 
-# FDAI 기능정의서
+# FDAI 기능 정의서
 
-FDAI는 허용된 관리 범위의 Azure 리소스를 관찰하고, 근거를 바탕으로 운영 이상을
-판단하여 운영자의 대응을 지원합니다. 운영자가 작업을 명시적으로 승인하거나 유효한
-사전 권한을 부여하면, FDAI 에이전트는 허용된 범위에서 작업을 수행하고 결과를
-검증하며 감사 기록을 남깁니다.
+FDAI는 승인된 관리 범위 내의 Azure 리소스를 관찰하고, 근거를 바탕으로 운영 문제를 식별하며, 운영자의 대응을 지원합니다. 운영자가 작업을 명시적으로 승인하거나 유효한 사전 권한을 부여하면, FDAI 에이전트는 해당 권한 범위 내에서 작업을 실행하고 결과를 검증하며 감사 기록을 보존합니다.
 
-> 이 문서는 목표 제품 기능을 정의합니다. 모든 기능의 구현이나 활성화를 의미하지
-> 않습니다. 리소스 지원 범위, 지원 작업, 운영 준비 상태에는 별도의 구현 근거가
-> 필요합니다. 세부 안전 조건과 권한 요구사항은
-> [FDAI 헌법](../../roadmap/architecture/fdai-constitution-ko.md)과 연결된 담당 설계
-> 문서를 따릅니다.
+> 이 문서는 제품의 목표 기능을 정의하며, 모든 기능이 구현되었거나 활성화되었다는 의미는 아닙니다. 리소스 지원 범위, 지원되는 작업, 운영 준비 상태는 각각 별도의 구현 근거로 확인해야 합니다. 세부 안전 조건과 권한 요구사항은 [FDAI 헌법](../../roadmap/architecture/fdai-constitution-ko.md) 및 연결된 담당 문서를 따릅니다.
 
 ## 문서 범위
 
-기능은 제품 목적, 대분류, 중분류, 세부 기능의 4단계로 설명합니다. 내부 에이전트
-이름이 아니라 운영자가 얻는 결과를 기준으로 구성합니다. 제품 기능, 공통 운영 흐름,
-구현 범위는 구분해서 관리합니다.
+기능은 제품 목적, 기능 그룹, 하위 기능, 세부 기능의 4단계로 설명합니다. 이 계층 구조는 내부 에이전트 이름이 아닌 운영자가 얻는 결과를 기준으로 합니다. 제품 기능, 공통 운영 흐름, 구현 범위는 서로 구분합니다.
 
 | 구분 | 답하는 질문 | 구성 |
 |------|-------------|------|
@@ -101,8 +92,8 @@ Ready 38/52, Partial 14/52를 대체합니다. 이번 재집계는 기존 판정
 | **F06. 변경 및 아키텍처 거버넌스** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 2/3</span> | [F06.1 변경 사전 평가](functional-readiness-ko.md#f06-1) | 제안된 인프라 및 구성 변경을 살펴보고 정책과 위험을 평가하며 변경 전 시뮬레이션과 롤백 근거를 제시합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F06.2 구성 불일치 및 정책 준수](functional-readiness-ko.md#f06-2) | 구성 불일치와 통제 미비를 탐지하고 예외와 근거를 보존하며 관리 절차에 따른 수정을 제안합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F06.3 아키텍처 및 준비 상태 검토](functional-readiness-ko.md#f06-3) | 아키텍처 검토 위원회(ARB)를 위한 근거를 구성하고 아키텍처 제약을 평가하며 인수인계나 승격 전에 담당 체계와 운영 준비 상태를 확인합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-| **F07. 비용 거버넌스** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 4/4</span> | [F07.1 비용 가시성 및 배분](functional-readiness-ko.md#f07-1) | 지출과 사용률을 리소스 및 서비스와 연결하고 비용 배분의 공백과 수집원의 관찰 범위를 설명합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
-|  | [F07.2 예산 및 예측](functional-readiness-ko.md#f07-2) | 지출을 예산 및 기준선과 비교하고 이상을 탐지하며 가정을 명시해 비용을 예측합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+| **F07. 비용 거버넌스** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 4/4</span> | [F07.1 비용 가시성 및 배분](functional-readiness-ko.md#f07-1) | 비용과 사용률을 리소스 및 서비스와 연결하고 비용 배분의 공백과 수집원의 관찰 범위를 설명합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+|  | [F07.2 예산 및 예측](functional-readiness-ko.md#f07-2) | 비용을 예산 및 기준선과 비교하고 이상을 탐지하며 가정을 명시해 비용을 예측합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F07.3 최적화 계획](functional-readiness-ko.md#f07-3) | 리소스 크기 조정과 정리를 권장하고 신뢰성 및 용량 목표 사이의 상충을 평가하며 실행 가능한 작업을 승인 및 실행 절차로 전달합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F07.4 실제 절감 효과](functional-readiness-ko.md#f07-4) | 비교 가능한 기준 구간과 조치 후 구간을 사용해 사용률과 비용 효과를 검증하며 예상 절감액과 실제 절감액을 구분합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 
@@ -262,7 +253,7 @@ SRE는 전체 운영 모델입니다. F03-F07은 아래의 4개 운영 영역을
 | **SRE 운영** | 가용성과 성능을 관찰하고 인시던트와 서비스 목표를 평가하며 복구를 검증합니다. SRE는 전체 운영 모델입니다. |
 | **복원력** | 백업 및 복구 준비 상태를 평가하고 재해 복구 훈련, 복원, 장애 조치, 별도로 승인된 카오스 실험을 관리합니다. |
 | **변경 안전성** | 변경 전후에 제안된 변경, 구성 불일치, 정책 준수, 아키텍처 제약을 평가합니다. |
-| **비용 거버넌스** | 지출과 사용률을 관찰하고 이상을 탐지하며 최적화를 제안하고 승인된 변경의 효과를 검증합니다. |
+| **비용 거버넌스** | 비용과 사용률을 관찰하고 이상을 탐지하며 최적화를 제안하고 승인된 변경의 효과를 검증합니다. |
 
 ## 기능 범위 및 담당 문서
 

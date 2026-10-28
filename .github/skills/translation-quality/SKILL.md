@@ -201,6 +201,14 @@ introductions after a term is defined or mechanically translate every word.
 
 Reuse these renderings so docs agree with each other.
 
+### Cloud cost terminology
+
+Use `비용` for cloud usage, billing, allocation, anomaly detection, forecasting, and optimization.
+Reserve `지출` for an actual payment or budget-execution act where the financial action itself is
+the subject. In FinOps and product copy, translate `spend anomaly` as `비용 이상` or
+`비용 이상 징후`, not `지출 이상`. Prefer `비용 급증` or `예상 범위를 벗어난 비용` when the
+source specifically describes a spike or baseline deviation.
+
 | English | Korean | English | Korean |
 |---------|--------|---------|--------|
 | planner | 플래너 | evidence in prose | 문맥에 따라 정보, 근거, 증거, 징후 |

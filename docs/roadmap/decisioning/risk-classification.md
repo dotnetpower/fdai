@@ -3,8 +3,8 @@ title: Risk Classification (automatic execution vs human approval vs denial)
 ---
 # Risk Classification (automatic execution vs human approval vs denial)
 
-The risk-classification table ([architecture.instructions.md § Control Loop](../../../.github/instructions/architecture.instructions.md#control-loop))
-classifies every candidate action's baseline as `auto`, `hil`, or `deny`. The unified RiskGate
+Use the risk-classification table ([architecture.instructions.md § Control Loop](../../../.github/instructions/architecture.instructions.md#control-loop)) to
+classify every candidate action's baseline as `auto`, `hil`, or `deny`. The unified RiskGate
 can lower the final outcome through its six-axis ceiling, including to `shadow`. This file is
 authoritative for **the baseline classification rules**: their shape, initial rule table,
 ownership, and update process. It resolves P0 Open Decision *"Risk-classification

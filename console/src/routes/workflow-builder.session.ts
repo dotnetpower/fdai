@@ -51,6 +51,10 @@ export function saveWorkflowChatSession(
   storage.setItem(STORAGE_KEY, raw);
 }
 
+export function clearWorkflowChatSession(storage: Storage | null): void {
+  storage?.removeItem(STORAGE_KEY);
+}
+
 function decodeSession(value: unknown): WorkflowChatSession | null {
   if (!isRecord(value) || !Array.isArray(value["messages"]) || !isRecord(value["slots"])) {
     return null;

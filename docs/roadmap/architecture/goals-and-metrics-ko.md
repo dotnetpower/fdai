@@ -1,13 +1,13 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: d67f4fdd18f99eb8a755286c43fb9138a41e8603
-translation_revised: 2026-10-04
+translation_source_sha: a8c53ee45e09d0c3c0993ca3051e891a0639e8ce
+translation_revised: 2026-10-22
 ---
 
 # 목표와 메트릭
 
-로드맵은 **입증 가능한 자율성**을 최적화합니다. 모든 자율성 주장은
+다음 목표와 메트릭을 사용해 **입증 가능한 자율성**을 평가합니다. 모든 자율성 주장은
 측정된 기준선으로 뒷받침하며, 추정만으로 단언하지 않습니다. 아래의 개선 배수
 (`5×`, `large reduction`, `1/5`)는 달성된 결과가 아니라 **목표**입니다. 동일한
 시나리오 세트에서 참조 기준군과 FDAI 처리군을 **모두 측정한 후에만**

@@ -1,6 +1,6 @@
 ---
 title: Response Plans and Mitigation
-description: How FDAI authors, pretests, approves, and routes an incident response plan without bypassing the action pipeline.
+description: Learn how FDAI authors, pretests, approves, and routes an incident response plan without bypassing the action pipeline.
 ---
 
 # Response Plans and Mitigation

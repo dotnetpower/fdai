@@ -1,7 +1,7 @@
 ---
 translation_of: exemption-workflow.md
-translation_source_sha: b4f2234cbc6ef34cbc3cd0a525f81e5b888bdb75
-translation_revised: 2026-10-16
+translation_source_sha: 1c08057d3ea8ca37263abb8cce0317bfc0bdb9ff
+translation_revised: 2026-10-22
 title: 예외 워크플로
 owner: aw-owners (Owner-tier)
 sla: "PR 생성 후 1영업일 이내 승인 결정"
@@ -9,7 +9,7 @@ sla: "PR 생성 후 1영업일 이내 승인 결정"
 
 # 예외 워크플로
 
-특정 범위에 배정된 규칙의 적용을 일시적으로 유예하는 절차입니다.
+특정 범위에 배정된 규칙의 적용을 한시적으로 유예할 때 이 절차를 사용합니다.
 예외에는 **유효 기간, 감사 기록, 책임 담당자의 승인**이 필요합니다.
 [`rule-catalog/schema/exemption.json`](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json)
 스키마와 `rule-catalog/exemptions/`를 변경하는 모든 PR에서 실행되는 CI 검증기가 이 절차를 뒷받침합니다.

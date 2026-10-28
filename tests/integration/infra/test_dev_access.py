@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from zipfile import ZipFile
 
 _ROOT = Path(__file__).resolve().parents[3]
 _DEV_ACCESS = _ROOT / "tools" / "dev-access"
@@ -19,6 +20,8 @@ def _run_startup_harness(
     tmp_path: Path,
     *,
     direct_on_call: int,
+    named_workspace: bool = False,
+    pinned_workspace: str | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], list[str], int]:
     dev_access = tmp_path / "tools" / "dev-access"
     scripts = dev_access / "scripts"
@@ -28,13 +31,25 @@ def _run_startup_harness(
     infra.mkdir()
     fake_bin.mkdir()
     shutil.copy2(_DEV_ACCESS / "scripts" / "vscode-startup.sh", scripts)
-    (infra / "terraform.tfstate").write_text("prepared\n", encoding="utf-8")
+    shutil.copy2(_DEV_ACCESS / "scripts" / "workspace.sh", scripts)
+    if pinned_workspace is not None:
+        (dev_access / ".profiles").mkdir()
+        (dev_access / ".profiles" / "active-workspace").write_text(
+            f"{pinned_workspace}\n", encoding="utf-8"
+        )
+    state_directory = infra
+    if named_workspace:
+        state_directory = infra / "terraform.tfstate.d" / "dev-secondary"
+        state_directory.mkdir(parents=True)
+    (state_directory / "terraform.tfstate").write_text("prepared\n", encoding="utf-8")
 
     events = tmp_path / "events"
     route_count = tmp_path / "route-count"
     _write_executable(
         fake_bin / "terraform",
-        "#!/usr/bin/env bash\nprintf 'resolver-placeholder\\n'\n",
+        "#!/usr/bin/env bash\n"
+        'printf \'terraform:%s\\n\' "${TF_WORKSPACE:-}" >> "${FDAI_TEST_WORKSPACES}"\n'
+        "printf 'resolver-placeholder\\n'\n",
     )
     _write_executable(
         fake_bin / "ip",
@@ -63,7 +78,9 @@ fi
     )
     _write_executable(
         scripts / "wsl-dns.sh",
-        '#!/usr/bin/env bash\nprintf \'dns:%s\\n\' "$1" >> "${FDAI_TEST_EVENTS}"\n',
+        "#!/usr/bin/env bash\n"
+        'printf \'dns:%s\\n\' "${TF_WORKSPACE:-}" >> "${FDAI_TEST_WORKSPACES}"\n'
+        'printf \'dns:%s\\n\' "$1" >> "${FDAI_TEST_EVENTS}"\n',
     )
     environment = {
         **os.environ,
@@ -71,7 +88,10 @@ fi
         "FDAI_TEST_DIRECT_ON_CALL": str(direct_on_call),
         "FDAI_TEST_EVENTS": str(events),
         "FDAI_TEST_ROUTE_COUNT_FILE": str(route_count),
+        "FDAI_TEST_WORKSPACES": str(tmp_path / "workspaces"),
+        "TF_WORKSPACE": "default",
     }
+    environment.pop("FDAI_DEV_ACCESS_WORKSPACE", None)
     bash = shutil.which("bash")
     assert bash is not None
     completed = subprocess.run(  # noqa: S603 - controlled script and command stubs.
@@ -199,6 +219,120 @@ def test_folder_open_applies_dns_without_retry_when_route_is_ready(tmp_path: Pat
     assert completed.stderr == ""
     assert events == ["dns:apply"]
     assert route_calls == 1
+
+
+def test_folder_open_applies_dns_with_named_workspace_state_only(tmp_path: Path) -> None:
+    completed, events, route_calls = _run_startup_harness(
+        tmp_path, direct_on_call=1, named_workspace=True
+    )
+
+    assert completed.returncode == 0
+    assert completed.stderr == ""
+    assert events == ["dns:apply"]
+    assert route_calls == 1
+
+
+def test_folder_open_pin_binds_both_terraform_and_dns_helper(tmp_path: Path) -> None:
+    completed, events, route_calls = _run_startup_harness(
+        tmp_path, direct_on_call=1, named_workspace=True, pinned_workspace="dev-secondary"
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert events == ["dns:apply"]
+    assert route_calls == 1
+    assert "workspace: dev-secondary" in completed.stdout
+    assert (tmp_path / "workspaces").read_text(encoding="utf-8").splitlines() == [
+        "terraform:dev-secondary",
+        "dns:dev-secondary",
+    ]
+
+
+def test_profile_targets_workspace_subscription_without_changing_cli_default(
+    tmp_path: Path,
+) -> None:
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    events = tmp_path / "events"
+    archive = tmp_path / "vpn-client.zip"
+    profiles = tmp_path / "profiles"
+    scripts = tmp_path / "dev-access" / "scripts"
+    scripts.mkdir(parents=True)
+    (scripts.parent / "infra").mkdir()
+    for name in ("profile.sh", "workspace.sh"):
+        shutil.copy2(_DEV_ACCESS / "scripts" / name, scripts)
+    with ZipFile(archive, "w") as package:
+        package.writestr(
+            "AzureVPN/azurevpnconfig.xml",
+            "<AzVpnProfile>\n  <clientconfig>\n"
+            "    <dnsservers><dnsserver>192.0.2.53</dnsserver></dnsservers>\n"
+            "  </clientconfig>\n</AzVpnProfile>\n",
+        )
+    _write_executable(
+        fake_bin / "terraform",
+        """#!/usr/bin/env bash
+set -euo pipefail
+case "${*: -1}" in
+  subscription_id) printf '00000000-0000-0000-0000-000000000000' ;;
+  resource_group_name) printf 'example-access-group' ;;
+  vpn_gateway_name) printf 'example-access-gateway' ;;
+  dns_resolver_inbound_ip) printf '192.0.2.53' ;;
+  fdai_private_dns_routing_domains) printf '["example.com"]' ;;
+  *) exit 90 ;;
+esac
+""",
+    )
+    _write_executable(
+        fake_bin / "az",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "${FDAI_TEST_EVENTS}"
+if [[ "$*" != "network vnet-gateway vpn-client generate "* ]]; then
+  exit 91
+fi
+printf 'https://example.com/vpn-client.zip\\n'
+""",
+    )
+    _write_executable(
+        fake_bin / "curl",
+        """#!/usr/bin/env bash
+set -euo pipefail
+while (( $# > 0 )); do
+  if [[ "$1" == "--output" ]]; then
+    cp "${FDAI_TEST_ARCHIVE}" "$2"
+    exit 0
+  fi
+  shift
+done
+exit 92
+""",
+    )
+    bash = shutil.which("bash")
+    assert bash is not None
+    completed = subprocess.run(  # noqa: S603 - controlled script and command stubs.
+        [bash, str(scripts / "profile.sh")],
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "FDAI_DEV_ACCESS_PROFILE_DIR": str(profiles),
+            "FDAI_DEV_ACCESS_EXTRA_DNS_DOMAINS_JSON": "[]",
+            "FDAI_TEST_EVENTS": str(events),
+            "FDAI_TEST_ARCHIVE": str(archive),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    commands = events.read_text(encoding="utf-8").splitlines()
+    assert len(commands) == 1
+    assert "--subscription 00000000-0000-0000-0000-000000000000" in commands[0]
+    assert "--resource-group example-access-group" in commands[0]
+    assert "--name example-access-gateway" in commands[0]
+    assert "<dnssuffix>.example.com</dnssuffix>" in (profiles / "azurevpnconfig.xml").read_text(
+        encoding="utf-8"
+    )
+    assert (profiles / "azurevpnconfig.xml").stat().st_mode & 0o777 == 0o600
 
 
 def test_folder_open_recovers_when_vpn_route_appears_during_grace_window(

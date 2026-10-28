@@ -3,7 +3,7 @@ title: Architecture Review Board Packet
 ---
 # Architecture Review Board Packet
 
-This packet is the canonical entry point for reviewing FDAI's target architecture. It separates
+Use this packet as the canonical entry point for reviewing FDAI's target architecture. It separates
 approval of the design baseline from approval to deploy or enable production enforcement, and it
 links every claim to a repository artifact or a fork-supplied evidence binding.
 

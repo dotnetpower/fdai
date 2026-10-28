@@ -235,7 +235,10 @@ for example `2026-07-28 15:25:53,717 KST`. Each log also records service start a
 plus the child exit code and uses private local permissions. Logs rotate at 1 MiB with up to three
 previous generations retained. A bounded terminal queue prevents a stalled VS Code terminal from
 blocking complete file capture; oversized entries are truncated at the configured file ceiling and
-carry an explicit marker. These gitignored diagnostics survive a task terminal closing; they
+carry an explicit marker. The full-stack supervisor does not relay each child's high-volume stdout
+into a second aggregate log; its lifecycle/readiness messages and startup errors remain visible,
+while service diagnostics stay in their owned rotating files. Individually started service tasks
+still expose their terminal stream. These gitignored diagnostics survive a task terminal closing; they
 don't replace the structured `warnings.jsonl` warning and error record. The core terminal keeps its
 machine-readable JSON stream, while the core file renders those records as `LEVEL: logger: message`
 lines to match the Operator API log. The local Operator API uses the same structured logger and honors
@@ -246,8 +249,13 @@ authentication success messages and emits one `event_bus_consumer_started` recor
 consumer with its topic, consumer group, client id, and authentication mechanism. Dependency
 warnings and errors remain visible. Identical warning-or-higher aiokafka failures retain the first
 record and a periodic `suppressed_count` summary, while different rendered failures remain separate.
-The local warning file appends each record without full-file compaction; startup and a shared
-five-minute cadence enforce the 24-hour retention window. Structured records are bounded at 64 KiB.
+The shared local warning file retains at most 4 MiB from the latest 24 hours. Every append enforces
+the byte cap under the cross-process lock; pressure retains the newest half-window and a
+`log_retention_truncated` marker, without unbounded backup generations or full-file rewriting on
+ordinary writes. Startup reclaims an oversized existing file even after recent shared cleanup;
+a shared five-minute cadence enforces age retention. Structured records are bounded at 64 KiB.
+These diagnostics can evict older entries before 24 hours and are not a complete audit history.
+Their retention never deletes authoritative Events, Incidents, audit rows or activity projections.
 Short-lived readiness consumers cancel and drain fetch I/O
 before closing their group coordinator and socket, so an intentional probe shutdown isn't reported
 as a transport failure. Startup model latency probes use a bounded Azure Responses API

@@ -3,7 +3,7 @@ title: Goals and Metrics
 ---
 # Goals and Metrics
 
-The roadmap optimizes for **autonomy with proof**. Every autonomy claim is backed by a
+Use these goals and metrics to evaluate **autonomy with proof**. Every autonomy claim is backed by a
 measured baseline; nothing is asserted from estimation. Improvement factors below (`5×`,
 `large reduction`, `1/5`) are **targets**, not achieved results - they may only be stated as
 achieved once both the reference baseline and the FDAI treatment have been measured on

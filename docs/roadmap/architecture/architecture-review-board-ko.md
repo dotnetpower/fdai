@@ -1,12 +1,12 @@
 ---
 title: Architecture Review Board 패킷
 translation_of: architecture-review-board.md
-translation_source_sha: b4f4d07c433a8c72a8801d75f515cab17011041d
-translation_revised: 2026-10-18
+translation_source_sha: e7a472c1e9fc6c0534c453b5b03b245b663c267e
+translation_revised: 2026-10-22
 ---
 # Architecture Review Board 패킷
 
-이 패킷은 FDAI 목표 아키텍처 검토의 기준 진입점입니다. 설계 기준선 승인과 프로덕션 배포
+이 패킷을 FDAI 목표 아키텍처 검토의 기준 진입점으로 사용하세요. 설계 기준선 승인과 프로덕션 배포
 또는 적용 모드 승인을 분리하고, 모든 주장을 저장소 산출물 또는 포크가 제공하는 근거 연결과
 연계합니다.
 

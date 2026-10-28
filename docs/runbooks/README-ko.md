@@ -2,14 +2,14 @@
 title: SRE 런북
 description: 인시던트 대응, 복구, 통제된 자동화를 위한 범용 운영 절차와 템플릿입니다.
 translation_of: README.md
-translation_source_sha: 9fdc446529d53c267aa6d603d4a597ddc7cfe462
-translation_revised: 2026-10-16
+translation_source_sha: f693c37f91d31b767d1e2d283b4ebb2930ac3f2f
+translation_revised: 2026-10-22
 ---
 
 # SRE 런북
 
-이 런북은 FDAI의 SRE 계약에 따라 운영자가 반복해서 수행할 수 있는 절차를 설명합니다.
-업스트림은 필수 안전 검사, 근거, 결정, 최종 결과를 문서화합니다. 다운스트림 포크는
+이 런북은 FDAI의 SRE 계약을 운영자가 반복해서 실행할 수 있는 절차로 구체화합니다.
+업스트림 문서는 필수 안전 검사, 증거, 의사 결정, 최종 결과를 정의합니다. 다운스트림 포크는
 환경별 명령, 리소스 이름, 담당자, 호출 알림 연동, 롤백 구현을 제공합니다.
 
 ## 인시던트 운영

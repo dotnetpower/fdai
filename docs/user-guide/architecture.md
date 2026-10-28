@@ -1,6 +1,6 @@
 ---
 title: FDAI Architecture
-description: How FDAI's 15-agent organization separates sensing, judgment, approval, execution, delivery, and audit across an event-driven control plane.
+description: See how FDAI's 15-agent organization separates sensing, judgment, approval, execution, delivery, and audit across an event-driven control plane.
 sidebar:
   order: 2
 derives_from:

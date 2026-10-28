@@ -1,6 +1,6 @@
 ---
 title: Agents and self-healing
-description: How FDAI's fixed organization of agents watches your cloud, collaborates to resolve failures, and keeps you at the approve-or-reject level.
+description: Learn how FDAI's fixed organization of agents watches your cloud, collaborates to resolve failures, and keeps you at the approve-or-reject level.
 sidebar:
   order: 5
 ---

@@ -1,9 +1,9 @@
 ---
 title: 규칙에 override 적용
-description: 규칙 카탈로그 자체를 편집하지 않고 특정 범위에서 승인된 규칙의 적용 범위를 좁히거나, 심각도를 낮추거나, 비활성화하는 방법을 설명합니다.
+description: 규칙 카탈로그 자체를 편집하지 않고 특정 범위에서 승인된 규칙을 좁히거나, 자율성 수준을 낮추거나, 비활성화하는 방법을 알아봅니다.
 translation_of: override-a-rule.md
-translation_source_sha: ff86d9bf913096a94f389559d36b23598efbdd66
-translation_revised: 2026-08-11
+translation_source_sha: 8101bb7a89fa6bc26061419d9416e09097257855
+translation_revised: 2026-10-22
 ---
 
 # 규칙에 재정의 적용

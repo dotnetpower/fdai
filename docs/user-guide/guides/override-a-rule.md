@@ -1,6 +1,6 @@
 ---
 title: Override a rule
-description: How to narrow, downgrade, or disable an accepted rule for a specific scope without editing the rule catalog itself.
+description: Learn how to narrow, downgrade, or disable an accepted rule for a specific scope without editing the rule catalog itself.
 ---
 
 # Override a rule

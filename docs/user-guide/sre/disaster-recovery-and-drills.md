@@ -1,6 +1,6 @@
 ---
 title: Disaster Recovery and Drills
-description: How FDAI proves recovery paths through scheduled, isolated, evidence-backed restore and failover exercises.
+description: Learn how FDAI proves recovery paths through scheduled, isolated, evidence-backed restore and failover exercises.
 ---
 
 # Disaster Recovery and Drills

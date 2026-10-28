@@ -167,6 +167,19 @@ def test_incompatible_hardware_never_becomes_a_fallback(field, value):
         choose_deployment_vms(policy(), region="eastus", rows=catalog, usages=usages())
 
 
+def test_nvme_only_sizes_are_never_selected_but_scsi_capable_sizes_are():
+    nvme_only = sku("Standard_D2lds_v7", family="standardDLDSv7Family")
+    nvme_only["capabilities"].append({"name": "DiskControllerTypes", "value": "NVMe"})
+    dual = sku("Standard_D2ds_v5", family="standardDDSv5Family")
+    dual["capabilities"].append({"name": "DiskControllerTypes", "value": "SCSI,NVMe"})
+    options = catalog_options(policy(), region="eastus", rows=[nvme_only, dual, rows()[1]])
+    assert {item.size for item in options.verifier} == {"Standard_D2ds_v5"}
+    with pytest.raises(CheckError, match=NO_HARDWARE):
+        choose_deployment_vms(
+            policy(), region="eastus", rows=[nvme_only, rows()[1]], usages=usages()
+        )
+
+
 @pytest.mark.parametrize(
     "name",
     ["Standard_NC2s_v3", "Standard_DC2s_v3", "Standard_D4-2s_v5", "Basic_A2", "Standard_M2s"],

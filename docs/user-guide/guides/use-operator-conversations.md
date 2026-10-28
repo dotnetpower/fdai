@@ -1,6 +1,6 @@
 ---
 title: Ask FDAI in conversation
-description: How FDAI breaks a compound question into bounded parts, what a partial answer means, and why a change you ask for in chat comes back as a draft.
+description: Learn how FDAI divides compound questions into bounded parts, reports partial answers, and returns requested changes as drafts.
 ---
 
 # Ask FDAI in conversation

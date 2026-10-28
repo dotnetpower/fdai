@@ -1,6 +1,6 @@
 ---
 title: Observe, then enable changes
-description: Why every new autonomous action starts in observation mode and how it earns the right to execute automatically.
+description: Learn why every new autonomous action starts in observation mode and how it earns the right to execute automatically.
 sidebar:
   order: 6
 ---

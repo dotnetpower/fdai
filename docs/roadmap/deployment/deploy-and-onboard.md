@@ -2,7 +2,7 @@
 title: Deploy and Onboard
 ---
 # Deploy and Onboard
-How to provision and onboard FDAI in Azure so it is ready to observe. This file owns **the concrete deployment inventory, bootstrap sequence, and distribution/deployment responsibility split**; the deployment lifecycle (CI/CD, progressive delivery, rollback, DR) remains in [deployment.md](deployment.md).
+Use this guide to provision and onboard FDAI in Azure so it is ready to observe. This file owns **the concrete deployment inventory, bootstrap sequence, and distribution/deployment responsibility split**; the deployment lifecycle (CI/CD, progressive delivery, rollback, DR) remains in [deployment.md](deployment.md).
 Azure focus: this document targets an Azure subscription. Non-Azure providers are TBD (see [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). All identifiers are synthetic per [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
 > The day-zero service tiers and counts are decided in [minimum Azure resource inventory](#azure-resource-inventory-minimum-set). A deployment owner confirms the region, quota, retention, replica caps, and production tier overrides before deployment.
 > The **execution engine is decided**: `terraform apply` against `infra/` (Terraform HCL). The

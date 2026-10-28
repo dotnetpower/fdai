@@ -1,9 +1,9 @@
 ---
 title: 재해 복구와 훈련
-description: FDAI가 예약되고 격리된, 근거를 남기는 복원 및 장애 조치 훈련으로 복구 경로를 증명하는 방법입니다.
+description: FDAI가 예약되고 격리된 복원 및 장애 조치 훈련으로 복구 경로를 검증하고 근거를 남기는 방법을 알아봅니다.
 translation_of: disaster-recovery-and-drills.md
-translation_source_sha: 1e47e1d68fc3450edfe699afde94219a8562e75b
-translation_revised: 2026-08-11
+translation_source_sha: 147a1f7980762a4667a7514f0b9c430929cbc11d
+translation_revised: 2026-10-22
 ---
 
 # 재해 복구와 훈련

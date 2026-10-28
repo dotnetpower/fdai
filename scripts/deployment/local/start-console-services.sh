@@ -211,7 +211,8 @@ for service in "${services[@]}"; do
   FDAI_CONSOLE_START_READINESS_SECONDS="$readiness_seconds" \
   FDAI_CONSOLE_EXPECTED_AUTH_MODE="$auth_mode" \
   FDAI_ANALYZER_RUN_ID="$analyzer_run_id" \
-    bash "$repo_root/scripts/deployment/local/run-console-service.sh" "${service_args[@]}" &
+    bash "$repo_root/scripts/deployment/local/run-console-service.sh" "${service_args[@]}" \
+      > /dev/null &
   child_pids+=("$!")
 done
 printf '%s service=console-stack event=started\n' "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"

@@ -30,8 +30,6 @@
     "catalogReadOnly": "이 배포에서 사용할 수 있습니다. 카탈로그 보기는 읽기 전용입니다.",
     "defaultDescription": "게시된 워크플로 카탈로그 항목",
     "when": "조건",
-    "then": "다음",
-    "do": "실행",
     "workflowStage": "워크플로 단계",
     "done": "완료",
     "auditTerminalState": "감사 터미널 상태",
@@ -78,7 +76,25 @@
     "escapes": "정책 이탈 <= {value}",
     "yamlSummary": "게시된 YAML 및 제외 범위",
     "antiScope": "제외 범위:",
-    "copyYaml": "YAML 복사"
+    "copyYaml": "YAML 복사",
+    "copyToDraft": "새 초안으로 복사",
+    "chainAria": "트리거부터 종료 상태까지의 워크플로 단계",
+    "promotionStatus": "승격 상태 보기",
+    "paths": {
+      "branches": "분기: {branches} (모두 완료해야 함)",
+      "outcomes": "결과: {outcomes}",
+      "onFailure": "실패 시: {step}",
+      "compensatedBy": "보상 작업: {action}",
+      "outcomeCount": "결과 {count}개",
+      "branchCount": "분기 {count}개"
+    },
+    "runs": {
+      "heading": "실행 이력",
+      "description": "이 워크플로에 대한 내 주체 범위 Process 기록입니다. 실행을 열면 저널과 증거를 볼 수 있습니다.",
+      "resourceLabel": "워크플로 실행 이력",
+      "empty": "이 워크플로의 실행 기록이 아직 없습니다.",
+      "more": "실행 {total}개 중 최근 {shown}개를 표시합니다. 전체 목록은 Processes에서 확인하세요."
+    }
   },
   "chat": {
     "back": "워크플로로 돌아가기",
@@ -126,7 +142,21 @@
     "when": "조건",
     "thenDo": "다음 실행",
     "then": "다음",
-    "done": "완료"
+    "done": "완료",
+    "startNew": "새 초안 시작",
+    "kindTool": "도구 호출",
+    "picker": {
+      "title": "ActionType 선택",
+      "summary": "{total}개 중 {shown}개 표시",
+      "placeholder": "이름, 범주, 설명으로 검색...",
+      "searchAria": "ActionType 검색",
+      "categoryAria": "범주로 ActionType 필터링",
+      "allCategories": "모든 범주",
+      "empty": "검색과 일치하는 ActionType이 없습니다.",
+      "rollback": "롤백 {value}",
+      "hil": "HIL {tiers}",
+      "irreversible": "되돌릴 수 없음"
+    }
   },
   "editor": {
     "heading": "검증된 초안 편집",
@@ -203,13 +233,20 @@
     "timezone": "표준 시간대",
     "signalType": "신호 유형",
     "configurationSaved": "구성 저장됨",
-    "saveConfiguration": "구성 저장"
+    "saveConfiguration": "구성 저장",
+    "dispatchInactive": "디스패치 비활성",
+    "dispatchInactiveHint": "구성만 저장되었으며 런타임 디스패치는 아직 활성화되지 않았습니다.",
+    "confirmRemove": "제거 확인",
+    "cancel": "취소",
+    "cronInvalid": "분, 시, 일, 월, 요일의 cron 필드 다섯 개를 입력하세요.",
+    "cronPreview": "실행: {description}",
+    "timezoneHint": "IANA 시간대입니다. 예: UTC, Asia/Seoul.",
+    "signalHint": "선별된 신호를 고르거나 정확한 신호 유형을 입력하세요.",
+    "created": "{workflow} 구성을 저장했습니다.",
+    "removed": "구성을 제거했습니다."
   },
   "catalog": {
     "liveSourceTitle": "라이브 카탈로그",
-    "liveSourceBody": "Operator API의 권위 있는 정의입니다. 브라우저에는 실행 권한이 없습니다.",
-    "readOnlyTitle": "게시된 정의",
-    "readOnlyBody": "노드 선택은 읽기 전용 검사입니다. 워크플로 변경은 카탈로그 pull request로 작성하고 검토합니다.",
     "designNew": "새 워크플로 설계",
     "authorPython": "Python VM 작업 작성",
     "pythonUnavailable": "이 배포에는 Python 작업 작성 기능이 연결되지 않았습니다.",
@@ -218,7 +255,6 @@
       "validator": "Python 작업 검증 담당 구성 요소가 연결되지 않았습니다.",
       "vmTaskRunner": "VM 작업 실행기가 연결되지 않았습니다."
     },
-    "catalogRevision": "카탈로그 리비전",
     "ownership": "워크플로 소유권",
     "reviewControls": "워크플로 검토 컨트롤",
     "group": {
@@ -230,7 +266,7 @@
     "description": "제공된 워크플로를 참고하세요. 행을 열면 모든 단계와 원본 YAML을 볼 수 있습니다.",
     "empty": "이 그룹에는 사용할 수 있는 워크플로가 없습니다.",
     "filterLabel": "워크플로 필터",
-    "filterPlaceholder": "이름, 트리거 또는 모드로 필터링...",
+    "filterPlaceholder": "이름, 단계, ActionType, 트리거로 필터링...",
     "filterAria": "워크플로 필터링",
     "filterSummary": "전체 {total}개 중 {shown}개 표시 - shadow {shadow}개, enforce {enforce}개",
     "filterEmpty": "이 필터와 일치하는 워크플로가 없습니다.",
@@ -238,20 +274,20 @@
     "summary": {
       "steps": "단계",
       "stepsHint": "트리거부터 종료까지",
-      "authorityGates": "승인 게이트",
-      "authorityHint": "정책 및 역할 검사",
       "defaultMode": "기본 모드",
       "modeHint": "관리 대상 리소스에 영향 없음",
-      "validation": "검증",
-      "validationPassed": "통과",
-      "revision": "리비전 {version}"
+      "revision": "리비전 {version}",
+      "approvalSteps": "승인 단계",
+      "hilActions": "HIL 적용 ActionType {count}개",
+      "catalogState": "카탈로그 상태",
+      "reviewed": "검토됨",
+      "reviewedHint": "리비전 {version}, 실패 시 차단하는 카탈로그 로더가 로드함",
+      "definitionHint": "리비전 {version}, 출처 {origin}"
     },
     "libraryHeading": "게시된 워크플로",
     "libraryDescription": "카탈로그 원본입니다. 검토할 워크플로를 선택하세요.",
     "selectionRequired": "순서가 지정된 계약을 검토할 워크플로를 선택하세요.",
     "stepCount": "{count}단계",
-    "currentDetail": "현재 상세 정보",
-    "catalogOnly": "카탈로그",
     "table": {
       "name": "이름",
       "trigger": "트리거",
@@ -259,7 +295,16 @@
       "mode": "모드"
     },
     "workflowNotFound": "이 그룹에 워크플로 {workflow}이(가) 등록되어 있지 않습니다. 표에서 워크플로를 선택하세요.",
-    "actionNotConnected": "이 그룹의 워크플로에 ActionType {action}이(가) 연결되어 있지 않습니다."
+    "actionNotConnected": "이 그룹의 워크플로에 ActionType {action}이(가) 연결되어 있지 않습니다.",
+    "selectedRevision": "선택한 워크플로",
+    "sourceNote": "Operator API의 권한 있는 정의입니다. 단계를 선택하면 검사만 하며, 워크플로 변경은 카탈로그 풀 요청으로 검토합니다.",
+    "categoryFilter": "ActionType 범주",
+    "allCategories": "모든 범주",
+    "stepKindFilter": "단계 종류",
+    "allStepKinds": "모든 단계 종류",
+    "clearFilters": "필터 지우기",
+    "pythonUnavailableShort": "Python VM 작업 사용 불가",
+    "emptyMine": "아직 비공개 초안이 없습니다. 워크플로를 설계하거나 게시된 워크플로를 복사해 시작하세요."
   },
   "pythonTask": {
     "discardedDraft": "작성 중 작업이 변경되어 생성된 초안을 폐기했습니다.",
@@ -335,7 +380,13 @@
     "succeeded": "성공",
     "failed": "실패",
     "skipped": "건너뜀",
-    "cancelled": "취소됨"
+    "cancelled": "취소됨",
+    "draft": "초안",
+    "published": "게시됨",
+    "retired": "사용 중지됨",
+    "compensated": "보상됨",
+    "timed_out": "시간 초과",
+    "compensating": "보상 중"
   },
   "process": {
     "depthExceeded": "{title}: 중첩 위젯 깊이가 {depth}을(를) 초과했습니다",
@@ -420,5 +471,82 @@
   "common": {
     "no": "아니요",
     "yes": "예"
+  },
+  "chatEngine": {
+    "paletteMissing": "이 배포에서 ActionType 팔레트에 연결할 수 없어 사용할 구성 요소가 없습니다. 워크플로 작성 경로가 연결되어 있지 않습니다.",
+    "welcome": "함께 워크플로를 설계해 보겠습니다. 몇 가지 질문을 드리고, 저장하기 전에 정확한 YAML을 보여 드리고 검증합니다.\n\n먼저 **워크플로가 수행할 작업**을 정하세요. 아래 작업을 고르거나 전체 ActionType 팔레트에서 검색하면 됩니다. 목표를 직접 입력할 수도 있습니다. 입력한 목표는 워크플로 설명으로 보관하며, 작업과 트리거는 항상 명시적으로 선택합니다.\n\n예를 들어 이런 워크플로를 만들 수 있습니다.\n- *비용이 급증하면 리소스 크기를 조정하고 요약을 게시합니다.*\n- *매주 DR 장애 조치를 리허설합니다.*\n- *리소스가 드리프트되면 수정 풀 요청을 엽니다.*",
+    "goalRecorded": "입력한 내용을 워크플로 설명으로 보관했습니다.",
+    "actionRetry": "입력한 내용으로는 작업을 선택할 수 없습니다. 여기서는 입력한 텍스트로 ActionType을 고르지 않습니다. 아래에서 고르거나 전체 팔레트에서 검색하세요.",
+    "askAction": "먼저 **워크플로가 무엇을 해야 하나요?** 아래에서 작업을 고르거나 전체 ActionType 팔레트에서 검색하세요.",
+    "triggerRetry": "입력한 내용에서 트리거를 확인할 수 없습니다. 다음 중 하나를 선택하세요.",
+    "askTrigger": "**언제 실행해야 하나요?** 시작 신호나 일정을 선택하세요.",
+    "reviewNote": "**검토 참고:** {note}",
+    "confirmPlan": "계속하기 전에 이 트리거와 작업 순서를 확인해 주세요.",
+    "offerExtra": "**단계를 더 추가할까요?** 알림이나 후속 수정 작업을 예로 들 수 있습니다. 아래에서 고르거나 팔레트에서 검색하거나, 그대로 두어도 됩니다.",
+    "confirmSafety": "안전 검토: 이 초안은 **shadow** 모드로 유지되고, 자동 실패 대체 경로가 없으며, 승격 전에 {days}일, 샘플 {samples}개, 정확도 {accuracy}, 정책 이탈 최대 {escapes}건을 충족해야 합니다. 실패한 단계는 실행을 중지합니다. 이 보호 장치를 유지하거나, 이 워크플로가 절대 하지 말아야 할 일을 입력해 anti-scope 경계로 기록하세요.",
+    "confirmName": "거의 끝났습니다. 이름은 `{name}`(으)로 하겠습니다. 이 이름을 유지하거나 다른 이름을 입력하세요.",
+    "ready": "대화로 만든 워크플로입니다. 아래에서 YAML, 흐름, 구조 검증 결과를 확인하세요. 비공개 초안을 저장하기 전에는 아무것도 생성되지 않으며, 게시는 카탈로그 검토를 거칩니다.",
+    "cloned": "`{source}` 워크플로를 새 초안 `{name}`(으)로 복사했습니다. 초안은 shadow 모드로 유지되며, 저장하기 전에 아래에서 다시 검증합니다. 초안을 편집하거나 아래 옵션으로 다듬으세요.",
+    "understood": "알겠습니다. {parts}{resource}.",
+    "understoodWhen": "**조건** {trigger}",
+    "understoodDo": "**작업** {actions}",
+    "understoodResource": " (대상 `{resource}`)",
+    "thenJoin": ", 다음 ",
+    "truncatedWarning": "서로 다른 작업이 셋 넘게 일치했습니다. 생략된 단계를 검토해 명시적으로 추가하세요.",
+    "everyWeek": "매주",
+    "onSchedule": "일정 `{schedule}`에 따라",
+    "option": {
+      "planKeep": "이 계획 사용",
+      "refineActions": "작업 변경",
+      "refineTrigger": "트리거 변경",
+      "refineExtra": "단계 추가",
+      "refineSafety": "안전 검토",
+      "restart": "처음부터 다시",
+      "done": "이대로 충분합니다",
+      "safetyKeep": "보호 장치 유지",
+      "nameKeep": "\"{name}\" 유지",
+      "weeklySchedule": "매주 (일정)",
+      "weeklyScheduleHint": "신호에 반응하는 대신 매주 cron 일정으로 실행합니다."
+    }
+  },
+  "signal": {
+    "drift": {
+      "label": "구성 드리프트",
+      "hint": "리소스가 선언된 원하는 상태와 더 이상 일치하지 않습니다."
+    },
+    "anomaly": {
+      "label": "이상 감지",
+      "hint": "탐지기가 리소스의 비정상 동작을 표시했습니다."
+    },
+    "event": {
+      "label": "수신 이벤트",
+      "hint": "정규화된 이벤트가 도착해 수집 단계를 통과했습니다."
+    },
+    "forecast": {
+      "label": "예측이 임계값을 넘음",
+      "hint": "예측값이 구성된 임계값을 넘었습니다."
+    },
+    "cost-anomaly": {
+      "label": "비용 급증 감지",
+      "hint": "지출이 예상치 않게 급증했습니다(비용 거버넌스)."
+    },
+    "capacity-forecast": {
+      "label": "용량 예측 생성",
+      "hint": "확장 또는 용량 예측이 생성되었습니다."
+    },
+    "security-event": {
+      "label": "보안 이벤트 발생",
+      "hint": "보안 관련 이벤트가 발생했습니다."
+    },
+    "resilience-score": {
+      "label": "복원력 점수 변경",
+      "hint": "재해 복구 또는 카오스 복원력 점수가 바뀌었습니다."
+    }
+  },
+  "schedule": {
+    "hourly": "매시 {minute}분 ({zone})",
+    "daily": "매일 {time} ({zone})",
+    "weekly": "매주 {day} {time} ({zone})",
+    "monthly": "매월 {day}일 {time} ({zone})"
   }
 }

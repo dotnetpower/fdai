@@ -1,9 +1,9 @@
 ---
 title: FDAI 제안서 덱 키트
-description: FDAI 아키텍처, 안전성, 가치 및 도입 방안을 설명하는 의사결정 중심 제안서 원본입니다.
+description: FDAI 아키텍처, 안전성, 가치, 도입 방안을 설명할 때 사용하는 의사결정 중심 제안서 원본입니다.
 translation_of: README.md
-translation_source_sha: 21e4ca6c4e613bfa398ea516f7255ffda9323280
-translation_revised: 2026-08-20
+translation_source_sha: 23edba20b4105a3b47e0a87fdfb04763cd840419
+translation_revised: 2026-10-22
 ---
 
 # FDAI 제안서 덱 키트

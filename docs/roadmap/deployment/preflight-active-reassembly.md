@@ -3,10 +3,11 @@ title: Preflight Active Plan Reassembly (policy blocker to re-rendered terraform
 ---
 # Preflight Active Plan Reassembly (policy blocker to re-rendered terraform)
 
-When [deployment-preflight](deployment-preflight.md) reports a `policy_guardrail`
-or `supply_chain_egress` blocker that has a registered capability-mode toggle,
-the shipped pure loop can calculate and re-verify overrides that **actively re-render the
-terraform plan** into a supported alternate shape. That shape never emits the denied operation.
+Use this design to understand how the shipped pure loop responds when
+[deployment-preflight](deployment-preflight.md) reports a `policy_guardrail`
+or `supply_chain_egress` blocker that has a registered capability-mode toggle. The loop can
+calculate and re-verify overrides that **actively re-render the terraform plan** into a supported
+alternate shape. That shape never emits the denied operation.
 Delivery as a remediation PR through the existing
 [executor](../architecture/project-structure.md) begins after live composition wiring lands.
 

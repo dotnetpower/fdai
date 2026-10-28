@@ -1,15 +1,15 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: a4032440f41ffeea7ae2658dbdc0c1350cb22f2d
-translation_revised: 2026-10-23
+translation_source_sha: c5bcdfbb62b33d5781a7c54d2172eb78b0eb5b74
+translation_revised: 2026-10-28
 ---
 
 # 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 
-리스크 분류 테이블
+리스크 분류 테이블을 사용해
 ([architecture.instructions.md § 컨트롤 루프](../../../.github/instructions/architecture.instructions.md#control-loop))
-은 모든 후보 액션의 기준선을 `auto`, `hil`, `deny` 중 하나로 분류합니다. 통합 RiskGate는
+모든 후보 액션의 기준선을 `auto`, `hil`, `deny` 중 하나로 분류합니다. 통합 RiskGate는
 6-axis 상한을 적용해 최종 결과를 `shadow`까지 낮출 수 있습니다. 이 문서는 **기준선
 분류 규칙**의 기준 원본이며, 규칙 형태, 초기 규칙 테이블, 담당 체계, 갱신 절차를 정의합니다.
 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md#open-decisions)의 P0 열림

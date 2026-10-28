@@ -7343,8 +7343,8 @@ button.workflow-canvas-node { cursor: pointer; }
 .workflow-inspector-name { display: block; margin: 9px 0; color: var(--accent-strong); overflow-wrap: anywhere; }
 .workflow-inspector-panel dl { display: grid; gap: 0; margin: 0; }
 .workflow-inspector-panel dl div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; padding: 6px 0; border-top: 1px dashed var(--border); }
-.workflow-inspector-panel dt { color: var(--fg-muted); font-size: 10.5px; }
-.workflow-inspector-panel dd { margin: 0; overflow-wrap: anywhere; font-size: 11.5px; }
+.workflow-inspector-panel dt { color: var(--fg-muted); font-size: var(--cs-type-caption-size); }
+.workflow-inspector-panel dd { margin: 0; overflow-wrap: anywhere; font-size: var(--cs-type-label-size); }
 .workflow-promotion-facts { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--fg-muted); font-size: 11px; }
 .workflow-promotion-facts strong { color: var(--fg); }
 .workflow-yaml-panel { grid-column: 1 / -1; overflow: hidden; }
@@ -15052,7 +15052,7 @@ td.mcsb-assessment-column .status-pill { max-width: 100%; white-space: normal; }
   border-radius: 999px;
   background: var(--bg);
   color: var(--fg-muted);
-  font-size: 10px;
+  font-size: var(--cs-type-caption-size);
   text-align: center;
 }
 .workflow-automation-section {
@@ -15071,7 +15071,8 @@ td.mcsb-assessment-column .status-pill { max-width: 100%; white-space: normal; }
 }
 .workflow-automation-section h3 { margin: 0; font-size: 15px; }
 .workflow-automation-section h3 span { margin-left: 5px; color: var(--fg-muted); font-weight: 500; }
-.workflow-automation-section header p { margin: 4px 0 0; color: var(--fg-muted); font-size: 11px; }
+.workflow-automation-section header p { margin: 4px 0 0; color: var(--fg-muted); font-size: var(--cs-type-label-size); }
+.workflow-automation-notice { margin: 0 0 10px; color: var(--fg-muted); font-size: var(--cs-type-label-size); }
 .workflow-automation-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
@@ -15088,10 +15089,11 @@ td.mcsb-assessment-column .status-pill { max-width: 100%; white-space: normal; }
   border-radius: var(--cs-radius-sm);
   background: var(--bg);
 }
-.workflow-binding-list article > div { min-width: 0; display: grid; gap: 2px; }
-.workflow-binding-list strong { overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
-.workflow-binding-list span { color: var(--fg-muted); font-size: 10.5px; text-transform: capitalize; }
-.workflow-binding-list small { overflow: hidden; color: var(--fg-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.workflow-binding-list article > div { min-width: 0; display: grid; justify-items: start; gap: 3px; }
+.workflow-binding-list strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: var(--cs-type-label-size); }
+.workflow-binding-list article > div > span:not(.status-pill) { color: var(--fg-muted); font-size: var(--cs-type-caption-size); text-transform: capitalize; }
+.workflow-binding-list small { max-width: 100%; overflow-wrap: anywhere; color: var(--fg-muted); font-size: var(--cs-type-caption-size); }
+.workflow-binding-confirm { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 6px; }
 .workflow-binding-create {
   display: grid;
   gap: 9px;
@@ -15099,9 +15101,11 @@ td.mcsb-assessment-column .status-pill { max-width: 100%; white-space: normal; }
   padding-left: 14px;
   border-left: 1px solid var(--border);
 }
-.workflow-binding-create > strong { font-size: 12px; overflow-wrap: anywhere; }
+.workflow-binding-create > strong { font-size: var(--cs-type-label-size); overflow-wrap: anywhere; }
 .workflow-binding-create label { display: grid; gap: 4px; }
-.workflow-binding-create label span { color: var(--fg-muted); font-size: 9.5px; text-transform: uppercase; }
+.workflow-binding-create label span { color: var(--fg-muted); font-size: var(--cs-type-caption-size); text-transform: uppercase; }
+.workflow-binding-create label small { color: var(--fg-muted); font-size: var(--cs-type-caption-size); line-height: 1.4; }
+.workflow-binding-create label small.error-text { color: var(--danger, var(--fg)); }
 .workflow-binding-create input,
 .workflow-binding-create select {
   min-width: 0;
@@ -21223,4 +21227,20 @@ body.agent-organization-dialog-open {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* Workflow apps run history ------------------------------------------- */
+.workflow-app-runs-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.workflow-app-runs-head > a { font-size: var(--cs-type-label-size); }
+.workflow-app-status-filter { flex-wrap: wrap; max-width: 100%; margin-bottom: 10px; }
+.workflow-app-status-filter button { font-size: var(--cs-type-label-size); cursor: pointer; }
+.workflow-app-status-filter strong { margin-left: 4px; font-weight: 650; }
+@media (max-width: 520px) {
+  .workflow-app-status-filter button { min-height: 44px; }
 }

@@ -30,8 +30,6 @@
     "catalogReadOnly": "Available on this deployment. Catalog view is read-only.",
     "defaultDescription": "Published workflow catalog entry",
     "when": "when",
-    "then": "then",
-    "do": "do",
     "workflowStage": "workflow stage",
     "done": "done",
     "auditTerminalState": "audit terminal state",
@@ -78,7 +76,25 @@
     "escapes": "escapes <= {value}",
     "yamlSummary": "Published YAML and anti-scope",
     "antiScope": "Anti-scope:",
-    "copyYaml": "Copy YAML"
+    "copyYaml": "Copy YAML",
+    "copyToDraft": "Copy to new draft",
+    "chainAria": "Workflow steps from trigger to terminal state",
+    "promotionStatus": "View promotion status",
+    "paths": {
+      "branches": "Branches: {branches} (all must complete)",
+      "outcomes": "Outcomes: {outcomes}",
+      "onFailure": "On failure: {step}",
+      "compensatedBy": "Compensated by: {action}",
+      "outcomeCount": "{count} outcomes",
+      "branchCount": "{count} branches"
+    },
+    "runs": {
+      "heading": "Run history",
+      "description": "Your principal-scoped Process records for this workflow. Open a run for its journal and evidence.",
+      "resourceLabel": "workflow run history",
+      "empty": "No runs are recorded for this workflow yet.",
+      "more": "Showing the {shown} most recent of {total} runs. Open Processes for the full list."
+    }
   },
   "chat": {
     "back": "Back to workflows",
@@ -126,7 +142,21 @@
     "when": "when",
     "thenDo": "then do",
     "then": "then",
-    "done": "done"
+    "done": "done",
+    "startNew": "Start a new draft",
+    "kindTool": "Tool call",
+    "picker": {
+      "title": "Choose an ActionType",
+      "summary": "Showing {shown} of {total}",
+      "placeholder": "Search by name, category, or description...",
+      "searchAria": "Search ActionTypes",
+      "categoryAria": "Filter ActionTypes by category",
+      "allCategories": "All categories",
+      "empty": "No ActionType matches this search.",
+      "rollback": "rollback {value}",
+      "hil": "HIL {tiers}",
+      "irreversible": "irreversible"
+    }
   },
   "editor": {
     "heading": "Edit validated draft",
@@ -203,13 +233,20 @@
     "timezone": "Timezone",
     "signalType": "Signal type",
     "configurationSaved": "Configuration saved",
-    "saveConfiguration": "Save configuration"
+    "saveConfiguration": "Save configuration",
+    "dispatchInactive": "Dispatch inactive",
+    "dispatchInactiveHint": "Saved configuration only; runtime dispatch is not active yet.",
+    "confirmRemove": "Confirm remove",
+    "cancel": "Cancel",
+    "cronInvalid": "Enter five cron fields: minute, hour, day of month, month, day of week.",
+    "cronPreview": "Runs: {description}",
+    "timezoneHint": "IANA timezone, for example UTC or Asia/Seoul.",
+    "signalHint": "Choose a curated signal or type an exact signal type.",
+    "created": "Configuration saved for {workflow}.",
+    "removed": "Configuration removed."
   },
   "catalog": {
     "liveSourceTitle": "Live catalog",
-    "liveSourceBody": "Authoritative definitions from the Operator API. No browser execution authority.",
-    "readOnlyTitle": "Published definition.",
-    "readOnlyBody": "Node selection is read-only inspection. Workflow changes are authored and reviewed as catalog pull requests.",
     "designNew": "Design a new workflow",
     "authorPython": "Author Python VM task",
     "pythonUnavailable": "Python task authoring is not wired on this deployment.",
@@ -218,7 +255,6 @@
       "validator": "No Python task validation owner is bound.",
       "vmTaskRunner": "No VM task runner is bound."
     },
-    "catalogRevision": "Catalog revision",
     "ownership": "Workflow ownership",
     "reviewControls": "Workflow review controls",
     "group": {
@@ -230,7 +266,7 @@
     "description": "The shipped workflows, for reference: open a row to see every step and the raw YAML.",
     "empty": "No workflows are available in this group.",
     "filterLabel": "Filter workflows",
-    "filterPlaceholder": "Filter by name, trigger, or mode...",
+    "filterPlaceholder": "Filter by name, step, ActionType, or trigger...",
     "filterAria": "Filter workflows",
     "filterSummary": "Showing {shown} of {total} - {shadow} shadow, {enforce} enforce",
     "filterEmpty": "No workflows match this filter.",
@@ -238,20 +274,20 @@
     "summary": {
       "steps": "Steps",
       "stepsHint": "trigger to terminal",
-      "authorityGates": "Approval gates",
-      "authorityHint": "policy and role checks",
       "defaultMode": "Default mode",
       "modeHint": "no managed-resource effect",
-      "validation": "Validation",
-      "validationPassed": "Passed",
-      "revision": "revision {version}"
+      "revision": "revision {version}",
+      "approvalSteps": "Approval steps",
+      "hilActions": "{count} HIL-gated ActionTypes",
+      "catalogState": "Catalog state",
+      "reviewed": "Reviewed",
+      "reviewedHint": "revision {version}, loaded by the fail-closed catalog loader",
+      "definitionHint": "revision {version}, origin {origin}"
     },
     "libraryHeading": "Published workflows",
     "libraryDescription": "Catalog source; select a workflow to inspect.",
     "selectionRequired": "Choose a workflow to inspect its ordered contract.",
     "stepCount": "{count} steps",
-    "currentDetail": "current detail",
-    "catalogOnly": "catalog",
     "table": {
       "name": "Name",
       "trigger": "Trigger",
@@ -259,7 +295,16 @@
       "mode": "Mode"
     },
     "workflowNotFound": "Workflow {workflow} is not registered in this group. Choose a workflow from the table.",
-    "actionNotConnected": "ActionType {action} is not connected to a workflow in this group."
+    "actionNotConnected": "ActionType {action} is not connected to a workflow in this group.",
+    "selectedRevision": "Selected workflow",
+    "sourceNote": "Authoritative definitions from the Operator API. Selecting a step only inspects it; workflow changes are reviewed as catalog pull requests.",
+    "categoryFilter": "ActionType category",
+    "allCategories": "All categories",
+    "stepKindFilter": "Step kind",
+    "allStepKinds": "All step kinds",
+    "clearFilters": "Clear filters",
+    "pythonUnavailableShort": "Python VM tasks unavailable",
+    "emptyMine": "You have no private drafts yet. Design a workflow or copy a published one to start."
   },
   "pythonTask": {
     "discardedDraft": "Generated draft was discarded because the task changed while authoring.",
@@ -335,7 +380,13 @@
     "succeeded": "succeeded",
     "failed": "failed",
     "skipped": "skipped",
-    "cancelled": "cancelled"
+    "cancelled": "cancelled",
+    "draft": "draft",
+    "published": "published",
+    "retired": "retired",
+    "compensated": "compensated",
+    "timed_out": "timed out",
+    "compensating": "compensating"
   },
   "process": {
     "depthExceeded": "{title}: nested widget depth exceeds {depth}",
@@ -420,5 +471,82 @@
   "common": {
     "no": "No",
     "yes": "Yes"
+  },
+  "chatEngine": {
+    "paletteMissing": "I can't reach the ActionType palette on this deployment, so I have no building blocks to offer. The workflow authoring routes are not wired here.",
+    "welcome": "Let's design a workflow together. I'll ask a few questions, show the exact YAML, and validate it before anything is saved.\n\nStart with **what the workflow should do**: pick an action below or search the full ActionType palette. You can also describe the goal in your own words - I keep it as the workflow description, while actions and triggers are always chosen explicitly.\n\nWorkflows you can build, for example:\n- *When cost spikes, right-size the resource and post a summary.*\n- *Every week, rehearse a DR failover.*\n- *When a resource drifts, open a remediation pull request.*",
+    "goalRecorded": "I kept that as the workflow description.",
+    "actionRetry": "I couldn't map that to an action - typed text doesn't select an ActionType here. Pick one below or search the full palette.",
+    "askAction": "First, **what should the workflow do?** Pick an action below or search the full ActionType palette.",
+    "triggerRetry": "I couldn't read a trigger from that - choose one of these.",
+    "askTrigger": "**When should it run?** Choose the signal that starts it, or a schedule.",
+    "reviewNote": "**Review note:** {note}",
+    "confirmPlan": "Please confirm this trigger and ordered action chain before I continue.",
+    "offerExtra": "Want to **add another step** - for example a notification or a follow-up remediation? Pick one below, search the palette, or keep it as-is.",
+    "confirmSafety": "Safety review: this draft stays in **shadow** mode, has no automatic failure fallback, and requires {days} days, {samples} samples, {accuracy} accuracy, and at most {escapes} policy escapes before promotion. A failed step stops the run. Keep these safeguards, or type what this workflow must never do to record an anti-scope boundary.",
+    "confirmName": "Almost done. I'll call it `{name}`. Keep that name, or type a different one.",
+    "ready": "Here's the workflow from our conversation, with its YAML, flow, and structural validation below. Nothing is created until you save a private draft; publishing goes through catalog review.",
+    "cloned": "I copied `{source}` into a new draft named `{name}`. It stays in shadow mode and is validated again below before you can save it. Edit the draft, or refine it with the options below.",
+    "understood": "Got it - {parts}{resource}.",
+    "understoodWhen": "**when** {trigger}",
+    "understoodDo": "**do** {actions}",
+    "understoodResource": " (on `{resource}`)",
+    "thenJoin": ", then ",
+    "truncatedWarning": "More than three distinct actions matched; review and add the omitted steps explicitly.",
+    "everyWeek": "every week",
+    "onSchedule": "on schedule `{schedule}`",
+    "option": {
+      "planKeep": "Use this plan",
+      "refineActions": "Change the actions",
+      "refineTrigger": "Change the trigger",
+      "refineExtra": "Add another step",
+      "refineSafety": "Review safety",
+      "restart": "Start over",
+      "done": "No, that's enough",
+      "safetyKeep": "Keep these safeguards",
+      "nameKeep": "Keep \"{name}\"",
+      "weeklySchedule": "Every week (schedule)",
+      "weeklyScheduleHint": "Run on a weekly cron instead of reacting to a signal."
+    }
+  },
+  "signal": {
+    "drift": {
+      "label": "Configuration drifted",
+      "hint": "A resource no longer matches its declared / desired state."
+    },
+    "anomaly": {
+      "label": "Anomaly detected",
+      "hint": "A detector flagged unusual behavior on a resource."
+    },
+    "event": {
+      "label": "Incoming event",
+      "hint": "A normalized event arrived and passed intake."
+    },
+    "forecast": {
+      "label": "Forecast crossed a threshold",
+      "hint": "A prediction crossed a configured threshold."
+    },
+    "cost-anomaly": {
+      "label": "Cost spike detected",
+      "hint": "Spending jumped unexpectedly (cost governance)."
+    },
+    "capacity-forecast": {
+      "label": "Capacity forecast produced",
+      "hint": "A scaling / capacity forecast was produced."
+    },
+    "security-event": {
+      "label": "Security event raised",
+      "hint": "A security-relevant event was raised."
+    },
+    "resilience-score": {
+      "label": "Resilience score changed",
+      "hint": "The disaster-recovery / chaos resilience score moved."
+    }
+  },
+  "schedule": {
+    "hourly": "Every hour at :{minute} ({zone})",
+    "daily": "Every day at {time} ({zone})",
+    "weekly": "Every {day} at {time} ({zone})",
+    "monthly": "Day {day} of every month at {time} ({zone})"
   }
 }

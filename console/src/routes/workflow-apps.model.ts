@@ -1,3 +1,4 @@
+import type { PillKind } from "../components/ui";
 import { routeHref } from "../router";
 
 export interface WorkflowAppEntry {
@@ -84,4 +85,40 @@ function integer(value: unknown, label: string): number {
 
 function assertUnique(values: readonly string[], label: string): void {
   if (new Set(values).size !== values.length) throw new Error(`${label} MUST be unique`);
+}
+
+/** Lifecycle tone for an app manifest. Only `published` reads as available;
+ * other lifecycle values stay neutral instead of borrowing a success color. */
+export function workflowAppLifecycleTone(lifecycle: string): PillKind {
+  if (lifecycle === "published") return "success";
+  if (lifecycle === "shadow") return "shadow";
+  if (lifecycle === "retired") return "neutral";
+  return "info";
+}
+
+const RUN_STATUS_ORDER = [
+  "waiting",
+  "failed",
+  "timed_out",
+  "compensating",
+  "running",
+  "pending",
+  "succeeded",
+  "compensated",
+  "cancelled",
+];
+
+/** Per-status run counts, attention states first, for the run filter. */
+export function workflowRunStatusCounts(
+  items: readonly { readonly status: string }[],
+): { readonly status: string; readonly count: number }[] {
+  const counts = new Map<string, number>();
+  for (const item of items) counts.set(item.status, (counts.get(item.status) ?? 0) + 1);
+  const rank = (status: string) => {
+    const index = RUN_STATUS_ORDER.indexOf(status);
+    return index === -1 ? RUN_STATUS_ORDER.length : index;
+  };
+  return [...counts.entries()]
+    .map(([status, count]) => ({ status, count }))
+    .sort((left, right) => rank(left.status) - rank(right.status) || left.status.localeCompare(right.status));
 }

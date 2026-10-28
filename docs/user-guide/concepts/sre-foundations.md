@@ -1,6 +1,6 @@
 ---
 title: SRE foundations
-description: The core SRE functions FDAI automates, and how each one maps to the control loop, the agents, and the three verticals.
+description: Explore the core SRE functions FDAI automates and how each maps to the control loop, the agents, and the three operating areas.
 sidebar:
   order: 1
 ---
@@ -26,7 +26,7 @@ does, and where to read the mechanism in depth.
 | Incident detection and response | Routes each signal by confidence, decides a decision, and acts or escalates | trust-router, Forseti |
 | Change management | Gates every proposed change against policy-as-code before it ships | Change Safety |
 | Capacity and performance | Detects sizing gaps and proposes or runs promoted scaling actions against measured demand | Freyr, Cost Governance |
-| Cost and efficiency | Detects spend anomalies and evaluates promoted waste-removal candidates | Njord, Cost Governance |
+| Cost and efficiency | Detects cost anomalies and evaluates promoted waste-removal candidates | Njord, Cost Governance |
 | Reliability and disaster recovery | Plans and runs promoted DR drills, restore exercises, and bounded chaos experiments | Resilience, Loki, Vidar |
 | Toil elimination | Moves proven repeatable cases from manual handling to deterministic rules | deterministic-first |
 | Postmortem and learning | Records an append-only audit entry for every action and proposes catalog updates from operating signals | Saga, Norns |

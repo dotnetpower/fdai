@@ -1,9 +1,9 @@
 ---
 title: Get Started with FDAI
-description: A five-minute orientation to FDAI - what it is, when it fits, and where to look next.
+description: A five-minute introduction to FDAI - what it does, when to use it, and where to go next.
 derives_from:
   - source: docs/roadmap/architecture/goals-and-metrics.md
-    sha: d67f4fdd18f99eb8a755286c43fb9138a41e8603
+    sha: a8c53ee45e09d0c3c0993ca3051e891a0639e8ce
 ---
 
 # Get Started with FDAI
@@ -65,7 +65,7 @@ restore meets the target RPO and RTO -> the audit entry is recorded.
 
 ### Cost Governance
 
-Spend anomaly detection, right-sizing recommendations, and automatic execution of
+Cost anomaly detection, right-sizing recommendations, and automatic execution of
 the low-risk subset such as idle disk cleanup, unused public IP release, and
 orphan NIC removal.
 

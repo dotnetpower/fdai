@@ -1,6 +1,6 @@
 ---
 title: Observability, Detection, and Forecasting
-description: How FDAI turns events and telemetry into correlated, explainable detected issues without creating a second execution path.
+description: Learn how FDAI turns events and telemetry into correlated, explainable detected issues without creating a second execution path.
 ---
 
 # Observability, Detection, and Forecasting

@@ -961,7 +961,11 @@
     "terminal": "terminal",
     "viewPurpose": "A read-only catalog of published workflow apps and their governed Process evidence.",
     "viewHeadline": "{count} published workflow apps",
-    "viewHeadlineSelected": "{name} workflow app selected"
+    "viewHeadlineSelected": "{name} workflow app selected",
+    "openDefinition": "Open workflow definition",
+    "statusFilter": "Filter runs by status",
+    "allStatuses": "All",
+    "updated": "Updated"
   },
   "reports": {
     "subtitle": "Catalog-driven read-only boards. Select a report, set its declared variables, and render the current evidence window.",

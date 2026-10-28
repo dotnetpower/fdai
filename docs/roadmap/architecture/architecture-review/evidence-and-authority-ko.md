@@ -1,12 +1,12 @@
 ---
 title: ARB 근거 및 권한
 translation_of: evidence-and-authority.md
-translation_source_sha: acf619149fd71c1fd1f8476bbd79cb710d18ba6b
-translation_revised: 2026-10-18
+translation_source_sha: 88570157d7a7a27902b8f63d82d0fa3bf6b953aa
+translation_revised: 2026-10-22
 ---
 # ARB 근거 및 권한
 
-이 설계는 아키텍처 검토의 근거, 담당 체계, 위험, 승인, 결정 증적 계약을 정의합니다. 자동
+이 설계에서 아키텍처 검토의 근거, 담당 체계, 위험, 승인, 결정 증적 계약을 살펴봅니다. 자동
 검증으로 확인한 준비 상태와 변경을 승격하거나 실행할 권한을 분리합니다.
 
 > **범위:** 이 문서는 근거와 권한을 담당합니다.

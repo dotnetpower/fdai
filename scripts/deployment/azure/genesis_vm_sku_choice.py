@@ -219,6 +219,10 @@ def _hardware(row: dict[str, object], policy: VmPolicy) -> VmCandidate | None:
         raise CheckError(EVIDENCE_INVALID, 3)
     if architecture != "x64" or "V2" not in generations.split(","):
         return None
+    # The sealed image boots through a SCSI controller; NVMe-only sizes refuse to boot it.
+    # Older sizes omit the capability and are SCSI-only.
+    if "SCSI" not in caps.get("DiskControllerTypes", "SCSI").split(","):
+        return None
     cpu, available, memory = (
         _number(caps.get("vCPUs")),
         _number(caps.get("vCPUsAvailable")),

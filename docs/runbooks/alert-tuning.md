@@ -1,6 +1,6 @@
 ---
 title: Alert Tuning Runbook
-description: A template for reducing alert noise and missed detection through measured rule and routing changes.
+description: Use this template to reduce alert noise and missed detection through measured rule and routing changes.
 ---
 
 # Alert Tuning Runbook

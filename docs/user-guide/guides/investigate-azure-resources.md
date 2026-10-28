@@ -1,6 +1,6 @@
 ---
 title: Investigate an Azure resource
-description: How to ask FDAI a bounded, read-only question about an Azure resource, and how to read the evidence it returns.
+description: Learn how to ask FDAI a bounded, read-only question about an Azure resource and interpret the returned evidence.
 ---
 
 # Investigate an Azure resource

@@ -1,16 +1,16 @@
 ---
 title: Entra 앱 등록
 translation_of: entra-app-registration.md
-translation_source_sha: 47807bec7d7e0737c10399c3bd13ec9431792e91
-translation_revised: 2026-10-16
+translation_source_sha: 3d354234f2fc7061aa69ec2998064ce60276de52
+translation_revised: 2026-10-22
 ---
 
 # Entra 앱 등록
 
-FDAI에 필요한 세 개의 Entra ID 앱 등록인 `fdai-api`(Operator API 대상),
+FDAI에 필요한 세 개의 Entra ID 앱 등록을 만드는 방법을 알아봅니다. 등록 대상은 `fdai-api`(Operator API 대상),
 `fdai-console-spa`(SPA 로그인 클라이언트), `fdai-approval-bot`(Teams 승인
 클라이언트)을 만들고, 로그인과 Teams OBO(on-behalf-of) 권한 부여에 필요한 App Role,
-서비스 principal 및 역할 할당을 생성하는 방법입니다. 이 런북은
+서비스 principal 및 역할 할당도 함께 생성합니다. 이 런북은
 **로컬 로그인 테스트**
 ([console/README.md § 로컬 로그인 테스트](../../console/README.md))와
 [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md) 및

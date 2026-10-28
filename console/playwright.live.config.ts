@@ -73,7 +73,7 @@ export default defineConfig({
               `VITE_DEV_MODE=1 VITE_LOCAL_AZURE_CLI_AUTH=0 ` +
               `VITE_LOCAL_AZURE_CLI_AUTH_CONFIRM=0 VITE_LOCAL_LOGIN_PROMPT=0 ` +
               `VITE_OPERATOR_API_BASE_URL=http://${loopbackHost}:${apiPort} ` +
-              `VITE_INGESTION_API_BASE_URL=http://127.0.0.1:8011 ` +
+              `VITE_INGESTION_API_BASE_URL=http://${loopbackHost}:${apiPort} ` +
               `npm run dev -- --host ::1 --port ${frontendPort} --strictPort`,
             wait: { stdout: /ready in/ },
             stdout: "ignore",

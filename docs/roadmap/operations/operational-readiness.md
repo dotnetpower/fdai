@@ -4,8 +4,8 @@ title: Operational Readiness Review (dev-to-ops handoff gate)
 # Operational Readiness Review (dev-to-ops handoff gate)
 
 Before a dev-owned scope (a resource group, a workload, an environment) becomes
-the operations team's responsibility, the **Operational Readiness Review** (ORR)
-runs automatically: it evaluates the whole scope against the governance,
+the operations team's responsibility, use the automated **Operational Readiness Review** (ORR).
+It evaluates the whole scope against the governance,
 security, RBAC, and reliability rules that ops depends on, grounds each finding
 in the exact rule that produced it, and returns one verdict - `clear`,
 `needs_review`, or `blocked` - keyed to the ownership-transfer event. It is the

@@ -1,9 +1,9 @@
 ---
 title: 감사 로그 읽기
-description: 추가 전용 감사 로그가 모든 자율 결정에 대해 기록하는 내용과 증상에서 근본 이벤트까지 역추적하는 방법을 설명합니다.
+description: 추가 전용 감사 로그가 자율 결정마다 기록하는 내용과 증상에서 근본 이벤트까지 역추적하는 방법을 알아봅니다.
 translation_of: read-audit-log.md
-translation_source_sha: 537c7f8c3c9938502035f967fe4806888d5c964d
-translation_revised: 2026-08-11
+translation_source_sha: 189140375bbc7f939795f66a319289bcd3079201
+translation_revised: 2026-10-22
 ---
 
 # 감사 로그 읽기

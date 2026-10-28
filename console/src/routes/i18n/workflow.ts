@@ -29,6 +29,12 @@ const STATUS_KEYS: Readonly<Record<string, string>> = {
   failed: "workflow.status.failed",
   skipped: "workflow.status.skipped",
   cancelled: "workflow.status.cancelled",
+  draft: "workflow.status.draft",
+  published: "workflow.status.published",
+  retired: "workflow.status.retired",
+  compensated: "workflow.status.compensated",
+  timed_out: "workflow.status.timed_out",
+  compensating: "workflow.status.compensating",
 };
 
 const TRIGGER_KEYS: Readonly<Record<string, string>> = {

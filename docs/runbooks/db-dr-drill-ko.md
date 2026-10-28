@@ -1,13 +1,13 @@
 ---
 title: 심층 DB-DR 복원 훈련 런북
 translation_of: db-dr-drill.md
-translation_source_sha: 9ee164c34f24f06b308463b1da788fb68b29d07b
-translation_revised: 2026-10-16
+translation_source_sha: 898b3abd4ff105b4b81caf931f39f959d9180202
+translation_revised: 2026-10-22
 ---
 
 # 심층 DB-DR 복원 훈련 런북
 
-단계 3의 심층 데이터베이스 재해 복구(DB-DR) 훈련을 위한 운영자 런북입니다.
+이 운영자 런북을 사용해 단계 3의 심층 데이터베이스 재해 복구(DB-DR) 훈련을 수행합니다.
 이 저장소에서 제공하는
 [`DbDrVerifier`](../../services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_verifier.py)와
 전달 계층 소유

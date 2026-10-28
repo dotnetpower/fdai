@@ -6,7 +6,7 @@ sla: "Approval decision within 1 business day of PR open"
 
 # Exemption Workflow
 
-Time-boxed, audited, owner-approved waiver path for a specific rule
+Use this time-boxed, audited, owner-approved waiver path for a specific rule
 assignment against a specific scope. Backed by the schema in
 [`rule-catalog/schema/exemption.json`](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json)
 and a CI validator that runs on every PR that touches

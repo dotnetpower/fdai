@@ -20,9 +20,12 @@ if [[ -f "${DIRECT_VNET_MARKER}" ]]; then
   exit 0
 fi
 
+source "${SCRIPT_DIR}/workspace.sh"
+
 # A checkout without local dev-access state has not opted into this workstation
 # integration. Keep folder-open quiet for every other FDAI developer.
-if [[ ! -s "${INFRA_DIR}/terraform.tfstate" ]]; then
+if [[ ! -s "${INFRA_DIR}/terraform.tfstate" && ! -d "${INFRA_DIR}/terraform.tfstate.d" &&
+  "${DEV_ACCESS_WORKSPACE_PINNED}" != true ]]; then
   exit 0
 fi
 
@@ -58,3 +61,4 @@ if ! route_is_direct "${dns_resolver_ip}"; then
 fi
 
 "${SCRIPT_DIR}/wsl-dns.sh" apply >/dev/null
+printf 'FDAI dev-access: VPN DNS configured (workspace: %s).\n' "${TF_WORKSPACE:-current}"

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { startChat } from "./workflow-builder.chat";
-import { loadWorkflowChatSession, saveWorkflowChatSession } from "./workflow-builder.session";
+import {
+  clearWorkflowChatSession,
+  loadWorkflowChatSession,
+  saveWorkflowChatSession,
+} from "./workflow-builder.session";
 
 function storage(): Storage {
   const values = new Map<string, string>();
@@ -35,6 +39,10 @@ describe("workflow builder session store", () => {
     });
 
     expect(loadWorkflowChatSession(target)?.slots.stage).toBe("welcome");
+
+    clearWorkflowChatSession(target);
+    expect(loadWorkflowChatSession(target)).toBeNull();
+    expect(() => clearWorkflowChatSession(null)).not.toThrow();
   });
 
   it("round-trips a ready session with an edited preview", () => {

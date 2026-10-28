@@ -1,6 +1,7 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
+import type { OperatorApiClient } from "../api";
 import { Tooltip } from "../components/tooltip";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, pushRouteState, routeHref, ROUTE_STATE_EVENT } from "../router";
 import type {
   ActionTypePaletteEntry,
   WorkflowBindingEntry,
@@ -10,6 +11,15 @@ import type {
 import type { PythonTaskCapabilityReport } from "../workflow/python-task";
 import { WorkflowAutomations } from "./workflow-builder.automations";
 import { WorkflowDetail } from "./workflow-builder.detail";
+import {
+  EMPTY_BROWSE_FILTER,
+  filterWorkflows,
+  triggerSummary,
+  workflowApprovalFacts,
+  workflowCategories,
+  workflowStepKinds,
+  type WorkflowBrowseFilter,
+} from "./workflow-builder.browse";
 import {
   workflowFromDefinition,
   workflowGroup,
@@ -44,45 +54,33 @@ export function pythonTaskUnavailableMessage(
   return [t("workflow.catalog.pythonUnavailableReported"), ...details].join(" ");
 }
 
-export function workflowAuthorityGateCount(
-  workflow: WorkflowCatalogEntry,
-  palette: readonly ActionTypePaletteEntry[],
-): number {
-  const gatedActions = new Set(
-    palette.filter((entry) => entry.hil_tiers.length > 0).map((entry) => entry.name),
-  );
-  return workflow.steps.filter((step) =>
-    step.kind === "approval"
-    || (
-      typeof step.action_type_ref === "string"
-      && gatedActions.has(step.action_type_ref)
-    )
-  ).length;
-}
-
 export function BuiltInList({
+  client,
   workflows,
   definitions,
   palette,
   pythonTasks,
   onNew,
+  onClone,
   onPython,
   onCatalogRevision,
 }: {
+  readonly client: OperatorApiClient;
   readonly workflows: readonly WorkflowCatalogEntry[];
   readonly definitions: WorkflowDefinitionCatalogResponse;
   readonly palette: readonly ActionTypePaletteEntry[];
   readonly pythonTasks: PythonTaskCapabilityReport | null;
   readonly onNew: () => void;
+  readonly onClone: (workflowName: string) => void;
   readonly onPython: () => void;
   readonly onCatalogRevision: (revision: string | null) => void;
 }) {
   const initialGroup = workflowGroup(currentRoute().search.get("group"));
   const [group, setGroup] = useState<WorkflowGroup>(initialGroup);
   const pythonUnavailable = pythonTaskUnavailableMessage(pythonTasks);
-  const groupedWorkflows = group === "built_in"
+  const groupedWorkflows = useMemo(() => group === "built_in"
     ? workflows
-    : definitions.groups[group].map(workflowFromDefinition);
+    : definitions.groups[group].map(workflowFromDefinition), [definitions.groups, group, workflows]);
   const requestedWorkflow = currentRoute().search.get("workflow");
   const requestedAction = currentRoute().search.get("action");
   const [selected, setSelected] = useState<string | null>(() => workflowSelection(
@@ -90,7 +88,7 @@ export function BuiltInList({
     requestedWorkflow,
     requestedAction,
   ));
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState<WorkflowBrowseFilter>(EMPTY_BROWSE_FILTER);
   const [bindings, setBindings] = useState<readonly WorkflowBindingEntry[]>(definitions.bindings);
   const current = groupedWorkflows.find((workflow) => workflow.name === selected) ?? null;
   const currentDefinition = current
@@ -99,6 +97,7 @@ export function BuiltInList({
   useEffect(() => {
     onCatalogRevision(current ? `${current.name}@${current.version}` : null);
   }, [current?.name, current?.version, onCatalogRevision]);
+  useEffect(() => () => onCatalogRevision(null), [onCatalogRevision]);
   useEffect(() => {
     const sync = () => {
       const route = currentRoute();
@@ -113,52 +112,44 @@ export function BuiltInList({
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, [definitions.groups, workflows]);
   const invalidRequestedWorkflow = requestedWorkflow !== null && current === null;
   const invalidRequestedAction = requestedWorkflow === null
     && requestedAction !== null
     && current === null;
+  // Selection updates history in place so active filters and loaded data
+  // persist; Back and deep links still restore the same selection.
   const openWorkflow = (workflow: WorkflowCatalogEntry | null): void => {
-    navigate(routeHref("workflow-builder", {
+    pushRouteState(routeHref("workflow-builder", {
       params: { group, workflow: workflow?.name, step: null, action: null },
     }));
   };
 
-  const needle = filter.trim().toLowerCase();
-  const shown = needle
-    ? groupedWorkflows.filter((workflow) => {
-        const trigger = workflow.trigger.kind === "signal"
-          ? workflow.trigger.signal_type ?? ""
-          : workflow.trigger.schedule ?? "";
-        return (
-          workflow.name.toLowerCase().includes(needle) ||
-          workflow.trigger.kind.includes(needle) ||
-          trigger.toLowerCase().includes(needle) ||
-          workflow.default_mode.includes(needle)
-        );
-      })
-    : groupedWorkflows;
+  const categories = useMemo(() => workflowCategories(groupedWorkflows, palette), [groupedWorkflows, palette]);
+  const stepKinds = useMemo(() => workflowStepKinds(groupedWorkflows), [groupedWorkflows]);
+  const shown = useMemo(
+    () => filterWorkflows(groupedWorkflows, filter, palette),
+    [filter, groupedWorkflows, palette],
+  );
+  const filtered = filter.text.trim() !== "" || filter.category !== "" || filter.stepKind !== "";
   const shadowCount = groupedWorkflows.filter((workflow) => workflow.default_mode !== "enforce").length;
   const enforceCount = groupedWorkflows.length - shadowCount;
-  const authorityGates = current ? workflowAuthorityGateCount(current, palette) : 0;
+  const approval = current ? workflowApprovalFacts(current, palette) : null;
 
   return (
     <div class="stack workflow-browser">
       <p class="workflow-source-note">
         <strong>{t("workflow.catalog.liveSourceTitle")}</strong>
-        <span>{t("workflow.catalog.liveSourceBody")}</span>
+        <span>{t("workflow.catalog.sourceNote")}</span>
       </p>
 
-      <div class="governance-readonly-banner">
-        <strong>{t("workflow.catalog.readOnlyTitle")}</strong>{" "}
-        {t("workflow.catalog.readOnlyBody")}
-      </div>
-
-      {current ? (
+      {current && approval ? (
         <section class="workflow-summary-grid" aria-label={t("workflow.catalog.summaryAria")}>
           <div>
             <span>{t("workflow.catalog.summary.steps")}</span>
@@ -166,9 +157,9 @@ export function BuiltInList({
             <small>{t("workflow.catalog.summary.stepsHint")}</small>
           </div>
           <div>
-            <span>{t("workflow.catalog.summary.authorityGates")}</span>
-            <strong>{formatNumber(authorityGates)}</strong>
-            <small>{t("workflow.catalog.summary.authorityHint")}</small>
+            <span>{t("workflow.catalog.summary.approvalSteps")}</span>
+            <strong>{formatNumber(approval.approvalSteps)}</strong>
+            <small>{t("workflow.catalog.summary.hilActions", { count: formatNumber(approval.hilGatedActions) })}</small>
           </div>
           <div>
             <span>{t("workflow.catalog.summary.defaultMode")}</span>
@@ -176,9 +167,20 @@ export function BuiltInList({
             <small>{t("workflow.catalog.summary.modeHint")}</small>
           </div>
           <div>
-            <span>{t("workflow.catalog.summary.validation")}</span>
-            <strong>{t("workflow.catalog.summary.validationPassed")}</strong>
-            <small>{t("workflow.catalog.summary.revision", { version: current.version })}</small>
+            <span>{t("workflow.catalog.summary.catalogState")}</span>
+            <strong>
+              {currentDefinition === null
+                ? t("workflow.catalog.summary.reviewed")
+                : statusLabel(currentDefinition.lifecycle)}
+            </strong>
+            <small>
+              {currentDefinition === null
+                ? t("workflow.catalog.summary.reviewedHint", { version: current.version })
+                : t("workflow.catalog.summary.definitionHint", {
+                    version: current.version,
+                    origin: currentDefinition.origin,
+                  })}
+            </small>
           </div>
         </section>
       ) : null}
@@ -202,33 +204,69 @@ export function BuiltInList({
           <input
             class="form-input"
             type="search"
-            value={filter}
+            value={filter.text}
             placeholder={t("workflow.catalog.filterPlaceholder")}
             aria-label={t("workflow.catalog.filterAria")}
-            onInput={(event) => setFilter((event.target as HTMLInputElement).value)}
+            onInput={(event) => setFilter({ ...filter, text: (event.target as HTMLInputElement).value })}
           />
         </label>
-        <span class="workflow-filter-summary">
-          {t("workflow.catalog.filterSummary", {
-            shown: formatNumber(shown.length),
-            total: formatNumber(groupedWorkflows.length),
-            shadow: formatNumber(shadowCount),
-            enforce: formatNumber(enforceCount),
-          })}
-        </span>
+        <label class="workflow-filter-field">
+          <span>{t("workflow.catalog.categoryFilter")}</span>
+          <select
+            class="form-input"
+            value={filter.category}
+            onChange={(event) => setFilter({ ...filter, category: (event.target as HTMLSelectElement).value })}
+          >
+            <option value="">{t("workflow.catalog.allCategories")}</option>
+            {categories.map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </label>
+        <label class="workflow-filter-field">
+          <span>{t("workflow.catalog.stepKindFilter")}</span>
+          <select
+            class="form-input"
+            value={filter.stepKind}
+            onChange={(event) => setFilter({ ...filter, stepKind: (event.target as HTMLSelectElement).value })}
+          >
+            <option value="">{t("workflow.catalog.allStepKinds")}</option>
+            {stepKinds.map((value) => (
+              <option key={value} value={value}>{t(`workflow.stepKind.${value}`)}</option>
+            ))}
+          </select>
+        </label>
+        <div class="workflow-filter-summary">
+          <span role="status">
+            {t("workflow.catalog.filterSummary", {
+              shown: formatNumber(shown.length),
+              total: formatNumber(groupedWorkflows.length),
+              shadow: formatNumber(shadowCount),
+              enforce: formatNumber(enforceCount),
+            })}
+          </span>
+          {filtered ? (
+            <button type="button" class="btn btn-small secondary" onClick={() => setFilter(EMPTY_BROWSE_FILTER)}>
+              {t("workflow.catalog.clearFilters")}
+            </button>
+          ) : null}
+        </div>
         <div class="workflow-command-bar">
           <button type="button" class="btn" onClick={onNew}>
             + {t("workflow.catalog.designNew")}
           </button>
           {pythonTasks !== null && pythonTasks.available ? (
-            <Tooltip>
-            <button
-              type="button"
-              class="btn"
-              onClick={onPython}
-            >
+            <button type="button" class="btn" onClick={onPython}>
               {t("workflow.catalog.authorPython")}
             </button>
+          ) : null}
+          {pythonUnavailable !== null ? (
+            <Tooltip content={pythonUnavailable}>
+              <span
+                class="workflow-command-note"
+                tabIndex={0}
+                aria-describedby="python-task-unavailable"
+              >
+                {t("workflow.catalog.pythonUnavailableShort")}
+              </span>
             </Tooltip>
           ) : null}
           {pythonUnavailable !== null ? (
@@ -250,14 +288,24 @@ export function BuiltInList({
       ) : null}
 
       {groupedWorkflows.length === 0 ? (
-        <div class="state-block state-empty">{t("workflow.catalog.empty")}</div>
+        <div class="state-block state-empty">
+          <p>{t(group === "mine" ? "workflow.catalog.emptyMine" : "workflow.catalog.empty")}</p>
+          {group === "mine" ? (
+            <button type="button" class="btn btn-small" onClick={onNew}>
+              + {t("workflow.catalog.designNew")}
+            </button>
+          ) : null}
+        </div>
       ) : current ? (
         <WorkflowDetail
+          key={`${group}:${current.name}`}
+          client={client}
           workflow={current}
           workflows={shown}
           palette={palette}
           group={group}
           onSelectWorkflow={openWorkflow}
+          onClone={() => onClone(current.name)}
         />
       ) : (
         <section class="workflow-selection-recovery">
@@ -267,7 +315,7 @@ export function BuiltInList({
             {shown.map((workflow) => (
               <button type="button" key={workflow.name} onClick={() => openWorkflow(workflow)}>
                 <strong>{workflow.name}</strong>
-                <span>{triggerLabel(workflow.trigger.kind)} / {t("workflow.catalog.stepCount", { count: formatNumber(workflow.step_count) })}</span>
+                <span>{triggerLabel(workflow.trigger.kind)} - {triggerSummary(workflow.trigger)}</span>
               </button>
             ))}
           </div>

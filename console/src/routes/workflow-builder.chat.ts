@@ -11,16 +11,18 @@
  * (workflow-builder.chat.tsx) renders turns and, at the `ready` stage,
  * runs the existing validate + flow-map path on `slots.form`.
  *
- * Reuses the same deterministic matcher the form composer uses
- * (`suggestDraftFromText`) so a single free-text sentence can pre-fill
- * trigger + steps; the interview then only asks for what is still
- * missing. Because it is deterministic it works with the LLM narrator
- * absent, matching the deterministic-first contract.
+ * Free text never selects an ActionType or trigger in the browser:
+ * `suggestDraftFromText` fails closed without a verified server-owned
+ * semantic judgment, so typed goals are kept as the description and every
+ * action and trigger is chosen explicitly. Because it is deterministic it
+ * works with the LLM narrator absent, matching the deterministic-first
+ * contract. Operator-facing text comes from the route message catalog.
  */
 
 import type { ActionTypePaletteEntry } from "../workflow/validate";
 import { INITIAL_FORM, type FormState } from "./workflow-builder.model";
 import { humanizeActionName } from "./workflow-builder.helpers";
+import { t } from "./i18n/workflow";
 import { suggestDraftFromText } from "./workflow-builder.intent";
 import {
   actionChips,
@@ -28,7 +30,6 @@ import {
   cloneForm,
   CRON_PREFIX,
   ensureName,
-  exampleOption,
   extractResourceHint,
   extraChips,
   finalizeForm,
@@ -104,8 +105,8 @@ export interface BotTurn {
 // Public entry points
 // ---------------------------------------------------------------------------
 
-/** The opening turn: greet, explain what can be built, and offer example
- * goals as clickable chips plus a free-text invitation. */
+/** The opening turn: greet, explain what can be built, and offer explicit
+ * first-action chips plus a free-text goal invitation. */
 export function startChat(palette: readonly ActionTypePaletteEntry[]): BotTurn {
   const slots: ChatSlots = {
     stage: "welcome",
@@ -120,30 +121,20 @@ export function startChat(palette: readonly ActionTypePaletteEntry[]): BotTurn {
     goalText: "",
     warnings: [],
   };
-  const text =
-    "Let's design a workflow together. Tell me, in plain words, **what should " +
-    "happen automatically** - I'll ask a few questions, show you the exact YAML, " +
-    "and let you test it before anything is created.\n\n" +
-    "For example, you could say:\n" +
-    "- *When a pod on aks-cluster-01 runs high CPU, alert me.*\n" +
-    "- *When cost spikes, right-size the resource and post a summary.*\n" +
-    "- *Every week, rehearse a DR failover.*";
-  const options: ChatOption[] = [
-    exampleOption("When a pod on aks-cluster-01 runs high CPU, alert me"),
-    exampleOption("When cost spikes, right-size the resource and post a summary"),
-    exampleOption("Every week, rehearse a DR failover"),
-  ];
   // Guard: an empty palette means the deployment did not wire authoring.
   if (palette.length === 0) {
     return {
-      text:
-        "I can't reach the ActionType palette on this deployment, so I have no " +
-        "building blocks to offer. The workflow authoring routes are not wired here.",
+      text: t("workflow.chatEngine.paletteMissing"),
       options: [],
       slots,
       draftReady: false,
     };
   }
+  // Free text is never mapped to an ActionType in the browser, so the welcome
+  // turn offers explicit action choices instead of example goals that would
+  // silently resolve to nothing.
+  const text = t("workflow.chatEngine.welcome");
+  const options = actionChips(palette, slots, []);
   return { text, options, slots, draftReady: false };
 }
 
@@ -311,7 +302,7 @@ function applyFreeText(
     triggerConfirmed,
     actionsConfirmed: slots.actionsConfirmed || hasActions,
     warnings: sug.actionMatchesTruncated
-      ? ["More than three distinct actions matched; review and add the omitted steps explicitly."]
+      ? [t("workflow.chatEngine.truncatedWarning")]
       : slots.warnings,
   };
 }
@@ -333,14 +324,14 @@ function nextTurn(
     // If we already asked and their answer still resolved to no action, say so
     // instead of silently re-asking the same question.
     const retry = prev.stage === "need_action";
+    const goalRecorded = prev.goalText === "" && slots.goalText !== "";
     const lead = retry
-      ? "I couldn't map that to an action yet - pick one below, or describe it " +
-        'another way (for example "restart the service" or "right-size it").\n\n'
-      : understoodLine(prev, slots);
+      ? `${t("workflow.chatEngine.actionRetry")}\n\n`
+      : goalRecorded
+        ? `${t("workflow.chatEngine.goalRecorded")}\n\n`
+        : understoodLine(prev, slots);
     return {
-      text:
-        `${lead}First, **what should the workflow do?** Pick an action to run, ` +
-        "or describe it and I'll match one.",
+      text: `${lead}${t("workflow.chatEngine.askAction")}`,
       options: actionChips(palette, slots, []),
       slots: s,
       draftReady: false,
@@ -352,12 +343,10 @@ function nextTurn(
     const s: ChatSlots = { ...slots, stage: "need_trigger" };
     const retry = prev.stage === "need_trigger";
     const lead = retry
-      ? "I couldn't read a trigger from that - choose one of these.\n\n"
+      ? `${t("workflow.chatEngine.triggerRetry")}\n\n`
       : understoodLine(prev, slots);
     return {
-      text:
-        `${lead}**When should it run?** Choose the signal that ` +
-        "starts it, or a schedule.",
+      text: `${lead}${t("workflow.chatEngine.askTrigger")}`,
       options: triggerChips(),
       slots: s,
       draftReady: false,
@@ -368,16 +357,14 @@ function nextTurn(
   if (!slots.planConfirmed) {
     const s: ChatSlots = { ...slots, stage: "confirm_plan" };
     const warning = slots.warnings.length > 0
-      ? `\n\n**Review note:** ${slots.warnings.join(" ")}`
+      ? `\n\n${t("workflow.chatEngine.reviewNote", { note: slots.warnings.join(" ") })}`
       : "";
     return {
-      text:
-        `${understoodLine(prev, slots)}Please confirm this trigger and ordered action chain before ` +
-        `I continue.${warning}`,
+      text: `${understoodLine(prev, slots)}${t("workflow.chatEngine.confirmPlan")}${warning}`,
       options: [
-        { label: "Use this plan", value: OPT.planKeep },
-        { label: "Change the actions", value: OPT.refineActions },
-        { label: "Change the trigger", value: OPT.refineTrigger },
+        { label: t("workflow.chatEngine.option.planKeep"), value: OPT.planKeep },
+        { label: t("workflow.chatEngine.option.refineActions"), value: OPT.refineActions },
+        { label: t("workflow.chatEngine.option.refineTrigger"), value: OPT.refineTrigger },
       ],
       slots: s,
       draftReady: false,
@@ -389,10 +376,8 @@ function nextTurn(
     const extras = extraChips(palette, slots);
     const s: ChatSlots = { ...slots, stage: "offer_extra" };
     return {
-      text:
-        `${understoodLine(prev, slots)}Want to **add another step** - for example a ` +
-        "notification or a follow-up remediation? You can also keep it as-is.",
-      options: [...extras, { label: "No, that's enough", value: OPT.done }],
+      text: `${understoodLine(prev, slots)}${t("workflow.chatEngine.offerExtra")}`,
+      options: [...extras, { label: t("workflow.chatEngine.option.done"), value: OPT.done }],
       slots: s,
       draftReady: false,
     };
@@ -403,12 +388,13 @@ function nextTurn(
   if (!slots.safetyConfirmed) {
     const s: ChatSlots = { ...slots, stage: "confirm_safety" };
     return {
-      text:
-        "Safety review: this draft stays in **shadow** mode, has no automatic failure " +
-        "fallback, and requires 14 days, 100 samples, 0.95 accuracy, and zero policy " +
-        "escapes before promotion. A failed step stops the run. Keep these safeguards, " +
-        "or type what this workflow must never do to record an anti-scope boundary.",
-      options: [{ label: "Keep these safeguards", value: OPT.safetyKeep }],
+      text: t("workflow.chatEngine.confirmSafety", {
+        days: slots.form.minShadowDays,
+        samples: slots.form.minSamples,
+        accuracy: slots.form.minAccuracy,
+        escapes: slots.form.maxPolicyEscapes,
+      }),
+      options: [{ label: t("workflow.chatEngine.option.safetyKeep"), value: OPT.safetyKeep }],
       slots: s,
       draftReady: false,
     };
@@ -419,10 +405,10 @@ function nextTurn(
     const suggested = ensureName(slots);
     const s: ChatSlots = { ...slots, form: suggested, stage: "confirm_name" };
     return {
-      text:
-        `${understoodLine(prev, slots)}Almost done. I'll call it ` +
-        `\`${suggested.name}\`. Keep that name, or type a different one.`,
-      options: [{ label: `Keep "${suggested.name}"`, value: OPT.nameKeep }],
+      text: `${understoodLine(prev, slots)}${t("workflow.chatEngine.confirmName", { name: suggested.name })}`,
+      options: [
+        { label: t("workflow.chatEngine.option.nameKeep", { name: suggested.name }), value: OPT.nameKeep },
+      ],
       slots: s,
       draftReady: false,
     };
@@ -432,18 +418,44 @@ function nextTurn(
   const form = finalizeForm(slots);
   const s: ChatSlots = { ...slots, form, stage: "ready" };
   return {
-    text:
-      "Here's the workflow I built from our conversation. I've generated the YAML " +
-      "and a visual of how it runs, and structurally validated it below (nothing is " +
-      "created). Copy the YAML into a remediation PR when you're happy, or keep refining.",
-    options: [
-      { label: "Add another step", value: OPT.refineExtra },
-      { label: "Change the actions", value: OPT.refineActions },
-      { label: "Change the trigger", value: OPT.refineTrigger },
-      { label: "Review safety", value: OPT.refineSafety },
-      { label: "Start over", value: OPT.restart },
-    ],
+    text: t("workflow.chatEngine.ready"),
+    options: readyOptions(),
     slots: s,
+    draftReady: true,
+  };
+}
+
+function readyOptions(): ChatOption[] {
+  return [
+    { label: t("workflow.chatEngine.option.refineExtra"), value: OPT.refineExtra },
+    { label: t("workflow.chatEngine.option.refineActions"), value: OPT.refineActions },
+    { label: t("workflow.chatEngine.option.refineTrigger"), value: OPT.refineTrigger },
+    { label: t("workflow.chatEngine.option.refineSafety"), value: OPT.refineSafety },
+    { label: t("workflow.chatEngine.option.restart"), value: OPT.restart },
+  ];
+}
+
+/** Open the designer on an existing reviewed workflow. The copy is a new
+ * private draft candidate: it starts in shadow, keeps every step contract,
+ * and is validated again before it can be saved. */
+export function startFromWorkflow(form: FormState, sourceName: string): BotTurn {
+  const slots: ChatSlots = {
+    stage: "ready",
+    form: cloneForm(form),
+    triggerConfirmed: true,
+    actionsConfirmed: true,
+    extraOffered: true,
+    nameConfirmed: true,
+    planConfirmed: true,
+    safetyConfirmed: true,
+    resourceHint: "",
+    goalText: "",
+    warnings: [],
+  };
+  return {
+    text: t("workflow.chatEngine.cloned", { source: sourceName, name: form.name }),
+    options: readyOptions(),
+    slots,
     draftReady: true,
   };
 }
@@ -461,12 +473,18 @@ function understoodLine(prev: ChatSlots, now: ChatSlots): string {
     prev.triggerConfirmed !== now.triggerConfirmed;
   if (!changed || (actions.length === 0 && !now.triggerConfirmed)) return "";
   const parts: string[] = [];
-  if (now.triggerConfirmed) parts.push(`**when** ${triggerPhrase(now.form)}`);
+  if (now.triggerConfirmed) {
+    parts.push(t("workflow.chatEngine.understoodWhen", { trigger: triggerPhrase(now.form) }));
+  }
   if (actions.length > 0) {
-    const verbs = actions.map((a) => `**${humanizeActionName(a.action_type_ref)}**`).join(", then ");
-    parts.push(`**do** ${verbs}`);
+    const verbs = actions
+      .map((a) => `**${humanizeActionName(a.action_type_ref)}**`)
+      .join(t("workflow.chatEngine.thenJoin"));
+    parts.push(t("workflow.chatEngine.understoodDo", { actions: verbs }));
   }
   if (parts.length === 0) return "";
-  const res = now.resourceHint ? ` (on \`${now.resourceHint}\`)` : "";
-  return `Got it - ${parts.join(", ")}${res}.\n\n`;
+  const resource = now.resourceHint
+    ? t("workflow.chatEngine.understoodResource", { resource: now.resourceHint })
+    : "";
+  return `${t("workflow.chatEngine.understood", { parts: parts.join(", "), resource })}\n\n`;
 }

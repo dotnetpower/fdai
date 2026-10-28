@@ -1,35 +1,23 @@
 ---
 title: 에이전트 워크플로우
 translation_of: agent-workflows.md
-translation_source_sha: 6e99d266c8088dfdecfbbaa3a14ad96705c3c7db
-translation_revised: 2026-10-15
+translation_source_sha: 5ac18af9d90d768d55f8aab6c8f3a58ceff34d54
+translation_revised: 2026-10-22
 ---
 
 # 에이전트 워크플로우
 
-판테온이 에이전트 간 협업으로 구성하는 13개 제품 수준 워크플로우를 설명합니다. 각
-워크플로우는 참여 에이전트, 트리거, 종단 간 순서, 종료 조건을
-명시합니다. 모든 워크플로우는 shadow 모드로 먼저 배포
-([agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation-ko.md#11-wave-7---shadow-로-cross-agent-workflows))
-되며, Wave 8에서 KPI를 측정한 후 워크플로우별로 승격합니다.
+이 문서에서는 판테온이 여러 에이전트를 조합해 제품 기능으로 구성하는 13개 에이전트 간
+워크플로우를 살펴봅니다. 각 워크플로우에는 참여 에이전트, 트리거, 처음부터 끝까지의
+실행 순서, 종료 조건이 명시되어 있습니다. 모든 워크플로우는 먼저 shadow 모드로 배포되며
+([agent-pantheon-implementation.md § Wave 7](agent-pantheon-implementation-ko.md#11-wave-7---shadow-로-cross-agent-workflows)),
+Wave 8에서 KPI를 측정한 후 워크플로우별로 승격됩니다.
 
-> **범위:** 워크플로우는 특정 고객에 종속되지 않습니다. 예시의 구체적인 리소스 이름은
-> 자리 표시자입니다
-> ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+> **범위:** 워크플로우는 특정 고객에 종속되지 않습니다. 예시에 사용된 구체적인 리소스 이름은 자리 표시자입니다([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
-> **계약:** 모든 단계는 스키마로 검증한 토픽의 pub/sub 이벤트를 사용합니다
-> ([agent-pantheon.md § 6.1](agent-pantheon-ko.md#61-타입이-지정된-포트) 참고).
-> 어떤 워크플로우도 에이전트 간 직접 RPC를 사용하지 않습니다. HIL 단계는
-> Var를 거치고 감사는 Saga를 거치며, 우회 경로는 없습니다.
+> **계약:** 모든 단계는 스키마 검증을 거친 토픽에서 pub/sub 이벤트로 처리됩니다([agent-pantheon.md § 6.1](agent-pantheon-ko.md#61-타입이-지정된-포트) 참고). 어떤 워크플로우도 에이전트 간 직접 RPC를 사용하지 않습니다. HIL 단계는 Var를 거치고 감사는 Saga를 거칩니다. 우회 경로는 없습니다.
 >
-> **기계가 읽을 수 있는 형식.** 제공되는 실행 가능 작업 흐름은
-> [`rule-catalog/workflows/`](../../../rule-catalog/workflows) 또는 패키지 소유의 동일한
-> 경계 아래에 있습니다. 정확한 ID 경계 인벤토리는 현재 `predictive-scale`과 선택적
-> `cost-aware-remediation` 패키지 작업 흐름을 연결합니다. 나머지 11개 설계 작업 흐름은
-> 에이전트 조율 메타데이터로만 남으며 섹션마다 파일 하나가 있다는 의미가 아닙니다. 이름이
-> 비슷하더라도 ID가 다른 `Process` 작업 흐름은 독립된 카탈로그 항목입니다. 스키마,
-> `Process` ObjectType, compile-to-Runbook 배선은
-> [process-automation.md](../decisioning/process-automation-ko.md)에 정의됩니다.
+> **기계가 읽을 수 있는 형식.** 배포된 실행 가능 워크플로우는 [`rule-catalog/workflows/`](../../../rule-catalog/workflows) 또는 각 패키지가 소유한 동등한 위치에 있습니다. 정확한 ID를 기준으로 관리하는 경계 목록에는 현재 `predictive-scale`과 선택적 `cost-aware-remediation` 패키지 워크플로우가 연결되어 있습니다. 나머지 11개 설계 워크플로우는 에이전트 간 작업 조율을 정의하는 메타데이터로만 존재하며, 각 섹션에 대응하는 파일이 하나씩 있다는 의미는 아닙니다. 이름이 비슷하더라도 명칭이 다른 `Process` 워크플로우는 별도의 카탈로그 항목입니다. 스키마, `Process` ObjectType, Runbook으로 컴파일하는 연결 구성은 [process-automation.md](../decisioning/process-automation-ko.md)에 정의되어 있습니다.
 
 ## 구현 상태
 

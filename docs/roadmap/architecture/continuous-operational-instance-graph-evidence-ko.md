@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph-evidence.md
-translation_source_sha: 8f2a2c5fa339d599c9f4d10a55ca291dfeca64b9
-translation_revised: 2026-10-26
+translation_source_sha: 6c4ac6d8e80ec6822d731f768c1a4df22c9f3396
+translation_revised: 2026-10-28
 ---
 
 # 지속형 운영 인스턴스 그래프 근거
@@ -45,6 +45,10 @@ binding을
 보호된 증적 readback은 배포 실행기 VNet에 연결된 ops 소유의 Blob 비공개 DNS 영역에서
 storage 계정 전용 record를 해석합니다. Workload 해석은 앱 소유 영역에 유지합니다. 이
 분리는 공용 네트워크 접근이나 storage key 인증 권한을 부여하지 않습니다.
+
+합성 OI-16 최종 확정 단위 테스트는 조회 불가 상태를 명시하는 대역을 포함해 프로젝션 상태 리더를
+주입하고, 실제 PostgreSQL 상태 저장소 생성을 거부합니다. 합성 연결 대기를 없애더라도
+데이터베이스 기반 통합, 배포 바인딩, 프로덕션 데이터 근거를 대신하지 않습니다.
 
 ## 변환 결과의 메모리 할당 사전 검사
 

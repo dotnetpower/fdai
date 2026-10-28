@@ -1,6 +1,6 @@
 ---
 title: Read the audit log
-description: What the append-only audit log records for every autonomous decision, and how to trace an incident back through it.
+description: Learn what the append-only audit log records and how to trace an incident through its autonomous decisions.
 ---
 
 # Read the audit log

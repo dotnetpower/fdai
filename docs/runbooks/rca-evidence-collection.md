@@ -1,6 +1,6 @@
 ---
 title: RCA Evidence Collection Runbook
-description: A template for assembling a bounded, cited evidence set before accepting a root-cause hypothesis.
+description: Use this template to assemble a bounded, cited evidence set before accepting a root-cause hypothesis.
 ---
 
 # RCA Evidence Collection Runbook

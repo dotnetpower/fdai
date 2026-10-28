@@ -1,6 +1,6 @@
 ---
 title: Agent ownership
-description: How the people who used to do the work stay accountable after FDAI takes it over, and how ownership handover moves their knowledge to the agent that replaced them.
+description: Learn how people remain accountable after FDAI takes over work and how ownership handover transfers their knowledge to the responsible agent.
 sidebar:
   order: 8
 ---

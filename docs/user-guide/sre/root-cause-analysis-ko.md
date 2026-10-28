@@ -1,18 +1,18 @@
 ---
 title: 근본 원인 분석
-description: FDAI가 티어별로 인용 가능한 근본 원인 가설을 만들고, 근거가 부족하면 판단을 보류하는 방법입니다.
+description: FDAI가 티어별로 출처를 인용할 수 있는 근본 원인 가설을 만들고, 근거가 부족하면 판단을 보류하는 방법을 알아봅니다.
 translation_of: root-cause-analysis.md
-translation_source_sha: dfe19bf9342589388a13c562fc5a56b00acf23a2
-translation_revised: 2026-09-03
+translation_source_sha: a74a07171e19b50f226a1ee5c7dec4cc74a25461
+translation_revised: 2026-10-22
 ---
 
 # 근본 원인 분석
 
-근본 원인 분석(Root-Cause Analysis, RCA)은 인시던트가 왜 일어났을 수 있는지 설명합니다.
-FDAI는 분석 결과를 인용, 신뢰도, 티어, 근거 확인 상태를 갖춘 가설로 저장합니다. 분석
-결과는 판단에 쓰는 근거일 뿐, 변경을 실행할 권한이 아닙니다.
+근본 원인 분석(Root-Cause Analysis, RCA)은 인시던트가 발생했을 수 있는 원인을 설명합니다.
+FDAI는 RCA를 인용 출처, 신뢰도, 신뢰 티어, 근거 확인 상태가 포함된 가설로 저장합니다.
+RCA는 의사결정을 위한 근거일 뿐, 변경 실행을 허가하는 수단이 아닙니다.
 
-![조사 및 RCA 문서 묶음. 주요 단계는 인시던트 범위, 근거 예산, 프로바이더 분석기, 타임라인 및 상관관계, RCA 가설, 근거 확인, 대응 계획 제안, 감사 추적입니다.](../../diagrams/generated/fdai-sre-investigation-rca-01.ko.svg)
+![조사 및 RCA 문서. 주요 단계는 인시던트 범위, 근거 예산, 공급자 분석기, 타임라인 및 상관관계, RCA 가설, 근거 확인, 대응 계획 제안, 감사 추적입니다.](../../diagrams/generated/fdai-sre-investigation-rca-01.ko.svg)
 
 ## 신뢰 티어별 근본 원인 분석
 

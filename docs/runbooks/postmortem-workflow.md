@@ -1,6 +1,6 @@
 ---
 title: Postmortem Workflow Runbook
-description: A template for reviewing a resolved incident and submitting evidence-backed follow-up.
+description: Use this template to review a resolved incident and submit evidence-backed follow-up.
 ---
 
 # Postmortem Workflow Runbook

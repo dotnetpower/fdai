@@ -26,12 +26,20 @@ writes `WARNING`, `ERROR`, and `CRITICAL` records to:
 
 The file remains JSON Lines so local automation can parse the same fields emitted to
 stdout. The handler uses a cross-process lock, stores the directory with mode `0700`,
-stores files with mode `0600`, and retains only records from the latest 24 hours. It
-appends each warning without rewriting the existing file, then coordinates compaction
-across processes on startup and at most once every five minutes. Lock acquisition is
+stores files with mode `0600`, and retains at most 4 MiB from the latest 24 hours.
+Every append checks that shared byte cap under the same lock. At the cap it keeps
+the newest half-window and an explicit `log_retention_truncated` marker before appending,
+instead of copying the entire log on every write. Oversized existing files are reclaimed
+on handler startup even if another process recently compacted them. Age-based compaction
+is coordinated across processes on startup and at most once every five minutes. Lock acquisition is
 bounded so a stalled writer doesn't block the application logging path indefinitely.
 Malformed records and records without a timezone-aware timestamp are removed during
 compaction.
+
+This file is a bounded diagnostic cache, not the append-only operational audit store.
+Byte retention can discard older diagnostic rows before 24 hours; the explicit marker
+prevents consumers from treating the retained tail as complete history. It does not delete
+Events, Incidents, audit records, or activity projections.
 
 Structured records are capped at 64 KiB. Oversized records retain their timestamp,
 level, logger, correlation id, bounded message and exception, selected scalar context,

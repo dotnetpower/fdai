@@ -1,6 +1,6 @@
 ---
 title: Postmortems and Learning
-description: How FDAI builds an evidence-backed postmortem draft and turns lessons into governed improvement candidates.
+description: Learn how FDAI builds an evidence-backed postmortem draft and turns lessons into governed improvement candidates.
 ---
 
 # Postmortems and Learning

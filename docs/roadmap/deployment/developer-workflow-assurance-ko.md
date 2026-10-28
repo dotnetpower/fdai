@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 486c2db5a9ddf87cc689a04ee82bf3051bcec531
+translation_source_sha: 0b1a2766be42a43d9dd114157302b3f31a04f386
 translation_revised: 2026-10-28
 ---
 
@@ -13,6 +13,12 @@ Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory e
 이 문서는 동시 FDAI 개발을 빠르고 재개 가능하며 fail-closed 상태로 유지하는 저장소 통제를
 정의합니다. 개발 워크플로 진단과 지연 근거를 소유하며, 제품 control plane이나 실행 권한은
 소유하지 않습니다.
+
+전체 스택 작업 출력은 서비스의 대량 표준 출력을 복제하지 않으면서 supervisor의 수명 주기,
+준비 상태와 시작 오류를 계속 표시합니다. 서비스별 회전 파일을 진단 소스로 유지하고, 공통
+경고 JSONL에는 프로세스 간 바이트 상한과 명시적인 제거 표식을 적용합니다. 이 상한은
+[로컬 로깅 계약](dev-and-deploy-parity-ko.md)에서 정의하며, 운영 감사 보존이나 활동 변환 결과는
+바꾸지 않습니다.
 
 > 범위: 이 제한된 캠페인은 [이슈 #116](https://github.com/dotnetpower/fdai/issues/116)에서
 > 추적합니다. 워크플로 최적화는 설계 문맥, 집중 검사, SHA 기반 CI, 신원 확인 또는 배포 승인을
