@@ -84,12 +84,14 @@ describe("notification service worker boundary", () => {
     expect([...context.handlers.keys()].sort()).toEqual(["activate", "install", "notificationclick"]);
   });
 
-  test("opens only scoped Audit and legacy Incident routes", () => {
+  test("opens only scoped Approvals, Audit, and legacy Incident routes", () => {
     const root = loadWorker();
     expect(root.safeTarget?.("/incidents?status=all")?.href).toBe(
       "https://console.example.com/incidents?status=all",
     );
-    expect(root.safeTarget?.("/approvals")).toBeNull();
+    expect(root.safeTarget?.("/approvals?data=live")?.pathname).toBe("/approvals");
+    expect(root.safeTarget?.("//attacker.example/approvals")).toBeNull();
+    expect(root.safeTarget?.("/approvals/other")).toBeNull();
     expect(root.safeTarget?.("//attacker.example/incidents")).toBeNull();
     expect(root.safeTarget?.("/audit?correlation=corr-1")?.pathname).toBe("/audit");
     expect(root.safeTarget?.("//attacker.example/audit")).toBeNull();
@@ -98,6 +100,8 @@ describe("notification service worker boundary", () => {
     const nested = loadWorker("https://console.example.com/fdai/");
     expect(nested.safeTarget?.("/fdai/incidents?status=all")?.pathname).toBe("/fdai/incidents");
     expect(nested.safeTarget?.("/incidents?status=all")).toBeNull();
+    expect(nested.safeTarget?.("/fdai/approvals?data=live")?.pathname).toBe("/fdai/approvals");
+    expect(nested.safeTarget?.("/approvals?data=live")).toBeNull();
     expect(nested.safeTarget?.("/fdai/audit?correlation=corr-1")?.pathname).toBe("/fdai/audit");
     expect(nested.safeTarget?.("/audit?correlation=corr-1")).toBeNull();
   });
@@ -113,6 +117,20 @@ describe("notification service worker boundary", () => {
 
     expect(openWindow).toHaveBeenCalledWith(
       `https://console.example.com/fdai/audit?correlation=corr-1${ACKNOWLEDGEMENT_SUFFIX}`,
+    );
+  });
+
+  test("opens the approval queue with the click acknowledgement", async () => {
+    const openWindow = vi.fn(async () => null);
+    const context = loadWorker("https://console.example.com/fdai/", {
+      matchAll: async () => [],
+      openWindow,
+    });
+
+    await clickNotification(context, "/fdai/approvals?data=live");
+
+    expect(openWindow).toHaveBeenCalledWith(
+      `https://console.example.com/fdai/approvals?data=live${ACKNOWLEDGEMENT_SUFFIX}`,
     );
   });
 
