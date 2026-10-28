@@ -130,7 +130,9 @@ The Live route keeps Authority coverage immediately after the source and attenti
 followed by a compact KPI row and Current activity. Events per second remains a 60-second SSE
 measurement. Gate and tier mix use the bounded current control-loop cards so reconnecting does not
 hide retained decisions already visible on the same screen. Source reads never create a gate or
-tier. This presentation order and aggregation change no stream, evidence, or authority.
+tier. Events that abstained before tier routing are shown as a separate unrouted count instead of
+T0, and an empty T1 and T2 share is explained rather than hidden. This presentation order and
+aggregation change no stream, evidence, or authority.
 The authenticated `/provisioning` route is a read-only projection of one durable subscription genesis run. It replays completed stages, resource discovery, and final verification without starting, retrying, approving, or changing deployment.
 Database, semantic, model, runtime, inventory, and system readiness remain separate, and resource and page totals stay estimates until independent inventory closure.
 Only a consistent terminal readiness snapshot reaches 100 percent; invalid frames still advance the cursor, a new run resets its sequence, and cancelled or failed runs remain explicit.

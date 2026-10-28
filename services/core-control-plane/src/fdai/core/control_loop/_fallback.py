@@ -17,6 +17,7 @@ from fdai.core.control_loop._execution_outcomes import (
     is_execution_success as _is_execution_success,
 )
 from fdai.core.control_loop._learned_reuse import record_learned_reuse_advisory
+from fdai.core.control_loop._t2_context import resolve_t2_context
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.executor.action_builder import ActionBuilder, ActionBuildError
 from fdai.core.hil_resume import HilResumeCoordinator
@@ -24,7 +25,7 @@ from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.risk_table import RiskTable
 from fdai.core.tiers.t1_lightweight.tier import T1Decision, T1Outcome, T1Tier
-from fdai.core.tiers.t2_reasoning import T2Decision, T2Outcome, T2ProposalContext, T2Tier
+from fdai.core.tiers.t2_reasoning import T2Decision, T2Outcome, T2Tier
 from fdai.core.trust_router import RoutingDecision
 from fdai.core.verticals.change_safety.detector import ChangeSafetyDecision
 from fdai.shared.contracts.models import Action, Event, Mode, Rule, Tier
@@ -528,28 +529,16 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
     ) -> ControlLoopResult | None:
         if self._t2_engine is None:
             return None
-        target_ref = event.resource_ref
-        resource = event.payload.get("resource")
-        if not target_ref and isinstance(resource, dict):
-            candidate_ref = resource.get("resource_id")
-            if isinstance(candidate_ref, str) and candidate_ref:
-                target_ref = candidate_ref
-        if not target_ref or not decision.resource_type:
-            return None
-        allowed_rules = tuple(
-            rule
-            for rule_id in decision.candidate_rule_ids
-            if (rule := self._rules_by_id.get(rule_id)) is not None
-            and rule.resource_type == decision.resource_type
-        )
-        if not allowed_rules:
-            return None
-        context = T2ProposalContext(
+        context = await resolve_t2_context(
+            self._emit_stage,
             event=event,
-            target_resource_ref=target_ref,
-            target_resource_type=decision.resource_type,
-            allowed_rules=allowed_rules,
+            decision=decision,
+            rules_by_id=self._rules_by_id,
+            event_id=event_id,
+            correlation_id=correlation_id,
         )
+        if context is None:
+            return None
         t2_decision = await self._t2_engine.evaluate(context=context)
         await self._emit_stage(
             event_id=event_id,
