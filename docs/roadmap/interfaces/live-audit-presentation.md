@@ -27,6 +27,11 @@ loaded evidence merely to match the smaller synthetic specimen.
 - Fullscreen expands only the activity workspace. Native fullscreen and the explicitly labeled
   expanded fallback preserve keyboard access, Escape dismissal, and focus restoration.
   Details and tooltips render within the active fullscreen element.
+- A value a card did not receive is explained by cause instead of one generic "not observed"
+  label: a failed item, a finished item that reported no reason, an item still pending, and shadow
+  mode (no effect applied) each read differently. Wording states only what the projection knows and
+  never asserts why a field is absent. Source-read cards show a plain-language reason for each known
+  reason code and keep the raw code in the detail panel; an unknown code is shown as recorded.
 
 ## Repeatable Sample comparison
 

@@ -22,7 +22,17 @@
     "cardLabel": "{activity} 상세 열기",
     "kindBadge": "소스 읽기",
     "observationTitle": "{domain} 관찰",
-    "reasonRecorded": "사유 코드 {count}개 기록",
+    "reasonAndMore": "{reason} 외 {count}건",
+    "reason": {
+      "source_unconfigured": "소스가 구성되지 않음",
+      "source_timeout": "소스 읽기 시간 초과",
+      "source_unauthorized": "이 소스를 읽을 권한이 없음",
+      "source_throttled": "소스가 요청을 제한함",
+      "provider_contract_violation": "소스가 올바르지 않은 응답을 반환함",
+      "provider_failure": "소스가 오류를 보고함",
+      "state_write_conflict": "결과를 저장하지 못함(쓰기 충돌)",
+      "source_stale": "소스 데이터가 최신성 기준보다 오래됨"
+    },
     "loading": "실시간 관찰 활동을 불러오는 중",
     "waiting": "관찰 스트림이 연결되었습니다. 다음 소스 읽기 활동을 기다리는 중입니다.",
     "unavailable": "실시간 관찰 활동을 사용할 수 없습니다.",
@@ -131,6 +141,7 @@
     "columns": {"controlLoop": "제어 루프", "stage": "현재 단계", "age": "경과", "tier": "티어", "mode": "모드", "decision": "결정", "work": "작업", "tierMode": "티어 / 모드", "why": "이유", "ownerStage": "담당 / 단계", "riskImpact": "위험 / 영향", "ageSla": "경과 / SLA", "controlState": "제어 상태"}
   },
   "control": {"notObserved": "관찰되지 않음", "notStarted": "시작되지 않음", "notDispatched": "전송되지 않음", "simulated": "시뮬레이션됨", "inProgress": "진행 중", "completed": "완료", "executionFailed": "실패"},
+  "absent": {"reasonFailed": "실패 - 사유가 보고되지 않음", "reasonCompleted": "이 결정과 함께 보고된 사유 없음", "reasonPending": "아직 기록되지 않음", "scope": "이 이벤트가 범위를 보고하지 않음", "authority": "자율 등급이 보고되지 않음", "effectShadow": "적용 안 됨 - shadow 모드는 기록만 합니다", "effectPending": "대기 중", "effectUnreported": "보고되지 않음"},
   "outcome": {"effect_verified": "효과 독립 검증 완료"},
   "scenario": {
     "eyebrow": "115초 검토 경로",

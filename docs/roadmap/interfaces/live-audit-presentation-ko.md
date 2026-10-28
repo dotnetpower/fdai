@@ -1,7 +1,7 @@
 ---
 translation_of: live-audit-presentation.md
-translation_source_sha: 537a1e5e178c639017b0452da5f38146e50ae5b2
-translation_revised: 2026-09-16
+translation_source_sha: c270cec6db01519b5fce1417618cb39f6c28cec9
+translation_revised: 2026-10-28
 ---
 # Live와 감사 로그 화면
 
@@ -29,6 +29,11 @@ translation_revised: 2026-09-16
 - 전체화면은 활동 작업 영역만 확장합니다. 브라우저 전체화면과 명시적인 확장 보기 모두
   키보드 조작, Escape 종료 및 포커스 복원을 유지합니다. 상세 패널과 툴팁은 활성
   전체화면 요소 안에 표시합니다.
+- 카드가 받지 못한 값은 하나의 "관찰되지 않음" 대신 원인별로 설명합니다. 실패한 항목, 사유 없이
+  끝난 항목, 아직 진행 중인 항목, 효과를 적용하지 않는 shadow 모드는 각각 다르게 표시합니다.
+  문구는 조회 결과가 아는 내용만 말하며 필드가 없는 이유를 단정하지 않습니다. 소스 읽기 카드는
+  알려진 사유 코드마다 쉬운 말로 된 이유를 보여주고 원본 코드는 상세 패널에 유지하며, 알 수 없는
+  코드는 기록된 그대로 표시합니다.
 
 ## 반복 가능한 Sample 비교
 
