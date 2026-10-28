@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: eec7cba63dad98d4f6c5d740c0b01b036f988498
-translation_revised: 2026-10-28
+translation_source_sha: e2e642a4a6881bbbdb86fc42252f6e20c4c8029d
+translation_revised: 2026-10-29
 ---
 # 온톨로지 구조 모델
 
@@ -435,7 +435,7 @@ id, 테이블, 엔드포인트 및 호출자 필터는 표현할 수 없습니�
 | 접근 제어에 따른 가림 | principal이 엔드포인트, 속성 또는 근거 필드를 읽을 수 없습니다. |
 | 표현 생략 | Console 집중 보기가 범위가 제한된 응답 항목을 의도적으로 숨깁니다. |
 
-ObjectType 상세는 정확한 카탈로그 버전에 선언된 모든 속성을 보존합니다. 서버가 소유하는 역할 및
+ObjectType 상세는 정확한 카탈로그 버전에 선언된 모든 속성을 보존합니다. 서버가 소유하는 역할 및 수명주기가 없는 ObjectType 상세는 검토된 수명주기 분류와 근거를 함께 제공하므로 Console은 빈 상태 대신 수명주기 소유 방식을 설명하며, 이 분류는 수명주기 소유자나 권한을 부여하지 않습니다.
 용도 필터는 속성을 제거하고 가림 상태를 보고할 수 있지만, 어떤 변환 결과나 Console 화면도 선언된
 속성을 버리거나 생략된 속성 집합을 완전하다고 표시할 수 없습니다. 제공되는 ObjectType은 런타임
 저장소가 도메인별 식별자 이름을 사용하더라도 정규화된 온톨로지 키 `id`를 유지합니다. 필수 의미
