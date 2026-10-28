@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: abdf3b940d275299ed8bded14406e502a539418c
+translation_source_sha: 42d2c964e14f77f23cca348dddb0438b355790a4
 translation_revised: 2026-10-29
 ---
 # 배포 리소스 규약
@@ -382,6 +382,8 @@ OS 디스크는 Premium SSD를 사용합니다. 로컬 임시 SSD에는 삭제�
 각 샤드는 pytest 워커 3개를 사용합니다. 리스너마다 실행 파일, 작업 공간, 캐시 경로를 분리하고,
 systemd에서 CPU 3개와 RAM 12 GiB로 제한합니다.
 등록 과정에서는 대상이 일치하는 유휴 러너를 유지하며, 작업 중이거나 대상이 다른 러너는 변경하지 않습니다.
+공통 테스트 도구도 작업별로 설치합니다. OPA는 sudo나 공용 `/tmp/opa` 바이너리 대신
+`RUNNER_TEMP`와 `GITHUB_PATH`를 사용하므로, 병렬 리스너에 관리 권한을 부여할 필요가 없습니다.
 보호된 main의 소스 출처 검증을 통과하고 `FDAI_CI_SSD_RUNNER_ENABLED=true`가 설정되어야 합니다.
 모든 끌어오기 요청과 비활성화 경로는 GitHub 호스팅 러너를 계속 사용합니다. 러너 준비 상태,
 워크플로 게시, 경로 활성화, 측정된 CI 개선은 각각 별도의 근거가 필요하며, 한 단계의 확인이
