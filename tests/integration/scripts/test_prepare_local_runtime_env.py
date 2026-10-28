@@ -272,6 +272,11 @@ def test_prepares_local_transport_without_copying_stale_transport(
     values[values.index(core_state_store)] = core_state_store.removesuffix(
         "?options=-c%20role%3Dfdai_core"
     )
+    pattern_library = next(
+        value for value in values if value.startswith("FDAI_T1_PATTERN_LIBRARY_DSN=")
+    )
+    assert pattern_library.partition("=")[2] == core_state_store.partition("=")[2]
+    values.remove(pattern_library)
     expected_prefix = [
         "VITE_MSAL_CLIENT_ID=client",
         "FDAI_TEAMS_OPS_ENDPOINT=https://flow.example.com/trigger/local",
