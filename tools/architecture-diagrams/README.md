@@ -275,6 +275,20 @@ Viewer toolbar controls use 44px targets on narrow screens. The docs site's
 compiler type and security checks remain in this package. Regenerate the viewer
 through `render` after changing its source.
 
+When a diagram renders below half of its authored scale, or when a narrow screen
+shows only a pannable part of it, the viewer shows a localized hint with an
+Open fullscreen button instead of leaving small labels unexplained.
+
+## Reference-profile presentation
+
+Diagrams that use the `azure-reference` or `network-azure-reference` profile
+keep their light surfaces even when the docs site selects the dark theme,
+because their Azure icons and fixed group fills are authored for light
+backgrounds. An element that is not provisioned yet sets `status: planned` on
+its node. The renderer draws it with a dashed outline, a dimmed icon, and an
+italic label; also add "(planned)" to the visible label so the status doesn't
+depend on styling.
+
 ## Azure icons and fonts
 
 Only use an official Azure icon for an actual Azure service. Keep the product
