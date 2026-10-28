@@ -212,6 +212,19 @@ describe("grounded reply presentation", () => {
     )).toBe("확인할 리소스의 정확한 이름 또는 리소스 ID를 알려주세요?");
   });
 
+  it("keeps the server's own text for a review-only action draft", () => {
+    const draft = {
+      ...verification("ontology-query"),
+      status: "unverified" as const,
+      reason_code: "semantic_action_draft",
+    };
+
+    expect(primaryAnswerText(
+      "요청을 검토 전용 작업 초안으로 만들었습니다. (semantic_action_draft)",
+      draft,
+    )).toBe("요청을 검토 전용 작업 초안으로 만들었습니다.");
+  });
+
   it("asks a bounded clarification instead of repeating an unavailable answer", () => {
     const unavailable = {
       ...verification("server_read_model"),

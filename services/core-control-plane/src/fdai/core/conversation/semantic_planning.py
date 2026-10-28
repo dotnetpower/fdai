@@ -78,6 +78,7 @@ from .semantic_planning_judgment import (
     _operational_frame_matches_accepted_judgment,
     _safe_validation_reason,
     _semantic_judgment_capabilities,
+    typed_only_exempt,
 )
 from .semantic_planning_models import (
     BoundIncident,
@@ -491,22 +492,19 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                 return preflight_router.finish(
                     settled_clarification(ticket, clarified, manifest_digest, model_observations)
                 )
-            typed_action_draft = (  # a no-authority draft is not a read
-                typed_only
-                and judgment_decision is not None
-                and judgment_decision.accepted
-                and getattr(judgment_proposal, "action_posture", None) == "draft_only"
+            typed_non_read = typed_only_exempt(
+                judgment_decision, typed_only, not unbound_conversation
             )
             compiled = (
                 ticket.outcome(
                     manifest_digest=manifest.manifest_digest, observations=model_observations
                 )
-                if ticket is not None and not typed_action_draft
+                if ticket is not None and not typed_non_read
                 else None
             )
             if compiled is not None:
                 return preflight_router.finish(compiled)
-            if typed_only and typed_recent_change_frame is None and not typed_action_draft:
+            if typed_only and typed_recent_change_frame is None and not typed_non_read:
                 return preflight_router.finish(
                     typed_only_outcome(ticket, manifest_digest=manifest_digest)
                 )
