@@ -182,7 +182,7 @@ def _build_data_sources(
         ReadDataSource(
             key="detection-readiness",
             source="service-local-projection" if configured else "not-configured",
-            routes=("/detection-coverage", "/detection-readiness"),
+            routes=("/detection-coverage", "/detection-readiness", "/findings"),
             availability="unknown" if configured else "unavailable",
             configured=configured,
             reachable=None,

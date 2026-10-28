@@ -123,8 +123,7 @@ Execution authorization resolves through the provider-neutral capability ontolog
 policy assignments described in
 [Execution Authorization Ontology](../decisioning/execution-authorization-ontology.md). Action
 approval never grants executor access. A missing permission holds the original action and may
-create a separate exact-plan `AccessGrantRequest`; a distinct protected deployer applies an
-approved grant, and fresh effective-access evidence is required before the action is re-evaluated.
+create a separate exact-plan `AccessGrantRequest`; a distinct protected deployer applies an approved grant, and fresh effective-access evidence is required before the action is re-evaluated.
 
 - Map every action to the minimum role/permission needed; **deny by default**.
 - Enforce least privilege mechanically, not by convention: the action whitelist is
@@ -140,6 +139,7 @@ approved grant, and fresh effective-access evidence is required before the actio
   ownership revision candidate, and the request is bound to the candidate digest the Owner
   reviewed. Core rechecks the stored role and digest, records one receipt per request, and grants
   no IAM, deployment, or Azure authority.
+- **Current analyzer Findings and availability expectations**: the Operator serves Findings through a Reader-authorized, read-only projection, and expectations change only through the existing Owner-only, revision-checked, audited Runtime Settings path; reading a Finding, selecting a notification channel, or storing an expectation grants no execution, approval, or Incident authority.
 - Autonomous deployments must respect platform policy (e.g. Azure Policy `deny`); provide a
   **policy-exemption workflow** (requestable, time-boxed, audited, owner-approved) rather than
   bypassing controls.

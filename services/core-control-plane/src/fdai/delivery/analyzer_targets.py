@@ -25,7 +25,7 @@ a resource is eligible; the analyzer's own findings carry their evidence.
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -38,6 +38,14 @@ from fdai.delivery.analyzer_inventory import (
     AnalyzerProviderReferenceReader,
     read_provider_query_references,
     read_resources_by_provider_references,
+)
+from fdai.delivery.analyzer_target_coverage import (
+    HOLD_DUPLICATE_CANDIDATE,
+    HOLD_NOT_SELECTED,
+    HOLD_SELECTION_LIMIT,
+    AnalyzerResourceTypeResolution,
+    configured_resource_type_resolution,
+    inventory_resource_type_resolution,
 )
 from fdai.delivery.analyzer_tick import AnalyzerTarget
 from fdai.shared.providers.decision_evidence_verifier import (
@@ -68,52 +76,11 @@ SKIP_UNUSABLE_STATE_FACT = "unusable_state_fact"
 SKIP_STALE_STATE_FACT = "stale_state_fact"
 SKIP_UNVERIFIED_STATE_FACT = "unverified_state_fact"
 SKIP_TELEMETRY_SOURCE_UNAVAILABLE = "telemetry_source_unavailable"
-HOLD_DUPLICATE_CANDIDATE = "duplicate_candidate"
-HOLD_NOT_SELECTED = "not_selected"
-HOLD_SELECTION_LIMIT = "selection_limit"
 ANALYZER_TARGET_EVIDENCE_PURPOSE = "analyzer-target-selection"
 
 
 class AnalyzerTargetResolutionError(RuntimeError):
     """The durable inventory or its provider identity could not ground this tick."""
-
-
-@dataclass(frozen=True, slots=True)
-class AnalyzerResourceTypeResolution:
-    """Candidate, selected, and held counts for one canonical resource type."""
-
-    resource_type: str
-    candidate_count: int
-    selected_count: int
-    held_count: int
-    held_reason_counts: tuple[tuple[str, int], ...] = ()
-
-    def __post_init__(self) -> None:
-        if not self.resource_type or len(self.resource_type) > 128:
-            raise ValueError("analyzer coverage resource_type MUST be bounded text")
-        if min(self.candidate_count, self.selected_count, self.held_count) < 0:
-            raise ValueError("analyzer coverage counts MUST be non-negative")
-        if self.candidate_count != self.selected_count + self.held_count:
-            raise ValueError("analyzer coverage candidate totals MUST reconcile")
-        if (
-            sum(count for _reason, count in self.held_reason_counts) != self.held_count
-            or len({reason for reason, _count in self.held_reason_counts})
-            != len(self.held_reason_counts)
-            or any(
-                not reason or len(reason) > 128 or count <= 0
-                for reason, count in self.held_reason_counts
-            )
-        ):
-            raise ValueError("analyzer coverage held reasons MUST reconcile")
-
-    def to_dict(self) -> dict[str, object]:
-        return {
-            "resource_type": self.resource_type,
-            "candidate_count": self.candidate_count,
-            "selected_count": self.selected_count,
-            "held_count": self.held_count,
-            "held_reason_counts": dict(self.held_reason_counts),
-        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +110,7 @@ class AnalyzerTargetResolution:
     truncated: bool = False
     resource_types: tuple[AnalyzerResourceTypeResolution, ...] = ()
     coverage_unavailable_reason: str | None = None
+    inventory_generation: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -169,6 +137,7 @@ async def resolve_analyzer_targets(
     decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
     provider_references: AnalyzerProviderReferenceReader | None = None,
     discovered_hold_reasons: Mapping[str, str] | None = None,
+    availability_resources: Mapping[str, str] | None = None,
 ) -> AnalyzerTargetResolution:
     """Return the configured targets plus every eligible inventory-backed one.
 
@@ -188,6 +157,9 @@ async def resolve_analyzer_targets(
             logical Resource id to the provider-native metric query identity.
         discovered_hold_reasons: Resource type to deterministic reason for
             withholding inventory-discovered targets before provider queries.
+        availability_resources: Exact logical ids and types from the enabled,
+            validated availability policy. These retain inventory admission but
+            do not require a metric source.
 
     Raises:
         ValueError: ``now`` is naive or ``max_discovered`` is out of bounds.
@@ -198,6 +170,15 @@ async def resolve_analyzer_targets(
         raise ValueError("resolve_analyzer_targets requires a timezone-aware now")
     if not 1 <= max_discovered <= MAX_DISCOVERED_CEILING:
         raise ValueError(f"max_discovered MUST be in [1, {MAX_DISCOVERED_CEILING}]")
+    availability_resources = availability_resources or {}
+    analyzer_kinds = {
+        **analyzer_kinds,
+        **{
+            resource_type: "resource_availability"
+            for resource_type in availability_resources.values()
+            if resource_type not in analyzer_kinds
+        },
+    }
     hold_reasons = discovered_hold_reasons or {}
     if any(
         resource_type not in analyzer_kinds or not reason or len(reason) > 128
@@ -210,7 +191,7 @@ async def resolve_analyzer_targets(
             _target_with_resource_type(target, analyzer_kinds=analyzer_kinds)
             for target in _deduplicate_configured_targets(configured)
         )
-        provider_bound_kinds = frozenset(analyzer_kinds.values())
+        provider_bound_kinds = frozenset(analyzer_kinds.values()) - {"kubernetes_pod"}
         if any(
             _looks_like_azure_provider_ref(target.resource_ref)
             or (target.resource_kind in provider_bound_kinds and target.provider_query_ref is None)
@@ -225,7 +206,7 @@ async def resolve_analyzer_targets(
             configured=len(unbound_targets),
             discovered=0,
             inventory_consulted=False,
-            resource_types=_configured_resource_type_resolution(unbound_targets),
+            resource_types=configured_resource_type_resolution(unbound_targets),
             coverage_unavailable_reason=(
                 None
                 if all(target.resource_type is not None for target in unbound_targets)
@@ -292,6 +273,7 @@ async def resolve_analyzer_targets(
             skipped=skipped,
             decision_evidence=decision_evidence,
             discovered_hold_reasons=hold_reasons,
+            availability_resources=availability_resources,
         )
         candidate_hold_reasons.append(
             None if candidate is not None else _new_skip_reason(before_skipped, skipped)
@@ -317,11 +299,20 @@ async def resolve_analyzer_targets(
     provider_resource_types.update(
         {target.resource_ref: str(target.resource_type) for target in selected}
     )
+    provider_resource_types = {
+        resource_ref: resource_type
+        for resource_ref, resource_type in provider_resource_types.items()
+        if resource_type != "kubernetes.pod"
+    }
     try:
-        provider_query_refs = await read_provider_query_references(
-            provider_references,
-            expected_resource_types=provider_resource_types,
-            expected_snapshot_id=snapshot.source_generation,
+        provider_query_refs = (
+            await read_provider_query_references(
+                provider_references,
+                expected_resource_types=provider_resource_types,
+                expected_snapshot_id=snapshot.source_generation,
+            )
+            if provider_resource_types
+            else {}
         )
     except AnalyzerInventoryIdentityError as exc:
         raise AnalyzerTargetResolutionError(str(exc)) from exc
@@ -349,11 +340,11 @@ async def resolve_analyzer_targets(
                 resource_ref=target.resource_ref,
                 resource_kind=target.resource_kind,
                 resource_type=target.resource_type,
-                provider_query_ref=provider_query_refs[target.resource_ref],
+                provider_query_ref=provider_query_refs.get(target.resource_ref),
             )
         )
 
-    provider_bound_kinds = frozenset(analyzer_kinds.values())
+    provider_bound_kinds = frozenset(analyzer_kinds.values()) - {"kubernetes_pod"}
     if any(
         target.resource_kind in provider_bound_kinds and target.provider_query_ref is None
         for target in ordered
@@ -362,7 +353,7 @@ async def resolve_analyzer_targets(
             "analyzer target is absent from active inventory provider identity"
         )
 
-    resource_types, coverage_reason = _inventory_resource_type_resolution(
+    resource_types, coverage_reason = inventory_resource_type_resolution(
         records=snapshot.objects,
         candidate_hold_reasons=candidate_hold_reasons,
         withheld_refs=withheld_refs,
@@ -381,6 +372,7 @@ async def resolve_analyzer_targets(
         truncated=snapshot.truncated or withheld,
         resource_types=resource_types,
         coverage_unavailable_reason=coverage_reason,
+        inventory_generation=snapshot.source_generation,
     )
 
 
@@ -412,108 +404,6 @@ def _unique_resource_type_for_kind(
         if analyzer_kind == resource_kind
     ]
     return matches[0] if len(matches) == 1 else None
-
-
-def _configured_resource_type_resolution(
-    targets: Sequence[AnalyzerTarget],
-) -> tuple[AnalyzerResourceTypeResolution, ...]:
-    if any(target.resource_type is None for target in targets):
-        return ()
-    selected = Counter(str(target.resource_type) for target in targets)
-    return tuple(
-        AnalyzerResourceTypeResolution(
-            resource_type=resource_type,
-            candidate_count=count,
-            selected_count=count,
-            held_count=0,
-        )
-        for resource_type, count in sorted(selected.items())
-    )
-
-
-def _inventory_resource_type_resolution(
-    *,
-    records: Sequence[OntologyObjectRecord],
-    candidate_hold_reasons: Sequence[str | None],
-    withheld_refs: set[str],
-    targets: Sequence[AnalyzerTarget],
-    analyzer_kinds: Mapping[str, str],
-) -> tuple[tuple[AnalyzerResourceTypeResolution, ...], str | None]:
-    if any(target.resource_type is None for target in targets):
-        return (), "selected_resource_type_absent"
-
-    if len(candidate_hold_reasons) != len(records):
-        return (), "candidate_hold_reason_count_mismatch"
-
-    candidates: list[tuple[str | None, str, str | None]] = []
-    candidate_refs: set[str] = set()
-    candidate_types_by_ref: dict[str, set[str]] = defaultdict(set)
-    for record, hold_reason in zip(records, candidate_hold_reasons, strict=True):
-        resource_ref = record.properties.get("id")
-        resource_type = record.properties.get("type")
-        normalized_ref = (
-            resource_ref.strip() if isinstance(resource_ref, str) and resource_ref.strip() else None
-        )
-        normalized_type = (
-            resource_type.strip()
-            if isinstance(resource_type, str) and resource_type.strip() in analyzer_kinds
-            else "unclassified"
-        )
-        candidates.append((normalized_ref, normalized_type, hold_reason))
-        if normalized_ref is not None:
-            candidate_refs.add(normalized_ref)
-            candidate_types_by_ref[normalized_ref].add(normalized_type)
-
-    if any(len(resource_types) > 1 for resource_types in candidate_types_by_ref.values()):
-        return (), "candidate_resource_type_conflict"
-
-    for target in targets:
-        if target.resource_ref not in candidate_refs:
-            candidates.append((target.resource_ref, str(target.resource_type), None))
-
-    selected_refs = {target.resource_ref for target in targets}
-    matched_selected: set[str] = set()
-    candidate_counts: Counter[str] = Counter()
-    selected_counts: Counter[str] = Counter(str(target.resource_type) for target in targets)
-    held_counts: Counter[str] = Counter()
-    held_reasons: dict[str, Counter[str]] = defaultdict(Counter)
-    for resource_ref, resource_type, hold_reason in candidates:
-        candidate_counts[resource_type] += 1
-        if (
-            resource_ref is not None
-            and resource_ref in selected_refs
-            and resource_ref not in matched_selected
-        ):
-            matched_selected.add(resource_ref)
-        else:
-            held_counts[resource_type] += 1
-            if hold_reason is not None:
-                reason = hold_reason
-            elif resource_ref in withheld_refs:
-                reason = HOLD_SELECTION_LIMIT
-            elif resource_ref in matched_selected:
-                reason = HOLD_DUPLICATE_CANDIDATE
-            else:
-                reason = HOLD_NOT_SELECTED
-            held_reasons[resource_type][reason] += 1
-
-    if matched_selected != selected_refs:
-        return (), "selected_resource_identity_absent"
-    resource_types = set(candidate_counts) | set(selected_counts) | set(held_counts)
-    try:
-        resolution = tuple(
-            AnalyzerResourceTypeResolution(
-                resource_type=resource_type,
-                candidate_count=candidate_counts[resource_type],
-                selected_count=selected_counts[resource_type],
-                held_count=held_counts[resource_type],
-                held_reason_counts=tuple(sorted(held_reasons[resource_type].items())),
-            )
-            for resource_type in sorted(resource_types)
-        )
-    except ValueError:
-        return (), "resource_type_totals_unreconciled"
-    return resolution, None
 
 
 def _new_skip_reason(before: Counter[str], after: Counter[str]) -> str:
@@ -616,6 +506,7 @@ async def _eligible_target(
     skipped: Counter[str],
     decision_evidence: DecisionEvidenceAdmissionProvider | None,
     discovered_hold_reasons: Mapping[str, str],
+    availability_resources: Mapping[str, str],
 ) -> AnalyzerTarget | None:
     """Return one analyzable target, or ``None`` with a recorded skip reason."""
     resource_id = record.properties.get("id")
@@ -629,11 +520,14 @@ async def _eligible_target(
         return None
     normalized_resource_type = resource_type.strip()
     analyzer_kind = analyzer_kinds.get(normalized_resource_type)
-    if analyzer_kind is None:
+    availability_selected = availability_resources.get(resource_id) == normalized_resource_type
+    if analyzer_kind is None or (
+        analyzer_kind == "resource_availability" and not availability_selected
+    ):
         skipped[SKIP_UNMAPPED_RESOURCE_TYPE] += 1
         return None
     hold_reason = discovered_hold_reasons.get(normalized_resource_type)
-    if hold_reason is not None:
+    if hold_reason is not None and not availability_selected:
         skipped[hold_reason] += 1
         return None
     provider_properties = record.properties.get("properties")

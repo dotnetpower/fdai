@@ -217,6 +217,7 @@ async def _resolve(
     provider_references: StubProviderReferenceReader | None = None,
     bind_provider_references: bool = True,
     discovered_hold_reasons: Mapping[str, str] | None = None,
+    availability_resources: Mapping[str, str] | None = None,
 ):
     reader = provider_references
     if reader is None and store is not None and bind_provider_references:
@@ -231,12 +232,65 @@ async def _resolve(
         ),
         provider_references=reader,
         discovered_hold_reasons=discovered_hold_reasons,
+        availability_resources=availability_resources,
     )
 
 
 # ---------------------------------------------------------------------------
 # Durable inventory resolution
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "resource_type",
+    ["compute.web-app", "compute.function", "compute.container-app", "kubernetes-node-pool"],
+)
+async def test_availability_only_types_require_an_exact_enabled_policy_resource(
+    resource_type: str,
+) -> None:
+    store = StubStore(
+        [_resource("resource:selected", resource_type), _resource("resource:other", resource_type)],
+        source_generation="generation-1",
+    )
+    result = await _resolve(store, availability_resources={"resource:selected": resource_type})
+    assert [(target.resource_ref, target.resource_kind) for target in result.targets] == [
+        ("resource:selected", "resource_availability")
+    ]
+    assert result.inventory_generation == "generation-1"
+    disabled = await _resolve(store)
+    assert not disabled.targets
+
+
+async def test_availability_selection_does_not_inherit_metric_source_holds() -> None:
+    store = StubStore(
+        [
+            _resource("resource:selected", "kubernetes-cluster"),
+            _resource("resource:other", "kubernetes-cluster"),
+        ]
+    )
+    result = await _resolve(
+        store,
+        discovered_hold_reasons={"kubernetes-cluster": "telemetry_source_unavailable"},
+        availability_resources={"resource:selected": "kubernetes-cluster"},
+    )
+    assert [target.resource_ref for target in result.targets] == ["resource:selected"]
+    assert result.targets[0].resource_kind == "aks_cluster"
+    assert dict(result.skipped_reason_counts) == {"telemetry_source_unavailable": 1}
+
+
+async def test_availability_policy_never_bypasses_stale_state_admission() -> None:
+    store = StubStore(
+        [
+            _resource(
+                "resource:stale",
+                "compute.web-app",
+                state_fact=_state_fact(observed_at=NOW - timedelta(hours=1)),
+            )
+        ]
+    )
+    result = await _resolve(store, availability_resources={"resource:stale": "compute.web-app"})
+    assert not result.targets
+    assert result.skipped_reasons
 
 
 @pytest.mark.asyncio
@@ -710,7 +764,10 @@ async def test_unbound_non_metric_target_does_not_require_provider_identity() ->
 
     resolution = await _resolve(None, configured=(target,))
 
-    assert resolution.targets == (target,)
+    assert len(resolution.targets) == 1
+    assert resolution.targets[0].resource_ref == target.resource_ref
+    assert resolution.targets[0].resource_type == "kubernetes.pod"
+    assert resolution.targets[0].provider_query_ref is None
 
 
 @pytest.mark.asyncio
@@ -1198,7 +1255,10 @@ async def test_unmapped_resources_do_not_starve_later_supported_targets() -> Non
         {
             "type": (
                 "api-gateway",
+                "compute.vm",
+                "compute.vm-scale-set",
                 "kubernetes-cluster",
+                "kubernetes.pod",
                 "llm-endpoint",
                 "mysql-server",
                 "network.application-gateway",
