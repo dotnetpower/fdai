@@ -44,6 +44,17 @@ _LOGGER = logging.getLogger("fdai.core.control_loop.orchestrator")
 type ExecutionResultType = ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult
 
 
+def _rollback_state(
+    result: ExecutionResultType, verification: EffectVerificationResult
+) -> bool | None:
+    """An executor that reports no rollback state, plus an independently verified effect in place,
+    means no rollback happened; unverified outcomes keep the state unknown."""
+    reported = getattr(result, "rollback_succeeded", None)
+    if reported is None and verification.status is EffectVerificationStatus.VERIFIED:
+        return False
+    return reported
+
+
 class ControlLoopExecutionEffectsMixin:
     """Record reconciliation, shadow evidence, and workflow outcomes."""
 
@@ -307,7 +318,7 @@ class ControlLoopExecutionEffectsMixin:
             expected=expected,
             observed=observed,
             decision=authorization_decision,
-            rollback_succeeded=getattr(result, "rollback_succeeded", None),
+            rollback_succeeded=_rollback_state(result, verification),
         )
         try:
             await self._audit_store.append_audit_entry(entry)
