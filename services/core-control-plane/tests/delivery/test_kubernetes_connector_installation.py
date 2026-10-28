@@ -153,6 +153,9 @@ def test_installation_preview_is_deterministic_non_root_and_read_only(tmp_path) 
         assert container["securityContext"]["readOnlyRootFilesystem"] is True
         assert container["securityContext"]["capabilities"]["drop"] == ["ALL"]
         assert container["image"] == install_inputs().image
+    spool_step = next(item for item in pod["initContainers"] if item["name"] == "spool-directory")
+    assert spool_step["volumeMounts"] == [{"name": "spool", "mountPath": "/spool"}]
+    assert "os.chmod(p, 0o700)" in spool_step["command"][-1]
     assert resources["NetworkPolicy"]["spec"]["ingress"] == []
     assert resources["NetworkPolicy"]["spec"]["egress"][0]["ports"] == [
         {"protocol": "TCP", "port": 8443}
@@ -789,3 +792,28 @@ def test_rendered_resources_pass_strict_kubernetes_schemas(tmp_path, version) ->
     invalid["spec"]["unsupportedObserverField"] = True
     with pytest.raises(validator.ValidationError):
         validator.validate(invalid, version, strict=True)
+
+
+def test_spool_directory_step_undoes_the_volume_group_mode_changes(tmp_path) -> None:
+    import subprocess
+    import sys
+
+    from fdai.delivery.kubernetes_connector_installation import _SPOOL_DIRECTORY_SCRIPT
+
+    spool = tmp_path / "snapshots"
+    spool.mkdir()
+    database = spool / "snapshots.sqlite3"
+    database.write_bytes(b"synthetic")
+    spool.chmod(0o2770)
+    database.chmod(0o660)
+    script = _SPOOL_DIRECTORY_SCRIPT.replace("/spool/snapshots", str(spool))
+    subprocess.run([sys.executable, "-c", script], check=True)  # noqa: S603
+    assert stat.S_IMODE(spool.stat().st_mode) == 0o700
+    assert stat.S_IMODE(database.stat().st_mode) == 0o600
+    fresh = tmp_path / "fresh" / "snapshots"
+    fresh.parent.mkdir(mode=0o2770)
+    fresh.parent.chmod(0o2770)
+    subprocess.run(  # noqa: S603
+        [sys.executable, "-c", script.replace(str(spool), str(fresh))], check=True
+    )
+    assert stat.S_IMODE(fresh.stat().st_mode) == 0o700

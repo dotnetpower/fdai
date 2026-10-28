@@ -114,6 +114,9 @@ Projected Kubernetes Secret files can be root-owned symlinks, so mounting them d
 violate the worker's private-file contract. A non-root init step reads only five named files from
 one resolved in-volume generation and stages them atomically into an owner-only ephemeral directory.
 Escaping symlinks, writable source files, oversized content and changed existing material fail.
+A second init step resets the spool directory to `0700` and its files to `0600` on every start,
+because Kubernetes applies the pod `fsGroup` to a volume at each mount, which makes the directory
+set-group-ID and existing files group-writable and would otherwise fail the next run.
 The observer then uses its unchanged `0600`/`0700` checks. This is runtime material handling, not
 repository credential generation; preview output contains references only. Preview does not prove
 image provenance, admission, storage support, egress, rollout, revocation or uninstall readiness.
@@ -197,9 +200,47 @@ inventory writer still owns all resource and verified-relationship promotion. Th
 content and sequence atomically with audit, but its acknowledgment does not prove graph promotion.
 
 This path transfers complete content-safe snapshots only. Event history, durable read task dispatch,
-Executor work, segmentation, approved installation, and protected live validation remain separate
+Executor work, segmentation, and protected live validation remain separate
 delivery items. A scheduler may invoke the bounded observer cycle; no startup launcher enables it
 implicitly. Local TLS and PostgreSQL tests use synthetic evidence and prove mechanics only.
+
+## Governed installation
+
+The preview renderer never changes a cluster. A separate command applies the same fixed recipe:
+
+```bash
+python -m fdai.delivery.kubernetes_connector_apply_cli apply --inputs ... --proposal ... \
+  --material-directory ... --cluster-uid <kube-system UID> --kubeconfig ... \
+  --lock-directory ... --audit-file ... --approver <human>
+```
+
+Without `--approve-manifest-digest`, the command only checks the cluster identity and runs a
+server-side dry-run, then prints the exact manifest digest to approve. Repeat it with that digest
+to install. The apply, `activate`, and `rollback` operations each need their own short-lived
+(at most 30 minutes) approval bound to the target, namespace, name, inputs, proposal, and manifest
+digests. The transport follows the proposal's pinned method and never falls back: `existing_host`
+and `managed_host` run `kubectl` with a kubeconfig, `run_command` uses `az aks command invoke`
+(Azure RBAC only, no network line of sight; Azure Policy can disable command invoke), and `gitops`
+uses `export` to write reviewable documents without credentials.
+
+Before any effect, the command re-checks the documents against the observer-only recipe (read-only
+`list`/`get` verbs, no Secret reads, non-privileged, no host namespaces, pinned image, suspended
+CronJob), the `kube-system` UID, and a namespace that this installer owns. It then applies with
+server-side apply, a fixed field manager, and no forced conflicts, so another owner is preserved.
+A missing namespace is created first with the restricted Pod Security level; the rest is dry-run
+before it is applied. The credential Secret is built in memory from digest-checked private files,
+and its command output is never logged. Readback must equal the approved plan, and an ambiguous
+failure records an unknown outcome instead of retrying. Two-phase audit records, an owner-only
+per-target lock, and a stable idempotency key cover the apply.
+
+Apply leaves the CronJob suspended. `activate` resumes it only when the live installation still
+equals the approved plan. `activate` and `deactivate` change only `spec.suspend` under a separate
+field manager, forcing just that field, so a stop never waits on another owner and a partial apply
+never deletes the install manager's fields. `deactivate` is the stop condition and needs only a
+target-bound approval; re-applying while activated is refused as a field conflict until it runs. `wait-observed` then reads the existing authenticated snapshot inbox:
+operational success is claimed only after the gateway admits a fresh snapshot. `rollback` deletes
+only resources labeled for this observer, in reverse order, and retains the namespace. The local
+lock serializes one host only; concurrent operators on other hosts rely on server-side conflicts.
 
 ## Governed operations
 
