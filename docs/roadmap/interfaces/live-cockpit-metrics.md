@@ -20,7 +20,7 @@ of the visible card pool.
 |--------|-----------------------|-----------------------|
 | Events / sec | Unique control-loop stage and source-read activity messages | Heartbeats, connection metadata, duplicate replay frames |
 | Gate mix | Explicit control-loop decisions, once per event | Source reads without a gate decision |
-| Tier mix | Explicit control-loop tier assignments, once per event | Source reads without a tier assignment |
+| Tier mix | Explicit T0, T1, and T2 control-loop tier assignments, once per event | Source reads without a tier assignment, and events that abstained before tier routing (shown as a separate unrouted count) |
 
 ## Measurement window
 
