@@ -9,10 +9,18 @@ metering store (PostgreSQL) stays the system of record for usage and cost.
 
 ## What is exported
 
-Bounded metadata only: `session.id` (the correlation id), `llm.model_name`,
-`llm.token_count.{prompt,completion,total}`, cached prompt tokens, duration, and the `fdai.*`
-attributes (capability, tier, mode, usage scope, turn family, disposition, locale, profile digest,
-and cost when priced). Prompt and completion text is never exported.
+Two kinds of span reach Phoenix, both grouped by `session.id` (the correlation id):
+
+- **Metered calls** (control-plane T1/T2 reasoning, embeddings): token counts, cached tokens,
+  model, capability, tier, mode, and cost when priced. No message text.
+- **Conversation calls** (semantic planning, question form, adaptive answer, judgment): model,
+  latency, token counts, request and response hashes, and redaction counts. With
+  `FDAI_PHOENIX_CAPTURE_CONTENT` set, also the input and output messages, so the Phoenix UI shows
+  the question and the answer.
+
+Message text is the same redacted, bounded text that FDAI's provider-input minimization already
+produces; secrets and PII are replaced before it reaches a span. Content capture is refused for a
+non-loopback endpoint, so conversation text never leaves the machine.
 
 The sink uses its own OpenTelemetry `TracerProvider`, so these spans do not reach any other
 exporter such as the Console or Azure Monitor pipeline.
@@ -34,6 +42,7 @@ Set these variables in the environment of the Core service before it starts:
 | `FDAI_PHOENIX_TRACING_ENABLED` | off | Feature flag. Truthy values: `1`, `true`, `yes`, `on`. |
 | `FDAI_PHOENIX_OTLP_ENDPOINT` | none | OTLP/gRPC endpoint, for example `http://127.0.0.1:4317`. Required when enabled. |
 | `FDAI_PHOENIX_PROJECT_NAME` | `fdai` | Phoenix project that groups the spans. |
+| `FDAI_PHOENIX_CAPTURE_CONTENT` | off | Add redacted conversation messages to spans. Loopback endpoints only. |
 | `FDAI_PHOENIX_ALLOW_REMOTE_ENDPOINT` | off | Required to export to a non-loopback endpoint. |
 
 If the flag is on but the endpoint is missing, invalid, or remote without the override, the export

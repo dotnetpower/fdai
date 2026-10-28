@@ -1,11 +1,13 @@
 """Development LLM-trace export to Arize Phoenix (OTLP), off by default.
 
 Each metered :class:`~fdai.core.metering.records.LlmInvocation` becomes one
-OpenInference ``LLM`` span so token usage, latency, and per-conversation
-grouping can be inspected in Phoenix. The span carries bounded metadata
-only: token counts, model key, capability, tier, mode, and the correlation
-id as ``session.id``. Prompt and completion text never reaches this
-module, so it cannot be exported.
+OpenInference ``LLM`` span (``EMBEDDING`` for embedding calls) so token usage and
+per-conversation grouping can be inspected in Phoenix. Conversation model calls, which are not
+metered through that sink, arrive as already-redacted model traces and become spans too.
+
+Metered spans carry bounded metadata only: token counts, model key, capability, tier, mode, and
+the correlation id as ``session.id``. Conversation spans add redacted message text only when
+``FDAI_PHOENIX_CAPTURE_CONTENT`` is set, and only to a loopback endpoint.
 
 The sink owns a private ``TracerProvider``; it never touches the global
 OpenTelemetry provider, so these spans reach no other exporter. Phoenix
@@ -28,12 +30,15 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.trace import Status, StatusCode
 
 from fdai.core.metering.records import LlmInvocation
+from fdai.delivery.phoenix.model_trace_span import model_trace_attributes, model_trace_timing
+from fdai.shared.telemetry.correlation import current_correlation_id
 
 _log = logging.getLogger(__name__)
 
 ENABLED_ENV = "FDAI_PHOENIX_TRACING_ENABLED"
 ENDPOINT_ENV = "FDAI_PHOENIX_OTLP_ENDPOINT"
 PROJECT_ENV = "FDAI_PHOENIX_PROJECT_NAME"
+CAPTURE_CONTENT_ENV = "FDAI_PHOENIX_CAPTURE_CONTENT"
 ALLOW_REMOTE_ENV = "FDAI_PHOENIX_ALLOW_REMOTE_ENDPOINT"
 
 DEFAULT_PROJECT = "fdai"
@@ -47,12 +52,15 @@ class PhoenixTracingConfig:
 
     endpoint: str
     project_name: str = DEFAULT_PROJECT
+    capture_content: bool = False
 
     def __post_init__(self) -> None:
         if urlparse(self.endpoint).scheme not in {"http", "https"}:
             raise ValueError("Phoenix OTLP endpoint MUST be an http(s) URL")
         if not self.project_name.strip():
             raise ValueError("Phoenix project name MUST NOT be empty")
+        if self.capture_content and not self.is_loopback:
+            raise ValueError("Phoenix content capture MUST use a loopback endpoint")
 
     @property
     def insecure(self) -> bool:
@@ -88,6 +96,7 @@ def phoenix_config_from_env(env: Mapping[str, str]) -> PhoenixTracingConfig | No
         config = PhoenixTracingConfig(
             endpoint=endpoint,
             project_name=env.get(PROJECT_ENV, "").strip() or DEFAULT_PROJECT,
+            capture_content=env.get(CAPTURE_CONTENT_ENV, "").strip().casefold() in _TRUTHY,
         )
     except ValueError as error:
         _log.warning("phoenix_tracing_disabled", extra={"reason": str(error)})
@@ -110,7 +119,9 @@ class PhoenixMeteringSink:
         exporter: SpanExporter,
         project_name: str = DEFAULT_PROJECT,
         batch: bool = True,
+        capture_content: bool = False,
     ) -> None:
+        self._capture_content = capture_content
         provider = TracerProvider(
             resource=Resource.create(
                 {"service.name": "fdai", "openinference.project.name": project_name}
@@ -127,7 +138,11 @@ class PhoenixMeteringSink:
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
         exporter = OTLPSpanExporter(endpoint=config.endpoint, insecure=config.insecure)
-        return cls(exporter=exporter, project_name=config.project_name)
+        return cls(
+            exporter=exporter,
+            project_name=config.project_name,
+            capture_content=config.capture_content,
+        )
 
     async def record(self, invocation: LlmInvocation) -> None:
         end_ns = int(invocation.occurred_at.timestamp() * 1_000_000_000)
@@ -141,6 +156,26 @@ class PhoenixMeteringSink:
         span.set_status(Status(StatusCode.OK))
         span.end(end_time=end_ns)
 
+    def record_model_trace(self, trace: Mapping[str, object]) -> None:
+        """Emit one span for a completed conversation model call (a model-trace observer).
+
+        Message text is attached only when content capture was enabled; the trace is already
+        redacted and bounded before it reaches this method.
+        """
+        timing = model_trace_timing(trace)
+        span = self._tracer.start_span(
+            f"llm.{trace.get('kind', 'unknown')}",
+            context=Context(),
+            start_time=timing[0] if timing else None,
+            attributes=model_trace_attributes(
+                trace,
+                correlation_id=current_correlation_id(),
+                capture_content=self._capture_content,
+            ),
+        )
+        span.set_status(Status(StatusCode.OK))
+        span.end(end_time=timing[1] if timing else None)
+
     def flush(self) -> bool:
         """Export queued spans now; return ``False`` when the flush timed out."""
         return self._provider.force_flush()
@@ -152,7 +187,9 @@ class PhoenixMeteringSink:
 def _attributes(invocation: LlmInvocation) -> dict[str, str | int]:
     usage = invocation.usage
     attributes: dict[str, str | int] = {
-        "openinference.span.kind": "LLM",
+        "openinference.span.kind": (
+            "EMBEDDING" if invocation.capability_id.endswith(".embedding") else "LLM"
+        ),
         "session.id": invocation.correlation_id,
         "llm.model_name": invocation.model_key,
         "llm.token_count.prompt": usage.prompt_tokens,
@@ -177,6 +214,7 @@ def _attributes(invocation: LlmInvocation) -> dict[str, str | int]:
 
 __all__ = [
     "ALLOW_REMOTE_ENV",
+    "CAPTURE_CONTENT_ENV",
     "ENABLED_ENV",
     "ENDPOINT_ENV",
     "PROJECT_ENV",
