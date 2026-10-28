@@ -22,7 +22,17 @@
     "cardLabel": "Open details for {activity}",
     "kindBadge": "Source read",
     "observationTitle": "{domain} observation",
-    "reasonRecorded": "{count} reason code(s) recorded",
+    "reasonAndMore": "{reason} (+{count} more)",
+    "reason": {
+      "source_unconfigured": "Source is not configured",
+      "source_timeout": "Source read timed out",
+      "source_unauthorized": "Not authorized to read this source",
+      "source_throttled": "Source throttled the request",
+      "provider_contract_violation": "Source returned an invalid response",
+      "provider_failure": "Source reported a failure",
+      "state_write_conflict": "Result could not be saved (write conflict)",
+      "source_stale": "Source data is older than its freshness limit"
+    },
     "loading": "Loading live observation activity",
     "waiting": "Observation stream connected. Waiting for the next source-read activity.",
     "unavailable": "Live observation activity is unavailable.",
@@ -131,6 +141,7 @@
     "columns": {"controlLoop": "Control loop", "stage": "Current stage", "age": "Age", "tier": "Tier", "mode": "Mode", "decision": "Decision", "work": "Work", "tierMode": "Tier / mode", "why": "Why", "ownerStage": "Owner / stage", "riskImpact": "Risk / impact", "ageSla": "Age / SLA", "controlState": "Control state"}
   },
   "control": {"notObserved": "Not observed", "notStarted": "Not started", "notDispatched": "Not dispatched", "simulated": "Simulated", "inProgress": "In progress", "completed": "Completed", "executionFailed": "Failed"},
+  "absent": {"reasonFailed": "Failed - no reason was reported", "reasonCompleted": "No reason was reported with this decision", "reasonPending": "Not recorded yet", "scope": "Scope not reported by this event", "authority": "Autonomy class not reported", "effectShadow": "Not applied - shadow mode records only", "effectPending": "Pending", "effectUnreported": "Not reported"},
   "outcome": {"effect_verified": "Effect independently verified"},
   "scenario": {
     "eyebrow": "115-second review path",

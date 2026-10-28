@@ -1274,6 +1274,19 @@ body.live-fullscreen-active { overflow: hidden; }
   font-size: var(--cs-type-compact-size);
 }
 
+.live-detail-reasons {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.live-detail-reasons code {
+  margin-inline-start: 6px;
+  overflow-wrap: anywhere;
+}
+
 .live .live-observation-meta {
   display: grid;
   grid-template-columns: auto auto 1fr;
