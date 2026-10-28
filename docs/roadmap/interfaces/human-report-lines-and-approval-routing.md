@@ -248,6 +248,11 @@ when a decision arrives and immediately before dispatch. Before any of those che
 decision must match the Operator's durable decision receipt, so a route decision cannot come from a
 message that the Operator never recorded.
 
+A subject has at most one open request. Repeated proposals for the same action, target, and rule
+update that request's bounded observation summary instead of opening another, so the report-line
+route plan, consent, and notification belong to one request. An expired request reopens as the next
+revision of the same lineage, and a rejected subject stays closed while its content is unchanged.
+
 The report-line policy and runtime accept quorum `1` only. Higher-quorum ActionTypes remain on
 their existing workflow or human-access approval path until a separately reviewed multi-slot
 report-line contract is implemented; unsupported quorum values fail during configuration.
