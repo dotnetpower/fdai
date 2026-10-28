@@ -32,6 +32,20 @@ from .test_kubernetes_connector_spool import NOW
 UID = "cluster-uid-example"
 
 
+def server_normalized(value):
+    """Model the real API server, which omits empty collections and false host flags."""
+    if isinstance(value, dict):
+        return {
+            key: server_normalized(item)
+            for key, item in value.items()
+            if item not in ([], {})
+            and not (key in {"hostNetwork", "hostPID", "hostIPC"} and item is False)
+        }
+    if isinstance(value, list):
+        return [server_normalized(item) for item in value]
+    return value
+
+
 class FakeCluster:
     """An in-memory server that records every request and models server-side defaults."""
 
@@ -64,7 +78,7 @@ class FakeCluster:
                 return KubeResult(1, "admission webhook denied the request")
             if "--dry-run=server" not in args:
                 for item in items:
-                    live = copy.deepcopy(item)
+                    live = server_normalized(copy.deepcopy(item))
                     live["metadata"]["uid"] = "server-uid"
                     live["status"] = {}
                     key = (
@@ -568,3 +582,42 @@ async def test_first_observation_wait_is_bounded() -> None:
 
 def test_installation_input_model_is_unchanged_for_apply() -> None:
     assert ObserverInstallationInput.model_validate_json(install_inputs().model_dump_json())
+
+
+def test_run_command_null_logs_are_empty_output_not_the_text_none() -> None:
+    transport = AksRunCommandTransport(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        resource_group="rg-example",
+        cluster_name="aks-example",
+        run=lambda vector, **kwargs: subprocess.CompletedProcess(
+            vector, 0, json.dumps({"exitCode": 0, "logs": None}), ""
+        ),
+    )
+    assert transport.run(["get", "namespace", "x"], manifest=None, timeout=5) == KubeResult(0, "")
+
+
+def test_server_omitted_defaults_do_not_count_as_drift_but_security_fields_still_do(
+    installation,
+) -> None:
+    inputs, rendered, *_ = installation
+    cluster = FakeCluster()
+    run_apply(installation, cluster, approval_for(inputs, rendered))
+    policy = cluster.objects[("networkpolicy", inputs.namespace, inputs.name)]["spec"]
+    pod = cluster.objects[("cronjob", inputs.namespace, inputs.name)]["spec"]["jobTemplate"][
+        "spec"
+    ]["template"]["spec"]
+    assert "ingress" not in policy and "hostNetwork" not in pod
+    kwargs = {
+        "transport": cluster,
+        "lock_directory": installation[3] / "locks",
+        "audit": lambda _: None,
+        "now": lambda: NOW,
+    }
+    activation = approval_for(inputs, rendered, operation="activate")
+    pod["hostNetwork"] = True
+    with pytest.raises(ValueError, match="CronJob"):
+        activate_observer(rendered, inputs, activation, **kwargs)
+    del pod["hostNetwork"]
+    pod["containers"][0]["securityContext"].pop("allowPrivilegeEscalation")
+    with pytest.raises(ValueError, match="CronJob"):
+        activate_observer(rendered, inputs, activation, **kwargs)

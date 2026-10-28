@@ -61,6 +61,7 @@ _ROLLBACK_ORDER = (
     "PersistentVolumeClaim",
     "ServiceAccount",
 )
+_HOST_FLAGS = frozenset({"hostNetwork", "hostPID", "hostIPC"})
 _TEXT = r"^[A-Za-z0-9][A-Za-z0-9@._:/=+-]*$"
 
 Audit = Callable[[dict[str, object]], None]
@@ -204,7 +205,7 @@ class AksRunCommandTransport:
                 raise ValueError("AKS Run Command did not finish; the outcome is unknown") from exc
         try:
             payload = json.loads(done.stdout)
-            return KubeResult(int(payload["exitCode"]), str(payload.get("logs", "")))
+            return KubeResult(int(payload["exitCode"]), str(payload.get("logs") or ""))
         except (ValueError, KeyError, TypeError) as exc:
             detail = " ".join(str(done.stderr).split())[:200]
             raise ValueError(
@@ -392,10 +393,16 @@ def _cluster_identity(transport: KubeTransport, cluster_uid: str) -> None:
         raise ValueError("the reachable cluster is not the approved target; nothing was changed")
 
 
+def _omitted_by_server(key: str, value: object) -> bool:
+    """The API server drops empty collections and false host-namespace flags from responses."""
+    return value == [] or value == {} or (key in _HOST_FLAGS and value is False)
+
+
 def _contains(expected: object, live: object) -> bool:
     if isinstance(expected, dict):
         return isinstance(live, dict) and all(
-            key in live and _contains(value, live[key]) for key, value in expected.items()
+            _contains(value, live[key]) if key in live else _omitted_by_server(key, value)
+            for key, value in expected.items()
         )
     if isinstance(expected, list):
         return (
