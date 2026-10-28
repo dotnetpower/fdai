@@ -494,7 +494,12 @@ def test_the_manifest_provider_offers_the_reviewed_health_groups() -> None:
     )
 
     groups = resource_health_state_values(language)
-    assert groups and {key: tuple(values) for key, values in manifest.health_labels} == groups
+    labels = {key: tuple(values) for key, values in manifest.health_labels}
+    assert groups and labels.keys() == groups.keys()
+    # The provider states lead each label; the reviewed meaning and terms follow them.
+    assert all(labels[key][: len(groups[key])] == tuple(groups[key]) for key in groups)
+    assert language.states["unhealthy"].description in labels["resource_health.unhealthy"]
+    assert "비정상" in labels["resource_health.unhealthy"]
     # Without reviewed vocabularies, no measure concept is offered.
     assert ConceptVocabularies().health_labels() == {}
     assert ConceptVocabularies().metric_labels() == {}

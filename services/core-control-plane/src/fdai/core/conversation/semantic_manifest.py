@@ -86,10 +86,24 @@ class ConceptVocabularies:
         if language is None:
             return {}
         try:
-            return resource_health_state_values(language)
+            groups = resource_health_state_values(language)
         except ValueError:
             # A vocabulary without Resource Health groups offers no health concepts.
             return {}
+        # Reviewed meaning and terms follow the provider states, so two blind choosers read
+        # the same description instead of guessing from an identifier.
+        prefix = "resource_health."
+        return {
+            concept: (
+                *states,
+                *(
+                    (state.description, *state.terms)
+                    if (state := language.states.get(concept.removeprefix(prefix))) is not None
+                    else ()
+                ),
+            )
+            for concept, states in groups.items()
+        }
 
     def property_reads(self) -> tuple[ReviewedPropertyRead, ...]:
         """Return each reviewed semantic with the one provider path per resource type.

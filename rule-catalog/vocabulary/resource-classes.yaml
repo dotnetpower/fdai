@@ -113,13 +113,6 @@ classes:
       - prometheus-rule-group
       - service-bus-namespace
     specializes: [class.resource]
-  - id: class.alert-rule
-    description: Rule that raises an operator alert when a log query, metric, or anomaly condition holds, of any alert rule kind.
-    members:
-      - alert-rule
-      - anomaly-alert-rule
-      - metric-alert-rule
-    specializes: [class.observability-resource]
   - id: class.security-resource
     description: Resource that provides identity, authorization, certificate, or secret controls.
     members:
