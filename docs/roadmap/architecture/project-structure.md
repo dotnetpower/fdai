@@ -521,7 +521,7 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   `Resource.type` span from catalog vocabulary. Semantic judgment receives it only as candidate
   `stated_values`, and the manifest planner compares it with a targetless schema proposal to return a
   typed clarification; it never selects an intent. `fdai_core_service/semantic_ontology_answers.py`
-  renders manifest declaration lists and counts and fails closed on inconsistent rows.
+  renders manifest declaration lists and counts and fails closed on inconsistent rows. `core/conversation/semantic_manifest.py` appends each reviewed Resource Health description and term after its provider states in the concept labels.
   `core/conversation/semantic_resource_state_planning.py` owns the check that refuses a contextual
   Resource list when it would drop a secondary intent or a stated state requirement, and
   target-candidate planning shares its collection filter kinds through

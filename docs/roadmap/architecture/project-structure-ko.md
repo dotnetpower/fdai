@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: fd2cf4c124e69a857191b1223f1311996bc7624e
+translation_source_sha: b104b39df703cbeb8ca29e2f4572f0051f944ff1
 translation_revised: 2026-10-28
 ---
 # 프로젝트 구조
@@ -529,7 +529,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `Resource.type` 발화 구간을 도출합니다. 의미 판단은 이를 후보 `stated_values`로만 받고, 매니페스트
   계획기는 대상 없는 스키마 제안과 비교해 타입이 지정된 명확화를 반환하며 의도를 선택하지 않습니다.
   `fdai_core_service/semantic_ontology_answers.py`는 매니페스트 선언 목록과 개수를 렌더링하고
-  일관되지 않은 행에서는 안전하게 실패합니다.
+  일관되지 않은 행에서는 안전하게 실패합니다. `core/conversation/semantic_manifest.py`는 검토된 Resource Health 설명과 용어를 프로바이더 상태 뒤에 개념 레이블로 덧붙입니다.
   `core/conversation/semantic_resource_state_planning.py`는 맥락 기반 Resource 목록이 보조 의도나
   발화에 나온 상태 요구 사항을 누락하게 되면 그 목록을 거부하는 검사를 소유하며, 대상 후보 계획은
   `semantic_target_candidate_constants.py`를 통해 모음 필터 종류를 공유합니다.
