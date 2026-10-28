@@ -4,7 +4,24 @@ resource "random_password" "mysql_admin" {
   override_special = "!#$%&*+-.:=?@_"
 }
 
+resource "terraform_data" "data_services_prerequisites" {
+  count = var.data_services_enabled ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition = (
+        var.runner_vnet != null &&
+        startswith(var.azure_openai_private_dns_zone.id, "/subscriptions/") &&
+        trimspace(var.azure_openai_private_dns_zone.resource_group_name) != ""
+      )
+      error_message = "data_services_enabled requires runner_vnet and azure_openai_private_dns_zone."
+    }
+  }
+}
+
 resource "azurerm_private_dns_zone" "mysql" {
+  count = var.data_services_enabled ? 1 : 0
+
   name                = "${local.unique_suffix}.mysql.database.azure.com"
   resource_group_name = data.azurerm_resource_group.scenario_lab.name
   tags                = local.tags
@@ -15,9 +32,11 @@ resource "azurerm_private_dns_zone" "mysql" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "mysql_lab" {
+  count = var.data_services_enabled ? 1 : 0
+
   name                  = "link-${local.suffix}-mysql"
   resource_group_name   = data.azurerm_resource_group.scenario_lab.name
-  private_dns_zone_name = azurerm_private_dns_zone.mysql.name
+  private_dns_zone_name = azurerm_private_dns_zone.mysql[0].name
   virtual_network_id    = azurerm_virtual_network.scenario_lab.id
   registration_enabled  = false
   tags                  = local.tags
@@ -28,9 +47,11 @@ resource "azurerm_private_dns_zone_virtual_network_link" "mysql_lab" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "mysql_runner" {
+  count = var.data_services_enabled && local.runner_peering_enabled ? 1 : 0
+
   name                  = "link-runner-mysql"
   resource_group_name   = data.azurerm_resource_group.scenario_lab.name
-  private_dns_zone_name = azurerm_private_dns_zone.mysql.name
+  private_dns_zone_name = azurerm_private_dns_zone.mysql[0].name
   virtual_network_id    = var.runner_vnet.id
   registration_enabled  = false
   tags                  = local.tags
@@ -41,11 +62,11 @@ resource "azurerm_private_dns_zone_virtual_network_link" "mysql_runner" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "mysql_operator" {
-  count = local.operator_enabled ? 1 : 0
+  count = var.data_services_enabled && local.operator_enabled ? 1 : 0
 
   name                  = "link-operator-mysql"
   resource_group_name   = data.azurerm_resource_group.scenario_lab.name
-  private_dns_zone_name = azurerm_private_dns_zone.mysql.name
+  private_dns_zone_name = azurerm_private_dns_zone.mysql[0].name
   virtual_network_id    = var.operator_access.vnet_id
   registration_enabled  = false
   tags                  = local.tags
@@ -61,6 +82,8 @@ resource "azurerm_private_dns_zone_virtual_network_link" "mysql_operator" {
 #trivy:ignore:AZU-0026
 resource "azurerm_mysql_flexible_server" "scenario_lab" {
   # checkov:skip=CKV_AZURE_94:Geo-redundant backup is outside the short-lived fault target and its explicit destroy boundary.
+  count = var.data_services_enabled ? 1 : 0
+
   name                         = "mysql-fdai-sre-${local.unique_suffix}"
   location                     = data.azurerm_resource_group.scenario_lab.location
   resource_group_name          = data.azurerm_resource_group.scenario_lab.name
@@ -68,7 +91,7 @@ resource "azurerm_mysql_flexible_server" "scenario_lab" {
   administrator_password       = random_password.mysql_admin.result
   backup_retention_days        = 7
   delegated_subnet_id          = azurerm_subnet.mysql.id
-  private_dns_zone_id          = azurerm_private_dns_zone.mysql.id
+  private_dns_zone_id          = azurerm_private_dns_zone.mysql[0].id
   geo_redundant_backup_enabled = false
   sku_name                     = var.mysql_sku_name
   version                      = var.mysql_version
@@ -79,26 +102,34 @@ resource "azurerm_mysql_flexible_server" "scenario_lab" {
     size_gb           = 32
   }
 
-  depends_on = [azurerm_private_dns_zone_virtual_network_link.mysql_lab]
+  depends_on = [
+    terraform_data.data_services_prerequisites,
+    azurerm_private_dns_zone_virtual_network_link.mysql_lab,
+  ]
 }
 
 resource "azurerm_mysql_flexible_server_configuration" "require_secure_transport" {
+  count = var.data_services_enabled ? 1 : 0
+
   name                = "require_secure_transport"
   resource_group_name = data.azurerm_resource_group.scenario_lab.name
-  server_name         = azurerm_mysql_flexible_server.scenario_lab.name
+  server_name         = azurerm_mysql_flexible_server.scenario_lab[0].name
   value               = "ON"
 }
 
 resource "azurerm_mysql_flexible_server_configuration" "tls_version" {
+  count = var.data_services_enabled ? 1 : 0
+
   name                = "tls_version"
   resource_group_name = data.azurerm_resource_group.scenario_lab.name
-  server_name         = azurerm_mysql_flexible_server.scenario_lab.name
+  server_name         = azurerm_mysql_flexible_server.scenario_lab[0].name
   value               = "TLSv1.2"
 }
 
 module "azure_openai" {
   # checkov:skip=CKV_AZURE_238:The shared private account uses Entra callers directly and needs no resource identity in this lab.
   # checkov:skip=CKV2_AZURE_22:CMK infrastructure would outlive the disposable model-throttle target.
+  count  = var.data_services_enabled ? 1 : 0
   source = "../modules/llm/azure-openai"
 
   name                  = "oai-fdai-sre-${local.unique_suffix}"
@@ -122,6 +153,8 @@ module "azure_openai" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "openai_lab" {
+  count = var.data_services_enabled ? 1 : 0
+
   name                  = "link-${local.suffix}-openai"
   resource_group_name   = var.azure_openai_private_dns_zone.resource_group_name
   private_dns_zone_name = var.azure_openai_private_dns_zone.name
@@ -135,6 +168,8 @@ resource "azurerm_private_dns_zone_virtual_network_link" "openai_lab" {
 }
 
 resource "azurerm_private_endpoint" "azure_openai" {
+  count = var.data_services_enabled ? 1 : 0
+
   name                = "pe-${local.suffix}-oai"
   location            = data.azurerm_resource_group.scenario_lab.location
   resource_group_name = data.azurerm_resource_group.scenario_lab.name
@@ -143,7 +178,7 @@ resource "azurerm_private_endpoint" "azure_openai" {
 
   private_service_connection {
     name                           = "pe-${local.suffix}-oai-psc"
-    private_connection_resource_id = module.azure_openai.resource_id
+    private_connection_resource_id = module.azure_openai[0].resource_id
     subresource_names              = ["account"]
     is_manual_connection           = false
   }
@@ -157,8 +192,10 @@ resource "azurerm_private_endpoint" "azure_openai" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "mysql" {
+  count = var.data_services_enabled ? 1 : 0
+
   name                       = "diag-${local.suffix}-mysql"
-  target_resource_id         = azurerm_mysql_flexible_server.scenario_lab.id
+  target_resource_id         = azurerm_mysql_flexible_server.scenario_lab[0].id
   log_analytics_workspace_id = module.log_analytics.workspace_id
 
   enabled_metric {
@@ -167,8 +204,10 @@ resource "azurerm_monitor_diagnostic_setting" "mysql" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "azure_openai" {
+  count = var.data_services_enabled ? 1 : 0
+
   name                       = "diag-${local.suffix}-oai"
-  target_resource_id         = module.azure_openai.resource_id
+  target_resource_id         = module.azure_openai[0].resource_id
   log_analytics_workspace_id = module.log_analytics.workspace_id
 
   enabled_metric {

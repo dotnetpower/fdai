@@ -55,12 +55,29 @@ variable "expires_at_utc" {
 }
 
 variable "runner_vnet" {
-  description = "Existing VNet-integrated deploy runner network peered with the private lab."
+  description = "Existing VNet-integrated deploy runner network peered with the private lab. Null omits runner VNet peering for standalone lightweight deployments."
   type = object({
     id                  = string
     name                = string
     resource_group_name = string
   })
+  default  = null
+  nullable = true
+
+  validation {
+    condition = var.runner_vnet == null || (
+      startswith(var.runner_vnet.id, "/subscriptions/") &&
+      trimspace(var.runner_vnet.name) != "" &&
+      trimspace(var.runner_vnet.resource_group_name) != ""
+    )
+    error_message = "runner_vnet must provide a complete Azure VNet identity, or be null."
+  }
+}
+
+variable "data_services_enabled" {
+  description = "Whether to provision the private MySQL and Azure OpenAI scenario targets. Set false for the lightweight AKS and VM profile."
+  type        = bool
+  default     = true
 }
 
 variable "operator_access" {
@@ -167,12 +184,23 @@ variable "azure_openai_private_dns_zone" {
     name                = string
     resource_group_name = string
   })
+  default = {
+    id                  = ""
+    name                = "privatelink.openai.azure.com"
+    resource_group_name = ""
+  }
 
   validation {
     condition = (
-      startswith(var.azure_openai_private_dns_zone.id, "/subscriptions/") &&
-      var.azure_openai_private_dns_zone.name == "privatelink.openai.azure.com" &&
-      trimspace(var.azure_openai_private_dns_zone.resource_group_name) != ""
+      (
+        var.azure_openai_private_dns_zone.id == "" &&
+        var.azure_openai_private_dns_zone.name == "privatelink.openai.azure.com" &&
+        var.azure_openai_private_dns_zone.resource_group_name == ""
+        ) || (
+        startswith(var.azure_openai_private_dns_zone.id, "/subscriptions/") &&
+        var.azure_openai_private_dns_zone.name == "privatelink.openai.azure.com" &&
+        trimspace(var.azure_openai_private_dns_zone.resource_group_name) != ""
+      )
     )
     error_message = "azure_openai_private_dns_zone must identify the existing central privatelink.openai.azure.com zone."
   }
