@@ -8,6 +8,7 @@ import { t as appT } from "../i18n";
 import { routeHref } from "../router";
 import { formatConsoleTime } from "../time-format";
 import { t } from "./i18n/live";
+import { observationReasonLabel, observationReasonSummary } from "./live.absence";
 import { LiveDetailShell } from "./live.detail-shell";
 
 export const LIVE_OBSERVATION_LIMIT = 500;
@@ -216,9 +217,7 @@ export function LiveObservationCard({
       <span class="live-tile-reason">{activityResultLabel(item)}</span>
       {item.reason_codes.length > 0 ? (
         <span class="live-observation-reason">
-          {t("live.observations.reasonRecorded", {
-            count: item.reason_codes.length,
-          })}
+          {observationReasonSummary(item.reason_codes)}
         </span>
       ) : null}
       <span class="live-observation-meta">
@@ -293,7 +292,13 @@ export function LiveObservationDetailPanel({
           {item.reason_codes.length > 0 ? (
             <>
               <dt>{t("live.observations.detail.reasonCodes")}</dt>
-              <dd>{item.reason_codes.join(", ")}</dd>
+              <dd>
+                <ul class="live-detail-reasons">
+                  {item.reason_codes.map((code) => (
+                    <li key={code}>{observationReasonLabel(code)} <code>{code}</code></li>
+                  ))}
+                </ul>
+              </dd>
             </>
           ) : null}
         </dl>
