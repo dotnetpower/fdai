@@ -913,7 +913,9 @@ class SemanticTurnProcessor:
         prior_turns = _prior_turns(request, requested_at=requested_at)
         if self._dialogue_state_shadow is not None:
             self._dialogue_state_shadow.observe(
-                session_id=request.session_id, prior_turns=request.prior_turns
+                session_id=request.session_id,
+                prior_turns=request.prior_turns,
+                delivered=request.dialogue_state,
             )
         if self._context_selection_shadow is not None:
             await self._context_selection_shadow.schedule(

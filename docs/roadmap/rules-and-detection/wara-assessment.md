@@ -340,6 +340,8 @@ scope, consumer filtering, evidence admission, or the shadow-only assessment lif
 The same Operator composition may emit an authority-free runtime-call witness after broker
 acceptance. That telemetry does not enter WARA scope, evidence admission, or assessment results.
 
+The Operator dialogue-state snapshot and request field add no assessment source, finding, or WARA mapping.
+
 ## Related docs
 
 | To learn about | Read |

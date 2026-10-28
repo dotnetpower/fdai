@@ -43,3 +43,23 @@ def test_logged_evidence_is_content_free(caplog: pytest.LogCaptureFixture) -> No
     record = next(item for item in caplog.records if item.message == "dialogue_state_shadow")
     assert record.compacted_turns == 4 and record.kept_turns == 8  # type: ignore[attr-defined]
     assert "SECRET" not in caplog.text
+
+
+def test_delivered_state_is_compared_with_core_accounting(caplog: pytest.LogCaptureFixture) -> None:
+    turns = _turns(12)
+    local = DialogueStateShadow().observe(session_id="s1", prior_turns=turns)
+    assert local is not None
+    other = DialogueStateShadow().observe(session_id="s2", prior_turns=turns)
+    assert other is not None
+
+    with caplog.at_level(logging.INFO, logger="fdai_core_service.dialogue_state_shadow"):
+        DialogueStateShadow().observe(session_id="s1", prior_turns=turns, delivered=local)
+        DialogueStateShadow().observe(session_id="s1", prior_turns=turns, delivered=other)
+        DialogueStateShadow().observe(session_id="s1", prior_turns=turns)
+
+    flags = [
+        (record.delivered, record.delivered_matches)  # type: ignore[attr-defined]
+        for record in caplog.records
+        if record.message == "dialogue_state_shadow"
+    ]
+    assert flags == [(True, True), (True, False), (False, None)]

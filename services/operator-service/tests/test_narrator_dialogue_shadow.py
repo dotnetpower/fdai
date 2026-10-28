@@ -140,8 +140,8 @@ async def test_narrator_turn_retains_a_snapshot_and_reports_only_counts(tmp_path
         fallback_streams=fallback,
         token_provider=lambda _audience: _token(),
         http_client=client,
+        dialogue_snapshots=writer,
     )
-    adapter.dialogue_snapshots = writer
     source = await adapter.open(
         ConversationStreamRequest(
             operation="chat.stream",

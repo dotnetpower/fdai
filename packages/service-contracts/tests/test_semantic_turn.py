@@ -9,6 +9,9 @@ from typing import Any
 
 import pytest
 from pydantic import ValidationError
+from fdai_service_contracts.dialogue_state import DIALOGUE_VERBATIM_WINDOW
+from fdai_service_contracts.schema import ContractValidationError
+from fdai_service_contracts.semantic_turn import SemanticPriorTurn, compact_prior_turns
 
 from fdai_service_contracts import (
     ConsumerCodec,
@@ -569,3 +572,67 @@ def test_semantic_result_rejects_ambiguous_terminal_routing(
 
     with pytest.raises(ValidationError, match="semantic result"):
         SemanticTurnResult.model_validate(payload)
+
+
+def _dialogue_request(prior: int, **updates: object) -> SemanticTurnRequest:
+    now = datetime(2026, 10, 28, tzinfo=UTC)
+    prior_turns = tuple(
+        SemanticPriorTurn(role="user" if index % 2 == 0 else "assistant", content=f"turn {index}")
+        for index in range(prior)
+    )
+    return SemanticTurnRequest(
+        utterance="Continue.",
+        principal=SemanticTurnPrincipal(subject_id="operator-a", roles=(OperatorRole.READER,)),
+        session_id="session-a",
+        turn_id="turn-a",
+        turn_sequence=2,
+        locale="en",
+        purpose="operations-review",
+        deadline_at=now + timedelta(seconds=30),
+        prior_turns=prior_turns,
+        dialogue_state=compact_prior_turns("session-a", prior_turns),
+        **updates,  # type: ignore[arg-type]
+    )
+
+
+def test_compact_prior_turns_accounts_only_for_turns_beyond_the_verbatim_window() -> None:
+    assert compact_prior_turns("s", ()) is None
+    assert _dialogue_request(DIALOGUE_VERBATIM_WINDOW).dialogue_state is None
+    state = _dialogue_request(DIALOGUE_VERBATIM_WINDOW + 4).dialogue_state
+    assert state is not None
+    assert (len(state.compacted_turn_ids), len(state.kept_turn_ids)) == (
+        4,
+        DIALOGUE_VERBATIM_WINDOW,
+    )
+
+
+def test_request_rejects_a_dialogue_state_that_misaccounts_the_carried_turns() -> None:
+    request = _dialogue_request(11)
+
+    payload = request.model_dump()
+    payload["prior_turns"] = payload["prior_turns"][:-1]
+    with pytest.raises(ValidationError, match="exactly the carried prior turns"):
+        SemanticTurnRequest.model_validate(payload)
+
+
+def test_dialogue_state_travels_only_in_schema_1_12_and_older_consumers_reject_it() -> None:
+    now = datetime(2026, 10, 28, tzinfo=UTC)
+    semantic = _dialogue_request(11).model_dump(mode="json", exclude_none=True)
+
+    def payload(version: str) -> dict[str, object]:
+        return {
+            "schema_version": version,
+            "request_id": "00000000-0000-0000-0000-000000000001",
+            "correlation_id": "semantic-turn:00000000-0000-0000-0000-000000000001",
+            "idempotency_key": "turn-1",
+            "resource_ref": "operator-conversation:example",
+            "request_kind": "semantic_query",
+            "requested_at": now.isoformat(),
+            "semantic_turn": semantic,
+        }
+
+    assert ConsumerCodec("operator-core-request", "N", ("1.12.0",)).decode_mapping(
+        payload("1.12.0")
+    )
+    with pytest.raises(ContractValidationError, match="dialogue_state"):
+        ConsumerCodec("operator-core-request", "N", ("1.11.0",)).decode_mapping(payload("1.11.0"))

@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 3048cd018d315d4e438b3c9a109e7dc6db8b4e8c
+translation_source_sha: 651ac4df79411ee012f026937d7f478bd8cf1ce9
 translation_revised: 2026-10-28
 ---
 # 판테온 대화형 숙의
@@ -467,13 +467,11 @@ turn의 보존 정책을 따릅니다. Operator narrator는 이 테이블을 직
 Operator 소유 서비스 migration의 `conversation_dialogue_snapshot` 테이블(update·delete 방지 trigger 포함),
 narrator shadow receipt(`context_selection.dialogue_state_shadow`, 집계와 digest만)와 principal 및
 `conversation_id` 기준의 best-effort snapshot 보존(writer가 조립된 경우), 그리고 Core가 이미 받는 prior turn 중 adaptive history
-window를 넘는 부분의 관찰입니다. 어느 것도 모델 요청을 바꾸지 않습니다. shadow 상태는 Console이 보낸
+window를 넘는 부분의 관찰입니다. 어느 것도 모델 요청을 바꾸지 않습니다. 이제 Operator는 snapshot writer를 로컬 내레이터에 연결하고, 선택형 T1 proposer(`FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED`)는 응답 경로 밖에서 원문 그대로의 인용 anchor를 요청하며 결정적 코드가 위치를 찾아 검증합니다. Operator-Core 요청 스키마 1.12.0은 선택형 `dialogue_state`를 담고(`FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED`로 선택), Core는 전달받은 집계를 자신의 집계와 로그 전용으로 비교합니다. shadow 상태는 Console이 보낸
 history에서 계산하므로, 클라이언트가 슬라이딩 window를 보내면 turn마다 압축 digest가 달라집니다.
 snapshot id는 유지된 window를 제외해 나머지를 중복 제거합니다.
 
-**남은 작업.** Postgres snapshot writer를 Operator 런타임에 조립하고, 구체적인 T1 proposer를 연결하고 shadow 비교 근거를 기록합니다. Core가 상태를 따로
-관찰하는 대신 Operator의 상태를 받도록 버전이 있는 `SemanticTurnRequest` 필드를 추가합니다. Console
-표시를 추가하고 registry를 통해서만 승격합니다.
+**남은 작업.** 배포 환경의 관찰 모드 비교 근거를 기록하고, 활성 턴이 상태를 사용하게 하며(anchor는 승격이 snapshot을 읽은 뒤에야 Core에 전달됩니다), 상태가 사용될 때 Console 표시를 추가하고, gate 근거 또는 귀속된 운영자 override로 registry를 통해서만 승격합니다.
 
 ## 권한 경계
 

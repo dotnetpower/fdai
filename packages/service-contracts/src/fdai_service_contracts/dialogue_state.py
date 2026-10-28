@@ -24,6 +24,8 @@ Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 BoundedId = Annotated[str, Field(min_length=1, max_length=256)]
 MAX_DIALOGUE_ANCHORS = 64
 MAX_ANCHOR_VALUE_CHARS = 512
+DIALOGUE_VERBATIM_WINDOW = 8
+"""Prior turns the adaptive conversation path carries verbatim; older turns are compacted."""
 
 DialogueFallbackReason = Literal[
     "t1_unconfigured",
@@ -203,6 +205,7 @@ async def build_dialogue_state(
 
 
 __all__ = [
+    "DIALOGUE_VERBATIM_WINDOW",
     "MAX_ANCHOR_VALUE_CHARS",
     "MAX_DIALOGUE_ANCHORS",
     "DialogueAnchor",

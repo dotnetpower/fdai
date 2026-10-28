@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: aeaae9b45e51dfac260f73b4bf6f00f9bc38ea2e
-translation_revised: 2026-10-23
+translation_source_sha: 27e1f50eede48c75e5ce1ee79f701032e47fab87
+translation_revised: 2026-10-28
 ---
 # 운영자 거버넌스 프로필
 
@@ -325,6 +325,8 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
   요청이 쓰는 기존 `1.0.0` 및 `1.1.0` 증적 다이제스트는 바이트 호환성을 유지합니다.
 - 단독 운영자 프로덕션 프로필은 설계상 직무 분리를 줄입니다. 직무 분리가 필요한 고객은 다중
   운영자 프로필을 유지합니다.
+
+대화 상태 요청 필드와 snapshot 테이블은 거버넌스 프로필도 승인 입력도 아닙니다. 주체 권한, 권한 부여, 프로필 선택을 담지 않으며 프로필이 판단에 이를 읽지 않습니다.
 
 ## 관련 문서
 

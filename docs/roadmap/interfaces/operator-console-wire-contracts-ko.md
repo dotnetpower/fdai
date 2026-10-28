@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 47a97324e795aa4596f7e97e99509ddbc1bec601
-translation_revised: 2026-10-26
+translation_source_sha: ae57f19c83064bed2b35fd0747492e5928f75788
+translation_revised: 2026-10-28
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -16,6 +16,7 @@ Console 관리형 담당 체계 후보는 아직 Operator 와이어 계약을 �
 사용 불가 상태가 포함될 수 있습니다. Incident 명령이나 승인·실행 권한을 추가하지 않습니다.
 
 의미 요청 1.11.0은 권한이 없는 명시적 `presentation_mode=agent_discussion`을 추가합니다.
+의미 요청 1.12.0은 권한이 없는 선택형 `dialogue_state`를 추가합니다. 원문 유지 window를 넘는 prior turn에 대한 정확한 집계(turn id와 범위 digest이며 턴 본문은 없음)입니다. Operator는 `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED`가 켜져 있고 모든 Core 소비자가 1.12.0을 받아들인 뒤에만 이를 내보내며, 1.11.0 소비자는 스키마로 거절합니다. Core는 이를 자신의 집계와 비교하는 로그 전용 관찰만 합니다.
 일반 기본값은 요청 직렬화에서 계속 생략합니다. Operator는 Owner와 보관된 인증 영수증을
 요구하고, Core는 현재의 정확한 설치 단위 읽기 허가를 독립적으로 확인합니다. 토론은 기존
 스트림, 취소, 기한과 내구성 최종 투영 필드를 사용하며 Incident 생성이나 행동 초안을 만들지

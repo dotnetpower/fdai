@@ -12,6 +12,13 @@ from typing import Annotated, Any, Literal
 from pydantic import Field, model_validator
 
 from fdai_service_contracts.adaptive_answer import AdaptiveAgentName, AdaptiveAnswer
+from fdai_service_contracts.dialogue_state import (
+    DIALOGUE_VERBATIM_WINDOW,
+    DialogueRole,
+    DialogueState,
+    DialogueTurn,
+    compact_dialogue,
+)
 from fdai_service_contracts.adaptive_relationship import (
     AdaptiveRelationshipProof,
     AdaptiveRelationshipUnknownReason,
@@ -256,6 +263,26 @@ class SemanticPriorTurn(QueryContract):
     content: Annotated[str, Field(min_length=1, max_length=8_000)]
 
 
+def compact_prior_turns(
+    session_id: str, prior_turns: tuple[SemanticPriorTurn, ...]
+) -> DialogueState | None:
+    """Account for prior turns beyond the verbatim window; ``None`` when none are compacted."""
+
+    state = compact_dialogue(
+        [
+            DialogueTurn(
+                turn_id=f"{session_id}:prior:{index}",
+                role=DialogueRole(turn.role),
+                content=turn.content,
+            )
+            for index, turn in enumerate(prior_turns)
+        ],
+        keep_recent=DIALOGUE_VERBATIM_WINDOW,
+        fallback_reason="t1_unconfigured",
+    )
+    return state if state.compacted_turn_ids else None
+
+
 class SemanticDocumentContextSource(StrEnum):
     """Identify the server-owned authorization path for exact document refs."""
 
@@ -493,6 +520,7 @@ class SemanticTurnRequest(QueryContract):
     )
     relationship_proof: AdaptiveRelationshipProof | None = None
     relationship_unknown_reason: AdaptiveRelationshipUnknownReason | None = None
+    dialogue_state: DialogueState | None = None
     execution_authority: Literal[False] = False
 
     @model_validator(mode="after")
@@ -518,6 +546,10 @@ class SemanticTurnRequest(QueryContract):
             or self.document_context.conversation_ref != self.session_id
         ):
             raise ValueError("semantic document context MUST match request principal and session")
+        if self.dialogue_state is not None and self.dialogue_state.source_turn_count != len(
+            self.prior_turns
+        ):
+            raise ValueError("dialogue state MUST account for exactly the carried prior turns")
         handle_refs = tuple(ref.handle_ref for ref in self.recent_result_handles)
         if len(handle_refs) != len(set(handle_refs)):
             raise ValueError("recent result handle refs MUST be unique")
@@ -999,6 +1031,7 @@ __all__ = [
     "SemanticInvestigationContinuation",
     "SemanticPlanningProfile",
     "SemanticPriorTurn",
+    "compact_prior_turns",
     "SemanticTurnDisposition",
     "SemanticTurnPrincipal",
     "SemanticTurnRequest",

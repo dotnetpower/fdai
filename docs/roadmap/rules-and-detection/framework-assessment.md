@@ -275,6 +275,8 @@ PostgreSQL ontology, then reads its current inventory generation and the Azure m
 from the private runner. Zero or multiple candidates fail before provider observation. The workflow
 never runs Terraform apply.
 
+The Operator dialogue-state snapshot and request field add no assessment source, finding, or framework mapping.
+
 ## Related docs
 
 | To learn about | Read |

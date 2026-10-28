@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 03e435e642c15a68c08989a0bedfc13fdb36ce71
-translation_revised: 2026-10-26
+translation_source_sha: 9ab8de0c54452c0fcdabe830641ec5223888e6e8
+translation_revised: 2026-10-28
 ---
 # 런타임 배포 프로파일
 
@@ -1068,6 +1068,8 @@ Core가 소유한 `licensing_entitlement_state` 행에 게시합니다. Core 마
 
 source와 공급자 테스트는 구현을 증명합니다. AKS 경로를 검증 완료로 분류하거나 프로덕션 준비 상태로
 안내하려면 실제 운영 증적이 필요합니다.
+
+대화 상태는 기본값이 꺼진 선택형 Operator 설정 두 가지로 제어합니다. `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED`는 모든 Core 소비자가 1.12.0을 받아들인 뒤에만 스키마 1.12.0 `dialogue_state` 필드를 내보내고, `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED`는 개발용 로컬 내레이터가 T1 proposer를 실행하게 합니다. 어느 쪽도 배포 프로필, 역할, `conversation_dialogue_snapshot`에 대한 `SELECT`와 `INSERT`를 넘는 권한, 실행 권한을 추가하지 않습니다.
 
 ## 관련 문서
 

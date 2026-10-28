@@ -349,6 +349,8 @@ unchanged.
 - The single-operator production profile reduces separation of duties by design. Customers that
   need it keep the multi-operator profile.
 
+The dialogue-state request field and snapshot table are neither a governance profile nor an approval input: they carry no principal authority, grant, or profile selection, and a profile never reads them to decide.
+
 ## Related docs
 
 | To learn about | Read |

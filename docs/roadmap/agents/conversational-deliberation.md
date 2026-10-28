@@ -483,14 +483,12 @@ turns were compacted.
 Operator-owned service migration with update and delete triggers), the narrator shadow receipt
 (`context_selection.dialogue_state_shadow`, counts and digests only) with best-effort snapshot
 retention keyed by principal and `conversation_id` when a writer is composed, and a Core observation of the prior turns it
-already receives beyond the adaptive history window. None of these changes the model request. The
+already receives beyond the adaptive history window. None of these changes the model request. The Operator now also binds the snapshot writer into the local narrator, an opt-in T1 proposer (`FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED`) runs off the answer path with verbatim-quote anchors that deterministic code locates and verifies, and schema 1.12.0 of the Operator-to-Core request carries the optional `dialogue_state` (opt-in through `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED`). Core compares the delivered accounting with its own, log-only. The
 shadow state is derived from the history the Console sends, so a client that sends a sliding window
 produces a new compacted digest per turn; the snapshot id excludes the kept window to dedupe the
 rest.
 
-**Remaining.** Compose the Postgres snapshot writer into the Operator runtime; bind a concrete T1 proposer and record shadow comparison evidence; add a versioned
-`SemanticTurnRequest` field so Core receives the Operator's state instead of observing it
-separately; show the Console indicator; and promote only through the registry.
+**Remaining.** Record shadow comparison evidence from a deployed venue; let the active turn use the state (anchors reach Core only after promotion reads the snapshot); show a Console indicator once the state is used; and promote only through the registry on gate evidence or an attributed operator override.
 
 ## Authority boundary
 

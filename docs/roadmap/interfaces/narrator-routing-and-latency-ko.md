@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: dbdbbe2434bbc85d74345631228c15d3ee9224e5
+translation_source_sha: 5eae45f6b3818265843f773409fe8ecaf52f3600
 translation_revised: 2026-10-28
 ---
 # 서술기 라우팅과 지연 시간
@@ -104,7 +104,7 @@ Operator는 구조와 최신성을 한도 안에서 검증한 뒤에만 이 변�
 없는 인증 영수증을 PostgreSQL에 한 번 삽입하며, 이 삽입은 연결 10초와 문장 20초 제한을 받습니다. 이
 쓰기는 턴 수락 지연 시간을 늘리지만 내레이터 라우팅, 기본 설정, 상태는 바꾸지 않습니다.
 
-내레이터의 `context_selection` 영수증에는 `dialogue_state_shadow`도 담깁니다. 요청이 그대로 싣지 않은 history 턴에 대한 개수, 범위 digest, typed fallback 사유이며, shadow 전용이고 턴 본문을 포함하지 않으며 모델 요청과 라우팅을 바꾸지 않습니다. snapshot writer가 조립되어 있고 본문에 `conversation_id`가 있으면 내레이터가 압축 상태를 best-effort로 보존하며, 저장 실패는 기록만 하고 턴에 영향을 주지 않습니다. [판테온 대화형 숙의](../agents/conversational-deliberation-ko.md#구조화된-대화-상태-관찰-모드)를 참고하세요.
+내레이터의 `context_selection` 영수증에는 `dialogue_state_shadow`도 담깁니다. 요청이 그대로 싣지 않은 history 턴에 대한 개수, 범위 digest, typed fallback 사유이며, shadow 전용이고 턴 본문을 포함하지 않으며 모델 요청과 라우팅을 바꾸지 않습니다. Operator 조립은 Postgres snapshot writer를 내레이터에 연결합니다. `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED`가 켜져 있으면 소형 모델 proposer가 추적되는 백그라운드 작업에서 원문 그대로의 인용을 요청하므로 응답을 지연시키지 않습니다. 결정적 코드가 각 인용의 위치를 찾고 모든 span이 값을 재현할 때만 제안을 받아들이며, 어떤 실패에서도 typed T0 fallback을 유지합니다. 영수증은 `t1_scheduled`를 보고합니다. snapshot writer가 조립되어 있고 본문에 `conversation_id`가 있으면 내레이터가 압축 상태를 best-effort로 보존하며, 저장 실패는 기록만 하고 턴에 영향을 주지 않습니다. [판테온 대화형 숙의](../agents/conversational-deliberation-ko.md#구조화된-대화-상태-관찰-모드)를 참고하세요.
 
 Console은 지속적으로 보이는 연결 배지를 간결하게 유지하고 배포 신원과 후보 처리 시간 상세를
 도구 설명에 배치합니다. 도구 설명은 표본 수와 측정 완료, 오래됨, 미측정, 실패 상태를
