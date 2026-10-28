@@ -170,8 +170,63 @@ def _head_state(record: Mapping[str, Any], head: Mapping[str, Any] | None, *, no
     if status in _OPEN_STATUSES:
         return "reusable" if approval_expired(head, now=now) else "open"
     if status == "resolved" and head.get("decision") == "reject":
-        return "rejected"
+        # An operator reopen names exactly this rejected head, so a later rejection stays closed.
+        return "reusable" if record.get("reopened_head") == head.get("approval_id") else "rejected"
     return "reusable"
+
+
+class ReopenOutcome(StrEnum):
+    """Result of an operator request to reopen a rejected subject."""
+
+    REOPENED = "reopened"
+    ALREADY_REOPENED = "already_reopened"
+    NOT_FOUND = "not_found"
+    NOT_REJECTED = "not_rejected"
+    STALE = "stale"
+
+
+async def reopen_rejected_subject(
+    store: StateStore, *, approval_id: str, actor: str, now: datetime, apply: bool = True
+) -> ReopenOutcome:
+    """Let the next proposal park a new request for a subject whose latest request was rejected.
+
+    The rejected request is never edited. The subject index records which rejected request was
+    reopened and one audit entry names the actor; a later rejection closes the subject again.
+    """
+    if not actor.strip():
+        raise ValueError("actor MUST be non-empty")
+    park = await store.read_state(park_key(approval_id))
+    key = park.get("subject_key") if park is not None else None
+    if park is None or not isinstance(key, str):
+        return ReopenOutcome.NOT_FOUND
+    if not (park.get("status") == "resolved" and park.get("decision") == "reject"):
+        return ReopenOutcome.NOT_REJECTED
+    record = await store.read_state(subject_state_key(key))
+    if record is None or record.get("approval_id") != approval_id:
+        return ReopenOutcome.STALE
+    if record.get("reopened_head") == approval_id:
+        return ReopenOutcome.ALREADY_REOPENED
+    if not apply:
+        return ReopenOutcome.REOPENED
+    revision = _int(record, "revision", 0)
+    updated = dict(record)
+    updated.update({"revision": revision + 1, "reopened_head": approval_id})
+    applied = await store.compare_and_set_state_with_audit(
+        subject_state_key(key),
+        updated,
+        expected_revision=revision,
+        audit_entry={
+            "actor": actor.strip(),
+            "action_kind": "hil.subject.reopened",
+            "mode": "shadow",
+            "idempotency_key": f"{approval_id}:hil_subject_reopened",
+            "approval_id": approval_id,
+            "correlation_id": str(park.get("correlation_id") or approval_id),
+            "recorded_at": now.isoformat(),
+            "subject_key": key,
+        },
+    )
+    return ReopenOutcome.REOPENED if applied else ReopenOutcome.STALE
 
 
 def _new_record(key: str, approval_id: str, *, event_id: str, now: datetime) -> dict[str, Any]:
@@ -275,9 +330,11 @@ def _parse(raw: object) -> datetime | None:
 
 __all__ = [
     "SUBJECT_PREFIX",
+    "ReopenOutcome",
     "SubjectAdmission",
     "SubjectAdmissionResult",
     "admit_subject",
+    "reopen_rejected_subject",
     "subject_key",
     "subject_state_key",
 ]
