@@ -1100,7 +1100,7 @@ function IncidentCurrentState({
 }) {
   const overview = incidentOperationalOverview(incident, items);
   const agentStatus = incidentAgentStatus(overview.phase);
-  const openedBy = items.find((item) => item.action_kind === "incident.open");
+  const createdBy = items.find((item) => item.action_kind === "incident.open");
   return (
     <section class="incident-current-state" aria-labelledby="incident-current-state-title">
       <header class="incident-current-state-head">
@@ -1126,7 +1126,7 @@ function IncidentCurrentState({
         <h4>{t("incidents.overview.routingTitle")}</h4>
         <dl>
           <div><dt>{t("incidents.overview.severity")}</dt><dd>{localized("severity", incident.severity)}</dd></div>
-          <div><dt>{t("incidents.overview.openedBy")}</dt><dd>{openedBy ? <>{auditActorLabel(openedBy)}{openedBy.actor_display ? <> <code class="mono">{openedBy.actor}</code></> : null}</> : t("incidents.none")}</dd></div>
+          <div><dt>{t("incidents.overview.createdBy")}</dt><dd>{createdBy ? <>{auditActorLabel(createdBy)}{createdBy.actor_display ? <> <code class="mono">{createdBy.actor}</code></> : null}</> : t("incidents.none")}</dd></div>
           <div><dt>{t("incidents.overview.accountableAgents")}</dt><dd>{incident.involved_agents.length > 0 ? <a href={routeHref("agents", { params: { incident: incident.correlation_id } })}>{incident.involved_agents.join(", ")}</a> : t("incidents.none")}</dd></div>
           <div><dt>{t("incidents.overview.humanOwnership")}</dt><dd><a href={routeHref("handover")}>{t("incidents.overview.openOwnership")}</a></dd></div>
           <div><dt>{t("incidents.overview.autonomy")}</dt><dd>{localized("modeMeaning", incident.latest_mode)}</dd></div>
