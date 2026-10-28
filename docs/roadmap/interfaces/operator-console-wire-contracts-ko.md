@@ -512,7 +512,11 @@ snapshot은 별도의 용도 범위 receipt-bound 변환 결과이며 현재 화
 Console은 `/ontology/object-types/:name`과 `/ontology/releases/:digest`에서 이러한 읽기를
 제공합니다. LinkType과 ActionType clean path는 기존 계약 inspector를 재사용합니다. 관련
 ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 때만 표시합니다. 이 근거가
-없는 기존 ActionType은 완전성을 낮추며 추론하지 않습니다. InterfaceType과 FunctionType은 의미 있는
+없는 기존 ActionType은 완전성을 낮추며 추론하지 않습니다. 수명주기를 선언하지 않은 ObjectType은 검토된 분류 레지스트리에서 복사한 `lifecycle_classification`
+(`category`, `rationale`, `source_refs`)을 포함하므로, Console은 빈 상태 대신 수명주기 소유 방식을
+설명합니다. 이 값은 수명주기 소유자나 권한을 부여하지 않습니다. 알려진 근거 사용 불가 사유 코드는
+원본 코드를 함께 표시하면서 쉬운 말로 보여 줍니다.
+InterfaceType과 FunctionType은 의미 있는
 활성 선언이 두 개 이상이고 권한 있는 사용 원본이 전용 P2 보기를 정당화할 때까지 레지스트리 신원과
 토폴로지 노드만 유지합니다.
 
@@ -709,6 +713,7 @@ Incident 또는 실행 권한은 바뀌지 않았습니다.
 | 2026-09-16 | implemented | 서비스 테스트 묶음 소유권, 의미 검토 등록, 생성된 question-bank 출처, 집계 경로 수, Core bootstrap 크기를 저장소 CI 계약에 맞췄습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 CI 계약 테스트 76개, 설계 영향 회귀 테스트, strict mypy 및 Ruff. | 정확한 최신 head의 보호된 CI와 인증된 요청부터 `incident.open`까지의 런타임 증적은 아직 필요합니다. Wire 동작이나 권한은 변경하지 않았습니다. |
 | 2026-09-16 | implemented | 일반 작업 확인의 기존 유효 기간 동작을 유지하고, 정확한 타입의 인시던트 인자와 세션 신원을 요구했으며, 의미 기반 요청 및 결과 행을 모두 인증된 principal에 결속했습니다. | [이슈 #1125](https://github.com/dotnetpower/fdai/issues/1125), `current change`, 집중 인시던트 확인, 일반 작업 및 PostgreSQL 조회 회귀 테스트. | 정확한 최신 head의 보호된 CI와 인증된 요청부터 `incident.open`까지의 런타임 증적은 아직 필요합니다. 실행 권한은 변경하지 않았습니다. |
 | 2026-09-16 | implemented | 공용 PostgreSQL 읽기 컨텍스트에 세대에 결속된 인벤토리 무효화 커서를 추가했습니다. 인시던트 초안, 원본 재검증, 제안 저장, 게시, 수명 주기 소유권 및 실행 권한은 바뀌지 않았습니다. | `current change`, 집중 Operator 인벤토리 상태 및 재생 테스트 153개, strict mypy 및 Ruff | Operator가 시작하는 인시던트 wire 동작은 바뀌지 않았습니다. |
+| 2026-10-29 | implemented | ObjectType 상세의 빈 섹션을 설명하도록 개선했습니다. 수명주기를 선언하지 않은 ObjectType은 검토된 수명주기 분류를 보여 주고, 알려진 근거 사용 불가 사유 코드는 원본 코드와 함께 쉬운 말로 표시합니다. | `current change`; `ontology_declaration_projection.py`, `ontology-object-type-detail.tsx`; 집중 프로젝션, 디코더, 현지화 테스트를 통과했습니다. | 관련 ActionType은 정확한 의미 대상이 생길 때까지 비어 있고, 연결된 원본이 없는 ObjectType의 런타임 근거는 계속 사용할 수 없습니다. |
 
 ### 남은 작업
 

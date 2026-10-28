@@ -541,6 +541,10 @@ The Console exposes these reads at `/ontology/object-types/:name` and
 `/ontology/releases/:digest`. LinkType and ActionType clean paths reuse their existing contract
 inspectors. Related actions appear only when an ActionType carries an exact semantic ObjectType or
 InterfaceType target. Legacy actions without that evidence lower completeness and are not inferred.
+An ObjectType that declares no lifecycle carries `lifecycle_classification` (`category`,
+`rationale`, `source_refs`) copied from the reviewed classification registry, so the Console explains
+who owns the lifecycle instead of showing an empty state. It grants no lifecycle owner or authority.
+Known evidence-unavailable reason codes render as plain language with the raw code kept visible.
 InterfaceType and FunctionType keep their registry identity and topology nodes until more than one
 meaningful active declaration and an authoritative usage source justify dedicated P2 views.
 
@@ -743,6 +747,7 @@ engage or disengage drill remains incomplete until an independent store observat
 | 2026-10-01 | implemented | A compiled property lookup renders the exact reviewed value of its bound Resource, states a missing value as unknown, and restates the value's inventory source and reviewed freshness bound through a reviewed bilingual notice; the wire schema is unchanged. | `current change`; `services/core-control-plane/src/fdai_core_service/{semantic_property_answer,semantic_verified_rows,semantic_turn_processor}.py`; `test_semantic_reasoning_property_reads.py` | None for this change. |
 | 2026-10-08 | implemented | Added `GET /code-security/repositories`, `GET /code-security/scan-requests`, and the Contributor or Owner `POST /code-security/scan-requests` proposal, and `source` and `producers` on schema `1.1.0` review rows. | `current change`; `fdai_operator_service/code_security_review_projection.py`, `families/operations/manifest.py`, `factory.py`; `services/operator-service/tests/test_code_security_review_projection.py` and `test_operator_operations_family.py` passed. | The scan-request worker isn't scheduled in a deployment yet; see the [Code Security Scanning ledger](../../roadmap-implementation/operations/code-security-scanning.md). |
 | 2026-10-08 | implemented | Added Owner-only `POST /code-security/repositories`, `GET /code-security/issues`, and `kind`, `action`, and `location` on request rows. | `current change`; `fdai_operator_service/code_security_review_projection.py`, `code_security_issue_projection.py`, `families/operations/manifest.py`; `test_code_security_review_projection.py` and `test_operator_operations_family.py` passed. | The worker isn't scheduled in a deployment yet; see the [Code Security Scanning ledger](../../roadmap-implementation/operations/code-security-scanning.md). |
+| 2026-10-29 | implemented | Explained empty ObjectType detail sections: lifecycle-free ObjectTypes now show their reviewed lifecycle classification, and known evidence-unavailable reason codes render as plain language beside the raw code. | `current change`; `ontology_declaration_projection.py`, `ontology-object-type-detail.tsx`; focused projection, decoder, and localization tests passed. | Related actions stay empty until ActionTypes carry exact semantic targets; runtime evidence stays unavailable for ObjectTypes without a bound source. |
 
 ### Remaining work
 
