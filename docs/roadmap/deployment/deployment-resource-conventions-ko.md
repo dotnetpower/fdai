@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: df6b681068cfb9da44a04b7b2b10df5daafc5bbc
+translation_source_sha: 73dae21b3bac4bf89062a89d6060b34b5129d097
 translation_revised: 2026-10-28
 ---
 # 배포 리소스 규약
@@ -374,7 +374,10 @@ OS 디스크는 Premium SSD를 사용합니다. 로컬 임시 SSD에는 삭제�
 캐시를 저장합니다. 해당 디스크가 마운트되지 않으면 러너가 시작되지 않습니다. 등록할 때는 수명이 짧은
 토큰을 Azure의 보호된 환경 매개변수로 전달하며, Terraform이나 명령줄 값에 넣지 않습니다.
 
-선택적 가속은 우선 회귀 테스트 샤드 4만 워커 8개를 사용하는 리스너 하나로 이동합니다.
+선택적 가속은 회귀 테스트 샤드 4개를 같은 VM의 리스너 최대 5개로 구성한 풀로 이동합니다.
+각 샤드는 pytest 워커 3개를 사용합니다. 리스너마다 실행 파일, 작업 공간, 캐시 경로를 분리하고,
+systemd에서 CPU 3개와 RAM 12 GiB로 제한합니다.
+등록 과정에서는 대상이 일치하는 유휴 러너를 유지하며, 작업 중이거나 대상이 다른 러너는 변경하지 않습니다.
 보호된 main의 소스 출처 검증을 통과하고 `FDAI_CI_SSD_RUNNER_ENABLED=true`가 설정되어야 합니다.
 모든 끌어오기 요청과 비활성화 경로는 GitHub 호스팅 러너를 계속 사용합니다. 러너 준비 상태,
 워크플로 게시, 경로 활성화, 측정된 CI 개선은 각각 별도의 근거가 필요하며, 한 단계의 확인이

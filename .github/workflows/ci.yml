@@ -76,11 +76,15 @@ jobs:
   python-tests:
     name: pytest regression shard ${{ matrix.shard }}/4
     needs: changes
-    if: needs.changes.outputs.python == 'true'
+    if: >-
+      needs.changes.outputs.python == 'true' &&
+      (vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true' ||
+      github.ref != 'refs/heads/main' ||
+      github.event_name == 'pull_request')
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(vars.FDAI_CI_SSD_RUNNER_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && '[1,2,3]' || '[1,2,3,4]') }}
+        shard: [1, 2, 3, 4]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -165,7 +169,7 @@ jobs:
           github-token: ${{ github.token }}
 
   python-tests-ssd:
-    name: pytest regression shard 4/4 (SSD)
+    name: pytest regression shard ${{ matrix.shard }}/4 (SSD)
     needs: [changes, protected-ci-source]
     if: >-
       needs.changes.outputs.python == 'true' &&
@@ -173,13 +177,18 @@ jobs:
       github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request'
     runs-on: [self-hosted, Linux, X64, fdai-ci, fdai-ci-ssd]
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
     timeout-minutes: 20
     env:
       FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
-      FDAI_PYTEST_MAX_WORKERS: "8"
+      FDAI_PYTEST_MAX_WORKERS: "3"
       FDAI_PYTEST_MODE: regression
       FDAI_PYTEST_SHARD_COUNT: "4"
-      FDAI_PYTEST_SHARD_INDEX: "4"
+      FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
     steps: *python-regression-steps
 
   python-coverage-shards:

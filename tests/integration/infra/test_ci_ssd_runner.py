@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -22,17 +23,22 @@ _ELIGIBLE = (
 )
 
 
-def test_workflow_keeps_prs_hosted_and_moves_only_one_protected_main_shard() -> None:
+def test_workflow_routes_all_main_regression_shards_without_moving_prs() -> None:
     workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
     job = workflow["jobs"]["python-tests"]
     assert job["runs-on"] == "ubuntu-24.04"
-    assert job["strategy"]["matrix"]["shard"] == (
-        "${{ fromJSON(" + _ELIGIBLE + " && '[1,2,3]' || '[1,2,3,4]') }}"
+    assert job["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
+    assert " ".join(job["if"].split()) == (
+        "needs.changes.outputs.python == 'true' && "
+        "(vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true' || "
+        "github.ref != 'refs/heads/main' || github.event_name == 'pull_request')"
     )
     ssd = workflow["jobs"]["python-tests-ssd"]
     assert ssd["runs-on"] == ["self-hosted", "Linux", "X64", "fdai-ci", "fdai-ci-ssd"]
-    assert ssd["env"]["FDAI_PYTEST_MAX_WORKERS"] == "8"
-    assert ssd["env"]["FDAI_PYTEST_SHARD_INDEX"] == "4"
+    assert ssd["env"]["FDAI_PYTEST_MAX_WORKERS"] == "3"
+    assert ssd["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
+    assert ssd["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
+    assert ssd["strategy"]["max-parallel"] == 4
     assert ssd["steps"] == job["steps"]
     assert " ".join(ssd["if"].split()) == ("needs.changes.outputs.python == 'true' && " + _ELIGIBLE)
     assert "protected-ci-source" in ssd["needs"]
@@ -88,12 +94,119 @@ def test_registration_token_is_only_in_protected_parameters() -> None:
     assert "unset ACTIONS_RUNNER_INPUT_TOKEN" in script
     assert "--labels fdai-ci,fdai-ci-ssd" in script
     assert "--replace" not in script
-    assert "--work /mnt/fdai-ci/work" in script
-    assert "ExecStartPre=+/usr/local/sbin/fdai-ci-storage" in script
+    assert '--work "$work"' in script
+    assert 'work="/mnt/fdai-ci/work$suffix"' in script
+    assert 'tools="/mnt/fdai-ci/toolcache$suffix"' in script
+    assert '"ExecStartPre=+$storage"' in script
     assert "ulimit -c 0" in script
     assert "LimitCORE=0" in script
-    assert "install -d -o fdairunner -g fdairunner /opt/actions-runner/_diag" in script
+    assert '"$runner_home/_diag"' in script
+    assert "CPUQuota=300% MemoryHigh=10G MemoryMax=12G TasksMax=8192" in script
+    assert "./svc.sh stop" not in script
+    assert "./config.sh remove" not in script
     subprocess.run(["/usr/bin/bash", "-n"], input=script, text=True, check=True)
+
+
+@pytest.mark.parametrize("parallelism", [0, -1, 6, 100])
+def test_registration_rejects_unbounded_parallelism(parallelism: int) -> None:
+    with pytest.raises(ValueError, match="between 1 and 5"):
+        REGISTER.registration_script("example/repository", "vm-example-ci", parallelism)
+
+
+def test_five_slots_have_separate_distribution_and_disposable_state() -> None:
+    script = REGISTER.registration_script("example/repository", "vm-example-ci", 5)
+    assert "for slot in $(seq 1 5)" in script
+    assert 'runner_home="/opt/actions-runner$suffix"' in script
+    assert 'runner_name="vm-example-ci$suffix"' in script
+    assert 'cache="/mnt/fdai-ci/cache$suffix"' in script
+    assert "cp -a /opt/actions-runner/bin /opt/actions-runner/externals" in script
+    assert "/opt/actions-runner/.credentials" not in script
+    assert "/opt/actions-runner/.runner" not in script
+    assert "Existing runner configuration does not match" in script
+    assert 'if ! systemctl is-active --quiet "$service_name"' in script
+    assert "FDAI_CI_RUNNER_REGISTERED slots=5" in script
+    assert "$(nproc) < 16" in script
+    assert "65011712" in script  # 62 GiB reserves 2 GiB beyond five 12-GiB limits.
+    subprocess.run(["/usr/bin/bash", "-n"], input=script, text=True, check=True)
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+@pytest.mark.parametrize("matches", [True, False])
+def test_existing_slot_validation_accepts_runner_bom_without_replacing_wrong_target(
+    tmp_path: Path,
+    encoding: str,
+    matches: bool,
+) -> None:
+    script = REGISTER.registration_script("example/repository", "vm-example-ci", 5)
+    validator = script.split("<<'PY'\n", 1)[1].split("\nPY", 1)[0]
+    (tmp_path / ".runner").write_text(
+        json.dumps(
+            {
+                "agentName": "vm-example-ci" if matches else "vm-other-ci",
+                "gitHubUrl": "https://github.com/example/repository",
+            }
+        ),
+        encoding=encoding,
+    )
+    result = subprocess.run(  # noqa: S603 - repository-owned validator with synthetic coordinates
+        [sys.executable, "-c", validator, "vm-example-ci"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert (result.returncode == 0) is matches, result.stderr
+
+
+@pytest.mark.parametrize(
+    ("busy", "labels", "message"),
+    [
+        (True, ["fdai-ci", "fdai-ci-ssd"], "is busy"),
+        (False, ["fdai-deploy"], "isolated CI pool"),
+        (False, ["fdai-ci", "fdai-ci-ssd", "fdai-deploy-candidate"], "isolated CI pool"),
+    ],
+)
+def test_registration_does_not_change_busy_or_deployment_runners(
+    monkeypatch: pytest.MonkeyPatch,
+    busy: bool,
+    labels: list[str],
+    message: str,
+) -> None:
+    responses = iter(
+        [
+            {"id": "test-subscription"},
+            {"approval_policy": "all_external_contributors"},
+            {"identity": None},
+            {
+                "runners": [
+                    {
+                        "name": "vm-example-ci",
+                        "busy": busy,
+                        "labels": [{"name": label} for label in labels],
+                    }
+                ]
+            },
+        ]
+    )
+    monkeypatch.setattr(REGISTER, "_json_command", lambda _: next(responses))
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "register.py",
+            "--repository",
+            "example/repository",
+            "--resource-group",
+            "rg-example-ci",
+            "--vm-name",
+            "vm-example-ci",
+            "--subscription",
+            "test-subscription",
+            "--parallelism",
+            "5",
+        ],
+    )
+    with pytest.raises(SystemExit, match=message):
+        REGISTER.main()
 
 
 @pytest.mark.parametrize(

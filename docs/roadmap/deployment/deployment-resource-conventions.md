@@ -384,7 +384,10 @@ The OS disk uses Premium SSD. Local temporary SSD storage holds disposable works
 the runner refuses to start if that mount is missing. Enrollment uses a short-lived token passed
 through Azure protected environment parameters, not Terraform or command-line values.
 
-Optional acceleration initially moves only regression shard 4 to one eight-worker listener.
+Optional acceleration moves all four regression shards to a pool of up to five listeners
+on the same VM. Each shard uses three pytest workers; each listener has separate distribution,
+workspace, and cache paths and a systemd limit of 3 CPUs and 12 GiB RAM.
+Enrollment preserves matching idle registrations and refuses busy or mismatched runners.
 It requires protected-main provenance verification and `FDAI_CI_SSD_RUNNER_ENABLED=true`.
 All pull requests and the disabled path stay GitHub-hosted. Runner readiness, workflow publication,
 route activation, and measured CI improvement are distinct evidence levels; none implies the next.

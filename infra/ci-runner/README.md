@@ -29,7 +29,13 @@ or deallocation. The runner service checks this mount before starting and never 
 back to the OS disk. Runner registration stays on the OS disk.
 
 Use only a VM SKU with a local temporary SSD. A missing `/mnt` mount fails bootstrap.
-One VM runs one listener. Adding more listener processes does not add CPU or isolation.
+One VM supports one through five listeners. Adding listeners shares the VM's existing CPU
+and memory; it does not add compute capacity or a security boundary between jobs.
+
+Each listener has a separate distribution, workspace, cache, and tool directory. Its systemd
+service limits subprocesses to 3 CPUs and 12 GiB RAM, with memory pressure at 10 GiB.
+Five listeners need at least 16 CPUs and 62 GiB RAM, including host headroom. Docker daemon
+work is outside those service limits; database/container jobs stay on GitHub-hosted runners.
 
 ## Provision and register
 
@@ -53,24 +59,35 @@ One VM runs one listener. Adding more listener processes does not add CPU or iso
      --repository example-owner/example-repository \
      --subscription "$APPROVED_SUBSCRIPTION" \
      --resource-group "$APPROVED_CI_RESOURCE_GROUP" \
-     --vm-name "$APPROVED_CI_VM"
+     --vm-name "$APPROVED_CI_VM" \
+     --parallelism 5
    ```
 
 The helper keeps the registration token in memory and sends it only as an Azure protected
-parameter. It does not print the token or put it in a subprocess argument. An existing runner
-name or local configuration stops registration rather than replacing a possibly active runner.
+parameter. It does not print the token or put it in a subprocess argument. Existing idle CI
+registrations are preserved when their names, labels, and local repository binding match.
+A busy runner or a mismatched registration stops the operation. New slots copy distribution
+files only, never registration credentials or mutable state. The helper starts missing services
+without stopping or replacing active registrations. Reducing `--parallelism` does not remove extra
+slots; removal requires an explicit idle-runner operation. The limit of five is a bounded host
+configuration, not a GitHub platform maximum.
 After a timeout, inspect Azure and GitHub state before attempting registration again.
 
 ## Enable optional CI routing
 
 After the workflow change is published and the runner is independently verified online,
-set the repository variable `FDAI_CI_SSD_RUNNER_ENABLED` to `true`. Only protected-main
-regression shard 4 uses the `fdai-ci,fdai-ci-ssd` labels and eight pytest workers, after a separate
-GitHub-hosted job verifies the exact source against protected main. Other shards, all pull requests,
-and an unset or disabled variable keep GitHub-hosted execution. A manual CI run requires the exact
+set the repository variable `FDAI_CI_SSD_RUNNER_ENABLED` to `true`. All four protected-main
+regression shards use the `fdai-ci,fdai-ci-ssd` labels and three pytest workers each, after a
+separate GitHub-hosted job verifies the exact source against protected main. The matrix admits
+four jobs at once; a fifth listener can accept a job from another eligible run. All pull requests,
+coverage/database jobs, and an unset or disabled variable keep GitHub-hosted execution.
+A manual CI run requires the exact
 `commit_sha`; SSD execution rejects a SHA different from the workflow run's commit.
 
-This limited initial routing avoids serializing all Python shards onto one VM. It is not
+The GitHub-hosted regression matrix is skipped only when its guarded SSD replacement is selected;
+the required aggregator checks both paths so a failed source verifier cannot silently skip regression.
+Setting the variable before publication has no effect on a workflow that does not reference it.
+This routing is not
 automatic capacity fallback: an enabled job waits if its matching runner is unavailable.
 Set the variable to `false` before stopping the VM. Already queued jobs retain their selected
 runner and need an explicit operator decision; this setting does not migrate them.
