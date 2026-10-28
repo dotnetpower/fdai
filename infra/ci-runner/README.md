@@ -39,6 +39,9 @@ Each listener has a separate distribution, workspace, cache, and tool directory.
 service limits subprocesses to 3 CPUs and 12 GiB RAM, with memory pressure at 10 GiB.
 Five listeners need at least 16 CPUs and 62 GiB RAM, including host headroom. Docker daemon
 work is outside those service limits; database/container jobs stay on GitHub-hosted runners.
+The shared OPA action installs its checksum-pinned binary under each job's `RUNNER_TEMP` and
+exports it through `GITHUB_PATH`. It needs no sudo permission and does not race over a shared
+`/tmp/opa` file when several listeners run together.
 
 ## Provision and register
 

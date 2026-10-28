@@ -392,6 +392,8 @@ Optional acceleration moves all four regression shards to a pool of up to five l
 on the same VM. Each shard uses three pytest workers; each listener has separate distribution,
 workspace, and cache paths and a systemd limit of 3 CPUs and 12 GiB RAM.
 Enrollment preserves matching idle registrations and refuses busy or mismatched runners.
+Shared test-tool setup remains job-local: OPA uses `RUNNER_TEMP` and `GITHUB_PATH`, not sudo
+or a shared `/tmp/opa` binary, so parallel listeners retain their unprivileged service identity.
 It requires protected-main provenance verification and `FDAI_CI_SSD_RUNNER_ENABLED=true`.
 All pull requests and the disabled path stay GitHub-hosted. Runner readiness, workflow publication,
 route activation, and measured CI improvement are distinct evidence levels; none implies the next.
