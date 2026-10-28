@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import type { AuditItem } from "../types";
-import { appendAuditPage, auditContextRecord, auditEntryText, auditRecordedPhase, resolveAuditEntry, searchAuditItems } from "./audit.model";
+import { appendAuditPage, auditActorLabel, auditContextRecord, auditEntryText, auditRecordedPhase, resolveAuditEntry, searchAuditItems } from "./audit.model";
 import { auditFiltersFromSearch } from "./audit";
 
 function item(seq: number): AuditItem {
@@ -102,5 +102,16 @@ describe("audit pagination", () => {
       status: "invalid",
       value: "not-a-seq",
     });
+  });
+});
+
+describe("audit actor label", () => {
+  test("prefers the resolved directory label and falls back to the recorded actor", () => {
+    const oid = "subject-example-1";
+
+    expect(auditActorLabel({ ...item(1), actor: oid, actor_display: "Example Operator" })).toBe("Example Operator");
+    expect(auditActorLabel({ ...item(1), actor: oid, actor_display: null })).toBe(oid);
+    expect(auditActorLabel({ ...item(1), actor: "Heimdall" })).toBe("Heimdall");
+    expect(searchAuditItems([{ ...item(1), actor: oid, actor_display: "Example Operator" }], "example op")).toHaveLength(1);
   });
 });
