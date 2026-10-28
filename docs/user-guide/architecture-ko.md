@@ -4,8 +4,8 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 11faea4e5f95a41549fab49da994b416f9ce9805
-translation_revised: 2026-10-22
+translation_source_sha: 5db83ba1f6e0b45ef2e33ba760c1f031f4f33c2d
+translation_revised: 2026-10-28
 ---
 
 # FDAI 아키텍처
@@ -44,10 +44,11 @@ Azure 리소스 배치와 분리해 보여 줍니다.
 개별 이벤트를 추적하기 전에 참조 보기에서 시스템 범위, 권한 경계, 통제되는 의존성을
 확인하세요. 사용자 인터페이스 없이 동작하는 컨트롤 플레인에는 타입 기반 이벤트 흐름과
 15개 에이전트가 담당하는 제어 단계가 있습니다. 모델 공급자, 도구, 정책 및 조회 엔진,
-지식, 근거, Azure 배포 기반은 이 내부 경계 밖에 둡니다.
+지식, 근거, Azure 배포 기반은 이 내부 경계 밖에 둡니다. 배포 기반에는 AKS를 기본
+런타임으로, Container Apps를 호환 프로필로 표시합니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-reference-architecture.manifest.json" locale="ko" style="display:block">
-  <img src="../../diagrams/generated/fdai-reference-architecture.ko.svg" alt="연결된 Azure 리소스, 관측 시스템, 저장소 및 기업용 커넥터가 타입이 지정된 신호를 헤드리스 FDAI 컨트롤 플레인에 발행합니다. 운영자는 Web Console, CLI 및 ChatOps 인터페이스를 사용합니다. 독립적으로 실행할 수 있는 15개 에이전트가 모든 제어 단계를 담당하고 스키마 검증을 거치는 이벤트 버스로 협업합니다. 이벤트는 수집과 신뢰 라우팅을 거쳐 T0 결정론적 규칙, T1 검증된 재사용 또는 T2 근거 기반 추론으로 전달됩니다. T2만 서로 다른 모델을 사용하는 품질 게이트를 통과한 뒤 모든 티어가 공통 위험 및 권한 게이트로 들어갑니다. 영향이 큰 작업은 독립적인 사람의 권한 부여를 요청하고, 타입이 지정된 승인 이벤트는 실행기를 직접 호출하지 않고 에이전트 런타임으로 다시 들어갑니다. 실행 가능한 작업은 특권 실행기에 도달하여 수정 pull request 또는 범위가 제한된 직접 작업을 생성합니다. 실행할 수 없는 작업은 보류, 거부 또는 미실행으로 종료됩니다. Microsoft Foundry, Azure OpenAI, 프로바이더 도구, OPA 및 Rego 정책 평가, IQL 인벤토리 조회, 운영 온톨로지, 통제된 카탈로그 및 PostgreSQL은 헤드리스 FDAI 컨트롤 플레인 경계 밖에서 통제된 기능을 제공합니다. Azure Container Apps, Microsoft Entra ID, Managed Identity, Key Vault 및 Azure Monitor는 배포 기반을 구성합니다. 모든 최종 결과는 추적하고 재생할 수 있습니다." loading="eager" style="display:block;width:100%;height:auto" />
+  <img src="../../diagrams/generated/fdai-reference-architecture.ko.svg" alt="연결된 Azure 리소스, 텔레메트리, 저장소, 커넥터가 타입이 지정된 신호를 헤드리스 FDAI 컨트롤 플레인에 보내고 운영자는 Web Console, CLI, ChatOps를 사용합니다. 15개 에이전트는 스키마 검증 이벤트 버스로 협업합니다. 이벤트는 수집과 신뢰 라우팅을 거쳐 T0 규칙, T1 검증된 재사용 또는 T2 근거 기반 추론으로 처리됩니다. T2만 품질 게이트를 통과하며 모든 티어는 위험 및 권한 게이트에 도달합니다. 영향이 큰 작업은 독립적인 사람 권한이 필요합니다. 승인된 작업은 권한 있는 실행기가 처리해 통제된 변경을 만들고 나머지는 보류, 거부 또는 변경 없음으로 종료합니다. 통제된 기능과 Azure 기반은 컨트롤 플레인 밖에 있으며 모든 결과는 감사하고 재생할 수 있습니다." loading="eager" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 Pantheon 통합 표시는 고정된 15개 에이전트 조직을 나타내며 16번째 에이전트가 아닙니다.
@@ -125,17 +126,14 @@ API 접근 경계에는 예약 작업이 포함되지 않습니다. Event Hubs �
 
 ### Container Apps 배포
 
-논리적 컨트롤 루프의 책임 구분보다 운영 사설망 기준 구성을 확인하려면 이 배포
-다이어그램을 사용하세요. 번호가 지정된 연결선은 주요 신호, 판단, 근거, 승인, 전달 경로를
-보여 줍니다. 중첩된 경계는 Azure 리전, Virtual Network, 위임된 서브넷을 나타냅니다.
+Container Apps는 같은 5개 서비스, 컨트롤 루프, 권한 경계를 유지하는 호환 프로필입니다.
+다음 절의 리소스 네트워크 흐름이 이 프로필의 배포 보기입니다. VNet에 통합된 Container
+Apps 환경의 5개 서비스, Azure 서비스로 이어지는 비공개 엔드포인트 경로, 전달 채널을
+보여 줍니다.
 
-<fdai-architecture-diagram manifest="../../diagrams/generated/fdai-azure-deployment-topology.manifest.json" locale="ko" style="display:block">
-  <img src="../../diagrams/generated/fdai-azure-deployment-topology.ko.svg" alt="Azure 플랫폼 신호와 예약 점검이 Kafka 엔드포인트를 통해 Azure Event Hubs로 들어갑니다. VNet에 통합된 Container Apps 환경에서 FDAI Core, 예약 작업, 별도 신원을 사용하는 Operator API가 실행됩니다. Core는 Managed Identity로 Azure Resource Graph를 조회하고, 선택적인 Azure OpenAI 모델을 호출하며, Key Vault 참조를 가져오고, 통제된 상태와 추가 전용 감사 근거를 PostgreSQL에 기록합니다. 비공개 엔드포인트와 비공개 DNS는 지원되는 데이터 플레인 트래픽을 Virtual Network 안에 유지합니다. 운영자는 Microsoft Entra ID로 인증하고 읽기 전용 콘솔을 확인하며, Teams에서 고위험 작업을 승인하고 Git pull request로 통제된 변경을 전달받습니다. Application Insights와 Log Analytics는 의사 결정에 개입하지 않고 모든 런타임 경로를 관찰합니다." loading="lazy" style="display:block;width:100%;height:auto" />
-</fdai-architecture-diagram>
-
-이 다이어그램은 특정 테넌트의 리소스 이름이 아니라 매개 변수화된 Terraform 배포를
-나타냅니다. Azure OpenAI와 일부 비공개 엔드포인트는 선택 사항입니다. 사용자 App 역할과
-권한 있는 실행기의 Managed Identity는 모든 프로필에서 분리됩니다.
+이 보기는 특정 테넌트의 리소스 이름이 아니라 매개 변수화된 Terraform 배포를 나타냅니다.
+Azure OpenAI와 일부 비공개 엔드포인트는 선택 사항입니다. 사용자 App 역할과 권한 있는
+실행기의 Managed Identity는 모든 프로필에서 분리됩니다.
 
 ## Azure 리소스 네트워크 흐름
 
@@ -148,7 +146,7 @@ API 접근 경계에는 예약 작업이 포함되지 않습니다. Event Hubs �
 사용하지만 다이어그램을 간결하게 유지하기 위해 이 보기에서는 생략합니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-azure-resource-network-flow.manifest.json" locale="ko" style="display:block">
-  <img src="../../diagrams/generated/fdai-azure-resource-network-flow.ko.svg" alt="운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. 계획된 비공개 Application Gateway는 WAF 정책으로 보호되며 Operator Service와 Document Ingestion API로 요청을 전달합니다. VNet에 통합된 Container Apps 환경에서는 Core Control Plane, Operator Service, Document Ingestion API, Document Processing Worker, Isolated Executor 및 예약 작업이 실행됩니다. Core에는 실제 변경을 수행할 신원이 없고 Isolated Executor만 명시적으로 승인된 변경 역할을 보유할 수 있습니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 선택적인 ADLS Gen2 저장소는 전용 비공개 엔드포인트를 통해 연결됩니다. Azure Resource Graph는 인벤토리를 제공하고 Application Insights와 Log Analytics는 관측 데이터를 수집하며 Azure Managed Grafana는 모니터링 데이터를 읽습니다. 이메일, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../../diagrams/generated/fdai-azure-resource-network-flow.ko.svg" alt="운영자는 Microsoft Entra ID로 로그인해 FDAI Web Console을 사용합니다. WAF 정책을 갖춘 사설 Application Gateway는 계획된 구성이며 도입하면 Operator Service와 Document Ingestion API로 요청을 전달합니다. FDAI 서비스 다섯 개는 VNet에 통합된 Container Apps 환경에서 실행되고 승인된 변경 역할은 격리된 실행기만 보유할 수 있습니다. Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, PostgreSQL 및 선택적 ADLS Gen2는 프라이빗 엔드포인트로 연결됩니다. Resource Graph, Application Insights와 Log Analytics, 계획된 Managed Grafana, 승인 채널, Git 제공자가 나머지 경로를 구성합니다." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 기준선 영역은 `enable_private_postgres=false`일 때 `postgresqlServer` 비공개 엔드포인트를
@@ -164,8 +162,8 @@ API 접근 경계에는 예약 작업이 포함되지 않습니다. Event Hubs �
 남아 있습니다.
 
 같은 보기에는 의도한 게이트웨이, 모델 플랫폼, 관측성 및 전달 공급자 토폴로지도
-겹쳐서 표시합니다. 제품 및 네트워크 레이블을 일관되게 유지하기 위해 상태는 다이어그램이
-아니라 이 문서에서 관리합니다.
+겹쳐서 표시합니다. Terraform이 프로비저닝하지 않는 요소는 점선 윤곽과 "(계획)" 레이블로
+구분합니다. 아래 표는 각 목표 상태 요소의 상태를 설명합니다.
 
 | 목표 상태 요소 | Terraform 상태 | 문서화 결정 |
 |-------------------|----------------|-------------|
@@ -233,7 +231,7 @@ ChatOps가 멈추면 위험도가 높은 작업은 승인 없이 실행되지 �
 Azure 리소스 변경, SLO 소진 감지, 예약 작업, 운영자 요청 중 어디에서 시작하든 모든
 이벤트는 같은 경로를 따릅니다.
 
-![Azure 리소스 변경, 관찰 데이터, 운영자 요청, 예약 점검이 포트 9093의 Kafka endpoint를 통해 Event Hubs로 들어갑니다. FDAI 컨트롤 플레인은 각 이벤트를 수집하고 결정 수준을 선택하며 근거를 검증하고 안전성 검토를 적용한 뒤 실행, 승인 요청, 보류 중 하나로 처리합니다. 결과는 수정 pull request로 전달되며 읽기 전용 콘솔을 위해 PostgreSQL에 기록됩니다.](../diagrams/generated/fdai-system-overview.ko.svg)
+[전체 구조](#전체-구조)의 시스템 개요가 이 경로를 보여 줍니다.
 
 1. **수집과 상관관계 분석**: FDAI는 이벤트 스키마를 확인하고, 재시도를 안전하게 만드는
    멱등성 키로 중복 이벤트를 제거한 뒤, 관련 신호를 하나의 인시던트로 묶습니다.
@@ -393,7 +391,7 @@ FDAI에서 권한 분리는 아키텍처 자체의 속성입니다. 나중에 �
 
 리포지토리는 런타임 시스템과 같은 의존 방향을 따릅니다.
 
-![연결된 Azure 리소스, 관측 시스템, 저장소 및 기업용 커넥터가 타입이 지정된 신호를 헤드리스 FDAI 컨트롤 플레인에 발행합니다. 운영자는 Web Console, CLI 및 ChatOps 인터페이스를 사용합니다. 독립적으로 실행할 수 있는 15개 에이전트가 모든 제어 단계를 담당하고 스키마 검증을 거치는 이벤트 버스로 협업합니다. 이벤트는 수집과 신뢰 라우팅을 거쳐 T0 결정론적 규칙, T1 검증된 재사용 또는 T2 근거 기반 추론으로 전달됩니다. T2만 서로 다른 모델을 사용하는 품질 게이트를 통과한 뒤 모든 티어가 공통 위험 및 권한 게이트로 들어갑니다. 영향이 큰 작업은 독립적인 사람의 권한 부여를 요청하고, 타입이 지정된 승인 이벤트는 실행기를 직접 호출하지 않고 에이전트 런타임으로 다시 들어갑니다. 실행 가능한 작업은 특권 실행기에 도달하여 수정 pull request 또는 범위가 제한된 직접 작업을 생성합니다. 실행할 수 없는 작업은 보류, 거부 또는 미실행으로 종료됩니다. Microsoft Foundry, Azure OpenAI, 프로바이더 도구, OPA 및 Rego 정책 평가, IQL 인벤토리 조회, 운영 온톨로지, 통제된 카탈로그 및 PostgreSQL은 헤드리스 FDAI 컨트롤 플레인 경계 밖에서 통제된 기능을 제공합니다. Azure Container Apps, Microsoft Entra ID, Managed Identity, Key Vault 및 Azure Monitor는 배포 기반을 구성합니다. 모든 최종 결과는 추적하고 재생할 수 있습니다.](../diagrams/generated/fdai-reference-architecture.ko.svg)
+![컴포지션 루트는 검증된 설정을 읽고 실제 공급자를 전달 어댑터와 코어에 주입합니다. 전달 어댑터는 공유 계약 뒤에서 영속화, Azure 접근, GitOps, 알림, ChatOps, 조회 API를 구현합니다. 코어는 판단과 조율 로직을 담고 공유 계약에만 의존하며 Azure SDK나 UI 코드를 가져오지 않습니다. 공유 계약은 버전이 관리되는 이벤트, 작업, 규칙, 워크플로, 공급자 계약을 정의하고 코어를 가져오지 않습니다. 규칙 카탈로그와 정책은 관리 대상 데이터를 담고 있어 컨트롤 루프를 다시 쓰지 않고도 규칙이나 작업 유형을 추가할 수 있습니다.](../diagrams/generated/fdai-code-dependency-boundaries.ko.svg)
 
 - **`core/`**에는 판단과 조율 로직이 들어 있습니다. Azure SDK나 UI 컴포넌트가 아니라 공유
   계약에만 의존합니다.
@@ -411,23 +409,25 @@ FDAI에서 권한 분리는 아키텍처 자체의 속성입니다. 나중에 �
 ## Azure 구현
 
 첫 번째 구현은 이식 가능한 각 계약을 작은 Azure 리소스 집합에 매핑합니다. 공급자별
-호출은 어댑터 안에만 두므로, 리소스를 바꿔도 판단 로직은 수정할 필요가 없습니다.
+호출은 어댑터 안에만 두므로, 리소스를 바꿔도 판단 로직은 수정할 필요가 없습니다. AKS는
+신규 설치의 기본 런타임이며 Container Apps는 호환 프로필로 유지됩니다.
 
-| 이식 가능한 요소 | 계약 | Azure 구현 |
-|-------------------|----------|-----------|
-| 이벤트 스트림 | Kafka wire 프로토콜 | Kafka 엔드포인트를 통한 Event Hubs |
-| 코어 런타임 | OCI 이미지와 이식 가능한 매니페스트 | Azure Container Apps |
-| 예약 작업 | 작업 또는 cron 계약 | Container Apps Jobs |
-| 상태, 감사, T1 벡터 | PostgreSQL과 pgvector | Azure Database for PostgreSQL Flexible Server |
-| 시크릿 | 환경 변수 또는 마운트된 시크릿 | Container Apps가 주입하는 Key Vault 참조 |
-| 워크로드 자격 증명 | OIDC 토큰 | 사용자 할당 Managed Identity |
-| 인벤토리 | 리소스 그래프 계약 | Azure Resource Graph와 Activity Log 변화량 |
-| 관측 | OpenTelemetry 호환 신호 | Log Analytics와 Application Insights |
-| 콘솔 | 정적 읽기 전용 앱 | Azure Static Web Apps |
-| 콘솔 조회 API | HTTP 조회 계약 | 자체 읽기 전용 자격 증명을 가진 Container App |
-| 문서 수집 | 업로드와 분할 계약 | Container App과 Data Lake Storage |
-| 사람 승인 | 타입이 정의된 승인 메시지 | Teams 봇과 Adaptive Cards |
+| 이식 가능한 요소 | 계약 | AKS(기본) | Container Apps(호환) |
+|-------------------|----------|-----------|----------------------|
+| 이벤트 스트림 | Kafka wire 프로토콜 | Kafka 엔드포인트를 통한 Event Hubs | Kafka 엔드포인트를 통한 Event Hubs |
+| 코어 런타임 | OCI 이미지와 이식 가능한 매니페스트 | 사용자 노드 풀의 Kubernetes Deployment | Azure Container Apps |
+| 예약 작업 | 작업 또는 cron 계약 | Kubernetes CronJob | Container Apps Jobs |
+| 상태, 감사, T1 벡터 | PostgreSQL과 pgvector | Azure Database for PostgreSQL Flexible Server | Azure Database for PostgreSQL Flexible Server |
+| 시크릿 | 환경 변수 또는 마운트된 시크릿 | CSI 드라이버가 마운트하는 Key Vault 참조 | Container Apps가 주입하는 Key Vault 참조 |
+| 워크로드 자격 증명 | OIDC 토큰 | 사용자 할당 Managed Identity와 연합된 AKS Workload Identity | 사용자 할당 Managed Identity |
+| 인벤토리 | 리소스 그래프 계약 | Azure Resource Graph와 Activity Log 변화량 | Azure Resource Graph와 Activity Log 변화량 |
+| 관측 | OpenTelemetry 호환 신호 | Log Analytics와 Application Insights | Log Analytics와 Application Insights |
+| 콘솔 | 정적 읽기 전용 앱 | Azure Static Web Apps | Azure Static Web Apps |
+| 콘솔 조회 API | HTTP 조회 계약 | API Management 뒤의 Operator Service | 자체 읽기 전용 자격 증명을 가진 Container App |
+| 문서 수집 | 업로드와 분할 계약 | Data Lake Storage를 사용하는 Ingestion API와 Processing Worker | Data Lake Storage를 사용하는 Container Apps |
+| 사람 승인 | 타입이 정의된 승인 메시지 | Teams 봇과 Adaptive Cards | Teams 봇과 Adaptive Cards |
 
+AKS에서는 서비스마다 복제본 하한과 상한을 설정하며 하한은 1 이상입니다. Container Apps에서
 코어는 최소 복제본 1개, 최대 3개로 상시 실행됩니다. 0개까지 줄이려면 자격 증명 없이
 동작하는 Kafka 지연 기반 스케일 규칙이 필요합니다. 그 규칙 없이 0으로 내리면 들어오는
 이벤트가 앱을 깨우지 못하므로 최소값을 1로 유지합니다. 예약 작업과 정적 서비스는 0까지

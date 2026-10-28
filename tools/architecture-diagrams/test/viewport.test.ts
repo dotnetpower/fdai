@@ -86,3 +86,17 @@ test("toolbar floats over the diagram and reveals on hover or focus", async () =
   assert.match(viewer, /classList\.add\("is-keyboard-focused"\)/u);
   assert.match(viewer, /classList\.remove\("is-keyboard-focused"\)/u);
 });
+
+test("viewer explains small inline labels and offers fullscreen", async () => {
+  const viewer = await readFile(
+    new URL("../src/viewer/architecture-diagram.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(viewer, /smallHint: "Labels are small at this width/u);
+  assert.match(viewer, /smallHint: "이 폭에서는 글자가 작게 보입니다/u);
+  assert.match(viewer, /panHint:/u);
+  assert.match(viewer, /\.hint\.visible \{ display: flex; \}/u);
+  assert.match(viewer, /\.shell:fullscreen \.hint \{ display: none; \}/u);
+  assert.match(viewer, /new ResizeObserver\(updateHint\)\.observe\(stage\)/u);
+});
