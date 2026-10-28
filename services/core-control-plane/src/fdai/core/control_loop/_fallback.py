@@ -17,6 +17,7 @@ from fdai.core.control_loop._execution_outcomes import (
     is_execution_success as _is_execution_success,
 )
 from fdai.core.control_loop._learned_reuse import record_learned_reuse_advisory
+from fdai.core.control_loop._t1_resource_guard import guard_reuse_resource_type
 from fdai.core.control_loop._t2_context import resolve_t2_context
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.executor.action_builder import ActionBuilder, ActionBuildError
@@ -172,7 +173,11 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
     ) -> ControlLoopResult | None:
         t1_decision: T1Decision | None = None
         if self._t1_engine is not None:
-            t1_decision = await self._t1_engine.evaluate(event=event)
+            t1_decision = guard_reuse_resource_type(
+                await self._t1_engine.evaluate(event=event),
+                rules_by_id=self._rules_by_id,
+                resource_type=decision.resource_type,
+            )
             await self._emit_stage(
                 event_id=event_id,
                 correlation_id=correlation_id,
