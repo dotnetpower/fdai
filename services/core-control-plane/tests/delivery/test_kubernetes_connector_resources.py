@@ -547,3 +547,49 @@ def test_resource_commands_dispatch_only_the_selected_collector(
     assert cli.main([f"collect-{kind}-preflight", "--config", str(config)]) == 0
     assert calls == [config]
     assert json.loads(capsys.readouterr().out) == receipt.model_dump(mode="json")
+
+
+@pytest.mark.parametrize("name", ["capacity", "persistent_storage"])
+async def test_real_list_items_without_kind_and_api_version_are_accepted(
+    tmp_path, monkeypatch, name
+) -> None:
+    """A real API server omits apiVersion and kind on each item of a typed list."""
+    import httpx
+
+    def handler(request):
+        response = resource_response(request)
+        if request.url.path in ("/api/v1/nodes", "/api/v1/pods"):
+            value = response.json()
+            value["items"] = [
+                {k: v for k, v in item.items() if k not in ("apiVersion", "kind")}
+                for item in value["items"]
+            ]
+            return httpx.Response(200, json=value)
+        return response
+
+    probe, inputs, proposal = resource_probe(monkeypatch, handler)
+    fact = await probe.collect_resources(
+        inputs, proposal, material_directory=tmp_path, name=name, claim_uid="claim-uid"
+    )
+    assert fact.state == "allowed"
+
+
+@pytest.mark.parametrize("field", ["kind", "apiVersion"])
+async def test_a_list_item_that_names_another_type_is_still_rejected(
+    tmp_path, monkeypatch, field
+) -> None:
+    import httpx
+
+    def handler(request):
+        response = resource_response(request)
+        if request.url.path == "/api/v1/nodes":
+            value = response.json()
+            value["items"][0][field] = "Pod" if field == "kind" else "v2"
+            return httpx.Response(200, json=value)
+        return response
+
+    probe, inputs, proposal = resource_probe(monkeypatch, handler)
+    fact = await probe.collect_resources(
+        inputs, proposal, material_directory=tmp_path, name="capacity", claim_uid=None
+    )
+    assert fact.state == "unknown"

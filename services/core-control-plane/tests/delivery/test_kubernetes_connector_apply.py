@@ -741,3 +741,30 @@ def test_run_command_does_not_retry_a_timeout() -> None:
     with pytest.raises(ValueError, match="outcome is unknown"):
         transport.run(["get", "namespace", "x"], manifest=None, timeout=5)
     assert len(seen) == 1
+
+
+def test_applying_to_an_active_observer_says_to_deactivate_first(installation) -> None:
+    inputs, rendered, _, tmp_path = installation
+    cluster = FakeCluster()
+    run_apply(installation, cluster, approval_for(inputs, rendered))
+    kwargs = {
+        "transport": cluster,
+        "lock_directory": tmp_path / "locks",
+        "audit": lambda _: None,
+        "now": lambda: NOW,
+    }
+    activate_observer(
+        rendered, inputs, approval_for(inputs, rendered, operation="activate"), **kwargs
+    )
+    cluster.calls.clear()
+    with pytest.raises(ValueError, match="deactivate before applying"):
+        run_apply(installation, cluster, approval_for(inputs, rendered))
+    assert cluster.effects() == []
+    stop = approval_for(
+        inputs, rendered, operation="deactivate", manifest_digest=None, proposal_digest=None
+    )
+    deactivate_observer(inputs, stop, **kwargs)
+    assert (
+        run_apply(installation, cluster, approval_for(inputs, rendered))["state"]
+        == "installed_suspended"
+    )

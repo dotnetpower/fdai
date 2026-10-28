@@ -261,6 +261,19 @@ boundary to bind VM `Percentage CPU` only to `Microsoft.Compute/virtualMachines`
 collection rule or workspace. It requests the unsplit `Maximum`, which preserves the Logs template's
 meaning that any node above the bound fires, and it carries a cluster-wide value without a node label.
 Prometheus still wins when it is composed, and Azure Monitor Logs remains the fallback behind it.
+
+Pod-level CPU, memory and throttling windows come only from a source that can state a complete
+window with a coverage receipt, which today means the explicitly composed Managed Prometheus route.
+A deployment that adds no Azure resource gets no Pod-level window evidence, and that absence is
+reported as an evidence gap rather than filled from another source. Three sources are rejected on
+purpose. A raw cumulative counter such as `container_cpu_cfs_throttled_seconds_total` would make every
+Pod that ever throttled report resource pressure, because the assessment treats any point above zero
+as pressure; only a per-window delta from two reads is valid. The metrics-server API returns one
+instantaneous sample, which cannot claim a complete window. Reading the kubelet through the API server
+needs the `nodes/proxy` permission, which is far wider than the observer's list-only recipe. Without any
+metric source, the snapshot still yields crash loops, OOM terminations, evictions, image-pull and
+rollout stalls, endpoint readiness, and autoscaler limits, and the platform node CPU route covers
+cluster-wide saturation. Node memory has no analyzer threshold, so no memory route is bound.
 Azure Managed Prometheus's default `cluster` label is a cluster-name alias, not an exact ARM
 identity. Inventory-backed analyzer routing therefore remains on Azure Monitor Logs unless an
 explicitly composed PromQL catalog preserves an exact `resource_id` label. A Prometheus response

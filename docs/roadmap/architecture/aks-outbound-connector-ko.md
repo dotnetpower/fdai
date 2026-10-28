@@ -1,8 +1,8 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 2fd724e49db880825086d5d4f45a6d20263687e2
-translation_revised: 2026-10-28
+translation_source_sha: f819ee32ea8944a771cc0e4b7b8efd52ac75d7b0
+translation_revised: 2026-10-29
 ---
 # AKS 역방향 커넥터
 
@@ -153,7 +153,16 @@ python -m fdai.delivery.kubernetes_connector_installation \
 Pod 수락 거부, 리다이렉트와 불완전 응답은 알 수 없음으로 남기고 실패 시 재시도하지 않습니다.
 최대 5분 동안 유효한 서명 결과는 `admission`만 포함하며 기존 `retain-preflight`로 보존합니다.
 응답 필드 일치와 실제 loopback TLS 테스트는 로컬 동작만 입증하며 실제 Kubernetes 스키마나
-webhook 동작을 입증하지 않습니다. 기존 리소스 갱신이나 설치 수명 주기 변경은 지원하지 않습니다.
+webhook 동작을 입증하지 않습니다. 실제 API 서버는 응답에서 false 플래그와 빈 컬렉션을 생략하며 이는 변경이 아니라
+기본값입니다. dry-run 생성은 아무것도 저장하지 않으므로 전용 ServiceAccount는 설치 전에 존재할 수 없고, 서버는 그
+이유만으로 Pod를 거부합니다. 그래서 Pod 프로브는 네임스페이스의 `default` ServiceAccount를 지정하되 정확한 Pod
+형태는 그대로 검사합니다. 렌더러가 네임스페이스를 만들지 않으므로 이미 있는 네임스페이스에서 실행해야 합니다.
+기존 리소스 갱신이나 설치 수명 주기 변경은 이 프로브가 지원하지 않습니다. `capacity`와 `persistent_storage`
+preflight도 같은 신원을 쓰며 클러스터를 읽기만 합니다. Kubernetes 1.33 이상에서는 실행 중인 모든 Pod가
+`status.resources`와 컨테이너별 `allocatedResources`를 보고합니다. 진행 중인 resize가 없으면 이 값은 선언한 요청과
+같으므로, 회계는 각 값이 같은 컨테이너의 CPU·메모리 요청과 같을 때만 받아들이고 `spec.resources`, `status.resize`,
+resize 조건, 그리고 모든 차이는 계속 거부합니다. 서버가 반환하는 typed list는 각 항목의 `apiVersion`과 `kind`를
+생략하므로, 수집기는 목록 자체의 kind를 확인한 뒤 이를 채우고 다른 타입을 가리키는 항목은 거부합니다.
 
 로컬 스키마 검증은 고정된 선택적 검증기로 기존 설치 테스트를 실행합니다.
 `uv run --no-sync --with kubernetes-validate==1.36.0 pytest -q --no-cov services/core-control-plane/tests/delivery/test_kubernetes_connector_installation.py -k strict_kubernetes_schemas`를 사용합니다.
@@ -249,7 +258,12 @@ Job을 지웁니다. observer가 수락 또는 중복 전달을 기록했을 때
 대상에 묶인 승인만 필요합니다. 활성화된 상태에서 다시 적용하면 `deactivate`를 실행할 때까지 필드 충돌로 거부됩니다.
 이어서 `wait-observed`가 기존 인증된 스냅샷 수신함을 읽으며, 게이트웨이가 새 스냅샷을 승인한 뒤에만
 운영 성공으로 판단합니다. `rollback`은 이 observer의 레이블이 붙은 리소스만 역순으로 삭제하고
-네임스페이스는 유지합니다. 로컬 잠금은 한 호스트 안에서만 직렬화하며, 다른 호스트의 동시 작업은
+네임스페이스는 유지합니다. `uninstall`은 별도로 승인하는 작업으로, 같은 삭제를 한 뒤 이 설치 도구가 레이블을 붙인
+네임스페이스이고 종료 중인 객체, 기본 `default` ServiceAccount, `kube-root-ca.crt` 외에 아무것도 남지 않았을 때만
+네임스페이스를 삭제합니다. 그렇지 않으면 네임스페이스를 유지하고 막는 대상을 알려 줍니다. 네임스페이스를 지우면
+볼륨 클레임과, reclaim 정책이 `Delete`일 때 볼륨도 함께 삭제됩니다. 활성화된 observer에 변경되었거나 반복된 계획을
+적용하는 것은 `deactivate`를 실행할 때까지 거부되므로 업그레이드는 `deactivate`, 새 계획 `apply`, 읽기 확인,
+`verify` 순서입니다. 로컬 잠금은 한 호스트 안에서만 직렬화하며, 다른 호스트의 동시 작업은
 server-side 충돌에 의존합니다.
 
 ## 승인된 운영 작업

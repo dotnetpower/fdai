@@ -232,3 +232,21 @@ def test_observer_failure_output_names_the_error_type_only(tmp_path, monkeypatch
         "reason": "connector_configuration_or_runtime_failed",
         "error_type": "OSError",
     }
+
+
+def test_uninstall_is_a_target_bound_operation(tmp_path, case, monkeypatch) -> None:
+    built, cluster = case
+    seen = {}
+    monkeypatch.setattr(
+        cli,
+        "uninstall_observer",
+        lambda inputs, approval, **kwargs: (
+            seen.update(op=approval.operation) or {"state": "uninstalled"}
+        ),
+    )
+    with pytest.raises(ValueError, match="approve-target-ref"):
+        cli.run(arguments(tmp_path, "uninstall", built), now=LATER)
+    cli.run(
+        arguments(tmp_path, "uninstall", built, approve_target_ref=built[0].target_ref), now=LATER
+    )
+    assert seen == {"op": "uninstall"}

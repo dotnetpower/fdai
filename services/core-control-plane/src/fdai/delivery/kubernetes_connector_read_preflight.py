@@ -182,7 +182,10 @@ class KubernetesObserverReadPreflight:
                 "name": inputs.name,
                 "namespace": inputs.namespace,
             },
-            "spec": template["spec"],
+            # A dry-run create stores nothing, so the dedicated ServiceAccount cannot exist before
+            # installation and the server would refuse the Pod for that alone. The namespace's
+            # default ServiceAccount stands in; the Pod shape is still the exact recipe.
+            "spec": {**template["spec"], "serviceAccountName": "default"},
         }
         paths = {
             "ServiceAccount": f"/api/v1/namespaces/{inputs.namespace}/serviceaccounts",
@@ -292,11 +295,17 @@ class KubernetesObserverReadPreflight:
         return value
 
 
+def _omitted_by_server(value: object) -> bool:
+    """The API server drops a false flag and an empty collection from its echo of a request."""
+    return value is False or (isinstance(value, list | dict) and not value)
+
+
 def _preserves_fields(expected: object, actual: object) -> bool:
     """Allow server defaults but never changes to specified fields or added list entries."""
     if isinstance(expected, dict):
         return isinstance(actual, dict) and all(
-            (key not in actual and value is False) or _preserves_fields(value, actual.get(key))
+            (key not in actual and _omitted_by_server(value))
+            or _preserves_fields(value, actual.get(key))
             for key, value in expected.items()
         )
     if isinstance(expected, list):
