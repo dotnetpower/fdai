@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 486c2db5a9ddf87cc689a04ee82bf3051bcec531
+translation_source_sha: 0b1a2766be42a43d9dd114157302b3f31a04f386
 translation_revised: 2026-10-28
 ---
 

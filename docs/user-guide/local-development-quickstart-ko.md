@@ -2,8 +2,8 @@
 title: 로컬 개발 빠른 시작
 description: Linux 또는 WSL 워크스테이션에서 Docker, 로컬 상태, 인증, 전체 FDAI Console 스택을 구성하는 방법을 알아봅니다.
 translation_of: local-development-quickstart.md
-translation_source_sha: f98da2395f5cb6f1dcd541308bcf1dc912d84ef4
-translation_revised: 2026-09-27
+translation_source_sha: 4868f9a37f0876e93b5eaec218ff87c7775f3763
+translation_revised: 2026-10-28
 ---
 
 # 로컬 개발 빠른 시작

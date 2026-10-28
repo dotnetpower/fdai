@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: bc8edadb8d0e72437268845835c0a267362d0a40
-translation_revised: 2026-10-19
+translation_source_sha: 8206f5b00d315f7348495efcb41a26a1caa7cfa5
+translation_revised: 2026-10-28
 ---
 # 프로세스 자동화(프로세스 자동화)
 

@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph-evidence.md
-translation_source_sha: 8f2a2c5fa339d599c9f4d10a55ca291dfeca64b9
-translation_revised: 2026-10-26
+translation_source_sha: 6c4ac6d8e80ec6822d731f768c1a4df22c9f3396
+translation_revised: 2026-10-28
 ---
 
 # 지속형 운영 인스턴스 그래프 근거

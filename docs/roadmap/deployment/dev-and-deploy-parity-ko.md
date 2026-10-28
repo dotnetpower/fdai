@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: e2c5b823c0d5f0132a2bb00df0c30242034696d5
-translation_revised: 2026-10-24
+translation_source_sha: 835ae0a0dae2805e42193fc2ed81c9edca30e8b4
+translation_revised: 2026-10-28
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 

@@ -2,8 +2,8 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판단 근거와 남은 조건을 확인합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 104dee45c9d7675b6b7bd41f0f9e3cda885c1128
-translation_revised: 2026-10-24
+translation_source_sha: 584b1c451c78fa0d70e0cdbfa7904ca42314391a
+translation_revised: 2026-10-28
 ---
 
 # FDAI 기능 준비 상태 평가

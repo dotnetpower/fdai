@@ -2,8 +2,8 @@
 title: FDAI 기능정의서
 description: FDAI의 운영 기능, 공통 자동화, 거버넌스, 제품 기반 기능을 계층별로 살펴보고 처리 흐름 및 구현 상태와 구분합니다.
 translation_of: functional-specification.md
-translation_source_sha: 30ed8d2eef86ab2e8b20c62acc53e69139b753c0
-translation_revised: 2026-10-24
+translation_source_sha: b6ec7defcc203a7ecbca90a791c59665f7ee50d5
+translation_revised: 2026-10-28
 ---
 
 # FDAI 기능 정의서

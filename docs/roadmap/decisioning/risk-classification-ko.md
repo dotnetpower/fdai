@@ -1,8 +1,8 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: a4032440f41ffeea7ae2658dbdc0c1350cb22f2d
-translation_revised: 2026-10-23
+translation_source_sha: c5bcdfbb62b33d5781a7c54d2172eb78b0eb5b74
+translation_revised: 2026-10-28
 ---
 
 # 위험 분류 (자동 실행 vs 사람 승인 vs 차단)

@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5e8916d4e4dd468e465ed0ec8388bfb55c6cf912
-translation_revised: 2026-10-27
+translation_source_sha: 5ed506756c13326d19e4ccc4031a628b07eef774
+translation_revised: 2026-10-28
 ---
 # 배포와 온보딩(Deploy and Onboard)
 이 가이드를 사용해 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할
