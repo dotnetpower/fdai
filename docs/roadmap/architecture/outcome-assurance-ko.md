@@ -1,7 +1,7 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 48ff576018bfe258656c24936d2acec06ffd767c
+translation_source_sha: 926873d49f045811732675a57811ca6228f44df6
 translation_revised: 2026-10-18
 ---
 # 결과 Assurance
