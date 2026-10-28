@@ -28,6 +28,9 @@ or a second source of provider truth. Optional source admission fences reads wit
 
 Workflow authoring records remain outside ontology identity. Saved private drafts, bindings, and catalog-seeded Built-in definitions are Operator authoring records and projections; they cannot create a Resource, ObjectType, LinkType, or action authority.
 
+Readable rule catalog list titles are presentation metadata from the matching rule detail,
+not new ontology properties or identities. Canonical rule IDs and query contracts remain unchanged.
+
 Causal metric joins retain the secured before/after topology views instead of treating any
 topology change as proof of a dependency. An exact cause/effect pair needs one correctly directed,
 verified path within one historical view and the evidence window. A metric comparison belongs

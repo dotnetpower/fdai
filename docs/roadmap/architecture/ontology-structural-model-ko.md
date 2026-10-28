@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 88054e2030c93b8ed21e19f522287a16b21af12d
-translation_revised: 2026-10-23
+translation_source_sha: f24ee4171d5d2e4de24f40eed11864bb8a546114
+translation_revised: 2026-10-28
 ---
 # 온톨로지 구조 모델
 
@@ -33,6 +33,9 @@ translation_revised: 2026-10-23
 > 이 필드는 배포 메타데이터이며 온톨로지 신원이 아니고 모델 호출 또는 실행 권한을 부여할 수 없습니다. Provider kind와 API style도 같은 경계의 endpoint 메타데이터로 유지합니다.
 
 작업 흐름 작성 레코드는 온톨로지 ID 밖에 남습니다. 저장된 비공개 초안, 바인딩, 카탈로그에서 시드된 Built-in 정의는 Operator 작성 레코드와 변환이며 Resource, ObjectType, LinkType 또는 액션 권한을 만들 수 없습니다.
+
+규칙 카탈로그 목록의 읽기 쉬운 제목은 해당 규칙의 상세 정보에서 가져오는 표시용 메타데이터이며,
+새 온톨로지 속성이나 식별자가 아닙니다. 정규 규칙 ID와 조회 계약은 그대로 유지합니다.
 
 인과 메트릭 결합은 토폴로지 변경만으로 의존성을 인정하지 않고 권한 검증을 거친 변경 전후
 그래프를 보존합니다. 정확한 원인과 결과 쌍에는 근거 구간 안의 한 과거 그래프에서 방향과

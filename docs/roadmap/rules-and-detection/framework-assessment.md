@@ -18,6 +18,9 @@ The shared catalog materialization job that publishes this assessment's catalogs
 Semantic result-handle persistence reuses shared Operator semantic storage only for opaque
 conversation references. It does not change WAF or CAF assessment evidence, results, or authority.
 
+Readable titles in the shared rule catalog list come from the matching rule detail. They are
+presentation metadata and do not change WAF or CAF control mappings, assessment evidence, or results.
+
 ## Design at a glance
 
 The shared assessment boundary has six deterministic stages:
