@@ -1,6 +1,10 @@
 """Static contract keeping local type checks aligned with CI."""
 
+import concurrent.futures
+import hashlib
 import json
+import os
+import subprocess
 from pathlib import Path
 
 import yaml
@@ -76,6 +80,80 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
     assert action.count("--retry 3 --retry-delay 2 --retry-all-errors") == 1
     assert action.count("--retry-max-time 120 --connect-timeout 10 --max-time 90") == 1
     assert action.count("dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa") == 1
+
+
+def test_opa_setup_is_job_local_and_does_not_require_sudo() -> None:
+    action = yaml.safe_load(
+        (_ROOT / ".github/actions/setup-opa/action.yml").read_text(encoding="utf-8")
+    )
+    script = action["runs"]["steps"][0]["run"]
+    assert 'opa_dir="$RUNNER_TEMP/fdai-opa/bin"' in script
+    assert '-o "$opa_dir/opa"' in script
+    assert 'chmod +x "$opa_dir/opa"' in script
+    assert 'echo "$opa_dir" >> "$GITHUB_PATH"' in script
+    assert '"$opa_dir/opa" version' in script
+    assert "sudo" not in script
+    assert "/tmp/opa" not in script  # noqa: S108 - forbid the old shared download path
+    assert "/usr/local/bin" not in script
+
+
+def test_opa_setup_executes_with_five_separate_job_directories(tmp_path: Path) -> None:
+    action = yaml.safe_load(
+        (_ROOT / ".github/actions/setup-opa/action.yml").read_text(encoding="utf-8")
+    )
+    script = action["runs"]["steps"][0]["run"]
+    assert "sudo" not in script
+    fixture = tmp_path / "opa-fixture"
+    payload = b'#!/usr/bin/env bash\nset -eu\ntest "$1" = version\necho opa-fixture\n'
+    fixture.write_bytes(payload)
+    # Keep network out of this execution test; the real archive pin is asserted separately.
+    script = script.replace(
+        "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa",
+        hashlib.sha256(payload).hexdigest(),
+    )
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    curl = tools / "curl"
+    curl.write_text(
+        "#!/usr/bin/env python3\n"
+        "import os, sys\n"
+        "from pathlib import Path\n"
+        "target = Path(sys.argv[sys.argv.index('-o') + 1]).resolve()\n"
+        "root = Path(os.environ['RUNNER_TEMP']).resolve()\n"
+        "if not target.is_relative_to(root):\n"
+        "    raise SystemExit('download escaped the job directory')\n"
+        "target.write_bytes(Path(os.environ['OPA_FIXTURE']).read_bytes())\n",
+        encoding="utf-8",
+    )
+    curl.chmod(0o755)
+
+    def install(slot: int) -> str:
+        job = tmp_path / f"job {slot}"
+        job.mkdir()
+        github_path = job / "github-path"
+        environment = {
+            **os.environ,
+            "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+            "OPA_FIXTURE": str(fixture),
+            "RUNNER_TEMP": str(job),
+            "GITHUB_PATH": str(github_path),
+        }
+        result = subprocess.run(  # noqa: S603 - checked repository action, synthetic download
+            ["/usr/bin/bash", "-c", script],
+            env=environment,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert "opa-fixture" in result.stdout
+        directory = job / "fdai-opa" / "bin"
+        assert github_path.read_text() == str(directory) + "\n"
+        assert (directory / "opa").read_bytes() == payload
+        return str(directory)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        directories = list(executor.map(install, range(1, 6)))
+    assert len(set(directories)) == 5
 
 
 def test_every_retrying_deploy_curl_declares_a_cumulative_retry_window() -> None:
