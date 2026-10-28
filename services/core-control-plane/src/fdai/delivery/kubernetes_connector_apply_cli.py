@@ -26,6 +26,12 @@ from fdai.delivery.kubernetes_connector_apply import (
     deactivate_observer,
     rollback_observer_installation,
 )
+from fdai.delivery.kubernetes_connector_approval import (
+    SignedObserverApproval,
+    load_approver_grants,
+    sign_approval,
+    verify_signed_approval,
+)
 from fdai.delivery.kubernetes_connector_installation import (
     ObserverInstallationInput,
     render_observer_installation,
@@ -38,6 +44,8 @@ from fdai.delivery.kubernetes_connector_lifecycle import (
 from fdai.delivery.kubernetes_connector_runtime import private_file
 
 APPROVAL_SECONDS = 600
+MAX_APPROVAL_SECONDS = 1800
+_STOPPING = frozenset({"deactivate", "recover", "rollback", "uninstall"})
 _FAILED_STATES = frozenset(
     {"image_pull_failed", "job_failed", "completed_without_delivery", "not_finished"}
 )
@@ -57,6 +65,7 @@ def _parser() -> argparse.ArgumentParser:
             "uninstall",
             "export",
             "wait-observed",
+            "sign-approval",
         ),
     )
     parser.add_argument("--inputs", type=Path)
@@ -65,8 +74,21 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--cluster-uid", help="kube-system namespace UID from the signed preflight")
     parser.add_argument("--approver", help="accountable human reference recorded in the audit")
     parser.add_argument(
-        "--approve-manifest-digest",
-        help="apply or activate: the exact manifest digest printed by the dry-run",
+        "--approve-recipe-digest",
+        help="apply, activate, or verify: the stable recipe digest printed by the dry-run",
+    )
+    parser.add_argument(
+        "--signed-approval", type=Path, help="approval signed by an enrolled approver"
+    )
+    parser.add_argument("--approval-grants", type=Path, help="deployment-owned approver grants")
+    parser.add_argument("--executor-ref", help="identity running this command; not the approver")
+    parser.add_argument("--signing-key", type=Path, help="sign-approval: approver Ed25519 key")
+    parser.add_argument("--sign-operation", help="sign-approval: the operation to approve")
+    parser.add_argument("--approval-seconds", type=int, default=APPROVAL_SECONDS)
+    parser.add_argument(
+        "--development-self-approval",
+        action="store_true",
+        help="single-operator development profile only: approve with this invocation's flags",
     )
     parser.add_argument(
         "--approve-target-ref",
@@ -144,12 +166,34 @@ def _approval(
     operation: str,
     now: datetime,
 ) -> ObserverApplyApproval:
+    """Resolve the approval: signed by an enrolled approver, or development self-approval."""
+    if args.signed_approval is not None:
+        return verify_signed_approval(
+            SignedObserverApproval.model_validate_json(private_file(args.signed_approval)),
+            grants=load_approver_grants(_need(args.approval_grants, "approval-grants")),
+            executor_ref=_need(args.executor_ref, "executor-ref"),
+            now=now,
+        )
+    if not args.development_self_approval:
+        raise ValueError(
+            "this operation requires --signed-approval from an enrolled approver; "
+            "--development-self-approval is only for the single-operator development profile"
+        )
+    return _issue(args, inputs, rendered, operation=operation, now=now)
+
+
+def _issue(
+    args: argparse.Namespace,
+    inputs: ObserverInstallationInput,
+    rendered: dict[str, Any] | None,
+    *,
+    operation: str,
+    now: datetime,
+) -> ObserverApplyApproval:
     bound: dict[str, object] = {}
     if rendered is not None:
-        bound = {
-            "proposal_digest": rendered["proposal_digest"],
-            "manifest_digest": rendered["manifest_digest"],
-        }
+        bound = {"recipe_digest": rendered["recipe_digest"]}
+    seconds = min(max(int(args.approval_seconds), 1), MAX_APPROVAL_SECONDS)
     return ObserverApplyApproval.model_validate(
         {
             "operation": operation,
@@ -161,10 +205,36 @@ def _approval(
             "name": inputs.name,
             "inputs_digest": canonical_digest(inputs.model_dump(mode="json")),
             "approved_at": now,
-            "expires_at": now + timedelta(seconds=APPROVAL_SECONDS),
+            "expires_at": now + timedelta(seconds=seconds),
             **bound,
         }
     )
+
+
+def _mode(args: argparse.Namespace) -> str:
+    return "signed" if args.signed_approval is not None else "development_self_issued"
+
+
+def _sign(args: argparse.Namespace, now: datetime) -> dict[str, object]:
+    """Sign one approval as an enrolled approver; the reviewed digest or target must be typed."""
+    operation = _need(args.sign_operation, "sign-operation")
+    inputs = ObserverInstallationInput.model_validate_json(
+        private_file(_need(args.inputs, "inputs"))
+    )
+    rendered = None
+    if operation in _STOPPING:
+        if args.approve_target_ref != inputs.target_ref:
+            raise ValueError("sign-approval requires --approve-target-ref equal to the target")
+    else:
+        _, rendered = _render(args, now)
+        if args.approve_recipe_digest != rendered["recipe_digest"]:
+            raise ValueError("sign-approval requires --approve-recipe-digest equal to the recipe")
+    signed = sign_approval(
+        _issue(args, inputs, rendered, operation=operation, now=now),
+        executor_ref=_need(args.executor_ref, "executor-ref"),
+        signing_key=_need(args.signing_key, "signing-key"),
+    )
+    return {"state": "approval_signed", "signed_approval": signed.model_dump(mode="json")}
 
 
 def _export(args: argparse.Namespace, now: datetime) -> dict[str, object]:
@@ -233,12 +303,14 @@ def run(args: argparse.Namespace, *, now: datetime | None = None) -> dict[str, o
             private_file(_need(args.inputs, "inputs"))
         )
         return asyncio.run(_wait(args, inputs.target_ref))
+    if args.operation == "sign-approval":
+        return _sign(args, now)
     common: dict[str, Any] = {
         "lock_directory": _need(args.lock_directory, "lock-directory"),
         "audit": _audit_sink(_need(args.audit_file, "audit-file")),
         "now": clock,
     }
-    if args.operation in {"deactivate", "recover", "rollback", "uninstall"}:
+    if args.operation in _STOPPING:
         inputs = ObserverInstallationInput.model_validate_json(
             private_file(_need(args.inputs, "inputs"))
         )
@@ -253,26 +325,32 @@ def run(args: argparse.Namespace, *, now: datetime | None = None) -> dict[str, o
             "rollback": rollback_observer_installation,
             "uninstall": uninstall_observer,
         }
-        return handlers[args.operation](
+        stopped = handlers[args.operation](
             inputs, stop_approval, transport=_transport(inputs, args), **common
         )
+        return {**stopped, "approval_mode": _mode(args)}
     inputs, rendered = _render(args, now)
-    approved = args.approve_manifest_digest is not None
-    if approved and args.approve_manifest_digest != rendered["manifest_digest"]:
-        raise ValueError("the approved manifest digest differs from the current rendered manifest")
+    approved = args.signed_approval is not None or args.approve_recipe_digest is not None
+    if args.approve_recipe_digest is not None and (
+        args.approve_recipe_digest != rendered["recipe_digest"]
+    ):
+        raise ValueError("the approved recipe digest differs from the current rendered recipe")
     if args.operation in {"activate", "verify"}:
         if not approved:
-            raise ValueError(f"{args.operation} requires --approve-manifest-digest")
+            raise ValueError(
+                f"{args.operation} requires --signed-approval or --approve-recipe-digest"
+            )
         handler = activate_observer if args.operation == "activate" else verify_observer
-        return handler(
+        outcome = handler(
             rendered,
             inputs,
             _approval(args, inputs, rendered, operation=args.operation, now=now),
             transport=_transport(inputs, args),
             **common,
         )
+        return {**outcome, "approval_mode": _mode(args)}
     approval = _approval(args, inputs, rendered, operation="apply", now=now) if approved else None
-    return apply_observer_installation(
+    installed = apply_observer_installation(
         rendered,
         inputs,
         approval,
@@ -281,6 +359,7 @@ def run(args: argparse.Namespace, *, now: datetime | None = None) -> dict[str, o
         cluster_uid=_need(args.cluster_uid, "cluster-uid"),
         **common,
     )
+    return {**installed, "approval_mode": _mode(args)} if approval is not None else installed
 
 
 def main(argv: list[str] | None = None) -> int:

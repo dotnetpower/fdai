@@ -219,9 +219,7 @@ def test_smoke_refuses_the_wrong_cluster(tmp_path) -> None:
 
 
 def stop_approval(inputs, rendered):
-    return approval_for(
-        inputs, rendered, operation="recover", manifest_digest=None, proposal_digest=None
-    )
+    return approval_for(inputs, rendered, operation="recover", recipe_digest=None)
 
 
 def test_retire_suspends_removes_owned_jobs_and_sets_the_spool_aside(tmp_path) -> None:
@@ -310,9 +308,7 @@ def test_retirement_without_an_installation_or_approval_changes_nothing(tmp_path
         retire_observer_stream(
             inputs, stop_approval(inputs, rendered), transport=cluster, **kwargs_for(directory)
         )
-    wrong = approval_for(
-        inputs, rendered, operation="deactivate", manifest_digest=None, proposal_digest=None
-    )
+    wrong = approval_for(inputs, rendered, operation="deactivate", recipe_digest=None)
     with pytest.raises(ValueError, match="approval"):
         retire_observer_stream(inputs, wrong, transport=cluster, **kwargs_for(directory))
     assert cluster.effects() == [] and UID
@@ -376,8 +372,7 @@ def uninstall_approval(inputs, rendered, **changes):
         inputs,
         rendered,
         operation="uninstall",
-        manifest_digest=None,
-        proposal_digest=None,
+        recipe_digest=None,
         **changes,
     )
 
@@ -476,9 +471,7 @@ def test_uninstall_needs_its_own_approval_and_the_right_cluster(tmp_path) -> Non
 
     case, cluster = owned_namespace_case(tmp_path)
     inputs, rendered, _, directory = case
-    rollback_only = approval_for(
-        inputs, rendered, operation="rollback", manifest_digest=None, proposal_digest=None
-    )
+    rollback_only = approval_for(inputs, rendered, operation="rollback", recipe_digest=None)
     with pytest.raises(ValueError, match="approval"):
         uninstall_observer(inputs, rollback_only, transport=cluster, **plain_kwargs(directory))
     wrong = NamespaceCluster(uid="other-cluster")
