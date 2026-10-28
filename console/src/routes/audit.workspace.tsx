@@ -6,7 +6,7 @@ import { formatConsoleCompactTimestamp, formatConsoleTimestamp } from "../time-f
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import {
-  auditContextRecord, auditEntryText, auditRecordedPhase, searchAuditItems,
+  auditActorLabel, auditContextRecord, auditEntryText, auditRecordedPhase, searchAuditItems,
   type AuditData, type AuditEntrySelection,
 } from "./audit.model";
 import { presentationLabel, t } from "./i18n/evidence";
@@ -112,7 +112,7 @@ export function AuditWorkspace({ data, selection }: {
                       <Mode mode={item.mode} />
                     </span>
                     <time dateTime={item.recorded_at}>{formatConsoleCompactTimestamp(item.recorded_at)}</time>
-                    <span class="audit-record-actor">{item.actor}</span>
+                    <span class="audit-record-actor" title={item.actor}>{auditActorLabel(item)}</span>
                   </button>
                 </li>
               ))}
@@ -202,7 +202,7 @@ function AuditRecordDetail({ item, summary }: {
         {sourceObservation ? <>
           <div><dt>{w("correlation")}</dt><dd class="mono">{correlation ?? w("notApplicable")}</dd></div>
           <div><dt>{w("target")}</dt><dd class="mono">{valueOrMissing(context?.target ?? null)}</dd></div>
-          <div><dt>{t("evidence.audit.column.actor")}</dt><dd>{item.actor}</dd></div>
+          <div><dt>{t("evidence.audit.column.actor")}</dt><dd title={item.actor}>{auditActorLabel(item)}</dd></div>
           <div>
             <dt>{context?.owner_agent ? w("ownerAgent") : t("evidence.audit.column.eventId")}</dt>
             <dd class={context?.owner_agent ? undefined : "mono"}>{
@@ -217,7 +217,7 @@ function AuditRecordDetail({ item, summary }: {
           <div><dt>{w("idempotency")}</dt><dd class="mono">{valueOrMissing(
             context?.idempotency_key ?? text("idempotency_key"),
           )}</dd></div>
-          <div><dt>{t("evidence.audit.column.actor")}</dt><dd>{item.actor}</dd></div>
+          <div><dt>{t("evidence.audit.column.actor")}</dt><dd title={item.actor}>{auditActorLabel(item)}</dd></div>
           <div><dt>{w("rollback")}</dt><dd>{valueOrMissing(
             context?.rollback_reference ?? text("rollback_reference"),
           )}</dd></div>
