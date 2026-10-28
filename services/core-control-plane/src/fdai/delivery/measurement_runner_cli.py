@@ -71,6 +71,11 @@ from fdai.delivery.measurement.operational_promotion_evidence import (
     ManifestOperationalPromotionUnitVerifier,
     OperationalPromotionEvidenceManifest,
 )
+from fdai.delivery.measurement.pattern_evidence import (
+    PatternEvidenceProducer,
+    PostgresPatternEvidenceSource,
+    PostgresPatternStatisticsWriter,
+)
 from fdai.delivery.measurement.postgres_growth import (
     PostgresResponseOutcomeSource,
     PostgresVerifiedOutcomeSource,
@@ -321,6 +326,14 @@ async def _run_pattern_growth() -> int:
         if embedding_model.dim != 384:
             raise RuntimeError(f"growth embedding dimension MUST be 384; got {embedding_model.dim}")
         state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+        evidence = PatternEvidenceProducer(
+            source=PostgresPatternEvidenceSource(dsn=dsn),
+            state_store=state_store,
+            statistics_writer=PostgresPatternStatisticsWriter(
+                config=PgVectorPatternLibraryConfig(dsn=pattern_dsn)
+            ),
+        )
+        holdout_report = await evidence.publish_holdout_evidence()
         report = await PatternGrowthIntakeRunner(
             outcome_source=PostgresVerifiedOutcomeSource(
                 dsn=dsn,
@@ -340,6 +353,16 @@ async def _run_pattern_growth() -> int:
             ),
             audit_store=state_store,
         ).run_once()
+    statistics_report = await evidence.apply_measured_statistics()
+    _LOGGER.info(
+        "measurement_pattern_evidence",
+        extra={
+            "outcomes": holdout_report.outcomes,
+            "envelopes_written": holdout_report.envelopes_written,
+            "complete_envelopes": holdout_report.complete_envelopes,
+            "patterns_updated": statistics_report.patterns_updated,
+        },
+    )
     _LOGGER.info(
         "measurement_pattern_growth_complete",
         extra={
