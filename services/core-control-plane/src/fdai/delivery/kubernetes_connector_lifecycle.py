@@ -18,7 +18,6 @@ from fdai_service_contracts.compatibility import canonical_digest
 
 from fdai.delivery.kubernetes_connector_apply import (
     FIELD_MANAGER,
-    MANIFEST_FILE,
     Audit,
     KubeResult,
     KubeTransport,
@@ -37,6 +36,7 @@ from fdai.delivery.kubernetes_connector_apply import (
     _verify_installed_either,
     target_lock,
 )
+from fdai.delivery.kubernetes_connector_claim import MANIFEST_FILE
 from fdai.delivery.kubernetes_connector_installation import ObserverInstallationInput
 
 SMOKE_TIMEOUT_SECONDS = 180.0

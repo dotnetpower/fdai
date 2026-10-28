@@ -31,7 +31,14 @@ def arguments(tmp_path, operation, case, **changes):
         "material_directory": directory,
         "cluster_uid": UID,
         "approver": "operator@example.invalid",
-        "approve_manifest_digest": None,
+        "approve_recipe_digest": None,
+        "signed_approval": None,
+        "approval_grants": None,
+        "executor_ref": None,
+        "signing_key": None,
+        "sign_operation": None,
+        "approval_seconds": 600,
+        "development_self_approval": True,
         "approve_target_ref": None,
         "audit_file": tmp_path / "audit.jsonl",
         "lock_directory": tmp_path / "locks",
@@ -91,7 +98,7 @@ def test_first_run_is_a_dry_run_that_prints_the_digest_to_approve(tmp_path, case
     write_proposal(tmp_path, built)
     result = cli.run(arguments(tmp_path, "apply", built), now=LATER)
     assert result["state"] == "dry_run_passed"
-    assert result["manifest_digest"] == built[1]["manifest_digest"]
+    assert result["recipe_digest"] == built[1]["recipe_digest"]
     assert cluster.effects() == []
     audit = tmp_path / "audit.jsonl"
     assert stat.S_IMODE(audit.stat().st_mode) == 0o600
@@ -104,20 +111,20 @@ def test_first_run_is_a_dry_run_that_prints_the_digest_to_approve(tmp_path, case
 def test_apply_then_activate_then_rollback_with_explicit_approvals(tmp_path, case) -> None:
     built, cluster = case
     write_proposal(tmp_path, built)
-    digest = built[1]["manifest_digest"]
+    digest = built[1]["recipe_digest"]
     with pytest.raises(ValueError, match="differs from the current"):
         cli.run(
-            arguments(tmp_path, "apply", built, approve_manifest_digest="sha256:" + "0" * 64),
+            arguments(tmp_path, "apply", built, approve_recipe_digest="sha256:" + "0" * 64),
             now=LATER,
         )
     installed = cli.run(
-        arguments(tmp_path, "apply", built, approve_manifest_digest=digest), now=LATER
+        arguments(tmp_path, "apply", built, approve_recipe_digest=digest), now=LATER
     )
     assert installed["state"] == "installed_suspended"
-    with pytest.raises(ValueError, match="requires --approve-manifest-digest"):
+    with pytest.raises(ValueError, match="requires --signed-approval or --approve-recipe-digest"):
         cli.run(arguments(tmp_path, "activate", built), now=LATER)
     active = cli.run(
-        arguments(tmp_path, "activate", built, approve_manifest_digest=digest), now=LATER
+        arguments(tmp_path, "activate", built, approve_recipe_digest=digest), now=LATER
     )
     assert active["operational_success"] is False
     with pytest.raises(ValueError, match="approve-target-ref"):
@@ -180,9 +187,9 @@ def test_verify_and_recover_run_through_the_pinned_transport(tmp_path, case, mon
 
     built, cluster = case
     write_proposal(tmp_path, built)
-    digest = built[1]["manifest_digest"]
-    cli.run(arguments(tmp_path, "apply", built, approve_manifest_digest=digest), now=LATER)
-    with pytest.raises(ValueError, match="requires --approve-manifest-digest"):
+    digest = built[1]["recipe_digest"]
+    cli.run(arguments(tmp_path, "apply", built, approve_recipe_digest=digest), now=LATER)
+    with pytest.raises(ValueError, match="requires --signed-approval or --approve-recipe-digest"):
         cli.run(arguments(tmp_path, "verify", built), now=LATER)
     seen = {}
 
@@ -196,7 +203,7 @@ def test_verify_and_recover_run_through_the_pinned_transport(tmp_path, case, mon
 
     monkeypatch.setattr(cli, "verify_observer", fake_verify)
     monkeypatch.setattr(cli, "retire_observer_stream", fake_retire)
-    assert cli.run(arguments(tmp_path, "verify", built, approve_manifest_digest=digest), now=LATER)
+    assert cli.run(arguments(tmp_path, "verify", built, approve_recipe_digest=digest), now=LATER)
     with pytest.raises(ValueError, match="approve-target-ref"):
         cli.run(arguments(tmp_path, "recover", built), now=LATER)
     cli.run(
