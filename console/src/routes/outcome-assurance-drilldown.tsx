@@ -11,6 +11,7 @@ import {
   type PillKind,
 } from "../components/ui";
 import { t } from "./i18n/analytics";
+import { formatConsoleCompactTimestamp } from "../time-format";
 
 export function outcomeAssuranceUnavailableMessage(
   projection: OutcomeAssuranceProjection | null,
@@ -19,7 +20,9 @@ export function outcomeAssuranceUnavailableMessage(
   if (projection.state === "stale") return t("analytics.outcomeAssurance.stale");
   if (projection.state === "unavailable") {
     return t("analytics.outcomeAssurance.unavailable", {
-      reason: projection.reason ?? "unknown",
+      reason: projection.reason === null
+        ? t("analytics.outcomeAssurance.guardState.unknown")
+        : t(`analytics.outcomeAssurance.reason.${projection.reason}`),
     });
   }
   return "";
@@ -61,11 +64,11 @@ export function OutcomeAssuranceDrilldown({
       ) : null}
       <div class="analytics-evidence">
         <strong>{t("overview.evidence.source", { source: projection.sources[0]?.name ?? "unknown" })}</strong>
-        <span>{t("overview.evidence.asOf", { time: projection.provenance.as_of })}</span>
+        <span>{t("overview.evidence.asOf", { time: formatConsoleCompactTimestamp(projection.provenance.as_of) })}</span>
         <span>{t("analytics.outcomeAssurance.scope", { scope: projection.scope.scope_ref })}</span>
         <span>{t("analytics.outcomeAssurance.window", {
-          start: projection.window.start,
-          end: projection.window.end,
+          start: formatConsoleCompactTimestamp(projection.window.start),
+          end: formatConsoleCompactTimestamp(projection.window.end),
         })}</span>
       </div>
       <DataTable

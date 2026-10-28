@@ -193,6 +193,15 @@ desktop and mobile widths, and Command Deck context follows the active Models su
 the obscured background route. These presentation and focus rules do not provision a model,
 activate policy, or add execution authority.
 
+### Operating outcomes evidence presentation
+
+Operating outcomes and the Outcome Assurance drill-down render evidence times through the shared
+console timestamp formatter in the operator's time zone, not as raw ISO strings. A typed
+unavailable reason appears as a localized label instead of its machine code. A measured value
+without confidence evidence carries a provisional hint beside it. Missing values stay unavailable
+and are never replaced with sample or zero values. These presentation rules add no read, approval,
+or execution authority.
+
 ## Common answer presentation
 
 The Command Deck retains its shared Markdown renderer and validated JSON presentation artifacts.

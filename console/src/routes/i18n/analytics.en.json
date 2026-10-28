@@ -82,6 +82,7 @@
     "costNoticeBody": "Displayed costs use published standard prices. Actual billed amounts may differ because of negotiated discounts, commitments, credits, taxes, exchange rates, and provider billing adjustments. Use these values for reference, not invoice reconciliation.",
     "noBaseline": "No baseline",
     "noBaselineHint": "No paired baseline evidence was reported for this window.",
+    "provisionalHint": "Confidence evidence is absent, so treat this value as provisional.",
     "missingSourceHint": "No accepted source observation was recorded for this metric in the current window.",
     "incompleteSourceHint": "The latest source observation is incomplete, so no value is reported.",
     "mixedSourceHint": "Observations use conflicting source contexts and cannot be combined.",
@@ -178,6 +179,15 @@
     "objective": "Objective",
     "metric": "Metric",
     "noOutcomes": "No measured outcome values are available for this source state.",
+    "reason": {
+      "source_not_connected": "measurement source not connected",
+      "source_missing": "measurement source missing",
+      "source_stale": "measurement source stale",
+      "projection_missing": "projection not yet retained",
+      "projection_malformed": "projection malformed",
+      "principal_scope_empty": "no readable scope for this principal",
+      "insufficient_sample": "insufficient sample"
+    },
     "attribution": "Attribution coverage",
     "guards": "Guard state",
     "state": {

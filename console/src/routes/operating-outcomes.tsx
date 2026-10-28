@@ -9,6 +9,7 @@ import {
   type Column,
 } from "../components/ui";
 import { getLocale } from "../i18n";
+import { formatConsoleCompactTimestamp } from "../time-format";
 import { t } from "./i18n/analytics";
 import { currentRoute, routeHref } from "../router";
 import type { AnalyticsData } from "./analytics-data";
@@ -192,7 +193,9 @@ function EvidenceStrip({ autonomy }: { readonly autonomy: AutonomyPayload }) {
           ? t("analytics.attributionCoverageUnavailable")
           : t("analytics.attributionCoverage", { value: Math.round(coverage * 100) })}
       </span>
-      {autonomy.source.as_of ? <span>{t("overview.evidence.asOf", { time: autonomy.source.as_of })}</span> : null}
+      {autonomy.source.as_of ? (
+        <span>{t("overview.evidence.asOf", { time: formatConsoleCompactTimestamp(autonomy.source.as_of) })}</span>
+      ) : null}
     </div>
   );
 }
@@ -211,6 +214,11 @@ function OutcomeKpis({
   const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
   const metricSampleSize = outcomeSampleSize(autonomy, active);
   const missingHint = t(outcomeGapKey(autonomy, active));
+  const currentHint = metric.value === null
+    ? missingHint
+    : autonomy.confidence === null
+      ? t("analytics.outcomes.provisionalHint")
+      : undefined;
   const auditHref = (outcome?: string) => routeHref("audit", {
     params: { window: `${autonomy.window_days}d`, outcome },
   });
@@ -223,7 +231,7 @@ function OutcomeKpis({
           href={auditHref("auto")}
           label={t(contract.currentLabelKey)}
           value={metric.value === null ? kpiEvidenceLabel("not-measured") : formatOutcomeMetric(metric.value, active)}
-          hint={metric.value === null ? missingHint : undefined}
+          hint={currentHint}
         />
         <KpiCard
           evidenceState={metric.baseline === null ? "not-measured" : "measured"}
@@ -274,7 +282,7 @@ function OutcomeKpis({
         href={currentHref}
         label={t(contract.currentLabelKey)}
         value={metric.value === null ? kpiEvidenceLabel("not-measured") : formatOutcomeMetric(metric.value, active)}
-        hint={metric.value === null ? missingHint : undefined}
+        hint={currentHint}
       />
       <KpiCard
         evidenceState={metric.baseline === null ? "not-measured" : "measured"}
