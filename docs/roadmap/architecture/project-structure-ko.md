@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: eec358e0116ef2b65a9411660f7b04c6d72c8850
+translation_source_sha: b104b39df703cbeb8ca29e2f4572f0051f944ff1
 translation_revised: 2026-10-28
 ---
 # 프로젝트 구조
@@ -469,7 +469,6 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 - **사람 승인 권한은 서비스별로 분리**: Operator는 Teams/Slack 인증, `cryptography`를 통한 로컬 JWT/JWK 암호학적 검증, 콜백 감사, 영속 결정 발신함을 소유합니다. Core 구현을 가져오거나 실행기 신원을 받지 않습니다.
 - **예측 원천 이력은 읽기 전용 재표현**: `core/detection/forecast_history_producer.py`는 양성 확인 지점이 있는 원천 읽기 결과 하나를 검토된 상태 매핑으로 `derived` 전이로 다시 표현합니다. `core/detection/forecast_history_chain.py`는 기록 순서와 무관한 상태 사슬을 만들고 저장된 구간과 비교하며, `core/detection/forecast_history_source.py`는 원천 Protocol을 정의합니다. Delivery 어댑터는 기존 소유자의 기록을 읽기 전용으로 읽고, `delivery/forecast_history_configuration.py`는 런타임 조립과 설정 행이 함께 쓰는 단일 파서입니다. 두 번째 작성자, 채점 권한, 실행 권한은 생기지 않습니다. 자세한 내용은 [예측 학습](../rules-and-detection/prediction-learning-and-case-history-ko.md)을 참고하세요.
 - **자동화 청사진 예약 의도는 Core가 소유하고 비활성 상태로 유지**: `core/scheduler/blueprints`는 검토된 시간대와 크기가 제한된 정규 페이로드를 검증하고 지문을 계산합니다. Delivery 영속 계층은 이 필드를 해석하지 않고 저장하며, 구체화는 계속 인증된 `CreateScheduledTaskCommand`를 거칩니다. 예약, principal, 기준선, 범위, 프로바이더 또는 실행 권한을 추가하지 않습니다. 자세한 내용은 [검토 가능한 자동화 청사진](../decisioning/automation-blueprints-ko.md)을 참고하세요.
-- **로컬 진단 보존과 감사 보존을 분리함**: 공유 원격 분석은 프로세스 간 잠금 아래 경고 JSONL을 최대 4 MiB와 24시간으로 제한하고, 바이트 상한 때문에 제거한 경우 명시적인 표식을 남깁니다. 로컬 supervisor는 대량 하위 출력을 중복 저장하지 않고 기존 서비스별 회전 파일에 유지합니다. 정확한 보존 및 시작 계약은 [로컬 런타임 동등성](../deployment/dev-and-deploy-parity-ko.md)에서 정의하며, 이 진단 정책은 Event, Incident, 감사 행 또는 활동 변환 결과를 삭제하지 않습니다.
 - **의미 판단 추적은 개발 채널 안에만 둠**: `shared/telemetry/decision_events.py`는 로컬 개발 진단 채널이 활성화된 경우에만 의미 해석 턴마다 크기가 제한된 수집기 하나를 연결합니다. `fdai_core_service/development_decisions.py`는 이 수집기, 턴의 모델 호출 관측, 결과를 내용이 없는 형식 단계로 바꿔 runtime-diagnostics 버퍼에 넘깁니다. 두 모듈 모두 의미 projection, 이벤트 계약, 계획 판단을 바꾸지 않습니다. 자세한 내용은 [의미 판단 추적](../deployment/developer-workflow-assurance-ko.md#의미-판단-추적)을 참고하세요.
   Core는 타입이 지정된 결정만 소비하며 워크플로 슬롯은 레지스트리로, 승인 대기 작업은 HIL 조정기 또는 정확한 사용자 접근 경로로 전달합니다. 활성 HIL 큐 조회는 `StateStore`에서 대기 중인 수명 주기 상태만 필터링합니다. 해결된 park와 추가 전용 감사 근거는 계속 보존되며 승인 경로에 다시 들어갈 수 없습니다. Core가 소유한 PostgreSQL 부분 인덱스는 승인 또는 보존 권한을 옮기지 않고 이 범위 제한 조회를 지원합니다. Core 조립 루트는 별도로 연결된 Bot Managed Identity를 Teams A1 전달에 사용하며 실행기 신원을 재사용하지 않습니다.
   [Slack A1 연결](../../../services/core-control-plane/src/fdai/delivery/chatops/slack_binding.py)은 Teams 신원 없이 조립 계층이 소유한 HTTP 클라이언트를 사용합니다. 로컬 전송 증적과 보류 상태의 조회는 아직 없는 영속 발송 조정이나 인증된 브라우저 행위자 결합을 대신할 수 없습니다. [채널과 알림](../interfaces/channels-and-notifications-ko.md)을 참조하세요.
