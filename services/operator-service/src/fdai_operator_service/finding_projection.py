@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-from fdai.core.readiness.finding_state import FINDING_STATE_PREFIX, FindingState
+from fdai_service_contracts.finding_state import FINDING_STATE_PREFIX, FindingState
 from pydantic import ValidationError
 
 from fdai_operator_service.families.operations import ProjectionQuery, ProjectionUnavailableError

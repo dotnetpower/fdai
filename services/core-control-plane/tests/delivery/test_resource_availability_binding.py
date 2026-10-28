@@ -45,8 +45,8 @@ def registered_catalog():
 
 
 def test_delivery_exports_delegate_to_the_same_pure_schema() -> None:
-    from fdai.core.readiness import resource_availability_settings as pure
     from fdai.delivery.azure.resource_availability import AZURE_AVAILABILITY_RESOURCE_TYPES
+    from fdai_service_contracts import resource_availability_settings as pure
 
     assert validate_resource_availability_setting is pure.validate_resource_availability_setting
     assert DEFAULT_RESOURCE_AVAILABILITY_SETTINGS is pure.DEFAULT_RESOURCE_AVAILABILITY_SETTINGS

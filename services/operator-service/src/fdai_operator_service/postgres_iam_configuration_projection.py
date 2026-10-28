@@ -6,10 +6,10 @@ import math
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
-from fdai.core.readiness.resource_availability_settings import (
+from fdai_service_contracts import DocumentOcrPolicy, ModelBindingPolicy
+from fdai_service_contracts.resource_availability_settings import (
     validate_resource_availability_setting,
 )
-from fdai_service_contracts import DocumentOcrPolicy, ModelBindingPolicy
 from pydantic import ValidationError
 
 from fdai_operator_service.families.iam.contracts import (

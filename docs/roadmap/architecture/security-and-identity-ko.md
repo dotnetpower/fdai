@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 802062959a60a013f7b6f6c8fc29698cbecb0746
+translation_source_sha: 9ab3c2bfe23797f534bac99e174ab0988743fb1c
 translation_revised: 2026-10-28
 ---
 
@@ -140,6 +140,10 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - **Console 관리형 담당 체계 활성화**: Owner 역할만 담당 체계 개정 후보의 활성화를 요청할 수 있으며,
   요청은 Owner가 검토한 후보 다이제스트에 묶입니다. Core가 저장된 역할과 다이제스트를 다시 확인하고
   요청마다 수신 기록 하나를 남기며 IAM, 배포, Azure 권한은 부여하지 않습니다.
+- **현재 분석기 Finding과 가용성 기대 상태**: Operator는 Reader 권한으로 인가된 읽기 전용 조회로
+  현재 Finding을 제공하며, 기대 상태는 기존 Owner 전용 Runtime Settings 경로에서 버전 확인과 감사를
+  거쳐서만 변경합니다. Finding 조회, 브라우저 알림 채널 선택이나 기대 상태 저장은 리소스 실행,
+  승인 또는 Incident 권한을 부여하지 않습니다.
 - 자율 배포는 플랫폼 정책(예: Azure Policy `deny`) 을 존중해야 함; 컨트롤을 우회하는 대신
   **정책 예외 워크플로**(요청 가능, time-boxed, 감사, 소유자 승인) 제공.
 

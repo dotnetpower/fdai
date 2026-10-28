@@ -7,17 +7,17 @@ import json
 from dataclasses import dataclass
 from typing import Literal
 
-from fdai.core.readiness.finding_state import (
+from fdai_service_contracts.finding_state import (
     FINDING_STATE_PREFIX,
     FindingState,
     finding_identity,
     is_operational_finding,
 )
+
 from fdai.delivery.analyzer_finding_receipt import (
     AnalyzerFindingReceipt,
     AnalyzerPublicationStatus,
 )
-from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.state_store import StateStore
 
 _DELIVERED = {
@@ -25,7 +25,7 @@ _DELIVERED = {
     AnalyzerPublicationStatus.RECONCILED_DUPLICATE,
     AnalyzerPublicationStatus.DUPLICATE_SUPPRESSED,
 }
-_PRIORITY = {Severity.LOW: 0, Severity.MEDIUM: 1, Severity.HIGH: 2, Severity.CRITICAL: 3}
+_PRIORITY: dict[str, int] = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,7 +126,7 @@ class AnalyzerFindingStateStore:
                 resource_ref=receipt.resource_ref,
                 resource_kind=receipt.resource_kind,
                 signal=receipt.signal,
-                severity=previous.severity if recovered and previous else receipt.severity,
+                severity=previous.severity if recovered and previous else receipt.severity.value,
                 status=status,
                 observation=receipt.observation,
                 observation_key=receipt.idempotency_key,

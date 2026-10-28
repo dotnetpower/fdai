@@ -16,13 +16,12 @@ from fdai.core.investigation.kubernetes_pod_status import (
     POD_STATUS_FAULT_SIGNALS,
 )
 from fdai.core.investigation.resource_availability import ResourceAvailabilityAnalyzer
-from fdai.core.ontology_platform.resource_availability_evidence import (
+from fdai.core.investigation.resource_availability_evidence import (
     RESOURCE_AVAILABILITY_ASSESSOR,
     ResourceAvailabilityEvidence,
     ResourceAvailabilityPolicy,
     ResourceOperationalState,
 )
-from fdai.core.readiness.finding_state import FINDING_STATE_PREFIX, FindingState, finding_identity
 from fdai.delivery.analyzer_recovery import (
     AnalyzerRecoveryStateError,
     RecoveryAwareAnalyzer,
@@ -31,6 +30,11 @@ from fdai.delivery.analyzer_recovery import (
 from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.finding_state import (
+    FINDING_STATE_PREFIX,
+    FindingState,
+    finding_identity,
+)
 
 NOW = datetime(2026, 10, 28, 12, tzinfo=UTC)
 REF = "scope-example/resource-group/example/compute/example"

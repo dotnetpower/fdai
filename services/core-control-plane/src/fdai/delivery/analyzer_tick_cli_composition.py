@@ -6,13 +6,14 @@ import logging
 import os
 from collections.abc import Sequence
 
-from fdai.core.investigation import AnalyzerFinding, InvestigationCoordinator, default_analyzers
-from fdai.core.investigation.analyzer import ResourceAnalyzer
-from fdai.core.investigation.kubernetes_pod_status import POD_STATUS_FAULT_SIGNALS
-from fdai.core.readiness.resource_availability_settings import (
+from fdai_service_contracts.resource_availability_settings import (
     RESOURCE_AVAILABILITY_SETTING_KEY,
     ResourceAvailabilitySettings,
 )
+
+from fdai.core.investigation import AnalyzerFinding, InvestigationCoordinator, default_analyzers
+from fdai.core.investigation.analyzer import ResourceAnalyzer
+from fdai.core.investigation.kubernetes_pod_status import POD_STATUS_FAULT_SIGNALS
 from fdai.delivery.analyzer_inventory import (
     AnalyzerInventorySources,
     build_analyzer_inventory_sources,

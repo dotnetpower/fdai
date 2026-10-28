@@ -5,12 +5,16 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fdai.core.readiness.finding_state import FINDING_STATE_PREFIX, FindingState, finding_identity
 from fdai.delivery.analyzer_finding_receipt import AnalyzerFindingReceipt, AnalyzerPublicationStatus
 from fdai.delivery.analyzer_finding_state import AnalyzerFindingStateStore
 from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
 from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.finding_state import (
+    FINDING_STATE_PREFIX,
+    FindingState,
+    finding_identity,
+)
 
 NOW = datetime(2026, 9, 1, tzinfo=UTC)
 

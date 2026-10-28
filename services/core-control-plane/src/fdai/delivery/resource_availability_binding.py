@@ -9,33 +9,33 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from types import MappingProxyType
 
+from fdai_service_contracts.resource_availability_settings import (
+    DEFAULT_RESOURCE_AVAILABILITY_SETTINGS as DEFAULT_RESOURCE_AVAILABILITY_SETTINGS,
+)
+from fdai_service_contracts.resource_availability_settings import (
+    RESOURCE_AVAILABILITY_SETTING_KEY as RESOURCE_AVAILABILITY_SETTING_KEY,
+)
+from fdai_service_contracts.resource_availability_settings import (
+    AvailabilityPlannedStopSettings as AvailabilityPlannedStopSettings,
+)
+from fdai_service_contracts.resource_availability_settings import (
+    AvailabilityResourcePolicySettings as AvailabilityResourcePolicySettings,
+)
+from fdai_service_contracts.resource_availability_settings import (
+    ResourceAvailabilitySettings as ResourceAvailabilitySettings,
+)
+from fdai_service_contracts.resource_availability_settings import (
+    validate_resource_availability_setting as validate_resource_availability_setting,
+)
 from pydantic import ValidationError
 
 from fdai.core.investigation.analyzer import ResourceAnalyzer
 from fdai.core.investigation.contract import AnalyzerFinding
 from fdai.core.investigation.resource_availability import ResourceAvailabilityAnalyzer
-from fdai.core.ontology_platform.resource_availability_evidence import (
+from fdai.core.investigation.resource_availability_evidence import (
     PlannedStopWindow,
     ResourceAvailabilityPolicy,
     ResourceOperationalState,
-)
-from fdai.core.readiness.resource_availability_settings import (
-    DEFAULT_RESOURCE_AVAILABILITY_SETTINGS as DEFAULT_RESOURCE_AVAILABILITY_SETTINGS,
-)
-from fdai.core.readiness.resource_availability_settings import (
-    RESOURCE_AVAILABILITY_SETTING_KEY as RESOURCE_AVAILABILITY_SETTING_KEY,
-)
-from fdai.core.readiness.resource_availability_settings import (
-    AvailabilityPlannedStopSettings as AvailabilityPlannedStopSettings,
-)
-from fdai.core.readiness.resource_availability_settings import (
-    AvailabilityResourcePolicySettings as AvailabilityResourcePolicySettings,
-)
-from fdai.core.readiness.resource_availability_settings import (
-    ResourceAvailabilitySettings as ResourceAvailabilitySettings,
-)
-from fdai.core.readiness.resource_availability_settings import (
-    validate_resource_availability_setting as validate_resource_availability_setting,
 )
 from fdai.delivery.analyzer_recovery import RecoveryAwareAnalyzer
 from fdai.delivery.analyzer_tick import AnalyzerTarget

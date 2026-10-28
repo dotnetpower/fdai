@@ -44,7 +44,7 @@ class RuntimeSettingSpec:
         if self.value_type == "object":
             if self.key != "detection.resource_availability":
                 raise ValueError("unregistered structured runtime setting")
-            from fdai.core.readiness.resource_availability_settings import (
+            from fdai_service_contracts.resource_availability_settings import (
                 validate_resource_availability_setting,
             )
 

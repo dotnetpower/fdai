@@ -5,11 +5,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from fdai_service_contracts.recorded_resource_state import operational_state_paths
-
-from fdai.core.ontology_platform.resource_availability_evidence import ResourceOperationalState
-from fdai.core.readiness.resource_availability_settings import (
+from fdai_service_contracts.resource_availability_settings import (
     RESOURCE_AVAILABILITY_RESOURCE_TYPES,
 )
+
+from fdai.core.investigation.resource_availability_evidence import ResourceOperationalState
 from fdai.shared.providers.inventory import ResourceRecord
 
 AZURE_AVAILABILITY_RESOURCE_TYPES = RESOURCE_AVAILABILITY_RESOURCE_TYPES

@@ -7,10 +7,9 @@ import json
 from datetime import datetime
 from typing import Literal
 
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from fdai.shared.contracts.models import ContractBase, Severity
-
+FindingSeverity = Literal["critical", "high", "medium", "low"]
 FINDING_STATE_PREFIX = "runtime:analyzer-finding-current:"
 _NON_FAULT_SIGNALS = frozenset(
     {
@@ -45,8 +44,12 @@ def finding_identity(resource_kind: str, resource_ref: str, signal: str) -> str:
     return hashlib.sha256(value.encode()).hexdigest()
 
 
-class FindingState(ContractBase):
+class FindingState(BaseModel):
     """A derived unresolved/resolved record, never Incident or execution authority."""
+
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, str_strip_whitespace=True, validate_default=True
+    )
 
     schema_version: Literal["1.0.0"] = "1.0.0"
     finding_id: str
@@ -57,7 +60,7 @@ class FindingState(ContractBase):
     resource_ref: str
     resource_kind: str
     signal: str
-    severity: Severity
+    severity: FindingSeverity
     status: Literal["active", "resolved"]
     observation: str
     observation_key: str

@@ -7,6 +7,11 @@ from collections.abc import Collection, Sequence
 from dataclasses import replace
 from typing import Protocol, runtime_checkable
 
+from fdai_service_contracts.finding_state import (
+    FINDING_STATE_PREFIX,
+    FindingState,
+    finding_identity,
+)
 from pydantic import ValidationError
 
 from fdai.core.investigation.analyzer import ResourceAnalyzer
@@ -16,11 +21,11 @@ from fdai.core.investigation.kubernetes_pod_status import (
     POD_STATUS_ASSESSOR,
     POD_STATUS_FAULT_SIGNALS,
 )
-from fdai.core.ontology_platform.resource_availability_evidence import (
+from fdai.core.investigation.resource_availability_evidence import (
     RESOURCE_AVAILABILITY_ASSESSOR,
 )
-from fdai.core.readiness.finding_state import FINDING_STATE_PREFIX, FindingState, finding_identity
 from fdai.delivery.analyzer_finding_receipt import AnalyzerPublicationStatus
+from fdai.shared.contracts.models import Severity
 from fdai.shared.providers.state_store import StateStore
 
 _FAULT_STATUSES = {
@@ -224,7 +229,7 @@ def _prior_finding(state: FindingState) -> AnalyzerFinding:
         resource_kind=state.resource_kind,
         signal=state.signal,
         observation=state.observation,
-        severity=state.severity,
+        severity=Severity(state.severity),
         occurred_at=state.occurred_at,
         evidence_refs=state.evidence_refs,
         assessment=FindingAssessment(

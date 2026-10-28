@@ -1,7 +1,7 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 885f0585b59ea7f9a0e237fbe08bd9b6f8da043c
+translation_source_sha: ac5fb67d3a550549ac121a080007bf714ed3d1db
 translation_revised: 2026-10-28
 ---
 
@@ -21,7 +21,7 @@ translation_revised: 2026-10-28
 > 기록을 정규화해 일반 유입 토픽에 게시합니다. 두 경로는 관리되는 실제 지연 및 전달 근거를
 > 보존하기 전까지 `validated`가 아닌 `implemented`로 유지됩니다.
 
-## Finding 수명 주기와 사용자 알림
+## 발견된 문제 수명 주기와 사용자 알림
 
 리소스 가용성, 호스트 CPU, Kubernetes 수명 주기 및 상태 감지기는 근거에 기반한 읽기 전용
 생산자로 유지합니다. 리소스 이름, 누락된 샘플, 오래된 스냅샷이나 운영자의 발화만으로 장애,

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
 
-from fdai.core.ontology_platform.resource_availability_evidence import (
+from fdai.core.investigation.resource_availability_evidence import (
     AvailabilityUnavailableReason,
     ResourceAvailabilityEvidence,
     ResourceOperationalState,

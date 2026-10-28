@@ -6,8 +6,8 @@ import ast
 import inspect
 
 import pytest
-from fdai.core.readiness import resource_availability_settings as schema
-from fdai.core.readiness.resource_availability_settings import (
+from fdai_service_contracts import resource_availability_settings as schema
+from fdai_service_contracts.resource_availability_settings import (
     RESOURCE_AVAILABILITY_RESOURCE_TYPES,
     validate_resource_availability_setting,
 )

@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.investigation.resource_availability import ResourceAvailabilityAnalyzer
-from fdai.core.ontology_platform.resource_availability_evidence import (
+from fdai.core.investigation.resource_availability_evidence import (
     AvailabilityUnavailableReason,
     PlannedStopWindow,
     ResourceAvailabilityEvidence,

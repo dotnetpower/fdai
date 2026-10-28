@@ -20,7 +20,7 @@ Faster push paths remain opt-in through Terraform and composition seams.
 > ordinary ingest topic. Both paths remain `implemented`, not `validated`, until governed live
 > latency and delivery evidence is retained.
 
-## Finding lifecycle and user delivery
+## Detected issue lifecycle and user delivery
 
 Resource availability, host CPU, and Kubernetes lifecycle/status detectors remain read-only,
 evidence-backed producers. A resource name, missing sample, stale snapshot, or operator utterance

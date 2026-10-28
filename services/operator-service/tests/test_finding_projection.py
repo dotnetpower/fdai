@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
-from fdai.core.readiness.finding_state import FindingState, finding_identity
 from fdai.shared.contracts.models import Severity
 from fdai_operator_service.families.operations import ProjectionQuery, ProjectionUnavailableError
 from fdai_operator_service.finding_projection import read_findings
+from fdai_service_contracts.finding_state import FindingState, finding_identity
 
 
 def query(cursor: str | None = None) -> ProjectionQuery:

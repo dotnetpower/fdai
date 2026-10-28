@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from fdai.core.investigation.contract import AnalyzerFinding, FindingAssessment
-from fdai.core.ontology_platform.resource_availability_evidence import (
+from fdai.core.investigation.resource_availability_evidence import (
     RESOURCE_AVAILABILITY_ASSESSOR,
     ResourceAvailabilityEvidence,
     ResourceAvailabilityPolicy,

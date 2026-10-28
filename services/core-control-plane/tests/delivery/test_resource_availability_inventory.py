@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fdai.core.ontology_platform.resource_availability_evidence import ResourceOperationalState
+from fdai.core.investigation.resource_availability_evidence import ResourceOperationalState
 from fdai.delivery.azure.resource_availability import (
     AZURE_AVAILABILITY_RESOURCE_TYPES,
     azure_resource_operational_state,

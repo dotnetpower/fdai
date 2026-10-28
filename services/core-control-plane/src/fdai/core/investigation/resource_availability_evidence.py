@@ -9,7 +9,7 @@ from enum import StrEnum
 
 from fdai.shared.providers.state_evidence import StateFactLane, StateFactMetadata
 
-RESOURCE_AVAILABILITY_ASSESSOR = "core.ontology_platform.resource_availability_evidence"
+RESOURCE_AVAILABILITY_ASSESSOR = "core.investigation.resource_availability_evidence"
 
 
 class ResourceOperationalState(StrEnum):

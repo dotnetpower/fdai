@@ -50,12 +50,13 @@ from enum import StrEnum
 from typing import Any, Protocol
 from uuid import UUID, uuid5
 
+from fdai_service_contracts.finding_state import is_operational_finding
+
 from fdai.core.investigation import (
     AnalyzerFinding,
     InvestigationCoordinator,
     InvestigationRequest,
 )
-from fdai.core.readiness.finding_state import is_operational_finding
 from fdai.delivery.analyzer_finding_receipt import (
     AnalyzerEvidenceState,
     AnalyzerFindingReceipt,
