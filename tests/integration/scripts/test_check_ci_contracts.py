@@ -466,7 +466,11 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards()
     assert "needs.changes.outputs.scenarios == 'true'" in freeze["if"]
 
     python_tests = jobs["python-tests"]
-    assert python_tests["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
+    assert python_tests["strategy"]["matrix"]["shard"] == (
+        "${{ fromJSON(vars.FDAI_CI_SSD_RUNNER_ENABLED == 'true' && "
+        "github.ref == 'refs/heads/main' && github.event_name != 'pull_request' "
+        "&& '[1,2,3]' || '[1,2,3,4]') }}"
+    )
     assert python_tests["env"]["FDAI_PYTEST_MODE"] == "regression"
     assert python_tests["env"]["FDAI_PYTEST_SHARD_COUNT"] == "4"
     assert {step["name"] for step in python_tests["steps"]}.isdisjoint(
@@ -1699,6 +1703,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
 
     assert privileged == {
         "automatic-version.yml",
+        "ci.yml",
         "cohort-observation-import.yml",
         "cohort-readiness.yml",
         "container-supply-chain.yml",
@@ -2091,7 +2096,11 @@ def test_ci_runs_regression_without_coverage_and_merges_focused_coverage() -> No
     shard_job = jobs["python-coverage-shards"]
     merge_job = jobs["python-coverage"]
 
-    assert regression_job["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
+    assert regression_job["strategy"]["matrix"]["shard"] == (
+        "${{ fromJSON(vars.FDAI_CI_SSD_RUNNER_ENABLED == 'true' && "
+        "github.ref == 'refs/heads/main' && github.event_name != 'pull_request' "
+        "&& '[1,2,3]' || '[1,2,3,4]') }}"
+    )
     assert regression_job["env"]["FDAI_PYTEST_MODE"] == "regression"
     assert {step["name"] for step in regression_job["steps"]}.isdisjoint(
         {"Prepare coverage data", "Upload coverage data"}

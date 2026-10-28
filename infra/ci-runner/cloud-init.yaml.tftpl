@@ -1,0 +1,62 @@
+#cloud-config
+package_update: true
+packages:
+  - build-essential
+  - ca-certificates
+  - curl
+  - docker.io
+  - git
+  - jq
+  - libbz2-dev
+  - libffi-dev
+  - libicu74
+  - liblzma-dev
+  - libpq-dev
+  - libreadline-dev
+  - libsqlite3-dev
+  - libssl-dev
+  - python3-pip
+  - python3-venv
+  - unzip
+  - xz-utils
+  - zip
+  - zlib1g-dev
+
+write_files:
+  - path: /usr/local/sbin/fdai-ci-storage
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      if [[ "$(findmnt -rn -o TARGET --target /mnt)" != "/mnt" ]]; then
+        echo "CI scratch disk is not mounted at /mnt; refusing root-disk fallback" >&2
+        exit 1
+      fi
+      install -d -o fdairunner -g fdairunner \
+        /mnt/fdai-ci /mnt/fdai-ci/work /mnt/fdai-ci/cache /mnt/fdai-ci/toolcache
+
+  - path: /opt/fdai-ci/bootstrap.sh
+    owner: root:root
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      useradd --create-home --shell /bin/bash fdairunner
+      usermod -aG docker fdairunner
+      /usr/local/sbin/fdai-ci-storage
+      ln -s /mnt/fdai-ci/toolcache /opt/hostedtoolcache
+      install -d -o fdairunner -g fdairunner /opt/actions-runner
+      archive="$(mktemp)"
+      trap 'rm -f "$archive"' EXIT
+      curl --fail --silent --show-error --location --max-time 180 \
+        "https://github.com/actions/runner/releases/download/v${runner_version}/actions-runner-linux-x64-${runner_version}.tar.gz" \
+        --output "$archive"
+      echo "${runner_sha256}  $archive" | sha256sum --check --status
+      tar -xzf "$archive" -C /opt/actions-runner
+      chown -R fdairunner:fdairunner /opt/actions-runner
+      systemctl enable --now docker
+      touch /var/lib/fdai-ci-bootstrap-ready
+
+runcmd:
+  - [timeout, "900", /opt/fdai-ci/bootstrap.sh]
