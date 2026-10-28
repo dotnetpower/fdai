@@ -152,10 +152,21 @@ the separately authorized deployment-preflight identity, never an expanded obser
 Its registered verifier must permit `admission` from `kubernetes_api`. Seven fixed create requests
 use `dryRun=All`, `fieldValidation=Strict` and a fixed field manager between cluster UID reads.
 Changed specified fields, added list entries, rejected Pod admission, redirects and incomplete
-responses stay unknown. Failures are not retried. The signed five-minute-or-shorter result contains
+responses stay unknown. A real API server drops false flags and empty collections from its echo,
+which are defaults rather than changes. Because a dry-run create stores nothing, the dedicated
+ServiceAccount cannot exist before installation and the server would refuse the Pod for that alone;
+the Pod probe therefore names the namespace's `default` ServiceAccount and still inspects the exact
+Pod shape. Run it in an existing namespace, since the renderer creates none. Failures are not retried. The signed five-minute-or-shorter result contains
 only `admission`; retain it with the existing `retain-preflight` command. Matching returned fields
 and real loopback TLS tests prove local mechanics, not actual Kubernetes schema or webhook behavior.
-Existing-resource updates and installation lifecycle effects are not supported by this probe.
+Existing-resource updates and installation lifecycle effects are not supported by this probe. The
+`capacity` and `persistent_storage` preflights use the same identity and read the cluster only. On
+clusters from Kubernetes 1.33 on, every running Pod reports `status.resources` and per-container
+`allocatedResources`. Without a resize in progress these equal the declared requests, so the accounting
+accepts them only when each equals the same container's CPU and memory request, and still refuses
+`spec.resources`, `status.resize`, a resize condition, and any difference. A typed list returned by the
+server omits `apiVersion` and `kind` on each item, so the collector fills them in after verifying the
+list's own kind and rejects an item that names another.
 
 For repeatable local schema validation, run the existing installation tests with a pinned optional
 validator: `uv run --no-sync --with kubernetes-validate==1.36.0 pytest -q --no-cov services/core-control-plane/tests/delivery/test_kubernetes_connector_installation.py -k strict_kubernetes_schemas`.
@@ -254,7 +265,13 @@ field manager, forcing just that field, so a stop never waits on another owner a
 never deletes the install manager's fields. `deactivate` is the stop condition and needs only a
 target-bound approval; re-applying while activated is refused as a field conflict until it runs. `wait-observed` then reads the existing authenticated snapshot inbox:
 operational success is claimed only after the gateway admits a fresh snapshot. `rollback` deletes
-only resources labeled for this observer, in reverse order, and retains the namespace. The local
+only resources labeled for this observer, in reverse order, and retains the namespace. `uninstall` is a
+separately approved operation that does the same and then deletes the namespace, only when this installer
+labeled it and only when nothing else remains in it other than terminating objects, the built-in
+`default` ServiceAccount and `kube-root-ca.crt`. Otherwise it keeps the namespace and names what blocks
+it. Removing the namespace deletes the volume claim and, under a `Delete` reclaim policy, its volume.
+Applying a changed or repeated plan to an active observer is refused until `deactivate` runs, so an
+upgrade is: `deactivate`, `apply` the new plan, read it back, `verify`. The local
 lock serializes one host only; concurrent operators on other hosts rely on server-side conflicts.
 
 ## Governed operations

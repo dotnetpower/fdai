@@ -646,3 +646,24 @@ async def test_read_preflight_accepts_the_echo_a_real_server_returns(forge, expe
         transport=httpx.MockTransport(handler),
     )
     assert (await probe.collect()).state == expected
+
+
+@pytest.mark.parametrize(
+    ("expected", "actual", "preserved"),
+    [
+        ({"ingress": [], "policyTypes": ["Ingress"]}, {"policyTypes": ["Ingress"]}, True),
+        ({"hostNetwork": False}, {}, True),
+        ({"labels": {}}, {}, True),
+        ({"ingress": [{"from": []}]}, {}, False),
+        ({"ingress": ["x"]}, {"ingress": []}, False),
+        ({"suspend": True}, {}, False),
+        ({"port": 0}, {}, False),
+        ({"policyTypes": ["Egress"]}, {"policyTypes": ["Ingress"]}, False),
+    ],
+)
+def test_server_dropped_empty_values_are_defaults_but_real_changes_are_not(
+    expected, actual, preserved
+) -> None:
+    from fdai.delivery.kubernetes_connector_read_preflight import _preserves_fields
+
+    assert _preserves_fields(expected, actual) is preserved

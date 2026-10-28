@@ -1,7 +1,7 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: dfbd18c8ae0bc2eb1f253f1369c1f85bd0543d3b
+translation_source_sha: f32b8f284b937f832f3a99407e7558ddc11e4fdf
 translation_revised: 2026-10-29
 ---
 # AKS 진단 근거 플레인
@@ -250,6 +250,16 @@ EndpointSlice 준비 상태에서 생략되거나 null인 `ready` 값은 `ready_
 분할하지 않은 `Maximum`을 요청해 "임의 노드가 기준을 넘으면 발화한다"는 Logs 템플릿의 의미를 유지하며,
 노드 레이블 없이 클러스터 전체 값을 전달합니다. Prometheus를 구성하면 계속 우선하고 Azure Monitor Logs는 그
 뒤의 fallback으로 남습니다.
+
+Pod 단위 CPU, 메모리, throttling 창은 coverage receipt로 완전한 창을 선언할 수 있는 소스에서만 오며, 현재는
+명시적으로 구성한 Managed Prometheus 경로가 그에 해당합니다. Azure 리소스를 추가하지 않는 배포는 Pod 단위 창
+근거를 얻지 못하며, 다른 소스로 채우지 않고 근거 공백으로 보고합니다. 세 가지 소스는 의도적으로 거부합니다.
+`container_cpu_cfs_throttled_seconds_total` 같은 누적 카운터 원시값은 평가가 0보다 큰 모든 점을 압박으로 보므로
+과거에 한 번이라도 throttle된 모든 Pod를 압박으로 보고하게 되고, 두 번 읽은 창별 델타만 유효합니다.
+metrics-server API는 순간 샘플 하나만 반환하므로 완전한 창을 선언할 수 없습니다. API 서버를 통한 kubelet 읽기는
+observer의 list 전용 recipe보다 훨씬 넓은 `nodes/proxy` 권한이 필요합니다. 메트릭 소스가 전혀 없어도 스냅샷은 크래시
+루프, OOM 종료, 퇴출, 이미지 pull 실패와 롤아웃 정체, 엔드포인트 준비 상태, 오토스케일러 상한을 제공하고, 플랫폼
+노드 CPU 경로는 클러스터 전체 포화를 다룹니다. 노드 메모리에는 분석기 임계값이 없어 메모리 경로는 연결하지 않습니다.
 Azure Managed Prometheus의 기본 `cluster` 레이블은 정확한 ARM 신원이 아니라 cluster 이름
 alias입니다. 따라서 인벤토리 기반 analyzer는 명시적으로 조립된 PromQL 카탈로그가 정확한
 `resource_id` 레이블을 보존하지 않으면 Azure Monitor Logs 경로를 유지합니다. 요청한 신원

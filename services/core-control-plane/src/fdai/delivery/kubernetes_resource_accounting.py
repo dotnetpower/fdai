@@ -34,19 +34,8 @@ def pod_resource_requests(pod: Mapping[str, Any]) -> PodResourceRequests:
     """
     spec = _mapping(pod.get("spec"))
     status = _mapping(pod.get("status", {}))
-    if "resources" in spec or "resize" in status or "resources" in status:
+    if "resources" in spec or "resize" in status:
         raise KubernetesResourceAccountingError("Pod-level or resize accounting is unsupported")
-    for field in ("containerStatuses", "initContainerStatuses"):
-        for raw_status in _items(status.get(field, [])):
-            container_status = _mapping(raw_status)
-            if {
-                "allocatedResources",
-                "resources",
-                "allocatedResourcesStatus",
-            } & container_status.keys():
-                raise KubernetesResourceAccountingError(
-                    "Container resize accounting is unsupported"
-                )
     for raw_condition in _items(status.get("conditions", [])):
         condition = _mapping(raw_condition)
         if not isinstance(condition.get("type"), str):
@@ -64,6 +53,12 @@ def pod_resource_requests(pod: Mapping[str, Any]) -> PodResourceRequests:
         )
     app_requests = [_container_requests(container) for container in containers]
     init_requests = [_container_requests(container) for container in init_containers]
+    # Newer clusters report allocated resources and a Pod-level status for every running Pod.
+    # Without a resize in progress they equal the declared requests, so a difference is refused.
+    _verify_reported_resources(status.get("containerStatuses", []), containers, app_requests)
+    _verify_reported_resources(
+        status.get("initContainerStatuses", []), init_containers, init_requests
+    )
     overhead = _quantities(spec.get("overhead", {}))
     cpu = max(
         sum(request.cpu_millicores for request in app_requests),
@@ -76,6 +71,33 @@ def pod_resource_requests(pod: Mapping[str, Any]) -> PodResourceRequests:
     if cpu > MAX_RESOURCE_QUANTITY or memory > MAX_RESOURCE_QUANTITY:
         raise KubernetesResourceAccountingError("Pod resource total exceeds the accounting bound")
     return PodResourceRequests(cpu_millicores=cpu, memory_bytes=memory)
+
+
+def _verify_reported_resources(
+    statuses: object, containers: list[Any], requests: list[PodResourceRequests]
+) -> None:
+    declared = {
+        _mapping(container).get("name"): request
+        for container, request in zip(containers, requests, strict=True)
+    }
+    for raw_status in _items(statuses):
+        status = _mapping(raw_status)
+        if "allocatedResourcesStatus" in status:
+            raise KubernetesResourceAccountingError("Container resize accounting is unsupported")
+        reported = []
+        if "allocatedResources" in status:
+            reported.append(_quantities(status["allocatedResources"]))
+        if "resources" in status:
+            reported.append(_quantities(_mapping(status["resources"]).get("requests", {})))
+        if not reported:
+            continue
+        expected = declared.get(status.get("name"))
+        if expected is None or any(
+            quantities.get("cpu", 0) != expected.cpu_millicores
+            or quantities.get("memory", 0) != expected.memory_bytes
+            for quantities in reported
+        ):
+            raise KubernetesResourceAccountingError("Container resize accounting is unsupported")
 
 
 def _container_requests(value: object) -> PodResourceRequests:

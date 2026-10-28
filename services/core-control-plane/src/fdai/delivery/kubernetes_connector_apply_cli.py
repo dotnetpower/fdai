@@ -30,7 +30,11 @@ from fdai.delivery.kubernetes_connector_installation import (
     ObserverInstallationInput,
     render_observer_installation,
 )
-from fdai.delivery.kubernetes_connector_lifecycle import retire_observer_stream, verify_observer
+from fdai.delivery.kubernetes_connector_lifecycle import (
+    retire_observer_stream,
+    uninstall_observer,
+    verify_observer,
+)
 from fdai.delivery.kubernetes_connector_runtime import private_file
 
 APPROVAL_SECONDS = 600
@@ -50,6 +54,7 @@ def _parser() -> argparse.ArgumentParser:
             "deactivate",
             "recover",
             "rollback",
+            "uninstall",
             "export",
             "wait-observed",
         ),
@@ -65,7 +70,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--approve-target-ref",
-        help="deactivate, recover, or rollback: type the target reference to confirm",
+        help="deactivate, recover, rollback, or uninstall: type the target reference to confirm",
     )
     parser.add_argument("--audit-file", type=Path)
     parser.add_argument("--lock-directory", type=Path)
@@ -233,7 +238,7 @@ def run(args: argparse.Namespace, *, now: datetime | None = None) -> dict[str, o
         "audit": _audit_sink(_need(args.audit_file, "audit-file")),
         "now": clock,
     }
-    if args.operation in {"deactivate", "recover", "rollback"}:
+    if args.operation in {"deactivate", "recover", "rollback", "uninstall"}:
         inputs = ObserverInstallationInput.model_validate_json(
             private_file(_need(args.inputs, "inputs"))
         )
@@ -246,6 +251,7 @@ def run(args: argparse.Namespace, *, now: datetime | None = None) -> dict[str, o
             "deactivate": deactivate_observer,
             "recover": retire_observer_stream,
             "rollback": rollback_observer_installation,
+            "uninstall": uninstall_observer,
         }
         return handlers[args.operation](
             inputs, stop_approval, transport=_transport(inputs, args), **common

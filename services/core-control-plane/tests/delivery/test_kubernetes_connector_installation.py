@@ -477,6 +477,10 @@ async def test_server_admission_uses_only_exact_dry_run_requests(tmp_path, case)
         if case in {"forbidden", "redirect", "throttled"}:
             return httpx.Response({"forbidden": 403, "redirect": 307, "throttled": 429}[case])
         if body["kind"] == "Pod":
+            # A real API server refuses a Pod whose ServiceAccount does not exist yet.
+            if body["spec"]["serviceAccountName"] != "default":
+                return httpx.Response(403)
+            assert body["spec"]["automountServiceAccountToken"] is False
             if case == "mutated":
                 body["spec"]["hostNetwork"] = True
             if case == "pod-denied":

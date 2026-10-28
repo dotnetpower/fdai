@@ -149,6 +149,11 @@ class KubernetesObserverResourcePreflight(KubernetesObserverReadPreflight):
             for item in batch:
                 if not isinstance(item, dict):
                     raise ValueError("Resource preflight list item is invalid")
+                # A typed list verified above omits apiVersion and kind on each item; fill them in
+                # so identity and evidence see one shape, and reject an item that names another.
+                if item.get("apiVersion", "v1") != "v1" or item.get("kind", kind) != kind:
+                    raise ValueError("Resource preflight object type is invalid")
+                item = {**item, "apiVersion": "v1", "kind": kind}
                 identity = _identity(item, kind)
                 uid = text(mapping(item.get("metadata")).get("uid"))
                 if uid in uids or identity in identities:

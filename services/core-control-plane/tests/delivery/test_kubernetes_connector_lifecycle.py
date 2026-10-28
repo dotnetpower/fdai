@@ -340,3 +340,190 @@ def test_pull_failure_while_retiring_is_reported_with_the_remedy(tmp_path) -> No
         retire_observer_stream(
             inputs, stop_approval(inputs, rendered), transport=cluster, **kwargs_for(directory)
         )
+
+
+def plain_kwargs(tmp_path, **extra):
+    """Keyword arguments for operations that neither sleep nor poll a clock."""
+    values = kwargs_for(tmp_path, **extra)
+    values.pop("sleep")
+    values.pop("monotonic")
+    return values
+
+
+class NamespaceCluster(SmokeCluster):
+    """Add namespace deletion and a namespace listing to the in-memory server."""
+
+    def __init__(self, *, contents=(), **kwargs):
+        super().__init__(**kwargs)
+        self.contents, self.namespace_deleted = list(contents), False
+
+    def run(self, args, *, manifest, timeout):
+        args = list(args)
+        if args[0] == "get" and args[1].startswith("pods,jobs"):
+            return KubeResult(0, json.dumps({"items": self.contents}))
+        if args[0] == "delete" and args[1] == "namespace":
+            self.namespace_deleted = True
+            for key in [
+                k for k in self.objects if k[:2] == ("namespace", None) and k[2] == args[2]
+            ]:
+                self.objects.pop(key)
+            return KubeResult(0, "deleted")
+        return super().run(args, manifest=manifest, timeout=timeout)
+
+
+def uninstall_approval(inputs, rendered, **changes):
+    return approval_for(
+        inputs,
+        rendered,
+        operation="uninstall",
+        manifest_digest=None,
+        proposal_digest=None,
+        **changes,
+    )
+
+
+def owned_namespace_case(tmp_path, **kwargs):
+    case, base = installed(tmp_path)
+    cluster = NamespaceCluster(**kwargs)
+    cluster.objects.update(base.objects)
+    return case, cluster
+
+
+def test_uninstall_removes_the_observer_then_only_an_installer_owned_empty_namespace(
+    tmp_path,
+) -> None:
+    from fdai.delivery.kubernetes_connector_lifecycle import uninstall_observer
+
+    case, cluster = owned_namespace_case(
+        tmp_path,
+        contents=[
+            {"kind": "ConfigMap", "metadata": {"name": "kube-root-ca.crt"}},
+            {"kind": "ServiceAccount", "metadata": {"name": "default"}},
+            {
+                "kind": "Pod",
+                "metadata": {
+                    "name": "p",
+                    "labels": {"app.kubernetes.io/instance": "fdai-observer-example"},
+                },
+            },
+            {
+                "kind": "Job",
+                "metadata": {
+                    "name": "j",
+                    "ownerReferences": [{"kind": "CronJob", "name": "fdai-observer-example"}],
+                },
+            },
+            {
+                "kind": "Pod",
+                "metadata": {"name": "gone", "deletionTimestamp": "2026-10-29T00:00:00Z"},
+            },
+        ],
+    )
+    inputs, rendered, _, directory = case
+    audit = []
+    result = uninstall_observer(
+        inputs,
+        uninstall_approval(inputs, rendered),
+        transport=cluster,
+        **plain_kwargs(directory, audit=audit.append),
+    )
+    assert result["state"] == "uninstalled" and result["namespace_removed"] is True
+    assert cluster.namespace_deleted
+    assert ("namespace", None, inputs.namespace) not in cluster.objects
+    assert [item["outcome"] for item in audit if "outcome" in item] == ["removed"]
+
+
+def test_uninstall_keeps_a_namespace_that_holds_foreign_objects(tmp_path) -> None:
+    from fdai.delivery.kubernetes_connector_lifecycle import uninstall_observer
+
+    case, cluster = owned_namespace_case(
+        tmp_path,
+        contents=[{"kind": "Deployment", "metadata": {"name": "someone-elses"}}],
+    )
+    inputs, rendered, _, directory = case
+    audit = []
+    with pytest.raises(ValueError, match="Deployment/someone-elses.*namespace was kept"):
+        uninstall_observer(
+            inputs,
+            uninstall_approval(inputs, rendered),
+            transport=cluster,
+            **plain_kwargs(directory, audit=audit.append),
+        )
+    assert not cluster.namespace_deleted
+    assert ("namespace", None, inputs.namespace) in cluster.objects
+    assert audit[-1]["outcome"] == "incomplete"
+    assert not [key for key in cluster.objects if key[2] == inputs.name and key[0] != "namespace"]
+
+
+def test_uninstall_refuses_a_namespace_the_installer_does_not_own(tmp_path) -> None:
+    from fdai.delivery.kubernetes_connector_lifecycle import uninstall_observer
+
+    case, cluster = owned_namespace_case(tmp_path)
+    inputs, rendered, _, directory = case
+    cluster.objects[("namespace", None, inputs.namespace)]["metadata"]["labels"] = {"team": "other"}
+    with pytest.raises(ValueError, match="not owned by this installer"):
+        uninstall_observer(
+            inputs,
+            uninstall_approval(inputs, rendered),
+            transport=cluster,
+            **plain_kwargs(directory),
+        )
+    assert cluster.effects() == [] and not cluster.namespace_deleted
+
+
+def test_uninstall_needs_its_own_approval_and_the_right_cluster(tmp_path) -> None:
+    from fdai.delivery.kubernetes_connector_lifecycle import uninstall_observer
+
+    case, cluster = owned_namespace_case(tmp_path)
+    inputs, rendered, _, directory = case
+    rollback_only = approval_for(
+        inputs, rendered, operation="rollback", manifest_digest=None, proposal_digest=None
+    )
+    with pytest.raises(ValueError, match="approval"):
+        uninstall_observer(inputs, rollback_only, transport=cluster, **plain_kwargs(directory))
+    wrong = NamespaceCluster(uid="other-cluster")
+    with pytest.raises(ValueError, match="not the approved target"):
+        uninstall_observer(
+            inputs, uninstall_approval(inputs, rendered), transport=wrong, **plain_kwargs(directory)
+        )
+    assert cluster.effects() == [] and wrong.effects() == []
+
+
+def test_a_namespace_that_stays_behind_is_reported_not_claimed_removed(tmp_path) -> None:
+    from fdai.delivery.kubernetes_connector_lifecycle import uninstall_observer
+
+    class Stuck(NamespaceCluster):
+        def run(self, args, *, manifest, timeout):
+            if list(args)[:2] == ["delete", "namespace"]:
+                return KubeResult(0, "terminating")
+            return super().run(args, manifest=manifest, timeout=timeout)
+
+    case, base = installed(tmp_path)
+    inputs, rendered, _, directory = case
+    cluster = Stuck()
+    cluster.objects.update(base.objects)
+    with pytest.raises(ValueError, match="still terminating"):
+        uninstall_observer(
+            inputs,
+            uninstall_approval(inputs, rendered),
+            transport=cluster,
+            **plain_kwargs(directory),
+        )
+
+
+def test_a_delivered_report_keeps_the_sequence_that_proves_stream_continuity(tmp_path) -> None:
+    case, base = installed(tmp_path)
+    inputs, rendered, _, directory = case
+    cluster = SmokeCluster(
+        job={"status": {"succeeded": 1}},
+        logs='{"staged": 1}\n{"status": "accepted", "sequence": 7, "evidence_digest": "sha256:x"}',
+    )
+    cluster.objects.update(base.objects)
+    result = verify_observer(
+        rendered,
+        inputs,
+        approval_for(inputs, rendered, operation="verify"),
+        transport=cluster,
+        **kwargs_for(directory),
+    )
+    assert result["detail"] == {"report": {"status": "accepted", "sequence": 7}}

@@ -88,7 +88,9 @@ class KubeTransport(Protocol):
 class ObserverApplyApproval(ConnectorContract):
     """A short-lived human approval bound to one exact target, plan, and operation."""
 
-    operation: Literal["apply", "activate", "verify", "deactivate", "recover", "rollback"]
+    operation: Literal[
+        "apply", "activate", "verify", "deactivate", "recover", "rollback", "uninstall"
+    ]
     approver_ref: Annotated[str, Field(min_length=1, max_length=256, pattern=_TEXT)]
     target_ref: Annotated[str, Field(min_length=1, max_length=512, pattern=_TEXT)]
     cluster_uid: Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9-]+$")]
@@ -529,6 +531,11 @@ def apply_observer_installation(
 
     with target_lock(lock_directory, f"{inputs.target_ref}/{inputs.namespace}/{inputs.name}"):
         _cluster_identity(transport, cluster_uid)
+        live_job = _get(transport, "CronJob", inputs.name, inputs.namespace)
+        if live_job is not None and live_job.get("spec", {}).get("suspend") is False:
+            raise ValueError(
+                "the observer is active; run deactivate before applying a changed or repeated plan"
+            )
         create_namespace = _guarded_namespace(transport, inputs)
         secret = _secret_document(inputs, material_directory, proposal_digest, now())
         namespace_document = _namespace_document(inputs, proposal_digest)
@@ -678,6 +685,32 @@ def deactivate_observer(
     return {"schema_version": "1.0.0", "operation": "deactivate", "state": "installed_suspended"}
 
 
+def _remove_owned_resources(
+    transport: KubeTransport, inputs: ObserverInstallationInput
+) -> list[str]:
+    """Delete only this observer's labeled resources, in reverse dependency order."""
+    targets: list[tuple[str, str, str | None]] = [
+        (kind, inputs.name, None if kind in _CLUSTER_SCOPED else inputs.namespace)
+        for kind in _ROLLBACK_ORDER
+    ]
+    targets.append(("Secret", inputs.material_secret, inputs.namespace))
+    removed: list[str] = []
+    for kind, name, namespace in targets:
+        live = _get(transport, kind, name, namespace)
+        if live is None:
+            continue
+        if live.get("metadata", {}).get("labels", {}).get("app.kubernetes.io/instance") != (
+            inputs.name
+        ):
+            raise ValueError(f"{kind} {name} is not owned by this observer; rollback stopped")
+        args = ["delete", kind.lower(), name, "--ignore-not-found", "--wait=false"]
+        if namespace is not None:
+            args += ["--namespace", namespace]
+        _checked(transport.run(args, manifest=None, timeout=90), f"deleting {kind} failed")
+        removed.append(kind)
+    return removed
+
+
 def rollback_observer_installation(
     inputs: ObserverInstallationInput,
     approval: ObserverApplyApproval,
@@ -695,28 +728,10 @@ def rollback_observer_installation(
         "executor": transport.name,
         "approver_ref": approval.approver_ref,
     }
-    targets: list[tuple[str, str, str | None]] = [
-        (kind, inputs.name, None if kind in _CLUSTER_SCOPED else inputs.namespace)
-        for kind in _ROLLBACK_ORDER
-    ]
-    targets.append(("Secret", inputs.material_secret, inputs.namespace))
-    removed: list[str] = []
     with target_lock(lock_directory, f"{inputs.target_ref}/{inputs.namespace}/{inputs.name}"):
         _cluster_identity(transport, approval.cluster_uid)
         _record(audit, now(), "intent", step="rollback", **common)
-        for kind, name, namespace in targets:
-            live = _get(transport, kind, name, namespace)
-            if live is None:
-                continue
-            if live.get("metadata", {}).get("labels", {}).get("app.kubernetes.io/instance") != (
-                inputs.name
-            ):
-                raise ValueError(f"{kind} {name} is not owned by this observer; rollback stopped")
-            args = ["delete", kind.lower(), name, "--ignore-not-found", "--wait=false"]
-            if namespace is not None:
-                args += ["--namespace", namespace]
-            _checked(transport.run(args, manifest=None, timeout=90), f"deleting {kind} failed")
-            removed.append(kind)
+        removed = _remove_owned_resources(transport, inputs)
         _record(audit, now(), "result", step="rollback", outcome="removed", **common)
     return {
         "schema_version": "1.0.0",

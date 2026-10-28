@@ -17,6 +17,7 @@ from typing import Any
 from fdai_service_contracts.compatibility import canonical_digest
 
 from fdai.delivery.kubernetes_connector_apply import (
+    FIELD_MANAGER,
     MANIFEST_FILE,
     Audit,
     KubeResult,
@@ -30,6 +31,7 @@ from fdai.delivery.kubernetes_connector_apply import (
     _json,
     _labels,
     _record,
+    _remove_owned_resources,
     _set_suspend,
     _verified_documents,
     _verify_installed_either,
@@ -67,7 +69,11 @@ def _status_line(logs: str) -> dict[str, Any]:
         except ValueError:
             continue
         if isinstance(value, dict) and "status" in value:
-            return {key: value[key] for key in ("status", "reason", "error_type") if key in value}
+            return {
+                key: value[key]
+                for key in ("status", "reason", "error_type", "sequence")
+                if key in value
+            }
     return {}
 
 
@@ -402,4 +408,115 @@ def retire_observer_stream(
     }
 
 
-__all__ = ["retire_observer_stream", "verify_observer"]
+_NAMESPACE_KINDS = (
+    "pods,jobs,cronjobs,deployments,statefulsets,daemonsets,services,persistentvolumeclaims,"
+    "secrets,configmaps,serviceaccounts,networkpolicies,ingresses"
+)
+_BUILT_IN = frozenset({("ConfigMap", "kube-root-ca.crt"), ("ServiceAccount", "default")})
+
+
+def _foreign_objects(transport: KubeTransport, inputs: ObserverInstallationInput) -> list[str]:
+    """List what would be lost with the namespace: anything not this observer's or terminating."""
+    listing = _json(
+        _checked(
+            transport.run(
+                [
+                    "get",
+                    _NAMESPACE_KINDS,
+                    "--namespace",
+                    inputs.namespace,
+                    "--output",
+                    "json",
+                ],
+                manifest=None,
+                timeout=90,
+            ),
+            "listing the namespace contents failed",
+        ),
+        "listing the namespace contents failed",
+    )
+    foreign: list[str] = []
+    for item in listing.get("items", []):
+        metadata = item.get("metadata", {})
+        kind, name = str(item.get("kind")), str(metadata.get("name"))
+        owners = metadata.get("ownerReferences", []) or []
+        if (
+            metadata.get("deletionTimestamp")
+            or (kind, name) in _BUILT_IN
+            or metadata.get("labels", {}).get("app.kubernetes.io/instance") == inputs.name
+            or any(o.get("kind") == "CronJob" and o.get("name") == inputs.name for o in owners)
+        ):
+            continue
+        foreign.append(f"{kind}/{name}")
+    return foreign
+
+
+def uninstall_observer(
+    inputs: ObserverInstallationInput,
+    approval: ObserverApplyApproval,
+    *,
+    transport: KubeTransport,
+    lock_directory: Path,
+    audit: Audit,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+) -> dict[str, object]:
+    """Remove the observer and then its namespace, only when the installer owns it alone."""
+    _authorize(approval, operation="uninstall", inputs=inputs, rendered=None, now=now())
+    common: dict[str, object] = {
+        "operation": "uninstall",
+        "target_ref": inputs.target_ref,
+        "executor": transport.name,
+        "approver_ref": approval.approver_ref,
+    }
+    with target_lock(lock_directory, f"{inputs.target_ref}/{inputs.namespace}/{inputs.name}"):
+        _cluster_identity(transport, approval.cluster_uid)
+        namespace = _get(transport, "Namespace", inputs.namespace, None)
+        if namespace is not None and (
+            namespace.get("metadata", {}).get("labels", {}).get("app.kubernetes.io/managed-by")
+            != FIELD_MANAGER
+        ):
+            raise ValueError(
+                "the observer namespace is not owned by this installer; nothing was removed"
+            )
+        _record(audit, now(), "intent", step="uninstall", **common)
+        try:
+            removed = _remove_owned_resources(transport, inputs)
+            foreign = _foreign_objects(transport, inputs) if namespace is not None else []
+            if foreign:
+                raise ValueError(
+                    "the namespace holds objects this installer does not own: "
+                    + ", ".join(sorted(foreign)[:8])
+                    + "; the observer was removed and the namespace was kept"
+                )
+            if namespace is not None:
+                _checked(
+                    transport.run(
+                        [
+                            "delete",
+                            "namespace",
+                            inputs.namespace,
+                            "--ignore-not-found",
+                            "--wait=true",
+                            "--timeout=120s",
+                        ],
+                        manifest=None,
+                        timeout=170,
+                    ),
+                    "deleting the namespace failed",
+                )
+            if _get(transport, "Namespace", inputs.namespace, None) is not None:
+                raise ValueError("the namespace is still terminating; read it before retrying")
+        except ValueError:
+            _record(audit, now(), "result", step="uninstall", outcome="incomplete", **common)
+            raise
+        _record(audit, now(), "result", step="uninstall", outcome="removed", **common)
+    return {
+        "schema_version": "1.0.0",
+        "operation": "uninstall",
+        "state": "uninstalled",
+        "removed": removed,
+        "namespace_removed": namespace is not None,
+    }
+
+
+__all__ = ["retire_observer_stream", "uninstall_observer", "verify_observer"]
