@@ -173,3 +173,62 @@ def test_export_refuses_a_cluster_method(tmp_path, case) -> None:
 def test_main_reports_a_rejection_without_a_traceback(tmp_path, capsys) -> None:
     assert cli.main(["apply"]) == 1
     assert "is required for this operation" in capsys.readouterr().err
+
+
+def test_verify_and_recover_run_through_the_pinned_transport(tmp_path, case, monkeypatch) -> None:
+    from fdai.delivery import kubernetes_connector_lifecycle as lifecycle
+
+    built, cluster = case
+    write_proposal(tmp_path, built)
+    digest = built[1]["manifest_digest"]
+    cli.run(arguments(tmp_path, "apply", built, approve_manifest_digest=digest), now=LATER)
+    with pytest.raises(ValueError, match="requires --approve-manifest-digest"):
+        cli.run(arguments(tmp_path, "verify", built), now=LATER)
+    seen = {}
+
+    def fake_verify(rendered, inputs, approval, **kwargs):
+        seen["verify"] = approval.operation
+        return {"state": "delivered"}
+
+    def fake_retire(inputs, approval, **kwargs):
+        seen["recover"] = approval.operation
+        return {"state": "stream_retired"}
+
+    monkeypatch.setattr(cli, "verify_observer", fake_verify)
+    monkeypatch.setattr(cli, "retire_observer_stream", fake_retire)
+    assert cli.run(arguments(tmp_path, "verify", built, approve_manifest_digest=digest), now=LATER)
+    with pytest.raises(ValueError, match="approve-target-ref"):
+        cli.run(arguments(tmp_path, "recover", built), now=LATER)
+    cli.run(
+        arguments(tmp_path, "recover", built, approve_target_ref=built[0].target_ref), now=LATER
+    )
+    assert seen == {"verify": "verify", "recover": "recover"}
+    assert lifecycle.verify_observer is not None
+
+
+@pytest.mark.parametrize(
+    ("state", "code"), [("delivered", 0), ("image_pull_failed", 1), ("not_finished", 1)]
+)
+def test_main_exits_nonzero_when_a_smoke_run_did_not_deliver(
+    monkeypatch, capsys, state, code
+) -> None:
+    monkeypatch.setattr(cli, "run", lambda args: {"state": state})
+    assert cli.main(["verify"]) == code
+    assert json.loads(capsys.readouterr().out)["state"] == state
+
+
+def test_observer_failure_output_names_the_error_type_only(tmp_path, monkeypatch, capsys) -> None:
+    from fdai.delivery import kubernetes_connector_cli as observer_cli
+
+    def explode(_path):
+        raise OSError("secret-path-that-must-not-appear")
+
+    monkeypatch.setattr(observer_cli, "load_connector_config", explode)
+    monkeypatch.setattr("sys.argv", ["x", "observe-once", "--config", str(tmp_path / "c.json")])
+    assert observer_cli.main() == 1
+    printed = json.loads(capsys.readouterr().out)
+    assert printed == {
+        "status": "unavailable",
+        "reason": "connector_configuration_or_runtime_failed",
+        "error_type": "OSError",
+    }
