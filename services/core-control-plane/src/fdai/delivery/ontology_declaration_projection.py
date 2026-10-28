@@ -111,6 +111,9 @@ def build_object_type_detail_projection(
         "relationships": relationships,
         "related_actions": related_actions,
     }
+    classification = _lifecycle_classification(ontology, object_type)
+    if classification is not None:
+        visible["lifecycle_classification"] = classification
     visible["_revision"] = _projection_digest(visible)
     return visible
 
@@ -184,6 +187,25 @@ def _object_type(ontology: OntologyCatalog, name: str) -> OntologyObjectType:
     if len(matches) != 1:
         raise LookupError(f"unknown ObjectType declaration: {name}")
     return matches[0]
+
+
+def _lifecycle_classification(
+    ontology: OntologyCatalog,
+    object_type: OntologyObjectType,
+) -> dict[str, object] | None:
+    """Explain a lifecycle-free ObjectType from the reviewed classification registry."""
+
+    registry = ontology.lifecycle_classifications
+    if object_type.lifecycle is not None or registry is None:
+        return None
+    for category, group in registry.categories.items():
+        if object_type.name in group.object_types:
+            return {
+                "category": category.value,
+                "rationale": group.rationale,
+                "source_refs": list(group.source_refs),
+            }
+    return None
 
 
 def _require_release(active_digest: str, expected_digest: str | None) -> None:

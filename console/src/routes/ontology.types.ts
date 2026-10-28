@@ -39,6 +39,18 @@ export interface OntologyRelationshipDetail extends UnknownRecord {
   readonly cardinality: string;
 }
 
+export type OntologyLifecycleCategory =
+  | "catalog_as_code"
+  | "event_bus_registry"
+  | "projection_owned"
+  | "owner_required";
+
+export interface OntologyLifecycleClassification {
+  readonly category: OntologyLifecycleCategory;
+  readonly rationale: string;
+  readonly source_refs: readonly string[];
+}
+
 export interface OntologyObjectTypeDetailResponse {
   readonly schema_version: "1.0.0";
   readonly _revision: string;
@@ -53,6 +65,7 @@ export interface OntologyObjectTypeDetailResponse {
     readonly reasons: readonly string[];
   };
   readonly declaration: OntologyObjectTypeDeclaration;
+  readonly lifecycle_classification?: OntologyLifecycleClassification;
   readonly relationships: readonly OntologyRelationshipDetail[];
   readonly related_actions: readonly (OntologyActionTypeRecord & {
     readonly target_evidence: UnknownRecord;
@@ -442,8 +455,31 @@ export function decodeOntologyObjectTypeDetail(
       key: detailString(declaration, "key"),
       properties: decodedProperties,
     } as OntologyObjectTypeDeclaration,
+    ...(record.lifecycle_classification === undefined
+      ? {}
+      : { lifecycle_classification: decodeLifecycleClassification(record.lifecycle_classification) }),
     relationships,
     related_actions: relatedActions,
+  };
+}
+
+const LIFECYCLE_CATEGORIES: readonly string[] = [
+  "catalog_as_code",
+  "event_bus_registry",
+  "projection_owned",
+  "owner_required",
+];
+
+function decodeLifecycleClassification(value: unknown): OntologyLifecycleClassification {
+  const record = detailRecord(value, "lifecycle_classification");
+  const category = detailString(record, "category");
+  if (!LIFECYCLE_CATEGORIES.includes(category)) {
+    throw new Error("ontology declaration lifecycle_classification category MUST be bounded");
+  }
+  return {
+    category: category as OntologyLifecycleCategory,
+    rationale: detailString(record, "rationale"),
+    source_refs: detailStringArray(record.source_refs, "lifecycle_classification.source_refs"),
   };
 }
 

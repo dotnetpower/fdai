@@ -22,6 +22,7 @@ import {
   type OntologyGraphResponse,
   type OntologyDependentsResponse,
   type OntologyEvidenceHealthResponse,
+  type OntologyLifecycleClassification,
   type OntologyObjectTypeDetailResponse,
   type OntologyReleaseDiffResponse,
   type UnknownRecord,
@@ -163,6 +164,7 @@ function OntologyObjectTypeWorkbench({ data }: { readonly data: WorkbenchData })
   const { dependents, detail, evidenceHealth, releaseDiff, summary } = data;
   const declaration = detail.declaration;
   const lifecycle = declaration.lifecycle;
+  const lifecycleClassification = detail.lifecycle_classification;
   const provenance = declaration.provenance;
   const properties = Object.entries(declaration.properties);
   const graphAvailable = summary.nodes !== undefined && summary.edges !== undefined;
@@ -179,7 +181,12 @@ function OntologyObjectTypeWorkbench({ data }: { readonly data: WorkbenchData })
           <div><dt>{t("ontology.detail.key")}</dt><dd><code>{declaration.key}</code></dd></div>
           <div>
             <dt>{t("ontology.detail.lifecycleOwner")}</dt>
-            <dd>{recordString(lifecycle, "owner") ?? t("ontology.detail.noLifecycle")}</dd>
+            <dd>
+              {recordString(lifecycle, "owner")
+                ?? (lifecycleClassification
+                  ? lifecycleCategoryLabel(lifecycleClassification)
+                  : t("ontology.detail.noLifecycle"))}
+            </dd>
           </div>
           <div><dt>{t("ontology.detail.authority")}</dt><dd>{t("ontology.detail.readOnly")}</dd></div>
         </dl>
@@ -189,7 +196,9 @@ function OntologyObjectTypeWorkbench({ data }: { readonly data: WorkbenchData })
         <div class="ontology-detail-two-column">
           <div>
             <h4>{t("ontology.detail.lifecycle")}</h4>
-            {lifecycle ? <LifecycleDetail lifecycle={lifecycle} /> : (
+            {lifecycle ? <LifecycleDetail lifecycle={lifecycle} /> : lifecycleClassification ? (
+              <LifecycleClassificationDetail classification={lifecycleClassification} />
+            ) : (
               <UnavailableState message={t("ontology.detail.noLifecycleDeclared")} />
             )}
           </div>
@@ -314,7 +323,7 @@ function OntologyObjectTypeWorkbench({ data }: { readonly data: WorkbenchData })
       <DetailSection title={t("ontology.detail.evidenceHealthTitle")}>
         {evidenceHealth === null || evidenceHealth.availability === "unavailable" ? (
           <UnavailableState message={t("ontology.detail.evidenceUnavailable", {
-            reason: evidenceHealth?.unavailable_reason ?? "source_not_connected",
+            reason: evidenceReasonLabel(evidenceHealth?.unavailable_reason ?? "source_not_connected"),
           })} />
         ) : (
           <dl class="ontology-detail-summary ontology-evidence-summary">
@@ -419,6 +428,48 @@ function OntologyObjectTypeWorkbench({ data }: { readonly data: WorkbenchData })
 
 function DetailSection({ title, children }: { readonly title: string; readonly children: preact.ComponentChildren }) {
   return <section class="ontology-detail-section"><h3>{title}</h3>{children}</section>;
+}
+
+const EVIDENCE_REASON_CODES: readonly string[] = [
+  "object_type_evidence_source_not_bound",
+  "inventory_ontology_projection_not_bound",
+  "stale_ontology_projection_release",
+  "inventory_ontology_projection_unavailable",
+  "inventory_observation_cutoff_unavailable",
+  "inventory_generation_unavailable",
+  "inventory_ontology_generation_mismatch",
+];
+
+/** Explain a known reason code in words and keep the raw code visible for support. */
+function evidenceReasonLabel(reason: string): string {
+  return EVIDENCE_REASON_CODES.includes(reason)
+    ? `${t(`ontology.detail.evidenceReason_${reason}`)} (${reason})`
+    : reason;
+}
+
+function lifecycleCategoryLabel(classification: OntologyLifecycleClassification): string {
+  return t(`ontology.detail.lifecycleCategory_${classification.category}`);
+}
+
+function LifecycleClassificationDetail(
+  { classification }: { readonly classification: OntologyLifecycleClassification },
+) {
+  return (
+    <dl class="ontology-detail-summary ontology-lifecycle-classification">
+      <div>
+        <dt>{t("ontology.detail.lifecycleClassification")}</dt>
+        <dd>{lifecycleCategoryLabel(classification)}</dd>
+      </div>
+      <div>
+        <dt>{t("ontology.detail.lifecycleRationale")}</dt>
+        <dd>{classification.rationale}</dd>
+      </div>
+      <div>
+        <dt>{t("ontology.detail.lifecycleSources")}</dt>
+        <dd>{classification.source_refs.map((ref) => <code key={ref}>{ref} </code>)}</dd>
+      </div>
+    </dl>
+  );
 }
 
 function LifecycleDetail({ lifecycle }: { readonly lifecycle: UnknownRecord }) {
