@@ -406,4 +406,8 @@ async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
     assert vm_cpu.azure_metric_name == "Percentage CPU"
     assert vm_cpu.aggregation == "Average"
     assert vm_cpu.resource_type == "Microsoft.Compute/virtualMachines"
-    assert len(shipped) == 36
+    node_cpu = shipped["node_cpu_percent"]
+    assert node_cpu.azure_metric_name == "node_cpu_usage_percentage"
+    assert node_cpu.aggregation == "Maximum"
+    assert node_cpu.resource_type == "Microsoft.ContainerService/managedClusters"
+    assert len(shipped) == 37

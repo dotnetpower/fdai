@@ -20,8 +20,8 @@ does not compose across metrics in a single call.
 
 Platform identifiers and supported aggregations follow the Azure Monitor
 supported-metrics references for Microsoft.Network/applicationGateways,
-Microsoft.ApiManagement/service, Microsoft.CognitiveServices/accounts, and
-Microsoft.Compute/virtualMachines.
+Microsoft.ApiManagement/service, Microsoft.CognitiveServices/accounts,
+Microsoft.ContainerService/managedClusters, and Microsoft.Compute/virtualMachines.
 Availability still depends on resource kind and existing provider evidence.
 """
 
@@ -40,12 +40,14 @@ from fdai.delivery.azure.demo_queries import (
     METRIC_HOST_CPU_PERCENT,
     METRIC_MYSQL_ACTIVE_CONNECTIONS,
     METRIC_MYSQL_CPU_PERCENT,
+    METRIC_NODE_CPU_PERCENT,
     METRIC_SERVICE_REQUEST_DURATION_MS,
 )
 from fdai.delivery.azure.metrics_api import MetricsApiDimensionFilter, MetricsApiTemplate
 
 _APPGW_TYPE = "Microsoft.Network/applicationGateways"
 _VM_TYPE = "Microsoft.Compute/virtualMachines"
+_AKS_TYPE = "Microsoft.ContainerService/managedClusters"
 _APIM_TYPE = "Microsoft.ApiManagement/service"
 _MODEL_TYPE = "Microsoft.CognitiveServices/accounts"
 
@@ -89,6 +91,15 @@ _VM_CPU_PERCENT = MetricsApiTemplate(
     resource_type=_VM_TYPE,
 )
 
+# AKS publishes node CPU as a platform metric, so no Container Insights agent, data collection rule
+# or workspace is needed. The unsplit series is one cluster-wide value per interval, never a node
+# label, and Maximum keeps the Logs template's meaning that any node above the bound fires.
+_AKS_NODE_CPU_PERCENT = MetricsApiTemplate(
+    azure_metric_name="node_cpu_usage_percentage",
+    aggregation="Maximum",
+    resource_type=_AKS_TYPE,
+)
+
 _CONTAINER_APP_CPU_NANOCORES = MetricsApiTemplate(
     azure_metric_name="UsageNanoCores",
     aggregation="Average",
@@ -127,6 +138,7 @@ def _status_count(
 _QUERIES: Mapping[str, MetricsApiTemplate] = MappingProxyType(
     {
         METRIC_HOST_CPU_PERCENT: _VM_CPU_PERCENT,
+        METRIC_NODE_CPU_PERCENT: _AKS_NODE_CPU_PERCENT,
         METRIC_MYSQL_CPU_PERCENT: _MYSQL_CPU_PERCENT,
         METRIC_MYSQL_ACTIVE_CONNECTIONS: _MYSQL_ACTIVE_CONNECTIONS,
         METRIC_BACKEND_FIRST_BYTE_MS: _APPGW_BACKEND_FIRST_BYTE,
