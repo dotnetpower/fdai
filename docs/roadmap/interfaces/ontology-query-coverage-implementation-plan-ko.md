@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: ea7e4ba171f3efc4fbcf0dd9353af7c222964c4a
-translation_revised: 2026-10-22
+translation_source_sha: f41180163db2742955a9a8a22a867af20190fdc9
+translation_revised: 2026-10-28
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -231,7 +231,9 @@ v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성�
 > `resource_classified_as` 카탈로그 개정과 `Forecast`/`Pattern` 카탈로그 개정은 각각 같은 release
 > 변경에서 해당 결정론적 고정본 다이제스트를 갱신했습니다.
 > 현재 277개 선언 검증 수정을 포함한 모든 구조 release 갱신은 같은 변경에서 답변이 있는 결정론적 고정본
-> 4개를 정확한 release 및 Reader principal-manifest 다이제스트에 고정합니다. 설계 경로는 전체
+> 4개를 정확한 release 및 Reader principal-manifest 다이제스트에 고정합니다. 그 갱신 없이 `main`에
+> 들어온 이후의 release 변동은 이 게이트에 걸리는 다음 변경에서 같은 방식으로 바로잡으며, 고정본 4개를
+> 현재 release와 Reader manifest 다이제스트에 다시 고정합니다. 설계 경로는 전체
 > Operator Console 소유자를 중복하지 않고 App Shape 계약을 사용하며
 > `production_ready=false`를 유지합니다.
 > 첫 인식 상태 완결성 구현 구획은 이제 변경할 수 없는 유한 `QuestionUniverseReceipt`, 형식이

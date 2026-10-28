@@ -222,6 +222,8 @@ query authority, or recovery permission.
 > deterministic fixture digests in the same release change.
 > Every structural release refresh, including the current 277-declaration validation repair, pins the four answered
 > deterministic fixtures to the exact release and Reader principal-manifest digests in the same change.
+> A later release drift that reached `main` without that refresh is repaired the same way by the next change
+> that trips this gate; the four fixtures are rebound to the current release and Reader manifest digests.
 > The route reuses the App Shape contract and retains `production_ready=false`.
 > The first epistemic-closure implementation slice now ships immutable finite
 > `QuestionUniverseReceipt`, typed `EpistemicStatus`, proof-carrying `EpistemicQuestionRecord`, and a
