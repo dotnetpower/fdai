@@ -1,17 +1,17 @@
 id: fdai-reference-architecture
-version: 12
+version: 13
 kind: context
 formats: [svg]
-updated: 2026-09-09
+updated: 2026-10-28
 locales:
   en:
     title: FDAI reference architecture
     description: Agent-owned control stages, separated authority gates, governed dependencies, and outcomes for FDAI autonomous cloud operations.
-    alt: Connected Azure resources, telemetry, repositories, and enterprise connectors publish typed signals into the headless FDAI control plane. Operators use the Web Console, CLI, and ChatOps interfaces. Fifteen independently runnable agents own every control stage and coordinate through a schema-validated event bus. Events pass through ingest and trust routing into T0 deterministic rules, T1 verified reuse, or T2 grounded reasoning. T2 alone passes a mixed-model quality gate before all tiers enter the common safety and authority check. High-impact work requests independent human authority, and the resulting typed approval event re-enters the agent runtime instead of calling the executor directly. Eligible work reaches the privileged executor and produces fix pull requests or bounded direct actions; ineligible work is held, denied, or closed as a no-op. Microsoft Foundry, Azure OpenAI, provider tools, OPA and Rego policy evaluation, IQL inventory queries, the operating ontology, governed catalogs, and PostgreSQL provide governed capabilities outside the headless control-plane boundary. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the deployment foundation. Every terminal result is attributable and replayable.
+    alt: Connected Azure resources, telemetry, repositories, and connectors send typed signals to the headless FDAI control plane, and operators use the Web Console, CLI, and ChatOps. Fifteen agents coordinate through a schema-validated event bus. Events pass ingest and trust routing to T0 rules, T1 verified reuse, or T2 grounded reasoning; only T2 passes a quality gate, then every tier reaches the risk and authority gate. High-impact work needs independent human authority. Approved work reaches the privileged executor and produces governed changes; other work is held, denied, or closed as a no-op. Governed capabilities and the Azure foundation sit outside the control plane, and every outcome is audited and replayable.
   ko:
     title: FDAI 참조 아키텍처
-    description: FDAI 자율 cloud operation을 위한 agent 소유 제어 단계, 분리된 권한 gate, 통제된 의존 서비스 및 결과입니다.
-    alt: 연결된 Azure 리소스, 관측 시스템, 저장소 및 기업용 커넥터가 타입이 지정된 신호를 헤드리스 FDAI 컨트롤 플레인에 발행합니다. 운영자는 Web Console, CLI 및 ChatOps 인터페이스를 사용합니다. 독립적으로 실행할 수 있는 15개 에이전트가 모든 제어 단계를 담당하고 스키마 검증을 거치는 이벤트 버스로 협업합니다. 이벤트는 수집과 신뢰 라우팅을 거쳐 T0 결정론적 규칙, T1 검증된 재사용 또는 T2 근거 기반 추론으로 전달됩니다. T2만 서로 다른 모델을 사용하는 품질 게이트를 통과한 뒤 모든 티어가 공통 위험 및 권한 게이트로 들어갑니다. 영향이 큰 작업은 독립적인 사람의 권한 부여를 요청하고, 타입이 지정된 승인 이벤트는 실행기를 직접 호출하지 않고 에이전트 런타임으로 다시 들어갑니다. 실행 가능한 작업은 특권 실행기에 도달하여 수정 pull request 또는 범위가 제한된 직접 작업을 생성합니다. 실행할 수 없는 작업은 보류, 거부 또는 미실행으로 종료됩니다. Microsoft Foundry, Azure OpenAI, 프로바이더 도구, OPA 및 Rego 정책 평가, IQL 인벤토리 조회, 운영 온톨로지, 통제된 카탈로그 및 PostgreSQL은 헤드리스 FDAI 컨트롤 플레인 경계 밖에서 통제된 기능을 제공합니다. Azure Container Apps, Microsoft Entra ID, Managed Identity, Key Vault 및 Azure Monitor는 배포 기반을 구성합니다. 모든 최종 결과는 추적하고 재생할 수 있습니다.
+    description: FDAI 자율 클라우드 운영을 위한 에이전트 소유 제어 단계, 분리된 권한 게이트, 통제된 의존 서비스 및 결과입니다.
+    alt: 연결된 Azure 리소스, 텔레메트리, 저장소, 커넥터가 타입이 지정된 신호를 헤드리스 FDAI 컨트롤 플레인에 보내고 운영자는 Web Console, CLI, ChatOps를 사용합니다. 15개 에이전트는 스키마 검증 이벤트 버스로 협업합니다. 이벤트는 수집과 신뢰 라우팅을 거쳐 T0 규칙, T1 검증된 재사용 또는 T2 근거 기반 추론으로 처리됩니다. T2만 품질 게이트를 통과하며 모든 티어는 위험 및 권한 게이트에 도달합니다. 영향이 큰 작업은 독립적인 사람 권한이 필요합니다. 승인된 작업은 권한 있는 실행기가 처리해 통제된 변경을 만들고 나머지는 보류, 거부 또는 변경 없음으로 종료합니다. 통제된 기능과 Azure 기반은 컨트롤 플레인 밖에 있으며 모든 결과는 감사하고 재생할 수 있습니다.
 canvas:
   width: 2090
   height: 900
@@ -62,7 +62,7 @@ groups:
     parent: headless-control-plane
     kind: layer
     presentation: panel
-    label: { en: Typed event choreography and ownership, ko: Typed event 협업 및 역할 소유권 }
+    label: { en: Typed event choreography and ownership, ko: 타입이 지정된 이벤트 협업 및 역할 소유권 }
     direction: RIGHT
     layout: row
     gap: 72
@@ -72,7 +72,7 @@ groups:
     parent: headless-control-plane
     kind: layer
     presentation: band
-    label: { en: Agent-owned governed control flow, ko: Agent가 소유하는 통제된 제어 흐름 }
+    label: { en: Agent-owned governed control flow, ko: 에이전트가 소유하는 통제된 제어 흐름 }
     direction: RIGHT
     layout: flow
     gap: 64
@@ -81,7 +81,7 @@ groups:
     parent: fdai-platform
     kind: layer
     presentation: band
-    label: { en: "Governed provider, policy, knowledge, and evidence capabilities", ko: "통제된 provider, policy, knowledge 및 evidence capability" }
+    label: { en: "Governed provider, policy, knowledge, and evidence capabilities", ko: "통제된 공급자, 정책, 지식 및 근거 기능" }
     direction: RIGHT
     layout: row
     gap: 16
@@ -91,7 +91,7 @@ groups:
     parent: fdai-platform
     kind: layer
     presentation: panel
-    label: { en: Azure deployment foundation, ko: Azure deployment foundation }
+    label: { en: Azure deployment foundation, ko: Azure 배포 기반 }
     direction: RIGHT
     layout: row
     gap: 32
@@ -121,28 +121,28 @@ nodes:
     kind: azure-service
     icon: resource-graph
     presentation: icon
-    label: { en: Azure resources, ko: Azure resource }
+    label: { en: Azure resources, ko: Azure 리소스 }
     description: { en: Subscription and resource inventory, ko: Subscription 및 resource inventory }
   - id: operational-telemetry
     parent: connected-environment
     kind: azure-service
     icon: monitor
     presentation: icon
-    label: { en: Operational telemetry, ko: 운영 telemetry }
+    label: { en: Operational telemetry, ko: 운영 텔레메트리 }
     description: { en: "Metrics, logs, traces, alerts, and changes", ko: "Metric, log, trace, alert 및 change" }
   - id: delivery-repositories
     parent: connected-environment
     kind: external
     icon: github
     presentation: icon
-    label: { en: Source repositories, ko: Source repository }
+    label: { en: Source repositories, ko: 소스 저장소 }
     description: { en: "Infrastructure, application, policy, and catalog changes", ko: "Infrastructure, application, policy 및 catalog change" }
   - id: enterprise-connectors
     parent: connected-environment
     kind: external
     icon: lucide-cable
     presentation: icon
-    label: { en: Documents and connectors, ko: Document 및 connector }
+    label: { en: Documents and connectors, ko: 문서 및 커넥터 }
     description: { en: Authenticated enterprise sources and governed uploads, ko: 인증된 enterprise source 및 통제된 upload }
   - id: web-console
     parent: operator-surfaces
@@ -170,14 +170,14 @@ nodes:
     kind: azure-service
     icon: event-hubs
     presentation: icon
-    label: { en: Schema-validated event bus, ko: Schema-validated event bus }
+    label: { en: Schema-validated event bus, ko: 스키마 검증 이벤트 버스 }
     description: { en: "Pub/sub, retry, isolation, dead-letter, and replay", ko: "Pub/sub, retry, isolation, dead-letter 및 replay" }
     width: 260
   - id: agent-pantheon
     parent: event-choreography
     kind: process
     icon: agent-pantheon
-    label: { en: 15 agents own every stage, ko: 15개 agent가 모든 단계를 소유 }
+    label: { en: 15 agents own every stage, ko: 15개 에이전트가 모든 단계를 소유 }
     description: { en: "Single-writer ownership for observation, judgment, approval, execution, recovery, audit, and learning", ko: "관찰, 판단, 승인, 실행, 복구, 감사 및 학습에 대한 single-writer ownership" }
     width: 360
   - id: event-ingest
@@ -185,7 +185,7 @@ nodes:
     kind: process
     icon: lucide-inbox
     presentation: icon
-    label: { en: Event ingest, ko: Event ingest }
+    label: { en: Event ingest, ko: 이벤트 수집 }
     description: { en: "Validate, normalize, deduplicate, and correlate", ko: "검증, 정규화, 중복 제거 및 correlation" }
     width: 168
   - id: trust-router
@@ -209,7 +209,7 @@ nodes:
     kind: decision
     icon: lucide-badge-check
     presentation: icon
-    label: { en: T2-only quality gate, ko: T2 전용 quality gate }
+    label: { en: T2-only quality gate, ko: T2 전용 품질 게이트 }
     description: { en: "Mixed-model agreement, grounding, and deterministic verification", ko: "Mixed-model agreement, grounding 및 deterministic verification" }
     width: 160
   - id: risk-authority-gate
@@ -217,7 +217,7 @@ nodes:
     kind: decision
     icon: lucide-shield-check
     presentation: icon
-    label: { en: Risk and authority gate, ko: Risk 및 authority gate }
+    label: { en: Risk and authority gate, ko: 위험 및 권한 게이트 }
     description: { en: "Policy, ActionType ceiling, impact scope, approval, and safeguards", ko: "Policy, ActionType ceiling, 영향 범위, 승인 및 safeguard" }
     width: 176
   - id: privileged-executor
@@ -225,7 +225,7 @@ nodes:
     kind: process
     icon: lucide-play
     presentation: icon
-    label: { en: Privileged executor, ko: 권한 있는 executor }
+    label: { en: Privileged executor, ko: 권한 있는 실행기 }
     description: { en: Bounded action with lock and rollback, ko: Lock 및 rollback을 갖춘 범위 제한 action }
     width: 156
   - id: microsoft-foundry
@@ -247,7 +247,7 @@ nodes:
     kind: service
     icon: lucide-wrench
     presentation: icon
-    label: { en: Provider tools and MCP, ko: Provider tool 및 MCP }
+    label: { en: Provider tools and MCP, ko: 공급자 도구 및 MCP }
     description: { en: Registered read and action adapters behind typed contracts, ko: Typed contract 뒤에 등록된 read 및 action adapter }
     width: 176
   - id: policy-query-engine
@@ -263,7 +263,7 @@ nodes:
     kind: store
     icon: lucide-book-open
     presentation: icon
-    label: { en: Ontology and catalogs, ko: Ontology 및 catalog }
+    label: { en: Ontology and catalogs, ko: 온톨로지 및 카탈로그 }
     description: { en: "Objects, evidence, rules, ActionTypes, workflows, and promotion records", ko: "Object, evidence, rule, ActionType, workflow 및 promotion record" }
     width: 208
   - id: evidence-store
@@ -274,13 +274,22 @@ nodes:
     label: { en: PostgreSQL and pgvector, ko: PostgreSQL 및 pgvector }
     description: { en: "State, append-only audit, evidence, and context", ko: "State, append-only audit, evidence 및 context" }
     width: 184
+  - id: aks
+    parent: azure-foundation
+    kind: azure-service
+    icon: kubernetes-services
+    presentation: icon
+    width: 120
+    label: { en: AKS (default), ko: AKS (기본) }
+    description: { en: Default runtime for new installations with scheduled CronJobs, ko: CronJob 기반 예약 작업을 포함한 신규 설치의 기본 런타임 }
   - id: container-apps
     parent: azure-foundation
     kind: azure-service
     icon: container-apps
     presentation: icon
-    label: { en: Container Apps, ko: Container Apps }
-    description: { en: Runtime and scheduled jobs, ko: Runtime 및 scheduled job }
+    width: 176
+    label: { en: Container Apps (compatibility), ko: Container Apps (호환) }
+    description: { en: Compatibility runtime profile with scheduled jobs, ko: 예약 작업을 포함한 호환 런타임 프로파일 }
   - id: entra-id
     parent: azure-foundation
     kind: azure-service
@@ -293,7 +302,7 @@ nodes:
     kind: azure-service
     icon: managed-identity
     presentation: icon
-    label: { en: Managed identities, ko: Managed identity }
+    label: { en: Managed identities, ko: 관리 ID }
     description: { en: Separated workload authority, ko: 분리된 workload authority }
   - id: key-vault
     parent: azure-foundation
@@ -321,7 +330,7 @@ nodes:
     kind: service
     icon: lucide-circle-pause
     presentation: icon
-    label: { en: "Held, denied, or no-op", ko: "Hold, deny 또는 no-op" }
+    label: { en: "Held, denied, or no-op", ko: "보류, 거부 또는 변경 없음" }
     description: { en: "No mutation when evidence, policy, or authority is insufficient", ko: "Evidence, policy 또는 authority가 부족하면 변경하지 않음" }
   - id: governed-changes
     parent: governed-outcomes
@@ -335,7 +344,7 @@ nodes:
     kind: service
     icon: lucide-refresh-ccw
     presentation: icon
-    label: { en: Audit and replay, ko: Audit 및 replay }
+    label: { en: Audit and replay, ko: 감사 및 재생 }
     description: { en: Attributable terminal evidence and deterministic reconstruction, ko: 추적 가능한 terminal evidence 및 deterministic reconstruction }
 edges:
   - id: environment-to-runtime
