@@ -43,7 +43,7 @@ _TERRAFORM_FILES = frozenset(
         ".github/workflows/ci.yml",
     }
 )
-_DOC_PREFIXES = ("docs/", "site/", "scripts/quality/localization/")
+_DOC_PREFIXES = ("docs/", "scripts/quality/localization/")
 _DOC_FILES = frozenset(
     {
         "README.md",

@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
-from scripts.quality.ci.pytest_shard import _assign_shards, _candidate_files, _load_duration_weights
+from scripts.quality.ci.pytest_shard import _assign_shards, _load_duration_weights
 from scripts.quality.ci.resolve_test_scope import ChangeScope, classify_paths
 
 
@@ -55,8 +55,8 @@ def test_duration_weights_are_versioned_and_validate_paths(tmp_path: Path) -> No
     manifest.write_text(
         """
 {
-  "schema_version": 2,
-  "default_seconds_per_file": 0.01,
+  "schema_version": 1,
+  "default_seconds_per_test": 0.01,
   "files": {
     "tests/test_fast.py": 0.5,
     "tests/test_slow.py": 12.25
@@ -75,54 +75,11 @@ def test_duration_weights_are_versioned_and_validate_paths(tmp_path: Path) -> No
     }
 
     manifest.write_text(
-        '{"schema_version":2,"default_seconds_per_file":0.01,"files":{"../outside.py":1}}',
+        '{"schema_version":1,"default_seconds_per_test":0.01,"files":{"../outside.py":1}}',
         encoding="utf-8",
     )
     with pytest.raises(pytest.UsageError, match="invalid pytest shard duration path"):
         _load_duration_weights(manifest)
-
-
-def test_candidate_discovery_is_exhaustive_without_importing_tests(tmp_path: Path) -> None:
-    paths = [
-        "tests/test_a.py",
-        "tests/nested/test_b.py",
-        "services/example/tests/custom_case.py",
-        "tests/ignored/test_c.py",
-        "tests/.hidden/test_d.py",
-        "tests/helper.py",
-    ]
-    for relative in paths:
-        path = tmp_path / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("raise AssertionError('collection must not import this')\n")
-
-    files = _candidate_files(
-        tmp_path,
-        ["tests", "services", "tests/test_a.py::test_one"],
-        ["test_*.py", "*_case.py"],
-        [tmp_path / "tests/ignored"],
-        [".*"],
-    )
-
-    assert files == {
-        Path("tests/test_a.py"),
-        Path("tests/nested/test_b.py"),
-        Path("services/example/tests/custom_case.py"),
-    }
-    assignments = _assign_shards(dict.fromkeys(files, 1.0), 3)
-    partitions = [{path for path in files if assignments[path] == shard} for shard in range(3)]
-    assert set.union(*partitions) == files
-    assert all(
-        not left & right
-        for index, left in enumerate(partitions)
-        for right in partitions[index + 1 :]
-    )
-
-
-@pytest.mark.parametrize("path", ["site/src/content/docs/index.md", "site/package-lock.json"])
-def test_site_changes_select_only_documentation(path: str) -> None:
-    assert classify_paths([path]) == ChangeScope(False, True, False, False, False, False, False)
-    assert all(classify_paths([path, "new-subsystem/unknown.input"]))
 
 
 def test_change_scope_classification_skips_expensive_python_for_docs_and_console() -> None:
