@@ -1,6 +1,6 @@
 ---
 translation_of: live-cockpit-metrics.md
-translation_source_sha: 6281b581adb064fa2ce6ab076fb1801551dc0bae
+translation_source_sha: 4c981b4cbf7773775e899816a19c8de6bee5919f
 translation_revised: 2026-09-15
 ---
 # Live 화면 지표
