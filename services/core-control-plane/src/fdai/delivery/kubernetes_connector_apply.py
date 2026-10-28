@@ -62,6 +62,7 @@ _ROLLBACK_ORDER = (
     "PersistentVolumeClaim",
     "ServiceAccount",
 )
+_READ_ONLY_VERBS = frozenset({"get", "logs"})
 _HOST_FLAGS = frozenset({"hostNetwork", "hostPID", "hostIPC"})
 _TEXT = r"^[A-Za-z0-9][A-Za-z0-9@._:/=+-]*$"
 
@@ -87,7 +88,7 @@ class KubeTransport(Protocol):
 class ObserverApplyApproval(ConnectorContract):
     """A short-lived human approval bound to one exact target, plan, and operation."""
 
-    operation: Literal["apply", "activate", "deactivate", "rollback"]
+    operation: Literal["apply", "activate", "verify", "deactivate", "recover", "rollback"]
     approver_ref: Annotated[str, Field(min_length=1, max_length=256, pattern=_TEXT)]
     target_ref: Annotated[str, Field(min_length=1, max_length=512, pattern=_TEXT)]
     cluster_uid: Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9-]+$")]
@@ -105,7 +106,7 @@ class ObserverApplyApproval(ConnectorContract):
         approved, expires = connector_time(self.approved_at), connector_time(self.expires_at)
         if not approved < expires <= approved + timedelta(seconds=MAX_APPROVAL_SECONDS):
             raise ValueError("observer approval must expire within thirty minutes")
-        if self.operation in {"apply", "activate"} and (
+        if self.operation in {"apply", "activate", "verify"} and (
             self.manifest_digest is None or self.proposal_digest is None
         ):
             raise ValueError("observer approval must bind the exact rendered manifest")
@@ -198,21 +199,30 @@ class AksRunCommandTransport:
                 with os.fdopen(descriptor, "wb") as stream:
                     stream.write(manifest)
                 vector += ["--file", str(path)]
-            try:
-                done = self._run(
-                    vector, capture_output=True, text=True, timeout=timeout, check=False
-                )
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                raise ValueError("AKS Run Command did not finish; the outcome is unknown") from exc
-        try:
-            payload = json.loads(done.stdout)
-            return KubeResult(int(payload["exitCode"]), str(payload.get("logs") or ""))
-        except (ValueError, KeyError, TypeError) as exc:
-            detail = " ".join(str(done.stderr).split())[:200]
-            raise ValueError(
-                "AKS Run Command is unavailable; check that command invoke is enabled and "
-                f"permitted for the caller ({detail})"
-            ) from exc
+            # A read has no effect, so one unparseable service response may be retried. A write is
+            # never repeated here: its unknown outcome is reported to the caller instead.
+            attempts = 2 if args and args[0] in _READ_ONLY_VERBS else 1
+            for attempt in range(attempts):
+                try:
+                    done = self._run(
+                        vector, capture_output=True, text=True, timeout=timeout, check=False
+                    )
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    raise ValueError(
+                        "AKS Run Command did not finish; the outcome is unknown"
+                    ) from exc
+                try:
+                    payload = json.loads(done.stdout)
+                    return KubeResult(int(payload["exitCode"]), str(payload.get("logs") or ""))
+                except (ValueError, KeyError, TypeError) as exc:
+                    if attempt + 1 < attempts:
+                        continue
+                    detail = " ".join(str(done.stderr).split())[:200]
+                    raise ValueError(
+                        "AKS Run Command is unavailable; check that command invoke is enabled "
+                        f"and permitted for the caller ({detail})"
+                    ) from exc
+        raise AssertionError("unreachable")  # pragma: no cover
 
 
 def _record(audit: Audit, now: datetime, phase: str, **fields: object) -> None:
