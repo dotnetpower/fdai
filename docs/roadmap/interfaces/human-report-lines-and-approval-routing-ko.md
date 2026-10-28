@@ -1,6 +1,6 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: 6f94c59fc1a6bb5320cf7ff35acbec8b45354921
+translation_source_sha: 8b5948c6f54d5805ef06b800b8018fadfb069bff
 translation_revised: 2026-10-29
 title: 사람 보고선 및 승인 라우팅
 ---
@@ -311,7 +311,7 @@ Operator 인시던트 주의 및 observer 배포 projection 회귀 테스트는 
 컨트롤 플레인의 배포 프리플라이트 토글 신호는 ActionType 없이 Forseti에 도달합니다. 인그레스는
 명시적 오퍼레이터 요청에 대해서만 페이로드가 제공한 ActionType을 존중하기 때문입니다. Forseti는
 자체 이벤트 타입 테이블에서 `remediate.apply-preflight-toggle`을 바인딩하고 기본 휴먼 리뷰 판정을
-유지하므로, 제안은 자율 권한을 얻지 않고 승인자에게 라우팅됩니다.
+유지하므로, 제안은 자율 권한을 얻지 않고 승인자에게 라우팅됩니다. Forseti의 이벤트별 규칙 없음 접힘 표식은 최근 구간으로 제한해 보존하므로, 일치하는 규칙이 없는 이벤트가 영속 상태를 무한히 늘리지 않습니다.
 
 ## 개인정보 및 보존
 
