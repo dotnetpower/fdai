@@ -485,7 +485,6 @@ export function browserNotificationsSupported(
 ): boolean {
   return environment.secureContext
     && environment.notificationApi
-    && environment.serviceWorkerApi
     && environment.lockManagerApi;
 }
 

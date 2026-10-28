@@ -12,7 +12,6 @@ import {
   isBrowserNotificationPreferenceStorageKey,
   isBrowserNotificationPreferenceChange,
   browserNotificationsSupported,
-  browserNotificationWorkerPaths,
   claimBrowserAlertDelivery,
   readBrowserAlertAcknowledgementToken,
   readBrowserAlertDeliveryStatus,
@@ -20,11 +19,14 @@ import {
   recordBrowserAlertDelivered,
   releaseBrowserAlertDelivery,
   requireBrowserNotificationPreferenceWrite,
-  withBrowserNotificationDeadline,
   writeBrowserNotificationPreference,
   type BrowserAlertKind,
   type BrowserAlertDeliveryStatus,
 } from "../browser-notifications";
+import {
+  prepareBrowserNotificationTransport,
+  type BrowserNotificationTransport,
+} from "../browser-notification-transport";
 import { useExclusiveBrowserStreamLeader } from "../hooks/browser-stream-leader";
 import { useLiveStream } from "../hooks/use-live-stream";
 import {
@@ -93,6 +95,7 @@ export function BrowserNotificationControl({
   );
   const [compactStatus, setCompactStatus] = useState(isCompactNotificationStatus);
   const [workerReady, setWorkerReady] = useState(false);
+  const [receiverKind, setReceiverKind] = useState<BrowserNotificationTransport["kind"] | null>(null);
 
   useEffect(() => {
     const media = window.matchMedia(COMPACT_STATUS_QUERY);
@@ -163,12 +166,16 @@ export function BrowserNotificationControl({
   useEffect(() => {
     if (state !== "on") {
       setWorkerReady(false);
+      setReceiverKind(null);
       return undefined;
     }
     let cancelled = false;
-    void ensureNotificationWorker()
-      .then(() => {
-        if (!cancelled) setWorkerReady(true);
+    void prepareBrowserNotificationTransport(import.meta.env.BASE_URL)
+      .then((receiver) => {
+        if (!cancelled) {
+          setReceiverKind(receiver.kind);
+          setWorkerReady(true);
+        }
       })
       .catch(() => {
         if (!cancelled) setState("error");
@@ -186,7 +193,10 @@ export function BrowserNotificationControl({
         writeBrowserNotificationPreference(false, principalId);
         setWorkerReady(false);
       }
-      setState(initialState(supported, principalId));
+      setState((current) => Notification.permission === "granted" &&
+        (current === "error" || current === "enabling")
+        ? current
+        : initialState(supported, principalId));
     };
     window.addEventListener("focus", syncPermission);
     void navigator.permissions
@@ -275,8 +285,8 @@ export function BrowserNotificationControl({
           return;
         }
         try {
-          const registration = await ensureNotificationWorker();
-          await registration.showNotification(
+          const receiver = await prepareBrowserNotificationTransport(import.meta.env.BASE_URL);
+          await receiver.show(
             browserNotificationText(ALERT_TITLE_KEYS[alert.kind]),
             {
               body: browserNotificationText(ALERT_BODY_KEYS[alert.kind]),
@@ -330,24 +340,37 @@ export function BrowserNotificationControl({
         setState(permission === "denied" ? "blocked" : "off");
         return;
       }
-      await ensureNotificationWorker();
+      const receiver = await prepareBrowserNotificationTransport(import.meta.env.BASE_URL, true);
+      if (Notification.permission !== "granted") {
+        writeBrowserNotificationPreference(false, principalId);
+        setSelected(false);
+        setWorkerReady(false);
+        setState(Notification.permission === "denied" ? "blocked" : "off");
+        return;
+      }
       requireBrowserNotificationPreferenceWrite(true, principalId);
+      setReceiverKind(receiver.kind);
       setSelected(true);
       setWorkerReady(true);
       setDeliveryState(readBrowserAlertDeliveryStatus(principalId));
       setState("on");
     } catch {
       setWorkerReady(false);
-      setState("error");
+      setState(Notification.permission === "denied" ? "blocked" : "error");
     }
   };
 
-  const disabled = state === "unsupported" || state === "blocked" || state === "enabling";
-  const label = selected && state === "error"
+  const preparing = state === "enabling" || (state === "on" && !workerReady);
+  const disabled = state === "unsupported" || state === "blocked" || preparing;
+  const label = selected && state === "error" && presentation === "settings"
     ? browserNotificationText("on")
     : browserNotificationText(CONTROL_LABEL_KEYS[state]);
   const stateLabel = browserNotificationText(
-    state === "on" ? DELIVERY_STATE_KEYS[deliveryState] : CONTROL_STATE_KEYS[state],
+    preparing ? "stateEnabling" : state === "on"
+      ? deliveryState === "ready" && receiverKind === "session"
+        ? "stateOnSession"
+        : DELIVERY_STATE_KEYS[deliveryState]
+      : CONTROL_STATE_KEYS[state],
   );
   const visibleStateLabel = compactStatus
     && state === "on"
@@ -356,11 +379,12 @@ export function BrowserNotificationControl({
     : stateLabel;
   if (presentation === "settings") {
     return (
-      <label class="settings-toggle-control">
+      <label class="settings-toggle-control" title={receiverKind === "session" ? browserNotificationText("sessionDetail") : undefined}>
         <input
           type="checkbox"
           checked={selected}
           aria-label={`${label}: ${stateLabel}`}
+          title={receiverKind === "session" ? browserNotificationText("sessionDetail") : undefined}
           disabled={disabled}
           onChange={(event) => { void setSelection(event.currentTarget.checked); }}
         />
@@ -375,8 +399,9 @@ export function BrowserNotificationControl({
       class={`topbar-control browser-notification-control ${selected ? "is-active" : ""}`}
       aria-pressed={selected}
       aria-label={`${label}: ${stateLabel}`}
+      title={receiverKind === "session" ? browserNotificationText("sessionDetail") : undefined}
       disabled={disabled}
-      onClick={() => { void setSelection(!selected); }}
+      onClick={() => { void setSelection(state === "error" ? true : !selected); }}
     >
       <span class="browser-notification-indicator" aria-hidden="true" />
       <NotificationBellIcon />
@@ -402,19 +427,3 @@ function initialState(supported: boolean, principalId?: string | null): ControlS
     ? "on"
     : "off";
 }
-
-async function ensureNotificationWorker(): Promise<ServiceWorkerRegistration> {
-  if (workerRegistrationPromise !== null) return workerRegistrationPromise;
-  const { scriptUrl, scope } = browserNotificationWorkerPaths(import.meta.env.BASE_URL);
-  workerRegistrationPromise = withBrowserNotificationDeadline(
-    navigator.serviceWorker.register(scriptUrl, { scope, updateViaCache: "none" }),
-  )
-    .then(() => withBrowserNotificationDeadline(navigator.serviceWorker.ready))
-    .catch((error: unknown) => {
-      workerRegistrationPromise = null;
-      throw error;
-    });
-  return workerRegistrationPromise;
-}
-
-let workerRegistrationPromise: Promise<ServiceWorkerRegistration> | null = null;

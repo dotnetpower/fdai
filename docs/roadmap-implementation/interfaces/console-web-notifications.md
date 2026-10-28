@@ -10,7 +10,7 @@ This ledger tracks delivery of
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Personal channel selection | implemented | `console/src/routes/settings-system.tsx`; `console/src/components/browser-notification-control.tsx`; focused Settings tests | Settings is canonical and the header is a synchronized shortcut. Selection is scoped to the authenticated principal and current browser profile. |
-| Browser capability and leadership | implemented | `console/src/browser-notifications.ts`; `console/src/hooks/browser-stream-leader.ts`; focused capability and leadership tests | Secure context, Notifications, Service Worker, and Web Locks are required. Worker and leader failures remain explicit. |
+| Browser capability and leadership | implemented | `console/src/browser-notifications.ts`; `console/src/browser-notification-transport.ts`; `console/src/hooks/browser-stream-leader.ts`; focused capability and leadership tests | Secure context, Notifications, Web Locks, and a verified worker or page-session receiver are required. Session delivery is explicitly labeled, and failures remain visible. |
 | Delivery ledger and acknowledgement | implemented | `console/src/browser-notifications.ts`; `console/public/notification-sw.js`; focused ledger and worker tests | Display and click acknowledgement are separate, token-bound, bounded, browser-local, and serialized across same-origin tabs. Cross-account click recovery locates exactly one originating ledger. |
 | Presentation and localization | implemented | paired component and Settings catalogs; Console build; authenticated browser checks | Header and Settings states remain synchronized, localized, and responsive at the scoped viewports and 200% text. |
 | Correlation evidence navigation | implemented | `console/src/browser-notifications.test.ts`; `console/src/notification-service-worker.test.ts`; `console/tests/e2e/incidents-intervention.spec.ts` | Runtime alerts open Audit without assuming Incident membership or inheriting Sample mode. Legacy Live Incident selections offer localized audit recovery. |
@@ -19,6 +19,7 @@ This ledger tracks delivery of
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-28 | implemented | Added a labeled page-session receiver after bounded worker failure, gated by explicit selection and a real native notification `show` event. Kept principal selection, claim fencing, generic bodies, closed scoped click targets, and acknowledgement fragments unchanged. Receiver readiness stays pending until verified, survives a same-tab reload without another connection probe, and can be retried while the selection remains checked. Native display tags are bounded SHA-256-derived keys; canonical event tags and tokens are unchanged. Focus does not restart a failed receiver. | `current change`; transport, ledger, worker, and catalog tests (48 passed); Console typecheck passed; English/Korean activation, restoration, retry, deselection and 1440/993/390 px browser checks (2 passed). The shared Console at `localhost:5273` displayed a connection notification and a 133-character diagnostic event through its bounded native display key, without transient user activation and while hidden; one notification leader and the selected receiver remained healthy during the bounded observation. | Native display was observed through the browser API, not a human-confirmed operational alert or Core delivery receipt. Closed-page delivery is not added. |
 | 2026-09-15 | implemented | Replaced the assumed Incident notification destination with correlated Audit evidence, retained scoped legacy click handling, and added localized recovery from missing Live Incident selections. | `current change`; #1038; focused notification, service-worker, data-mode, Incident, and catalog tests; seven focused desktop browser scenarios; Console typecheck. | Operating-system notification display and click confirmation remains a human validation step. |
 | 2026-09-14 | implemented | Serialized every delivery-ledger mutation across tabs, retained the latest delivery status when re-enabling, and made component-catalog calls explicit. | `current change`; focused browser-notification and catalog-usage regression tests plus Console build. | Retain human-confirmed operating-system notification evidence before claiming live desktop validation. |
 | 2026-09-14 | implemented | Restricted notification-click navigation to controlled clients inside the registered Console scope. | `current change`; focused unrelated-same-origin window regression test. | No known out-of-scope same-origin navigation remains. |
@@ -27,6 +28,9 @@ This ledger tracks delivery of
 
 ### Remaining work
 
+- [x] Verify bounded worker failure, explicit session display proof, long-tag mapping, original
+  event and claim preservation, reload, focus, retry and deselection with the 2026-10-28 focused
+  tests and bounded shared-browser diagnostics recorded above.
 - [ ] Capture a human-confirmed Windows or macOS notification display and click receipt from the
   canonical Console origin.
 - [ ] Add closed-browser Web Push only after a separately approved authenticated service,

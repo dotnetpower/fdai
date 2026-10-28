@@ -29,7 +29,7 @@ The channel is available only when all of these conditions hold:
 
 - The page is in a secure context.
 - The Notifications API is available.
-- A Service Worker can be registered.
+- A Service Worker can be registered, or a page-session receiver has passed an explicit display check.
 - Web Locks can elect one principal-scoped live-stream leader.
 
 FDAI never requests permission on page load. Selection requires an explicit user gesture. The
@@ -39,6 +39,27 @@ Same-document custom events and cross-tab storage events synchronize Settings an
 Persisted selection and receiver health are separate states. A worker or leader failure leaves the
 selection checked while the status becomes retryable. A browser without a required API reports the
 channel unavailable instead of ready.
+
+### Page-session receiver
+
+When worker registration or activation fails, an explicit selection may test the granted native
+Notifications API with one clearly labeled connection notification. Only its `show` event qualifies
+the page-session receiver. The header and Settings identify this as session delivery: the Console
+page must remain open. A tab-session capability receipt may survive reload, but it never grants
+permission or selects the channel for another principal.
+
+Both receivers retain the same event admission, Web Locks, principal-scoped selection, rate limit,
+claim fencing, and closed click target. A native click focuses its originating page and navigates
+through the same token-bound acknowledgement fragment. It cannot reopen a closed page.
+
+Native display tags use the first 128 bits of the canonical event tag's SHA-256 digest as 32
+hexadecimal characters, because some native backends do not display notifications with long tags.
+The original event tag and claim token remain unchanged in notification data and the delivery
+ledger. This changes only the platform display key, never event identity or authority.
+
+This boundary rejects three shortcuts: a permission flag alone is not receiver readiness, an API
+constructor alone is not display confirmation, and a connection test is not an operational alert
+or a delivery-ledger receipt. Failure of both receivers leaves selection unavailable or retryable.
 
 ## Event admission
 
@@ -61,7 +82,7 @@ The principal-scoped browser ledger:
 - suppresses one event tag for five minutes;
 - limits display to five notifications per minute;
 - retains at most 32 receipts for seven days;
-- records display only after `showNotification()` resolves; and
+- records display only after `showNotification()` resolves or a native notification emits `show`; and
 - records acknowledgement only for a matching tag and unpredictable 128-bit claim token.
 
 Legacy entries retain the `at` timestamp alias for rolling-version duplicate suppression. A
@@ -95,9 +116,15 @@ this live-evidence recovery link.
 
 ## Failure and recovery
 
-Service-worker registration and readiness each have a ten-second deadline. Timeout, token
-generation failure, storage failure, and Web Locks acquisition failure become explicit unavailable
-or retry states. None silently enables delivery.
+Service-worker registration and readiness each have a ten-second deadline. A page-session display
+check has a five-second deadline and runs only during an explicit selection when no verified
+receiver is available. Rejected, timed-out, or unobserved checks cannot mark the channel ready.
+Permission is checked again before persisting selection. A native display failure invalidates its
+session capability receipt, and retry verifies the receiver again. Token generation, required
+storage, and Web Locks failures remain explicit unavailable or retry states.
+Returning focus with unchanged permission preserves a failed receiver's retry state rather than
+starting another automatic worker attempt. Session failures log only closed reason strings,
+without notification content, identifiers, or claim tokens.
 
 The current implementation has no Push API subscription or server-side subscription store. A
 fully closed browser receives no notification. Closed-browser Web Push requires a separately
