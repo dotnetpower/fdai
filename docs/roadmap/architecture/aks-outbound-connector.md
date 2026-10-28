@@ -114,6 +114,9 @@ Projected Kubernetes Secret files can be root-owned symlinks, so mounting them d
 violate the worker's private-file contract. A non-root init step reads only five named files from
 one resolved in-volume generation and stages them atomically into an owner-only ephemeral directory.
 Escaping symlinks, writable source files, oversized content and changed existing material fail.
+A second init step resets the spool directory to `0700` and its files to `0600` on every start,
+because Kubernetes applies the pod `fsGroup` to a volume at each mount, which makes the directory
+set-group-ID and existing files group-writable and would otherwise fail the next run.
 The observer then uses its unchanged `0600`/`0700` checks. This is runtime material handling, not
 repository credential generation; preview output contains references only. Preview does not prove
 image provenance, admission, storage support, egress, rollout, revocation or uninstall readiness.
