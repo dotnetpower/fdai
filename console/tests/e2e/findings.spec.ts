@@ -71,7 +71,7 @@ for (const locale of ["en", "ko"] as const) {
     }
     await page.goto(`/detection-coverage?locale=${locale}&data=sample`);
     await expect(current).toHaveCount(0);
-    await page.locator(".finding-attention > a").click();
+    await page.locator(".finding-attention a.topbar-control").click();
     await expect(page).toHaveURL(/[?&]data=live/);
     await expect(current).toContainText("resource:fixture-vm");
   });

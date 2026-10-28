@@ -41,7 +41,8 @@ for (const locale of ["en", "ko"] as const) {
     await control.click();
     await expect(control).toHaveAttribute("aria-pressed", "true");
     await expect(control).toContainText(locale === "ko" ? "세션 대기" : "Ready (session)");
-    await expect(control).toHaveAttribute("title", /Console/);
+    await control.focus();
+    await expect(page.getByRole("tooltip")).toContainText(locale === "ko" ? "세션 알림 표시를 확인했습니다" : "Session notifications are verified");
     expect(await page.evaluate(() => sessionStorage.getItem("fdai:test:notification-probes"))).toBe("1");
     await page.reload();
     await expect(control).toHaveAttribute("aria-pressed", "true");

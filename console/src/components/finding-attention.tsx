@@ -7,6 +7,7 @@ import { useCurrentFindings } from "../hooks/use-current-findings";
 import { getLocale } from "../i18n";
 import { formatConsoleTimestamp } from "../time-format";
 import { routeHref, ROUTE_STATE_EVENT } from "../router";
+import { Tooltip } from "./tooltip";
 import { LoadingState } from "./ui";
 import "./finding-attention.css";
 
@@ -65,12 +66,13 @@ export function FindingAttention({
   const words = text();
   return (
     <div class="finding-attention">
+      <Tooltip content={error || storageError ? words.unavailable : words.all}>
       <a class="topbar-control" href={allFindingsHref()}
-        title={error || storageError ? words.unavailable : words.all}
         aria-label={`${words.title}: ${error || storageError ? words.unavailable : findings.filter((row) => row.status === "active").length}`}>
         <span class="topbar-control-label">{words.title}</span>
         <span>{error || storageError ? "!" : loading ? "..." : findings.filter((row) => row.status === "active").length}</span>
       </a>
+      </Tooltip>
       {error || storageError ? <span class="sr-only" role="status">{words.unavailable}</span> : null}
       {notice ? (
         <div class="finding-toast" role="status" aria-live="polite">

@@ -35,6 +35,7 @@ import {
   type BrowserNotificationTextKey,
 } from "./i18n/browser-notifications";
 import { NotificationBellIcon } from "./notification-bell-icon";
+import { Tooltip } from "./tooltip";
 import { findingNotificationText } from "./i18n/finding-notifications";
 import {
   findingBrowserAlert, findingNeedsAttention, markFindingPending, rememberFinding,
@@ -393,29 +394,31 @@ export function BrowserNotificationControl({
     && deliveryState === "acknowledged"
     ? browserNotificationText("stateAcknowledgedCompact")
     : stateLabel;
+  const sessionDetail = receiverKind === "session" ? browserNotificationText("sessionDetail") : undefined;
   if (presentation === "settings") {
     return (
-      <label class="settings-toggle-control" title={receiverKind === "session" ? browserNotificationText("sessionDetail") : undefined}>
-        <input
-          type="checkbox"
-          checked={selected}
-          aria-label={`${label}: ${stateLabel}`}
-          title={receiverKind === "session" ? browserNotificationText("sessionDetail") : undefined}
-          disabled={disabled}
-          onChange={(event) => { void setSelection(event.currentTarget.checked); }}
-        />
-        <span aria-hidden="true" />
-        <strong role="status" aria-live="polite">{stateLabel}</strong>
-      </label>
+      <Tooltip content={sessionDetail}>
+        <label class="settings-toggle-control">
+          <input
+            type="checkbox"
+            checked={selected}
+            aria-label={`${label}: ${stateLabel}`}
+            disabled={disabled}
+            onChange={(event) => { void setSelection(event.currentTarget.checked); }}
+          />
+          <span aria-hidden="true" />
+          <strong role="status" aria-live="polite">{stateLabel}</strong>
+        </label>
+      </Tooltip>
     );
   }
   return (
+    <Tooltip content={sessionDetail}>
     <button
       type="button"
       class={`topbar-control browser-notification-control ${selected ? "is-active" : ""}`}
       aria-pressed={selected}
       aria-label={`${label}: ${stateLabel}`}
-      title={receiverKind === "session" ? browserNotificationText("sessionDetail") : undefined}
       disabled={disabled}
       onClick={() => { void setSelection(state === "error" ? true : !selected); }}
     >
@@ -426,6 +429,7 @@ export function BrowserNotificationControl({
         {visibleStateLabel}
       </span>
     </button>
+    </Tooltip>
   );
 }
 
