@@ -607,6 +607,8 @@ the existing capped backoff and stops as soon as notification permission or the 
 opt-in is removed. Eligible alerts open correlated Audit evidence, not an assumed Incident.
 [Console Web Notifications](console-web-notifications.md) owns event admission, bounded local
 delivery, and recovery from legacy Incident links; no audit or Incident evidence is removed.
+It also owns the explicitly verified page-session receiver for browsers whose service worker
+cannot activate; the UI labels its open-page lifetime instead of claiming persistent delivery.
 
 The Agent Activity route loads bounded durable inventory scan, ontology projection, and current-state
 read records before opening the shared agent stream. Exact activity ids deduplicate replay and live

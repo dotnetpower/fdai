@@ -44,6 +44,15 @@ authority.
 
 ## Cluster source bindings
 
+The analyzer tick binds the production Pod source through `build_production_pod_analyzer`, using
+the existing Inventory Job configuration and inventory reader DSN, never the Core writer DSN as a
+fallback. Each tick shares immutable cluster/generation observations and ownership history across
+targets, coalesces exact-UID Event reads, and retains collection failures without retrying them as
+healthy data. Explicit replay JSON remains supported but does not establish live validation.
+Status faults and positive recovery use the typed analyzer assessment; gaps and ordinary rollouts
+are not operational candidates. Current inventory alone cannot recover a vanished old Pod or prove
+complete distinct-UID replacement history.
+
 Reusable quantity conversion and ordinary Pod CPU/memory accounting are defined in the
 [connector preflight boundary](aks-outbound-connector.md#capacity-and-storage-preflight).
 These pure helpers consume complete Pod records; existing normalized diagnostic quantity text

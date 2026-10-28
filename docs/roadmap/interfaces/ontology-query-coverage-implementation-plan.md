@@ -269,10 +269,10 @@ objects are selected only by authoritative reads after plan verification.
 | External query authentication, scope, streaming, and display projection | Operator Service | Independent service using versioned shared contracts only. |
 | Query and receipt wire contracts | Shared service-contract SDK | No service implementation or provider access. |
 
-Authority-bearing transitions remain event-bus messages. Read-only query execution may use a
-purpose-bound immutable projection, but one service never imports another service's implementation.
-No new agent is introduced. The Operator renders a terminal query answer only after it recomputes
-the evidence digest and projection identity that Core committed, using the shared contract SDK.
+Authority-bearing transitions remain event-bus messages. Read-only query execution may use a purpose-bound immutable projection, but one
+service never imports another service's implementation. No new agent is introduced. The Operator renders a terminal query answer only after
+it recomputes the evidence digest and projection identity that Core committed, using the shared contract SDK. The operational `GET
+/findings` projection is not an ontology query. It adds no ObjectType, relationship, query-manifest entry, or answer receipt.
 
 ## Target contracts
 

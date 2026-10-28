@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from fdai.shared.contracts.models import Severity
+
 
 class AnalyzerPublicationStatus(StrEnum):
     """Terminal publication state for one analyzer finding."""
@@ -41,6 +43,10 @@ class AnalyzerFindingReceipt:
     A downstream projection needs to say *which* target a conclusion is about
     and *when* it was observed; deriving either from the idempotency key would
     re-parse a delivery detail into an operator-facing fact.
+
+    Structured severity and observation feed the separately versioned current
+    Finding projection. They do not change the immutable v1 historical receipt
+    representation, including retries of records written before that projection.
     """
 
     idempotency_key: str
@@ -61,6 +67,11 @@ class AnalyzerFindingReceipt:
     evidence_state: AnalyzerEvidenceState | None = None
     cause_claim_supported: bool = False
     execution_authority: bool = False
+    severity: Severity | None = None
+    observation: str = ""
+    assessment_status: str | None = None
+    recovery_finding_ref: str | None = None
+    recovery_prior_revision: int | None = None
 
     def __post_init__(self) -> None:
         for field_name, maximum in (
