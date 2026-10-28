@@ -1733,7 +1733,7 @@
       "routingTitle": "대응 라우팅",
       "severity": "심각도",
       "accountableAgents": "책임 에이전트",
-      "openedBy": "개설자",
+      "createdBy": "생성자",
       "humanOwnership": "사람 담당 체계",
       "openOwnership": "담당 체계 열기",
       "openApprovals": "승인 화면 열기",

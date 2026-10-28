@@ -1733,7 +1733,7 @@
       "routingTitle": "Response routing",
       "severity": "Severity",
       "accountableAgents": "Accountable agents",
-      "openedBy": "Opened by",
+      "createdBy": "Created by",
       "humanOwnership": "Human ownership",
       "openOwnership": "Open ownership mapping",
       "openApprovals": "Open Approvals",
