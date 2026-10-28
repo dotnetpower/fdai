@@ -902,6 +902,9 @@ async def test_configured_dynamic_gap_holds_before_t1_risk_routing(tmp_path: Pat
         dynamic_runtime_coordinator=_DynamicCoordinator(),
         governed_execution_selected=governed_execution_selection(True),
     )
+    loop._rules_by_id = {  # type: ignore[assignment]  # noqa: SLF001
+        "r1": SimpleNamespace(id="r1", resource_type="compute.vm.novel")
+    }
     route = AsyncMock()
     loop._route_t1_reuse = route  # type: ignore[method-assign]
     event = EventIngest(validator=_validator()).ingest(_event_dict("evt-route-hold"))
@@ -992,3 +995,50 @@ async def test_scalar_and_graph_dynamic_simulations_emit_separate_audits(
 
     action_kinds = [item["entry"]["action_kind"] for item in audit.audit_entries]
     assert action_kinds == ["dynamic.simulation", "dynamic.graph_simulation"]
+
+
+async def test_cross_type_t1_reuse_abstains_instead_of_recording_a_false_advisory(
+    tmp_path: Path,
+) -> None:
+    audit = InMemoryStateStore()
+    learned = LearnedAction(
+        signature="sig-cross-type",
+        rule_id="r1",
+        action_type="remediate.tag-add",
+        params={},
+        incident_id="inc-cross-type",
+        success_rate=0.95,
+    )
+    t1 = T1Decision(
+        outcome=T1Outcome.REUSED,
+        event_id="event-cross-type",
+        threshold=0.8,
+        best_match=SimilarityMatch(action=learned, score=0.86),
+    )
+    loop = _make_loop(
+        t1_engine=SimpleNamespace(evaluate=AsyncMock(return_value=t1)),  # type: ignore[arg-type]
+        audit=audit,
+        tmp_path=tmp_path,
+    )
+    loop._rules_by_id = {  # type: ignore[assignment]  # noqa: SLF001
+        "r1": SimpleNamespace(id="r1", resource_type="resource-group")
+    }
+    event = EventIngest(validator=_validator()).ingest(_event_dict("evt-cross-type"))
+    assert event is not None
+
+    result = await loop._evaluate_fallback_tiers(  # noqa: SLF001
+        event=event,
+        decision=RoutingDecision(
+            tier=RoutingTier.T1, resource_type="authorization.role-assignment"
+        ),
+        citing=(),
+        cs_decision=None,
+        event_id=str(event.event_id),
+        correlation_id=str(event.event_id),
+    )
+
+    assert result is not None
+    assert result.outcome is ControlLoopOutcome.T1_ABSTAINED
+    assert result.reason == "t1_reuse_resource_type_mismatch"
+    kinds = {record["entry"]["action_kind"] for record in audit.audit_entries}
+    assert "control_loop.t1_reuse_advisory" not in kinds
