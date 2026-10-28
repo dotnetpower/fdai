@@ -48,10 +48,12 @@ Use the reference view to identify system scope, authority boundaries, and
 governed dependencies before tracing an individual event. The headless control
 plane contains typed event choreography and the control stages owned by the 15
 agents. Model providers, tools, policy and query engines, knowledge, evidence,
-and the Azure deployment foundation remain outside that inner boundary.
+and the Azure deployment foundation remain outside that inner boundary. The
+foundation lists AKS as the default runtime and Container Apps as the
+compatibility profile.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-reference-architecture.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-reference-architecture.en.svg" alt="Connected Azure resources, telemetry, repositories, and enterprise connectors publish typed signals into the headless FDAI control plane. Operators use the Web Console, CLI, and ChatOps interfaces. Fifteen independently runnable agents own every control stage and coordinate through a schema-validated event bus. Events pass through ingest and trust routing into T0 deterministic rules, T1 verified reuse, or T2 grounded reasoning. T2 alone passes a mixed-model quality gate before all tiers enter the common safety and authority check. High-impact work requests independent human authority, and the resulting typed approval event re-enters the agent runtime instead of calling the executor directly. Eligible work reaches the privileged executor and produces fix pull requests or bounded direct actions; ineligible work is held, denied, or closed as a no-op. Microsoft Foundry, Azure OpenAI, provider tools, OPA and Rego policy evaluation, IQL inventory queries, the operating ontology, governed catalogs, and PostgreSQL provide governed capabilities outside the headless control-plane boundary. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the deployment foundation. Every terminal result is attributable and replayable." loading="eager" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-reference-architecture.en.svg" alt="Connected Azure resources, telemetry, repositories, and connectors send typed signals to the headless FDAI control plane, and operators use the Web Console, CLI, and ChatOps. Fifteen agents coordinate through a schema-validated event bus. Events pass ingest and trust routing to T0 rules, T1 verified reuse, or T2 grounded reasoning; only T2 passes a quality gate, then every tier reaches the risk and authority gate. High-impact work needs independent human authority. Approved work reaches the privileged executor and produces governed changes; other work is held, denied, or closed as a no-op. Governed capabilities and the Azure foundation sit outside the control plane, and every outcome is audited and replayable." loading="eager" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 The collective pantheon mark represents the fixed 15-agent organization, not a
@@ -131,19 +133,15 @@ for placement and readiness requirements.
 
 ### Container Apps deployment
 
-Use the deployment view to trace the production private-network baseline rather
-than the logical control-loop responsibilities. Numbered connectors follow the
-primary signal, decision, evidence, approval, and delivery paths. Nested
-boundaries show the Azure region, virtual network, and delegated subnets.
+Container Apps remains a compatibility profile with the same five services,
+control loop, and authority boundaries. The resource network flow in the next
+section is its deployment view. It shows the five services in a VNet-integrated
+Container Apps environment, the private-endpoint paths to Azure services, and
+the delivery channels.
 
-<fdai-architecture-diagram manifest="../diagrams/generated/fdai-azure-deployment-topology.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-azure-deployment-topology.en.svg" alt="Azure platform signals and scheduled probes enter Azure Event Hubs through its Kafka endpoint. A VNet-integrated Container Apps environment runs the FDAI core, scheduled jobs, and a separately identified Operator API. The core uses managed identity to read Azure Resource Graph, request optional Azure OpenAI models, obtain Key Vault references, and write governed state and append-only audit evidence to PostgreSQL. Private endpoints and private DNS keep supported data-plane traffic inside the virtual network. Operators authenticate with Microsoft Entra ID, inspect the read-only console, approve high-risk work through Teams, and receive governed changes through Git pull requests. Application Insights and Log Analytics observe every runtime path without becoming a decision surface." loading="lazy" style="display:block;width:100%;height:auto" />
-</fdai-architecture-diagram>
-
-The diagram maps the parameterized Terraform deployment, not one tenant's
-resource names. Azure OpenAI and some private endpoints remain optional. Human
-App Roles and the privileged executor managed identity stay separate in every
-profile.
+The view maps the parameterized Terraform deployment, not one tenant's resource
+names. Azure OpenAI and some private endpoints remain optional. Human App Roles
+and the privileged executor managed identity stay separate in every profile.
 
 ## Azure resource network flow
 
@@ -157,7 +155,7 @@ The diagram shows the FDAI Web Console path. The FDAI CLI uses the same
 Operator API but is omitted from this view for clarity.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-azure-resource-network-flow.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-azure-resource-network-flow.en.svg" alt="An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A planned private Application Gateway protected by a WAF policy routes requests to the Operator Service and Document Ingestion API. A VNet-integrated Container Apps environment runs the Core Control Plane, Operator Service, Document Ingestion API, Document Processing Worker, Isolated Executor, and scheduled jobs. The Core has no effect identity, and the Isolated Executor alone may hold explicitly approved effect roles. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed fix pull requests." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-azure-resource-network-flow.en.svg" alt="An operator signs in with Microsoft Entra ID and uses the FDAI Web Console. A planned private Application Gateway with a WAF policy would route requests to the Operator Service and Document Ingestion API. Five FDAI services run in a VNet-integrated Container Apps environment, and only the Isolated Executor may hold approved effect roles. Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, PostgreSQL, and optional ADLS Gen2 storage connect through private endpoints. Resource Graph, Application Insights and Log Analytics, a planned Managed Grafana, approval channels, and Git providers complete the paths." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 The baseline portion shows the default private-networking profile, where
@@ -173,8 +171,9 @@ another Storage Account and private-endpoint pair. The development operations
 gateway and APIM remain in their feature-specific profiles.
 
 The same view overlays the intended gateway, model platform, observability, and
-delivery-provider topology. Status remains in this document rather than on the
-diagram so product and network labels stay stable.
+delivery-provider topology. Elements that Terraform does not provision are drawn
+with dashed outlines and a "(planned)" label. The table below states the status
+of each target-state element.
 
 | Target-state element | Terraform status | Documentation decision |
 |----------------------|------------------|------------------------|
@@ -247,7 +246,7 @@ instead of executing without approval.
 Every event takes the same path, whether it comes from an Azure resource change,
 an SLO burn detector, a scheduled job, or an operator request.
 
-![Azure changes, telemetry, operator requests, and scheduled probes enter Event Hubs through its Kafka endpoint on port 9093. The FDAI control plane ingests each event, selects a trust tier, verifies the decision, applies the safety check, and either executes, requests approval, or holds. Outcomes are delivered through fix pull requests and recorded in PostgreSQL for the read-only console.](../diagrams/generated/fdai-system-overview.en.svg)
+The system overview under [Design at a glance](#design-at-a-glance) draws this path.
 
 1. **Ingest and correlate**: FDAI checks the event schema, drops repeats using a
    stable idempotency key (a key that makes a retry safe), and groups related
@@ -424,7 +423,7 @@ risk, and audit path as any other request.
 
 The repository follows the same dependency direction as the runtime system.
 
-![Connected Azure resources, telemetry, repositories, and enterprise connectors publish typed signals into the headless FDAI control plane. Operators use the Web Console, CLI, and ChatOps interfaces. Fifteen independently runnable agents own every control stage and coordinate through a schema-validated event bus. Events pass through ingest and trust routing into T0 deterministic rules, T1 verified reuse, or T2 grounded reasoning. T2 alone passes a mixed-model quality gate before all tiers enter the common safety and authority check. High-impact work requests independent human authority, and the resulting typed approval event re-enters the agent runtime instead of calling the executor directly. Eligible work reaches the privileged executor and produces fix pull requests or bounded direct actions; ineligible work is held, denied, or closed as a no-op. Microsoft Foundry, Azure OpenAI, provider tools, OPA and Rego policy evaluation, IQL inventory queries, the operating ontology, governed catalogs, and PostgreSQL provide governed capabilities outside the headless control-plane boundary. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the deployment foundation. Every terminal result is attributable and replayable.](../diagrams/generated/fdai-reference-architecture.en.svg)
+![The composition root reads validated configuration and injects concrete providers into the delivery adapters and the core. The delivery adapters implement persistence, Azure access, GitOps, notifications, ChatOps, and Operator APIs behind shared contracts. The core holds decision and coordination logic and depends only on shared contracts, never on Azure SDKs or UI code. Shared contracts define versioned event, action, rule, workflow, and provider contracts and never import the core. The rule catalog and policies hold governed data, so a rule or action type can be added without rewriting the control loop.](../diagrams/generated/fdai-code-dependency-boundaries.en.svg)
 
 - **`core/`** holds decision and coordination logic. It depends on shared
   contracts, never on Azure SDKs or UI components.
@@ -444,28 +443,30 @@ Structure](../roadmap/architecture/project-structure.md).
 
 The first implementation maps each portable contract to a small Azure resource
 set. Provider-specific calls stay inside adapters, so swapping a resource does
-not touch decision logic.
+not touch decision logic. AKS is the default runtime for new installations, and
+Container Apps remains a compatibility profile.
 
-| Portable concern | Contract | Azure implementation |
-|------------------|----------|----------------------|
-| Event stream | Kafka wire protocol | Event Hubs through its Kafka endpoint |
-| Core runtime | OCI image and portable manifest | Azure Container Apps |
-| Scheduled work | Job or cron contract | Container Apps Jobs |
-| State, audit, and T1 vectors | PostgreSQL and pgvector | Azure Database for PostgreSQL Flexible Server |
-| Secrets | Environment or mounted secret | Key Vault reference injected by Container Apps |
-| Workload identity | OIDC token | User-assigned Managed Identity |
-| Inventory | Resource graph contract | Azure Resource Graph plus activity deltas |
-| Observability | OpenTelemetry-compatible signals | Log Analytics and Application Insights |
-| Console | Static read-only application | Azure Static Web Apps |
-| Console Operator API | HTTP read contract | Container App with its own read-only identity |
-| Document ingestion | Upload and chunking contract | Container App plus Data Lake Storage |
-| Human approval | Typed approval message | Teams bot and Adaptive Cards |
+| Portable concern | Contract | AKS (default) | Container Apps (compatibility) |
+|------------------|----------|---------------|--------------------------------|
+| Event stream | Kafka wire protocol | Event Hubs through its Kafka endpoint | Event Hubs through its Kafka endpoint |
+| Core runtime | OCI image and portable manifest | Kubernetes Deployments in a user node pool | Container Apps |
+| Scheduled work | Job or cron contract | Kubernetes CronJobs | Container Apps Jobs |
+| State, audit, and T1 vectors | PostgreSQL and pgvector | Azure Database for PostgreSQL Flexible Server | Azure Database for PostgreSQL Flexible Server |
+| Secrets | Environment or mounted secret | Key Vault references mounted by the CSI driver | Key Vault reference injected by Container Apps |
+| Workload identity | OIDC token | AKS Workload Identity federated to user-assigned managed identities | User-assigned managed identity |
+| Inventory | Resource graph contract | Azure Resource Graph plus activity deltas | Azure Resource Graph plus activity deltas |
+| Observability | OpenTelemetry-compatible signals | Log Analytics and Application Insights | Log Analytics and Application Insights |
+| Console | Static read-only application | Azure Static Web Apps | Azure Static Web Apps |
+| Console Operator API | HTTP read contract | Operator Service behind API Management | Container App with its own read-only identity |
+| Document ingestion | Upload and chunking contract | Ingestion API and Processing Worker with Data Lake Storage | Container Apps with Data Lake Storage |
+| Human approval | Typed approval message | Teams bot and Adaptive Cards | Teams bot and Adaptive Cards |
 
-The core runs continuously with a floor of one replica and a ceiling of three.
-The floor stays at one because scale-to-zero needs a credential-free Kafka-lag
-scale rule, and without that rule an incoming event would never wake the app.
-Scheduled jobs and static surfaces can still scale to zero. For the full
-provider surface, read [CSP-neutrality
+On AKS, each service sets its own replica floor and ceiling, and the floor is at
+least one. On Container Apps, the core runs continuously with a floor of one
+replica and a ceiling of three. That floor stays at one because scale-to-zero
+needs a credential-free Kafka-lag scale rule, and without that rule an incoming
+event would never wake the app. Scheduled jobs and static surfaces can still
+scale to zero. For the full provider surface, read [CSP-neutrality
 contracts](../roadmap/architecture/csp-neutrality.md).
 
 ## Safety built into every action

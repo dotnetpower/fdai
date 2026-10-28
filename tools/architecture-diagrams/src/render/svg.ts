@@ -901,7 +901,10 @@ export async function renderSvg(
     svg[data-profile="azure-reference"] .diagram-group[data-group-id="private-service-backends"] > .group-surface { fill: #fbfcfd; stroke: #c8d0d8; }
     svg[data-profile="azure-reference"] .diagram-group[data-group-id="private-service-backends"] > .group-header { fill: #f1f4f6; }
     svg[data-profile="azure-reference"] .diagram-node > rect { filter: none; }
-    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"] > rect { fill: transparent; stroke: transparent; }
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"] > rect { fill: transparent; stroke: transparent; }${referenceProfile ? `
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"][data-status="planned"] > rect { stroke: #8a8886; stroke-width: 1.25; stroke-dasharray: 5 4; }
+    svg[data-profile="azure-reference"] .diagram-node[data-status="planned"] > image { opacity: 0.62; }
+    svg[data-profile="azure-reference"] .diagram-node[data-status="planned"] .node-label { fill: #605e5c; font-style: italic; }` : ""}
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:hover > rect,
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:focus > rect,
     svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-active > rect { fill: #ffffff; stroke: var(--fdai-diagram-azure, #0078d4); stroke-width: 1.5; }
