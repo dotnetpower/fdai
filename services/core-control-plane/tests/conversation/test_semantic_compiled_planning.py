@@ -534,6 +534,16 @@ def test_typed_only_holds_a_read_whose_form_path_never_started() -> None:
     assert (model.frame_calls, model.plan_calls) == (0, 0)
 
 
+def test_typed_only_never_answers_a_draft_only_action_through_the_read_form_path() -> None:
+    draft = _accepted().model_copy(update={"action_posture": "draft_only"})
+    path = _Path(typed_only=True)
+    outcome, _model = _plan(_Boundary(SemanticJudgmentDisposition.ACCEPTED, proposal=draft), path)
+
+    assert not path.ticket.consumed
+    assert outcome.reason != "compiled_answer_marker"
+    assert outcome.reason != "semantic_reading_unverified"
+
+
 def test_typed_only_still_ends_an_ambiguous_judgment_with_its_clarification() -> None:
     ambiguous = _accepted().model_copy(
         update={"ambiguous": True, "clarification": "Which VM scope should I read?"}

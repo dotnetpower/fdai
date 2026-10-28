@@ -493,11 +493,20 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                 return preflight_router.finish(
                     settled_clarification(ticket, clarified, manifest_digest, model_observations)
                 )
+            # A no-authority draft is not a read, so the typed-only form path never answers it.
+            typed_action_draft = (
+                self._compiled_answers is not None
+                and self._compiled_answers.typed_only
+                and judgment_decision is not None
+                and judgment_decision.accepted
+                and judgment_proposal is not None
+                and judgment_proposal.action_posture == "draft_only"
+            )
             compiled = (
                 ticket.outcome(
                     manifest_digest=manifest.manifest_digest, observations=model_observations
                 )
-                if ticket is not None
+                if ticket is not None and not typed_action_draft
                 else None
             )
             if compiled is not None:
@@ -506,6 +515,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                 self._compiled_answers is not None
                 and self._compiled_answers.typed_only
                 and typed_recent_change_frame is None
+                and not typed_action_draft
             ):
                 return preflight_router.finish(
                     typed_only_outcome(ticket, manifest_digest=manifest_digest)
