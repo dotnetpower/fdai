@@ -20,6 +20,7 @@ from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.forseti_cost_annotation import cost_annotation_from_event
 from fdai.agents._framework.forseti_decision_helpers import copy_change_assessment, source_freshness
+from fdai.agents._framework.forseti_no_rule_fold import NO_RULE_FOLD_PREFIX, sweep_no_rule_folds
 from fdai.agents._framework.forseti_rule_bindings import RISK_VERDICT, RULE_MATCH
 from fdai.agents._framework.forseti_safeguards import execution_safeguards
 from fdai.agents._framework.topics import stable_idempotency_key
@@ -245,7 +246,7 @@ class ForsetiJudgmentMixin:
             )
             if self._forseti_state_store is not None:
                 created = await self._forseti_state_store.write_state_if_absent(
-                    f"pantheon/forseti/no-rule-fold|{fold_key}",
+                    f"{NO_RULE_FOLD_PREFIX}{fold_key}",
                     {
                         "kind": "no_rule_fold",
                         "fold_key": fold_key,
@@ -259,6 +260,7 @@ class ForsetiJudgmentMixin:
                     self._no_rule_folds.set(fold_key, 2)
                     self.record_behavior("no_rule_match:folded")
                     return None
+                await sweep_no_rule_folds(self._forseti_state_store, fold_key)
             folded = (self._no_rule_folds.get(fold_key) or 0) + 1
             self._no_rule_folds.set(fold_key, folded)
             if folded > 1:

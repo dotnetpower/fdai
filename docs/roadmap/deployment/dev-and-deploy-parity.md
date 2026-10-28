@@ -120,7 +120,7 @@ state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning service role, a
 transport uses Redpanda on `127.0.0.1:19092`. Console preparation checks a 2 GiB development
 database bound by default. Exceeding `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES` blocks preparation
 with an actionable message and preserves the existing database and broker. An ordinary start
-or restart never authorizes deletion.
+or restart never authorizes deletion. `dev-status.sh` reports the size, the largest tables, and growth since the last report, warning at 75% of the bound, and `compact-local-database.py` applies the services' newest-N state retention to existing rows (dry run by default; `--vacuum` rewrites `state_kv` through the table-owner role). It never touches evidence tables, the audit log, or the inventory journal.
 
 Only an explicit `prepare-console-state.sh --allow-recreate` request permits discarding that
 disposable local generation after services stop and backup/history requirements are reviewed.
