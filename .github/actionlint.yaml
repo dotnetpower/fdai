@@ -1,5 +1,7 @@
 self-hosted-runner:
   labels:
+    - fdai-ci
+    - fdai-ci-ssd
     - fdai-deploy
     - fdai-deploy-candidate
     - fdai-scenario-lab
