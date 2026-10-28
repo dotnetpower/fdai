@@ -30,16 +30,29 @@ from fdai.delivery.kubernetes_connector_installation import (
     ObserverInstallationInput,
     render_observer_installation,
 )
+from fdai.delivery.kubernetes_connector_lifecycle import retire_observer_stream, verify_observer
 from fdai.delivery.kubernetes_connector_runtime import private_file
 
 APPROVAL_SECONDS = 600
+_FAILED_STATES = frozenset(
+    {"image_pull_failed", "job_failed", "completed_without_delivery", "not_finished"}
+)
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "operation",
-        choices=("apply", "activate", "deactivate", "rollback", "export", "wait-observed"),
+        choices=(
+            "apply",
+            "activate",
+            "verify",
+            "deactivate",
+            "recover",
+            "rollback",
+            "export",
+            "wait-observed",
+        ),
     )
     parser.add_argument("--inputs", type=Path)
     parser.add_argument("--proposal", type=Path)
@@ -51,7 +64,8 @@ def _parser() -> argparse.ArgumentParser:
         help="apply or activate: the exact manifest digest printed by the dry-run",
     )
     parser.add_argument(
-        "--approve-target-ref", help="deactivate or rollback: type the target reference to confirm"
+        "--approve-target-ref",
+        help="deactivate, recover, or rollback: type the target reference to confirm",
     )
     parser.add_argument("--audit-file", type=Path)
     parser.add_argument("--lock-directory", type=Path)
@@ -219,7 +233,7 @@ def run(args: argparse.Namespace, *, now: datetime | None = None) -> dict[str, o
         "audit": _audit_sink(_need(args.audit_file, "audit-file")),
         "now": clock,
     }
-    if args.operation in {"deactivate", "rollback"}:
+    if args.operation in {"deactivate", "recover", "rollback"}:
         inputs = ObserverInstallationInput.model_validate_json(
             private_file(_need(args.inputs, "inputs"))
         )
@@ -228,23 +242,26 @@ def run(args: argparse.Namespace, *, now: datetime | None = None) -> dict[str, o
                 f"{args.operation} requires --approve-target-ref equal to the target reference"
             )
         stop_approval = _approval(args, inputs, None, operation=args.operation, now=now)
-        handler = (
-            deactivate_observer
-            if args.operation == "deactivate"
-            else rollback_observer_installation
+        handlers = {
+            "deactivate": deactivate_observer,
+            "recover": retire_observer_stream,
+            "rollback": rollback_observer_installation,
+        }
+        return handlers[args.operation](
+            inputs, stop_approval, transport=_transport(inputs, args), **common
         )
-        return handler(inputs, stop_approval, transport=_transport(inputs, args), **common)
     inputs, rendered = _render(args, now)
     approved = args.approve_manifest_digest is not None
     if approved and args.approve_manifest_digest != rendered["manifest_digest"]:
         raise ValueError("the approved manifest digest differs from the current rendered manifest")
-    if args.operation == "activate":
+    if args.operation in {"activate", "verify"}:
         if not approved:
-            raise ValueError("activation requires --approve-manifest-digest")
-        return activate_observer(
+            raise ValueError(f"{args.operation} requires --approve-manifest-digest")
+        handler = activate_observer if args.operation == "activate" else verify_observer
+        return handler(
             rendered,
             inputs,
-            _approval(args, inputs, rendered, operation="activate", now=now),
+            _approval(args, inputs, rendered, operation=args.operation, now=now),
             transport=_transport(inputs, args),
             **common,
         )
@@ -263,8 +280,9 @@ def run(args: argparse.Namespace, *, now: datetime | None = None) -> dict[str, o
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
-        print(json.dumps(run(args), indent=2, sort_keys=True))
-        return 0
+        result = run(args)
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 1 if result.get("state") in _FAILED_STATES else 0
     except (KeyboardInterrupt, SystemExit):
         raise
     except ValueError as exc:

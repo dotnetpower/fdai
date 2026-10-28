@@ -87,7 +87,7 @@ class KubeTransport(Protocol):
 class ObserverApplyApproval(ConnectorContract):
     """A short-lived human approval bound to one exact target, plan, and operation."""
 
-    operation: Literal["apply", "activate", "deactivate", "rollback"]
+    operation: Literal["apply", "activate", "verify", "deactivate", "recover", "rollback"]
     approver_ref: Annotated[str, Field(min_length=1, max_length=256, pattern=_TEXT)]
     target_ref: Annotated[str, Field(min_length=1, max_length=512, pattern=_TEXT)]
     cluster_uid: Annotated[str, Field(min_length=1, max_length=128, pattern=r"^[A-Za-z0-9-]+$")]
@@ -105,7 +105,7 @@ class ObserverApplyApproval(ConnectorContract):
         approved, expires = connector_time(self.approved_at), connector_time(self.expires_at)
         if not approved < expires <= approved + timedelta(seconds=MAX_APPROVAL_SECONDS):
             raise ValueError("observer approval must expire within thirty minutes")
-        if self.operation in {"apply", "activate"} and (
+        if self.operation in {"apply", "activate", "verify"} and (
             self.manifest_digest is None or self.proposal_digest is None
         ):
             raise ValueError("observer approval must bind the exact rendered manifest")

@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: d4a9d6b51e75f9f14eea33abc2c01a4ce54971bd
+translation_source_sha: 2fd724e49db880825086d5d4f45a6d20263687e2
 translation_revised: 2026-10-28
 ---
 # AKS 역방향 커넥터
@@ -123,8 +123,11 @@ Kubernetes Secret 투영 파일은 root 소유 심볼릭 링크일 수 있어 �
 TLS 키와 인증서의 연결, 고정 볼륨 경로와 API·게이트웨이 포트를 검증합니다. API 원본은
 클러스터 내부 주소여야 하며 전체 읽기 프로필은 클러스터 범위 객체 전송을 요구합니다.
 리소스 여섯 개를 출력하고 CronJob은 별도로 승인된 활성화 전까지 일시 중지합니다.
-Namespace나 Secret은 생성하지 않습니다. 제한된 NetworkPolicy만으로 실제 외부 통신을
-입증하지는 않으며 다른 정책, DNS, 주소 변환과 설치된 CNI를 독립적으로 확인해야 합니다.
+Namespace나 Secret은 생성하지 않습니다. 제한된 NetworkPolicy는 모든 수신을 막고 송신은 게이트웨이, API 서버,
+DNS로만 허용합니다. 정책 엔진은 서비스 주소 변환 뒤에 송신을 평가하므로 주소 블록은 Pod와 일치하지 않습니다.
+따라서 DNS는 `dns_cidrs` 외에 항상 `kube-system`의 `k8s-app=kube-dns` Pod를 선택하고, 클러스터 안의
+게이트웨이는 주소 대신 `gateway_peer`(네임스페이스와 레이블, `gateway_port`는 Pod 포트)로 지정합니다.
+클러스터 밖 게이트웨이는 계속 `gateway_cidrs`를 사용합니다. 다른 정책과 주소 변환은 독립적으로 확인해야 합니다.
 
 ```bash
 python -m fdai.delivery.kubernetes_connector_installation \
@@ -133,8 +136,8 @@ python -m fdai.delivery.kubernetes_connector_installation \
 ```
 
 입력에는 `target_ref`, `method`, `egress`, `namespace`, `name`, 해시로 고정한 `image`, `material_secret`,
-`material_digest`, `storage_class`, `gateway_port`, `api_port`, 제한된 `gateway_cidrs`,
-`api_cidrs`, `dns_cidrs`를 명시합니다. 개인 파일 권한은 `0600`이며 자료 디렉터리에는
+`material_digest`, `storage_class`, `gateway_port`, `api_port`, 제한된 `gateway_cidrs` 또는
+`gateway_peer`, `api_cidrs`, `dns_cidrs`를 명시합니다. 개인 파일 권한은 `0600`이며 자료 디렉터리에는
 `config.json`, `registrations.json`, `ca.pem`, `client.pem`, `client.key`가 있습니다.
 실행 경로는 `/private/material`, `/api-identity`, `/spool/snapshots`로 고정합니다.
 미리보기는 입력·제안·매니페스트 해시를 연결하며 항상 `installation_ready=false`와
@@ -189,7 +192,8 @@ python -m fdai.delivery.kubernetes_connector_cli serve --config /private/gateway
 제거합니다. 확인 응답이 유실되면 새 수집 전에 원래 바이트와 시각으로 재전송합니다.
 용량 초과나 대기 근거 만료는 조용한 데이터 삭제가 아니라 작업 중단으로 처리합니다.
 수락되지 않은 스트림이 만료됐다면 명시적으로 등록 버전을 바꾸고 새 버퍼 디렉터리를
-사용해야 합니다. 자동 스트림 초기화와 수명 주기 공백 복구는 아직 구현하지 않았습니다.
+사용해야 합니다. 아래 `recover` 작업은 이전 데이터베이스의 이름을 바꾸어 치웁니다. 자동 스트림 초기화와
+수명 주기 공백 복구는 아직 구현하지 않았습니다.
 
 Inventory Job은 `FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH`와
 `FDAI_KUBERNETES_CONNECTOR_PRINCIPAL_REF`로 이 소스를 선택합니다.
@@ -229,6 +233,15 @@ server-side apply로 적용하므로 다른 소유자는 보존됩니다. 네임
 파일에서 메모리로 만들고 명령 출력은 기록하지 않습니다. 읽기 결과는 승인된 계획과 같아야 하며, 모호한
 실패는 재시도하지 않고 알 수 없음 결과로 기록합니다. 2단계 감사 기록, 대상별 소유자 전용 잠금, 안정적인
 멱등성 키가 적용을 보호합니다.
+
+`verify`는 실제 설치가 승인된 계획과 같은지 확인한 뒤 설치된 CronJob을 smoke Job으로 한 번 실행하고
+Job을 지웁니다. observer가 수락 또는 중복 전달을 기록했을 때만 `delivered`로 보고하며, 그렇지 않으면
+`image_pull_failed`(클러스터에 이미지 레지스트리 pull 권한 부여), `job_failed`(observer 오류 유형 포함),
+`completed_without_delivery`, `not_finished`로 구분합니다. 전달은 observer 자신의 보고이며 관측이 아니므로
+독립 확인은 계속 `wait-observed`가 맡습니다. `recover`는 observer를 중지하고 Job을 지운 뒤 짧은 Pod로 스풀
+데이터베이스 이름을 `*.retired-<시각>`으로 바꾸어, 게이트웨이 초기화나 등록 버전 변경 뒤에도 증거를 지우지
+않고 새 스트림을 시작하게 합니다. 먼저 게이트웨이에서 등록과 스트림을 바꾼 다음 `recover`, 일치하는 자료로
+`apply`, `activate`, `verify` 순서로 실행합니다.
 
 적용 후 CronJob은 중지된 상태로 남습니다. `activate`는 실제 설치가 승인된 계획과 같을 때만 재개합니다.
 `activate`와 `deactivate`는 별도 field manager로 `spec.suspend`만 바꾸고 그 한 필드만 강제하므로, 중지가
