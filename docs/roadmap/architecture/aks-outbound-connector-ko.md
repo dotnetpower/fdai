@@ -1,8 +1,8 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 6176455c5e77dd16831fc0120918456e1a23f1cf
-translation_revised: 2026-10-15
+translation_source_sha: 51b1e68dc9c1ce2216b11f71c1e1d0e10d197054
+translation_revised: 2026-10-28
 ---
 # AKS 역방향 커넥터
 
@@ -197,9 +197,42 @@ Inventory Job은 `FDAI_KUBERNETES_CONNECTOR_REGISTRATION_PATH`와
 순번을 감사와 원자적으로 저장하지만 수신 확인 자체는 그래프 반영을 입증하지 않습니다.
 
 이 경로는 민감한 내용을 제외한 완전한 스냅샷만 전송합니다. Event 이력, 영속 읽기 작업 전달,
-Executor 작업, 네트워크 분리, 승인된 설치, 보호된 실환경 검증은 별도 구현 항목입니다.
+Executor 작업, 네트워크 분리, 보호된 실환경 검증은 별도 구현 항목입니다.
 스케줄러가 제한된 관측 작업을 호출할 수 있지만 시작 프로그램에서 자동으로 활성화하지는
 않습니다. 로컬 TLS와 PostgreSQL 테스트는 합성 근거로 동작만 검증합니다.
+
+## 승인된 설치
+
+미리보기 렌더러는 클러스터를 변경하지 않습니다. 별도 명령이 같은 고정 recipe를 적용합니다.
+
+```bash
+python -m fdai.delivery.kubernetes_connector_apply_cli apply --inputs ... --proposal ... \
+  --material-directory ... --cluster-uid <kube-system UID> --kubeconfig ... \
+  --lock-directory ... --audit-file ... --approver <human>
+```
+
+`--approve-manifest-digest` 없이 실행하면 클러스터 신원 확인과 서버 측 dry-run만 수행하고, 승인할
+정확한 manifest digest를 출력합니다. 그 digest를 넣어 다시 실행하면 설치합니다. 적용, `activate`,
+`rollback`은 각각 대상, 네임스페이스, 이름, 입력, 제안, manifest digest에 묶인 짧은 승인(최대 30분)이
+필요합니다. 전송 방식은 제안에 고정된 방법을 따르며 대체하지 않습니다. `existing_host`와
+`managed_host`는 kubeconfig로 `kubectl`을 실행하고, `run_command`는 `az aks command invoke`를
+사용합니다(Azure RBAC만 필요하고 네트워크 경로는 필요 없습니다. Azure Policy가 command invoke를
+막을 수 있습니다). `gitops`는 `export`로 자격 증명 없는 검토용 문서를 만듭니다.
+
+효과가 생기기 전에 명령은 문서가 observer 전용 recipe(읽기 전용 `list`/`get` 동사, Secret 읽기 없음,
+비특권, 호스트 네임스페이스 없음, 고정 이미지, 중지된 CronJob)와 같은지, `kube-system` UID가 맞는지,
+네임스페이스를 이 설치 도구가 소유하는지 다시 확인합니다. 그다음 고정 field manager와 강제 충돌 없이
+server-side apply로 적용하므로 다른 소유자는 보존됩니다. 네임스페이스가 없으면 restricted Pod Security
+수준으로 먼저 만들고, 나머지는 dry-run을 거친 뒤 적용합니다. 자격 증명 Secret은 digest를 확인한 비공개
+파일에서 메모리로 만들고 명령 출력은 기록하지 않습니다. 읽기 결과는 승인된 계획과 같아야 하며, 모호한
+실패는 재시도하지 않고 알 수 없음 결과로 기록합니다. 2단계 감사 기록, 대상별 소유자 전용 잠금, 안정적인
+멱등성 키가 적용을 보호합니다.
+
+적용 후 CronJob은 중지된 상태로 남습니다. `activate`는 실제 설치가 승인된 계획과 같을 때만 재개합니다.
+이어서 `wait-observed`가 기존 인증된 스냅샷 수신함을 읽으며, 게이트웨이가 새 스냅샷을 승인한 뒤에만
+운영 성공으로 판단합니다. `rollback`은 이 observer의 레이블이 붙은 리소스만 역순으로 삭제하고
+네임스페이스는 유지합니다. 로컬 잠금은 한 호스트 안에서만 직렬화하며, 다른 호스트의 동시 작업은
+server-side 충돌에 의존합니다.
 
 ## 승인된 운영 작업
 
