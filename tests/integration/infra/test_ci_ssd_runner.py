@@ -64,6 +64,21 @@ def test_vm_has_no_deployment_identity_or_network_access() -> None:
     assert 'backend "local" {}' in (INFRA / "versions.tf").read_text()
 
 
+def test_scanner_exception_keeps_the_subnet_nsg_and_vm_dependency() -> None:
+    source = (INFRA / "main.tf").read_text()
+    binding = source.split('resource "azurerm_subnet_network_security_group_association" "ci" {')[1]
+    binding = binding.split("}", 1)[0]
+    assert "subnet_id                 = azurerm_subnet.ci.id" in binding
+    assert "network_security_group_id = azurerm_network_security_group.ci.id" in binding
+    nic = source.split('resource "azurerm_network_interface" "ci" {')[1].split(
+        'resource "azurerm_linux_virtual_machine"', 1
+    )[0]
+    assert "subnet_id                     = azurerm_subnet.ci.id" in nic
+    vm = source.split('resource "azurerm_linux_virtual_machine" "ci" {')[1]
+    assert "azurerm_subnet_network_security_group_association.ci," in vm
+    assert '#trivy:ignore:AZU-0068\nresource "azurerm_network_interface" "ci"' in source
+
+
 def test_bootstrap_uses_checked_archive_and_refuses_missing_scratch_mount() -> None:
     document = yaml.safe_load((INFRA / "cloud-init.yaml.tftpl").read_text())
     scripts = {entry["path"]: entry["content"] for entry in document["write_files"]}

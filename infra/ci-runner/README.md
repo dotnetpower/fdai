@@ -22,6 +22,9 @@ than planning a replacement address to remove them.
 The Azure VM agent remains enabled for protected Run Command enrollment and readiness checks.
 This management requirement has one documented `CKV_AZURE_50` exception; Terraform does not
 provision deployment extensions. Azure control-plane access remains operator-authenticated.
+The NIC has one scoped `AZU-0068` scanner exception because Trivy does not recognize this
+root's subnet-level NSG association. The subnet NSG and VM creation dependency remain enforced
+and covered by a regression test; no inbound rule is opened for the scanner.
 
 The OS disk uses 256 GiB Premium SSD. `/mnt` is the VM's local temporary SSD: it holds the
 job workspace, package cache, and tool cache. These contents can disappear after host movement

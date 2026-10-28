@@ -96,6 +96,9 @@ resource "azurerm_subnet_nat_gateway_association" "ci" {
   nat_gateway_id = azurerm_nat_gateway.ci.id
 }
 
+# The subnet NSG association above protects this NIC, and VM creation depends on it.
+# Trivy AZU-0068 only recognizes a direct NIC association for this standalone root.
+#trivy:ignore:AZU-0068
 resource "azurerm_network_interface" "ci" {
   name                = "nic-${var.name}"
   resource_group_name = azurerm_resource_group.ci.name
