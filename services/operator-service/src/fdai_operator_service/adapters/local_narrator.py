@@ -16,11 +16,18 @@ from typing import Any, Protocol, cast
 from urllib.parse import quote
 
 import httpx
+from fdai_service_contracts.dialogue_state import DialogueState, DialogueTurn
 
 from fdai_operator_service.adapters.azure_cli_token import (
     AZURE_CLI_TOKEN_TIMEOUT_SECONDS,
     AZURE_OPENAI_AUDIENCE,
     azure_cli_token,
+)
+from fdai_operator_service.adapters.narrator_dialogue_proposer import NarratorDialogueProposer
+from fdai_operator_service.adapters.narrator_dialogue_shadow import (
+    DialogueSnapshotWriter,
+    DialogueStateRetention,
+    dialogue_shadow_receipt,
 )
 from fdai_operator_service.adapters.narrator_events import NarratorEventIterator
 from fdai_operator_service.adapters.narrator_latency import (
@@ -93,8 +100,11 @@ class LocalAzureNarratorAdapters:
     timeout_seconds: float = 90.0
     vision_targets: tuple[NarratorTarget, ...] = ()
     clock: MonotonicClock = monotonic
+    dialogue_snapshots: DialogueSnapshotWriter | None = None
+    dialogue_t1: bool = False
     _owns_http_client: bool = field(default=False, repr=False)
     _pool: NarratorLatencyPool = field(init=False, repr=False)
+    _retention: DialogueStateRetention = field(init=False, repr=False)
     _refresh_task: asyncio.Task[None] | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -103,6 +113,10 @@ class LocalAzureNarratorAdapters:
         self._pool = NarratorLatencyPool(
             text_targets=self.targets,
             vision_targets=self.vision_targets,
+        )
+        self._retention = DialogueStateRetention(
+            self.dialogue_snapshots,
+            NarratorDialogueProposer(self.complete_text) if self.dialogue_t1 else None,
         )
 
     @classmethod
@@ -114,6 +128,8 @@ class LocalAzureNarratorAdapters:
         fallback_streams: ConversationStreamReader,
         token_provider: TokenProvider | None = None,
         http_client: AsyncHttpClient | None = None,
+        dialogue_snapshots: DialogueSnapshotWriter | None = None,
+        dialogue_t1: bool = False,
     ) -> LocalAzureNarratorAdapters:
         """Build a local narrator from the prepared resolved-model artifact."""
         path_value = values.get("LLM_RESOLVED_MODELS_PATH", "").strip()
@@ -148,6 +164,8 @@ class LocalAzureNarratorAdapters:
             fallback_streams=fallback_streams,
             token_provider=token_provider,
             http_client=http_client,
+            dialogue_snapshots=dialogue_snapshots,
+            dialogue_t1=dialogue_t1,
         )
 
     @classmethod
@@ -159,6 +177,8 @@ class LocalAzureNarratorAdapters:
         fallback_streams: ConversationStreamReader,
         token_provider: TokenProvider | None = None,
         http_client: AsyncHttpClient | None = None,
+        dialogue_snapshots: DialogueSnapshotWriter | None = None,
+        dialogue_t1: bool = False,
     ) -> LocalAzureNarratorAdapters:
         """Build a narrator from one startup-owned immutable revision."""
         if len(content.encode("utf-8")) > _MAX_ARTIFACT_BYTES:
@@ -178,6 +198,8 @@ class LocalAzureNarratorAdapters:
             token_provider=token_provider or azure_cli_token,
             http_client=resolved_http_client,
             vision_targets=resolved_vision_targets,
+            dialogue_snapshots=dialogue_snapshots,
+            dialogue_t1=dialogue_t1,
             _owns_http_client=owned_http_client,
         )
 
@@ -218,6 +240,7 @@ class LocalAzureNarratorAdapters:
     async def aclose(self) -> None:
         """Cancel the probe task and close a composition-owned HTTP client."""
 
+        await self._retention.aclose()
         task = self._refresh_task
         self._refresh_task = None
         if task is not None and not task.done():
@@ -243,7 +266,18 @@ class LocalAzureNarratorAdapters:
                 "invalid_prompt",
                 "prompt MUST be non-empty and bounded",
             )
-        answer, model, usage, context_receipt = await self._answer(prompt.strip(), request.body)
+        answer, model, usage, context_receipt, dialogue_state, dialogue_turns = await self._answer(
+            prompt.strip(), request.body
+        )
+        t1_scheduled = await self._retention.retain(
+            principal_id=request.scope.subject_id,
+            conversation_id=request.body.get("conversation_id"),
+            state=dialogue_state,
+            turns=dialogue_turns,
+        )
+        shadow = context_receipt.get("dialogue_state_shadow")
+        if isinstance(shadow, dict):
+            shadow["t1_scheduled"] = t1_scheduled
         verification: JsonObject = {
             "status": "unverified",
             "authority": "model-knowledge",
@@ -275,7 +309,9 @@ class LocalAzureNarratorAdapters:
 
     async def _answer(
         self, prompt: str, body: Mapping[str, Any]
-    ) -> tuple[str, str, dict[str, int] | None, JsonObject]:
+    ) -> tuple[
+        str, str, dict[str, int] | None, JsonObject, DialogueState, tuple[DialogueTurn, ...]
+    ]:
         vision = has_images(body)
         if vision:
             raise ConversationBoundaryError(
@@ -324,8 +360,13 @@ class LocalAzureNarratorAdapters:
                                     "omitted_history_items": plan.receipt.omitted_history_items,
                                     "shortened_history_items": plan.receipt.shortened_history_items,
                                     "context_shortened": plan.receipt.context_shortened,
+                                    "dialogue_state_shadow": dialogue_shadow_receipt(
+                                        plan.dialogue_state
+                                    ),
                                 },
                             ),
+                            plan.dialogue_state,
+                            plan.dialogue_turns,
                         )
                     self._record_failure(target=target, vision=vision, elapsed_ms=latency_ms)
                     failures.append(status)
@@ -352,6 +393,18 @@ class LocalAzureNarratorAdapters:
             "narrator_unavailable",
             "configured narrator candidates are unavailable",
         )
+
+    async def complete_text(self, messages: list[dict[str, Any]]) -> str | None:
+        """Run one bounded completion on the best-ranked target; ``None`` when it fails."""
+
+        targets = self._pool.ranked(vision=False)
+        if not targets:
+            return None
+        async with asyncio.timeout(self.timeout_seconds):
+            _status, answer, _ttft, _latency, _usage = await self._stream_answer(
+                target=targets[0], token=await self._token(), messages=messages
+            )
+        return answer
 
     async def _token(self) -> str:
         try:
@@ -520,6 +573,8 @@ class StartupOwnedLocalAzureNarratorAdapters:
     fallback_streams: ConversationStreamReader
     token_provider: TokenProvider | None = None
     http_client: AsyncHttpClient | None = None
+    dialogue_snapshots: DialogueSnapshotWriter | None = None
+    dialogue_t1: bool = False
     _inner: LocalAzureNarratorAdapters | None = field(default=None, init=False, repr=False)
 
     async def start(self) -> None:
@@ -554,6 +609,8 @@ class StartupOwnedLocalAzureNarratorAdapters:
             fallback_streams=self.fallback_streams,
             token_provider=self.token_provider,
             http_client=self.http_client,
+            dialogue_snapshots=self.dialogue_snapshots,
+            dialogue_t1=self.dialogue_t1,
         )
         return self._inner
 

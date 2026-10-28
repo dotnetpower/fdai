@@ -229,6 +229,32 @@ def test_phase_timer_freezes_even_when_finish_time_is_zero() -> None:
         assert display._phases["azure"].ended == 0.0
 
 
+def test_timing_receipt_records_completed_and_active_phase_durations() -> None:
+    clock = [10.0]
+    display, _output = _display(clock=lambda: clock[0])
+    with display:
+        begin_stage("azure")
+        clock[0] = 12.5
+        begin_stage("discovery")
+        clock[0] = 15.0
+
+    receipt = display.timing_receipt(
+        lane="source-install",
+        outcome="review",
+        recorded_at="2026-10-23T03:00:00Z",
+    )
+
+    assert receipt["total_elapsed_ms"] == 5000
+    assert receipt["timing_evidence_only"] is True
+    assert receipt["apply_authorized"] is False
+    assert receipt["deployment_ready"] is False
+    assert receipt["phases"] == [
+        {"name": "azure", "state": "done", "elapsed_ms": 2500},
+        {"name": "discovery", "state": "incomplete", "elapsed_ms": 2500},
+    ]
+    assert isinstance(receipt["receipt_digest"], str)
+
+
 def test_download_instrumentation_preserves_bytes_and_size_guard(tmp_path, monkeypatch) -> None:
     observed = []
     monkeypatch.setattr(deployment_kit, "downloaded_bytes", observed.append)
@@ -257,7 +283,16 @@ def test_cli_marks_failed_acquisition_without_running_azure(tmp_path, monkeypatc
 
     monkeypatch.setattr(standalone_deploy, "acquire_deployment_kit", fail_acquisition)
     result = cli.main(
-        ["provision", "azure", "--online", "--progress", "plain", "--work-dir", str(tmp_path)]
+        [
+            "provision",
+            "azure",
+            "--offline-kit",
+            "kit.tar.gz",
+            "--progress",
+            "plain",
+            "--work-dir",
+            str(tmp_path),
+        ]
     )
     captured = capsys.readouterr()
     assert result == 3
@@ -274,7 +309,16 @@ def test_cli_interrupt_and_failure_never_print_a_ready_result(error, monkeypatch
         raise error
 
     monkeypatch.setattr(cli, "deploy_azure_foundation", stop)
-    result = cli.main(["provision", "azure", "--online", "--progress", "plain"])
+    result = cli.main(
+        [
+            "provision",
+            "azure",
+            "--offline-kit",
+            "kit.tar.gz",
+            "--progress",
+            "plain",
+        ]
+    )
     captured = capsys.readouterr()
     assert result == (130 if isinstance(error, KeyboardInterrupt) else 3)
     assert "Application deployment" in captured.err
@@ -287,7 +331,19 @@ def test_cli_requires_verified_readiness_for_success(ready, monkeypatch, capsys)
     monkeypatch.setattr(
         cli, "deploy_azure_foundation", lambda **_kwargs: {"deployment_ready": ready}
     )
-    assert cli.main(["provision", "azure", "--online", "--output", "json"]) == 3
+    assert (
+        cli.main(
+            [
+                "provision",
+                "azure",
+                "--offline-kit",
+                "kit.tar.gz",
+                "--output",
+                "json",
+            ]
+        )
+        == 3
+    )
     assert capsys.readouterr().out == ""
 
 
@@ -447,7 +503,8 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
         [
             "provision",
             "azure",
-            "--online",
+            "--offline-kit",
+            "kit.tar.gz",
             "--output",
             "json",
             "--work-dir",

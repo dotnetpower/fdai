@@ -22,7 +22,11 @@ from fdai_service_contracts.ontology_query import (
     project_intent_graph,
 )
 
-from fdai.core.conversation.result_handle_store import ResultHandleBinding, ResultHandleStore
+from fdai.core.conversation.result_handle_store import (
+    ResultHandleBinding,
+    ResultHandleStore,
+    result_handle_conversation_id,
+)
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.shared.contracts.models import CeilingRole
@@ -74,7 +78,7 @@ class CompiledAnswerSettings:
     """Bounds for one turn's form path; the defaults match the live evaluation harness."""
 
     default_lookback_seconds: int = 86_400
-    deadline_seconds: float = 45.0
+    deadline_seconds: float = 75.0
     budget: ShadowBudget = field(default_factory=ShadowBudget)
     # Typed-only answering: a read answers only from the form path, never the legacy cascade.
     typed_only: bool = False
@@ -338,8 +342,10 @@ class CompiledAnswerPath:
         clock: Callable[[], datetime],
         settings: CompiledAnswerSettings | None = None,
         ambiguity_reader: AmbiguityReader | None = None,
+        escalation_model: QuestionFormModel | None = None,
     ) -> None:
         self._model = model
+        self._escalation_model = escalation_model
         self._ambiguity_reader = ambiguity_reader
         self._owner_loop = owner_loop
         self._gateway = gateway
@@ -398,7 +404,7 @@ class CompiledAnswerPath:
             binding = ResultHandleBinding(
                 deployment_scope_digest=manifest.release_digest,
                 principal_digest=manifest.manifest_digest,
-                conversation_id=stored_context.session_id,
+                conversation_id=result_handle_conversation_id(stored_context.session_id),
                 purpose=purpose,
                 manifest_digest=manifest.manifest_digest,
                 now=self._clock(),
@@ -422,6 +428,7 @@ class CompiledAnswerPath:
             _run_form_path(
                 self._model,
                 collector,
+                escalation_model=self._escalation_model,
                 utterance=utterance,
                 context=context,
                 locale=locale,
@@ -437,6 +444,7 @@ class CompiledAnswerPath:
             self._owner_loop,
         )
         reader = self._ambiguity_reader
+        earlier_results = bool(stored_context is not None and stored_context.references)
 
         def ambiguity() -> concurrent.futures.Future[Mapping[str, Any] | None]:
             async def ask() -> Mapping[str, Any] | None:
@@ -444,7 +452,10 @@ class CompiledAnswerPath:
                     return None
                 async with bind_adaptive_model_budget(collector):
                     return await reader.check_ambiguity(
-                        utterance=utterance, context=context, locale=locale
+                        utterance=utterance,
+                        context=context,
+                        locale=locale,
+                        **({"earlier_results": True} if earlier_results else {}),
                     )
 
             return asyncio.run_coroutine_threadsafe(ask(), self._owner_loop)
@@ -519,8 +530,11 @@ def settled_clarification(
     manifest_digest: str,
     observations: MutableSequence[Any],
 ) -> SemanticPlanningOutcome:
-    """Keep the judgment's clarification unless a third reader finds one plausible reading."""
+    """Keep a clarification, the judgment's or a deterministic check's, unless a third reader
+    finds one plausible reading. Any other outcome passes through."""
 
+    if clarified.disposition is not SemanticPlanningDisposition.CLARIFICATION:
+        return clarified
     settled = (
         ticket.outcome_over_clarification(
             manifest_digest=manifest_digest, observations=observations
@@ -557,35 +571,52 @@ def typed_only_outcome(
     return _outcome(disposition, reason, manifest_digest=manifest_digest, hold_details=details)
 
 
+_MAX_REPLACEMENT_SAMPLES = 2
+
+
 async def _run_form_path(
     model: QuestionFormModel,
     collector: _ObservationCollector,
+    *,
+    escalation_model: QuestionFormModel | None = None,
     **arguments: Any,
 ) -> ReasoningShadowObservation:
-    """Read the question once, and once more only when the first reading failed as a form.
+    """Read the question once, and again only while the latest reading failed as a form.
 
-    A second sample passes the same admission, grounding, blind review, and selection
+    A later sample passes the same admission, grounding, blind review, and selection
     rules, so it never lowers the bar; it only replaces a reading whose form was invalid,
-    unreviewed, or mislabeled one mention's kind. At most two samples are taken.
+    unreviewed, or mislabeled one mention's kind. At most three samples are taken. When an
+    escalation reader is configured, only the replacement samples use it, so the stronger
+    tier is spent on a reading the first reader could not form and never on an ordinary turn.
     """
 
     async with bind_adaptive_model_budget(collector):
         first = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
         if not resample_worthy(first):
             return first
-        second = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
-    if isinstance(single_compiled_batch(second), str):
-        return replace(
-            first,
-            notes=(*first.notes, "form_resampled_unanswered"),
-            discarded_sample=second,
-        )
+        latest = first
+        total_calls, total_ms = first.model_calls, first.elapsed_ms
+        for _attempt in range(_MAX_REPLACEMENT_SAMPLES):
+            sample = await run_reasoning_shadow(
+                model=escalation_model or model, retain_compilations=True, **arguments
+            )
+            total_calls += sample.model_calls
+            total_ms += sample.elapsed_ms
+            escalated = ("form_escalated",) if escalation_model is not None else ()
+            if not isinstance(single_compiled_batch(sample), str):
+                return replace(
+                    sample,
+                    model_calls=total_calls,
+                    elapsed_ms=total_ms,
+                    notes=(*sample.notes, *escalated, "form_resampled"),
+                    discarded_sample=latest,
+                )
+            if not resample_worthy(sample):
+                break
     return replace(
-        second,
-        model_calls=first.model_calls + second.model_calls,
-        elapsed_ms=first.elapsed_ms + second.elapsed_ms,
-        notes=(*second.notes, "form_resampled"),
-        discarded_sample=first,
+        first,
+        notes=(*first.notes, *escalated, "form_resampled_unanswered"),
+        discarded_sample=sample,
     )
 
 

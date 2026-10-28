@@ -1,4 +1,11 @@
-mock_provider "azurerm" {}
+mock_provider "azurerm" {
+  mock_resource "azurerm_api_management" {
+    defaults = {
+      id          = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-dev-wus2/providers/Microsoft.ApiManagement/service/apim-example-dev-wus2-a1b2c3"
+      gateway_url = "https://gateway.example.com"
+    }
+  }
+}
 mock_provider "kubernetes" {
   mock_resource "kubernetes_service_v1" {
     defaults = {
@@ -42,7 +49,10 @@ variables {
       external             = true
       readiness_path       = "/healthz"
       liveness_path        = "/healthz"
-      environment          = {}
+      environment = {
+        FDAI_API_AUDIENCE                    = "00000000-0000-0000-0000-000000000003"
+        FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS = "https://console.example.com"
+      }
     }
     document-ingestion-api = {
       component            = "ingestion"
@@ -60,47 +70,30 @@ variables {
       external             = true
       readiness_path       = "/healthz"
       liveness_path        = "/healthz"
-      environment          = {}
+      environment = {
+        FDAI_INGESTION_CORS_ALLOW_ORIGINS = "https://console.example.com"
+      }
     }
   }
 }
 
 run "browser_gateway_contract" {
-  command = plan
+  command = apply
 
   assert {
     condition = (
-      azurerm_api_management.browser_gateway[0].sku_name == "Consumption_0" &&
-      azurerm_api_management.browser_gateway[0].public_network_access_enabled
+      module.browser_gateway.api_management_name == "apim-example-dev-wus2-a1b2c3" &&
+      output.browser_gateway_operator_url == "https://gateway.example.com" &&
+      output.browser_gateway_ingestion_url == "https://gateway.example.com/ingestion"
     )
-    error_message = "The browser gateway must expose one HTTPS Consumption endpoint."
+    error_message = "The AKS workload root must reuse the browser-gateway module and expose both HTTPS routes."
   }
 
   assert {
     condition = (
-      azurerm_api_management_api.browser_gateway["operator"].path == "" &&
-      azurerm_api_management_api.browser_gateway["ingestion"].path == "ingestion" &&
-      !azurerm_api_management_api.browser_gateway["operator"].subscription_required &&
-      !azurerm_api_management_api.browser_gateway["ingestion"].subscription_required
+      module.browser_gateway.backend_nsg_id == "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-example-dev-wus2/providers/Microsoft.Network/networkSecurityGroups/nsg-example"
     )
-    error_message = "Operator must route at the gateway root while ingestion keeps a dedicated path."
-  }
-
-  assert {
-    condition = (
-      length(azurerm_api_management_api_operation.browser_gateway) == 14 &&
-      toset([for operation in azurerm_api_management_api_operation.browser_gateway : operation.method]) == toset(["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"])
-    )
-    error_message = "Each browser API must declare every supported HTTP method explicitly."
-  }
-
-  assert {
-    condition = (
-      azurerm_network_security_rule.browser_gateway[0].source_address_prefix == "Internet" &&
-      azurerm_network_security_rule.browser_gateway[0].destination_port_range == "80" &&
-      azurerm_network_security_rule.browser_gateway[0].network_security_group_name == "nsg-example"
-    )
-    error_message = "A policy-attached subnet NSG must allow only the public API frontend port."
+    error_message = "The AKS subnet NSG must allow port 80 only from the AzureCloud service tag."
   }
 
   assert {
@@ -110,6 +103,27 @@ run "browser_gateway_contract" {
     ])
     error_message = "Only public Services must wait for their LoadBalancer address."
   }
+}
+
+run "browser_gateway_requires_backend_nsg_when_enabled" {
+  command = plan
+
+  variables {
+    browser_gateway = {
+      enabled              = true
+      resource_group_name  = "rg-example-dev-wus2"
+      location             = "westus2"
+      workload             = "example"
+      environment          = "dev"
+      region_short         = "wus2"
+      resource_name_suffix = "a1b2c3"
+      backend_nsg_id       = ""
+    }
+  }
+
+  expect_failures = [
+    var.browser_gateway,
+  ]
 }
 
 run "browser_gateway_tags_are_azure_safe" {
@@ -123,11 +137,11 @@ run "browser_gateway_tags_are_azure_safe" {
 
   assert {
     condition = (
-      azurerm_api_management.browser_gateway[0].tags == tomap({
+      module.browser_gateway.tags == tomap({
         "fdai:source-commit" = "0000000000000000000000000000000000000000"
       }) &&
       alltrue([
-        for key in keys(azurerm_api_management.browser_gateway[0].tags) :
+        for key in keys(module.browser_gateway.tags) :
         length(regexall("[<>%&\\\\?/]", key)) == 0
       ])
     )

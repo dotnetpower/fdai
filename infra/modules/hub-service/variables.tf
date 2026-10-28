@@ -19,6 +19,15 @@ variable "prefix" {
     error_message = "Use 4-11 lowercase letters/digits beginning with a letter."
   }
 }
+variable "resource_group_name" {
+  type        = string
+  default     = null
+  description = "Optional explicit resource group name; null uses rg-<prefix>-<kind>."
+  validation {
+    condition     = var.resource_group_name == null ? true : can(regex("^[A-Za-z0-9._()-]{1,90}$", var.resource_group_name))
+    error_message = "Use a valid Azure resource group name, or null for rg-<prefix>-<kind>."
+  }
+}
 variable "tenant_id" {
   type        = string
   description = "Azure PostgreSQL and Key Vault service identity tenant, not browser login."
@@ -75,6 +84,42 @@ variable "ingress_cidrs" {
     error_message = "Provide explicitly approved bounded ingress CIDRs."
   }
 }
+variable "custom_domain" {
+  type = object({
+    hostname                 = string
+    certificate_binding_type = optional(string)
+    certificate_id           = optional(string)
+    # Redirect GET and HEAD from the default Container App hostname to the custom hostname.
+    # Needs a Hub image that reads `redirect_hosts`; leave unset for older images.
+    redirect_default_hostname = optional(bool, false)
+    dns_zone = optional(object({
+      name                = string
+      resource_group_name = string
+      ttl                 = optional(number, 300)
+    }))
+  })
+  default     = null
+  description = "Optional custom HTTPS hostname, DNS records and certificate binding for the Hub Container App."
+  validation {
+    condition = var.custom_domain == null ? true : (
+      length(var.custom_domain.hostname) <= 253 &&
+      can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$", var.custom_domain.hostname)) &&
+      !endswith(var.custom_domain.hostname, ".azurecontainerapps.io") &&
+      (var.custom_domain.certificate_binding_type == null || contains(["Disabled", "SniEnabled"], var.custom_domain.certificate_binding_type)) &&
+      (var.custom_domain.certificate_id == null || trimspace(var.custom_domain.certificate_id) != "") &&
+      (var.custom_domain.certificate_binding_type != "Disabled" || var.custom_domain.certificate_id == null) &&
+      (var.custom_domain.dns_zone == null ? true : (
+        can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$", var.custom_domain.dns_zone.name)) &&
+        trimspace(var.custom_domain.dns_zone.resource_group_name) != "" &&
+        var.custom_domain.dns_zone.ttl >= 60 &&
+        var.custom_domain.dns_zone.ttl <= 86400 &&
+        endswith(var.custom_domain.hostname, ".${var.custom_domain.dns_zone.name}") &&
+        can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", trimsuffix(var.custom_domain.hostname, ".${var.custom_domain.dns_zone.name}")))
+      ))
+    )
+    error_message = "Use a lowercase subdomain hostname (not .azurecontainerapps.io); when dns_zone is set, hostname must be a direct single-label subdomain of dns_zone.name."
+  }
+}
 variable "replicas" {
   type = object({ min = number, max = number })
   validation {
@@ -93,11 +138,25 @@ variable "operator_auth" {
     service_object_id = optional(string)
     service_client_id = optional(string)
     service_role      = optional(string, "Catalog.Read")
+    # Release Hub only: serve the signed, content-free catalog export without a bearer token.
+    public_catalog_export = optional(bool, false)
     agent_principals = optional(list(object({
       installation_id = string
       object_id       = string
       client_id       = string
     })), [])
+    development_recovery = optional(object({
+      profile                                   = string
+      installation_id                           = string
+      scope                                     = string
+      operator_id                               = string
+      previous_identity_key_id                  = string
+      replacement_identity_public_key           = string
+      authorized_at                             = string
+      authorization_expires_at                  = string
+      allow_single_owner_configuration_approval = bool
+      reason                                    = string
+    }))
   })
   default = null
   validation {
@@ -106,22 +165,194 @@ variable "operator_auth" {
       length(var.operator_auth.operator_ids) > 0 &&
       var.operator_auth.audience != "" && var.operator_auth.spa_client_id != "" &&
       (var.kind == "release" || var.operator_auth.service_object_id == null) &&
-      (var.kind == "target" || length(var.operator_auth.agent_principals) == 0)
+      (var.kind == "target" || length(var.operator_auth.agent_principals) == 0) &&
+      (var.kind == "target" || var.operator_auth.development_recovery == null)
     )
     error_message = "Supply complete verified operator bindings; Lifecycle Hub cannot admit a vendor service identity and Release Hub cannot admit Agents."
+  }
+  validation {
+    condition     = var.operator_auth == null ? true : (var.kind == "release" || !var.operator_auth.public_catalog_export)
+    error_message = "Only the Release Hub can serve the signed catalog export without a bearer token."
+  }
+  validation {
+    condition = var.operator_auth == null ? true : (
+      var.operator_auth.development_recovery == null ? true : (
+        var.operator_auth.development_recovery.profile == "full-authority-development" &&
+        contains(var.operator_auth.operator_ids, var.operator_auth.development_recovery.operator_id) &&
+        can(regex("^installation-[0-9a-f]{16}$", var.operator_auth.development_recovery.previous_identity_key_id)) &&
+        can(regex("^[0-9a-f]{64}$", var.operator_auth.development_recovery.replacement_identity_public_key)) &&
+        var.operator_auth.development_recovery.allow_single_owner_configuration_approval &&
+        length(trimspace(var.operator_auth.development_recovery.reason)) >= 3
+      )
+    )
+    error_message = "Development recovery must fix the full-authority profile, exact operator, key identities, single-Owner selection and attributed reason."
+  }
+}
+variable "timestamp_renewal_check_seconds" {
+  type        = number
+  default     = 0
+  description = "Release Hub only: interval for automatic freshness renewal of already published content. 0 disables it."
+  validation {
+    condition = var.timestamp_renewal_check_seconds == floor(var.timestamp_renewal_check_seconds) && (
+      var.timestamp_renewal_check_seconds == 0 ||
+      (var.timestamp_renewal_check_seconds >= 60 && var.timestamp_renewal_check_seconds <= 3600)
+    )
+    error_message = "Use 0 to disable renewal, or a whole number of seconds from 60 through 3600."
+  }
+  validation {
+    condition     = var.timestamp_renewal_check_seconds == 0 || var.kind == "release"
+    error_message = "Only the Release Hub renews the freshness of published content."
   }
 }
 variable "catalog" {
   type = object({
     url                        = string
-    token_scope                = string
-    managed_identity_client_id = string
-    release_public_key         = string
+    access                     = optional(string)
+    token_scope                = optional(string)
+    managed_identity_client_id = optional(string)
+    release_public_key         = optional(string)
+    # Signed TUF roles replace the single release key: the initial root's offline key ids and threshold.
+    trust = optional(object({
+      mode           = string
+      root_key_ids   = list(string)
+      root_threshold = number
+    }))
+    check_interval_seconds = optional(number)
+    adoption = optional(object({
+      mode                     = optional(string)
+      allowed_channels         = optional(list(string))
+      max_new_releases         = optional(number)
+      authorized_by            = optional(string)
+      authorization_expires_at = optional(string)
+    }))
   })
-  default = null
+  default     = null
+  description = "Lifecycle Hub pull-only catalog source. Name exactly one trust: release_public_key (development) or trust (signed roles). Unset optional attributes are omitted from the Hub configuration."
   validation {
     condition     = var.catalog == null || var.kind == "target"
     error_message = "Only Lifecycle Hub can optionally consume an explicitly approved catalog."
+  }
+  validation {
+    condition = var.catalog == null ? true : (
+      (try(var.catalog.release_public_key, null) == null) != (try(var.catalog.trust, null) == null)
+    )
+    error_message = "Name exactly one catalog trust: release_public_key or trust."
+  }
+  validation {
+    condition = try(var.catalog.trust, null) == null ? true : (
+      var.catalog.trust.mode == "tuf" &&
+      length(var.catalog.trust.root_key_ids) >= 1 &&
+      length(var.catalog.trust.root_key_ids) <= 16 &&
+      alltrue([for id in var.catalog.trust.root_key_ids : can(regex("^ed25519-[0-9a-f]{64}$", id))]) &&
+      length(toset(var.catalog.trust.root_key_ids)) == length(var.catalog.trust.root_key_ids) &&
+      var.catalog.trust.root_threshold == floor(var.catalog.trust.root_threshold) &&
+      var.catalog.trust.root_threshold >= 1 &&
+      var.catalog.trust.root_threshold <= length(var.catalog.trust.root_key_ids)
+    )
+    error_message = "Catalog trust mode tuf needs 1 to 16 unique ed25519 root key ids and a whole threshold from 1 through the number of keys."
+  }
+  validation {
+    condition = var.catalog == null ? true : (
+      can(regex("^https://[^/?#@:]+(:443)?/v1/catalog/export$", var.catalog.url)) &&
+      contains(["managed-identity", "anonymous"], coalesce(var.catalog.access, "managed-identity"))
+    )
+    error_message = "Use one HTTPS /v1/catalog/export URL and access of managed-identity or anonymous."
+  }
+  validation {
+    condition = var.catalog == null ? true : (
+      coalesce(var.catalog.access, "managed-identity") == "anonymous" ? (
+        var.catalog.token_scope == null && var.catalog.managed_identity_client_id == null
+        ) : (
+        try(trimspace(var.catalog.token_scope) != "", false) &&
+        try(endswith(var.catalog.token_scope, "/.default"), false) &&
+        try(trimspace(var.catalog.managed_identity_client_id) != "", false)
+      )
+    )
+    error_message = "Managed-identity access requires token_scope ending in /.default and managed_identity_client_id; anonymous access must omit both."
+  }
+  validation {
+    condition = try(var.catalog.check_interval_seconds, null) == null ? true : (
+      var.catalog.check_interval_seconds == floor(var.catalog.check_interval_seconds) && (
+        var.catalog.check_interval_seconds == 0 ||
+        (var.catalog.check_interval_seconds >= 300 && var.catalog.check_interval_seconds <= 86400)
+      )
+    )
+    error_message = "Use check_interval_seconds of 0 to disable checks, or a whole number from 300 through 86400."
+  }
+  validation {
+    condition = try(var.catalog.adoption, null) == null ? true : (
+      contains(["review", "auto"], coalesce(var.catalog.adoption.mode, "review")) &&
+      alltrue([
+        for name in coalesce(var.catalog.adoption.allowed_channels, []) :
+        can(regex("^[A-Za-z][A-Za-z0-9_-]{0,63}$", name))
+      ]) &&
+      length(toset(coalesce(var.catalog.adoption.allowed_channels, []))) == length(coalesce(var.catalog.adoption.allowed_channels, [])) &&
+      (
+        var.catalog.adoption.max_new_releases == null ? true : (
+          var.catalog.adoption.max_new_releases == floor(var.catalog.adoption.max_new_releases) &&
+          var.catalog.adoption.max_new_releases >= 0 && var.catalog.adoption.max_new_releases <= 64
+        )
+      )
+    )
+    error_message = "Adoption needs mode review or auto, unique canonical channel names, and max_new_releases from 0 through 64."
+  }
+  validation {
+    condition = try(var.catalog.adoption, null) == null ? true : (
+      var.catalog.adoption.authorized_by == null ? true : (
+        trimspace(var.catalog.adoption.authorized_by) != "" && length(var.catalog.adoption.authorized_by) <= 160
+      )
+    )
+    error_message = "authorized_by must be a non-blank attribution of at most 160 characters."
+  }
+  validation {
+    condition = try(var.catalog.adoption, null) == null ? true : (
+      var.catalog.adoption.authorization_expires_at == null ? true : (
+        can(regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?([Zz]|[+-][0-9]{2}:[0-9]{2})$", var.catalog.adoption.authorization_expires_at)) &&
+        can(timeadd(var.catalog.adoption.authorization_expires_at, "0s"))
+      )
+    )
+    error_message = "authorization_expires_at must be an ISO-8601 timestamp with an explicit timezone, such as 2027-01-31T00:00:00Z."
+  }
+  validation {
+    condition = try(var.catalog.adoption, null) == null ? true : (
+      coalesce(var.catalog.adoption.mode, "review") != "auto" || (
+        try(trimspace(var.catalog.adoption.authorized_by) != "", false) &&
+        var.catalog.adoption.authorization_expires_at != null
+      )
+    )
+    error_message = "Automatic adoption requires both authorized_by and authorization_expires_at."
+  }
+}
+variable "catalog_roles" {
+  type = object({
+    timestamp_ttl_seconds = optional(number)
+    snapshot_ttl_seconds  = optional(number)
+  })
+  default     = null
+  description = "Release Hub only: serve signed TUF snapshot and timestamp metadata. The snapshot and timestamp keys come from the catalog_snapshot_key and catalog_timestamp_key secret versions, and the offline-signed root is installed by the install-catalog-root operation. Unset validity windows keep the Hub defaults (timestamp 86400, snapshot 604800)."
+  validation {
+    condition     = var.catalog_roles == null || var.kind == "release"
+    error_message = "Only the Release Hub serves signed catalog roles."
+  }
+  validation {
+    condition = try(var.catalog_roles.timestamp_ttl_seconds, null) == null ? true : (
+      var.catalog_roles.timestamp_ttl_seconds == floor(var.catalog_roles.timestamp_ttl_seconds) &&
+      var.catalog_roles.timestamp_ttl_seconds >= 3600 && var.catalog_roles.timestamp_ttl_seconds <= 604800
+    )
+    error_message = "Use a whole timestamp validity from 3600 through 604800 seconds."
+  }
+  validation {
+    condition = try(var.catalog_roles.snapshot_ttl_seconds, null) == null ? true : (
+      var.catalog_roles.snapshot_ttl_seconds == floor(var.catalog_roles.snapshot_ttl_seconds) &&
+      var.catalog_roles.snapshot_ttl_seconds >= 3600 && var.catalog_roles.snapshot_ttl_seconds <= 5184000
+    )
+    error_message = "Use a whole snapshot validity from 3600 through 5184000 seconds."
+  }
+  validation {
+    condition = var.catalog_roles == null ? true : (
+      coalesce(var.catalog_roles.snapshot_ttl_seconds, 604800) >= coalesce(var.catalog_roles.timestamp_ttl_seconds, 86400)
+    )
+    error_message = "The snapshot validity must outlast the timestamp validity."
   }
 }
 variable "enable_apps" {
@@ -137,8 +368,42 @@ variable "enable_migration_jobs" {
   type    = bool
   default = false
 }
+variable "operation_job" {
+  type = object({
+    operation              = string
+    actor                  = string
+    request_secret_version = optional(string)
+    reason                 = optional(string)
+  })
+  default = null
+  validation {
+    condition = var.operation_job == null ? true : (
+      contains(
+        var.kind == "release" ? ["publish-release", "install-catalog-root"] : ["import-catalog", "recompute", "bind-catalog", "rebind-catalog"],
+        var.operation_job.operation,
+      ) &&
+      trimspace(var.operation_job.actor) != "" &&
+      (
+        contains(["bind-catalog", "rebind-catalog"], var.operation_job.operation) ? (
+          length(try(trimspace(var.operation_job.reason), "")) >= 3 &&
+          length(try(var.operation_job.reason, "")) <= 500 &&
+          try(trimspace(var.operation_job.request_secret_version), "") == ""
+          ) : (
+          try(trimspace(var.operation_job.request_secret_version), "") != "" &&
+          try(trimspace(var.operation_job.reason), "") == ""
+        )
+      )
+    )
+    error_message = "Choose one product-owned operation with an attributed actor. A request operation needs an exact request secret version and no reason; bind-catalog and rebind-catalog need a reason of 3 to 500 characters and no request secret."
+  }
+}
 variable "secret_versions" {
-  type    = object({ database = optional(string), signing_key = optional(string) })
+  type = object({
+    database              = optional(string)
+    signing_key           = optional(string)
+    catalog_snapshot_key  = optional(string)
+    catalog_timestamp_key = optional(string)
+  })
   default = {}
   validation {
     condition = !(var.enable_apps || var.enable_migration_jobs) || (
@@ -146,5 +411,12 @@ variable "secret_versions" {
       (!var.enable_apps || can(regex("^[0-9a-fA-F]{32}$", var.secret_versions.signing_key)))
     )
     error_message = "Migration requires the DB secret version; serving also requires the signing-key version."
+  }
+  validation {
+    condition = var.catalog_roles == null || !(var.enable_apps || var.operation_job != null) || (
+      can(regex("^[0-9a-fA-F]{32}$", var.secret_versions.catalog_snapshot_key)) &&
+      can(regex("^[0-9a-fA-F]{32}$", var.secret_versions.catalog_timestamp_key))
+    )
+    error_message = "Serving signed catalog roles requires separate snapshot-key and timestamp-key secret versions."
   }
 }

@@ -6,102 +6,141 @@ locals {
     var.browser_gateway.environment,
     var.browser_gateway.region_short,
     var.browser_gateway.resource_name_suffix,
-  ) : ""
-  browser_gateway_services = local.browser_gateway_enabled ? {
-    operator = {
-      display_name = "FDAI Operator API"
-      path         = ""
-      workload     = "operator-service"
-    }
-    ingestion = {
-      display_name = "FDAI Document Ingestion API"
-      path         = "ingestion"
-      workload     = "document-ingestion-api"
-    }
-  } : {}
-  browser_gateway_operations = {
-    for operation in flatten([
-      for service_name in keys(local.browser_gateway_services) : [
-        for method in ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"] : {
-          key          = "${service_name}-${lower(method)}"
-          service_name = service_name
-          method       = method
-        }
-      ]
-    ]) : operation.key => operation
-  }
-  # Azure tag names reject '/', so label keys such as fdai.io/source-commit become fdai:source-commit.
-  browser_gateway_tags = {
-    for key, value in var.tags : replace(replace(key, "fdai.io/", "fdai:"), "/", "-") => value
-  }
-  browser_gateway_addresses = {
-    for service_name, service in local.browser_gateway_services : service_name => coalesce(
-      try(kubernetes_service_v1.workload[service.workload].status[0].load_balancer[0].ingress[0].ip, null),
-      try(kubernetes_service_v1.workload[service.workload].status[0].load_balancer[0].ingress[0].hostname, null),
+  ) : "apim-fdai-disabled-placeholder"
+  browser_gateway_addresses = local.browser_gateway_enabled ? {
+    for service_name in ["operator-service", "document-ingestion-api"] : service_name => coalesce(
+      try(kubernetes_service_v1.workload[service_name].status[0].load_balancer[0].ingress[0].ip, null),
+      try(kubernetes_service_v1.workload[service_name].status[0].load_balancer[0].ingress[0].hostname, null),
     )
-  }
+  } : {}
 }
 
-resource "azurerm_api_management" "browser_gateway" {
-  # checkov:skip=CKV_AZURE_174:The browser gateway is the public HTTPS edge; backend APIs independently enforce Entra JWT, App Roles, and exact-origin CORS.
-  # checkov:skip=CKV_AZURE_107:APIM Consumption has no VNet integration; it targets exact LoadBalancer addresses protected by the optional subnet NSG rule below.
-  count = local.browser_gateway_enabled ? 1 : 0
+module "browser_gateway" {
+  source = "../../../modules/console/browser-gateway"
 
-  name                          = local.browser_gateway_name
-  location                      = var.browser_gateway.location
-  resource_group_name           = var.browser_gateway.resource_group_name
-  publisher_name                = var.browser_gateway.publisher_name
-  publisher_email               = var.browser_gateway.publisher_email
-  sku_name                      = "Consumption_0"
-  public_network_access_enabled = true
-  min_api_version               = "2021-08-01"
-  tags                          = local.browser_gateway_tags
+  enabled             = local.browser_gateway_enabled
+  name                = local.browser_gateway_name
+  location            = try(var.browser_gateway.location, "disabled")
+  resource_group_name = try(var.browser_gateway.resource_group_name, "disabled")
+  publisher_name      = try(var.browser_gateway.publisher_name, "FDAI")
+  publisher_email     = try(var.browser_gateway.publisher_email, "operator@example.com")
+  frontend_tenant_id  = var.tenant_id
+  frontend_audience = local.browser_gateway_enabled ? (
+    var.workloads["operator-service"].environment["FDAI_API_AUDIENCE"]
+  ) : "00000000-0000-0000-0000-000000000000"
+  console_origin = local.browser_gateway_enabled ? (
+    var.workloads["operator-service"].environment["FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"]
+  ) : "https://disabled.example.com"
+  operator_backend_url = local.browser_gateway_enabled ? (
+    "http://${local.browser_gateway_addresses["operator-service"]}"
+  ) : "https://disabled.example.com"
+  ingestion_backend_url = local.browser_gateway_enabled ? (
+    "http://${local.browser_gateway_addresses["document-ingestion-api"]}"
+  ) : "https://disabled.example.com"
+  backend_nsg_id = local.browser_gateway_enabled ? var.browser_gateway.backend_nsg_id : ""
+  backend_nsg_destination_addresses = local.browser_gateway_enabled ? [
+    local.browser_gateway_addresses["document-ingestion-api"],
+    local.browser_gateway_addresses["operator-service"],
+  ] : []
+  tags = var.tags
 }
 
-resource "azurerm_api_management_api" "browser_gateway" {
-  for_each = local.browser_gateway_services
-
-  name                  = "fdai-${each.key}"
-  resource_group_name   = var.browser_gateway.resource_group_name
-  api_management_name   = azurerm_api_management.browser_gateway[0].name
-  revision              = "1"
-  display_name          = each.value.display_name
-  path                  = each.value.path
-  protocols             = ["https"]
-  service_url           = "http://${local.browser_gateway_addresses[each.key]}"
-  subscription_required = false
+moved {
+  from = azurerm_api_management.browser_gateway[0]
+  to   = module.browser_gateway.azurerm_api_management.browser_gateway[0]
 }
 
-resource "azurerm_api_management_api_operation" "browser_gateway" {
-  for_each = local.browser_gateway_operations
-
-  operation_id = (
-    each.value.method == "GET" ? "proxy-all" : "proxy-${lower(each.value.method)}"
-  )
-  api_name            = azurerm_api_management_api.browser_gateway[each.value.service_name].name
-  api_management_name = azurerm_api_management.browser_gateway[0].name
-  resource_group_name = var.browser_gateway.resource_group_name
-  display_name        = "Proxy ${each.value.method} requests"
-  method              = each.value.method
-  url_template        = "/*"
+moved {
+  from = azurerm_api_management_api.browser_gateway["operator"]
+  to   = module.browser_gateway.azurerm_api_management_api.browser_gateway["operator"]
 }
 
-resource "azurerm_network_security_rule" "browser_gateway" {
-  # checkov:skip=CKV_AZURE_160:APIM Consumption has no fixed outbound IP; this rule permits port 80 only to the two exact API LoadBalancer frontend addresses.
-  count = local.browser_gateway_enabled && try(var.browser_gateway.backend_nsg_id, "") != "" ? 1 : 0
+moved {
+  from = azurerm_api_management_api.browser_gateway["ingestion"]
+  to   = module.browser_gateway.azurerm_api_management_api.browser_gateway["ingestion"]
+}
 
-  name                   = "AllowBrowserGatewayBackends"
-  priority               = 450
-  direction              = "Inbound"
-  access                 = "Allow"
-  protocol               = "Tcp"
-  source_port_range      = "*"
-  destination_port_range = "80"
-  source_address_prefix  = "Internet"
-  destination_address_prefixes = sort([
-    local.browser_gateway_addresses.ingestion,
-    local.browser_gateway_addresses.operator,
-  ])
-  resource_group_name         = element(split("/", var.browser_gateway.backend_nsg_id), 4)
-  network_security_group_name = element(split("/", var.browser_gateway.backend_nsg_id), 8)
+moved {
+  from = azurerm_api_management_api_policy.browser_gateway_ingestion[0]
+  to   = module.browser_gateway.azurerm_api_management_api_policy.browser_gateway_ingestion[0]
+}
+
+moved {
+  from = azurerm_api_management_api_policy.browser_gateway_documents[0]
+  to   = module.browser_gateway.azurerm_api_management_api_policy.browser_gateway_documents[0]
+}
+
+moved {
+  from = azurerm_network_security_rule.browser_gateway[0]
+  to   = module.browser_gateway.azurerm_network_security_rule.browser_gateway[0]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["operator-delete"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["operator-delete"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["operator-get"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["operator-get"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["operator-head"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["operator-head"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["operator-options"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["operator-options"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["operator-patch"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["operator-patch"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["operator-post"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["operator-post"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["operator-put"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["operator-put"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["ingestion-delete"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["ingestion-delete"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["ingestion-get"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["ingestion-get"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["ingestion-head"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["ingestion-head"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["ingestion-options"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["ingestion-options"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["ingestion-patch"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["ingestion-patch"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["ingestion-post"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["ingestion-post"]
+}
+
+moved {
+  from = azurerm_api_management_api_operation.browser_gateway["ingestion-put"]
+  to   = module.browser_gateway.azurerm_api_management_api_operation.browser_gateway["ingestion-put"]
 }

@@ -123,6 +123,14 @@ variable "operator_request_receipts" {
   default = {}
 }
 
+variable "result_handles" {
+  description = "Key Vault secret reference for the AES-256-GCM key that encrypts stored result handles. Empty = no handle key; follow-up questions stay off."
+  type = object({
+    key_secret_id = optional(string, "")
+  })
+  default = {}
+}
+
 variable "rca_reader_identity" {
   description = "Optional read-only Azure identity for Activity Log-backed T1 RCA."
   type = object({
@@ -287,6 +295,34 @@ variable "database" {
   validation {
     condition     = trimspace(var.database.host) != ""
     error_message = "database.host must contain the non-secret PostgreSQL endpoint identity."
+  }
+}
+
+variable "catalog_freshness" {
+  description = "Optional installation-side freshness of the Release Hub's signed catalog metadata. When set, the Core verifies the public metadata against the pinned root key ids and returns operator-override promotions to shadow mode while it is expired or unverified. It only lowers authority."
+  type = object({
+    metadata_url    = optional(string, "")
+    root_key_ids    = optional(list(string), [])
+    root_threshold  = optional(number, 0)
+    refresh_seconds = optional(number, 300)
+  })
+  default = {}
+
+  validation {
+    condition = trimspace(var.catalog_freshness.metadata_url) == "" || (
+      can(regex("^https://[^/@\\s]+(/[^#\\s]*)?$", trimspace(var.catalog_freshness.metadata_url))) &&
+      length(var.catalog_freshness.root_key_ids) > 0 &&
+      alltrue([for id in var.catalog_freshness.root_key_ids : can(regex("^ed25519-[0-9a-f]{64}$", id))]) &&
+      length(distinct(var.catalog_freshness.root_key_ids)) == length(var.catalog_freshness.root_key_ids) &&
+      var.catalog_freshness.root_threshold >= 0 &&
+      var.catalog_freshness.root_threshold <= length(var.catalog_freshness.root_key_ids) &&
+      var.catalog_freshness.refresh_seconds >= 30
+    )
+    error_message = "A catalog freshness selection needs an https metadata URL without credentials, unique ed25519 root key ids, a threshold no larger than the pin, and a refresh of at least 30 seconds."
+  }
+  validation {
+    condition     = trimspace(var.catalog_freshness.metadata_url) != "" || length(var.catalog_freshness.root_key_ids) == 0
+    error_message = "Root key ids without a metadata URL select nothing; set both or neither."
   }
 }
 

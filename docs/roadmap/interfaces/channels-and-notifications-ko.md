@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 694b39370f6959aa3651777e80e8deb9337156e7
-translation_revised: 2026-10-22
+translation_source_sha: 61ff7b0cfe17679acc554ea4663a33b9442614c7
+translation_revised: 2026-10-24
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -77,6 +77,8 @@ Teams Workflows 웹훅 바인딩은
   어댑터 자체는 결정 권한을 부여하지 않습니다. 채널 승인은 전권 개발 프로필의 확인이 될 수
   없습니다. FDAI Console 결정 경로만 토큰을 담지 않은 새 로그인 증명을 첨부할 수 있으며, HIL 결정
   페이로드가 이를 Core로 전달해 다시 검증합니다. Slack과 Teams 결정은 이 증명을 담지 않습니다.
+  구독 태그 pilot은 독립 Executor가 gateway 또는 직접 Azure 어댑터 중 어느 경로를 사용해도 이
+  Console 전용 경계를 유지합니다.
 - A1 승인 보류 항목은 활성 단독 운영자 프로덕션 승인 프로필 메타데이터를 담을 수 있습니다.
   여기에는 프로필 개정, 정책 다이제스트, 원래 정족수, 유효 정족수, 운영자 principal, 실행기
   principal이 포함됩니다. Core는 결정 시작 시 활성 Mimir 승인 정책 포인터에서, 활성화 전에는
@@ -120,7 +122,7 @@ Teams Workflows 웹훅 바인딩은
   ([user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md#6-identity-flow-console--draft-pr--audit)
   §6), invoker의 Entra OID를 PR trailer에 운반. PR은 이후 표준 정족수 + 자기승인 없음 규칙을
   따름.
-- **A2/A4 메시지는 절대 승인 버튼이나 실행 링크를 포함하지 않음.**
+- **A2/A4 메시지는 절대 승인 버튼이나 실행 링크를 포함하지 않음.** 예약된 exemption 수명주기 점검은 만료 전 다이제스트를 이 라우터로 A2 알림 하나로 보내며, 정확한 exemption 개정에서 파생한 감사 id로 반복 전송을 막습니다([규칙 거버넌스](../rules-and-detection/rule-governance-ko.md#exemption)).
 - **기본 프로필에서 학습된 패턴과 예측은 A1 요청을 만들지 않음.** 통제된 실행 추가 기능이
   없으면 Forseti는 예측과 용량 입력이 포함된 중재에 ActionType 없는 판정으로 응답하고, 컨트롤
   루프는 학습된 T1 재사용을 Action을 만들기 전에 멈추므로 어떤 채널도 이에 대한 승인을 전달하지

@@ -12,6 +12,7 @@ Set ``FDAI_DATABASE_URL`` to also run the scenarios against loopback PostgreSQL.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import os
@@ -19,18 +20,34 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import redirect_stdout
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 import uvicorn
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
+from fdai_deployment_cli.lifecycle_plan import decode_canonical_plan_payload
 from fdai_deployment_cli.runtime_release import parse_runtime_release_manifest
 
 from fdai_lifecycle_agent import cli as agent_cli
-from fdai_lifecycle_agent.hub_client import HttpHubClient, PlanReport, SignedPlan
+from fdai_lifecycle_agent.hub_client import (
+    HttpHubClient,
+    HubProtocolError,
+    PlanReport,
+    SignedPlan,
+)
+from fdai_lifecycle_agent.journal import WorkloadState, WorkloadStore
+from fdai_lifecycle_agent.state import (
+    AgentState,
+    AgentStateError,
+    LocalStateStore,
+    PlanRecord,
+    PlanResult,
+    StoredReport,
+)
+from fdai_lifecycle_agent.workload import Cluster, Manifest
 from fdai_lifecycle_hub import cli as hub_cli
 from fdai_lifecycle_hub.api import create_app
 from fdai_lifecycle_hub.signing import key_id_for, load_private_key, load_public_key
@@ -44,6 +61,38 @@ SECOND_PLAN = f"{INSTALLATION_ID}-00000002"
 _CREDENTIAL_PREFIXES = ("AZURE_", "ARM_", "MSI_", "IDENTITY_")
 
 type ConnectHub = Callable[[str, float], HttpHubClient]
+
+
+@dataclass
+class MutableClock:
+    """Use wall time until a test explicitly advances the Hub beyond a Plan boundary."""
+
+    fixed: datetime | None = None
+
+    def __call__(self) -> datetime:
+        return self.fixed or datetime.now(UTC)
+
+
+@dataclass
+class RecordingCluster:
+    """A mechanical Kubernetes seam that distinguishes dry runs from mutations."""
+
+    namespace: str = "fdai-demo"
+    dry_runs: list[tuple[str, str]] = field(default_factory=list)
+    mutations: list[tuple[str, str, str]] = field(default_factory=list)
+
+    def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
+        key = (str(manifest["kind"]), str(manifest["metadata"]["name"]))
+        if dry_run:
+            self.dry_runs.append(key)
+        else:
+            self.mutations.append(("apply", *key))
+
+    def get(self, kind: str, name: str) -> Manifest | None:
+        return None
+
+    def delete(self, kind: str, name: str) -> None:
+        self.mutations.append(("delete", kind, name))
 
 
 class MisroutedHub(HttpHubClient):
@@ -111,7 +160,13 @@ class Loop:
         return self.hub("show", INSTALLATION_ID)
 
     def poll(
-        self, installation_id: str = INSTALLATION_ID, *, connect_hub: ConnectHub = connect
+        self,
+        installation_id: str = INSTALLATION_ID,
+        *,
+        connect_hub: ConnectHub = connect,
+        clock: Callable[[], datetime] | None = None,
+        cluster: Cluster | None = None,
+        expected_exit_code: int = 0,
     ) -> dict[str, Any]:
         hub_public_key = self.root / "hub.pub.pem"
         argv = [
@@ -129,10 +184,29 @@ class Loop:
             *("--current-state", str(self.root / "current-state.json")),
             *("--local-policy", str(self.root / "local-policy.json")),
         ]
+        if cluster is not None:
+            argv.extend(["--apply", "--kube-context", "integration", "--namespace", "fdai-demo"])
+
+        def connect_cluster(context: str, namespace: str) -> Cluster:
+            assert cluster is not None
+            assert (context, namespace) == ("integration", "fdai-demo")
+            return cluster
+
+        effective_clock = clock or (lambda: datetime.now(UTC))
         output = io.StringIO()
         with redirect_stdout(output):
-            assert agent_cli.main(argv, connect_hub=connect_hub) == 0
-        result: dict[str, Any] = json.loads(output.getvalue())
+            exit_code = agent_cli.main(
+                argv,
+                connect_hub=connect_hub,
+                connect_cluster=connect_cluster,
+                clock=effective_clock,
+            )
+            assert exit_code == expected_exit_code
+        rendered = output.getvalue()
+        if not rendered:
+            assert expected_exit_code != 0
+            return {}
+        result: dict[str, Any] = json.loads(rendered)
         return result
 
 
@@ -194,11 +268,21 @@ def database_url(
 
 
 @pytest.fixture
-def hub_url(database_url: str) -> Iterator[str]:
+def hub_clock() -> MutableClock:
+    return MutableClock()
+
+
+@pytest.fixture
+def hub_url(database_url: str, hub_clock: MutableClock) -> Iterator[str]:
     """Serve the Hub API on an ephemeral loopback port for the duration of one test."""
 
     store = HubStore.connect(database_url)
-    config = uvicorn.Config(create_app(store), host=hub_cli.LOOPBACK, port=0, log_level="warning")
+    config = uvicorn.Config(
+        create_app(store, clock=hub_clock),
+        host=hub_cli.LOOPBACK,
+        port=0,
+        log_level="warning",
+    )
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -295,6 +379,281 @@ def test_unsigned_release_is_rejected_and_the_hub_records_why(loop: Loop) -> Non
         True,
     )
     assert reports(loop.show()) == [(FIRST_PLAN, "rejected", "release_signature_missing", None)]
+
+
+def test_final_agent_report_survives_a_backward_client_clock(loop: Loop) -> None:
+    release = next((loop.root / "inputs" / "releases").glob("*.json"))
+    release_bytes = release.read_bytes()
+    release.unlink()
+    loop.enroll(open_window())
+    loop.recompute()
+    first_clock = datetime.now(UTC) + timedelta(seconds=10)
+
+    first = loop.poll(clock=lambda: first_clock)
+    release.write_bytes(release_bytes)
+    final = loop.poll(clock=lambda: first_clock - timedelta(seconds=20))
+    shown = loop.show()
+
+    assert (first["reason_code"], first["reported"]) == ("release_unavailable", True)
+    assert (final["outcome"], final["reported"]) == ("dry-run-admitted", True)
+    assert [(report["attempt"], report["outcome"]) for report in shown["reports"]] == [
+        (1, "rejected"),
+        (2, "dry-run-admitted"),
+    ]
+    assert shown["reports"][1]["reported_at"] < shown["reports"][0]["reported_at"]
+
+
+def test_retryable_terminal_gap_replays_complete_prefix_across_agent_restarts(
+    loop: Loop,
+) -> None:
+    loop.enroll(open_window())
+    loop.recompute()
+    with HttpHubClient(loop.hub_url) as client:
+        signed = client.fetch_plan(INSTALLATION_ID)
+    assert signed is not None
+    plan = decode_canonical_plan_payload(signed.signed_payload, signed.signature)
+    payload_digest = hashlib.sha256(signed.signed_payload).hexdigest()
+    exact_digest = f"sha256:{payload_digest}"
+    terminal_time = datetime.now(UTC)
+    started_result = PlanResult(
+        outcome="apply-started",
+        reason_code="apply_started",
+        exact_plan_digest=exact_digest,
+        summary='{"update":1}',
+    )
+    terminal_result = PlanResult(
+        outcome="applied",
+        reason_code="applied",
+        exact_plan_digest=exact_digest,
+        summary='{"update":1}',
+    )
+    retryable_result = PlanResult(
+        outcome="rejected",
+        reason_code="release_unavailable",
+        retryable=True,
+    )
+    history = (
+        StoredReport(
+            attempt=1,
+            result=retryable_result,
+            reported_at=terminal_time - timedelta(seconds=2),
+        ),
+        StoredReport(
+            attempt=2,
+            result=started_result,
+            reported_at=terminal_time - timedelta(seconds=1),
+        ),
+        StoredReport(
+            attempt=3,
+            result=terminal_result,
+            reported_at=terminal_time,
+        ),
+    )
+    state_store = LocalStateStore(loop.root / "state" / INSTALLATION_ID)
+    state_store.save(
+        AgentState(
+            last_accepted_sequence=plan.sequence,
+            plans={
+                plan.plan_id: PlanRecord(
+                    sequence=plan.sequence,
+                    payload_digest=payload_digest,
+                    result=terminal_result,
+                    attempts=3,
+                    reported_at=terminal_time,
+                    apply_started_report=StoredReport(
+                        attempt=2,
+                        result=started_result,
+                        reported_at=terminal_time - timedelta(seconds=1),
+                    ),
+                    report_history=history,
+                )
+            },
+        )
+    )
+
+    gap = loop.poll(expected_exit_code=1)
+    assert loop.show()["reports"] == []
+    retryable = loop.poll(expected_exit_code=1)
+    pending_after_restart = state_store.load().plans[plan.plan_id].pending_reports
+    started = loop.poll(expected_exit_code=1)
+    terminal = loop.poll()
+    shown = loop.show()
+
+    assert [
+        (result["outcome"], result["reported"]) for result in (gap, retryable, started, terminal)
+    ] == [
+        ("applied", False),
+        ("applied", False),
+        ("applied", False),
+        ("applied", True),
+    ]
+    assert [report.attempt for report in pending_after_restart] == [2, 3]
+    assert [(report["attempt"], report["outcome"]) for report in shown["reports"]] == [
+        (1, "rejected"),
+        (2, "apply-started"),
+        (3, "applied"),
+    ]
+    assert state_store.load().plans[plan.plan_id].pending_reports == ()
+
+
+@pytest.mark.parametrize("outcome", ["apply-started", "rejected"])
+def test_hub_rejects_invalid_agent_report_after_apply_started(
+    loop: Loop, outcome: Literal["apply-started", "rejected"]
+) -> None:
+    loop.enroll(open_window())
+    loop.recompute()
+    with HttpHubClient(loop.hub_url) as client:
+        signed = client.fetch_plan(INSTALLATION_ID)
+        assert signed is not None
+        exact_digest = f"sha256:{hashlib.sha256(signed.signed_payload).hexdigest()}"
+        reported_at = datetime.now(UTC)
+        client.submit_report(
+            INSTALLATION_ID,
+            FIRST_PLAN,
+            PlanReport(
+                attempt=1,
+                outcome="apply-started",
+                reason_code="apply_started",
+                exact_plan_digest=exact_digest,
+                summary='{"update":1}',
+                reported_at=reported_at,
+            ),
+        )
+        invalid = PlanReport(
+            attempt=2,
+            outcome=outcome,
+            reason_code="invalid_successor",
+            exact_plan_digest=exact_digest if outcome == "apply-started" else None,
+            summary='{"update":1}',
+            reported_at=reported_at + timedelta(seconds=1),
+        )
+
+        with pytest.raises(HubProtocolError, match="422 report_invalid") as error:
+            client.submit_report(INSTALLATION_ID, FIRST_PLAN, invalid)
+
+    assert error.value.code == "report_invalid"
+    assert [(report["attempt"], report["outcome"]) for report in loop.show()["reports"]] == [
+        (1, "apply-started")
+    ]
+
+
+@pytest.mark.parametrize(
+    "fault_boundary",
+    [
+        "terminal-persist",
+        "hub-acceptance",
+        "acceptance-persist",
+        "journal-clear",
+    ],
+)
+def test_expiry_faults_restart_to_terminal_without_kubernetes_mutation(
+    loop: Loop,
+    database_url: str,
+    hub_clock: MutableClock,
+    monkeypatch: pytest.MonkeyPatch,
+    fault_boundary: str,
+) -> None:
+    loop.enroll(open_window())
+    loop.recompute()
+    with HttpHubClient(loop.hub_url) as client:
+        signed = client.fetch_plan(INSTALLATION_ID)
+    assert signed is not None
+    plan = decode_canonical_plan_payload(signed.signed_payload, signed.signature)
+    local_policy = json.loads((loop.root / "local-policy.json").read_text())
+    local_policy["component_images"] = {"core-control-plane": "registry.example.test/fdai/core"}
+    (loop.root / "local-policy.json").write_text(json.dumps(local_policy))
+    cluster = RecordingCluster()
+
+    def expire_only_after_started_is_accepted() -> datetime:
+        accepted = any(report["outcome"] == "apply-started" for report in loop.show()["reports"])
+        offset = timedelta(seconds=1)
+        return plan.expires_at + offset if accepted else plan.expires_at - offset
+
+    injected = False
+    original_state_save = LocalStateStore.save
+    original_workload_save = WorkloadStore.save
+
+    def fail_state_save(store: LocalStateStore, state: AgentState) -> None:
+        nonlocal injected
+        record = state.plans.get(plan.plan_id)
+        if record is None:
+            original_state_save(store, state)
+            return
+        terminal = record.result.reason_code == "plan_expired"
+        at_boundary = (
+            fault_boundary == "terminal-persist"
+            and terminal
+            and not record.reported
+            and record.reported_at is not None
+        ) or (fault_boundary == "acceptance-persist" and terminal and record.reported)
+        if at_boundary and not injected:
+            injected = True
+            raise AgentStateError(f"injected {fault_boundary} failure")
+        original_state_save(store, state)
+
+    def fail_workload_save(store: WorkloadStore, state: WorkloadState) -> None:
+        nonlocal injected
+        if fault_boundary == "journal-clear" and state.journal is None and not injected:
+            injected = True
+            raise AgentStateError("injected journal-clear failure")
+        original_workload_save(store, state)
+
+    class LostTerminalAcceptance(HttpHubClient):
+        def submit_report(self, installation_id: str, plan_id: str, report: PlanReport) -> None:
+            nonlocal injected
+            super().submit_report(installation_id, plan_id, report)
+            if (
+                fault_boundary == "hub-acceptance"
+                and report.reason_code == "plan_expired"
+                and not injected
+            ):
+                injected = True
+                raise HubProtocolError("injected lost terminal acceptance")
+
+    monkeypatch.setattr(LocalStateStore, "save", fail_state_save)
+    monkeypatch.setattr(WorkloadStore, "save", fail_workload_save)
+
+    def connect_with_fault(url: str, timeout: float) -> HttpHubClient:
+        if fault_boundary == "hub-acceptance":
+            return LostTerminalAcceptance(url, timeout_seconds=timeout)
+        return connect(url, timeout)
+
+    failed = loop.poll(
+        clock=expire_only_after_started_is_accepted,
+        cluster=cluster,
+        connect_hub=connect_with_fault,
+        expected_exit_code=1,
+    )
+    assert injected
+    assert failed == {} or failed["reported"] is False
+    retained = WorkloadStore(loop.root / "state" / INSTALLATION_ID).load().journal
+    assert retained is not None and retained.phase == "prepared"
+
+    hub_clock.fixed = plan.expires_at + timedelta(seconds=1)
+    with HttpHubClient(loop.hub_url) as client:
+        assert client.fetch_plan(INSTALLATION_ID) is None
+
+    restarted = loop.poll(clock=expire_only_after_started_is_accepted, cluster=cluster)
+    shown = loop.show()
+    store = HubStore.connect(database_url)
+    try:
+        suppressions = store.load(INSTALLATION_ID).suppressions
+    finally:
+        store.engine.dispose()
+
+    assert restarted["outcome"] in {"rejected", "already-reported"}
+    assert (restarted["reason_code"], restarted["reported"]) == ("plan_expired", True)
+    assert cluster.dry_runs
+    assert cluster.mutations == []
+    assert WorkloadStore(loop.root / "state" / INSTALLATION_ID).load().journal is None
+    terminal_reports = [
+        (report["attempt"], report["outcome"], report["reason_code"]) for report in shown["reports"]
+    ]
+    assert terminal_reports == [
+        (1, "apply-started", "apply_started"),
+        (2, "rejected", "plan_expired"),
+    ]
+    assert suppressions == ()
 
 
 def test_plan_for_another_installation_is_rejected_and_the_hub_records_why(loop: Loop) -> None:

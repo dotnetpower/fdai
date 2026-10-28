@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
@@ -109,6 +110,48 @@ def test_without_a_third_family_no_ambiguity_reader_is_configured() -> None:
         grounding.ambiguity_reader_target((*targets, reasoning), targets[1])  # type: ignore[arg-type]
         is reasoning
     )
+
+
+def test_the_t2_reasoner_reads_the_ambiguity_check_when_no_t1_deployment_is_a_third_reader(
+    monkeypatch: pytest.MonkeyPatch, owner_loop: asyncio.AbstractEventLoop
+) -> None:
+    monkeypatch.setenv("FDAI_SEMANTIC_SECOND_READER", "1")
+    monkeypatch.setenv("FDAI_SEMANTIC_COMPILED_ANSWERS", "1")
+    monkeypatch.setenv("FDAI_EXECUTION_VENUE", "local")
+    base = _resolved()
+    resolved = dataclasses.replace(
+        base,
+        **{
+            "narrator_candidates": base.narrator_candidates[:2],
+            "capabilities": (
+                *base.capabilities,
+                ResolvedCapability(
+                    name="t2.reasoner.primary",
+                    status=CapabilityStatus.RESOLVED,
+                    publisher="OpenAI",
+                    family="gpt-5.4",
+                    sku="Standard",
+                    capacity_tpm=1000,
+                    invocation="always",
+                ),
+            ),
+        },
+    )
+
+    reader = grounding.build_second_reader(
+        resolved=resolved,
+        identity=SimpleNamespace(),  # type: ignore[arg-type]
+        http_client=httpx.AsyncClient(),
+        endpoint=_ENDPOINT,
+        endpoint_resolver=None,
+        catalog_root=_ROOT / "rule-catalog",
+        owner_loop=owner_loop,
+    )
+
+    assert reader is not None
+    config = reader.type_grounding._chooser._config  # noqa: SLF001
+    assert [target.deployment for target in config.ambiguity_candidates] == ["t2.reasoner.primary"]
+    assert config.ambiguity_system_prompt
 
 
 def test_a_deployed_venue_or_an_invalid_path_keeps_only_the_second_reader(

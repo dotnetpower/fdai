@@ -104,6 +104,8 @@ bounded PostgreSQL insert of its content-free authentication receipt (10-second 
 20-second statement limits) before the bridge accepts it. That write adds to turn acceptance latency
 but does not change narrator routing, preferences, or health.
 
+The narrator's `context_selection` receipt also carries `dialogue_state_shadow`: counts, a range digest and a typed fallback reason for the history turns the request did not carry verbatim. It is shadow-only, contains no turn text, and changes neither the model request nor routing. The Operator composition binds the Postgres snapshot writer into the narrator. With `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED` on, a small-model proposer asks for verbatim quotes in a tracked background task, so it never delays the answer; deterministic code locates each quote and accepts a proposal only when every span reproduces its value, and any failure keeps the typed T0 fallback. The receipt reports `t1_scheduled`. When a snapshot writer is composed and the body names a `conversation_id`, the narrator retains the compacted state best-effort; a storage failure is logged and never affects the turn. See [Pantheon Conversational Deliberation](../agents/conversational-deliberation.md#structured-dialogue-state-observation-mode).
+
 The Console keeps the persistent connection badge concise and places deployment identity and
 candidate timing details in its tooltip. The tooltip distinguishes sample counts and measured,
 stale, unmeasured, or failed status. An open, visible Command Deck polls health every 30 seconds;

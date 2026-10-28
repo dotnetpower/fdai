@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: d47bb532e1a5d3bde76e495b7c132c11c8d68d50
-translation_revised: 2026-10-22
+translation_source_sha: 5e8916d4e4dd468e465ed0ec8388bfb55c6cf912
+translation_revised: 2026-10-27
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
@@ -22,7 +22,19 @@ Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측�
 또는 고객의 [Lifecycle Hub 루트](../../../infra/lifecycle-hub/README.md)를 사용하세요. 각 루트는
 자신의 UI/API, 비공개 PostgreSQL과 지원 자원만 소유하며 별도 state를 사용합니다. 상대 Hub의
 입력은 필요하지 않습니다. 기본 로컬 백엔드는 명시한 영속 비공개 경로에서 기존 로컬 state를
-보존하며, 별도로 검토한 원격 백엔드는 선택 사항입니다. 로그인과 카탈로그 연결은 기동의
+보존하며, 별도로 검토한 원격 백엔드는 선택 사항입니다.
+Lifecycle Hub 이미지는 채택 정책이 `opa`를 실행하므로 digest로 고정한 `OPA_IMAGE` 빌드 인자가 필요하며,
+Release Hub 이미지에는 포함되지 않습니다. Lifecycle Hub `catalog` 설정에는 `access`,
+`check_interval_seconds`, `adoption` 객체가 추가되고, `auto` 모드에는 귀속되고 만료되는
+`authorized_by`와 `authorization_expires_at`이 필요합니다. Release Hub에는
+`auth.public_catalog_export`와 `timestamp_renewal_check_seconds`가 추가됩니다. 새 필드는 모두
+선택 사항이며 설정하지 않으면 실행 JSON에서 생략되므로 이전 이미지도 설정을 파싱합니다.
+[자동 카탈로그 채택](lifecycle-releases-and-channels-ko.md#자동-카탈로그-채택)을 참고하세요. 서명된 카탈로그 역할은 선택 입력을
+둘 더 추가합니다. Lifecycle Hub `catalog.trust` 객체(`mode = "tuf"`, `root_key_ids`,
+`root_threshold`)가 `release_public_key`를 대체하고, Release Hub `catalog_roles` 객체는 서로 다른
+snapshot 키와 timestamp 키 비밀 버전을 추가합니다. 오프라인에서 서명한 root는 `install-catalog-root`
+작업으로 설치합니다. [서명된 카탈로그 역할](lifecycle-releases-and-channels-ko.md#hub의-서명된-카탈로그-역할)을 참고하세요. Lifecycle Hub 작업 Job은 `bind-catalog`와 `rebind-catalog`도 수락합니다. 요청 비밀 대신 귀속되는 `actor`와 `reason`을 받으며, 재바인딩은 리비전 하한을 유지합니다.
+로그인과 카탈로그 연결은 기동의
 전제조건이 아닙니다. Entra 앱 등록 없이 migration, 상태/준비 검사와 정적 UI를 제공하며,
 인증을 설정하기 전까지 관리 API는 사용할 수 없습니다. 익명 관리 기능을 제공하거나 새로운
 FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 보존 및 기본 Terraform/Azure CLI
@@ -34,8 +46,25 @@ FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 
 유지하고, `image`로 새 마이그레이션 후보를 지정합니다. 기존 앱과 마이그레이션 Job은 활성화
 상태로 유지합니다. 수동 마이그레이션 성공과 독립적인 스키마 확인을 마친 뒤, 별도로 검토하고
 봉인한 활성화 계획에서 `app_image=null`을 지정합니다. 이 입력을 생략하면 기존 단일 이미지
-기동 방식이 유지됩니다. 전체 Job 검증과 실행 전 전체 변경 없음 계획도 유지하며, 상태 소유권,
-인증이나 승인 절차를 우회하지 않습니다.
+기동 방식이 유지됩니다. 선택적 `resource_group_name`으로 기본 리소스 그룹 이름을 재정의하고 `custom_domain`으로 공개 HTTPS 서브도메인·Azure DNS 레코드·런타임 origin·상태 검사 `Host` 헤더를 일치시킬 수 있습니다. Hub는 설정된 origin 호스트만 받아들이므로 사용자 지정 도메인을 설정하면 기본 Container App 호스트네임은 `400`으로 응답합니다. `custom_domain.redirect_default_hostname=true`를 설정하면 `redirect_hosts`를 읽는 Hub 이미지가 그 호스트네임의 GET과 HEAD를 고정된 origin으로 `308` 리디렉션하고 나머지는 거부합니다. 이전 이미지에서는 설정하지 마세요. 전체 Job 검증과 실행 전 전체 변경 없음 계획도 유지하며, 상태 소유권, 인증이나 승인 절차를 우회하지 않습니다.
+
+Hub 관리형 AKS 인계에서는 `enable_document_ingestion=true`로 공용 Azure 선행 조건을 만들면서
+`enable_document_ingestion_workloads=false`로 인제스트 API, 워커, 마이그레이션 Container Apps를
+생략할 수 있습니다. 소스·오프라인 Container Apps 배포의 기본값은 계속 `true`입니다. 검토한
+정확한 계획에서만 이 분리를 사용하며, Hub 소유권이나 적용 권한을 부여하지 않습니다.
+기존 설치에서는 별도 remote state key를 사용하는 `infra/hub-stewardship-prerequisites`에서 이
+계획을 실행합니다. 이 루트는 공용 플랫폼 리소스를 조회하고 애플리케이션 워크로드를 소유하지
+않으므로, 보존된 소스 워크로드 state를 묵시적으로 다시 계획할 수 없습니다.
+운영 VNet이 기존 Blob 비공개 DNS 영역에 이미 연결되어 있으면 문서 스토리지 엔드포인트는
+애플리케이션 영역과의 연결을 유지합니다. 루트는 겹치는 VNet 연결을 다시 만드는 대신 동일한
+비공개 IP의 관리형 A 레코드를 운영 영역에 게시합니다.
+
+선택적 Lifecycle Hub `operator_auth.development_recovery` 입력으로 개인 키를 사용할 수 없는
+개발 설치 신원 하나를 복구할 수 있습니다. 정확한 `full-authority-development` 설치, 범위,
+Owner, 이전 및 대체 공개 키, 사유와 승인 구간에만 사용합니다. Release Hub는 이 입력을
+수락하지 않습니다. Lifecycle Hub는 계속 대체 키 소유 증명, 열린 Plan과 기존 구성 신뢰가
+없음, 추가 전용 감사와 첫 바인딩에 한정된 single-Owner 승인을 요구합니다. 복구와 키 등록을
+확인한 뒤 이 입력을 제거하세요. 프로덕션 또는 일반 등록 키 교체 설정이 아닙니다.
 
 원격 개발 Agent를 연결할 때는 Lifecycle Hub 루트의 `operator_auth.agent_principals`에
 명시적인 연결 정보를 지정합니다. 각 항목은 하나의 설치, Entra 개체와 클라이언트를 식별합니다.
@@ -44,6 +73,8 @@ Terraform은 `Agent.Access`, 페더레이션 자격 증명이나 Kubernetes 권�
 승인된 범위에서 별도로 설정하세요. 해당 네임스페이스로 제한된 RBAC, 영속 상태 볼륨, 등록과
 독립적인 결과 확인은 [Hub 운영자 안내서](../../runbooks/hub-lifecycle-operator-guide-ko.md)를
 따르세요. 이 설정만으로 운영자 권한이나 release 적용 권한이 생기지는 않습니다.
+Agent 상태 볼륨은 영역 중복(zone-redundant) 디스크 클래스를 사용하므로 다른 영역으로 옮겨진 Pod도
+볼륨을 연결할 수 있습니다.
 
 [기존 두 Hub 검증 구성](../../../infra/hubs-development/README.md)은 기존 state 소유자를 위해
 그대로 보존합니다. 해당 안내는 별도 네트워크, 자체 관리 ID와 키, 명시적 migration,
@@ -233,13 +264,14 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 
 - [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh)는 `az login` 후 사용하는 [단일 명령 소스 배포](source-deployment-ko.md)입니다. 어떤 clone이든 키 없이 배포하며, 무결성 서명 키가 없으면 영속 30일 Trial을, 사용할 수 있는 `secrets/integrity-signing-key.pem`이 있으면 전체 설치 사용권을 선택합니다. 독립적인 준비, 읽기 전용 검색, 공급자 요청, 정책 프로브 작업에는 범위가 제한된 병렬 실행을 사용합니다. Genesis 검사는 배포하는 정확한 커밋의 깨끗한 checkout만 허용하며 CI 결과를 조회하거나 GitHub CLI를 요구하지 않습니다.
   명령 실행이 표시하는 각 계획을 승인하고 Foundation과 tenant 구성을 완료하며 수동 Managed Host에서 적용한 뒤 변경 없음 계획을 요구합니다. 승인, 적용, 정리, 상태, 인계 경계는 계속 직렬로 수행합니다. GitHub 저장소 구성과 workflow dispatch는 이 경로에 포함되지 않습니다.
-  모드 인자가 없으면 어느 작업 디렉터리에서든 자기 checkout을 배포하고, Azure 호출 전에 `secrets/integrity-signing-key.pem`으로 사용권을 선택하며, Azure CLI 세션이 없으면 `az login`을 시작하고, 키트를 빌드하거나 서명하지 않습니다. 폐기된 `--signing-key` 옵션은 거부하며, 소스 빌드가 완성되기 전에 애플리케이션 단계가 필요한 키 보유자는 서명된 오프라인 패키지를 빌드해 `--offline-kit`로 전달합니다.
+  모드 인자가 없으면 어느 작업 디렉터리에서든 자기 checkout을 배포하고, Azure 호출 전에 `secrets/integrity-signing-key.pem`으로 사용권을 선택하며, Azure CLI 세션이 없으면 `az login`을 시작하고, 키트를 빌드하거나 서명하지 않습니다. 폐기된 `--signing-key` 옵션은 거부합니다.
 - [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py)는 빌드나 배포가 개인 키를 사용하기 전에 후보 키를 식별합니다. 패키징된 루트의 지문, 후보가 충족하는 역할, 빌드가 요구하는 소유자 전용 보관 상태를 보고합니다. 키 자체는 출력하지 않으므로 키를 보유했을 수 있는 어느 머신에서든 안전하게 실행할 수 있습니다. `--scan secrets`는 clone에 전체 사용권을 선택하는 업스트림 `integrity` 키가 있는지 보여 줍니다. 개발 프로필은 오프라인 패키지의 완전 키트와 번들 역할에 서명자 하나를 고정하며, 라이선싱은 무결성 키를 사용합니다.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh)는 하위 수준 15단계 기반 계층
   경로를 유지합니다. 점유가 있으면 검증만 재개하며 기반 계층 완료만으로 준비 상태를 주장하지 않습니다.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh)는 변경 전에 Azure CLI와 `azd` 진입점을 승인된 구독 및 테넌트 쌍에 연결하며, Genesis는 활성 CLI 선택을 바꾸지 않고 정확한 구독 결합 ARM 위치 엔드포인트로 지역 가용성을 확인하고 정책 프로브 정리는 다중 값 TSV를 순서가 있는 줄로 파싱한 뒤 부재를 증명합니다.
-- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 직접 사용하는 대화형 공개 `dev`
-  경로입니다. provider lock을 검증하고 확인된 principal을 전달하며 소유자 전용 계획을 저장합니다.
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh)는 Core 전용 `dev` 진단 도구입니다.
+  설치 경로가 아니며 공개 설치 프로그램은 이 상태를 채택하지 않습니다. provider lock을
+  검증하고 확인된 principal을 전달하며 소유자 전용 계획을 저장합니다.
   실패한 적용은 정리된 후속 소스가 refresh-only 재확인과 별도 종료 증적을 기록할 때까지 차단되며 이전 계획은 다시 적용하지 않습니다. 정책으로 비공개가 된 기존 Key Vault는 Managed Host를 사용하는 `fdai-up.sh` 경로로 보냅니다. 각 적용은
   대화형 터미널에 정확한 SHA-256 입력, 생성 후 20분 이내 계획, 변경되지 않은 소스 및 행위자
   결합, 해결되지 않은 이전 시도 없음이 필요합니다. 비공개, 공유, 스테이징 또는 운영 배포
@@ -256,8 +288,9 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
   두 도구 모두 ops 허브나 상태 계정을 변경하지 않고 안전하지 않은 실행기 저장소 또는 할당 해제를 차단합니다.
 - [`check-runner-terraform.sh`](../../../scripts/deployment/azure/check-runner-terraform.sh)는 공유
   `login-deploy-identity.sh` 도우미 안에서 첫 Azure 호출 전에 실행됩니다. 실행기의 Terraform이
-  검증된 1.16.1보다 오래되었으면 보호된 워크플로를 거부합니다. 아직 Terraform 1.9.8을 고정하는
-  Genesis 이미지 실행기도 여기에 해당합니다.
+  검증된 1.16.1보다 오래되었으면 보호된 워크플로를 거부합니다. Genesis 이미지 실행기는 이제
+  Terraform 1.16.1을 고정해 이 기준을 충족하며, 이전 이미지로 만들어진 등록된 실행기는 러너
+  이미지 plan과 apply를 다시 실행해야 올라간 고정 버전을 반영합니다.
 
 #### 프로덕션 하드닝 knob
 
@@ -596,6 +629,7 @@ Incident 자동 열기 설정도 시작 시 적용됩니다. 구체화 과정은
 | `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV 참조 + env | 배포 | fix/release/security/인시던트/IRP 산출물용 GitHub 변경 피드 및 작업 흐름 도구 연결입니다. 플랫폼은 활성화된 담당 체계 대상과 토큰 시크릿 ID를 `stewardship_gitops_binding`으로 내보냅니다. 보호된 서비스 워크플로는 이 객체를 검증하고 독립 Core 서비스에는 Key Vault 참조만 주입합니다. 강제 적용 플래그는 ActionType 승격 및 risk/HIL 게이트를 우회하지 않습니다. |
 | `FDAI_RBAC_READERS_GROUP_ID` / `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` / `FDAI_RBAC_APPROVERS_GROUP_ID` / `FDAI_RBAC_OWNERS_GROUP_ID` / `FDAI_RBAC_BREAK_GLASS_GROUP_ID` | env | 배포 | 5개 human 역할 의 Entra ID 그룹 객체 id ([user-rbac-and-identity-ko.md](../interfaces/user-rbac-and-identity-ko.md) 참조). 미설정 그룹 = 역할 미할당. |
 | `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` / `FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS` / `FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS` | env | 배포 / 업스트림 | 자리 표시자 신원이 시작을 차단하도록 `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1`로 설정합니다. `ENABLE_STEWARDSHIP_GOVERNANCE`는 기본적으로 GitHub App이나 웹후크 시크릿 없이 Console 관리형 모드로 동작하며, 선택적 GitOps 어댑터는 조정 회전 Key Vault 예외와 함께 `GITOPS_OWNER`, `GITOPS_REPO`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET` 또는 호환 `GITOPS_TOKEN`을 매핑합니다. Terraform은 `FDAI_MAINTAINERS`, `FDAI_STEWARD_<AGENT>`, Key Vault 참조와 [에이전트 운영 담당 체계 수명 주기](../interfaces/agent-stewardship-operations-ko.md)에 정의된 준비 상태 기반 Entra 상태 및 내용이 없는 인수인계 수명 주기 간격도 공급합니다. 간격 기본값은 3600초와 60초이며 병합, IAM, 승인 또는 실행 권한을 부여하지 않습니다. |
+| `FDAI_CATALOG_FRESHNESS_METADATA_URL` / `_ROOT_KEY_IDS` / `_ROOT_THRESHOLD` / `_REFRESH_SECONDS` | env | 배포 / 업스트림 | 선택 사항입니다. Core가 Release Hub의 공개 서명 카탈로그 메타데이터를 고정된 ed25519 root 키 id로 검증하고, 메타데이터가 만료되었거나 검증되지 않은 동안 운영자 재정의 승격을 `shadow` 모드로 되돌립니다. Terraform은 Core 루트의 `catalog_freshness`에서 값을 설정하며 URL은 `https`여야 합니다. 권한을 낮추기만 합니다. [Lifecycle Release와 채널](lifecycle-releases-and-channels-ko.md#카탈로그-무결성)을 참조하세요. |
 | `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | 배포 | 프로덕션 Operator API Entra JWT 검증기 (`EntraJwtVerifier`) 필수: 배포 테넌트 id와 `fdai-api` 애플리케이션(클라이언트) ID이며, v2 액세스 토큰은 이 값을 `aud`로 전달합니다. [user-rbac-and-identity-ko.md#102-api-토큰-검증](../interfaces/user-rbac-and-identity-ko.md#102-api-토큰-검증) 참조. |
 | `FDAI_ENTRA_ISSUER` / `FDAI_ENTRA_JWKS_URI` | env | 배포 | 선택 검증기 오버라이드; 기본값은 테넌트 의 v2 발급자 + 공개 키 셋. v1-토큰 앱은 `ISSUER` 를 `https://sts.windows.net/<tenant>/` 로; `JWKS_URI` 는 소버린 / 에어갭 클라우드에서만 오버라이드. |
 | `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | 업스트림 | Operator API onboarding 탐색 입력. ARG를 사용해 프로비저닝된 리소스 집합 및 실행기 Event Hubs / Key Vault 역할을 검증합니다. |
@@ -682,6 +716,29 @@ migration은 URL로 인코딩된 자격 증명을 안전하게 보존하고 격�
 - [x] 초기 의미 기준선 - 서명된 정확한 리비전 번들의 스키마 유효 범용 카탈로그 항목 전체이며 [구독 초기 구성 매니페스트](subscription-genesis-provisioning-ko.md#데이터베이스-및-의미-초기-구성)에서 열거합니다.
 - [x] Core -> Isolated 실행기 **목표 경계** - 5개 서비스 프로그램에 필수이며 권한
   전환은 모든 binary 게이트와 롤백 증적을 기다립니다.
+
+## Hub 워크로드 상태 인수인계
+
+기존 AKS 워크로드 상태 스냅샷을 사용할 수 없으면 Hub 인수인계 흐름은 승인된 Deployment,
+Service, HorizontalPodAutoscaler, CronJob 재고를 비공개 상태 계보로 정확히 가져옵니다.
+별도의 forget-only 해제 계획은 실제 객체 삭제가 0임을 입증해야 합니다. 롤백은 생성된
+가져오기 선언을 사용하고 마지막 변경 없음 계획을 요구합니다.
+Terraform 1.9 가져오기 계획은 기존 객체를 `before`와 `after`에 모두 보고할 수 있습니다.
+검증기는 두 값이 같고 작업이 `no-op`이며 가져오기 ID가 일치할 때만 이를 허용합니다.
+완료된 이전 전환에서 1밀리초 미만의 상태 타임스탬프 불일치가 있으면 인증된 조정 명령을
+사용합니다. 이 명령은 불변 전환 증적을 유지하고 Agent의 영구 현재 상태만 Hub 권위의
+정규 타임스탬프와 다이제스트로 다시 씁니다.
+이전 증적 검증은 저장된 증적 다이제스트를 바꾸지 않고 밀리초 상태 다이제스트와 전체 정밀도
+Hub 완료 다이제스트를 각각 독립적으로 검증합니다.
+동일한 UTC 시각의 `+00:00`과 `Z` 형식은 저장된 증적 다이제스트를 검증한 뒤에만 허용합니다.
+만료됐지만 사용하지 않은 승인은 모든 증거와 실제 상태가 그대로일 때만 갱신할 수 있습니다.
+선행 조건 루트는 이 재고가 참조하는 신원, 페더레이션 자격 증명, ServiceAccount,
+SecretProviderClass, ConfigMap, 비밀 바인딩만 소유합니다. 관리 대상 Deployment, Service,
+HorizontalPodAutoscaler, CronJob은 만들지 않습니다.
+Operator API 신원에는 생성된 세 secret 리소스 ID에 대해서만 `Key Vault Secrets User`를
+부여하며, Key Vault 전체 범위 권한은 부여하지 않습니다.
+별도 Operator command 신원에는 변경, 의미 처리, 사람 승인, 파이프라인에 사용하는 정확한
+Event Hub 토픽 5개에 대해서만 sender와 receiver 역할을 부여합니다.
 
 ## 관련 문서
 

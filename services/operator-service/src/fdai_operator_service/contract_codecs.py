@@ -31,6 +31,7 @@ CORE_REQUEST_PRODUCER_V18 = ProducerCodec("operator-core-request", "N", "1.8.0")
 CORE_REQUEST_PRODUCER_V19 = ProducerCodec("operator-core-request", "N", "1.9.0")
 CORE_REQUEST_PRODUCER_V110 = ProducerCodec("operator-core-request", "N", "1.10.0")
 CORE_REQUEST_PRODUCER_V111 = ProducerCodec("operator-core-request", "N", "1.11.0")
+CORE_REQUEST_PRODUCER_V112 = ProducerCodec("operator-core-request", "N", "1.12.0")
 CORE_PROJECTION_CONSUMER_V1 = ConsumerCodec("core-operator-projection", "N-1", ("1.0.0",))
 CORE_PROJECTION_CONSUMER_V11 = ConsumerCodec("core-operator-projection", "N", ("1.0.0", "1.1.0"))
 CORE_PROJECTION_CONSUMER_V12 = ConsumerCodec(

@@ -8,12 +8,26 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
-from fdai_lifecycle_hub.configuration_key_store import ConfigurationKeyStore
-from fdai_lifecycle_hub.configuration_keys import KeyBindingError, KeyDecision, SignedKeyRequest
+from fdai_lifecycle_hub.configuration_key_store import (
+    ConfigurationKeyStore,
+    DevelopmentRecoveryAuthorizationLike,
+)
+from fdai_lifecycle_hub.configuration_keys import (
+    KeyBindingError,
+    KeyDecision,
+    SignedDevelopmentIdentityRecovery,
+    SignedKeyRequest,
+)
 from fdai_lifecycle_hub.domain import Clock
 
 
-def key_routes(store: ConfigurationKeyStore, clock: Clock, *, authenticated: bool) -> list[Route]:
+def key_routes(
+    store: ConfigurationKeyStore,
+    clock: Clock,
+    *,
+    authenticated: bool,
+    recovery_authorization: DevelopmentRecoveryAuthorizationLike | None = None,
+) -> list[Route]:
     async def change(request: Request) -> Response:
         from fdai_lifecycle_hub.api import _read_limited
 
@@ -36,7 +50,16 @@ def key_routes(store: ConfigurationKeyStore, clock: Clock, *, authenticated: boo
                 pass
             return JSONResponse({"error": "configuration_request_too_large"}, status_code=413)
         try:
-            if operation == "request":
+            if operation == "recover-identity":
+                digest = await run_in_threadpool(
+                    store.recover_identity,
+                    installation_id,
+                    SignedDevelopmentIdentityRecovery.model_validate_json(raw),
+                    actor=actor,
+                    now=clock(),
+                    authorization=recovery_authorization,
+                )
+            elif operation == "request":
                 digest = await run_in_threadpool(
                     store.request,
                     installation_id,
@@ -46,10 +69,23 @@ def key_routes(store: ConfigurationKeyStore, clock: Clock, *, authenticated: boo
                 )
             elif operation in {"approve", "revoke"}:
                 decision = KeyDecision.model_validate_json(raw)
-                method = store.approve if operation == "approve" else store.revoke
-                digest = await run_in_threadpool(
-                    method, installation_id, decision.request_digest, actor=actor, now=clock()
-                )
+                if operation == "approve":
+                    digest = await run_in_threadpool(
+                        store.approve,
+                        installation_id,
+                        decision.request_digest,
+                        actor=actor,
+                        now=clock(),
+                        recovery_authorization=recovery_authorization,
+                    )
+                else:
+                    digest = await run_in_threadpool(
+                        store.revoke,
+                        installation_id,
+                        decision.request_digest,
+                        actor=actor,
+                        now=clock(),
+                    )
             else:
                 return JSONResponse({"error": "not_found"}, status_code=404)
         except ValidationError:

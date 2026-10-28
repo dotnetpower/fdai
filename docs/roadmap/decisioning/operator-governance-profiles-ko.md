@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: d3c925759574729f017aa233db2a833c113b0e76
-translation_revised: 2026-10-23
+translation_source_sha: 27e1f50eede48c75e5ce1ee79f701032e47fab87
+translation_revised: 2026-10-28
 ---
 # 운영자 거버넌스 프로필
 
@@ -247,6 +247,10 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
 `policy_activation`의 단일 작성자는 Mimir이며, Thor는 `governance` ActionType으로
 `promotion_record`를 기록합니다. Lifecycle Hub는 다이제스트만 봅니다.
 
+배포 프로필의 PostgreSQL SKU는 운영 용량 입력이며 거버넌스 프로필, 승인, 위험, 승격 또는
+권한 선택자가 아닙니다. 소스 설치의 암묵적 기본값을 Burstable에서
+`GP_Standard_D4ads_v5`로 변경해도 운영자 거버넌스 바인딩은 바뀌지 않습니다.
+
 ## 현재 한계
 
 - 승인 프로필, 정족수 축소, 운영자 정책 입력은 `fdai.core.risk_gate.approval_profile`과
@@ -321,6 +325,8 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
   요청이 쓰는 기존 `1.0.0` 및 `1.1.0` 증적 다이제스트는 바이트 호환성을 유지합니다.
 - 단독 운영자 프로덕션 프로필은 설계상 직무 분리를 줄입니다. 직무 분리가 필요한 고객은 다중
   운영자 프로필을 유지합니다.
+
+대화 상태 요청 필드와 snapshot 테이블은 거버넌스 프로필도 승인 입력도 아닙니다. 주체 권한, 권한 부여, 프로필 선택을 담지 않으며 프로필이 판단에 이를 읽지 않습니다.
 
 ## 관련 문서
 

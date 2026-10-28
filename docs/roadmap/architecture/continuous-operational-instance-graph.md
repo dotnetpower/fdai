@@ -52,7 +52,7 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   the exact requested recovery revision before evaluating readiness, so an eventually consistent
   pre-existing healthy revision cannot satisfy recovery evidence. Every Core image transition binds `FDAI_SOURCE_REVISION` to the exact protected commit.
   A later plan treats a rolled-back image and source revision as recovery metadata only when both source revisions are valid commits and the refreshed source binding exactly matches the plan's `before` state.
-  The fixed Heimdall recovery observer enters only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible.
+  The fixed Heimdall recovery observer enters only on first adoption through the explicit Core evidence transition; rebinding or unrelated environment drift remains ineligible. Initial inventory closure replays only an independently retained exact-generation receipt with its original observation time, never certifying an unverified superseded generation or current graph freshness. [Genesis provisioning](../deployment/subscription-genesis-provisioning.md#initial-inventory-progress) owns lock-protected capture and bounded host retries; neither adds observation or execution authority.
 - **Single writer:** Collectors append typed observations. They never mutate ontology instances
   directly. One projection owner adjudicates observations and atomically advances its current
   subgraph. Snapshot and journal record conversion call one support-owned relationship-evidence
@@ -345,7 +345,7 @@ corrupt markers recover from that floor, while legacy corruption without a floor
 
 Collection partitions remain separate from graph ownership. Private staging requires normalization and redaction; identical replays are no-ops and identity/content conflicts fail closed. Source cleanup has its own deadline of at most five seconds, shortened by the configured progress budget, even after the run deadline or cancellation. Cleanup failure never masks cancellation or authorizes promotion after a final fence.
 ARG normalizes pages before fetching successors and retains a bounded normalized generation, not prior raw rows. A failed shard or exhausted generation budget prevents queued shards from starting provider I/O; in-flight requests retain bounded cancellation and no final fence is emitted. The production activity wrapper forwards durable chunk writes. Under the existing run lock, unfinished recovery verifies one unexpired exact-context chunk chain against candidate rows, preserves original clocks and appends only new Resources. It rereads the entire provider source without passing its token: changed or missing retained identities, clock regression, uncheckpointed enrichment, ambiguous attempts, or a missing final fence block promotion. Fresh relationships and coverage are reverified before sealing and real promotion; this saves repeated staging, not provider calls.
-
+The initial one-shot context acquires that advisory run lock before entering the coordinator and holds it through independent closure. It passes an explicit already-held marker so unfinished collection recovery can proceed without reacquiring the same lock. Recurring runs still delegate acquisition to the coordinator, and every recovery path without either form of lock remains denied.
 The coordinator stages Resource-only chunks of at most 1 MiB and 1,000 Resources through the existing
 PostgreSQL writer. Candidate rows, immutable chunk, digest, and checkpoint commit together. Context binds source, scopes, types, metadata, and an effective-configuration digest.
 That digest pins policy, management target/audience, request rate, vocabulary mappings, signed fallback content, and installed FDAI Python producer source including ARM overlays. An ARG contract digest pins generated queries, reviewed relationships, and transport bounds. Source changes require a restarted process; gaps and cross-chunk Resource conflicts fail closed.
@@ -785,7 +785,7 @@ The revision is implemented as a local opt-in path. Implementation fixed these b
 
 ## Source-to-store implementation audit
 
-The complete implementation audit and transition ledger are in [Continuous Operational Instance Graph Evidence](continuous-operational-instance-graph-evidence.md).
+The complete implementation audit and transition ledger are in [Continuous Operational Instance Graph Evidence](continuous-operational-instance-graph-evidence.md). The observation-mode dialogue state (the Operator `conversation_dialogue_snapshot` table, the 1.12.0 `dialogue_state` request field and Core's log-only observation) is conversation context. It adds no ontology entity, relationship, instance-graph node or edge, and no evidence authority.
 
 ## Related docs
 

@@ -38,6 +38,7 @@ export interface TrajectoryPresentation {
   readonly totalTokens?: number;
   readonly inputTokens?: number;
   readonly outputTokens?: number;
+  readonly cachedTokens?: number;
   readonly evidenceAttemptCount: number;
   readonly evidenceCompletedCount: number;
   readonly evidenceReferenceCount: number;
@@ -86,6 +87,8 @@ export function buildTrajectoryPresentation(
           ? { inputTokens: trajectory.answer.modelUsage.prompt_tokens } : {}),
         ...(trajectory.answer.modelUsage.completion_tokens !== undefined
           ? { outputTokens: trajectory.answer.modelUsage.completion_tokens } : {}),
+        ...(trajectory.answer.modelUsage.cached_tokens !== undefined
+          ? { cachedTokens: trajectory.answer.modelUsage.cached_tokens } : {}),
       }
       : {}),
     evidenceAttemptCount: evidenceStatuses.length,

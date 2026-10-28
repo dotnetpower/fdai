@@ -10,6 +10,7 @@ import pytest
 
 from fdai_deployment_cli import (
     standalone_host,
+    standalone_host_residual,
     standalone_residual_apply,
     standalone_residual_successor,
     standalone_review,
@@ -464,3 +465,54 @@ def test_residual_apply_command_is_explicit(
 
     assert result == 0
     assert json.loads(capsys.readouterr().out)["state"] == "applied"
+
+
+def _residual_checkpoint_loaded_files(work_dir: Path) -> list[str]:
+    loaded: list[str] = []
+
+    def private_json(path: Path, _label: str) -> dict[str, object]:
+        loaded.append(path.name)
+        return {}
+
+    class _Stop(Exception):
+        pass
+
+    def stop(*_args, **_kwargs):
+        raise _Stop
+
+    args = type("Args", (), {"stage": "runtime", "approval": work_dir / "approval.json"})()
+    with pytest.raises(_Stop):
+        standalone_host_residual.apply_residual_checkpoint(
+            args,
+            work_dir,
+            private_json=private_json,
+            validate_approval=stop,
+            managed_identity_login=stop,
+            stage_paths=stop,
+            activate_stage=stop,
+            stage_targets=stop,
+            guard_runtime=stop,
+            readback_stage=stop,
+            absolute_path=lambda path: path,
+        )
+    return loaded
+
+
+def test_runtime_residual_extends_the_unreceipted_runtime_cluster_claim(tmp_path: Path) -> None:
+    (tmp_path / "runtime-cluster-claim.json").write_text("{}")
+
+    loaded = _residual_checkpoint_loaded_files(tmp_path)
+
+    assert "runtime-cluster-review.json" in loaded
+    assert "runtime-cluster-claim.json" in loaded
+    assert "runtime-review.json" not in loaded
+
+
+def test_runtime_residual_uses_the_runtime_claim_after_the_cluster_receipt(tmp_path: Path) -> None:
+    (tmp_path / "runtime-cluster-claim.json").write_text("{}")
+    (tmp_path / "runtime-cluster-receipt.json").write_text("{}")
+
+    loaded = _residual_checkpoint_loaded_files(tmp_path)
+
+    assert "runtime-review.json" in loaded
+    assert "runtime-cluster-review.json" not in loaded

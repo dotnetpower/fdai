@@ -142,16 +142,18 @@ def _execute_selected(args: argparse.Namespace) -> dict[str, object]:
     known_hosts = directory / KNOWN_HOSTS_NAME
     validate_known_hosts(known_hosts)
 
-    checks = GenesisChecks(
-        root, operator_selected_source=args.source_snapshot is not None and recovery is None
-    )
+    checks = GenesisChecks(root, operator_selected_source=args.source_snapshot is not None)
     checks.verify_target(
         subscription_id=str(handoff["subscription_id"]),
         tenant_id=str(handoff["tenant_id"]),
         region=str(handoff["region"]),
     )
     checks.verify_source(
-        source_commit=str(handoff["source_commit"]), repository=args.repository, apply=True
+        source_commit=(
+            recovery.source.commit if recovery is not None else str(handoff["source_commit"])
+        ),
+        repository=args.repository,
+        apply=True,
     )
 
     backend_key = _required_text(state, "foundation_key")

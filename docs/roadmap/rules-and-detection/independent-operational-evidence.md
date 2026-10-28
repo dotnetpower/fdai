@@ -95,7 +95,7 @@ records, but the contract itself does not issue independent operational evidence
 or prove live provider state.
 Resource Health narration claims are answer-validation companions to a typed read receipt. They
 can preserve or reject narration before presentation, but they are not admissions from the
-independent operational-evidence verifier and cannot satisfy any governed decision source.
+independent operational-evidence verifier and cannot satisfy any governed decision source. Their coverage gaps, such as no record or an unresolved target, are explained in the operator's language beside the exact code.
 Forseti may carry a pinned single-operator approval-profile revision on a Verdict so Var and the
 HIL resume path can record original and effective quorum. That profile metadata is approval
 context only. It is not a verifier source artifact, a `DecisionEvidenceAdmission`, or proof of live
@@ -458,7 +458,7 @@ Consumer: `OperatingPatternQuery._read` in `core/ontology_platform/pattern_queri
 the principal scope, case scope, and purpose, `case-history-read`, and the active ontology release digest.
 Because the lookup binds the release digest, any release change, including an edited ontology function
 source outside operational evidence, starts new lookups, and a receipt issued under the previous
-release is never reused; the same change regenerates the source-bound semantic assurance corpus. Editing the source-derived `query.resource_health_inventory` FunctionType is such a release change.
+release is never reused; the same change regenerates the source-bound semantic assurance corpus. Editing the source-derived `query.resource_health_inventory` FunctionType is such a release change. Raising the `query.resource_state_inventory` function version is another.
 The E10 state list and E11 metric collection FunctionType revisions follow the same rule. Their
 corpus refresh records repository provenance only; it neither issues an operational proof nor
 admits a prior proof under the new release.
@@ -466,6 +466,8 @@ P1 population counts, E12 lineage limitations, and semantic answer output reserv
 typed query and presentation evidence. They do not issue or admit independent operational evidence.
 Projection-only ontology vocabulary can refresh that corpus manifest's source digests without
 changing the release digest or any operational-evidence lookup authority.
+An ActionType catalog addition can refresh the same repository provenance. It neither issues an
+operational proof nor admits an earlier proof for the new action.
 
 P2 traversal population counts, E12 per-anchor coverage rows, E11 recipe thresholds, and P3 metric
 read continuations are also typed query evidence. They neither issue nor admit independent
@@ -690,6 +692,7 @@ See [Code Security Findings](../operations/code-security-findings.md#result-impo
 
 - No new agent or topic, no `owns`, `subscribes`, or role-binding change, and no execution or promotion authority.
 - No reuse of the `deployment-apply` policy, its workflow proofs, or its container.
+- No operational-evidence role for the Operator `conversation_dialogue_snapshot` table: it is derived conversation context and adds no issuance, grant, readback, or proof. The 1.12.0 `dialogue_state` request field carries no operational evidence either.
 - Consumers stay fail-closed, including the existing self-review rejection; only their hold reasons gain classes.
 - Out of scope: raw history (#1021), the Console workflow (#1023), Pattern-to-T1 intake (#1024), and P0-P6
   qualification (#1026). No tenant values, secrets, or live Azure, model, or deployment activity.

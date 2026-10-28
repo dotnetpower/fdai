@@ -8,7 +8,10 @@ from copy import deepcopy
 from typing import Annotated, Any, Literal, Self
 
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from fdai_deployment_cli.lifecycle_installation_binding import (
+    validate_installation_binding_values,
+)
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, StringConstraints, model_validator
 
 from fdai_lifecycle_agent.workload import (
     COMPONENT_LABEL,
@@ -20,6 +23,19 @@ from fdai_lifecycle_agent.workload import (
     is_dns_label,
 )
 
+_MAX_AUTOSCALED_REPLICAS = 10
+_BINDING_KEY = re.compile(r"[a-z][a-z0-9_.-]{0,62}")
+_MAX_BINDING_VALUES = 128
+_MAX_BINDING_VALUE_LENGTH = 1024
+# Names that carry a credential must use a Secret reference, never a literal or a binding value.
+_SECRET_NAME = re.compile(
+    r"(?i)(secret|passw(or)?d|token|credential|private|api[_-]?key|access[_-]?key"
+    r"|connection[_-]?string|dsn|signing|_key$)"
+)
+_CREDENTIAL_VALUE = re.compile(
+    r"(?i)([a-z][a-z0-9+.-]*://[^/\s]*@|password=|accountkey=|sharedaccesskey=|-----BEGIN)"
+)
+
 type Name = Annotated[str, StringConstraints(pattern=r"^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$")]
 type EntityId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$")]
 
@@ -29,7 +45,7 @@ class RuntimeObject(BaseModel):
 
     entity_id: EntityId
     name: Name
-    kind: Literal["Deployment", "Service", "CronJob"]
+    kind: Literal["Deployment", "Service", "CronJob", "HorizontalPodAutoscaler"]
     spec: dict[str, Any] = Field(repr=False)
 
     @model_validator(mode="after")
@@ -52,8 +68,10 @@ class RuntimeObject(BaseModel):
                 if port.get("protocol", "TCP") != "TCP":
                     raise ValueError("runtime Service protocol is unsupported")
         elif self.kind == "Deployment":
-            _fields(self.spec, {"replicas", "template"}, {"strategy", "progressDeadlineSeconds"})
-            _integer(self.spec["replicas"], 1, 3)
+            # An autoscaled Deployment omits replicas; the bundle checks that pairing.
+            _fields(self.spec, {"template"}, {"replicas", "strategy", "progressDeadlineSeconds"})
+            if "replicas" in self.spec:
+                _integer(self.spec["replicas"], 1, 3)
             _integer(self.spec.get("progressDeadlineSeconds", 600), 1, 900)
             if "strategy" in self.spec and self.spec["strategy"] != {
                 "type": "RollingUpdate",
@@ -61,6 +79,26 @@ class RuntimeObject(BaseModel):
             }:
                 raise ValueError("runtime Deployment strategy is unsupported")
             _pod_template(self.spec["template"], scheduled=False)
+        elif self.kind == "HorizontalPodAutoscaler":
+            _fields(self.spec, {"minReplicas", "maxReplicas", "metrics"}, set())
+            _integer(self.spec["minReplicas"], 1, _MAX_AUTOSCALED_REPLICAS)
+            _integer(self.spec["maxReplicas"], 1, _MAX_AUTOSCALED_REPLICAS)
+            if self.spec["maxReplicas"] < self.spec["minReplicas"]:
+                raise ValueError("runtime autoscaler bounds are inverted")
+            for metric in _sequence(self.spec["metrics"], 2):
+                _fields(metric, {"type", "resource"}, set())
+                if metric["type"] != "Resource":
+                    raise ValueError("runtime autoscaler metric is unsupported")
+                _fields(metric["resource"], {"name", "target"}, set())
+                _fields(metric["resource"]["target"], {"type", "averageUtilization"}, set())
+                if (
+                    metric["resource"]["name"] not in {"cpu", "memory"}
+                    or metric["resource"]["target"]["type"] != "Utilization"
+                ):
+                    raise ValueError("runtime autoscaler metric is unsupported")
+                _integer(metric["resource"]["target"]["averageUtilization"], 1, 100)
+            if not self.spec["metrics"]:
+                raise ValueError("runtime autoscaler requires a metric")
         else:
             _fields(
                 self.spec,
@@ -88,7 +126,10 @@ class RuntimeObject(BaseModel):
             _integer(self.spec.get("startingDeadlineSeconds", 60), 1, 300)
             for key in ("successfulJobsHistoryLimit", "failedJobsHistoryLimit"):
                 _integer(self.spec.get(key, 1), 0, 3)
-            _fields(self.spec["jobTemplate"], {"spec"}, set())
+            _fields(self.spec["jobTemplate"], {"spec"}, {"metadata"})
+            job_metadata = self.spec["jobTemplate"].get("metadata", {})
+            _fields(job_metadata, set(), {"labels"})
+            _labels(job_metadata.get("labels", {}))
             job = self.spec["jobTemplate"]["spec"]
             _fields(
                 job,
@@ -107,7 +148,7 @@ class RuntimeObject(BaseModel):
 
     @property
     def pod(self) -> dict[str, Any] | None:
-        if self.kind == "Service":
+        if self.kind in {"Service", "HorizontalPodAutoscaler"}:
             return None
         spec = self.spec if self.kind == "Deployment" else self.spec["jobTemplate"]["spec"]
         pod: dict[str, Any] = spec["template"]["spec"]
@@ -124,6 +165,39 @@ class RuntimeBundle(BaseModel):
         repr=False
     )
 
+    _installation_binding: dict[str, str] = PrivateAttr(default_factory=dict)
+
+    def with_installation_binding(self, values: Mapping[str, Any]) -> Self:
+        """Attach the private binding. It never enters the pinned bundle digest."""
+
+        referenced = self.referenced_binding_keys()
+        validated = validate_installation_binding_values(values, allowed_keys=referenced)
+        bound = self.model_copy()
+        bound._installation_binding = validated
+        return bound
+
+    def referenced_binding_keys(self) -> frozenset[str]:
+        return frozenset(
+            variable["binding"]
+            for item in self.objects
+            if item.pod is not None
+            for key in ("containers", "initContainers")
+            for container in item.pod.get(key, [])
+            for variable in container.get("env", [])
+            if "binding" in variable
+        )
+
+    def referenced_configuration_keys(self, entity_id: str) -> frozenset[str]:
+        return frozenset(
+            variable["configuration"]
+            for item in self.objects
+            if item.entity_id == entity_id and item.pod is not None
+            for key in ("containers", "initContainers")
+            for container in item.pod.get(key, [])
+            for variable in container.get("env", [])
+            if "configuration" in variable
+        )
+
     @model_validator(mode="after")
     def validate_inventory(self) -> Self:
         keys = [(item.kind, item.name) for item in self.objects]
@@ -139,6 +213,17 @@ class RuntimeBundle(BaseModel):
         for item in self.objects:
             if item.kind == "Service" and (item.entity_id, item.name) not in deployments:
                 raise ValueError("runtime Service requires its own Entity's named Deployment")
+        autoscaled = {
+            (item.entity_id, item.name)
+            for item in self.objects
+            if item.kind == "HorizontalPodAutoscaler"
+        }
+        if not autoscaled <= deployments.keys():
+            raise ValueError("runtime autoscaler requires its own Entity's named Deployment")
+        for key, deployment in deployments.items():
+            # The autoscaler owns the replica count, so a Deployment never also pins it.
+            if ("replicas" in deployment.spec) == (key in autoscaled):
+                raise ValueError("runtime Deployment replicas and autoscaler are inconsistent")
         if len(canonical_bytes(self.model_dump(mode="json"))) > 64 * 1024:
             raise ValueError("runtime bundle exceeds its byte limit")
         return self
@@ -156,14 +241,40 @@ class RuntimeBundle(BaseModel):
             for container in item.pod.get(key, [])
         )
 
+    def _resolve_environment(
+        self,
+        container: dict[str, Any],
+        *,
+        entity_id: str,
+        configuration_values: Mapping[str, Mapping[str, Any]],
+    ) -> None:
+        for variable in container.get("env", []):
+            if "binding" in variable:
+                key = variable.pop("binding")
+                try:
+                    variable["value"] = self._installation_binding[key]
+                except KeyError:
+                    raise WorkloadError("installation_binding_key_missing") from None
+            elif "configuration" in variable:
+                key = variable.pop("configuration")
+                try:
+                    value = configuration_values[entity_id][key]
+                    _binding_text(value)
+                except (KeyError, ValueError):
+                    raise WorkloadError("configuration_key_missing") from None
+                variable["value"] = value
+
     def render(
         self,
         namespace: str,
         entities: frozenset[str],
         images: Mapping[tuple[str, str], str],
+        *,
+        configuration_values: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> tuple[Manifest, ...]:
         if namespace != self.namespace:
             raise WorkloadError("runtime_bundle_namespace_mismatch")
+        resolved_configuration = configuration_values or {}
         desired: list[Manifest] = []
         for item in self.objects:
             if item.entity_id not in entities:
@@ -180,7 +291,17 @@ class RuntimeBundle(BaseModel):
             selector = {COMPONENT_LABEL: item.name}
             if item.kind == "Service":
                 spec["selector"] = selector
+            elif item.kind == "HorizontalPodAutoscaler":
+                spec["scaleTargetRef"] = {
+                    "apiVersion": "apps/v1",
+                    "kind": "Deployment",
+                    "name": item.name,
+                }
             else:
+                if item.kind == "CronJob":
+                    spec["jobTemplate"].setdefault("metadata", {}).setdefault("labels", {}).update(
+                        labels
+                    )
                 workload = spec if item.kind == "Deployment" else spec["jobTemplate"]["spec"]
                 template = workload["template"]
                 template.setdefault("metadata", {}).setdefault("labels", {}).update(labels)
@@ -189,6 +310,11 @@ class RuntimeBundle(BaseModel):
                     spec["selector"] = {"matchLabels": selector}
                 for key in ("containers", "initContainers"):
                     for container in template["spec"].get(key, []):
+                        self._resolve_environment(
+                            container,
+                            entity_id=item.entity_id,
+                            configuration_values=resolved_configuration,
+                        )
                         component = container.pop("image_component")
                         try:
                             container["image"] = images[item.entity_id, component]
@@ -200,6 +326,8 @@ class RuntimeBundle(BaseModel):
                     if item.kind == "Service"
                     else "apps/v1"
                     if item.kind == "Deployment"
+                    else "autoscaling/v2"
+                    if item.kind == "HorizontalPodAutoscaler"
                     else "batch/v1",
                     "kind": item.kind,
                     "metadata": {"name": item.name, "namespace": namespace, "labels": labels},
@@ -278,17 +406,19 @@ def _security(value: Any, *, container: bool) -> None:
         raise ValueError("runtime filesystem group policy is invalid")
 
 
+def _labels(labels: Any) -> None:
+    if not isinstance(labels, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str) or len(key) > 253 or len(value) > 63
+        for key, value in labels.items()
+    ):
+        raise ValueError("runtime Pod labels are invalid")
+
+
 def _pod_template(template: Any, *, scheduled: bool) -> None:
     _fields(template, {"spec"}, {"metadata"})
     metadata = template.get("metadata", {})
     _fields(metadata, set(), {"labels"})
-    if not isinstance(metadata.get("labels", {}), dict):
-        raise ValueError("runtime Pod labels are invalid")
-    if any(
-        not isinstance(key, str) or not isinstance(value, str) or len(key) > 253 or len(value) > 63
-        for key, value in metadata.get("labels", {}).items()
-    ):
-        raise ValueError("runtime Pod labels are invalid")
+    _labels(metadata.get("labels", {}))
     pod = template["spec"]
     _fields(
         pod,
@@ -396,12 +526,24 @@ def _container(item: Any, volumes: set[str], *, initializing: bool, scheduled: b
             raise ValueError("runtime arguments are unbounded")
     if item.get("imagePullPolicy", "IfNotPresent") not in ("Always", "IfNotPresent"):
         raise ValueError("runtime image pull policy is invalid")
+    seen_env_names: set[str] = set()
     for variable in _sequence(item.get("env", []), 128):
-        _fields(variable, {"name", "valueFrom"}, set())
+        _fields(variable, {"name"}, {"valueFrom", "value", "binding", "configuration"})
         if not isinstance(variable["name"], str) or not re.fullmatch(
             r"[A-Za-z_][A-Za-z0-9_]{0,127}", variable["name"]
         ):
             raise ValueError("runtime environment name is invalid")
+        if variable["name"] in seen_env_names:
+            raise ValueError("runtime environment names must be unique")
+        seen_env_names.add(variable["name"])
+        sources = [
+            key for key in ("valueFrom", "value", "binding", "configuration") if key in variable
+        ]
+        if len(sources) != 1:
+            raise ValueError("runtime environment requires exactly one value source")
+        if sources[0] != "valueFrom":
+            _literal_or_binding(variable, sources[0])
+            continue
         reference = variable["valueFrom"]
         _fields(reference, set(), {"secretKeyRef", "configMapKeyRef", "fieldRef"})
         if len(reference) != 1:
@@ -414,6 +556,7 @@ def _container(item: Any, volumes: set[str], *, initializing: bool, scheduled: b
                     "metadata.name",
                     "metadata.namespace",
                     "spec.nodeName",
+                    "metadata.labels['batch.kubernetes.io/controller-uid']",
                 )
                 or reference["fieldRef"].get("apiVersion", "v1") != "v1"
             ):
@@ -458,6 +601,29 @@ def _container(item: Any, volumes: set[str], *, initializing: bool, scheduled: b
     for key in ("readinessProbe", "livenessProbe", "startupProbe"):
         if key in item:
             _probe(item[key])
+
+
+def _literal_or_binding(variable: dict[str, Any], source: str) -> None:
+    """Validate a literal or non-secret render-time key."""
+
+    if _SECRET_NAME.search(variable["name"]):
+        raise ValueError("runtime environment name requires a Secret reference")
+    if source in {"binding", "configuration"}:
+        value = variable[source]
+        if not isinstance(value, str) or not _BINDING_KEY.fullmatch(value):
+            raise ValueError(f"runtime {source} key is invalid")
+    else:
+        _binding_text(variable["value"])
+
+
+def _binding_text(value: Any) -> None:
+    if (
+        not isinstance(value, str)
+        or not 1 <= len(value) <= _MAX_BINDING_VALUE_LENGTH
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+        or _CREDENTIAL_VALUE.search(value)
+    ):
+        raise ValueError("runtime literal value is invalid")
 
 
 def _sequence(value: Any, maximum: int) -> list[Any]:

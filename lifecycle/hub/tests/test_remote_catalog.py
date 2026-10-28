@@ -15,7 +15,14 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai_deployment_cli.contracts import canonical_bytes
 from sqlalchemy import create_engine, select
 
+from fdai_lifecycle_hub.agent_artifacts import artifact_for_plan
 from fdai_lifecycle_hub.migrations import migrate, require_schema
+from fdai_lifecycle_hub.operations import (
+    CatalogImportRequest,
+    RecomputeRequest,
+    approve_and_import_catalog,
+    recompute_installation,
+)
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.remote_catalog import (
     CatalogSource,
@@ -52,7 +59,7 @@ def test_catalog_can_be_bound_after_standalone_migration(tmp_path, key):
             .decode()
         }
     )
-    with pytest.raises(ValueError, match="rotation"):
+    with pytest.raises(ValueError, match="rebinding"):
         bind_catalog(engine, other, actor="operator", reason="Must not silently rebind")
 
 
@@ -159,7 +166,9 @@ def test_release_inventory_refuses_unimported_catalog(tmp_path, key, store, now)
     app = create_app(store)
     app.routes[0:0] = target_routes(store, target, key)
     with TestClient(app) as client:
-        assert client.get("/v1/catalog/releases").status_code == 503
+        unimported = client.get("/v1/catalog/releases")
+        assert unimported.status_code == 503
+        assert unimported.json() == {"error": "catalog_not_imported_approve_pin_and_import"}
     assert target.status()["minimum_revision"] == 0
 
 
@@ -180,9 +189,33 @@ def test_separate_pin_channel_persistence_planner_and_recall(
     target = RemoteCatalog(engine, source, fetch=lambda _: raw)
     with pytest.raises(ValueError, match="Approve"):
         target.import_once(actor="customer-operator", now=now)
-    approve(target, raw, now)
-    assert not target.status()["imported"]
-    target.import_once(actor="customer-operator", now=now)
+    digest = hashlib.sha256(raw).hexdigest()
+    revision = json.loads(raw)["revision"]
+    import_request = CatalogImportRequest(
+        schema_version="fdai.catalog-import-request.v1",
+        request_id="00000000-0000-0000-0000-000000000001",
+        revision=revision,
+        sha256=digest,
+        reason="Independent customer review",
+        confirmation=f"approve {revision} {digest}",
+    )
+    imported_receipt = approve_and_import_catalog(
+        target,
+        import_request,
+        actor="customer-operator",
+        now=now,
+    )
+    assert imported_receipt["mutation_performed"] is True
+    # The operation above imported the exact pin; a repeat is an effect-free readback.
+    assert (
+        approve_and_import_catalog(
+            target,
+            import_request,
+            actor="customer-operator",
+            now=now,
+        )["mutation_performed"]
+        is False
+    )
     restarted = RemoteCatalog(create_engine(engine.url), source, fetch=lambda _: raw)
     assert restarted.status()["minimum_revision"] == 4
     target_installation = replace(
@@ -191,8 +224,40 @@ def test_separate_pin_channel_persistence_planner_and_recall(
         reported=replace(installation.reported, observed_at=now),
     )
     enroll(store, target_installation)
-    outcome = restarted.recompute(store, target_installation.installation_id, key, now=now)
+    outcome, recompute_receipt = recompute_installation(
+        store,
+        restarted,
+        key,
+        RecomputeRequest(
+            schema_version="fdai.lifecycle-recompute-request.v1",
+            request_id="00000000-0000-0000-0000-000000000002",
+            installation_id=target_installation.installation_id,
+            catalog_revision=revision,
+            catalog_sha256=digest,
+        ),
+        now=now,
+    )
     assert outcome.plan.target_release_id == "1.6.0"
+    assert recompute_receipt["mutation_performed"] is True
+    artifact = artifact_for_plan(
+        store,
+        restarted,
+        target_installation.installation_id,
+        "release",
+        catalog.releases["1.6.0"].digest,
+        now=now,
+    )
+    assert artifact.payload == canonical_bytes(catalog.releases["1.6.0"].to_mapping())
+    assert len(artifact.signature) == 64
+    with pytest.raises(ValueError, match="differs from the current Plan"):
+        artifact_for_plan(
+            store,
+            restarted,
+            target_installation.installation_id,
+            "release",
+            "f" * 64,
+            now=now,
+        )
     # Removing the synthetic registry facts blocks selection; publication is not artifact proof.
     absent = replace(
         target_installation,

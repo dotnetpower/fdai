@@ -30,5 +30,22 @@
   "receiptObserved": "관찰 시각 {time}",
   "modelGroupTitle": "답변 계획",
   "modelGroupRunning": "{running}건 진행 중 · {total}건 중 {done}건 완료",
-  "modelGroupDone": "모델 호출 {count}회"
+  "modelGroupDone": "모델 호출 {count}회",
+  "modelCallLabel": "{stage} 모델 호출",
+  "modelCallModel": "모델",
+  "modelCallWaiting": "{model} 응답 대기 중",
+  "modelCallSettled": "{model} · {duration} · {outcome}",
+  "modelCallCompleted": "완료",
+  "modelCallFailed": "실패",
+  "modelStage": {
+    "preflight": "질문 분류",
+    "judgment": "의미 판단",
+    "form": "질문 해석",
+    "blind_review": "독립 제약 읽기",
+    "concept_chooser": "개념 선택",
+    "direction_reader": "관계 방향 확인",
+    "ambiguity_reader": "모호성 확인",
+    "frame": "질문 구조화",
+    "plan": "조회 계획"
+  }
 }

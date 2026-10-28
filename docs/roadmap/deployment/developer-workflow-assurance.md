@@ -33,7 +33,7 @@ The test-context choice route uses the same Operator route-family assembly as ot
 The Outcome Assurance read panel also uses the Operator route-family assembly, but it remains an
 authenticated read-only projection. Adding it changes no developer workflow socket, validation
 queue behavior, local diagnostic shortcut, or local execution authority.
-Dependency updates that remediate image-scan findings remain package maintenance: they refresh manifests and locks without making local validation, queue diagnostics, or developer tooling authoritative.
+Dependency updates that remediate image-scan findings remain package maintenance: they refresh manifests and locks without making local validation, queue diagnostics, or developer tooling authoritative. A fixed-version floor in both owning manifests plus the root lock regression prevents a known-vulnerable telemetry release from returning before container scanning.
 Semantic result-handle storage and replay use the ordinary Operator/Core semantic request path.
 They add no developer workflow socket, validation queue behavior, or local execution authority.
 The governed Chaos provider workspace package is likewise an install artifact for the protected
@@ -144,6 +144,8 @@ The same launcher opts the local semantic runtime into skew-bounded pending-stat
 inventory or state-store DSN already exists. This setting binds a read-only product capability, not
 the diagnostic socket; it grants no provider identity, validation authority, or deployment
 activation, and every unsupported or unavailable read remains partial.
+The launcher also turns on result handles for follow-up questions and generates an owner-only local
+key file for them. This grants no authority and the setting stays off outside local development.
 The observer-proposal consumer is a normal application lifecycle worker, not a diagnostic channel.
 Its readiness joins the Operator worker checks; its GET projection neither reaches this socket nor authorizes a stack restart or live provider probe.
 
@@ -655,6 +657,8 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
   assertions, so a failed publish cannot destroy a complete cohort and a later run cannot replay
   one; a run that performs no live turn is reported as `interrupted` and never carries release
   authority, so it can never report a production-ready artifact.
+
+The development-only local narrator can run the T1 dialogue-state proposer off the answer path when `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED` is set. It is bounded by the narrator timeout, degrades to the typed T0 fallback on any failure, and is not a diagnostic-channel capability or a source of development evidence.
 
 ## Related docs
 

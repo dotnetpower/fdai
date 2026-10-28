@@ -239,6 +239,10 @@ class DocumentIngestionEventConsumer:
                             event, reason="invalid_document_worker_audit_event"
                         )
                         continue
+                    _LOGGER.info(
+                        "document_worker_audit_received",
+                        extra={"upload_id": str(command.upload_id), "stage": command.stage},
+                    )
                     if command.stage == "received" and command.decision == "admit":
                         await self._run_once(
                             command.upload_id,
@@ -479,7 +483,12 @@ class DocumentIngestionEventConsumer:
             ),
         )
         for state, stage, operation in replay:
-            for session in await self._next_reconcile_batch(state):
+            sessions = await self._next_reconcile_batch(state)
+            _LOGGER.info(
+                "document_worker_reconcile_selected",
+                extra={"stage": stage.value, "state": state.value, "selected_count": len(sessions)},
+            )
+            for session in sessions:
                 healthy = await self._run_replay(session.upload_id, stage, operation) and healthy
         for state in (DocumentState.QUARANTINED, DocumentState.SCANNING):
             for session in await self._next_reconcile_batch(state):
@@ -570,9 +579,23 @@ class DocumentIngestionEventConsumer:
             )
         except DocumentWorkerClaimConflictError:
             self._ownership_conflict_count += 1
+            _LOGGER.warning(
+                "document_worker_claim_conflict",
+                extra={"upload_id": str(upload_id), "stage": stage.value},
+            )
             raise
         if claim is None:
+            _LOGGER.info(
+                "document_worker_claim_skipped",
+                extra={"upload_id": str(upload_id), "stage": stage.value},
+            )
             return
+        log_fields = {
+            "upload_id": str(upload_id),
+            "stage": stage.value,
+            "attempt_id": str(attempt_id),
+        }
+        _LOGGER.info("document_worker_stage_started", extra=log_fields)
         current_claim = [claim]
         renewal_stop = asyncio.Event()
         operation_task = asyncio.ensure_future(operation(upload_id, lambda: current_claim[0]))
@@ -589,13 +612,23 @@ class DocumentIngestionEventConsumer:
             await operation_task
             renewal_stop.set()
             await renewal_task
-            await self._metadata.complete_worker_stage(
+            finish = (
+                self._metadata.release_worker_stage
+                if stage
+                in {
+                    DocumentWorkerStage.RECEIVED_REPLAY,
+                    DocumentWorkerStage.PROTECTION_REPLAY,
+                }
+                else self._metadata.complete_worker_stage
+            )
+            await finish(
                 upload_id,
                 stage,
                 owner=self._worker_owner,
                 attempt_id=attempt_id,
                 expected_revision=current_claim[0].revision,
             )
+            _LOGGER.info("document_worker_stage_completed", extra=log_fields)
         except asyncio.CancelledError:
             renewal_stop.set()
             await self._cancel_operation(operation_task)
@@ -613,7 +646,11 @@ class DocumentIngestionEventConsumer:
                 upload_id, stage, attempt_id, current_claim[0].revision
             )
             raise
-        except Exception:
+        except Exception as exc:
+            _LOGGER.warning(
+                "document_worker_stage_retry_pending",
+                extra={**log_fields, "exception_type": type(exc).__name__},
+            )
             renewal_stop.set()
             await self._cancel_operation(operation_task)
             await asyncio.gather(renewal_task, return_exceptions=True)
@@ -674,7 +711,6 @@ class DocumentIngestionEventConsumer:
             "document_worker_message_dead_lettered",
             extra={
                 "topic": event.topic,
-                "key": event.key,
                 "offset": event.offset,
                 "reason": reason,
             },

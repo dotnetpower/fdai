@@ -4,8 +4,10 @@ import hashlib
 import json
 import re
 import subprocess
+import time
 from collections.abc import Sequence
 from pathlib import Path
+from threading import Barrier, Lock
 
 import pytest
 
@@ -15,6 +17,7 @@ from fdai_deployment_cli.source_image_stage import (
     CHANGED,
     DEPENDENCY_IMAGES,
     FAILED,
+    MAX_PARALLEL_IMAGE_OPERATIONS,
     SERVICE_ORDER,
     UNAVAILABLE,
     AzureRegistryBuildService,
@@ -41,31 +44,36 @@ class FakeRegistry:
         self.calls: list[tuple[str, ...]] = []
         self.references: dict[str, str] = {}
         self.overrides: dict[str, str] = {}
+        self.lock = Lock()
 
     def require_available(self, target: SourceImageTarget) -> None:
-        self.calls.append(("probe", target.login_server))
+        with self.lock:
+            self.calls.append(("probe", target.login_server))
         if not self.available:
             raise SourceImageStageStopped(UNAVAILABLE)
 
     def build(
         self, target: SourceImageTarget, *, context: Path, dockerfile: str, image: str
     ) -> str:
-        self.calls.append(("build", image, dockerfile, str(context)))
-        digest = "sha256:" + hashlib.sha256(f"{image}:{len(self.calls)}".encode()).hexdigest()
-        self._push(image, digest)
+        digest = "sha256:" + hashlib.sha256(image.encode()).hexdigest()
+        with self.lock:
+            self.calls.append(("build", image, dockerfile, str(context)))
+            self._push(image, digest)
         return digest
 
     def import_image(self, target: SourceImageTarget, *, source: str, image: str) -> None:
-        self.calls.append(("import", source, image))
-        self._push(image, source.rsplit("@", 1)[1])
+        with self.lock:
+            self.calls.append(("import", source, image))
+            self._push(image, source.rsplit("@", 1)[1])
 
     def read_digest(self, target: SourceImageTarget, *, reference: str) -> str:
-        self.calls.append(("read", reference))
-        if reference in self.overrides:
-            return self.overrides[reference]
-        if reference not in self.references:
-            raise SourceImageStageStopped(FAILED)
-        return self.references[reference]
+        with self.lock:
+            self.calls.append(("read", reference))
+            if reference in self.overrides:
+                return self.overrides[reference]
+            if reference not in self.references:
+                raise SourceImageStageStopped(FAILED)
+            return self.references[reference]
 
     def _push(self, image: str, digest: str) -> None:
         repository = image.split(":", 1)[0]
@@ -108,7 +116,7 @@ def test_builds_every_service_imports_pinned_dependencies_and_binds_read_back_di
 
     effects = [call for call in registry.calls if call[0] in {"build", "import"}]
     assert registry.calls[0] == ("probe", LOGIN)
-    assert effects == [
+    assert set(effects) == {
         *(
             (
                 "build",
@@ -119,7 +127,7 @@ def test_builds_every_service_imports_pinned_dependencies_and_binds_read_back_di
             for service in SERVICE_ORDER
         ),
         *(("import", source, f"{name}:sha-{COMMIT}") for name, source in DEPENDENCY_IMAGES.items()),
-    ]
+    }
     digests = receipt["image_digests"]
     assert isinstance(digests, dict)
     assert set(digests) == set(SERVICE_ORDER) | set(DEPENDENCY_IMAGES)
@@ -133,6 +141,7 @@ def test_builds_every_service_imports_pinned_dependencies_and_binds_read_back_di
     }
     assert receipt["provenance"] == "operator-selected-source"
     assert receipt["release_signature_verified"] is False
+    assert receipt["max_parallel_image_operations"] == MAX_PARALLEL_IMAGE_OPERATIONS
     assert receipt["deployment_ready"] is False
     unsigned = {key: value for key, value in receipt.items() if key != "receipt_digest"}
     assert receipt["receipt_digest"] == canonical_digest(unsigned)
@@ -140,6 +149,52 @@ def test_builds_every_service_imports_pinned_dependencies_and_binds_read_back_di
         (work_dir / f"source-images-{COMMIT}.receipt.json").read_text(encoding="utf-8")
     )
     assert stored == receipt
+
+
+def test_independent_image_operations_use_bounded_parallelism(
+    snapshot: SourceImageSnapshot, work_dir: Path
+) -> None:
+    class ConcurrentRegistry(FakeRegistry):
+        def __init__(self) -> None:
+            super().__init__()
+            self.active = 0
+            self.maximum = 0
+            self.started = 0
+            self.activity_lock = Lock()
+            self.barrier = Barrier(MAX_PARALLEL_IMAGE_OPERATIONS)
+
+        def build(
+            self, target: SourceImageTarget, *, context: Path, dockerfile: str, image: str
+        ) -> str:
+            with self.activity_lock:
+                self.active += 1
+                self.started += 1
+                started = self.started
+                self.maximum = max(self.maximum, self.active)
+            if started <= MAX_PARALLEL_IMAGE_OPERATIONS:
+                self.barrier.wait(timeout=2)
+            time.sleep(0.01)
+            try:
+                return super().build(
+                    target,
+                    context=context,
+                    dockerfile=dockerfile,
+                    image=image,
+                )
+            finally:
+                with self.activity_lock:
+                    self.active -= 1
+
+    registry = ConcurrentRegistry()
+
+    run_source_image_stage(
+        snapshot=snapshot,
+        target=TARGET,
+        builder=registry,
+        work_dir=work_dir,
+    )
+
+    assert registry.maximum == MAX_PARALLEL_IMAGE_OPERATIONS
 
 
 def test_the_stage_writes_no_kit_signature_sbom_or_provenance_file(

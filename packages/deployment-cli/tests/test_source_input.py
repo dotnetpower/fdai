@@ -2,30 +2,32 @@
 
 from __future__ import annotations
 
-import os
+import gzip
 import hashlib
 import io
 import json
-import tarfile
+import os
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 from threading import Barrier, Lock
 from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import source_input, source_transport, source_receiver
+from fdai_deployment_cli import source_input, source_receiver, source_transport
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_input import inspect_source
+from fdai_deployment_cli.source_projection import service_source_projection
 from fdai_deployment_cli.source_receiver import prepare_source_receiver
 from fdai_deployment_cli.source_snapshot import materialize_source, verify_source_snapshot
 from fdai_deployment_cli.source_transport import (
     archive_source_snapshot,
-    receive_source_snapshot,
     prepare_source_transport,
+    receive_source_snapshot,
 )
 
 
@@ -143,6 +145,142 @@ def test_source_snapshot_rejects_extra_files_and_never_overwrites(checkout: Path
         verify_source_snapshot(destination, expected_digest=digest)
     with pytest.raises(FileExistsError):
         materialize_source(source, destination)
+
+
+def test_projected_source_snapshot_retains_full_source_identity(checkout: Path) -> None:
+    source = inspect_source(checkout)
+    destination = checkout.parent / "projected"
+
+    digest = materialize_source(
+        source,
+        destination,
+        selected_paths=("source.py",),
+        purpose="service-image:operator-service",
+    )
+
+    assert verify_source_snapshot(destination, expected_digest=digest) == source.to_mapping()
+    assert {path.name for path in (destination / "tree").iterdir()} == {"source.py"}
+    manifest = json.loads((destination / "source-input.json").read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == "fdai.source-snapshot.v2"
+    assert manifest["projection"]["purpose"] == "service-image:operator-service"
+    assert manifest["projection"]["file_count"] == 1
+    assert manifest["source"]["file_count"] == source.file_count
+
+
+def test_projected_source_snapshot_rejects_missing_or_changed_inputs(checkout: Path) -> None:
+    source = inspect_source(checkout)
+    with pytest.raises(ValueError, match="unavailable"):
+        materialize_source(
+            source,
+            checkout.parent / "missing-projection",
+            selected_paths=("missing.py",),
+            purpose="service-image:operator-service",
+        )
+
+    destination = checkout.parent / "changed-projection"
+    digest = materialize_source(
+        source,
+        destination,
+        selected_paths=("source.py",),
+        purpose="service-image:operator-service",
+    )
+    (destination / "tree/source.py").write_text("VALUE = 2\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="content changed"):
+        verify_source_snapshot(destination, expected_digest=digest)
+
+
+def test_service_projection_uses_tracked_docker_copy_inputs(checkout: Path) -> None:
+    dockerfile = checkout / "services/operator-service/docker/Dockerfile"
+    dockerfile.parent.mkdir(parents=True)
+    dockerfile.write_text(
+        "FROM scratch\n"
+        "COPY pyproject.toml uv.lock README.md ./\n"
+        "COPY services/operator-service/ ./services/operator-service/\n",
+        encoding="utf-8",
+    )
+    (checkout / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
+    (checkout / "uv.lock").write_text("version = 1\n", encoding="utf-8")
+    (checkout / "README.md").write_text("# Example\n", encoding="utf-8")
+    package = checkout / "services/operator-service/src/example"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+    tests = checkout / "services/operator-service/tests"
+    tests.mkdir()
+    (tests / "test_example.py").write_text("assert True\n", encoding="utf-8")
+    for relative in (
+        ".dockerignore",
+        "scripts/automation/run-bounded-command.py",
+        "scripts/deployment/azure/genesis_checks.py",
+        "scripts/deployment/azure/genesis_subprocess.py",
+        "scripts/deployment/azure/source_image_build.py",
+    ):
+        path = checkout / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# fixture\n", encoding="utf-8")
+    _git(checkout, "add", ".")
+    _git(checkout, "-c", "commit.gpgsign=false", "commit", "-m", "service")
+
+    paths = service_source_projection(inspect_source(checkout), "operator-service")
+
+    assert "services/operator-service/src/example/__init__.py" in paths
+    assert "services/operator-service/tests/test_example.py" not in paths
+    assert "scripts/deployment/azure/source_image_build.py" in paths
+
+
+def test_service_projection_rejects_untracked_docker_add_inputs(checkout: Path) -> None:
+    dockerfile = checkout / "services/operator-service/docker/Dockerfile"
+    dockerfile.parent.mkdir(parents=True)
+    dockerfile.write_text(
+        "FROM scratch\nCOPY pyproject.toml /app/\nADD service.tar /app/\n",
+        encoding="utf-8",
+    )
+    (checkout / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
+    (checkout / "service.tar").write_bytes(b"archive")
+    _git(checkout, "add", ".")
+    _git(checkout, "-c", "commit.gpgsign=false", "commit", "-m", "service")
+
+    with pytest.raises(ValueError, match="does not accept Docker ADD"):
+        service_source_projection(inspect_source(checkout), "operator-service")
+
+
+def test_service_projection_preserves_explicit_filtered_copy_inputs(checkout: Path) -> None:
+    dockerfile = checkout / "services/operator-service/docker/Dockerfile"
+    dockerfile.parent.mkdir(parents=True)
+    dockerfile.write_text(
+        "FROM scratch\n"
+        "COPY services/operator-service/ ./services/operator-service/\n"
+        "COPY services/operator-service/tests/runtime_fixture.py /app/runtime_fixture.py\n"
+        "COPY services/operator-service/docs/runtime.md /app/runtime.md\n",
+        encoding="utf-8",
+    )
+    package = checkout / "services/operator-service/src/example"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+    tests = checkout / "services/operator-service/tests"
+    tests.mkdir()
+    (tests / "runtime_fixture.py").write_text("VALUE = 2\n", encoding="utf-8")
+    (tests / "test_example.py").write_text("assert True\n", encoding="utf-8")
+    docs = checkout / "services/operator-service/docs"
+    docs.mkdir()
+    (docs / "runtime.md").write_text("# Runtime\n", encoding="utf-8")
+    for relative in (
+        ".dockerignore",
+        "scripts/automation/run-bounded-command.py",
+        "scripts/deployment/azure/genesis_checks.py",
+        "scripts/deployment/azure/genesis_subprocess.py",
+        "scripts/deployment/azure/source_image_build.py",
+    ):
+        path = checkout / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# fixture\n", encoding="utf-8")
+    _git(checkout, "add", ".")
+    _git(checkout, "-c", "commit.gpgsign=false", "commit", "-m", "service")
+
+    paths = service_source_projection(inspect_source(checkout), "operator-service")
+
+    assert "services/operator-service/tests/runtime_fixture.py" in paths
+    assert "services/operator-service/docs/runtime.md" in paths
+    assert "services/operator-service/tests/test_example.py" not in paths
 
 
 def test_reading_a_link_may_update_access_time(checkout: Path, monkeypatch) -> None:
@@ -306,12 +444,24 @@ def test_source_receiver_bootstrap_runs_in_isolation_and_never_repairs(checkout,
         snapshot_digest,
     ]
     for arguments in (command, [*command, "--verify-existing"]):
-        result = subprocess.run(arguments, cwd=work, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(
+            arguments,
+            cwd=work,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
         assert result.returncode == 0, result.stderr
         assert json.loads(result.stdout)["deployment_ready"] is False
     (destination / "tree/source.py").write_bytes(b"changed")
     result = subprocess.run(
-        [*command, "--verify-existing"], cwd=work, capture_output=True, text=True, timeout=30
+        [*command, "--verify-existing"],
+        cwd=work,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
     )
     assert result.returncode == 3
     assert (destination / "tree/source.py").read_bytes() == b"changed"
@@ -425,10 +575,29 @@ def test_source_transfer_preparation_reverifies_without_overwriting(checkout):
     assert prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest) == first
     assert first["remote_transfer_verified"] is False
     assert first["deployment_ready"] is False
-    with (work_dir / "source-transfer.tar").open("ab") as stream:
+    with (work_dir / str(first["archive_ref"])).open("ab") as stream:
         stream.write(b"changed")
     with pytest.raises(ValueError, match="digest differs"):
         prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest)
+
+
+def test_current_source_transport_uses_deterministic_gzip(checkout: Path) -> None:
+    transport = checkout / "packages/deployment-cli/src/fdai_deployment_cli/source_transport.py"
+    transport.parent.mkdir(parents=True)
+    transport.write_text('_TRANSPORT_COMPRESSION = "gzip"\n', encoding="utf-8")
+    _git(checkout, "add", ".")
+    _git(checkout, "-c", "commit.gpgsign=false", "commit", "-m", "gzip transport")
+    snapshot = checkout.parent / "gzip-snapshot"
+    snapshot_digest = materialize_source(inspect_source(checkout), snapshot)
+    work_dir = checkout.parent / "gzip-work"
+    work_dir.mkdir(mode=0o700)
+
+    first = prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest)
+    archive = work_dir / str(first["archive_ref"])
+
+    assert archive.name == "source-transfer.tar.gz"
+    assert archive.read_bytes().startswith(b"\x1f\x8b")
+    assert prepare_source_transport(snapshot, work_dir, snapshot_digest=snapshot_digest) == first
 
 
 @pytest.mark.parametrize(
@@ -479,7 +648,15 @@ def test_source_transport_rejects_untrusted_archive_structure(checkout, corrupti
     elif corruption == "blob":
         entries[1] = (entries[1][0], b"changed")
     malicious = checkout.parent / "untrusted.tar"
-    with tarfile.open(malicious, "w", format=tarfile.USTAR_FORMAT) as archive:
+    with (
+        malicious.open("wb") as raw,
+        gzip.GzipFile(fileobj=raw, mode="wb", filename="", mtime=0) as compressed,
+        tarfile.open(
+            fileobj=compressed,
+            mode="w",
+            format=tarfile.USTAR_FORMAT,
+        ) as archive,
+    ):
         for member, content in entries:
             member.size = len(content)
             archive.addfile(member, io.BytesIO(content))
@@ -520,6 +697,7 @@ def test_source_transport_cli_receives_without_execution(checkout, valid):
         capture_output=True,
         text=True,
         timeout=30,
+        check=False,
         env={**os.environ, "PYTHONPATH": str(Path(source_input.__file__).parents[1])},
     )
     if valid:

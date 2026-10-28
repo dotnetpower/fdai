@@ -197,6 +197,20 @@ def test_executor_contract_canonicalizes_tag_remediation_target() -> None:
     assert target.arguments["tag_value"] == "dev"
 
 
+def test_executor_contract_canonicalizes_subscription_tag_target() -> None:
+    target = resolve_azure_operation_target(
+        "remediate.subscription-tag-add",
+        {
+            "target_resource_ref": "scope-0123456789abcdef/subscription",
+            "tag_name": "fdai-live-check",
+            "tag_value": "issue-1623",
+        },
+    )
+
+    assert target.operation_id == "azure.subscription.tags.merge"
+    assert target.resource_ref == "scope-0123456789abcdef/subscription"
+
+
 @pytest.mark.parametrize(
     "target",
     [
@@ -211,6 +225,30 @@ def test_executor_contract_rejects_unbounded_tag_targets(target: str) -> None:
             "remediate.tag-add",
             {
                 "target_resource_ref": target,
+                "tag_name": "environment",
+                "tag_value": "dev",
+            },
+        )
+
+
+def test_executor_contract_keeps_resource_and_subscription_tag_targets_separate() -> None:
+    with pytest.raises(ValueError, match="target_resource_ref"):
+        resolve_azure_operation_target(
+            "remediate.tag-add",
+            {
+                "target_resource_ref": "scope-0123456789abcdef/subscription",
+                "tag_name": "environment",
+                "tag_value": "dev",
+            },
+        )
+    with pytest.raises(ValueError, match="target_resource_ref"):
+        resolve_azure_operation_target(
+            "remediate.subscription-tag-add",
+            {
+                "target_resource_ref": (
+                    "scope-0123456789abcdef/resource-group/example/"
+                    "providers/microsoft.storage/storageaccounts/storage-app"
+                ),
                 "tag_name": "environment",
                 "tag_value": "dev",
             },

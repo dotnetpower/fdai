@@ -42,6 +42,8 @@ Their Var/Saga/Muninn authorization/indexing path adds no reporting route or mut
 reports cannot approve a policy or apply a reference generation.
 
 The insert-only Operator semantic authentication receipt table is not a report source either. Operator route assembly wraps the semantic outbox with receipt retention only when `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on, and the table adds no reporting projection, widget, or route.
+
+The insert-only Operator `conversation_dialogue_snapshot` table is derived conversation context and is not a report source either; it adds no reporting projection, widget, or route. Its optional 1.12.0 request field and the opt-in T1 proposer add none either.
 The Outcome Assurance read panel is likewise outside the reporting subsystem. It is an
 authenticated `/kpi/outcome-assurance` projection rendered by the analytics routes, not a report
 datasource, widget, format, or catalog entry.

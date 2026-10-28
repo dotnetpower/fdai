@@ -1,8 +1,11 @@
 ARG NODE_IMAGE
 ARG PYTHON_IMAGE
 ARG UV_IMAGE
+ARG OPA_IMAGE
 
 FROM ${UV_IMAGE} AS uv-tool
+
+FROM ${OPA_IMAGE} AS opa-tool
 
 FROM scratch AS hub-dependencies
 
@@ -81,7 +84,7 @@ RUN --mount=from=hub-dependencies,target=/wheelhouse \
 FROM ${PYTHON_IMAGE} AS base
 RUN test -s /etc/ssl/certs/ca-certificates.crt \
     && groupadd --gid 10001 hub && useradd --uid 10001 --gid hub --no-create-home hub \
-    && mkdir /state && chown hub:hub /state
+    && mkdir /state && chown hub:hub /state && chmod 700 /state
 ENV PATH="/opt/hub/bin:$PATH"
 WORKDIR /app
 USER 10001:10001
@@ -90,6 +93,7 @@ ENTRYPOINT ["python", "-m", "fdai_lifecycle_hub.remote"]
 CMD ["serve"]
 
 FROM base AS target
+COPY --from=opa-tool --chmod=0555 /opa /usr/local/bin/opa
 COPY --from=wheels /opt/hub /opt/hub
 COPY --from=lifecycle-ui /src/lifecycle/hub/ui/dist /app/ui
 

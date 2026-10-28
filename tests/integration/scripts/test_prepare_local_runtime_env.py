@@ -211,7 +211,7 @@ def test_prepares_local_transport_without_copying_stale_transport(
         "#!/usr/bin/env bash\n"
         'if [[ "$*" == *"account show --query id"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000001'\n"
-        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        'elif [[ "$*" == *"account show"*"--query tenantId"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000002'\n"
         'elif [[ "$*" == *"group show"* ]]; then\n'
         "  printf 'example-region'\n"
@@ -601,7 +601,7 @@ def test_detects_single_log_workspace_in_selected_azure_scope(
         "#!/usr/bin/env bash\n"
         'if [[ "$*" == *"account show --query id"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000001'\n"
-        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        'elif [[ "$*" == *"account show"*"--query tenantId"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000002'\n"
         'elif [[ "$*" == *"group show"* ]]; then\n'
         "  printf 'example-region'\n"
@@ -685,7 +685,7 @@ def test_uses_local_semantic_topics_without_inventory_invalidation(tmp_path: Pat
         "#!/usr/bin/env bash\n"
         'if [[ "$*" == *"account show --query id"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000001'\n"
-        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        'elif [[ "$*" == *"account show"*"--query tenantId"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000002'\n"
         'elif [[ "$*" == *"group show"* ]]; then\n'
         "  printf 'example-region'\n"
@@ -738,7 +738,7 @@ def test_rejects_resource_group_absent_from_active_subscription(tmp_path: Path) 
         "#!/usr/bin/env bash\n"
         'if [[ "$*" == *"account show --query id"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000099'\n"
-        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        'elif [[ "$*" == *"account show"*"--query tenantId"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000002'\n"
         'elif [[ "$*" == *"group show"* ]]; then\n'
         "  echo 'group lookup MUST NOT run after a subscription mismatch' >&2\n"
@@ -850,7 +850,7 @@ def test_detects_gateway_via_azure_cli_without_terraform(tmp_path: Path) -> None
         "#!/usr/bin/env bash\n"
         'if [[ "$*" == *"account show --query id"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000001'\n"
-        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        'elif [[ "$*" == *"account show"*"--query tenantId"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000002'\n"
         'elif [[ "$*" == *"group show"* ]]; then\n'
         "  printf 'example-region'\n"
@@ -905,7 +905,7 @@ def test_rejects_multiple_gateways_in_selected_azure_scope(tmp_path: Path) -> No
         "#!/usr/bin/env bash\n"
         'if [[ "$*" == *"account show --query id"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000001'\n"
-        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        'elif [[ "$*" == *"account show"*"--query tenantId"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000002'\n"
         'elif [[ "$*" == *"group show"* ]]; then\n'
         "  printf 'example-region'\n"
@@ -958,7 +958,7 @@ def test_local_runtime_skips_terraform_and_verifies_explicit_scope(
         "#!/usr/bin/env bash\n"
         'if [[ "$*" == *"account show --query id"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000001'\n"
-        'elif [[ "$*" == *"account show --query tenantId"* ]]; then\n'
+        'elif [[ "$*" == *"account show"*"--query tenantId"* ]]; then\n'
         "  printf '00000000-0000-0000-0000-000000000002'\n"
         'elif [[ "$*" == *"group show --subscription '
         '00000000-0000-0000-0000-000000000001 --name rg-example --query location"* ]]; then\n'
@@ -1095,3 +1095,108 @@ def test_database_backed_stages_rebind_after_whole_database_recreation(tmp_path:
         < source.index("\nwrite_database_incarnation\n")
         < source.index("run_stage \\\n  runtime-environment")
     )
+
+
+_PIN = "00000000-0000-0000-0000-0000000000a1"
+_DRIFTED = "00000000-0000-0000-0000-0000000000b2"
+
+
+def _pin_repo(tmp_path: Path, env_local: str) -> Path:
+    repo = tmp_path / "repo"
+    (repo / "console").mkdir(parents=True)
+    (repo / ".venv/bin").mkdir(parents=True)
+    (repo / ".venv/bin/python").symlink_to(Path(os.sys.executable))
+    (repo / "console/.env.local").write_text(env_local, encoding="utf-8")
+    return repo
+
+
+def _pin_az(tmp_path: Path, *, group_subscription: str = _PIN) -> Path:
+    # The ambient default is a different subscription; only an explicit --subscription
+    # for the pinned one reaches the pinned account.
+    az = tmp_path / "az"
+    az.write_text(
+        "#!/usr/bin/env bash\n"
+        f'pinned="{_PIN}"; default="{_DRIFTED}"\n'
+        'selected="$default"\n'
+        'previous=""\n'
+        'for argument in "$@"; do\n'
+        '  if [[ "$previous" == "--subscription" ]]; then selected="$argument"; fi\n'
+        '  previous="$argument"\n'
+        "done\n"
+        'if [[ "$*" == *"account show"* && "$*" == *"--query id"* ]]; then\n'
+        '  [[ "$selected" == "$pinned" || "$selected" == "$default" ]] || exit 4\n'
+        '  printf "%s" "$selected"\n'
+        'elif [[ "$*" == *"account show"* && "$*" == *"--query tenantId"* ]]; then\n'
+        "  printf '00000000-0000-0000-0000-000000000002'\n"
+        'elif [[ "$*" == *"group show"* ]]; then\n'
+        f'  [[ "$selected" == "{group_subscription}" ]] || exit 3\n'
+        "  printf 'example-region'\n"
+        'elif [[ "$*" == *"monitor log-analytics workspace list"* ]]; then\n'
+        "  printf ''\n"
+        "else\n"
+        "  exit 2\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    az.chmod(0o755)
+    return az
+
+
+def _run_prepare(repo: Path, az: Path) -> tuple[subprocess.CompletedProcess[str], Path]:
+    output = repo / ".fdai/local-runtime.env"
+    completed = subprocess.run(  # noqa: S603 - test-controlled binaries
+        [_BASH, str(_SCRIPT), str(output)],
+        check=False,
+        cwd=_REPO_ROOT,
+        env={
+            **os.environ,
+            "FDAI_REPO_ROOT": str(repo),
+            "FDAI_AZ_BIN": str(az),
+            "FDAI_LOCAL_CONSUMER_INSTANCE": "developer-pin",
+            "FDAI_LOCAL_RESOURCE_GROUP": "rg-example",
+            "FDAI_LOCAL_SUBSCRIPTION_ID": os.environ.get("PIN_UNDER_TEST", ""),
+        },
+        capture_output=True,
+        text=True,
+    )
+    return completed, output
+
+
+def test_a_pinned_local_subscription_survives_a_drifted_azure_cli_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _pin_repo(tmp_path, "VITE_DEV_MODE=0\n")
+    monkeypatch.setenv("PIN_UNDER_TEST", _PIN)
+
+    completed, output = _run_prepare(repo, _pin_az(tmp_path))
+
+    assert completed.returncode == 0, completed.stderr
+    assert f"AZURE_SUBSCRIPTION_ID={_PIN}" in output.read_text(encoding="utf-8").splitlines()
+    assert _DRIFTED not in output.read_text(encoding="utf-8")
+
+
+def test_an_unpinned_local_subscription_is_pinned_from_the_login_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _pin_repo(tmp_path, "VITE_DEV_MODE=0\n")
+    monkeypatch.setenv("PIN_UNDER_TEST", "")
+    az = _pin_az(tmp_path, group_subscription=_DRIFTED)
+    # The first preparation follows the login, then records it so later drift cannot move it.
+    first, _ = _run_prepare(repo, az)
+
+    assert first.returncode == 0, first.stderr
+    persisted = (repo / "console/.env.local").read_text(encoding="utf-8")
+    assert f"FDAI_LOCAL_SUBSCRIPTION_ID={_DRIFTED}" in persisted.splitlines()
+
+
+def test_a_pinned_subscription_that_the_login_lacks_fails_before_any_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo = _pin_repo(tmp_path, "VITE_DEV_MODE=0\n")
+    monkeypatch.setenv("PIN_UNDER_TEST", "00000000-0000-0000-0000-0000000000c3")
+
+    completed, output = _run_prepare(repo, _pin_az(tmp_path))
+
+    assert completed.returncode != 0
+    assert "FDAI_LOCAL_SUBSCRIPTION_ID" in completed.stderr
+    assert not output.exists()

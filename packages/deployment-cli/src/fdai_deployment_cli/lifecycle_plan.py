@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from typing import Literal, cast
 
@@ -15,6 +15,7 @@ from fdai_deployment_cli.lifecycle_configuration import (
     resolve_configuration_layers,
 )
 from fdai_deployment_cli.lifecycle_release import LIFECYCLE_IMAGE_SECTIONS, LifecycleRelease
+from fdai_service_contracts.catalog_canonical import SignatureVerifier as SignatureVerifier
 from fdai_deployment_cli.runtime_release import (
     RecallRecord,
     ReleaseDecision,
@@ -33,7 +34,6 @@ PlanType = Literal[
     "drift-reconciliation",
 ]
 SuppressionOrigin = Literal["manual", "failure"]
-SignatureVerifier = Callable[[str, bytes, bytes], bool]
 
 _MODE_ORDER: Mapping[CapabilityMode, int] = {"shadow": 0, "enforce": 1}
 _SCOPE_ID = re.compile(r"[a-z][a-z0-9._-]*\Z", re.ASCII)
@@ -69,6 +69,7 @@ _PLAN_PAYLOAD_KEYS = frozenset(
         "target_release_id",
     }
 )
+_PLAN_OPTIONAL_PAYLOAD_KEYS = frozenset({"ownership_digests"})
 _ENVELOPE_PAYLOAD_KEYS = frozenset(
     {"capability_modes", "destructive_allowed", "entity_ids", "max_duration_minutes", "regions"}
 )
@@ -141,6 +142,7 @@ class LifecyclePlan:
     expires_at: datetime
     signed_payload: bytes
     signature: bytes
+    ownership_digests: Mapping[str, str] = dataclass_field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if isinstance(self.sequence, bool) or not isinstance(self.sequence, int):
@@ -155,6 +157,14 @@ class LifecyclePlan:
             or self.declared_duration_minutes < 1
         ):
             raise ValueError("declared_duration_minutes MUST be positive")
+        if any(
+            _SCOPE_ID.fullmatch(entity_id) is None
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", digest, re.ASCII) is None
+            for entity_id, digest in self.ownership_digests.items()
+        ):
+            raise ValueError("ownership digests MUST bind canonical Entity ids to SHA-256 digests")
+        if not set(self.ownership_digests) <= self.entity_ids:
+            raise ValueError("ownership digests MUST stay inside the Plan Entity set")
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,34 +329,35 @@ def evaluate_plan_admission(
 def canonical_plan_payload(plan: LifecyclePlan) -> bytes:
     """Return the byte-for-byte JSON payload the Hub key must sign."""
 
-    return canonical_bytes(
-        {
-            "audience": plan.audience,
-            "envelope": {
-                "capability_modes": dict(sorted(plan.envelope.capability_modes.items())),
-                "destructive_allowed": plan.envelope.destructive_allowed,
-                "entity_ids": sorted(plan.envelope.entity_ids),
-                "max_duration_minutes": plan.envelope.max_duration_minutes,
-                "regions": sorted(plan.envelope.regions),
-            },
-            "expires_at": plan.expires_at.isoformat(),
-            "fencing_generation": plan.fencing_generation,
-            "hub_key_epoch": plan.hub_key_epoch,
-            "hub_key_id": plan.hub_key_id,
-            "capability_ids": list(plan.capability_ids),
-            "configuration_revision_digest": plan.configuration_revision_digest,
-            "declared_duration_minutes": plan.declared_duration_minutes,
-            "entity_ids": sorted(plan.entity_ids),
-            "plan_id": plan.plan_id,
-            "plan_type": plan.plan_type,
-            "rollback_target_plan_id": plan.rollback_target_plan_id,
-            "sequence": plan.sequence,
-            "source_state_digest": plan.source_state_digest,
-            "release_regions": sorted(plan.release_regions),
-            "target_release_digest": plan.target_release_digest,
-            "target_release_id": plan.target_release_id,
-        }
-    )
+    payload: dict[str, object] = {
+        "audience": plan.audience,
+        "envelope": {
+            "capability_modes": dict(sorted(plan.envelope.capability_modes.items())),
+            "destructive_allowed": plan.envelope.destructive_allowed,
+            "entity_ids": sorted(plan.envelope.entity_ids),
+            "max_duration_minutes": plan.envelope.max_duration_minutes,
+            "regions": sorted(plan.envelope.regions),
+        },
+        "expires_at": plan.expires_at.isoformat(),
+        "fencing_generation": plan.fencing_generation,
+        "hub_key_epoch": plan.hub_key_epoch,
+        "hub_key_id": plan.hub_key_id,
+        "capability_ids": list(plan.capability_ids),
+        "configuration_revision_digest": plan.configuration_revision_digest,
+        "declared_duration_minutes": plan.declared_duration_minutes,
+        "entity_ids": sorted(plan.entity_ids),
+        "plan_id": plan.plan_id,
+        "plan_type": plan.plan_type,
+        "rollback_target_plan_id": plan.rollback_target_plan_id,
+        "sequence": plan.sequence,
+        "source_state_digest": plan.source_state_digest,
+        "release_regions": sorted(plan.release_regions),
+        "target_release_digest": plan.target_release_digest,
+        "target_release_id": plan.target_release_id,
+    }
+    if plan.ownership_digests:
+        payload["ownership_digests"] = dict(sorted(plan.ownership_digests.items()))
+    return canonical_bytes(payload)
 
 
 def decode_canonical_plan_payload(signed_payload: bytes, signature: bytes) -> LifecyclePlan:
@@ -374,7 +385,13 @@ def decode_canonical_plan_payload(signed_payload: bytes, signature: bytes) -> Li
         raise ValueError("plan payload MUST be valid JSON") from error
     except RecursionError as error:
         raise ValueError("plan payload nesting is too deep") from error
-    fields = _plan_object(document, _PLAN_PAYLOAD_KEYS, "plan payload")
+    fields = _plan_object(document, None, "plan payload")
+    unknown = set(fields) - _PLAN_PAYLOAD_KEYS - _PLAN_OPTIONAL_PAYLOAD_KEYS
+    if unknown:
+        raise ValueError(f"plan payload contains unknown fields: {', '.join(sorted(unknown))}")
+    missing = _PLAN_PAYLOAD_KEYS - set(fields)
+    if missing:
+        raise ValueError(f"plan payload is missing fields: {', '.join(sorted(missing))}")
     envelope = _plan_object(fields["envelope"], _ENVELOPE_PAYLOAD_KEYS, "envelope")
     raw_modes = _plan_object(envelope["capability_modes"], None, "envelope.capability_modes")
     capability_modes: dict[str, CapabilityMode] = {}
@@ -434,6 +451,9 @@ def decode_canonical_plan_payload(signed_payload: bytes, signature: bytes) -> Li
             expires_at=expires_at,
             signed_payload=signed_payload,
             signature=signature,
+            ownership_digests=_plan_digest_mapping(
+                fields.get("ownership_digests", {}), "ownership_digests"
+            ),
         )
     except TypeError as error:
         raise ValueError(f"plan payload field is invalid: {error}") from error
@@ -487,6 +507,18 @@ def _plan_texts(value: object, field: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise ValueError(f"{field} MUST be a list of strings")
     return tuple(value)
+
+
+def _plan_digest_mapping(value: object, field: str) -> dict[str, str]:
+    parsed = _plan_object(value, None, field)
+    if any(
+        _SCOPE_ID.fullmatch(key) is None
+        or not isinstance(digest, str)
+        or re.fullmatch(r"sha256:[0-9a-f]{64}", digest, re.ASCII) is None
+        for key, digest in parsed.items()
+    ):
+        raise ValueError(f"{field} MUST map canonical Entity ids to SHA-256 digests")
+    return {key: cast(str, digest) for key, digest in parsed.items()}
 
 
 def evaluate_lifecycle_constraints(

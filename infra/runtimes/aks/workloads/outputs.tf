@@ -35,10 +35,10 @@ output "external_service_addresses" {
 
 output "browser_gateway_operator_url" {
   description = "HTTPS base URL for the root-routed Operator API."
-  value       = local.browser_gateway_enabled ? azurerm_api_management.browser_gateway[0].gateway_url : ""
+  value       = module.browser_gateway.operator_url
 }
 
 output "browser_gateway_ingestion_url" {
   description = "HTTPS base URL for the dedicated document-ingestion API."
-  value       = local.browser_gateway_enabled ? "${azurerm_api_management.browser_gateway[0].gateway_url}/ingestion" : ""
+  value       = module.browser_gateway.ingestion_url
 }

@@ -12,6 +12,7 @@ from fdai_operator_service.adapters import (
     OperatorSemanticKafkaBus,
     StartupOwnedLocalAzureNarratorAdapters,
 )
+from fdai_operator_service.adapters.narrator_dialogue_proposer import dialogue_t1_enabled
 from fdai_operator_service.auth import OperatorAuthenticator
 from fdai_operator_service.bus_poison_halt_clear import OrderedPoisonHaltClearService
 from fdai_operator_service.context_selection import ContextSelectionRegistry
@@ -64,6 +65,10 @@ from fdai_operator_service.postgres_cost_governance import (
     PostgresCostGovernanceConfig,
     PostgresCostGovernanceReader,
     UnavailableCostGovernanceReader,
+)
+from fdai_operator_service.postgres_dialogue_snapshot import (
+    PostgresDialogueSnapshotConfig,
+    PostgresDialogueSnapshotStore,
 )
 from fdai_operator_service.postgres_family_store import PostgresFamilyStore
 from fdai_operator_service.postgres_read_investigation_replay import (
@@ -204,6 +209,14 @@ def _build_route_families(
             revision_owner=model_revision_owner,
             fallback_projections=postgres_conversation,
             fallback_streams=postgres_conversation,
+            dialogue_snapshots=PostgresDialogueSnapshotStore(
+                PostgresDialogueSnapshotConfig(
+                    dsn=database_url,
+                    connect_timeout_s=store._config.connect_timeout_s,
+                    statement_timeout_ms=store._config.statement_timeout_ms,
+                )
+            ),
+            dialogue_t1=dialogue_t1_enabled(environment.values),
         )
     conversation = local_narrator or postgres_conversation
     semantic_adapters = (
@@ -218,6 +231,7 @@ def _build_route_families(
                     builder=SemanticTurnEnvelopeBuilder(
                         selection_registry=context_selection_registry,
                         emit_authentication_receipt_ref=True,
+                        emit_dialogue_state=environment.semantic_dialogue_state_enabled,
                     ),
                     writer=PostgresAuthenticationReceiptWriter(
                         dsn=store._config.dsn,

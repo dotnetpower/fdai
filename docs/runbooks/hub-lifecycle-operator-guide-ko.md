@@ -1,8 +1,8 @@
 ---
 title: Hub 수명 주기 운영자 가이드
 translation_of: hub-lifecycle-operator-guide.md
-translation_source_sha: d3004cdc1a52dc29087dc2fbf166ad25c4f4e352
-translation_revised: 2026-10-23
+translation_source_sha: cefc26e4eae2737b98135d6b018543188ed61692
+translation_revised: 2026-10-26
 ---
 # Hub 수명 주기 운영자 가이드
 
@@ -11,8 +11,10 @@ translation_revised: 2026-10-23
 전체의 완성으로 오해하지 않도록 실제 가능한 작업과 중단할 지점을 안내합니다.
 
 > **범위:** Hub 관리 수명 주기는 완성된 운영용 설치 경로가 아닙니다. 구현된 FDAI 설치
-> 계약에는 [소스 배포](../roadmap/deployment/source-deployment-ko.md) 또는 서명된 오프라인
-> 설치 경로를 사용하세요. 이 문서는 클라우드 변경, 발행, 키 반출, 워크로드 적용을 승인하지 않습니다.
+> 계약에는 [Hub 이미지 초기 설치](../roadmap/deployment/hub-image-deployment-ko.md), 명시적
+> [소스 배포](../roadmap/deployment/source-deployment-ko.md) 또는 서명된 오프라인 설치 경로를
+> 사용하세요. 이미지 초기 설치는 관리형 수명 주기 전체의 완성이 아닙니다.
+> 이 문서는 클라우드 변경, 발행, 키 반출, 워크로드 적용을 승인하지 않습니다.
 
 ## 이 문서에서 다루는 내용
 
@@ -33,6 +35,20 @@ FDAI Release Hub는 공급자용입니다. Lifecycle Hub는 설치본 운영자�
 | 고객 승인자 | 설치본 신원 확인, 허용된 변경 승인 | 에이전트 실행 신원으로 작업 |
 | Lifecycle Hub | 제약 평가, Plan 서명, 수명 주기 메타데이터 보관 | Kubernetes 자격 증명 보유, 워크로드 변경 실행 |
 | 수명 주기 에이전트 | 입력 검증, 로컬 한도 적용, 변경 적용, 결과 관찰, 복구 | release 발행, 자기 승인, Azure 관리 |
+
+## 복제 후 배포와 구독 요청
+
+새로 복제한 저장소에서 일반적인 배포를 요청한다면
+[Release Hub 이미지 배포](../roadmap/deployment/hub-image-deployment-ko.md)를 따르세요.
+명령은 `https://hub.msfdai.com`, 독립적으로 신뢰한 공개키 검증과 서명된 다이제스트 고정
+이미지 위치를 사용합니다. 고객에게 Release 빌드나 게시를 요구하지 않으며, Hub 오류 뒤에
+소스 빌드로 전환하지 않습니다. 명시적 소스 및 오프라인 모드는 기존 계약을 유지합니다.
+
+공급자 운영자는 Release Hub의 **Deployment requests**에서 구독별로 요청 목록을
+필터링할 수 있습니다. 신고된 구독, 리전, Release와 채널, 요청 시각과 입력 식별값을
+표시합니다. `requested` / `self-reported`는 클라이언트가 메타데이터를 제출했다는 뜻일 뿐,
+소유권, 설치, 등록이나 효과 성공을 증명하지 않습니다. 목록은 비공개이며 카탈로그
+내보내기에 포함되지 않고, 게시 개정 및 만료와도 분리됩니다.
 
 ## 1. 전체 흐름 파악
 
@@ -127,25 +143,121 @@ AI가 비밀값을 만들거나 알고 보관해야 운영할 수 있는 구조�
 
 ### B. 등록 요청 제출과 승인
 
-1. 설치본 초기 설정 담당자에게 연결된 ID, 방금 서명한 JSON 파일, 독립적으로 확인할
-   공개키 ID를 받습니다. 임의 ID를 고르거나 PEM 키를 업로드하지 마세요.
-2. 고객 Lifecycle Hub에 로그인하고 **Enrollment requests**를 엽니다.
-3. ID를 입력하고 64 KiB 이하의 서명된 JSON 파일을 선택한 뒤 **Submit request**를 한 번
-   누릅니다. 요청 시각은 Hub 시계와 5분 이내여야 합니다. 요청 제출의 신선도 제한이지,
-   설치본을 5분만 사용할 수 있다는 뜻은 아닙니다.
-4. 성공하면 대기 요청을 엽니다. 키 보관 환경에서 얻은 ID와 화면의 키 ID를 비교합니다.
-5. **Approver**에 승인자를 입력하고 **Verified key id**에 독립적으로 확인한 ID를
-   넣습니다. **Rejection reason**은 비워 둡니다. 신원이 같을 때만 **Accept enrollment**를 누릅니다.
+설치 Agent가 직접 등록 요청을 제출하므로 서명된 파일을 옮기지 않아도 됩니다. 키 ID를 별도
+경로로 대조한 뒤 승인합니다.
+
+1. 설치본 초기 설정 담당자에게 설치 경계 안에서 `fdai-lifecycle-agent enroll`을 실행해 달라고
+   요청합니다([Agent README](../../lifecycle/agent/README.md#enrolling-this-installation) 참고).
+   Agent는 자기 클러스터에서 Entity와 상태를 읽고, 고객의 선언 파일에서 설정과 구성을 읽고,
+   기존 설치 키로 서명해 **승인 대기** 요청을 제출합니다. 설치본 키 ID와 제출 기한을
+   출력하며 개인 키는 출력하지 않습니다.
+2. 고객 Lifecycle Hub에 로그인하고 **Enrollment requests**를 연 뒤 목록을 새로고침합니다.
+   요청이 보이지 않으면 Agent의 결과가 불확실했을 수 있으니, 재실행을 요청하기 전에 목록부터
+   확인합니다. 이미 기록된 요청 뒤의 재실행은 아무것도 바꾸지 않습니다.
+3. 대기 요청을 엽니다. 화면에 **Requested by installation Agent**와 짧은 object ID가
+   표시되거나, 직접 업로드한 파일이면 **Requested by operator**가 표시됩니다.
+4. 이 화면과 별도의 경로(예: 키 관리자)로 설치본 키 ID를 받아 요청의 키 ID와 비교합니다.
+5. **Approver**에 승인자를 입력하고 **Verified key id**에 독립적으로 확인한 ID를 직접
+   입력합니다. **Rejection reason**은 비워 둡니다. 신원이 같을 때만 **Accept enrollment**를
+   누릅니다. Agent는 자기 요청을 승인하거나 반려할 수 없습니다.
 6. **Installations**에 설치본이 나타나는지 확인합니다. 소유권, 설정, 계획이 준비되기
    전에는 관리 대상 Entity, 현재 release, Plan이 없는 것이 정상입니다.
+
+Agent 제출은 배포가 설치본을 Agent ID에 연결한 경우에만 가능합니다. 제출 기한은 서명된 요청의
+5분 신선도 제한이며 설치본의 사용 기간이 아닙니다.
+
+**오프라인 경로.** Agent가 Hub에 접속할 수 없으면 설치본 초기 설정 담당자에게 방금 서명한 JSON
+파일과 독립적으로 확인할 공개키 ID를 받습니다. 담당자는 `fdai-lifecycle-hub sign-enrollment
+<request.json> --key <installation.pem> --out <file>`로 파일을 만듭니다. 이 명령은 설치 경계
+안에서 서명하고 키 ID와 제출 기한을 출력합니다. PEM 키를 업로드하지 마세요. **Enrollment
+requests**에서 연결된 설치본을 선택하고 64 KiB 이하의 서명된 JSON 파일을 고른 뒤
+**Submit request**를 한 번 누릅니다. 요청 시각은 Hub 시계와 5분 이내여야 합니다. 이후 3번
+단계부터 이어서 진행합니다.
 
 제출 결과가 불확실하면 재시도 전에 대기 목록부터 새로고침합니다. 요청이 없고 파일이
 만료됐다면 같은 설치본 키로 새 파일을 받습니다. 키를 다시 만들거나, 정상 신원을
 거절하거나, 이미 접수된 요청을 반복 제출하지 않습니다.
 
-### C. 메타데이터와 적용 준비 상태를 구분
+### C. 고정값 입력 없이 카탈로그를 최신으로 유지
 
-기존 개발용 카탈로그 화면에서는 다음 작업을 각각 수행합니다.
+**Updates**가 있는 빌드는 고객 경계 안에서 연결된 Release Hub를 조회합니다. Release Hub가 고객에게
+먼저 연락하는 일은 없습니다. Hub가 배포 시점에 묶어 둔 키로 Release Hub의 내보내기 바이트 서명을
+검증하므로, 리비전이나 다이제스트를 옮겨 적지 않습니다.
+
+1. **Updates**를 엽니다. 수락한 카탈로그, 마지막 확인, 상시 승인, 확인 간격이 보입니다.
+   **Check now**는 제한된 확인을 한 번 실행합니다.
+2. `auto` 모드에서는 서명되었고 상시 승인 범위 안인 변경이 클릭 없이 채택되며, Hub가 등록된
+   모든 설치본의 Plan을 발행합니다. `review` 모드이거나 정책이 검토를 요구하면 이유와 변경
+   내용이 화면에 표시됩니다.
+3. 변경을 읽습니다. 새 회수는 긴급 배너로 표시됩니다. 받아들일 수 있으면 **Review and apply**를
+   한 번 누릅니다. 그사이 원본이 바뀌었으면 Hub가 새 후보를 보여 주고 아무것도 적용하지 않습니다.
+4. `authorization_expires_at` 전에 검토된 배포 변경으로 상시 승인을 갱신합니다. 침묵은 승인을
+   연장하지 않으며, 만료되면 채택이 검토 방식으로 돌아갑니다.
+
+채택은 Plan을 적용하지 않습니다. Agent가 서명과 로컬 범위를 다시 검증합니다. 서명 누락이나
+잘못된 서명이 표시되면 Release Hub 빌드가 오래되었거나 키가 다른 것입니다. 독립적인 출처를
+확인한 뒤에만 아래의 **Catalog import**를 사용하세요.
+
+### C1. 서명된 카탈로그 역할 사용(선택)
+
+서명된 카탈로그 역할은 개발용 키 하나를 오프라인 root 키의 임계값과 별도의 온라인 snapshot,
+timestamp 키로 대체합니다. 두 Hub 모두에서 선택적으로 켜며, 위의 단일 키 흐름이 기본값으로 남습니다.
+이 절은 공급업체와 고객의 절차이며 어떤 클라우드 변경도 승인하지 않습니다.
+
+**공급업체: root 설정 의식을 오프라인으로 실행합니다.** 네트워크와 Hub 상태가 없는 작업 환경을
+사용합니다. 각 키 보유자가 자신의 키에 대한 단계를 실행하므로 root 개인 키를 공유하지 않습니다.
+
+1. 각 보유자가 `fdai-release-hub root keygen --out-dir <dir> --name root`를 실행하고 개인 파일(권한
+   `0600`)을 보관합니다. `.pub.pem` 파일만 전달합니다.
+2. 온라인 snapshot, timestamp 키와 export 키를 키 보관 절차에 따라 비밀 참조로 만듭니다. 서로, 그리고
+   모든 root 키와 달라야 합니다.
+3. `--root-public`, `--snapshot-public`, `--timestamp-public`, `--export-public` 파일로
+   `fdai-release-hub root build --out root-v1.json --version 1 --threshold <n>`을 실행합니다.
+4. 임계값만큼의 보유자가 서명할 때까지 각 보유자가
+   `fdai-release-hub root sign --record root-v1.json --key <private.pem>`을 실행합니다.
+   `fdai-release-hub root verify --record root-v1.json`을 실행해 영수증을 보관합니다.
+5. root 키 id와 임계값을 Release Hub와 별개로 고객이 신뢰하는 경로로 공개합니다. 개인 키는 절대
+   공개하지 않습니다.
+
+**공급업체: root를 설치하고 제공합니다.** snapshot과 timestamp 키를 서로 다른 비밀 버전 두 개로
+준비하고 Release Hub에서 `catalog_roles`를 켭니다. 서명된 `root-v1.json`을 요청으로 하여
+`install-catalog-root` 작업을 실행합니다. Hub는 체인을 확인하고 자신의 키를 승인하지 않는 root를
+거부합니다. 제공에는 root가 필요하므로 설치 전까지 `GET /v1/catalog/metadata`는 `503`을 반환합니다.
+
+**배포된 쌍의 작업 순서.** 새 이미지는 더 새로운 스키마 revision을 요구할 수 있고, 먼저 시작한
+revision은 재시작 대기 상태에 머무르므로 각 Hub의 새 revision이 트래픽을 받기 전에 새 이미지로
+`migrate` Job을 실행하세요. 고객이 `tuf`로 옮기기 전에 root를 설치하고, Release Hub를 공유하는
+모든 고객 Hub를 함께 옮기세요. root가 설치된 Release Hub는 기존 방식의 export 만료 연장을
+중단하기 때문입니다.
+
+**고객: root를 pin합니다.** 검토된 배포 변경에서 `release_public_key`를
+`trust = { mode = "tuf", root_key_ids = [...], root_threshold = <n> }`로 바꾸고 `bind-catalog`를
+실행합니다. 새 데이터베이스는 신뢰가 없으면 `migrate`가 묶습니다. 이미 묶은 데이터베이스는 바뀐 신뢰를
+거부하며, 행위자와 사유를 받아 Lifecycle Hub 작업 Job이 실행하는 감사되는 `rebind-catalog`가
+필요합니다. 재바인딩은 리비전 하한을 유지하고, 이전 신뢰를 명시한 `source.rebound` 이벤트를 기록하며,
+이전 신뢰만 검증한 수락 카탈로그 바이트를 폐기합니다. 다음 확인에서 새 신뢰로 현재 카탈로그를 다시
+검증하고 채택합니다. 서명된 root에서 단일 키로 되돌리는 재바인딩은 거부됩니다. 첫 root는 정확히 그
+키와 임계값을 지정해야 합니다(MUST).
+
+**Updates를 읽습니다.** **Catalog integrity** 영역에 root, snapshot, timestamp 버전과 timestamp 만료
+시각이 표시됩니다. timestamp가 만료되면 Hub는 회수만 채택하고 공급업체가 새 timestamp를 게시할 때까지
+회수 roll-off Plan만 발급합니다. 기다리지 말고 공급업체에 갱신을 요청하세요. 확인이 실패하면 버전
+롤백이나 서명 수가 부족한 root 같은 이유가 표시됩니다. 이를 우회해 import하지 마세요.
+
+**root를 교체합니다.** `--version <n+1>`과 새 보유자의 공개 키로 새 기록을 만듭니다. 새 보유자의
+임계값과 이전 보유자의 임계값이 모두 서명합니다(`root sign --previous root-v1.json`). 그다음
+`root verify --record root-v2.json --previous root-v1.json`을 실행하고 같은 작업으로 설치합니다.
+각 고객 Hub는 **Root rotation awaiting review**를 표시하며 스스로 채택하지 않습니다. 별도 경로로
+새 키 id를 확인한 뒤 **Review and apply**를 선택합니다. root는 만료되어도 폐기되므로 그 전에 다음
+교체를 예약합니다. 폐기하는 export 키가 서명한 매니페스트를 모두 다시 서명하기 전에는 그 키를
+`export_key_ids`에 유지합니다.
+
+설정 의식 도구는 임계값을 강제합니다. 키를 어디에 두고 누가 보유하는지는 운영자 절차이며 이
+저장소는 이를 검증하지 않습니다.
+
+### C2. 메타데이터와 적용 준비 상태를 구분
+
+기존 또는 오프라인 고정값 흐름인 **Catalog import**에서는 다음 작업을 각각 수행합니다.
 
 1. 승인된 독립 신뢰 경로에서 내보내기 파일의 정확한 **Revision**과 **SHA-256**을 받습니다.
    초기 설정에는 예상한 Release Hub와 공개키가 이미 연결돼 있어야 합니다.
@@ -206,6 +318,41 @@ fdai-lifecycle-agent stage-input --kind release \
 서명을 검증합니다. 서명된 패키지를 만들거나, 패키지에 동봉된 키를 신뢰하게 만들거나,
 이미지를 복제하거나, 대상을 배포 가능한 상태로 바꾸지 않습니다.
 
+#### 단일 Owner 개발 프로필과 14일 유효기간
+
+[헌법 제8조](../roadmap/architecture/fdai-constitution-ko.md#article-8-safely-autonomous)에 따라
+명시적으로 선언한 전체 권한 개발 프로필(`full-authority-development`)을 일회성 개발 범위
+(`rg-fdai-dev-wus3` 등)에 적용하면, 인증된 단일 Owner 한 명이 해당 범위 안에서 Hub
+카탈로그 내보내기 고정값, 등록, 네이티브 소유권, 애플리케이션 고정, Plan 승인 단계를 모두
+수행할 수 있습니다.
+
+- **범위 경계:** 지정된 일회성 개발 리소스 그룹과 등록된 Hub 설치본에만 적용됩니다. 해당
+  테스트 범위 밖으로는 어떠한 권한도 부여하지 않으며 운영 환경의 다중 운영자 정족수를
+  완화하지 않습니다.
+- **유효기간:** 개발 프로필 권한 부여는 승인 시점부터 최대 14일로 제한되며, 검증 캠페인이
+  끝나면 갱신하거나 해제해야 합니다. 실행 시점마다 생성하는 네이티브 생성 승인 파일
+  (`native-approval.json`)은 이 14일 기간 안에서도 4시간 실행 유효기간을 유지합니다.
+- **신원 분리:** 사람인 Owner는 Hub에서 승인하고 로컬 서명 입력을 준비하며, 클러스터 내부
+  수명 주기 에이전트는 전용 워크로드 신원과 네임스페이스 Role로만 실행합니다. 두 신원은 서로를
+  대신하지 않습니다.
+
+AKS `workloads` 및 `scheduled_jobs` 맵으로부터 FDAI 운영 책임 토폴로지
+(`core-control-plane`, `operator-service`, `document-ingestion-api`, `clamav` 사이드카를 포함한
+`document-processing-worker`, 그리고 `analyzer`, `canary`, `inventory`,
+`observation-campaign` CronJob)의 비공개 실행 묶음(`runtime-bundle.json`), 구성 요소 이미지
+맵(`component-images.json`), 일치하는 네이티브 범위(`native-scope.json`), 사전 구축 인프라 참조
+목록(`prerequisites.json`)을 생성하려면 다음 명령을 실행합니다.
+
+```bash
+fdai-lifecycle-manager generate-runtime-bundle \
+  --topology-input <private-topology.json> \
+  --destination <new-private-bundle-dir> \
+  --installation-id <installation-id> \
+  --entity-id <entity-id> \
+  --product fdai \
+  --namespace fdai-runtime
+```
+
 #### 실행 시간 준비
 
 이 절차에는 실행 설정 API와 UI가 포함된 빌드, 등록된 설치본, 인증된 고객 운영자가
@@ -253,6 +400,32 @@ fdai-lifecycle-agent stage-input --kind release \
 Agent 로컬 정책과 패키지의 `product`도 이 값과 독립적으로 일치해야 합니다.
 등록 요청은 `settings.product`를 지정하지 않아야 합니다. 등록 승인 후 이 화면에서 고정하세요.
 
+### C3. Hub 사용자 지정 도메인 이동 또는 설정
+
+호스트네임 하나는 Hub 스택 하나가 소유합니다. 각 실패가 모두 "Hub가 응답하지 않음"으로 보이므로
+다음 순서로 확인하세요.
+
+1. **DNS.** `CNAME`은 서비스하는 Container App의 기본 호스트네임을 가리켜야 합니다. 관리형 인증서
+   검증도 이 레코드가 먼저 있어야 합니다.
+2. **인증서.** 서비스하는 Container App 환경에서 관리형 인증서를 만들고 SNI로 앱에 바인딩합니다.
+   `Disabled`로 바인딩된 호스트네임에는 인증서가 없어 TLS가 연결 재설정으로 실패합니다.
+3. **허용 호스트.** 해당 스택 변수에 `custom_domain.hostname`을 설정합니다. 설정하지 않으면 Hub는
+   기본 호스트네임만 받아들여 `400 Invalid host header`로 응답합니다.
+4. **소유자 하나.** `dns_zone`은 호스트네임을 서비스하는 스택에만 설정합니다. 같은 호스트네임과 DNS
+   레코드를 선언한 다른 스택은 다음 apply에서 레코드를 덮어씁니다. 다른 스택의 리소스는 레코드를
+   삭제하지 말고 `terraform state rm`으로 상태에서 제거한 뒤 `custom_domain`을 null로 설정합니다.
+5. **기본 호스트네임.** Hub는 설정된 origin 호스트만 받아들이므로 도메인을 옮기면 기본 Container App
+   호스트네임은 `400 Invalid host header`로 응답합니다. `redirect_hosts`를 읽는 Hub 이미지에서
+   `custom_domain.redirect_default_hostname = true`를 설정하면 그 호스트네임의 GET과 HEAD를 사용자 지정
+   호스트네임으로 `308` 리디렉션합니다.
+6. **의존 자원.** Hub의 데이터베이스가 실행 중인지 확인합니다. DNS와 TLS가 맞아도 PostgreSQL 서버가
+   중지되어 있으면 앱이 준비 상태가 되지 못합니다.
+
+Terraform 밖에서 바인딩한 호스트네임은 `azurerm_container_app_custom_domain`,
+`azurerm_dns_cname_record`, `azurerm_dns_txt_record`를 `terraform import`한 뒤, 제자리 변경만
+보이는 계획을 검토해서 관리 대상으로 옮깁니다. 도메인을 다른 Hub로 옮기면 로그인 출처도 바뀌므로
+Entra 애플리케이션 등록에 그 Hub의 리디렉션 URI가 있어야 합니다.
+
 ### D. 부족한 선행 조건을 해결한 뒤 계획과 적용 진행
 
 다음을 각각 입증하지 못했다면 적용 전에 멈춥니다. Entity의 실제 소유권, 호환되는
@@ -279,7 +452,8 @@ Agent 로컬 정책과 패키지의 `product`도 이 값과 독립적으로 일�
 운영 설계에서도 가져오기라는 개념은 남습니다. 고객 Hub가 공급자 메타데이터를 검증해
 수락합니다. 서명된 root, snapshot, timestamp 메타데이터, 영구적인 되돌림 방지 상태,
 키 교체, 통제된 갱신이 평상시 수동 고정값 전달을 대신하는 방향입니다.
-이 운영용 프로토콜과 신뢰 설정 절차는 아직 완성되지 않았습니다. 문구만 지우거나,
+[C1](#c1-서명된-카탈로그-역할-사용선택)의 선택 모드가 이 프로토콜을 구현하지만, 프로덕션 root 설정 의식과
+키 보관은 아직 완성되지 않은 운영자 절차입니다. 문구만 지우거나,
 다운로드한 다이제스트를 자동 승인하거나, 현 가져오기 API를 주기 실행하는 것으로
 해결되지 않습니다. 오프라인 설치에도 명시적으로 검증하는 반입 절차가 필요합니다.
 
@@ -293,7 +467,7 @@ Agent 로컬 정책과 패키지의 `product`도 이 값과 독립적으로 일�
 |------|----------------------------------------------------|
 | 개발 담당자나 채팅을 통해 ID, 신뢰 참조, 파일 전달 | 정식 설치 프로그램이 영구 인수인계 자료와 등록 파일 다운로드 제공 |
 | 독립된 키 확인 절차가 통합되지 않음 | 비밀키를 반출하지 않는 신뢰된 설정 경로에서 정확한 키 비교 지원 |
-| 개발 변경마다 내보내기 리비전과 다이제스트 수동 승인 | 신선도를 인증하는 운영용 catalog 메타데이터와 통제된 갱신 |
+| 개발 변경마다 내보내기 리비전과 다이제스트 수동 승인 | 개발용으로 구현됨: 서명된 내보내기, 조회, 정책 채택. 운영용 TUF 역할과 루트 의식은 설계 단계입니다. |
 | 패키지 전달, 이미지 검사, 에이전트 시작을 따로 설정 | 설치본 안에서 입력 배치, 레지스트리 검증, 실행 범위가 제한된 스케줄링 |
 | 상태 화면이 서로 분리됨 | 선행 조건, 담당자, 차단 사유, 다음 행동을 보여 주는 설치본별 통합 흐름 |
 | 전체 과정을 연결하는 알림이 없음 | 담당자별 영구 작업과 알림, 확인 기록, 감사 이력 |

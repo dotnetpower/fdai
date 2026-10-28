@@ -42,9 +42,9 @@ variable "enable_ohl_scale_out_evidence_target" {
 }
 
 variable "postgres_sku_name" {
-  description = "PostgreSQL Flexible Server SKU. The deployment profile selects a larger size explicitly; the default keeps the day-zero Burstable B1ms."
+  description = "PostgreSQL Flexible Server SKU. The default uses the selected region catalog's General Purpose recommendation."
   type        = string
-  default     = "B_Standard_B1ms"
+  default     = "GP_Standard_D4ads_v5"
 
   validation {
     condition = contains([
@@ -53,6 +53,7 @@ variable "postgres_sku_name" {
       "B_Standard_B2ms",
       "GP_Standard_D2ds_v5",
       "GP_Standard_D4ds_v5",
+      "GP_Standard_D4ads_v5",
     ], var.postgres_sku_name)
     error_message = "postgres_sku_name must be a supported PostgreSQL Flexible Server SKU."
   }
@@ -1824,6 +1825,12 @@ variable "enable_document_ingestion" {
   description = "Provision the production ingestion gateway, ClamAV sidecar, ADLS Gen2 HNS storage, private endpoints, and dedicated Managed Identity."
   type        = bool
   default     = false
+}
+
+variable "enable_document_ingestion_workloads" {
+  description = "Provision the document-ingestion Container Apps and migration Job. Set false only for a Hub-managed installation whose separately reviewed bundle owns those workloads."
+  type        = bool
+  default     = true
 }
 
 variable "enable_document_intelligence" {

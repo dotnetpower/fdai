@@ -10,8 +10,13 @@ from typing import cast
 from fdai_deployment_cli.contracts import canonical_bytes
 
 _APPLICATION = "azapi_resource.app_resource_group"
+_RUNNER = "module.bootstrap.azurerm_linux_virtual_machine.runner[0]"
 _POLICY_TAGS = {"FirstPartyUsage": "/Unprivileged"}
-_INPUT_CHANGES = {"application_workload", "operations_public_ip_tags"}
+_PATCH_INPUTS = {
+    "runner_patch_mode",
+    "runner_bypass_platform_safety_checks",
+}
+_INPUT_CHANGES = {"application_workload", "operations_public_ip_tags", *_PATCH_INPUTS}
 
 
 def validate_recovery_plan(
@@ -71,6 +76,26 @@ def validate_recovery_plan(
         "value": select_public_ip_tags(state)
     }:
         raise ValueError("Foundation recovery IP tags differ from the retained policy value")
+    from genesis_foundation_apply import _runner_patch_selection
+
+    runner = changes.get(_RUNNER)
+    runner_change = runner.get("change") if isinstance(runner, dict) else None
+    runner_before = runner_change.get("before") if isinstance(runner_change, dict) else None
+    observed_patch = (
+        _runner_patch_selection(
+            runner_before.get("patch_mode"),
+            runner_before.get("bypass_platform_safety_checks_on_user_schedule_enabled"),
+        )
+        if isinstance(runner_before, dict)
+        else {}
+    )
+    if any(
+        variables.get(name) != {"value": value} for name, value in observed_patch.items()
+    ) or any(
+        name not in observed_patch and variables.get(name) != old_variables.get(name)
+        for name in _PATCH_INPUTS
+    ):
+        raise ValueError("Foundation recovery runner patch inputs differ from retained state")
     if set(changes) != set(old_changes) or not existing.keys() <= changes.keys():
         raise ValueError("Foundation recovery inventory changed")
     if _APPLICATION not in changes:
@@ -107,6 +132,14 @@ def validate_recovery_plan(
             ):
                 raise ValueError("Foundation recovery would alter completed work")
             intended = existing[address]
+            if address == _RUNNER and observed_patch:
+                intended = {
+                    **intended,
+                    "patch_mode": observed_patch["runner_patch_mode"],
+                    "bypass_platform_safety_checks_on_user_schedule_enabled": observed_patch[
+                        "runner_bypass_platform_safety_checks"
+                    ],
+                }
         else:
             if actions != ["create"] or change.get("before") is not None:
                 raise ValueError("Foundation recovery pending resource is not a fresh create")

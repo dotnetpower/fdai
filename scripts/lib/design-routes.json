@@ -3255,6 +3255,33 @@
       ]
     },
     {
+      "id": "hub-image-deployment",
+      "paths": [
+        "docs/roadmap/deployment/hub-image-deployment*.md",
+        "docs/roadmap-implementation/deployment/hub-image-deployment.md",
+        "scripts/deployment/azure/fdai-up.sh",
+        "packages/deployment-cli/src/fdai_deployment_cli/hub_*.py",
+        "packages/deployment-cli/tests/test_hub_*.py",
+        "lifecycle/release-hub/src/fdai_release_hub/deployment_requests*.py"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/deployment/hub-image-deployment.md",
+        "docs/roadmap/deployment/source-deployment.md",
+        "docs/roadmap/deployment/lifecycle-runtime-bundles.md",
+        "docs/roadmap/deployment/lifecycle-releases-and-channels.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/hub-image-deployment.md",
+        "docs/roadmap-implementation/deployment/hub-image-deployment.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "configuration-local-publication",
       "paths": [
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration_publication*.py",
@@ -3282,25 +3309,45 @@
       "id": "hub-managed-lifecycle",
       "paths": [
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_native.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_native_transition.py",
         "packages/deployment-cli/tests/test_lifecycle_native.py",
+        "packages/deployment-cli/tests/test_lifecycle_native_transition.py",
         "lifecycle/agent/src/fdai_lifecycle_agent/native_*.py",
+        "lifecycle/agent/src/fdai_lifecycle_agent/adoption.py",
         "lifecycle/agent/tests/test_native*.py",
+        "lifecycle/agent/tests/test_adoption.py",
+        "lifecycle/agent/src/fdai_lifecycle_agent/schema_expand.py",
+        "lifecycle/agent/tests/test_schema_expand.py",
+        "lifecycle/manager/**",
+        "lifecycle/Dockerfile.agent",
+        "infra/lifecycle-agent/**",
+        "infra/hub-stewardship-prerequisites/**",
+        "infra/hub-workload-state-handoff/**",
+        "tests/integration/services/test_lifecycle_agent_image.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_authorization.py",
-        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_catalog_integrity.py",
+        "packages/service-contracts/src/fdai_service_contracts/catalog_integrity.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_commands.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_infrastructure_agent.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_installation_binding.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/hub_ownership.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/hub_workload_handoff.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/hub_workload_handoff_inputs.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_ownership_exclusion.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_promotion.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_self_upgrade.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_upgrade_bundle.py",
         "packages/deployment-cli/tests/test_lifecycle_catalog_integrity_and_bundle.py",
+        "packages/deployment-cli/tests/test_lifecycle_infrastructure_agent.py",
+        "packages/deployment-cli/tests/test_hub_workload_handoff.py",
         "packages/deployment-cli/tests/test_lifecycle_infra_selfupgrade_ownership.py",
         "packages/deployment-cli/tests/test_lifecycle_plan.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_release.py",
         "services/core-control-plane/src/fdai/delivery/persistence/state_store_action_promotion.py",
         "services/core-control-plane/tests/persistence/test_state_store_action_promotion.py",
         "tests/integration/test_foundation_ownership_risk_gate.py",
+        "services/core-control-plane/src/fdai/delivery/lifecycle_schema_expand.py",
+        "services/core-control-plane/tests/delivery/test_lifecycle_schema_expand.py",
         "packages/deployment-cli/tests/test_lifecycle_release.py",
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration*.py",
         "packages/deployment-cli/tests/test_lifecycle_configuration*.py",

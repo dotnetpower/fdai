@@ -11,7 +11,12 @@ from fdai_deployment_cli.lifecycle_configuration_package import (
     build_installation_configuration_package,
 )
 from fdai_deployment_cli.lifecycle_configuration_sealing import encryption_key_digest
-from lifecycle.hub.tests.configuration_key_helpers import remote_auth, request_for, tokens
+from lifecycle.hub.tests.configuration_key_helpers import (
+    recovery_for,
+    remote_auth,
+    request_for,
+    tokens,
+)
 from lifecycle.hub.tests.test_configuration_revision import plan_case as plan_case
 from lifecycle.hub.tests.test_hubs_postgres import databases as databases
 from lifecycle.hub.tests.test_remote_catalog import approve, source_for
@@ -26,9 +31,92 @@ from fdai_lifecycle_hub.configuration_keys import ConfigurationKeyRequest, KeyBi
 from fdai_lifecycle_hub.domain import Issued
 from fdai_lifecycle_hub.migrations import _versions, migrate, require_schema
 from fdai_lifecycle_hub.remote import target_routes
+from fdai_lifecycle_hub.remote_auth import DevelopmentRecoveryAuthorization
 from fdai_lifecycle_hub.remote_catalog import RemoteCatalog, initialize_trust, metadata
+from fdai_lifecycle_hub.signing import installation_key_id, raw_public_key
 from fdai_lifecycle_hub.store import HubStore
 from fdai_release_hub.store import ReleaseStore
+
+
+def test_postgres_development_identity_recovery_and_same_owner_first_binding(
+    databases, installation, installation_key, enroll, now
+):
+    engine = databases["target"]
+
+    def initialize(connection):
+        models.Base.metadata.create_all(connection)
+
+    migrate(engine, "lifecycle_hub", initialize)
+    store = HubStore(engine)
+    enroll(store, installation)
+    replacement = Ed25519PrivateKey.generate()
+    authorization = DevelopmentRecoveryAuthorization(
+        profile="full-authority-development",
+        installation_id=installation.installation_id,
+        scope="rg-fdai-dev-wus3",
+        operator_id="requester",
+        previous_identity_key_id=installation_key_id(raw_public_key(installation_key)),
+        replacement_identity_public_key=raw_public_key(replacement).hex(),
+        authorized_at=now - timedelta(minutes=1),
+        authorization_expires_at=now + timedelta(days=14) - timedelta(minutes=1),
+        allow_single_owner_configuration_approval=True,
+        reason="Recover one exact PostgreSQL development installation.",
+    )
+    _, recovery = recovery_for(
+        replacement,
+        now,
+        installation_id=installation.installation_id,
+        previous_identity_key_id=authorization.previous_identity_key_id,
+    )
+    signer, recipient = Ed25519PrivateKey.generate(), X25519PrivateKey.generate()
+    request, signed = request_for(
+        replacement,
+        signer,
+        recipient,
+        now,
+        installation_id=installation.installation_id,
+    )
+    auth = remote_auth(authorization)
+    app = create_app(store, clock=lambda: now, remote_auth=auth)
+    token = tokens(app, auth)
+    root = f"/v1/installations/{installation.installation_id}/configuration-keys"
+
+    with TestClient(app, base_url=auth.origin) as client:
+        assert (
+            client.post(
+                root + "/recover-identity",
+                json=recovery.model_dump(mode="json"),
+                headers=token(),
+            ).status_code
+            == 202
+        )
+        assert (
+            client.post(
+                root + "/request", json=signed.model_dump(mode="json"), headers=token()
+            ).status_code
+            == 202
+        )
+        assert (
+            client.post(
+                root + "/approve",
+                json={"request_digest": request.digest},
+                headers=token(),
+            ).status_code
+            == 202
+        )
+
+    restarted = create_engine(engine.url, hide_parameters=True)
+    try:
+        assert (
+            ConfigurationKeyStore(restarted).status(installation.installation_id)["request_digest"]
+            == request.digest
+        )
+        with Session(restarted) as session:
+            row = session.get(models.Installation, installation.installation_id)
+            assert row.installation_key == raw_public_key(replacement)
+            assert audit.chain_intact(session)
+    finally:
+        restarted.dispose()
 
 
 def test_postgres_real_auth_durable_plan_rotation_history_restart_and_cas(

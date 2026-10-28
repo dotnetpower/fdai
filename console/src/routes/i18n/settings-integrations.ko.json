@@ -1,4 +1,6 @@
 {
+  "resultHandles.label": "이전 답변에 대한 후속 질문",
+  "resultHandles.hint": "답변한 목록의 행을 보관해 '실행 중인 것만' 같은 후속 질문이 방금 보여 준 대상을 가리키게 합니다. Core가 암호화해 저장하고 만료시킵니다. 개발 환경은 기본값이 켜짐이고 다른 환경은 꺼짐입니다. 이 설정은 작업 권한을 부여하지 않습니다. 변경은 재시작 후 적용됩니다.",
   "forecastHistory.group": "예측 이력",
   "forecastHistory.collectionLabel": "예측 원본 이력 수집",
   "forecastHistory.collectionHint": "감사 기록이 남는 설정으로 검토된 이력을 수집합니다. 배포 변수만으로 활성화할 수 없습니다. 원본의 완전성이나 독립 근거가 부족하면 점수 계산은 계속 차단되며, 실행 권한을 부여하지 않습니다.",

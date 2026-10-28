@@ -27,7 +27,15 @@ from fdai_deployment_cli.deployment_progress import (
 from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
 )
-from fdai_deployment_cli.installation_scope import InstallationOptions, confirm_installation_scope
+from fdai_deployment_cli.hub_image_trust import HubImageSelection, load_selection
+from fdai_deployment_cli.installation_scope import (
+    InstallationOptions,
+    confirm_installation_scope,
+    started_installation_matches,
+)
+from fdai_deployment_cli.notification_recipients_input import (
+    NotificationRecipientsDeploymentInput,
+)
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     OperationalEvidenceVerifierDeploymentInput,
 )
@@ -59,8 +67,10 @@ def plan_source_installation(
     confirm_initial: bool = False,
     foundation_recovery_directory: Path | None = None,
     operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
+    notification_recipients: NotificationRecipientsDeploymentInput | None = None,
     development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
     clear_development_authority_profile: bool = False,
+    hub_selection: HubImageSelection | None = None,
 ) -> dict[str, object]:
     """Advance source Foundation through exact human approvals, or stop for review.
 
@@ -71,7 +81,31 @@ def plan_source_installation(
     """
     if interactive and approval_file is not None:
         raise ValueError("explicit source approval cannot be combined with interactive approval")
+    if hub_selection is None and (work_dir / "hub-images").exists():
+        raise ValueError("source builds cannot resume a Hub-image deployment")
+    hub_target_binding = None
+    if hub_selection is not None:
+        from fdai_deployment_cli.aks_preflight import _active_human_target
+        from fdai_deployment_cli.hub_image_deploy import record_deployment_request
+        from fdai_deployment_cli.target import compute_target_binding
+
+        hub_selection = load_selection(hub_selection.path, hub_selection.digest)
+        inspect_source(source_root, expected_commit=hub_selection.source_commit)
+        subscription_id, tenant_id = _active_human_target(
+            DeploymentDeadline(min(timeout_seconds, 60))
+        )
+        hub_target_binding = compute_target_binding(
+            subscription_id=subscription_id, tenant_id=tenant_id
+        )
+        record_deployment_request(hub_selection, subscription_id=subscription_id, region=region)
     if foundation_recovery_directory is not None:
+        if hub_selection is not None:
+            from fdai_deployment_cli.hub_image_deploy import require_retained_hub_recovery
+
+            assert hub_target_binding is not None
+            require_retained_hub_recovery(
+                hub_selection, work_dir=work_dir, target_binding=hub_target_binding
+            )
         from fdai_deployment_cli.source_recovery import (
             recovered_application_evidence,
             resume_source_installation,
@@ -81,6 +115,8 @@ def plan_source_installation(
             raise ValueError("source recovery cannot replace the retained initial scope or prompt")
         if operational_evidence_verifier_input is not None:
             raise ValueError("source recovery cannot add a new operational evidence verifier input")
+        if notification_recipients is not None:
+            raise ValueError("source recovery cannot add notification recipients")
         if development_authority_profile is not None:
             raise ValueError("source recovery cannot add a development authority profile")
         if clear_development_authority_profile:
@@ -97,6 +133,8 @@ def plan_source_installation(
             timeout_seconds=timeout_seconds,
             approval_file=approval_file,
         )
+        if hub_target_binding is not None and progress.get("target_binding") != hub_target_binding:
+            raise ValueError("Hub request target differs from retained Foundation recovery")
         if progress.get("stage") != "application-plan":
             return progress
         evidence = recovered_application_evidence(
@@ -131,6 +169,7 @@ def plan_source_installation(
             source_snapshot_digest=evidence.source_snapshot_digest,
             source_root=execution_source.root,
             foundation_recovery_directory=foundation_recovery_directory,
+            hub_selection=hub_selection,
         )
         return {
             **application,
@@ -147,6 +186,7 @@ def plan_source_installation(
             runtime_profile=runtime_profile,
             region=region,
             monthly_cost_ceiling=monthly_cost_ceiling,
+            hub_selection_digest=hub_selection.digest if hub_selection is not None else None,
         )
     with installer_activity("Verifying source and tenant-local identity names"):
         source = inspect_source(source_root, expected_commit=str(prepared["source_commit"]))
@@ -157,11 +197,23 @@ def plan_source_installation(
         )
     with installer_activity("Checking AKS SKU, quota, and PostgreSQL availability"):
         preflight = inspect_aks_target(
-            profile=runtime_profile, region=region, timeout_seconds=deadline.remaining(180)
+            profile=runtime_profile,
+            region=region,
+            timeout_seconds=deadline.remaining(180),
+            owned_resource_group=_retained_application_group(work_dir, foundation_workload),
         )
-    if preflight["state"] != "feasible":
-        return {**preflight, "stage": "aks-preflight"}
+    if hub_target_binding is not None and preflight.get("target_binding") != hub_target_binding:
+        raise ValueError("Azure target changed after the Hub deployment request")
     work_dir = work_dir.absolute()
+    retained_binding = {
+        "source_commit": source.commit,
+        "target_binding": preflight.get("target_binding"),
+    }
+    if preflight["state"] != "feasible" and not started_installation_matches(
+        work_dir,
+        retained_binding,
+    ):
+        return {**preflight, "stage": "aks-preflight"}
     if installation_options is not None:
         progress_detail("Waiting for the one-time installation scope confirmation")
         confirmation = confirm_installation_scope(
@@ -243,6 +295,7 @@ def plan_source_installation(
             str(monthly_cost_ceiling),
             "--workload",
             foundation_workload,
+            "--register-providers",
         ),
         source.root,
         environment,
@@ -265,44 +318,55 @@ def plan_source_installation(
         else foundation / "current-source-approval.json"
     )
     status_path = foundation / "status.json"
+    failed_advance_recovery_used = False
     while True:
         source.reverify()
         previous = prior_attempt(status_path)
-        result = _capture(
-            (
-                sys.executable,
-                str(scripts / "source_genesis.py"),
-                "--advance",
-                "--work-dir",
-                str(foundation),
-                "--source-commit",
-                source.commit,
-                "--target-binding",
-                str(preflight["target_binding"]),
-                "--region",
-                region,
-                "--monthly-cost-ceiling",
-                str(monthly_cost_ceiling),
-                "--workload",
-                foundation_workload,
-                "--source-snapshot",
-                str(work_dir / "source-snapshot"),
-                "--source-snapshot-digest",
-                str(prepared["source_snapshot_digest"]),
-                "--terraform",
-                str(terraform),
-                "--timeout-seconds",
-                str(deadline.remaining(14400)),
-                *(
-                    ("--approval-file", str(approval))
-                    if approval_file is not None or (interactive and approval.exists())
-                    else ()
+        try:
+            result = _capture(
+                (
+                    sys.executable,
+                    str(scripts / "source_genesis.py"),
+                    "--advance",
+                    "--work-dir",
+                    str(foundation),
+                    "--source-commit",
+                    source.commit,
+                    "--target-binding",
+                    str(preflight["target_binding"]),
+                    "--region",
+                    region,
+                    "--monthly-cost-ceiling",
+                    str(monthly_cost_ceiling),
+                    "--workload",
+                    foundation_workload,
+                    "--register-providers",
+                    "--source-snapshot",
+                    str(work_dir / "source-snapshot"),
+                    "--source-snapshot-digest",
+                    str(prepared["source_snapshot_digest"]),
+                    "--terraform",
+                    str(terraform),
+                    "--timeout-seconds",
+                    str(deadline.remaining(14400)),
+                    *(
+                        ("--approval-file", str(approval))
+                        if approval_file is not None or (interactive and approval.exists())
+                        else ()
+                    ),
                 ),
-            ),
-            source.root,
-            environment,
-            deadline.remaining(14400),
-        )
+                source.root,
+                environment,
+                deadline.remaining(14400),
+            )
+        except ValueError:
+            if failed_advance_recovery_used or not _claimed_foundation_apply_requires_recovery(
+                foundation
+            ):
+                raise
+            failed_advance_recovery_used = True
+            progress_detail("Recovering the claimed Foundation apply without repeating its effect")
+            continue
         source.reverify()
         if (
             result.get("schema_version") != "fdai.source-foundation-progress.v1"
@@ -397,12 +461,14 @@ def plan_source_installation(
                 foundation_state_receipt_digest=str(expected_handoff_digest),
                 catalog_review_profile=CatalogReviewDeploymentProfile.unselected(),
                 operational_evidence_verifier_input=operational_evidence_verifier_input,
+                notification_recipients=notification_recipients,
                 development_authority_profile=development_authority_profile,
                 clear_development_authority_profile=clear_development_authority_profile,
                 current_operator_object_id=current_operator_object_id,
                 source_snapshot=work_dir / "source-snapshot",
                 source_snapshot_digest=str(prepared["source_snapshot_digest"]),
                 source_root=source.root,
+                hub_selection=hub_selection,
             )
             return {**application, "cost_review": cost_review}
         if not interactive or result["stage"] not in {
@@ -432,6 +498,29 @@ def plan_source_installation(
             raise ValueError("source Foundation exact approval was not granted")
 
 
+def _retained_application_group(work_dir: Path, workload: str) -> str | None:
+    """Name the resource group a resumed run already owns, from its retained variables."""
+
+    path = work_dir.absolute() / "foundation" / "foundation-variables.json"
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        values = load_json_object(
+            read_private_bytes(path, max_bytes=65536), label="retained Foundation variables"
+        )
+    except (OSError, ValueError):
+        return None
+    region_short = values.get("region_short")
+    if (
+        values.get("workload") != workload
+        or not isinstance(region_short, str)
+        or re.fullmatch(r"[a-z][a-z0-9]{1,11}", region_short) is None
+        or re.fullmatch(r"[a-z][a-z0-9-]{1,30}", workload) is None
+    ):
+        return None
+    return f"rg-{workload}-dev-{region_short}"
+
+
 def _capture(
     command: tuple[str, ...], root: Path, environment: dict[str, str], timeout: int
 ) -> dict[str, object]:
@@ -450,6 +539,14 @@ def _capture(
             "source planning stage failed; preserve private state and do not repeat effects"
         )
     return load_json_object(result.stdout, label="source planning result", max_bytes=1024 * 1024)
+
+
+def _claimed_foundation_apply_requires_recovery(foundation: Path) -> bool:
+    claims = sorted(foundation.glob("foundation-plan-attempt-*/foundation-apply-claim.json"))
+    if len(claims) != 1 or claims[0].is_symlink():
+        return False
+    receipt = claims[0].with_name("foundation-apply-receipt.json")
+    return not receipt.exists() and not receipt.is_symlink()
 
 
 def _require_unique_entra_display_names(

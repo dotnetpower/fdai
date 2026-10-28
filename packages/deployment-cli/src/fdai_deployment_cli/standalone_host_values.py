@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from typing import Any
 
@@ -78,7 +79,7 @@ def stewardship_governance_selected(application_values: dict[str, object]) -> bo
 def _stewardship_bindings_environment(application_values: dict[str, object]) -> dict[str, object]:
     bindings = application_values["stewardship_agent_bindings"]
     if not isinstance(bindings, dict):
-        raise ValueError("stewardship bindings are invalid")
+        raise ValueError("stewardship bindings are invalid")  # noqa: TRY004
     environment: dict[str, object] = {
         "FDAI_MAINTAINERS": application_values["stewardship_maintainers"]
     }
@@ -278,7 +279,7 @@ def aks_operator_environment(
 
     bindings = application_values["stewardship_agent_bindings"]
     if not isinstance(bindings, dict):
-        raise ValueError("stewardship bindings are invalid")
+        raise ValueError("stewardship bindings are invalid")  # noqa: TRY004
     environment: dict[str, object] = {
         "AZURE_CLIENT_ID": operator_identity["client_id"],
         "FDAI_COMMAND_MI_CLIENT_ID": command_identity["client_id"],
@@ -339,7 +340,7 @@ def aks_operator_request_receipts(
     """
 
     if not isinstance(binding, dict):
-        raise ValueError("operator_request receipt binding is invalid")
+        raise ValueError("operator_request receipt binding is invalid")  # noqa: TRY004
     names: dict[str, str] = {}
     for field, expected_name in _OPERATOR_REQUEST_SEED_NAMES.items():
         reference = str(binding.get(field, ""))
@@ -373,6 +374,104 @@ def aks_operator_request_receipts(
     )
 
 
+def aks_notification_environment(
+    *,
+    application_values: dict[str, object],
+    email_binding: object,
+    identity: dict[str, Any],
+) -> dict[str, object]:
+    """Bind ACS Email delivery to the Core workload for the selected notifications add-on."""
+
+    binding = mapping(email_binding, "notification email binding")
+    recipients = application_values.get("notification_email_recipients")
+    if (
+        not isinstance(recipients, list)
+        or not recipients
+        or not all(isinstance(address, str) and address for address in recipients)
+    ):
+        raise ValueError("notifications add-on requires its private recipient list")
+    endpoint = binding.get("endpoint")
+    sender = binding.get("sender_address")
+    client_id = identity.get("client_id")
+    if not all(isinstance(value, str) and value for value in (endpoint, sender, client_id)):
+        raise ValueError("notification email binding is incomplete")
+    return {
+        "FDAI_EMAIL_ENDPOINT": endpoint,
+        "FDAI_EMAIL_SENDER_ADDRESS": sender,
+        "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON": json.dumps(recipients, separators=(",", ":")),
+        "FDAI_NOTIFICATION_MI_CLIENT_ID": client_id,
+    }
+
+
+def aks_core_conversation_environment(
+    *,
+    application_values: dict[str, Any],
+    substrate_outputs: dict[str, object],
+    semantic_topics: list[object],
+) -> dict[str, str]:
+    """Build a complete Core semantic binding or reject incomplete model outputs."""
+
+    if len(semantic_topics) < 3:
+        raise ValueError("AKS semantic topic output contract is incomplete")
+
+    def required_text(value: object, label: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"AKS {label} output is unavailable")
+        return value.strip()
+
+    environment = {
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": required_text(
+            semantic_topics[0], "semantic request topic"
+        ),
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": required_text(
+            semantic_topics[1], "semantic projection topic"
+        ),
+        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": required_text(
+            semantic_topics[2], "read investigation topic"
+        ),
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": required_text(
+            substrate_outputs.get("semantic_physical"), "semantic physical topic"
+        ),
+    }
+    enable_llm = application_values.get("enable_llm")
+    if not isinstance(enable_llm, bool):
+        raise TypeError("AKS enable_llm setting MUST be a boolean")
+    if not enable_llm:
+        return environment
+
+    endpoint = required_text(substrate_outputs.get("llm_endpoint"), "LLM endpoint")
+    digest = required_text(substrate_outputs.get("resolved_models_sha256"), "resolved-model digest")
+    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        raise ValueError("AKS resolved-model digest MUST be a lowercase SHA-256 digest")
+    model_endpoints = substrate_outputs.get("llm_model_endpoints")
+    if (
+        not isinstance(model_endpoints, dict)
+        or not model_endpoints
+        or any(
+            not isinstance(reference, str)
+            or not reference.strip()
+            or not isinstance(model_endpoint, str)
+            or not model_endpoint.strip()
+            for reference, model_endpoint in model_endpoints.items()
+        )
+    ):
+        raise ValueError("AKS LLM model endpoint outputs are incomplete")
+    environment.update(
+        {
+            "LLM_MODE": "azure",
+            "LLM_RESOLVED_MODELS_PATH": "/app/resolved-models.json",
+            "LLM_RESOLVED_MODELS_SHA256": digest,
+            "FDAI_LLM_ENDPOINT": endpoint,
+            "FDAI_MODEL_ENDPOINTS_JSON": json.dumps(
+                model_endpoints,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        }
+    )
+    return environment
+
+
 def selected_identity(identities: dict[str, Any], name: str, selected: bool) -> dict[str, Any]:
     """Return one selected runtime identity or an empty optional binding."""
 
@@ -396,3 +495,69 @@ def required_guid(value: dict[str, Any], field: str) -> str:
     if not isinstance(item, str) or _GUID.fullmatch(item) is None:
         raise ValueError(f"{field} is invalid")
     return item
+
+
+def require_browser_gateway_backend_nsg(*, enabled: bool, backend_nsg_id: str) -> str:
+    """Require an attached AKS subnet NSG whenever the browser gateway is enabled."""
+
+    if enabled and not backend_nsg_id.strip():
+        raise ValueError(
+            "AKS subnet network security group is required when the browser gateway is enabled"
+        )
+    return backend_nsg_id
+
+
+def verify_browser_gateway_backend_nsg(
+    workloads_values: dict[str, object],
+    *,
+    observed_nsg_id: str,
+) -> None:
+    """Verify that the live AKS subnet NSG still matches the prepared gateway binding."""
+
+    gateway = mapping(workloads_values.get("browser_gateway"), "AKS browser gateway")
+    expected_nsg_id = require_browser_gateway_backend_nsg(
+        enabled=gateway.get("enabled") is True,
+        backend_nsg_id=str(gateway.get("backend_nsg_id", "")),
+    )
+    if expected_nsg_id and observed_nsg_id.strip().casefold() != expected_nsg_id.strip().casefold():
+        raise ValueError(
+            "AKS subnet network security group differs from the browser gateway binding"
+        )
+
+
+def validate_browser_console_binding(
+    *,
+    subscription_id: str,
+    hostname: str,
+    console_origin: str,
+    resource_id: str,
+    operator_url: str,
+    ingestion_url: str,
+) -> dict[str, str]:
+    """Validate cross-state SWA and APIM outputs for the AKS browser Console."""
+
+    static_site_match = re.fullmatch(
+        r"/subscriptions/([^/]+)/resourceGroups/[^/]+/providers/"
+        r"Microsoft[.]Web/staticSites/[^/]+",
+        resource_id,
+        flags=re.IGNORECASE,
+    )
+    if static_site_match is None:
+        raise ValueError("Console Static Web App resource ID is invalid")
+    if static_site_match.group(1).casefold() != subscription_id.casefold():
+        raise ValueError("Console Static Web App belongs to a different subscription")
+    operator_match = re.fullmatch(
+        r"https://([a-z0-9](?:[a-z0-9-]*[a-z0-9])?[.]azure-api[.]net)",
+        operator_url,
+    )
+    if operator_match is None:
+        raise ValueError("browser gateway Operator URL is invalid")
+    if ingestion_url != f"{operator_url}/ingestion":
+        raise ValueError("browser gateway ingestion URL is not bound to the Operator gateway")
+    return {
+        "console_hostname": hostname,
+        "console_origin": console_origin,
+        "console_static_web_app_id": resource_id,
+        "operator_api_base_url": operator_url,
+        "ingestion_api_base_url": ingestion_url,
+    }

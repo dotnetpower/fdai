@@ -32,7 +32,7 @@ input contract. Do not substitute a renamed HTTP manifest for the full FDAI topo
 | 4. Vendor release operator | Build immutable images, sign the exact manifest bytes, register/publish and maintain recall state | Source/image digests, signature verification, channel/catalog revision and pin | Build/sign/publish pipeline; no customer approval |
 | 5. Customer catalog approver | Obtain publisher key and exact catalog pin independently; approve, then import | Accepted key ID, revision, pin, freshness and import result | Transfer and compare public metadata without retyping; never trust a downloaded pin merely because it downloaded |
 | 6. Customer setup operator | Preserve installation ID/key, submit fresh enrollment, then obtain separate human acceptance | Public key ID, enrollment decision and durable installation identity | Supported enrollment commands; resumable UI handoff is still needed |
-| 7. Customer ownership approver | Review exact native object scope; run `bootstrap-slot` dry-run, then approved creation; submit and separately accept proof | Approval, scope digest, anchor UID and signed proof in private storage | `bootstrap-slot` and `submit-native-proof`; proof creation never approves ownership |
+| 7. Customer ownership approver | Review exact native object scope and, for a development transition, every existing kind/name/UID; run `bootstrap-slot` dry-run, then approved anchor creation; submit and separately accept proof | Approval, exact existing-object list, scope digest, anchor UID and signed proof in private storage | `bootstrap-slot` and `submit-native-proof`; proof creation never approves ownership or adopts a workload |
 | 8. Customer runtime/configuration owner | Review private bundle, existing references and image repositories; pin its digest in signed configuration | Owner-only local policy, signed configuration bytes, key ID and exact digests | Schema validation and digest generation; a guided private bundle editor is not shipped |
 | 9. Installation input operator | Transfer verified release/configuration document and detached signature pairs; mirror images | Atomic staged files and independent signature/digest checks | `stage-inputs`; there is no automatic file transfer merely because a Plan exists |
 | 10. Customer execution approver | Set explicit execution window, current Settings/constraints and exact Plan approval | Actor, source-state digest, Plan expiry and confirmation | Existing forms generate IDs/digests; preserve approval |
@@ -124,6 +124,122 @@ It carries immutable images, product/version/source/platform and optional existi
 not private templates. Preserve detached signatures over exact bytes and the existing canonical
 digest convention when publishing and staging.
 
+## Reconstruct workload state without changing workloads
+
+`generate-runtime-bundle` now writes three owner-only handoff files beside the bundle:
+
+| File | Purpose |
+|------|---------|
+| `workload-handoff-inventory.json` | Digest-bound Terraform address, exact `namespace/name` import ID, and render digest for every approved object |
+| `workload-handoff.tfvars.json` | Complete Deployment, Service, CronJob, and HorizontalPodAutoscaler maps for the handoff roots |
+| `workload-handoff-commands.txt` | Initial import, zero-change check, forget-only release, rollback import, and final zero-change commands |
+
+Use this path only when the retained workloads state is unavailable. Keep one new private absolute
+local backend path and use it for every command in the generated sequence. Start with `umask 077`
+so plan JSON and receipts remain owner-only. Supply the exact private
+kubeconfig and context separately. Review `terraform show -json` through
+`verify-workload-handoff-plan` before every apply.
+
+The first import plan may contain only exact import records with `no-op` actions. Apply it, then
+require the next plan to return Terraform detailed exit code 0 and pass the `zero-change` verifier.
+The release plan may contain only `forget` actions for the same digest-bound inventory. Its
+`removed` blocks all set `destroy = false`, so the apply releases state ownership without deleting
+live objects. Don't continue if a plan contains create, update, delete, replace, drift, a moved
+address, a deferred change, or an unapproved import ID.
+
+For rollback, first retain the Agent's reconciliation-release receipt. Reuse the same import root,
+input file, and absolute backend path. Verify the exact rollback import plan, apply it, then require a second
+zero-change plan. Only after that receipt exists may the installation release its Hub ownership
+marker. Never edit a state file or use `terraform state rm` as a substitute.
+
+## Adopt exact existing objects in a mixed scope
+
+Use this transition only with an explicitly approved `full-authority-development` native scope.
+Keep the same `scope` in `native-approval.json` and add `existing_resources`, sorted by kind and
+name. Each entry contains exactly `kind`, `name`, and the Kubernetes `uid` read from the current
+object. Do not list an object that is absent, terminating, owned by another field manager, or
+outside the generated runtime bundle. Every scope object omitted from `existing_resources` must be
+absent.
+
+Run `bootstrap-slot` without `--apply` first. It verifies the existing UIDs and absence set while
+keeping the anchor create-only. For an existing native state, it verifies the retained anchor and
+proof instead of recreating them. Obtain a fresh Hub Plan only after the operator has accepted that
+proof. The signed Plan must carry the same claim digest in `ownership_digests`; a Plan without that
+binding cannot perform adoption.
+
+Run the bounded Agent apply with the same private approval and persistent state. The preflight
+captures resource versions and original manifests and server-dry-runs every adoption. After the Hub
+accepts `apply-started`, the Agent checkpoints adopted objects one by one, writes their UIDs into
+native state, and creates only objects that the approval declared absent. Preserve the adoption
+receipt. It binds the approval, accepted ownership claim, Plan, rendered objects, UIDs and resource
+versions without sending the private inventory to the Hub.
+
+If the run stops, restart with the same state and approval. The Agent recognizes only the exact
+anchor marker and UID, rolls adopted specs back to their captured versions, and leaves not-yet
+adopted objects untouched. A new Plan may retry the remaining set. A UID conflict, another field
+manager, a missing object that was declared existing, or an object that appears in the absent set
+requires a new observation and approval. Never edit native state, patch labels with `kubectl`, or
+reuse the old approval for a changed UID.
+
+For an installed legacy Entity, prepare and obtain the separate Hub transition approval before
+running `transition-native-scope`. Supply the authenticated `--hub-url` and exact `--hub-scope`.
+After the crash-safe local commit, the command automatically submits its digest-bound receipt,
+new empty state and complete approved kind/name/UID inventory through the Agent workload identity.
+Success requires the returned Hub completion receipt. Inspect that receipt before requesting the
+next Plan.
+
+If Hub delivery fails after the local commit, don't edit either state or submit the new state
+through the ordinary state endpoint. Retry the same `transition-native-scope` command and inputs.
+The local retry returns the original local receipt, and the Hub returns its original receipt after
+an exact completed retry. A trusted Hub host can use `fdai-lifecycle-hub
+complete-native-transition` with the same private completion document and attributed Agent
+principal for bounded recovery. Changed bytes, a different identity, an open Plan or partial
+Entity management is a conflict, not a reason to split the unmanage, state and manage writes.
+
+If that completed transition came from the legacy millisecond timestamp producer, compare the
+immutable local transition receipt with the retained Hub completion receipt before requesting a
+Plan. Use reconciliation only when all canonical state fields match, the local state and receipt
+use the same millisecond timestamp, the Hub completion audit retains a later sub-millisecond value
+for that same instant, and the Hub state still carries the legacy millisecond digest. Do not use
+this procedure for a changed Entity, scope, UID, artifact inventory, health, schema revision, or
+timestamp difference greater than one millisecond.
+
+1. Stop bounded polling and confirm that the Hub has no open Plan and the Agent has no unreported
+   Plan or prepared/applying journal. Preserve the local transition receipt, Hub completion
+   receipt, native approval, installation public key, Hub public key, and current-state path.
+2. Run `fdai-lifecycle-agent prepare-native-transition-reconciliation` with `--state-dir`,
+   `--current-state`, `--native-approval`, `--hub-completion-receipt`,
+   `--installation-public-key`, and an owner-only `--destination`. This command takes the Agent
+   state lock and creates no mutation.
+3. Submit the private request as an authenticated operator to
+   `POST /v1/installations/{installation_id}/native-transition-state-reconciliation-approval`.
+   Preserve the returned signed approval. A `409` is a stop condition; do not broaden a timestamp
+   tolerance or edit either receipt.
+   If this approval expires before step 4 starts and the Agent has not changed current state, run
+   `fdai-lifecycle-agent prepare-native-transition-reconciliation-renewal` with the same evidence,
+   installation public key, the expired `--expired-hub-reconciliation-approval`, and a new private
+   destination. Submit that renewal request to the same approval route and use the newly returned
+   approval. The Hub accepts it only when the earlier approval is expired and unconsumed, current
+   Hub state and every Agent evidence field are unchanged, the same operator submits it, no Plan is
+   open, and no other renewal already supersedes it. The prepare command also refuses a retained
+   local reconciliation pending, rollback, or completion record. Do not renew an active or
+   consumed approval.
+4. Run `fdai-lifecycle-agent reconcile-native-transition-state` with the same state, native
+   approval, Hub completion receipt, installation public key, exact Hub key id/epoch and public
+   key, returned `--hub-reconciliation-approval`, authenticated `--hub-url` and `--hub-scope`, and
+   the original Kubernetes context or in-cluster identity.
+5. Require the command to return both `reported_state_digest` and
+   `reconciliation_receipt_digest`. Inspect the owner-only rollback and reconciliation receipt
+   files. The transition receipt, native state, and workload journal must remain byte-for-byte
+   unchanged. Request the next Plan only after Hub readback and local current-state carry the same
+   full-precision timestamp and digest.
+
+If the command stops after writing pending state, rerun it with the exact same inputs. It restores
+the retained current-state bytes before retrying and treats a committed Hub write as an exact
+idempotent completion. A changed request, different Agent identity, concurrent Hub state, replaced
+UID, altered receipt, or different prior reconciliation is a conflict that requires investigation,
+not another recovery attempt.
+
 ## Execute without an invisible helper
 
 1. Follow the existing guide to enroll and accept installation identity. Do not regenerate the
@@ -133,6 +249,8 @@ digest convention when publishing and staging.
    `--installation-key`, and either `--in-cluster` or an explicitly selected `--kube-context`.
    The default is dry-run. Only the separately authorized creation adds `--apply` and
    `--proof-output`. Transfer public proof through `submit-native-proof` and obtain human acceptance.
+   For a mixed transition, include the exact `existing_resources` list described above. Bootstrap
+   still creates only the anchor; the signed Plan execution performs adoption.
 3. Stage signed inputs using the guide's `stage-inputs` command. Verify mirrored image digests.
 4. Obtain a fresh exact Plan. A default `poll-once` validates admission without loading Kubernetes
    or creating a journal; it is not a server-side Kubernetes dry-run.
@@ -176,6 +294,9 @@ gap rather than changing a product name or expanding permission as a workaround.
   independently before an authorized repair. Do not delete a halt marker merely to retry.
 - Unknown native creation is not adoption permission. Preserve UID evidence and pending state.
   Resume with the same installation key and state; do not overwrite an existing object by name.
+  A supported development adoption requires the exact local kind/name/UID approval and the
+  Hub-signed ownership digest. Its rollback keeps the ownership marker while restoring the prior
+  spec; only the separate reconciliation-release and Terraform import procedure reverses ownership.
 - Environment retention, the execution schedule, local native approval validity and Plan expiry
   are separate limits. Keeping AKS online does not authorize unlimited ongoing changes.
 - Retain durable Agent storage, installation identity and exact evidence. Cleanup requires an

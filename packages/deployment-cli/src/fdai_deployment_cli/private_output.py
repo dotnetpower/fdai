@@ -181,8 +181,11 @@ def _open_private_parent(path: Path) -> int:
             os.close(descriptor)
             descriptor = child
         details = os.fstat(descriptor)
-        if details.st_uid != os.geteuid() or stat.S_IMODE(details.st_mode) != 0o700:
-            raise PermissionError("private output directory MUST be current-UID mode 0700")
+        mode = stat.S_IMODE(details.st_mode)
+        if details.st_uid != os.geteuid() or mode not in {0o700, 0o2700}:
+            raise PermissionError(
+                "private output directory MUST be current-UID owner-only mode 0700"
+            )
         return descriptor
     except BaseException:
         os.close(descriptor)

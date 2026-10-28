@@ -1,12 +1,11 @@
 ---
 name: azure-deploy-runner
 description: |
-  FDAI installation to Azure through its two implemented paths: a one-line source deployment from
-  any local checkout (30-day Trial and expiry watermark without the integrity signing key, full
-  entitlement with it), or a signed offline package on an Azure VM without internet. The third,
-  Hub-managed lifecycle path is designed but not implemented. Load before running `fdaictl
-  provision azure`, `fdai-up.sh`, building an offline package, Terraform apply for FDAI resources,
-  or onboarding a new Azure target.
+  FDAI Azure installation from a clone using signed images from hub.msfdai.com by default,
+  explicit Hub-independent source builds, or a signed offline package. Load before running
+  fdaictl provision azure, fdai-up.sh, building an offline package, Terraform apply for FDAI
+  resources, or onboarding a new Azure target. Includes Release Hub subscription request
+  visibility without confusing requests with deployment success.
 version: 4.2.1
 scope: repository
 ---
@@ -14,9 +13,43 @@ scope: repository
 # Azure Deployment
 
 The [constitution](../../../docs/roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)
-defines FDAI installation. Two paths are implemented, and each needs only what is listed. The third,
-[Hub-managed lifecycle](../../../docs/roadmap/deployment/hub-managed-lifecycle.md), is design only;
-don't present it as an available deployment path.
+defines FDAI installation. Ordinary clone deployment selects
+[Hub-image bootstrap](../../../docs/roadmap/deployment/hub-image-deployment.md).
+Explicit source builds and offline packages retain their existing contracts. Connected image
+bootstrap is not completion of the full
+[Hub-managed lifecycle](../../../docs/roadmap/deployment/hub-managed-lifecycle.md).
+
+## Default clone deployment: Release Hub images
+
+When another operator clones FDAI and requests deployment, use `https://hub.msfdai.com` to
+select signed prebuilt image locations. Do not build service images locally or in ACR by default.
+
+```bash
+az login
+az account show --query '{subscription:id,name:name}' --output table
+git clone https://github.com/dotnetpower/fdai.git
+fdai/scripts/deployment/azure/fdai-up.sh \
+  --hub-public-key /trusted/release-hub-public.pem --region <azure-region>
+```
+
+- Obtain the Release public PEM through an independently approved trust channel. It is public,
+  not a signing key; downloading a replacement beside the catalog never establishes trust.
+- Verify catalog and manifest signatures, channel, expiry, recall, retained revision and exact
+  checkout compatibility. Mirror immutable image digests into the installation's own registry and
+  verify readback before workload apply.
+- Missing trust, unavailable images or a Hub failure stops this path. Never silently fall back to
+  source builds, weaken verification, switch channels or manufacture a release.
+- Report the selected subscription's minimal deployment request to Release Hub. Its
+  **Deployment requests** view is operator-only; records are `requested` / `self-reported`,
+  never proof of subscription ownership, approval, enrollment or operational success.
+- Keep Azure credentials, tenant IDs, identities, customer configuration and workload data out of
+  the Hub request. No callback is registered and Release Hub never deploys into the subscription.
+- Existing Trial/full-entitlement selection, exact-plan approval, managed-host execution,
+  health/inventory checks and second zero-change plan remain authoritative. Local implementation
+  is not live Hub publication or accepted Azure deployment evidence.
+- Reruns bind the exact catalog and target. A changed catalog needs a separately reviewed run
+  and private work directory, not an in-place channel upgrade or adoption of existing resources.
+  Hub teardown is unsupported; never switch modes to bypass that boundary.
 
 ## Source deployment
 
@@ -26,10 +59,11 @@ defines the contract:
 
 ```bash
 az login
-git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region <azure-region>
+git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --source . --region <azure-region>
 ```
 
-- Build service images from the checkout into the deployment's own registry. Do not build, sign,
+- Select this path only when source deployment is explicitly requested; it has no Hub network or
+  request-registration prerequisite. Build service images from the checkout into the deployment's own registry. Do not build, sign,
   or require a kit, bundle, control package, appliance, SBOM, provenance, attestation, published
   release, protected branch, CI result, or maintainer involvement.
 - No `secrets/integrity-signing-key.pem` means one durable 30-day Trial. A usable upstream
@@ -78,6 +112,16 @@ fdaictl provision azure --offline-kit /private/fdai-offline/fdai-deployment-kit-
 - Secrets and signing keys never enter the repository, logs, command-line values, or chat. Pass
   key files by path only.
 - Do not use GitHub Actions as the tenant deployment transport.
+- Operator default: do not create, deploy, or bind a GitHub App for an installation. Omit
+  `--catalog-review-profile` and use the Console-governed approval path. Select an App-backed
+  integration only on a new explicit operator request. This is a selection default, not an
+  installation gate, and it never blocks a run.
+- Operator default for the development installation `rg-fdai-dev-wus3` / `aks-fdai-dev-wus3`: the
+  operator deploys workloads only through the Hub (signed release, approved catalog, Plan, lifecycle
+  agent apply). Do not start a new source-AKS installation or edit that cluster's workloads with
+  kubectl. Azure resources the lifecycle agent cannot create stay a separate, named change.
+  Read-only inspection and deleting a pod so its Deployment recreates it remain allowed. This is a
+  selection default, not an installation gate.
 - Do not repeat an apply whose outcome is ambiguous. Read back state and plan again instead.
 - Articles 7 and 8 govern FDAI's own runtime actions on managed resources. They are not
   installation gates.

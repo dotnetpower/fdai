@@ -105,7 +105,16 @@ The router verifies tools, both Azure target axes, the region, clean source, and
 `required` check. It then inspects the declared Foundation and public-Core Resource Provider sets.
 Inspection is read-only. Mutation-enabled preflight registers only missing namespaces, reads every
 namespace back under one cumulative deadline, and retains registrations on rollback.
+The application profile includes `Microsoft.AlertsManagement` for smart-detection rules and
+`Microsoft.ContainerService` for AKS, so a new subscription does not depend on prior manual
+registration. The source coordinator passes one explicit mutation-enabled provider-registration
+binding only after the operator confirms the complete installation scope; direct Foundation
+preparation remains read-only.
 Missing or malformed target axes return exit code `64` before the first Azure command.
+Network discovery treats Azure's `Connected`, `Initiated`, and `Disconnected` VNet peering states
+as complete only when each peer still reports canonical remote prefixes. All reported prefixes,
+including disconnected peers, remain in collision avoidance; an unknown state or missing prefix
+blocks planning.
 
 The explicitly authorized policy probe creates one deterministic, tagged Key Vault and Storage
 resource group, observes the effective post-policy network posture, and accepts a route only after
@@ -114,6 +123,18 @@ verified. A public-compatible result runs a noninteractive `azd`
 preview and waits for an exact approved plan. A private result waits for the separately reviewed
 Foundation plan and VNet runner. Neither result falls back to another route, applies an unsealed
 preview, or sets subscription readiness.
+
+A failed source Foundation that crossed the exact apply-claim boundary but produced neither an
+apply receipt nor a state-handoff receipt can be torn down only from the retained reviewed plan.
+The teardown verifies the saved plan, its approved Terraform binary and projection, normalized
+variables, immutable apply claim, source/run/target bindings, deterministic resource-group names,
+and private handoff before requesting a separate typed confirmation. It deletes only those two
+FDAI-owned groups and independently reads back their absence; it never relabels the failed apply as
+successful.
+The managed-host preparation context retains the verified Foundation application resource-group
+name before the first substrate effect. If that exact apply fails after policy changes network
+posture, private-access refresh can therefore read back Key Vault and document-storage posture
+before planning a residual, without requiring a successful substrate output.
 
 ### Safe bounded concurrency
 
@@ -131,6 +152,8 @@ Terraform apply, exact approval, claim and receipt publication, state handoff, c
 mutation, and protected application plan/apply remain serial. A failed sibling stops the stage;
 already accepted provider registrations are retained, and probe cleanup still completes before a
 route can be accepted.
+Each serialized approval resolves the reviewed target from enabled authenticated accounts instead
+of relying on the Azure CLI's mutable default subscription.
 
 When private artifacts aren't supplied, the stable stop reason is
 `private_foundation_external_artifacts_required`. The next action names the signed kit, Foundation
@@ -474,6 +497,19 @@ regress it, and retries do not increase the total. An approval wait is a visible
 not apparent activity. Overall 100 percent requires the terminal readiness receipt.
 
 ## Initial inventory progress
+
+The initial AKS process holds the existing inventory single-writer lock until a separate
+read-only observer verifies its exact active generation and retains the canonical count-only
+closure receipt in PostgreSQL. Scheduled inventory can then promote newer generations. Host
+resume reuses only that independently verified receipt for the same run, attempt, and generation,
+with its original observation time; it does not claim that the historical generation is still
+current. Missing or mismatched evidence fails closed rather than accepting an unverified
+superseded snapshot. The host binds freshness to the retained attempt start, not the resume time.
+
+One initial Job has no pod-level retry: the host owns at most three content-addressed attempts,
+each with a distinct progress chain. A failed attempt and its evidence are retained; resuming
+starts the next attempt without deleting progress. Source failures expose reviewed, secret-free
+reason codes, including provider coverage changing during collection, never raw provider errors.
 
 The initial scan is an explicit onboarding stage. It does not wait for the next scheduled cron.
 Progress uses one durable schema shared by the CLI, workflow summary, Operator API, and Console:

@@ -132,6 +132,7 @@ class InventorySyncCoordinator:
         ]
         | None = None,
         run_lock: ResourceLock | None = None,
+        run_lock_already_held: bool = False,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
         progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
         attempt_deadline_seconds: float = DEFAULT_ATTEMPT_DEADLINE_SECONDS,
@@ -150,6 +151,8 @@ class InventorySyncCoordinator:
             raise ValueError(
                 "inventory attempt_deadline_seconds MUST resolve before the abandonment window"
             )
+        if run_lock is not None and run_lock_already_held:
+            raise ValueError("inventory run lock cannot be both delegated and already held")
         self._store = store
         self._observer = promotion_observer
         self._enricher = promotion_enricher
@@ -158,6 +161,7 @@ class InventorySyncCoordinator:
         self._candidate_loader = candidate_loader
         self._collection_loader = collection_loader
         self._run_lock = run_lock
+        self._run_lock_already_held = run_lock_already_held
         self._relationship_mapping_catalog = relationship_mapping_catalog
         self._progress_deadline_seconds = progress_deadline_seconds
         self._attempt_deadline_seconds = attempt_deadline_seconds
@@ -178,7 +182,7 @@ class InventorySyncCoordinator:
             raise ValueError("sources MUST NOT be empty")
         try:
             async with asyncio.timeout(self._attempt_deadline_seconds):
-                if self._run_lock is None:
+                if self._run_lock_already_held or self._run_lock is None:
                     return await self._run_locked(sources)
                 async with self._run_lock.acquire(_RUN_LOCK_ID):
                     return await self._run_locked(sources)
@@ -210,7 +214,7 @@ class InventorySyncCoordinator:
                     return resumed
             collection = None
             if self._collection_loader is not None:
-                if self._run_lock is None:
+                if self._run_lock is None and not self._run_lock_already_held:
                     raise ValueError("unfinished inventory recovery requires its run lock")
                 collection = await self._collection_loader(source.manifest)
                 if collection is not None:
@@ -340,6 +344,14 @@ class InventorySyncCoordinator:
                 raise
             except Exception as exc:  # noqa: BLE001 - source boundary, classified and retained
                 failure = classify_inventory_failure(exc)
+                _LOG.warning(
+                    "inventory_source_failed",
+                    extra={
+                        "source": source.name,
+                        "reason_code": failure.code.value,
+                        "reason": failure.message,
+                    },
+                )
                 await self._store.fail(attempt_id, failure)
                 failures.append(failure)
                 continue

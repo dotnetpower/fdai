@@ -575,10 +575,13 @@ on authenticated responses the same way. A verified local issuer workstation pub
 any other local checkout shows the same watermark as a deployment without an entitlement. No
 venue, test fake, or setting suppresses it.
 
-The planned [Hub-managed lifecycle](hub-managed-lifecycle.md) follows the same rule. Installation
-path is an independent axis: a Hub-managed installation binds the same authoritative sources,
-contracts, and runtime-scope receipts as a source or offline-package installation, and its
-lifecycle agents never change control-plane behavior.
+The development [Hub-managed lifecycle](hub-managed-lifecycle.md) follows the same rule.
+Installation path is an independent axis: a Hub-managed installation binds the same authoritative
+sources, contracts, and runtime-scope receipts as a source or offline-package installation, and its
+lifecycle agents never change control-plane behavior. The independent `infra/lifecycle-agent` root
+creates only the Agent identity/federation, exact API role, durable state and namespace-scoped
+workload permissions. It receives no Azure managed-resource role and remains disabled until the
+installation's enrollment, ownership, signed inputs and Plan are independently complete.
 
 Code-security review and pack views read the same `state_kv` rows locally and when deployed,
 declared as durable operational-state sources at `/code-security/reviews` and
@@ -646,6 +649,9 @@ Each work item MUST be provable at CI time:
 - Every `infra/services/*` root initializes offline and passes `terraform validate` with the
   CI-pinned Terraform. These roots are deployed by `service-deploy.yml` and packaged in every
   offline kit, so a configuration error fails in CI instead of during deployment.
+- Every Terraform root included in one offline deployment kit selects the same AzureRM and Random
+  provider versions. The mirror stores each shared provider archive once while every root retains
+  its own reviewed lock and hash set.
 - Resolver dry-run against a recorded region catalog produces a stable
   `resolved-models.json` hash - proving idempotency.
 

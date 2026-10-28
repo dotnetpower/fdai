@@ -1,8 +1,8 @@
 ---
 title: 폐쇄망 배포
 translation_of: disconnected-deployment.md
-translation_source_sha: 1a427f29b7da6d1d441cd229b87ef7937067d29b
-translation_revised: 2026-10-02
+translation_source_sha: 5df8655495189280d02c5ed018c022451fcae347
+translation_revised: 2026-10-27
 ---
 # 폐쇄망 배포
 
@@ -240,6 +240,9 @@ pinned Terraform binary 및 프로바이더 mirror, 정책 엔진 binary, softwa
 않습니다.
 서명된 번들에는 마이그레이션 중 카탈로그 구체화가 읽는 검토된 `config/agent-stewardship.yaml`과
 `config/architecture-review.yaml`도 들어 있습니다.
+`stage-offline-kit.sh`는 [Genesis 러너 이미지 툴체인](../../../infra/genesis-runner-image/README.md#supported-toolchain)과
+동일한 Terraform 버전을 고정하므로, `fdai-up.sh`가 이를 적용한 뒤 구성한 키트는 보호된
+워크플로가 강제하는 `check-runner-terraform.sh` 기준보다 오래된 실행 파일을 절대 담지 않습니다.
 
 패키지에 포함된 release 및 bundle 루트와 일치하는 로컬 비공개 키를 확인하려면
 `scripts/deployment/release/check-signing-key.py --key <path>`를 실행합니다. 이 스크립트는 지문과

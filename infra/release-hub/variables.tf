@@ -2,6 +2,10 @@ variable "subscription_id" { type = string }
 variable "tenant_id" { type = string }
 variable "location" { type = string }
 variable "prefix" { type = string }
+variable "resource_group_name" {
+  type    = string
+  default = null
+}
 variable "tags" { type = map(string) }
 variable "network" {
   type = object({ vnet = string, apps = string, database = string, secrets = string })
@@ -27,6 +31,20 @@ variable "app_image" {
   description = "Retain the approved serving digest during migration; null uses image."
 }
 variable "ingress_cidrs" { type = set(string) }
+variable "custom_domain" {
+  type = object({
+    hostname                  = string
+    certificate_binding_type  = optional(string)
+    certificate_id            = optional(string)
+    redirect_default_hostname = optional(bool, false)
+    dns_zone = optional(object({
+      name                = string
+      resource_group_name = string
+      ttl                 = optional(number, 300)
+    }))
+  })
+  default = null
+}
 variable "replicas" { type = object({ min = number, max = number }) }
 variable "operator_auth" {
   type = object({
@@ -39,8 +57,15 @@ variable "operator_auth" {
     service_object_id = optional(string)
     service_client_id = optional(string)
     service_role      = optional(string, "Catalog.Read")
+    # Serve the signed, content-free catalog export without a bearer token (anonymous consumers).
+    public_catalog_export = optional(bool, false)
   })
   default = null
+}
+variable "timestamp_renewal_check_seconds" {
+  type        = number
+  default     = 0
+  description = "Automatic freshness renewal interval for published content; 0 disables, otherwise 60-3600."
 }
 variable "enable_apps" {
   type    = bool
@@ -54,7 +79,29 @@ variable "enable_migration_jobs" {
   type    = bool
   default = false
 }
+variable "operation_job" {
+  type = object({
+    operation              = string
+    actor                  = string
+    request_secret_version = optional(string)
+    reason                 = optional(string)
+  })
+  default = null
+}
 variable "secret_versions" {
-  type    = object({ database = optional(string), signing_key = optional(string) })
+  type = object({
+    database              = optional(string)
+    signing_key           = optional(string)
+    catalog_snapshot_key  = optional(string)
+    catalog_timestamp_key = optional(string)
+  })
   default = {}
+}
+variable "catalog_roles" {
+  type = object({
+    timestamp_ttl_seconds = optional(number)
+    snapshot_ttl_seconds  = optional(number)
+  })
+  default     = null
+  description = "Serve signed TUF snapshot and timestamp metadata; the hub-service module validates every field."
 }

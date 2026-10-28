@@ -26,7 +26,9 @@ Foundation uses a bounded local control-plane exception before the first Azure e
 - **Local boundary:** The signed-in human creates groups, private state, networking, identity, and
   host; no Key Vault, PostgreSQL, model, or application data-plane writes.
 - **State cache:** Use `umask 077`, mode-`0700` directories, mode-`0600` regular files, no links or
-  secret inputs, and bounded lifetime. Record the digest; never upload state as evidence.
+  secret inputs, and bounded lifetime. Owner-only permission bits remain exact. A setgid bit added
+  by a Kubernetes `fsGroup` is acceptable only when group and other permission bits remain zero.
+  Record the digest; never upload state as evidence.
 - **Stable names:** Derive globally unique names once, publish only digests, and reuse on resume.
   Never choose another state account after a partial Foundation attempt.
 - **Remote authority:** Migrate Terraform state, matching lineage, serial, addresses, IDs, and
@@ -86,8 +88,19 @@ process arguments, Azure Run Command payloads, logs, or chat.
 The local router requires complete absolute artifact, trust, profile, variable, and access paths
 for Foundation plan/apply, Bastion enrollment, attestation, and state handoff.
 Each new effect needs mode-`0600` approval bound to run, source, stage, exact evidence digests, and
-at most one UTC hour. Single-human files are `dev`-only; staging/production retain protected quorum.
-Another stage, changed digest, expired record, or silence grants no authority.
+at most 24 UTC hours. Single-human files are `dev`-only; staging/production retain protected quorum.
+Another stage, changed digest, expired record, or silence grants no authority. The runner-image
+plan review it approves carries the same 24-hour freshness bound, so a reviewed plan and its
+approval expire together.
+
+The runner-image `apply` command's `--auto-approve` collapses the separate approval-file-authoring
+step into the apply invocation itself: it derives the approval directly from the currently
+authenticated Azure operator (the same `current_actor_digest` check `--approval-file` approvals
+already require, so a service-principal or non-human session is still refused) instead of reading a
+pre-authored file. It accepts exactly one of `--approve` with `--approval-file`, `--auto-approve`,
+or `--resume-verification`; it is reachable only under the same dev manual single-approver profile
+every runner-image apply already requires, and every other check (profile match, plan and Terraform
+digests, source revision, provider drift, claim idempotency) stays unchanged.
 
 Run Command bundle staging applies the same boundary before transport. Its private approval binds
 the exact provision profile and complete target descriptor. The coordinator recomputes the
@@ -179,7 +192,7 @@ scoped CLI types, list bounded subscription-wide IDs, then read each exact ID co
 
 Default forwarding (`default` or route-only `0.0.0.0/0`) reserves no address space. Exclude it only
 from routes; declared VNet, peer, gateway ranges and non-default routes remain constraints.
-Missing/malformed evidence blocks selection. Fewer than two candidates reports only available and
+Missing/malformed evidence blocks selection. A peering in the `Disconnected` state, which a deleted remote network leaves behind in another team's VNet, is not missing evidence: its remote range stays reserved, so unrelated leftovers never stop an installation. An unrecognized peering state still blocks. Fewer than two candidates reports only available and
 required counts with a review action. Selection never edits routes/firewalls or proves reachability.
 The reviewed pool is seven networks followed by `172.31.0.0/16` and `172.26.0.0/16`; the appended
 ranges are chosen only when every earlier one is occupied, and they obey the same overlap rules.

@@ -14,6 +14,7 @@ module "core_control_plane" {
   stewardship_gitops         = var.stewardship_gitops
   database                   = var.database
   license                    = var.license
+  catalog_freshness          = var.catalog_freshness
   # The runtime opens its health port before startup readiness runs, so liveness
   # answers immediately and no startup probe is needed to cover a slow boot.
   health                                   = var.health
@@ -25,6 +26,7 @@ module "core_control_plane" {
   llm                                      = var.llm
   runtime_call_evidence                    = var.runtime_call_evidence
   operator_request_receipts                = var.operator_request_receipts
+  result_handles                           = var.result_handles
   observation_context                      = var.observation_context
   governed_rca                             = var.governed_rca
   configuration_drift                      = var.configuration_drift

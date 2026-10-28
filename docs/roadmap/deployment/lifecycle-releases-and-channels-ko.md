@@ -1,8 +1,8 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: a9e8847b1c14b5ed9eee8b90cdba8a86e764e781
-translation_revised: 2026-10-22
+translation_source_sha: 996d5f31c07036192ff2d3b8d67056b04c86445a
+translation_revised: 2026-10-26
 ---
 # Lifecycle Release와 채널
 
@@ -14,7 +14,7 @@ translation_revised: 2026-10-22
 > **상태:** 로컬 및 명시적 원격 개발용으로 일부 구현되었으며, 프로덕션 수명 주기 전달은 설계 단계입니다.
 > [로컬 Release Hub](../../../lifecycle/release-hub/README.md)는 매니페스트 등록, 개발용 서명,
 > 기본/사용자 지정 채널의 수동 관리, 회수, 공급업체 UI와 명시적으로 선택하는 Lifecycle Hub의 고정 다이제스트
-> 기반 내보내기 파일 검증을 제공합니다. 프로덕션 인증, 서명된 카탈로그 역할, 레지스트리 발행,
+> 기반 내보내기 파일 검증을 제공합니다. 프로덕션 인증, 프로덕션 루트 키 보관, 레지스트리 발행,
 > 회수에 따른 실행 중 설치본의 교체는 구현하지 않습니다.
 > FDAI에는 서명된 배포 번들과 오프라인 키트도 있으며, 그
 > 새 번들 서명은 `DEV`, `RELEASE_CANDIDATE`, `RELEASE`를 사용합니다. 검증 시에는 서명된 바이트를
@@ -43,8 +43,10 @@ translation_revised: 2026-10-22
 고객 운영자는 제한된 import 전에 별도의 인증된 신뢰 승인 작업으로 정확한 export pin을
 승인해야 합니다. 다운로드와 함께 받은 digest는 신뢰 근거가 아닙니다.
 기존 loopback 기본값과 매니페스트/서명/카탈로그 계약은 유지합니다.
-프로덕션 TUF 메타데이터나 신뢰 루트 설정, 자동 polling, 레지스트리 발행, Agent 적용을
-구현한 것은 아니며 Azure 배포 성공의 증거도 아닙니다.
+선택적으로 켜는 TUF 방식 카탈로그 역할([카탈로그 무결성](#카탈로그-무결성) 참고)은 개발용 키
+하나를 임계값 오프라인 root 키와 별도의 온라인 snapshot, timestamp 키로 대체합니다.
+프로덕션 루트 설정 의식, 레지스트리 발행, Agent 적용을 구현한 것은 아니며 Azure 배포 성공의
+증거도 아닙니다.
 
 | 관심사 | 결정 |
 |--------|------|
@@ -76,10 +78,90 @@ release 목록이 같아도 신선도를 다시 발행하려면 검토가 필요
 갱신은 `catalog`를 대상으로 행위자가 기록된 `renew` 이벤트를 추가합니다.
 리비전과 24시간 유효기간이 바뀌므로 내보내기 다이제스트도 달라집니다.
 매니페스트, 서명, 채널, 회수, 서명 키는 변경하지 않습니다.
-고객 Hub는 운영자가 새 고정값을 독립적으로 승인하고 명시적으로 가져오기 전까지
+고객 Hub는 운영자가 새 고정값을 독립적으로 승인하고 명시적으로 가져오거나,
+[자동 카탈로그 채택](#자동-카탈로그-채택)이 서명을 검증하고 정책이 허용하기 전까지
 기존 수락 바이트를 유지합니다. 갱신은 설치본 가져오기, 계획, 적용을 수행하지 않으며
-운영용 서명된 카탈로그 역할을 대신하지 않습니다.
+운영용 서명된 카탈로그 역할을 대신하지 않습니다. 선택적 Release Hub 작업이
+갱신을 자동으로 수행할 수도 있습니다.
 UI는 읽기 전용 **Refresh catalog**와 **Renew catalog freshness**를 구분합니다.
+
+## 자동 카탈로그 채택
+
+위의 수동 고정값 흐름에서는 내보내기 파일의 메타데이터가 서명되지 않으므로, 카탈로그가 바뀔
+때마다 사람이 리비전과 다이제스트를 옮겨 적어야 합니다. 이 절은 옮겨 적기를 검증과 정책으로
+대체합니다. 신뢰 기준은 그대로입니다. 고객 Hub가 배포 시점에 묶어 둔 Release 공개키입니다.
+
+**방향 규칙.** Release Hub는 고객에게 요청하지 않습니다. Lifecycle Hub가 Release Hub를
+조회하고, 설치 Agent가 Lifecycle Hub를 조회하며, 모든 연결은 고객 경계 안에서 시작합니다.
+Release Hub는 고객의 콜백 주소, 실행 신원, 일정을 저장하지 않습니다.
+명시적 [배포 요청 수신 경로](hub-image-deployment-ko.md#구독별-배포-요청-확인)만 별도의 최소
+예외입니다. 신고된 구독 ID, 리전, Release와 채널, 입력 다이제스트, 서버 수신 시각을 운영자
+전용 목록에 보관합니다. 자체 신고 요청은 공개 카탈로그에 포함되지 않으며 구독 소유권을
+증명하거나 배포를 승인하거나 운영 성공을 보고하지 않습니다.
+고객 구성의 식별자는 기존 계약에 따라 봉인된 상태를 유지합니다.
+
+| 관심사 | 결정 |
+|--------|------|
+| 서명된 내보내기 | Release Hub가 내보내기 바이트 전체를 Release 키로 서명합니다. 서명 대상 메시지는 `fdai.catalog-export.v1`, 줄바꿈, 본문 순서입니다. 분리 서명과 키 ID는 같은 응답의 `X-FDAI-Export-Signature`와 `X-FDAI-Export-Key-Id`로 전달하므로 본문과 서명이 서로 다른 리비전에서 올 수 없습니다. 본문과 `ETag` 다이제스트는 바뀌지 않습니다. |
+| 조건부 조회 | Lifecycle Hub는 수락한 다이제스트를 `If-None-Match`로 보냅니다. 카탈로그가 같으면 위치 조회 한 번 뒤에 `304`를 반환합니다. Release Hub는 마지막 서명된 내보내기를 리비전 기준으로 캐시하고 한 번에 하나만 만듭니다. |
+| 공개 읽기 | `public_catalog_export`를 켜면 Release Hub는 베어러 토큰 없이 `GET /v1/catalog/export`를 제공합니다. 내보내기에는 매니페스트, 서명, 채널 구성, 회수만 들어 있습니다. 무결성은 서명이 보장하고 이미지는 레지스트리 권한 뒤에 있습니다. 기본값은 인증 필요입니다. |
+| 자동 유효기간 갱신 | 선택 사항인 Release Hub 갱신 작업은 유효기간이 절반 미만으로 남으면 `system:timestamp-renewal` 이름으로 `renew` 이벤트를 추가합니다. 이미 발행한 내용을 다시 확인할 뿐이며 Release, 채널, 회수를 추가할 수 없습니다. [서명된 카탈로그 역할](#hub의-서명된-카탈로그-역할)을 쓰면 timestamp만 다시 서명하고 이벤트를 추가하지 않습니다. |
+| 주기 확인 | Lifecycle Hub는 `check_interval_seconds`(300~86400초, 기본 3600, 0이면 끔) 간격으로 확인합니다. 지터와 상한이 있는 재시도를 쓰며, 각 시도는 리디렉션 없는 한 번의 제한된 요청입니다. |
+| 채택 정책 | 검증된 후보가 사람 없이 수락 카탈로그를 대체해도 되는지 Rego가 결정합니다. 입력은 서명 결과, 변경 요약, 소유자의 상시 승인이고 출력은 `allow`와 검토가 필요한 이유입니다. 기본값은 `review`입니다. |
+| 실패 시 거부 | 서명 누락, 다른 키, 만료된 후보, 낮은 리비전, 사용할 수 없는 정책 엔진, 만료된 상시 승인은 자동 채택하지 않습니다. 후보는 검토를 기다립니다. |
+| 검토 | **Updates** 화면 하나가 후보 리비전, 만료, 서명 결과, 변경 요약을 보여 줍니다. **Review and apply**는 Hub가 직접 검증한 정확한 리비전과 다이제스트를 지정합니다. 그사이 원본이 바뀌었으면 Hub가 거부하고 새 후보를 보여 줍니다. |
+| 원자적 채택 | 하나의 트랜잭션에서 서명과 매니페스트를 검증하고, 리비전 하한을 확인하며, 수락한 카탈로그가 정책이 평가한 그 카탈로그인지 확인하고, 같은 리비전에 운영자가 승인한 고정값을 덮어쓰지 않으며, 수락 바이트를 기록하고, 정책 또는 검토한 운영자 이름으로 감사 이벤트를 추가합니다. |
+| 채택 이후 | Hub가 등록된 모든 설치본의 Plan을 계산합니다. Plan을 발행해도 적용하지 않습니다. 효과가 생기기 전에 Agent가 서명과 로컬 범위를 다시 검증합니다. |
+
+상시 승인은 헌법이 정한 기존 인간 승인입니다. `authorized_by`와
+`authorization_expires_at`은 설정값이므로 변경하려면 검토된 배포 변경이 필요합니다.
+만료되면 채택은 검토 방식으로 돌아갑니다. 침묵은 승인이 아닙니다.
+
+`auto` 모드에서 서명이 유효한 후보의 결과는 다음과 같습니다. 기본값인 `review` 모드에서는
+모든 변경이 사람을 기다립니다.
+
+| 변경 | 결과 |
+|------|------|
+| 첫 카탈로그, 또는 Release, 채널, 회수가 같고 만료만 늦어진 경우 | 채택 |
+| `allowed_channels`의 채널에 새 Release가 들어오고 `max_new_releases` 이하인 경우(첫 카탈로그는 개수 제외) | 채택 |
+| 다른 변경 없이 새 회수만 있는 경우 | 채택 |
+| `allowed_channels` 밖 채널 구성, 그 목록 밖의 새 채널, 제거되거나 교체된 Release, 제거된 구성, 해제되거나 누락된 회수, 넓어진 스키마 범위 | 검토 |
+| 상시 승인이 없거나 만료된 경우, 정책 엔진을 쓸 수 없거나 결과가 잘못된 경우 | 검토 |
+| 서명 누락, 다른 키의 서명, 낮은 리비전, 만료된 후보, 접근할 수 없는 원본 | 후보 없음. Updates 화면에 실패가 표시되고 기존 고정값 흐름이 남습니다. |
+
+다른 변경과 섞인 회수는 검토를 기다리며 화면에 긴급으로 표시됩니다.
+
+### 설정과 인터페이스
+
+배포는 Lifecycle Hub `catalog` 설정으로 상시 승인을 제공합니다. `access`(기본값
+`managed-identity`, 또는 `anonymous`), `check_interval_seconds`, 그리고 `mode`,
+`allowed_channels`, `max_new_releases`, `authorized_by`, `authorization_expires_at`을 가진
+`adoption` 객체입니다. `auto`에는 두 승인 필드가 모두 필요합니다. Release Hub에는
+`auth.public_catalog_export`와 `timestamp_renewal_check_seconds`가 추가됩니다. 새 필드는
+모두 선택 사항이므로 기존 설정의 동작은 유지됩니다. 선택적 `trust` 설정과 Release Hub의
+`catalog_roles` 설정은 [서명된 카탈로그 역할](#hub의-서명된-카탈로그-역할)을 선택합니다.
+
+| 인터페이스 | 목적 |
+|-----------|------|
+| `GET /v1/catalog/updates` | 정책, 수락한 카탈로그, 마지막 확인, 결정과 변경 요약이 있는 후보, 최근 이벤트 |
+| `POST /v1/catalog/updates/check` | 제한된 확인을 지금 한 번 실행 |
+| `POST /v1/catalog/updates/apply` | 원본이 여전히 같은 후보를 제공하면 검토한 `revision`과 `sha256`을 채택하고, 아니면 `409 candidate_changed` |
+| `fdai-lifecycle-hub sign-enrollment` | 설치 경계 안에서 등록 요청에 서명하고 운영자가 올릴 파일만 기록 |
+| `GET /v1/enrollments/bindable` | 배포가 Agent에 묶어 둔 설치본을 나열해 운영자가 입력 없이 선택 |
+
+**사람의 결정으로 남는 것.** 공급자 키를 처음 신뢰하는 일, 채널과 상시 승인의 선택, 설치본
+등록, 소유권, 구성 서명, 워크로드에 대한 모든 효과입니다. **선택 사항으로 남는 것.** 임계값 루트
+키와 TUF snapshot, timestamp 역할은 선택적으로 켜는 모드로 존재합니다([카탈로그 무결성](#카탈로그-무결성)
+참고). 켜지 않으면 개발용 키 하나가 내보내기에 서명하며 개발용 표시는 유지됩니다. 프로덕션 루트 설정
+의식은 여전히 운영자 절차입니다.
+
+**검토와 수정.** 다운로드 응답의 다이제스트를 자동 채택하면 서명되지 않은 메타데이터의
+허점이 되살아나므로 증거는 다이제스트가 아니라 서명입니다. 공개 읽기는 Release 메타데이터를
+누구에게나 노출하지만, 이미지 내용이나 고객 데이터가 없고 서명이 변조를 막으므로 공급자가
+수용합니다. 채택은 원자적이라서 회수와 릴리스가 섞인 변경을 나눌 수 없습니다. 나누면 검토되지
+않은 내용이 회수에 편승하므로, 채택을 미루고 회수를 화면에 드러내도록 설계했습니다.
+갱신 작업은 축소판 timestamp 역할입니다. 내용을 넓힐 수 없고 검토된 내용의 신선도만
+유지합니다. 기존 고정값 승인과 가져오기는 서명되지 않은 내보내기와 오프라인용으로 남습니다.
 
 ## 애플리케이션 패키지 계약
 
@@ -297,6 +379,76 @@ timestamp 기록이 만료되면 설치는 회수 roll-off Plan만 받아들이�
 (`recall_sequence_gap`)을 검증하며, `StateStoreActionPromotionRegistry.set_catalog_timestamp_expired`는
 timestamp 메타데이터가 만료된 동안 운영자 재정의 승격을 `shadow` 모드로 되돌립니다.
 
+**설치 측 최신성.** 설치의 Core가 공개 메타데이터를 직접 검증하므로 Agent, Hub, 이벤트 어느 것도
+결과에 대한 권한을 갖지 않습니다. `FDAI_CATALOG_FRESHNESS_METADATA_URL`로 선택하면 Core가 해당
+URL을 가져와 고정된 `FDAI_CATALOG_FRESHNESS_ROOT_KEY_IDS`(임계값은
+`FDAI_CATALOG_FRESHNESS_ROOT_THRESHOLD`, 기본값은 모든 키)로 root 체인을 검증하고,
+승격 상태를 새로 읽기 전에 `evaluate_catalog_integrity`를 적용합니다. 호출은
+`FDAI_CATALOG_FRESHNESS_REFRESH_SECONDS`(기본 300초, 최소 30초)마다 최대 한 번입니다.
+검증된 메타데이터가 없거나, 서명된 timestamp, snapshot, root가 로컬 시계 기준으로 만료되면
+만료 플래그를 설정합니다. 가져오기 실패, 고정되지 않은 root, 잘못된 서명, 더 낮은 버전은
+마지막으로 검증된 상태를 바꾸지 못하므로 최신성을 연장할 수 없고 로컬 시계가 최신성을 끝냅니다.
+메타데이터 URL은 `https`(또는 loopback `http`)여야 하고 자격 증명을 담을 수 없으며, 리디렉션 없이
+가져오고 1 MiB로 제한합니다. root 고정 없이 기능을 선택하면 시작 오류이고, 선택하지 않으면
+아무것도 바뀌지 않습니다. Core는 버전 하한을 메모리에만 두므로 재시작하면 유효하게 서명된
+만료 전 메타데이터를 받아들입니다. 상태가 바뀔 때마다 안정적인 사유와 함께
+`catalog_freshness_changed`를 기록합니다. 검증 코드는 Hub와 공유하는 `fdai_service_contracts`
+(`catalog_integrity`, `catalog_roles`, `catalog_metadata`)에 있습니다. Container Apps Core 서비스
+루트는 이 설정을 선택 변수 `catalog_freshness`로 노출하며, `https` URL과 고유한 ed25519 root 키 id를
+요구합니다.
+
+### Hub의 서명된 카탈로그 역할
+
+Hub는 이 역할을 개발용 키 하나를 대체하는 선택적 모드로 구현합니다. Lifecycle Hub는
+`catalog.trust`가 `mode: "tuf"`일 때 이 모드로 들어갑니다. 설정하지 않으면 단일 키 서명 내보내기와
+서명되지 않은 pin 흐름은 이전과 똑같이 동작합니다. Release Hub는 고객을 호출하지 않고, Lifecycle
+Hub가 계속 polling하며, 자동 채택은 여전히 Rego가 결정하고, 모든 실패는 후보를 거부합니다.
+
+| 역할 | 보유자 | 서명하는 대상 |
+|------|--------|---------------|
+| Root | 사람이 보관하는 오프라인 키의 임계값. 어떤 Hub 데이터베이스나 프로세스도 root 개인 키를 갖지 않습니다. | 모든 역할의 키 id와 공개 키, 임계값, 버전, 만료. 새 root는 이전 root 키의 임계값과 자신의 키 임계값이 모두 서명해야 효력이 생깁니다. |
+| Snapshot | 다른 모든 키와 분리된 온라인 키 하나 | 내보내기 다이제스트와 revision, 채널 목록별 버전, 각 Release 매니페스트의 다이제스트, 회수 순번 `1..N` |
+| Timestamp | 두 번째 온라인 키 | 현재 snapshot의 버전과 다이제스트, 그리고 짧은 만료(기본 24시간) |
+| Export(targets) | 기존 내보내기 키. 이제 root가 `export_key_ids`로 지정합니다. | `fdai.catalog-export.v1` 아래의 정확한 내보내기 바이트와 각 Release 매니페스트 |
+
+각 역할은 자신의 도메인으로 서명합니다. `fdai.catalog-root.v1`, `fdai.catalog-snapshot.v1`,
+`fdai.catalog-timestamp.v1` 중 하나, 줄바꿈, 그다음 정규 payload입니다. 한 역할의 서명은 다른
+역할이나 내보내기 서명을 대신할 수 없습니다. 키는 Ed25519입니다. 키 id는 `ed25519-`와 원시 공개 키의
+SHA-256이므로 id가 다른 키를 가리킬 수 없습니다. root는 공개 키를 담습니다. 새 선택 필드
+`export_key_ids`, `public_keys`, `export_digest`, `export_revision`을 생략한 기존 root와 snapshot
+기록은 정규 payload를 그대로 유지합니다.
+
+| 항목 | 결정 |
+|------|------|
+| 메타데이터 | `GET /v1/catalog/metadata`는 root 체인, snapshot, timestamp를 `ETag`가 있는 문서 하나로 반환하며, 내보내기와 같은 공개 또는 인증 규칙을 따릅니다. Release Hub는 내보내기 다이제스트가 바뀌거나, 기록이 없거나, snapshot 유효기간이 3분의 1만 남았을 때만 서명합니다. 응답은 내보내기 다이제스트와 영속 버전 카운터로 캐시하므로 요청이 몰려도 작은 상태 조회 한 번이고 서명은 하지 않습니다. |
+| Timestamp 갱신 | 갱신 작업은 만료 전에 timestamp만 다시 서명합니다. `renew` 이벤트를 추가하지 않고, 내보내기와 revision은 바이트 단위로 같으며, 카운터를 잠긴 행 하나가 보관하므로 복제본이 여럿이어도 버전은 증가만 합니다. |
+| Root 설정 의식 | `fdai-release-hub root keygen`, `build`, `sign`, `verify`는 오프라인으로 실행합니다. 각 보유자는 권한 `0600`의 개인 키 파일로 서명합니다. `install-catalog-root`는 체인과, root가 Hub 자신의 snapshot, timestamp, export 키를 승인하는지 확인한 뒤에야 공개 기록을 저장합니다. |
+| 신뢰 pin | `catalog.trust`는 `release_public_key` 대신 `mode`, `root_key_ids`, `root_threshold`를 가집니다. 첫 root는 정확히 그 키와 임계값을 지정해야 합니다(MUST). 이후 root가 pin을 바꾸지는 않습니다. |
+| 검증 | Lifecycle Hub는 pin에서 시작해 root 체인, snapshot과 timestamp, root가 지정한 export 키의 내보내기 서명, snapshot이 묶는 내보내기 다이제스트와 revision, 채널 목록, 매니페스트 다이제스트, 회수 순번을 검증하고, 임계값, 버전, 회수 연속성, 만료는 `evaluate_catalog_integrity`로 검증합니다. |
+| 영속 하한 | Hub는 검증한 root, snapshot, timestamp의 최고 버전과 다이제스트, 최고 회수 순번, 채널 버전을 영속합니다. 낮은 버전은 롤백입니다. 같은 버전에 내용이 다르면 이중 서명(equivocation)입니다. 하한은 재시작 후에도 유지되고 채택과 함께 전진합니다. |
+| 정책 입력 | Rego는 `verified`, `expired`, `root_rotation`을 가진 `integrity`를 받습니다. 새 거부 사유는 `integrity_not_verified`, `timestamp_expired`, `root_rotation_requires_review`입니다. `integrity`가 없으면 어느 것도 발동하지 않습니다. |
+| 만료된 timestamp | Hub는 여전히 역할을 검증합니다. 회수로만 이루어진 후보만 채택하고, 그 밖의 변경은 운영자 apply도 거부하며, `recall-rolloff`만 계획합니다. 수락한 카탈로그가 허용 계획 유형 집합을 가지며 플래너는 다른 모든 계획 유형을 `catalog_timestamp_expired`로 막습니다. Updates 화면이 이를 알려 줍니다. |
+| Root 교체 | 교체는 다른 root처럼 검증되지만 자동으로 채택되지 않으며, 사람이 Updates에서 적용하기 전에는 영속 root가 전진하지 않습니다. |
+| 저장소 | 선택 테이블 `catalog_integrity_state`(Lifecycle Hub, `bind-catalog`가 생성)와 `catalog_role_root`, `catalog_role_state`(Release Hub, `install-catalog-root`가 생성)는 어느 스키마 revision도 올리지 않으므로 이전 바이너리는 무시합니다. |
+| 호환성 | 역할을 설치한 Release Hub는 기존 내보내기 유효기간 연장을 멈추므로 소비자를 먼저 `tuf`로 옮겨야 합니다. 이미 묶은 데이터베이스는 바뀐 신뢰를 거부하므로(`bind-catalog`가 명시적 재바인딩을 요구) 기존 설치를 전환하려면 신뢰를 새로 묶어야 합니다. |
+
+**검토와 수정.** 온라인 키를 설정이 아닌 root에 명시하면 교체로 그 키를 폐기할 수 있으므로, root가 더는
+승인하지 않는 키를 가진 Release Hub는 승인되지 않은 키로 서명하는 대신 메타데이터 제공을 거부합니다.
+역할을 쓰면 신선도는 서명된 timestamp와 snapshot에서 나오므로 `tuf` 모드에서는 내보내기 자체의
+`expires_at`을 강제하지 않습니다. 이벤트 revision이 연속적이지 않으므로 회수 순번은 내보내기에 담긴
+회수의 개수를 셉니다. 연속성 검사는 보류되거나 누락된 회수를 잡지만 snapshot 키와 내보내기 키가
+모두 탈취된 경우에는 도움이 되지 않습니다. 내보내기 키 하나가 모든 매니페스트에 서명하므로 이를
+폐기하려면 모든 매니페스트를 다시 서명해야 하며, 그때까지 `export_key_ids`에 남습니다. root 체인은 최대
+32개로 제한합니다. snapshot과 timestamp 키는 비밀 참조에서 오므로 하드웨어 보관 키는 운영자의
+선택이며 이 설계가 강제하지 않습니다.
+
+**아직 구현하지 않은 것.** 보관 영수증을 남기는 프로덕션 root 설정 의식은 운영자 절차로 남습니다.
+설치 최신성 설정을 AKS 워크로드에 연결하는 일(Container Apps Core 루트는 이미
+`catalog_freshness`를 받습니다)과 그 버전 하한을 영속화하는 일도 남아 있습니다.
+독립 Release Hub 루트는 이미 작업 Job으로
+root를 설치하므로 기존 두 Hub 검증 구성은 그대로 둡니다. 데이터베이스 검사는 선택 역할 테이블이
+존재하면 그 지문을 계산합니다.
+
 ## 스키마 호환성
 
 데이터베이스 마이그레이션은 expand/contract 방식과 전진 전용을 유지합니다. [배포](deployment-ko.md)는
@@ -322,8 +474,13 @@ timestamp 메타데이터가 만료된 동안 운영자 재정의 승격을 `sha
 공유 전환 검증기에 전달합니다. 허용 범위는 양 끝값을 포함하며, 업그레이드는 현재 개정보다
 낮은 목표 스키마도 수락하지 않습니다. 롤백과 회수 roll-off에는 별도의 방향 규칙을 유지합니다.
 에이전트의 워크로드 검증기는 클러스터 호출 전에 지원하지 않는 스키마 변경을 보류합니다.
-동일 스키마로 제한된 현재 지원 범위는 미구현 마이그레이션의 실행 권한이나 실제 설치의
-롤백 근거가 아닙니다.
+
+애플리케이션 구성 요소 Release에는 엄격한 `fdai.schema-expand-job.v1` 객체를 포함할 수 있습니다.
+이 객체는 `fdai.migration-classification.v1`의 확장 전용 개정 맵과 실행 기한을 서명된 매니페스트에
+결속합니다. Agent는 이 객체에서 임의 명령을 렌더링하지 않고, 고정된 Core 이미지 실행기와 설치에서
+검토한 런타임 참조를 사용합니다. 완료한 Kubernetes Job이 스키마 증적이며 워크로드 롤백 후에도
+유지됩니다. 보고하는 스키마 개정은 이 Job의 유효한 완료 증적이 있을 때만 앞으로 이동합니다.
+축소 개정은 이 단계에서 지원하지 않으며 이후 복원 체크포인트 Plan이 필요합니다.
 
 ## 산출물 전달
 

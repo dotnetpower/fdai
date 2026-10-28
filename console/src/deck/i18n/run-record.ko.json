@@ -8,5 +8,7 @@
   "cumulativeModelTime": "모델 누적 시간 (병렬 호출 합산)",
   "inputTokens": "입력 토큰",
   "outputTokens": "출력 토큰",
-  "totalTokens": "전체 토큰"
+  "totalTokens": "전체 토큰",
+  "tokensWithCached": "{total} (캐시 {cached})",
+  "cachedTokens": "캐시된 입력 토큰"
 }

@@ -133,10 +133,16 @@ def snapshot_document(
     schema_revision: int,
     observed_at: datetime,
     available_artifact_digests: frozenset[str] | None = None,
+    preserve_timestamp_precision: bool = False,
 ) -> dict[str, object]:
     """Return a reported-state snapshot whose ``digest`` the agent computes: the hex SHA-256 of
-    the canonical JSON of every other field. The Hub echoes it into the next Plan."""
+    the canonical JSON of every other field. The Hub echoes it into the next Plan.
 
+    Transition records preserve the authoritative timestamp's full precision so related durable
+    records serialize the exact same instant.
+    """
+
+    observed_at_utc = observed_at.astimezone(UTC)
     document: dict[str, object] = {
         "schema_revision": schema_revision,
         "entities": {
@@ -147,9 +153,11 @@ def snapshot_document(
             }
             for entity_id, state in sorted(entities.items())
         },
-        "observed_at": observed_at.astimezone(UTC)
-        .isoformat(timespec="milliseconds")
-        .replace("+00:00", "Z"),
+        "observed_at": (
+            observed_at_utc.isoformat()
+            if preserve_timestamp_precision
+            else observed_at_utc.isoformat(timespec="milliseconds")
+        ).replace("+00:00", "Z"),
     }
     if available_artifact_digests is not None:
         document["available_artifact_digests"] = sorted(available_artifact_digests)

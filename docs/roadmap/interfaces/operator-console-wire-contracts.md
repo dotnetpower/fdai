@@ -13,6 +13,7 @@ The existing runtime-state projection can include process-owned first-tier-decis
 source and unavailable state; this adds no Incident command, approval or execution authority.
 
 Semantic request 1.11.0 adds the explicit no-authority `presentation_mode=agent_discussion`.
+Semantic request 1.12.0 adds the optional no-authority `dialogue_state`: exact accounting of the prior turns beyond the verbatim window (turn ids and a range digest, no turn text). The Operator emits it only when `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED` is on, after every Core consumer accepts 1.12.0; a 1.11.0 consumer rejects it by schema. Core only compares it with its own accounting in a log-only observation.
 The ordinary default stays absent from serialized requests. Operator requires Owner and retained
 authentication receipts; Core independently admits the exact current installation read grant.
 Discussion uses existing stream, cancellation, deadline and durable terminal projection fields,
@@ -65,7 +66,7 @@ again, rejects a digest mismatch, and writes one `stewardship_activation:*` rece
 changes nothing. The request carries no YAML, role, or approval claim and grants no IAM,
 deployment, or Azure authority.
 
-The existing numeric `usage` map may include `model_calls` beside token totals. This is
+The existing numeric `usage` map may include `model_calls` and a provider-reported `cached_tokens` beside token totals; `cached_tokens` appears only when a call measured it. This is
 recorded conversation-call telemetry, not detailed prompt capture, action authority, or
 independent operational evidence. Missing values remain unavailable; older consumers may
 ignore the additive numeric key without changing answer verification or Incident handling.
@@ -269,7 +270,7 @@ machine code; localized text never replaces it.
 Answer text names provider lifecycle states, timezone-aware instants in UTC, and source
 completeness in the answer language, and pairs the `execution_authority=false` marker with a
 sentence that states the read-only boundary. A recent-change row without a Resource name shows the
-last segment of its reference. Wire rows and technical details keep the exact provider values.
+last segment of its reference. Wire rows and technical details keep the exact provider values; an aggregate row leads with its group's scalar fields. `GET /me/conversations` pages legacy conversation rows together with journaled semantic-turn sessions, newest first.
 Operator's PostgreSQL family facade similarly delegates immutable records, row projection, and
 evidence decoding without changing query parameters, proposal claims, replay order, or wire fields.
 Operator terminal presentation delegates Pantheon assurance, localized Incident blocks, and
@@ -556,6 +557,10 @@ Operator reports the semantic turn's own lifecycle, such as evidence executed, e
 and answer prepared, as `activity` events with `kind` `semantic_turn`, an `activity_id` of
 `semantic:<phase>`, and no `execution` record. They state workflow facts, not reads, so clients
 don't count them as observed reads when they choose the presentation density.
+
+A live model-call `activity` also carries a closed `model_call` object with `stage`, and `model` and
+`duration_ms` when known. Clients render the row label and detail from their own catalog in the
+console language and fall back to the server `label` and `detail` for an unknown stage.
 
 The terminal `done` event's `trajectory_detail` may carry `work_progress_shape`, `turn_budget`, and
 `context_receipts`. Operator validates each field separately and drops a malformed field alone. It

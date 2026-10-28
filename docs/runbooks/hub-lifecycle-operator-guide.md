@@ -8,8 +8,9 @@ applies a change. It separates the current development procedure from the intend
 workflow so you don't mistake a successful registration for a working deployment service.
 
 > **Scope:** Hub-managed lifecycle is not a completed production installation path. Use the
+> [Hub-image bootstrap](../roadmap/deployment/hub-image-deployment.md), explicit
 > [source deployment](../roadmap/deployment/source-deployment.md) or signed offline installation
-> path for the implemented FDAI installation contract. This guide does not authorize cloud
+> path for installation. Image bootstrap is not managed lifecycle completion. This guide does not authorize cloud
 > changes, publication, key export, or workload application.
 
 ## What this guide covers
@@ -31,6 +32,21 @@ it is not an invisible service you should assume is running.
 | Customer approver | Verify installation identity and approve permitted changes | Act as the Agent's execution identity |
 | Lifecycle Hub | Evaluate constraints, sign Plans, retain lifecycle metadata | Hold Kubernetes credentials or execute workload changes |
 | Lifecycle agent | Verify inputs, enforce local limits, apply, observe and recover | Publish releases, approve itself, or administer Azure |
+
+## Clone deployment and subscription requests
+
+For an ordinary deployment request from a new clone, follow
+[Release Hub image deployment](../roadmap/deployment/hub-image-deployment.md).
+The command uses `https://hub.msfdai.com`, independently trusted public-key verification and
+signed digest-pinned image locations. It does not ask a customer to build or publish a Release,
+and it never switches to source builds after a Hub failure. Explicit source/offline modes retain
+their existing contracts.
+
+Vendor operators can open **Deployment requests** in Release Hub to filter the intake list by
+subscription. Entries show the reported subscription, region, Release/channel, request time and
+input identities. `requested` / `self-reported` means a client submitted metadata; it does not
+prove ownership, installation, enrollment or successful effects. The list is private, excluded
+from catalog exports and separate from publication revision/expiry.
 
 ## 1. See the whole flow
 
@@ -125,25 +141,131 @@ it is not an export-only signer for the authenticated remote operator route.
 
 ### B. Submit and approve enrollment
 
-1. Obtain the bound installation ID, fresh signed JSON file and independent public key ID from
-   the installation setup operator. Do not choose an arbitrary ID or upload a PEM key.
-2. Sign in to the customer's Lifecycle Hub. Open **Enrollment requests**.
-3. Enter the ID, select the signed JSON file (at most 64 KiB), and click **Submit request** once.
-   The request timestamp must be within five minutes of the Hub clock. This is a submission
-   freshness limit, not a five-minute lifetime for the installation.
-4. After success, open the pending request. Compare its key ID with the custody output.
-5. Enter **Approver**, paste the independently verified ID into **Verified key id**, leave
-   **Rejection reason** empty, and click **Accept enrollment** only if identity matches.
+The installation Agent submits its own request, so you do not carry a signed file. You compare
+the key ID out of band, then accept.
+
+1. Ask the installation setup operator to run `fdai-lifecycle-agent enroll` inside the
+   installation boundary (see the [Agent README](../../lifecycle/agent/README.md#enrolling-this-installation)).
+   The Agent reads the installation's Entities and state from its own cluster, reads the settings
+   and configuration from the customer's declaration file, signs with the existing installation
+   key and submits a **pending** request. It prints the installation key ID and a submit-before
+   time. It never prints the private key.
+2. Sign in to the customer's Lifecycle Hub. Open **Enrollment requests** and refresh the list.
+   If the request is missing, the Agent result may have been uncertain; check the list before
+   asking for a re-run. A re-run after a recorded request changes nothing.
+3. Open the pending request. The page says **Requested by installation Agent** with a short
+   object ID, or **Requested by operator** for a file you uploaded.
+4. Obtain the installation key ID independently of this screen (for example, from the key
+   custodian) and compare it with the request's key ID.
+5. Enter **Approver**, type the independently verified ID into **Verified key id**, leave
+   **Rejection reason** empty, and click **Accept enrollment** only if identity matches. The
+   Agent cannot accept or reject its own request.
 6. Verify the installation appears in **Installations**. No managed Entity, no current release,
    and no Plan are expected before ownership, configuration and planning are ready.
+
+The Agent submission is available only when the deployment binds the installation to its Agent
+identity. The submit-before time is the five-minute freshness limit for the signed request, not
+a lifetime for the installation.
+
+**Offline path.** When the Agent cannot reach the Hub, obtain a fresh signed JSON file and the
+independent public key ID from the installation setup operator. They create the file with
+`fdai-lifecycle-hub sign-enrollment <request.json> --key <installation.pem> --out <file>`,
+which signs inside the installation boundary and prints the key id and the submission deadline.
+Do not upload a PEM key. In **Enrollment requests**, select the bound installation, choose the
+signed JSON file (at most 64 KiB) and click **Submit request** once. The request timestamp must
+be within five minutes of the Hub clock. Then continue from step 3.
 
 If submission has an uncertain result, refresh the pending list before retrying. If the
 request is stale and no request exists, obtain a newly signed file using the same installation
 key. Don't regenerate the key, reject an otherwise valid identity, or repeat an accepted request.
 
-### C. Inspect inputs without confusing metadata with readiness
+### C. Keep the catalog current without typing a pin
 
-For the existing development catalog screen, follow these separate actions:
+Builds with **Updates** poll the bound Release Hub from inside the customer boundary. Release
+Hub never contacts the customer. You don't copy a revision or digest, because the Hub verifies
+the Release Hub's signature over the exact export bytes with the key bound at deployment.
+
+1. Open **Updates**. It shows the accepted catalog, the last check, the standing authorization
+   and the check interval. **Check now** runs one bounded poll.
+2. In `auto` mode, a signed change that stays inside the standing authorization is adopted
+   without a click, and the Hub issues a Plan for every enrolled installation. In `review`
+   mode, or when the policy asks for review, the screen shows the reasons and the change.
+3. Read the change. An urgent banner marks a new recall. Choose **Review and apply** once if
+   it is acceptable. If the source moved in the meantime, the Hub shows the new candidate and
+   applies nothing.
+4. Renew the standing authorization before `authorization_expires_at` through a reviewed
+   deployment change. Silence never extends it, and an expired authorization returns adoption
+   to review.
+
+Adoption never applies a Plan. The Agent still verifies signatures and its local envelope.
+If the screen reports a missing or invalid signature, the Release Hub build is older or the key
+differs. Use **Catalog import** below only after confirming the independent source.
+
+### C1. Use signed catalog roles (opt-in)
+
+Signed catalog roles replace the single development key with a threshold of offline root keys and
+separate online snapshot and timestamp keys. They are opt-in on both Hubs, and the single-key
+flow above stays the default. This section is the vendor and customer procedure. It does not
+authorize any cloud change.
+
+**Vendor: run the root ceremony offline.** Use a workstation with no network and no Hub state.
+Each key holder runs the steps for their own key, so no private root key is ever shared.
+
+1. Each holder runs `fdai-release-hub root keygen --out-dir <dir> --name root` and keeps the
+   private file (mode `0600`). Only the `.pub.pem` files travel.
+2. Generate the online snapshot and timestamp keys and the export key as secret references with
+   your key-custody process. Keep them different from each other and from every root key.
+3. Run `fdai-release-hub root build --out root-v1.json --version 1 --threshold <n>` with the
+   `--root-public`, `--snapshot-public`, `--timestamp-public` and `--export-public` files.
+4. Each holder runs `fdai-release-hub root sign --record root-v1.json --key <private.pem>` until
+   a threshold of holders has signed. Run `fdai-release-hub root verify --record root-v1.json` and
+   keep the receipt.
+5. Publish the root key ids and threshold through a channel the customer trusts, separate from
+   the Release Hub. Never publish a private key.
+
+**Vendor: install the root and serve it.** Provision the snapshot and timestamp keys as two
+separate secret versions and enable `catalog_roles` on the Release Hub. Run the
+`install-catalog-root` operation with the signed `root-v1.json` as its request. The Hub checks
+the chain and refuses a root that does not authorize its own keys. Serving needs a root, so
+`GET /v1/catalog/metadata` returns `503` until one is installed.
+
+**Order of operations for a deployed pair.** Run each Hub's `migrate` Job with the new image before
+its new revision takes traffic, because a new image can require a newer schema revision and a
+revision that starts early stays in restart backoff. Install the root before the customers move to
+`tuf`, and move every customer Hub that shares the Release Hub, because a Release Hub with an
+installed root stops extending the legacy export expiry.
+
+**Customer: pin the root.** Replace `release_public_key` with
+`trust = { mode = "tuf", root_key_ids = [...], root_threshold = <n> }` in a reviewed deployment
+change, then run `bind-catalog`. A new database is bound by `migrate` when no trust exists. A bound
+database refuses a changed trust until you run the audited `rebind-catalog` operation, which the
+Lifecycle Hub operation Job runs with an actor and a reason. A rebinding keeps the revision floor,
+records a `source.rebound` event that names the previous trust, and drops the accepted catalog
+bytes that only the previous trust verified. The next check re-verifies and re-adopts the current
+catalog under the new trust. Moving from signed roles back to a single key is refused. The first
+root MUST name exactly those keys and threshold.
+
+**Read Updates.** The **Catalog integrity** area shows the root, snapshot and timestamp versions
+and when the timestamp expires. When the timestamp has expired, the Hub adopts only recalls and
+issues only recall roll-off Plans until the vendor publishes a fresh one. Ask the vendor to
+renew rather than waiting. A failed check names the reason, such as a rolled-back version or a
+root that is not signed by enough keys. Don't import around it.
+
+**Rotate the root.** Build a new record with `--version <n+1>` and the new holders' public keys.
+Sign it with a threshold of the new holders and a threshold of the previous holders
+(`root sign --previous root-v1.json`), then `root verify --record root-v2.json --previous
+root-v1.json`. Install it with the same operation. Each customer Hub shows **Root rotation
+awaiting review** and never adopts it by itself. Confirm the new key ids through your separate
+channel, then choose **Review and apply**. A root is also retired when it expires, so schedule the
+next rotation before then. Keep a retiring export key in `export_key_ids` until every manifest it
+signed is re-signed.
+
+The ceremony tooling enforces thresholds. Where the keys live and who holds them is an operator
+procedure that this repository does not verify.
+
+### C2. Inspect inputs without confusing metadata with readiness
+
+For the legacy or offline pin flow in **Catalog import**, follow these separate actions:
 
 1. Obtain the exact export **Revision** and **SHA-256** through the approved independent trust
    channel. The setup must already bind the expected Release Hub and public key.
@@ -202,6 +324,41 @@ Use `--kind configuration` with the customer's configuration public key for conf
 This command verifies an existing signature; it does not create a signed package, acquire trust
 from a bundled key, mirror registry images or make a target eligible.
 
+#### Single-Owner development profile and 14-day expiry
+
+Under [Constitution Article 8](../roadmap/architecture/fdai-constitution.md#article-8-safely-autonomous),
+an explicitly declared full-authority development profile (`full-authority-development`) in a
+disposable development scope (such as `rg-fdai-dev-wus3`) lets one authenticated Owner satisfy the
+Hub catalog export-pin, enrollment, native-ownership, application-binding and Plan approval steps
+inside that exact scope:
+
+- **Scope boundary:** Applies only to the named disposable development resource group and its
+  enrolled Hub installation. It grants no authority outside that test scope and never relaxes
+  production multi-operator quorum.
+- **Expiry:** The development-profile authorization is bounded to at most 14 days from approval
+  and must be renewed or cleared when the campaign ends; each per-run native creation approval
+  file (`native-approval.json`) retains its 4-hour execution window inside that 14-day campaign.
+- **Distinct identities:** The human Owner approves in the Hub and prepares local signed inputs;
+  the in-cluster lifecycle agent executes only through its dedicated workload identity and
+  namespace Role. Neither identity substitutes for the other.
+
+To generate the private runtime bundle (`runtime-bundle.json`), component-image map
+(`component-images.json`), matching native scope (`native-scope.json`) and pre-existing
+infrastructure reference inventory (`prerequisites.json`) for the FDAI operational ownership topology
+(`core-control-plane`, `operator-service`, `document-ingestion-api`,
+`document-processing-worker` with `clamav`, and the `analyzer`, `canary`, `inventory`, and
+`observation-campaign` CronJobs) from the AKS `workloads` and `scheduled_jobs` maps:
+
+```bash
+fdai-lifecycle-manager generate-runtime-bundle \
+  --topology-input <private-topology.json> \
+  --destination <new-private-bundle-dir> \
+  --installation-id <installation-id> \
+  --entity-id <entity-id> \
+  --product fdai \
+  --namespace fdai-runtime
+```
+
 #### Prepare execution windows
 
 This procedure requires a build with the execution-settings API and UI, an enrolled installation,
@@ -248,6 +405,35 @@ ownership, add permissions, replace configuration, compute a Plan or deploy a wo
 Agent local policy and the package's `product` must independently match this binding.
 Enrollment requests must leave `settings.product` unset; bind it here only after enrollment approval.
 
+### C3. Move or set a Hub's custom domain
+
+One Hub stack owns one hostname. Check these in order, because each failure looks like "the
+Hub does not respond":
+
+1. **DNS.** The `CNAME` must point at the serving Container App's default hostname. Managed
+   certificate validation also needs that record first.
+2. **Certificate.** Create the managed certificate in the serving Container App environment, then
+   bind it to the app with SNI. A hostname bound with `Disabled` has no certificate, so TLS fails
+   with a connection reset.
+3. **Allowed host.** Set `custom_domain.hostname` in that stack's variables. Without it the Hub
+   answers `400 Invalid host header` because it only accepts its default hostname.
+4. **One owner.** Set `dns_zone` only in the stack that serves the hostname. A second stack that
+   also declares the hostname and DNS record rewrites it on its next apply. Remove the other stack's
+   resources from its state with `terraform state rm`, never by deleting the record, then set its
+   `custom_domain` to null.
+5. **Default hostname.** A Hub accepts only its configured origin host, so the default Container App
+   hostname answers `400 Invalid host header` after the move. Set
+   `custom_domain.redirect_default_hostname = true` on a Hub image that reads `redirect_hosts` to send
+   GET and HEAD there to the custom hostname with a `308`.
+6. **Dependencies.** Confirm the Hub's database is running. A stopped PostgreSQL server keeps the
+   app out of readiness even when DNS and TLS are correct.
+
+A hostname that was bound outside Terraform is brought under management with
+`terraform import` of the `azurerm_container_app_custom_domain`, `azurerm_dns_cname_record` and
+`azurerm_dns_txt_record` resources, followed by a reviewed plan that shows only in-place changes.
+Moving the domain to another Hub also changes where the signed-in origin points, so the Entra
+application registration must list that Hub's redirect URI.
+
 ### D. Plan, then apply only when the missing prerequisites are resolved
 
 The current setup should stop before apply unless all of these are independently established:
@@ -274,8 +460,10 @@ alone do not authenticate all channel/recall/freshness metadata.
 In the production design, the import concept remains: the customer's Hub validates and admits
 vendor metadata. Signed root, snapshot and timestamp metadata, persistent anti-rollback state,
 key rotation and controlled refresh replace routine manual export-pin transcription.
-That production protocol and its operational ceremony are not completed. Removing the label,
-auto-approving a downloaded digest or scheduling the current import endpoint is not the fix.
+The opt-in mode in [C1](#c1-use-signed-catalog-roles-opt-in) implements that protocol, but the
+production root ceremony and key custody are an operator procedure that is not completed.
+Removing the label, auto-approving a downloaded digest or scheduling the current import endpoint
+is not the fix.
 Offline installations still need an explicitly verified offline transfer/import process.
 
 ## 5. Separate necessary boundaries from avoidable work
@@ -288,7 +476,7 @@ operators see and move between those boundaries.
 |-------|----------------------------------------------------------|
 | IDs, trust references and files passed through an engineer or chat | One supported installer produces a durable public handoff and a registration download |
 | Independent key verification has no integrated workflow | A trusted setup channel presents the exact key comparison without exporting the key |
-| Manual export revision/digest approval for every development change | Production catalog metadata with authenticated freshness and controlled refresh |
+| Manual export revision/digest approval for every development change | Implemented for development: signed export, polling and policy adoption. Production TUF roles and root ceremony remain design. |
 | Package delivery, artifact checks and Agent start require separate setup | Installation-side input staging, registry verification and bounded scheduling |
 | Several disconnected status pages | One installation journey showing prerequisite, owner, blocker and next action |
 | Missing end-to-end notifications | Durable tasks and notifications for each responsible human, with acknowledgement and audit |

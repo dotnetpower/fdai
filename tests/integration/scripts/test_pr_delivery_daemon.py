@@ -174,6 +174,35 @@ def test_checks_state_requires_every_terminal_check_to_pass_or_skip() -> None:
     assert support.checks_state([{"status": "COMPLETED", "conclusion": "BOGUS"}]) == "failed"
 
 
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        ("SUCCESS", "success"),
+        ("PENDING", "pending"),
+        ("EXPECTED", "pending"),
+        ("ERROR", "failed"),
+        ("FAILURE", "failed"),
+        ("BOGUS", "failed"),
+    ],
+)
+def test_checks_state_normalizes_legacy_commit_statuses(state: str, expected: str) -> None:
+    checks = [
+        {"status": "COMPLETED", "conclusion": "SUCCESS"},
+        {"__typename": "StatusContext", "state": state},
+    ]
+
+    assert support.checks_state(checks) == expected
+
+
+def test_checks_state_legacy_failure_takes_precedence_over_a_pending_run() -> None:
+    checks = [
+        {"status": "IN_PROGRESS", "conclusion": ""},
+        {"__typename": "StatusContext", "state": "FAILURE"},
+    ]
+
+    assert support.checks_state(checks) == "failed"
+
+
 def test_snapshot_rejects_missing_identity() -> None:
     payload = _payload()
     payload["headRefOid"] = "short"
@@ -338,11 +367,96 @@ def test_auto_merge_phase_records_enabled_state_immediately(tmp_path: Path) -> N
     assert any(command[-2:] == ("--match-head-commit", _A) for command in fake.commands)
 
 
+@pytest.mark.parametrize(
+    "checks",
+    [
+        [],
+        [{"status": "QUEUED", "conclusion": ""}],
+        [{"status": "IN_PROGRESS", "conclusion": ""}],
+        [
+            {"status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"status": "IN_PROGRESS", "conclusion": ""},
+        ],
+    ],
+)
+def test_daemon_waits_for_all_observed_checks_before_enabling_auto_merge(
+    tmp_path: Path,
+    checks: list[dict[str, str]],
+) -> None:
+    fake = FakeRunner(
+        tmp_path,
+        [
+            _payload(auto_merge=False, checks=checks),
+            _payload(auto_merge=False),
+            _payload(state="MERGED", merge_commit=_C),
+        ],
+    )
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
+    coordinator.stop_event.wait = lambda _seconds: False  # type: ignore[method-assign]
+
+    assert coordinator.run() == 0
+
+    observations = [
+        index for index, command in enumerate(fake.commands) if command[:3] == ("gh", "pr", "view")
+    ]
+    merge_commands = [
+        index for index, command in enumerate(fake.commands) if command[:3] == ("gh", "pr", "merge")
+    ]
+    assert len(merge_commands) == 1
+    assert observations[1] < merge_commands[0] < observations[2]
+
+
+def test_daemon_never_enables_auto_merge_before_a_pending_check_fails(tmp_path: Path) -> None:
+    fake = FakeRunner(
+        tmp_path,
+        [
+            _payload(auto_merge=False, checks=[{"status": "IN_PROGRESS", "conclusion": ""}]),
+            _payload(auto_merge=False, checks=[{"status": "COMPLETED", "conclusion": "FAILURE"}]),
+        ],
+    )
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
+    coordinator.stop_event.wait = lambda _seconds: False  # type: ignore[method-assign]
+
+    assert coordinator.run() == 4
+    assert not any(command[:3] == ("gh", "pr", "merge") for command in fake.commands)
+
+
+@pytest.mark.parametrize("merge_state", ["CLEAN", "BEHIND"])
+def test_daemon_refuses_existing_auto_merge_before_waiting_or_replacing_head(
+    tmp_path: Path,
+    merge_state: str,
+) -> None:
+    checks = (
+        [{"status": "IN_PROGRESS", "conclusion": ""}]
+        if merge_state == "CLEAN"
+        else [{"status": "COMPLETED", "conclusion": "SUCCESS"}]
+    )
+    fake = FakeRunner(
+        tmp_path,
+        [
+            _payload(merge_state=merge_state, auto_merge=True, checks=checks),
+            _payload(state="MERGED", head=_B if merge_state == "BEHIND" else _A, merge_commit=_C),
+        ],
+    )
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
+    coordinator.stop_event.wait = lambda _seconds: False  # type: ignore[method-assign]
+
+    with pytest.raises(support.DeliveryError, match="disable.*auto-merge"):
+        coordinator.run()
+
+    assert not any(command[:3] == ("git", "merge", "--no-edit") for command in fake.commands)
+    assert not any(command[:2] == ("git", "push") for command in fake.commands)
+    assert not any(command[:3] == ("gh", "pr", "merge") for command in fake.commands)
+
+
 def test_daemon_locally_updates_a_behind_branch_and_restores_auto_merge(tmp_path: Path) -> None:
     fake = FakeRunner(
         tmp_path,
         [
-            _payload(merge_state="BEHIND"),
+            _payload(merge_state="BEHIND", auto_merge=False),
             _payload(head=_B, auto_merge=False),
             _payload(state="MERGED", head=_B, merge_commit=_C),
         ],
@@ -367,7 +481,7 @@ def test_daemon_tolerates_only_bounded_delayed_head_snapshots_after_push(
     fake = FakeRunner(
         tmp_path,
         [
-            _payload(merge_state="BEHIND"),
+            _payload(merge_state="BEHIND", auto_merge=False),
             *[_payload() for _ in range(delayed_observations)],
             _payload(state="MERGED", head=_B, merge_commit=_C),
         ],
@@ -393,7 +507,7 @@ def test_daemon_tolerates_only_bounded_delayed_head_snapshots_after_push(
 def test_daemon_rejects_a_third_pr_head_after_its_verified_push(tmp_path: Path) -> None:
     fake = FakeRunner(
         tmp_path,
-        [_payload(merge_state="BEHIND"), _payload(head=_C)],
+        [_payload(merge_state="BEHIND", auto_merge=False), _payload(head=_C)],
     )
     coordinator = daemon.DeliveryDaemon(_config(fake), fake)
     coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
@@ -504,7 +618,7 @@ def test_daemon_never_resyncs_a_base_that_already_carries_its_merge(
     fake = FakeRunner(
         tmp_path,
         [
-            _payload(merge_state="BEHIND"),
+            _payload(merge_state="BEHIND", auto_merge=False),
             _payload(state="MERGED", merge_commit=_C),
         ],
     )
@@ -528,7 +642,7 @@ def test_daemon_does_not_recreate_a_deleted_topic_branch(tmp_path: Path) -> None
     fake = FakeRunner(
         tmp_path,
         [
-            _payload(merge_state="BEHIND"),
+            _payload(merge_state="BEHIND", auto_merge=False),
             _payload(state="MERGED", merge_commit=_C),
         ],
     )
@@ -543,7 +657,7 @@ def test_daemon_does_not_recreate_a_deleted_topic_branch(tmp_path: Path) -> None
 
 
 def test_daemon_aborts_a_conflicting_local_base_merge(tmp_path: Path) -> None:
-    fake = FakeRunner(tmp_path, [_payload(merge_state="BEHIND")])
+    fake = FakeRunner(tmp_path, [_payload(merge_state="BEHIND", auto_merge=False)])
     fake.merge_fails = True
     coordinator = daemon.DeliveryDaemon(_config(fake), fake)
 
@@ -556,7 +670,7 @@ def test_daemon_aborts_a_conflicting_local_base_merge(tmp_path: Path) -> None:
 
 
 def test_daemon_rejects_a_pushed_sha_mismatch(tmp_path: Path) -> None:
-    fake = FakeRunner(tmp_path, [_payload(merge_state="BEHIND")])
+    fake = FakeRunner(tmp_path, [_payload(merge_state="BEHIND", auto_merge=False)])
     fake.remote_sha_after_push = _C
     coordinator = daemon.DeliveryDaemon(_config(fake), fake)
 
@@ -568,7 +682,7 @@ def test_daemon_rejects_a_pushed_sha_mismatch(tmp_path: Path) -> None:
 
 
 def test_daemon_records_bounded_redacted_push_diagnostics(tmp_path: Path) -> None:
-    fake = FakeRunner(tmp_path, [_payload(merge_state="BEHIND")])
+    fake = FakeRunner(tmp_path, [_payload(merge_state="BEHIND", auto_merge=False)])
     hook_noise = "\n".join(f"collected test {index}" for index in range(50))
     fake.push_result = support.CommandResult(
         1,

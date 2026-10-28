@@ -9,7 +9,8 @@
 .PHONY: dev-up dev-down dev-logs dev-nuke help workflow-status workflow-preflight \
 	lint format test test-changed service-test service-test-all operator gates check derived-refresh derived-check \
 	validation-status validation-run \
-	validation-all worktree-maintenance worktree-cleanup roadmap-verification-sync roadmap-verification-status \
+	validation-all worktree-maintenance worktree-cleanup artifact-maintenance artifact-cleanup \
+	roadmap-verification-sync roadmap-verification-status \
 	roadmap-verification-report roadmap-verification-retry roadmap-verification-apply \
 	roadmap-implementation-start roadmap-implementation-status roadmap-implementation-stop \
 	roadmap-implementation-remove pre-commit-install hooks-install \
@@ -101,6 +102,12 @@ worktree-maintenance: ## preview clean completed worktrees eligible for removal
 
 worktree-cleanup: ## remove eligible worktrees (optional: MIN_AGE_HOURS=48)
 	@python3 scripts/automation/worktree-maintenance.py --min-age-hours "$(or $(MIN_AGE_HOURS),24)" --apply
+
+artifact-maintenance: ## preview disposable local cache, kit, and state artifacts eligible for removal
+	@python3 scripts/deployment/local/prune-local-artifacts.py
+
+artifact-cleanup: ## remove disposable local cache, kit, and state artifacts while preserving audit evidence
+	@python3 scripts/deployment/local/prune-local-artifacts.py --apply
 
 roadmap-verification-sync: ## discover canonical roadmap documents and refresh queue freshness
 	@python3 scripts/automation/roadmap_verification_cli.py sync

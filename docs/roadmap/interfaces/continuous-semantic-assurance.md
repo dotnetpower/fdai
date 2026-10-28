@@ -50,7 +50,7 @@ ontology release without retaining question text. Excluded declarations are coun
 Any ontology release change, such as a new ActionType version, a reviewed LinkType semantic trait,
 a new readable ObjectType property, or an edited ontology function source whose artifact digest the
 release pins, such as a reader that now returns the exact count its row bound leaves out, rebinds the
-declaration partition, so the same change regenerates the manifest with its builder. Adding the Resource Health reread fence to the source-derived `query.resource_health_inventory` FunctionType is one such release change.
+declaration partition, so the same change regenerates the manifest with its builder. Adding the Resource Health reread fence to the source-derived `query.resource_health_inventory` FunctionType is one such release change. Raising the `query.resource_state_inventory` function version is another.
 Adding E10 state list mode and the E11 metric collection reader similarly changes the source-bound
 function set and release digest. The generated manifest records that exact release and its 16004
 repository-only cases; the count is provenance, not a qualification or operational-evidence claim.
@@ -64,9 +64,9 @@ beside a scope gap.
 The answer-local pending-state coverage source also changes the source-bound ontology digest. Its
 manifest regeneration updates release and inventory digests only; it adds no question, measured
 coverage, provider evidence, qualification, or operational-evidence admission.
-Adding `governance.override-promote-action-type` is a structural catalog change, so the same
-builder refreshes the corpus manifest denominator and source digests without creating a live
-assurance receipt.
+Adding `governance.override-promote-action-type` or `remediate.subscription-tag-add` is a structural
+catalog change, so the same builder refreshes the corpus manifest denominator and source digests
+without creating a live assurance receipt.
 This repository-only inventory is not an executable campaign, a production binding, or a
 certification receipt.
 

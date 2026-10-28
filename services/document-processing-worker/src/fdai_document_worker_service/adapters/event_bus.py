@@ -57,6 +57,8 @@ class EventHubsKafkaConfig:
     client_id: str = "fdai-document-worker"
     auto_offset_reset: str = "earliest"
     dlq_suffix: str = ".dlq"
+    commit_max_records: int = 200
+    commit_interval_seconds: float = 5.0
 
     def __post_init__(self) -> None:
         if not self.bootstrap_servers:
@@ -65,6 +67,10 @@ class EventHubsKafkaConfig:
             raise ValueError("security_protocol MUST be SASL_SSL or PLAINTEXT")
         if self.auto_offset_reset not in {"earliest", "latest"}:
             raise ValueError("auto_offset_reset MUST be earliest or latest")
+        if self.commit_max_records < 1:
+            raise ValueError("commit_max_records MUST be positive")
+        if self.commit_interval_seconds <= 0:
+            raise ValueError("commit_interval_seconds MUST be positive")
 
 
 class EventHubsKafkaBus:
@@ -219,9 +225,13 @@ class EventHubsKafkaBus:
                     if token_provider is not None
                     else float("inf")
                 )
+                uncommitted = 0
+                last_commit_at = self._monotonic()
                 while True:
                     remaining = refresh_at - asyncio.get_running_loop().time()
                     if remaining <= 0:
+                        if uncommitted > 0:
+                            await consumer.commit()
                         break
                     try:
                         message = await asyncio.wait_for(
@@ -229,6 +239,10 @@ class EventHubsKafkaBus:
                             timeout=min(remaining, _CONSUMER_HEALTH_POLL_SECONDS),
                         )
                     except TimeoutError:
+                        if uncommitted > 0:
+                            await consumer.commit()
+                            uncommitted = 0
+                            last_commit_at = self._monotonic()
                         self._consumer_succeeded(topic, group_id)
                         continue
                     key = (message.key or b"").decode(errors="replace")
@@ -242,6 +256,8 @@ class EventHubsKafkaBus:
                         )
                         self._consumer_decode_dead_lettered(topic, group_id)
                         await consumer.commit()
+                        uncommitted = 0
+                        last_commit_at = self._monotonic()
                         self._consumer_succeeded(topic, group_id)
                         continue
                     self._consumer_succeeded(topic, group_id)
@@ -251,7 +267,15 @@ class EventHubsKafkaBus:
                         payload=payload,
                         offset=message.offset,
                     )
-                    await consumer.commit()
+                    uncommitted += 1
+                    now = self._monotonic()
+                    if (
+                        uncommitted >= self._config.commit_max_records
+                        or now - last_commit_at >= self._config.commit_interval_seconds
+                    ):
+                        await consumer.commit()
+                        uncommitted = 0
+                        last_commit_at = now
             except asyncio.CancelledError:
                 raise
             except Exception as exc:

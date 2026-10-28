@@ -10,9 +10,14 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
-from fdai_deployment_cli.lifecycle_native import NativeApproval, NativeScope
+from fdai_deployment_cli.lifecycle_native import (
+    NativeApproval,
+    NativeObjectIdentity,
+    NativeScope,
+)
 
-from fdai_lifecycle_agent.dry_run import EntityState, snapshot_document
+from fdai_lifecycle_agent import native_state as native_state_module
+from fdai_lifecycle_agent.dry_run import EntityState, parse_current_state, snapshot_document
 from fdai_lifecycle_agent.journal import ApplyJournal, WorkloadState, WorkloadStore
 from fdai_lifecycle_agent.native_bootstrap import bootstrap_native_scope
 from fdai_lifecycle_agent.native_cluster import ANCHOR_LABEL, NativeCluster
@@ -37,6 +42,9 @@ class UidProvider:
         self.counter = 0
         self.lose_create_response = False
         self.broken_images: set[str] = set()
+        self.fail_adoption_name: str | None = None
+        self.adopted: list[tuple[str, str]] = []
+        self.lose_adoption_response = False
 
     def get(self, kind: str, name: str) -> Manifest | None:
         live = deepcopy(self.objects.get((kind, name)))
@@ -100,6 +108,46 @@ class UidProvider:
                 "resourceVersion": str(self.counter),
             }
             self.objects[key] = updated
+
+    def adopt_terraform_owned(
+        self,
+        manifest: Manifest,
+        *,
+        uid: str,
+        resource_version: str,
+        dry_run: bool = False,
+        before_submit: Callable[[], None] | None = None,
+    ) -> Manifest:
+        key = object_key(manifest)
+        current = self.objects.get(key)
+        if (
+            current is None
+            or current["metadata"]["uid"] != uid
+            or current["metadata"]["resourceVersion"] != resource_version
+        ):
+            raise WorkloadError("adoption_resource_drifted")
+        if before_submit is not None:
+            before_submit()
+        self.calls.append(("adopt", dry_run))
+        if key[1] == self.fail_adoption_name:
+            raise WorkloadError("injected_adoption_interruption")
+        result = deepcopy(dict(manifest))
+        result["metadata"] = dict(result["metadata"]) | {
+            "uid": uid,
+            "resourceVersion": str(self.counter + 1),
+            "annotations": dict(result["metadata"].get("annotations", {}))
+            | {"fdai.io/adopted-from": "Terraform"},
+        }
+        if not dry_run:
+            self.counter += 1
+            result["metadata"]["resourceVersion"] = str(self.counter)
+            result["metadata"]["managedFields"] = [{"manager": "fdai-lifecycle-agent"}]
+            self.objects[key] = result
+            self.adopted.append(key)
+            if self.lose_adoption_response:
+                self.lose_adoption_response = False
+                raise SystemExit("simulated process interruption after adoption")
+        return deepcopy(result)
 
     def delete_owned(
         self, kind: str, name: str, uid: str, *, before_submit: Callable[[], None] | None = None
@@ -171,6 +219,45 @@ def manifests():
         "example-test",
         {("application", "frontend"): "example.test/frontend@sha256:" + "a" * 64},
     )
+
+
+def test_native_state_load_avoids_canonical_json_round_trip(native, monkeypatch) -> None:
+    _, store, *_ = native
+    bootstrap(native)
+    expected = store.load()
+    monkeypatch.setattr(
+        "fdai_lifecycle_agent.native_state.canonical_bytes",
+        lambda _document: (_ for _ in ()).throw(AssertionError("unexpected canonicalization")),
+    )
+
+    assert store.load() == expected
+
+
+def test_native_state_save_serializes_output_once(native, monkeypatch) -> None:
+    _, store, *_ = native
+    bootstrap(native)
+    state = store.load()
+    assert state is not None
+    json_bytes = native_state_module._json_bytes
+    serializations = 0
+
+    def serialize(document: object) -> bytes:
+        nonlocal serializations
+        serializations += 1
+        return json_bytes(document)
+
+    monkeypatch.setattr(native_state_module, "_json_bytes", serialize)
+    monkeypatch.setattr(
+        NativeStateStore.__module__ + ".NativeState.model_dump_json",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("unexpected validation serialization")
+        ),
+    )
+
+    store.save(state)
+
+    assert store.load() == state
+    assert serializations == 1
 
 
 def scheduled_manifest():
@@ -291,11 +378,12 @@ def test_expiry_during_preparation_never_submits_a_mutation(native, monkeypatch,
 
     monkeypatch.setattr(provider, "get", paused_read)
     monkeypatch.setattr(store, "save", paused_save)
-    with pytest.raises(WorkloadError, match="native_scope_approval_expired"):
+    with pytest.raises(WorkloadError, match="native_scope_approval_expired") as denied:
         if operation == "delete":
             cluster.delete("Deployment", "frontend")
         else:
             cluster.apply(manifest)
+    assert denied.value.retryable is True
     assert provider.objects == before_objects
     assert provider.calls == before_calls
     assert store.load() == before_state
@@ -789,3 +877,313 @@ def test_bootstrap_deadline_is_enforced_before_cluster_access(native):
             monotonic=lambda: next(ticks),
         )
     assert provider.calls == []
+
+
+def _transition_manifests(namespace: str, components: tuple[str, ...]) -> tuple[Manifest, ...]:
+    images = {
+        ("application", component): (f"registry.example.test/{component}@sha256:{index + 1:064x}")
+        for index, component in enumerate(components)
+    }
+    return tuple(
+        manifest for manifest in render(namespace, images) if manifest["kind"] == "Deployment"
+    )
+
+
+def _foreign_object(manifest: Manifest, *, uid: str, version: str) -> Manifest:
+    foreign = deepcopy(dict(manifest))
+    labels = dict(foreign["metadata"]["labels"])
+    labels["app.kubernetes.io/managed-by"] = "Terraform"
+    foreign["metadata"] = dict(foreign["metadata"]) | {
+        "labels": labels,
+        "uid": uid,
+        "resourceVersion": version,
+        "managedFields": [{"manager": "Terraform"}],
+    }
+    return foreign
+
+
+def _transition_plan(harness, proof, *, plan_id: str = "native-transition-1"):
+    return harness.plan(
+        plan_id=plan_id,
+        entity_ids=frozenset({"application"}),
+        capability_ids=(),
+        envelope=harness.maximum_envelope(
+            entity_ids=frozenset({"application"}),
+            capability_modes={},
+        ),
+        ownership_digests={"application": proof.claim.digest},
+    )
+
+
+def _empty_application_state(harness, clock: Callable[[], datetime]) -> None:
+    harness.current_state = parse_current_state(
+        snapshot_document(
+            {"application": EntityState(None, frozenset())},
+            schema_revision=0,
+            observed_at=clock(),
+        )
+    )
+    write_json_atomically(harness.state_file, harness.state_document())
+
+
+def test_native_transition_adopts_seven_exact_objects_and_creates_nine(harness) -> None:
+    components = tuple(f"component-{index:02d}" for index in range(16))
+    desired = _transition_manifests(harness.namespace, components)
+    provider = UidProvider()
+    provider.counter = 100
+    identities = tuple(
+        NativeObjectIdentity(
+            kind="Deployment",
+            name=component,
+            uid=f"uid-existing-{index}",
+        )
+        for index, component in enumerate(components[:7])
+    )
+    for index, manifest in enumerate(desired[:7]):
+        foreign = _foreign_object(
+            manifest,
+            uid=identities[index].uid,
+            version=str(index + 1),
+        )
+        if index == 0:
+            legacy_selector = {"app.kubernetes.io/name": "core-control-plane"}
+            foreign["spec"]["selector"]["matchLabels"] = legacy_selector
+            foreign["spec"]["template"]["metadata"]["labels"].update(legacy_selector)
+        provider.objects[object_key(manifest)] = foreign
+    clock = harness.dependencies().clock
+    scope = NativeScope(
+        installation_id=harness.settings().installation_id,
+        entity_id="application",
+        product="example-web",
+        namespace=harness.namespace,
+        components=components,
+        service_components=(),
+    )
+    approval = NativeApproval(
+        schema_version="fdai.lifecycle-native-approval.v1",
+        scope=scope,
+        profile="full-authority-development",
+        approved_by="owner",
+        approved_at=clock() - timedelta(minutes=1),
+        expires_at=clock() + timedelta(hours=1),
+        existing_resources=identities,
+    )
+    _empty_application_state(harness, clock)
+    store = NativeStateStore(harness.state_store.path.parent)
+    key = Ed25519PrivateKey.generate()
+    proof = bootstrap_native_scope(
+        provider,
+        store,
+        approval,
+        key,
+        current_state_path=harness.state_file,
+        clock=clock,
+        apply=True,
+    )
+    assert proof is not None
+    cluster = NativeCluster(provider, store, approval, key.public_key().public_bytes_raw(), clock)
+    plan = _transition_plan(harness, proof)
+    expectations, previous = cluster.prepare_adoptions(plan, desired)
+    desired = cluster.bind_adoption_selectors(desired, expectations)
+    workload = Workload(
+        cluster=cluster,
+        namespace=harness.namespace,
+        health_timeout_seconds=1,
+        poll_interval_seconds=0,
+        sleep=lambda _seconds: None,
+    )
+
+    workload.preflight(desired, previous, adoptions=expectations)
+    cluster.adopt_existing(desired, expectations, plan_id=plan.plan_id)
+
+    assert workload.apply(desired)
+    assert len(expectations) == len(previous) == 7
+    assert len(provider.adopted) == 7
+    assert len(store.load().resources) == 16
+    assert provider.objects[object_key(desired[0])]["spec"]["selector"]["matchLabels"] == {
+        "app.kubernetes.io/name": "core-control-plane"
+    }
+    receipts = list(store.path.parent.glob("lifecycle-native-adoption-*.json"))
+    assert len(receipts) == 1
+    receipt = json.loads(receipts[0].read_text())
+    assert len(receipt["objects"]) == 7
+    assert receipt["authorization_digest"] == approval.digest
+    assert receipt["ownership_digest"] == proof.claim.digest
+    retry_plan = _transition_plan(harness, proof, plan_id="native-transition-restart")
+    retry_expectations, recovered_previous = cluster.prepare_adoptions(retry_plan, desired)
+    assert retry_expectations == ()
+    assert len(recovered_previous) == 16
+    retry_desired = cluster.bind_adoption_selectors(desired, retry_expectations)
+    assert retry_desired[0]["spec"]["selector"]["matchLabels"] == {
+        "app.kubernetes.io/name": "core-control-plane"
+    }
+    workload.preflight(retry_desired, recovered_previous)
+    assert workload.apply(retry_desired)
+
+
+def test_existing_native_state_transition_refuses_conflicting_uid(harness) -> None:
+    component = "operator"
+    desired = _transition_manifests(harness.namespace, (component,))
+    provider = UidProvider()
+    clock = harness.dependencies().clock
+    scope = NativeScope(
+        installation_id=harness.settings().installation_id,
+        entity_id="application",
+        product="example-web",
+        namespace=harness.namespace,
+        components=(component,),
+        service_components=(),
+    )
+    creation_approval = NativeApproval(
+        schema_version="fdai.lifecycle-native-approval.v1",
+        scope=scope,
+        profile="full-authority-development",
+        approved_by="owner",
+        approved_at=clock() - timedelta(minutes=2),
+        expires_at=clock() + timedelta(hours=1),
+    )
+    _empty_application_state(harness, clock)
+    store = NativeStateStore(harness.state_store.path.parent)
+    key = Ed25519PrivateKey.generate()
+    proof = bootstrap_native_scope(
+        provider,
+        store,
+        creation_approval,
+        key,
+        current_state_path=harness.state_file,
+        clock=clock,
+        apply=True,
+    )
+    assert proof is not None
+    provider.objects[("Deployment", component)] = _foreign_object(
+        desired[0], uid="uid-live", version="7"
+    )
+    transition_approval = creation_approval.model_copy(
+        update={
+            "approved_at": clock() - timedelta(minutes=1),
+            "existing_resources": (
+                NativeObjectIdentity(
+                    kind="Deployment",
+                    name=component,
+                    uid="uid-conflict",
+                ),
+            ),
+        }
+    )
+    cluster = NativeCluster(
+        provider,
+        store,
+        transition_approval,
+        key.public_key().public_bytes_raw(),
+        clock,
+    )
+
+    with pytest.raises(WorkloadError, match="native_adoption_uid_conflict"):
+        cluster.prepare_adoptions(_transition_plan(harness, proof), desired)
+
+    assert store.load().resources == {}
+    assert provider.adopted == []
+
+
+def test_interrupted_existing_native_state_transition_rolls_back_and_retries(harness) -> None:
+    components = ("operator", "worker")
+    desired = _transition_manifests(harness.namespace, components)
+    provider = UidProvider()
+    clock = harness.dependencies().clock
+    scope = NativeScope(
+        installation_id=harness.settings().installation_id,
+        entity_id="application",
+        product="example-web",
+        namespace=harness.namespace,
+        components=components,
+        service_components=(),
+    )
+    creation_approval = NativeApproval(
+        schema_version="fdai.lifecycle-native-approval.v1",
+        scope=scope,
+        profile="full-authority-development",
+        approved_by="owner",
+        approved_at=clock() - timedelta(minutes=2),
+        expires_at=clock() + timedelta(hours=1),
+    )
+    _empty_application_state(harness, clock)
+    store = NativeStateStore(harness.state_store.path.parent)
+    key = Ed25519PrivateKey.generate()
+    proof = bootstrap_native_scope(
+        provider,
+        store,
+        creation_approval,
+        key,
+        current_state_path=harness.state_file,
+        clock=clock,
+        apply=True,
+    )
+    assert proof is not None
+    identities = tuple(
+        NativeObjectIdentity(
+            kind="Deployment",
+            name=component,
+            uid=f"uid-{component}",
+        )
+        for component in components
+    )
+    for manifest, identity in zip(desired, identities, strict=True):
+        provider.objects[object_key(manifest)] = _foreign_object(
+            manifest, uid=identity.uid, version="10"
+        )
+    transition_approval = creation_approval.model_copy(
+        update={
+            "approved_at": clock() - timedelta(minutes=1),
+            "existing_resources": identities,
+        }
+    )
+    assert store.load().approval_digest == creation_approval.digest
+    assert store.load().approval_digest != transition_approval.digest
+    cluster = NativeCluster(
+        provider,
+        store,
+        transition_approval,
+        key.public_key().public_bytes_raw(),
+        clock,
+    )
+    plan = _transition_plan(harness, proof)
+    expectations, previous = cluster.prepare_adoptions(plan, desired)
+    desired = cluster.bind_adoption_selectors(desired, expectations)
+    workload = Workload(
+        cluster=cluster,
+        namespace=harness.namespace,
+        health_timeout_seconds=1,
+        poll_interval_seconds=0,
+        sleep=lambda _seconds: None,
+    )
+    workload.preflight(desired, previous, adoptions=expectations)
+    provider.fail_adoption_name = "worker"
+
+    with pytest.raises(WorkloadError, match="injected_adoption_interruption"):
+        cluster.adopt_existing(desired, expectations, plan_id=plan.plan_id)
+
+    cluster.recover_adoptions(expectations)
+    assert workload.roll_back(desired, previous, adoptions=expectations)
+    assert store.load().resources == {"Deployment/operator": "uid-operator"}
+    assert provider.objects[("Deployment", "operator")]["metadata"]["ownerReferences"]
+    provider.fail_adoption_name = None
+    retry_plan = _transition_plan(harness, proof, plan_id="native-transition-2")
+    retry_expectations, retry_previous = cluster.prepare_adoptions(retry_plan, desired)
+    desired = cluster.bind_adoption_selectors(desired, retry_expectations)
+    workload.preflight(desired, retry_previous, adoptions=retry_expectations)
+    cluster.adopt_existing(
+        desired,
+        retry_expectations,
+        plan_id=retry_plan.plan_id,
+    )
+
+    assert workload.apply(desired)
+    assert [item.name for item in retry_expectations] == ["worker"]
+    assert provider.adopted == [
+        ("Deployment", "operator"),
+        ("Deployment", "worker"),
+    ]
+    assert store.load().resources == {
+        "Deployment/operator": "uid-operator",
+        "Deployment/worker": "uid-worker",
+    }

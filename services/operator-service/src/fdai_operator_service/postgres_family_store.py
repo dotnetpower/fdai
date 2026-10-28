@@ -45,6 +45,7 @@ from fdai_operator_service.families.operations.instance_states import (
     InventoryStatePage,
 )
 from fdai_operator_service.postgres_capability_recall import merge_capability_recall_rows
+from fdai_operator_service.postgres_conversation_summaries import conversation_summary_sql
 from fdai_operator_service.postgres_family_evidence import (
     aks_diagnostic_receipt as _aks_diagnostic_receipt,
 )
@@ -1646,33 +1647,11 @@ class PostgresFamilyStore:
         if (before_last_active is None) != (before_conversation_id is None):
             raise ValueError("conversation cursor MUST be complete")
         parameters: dict[str, object] = {"principal_id": principal_id, "limit": limit}
-        cursor_clause = ""
         if before_last_active is not None:
-            cursor_clause = (
-                " AND (record.last_active, record.conversation_id)"
-                " < (%(before_last_active)s, %(before_conversation_id)s)"
-            )
             parameters["before_last_active"] = before_last_active
             parameters["before_conversation_id"] = before_conversation_id
         return await self._fetch_all(
-            "SELECT record.conversation_id, record.channel_id, record.started_at,"
-            " record.last_active, record.status,"
-            " (SELECT turn.turn_id FROM conversation_turn AS turn"
-            "   WHERE turn.principal_id = record.principal_id"
-            "     AND turn.conversation_id = record.conversation_id"
-            "     AND turn.role = 'operator'"
-            "   ORDER BY turn.turn_index DESC LIMIT 1) AS latest_operator_turn_id,"
-            " (SELECT turn.content FROM conversation_turn AS turn"
-            "   WHERE turn.principal_id = record.principal_id"
-            "     AND turn.conversation_id = record.conversation_id"
-            "     AND turn.role = 'operator'"
-            "   ORDER BY turn.turn_index LIMIT 1) AS first_operator_question"
-            " FROM conversation_record AS record"
-            " WHERE record.principal_id = %(principal_id)s"  # noqa: S608
-            f"{cursor_clause}"
-            " ORDER BY record.last_active DESC, record.conversation_id DESC"
-            " LIMIT %(limit)s",
-            parameters,
+            conversation_summary_sql(with_cursor=before_last_active is not None), parameters
         )
 
     async def read_user_context_records(

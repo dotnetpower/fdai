@@ -95,6 +95,13 @@ variable "operator_request_receipts" {
   default = {}
 }
 
+variable "result_handles" {
+  type = object({
+    key_secret_id = optional(string, "")
+  })
+  default = {}
+}
+
 variable "rca_reader_identity" {
   type = object({
     resource_id = optional(string, "")
@@ -128,6 +135,16 @@ variable "teams_notification_binding" {
     channel_id         = optional(string, "teams-ops")
     trust_tiers        = optional(list(string), ["a2_operational_alert"])
     endpoint_secret_id = optional(string, "")
+  })
+  default = {}
+}
+
+variable "catalog_freshness" {
+  type = object({
+    metadata_url    = optional(string, "")
+    root_key_ids    = optional(list(string), [])
+    root_threshold  = optional(number, 0)
+    refresh_seconds = optional(number, 300)
   })
   default = {}
 }

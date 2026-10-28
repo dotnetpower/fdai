@@ -31,8 +31,15 @@ _ACTION_OPERATIONS = {
     "ops.scale-out": "azure.compute.vmss.scale",
     "ops.upsert-network-rule": "azure.network.nsg.rule.upsert",
     "ops.delete-network-rule": "azure.network.nsg.rule.delete",
+    "remediate.subscription-tag-add": "azure.subscription.tags.merge",
     "remediate.tag-add": "azure.resource.tags.merge",
 }
+_TAG_OPERATIONS = frozenset(
+    {
+        "azure.resource.tags.merge",
+        "azure.subscription.tags.merge",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +103,7 @@ class AzureGatewayDirectApiExecutor:
             operation_id,
             request.arguments,
             resource_ref=request.resource_ref,
+            action_type_name=request.action_type_name,
         )
         safety = _safety(request)
         plan = await self._invoke(
@@ -235,12 +243,17 @@ def _arguments(
     raw: Mapping[str, object],
     *,
     resource_ref: str,
+    action_type_name: str,
 ) -> dict[str, object]:
     required: tuple[str, ...]
     if operation_id == "azure.compute.vmss.scale":
         return _vmss_scale_arguments(raw, resource_ref=resource_ref)
-    if operation_id == "azure.resource.tags.merge":
-        return _tag_arguments(raw, resource_ref=resource_ref)
+    if operation_id in _TAG_OPERATIONS:
+        return _tag_arguments(
+            action_type_name,
+            raw,
+            resource_ref=resource_ref,
+        )
     if operation_id.startswith("azure.compute.vm."):
         required = ("resource_group", "vm_name")
     elif operation_id == "azure.network.nsg.rule.delete":
@@ -256,6 +269,7 @@ def _arguments(
 
 
 def _tag_arguments(
+    action_type_name: str,
     raw: Mapping[str, object],
     *,
     resource_ref: str,
@@ -263,7 +277,7 @@ def _tag_arguments(
     arguments = dict(raw)
     arguments.setdefault("target_resource_ref", resource_ref)
     try:
-        target = resolve_azure_operation_target("remediate.tag-add", arguments)
+        target = resolve_azure_operation_target(action_type_name, arguments)
     except ValueError as exc:
         raise DirectApiPreconditionError(str(exc)) from exc
     if target.resource_ref != resource_ref:

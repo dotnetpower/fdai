@@ -47,6 +47,11 @@ output "aks_subnet_id" {
   value       = length(azurerm_subnet.aks) > 0 ? azurerm_subnet.aks[0].id : null
 }
 
+output "aks_subnet_nsg_id" {
+  description = "Dedicated AKS node subnet NSG id, or null when the AKS runtime is not selected."
+  value       = length(azurerm_network_security_group.aks) > 0 ? azurerm_network_security_group.aks[0].id : null
+}
+
 output "aks_api_server_subnet_id" {
   description = "Delegated AKS API Server VNet Integration subnet id, or null when AKS is not selected."
   value       = length(azurerm_subnet.aks_api_server) > 0 ? azurerm_subnet.aks_api_server[0].id : null

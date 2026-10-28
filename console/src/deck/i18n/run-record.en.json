@@ -8,5 +8,7 @@
   "cumulativeModelTime": "Cumulative model time (parallel calls summed)",
   "inputTokens": "Input tokens",
   "outputTokens": "Output tokens",
-  "totalTokens": "Total tokens"
+  "totalTokens": "Total tokens",
+  "tokensWithCached": "{total} (cached {cached})",
+  "cachedTokens": "Cached input tokens"
 }

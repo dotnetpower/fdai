@@ -472,6 +472,43 @@ def test_typed_only_answering_needs_its_whole_path_or_refuses_to_start() -> None
         typed_only_enabled({**complete, "FDAI_EXECUTION_VENUE": "deployed"})
 
 
+def test_the_escalation_reader_exists_only_for_typed_only_turns_with_a_t2_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.composition import semantic_query_type_grounding as grounding
+    from fdai.delivery.azure.llm.request_target import ModelRequestTarget
+
+    target = ModelRequestTarget(
+        endpoint="https://example.invalid", deployment="reasoner-t2", api_version="2024-10-21"
+    )
+    configured: list[tuple[ModelRequestTarget, ...]] = []
+
+    def config_for(form_targets: tuple[ModelRequestTarget, ...]) -> Any:
+        configured.append(form_targets)
+        return SimpleNamespace()
+
+    def build(typed_only: bool) -> Any:
+        return grounding._escalation_reader(
+            typed_only=typed_only,
+            resolved=SimpleNamespace(),  # type: ignore[arg-type]
+            endpoint=None,
+            endpoint_resolver=None,
+            held_capabilities=frozenset(),
+            config_for=config_for,
+            identity=SimpleNamespace(),  # type: ignore[arg-type]
+            http_client=SimpleNamespace(),  # type: ignore[arg-type]
+        )
+
+    monkeypatch.setattr(grounding, "t2_model_targets", lambda *_a, **_k: (target,))
+    assert build(typed_only=False) is None
+    assert build(typed_only=True) is not None
+    # The replacement reader reads through the T2 target only.
+    assert configured == [(target,)]
+
+    monkeypatch.setattr(grounding, "t2_model_targets", lambda *_a, **_k: ())
+    assert build(typed_only=True) is None
+
+
 def _relation_compilation(scope: str) -> ReasoningCompilation:
     from tests.conversation.test_semantic_reasoning_compiler import _compile, _relation_form
 
@@ -773,7 +810,7 @@ def test_hold_details_stay_closed_codes_on_held_outcomes_only() -> None:
         )
 
 
-async def test_a_failed_form_is_read_once_more_and_never_more_than_twice(
+async def test_a_failed_form_is_read_again_and_never_more_than_three_times(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     invalid = _observation(released=False, passes=(ShadowPass(0, "invalid"),), compilations=())
@@ -795,6 +832,79 @@ async def test_a_failed_form_is_read_once_more_and_never_more_than_twice(
     assert result.model_calls == invalid.model_calls + 4
     # The replaced sample stays attached so the turn can record why it was declined.
     assert result.discarded_sample is invalid
+
+
+@pytest.mark.parametrize("third_released", [True, False])
+async def test_a_second_invalid_form_is_read_a_third_time_and_then_stops(
+    monkeypatch: pytest.MonkeyPatch, third_released: bool
+) -> None:
+    def invalid() -> ReasoningShadowObservation:
+        return _observation(released=False, passes=(ShadowPass(0, "invalid"),), compilations=())
+
+    samples = [invalid(), invalid(), _observation() if third_released else invalid()]
+    calls: list[int] = []
+
+    async def shadow(**_arguments: Any) -> ReasoningShadowObservation:
+        calls.append(1)
+        return samples.pop(0)
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    collector = semantic_compiled_answers._ObservationCollector()
+
+    result = await semantic_compiled_answers._run_form_path(object(), collector)  # type: ignore[arg-type]
+
+    assert len(calls) == 3
+    assert result.released is third_released
+
+
+async def test_the_second_reading_uses_the_escalation_reader_when_one_is_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalid = _observation(released=False, passes=(ShadowPass(0, "invalid"),), compilations=())
+    samples = [invalid, _observation()]
+    readers: list[object] = []
+
+    async def shadow(**arguments: Any) -> ReasoningShadowObservation:
+        readers.append(arguments["model"])
+        return samples.pop(0)
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    primary, escalation = object(), object()
+    collector = semantic_compiled_answers._ObservationCollector()
+
+    result = await semantic_compiled_answers._run_form_path(
+        primary,  # type: ignore[arg-type]
+        collector,
+        escalation_model=escalation,  # type: ignore[arg-type]
+    )
+
+    # Only the replacement sample escalates; the first reading always uses the primary reader.
+    assert readers == [primary, escalation]
+    assert result.released and "form_escalated" in result.notes
+    assert result.discarded_sample is invalid
+
+
+async def test_without_an_escalation_reader_both_samples_use_the_primary_reader(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    samples = [
+        _observation(released=False, passes=(ShadowPass(0, "invalid"),), compilations=()),
+        _observation(),
+    ]
+    readers: list[object] = []
+
+    async def shadow(**arguments: Any) -> ReasoningShadowObservation:
+        readers.append(arguments["model"])
+        return samples.pop(0)
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    primary = object()
+    collector = semantic_compiled_answers._ObservationCollector()
+
+    result = await semantic_compiled_answers._run_form_path(primary, collector)  # type: ignore[arg-type]
+
+    assert readers == [primary, primary]
+    assert "form_escalated" not in result.notes
 
 
 async def test_an_answerable_or_unsupported_reading_is_never_resampled(

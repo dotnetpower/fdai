@@ -6465,3 +6465,40 @@ def test_production_composition_retains_receipts_only_when_the_reference_is_enab
     published_turn = cast(Mapping[str, object], published["semantic_turn"])
     assert retained_turn["authentication_receipt_ref"] == receipt.receipt_digest
     assert published_turn["authentication_receipt_ref"] == receipt.receipt_digest
+
+
+def _history(count: int) -> list[dict[str, str]]:
+    return [
+        {"role": "user" if index % 2 == 0 else "assistant", "content": f"고혈압 turn {index}"}
+        for index in range(count)
+    ]
+
+
+def _dialogue_proposal(count: int) -> ConversationProposal:
+    return ConversationProposal(
+        operation="chat.stream",
+        scope=PrincipalScope("operator-1", frozenset({"Owner"})),
+        idempotency_key="dialogue-state-request",
+        body={"prompt": "Continue.", "session_id": "session-1", "history": _history(count)},
+    )
+
+
+def test_dialogue_state_is_delivered_only_when_enabled_and_turns_are_compacted() -> None:
+    now = datetime(2026, 10, 28, tzinfo=UTC)
+    enabled = SemanticTurnEnvelopeBuilder(clock=lambda: now, emit_dialogue_state=True)
+
+    delivered = enabled.build(_dialogue_proposal(11))
+    semantic = delivered["semantic_turn"]
+    assert isinstance(semantic, dict)
+    assert delivered["schema_version"] == "1.12.0"
+    state = semantic["dialogue_state"]
+    assert state["source_turn_count"] == 11
+    assert state["compacted_turn_ids"] == [f"session-1:prior:{index}" for index in range(3)]
+    assert state["execution_authority"] is False
+    assert "고혈압" not in json.dumps(state, ensure_ascii=False)
+
+    assert "dialogue_state" not in enabled.build(_dialogue_proposal(8))["semantic_turn"]  # type: ignore[operator]
+    assert enabled.build(_dialogue_proposal(8))["schema_version"] != "1.12.0"
+    disabled = SemanticTurnEnvelopeBuilder(clock=lambda: now).build(_dialogue_proposal(11))
+    assert disabled["schema_version"] != "1.12.0"
+    assert "dialogue_state" not in disabled["semantic_turn"]  # type: ignore[operator]

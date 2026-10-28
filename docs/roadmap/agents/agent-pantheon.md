@@ -337,17 +337,27 @@ identities. Older pending or claimed audits are never evicted by newer completed
 Saga's inner audit chain uses a closed, content-hashed schema-v2 journal at the existing
 verified-head key. Every append verifies the shared revision and atomically commits the next
 head with its audit row through StateStore CAS-with-audit, rather than trusting an instance-local
-head. Eight attempts and a two-second deadline bound lock admission and retries. An atomic
+head. A local queue admits at most 256 waiting appends under a separate 30-second wait;
+eight attempts and a two-second active-work deadline then bound retries. An atomic
 CAS-with-audit admitted before the deadline runs to an unambiguous commit or rollback instead of
 being cancelled during transaction cleanup. Failure or cancellation never exposes an uncommitted
 mirror entry. The journal retains at most 512 digest-only entries within
 512 KiB and a verified prefix anchor. Local correlation lookup covers that retained window only;
 full-history verification is explicitly unavailable after the prefix leaves the local projection.
 
+Transient append backpressure retains the authenticated original message in Saga's durable
+recovery inbox before broker acknowledgment. Startup and maintenance recover oldest pending or
+expired-lease messages in bounded pages under revision-fenced 120-second leases and a 30-second
+cycle budget. Only completed recovery tombstones may be compacted; pending input is never evicted.
+Chain-integrity errors remain blocking, and no audit seal precedes a successful append. Document
+source reconciliation may redeliver an identical sealed decision, preserving all worker effect
+claims and human-approval gates. See
+[document recovery](../interfaces/document-ingestion-agent-ownership.md#backpressure-and-gated-state-recovery).
+These local mechanics do not establish deployed steady-state throughput.
+
 Legacy migration requires all old Saga writers to be stopped first; an already running old
 writer with a cached head cannot be fenced by this new reader. The optional StateStore audit
-reader must prove complete oldest-first history of at most 512 total audit rows, including
-unrelated rows, and validate contiguous Saga entries, payload digests and any old checkpoint.
+reader must prove complete oldest-first history of at most 512 of the chain's own audit records, and validate contiguous Saga entries, payload digests and any old checkpoint. Every component writes the same audit table, so a reader that offers a chain-only read filters in the database before its limit; other components' rows never count toward the bound. A fresh runtime therefore starts its chain no matter how many unrelated audit rows exist, while a reader without that filter keeps the stricter total-row bound.
 Missing readers, truncated or forked history and inconsistent checkpoints hold without rewriting
 audit evidence. Longer legacy histories require a separately reviewed migration, not an invented
 head. New replicas share committed revisions after migration; mixed-version rolling writes and

@@ -18,7 +18,8 @@ for setup ownership, exact input pins, optional CronJob RBAC and unverified sche
 - Azure identity is loaded only when workload federation is explicitly selected. It requests
   only the configured Hub API scope; no Azure management client, CLI credential, or client secret
   is used. The default dry run loads neither Azure nor Kubernetes. Only `kube.py` imports a
-  Kubernetes client; explicit `--apply` or the read-only `reference-status` command loads it.
+  Kubernetes client; explicit `--apply` or the read-only `reference-status` and `enroll`
+  commands load it.
 - `hub_client.py` opens outbound Hub connections. Explicit federation also contacts Entra through
   the identity SDK. Bearer transport requires an exact HTTPS origin and never follows redirects.
   Plain HTTP is accepted only for the unauthenticated loopback profile.
@@ -60,8 +61,14 @@ for setup ownership, exact input pins, optional CronJob RBAC and unverified sche
    `POST /v1/installations/{installation_id}/plans/{plan_id}/reports`. A `503 concurrent_write`
    is retried up to three times after `Retry-After`. Any other failure resends the identical report on the next
    poll, which the Hub accepts as a duplicate, so `attempt` doesn't grow while the Hub is
-   unreachable. Only a `409 report_conflict` makes the next poll start a new `attempt`. A reported
-   Plan is not evaluated again.
+   unreachable. A `409 report_conflict` means that the attempt already contains different bytes.
+   The Agent retains that attempt, halts before the next Hub fetch, and keeps any apply journal for
+   operator reconciliation. It never invents a successor because the Agent-authenticated API
+   doesn't expose the conflicting report. The agent retains a contiguous history of up to eight
+   reports from attempt 1. A `409 report_attempt_gap` replays that history in order, including any
+   earlier retryable rejection, until the Hub accepts the current report. A reported Plan is not
+   evaluated again. Unknown or non-contiguous legacy report progress fails closed instead of
+   guessing.
 
 A rejection blocks its sequence durably, except a retryable one: an input that is missing or
 unreadable (`release_unavailable`, `configuration_unreadable`, and so on), or bytes that no
@@ -81,7 +88,8 @@ nothing, logs `lifecycle_agent.plan_id_conflict`, and exits `1`.
 
 | Option | Content |
 |--------|---------|
-| `--inputs-dir` | `releases/<digest>.json` (an application or legacy runtime manifest) and `configurations/<digest>.json` (`schema`, `environment`, `entity_overrides`), each with a raw Ed25519 signature over the file bytes in `<digest>.sig`. `<digest>` is the hex SHA-256 of the document's canonical JSON. |
+| `--artifact-source` | `directory` reads pre-staged files. `hub` downloads only the exact Release and active configuration named by the current Plan and requires workload-identity authentication. |
+| `--inputs-dir` | For `directory`, contains `releases/<digest>.json` and `configurations/<digest>.json` plus raw Ed25519 `<digest>.sig` files. For `hub`, this is an optional private verified cache; omission uses `<state-dir>/artifact-cache`. |
 | `--current-state` | The Hub's reported-state shape, rewritten by the agent in apply mode: `{"digest": "<64 hex>", "schema_revision": 15, "entities": {"<entity>": {"release_id": "1.4.0", "artifact_digests": ["sha256:..."], "health": "healthy"}}, "observed_at": "<RFC 3339>"}` |
 | `--local-policy` | `{"schema": "fdai.lifecycle-local-policy.v1", "entity_ids": [...], "regions": [...], "capability_modes": {...}, "destructive_allowed": false, "max_duration_minutes": 60, "entity_components": {"core": ["core-control-plane"]}}`. Every Entity in `entity_ids` must name at least one component. Apply mode also needs `"component_images": {"core-control-plane": "<repository>"}`, a repository path without a tag or digest for every component. |
 
@@ -146,8 +154,12 @@ artifact synchronization, Agent rollout or production trust is established by so
 ## Apply mode
 
 Apply mode defaults to the narrow demo path for one development namespace. The signed
-configuration can instead select the [Operator profile](#same-schema-operator-profile). Neither
-path implements the full renderer or ownership handoff of #1946.
+configuration can instead select the [Operator profile](#same-schema-operator-profile) or the
+independently pinned private runtime bundle. A full-authority development native approval may list
+exact existing kind/name/UID objects for a mixed adoption-and-create Plan. The Hub-signed Plan must
+bind the accepted native claim in `ownership_digests`; the Agent keeps names and UIDs private,
+adopts only Terraform-owned fields, and creates only omitted objects that remain absent. See the
+[deployment handoff](../../docs/runbooks/hub-lifecycle-deployment-handoff.md#adopt-exact-existing-objects-in-a-mixed-scope).
 
 ```bash
 fdai-lifecycle-agent poll-once <options above> \
@@ -160,6 +172,8 @@ fdai-lifecycle-agent poll-once <options above> \
 | `--kube-context` | Select one kubeconfig context, or select `--in-cluster`, with `--apply`. |
 | `--in-cluster` | Use the Pod's projected Kubernetes identity and CA, without kubeconfig fallback. |
 | `--namespace` | The only namespace the agent reads or changes. Required with `--apply`. |
+| `--native-approval` | Independent local approval for the exact native scope and optional sorted existing kind/name/UID objects. |
+| `--installation-public-key` | Enrolled installation public key used to verify the retained native proof. |
 | `--health-timeout-seconds` | How long each rollout and each rollback has to complete. Default `180`. |
 
 ### Remote development preparation
@@ -169,14 +183,22 @@ register an application, grant a role, create an AKS cluster, or authorize workl
 Use a separately approved Hub build that supports `auth.agent_principals`. Each entry binds
 `installation_id`, `object_id` and `client_id` to one distinct application identity. The verified
 token also needs `idtyp=app` and the `Agent.Access` application role. The role permits only that
-installation's Plan GET/HEAD and state/report POST routes, never enrollment, catalog, operator
-approval or recomputation. Empty bindings retain denial by default.
+installation's Plan GET/HEAD, state/report POST and pending-enrollment request routes, never
+enrollment approval, catalog, operator approval or recomputation. Empty bindings retain denial by
+default.
 
 Select federation with `--hub-auth workload-identity --hub-scope api://<hub-api-id>/.default`.
 The AKS workload-identity webhook supplies `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and
 `AZURE_FEDERATED_TOKEN_FILE`. Its projected token has the token-exchange audience, not the
 Kubernetes API audience. Kubernetes authentication still uses its own projected identity.
 Don't supply token contents through command arguments, input files or logs.
+
+Connected Agents can add `--artifact-source hub` instead of pre-staging signed inputs. Lifecycle
+Hub serves only the Release and configuration digests in that installation's current eligible
+Plan, after rechecking accepted catalog and configuration-import provenance. The Agent verifies
+the original signatures and canonical digests before publishing a mode-`0600` private cache.
+Subsequent polls reuse exact bytes. A missing or changed artifact remains a retryable hold and
+doesn't reach Kubernetes.
 
 The `poll` command accepts the same settings as `poll-once` plus `--max-polls` (default 30),
 `--poll-interval-seconds` (15) and `--max-duration-seconds` (900). It bounds poll starts and
@@ -213,6 +235,87 @@ local policy read-only. Use one Agent replica and a Recreate strategy with the R
 volume. Don't substitute `emptyDir` or container-local storage for the replay floor, pending
 reports, journal or current state. These are preparation templates, not an installed Agent
 image or evidence that a cloud Pod can authenticate, mount storage or recover after eviction.
+
+### Enrolling this installation
+
+`fdai-lifecycle-agent enroll` lets the Agent submit its own enrollment request, so the operator no
+longer carries a signed file. The Agent only proposes: the Hub records a pending request, and a
+human still accepts it after comparing the installation key id out of band.
+
+```bash
+fdai-lifecycle-agent enroll \
+  --installation-id <installation-id> \
+  --installation-key <owner-only-private-key.pem> \
+  --declaration <owner-only-declaration.json> \
+  --namespace <workload-namespace> \
+  --hub-url https://<hub-origin> \
+  --hub-scope api://<hub-api-id>/.default
+```
+
+The command:
+
+1. Loads the existing owner-only installation private key (`0600`, current UID, no symlink). It
+   never generates, prints, exports or logs the key.
+2. Derives Entities and reported state from the Agent's own namespace using the in-cluster
+   identity only; there is no kubeconfig option or fallback. It makes two bounded read-only list
+   calls (Deployments and CronJobs labelled `fdai.io/entity`), never reads Secrets, and refuses
+   a continuation page instead of enrolling a partial view.
+3. Reads the customer-owned settings and configuration from `--declaration`, a strict owner-only
+   JSON file of at most 64 KiB. The Agent never invents a setting, and the file cannot carry
+   `product`, `plan_duration` or `fencing_generation`.
+4. Signs the payload with the shared `fdai_deployment_cli.lifecycle_enrollment` implementation,
+   the same bytes `fdai-lifecycle-hub sign-enrollment` produces, and POSTs it with the workload
+   identity token to `POST /v1/installations/{id}/enrollment-request`.
+5. Prints only the installation id, installation key id, `pending` status and the submit-before
+   time (the five-minute proof window).
+
+The declaration uses this schema; any other field is rejected:
+
+```json
+{
+  "schema": "fdai.lifecycle-installation-declaration.v1",
+  "installation_id": "<installation-id>",
+  "settings": {
+    "channel": "stable",
+    "version_range": ">=1.4.0 <2.0.0",
+    "region": "korea-central",
+    "allowed_regions": ["korea-central"],
+    "windows": [
+      {"start": "11:30:00", "duration": "PT1H", "timezone": "Asia/Seoul", "allows_downtime": false}
+    ]
+  },
+  "configuration": {
+    "schema": {},
+    "environment": {},
+    "entity_overrides": []
+  }
+}
+```
+
+Cluster-derived facts. A workload belongs to an Entity when it carries `fdai.io/entity`; the value
+must be a Hub identifier. The Release id is the workload's canonical SemVer
+`app.kubernetes.io/version` label, the schema revision is its `fdai.io/schema-revision`
+annotation, artifact digests are its `@sha256:` image references, and health comes from
+Deployment rollout status. A workload without a version label reports the explicit empty state
+(`release_id: null`, health `unknown`). Mixed or non-canonical Release ids, an unobserved or
+inconsistent schema revision for an installed Entity, a workload outside the namespace, an invalid
+Entity id, more than 64 Entities, or no labelled workload stop the command before any Hub call.
+Unlabelled workloads are invisible to enrollment.
+
+Failure handling. Exit code `2` means nothing was sent (local input, key, cluster or identity
+problem). Exit code `3` means the Hub answered with a refusal; `installation_exists` means a
+pending, enrolled or rejected record already exists, so re-running is idempotent and changes
+nothing. Exit code `4` means the delivery result is unknown. The command never retries
+automatically after an uncertain result, because the Hub may have recorded the request; check the
+Hub's pending enrollment list before running it again. Only an explicit `503 concurrent_write`,
+which the Hub answers before committing, is resent by the shared transport.
+
+The command needs a namespace-scoped `list` on Deployments and CronJobs in addition to the
+existing `get`. The [enrollment read Role](deploy/enrollment-rbac.yaml) adds only that, and the
+independent Lifecycle Agent Terraform root includes the same rule. The installation private key
+and the declaration must reach the Pod's owner-only private state path outside Terraform; the key
+never becomes a Terraform input. Local tests do not prove a cloud Pod can authenticate, list or
+reach the Hub.
 
 ### What the agent applies
 

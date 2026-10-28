@@ -4,18 +4,49 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from fdai_lifecycle_hub import audit, models, rows
+from fdai_lifecycle_hub import audit, mapping, models, rows
 from fdai_lifecycle_hub.configuration_keys import (
     ConfigurationKeyRequest,
+    DevelopmentIdentityRecoveryRequest,
     KeyBindingError,
+    SignedDevelopmentIdentityRecovery,
     SignedKeyRequest,
 )
 from fdai_lifecycle_hub.migrations import require_writable_schema
+from fdai_lifecycle_hub.signing import installation_key_id
+
+
+class DevelopmentRecoveryAuthorizationLike(Protocol):
+    @property
+    def installation_id(self) -> str: ...
+
+    @property
+    def scope(self) -> str: ...
+
+    @property
+    def operator_id(self) -> str: ...
+
+    @property
+    def previous_identity_key_id(self) -> str: ...
+
+    @property
+    def replacement_identity_public_key(self) -> str: ...
+
+    @property
+    def replacement_identity_key_id(self) -> str: ...
+
+    @property
+    def allow_single_owner_configuration_approval(self) -> bool: ...
+
+    @property
+    def reason(self) -> str: ...
+
+    def is_current(self, *, installation_id: str, operator_id: str, now: datetime) -> bool: ...
 
 
 class ConfigurationKeyStore:
@@ -112,7 +143,121 @@ class ConfigurationKeyStore:
 
         return self._decide(installation_id, actor, now, "requested", decision)
 
-    def approve(self, installation_id: str, digest: str, *, actor: str, now: datetime) -> str:
+    def recover_identity(
+        self,
+        installation_id: str,
+        signed: SignedDevelopmentIdentityRecovery,
+        *,
+        actor: str,
+        now: datetime,
+        authorization: DevelopmentRecoveryAuthorizationLike | None,
+    ) -> str:
+        failure: KeyBindingError | None = None
+        digest = installation_id
+        idempotent = False
+        request: DevelopmentIdentityRecoveryRequest | None = None
+        with self._sessions.begin() as session:
+            require_writable_schema(session.connection())
+            installation = rows.lock_enrolled(session, installation_id)
+            try:
+                request = signed.parsed()
+                digest = request.digest
+                if (
+                    authorization is None
+                    or installation_id != authorization.installation_id
+                    or actor != authorization.operator_id
+                    or request.installation_id != installation_id
+                    or request.scope != authorization.scope
+                    or request.previous_identity_key_id != authorization.previous_identity_key_id
+                    or request.replacement_identity_public_key
+                    != authorization.replacement_identity_public_key
+                ):
+                    raise KeyBindingError("development_identity_recovery_not_authorized")
+                current_key_id = installation_key_id(installation.installation_key)
+                accepted = session.scalar(
+                    select(models.AuditRecord).where(
+                        models.AuditRecord.action == "configuration.identity.development-recovered",
+                        models.AuditRecord.installation_id == installation_id,
+                        models.AuditRecord.subject == request.digest,
+                    )
+                )
+                if accepted is not None:
+                    request.verify_possession(signed.proof, now=request.requested_at)
+                    if current_key_id != request.replacement_key_id:
+                        raise KeyBindingError("development_identity_recovery_conflict")
+                    idempotent = True
+                elif not authorization.is_current(
+                    installation_id=installation_id, operator_id=actor, now=now
+                ):
+                    raise KeyBindingError("development_identity_recovery_not_authorized")
+                else:
+                    request.verify_possession(signed.proof, now=now)
+                if not idempotent and (
+                    current_key_id != request.previous_identity_key_id
+                    or _head(session, installation_id) is not None
+                    or session.scalar(
+                        select(models.ConfigurationKeyRequest.digest).where(
+                            models.ConfigurationKeyRequest.installation_id == installation_id
+                        )
+                    )
+                    is not None
+                    or (open_plan := mapping.open_plan(session, installation_id)) is not None
+                    and now < open_plan.expires_at
+                ):
+                    raise KeyBindingError("development_identity_recovery_conflict")
+                if not idempotent:
+                    installation.installation_key = bytes.fromhex(
+                        request.replacement_identity_public_key
+                    )
+            except KeyBindingError as error:
+                failure = error
+            except ValueError:
+                failure = KeyBindingError("development_identity_recovery_invalid")
+            if failure is not None:
+                audit.append(
+                    session,
+                    now,
+                    "configuration.keys.denied",
+                    installation_id,
+                    digest,
+                    {
+                        "actor": actor,
+                        "operation": "identity-recovery",
+                        "reason": str(failure),
+                    },
+                )
+            elif not idempotent:
+                if request is None or authorization is None:
+                    raise RuntimeError("validated recovery inputs are unavailable")
+                audit.append(
+                    session,
+                    now,
+                    "configuration.identity.development-recovered",
+                    installation_id,
+                    request.digest,
+                    {
+                        "actor": actor,
+                        "scope": authorization.scope,
+                        "profile": "full-authority-development",
+                        "previous_identity_key_id": request.previous_identity_key_id,
+                        "replacement_identity_key_id": request.replacement_key_id,
+                        "request_id": request.request_id,
+                        "reason": authorization.reason,
+                    },
+                )
+        if failure is not None:
+            raise failure
+        return digest
+
+    def approve(
+        self,
+        installation_id: str,
+        digest: str,
+        *,
+        actor: str,
+        now: datetime,
+        recovery_authorization: DevelopmentRecoveryAuthorizationLike | None = None,
+    ) -> str:
         def decision(session: Session, installation: models.Installation) -> str:
             row = session.get(models.ConfigurationKeyRequest, digest)
             if row is None or row.installation_id != installation_id:
@@ -120,7 +265,13 @@ class ConfigurationKeyStore:
             request = ConfigurationKeyRequest.model_validate_json(row.payload)
             if request.digest != digest or request.installation_id != installation_id:
                 raise KeyBindingError("configuration_request_mismatch")
-            if row.requested_by == actor:
+            if row.requested_by == actor and not _single_owner_approval_allowed(
+                session,
+                installation,
+                actor=actor,
+                now=now,
+                authorization=recovery_authorization,
+            ):
                 raise KeyBindingError("configuration_independent_approval_required")
             if now < row.recorded_at or now >= request.approval_expires_at:
                 raise KeyBindingError("configuration_approval_expired")
@@ -179,6 +330,43 @@ class ConfigurationKeyStore:
             )
 
 
+def _single_owner_approval_allowed(
+    session: Session,
+    installation: models.Installation,
+    *,
+    actor: str,
+    now: datetime,
+    authorization: DevelopmentRecoveryAuthorizationLike | None,
+) -> bool:
+    if (
+        authorization is None
+        or not authorization.allow_single_owner_configuration_approval
+        or not authorization.is_current(
+            installation_id=installation.installation_id,
+            operator_id=actor,
+            now=now,
+        )
+        or installation_key_id(installation.installation_key)
+        != authorization.replacement_identity_key_id
+        or _head(session, installation.installation_id) is not None
+    ):
+        return False
+    records = session.scalars(
+        select(models.AuditRecord).where(
+            models.AuditRecord.action == "configuration.identity.development-recovered",
+            models.AuditRecord.installation_id == installation.installation_id,
+        )
+    ).all()
+    return any(
+        record.payload.get("actor") == actor
+        and record.payload.get("scope") == authorization.scope
+        and record.payload.get("previous_identity_key_id") == authorization.previous_identity_key_id
+        and record.payload.get("replacement_identity_key_id")
+        == authorization.replacement_identity_key_id
+        for record in records
+    )
+
+
 def resolve_binding(
     session: Session, installation: models.Installation, version: int, now: datetime
 ) -> ConfigurationKeyRequest:
@@ -221,7 +409,10 @@ def _verified_binding(
     if (
         now < binding.approved_at
         or now >= request.binding_expires_at
-        or row.requested_by == binding.approved_by
+        or (
+            row.requested_by == binding.approved_by
+            and not single_owner_binding_audited(session, installation, binding.approved_by)
+        )
         or binding.approved_at < row.recorded_at
         or binding.approved_at >= request.approval_expires_at
     ):
@@ -249,6 +440,29 @@ def _verified_binding(
     ):
         raise KeyBindingError("configuration_binding_unprovable")
     return request
+
+
+def single_owner_binding_audited(
+    session: Session,
+    installation: models.Installation,
+    actor: str,
+) -> bool:
+    binding = session.get(models.ConfigurationKeyBinding, (installation.installation_id, 1))
+    if binding is None or binding.approved_by != actor:
+        return False
+    records = session.scalars(
+        select(models.AuditRecord).where(
+            models.AuditRecord.action == "configuration.identity.development-recovered",
+            models.AuditRecord.installation_id == installation.installation_id,
+        )
+    ).all()
+    current_key_id = installation_key_id(installation.installation_key)
+    return any(
+        record.payload.get("actor") == actor
+        and record.payload.get("replacement_identity_key_id") == current_key_id
+        and record.record_hash == audit.record_hash(record)
+        for record in records
+    )
 
 
 def _head(session: Session, installation_id: str) -> models.ConfigurationKeyBinding | None:

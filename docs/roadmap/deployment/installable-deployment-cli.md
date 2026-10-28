@@ -3,7 +3,11 @@ title: Installable Deployment CLI
 ---
 # Installable Deployment CLI
 
-> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies. [One-Command Source Deployment](source-deployment.md) owns the source path's artifacts and entitlement selection.
+> **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope)
+> defines the installation contracts. Ordinary clone deployment selects
+> [Hub-image bootstrap](hub-image-deployment.md), not completion of the full managed lifecycle.
+> [One-Command Source Deployment](source-deployment.md) owns explicit source builds and their
+> entitlement selection. Source and offline paths acquire no new Hub prerequisite.
 
 This document defines the public FDAI deployment command. Operators run one local coordinator
 after Azure sign-in, while Terraform apply and private data-plane work run on the managed host
@@ -25,14 +29,38 @@ inside the target virtual network.
 | Infrastructure engine | Terraform from the selected signed profile closure |
 | Target selection | Active interactive Azure CLI user |
 | Apply location | Managed deployment host inside the target VNet |
-| Connected artifact source | One clean checkout; service images are built from it into the deployment's own registry, as [source deployment](source-deployment.md) defines |
+| Connected artifact source | Default clone deployment imports signed image digests selected through `https://hub.msfdai.com`; explicit `--source` builds from the clean checkout without a Hub dependency |
 | Disconnected artifact source | Complete offline profile in one signed kit; no appliance image is produced |
 | Approval | Current human approval bound to each exact plan digest |
 | Runtime identity | Scoped read-only observation identity by default; privileged executor only for the explicit governed-execution add-on |
 | GitHub dependency | None for tenant deployment |
 | Shared Hub library | Application parser and legacy runtime adapter follow the [Release contract](lifecycle-releases-and-channels.md#application-package-contract); public source/offline commands remain unchanged |
+| Shared enrollment signing | `fdai_deployment_cli.lifecycle_enrollment` is the one canonical installation enrollment signer, used by the Hub `sign-enrollment` command and the [Agent `enroll` command](hub-managed-lifecycle.md#agent-submitted-pending-enrollment); it adds no public `fdaictl` command |
+
+The internal Hub infrastructure-agent library can write one `fdai.installation-binding.v1`
+artifact from an exact reviewed Terraform-output key set. It creates a new owner-only file,
+never replaces an existing binding, grants no output-review authority, and changes no public
+source or offline command.
+
+The same internal library validates an optional expand-only schema Job declaration in signed
+application component Releases. That strict metadata is consumed only by the Hub lifecycle path;
+it adds no public source/offline command, migration authority, or local-database fallback.
 
 GitHub Actions may validate source, build images, and optionally publish signed releases; publication is not a deployment-validation prerequisite. GitHub Actions cannot plan, apply, resume, or tear down a tenant deployment. The read-only [observer artifact preflight](../architecture/aks-outbound-connector.md#artifact-preflight) reuses the same pinned-root offline kit and OCI verifier for an exact Core image; its bounded process result creates no new release trust, approval or installation authority. The kit may also bind one optional default Rule activation profile by path, id, source timestamp, file digest, and complete-kit manifest digest. Preparation emits deterministic Core environment bindings only; it neither applies a generation nor deploys a tenant workload.
+
+## Connected image bootstrap
+
+The clone wrapper selects [Release Hub images](hub-image-deployment.md) by default.
+An independently approved public verification key, signed catalog/manifest, eligible channel
+membership and an exact source match are required for that selection. The existing coordinator
+retains infrastructure, approval, migration, licensing, health and zero-change-plan boundaries.
+There is no source build fallback on Hub failure and no claim that image bootstrap completes
+enrollment or the full Hub-managed lifecycle.
+
+Minimal subscription request metadata reaches Release Hub before Azure deployment effects.
+It is a self-reported request, not proof of subscription ownership or deployment success.
+Operators view it separately from catalog publication. Explicit source and offline modes do
+not submit a request.
 
 ## Connected source deployment
 
@@ -98,6 +126,10 @@ review and recovery tools, but those tools do not block or define connected depl
 
 The interactive checkpoint prompt resolves that same trusted CLI before reading the current
 human approver. A missing trusted executable or a service-principal account cannot create approval.
+Approval actor lookup selects the one enabled authenticated user account whose tenant and
+subscription derive the plan's exact target binding. It never relies on the Azure CLI's mutable
+default subscription, so another local process changing that default cannot redirect or interrupt
+a later checkpoint in the same invocation.
 The existing human-only terminal confirmation remains mandatory; selecting a checkpoint does not
 grant approval or apply any resources.
 
@@ -120,6 +152,11 @@ evidence, binds them to the target binding and source run binding, requires one 
 resource groups asynchronously, readback waits up to 30 minutes before it reports a partial
 failure, and a rerun skips groups that already read back absent. If any ownership proof is missing
 or names an unproven resource, the command stops before any delete call.
+For a failed source Foundation with an exact apply claim but no apply or state-handoff receipt, the
+same command accepts only the reviewed saved plan and verifies its Terraform binary, exact
+projection, normalized variables, immutable claim, source/run/target bindings, deterministic group
+names, and private handoff. This proof authorizes cleanup of only those two groups; it does not
+fabricate a successful Foundation receipt.
 
 The source coordinator uses the private managed-host route and reads Foundation provider
 registrations and inherited policy without changing either. Policy visibility is not a compliance
@@ -168,6 +205,11 @@ source migration again. Any other source difference remains blocked.
 Recovery reads the image-augmented Foundation variables when an artifact-offline image was used,
 or the base Foundation variables for an image-free connected run. It never fabricates an image
 receipt or changes bootstrap mode while selecting the retained input.
+The planner also reads the retained runner's supported guest-patch mode and platform-safety bypass
+from authoritative Terraform state. If provider refresh exposes a newer tenant-enforced selection,
+it validates the runner's `before` values, pins that exact pair in the recovery variables, and plans
+once more. Unsupported or inconsistent values stop planning instead of letting recovery revert the
+setting.
 When the application group already exists in the original state, policy-only recovery preserves
 its exact state ID and requires a no-op. It never renames or adopts that group. A missing
 application group still follows the distinct-name and verified-absence contract.
@@ -229,12 +271,17 @@ the backend. Missing local state alone grants no authority. Live recovery accept
 
 ### Explicit source recovery
 Resume with `--source <current-checkout> --work-dir <original-run> --foundation-recovery-directory <recovery>`.
+The recovery directory is one named `foundation-recovery-attempt-<n>` child of the original
+Foundation directory; sibling or unrelated paths are rejected before transfer.
 Original snapshot, profile, region and budget remain immutable; execution source is separate. Missing
 success returns review. Separate exact approvals advance enrollment/migration; claims allow verification
 only, never repeated apply or scope changes. Completed migration observes the backend without reenrollment.
 Recovery apply, enrollment, and state migration admit the current clean operator-selected checkout
 without requiring protected-branch CI. Historical execution revisions remain authenticated by their
 immutable receipts and original snapshot rather than being re-admitted as current source.
+Both recovery preparation and the shared state-handoff stage validate that current
+operator-selected source; the state-handoff does not perform a second maintainer-CI check against
+the historical handoff revision.
 When the enterprise identity add-on is selected, recovered continuation supplies the verified
 recovery handoff to the Entra stage so runner-principal readback does not depend on a superseded
 original apply handoff file.
@@ -260,9 +307,10 @@ loads the original state-handoff receipt through its bounded plan reference. It 
 digest, source, target, host attestation, remote-backend authority, zero-change plan and transient
 cleanup. Portable status is a projection, not the original receipt to rehash.
 
-The coordinator then prepares `source-transfer.tar` and an immutable local transfer receipt.
-The uncompressed archive contains the canonical source manifest plus numbered regular blobs,
-not archive-selected destination paths or links. The receiver reconstructs only manifest-owned
+For a snapshot whose receiver advertises gzip support, the coordinator prepares
+`source-transfer.tar.gz`; retained older snapshots continue with `source-transfer.tar`. Both forms
+are deterministic and carry the canonical source manifest plus numbered regular blobs, not
+archive-selected destination paths or links. The receiver reconstructs only manifest-owned
 files and internal links into a fresh private snapshot, checking independently supplied archive
 and snapshot digests before source execution. It rejects duplicate, missing, extra, absolute,
 traversal, hardlink and conflicting file/directory records. Limits are 65536 files, 64 MiB per file,
@@ -319,7 +367,24 @@ fdaictl provision source-service-update \
   --application-work-dir <retained-application-work-dir>
 ```
 
-The command snapshots tracked source, builds one Linux OCI archive with the exact Git revision,
+Use `source-change-plan` to classify an exact Git range without contacting Azure. For a
+service-only result, `source-changed-update` runs the existing guarded update once for each affected
+baseline service. Documentation and test-only changes return `no-deploy`; Console, migration,
+infrastructure, optional-image, and unclassified changes stop with their required higher lane
+instead of guessing.
+
+The changed-source coordinator binds the exact planned head to source admission and the Git base
+to each service's retained deployed revision. Cross-service renames include both the removed and
+added paths, while removal of a service Dockerfile or package manifest requires a higher lane.
+Each completed service update is safe to retry (idempotent) only when its retained receipt and
+current image and source readback still agree. The coordinator retains private exact intent,
+ordered progress, and a stable effect receipt so a partial multi-service run can resume without
+rebuilding or reimporting an already verified service.
+
+The service command derives a projected snapshot from the selected Dockerfile's tracked `COPY`
+inputs and fixed build helpers. The projection retains the complete checkout identity while
+excluding unrelated products, docs, and ordinary service tests. It builds one Linux OCI archive
+with the exact Git revision,
 validates its archive and manifest digests, and requests current human approval before registry
 import. The retained deployment Managed Identity performs the import and reads back the digest.
 The coordinator then produces a Terraform plan limited to the selected Deployment, requests the
@@ -340,7 +405,7 @@ When an ordinary Core update has an immutable claim but no receipt, one supersed
 
 An installation whose workload state predates the standalone application receipt can use a bounded adoption step by supplying all five `--adopt-historical-*` inputs: a private binding, retained Terraform state, workload variables, live Deployment snapshot, and the historical exact plan. The binding can reference execution assets only below its evidence directory and pins the Terraform binary digest, source revision, Managed Identity, and runtime profile. The coordinator accepts the historical plan only when it contains one in-place Deployment update and no unrelated mutation, or when it is a complete zero-change plan. It then uses the Managed Identity to compare remote state and current Deployments and creates a fresh full Terraform plan. If that plan contains only the allowlisted legacy AKS normalization, the same coordinator returns a digest-bound reconciliation review instead of treating the drift as apply authority. It attempts verification-only recovery first. Without an existing claim, it requires current exact-plan approval, revalidates the saved plan with the strict historical contract, writes an immutable claim, and applies once through the Managed Identity. Success requires healthy workload readback, refreshed state and typed Deployment evidence, and a complete full-scope zero-change plan. Only that receipt-bound post-state can re-enter adoption. Partial inputs, changed peers, unrecognized effects, state drift, a changed plan, or a tampered claim or receipt stop the update. Adoption itself writes local evidence only and grants no apply authority.
 The development source path is selected explicitly with `fdaictl provision azure --source <path>`.
-It is mutually exclusive with `--online` and `--offline-kit`. Initial support targets a new
+It is mutually exclusive with `--offline-kit`. Initial support targets a new
 `dev` installation using AKS and PostgreSQL Flexible Server. It does not migrate an existing
 Container Apps installation and does not claim disconnected or production readiness.
 
@@ -444,7 +509,9 @@ build service with only Azure CLI and one verified snapshot of one commit:
 - Before the first effect, an immutable claim binds the commit, snapshot digest, subscription,
   registry, service list, and dependency pins. A claim or receipt for different inputs stops with
   `source_image_stage_inputs_changed`.
-- The five baseline services build in canonical order with `az acr build`, tagged `sha-<commit>`.
+- The five baseline services and two dependency imports use at most three concurrent registry
+  operations. Results return to canonical service order before receipt creation. Each service
+  uses `az acr build` and the `sha-<commit>` tag.
   Each digest comes from the run record's output image for exactly that repository, tag, and
   registry. ClamAV and pgvector are imported with `az acr import` by the digests that the offline
   kit builder also pins.
@@ -577,7 +644,7 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl provision console-update build` | Build one source-bound Console artifact from protected Git source | No |
 | `fdaictl provision console-update plan` | Seal an existing-development target plus candidate and rollback artifacts | No |
 | `fdaictl provision console-update apply` | Publish one exact Console plan and verify remote content and access | Yes, after exact terminal approval |
-| `fdaictl provision azure --online` | Acquire a signed kit and deploy the headless observation-first profile; repeated `--add-on` and `--observation-source` selections opt into independent surfaces and derive each source's minimum read role | Infrastructure only after exact plan approval; no managed-resource execution authority by default |
+| `fdaictl provision azure --source <path>` | Build from one clean checkout and deploy the selected profile | Infrastructure only after exact plan approval; no managed-resource execution authority unless selected separately |
 | `fdaictl provision azure --offline-kit <path>` | Run the same profile contract without public artifact acquisition | Same exact profile and approvals |
 | `fdaictl onboard guided --simulate` | Rehearse the finite stage graph | No |
 | `fdaictl onboard status` | Read a local hash-chained rehearsal journal | No |
@@ -587,7 +654,7 @@ only after installing the reviewed CLI while idle; it does not change an already
 | `fdaictl license inspect` | Verify a capability token, or an installation entitlement against both exact bindings, without a network call | No |
 
 `fdaictl provision azure --evidence-verifier-input <path>` is an AKS-only, default-off extension
-to the `--online`, `--offline-kit`, and connected source application deployment paths. The file is
+to the `--source` and `--offline-kit` application deployment paths. The file is
 a private reviewed JSON input. It enables only the independent operational evidence verifier
 identity and workload binding, rejects placeholders and secret material, and grants no execution,
 promotion, or approval authority.
@@ -689,6 +756,12 @@ Plan. The decoder rejects unknown, missing, or mistyped fields and an expiry wit
 doesn't verify the signature, so an agent trusts a decoded Plan only after `evaluate_plan_admission`
 admits it.
 
+The shared [native transition state reconciliation](native-transition-state-reconciliation.md)
+contract also distinguishes legacy source state from the strict command target. Legacy
+`available_artifact_digests` retains stored order and duplicates for digest verification. The
+authoritative target is derived only after multiset and semantic inventory checks, then uses a
+deterministic unique sort. These pure contracts grant no approval or execution authority.
+
 ## Standalone deployment sequence
 
 The coordinator performs these stages in order:
@@ -777,6 +850,10 @@ coordinator then rebuilds a no-effect Foundation adoption receipt from that reta
 chain and binds it to the newer kit, so the managed host accepts the kit only through that
 evidence. It does not approve a plan computed from the newer kit while that plan carries the
 retained revision as provenance.
+The adoption input accepts exactly one terminal Foundation evidence pair: either the governed
+recovery handoff and receipt, or the ordinary source Foundation handoff and applied receipt.
+Ambiguous directories containing both pairs and incomplete directories containing neither pair
+are rejected before any application planning.
 
 **Transition design:** The coordinator first compares precise Foundation inputs before it decides
 whether a transition exists. The trigger set is the Terraform root content used by Foundation, the
@@ -871,6 +948,17 @@ deployment, a signed offline package, and the [Hub-managed lifecycle](hub-manage
 which is designed but not implemented. It also states that installation tooling adds no other
 gate. An appliance image was another packaging of the same kit rather than one of those paths, so
 its builder and runner are gone and no release step produces one.
+
+## Hub ownership guard
+
+Once an installation records the owner-only `hub-ownership.json` marker defined by the
+[Hub-managed lifecycle](hub-managed-lifecycle.md), the standalone host refuses to activate a
+Terraform stage for the AKS workloads root, so no CLI entry point can plan objects the Hub agent
+owns. A damaged marker also refuses. This adds no installation gate for the other two paths.
+The internal `record-hub-workload-handoff` checkpoint accepts only a complete digest-valid
+per-object adoption receipt before recording that marker. Separate private helpers generate exact
+Terraform `removed`/`import` blocks and verify forget-only release plus zero-change rollback plans;
+they do not apply a plan or mutate state.
 
 ## Result contract
 

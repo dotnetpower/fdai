@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 1ea263b17d45214ff4d5ce4ed2bce809e9da7715
-translation_revised: 2026-10-19
+translation_source_sha: 0f2696ef9e1e7c62021ce7a2ee50296d08928afd
+translation_revised: 2026-10-23
 ---
 
 # 액션 온톨로지
@@ -275,9 +275,9 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 
 ### 3.1 `remediation.*`
 
-룰 발화, config-drift 스타일. 현재 shipping:
+수정 및 config-drift 작업입니다. 대부분은 규칙에 따라 시작되지만, 검토된 pilot 작업은 운영자 요청으로 시작할 수 있습니다. 현재 제공되는 작업은 다음과 같습니다.
 
-- `remediate.tag-add`
+- `remediate.tag-add` 및 `remediate.subscription-tag-add`
 - `remediate.disable-public-access`
 - `remediate.right-size`
 - `remediate.rotate-secret`

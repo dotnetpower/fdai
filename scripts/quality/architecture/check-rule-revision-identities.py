@@ -36,7 +36,8 @@ ARTIFACT_ROOT = ROOT / "rule-catalog/revisions"
 CATALOG = ROOT / "rule-catalog/catalog"
 _OPA_VERSION = re.compile(r"^ARG OPA_VERSION=v?([^\s]+)$", re.MULTILINE)
 _PYTHON_BUILDER = re.compile(
-    r"^FROM\s+(.+python@sha256:[a-f0-9]{64})\s+AS\s+builder$", re.MULTILINE
+    r"^FROM\s+(.+python@sha256:[a-f0-9]{64})\s+AS\s+(?:dependency-)?builder$",
+    re.MULTILINE,
 )
 _REGISTRY_PATH = "rule-catalog/rule-revision-identities.json"
 _OPA_GO_VERSION = re.compile(r"^(ARG OPA_GO_VERSION=)(go\d+\.\d+)\.\d+$")

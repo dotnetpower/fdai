@@ -1,8 +1,9 @@
 """Kubernetes adapter for workload apply. The only module that imports a Kubernetes client.
 
 It is bound to one kubeconfig context and one namespace and knows only Deployments, Services,
-and schema-check Jobs. Server-side apply uses the agent's field manager without forcing
-conflicts. Connection failures and server errors are retryable; rejected requests aren't.
+and schema-check Jobs, plus read-only listing of Entity-labelled Deployments and CronJobs.
+Server-side apply uses the agent's field manager without forcing conflicts. Connection failures
+and server errors are retryable; rejected requests aren't.
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from urllib3.exceptions import HTTPError
 from fdai_lifecycle_agent.reference_state import is_reference_object_name
 from fdai_lifecycle_agent.workload import (
     API_VERSIONS,
+    ENTITY_LABEL,
     FIELD_MANAGER,
     CreationRejectedError,
     Manifest,
@@ -25,6 +27,8 @@ from fdai_lifecycle_agent.workload import (
     check_scope,
     is_dns_label,
 )
+
+ENROLLMENT_LIST_LIMIT = 100
 
 
 class KubernetesCluster:
@@ -73,6 +77,61 @@ class KubernetesCluster:
             ),
             missing_ok=False,
         )
+
+    def adopt_terraform_owned(
+        self,
+        manifest: Manifest,
+        *,
+        uid: str,
+        resource_version: str,
+        dry_run: bool = False,
+        before_submit: Callable[[], None] | None = None,
+    ) -> Manifest:
+        """Transfer only a Terraform-managed spec through one identity-fenced SSA."""
+
+        check_scope((manifest,), self._namespace)
+        name = manifest["metadata"]["name"]
+        current = self.get(manifest["kind"], name)
+        metadata = (current or {}).get("metadata", {})
+        if metadata.get("uid") != uid or metadata.get("resourceVersion") != resource_version:
+            raise WorkloadError("adoption_resource_drifted")
+        managers = {
+            str(item.get("manager"))
+            for item in metadata.get("managedFields", [])
+            if not item.get("subresource")
+        }
+        if managers not in (set(), {"Terraform"}, {"HashiCorp"}):
+            raise WorkloadError("adoption_field_manager_conflict")
+        body = dict(manifest) | {
+            "metadata": dict(manifest["metadata"])
+            | {
+                "uid": uid,
+                "resourceVersion": resource_version,
+                "annotations": dict(manifest["metadata"].get("annotations", {}))
+                | {"fdai.io/adopted-from": "Terraform"},
+            }
+        }
+        adopted = self._call(
+            manifest["kind"],
+            lambda client, resource: client.server_side_apply(
+                resource,
+                body=body,
+                namespace=self._namespace,
+                field_manager=FIELD_MANAGER,
+                force_conflicts=True,
+                dry_run="All" if dry_run else None,
+                _request_timeout=self._timeout,
+            ),
+            missing_ok=False,
+            before_submit=before_submit,
+        )
+        result = dict(adopted.to_dict())
+        adopted_metadata = result.get("metadata", {})
+        if adopted_metadata.get("uid") != uid or not isinstance(
+            adopted_metadata.get("resourceVersion"), str
+        ):
+            raise WorkloadError("adoption_receipt_invalid")
+        return result
 
     def get(self, kind: str, name: str) -> Manifest | None:
         live = self._call(
@@ -134,6 +193,14 @@ class KubernetesCluster:
                 if current is not None and key in current.get("spec", {})
             }
             body["spec"] = defaults | dict(manifest["spec"])
+        elif (
+            manifest["kind"] == "Deployment"
+            and "replicas" not in manifest["spec"]
+            and current is not None
+            and "replicas" in current.get("spec", {})
+        ):
+            # An autoscaler owns the replica count; replacing the spec must not reset it.
+            body["spec"] = dict(manifest["spec"]) | {"replicas": current["spec"]["replicas"]}
         self._call(
             manifest["kind"],
             lambda client, resource: client.patch(
@@ -234,6 +301,47 @@ class KubernetesCluster:
             raise WorkloadError("reference_source_unavailable") from error
         except (HTTPError, OSError, TypeError, ValueError) as error:
             raise WorkloadError("reference_source_unavailable") from error
+
+    def list_entity_workloads(self) -> tuple[list[Manifest], list[Manifest]]:
+        """List Entity-labelled Deployments and CronJobs in this namespace, read-only.
+
+        Two fixed GETs, each bounded by a page limit and the transport timeout. A further page
+        is refused rather than followed, so an oversized namespace cannot be partially enrolled.
+        """
+
+        if not is_dns_label(self._namespace):
+            raise WorkloadError("enrollment_source_outside_scope")
+        paths = (
+            "/apis/apps/v1/namespaces/{namespace}/deployments",
+            "/apis/batch/v1/namespaces/{namespace}/cronjobs",
+        )
+        deployments, cronjobs = (self._list_labelled(path) for path in paths)
+        return deployments, cronjobs
+
+    def _list_labelled(self, path: str) -> list[Manifest]:
+        try:
+            live = self._api_client.call_api(
+                path,
+                "GET",
+                path_params={"namespace": self._namespace},
+                query_params=[
+                    ("labelSelector", ENTITY_LABEL),
+                    ("limit", str(ENROLLMENT_LIST_LIMIT)),
+                ],
+                header_params={"Accept": "application/json"},
+                response_types_map={200: "object"},
+                auth_settings=["BearerToken"],
+                _return_http_data_only=True,
+                _request_timeout=self._timeout,
+            )
+            items = live["items"]
+            if live.get("metadata", {}).get("continue") or not isinstance(items, list):
+                raise WorkloadError("enrollment_source_too_large")
+            return [dict(item) for item in items]
+        except WorkloadError:
+            raise
+        except (ApiException, HTTPError, OSError, KeyError, TypeError, ValueError) as error:
+            raise WorkloadError("enrollment_source_unavailable") from error
 
     def _call(
         self,

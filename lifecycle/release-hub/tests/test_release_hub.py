@@ -13,12 +13,27 @@ from fdai_deployment_cli.lifecycle_promotion import (
     CanaryObservation,
     PromotionStageCriteria,
 )
+from sqlalchemy import event as sqlalchemy_event
 from starlette.testclient import TestClient
 
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.signing import HubSigningKey
-from fdai_release_hub.api import create_app
-from fdai_release_hub.store import CatalogConfirmation, CatalogError, Change, ReleaseStore
+from fdai_release_hub import catalog_serialization
+from fdai_release_hub.api import MAX_CATALOG_VIEW_BYTES, create_app
+from fdai_release_hub.catalog_serialization import (
+    BoundedJson,
+    ensure_row_bound,
+    index_memberships,
+    write_channels,
+)
+from fdai_release_hub.cli import main
+from fdai_release_hub.store import (
+    CapabilityChange,
+    CatalogConfirmation,
+    CatalogError,
+    Change,
+    ReleaseStore,
+)
 
 NOW = datetime(2026, 10, 15, 13, tzinfo=UTC)
 SAMPLES = Path(__file__).resolve().parents[2] / "hub" / "samples" / "catalog" / "releases"
@@ -58,6 +73,45 @@ def admit(store: ReleaseStore, **fields: object):
     return load_pinned_export(
         raw, expected_sha256=digest, public_key=store.key.public_key, now=NOW, **fields
     )
+
+
+@pytest.mark.parametrize("port", ["0", "65536", "not-a-port"])
+def test_cli_rejects_invalid_ports_before_opening_state(tmp_path: Path, port: str) -> None:
+    with pytest.raises(SystemExit) as raised:
+        main(["serve", str(tmp_path / "missing"), "--port", port])
+    assert raised.value.code == 2
+
+
+def test_cli_rejects_non_directory_and_uninitialized_state(tmp_path: Path) -> None:
+    state_file = tmp_path / "state-file"
+    state_file.write_text("not a directory")
+    with pytest.raises(SystemExit) as raised:
+        main(["dev-init", str(state_file)])
+    assert raised.value.code == 2
+    missing = tmp_path / "missing"
+    with pytest.raises(SystemExit) as raised:
+        main(["serve", str(missing)])
+    assert raised.value.code == 2
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    with pytest.raises(SystemExit) as raised:
+        main(["serve", str(private)])
+    assert raised.value.code == 2
+
+
+def test_cli_requires_private_state_and_refuses_key_reinitialization(tmp_path: Path) -> None:
+    exposed = tmp_path / "exposed"
+    exposed.mkdir(mode=0o755)
+    exposed.chmod(0o755)
+    with pytest.raises(SystemExit) as raised:
+        main(["dev-init", str(exposed)])
+    assert raised.value.code == 2
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    assert main(["dev-init", str(private)]) == 0
+    with pytest.raises(SystemExit) as raised:
+        main(["dev-init", str(private)])
+    assert raised.value.code == 2
 
 
 def test_registration_publication_contribution_recall_and_restart(store: ReleaseStore) -> None:
@@ -266,6 +320,133 @@ def test_actor_attribution_preserves_existing_recall_notice_and_export_pins(stor
     assert store.snapshot()["revision"] == 3
 
 
+def test_streamed_catalog_read_preserves_canonical_contract(store: ReleaseStore) -> None:
+    publish(store)
+    change(store, "recall")
+    snapshot = store.snapshot()
+    raw, digest = store.export_snapshot(snapshot)
+
+    assert store.export() == (raw, digest)
+    assert store.catalog_view(MAX_CATALOG_VIEW_BYTES) == canonical_bytes(
+        {**snapshot, "export_sha256": digest}
+    )
+
+
+@pytest.mark.parametrize("export_only", [False, True])
+def test_catalog_row_bound_uses_one_database_query(store: ReleaseStore, export_only: bool) -> None:
+    statements: list[str] = []
+
+    def record(_connection: object, _cursor: object, statement: str, *_args: object) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    sqlalchemy_event.listen(store.engine, "before_cursor_execute", record)
+    try:
+        with store.connect() as db:
+            ensure_row_bound(
+                db,
+                maximum=MAX_CATALOG_VIEW_BYTES,
+                message="catalog too large",
+                export_only=export_only,
+            )
+    finally:
+        sqlalchemy_event.remove(store.engine, "before_cursor_execute", record)
+
+    assert len(statements) == 1
+
+
+def test_channel_serialization_uses_two_streaming_queries(store: ReleaseStore) -> None:
+    publish(store)
+    change(store, "contribute", channel="RELEASE_CANDIDATE")
+    statements: list[str] = []
+
+    def record(_connection: object, _cursor: object, statement: str, *_args: object) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    sqlalchemy_event.listen(store.engine, "before_cursor_execute", record)
+    try:
+        with store.connect() as db:
+            writer = BoundedJson(MAX_CATALOG_VIEW_BYTES, "catalog too large")
+            write_channels(db, writer, is_custom_channel=lambda _value: False)
+            assert json.loads(writer.finish()) == {
+                "DEV": ["1.6.0"],
+                "RELEASE": [],
+                "RELEASE_CANDIDATE": ["1.6.0"],
+            }
+    finally:
+        sqlalchemy_event.remove(store.engine, "before_cursor_execute", record)
+
+    assert len(statements) == 2
+
+
+def test_channel_serialization_is_independent_of_membership_order(
+    store: ReleaseStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    publish(store)
+    change(
+        store,
+        "contribute",
+        channel="custom-pilot",
+        channel_confirmation="custom-pilot",
+    )
+    original_stream = catalog_serialization.stream
+    observed_order: list[str] = []
+    statements: list[str] = []
+
+    def reorder_memberships(db, statement):
+        rows = list(original_stream(db, statement))
+        rows.sort(key=lambda row: row["channel"] == "DEV")
+        observed_order.extend(row["channel"] for row in rows)
+        yield from rows
+
+    def record(_connection: object, _cursor: object, statement: str, *_args: object) -> None:
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    monkeypatch.setattr(catalog_serialization, "stream", reorder_memberships)
+    sqlalchemy_event.listen(store.engine, "before_cursor_execute", record)
+    try:
+        with store.connect() as db:
+            writer = BoundedJson(MAX_CATALOG_VIEW_BYTES, "catalog too large")
+            write_channels(
+                db,
+                writer,
+                is_custom_channel=lambda value: value == "custom-pilot",
+            )
+            assert json.loads(writer.finish()) == {
+                "DEV": ["1.6.0"],
+                "RELEASE": [],
+                "RELEASE_CANDIDATE": [],
+                "custom-pilot": ["1.6.0"],
+            }
+    finally:
+        sqlalchemy_event.remove(store.engine, "before_cursor_execute", record)
+
+    assert observed_order == ["custom-pilot", "DEV"]
+    assert len(statements) == 2
+
+
+def test_snapshot_memberships_are_indexed_in_one_pass() -> None:
+    iterations = 0
+
+    def memberships():
+        nonlocal iterations
+        iterations += 1
+        yield {"channel": "DEV", "release_id": "1.0.0"}
+        yield {"channel": "RELEASE", "release_id": "1.0.0"}
+        yield {"channel": "DEV", "release_id": "1.1.0"}
+
+    names, by_release, by_channel = index_memberships(
+        memberships(), is_custom_channel=lambda _value: False
+    )
+    for _ in range(100):
+        assert by_release["1.0.0"] == ["DEV", "RELEASE"]
+        assert by_channel["DEV"] == ["1.0.0", "1.1.0"]
+    assert names == {"DEV", "RELEASE", "RELEASE_CANDIDATE"}
+    assert iterations == 1
+
+
 @pytest.mark.parametrize("release_id", ["../x", "1.0", "01.0.0", "1.0.0+build"])
 def test_release_id_validation(store: ReleaseStore, release_id: str) -> None:
     with pytest.raises(CatalogError, match="SemVer"):
@@ -343,6 +524,44 @@ def test_export_size_boundary(store: ReleaseStore, extra_byte: bool) -> None:
         assert set(load_pinned_export(raw, **arguments).releases) == {"1.6.0"}
 
 
+def test_oversized_export_rolls_back_publication_atomically(store: ReleaseStore) -> None:
+    sample = (SAMPLES / "1.6.0.json").read_text()
+    manifest = sample + " " * (950_000 - len(sample))
+    revision = 0
+    for patch in range(9):
+        release_id = f"1.0.{patch}"
+        result = store.change(
+            "register",
+            release_id,
+            Change(
+                revision=revision,
+                confirmation=release_id,
+                reason="Bounded catalog test",
+                manifest=manifest,
+            ),
+        )
+        revision = result["revision"]
+        publication = Change(
+            revision=revision,
+            confirmation=release_id,
+            reason="Bounded catalog test",
+        )
+        if patch == 8:
+            with pytest.raises(CatalogError, match="8 MiB consumer limit"):
+                store.change("publish", release_id, publication)
+            break
+        result = store.change("publish", release_id, publication)
+        revision = result["revision"]
+    with store.connect() as db:
+        assert db.exec_driver_sql("SELECT count(*) FROM events").scalar_one() == 17
+        assert db.exec_driver_sql("SELECT count(*) FROM membership").scalar_one() == 8
+        assert (
+            db.exec_driver_sql("SELECT signature FROM releases WHERE id='1.0.8'").scalar_one()
+            is None
+        )
+    assert len(store.export()[0]) <= 8 * 1024 * 1024
+
+
 def test_exact_signed_payload_and_canonical_digest_are_distinct(store: ReleaseStore) -> None:
     document = json.loads((SAMPLES / "1.6.0.json").read_text())
     raw = json.dumps(document, indent=4) + "\n"
@@ -404,6 +623,111 @@ def test_api_errors_origin_and_loopback_boundary(client: TestClient, store: Rele
     assert client.get("/v1/catalog", headers={"Host": "example.com"}).status_code == 400
 
 
+def test_api_normalizes_json_media_type_and_rejects_encoded_bodies(client: TestClient) -> None:
+    payload = {"revision": 0, "confirmation": "1.6.0", "reason": "Review"}
+    accepted = client.post(
+        "/v1/releases/1.6.0/publish",
+        content=json.dumps(payload),
+        headers={"Content-Type": " Application/JSON ; charset=utf-8"},
+    )
+    assert accepted.status_code == 404
+    encoded = client.post(
+        "/v1/releases/1.6.0/publish",
+        content=json.dumps(payload),
+        headers={"Content-Type": "application/json", "Content-Encoding": "gzip"},
+    )
+    assert encoded.status_code == 415
+    assert encoded.json() == {"error": "Encoded request bodies are not supported."}
+
+
+def test_api_stream_limit_rejects_chunked_body_without_buffering_past_limit(
+    client: TestClient,
+) -> None:
+    chunks = iter((b"x" * (1024 * 1024), b"x" * (1024 * 1024), b"x"))
+    response = client.post(
+        "/v1/catalog/renew",
+        content=chunks,
+        headers={"Content-Type": "application/json"},
+    )
+    assert response.status_code == 413
+    assert response.json() == {"error": "Request body is too large."}
+
+
+def test_catalog_view_has_an_explicit_response_limit(
+    client: TestClient, store: ReleaseStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def oversized_catalog(maximum: int) -> bytes:
+        assert maximum == MAX_CATALOG_VIEW_BYTES
+        raise CatalogError("Catalog view exceeds the 16 MiB service limit.", 503)
+
+    monkeypatch.setattr(store, "catalog_view", oversized_catalog)
+    response = client.get("/v1/catalog")
+    assert response.status_code == 503
+    assert response.json() == {"error": "Catalog view exceeds the 16 MiB service limit."}
+
+
+def test_catalog_view_boundary_and_limit_abort_roll_back(store: ReleaseStore) -> None:
+    body = store.catalog_view(MAX_CATALOG_VIEW_BYTES)
+    assert store.catalog_view(len(body)) == body
+
+    rollbacks = 0
+
+    def record_rollback(connection: object) -> None:
+        nonlocal rollbacks
+        rollbacks += 1
+
+    sqlalchemy_event.listen(store.engine, "rollback", record_rollback)
+    try:
+        with pytest.raises(CatalogError, match="16 MiB service limit"):
+            store.catalog_view(len(body) - 1)
+    finally:
+        sqlalchemy_event.remove(store.engine, "rollback", record_rollback)
+
+    assert rollbacks == 1
+    assert store.catalog_view(len(body)) == body
+
+
+def test_catalog_export_boundary_and_limit_abort_roll_back(store: ReleaseStore) -> None:
+    raw, digest = store.export()
+    assert store.export(maximum=len(raw)) == (raw, digest)
+
+    rollbacks = 0
+
+    def record_rollback(connection: object) -> None:
+        nonlocal rollbacks
+        rollbacks += 1
+
+    sqlalchemy_event.listen(store.engine, "rollback", record_rollback)
+    try:
+        with pytest.raises(CatalogError, match="8 MiB consumer limit"):
+            store.export(maximum=len(raw) - 1)
+    finally:
+        sqlalchemy_event.remove(store.engine, "rollback", record_rollback)
+
+    assert rollbacks == 1
+    assert store.export(maximum=len(raw)) == (raw, digest)
+
+
+@pytest.mark.parametrize(
+    ("declared_length", "status", "message"),
+    [
+        ("invalid", 400, "Content-Length must be an integer."),
+        ("-1", 400, "Content-Length cannot be negative."),
+        (str(2 * 1024 * 1024 + 1), 413, "Request body is too large."),
+    ],
+)
+def test_api_rejects_invalid_declared_body_lengths_before_parsing(
+    client: TestClient, declared_length: str, status: int, message: str
+) -> None:
+    response = client.post(
+        "/v1/catalog/renew",
+        content="{}",
+        headers={"Content-Type": "application/json", "Content-Length": declared_length},
+    )
+    assert response.status_code == status
+    assert response.json() == {"error": message}
+
+
 def test_api_real_mutation_readback_and_export(client: TestClient) -> None:
     payload = {
         "revision": 0,
@@ -436,6 +760,84 @@ def test_corrupt_signature_is_unavailable_not_verified(
     response = client.get("/v1/catalog")
     assert response.status_code == 503
     assert "failed verification" in response.json()["error"]
+
+
+@pytest.mark.parametrize(
+    ("action", "fields"),
+    [
+        ("contribute", {"channel": "RELEASE_CANDIDATE"}),
+        ("recall", {}),
+    ],
+)
+def test_corrupt_signature_blocks_release_mutation_before_commit(
+    store: ReleaseStore, action: str, fields: dict[str, str]
+) -> None:
+    publish(store)
+    with store.connect() as db:
+        db.exec_driver_sql("UPDATE releases SET signature='invalid'")
+    attempted = Change(
+        revision=2,
+        confirmation="1.6.0",
+        reason="Must not commit",
+        **fields,
+    )
+    with pytest.raises(CatalogError, match="failed verification"):
+        store.change(action, "1.6.0", attempted)
+    with store.connect() as db:
+        assert db.exec_driver_sql("SELECT count(*) FROM events").scalar_one() == 2
+        assert db.exec_driver_sql("SELECT count(*) FROM membership").scalar_one() == 1
+        assert db.exec_driver_sql("SELECT recalled_at FROM releases").scalar_one() is None
+
+
+def test_corrupt_lifting_release_blocks_capability_lift_before_commit(store: ReleaseStore) -> None:
+    publish(store)
+    capability_id = "action:scale-service"
+    store.change_capability(
+        "recall",
+        capability_id,
+        CapabilityChange(
+            revision=2,
+            confirmation=capability_id,
+            reason="Safety regression",
+        ),
+    )
+    with store.connect() as db:
+        db.exec_driver_sql("UPDATE releases SET signature='invalid'")
+    with pytest.raises(CatalogError, match="failed verification"):
+        store.change_capability(
+            "lift",
+            capability_id,
+            CapabilityChange(
+                revision=3,
+                confirmation=capability_id,
+                reason="Must not commit",
+                lifting_release_id="1.6.0",
+            ),
+        )
+    with store.connect() as db:
+        assert db.exec_driver_sql("SELECT count(*) FROM events").scalar_one() == 3
+
+
+@pytest.mark.parametrize(
+    ("statement", "message"),
+    [
+        ("UPDATE releases SET signature=NULL", "signature failed verification"),
+        ("UPDATE releases SET published_at=NULL", "publication state is inconsistent"),
+        (
+            "UPDATE releases SET signature=NULL, published_at=NULL, "
+            "recalled_at='2026-10-15T13:00:00+00:00'",
+            "signature failed verification",
+        ),
+    ],
+)
+def test_inconsistent_publication_metadata_is_unavailable(
+    store: ReleaseStore, statement: str, message: str
+) -> None:
+    publish(store)
+    with store.connect() as db:
+        db.exec_driver_sql(statement)
+    with pytest.raises(CatalogError, match=message):
+        store.snapshot()
 
 
 def test_storage_failure_is_explicit_503(client: TestClient, store: ReleaseStore) -> None:

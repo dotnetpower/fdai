@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, time, timedelta
 from enum import StrEnum
 from functools import cmp_to_key
-from typing import ClassVar, Self, get_args
+from typing import ClassVar, Literal, Self, get_args
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fdai_deployment_cli.contracts import canonical_digest
@@ -449,6 +449,8 @@ class PendingEnrollment:
     installation: Installation
     installation_key_id: str
     requested_at: datetime
+    requested_by: str | None = None
+    requested_via: Literal["agent", "operator"] | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

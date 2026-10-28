@@ -151,6 +151,11 @@ def plan_next(
             plan_type = "configuration-change"
         else:
             plan_type = "upgrade"
+        if catalog.plan_types is not None and plan_type not in catalog.plan_types:
+            checks.append(
+                CandidateCheck(release_id, (ConstraintBlock("catalog_timestamp_expired"),))
+            )
+            continue
         if not rolloff_required and any(
             state.release_id is not None and compare_release_ids(release_id, state.release_id) < 0
             for state in managed_states
@@ -308,6 +313,13 @@ def _draft(
         expires_at=max(open_window_ends, default=now + settings.plan_duration),
         signed_payload=b"",
         signature=b"",
+        ownership_digests={
+            entity.entity_id: entity.ownership.native_creation_receipt_digest
+            for entity in installation.entities
+            if entity.entity_id in entity_ids
+            and entity.ownership is not None
+            and entity.ownership.native_creation_receipt_digest is not None
+        },
     )
 
 

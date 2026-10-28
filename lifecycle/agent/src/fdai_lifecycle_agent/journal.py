@@ -17,8 +17,9 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
+from fdai_lifecycle_agent.adoption import AdoptionExpectation
 from fdai_lifecycle_agent.state import (
     AgentStateError,
     PlanResult,
@@ -33,7 +34,7 @@ HALT_SCHEMA = "fdai.lifecycle-agent-halt.v1"
 WORKLOAD_FILE_NAME = "lifecycle-agent-workload.json"
 HALT_FILE_NAME = "lifecycle-agent-halt.json"
 _MAX_BYTES = 4 * 1024 * 1024
-_JOURNAL_KEYS = frozenset(
+_JOURNAL_KEYS_V1 = frozenset(
     {
         "plan_id",
         "phase",
@@ -46,6 +47,7 @@ _JOURNAL_KEYS = frozenset(
         "snapshot",
     }
 )
+_JOURNAL_KEYS = frozenset([*_JOURNAL_KEYS_V1, "adoptions"])
 
 type Phase = Literal["prepared", "applying", "done"]
 
@@ -64,6 +66,7 @@ class ApplyJournal:
     previous: tuple[Manifest, ...]
     result: PlanResult | None = None
     snapshot: Mapping[str, object] | None = None
+    adoptions: tuple[AdoptionExpectation, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,6 +166,7 @@ def _journal_document(journal: ApplyJournal) -> dict[str, object]:
         "previous": list(journal.previous),
         "result": None if journal.result is None else asdict(journal.result),
         "snapshot": journal.snapshot,
+        "adoptions": [asdict(item) for item in journal.adoptions],
     }
 
 
@@ -181,9 +185,13 @@ def _parse_workload(document: object) -> WorkloadState:
 
 
 def _parse_journal(document: object) -> ApplyJournal:
-    if not isinstance(document, dict) or set(document) != _JOURNAL_KEYS:
+    if not isinstance(document, dict):
         raise ValueError("apply journal fields are invalid")
-    match document:
+    keys = frozenset(document)
+    if keys not in {_JOURNAL_KEYS_V1, _JOURNAL_KEYS}:
+        raise ValueError("apply journal fields are invalid")
+    normalized = document | {"adoptions": document.get("adoptions", [])}
+    match normalized:
         case {
             "plan_id": str(plan_id),
             "phase": "prepared" | "applying" | "done" as phase,
@@ -194,6 +202,7 @@ def _parse_journal(document: object) -> ApplyJournal:
             "previous": list(previous),
             "result": result,
             "snapshot": dict() | None as snapshot,
+            "adoptions": list(adoptions),
         }:
             expires = datetime.fromisoformat(expires_at)
             if expires.utcoffset() is None:
@@ -211,6 +220,7 @@ def _parse_journal(document: object) -> ApplyJournal:
                 previous=_manifests(previous),
                 result=None if result is None else parse_plan_result(result),
                 snapshot=snapshot,
+                adoptions=_adoptions(adoptions),
             )
     raise ValueError("apply journal values are invalid")
 
@@ -227,3 +237,29 @@ def _strings(items: object) -> list[str]:
     if not isinstance(items, list) or not all(isinstance(item, str) for item in items):
         raise ValueError("expected a list of strings")
     return items
+
+
+def _adoptions(items: list[object]) -> tuple[AdoptionExpectation, ...]:
+    if not all(
+        isinstance(item, dict)
+        and set(item)
+        in (
+            {"kind", "name", "uid", "resource_version"},
+            {"kind", "name", "uid", "resource_version", "source_digest"},
+        )
+        for item in items
+    ):
+        raise ValueError("journal adoptions are invalid")
+    documents = cast(list[dict[str, object]], items)
+    return tuple(
+        AdoptionExpectation(
+            kind=str(item["kind"]),
+            name=str(item["name"]),
+            uid=str(item["uid"]),
+            resource_version=str(item["resource_version"]),
+            source_digest=(
+                str(item["source_digest"]) if item.get("source_digest") is not None else None
+            ),
+        )
+        for item in documents
+    )

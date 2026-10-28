@@ -17,6 +17,10 @@ from fdai.shared.providers.state_store import StateStore
 _CURSOR_SEP: Final[str] = "\x1f"
 _CURSOR_PREFIX: Final[str] = "arg_resource_change_cursor:"
 DEFAULT_RESOURCE_CHANGE_DEADLINE_SECONDS: Final[float] = 60.0
+# A published batch that the journal has not fenced within this window is redriven from its poll
+# cursor; after the redrive budget the batch is recorded as a coverage gap instead of blocking.
+PENDING_FENCE_GRACE_SECONDS: Final[float] = 120.0
+MAX_PENDING_REDRIVES: Final[int] = 2
 _OPERATIONAL_STATUS_CHANGE_PATHS: Final[Mapping[str, tuple[str, ...]]] = {
     "properties.powerState.code": ("properties", "powerState", "code"),
     "properties.runningStatus": ("properties", "runningStatus"),
@@ -192,9 +196,22 @@ async def forward_arg_resource_changes(
     pending_ids = pending_event_ids(saved.get("pending_event_ids"))
     retry_count = hydration_retry_count(saved.get("hydration_retry_count"))
     gap_at = coverage_gap_at(saved.get("coverage_gap_at"))
+    now = (clock or (lambda: datetime.now(tz=UTC)))()
+    redrive_count = 0
+    poll_from: str | None = None
     if pending_ids and (ingestion_fence is None or not await ingestion_fence.contains(pending_ids)):
-        return 0
-    cursor = str(saved.get("cursor") or "")
+        saved_redrives = hydration_retry_count(saved.get("pending_redrive_count"))
+        redrive = _pending_redrive(saved, now, saved_redrives, ingestion_fence is not None)
+        if redrive is None:
+            return 0
+        if redrive == "gap":
+            event_at, _ignored = decode_cursor(str(saved.get("last_event_cursor") or ""))
+            if event_at is not None:
+                gap_at = max(candidate for candidate in (gap_at, event_at) if candidate is not None)
+        else:
+            poll_from = redrive
+            redrive_count = saved_redrives + 1
+    cursor = poll_from or str(saved.get("cursor") or "")
     if not cursor:
         cursor = feed.initial_cursor()
         await state_store.write_state(
@@ -223,7 +240,7 @@ async def forward_arg_resource_changes(
         raise RuntimeError("resource change feed poll exceeded its deadline") from exc
     if result is None:
         raise RuntimeError("resource change feed poll produced no result")
-    polled_at = (clock or (lambda: datetime.now(tz=UTC)))()
+    polled_at = now
     if polled_at.tzinfo is None:
         raise RuntimeError("resource change feed clock MUST be timezone-aware")
     next_cursor = result.next_cursor
@@ -248,7 +265,36 @@ async def forward_arg_resource_changes(
             "last_event_cursor": result.last_event_cursor,
             "last_polled_at": polled_at.astimezone(UTC).isoformat(),
             "pending_event_ids": [str(event.event_id) for event in result.events],
+            "pending_poll_cursor": cursor if result.events else None,
+            "pending_redrive_count": redrive_count if result.events else 0,
             "published_event_count": len(result.events),
         },
     )
     return len(result.events)
+
+
+def _pending_redrive(
+    saved: Mapping[str, Any],
+    now: datetime,
+    redrives: int,
+    fenced: bool,
+) -> str | None:
+    """Return the cursor to redrive, ``"gap"`` once the budget is spent, or ``None`` to wait."""
+
+    if not fenced:
+        return None
+    raw = saved.get("last_polled_at")
+    try:
+        polled_at = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        polled_at = None
+    if (
+        polled_at is not None
+        and polled_at.tzinfo is not None
+        and (now - polled_at).total_seconds() < PENDING_FENCE_GRACE_SECONDS
+    ):
+        return None
+    poll_cursor = saved.get("pending_poll_cursor")
+    if redrives >= MAX_PENDING_REDRIVES or not isinstance(poll_cursor, str) or not poll_cursor:
+        return "gap"
+    return poll_cursor

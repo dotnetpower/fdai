@@ -194,6 +194,18 @@ case "$service" in
     ;;
 esac
 
+if [[ "$service" == "core-runtime" ]]; then
+  # Follow-up questions bind to stored result handles, which Core encrypts with a local key
+  # that persists across restarts and never leaves this ignored file.
+  result_handle_key_file="$repo_root/.fdai/local-result-handle.key"
+  if [[ ! -s "$result_handle_key_file" ]]; then
+    (umask 077 && openssl rand -hex 32 > "$result_handle_key_file")
+  fi
+  chmod 600 "$result_handle_key_file"
+  FDAI_RESULT_HANDLE_MATERIAL="$(<"$result_handle_key_file")"
+  export FDAI_RESULT_HANDLE_MATERIAL
+fi
+
 if [[ "$service" == "operator-api" ]] \
   && { [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI:-0}" != "$local_azure_cli_auth" ]] \
     || [[ "${FDAI_OPERATOR_API_LOCAL_AZURE_CLI_CONFIRM:-0}" != "$local_azure_cli_auth" ]]; }; then
@@ -220,6 +232,7 @@ case "$service" in
       FDAI_SEMANTIC_SPECULATIVE_FORM_START="${FDAI_SEMANTIC_SPECULATIVE_FORM_START:-1}"
       FDAI_SEMANTIC_MODEL_CALL_PROGRESS="${FDAI_SEMANTIC_MODEL_CALL_PROGRESS:-1}"
       FDAI_SEMANTIC_PENDING_STATE_LIVE_READ="${FDAI_SEMANTIC_PENDING_STATE_LIVE_READ:-1}"
+      FDAI_SEMANTIC_RESULT_HANDLES="${FDAI_SEMANTIC_RESULT_HANDLES:-1}"
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/fdai-core-control-plane"
     )

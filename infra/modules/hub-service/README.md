@@ -16,12 +16,29 @@ Omitting it lets Azure assign a default that Terraform would subsequently plan t
 | `apps.tf` | Runtime grants and bundled UI/API |
 | `variables.tf` | Inputs shared by the two product roots |
 
+## Hub configuration inputs
+
+`apps.tf` assembles each Hub's runtime configuration from these inputs. It writes an optional
+key only when you set it, so an older image keeps parsing a configuration that doesn't use it.
+Variable validation rejects invalid combinations at plan time.
+
+| Input | Hub | Rules |
+|-------|-----|-------|
+| `catalog` | Lifecycle | `access` is `managed-identity` (default) or `anonymous`. Managed identity requires `token_scope` and `managed_identity_client_id`; anonymous forbids both. `check_interval_seconds` is `0` or `300` to `86400`. |
+| `catalog.adoption` | Lifecycle | `mode` is `review` (default) or `auto`; `auto` requires `authorized_by` and a timezone-qualified `authorization_expires_at`. `max_new_releases` is `0` to `64`. |
+| `catalog.trust` | Lifecycle | Replaces `release_public_key` with signed TUF roles; name exactly one. `mode = "tuf"`, 1 to 16 unique `ed25519-<64 hex>` `root_key_ids`, and a whole `root_threshold` from 1 through the key count. |
+| `catalog_roles` | Release | Optional `timestamp_ttl_seconds` (`3600` to `604800`) and `snapshot_ttl_seconds` (`3600` to `5184000`, at least the timestamp). Needs the separate `secret_versions.catalog_snapshot_key` and `catalog_timestamp_key`; emits `FDAI_HUB_CATALOG_SNAPSHOT_KEY` and `FDAI_HUB_CATALOG_TIMESTAMP_KEY` only when set. |
+| `operator_auth.public_catalog_export` | Release | Serves the signed export without a bearer token. |
+| `timestamp_renewal_check_seconds` | Release | `0` or `60` to `3600`. |
+
 ## Freeze one candidate
 
 Choose `ROOT` and `TARGET` from the owning product README. Work from a clean immutable candidate
 checkout with committed Python, npm and Terraform locks. Record its source SHA, lock hashes,
-three base image digests, Buildx metadata and resulting `linux/amd64` image digest privately.
-Choose approved Node 22 Bookworm, Python 3.13 Bookworm and uv 0.10.12 digest references.
+four base image digests, Buildx metadata and resulting `linux/amd64` image digest privately.
+Choose approved Node 22 Bookworm, Python 3.13 Bookworm, uv 0.10.12 and OPA static digest
+references. `OPA_IMAGE` is an `openpolicyagent/opa:<version>-static` image; only the Lifecycle Hub
+(`target`) image receives its binary, for the catalog adoption policy.
 The Node digest should resolve for the builder's native platform (or be a multi-platform index);
 Python and uv should resolve for the requested AMD64 target. Don't pin an AMD64-only Node leaf
 on an ARM builder and call it a native UI build.
@@ -32,7 +49,7 @@ set -euo pipefail
 umask 077
 SOURCE_SHA=$(git rev-parse HEAD)
 test -z "$(git status --porcelain --untracked-files=normal)"
-for image in "$NODE_IMAGE" "$PYTHON_IMAGE" "$UV_IMAGE"; do
+for image in "$NODE_IMAGE" "$PYTHON_IMAGE" "$UV_IMAGE" "$OPA_IMAGE"; do
   if ! [[ "$image" =~ @sha256:[0-9a-f]{64}$ ]]; then
     echo "All base images require approved digests." >&2
     exit 1
@@ -42,6 +59,7 @@ docker buildx build --platform linux/amd64 --target "$TARGET" \
   --build-arg NODE_IMAGE="$NODE_IMAGE" \
   --build-arg PYTHON_IMAGE="$PYTHON_IMAGE" \
   --build-arg UV_IMAGE="$UV_IMAGE" \
+  --build-arg OPA_IMAGE="$OPA_IMAGE" \
   --file lifecycle/Dockerfile.hubs --tag "$IMAGE_TAG" \
   --metadata-file "$PRIVATE_BUILD_METADATA" --load .
 test "$SOURCE_SHA" = "$(git rev-parse HEAD)"
@@ -82,6 +100,10 @@ replicas, approved ingress CIDRs, existing registry and the product's digest-pin
 `image` selects the new candidate for bootstrap and migration Jobs and, by default, the app.
 Optional `app_image` retains an independently approved serving digest during an existing
 installation's migration. It changes only the app; null preserves the single-image default.
+Optional `custom_domain` sets the Hub's public HTTPS hostname (`hostname`), optionally creates
+the `CNAME` and `asuid.<label>` `TXT` records in an existing Azure DNS zone (`dns_zone`), and
+binds `azurerm_container_app_custom_domain` while keeping `FDAI_HUB_REMOTE_CONFIG` and HTTP
+probe `Host` headers aligned with that hostname.
 Tenant identity here is for PostgreSQL and Key Vault, not a browser login requirement.
 `operator_auth` and Lifecycle's `catalog` default to absent.
 
@@ -366,6 +388,9 @@ The application initialization can be retried only after investigating an explic
    A `postgres` session advisory lock spans principal commits, product grants and secret readback,
    and releases when the session closes on success or failure. A later failure may leave a matching
    principal committed; a reviewed retry preserves it. Don't run external secret writers concurrently.
+   The retained human PostgreSQL administrator is created before the product database, and the
+   temporary bootstrap administrator is created only after that database. This ordering keeps the
+   database owned by retained authority so bootstrap cleanup cannot be blocked by database ownership.
 
 3. Read only version identifiers into private `secret_versions`, never secret values:
 
@@ -415,6 +440,27 @@ The application initialization can be retried only after investigating an explic
 Runtime `enable_apps` and `enable_migration_jobs` have `prevent_destroy` guards and aren't
 stage selectors. Only the explicitly temporary bootstrap resources are removed during cleanup.
 RBAC propagation or provider failure stops an attempt; don't conceal it with retry controllers.
+
+### Trusted lifecycle operations Job
+
+After startup and authentication are independently verified, each product can retain one manual
+operations Job. Set `operation_job` to the product-owned operation, the exact Key Vault version of
+`hub-operation-request`, and the attributed operator. Release Hub accepts only
+`publish-release` or `install-catalog-root` (when `catalog_roles` is set); Lifecycle Hub accepts only `import-catalog`, `recompute`, `bind-catalog` or `rebind-catalog`.
+The two binding operations take `actor` and a `reason` of 3 to 500 characters and no
+`request_secret_version`; every other operation takes the secret version and no reason.
+
+The Job receives request bytes only through the exact-version Key Vault reference and removes the
+environment value before opening storage. It reuses the Hub's own Managed Identity, database
+binding, signing key and transactional stores. It cannot enroll an installation, accept native
+ownership or apply a Plan. Repeating the same exact publication or catalog import performs
+readback without another mutation. A changed immutable Release, changed catalog pin, product
+mismatch or missing attribution stops the Job.
+
+Freeze and review each Job template and request-secret version as a new stage candidate. Start one
+manual execution, require `Succeeded`, retain only its bounded JSON receipt, and independently
+read the Release catalog or Lifecycle Plan afterward. Change `operation_job.operation` only through
+another reviewed in-place plan. Never pass request or key bytes in Job arguments or logs.
 
 ## Upgrade an existing running Hub
 
@@ -576,6 +622,9 @@ This enumerates ownership, not permission to mutate live state.
 | `azurerm_role_assignment.registry_reader` | Selected product |
 | `azurerm_role_assignment.secret_reader` | Selected product, keys `<product>-<secret>` |
 | `azurerm_container_app.hub` | Selected product, if present |
+| `azurerm_dns_cname_record.hub_custom_domain` | Selected product, if custom domain DNS is enabled |
+| `azurerm_dns_txt_record.hub_custom_domain` | Selected product, if custom domain DNS is enabled |
+| `azurerm_container_app_custom_domain.hub` | Selected product, if custom domain is enabled |
 | `azurerm_container_app_job.migrate` | Selected product, if present |
 | `azuread_application.api`, `azuread_application.browser` | Existing directory owner, unchanged |
 | `azuread_application_identifier_uri.api` | Existing directory owner, unchanged |

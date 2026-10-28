@@ -11,10 +11,13 @@ from fdai_deployment_cli.lifecycle_release import (
     APPLICATION_RELEASE_SCHEMAS,
 )
 
+from fdai_lifecycle_agent.adoption import AdoptionExpectation
 from fdai_lifecycle_agent.inputs import VerifiedConfiguration, VerifiedRelease
 from fdai_lifecycle_agent.journal import WorkloadStore
+from fdai_lifecycle_agent.native_cluster import NativeCluster
 from fdai_lifecycle_agent.operator_workload import render_operator, validate_profile
 from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
+from fdai_lifecycle_agent.schema_expand import render_schema_expand_job
 from fdai_lifecycle_agent.workload import (
     ENTITY_LABEL,
     Manifest,
@@ -39,7 +42,9 @@ def validate_entity_configuration(
     if release.schema_version == APPLICATION_COMPONENT_RELEASE_SCHEMA:
         if runtime_bundle is None:
             raise WorkloadError("runtime_bundle_unavailable")
-        if release.schema_target != current_schema:
+        if release.schema_target != current_schema and release.schema_expand is None:
+            raise WorkloadError("schema_transition_unsupported")
+        if release.schema_target is None or release.schema_target < current_schema:
             raise WorkloadError("schema_transition_unsupported")
         for entity in plan.entity_ids:
             values = (
@@ -49,8 +54,16 @@ def validate_entity_configuration(
             )
             if values.get("runtime_bundle_digest") != runtime_bundle.digest:
                 raise WorkloadError("runtime_bundle_digest_mismatch")
-            if set(values) - {"runtime_bundle_digest", "region"}:
+            render_values = (
+                configuration.render_values.get(entity, values)
+                if configuration.render_values
+                else values
+            )
+            referenced = runtime_bundle.referenced_configuration_keys(entity)
+            if set(render_values) - {"runtime_bundle_digest", "region"} - referenced:
                 raise WorkloadError("runtime_bundle_configuration_unsupported")
+            if referenced - set(render_values):
+                raise WorkloadError("runtime_bundle_configuration_key_missing")
             if "region" in values and not isinstance(values["region"], str):
                 raise WorkloadError("workload_region_invalid")
             if runtime_bundle.components(entity) != components[entity]:
@@ -135,7 +148,12 @@ def prepare_workload(
     workload: Workload,
     store: WorkloadStore,
     runtime_bundle: RuntimeBundle | None = None,
-) -> tuple[tuple[Manifest, ...], tuple[Manifest, ...]]:
+    current_schema: int | None = None,
+) -> tuple[
+    tuple[Manifest, ...],
+    tuple[Manifest, ...],
+    tuple[AdoptionExpectation, ...],
+]:
     """Render and server-dry-run approved workloads before writing the intent journal."""
     _validate_release_profile(release, configuration)
     try:
@@ -155,7 +173,32 @@ def prepare_workload(
         if runtime_bundle is None:
             raise WorkloadError("runtime_bundle_unavailable")
         store.require_private()
-        desired = runtime_bundle.render(workload.namespace, plan.entity_ids, images)
+        configuration_values = configuration.render_values or {
+            entity: configuration.values for entity in plan.entity_ids
+        }
+        desired = runtime_bundle.render(
+            workload.namespace,
+            plan.entity_ids,
+            images,
+            configuration_values=configuration_values,
+        )
+        if (
+            release.schema_expand is not None
+            and current_schema is not None
+            and release.schema_target is not None
+            and release.schema_target > current_schema
+        ):
+            desired = (
+                render_schema_expand_job(
+                    desired,
+                    release.schema_expand,
+                    namespace=workload.namespace,
+                    plan_digest=hashlib.sha256(plan.signed_payload).hexdigest(),
+                    release_digest=f"sha256:{release.digest}",
+                    schema_target=release.schema_target,
+                ),
+                *desired,
+            )
     elif configuration.entity_values:
         store.require_private()
         desired = render_entity_configuration(
@@ -189,8 +232,17 @@ def prepare_workload(
             elif entity in plan.entity_ids:
                 raise WorkloadError("runtime_bundle_topology_removal_unsupported")
     previous = tuple(healthy[key] for key in map(object_key, desired) if key in healthy)
-    workload.preflight(desired, previous)
-    return desired, previous
+    adoptions: tuple[AdoptionExpectation, ...] = ()
+    if isinstance(workload.cluster, NativeCluster):
+        adoptions, adopted_previous = workload.cluster.prepare_adoptions(
+            plan,
+            desired,
+            recorded=frozenset(healthy),
+        )
+        desired = workload.cluster.bind_adoption_selectors(desired, adoptions)
+        previous = (*previous, *adopted_previous)
+    workload.preflight(desired, previous, adoptions=adoptions)
+    return desired, previous, adoptions
 
 
 def _validate_release_profile(

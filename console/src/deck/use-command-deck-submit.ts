@@ -1,5 +1,6 @@
 import { useCallback } from "preact/hooks";
 import { t } from "../i18n";
+import { modelCallLabel } from "./model-call-text";
 import {
   askBackendStream,
   type ConfirmedAnswerSegment,
@@ -413,7 +414,7 @@ export function useCommandDeckSubmit({
             activityTurnIds.add(targetActivityTurnId);
             setPending(false);
             setRetrievalProgress(null);
-            setSrStatus(activity.label);
+            setSrStatus(modelCallLabel(activity));
             setTurns((current) => {
               const existing = current.find((turn) => turn.id === targetActivityTurnId);
               const activities = upsertInvestigationActivity(

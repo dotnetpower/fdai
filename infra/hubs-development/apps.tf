@@ -4,8 +4,14 @@ locals {
   }
   scope_ids = { for kind in local.kinds : kind => uuidv5("dns", "${var.prefix}.${kind}.Hub.Access") }
   read_role = uuidv5("dns", "${var.prefix}.Catalog.Read")
+  # Unset optional attributes are omitted so images that predate a key still parse the config.
+  catalog_adoption = merge([
+    for adoption in [var.catalog_adoption] :
+    { for key, value in adoption : key => value if value != null }
+    if adoption != null
+  ]...)
   configs = {
-    for kind in local.kinds : kind => {
+    for kind in local.kinds : kind => merge({
       kind = kind
       auth = {
         profile           = "remote-development"
@@ -19,14 +25,28 @@ locals {
         service_client_id = kind == "release" ? azurerm_user_assigned_identity.hub["target"].client_id : null
         service_role      = "Catalog.Read"
       }
-      catalog = kind == "target" ? {
+      catalog = kind == "target" ? merge({
         url                        = "${local.origins["release"]}/v1/catalog/export"
         token_scope                = "api://${azuread_application.api["release"].client_id}/.default"
         managed_identity_client_id = azurerm_user_assigned_identity.hub["target"].client_id
-        release_public_key         = var.release_public_key
-      } : null
+        },
+        var.release_public_key == null ? {} : { release_public_key = var.release_public_key },
+        var.catalog_trust == null ? {} : { trust = var.catalog_trust },
+        var.catalog_check_interval_seconds == null ? {} : { check_interval_seconds = var.catalog_check_interval_seconds },
+        length(local.catalog_adoption) == 0 ? {} : { adoption = local.catalog_adoption },
+      ) : null
       key_epoch = 1
-    }
+      },
+      kind == "release" && var.catalog_roles != null ? { catalog_roles = { for key, value in var.catalog_roles : key => value if value != null } } : {},
+      kind == "release" && var.timestamp_renewal_check_seconds > 0 ? { timestamp_renewal_check_seconds = var.timestamp_renewal_check_seconds } : {},
+    )
+  }
+  # Separate online snapshot and timestamp key references, served by the release Hub only.
+  catalog_role_secrets = {
+    for kind in local.kinds : kind => kind == "release" && var.catalog_roles != null ? {
+      "catalog-snapshot-key"  = { env = "FDAI_HUB_CATALOG_SNAPSHOT_KEY", version = try(var.secret_versions[kind].catalog_snapshot_key, "") }
+      "catalog-timestamp-key" = { env = "FDAI_HUB_CATALOG_TIMESTAMP_KEY", version = try(var.secret_versions[kind].catalog_timestamp_key, "") }
+    } : {}
   }
 }
 
@@ -103,8 +123,11 @@ resource "azurerm_role_assignment" "registry_reader" {
 }
 resource "azurerm_role_assignment" "secret_reader" {
   for_each = {
-    for pair in setproduct(local.kinds, toset(["development-signing-key", "hub-database-url"])) :
-    "${pair[0]}-${pair[1]}" => { kind = pair[0], secret = pair[1] }
+    for pair in flatten([
+      for kind in local.kinds : [
+        for secret in concat(["development-signing-key", "hub-database-url"], keys(local.catalog_role_secrets[kind])) : { kind = kind, secret = secret }
+      ]
+    ]) : "${pair.kind}-${pair.secret}" => pair
   }
   scope                = "${azurerm_key_vault.hub[each.value.kind].id}/secrets/${each.value.secret}"
   role_definition_name = "Key Vault Secrets User"
@@ -135,6 +158,14 @@ resource "azurerm_container_app" "hub" {
     name                = "database-url"
     identity            = azurerm_user_assigned_identity.hub[each.key].id
     key_vault_secret_id = "${azurerm_key_vault.hub[each.key].vault_uri}secrets/hub-database-url/${var.secret_versions[each.key].database}"
+  }
+  dynamic "secret" {
+    for_each = local.catalog_role_secrets[each.key]
+    content {
+      name                = secret.key
+      identity            = azurerm_user_assigned_identity.hub[each.key].id
+      key_vault_secret_id = "${azurerm_key_vault.hub[each.key].vault_uri}secrets/${secret.key}/${secret.value.version}"
+    }
   }
   ingress {
     external_enabled           = true
@@ -173,6 +204,13 @@ resource "azurerm_container_app" "hub" {
       env {
         name        = "FDAI_HUB_DEVELOPMENT_SIGNING_KEY"
         secret_name = "development-signing-key"
+      }
+      dynamic "env" {
+        for_each = local.catalog_role_secrets[each.key]
+        content {
+          name        = env.value.env
+          secret_name = env.key
+        }
       }
       env {
         name  = "FDAI_HUB_MANAGED_IDENTITY_CLIENT_ID"

@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: a8bd4be6ed7f1dda05c348f05fc9864fa9a632ad
-translation_revised: 2026-10-22
+translation_source_sha: e6365ad316b757a33977b9eaf2d8c3e5568c4b04
+translation_revised: 2026-10-28
 ---
 # 독립 운영 근거 발급
 
@@ -93,7 +93,7 @@ Operator 서비스 제품 프로필 해석도 같은 근거 경계를 따릅니�
 실제 공급자 상태를 증명하지 않습니다.
 Resource Health 서술 주장은 타입이 지정된 읽기 증적에 붙는 답변 검증 동반 자료입니다.
 표현 전에 서술을 보존하거나 거부할 수 있지만, 독립 운영 근거 검증기의 수락 기록이 아니며
-거버넌스가 적용되는 어떤 의사결정 출처도 충족할 수 없습니다.
+거버넌스가 적용되는 어떤 의사결정 출처도 충족할 수 없습니다. 기록 없음이나 식별하지 못한 대상 같은 범위 공백은 정확한 코드 옆에 운영자의 언어로 설명합니다.
 Forseti는 Var와 HIL 재개 경로가 원래 정족수와 유효 정족수를 기록할 수 있도록 고정된 단독
 운영자 승인 프로필 개정을 Verdict에 실어 보낼 수 있습니다. 이 프로필 메타데이터는 승인 문맥일
 뿐입니다. 검증기 출처 산출물, `DecisionEvidenceAdmission`, 실제 프로바이더 상태의 증명이 아닙니다.
@@ -451,7 +451,7 @@ operating-intent 출처 개정과 일치하는 관측 범위 워터마크를 요
 범위와 목적의 digest, `case-history-read`, 활성 온톨로지 릴리스 digest.
 조회가 릴리스 digest를 묶으므로 운영 근거 밖의 온톨로지 함수 소스 수정을 포함한 모든 릴리스 변경은 새 조회를
 시작하고, 이전 릴리스에서 발급한 증적은 다시 쓰지 않습니다. 같은 변경에서 원본에 묶인 의미 보증 코퍼스도 다시
-생성합니다. 소스에서 파생되는 `query.resource_health_inventory` FunctionType을 수정하는 것도 이러한 릴리스 변경입니다.
+생성합니다. 소스에서 파생되는 `query.resource_health_inventory` FunctionType을 수정하는 것도 이러한 릴리스 변경입니다. `query.resource_state_inventory` 함수 버전을 올리는 것도 마찬가지입니다.
 E10 상태 목록과 E11 메트릭 컬렉션 FunctionType revision도 같은 규칙을 따릅니다. 해당 corpus
 갱신은 리포지토리 출처 정보만 기록하며 운영 증명을 발급하거나 이전 증명을 새 릴리스에 허용하지
 않습니다.
@@ -459,6 +459,8 @@ P1 모집단 개수, E12 계보 제한, 의미 답변 출력 예약은 타입이
 유지됩니다. 독립 운영 근거를 발급하거나 허용하지 않습니다.
 변환 전용 온톨로지 어휘는 릴리스 digest나 운영 근거 조회 권한을 바꾸지 않고도 해당 corpus
 매니페스트의 원본 다이제스트를 갱신할 수 있습니다.
+ActionType 카탈로그 항목을 추가해도 같은 리포지토리 출처 정보가 갱신될 수 있습니다. 이 변경은
+운영 증명을 발급하지 않으며 이전 증명을 새 작업에 허용하지도 않습니다.
 
 P2 traversal 모집단 개수, E12 앵커별 커버리지 행, E11 레시피 기준값, P3 메트릭 읽기 이어받기도 타입이
 지정된 조회 근거입니다. 독립 운영 근거를 발급하거나 허용하지 않습니다.
@@ -670,6 +672,7 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 
 - 새 에이전트나 토픽, `owns`, `subscribes`, 역할 바인딩 변경이 없고, 실행 권한이나 승격 권한도 부여하지 않습니다.
 - `deployment-apply` 정책, 그 워크플로 증명, 그 컨테이너를 재사용하지 않습니다.
+- Operator `conversation_dialogue_snapshot` 테이블은 운영 근거 역할이 없습니다. 파생된 대화 맥락이며 발급, 권한 부여, 재확인, 증명을 추가하지 않습니다. 1.12.0 `dialogue_state` 요청 필드도 운영 근거를 담지 않습니다.
 - 소비자는 기존 자체 검토 거부를 포함해 계속 차단 상태를 유지하며, 보류 사유에 유형만 추가됩니다.
 - 범위 밖: 원본 이력(#1021), Console 워크플로(#1023), Pattern-T1 수용(#1024), P0-P6 자격 검증(#1026).
   테넌트 값, 비밀, 실제 Azure, 모델, 배포 활동도 포함하지 않습니다.

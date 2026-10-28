@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: cd9fa0ec024d68a2c535f56ba39c209056b542c7
-translation_revised: 2026-10-23
+translation_source_sha: 3a9cb2e42ad027317b2b072a71c482c490406a16
+translation_revised: 2026-10-27
 ---
 # Hub 관리형 수명 주기
 
@@ -253,7 +253,11 @@ UI는 이미 준비한 합성 설치본의 Plan을 계산합니다. 기존 검�
 
 **Available releases**는 `GET /v1/catalog/releases`로 이미 수락한 카탈로그를 조회합니다.
 외부 가져오기 없이 고정값, 서명, 만료를 다시 검증합니다. 신뢰를 확인할 수 없으면
-`503`을 반환하며, 검증한 빈 카탈로그와 구분합니다. **Configuration packages**는
+`503`을 반환하며, 검증한 빈 카탈로그와 구분합니다. 고정값을 승인해 가져오기 전에는 검증 또는 만료 실패가 아니라
+`catalog_not_imported_approve_pin_and_import` 오류를 반환합니다.
+**Updates** 화면은 Lifecycle Hub가 직접 수행하는 조회, 정책 결정, 한 번의 **Review and apply**를
+보여 줍니다. [자동 카탈로그 채택](lifecycle-releases-and-channels-ko.md#자동-카탈로그-채택)을
+참고하세요. **Configuration packages**는
 `GET /v1/configurations`로 저장된 다이제스트, 개수, 시각, 현재 설치본 참조만 표시합니다.
 값과 봉인된 식별자는 제외하고, 독립된 패키지 서명 출처를 기록하지 않았음을 명시합니다.
 두 목록은 이미지 가용성, 배포 자격, 서명된 입력 준비 완료를 입증하지 않습니다.
@@ -264,11 +268,15 @@ Agent 신원은 이 운영자 목록을 읽을 수 없습니다.
 ## 명시적으로 선택하는 설치 Agent 통신
 
 로컬 개발 구현은 설치본별로 명시적인 `auth.agent_principals` 연결을 받습니다.
-호출자는 직접 검증한 Entra 토큰에 정확한 애플리케이션 object/client 쌍, `idtyp=app`,
-`Agent.Access` 역할을 갖춰야 합니다. 해당 설치본의 Plan을 읽고 상태와 보고서를 제출할
-수 있을 뿐입니다. 운영자, 카탈로그 ID, Agent ID는 구분합니다. Agent는 등록, 승인,
-게시, 가져오기, 재계산을 할 수 없습니다. Release Hub는 Agent 연결을 받지 않으며,
-연결 목록이 비어 있으면 기존 차단 동작을 유지합니다.
+호출자는 직접 검증한 Entra 토큰에 정확한 애플리케이션 object/client 쌍, 위임된 `scp`
+claim이 없는 상태, `Agent.Access` 역할을 갖춰야 합니다. Entra가 `idtyp`을 발급하면
+값은 `app`이어야 합니다. v2 Managed Identity 토큰이 이 선택적 claim을 생략해도 정확한
+object, client, 앱 역할을 모두 대조하므로 애플리케이션 토큰으로 처리합니다. 해당
+설치본의 Plan을 읽고 상태와 보고서를 제출할 수 있을 뿐입니다. 운영자, 카탈로그 ID,
+Agent ID는 구분합니다. 또한 [Agent가 제출하는 승인 대기 등록](#agent가-제출하는-승인-대기-등록)에
+정의한 대로 자기 설치본의 승인 대기 등록을 제안할 수 있습니다. Agent는 승인, 반려, Entity
+관리, 소유권 기록, 게시, 가져오기, 재계산을 할 수 없습니다. Release Hub는 Agent 연결을
+받지 않으며, 연결 목록이 비어 있으면 기존 차단 동작을 유지합니다.
 
 명시적으로 연결한 설치본에 한해, 인증된 운영자는 서명된 등록 요청을
 `POST /v1/enrollments/{installation_id}/requests`로 제출할 수 있습니다.
@@ -279,7 +287,86 @@ Agent 신원은 이 운영자 목록을 읽을 수 없습니다.
 루트는 비어 있지 않은 Agent 연결을 실행 설정으로 전달합니다. 연결 목록이 비어 있으면
 이전 이미지와의 호환성을 위해 실행 설정에서 해당 필드를 생략합니다.
 
-운영자는 **Enrollment requests** 화면에서 연결된 설치본 ID를 입력하고 64 KiB 이하의
+`GET /v1/enrollments/bindable`은 연결된 설치본 ID와 상태를 나열하므로 **Enrollment requests**
+화면에서 ID를 선택할 수 있습니다. `fdai-lifecycle-hub sign-enrollment`는 설치 경계 안에서
+요청에 서명하고 업로드 파일만 기록한 뒤, 승인자가 독립적으로 대조할 키 ID를 출력합니다.
+Agent가 Hub에 접속할 수 없는 설치본에는 이 방식이 오프라인 경로로 남습니다.
+`fdai-lifecycle-agent enroll`은 온라인 경로입니다. 설치 Agent가 자기 클러스터에서 요청을
+만들어 직접 제출하므로 운영자가 파일을 옮기지 않아도 됩니다.
+
+### Agent가 제출하는 승인 대기 등록
+
+**설계 메모.** 기존 규칙은 "Agent는 등록할 수 없다"였습니다. 이 규칙 덕분에 권한이 걸린
+첫 단계가 항상 사람에게 있었지만, 운영자가 설치본과 Hub 사이에서 서명된 파일을 옮기고
+보고 상태를 손으로 작성해야 했습니다. 바꾼 규칙은 "Agent가 등록할 수 있다"보다 좁습니다.
+정확히 한 설치본에 연결된 Agent ID가 그 설치본의 등록을 *제안*할 수 있고, 결정은 여전히
+사람이 합니다.
+
+`POST /v1/installations/{installation_id}/enrollment-request`는 기존 `SignedEnrollment`
+본문(`signed_payload`, `proof`)을 받습니다. `auth.agent_principals`에서 정확히 그 설치본에
+연결된 애플리케이션 ID(object/client 쌍), `Agent.Access` 역할, 위임된 `scp` claim이
+없는 토큰만 사용할 수 있습니다. 핸들러는 기존 증명, 5분 이내 최신성, ID 일치, 64 KiB 크기,
+`settings.product` 금지 규칙을 그대로 적용하는 `request_enrollment`를 재사용합니다. 승인
+대기 기록만 만들며, 감사 기록에 Agent의 object ID를 `requested_by`로, 경로를
+`requested_via=agent`로 남깁니다. Hub는 두 필드를 승인 대기 기록에 노출하므로
+**Enrollment requests** 화면에서 누가 제안했는지 볼 수 있습니다.
+
+**권한 변경.** Agent ID에 추가되는 능력은 자기 연결 설치본의 승인 대기 등록 생성 하나뿐입니다.
+승인, 반려, 등록 확정, Entity 관리, 소유권 기록, 제품 연결 설정, 다른 설치본 조회는 추가되지
+않습니다. Agent를 연결하지 않았거나, 연결하지 않은 설치본이거나, 다른 설치본이거나, 운영자
+토큰이거나, Release Hub이면 이 경로를 쓸 수 없습니다.
+
+**안전한 이유.**
+
+- *승인 대기는 권한이 아닙니다.* 승인 대기 설치본은 설치본 목록, 계획 수립, Agent Plan 경로,
+  모든 Entity 작업에서 제외됩니다. 사람이 독립적으로 확인한 키 ID로 승인해야만 등록되며,
+  이후에도 모든 Entity는 관리 대상이 아닌 상태로 시작합니다.
+- *독립된 두 요소.* 요청에는 워크로드 ID(Entra 토큰)와 설치 개인 키(증명)가 모두 필요합니다.
+  토큰이 유출되어도 유효한 증명을 만들 수 없고, 키가 유출되어도 토큰 없이는 경로에 접근할
+  수 없습니다.
+- *덮어쓰기 불가.* 설치본 ID마다 기록은 하나입니다. 같은 요청을 반복하거나 이미 승인 대기,
+  등록 완료, 반려 상태인 설치본에 제출하면 기존 `installation_exists` 충돌을 반환합니다.
+  Agent는 승인된 키를 바꾸거나 결정을 되돌릴 수 없습니다.
+- *설정은 고객 소유입니다.* Agent는 클러스터에서 Entity와 보고 상태를 도출하지만, 채널,
+  버전 범위, 리전, 허용 리전, 시간대와 구성은 고객이 소유한 엄격한 선언 파일에서 읽을 뿐
+  만들어 내지 않습니다. `settings.product`도 설정할 수 없습니다.
+- *귀속.* 감사 체인에 인증된 Agent object ID와 Agent 경유 사실을 기록하므로, 승인자는
+  운영자 제출과 구분할 수 있습니다.
+
+**비판과 수정.**
+
+1. *키 ID 출처.* Agent가 키 ID를 출력하지만, 침해된 Pod는 임의의 ID를 출력할 수 있습니다.
+   따라서 승인자는 승인 대기 요청과 별개로 얻은 ID(예: 키 보관소의 설치 공개 키에서 계산한
+   값)와 대조합니다. 명령은 개인 키를 출력하지 않으며, 화면은 키 ID를 보여 주되 승인 입력란은
+   비워 둡니다.
+2. *자리 선점.* 침해된 Agent ID는 자기 설치본의 자리를 승인 대기 요청으로 차지할 수 있습니다.
+   등록만 막을 뿐 권한은 얻지 못하며, 운영자가 반려하고 감사 기록이 주체를 알려 줍니다.
+   ID가 한 설치본에만 연결되어 있으므로 다른 설치본의 자리는 선점할 수 없습니다.
+3. *클러스터 도출 상태는 주장입니다.* 네임스페이스 쓰기 권한이 있으면 누구든 워크로드에
+   레이블을 붙일 수 있습니다. Hub는 이미 보고 상태를 설치본의 주장으로 취급하고 Entity는
+   관리 대상이 아닌 상태로 시작합니다. Agent는 레이블이 있는 Deployment와 CronJob만 읽고
+   Secret이나 값은 읽지 않으며, 모호하거나 한도를 넘는 관찰은 추측하지 않고 거부합니다.
+4. *결과 불확실.* Hub가 요청을 기록했을 수 있으므로 Agent는 전송 결과가 불확실해도 자동으로
+   재시도하지 않습니다. 운영자에게 승인 대기 목록을 확인하라고 알립니다. 요청이 이미 기록된
+   뒤에 다시 실행하면 충돌을 반환하므로 재실행은 안전합니다.
+5. *채택하지 않은 대안.* 기존 `/enrollment` 경로를 열면 원격 권한 검사가 모두에게 의도적으로
+   차단한 경로를 넓히게 됩니다. 운영자 경로에서 Agent 토큰을 받으면 주체 종류가 섞입니다.
+   Agent가 자기 요청을 직접 승인하게 하면 사람의 결정이 사라지므로 허용하지 않습니다.
+
+보고 상태는 Agent 자신의 네임스페이스에서 `fdai.io/entity` 레이블이 있는 워크로드로부터
+도출합니다. Entity ID는 레이블 값이고, Release ID는 표준 SemVer 형식의
+`app.kubernetes.io/version` 레이블, 스키마 리비전은 `fdai.io/schema-revision` 주석,
+아티팩트 다이제스트는 `@sha256:` 이미지 참조에서 가져옵니다. 상태는 Deployment 롤아웃
+상태로 판단합니다. Release 레이블이 없는 워크로드는 만들어 낸 버전 대신 명시적인 빈 상태를
+보고합니다.
+
+**상태.** 경로, `enroll` 명령, 읽기 전용 Role 규칙, UI의 요청자 표시는 개발용으로 구현했으며
+로컬 테스트 증거만 있습니다. 운영 중인 Hub, Agent Pod, 워크로드 ID, 권한 변경은 실행해 보지
+않았고, 렌더러는 아직 Release와 스키마 리비전 메타데이터를 워크로드에 기록하지 않습니다.
+남은 작업은 [구현 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)에서
+추적합니다.
+
+운영자는 **Enrollment requests** 화면에서 연결된 설치본을 선택하고 64 KiB 이하의
 서명된 요청 JSON 파일을 선택할 수 있습니다. `signed_payload`와 `proof`만 전송하며,
 개인 키는 업로드하지 않습니다. 제출 요청은 10초 안에 끝내고 자동으로 재시도하지 않습니다.
 결과를 확인할 수 없으면 승인 대기 목록을 새로 고친 뒤 재시도하세요.
@@ -294,10 +381,108 @@ Agent는 명시적으로 선택한 경우에만 AKS의 투영된 워크로드 ID
 네임스페이스의 Deployment, Service, Job 작업에만 한정합니다.
 [Agent 준비 안내](../../../lifecycle/agent/README.md#remote-development-preparation)를 참조하세요.
 
-이 선택 기능의 근거는 집중 로컬 테스트입니다. 실제 Entra 인증, 이미지, AKS, 볼륨 재연결,
-워크로드 변경 효과를 입증하지 않습니다. 이 준비 작업은 기존 Hub의 이미지, revision,
-카탈로그 연결, 네트워크 허용 목록을 변경하지 않습니다. 해당 변경에는 정확한 클라우드
-계획과 별도 승인이 먼저 필요합니다.
+연결된 설치본에서는 Agent가 `--artifact-source hub`를 선택할 수 있습니다. Agent는 서명된
+Plan을 받은 뒤 설치본에 결속된 `Agent.Access` 신원으로 해당 Plan이 지정한 정확한 Release와
+활성 구성 다이제스트만 요청합니다. Lifecycle Hub는 현재 유효한 Plan, 수락한 Release
+카탈로그 및 보존된 구성 가져오기 기록을 다시 검증한 뒤 원본 서명 바이트를 반환합니다.
+산출물 목록이나 다른 설치본의 입력은 제공하지 않습니다.
+
+Agent는 각 서명과 정규 다이제스트를 검증한 뒤 바이트를 비공개 상태 볼륨에 게시합니다.
+이후 poll은 같은 캐시 파일을 재사용하므로, 캐시 존재를 신뢰로 간주하지 않으면서 반복 Hub
+다운로드를 제거합니다. 입력이 없거나 변경되었거나 Plan에 결속되지 않았거나 사용할 수 없으면
+재시도 가능한 입력 보류 상태가 되고 Kubernetes 호출은 수행하지 않습니다. 공급업체와 고객의
+공개 키, 비공개 런타임 묶음, 설치 정책 및 복호화 자료는 계속 독립적인 설치본 입력으로
+제공합니다. 이 전송은 이미지를 미러링하거나 적용 권한을 부여하지 않습니다.
+
+독립 [Lifecycle Agent 배포 루트](../../../infra/lifecycle-agent/README.md)는 source/offline
+워크로드 루트를 변경하지 않고 AKS Agent 하나를 준비합니다. 전용 User-assigned Managed
+Identity, workload federation 연결 하나, 정확한 `Agent.Access` 앱 역할 할당, Agent
+네임스페이스와 영구 상태, 워크로드 네임스페이스에 한정된 Role을 만듭니다. Azure 관리
+리소스 쓰기 역할은 부여하지 않습니다. `enable_agent=false`는 poller를 시작하지 않고
+필수 조건만 준비합니다. 등록, 소유권, 보고 상태, 서명된 입력과 Plan이 모두 준비된 뒤
+정확한 후속 plan에서 Recreate 전략의 Agent 하나만 시작합니다. 설치본 신원 개인 키는
+Terraform 입력으로 사용하지 않습니다. 미리 배치하는 고객 구성 서명은 Terraform을 지나는
+동안 정규 Base64 형식을 유지하며 Kubernetes provider의 binary secret 필드를 사용합니다.
+UTF-8 텍스트로 디코딩하거나 Terraform 명령 인수로 노출하지 않습니다. 비활성 단계에서는
+`WaitForFirstConsumer` PVC를 만들되 `Bound` 상태를 기다리지 않습니다. Agent Pod를 예약한
+뒤에만 binding과 readiness를 독립적으로 검증합니다. 활성화는 제한된 일회성 초기화 Job을
+실행하고 완료를 기다린 다음 Agent Deployment를 생성하거나 갱신합니다. Job은 공개 입력과
+비공개 입력을 모두 read-only로 mount하므로, 선택적으로 미리 배치한 구성과 서명을 Agent
+프로세스 시작 전에 영구 검증 캐시로 옮길 수 있습니다. 로컬 정책과 선택적 native 신원
+입력도 PVC에서 현재 UID가 소유하고 mode가 정확히 `0700`인 `/state/private` 경계 아래의
+owner-only `0600` 파일로 복사합니다. main Agent는 Kubernetes Secret을 mount하지 않고
+이 비공개 상태 파일만 읽습니다. PVC root에 Agent group이 이미 설정된 뒤에는
+`fsGroupChangePolicy=OnRootMismatch`가 kubelet이 해당 mode를 재귀적으로 다시 넓히지
+않도록 합니다. main Agent는 필요한 PVC 파일만 `subPath`로 이미지의 UID 소유 mode-`0700`
+`/config/private` 디렉터리 아래에 bind mount합니다. 따라서 group이 관리하는 PVC root를
+비공개 입력 parent로 취급하지 않습니다. 초기화 컨테이너는 비공개 입력 디렉터리와 산출물
+캐시 디렉터리를 서로 다른 변수로 유지하므로 native 승인과 설치본 신원 파일이 구성 캐시로
+이동하지 않습니다. 초기화가 별도 Job이므로 kubelet이 Agent Pod를 준비하기 전에 모든 PVC
+`subPath` 원본이 존재합니다. Job을 실행할 때마다 보존된 Secret에서 mode-`0600` 임시
+파일을 쓰고 atomic replace하여 비공개 입력을 갱신하므로 기존 파일의 존재를 신뢰로
+간주하지 않습니다. 중단된 kubelet `subPath` 준비가 파일 위치에 디렉터리를 남기면 비어
+있을 때만 제거하며, 비어 있지 않은 디렉터리는 계속 fail-closed 처리합니다. 로컬 native
+Job Pod template은 모든 stage 입력의 digest를 결속합니다. 따라서 정책, 승인, native
+state, current state, 공개 신원 또는 구성 산출물이 바뀌면 Job을 교체해 다시 실행합니다.
+digest 앞 12자는 제한된 Job 이름에도 포함하므로 provider의 patch 동작이 필수 재실행을
+no-op으로 바꿀 수 없습니다. 로컬 native bootstrap 뒤 활성 Agent 입력에는 검증된
+`lifecycle-native-scope.json`을 포함합니다.
+초기화 Job은 설치본 개인 키를 Terraform에 복사하지 않고 이를 Agent 상태 경로에 atomic
+stage합니다. 모든 journal, current-state, native-state, 산출물 캐시 파일은 UID가 소유하고
+mode가 `0700`인 `/state/agent` 아래에 둡니다. group이 관리하는 PVC mount root는 Agent
+상태 디렉터리로 전달하지 않습니다. main container는 이 `agent` 하위 디렉터리만 이미지의
+UID 소유 mode-`0700` `/agent-state` 경로에 mount하므로 strict reader가 group-writable
+PVC mount root를 탐색하지 않습니다. 제한된 `64Mi` `emptyDir`가 Kubernetes dynamic
+discovery에 필요한 쓰기 가능한 `/tmp`를 제공하며 이미지 root filesystem은 read-only로
+유지합니다.
+
+Hub가 `apply-started`를 수락한 뒤 Agent는 첫 Kubernetes 변경 전에 Plan 만료를 다시
+확인합니다. 준비한 Plan이 만료되었으면 `reason_code=plan_expired`를 기록하고 정확한 Plan
+digest를 생략하며 summary를 비운 최종 `rejected` 보고를 먼저 영구 저장해 전달합니다. Agent는
+Hub가 이 보고를 수락한 뒤에만 준비 journal을 지웁니다. 그보다 앞선 영구 저장 경계에서
+실패하거나 재시작해도 Kubernetes를 변경하지 않고 동일한 보고를 재개합니다. Hub는 효과가
+없음을 나타내는 이 후속 보고만 수락하고 rollback 실패 억제 구간을 만들지 않습니다. 중복
+`apply-started`와 그 밖의 모든 시작 이후 거부 사유는 계속 유효하지 않습니다.
+
+native approval 만료는 attribution이 있는 운영자가 동일한 exact scope를 갱신할 수 있으므로
+재시도 가능한 로컬 보류입니다. Agent는 새 retryable 기록과 이 정확한 사유를 가진 기존
+non-retryable 기록을 모두 재평가하며 기존 sequence tombstone도 제거합니다. 다른 최종
+거부는 replay-safe 상태를 유지합니다.
+
+`fdai-lifecycle-manager prepare`는 원격 효과 전에 설치본 로컬 준비 경계를 닫습니다.
+깨끗한 source 개정, 다이제스트에 고정된 구성 요소 이미지, 검토된 비공개 런타임 묶음,
+독립적으로 얻은 Hub/Release 공개 키에서 새 비공개 디렉터리를 만듭니다. 이 디렉터리에는
+변경 불가능한 게시 요청, 서명된 등록, 고객 서명 구성, 애플리케이션 연결 요청, Entity 설정,
+명시적인 빈 상태, native 범위 승인, Agent 정책과 캐시, 설치본 소유 키가 들어 있습니다.
+Hub, Azure 엔드포인트, 레지스트리 또는 클러스터에는 접촉하지 않으며 실패하면 일부만 만들어진
+대상을 제거합니다. 준비 증적에는 다이제스트만 포함하며 게시, 등록, 소유권, Plan 또는 적용
+권한을 부여하지 않습니다. 인프라와 카탈로그 단계가 제한된 등록 proof 유효 시간을 넘기면
+`refresh-enrollment`가 보존된 proof와 키 쌍을 검증합니다. 설치본 신원과 payload는 유지하고
+`requested_at`만 갱신한 mode-`0600` proof를 새 파일에 기록하며 원본은 덮어쓰지 않습니다.
+
+이 선택 기능에는 범위가 제한된 실제 개발 설치본 증적도 하나 있습니다. Release Hub가
+정확한 서명 Release를 게시하고 Lifecycle Hub가 가져왔습니다. 설치본에 결속된 Managed
+Identity가 Plan과 산출물을 가져왔으며, Agent는 FDAI Operator canary 하나를 적용하고 Ready
+상태를 독립적으로 확인한 뒤 `applied`를 보고했습니다. 새 recompute는 `up-to-date`를
+반환했고 반복 poll은 `no-plan`을 반환했습니다. 이 증적은 보존된 AKS 개발 설치본 하나만
+포괄하며 production, 볼륨 재연결, 신원 교체, 여러 Entity 업데이트 또는 구성 키 교체를
+입증하지 않습니다. 설치본의 기존 데이터베이스 Secret 참조는 워크로드 준비 중에
+연결했습니다. 이후 비공개 런타임 묶음에는 Plan 실행 전에 이러한 의존성을 모두 포함해야
+합니다. 기존 Hub 이미지, revision, 카탈로그 연결, 네트워크 허용 목록은 정확한 클라우드
+계획과 별도 승인을 통해서만 변경합니다.
+
+두 번째 범위 제한 증적은 새로 만든 고객 개발 AKS 클러스터에서 애플리케이션 중립적인
+수명 주기를 검증합니다. Release Hub는 nginx `2180.0.0`, 별도 업데이트 `2180.1.0`,
+통제된 실패 버전 `2180.2.0`을 게시했습니다. Lifecycle Hub는 각 exact catalog revision을
+가져와 설치본에 결속된 Plan을 발급했습니다. Agent는 nginx를 설치하고 업데이트한 뒤 실패
+이미지가 비정상 상태가 되자 `health_check_failed`와 함께 `rolled-back`을 보고했습니다.
+독립 readback에서 복원된 `2180.1.0` 이미지 다이제스트, Ready 1/1, HTTP 200, 변경되지 않은
+Service UID를 확인했습니다. 새 recompute는 Plan 없이 `waiting`을 반환해 실패 보류를
+유지했습니다. 다른 설치본에 대한 접근은 403을 반환했으며 Agent와 Hub replica를 교체해도
+상태가 유지되고 워크로드 효과가 중복되지 않았습니다. 검증 후 임시 AKS, 레지스트리, 신원,
+노드 리소스 그룹을 제거했고 Lifecycle Hub trust와 네트워크 입력은 zero-change plan으로
+복원했습니다. 이 증적은 #2180의 nginx gate를 검증하지만 #2181에서 추적하는 전체 FDAI
+topology를 검증하지는 않습니다.
 
 ## 제품별 독립 배포
 
@@ -313,9 +498,14 @@ Release Hub는 공급업체의 제품이고, Lifecycle Hub는 고객의 배포 �
 기본 로컬 백엔드는 영속 비공개 저장소의 절대 경로를 명시적으로 받아, Azure Storage 없이
 기존 로컬 state를 보존합니다. 원격 백엔드는 후보 고정 전에 별도로 검토하는 표준 Terraform
 재정의 설정으로 선택할 수 있으며, 실행 중 백엔드를 바꾸지는 않습니다.
-공유 내부 모듈은 선택한 제품의 자원만 만듭니다. 다른 Hub의 state, ID, NAT 주소를 읽지 않습니다.
-승인된 기존 레지스트리는 외부 입력입니다. FDAI 소스/오프라인 설치기, 본체 인프라 루트,
-Agent 또는 클러스터 배포는 바꾸지 않습니다.
+공유 내부 모듈은 선택한 제품의 자원만 만듭니다. 다른 Hub의 state, ID, NAT 주소를 읽지
+않습니다. 승인된 레지스트리는 두 제품 루트에 명시적으로 주입하는 외부 입력으로 유지합니다.
+제품별 배포는 Lifecycle Hub의 state 소유권을 넘기지 않고 공유 Hub 이미지 전송 수단을
+Release Hub 리소스 그룹에 배치할 수 있습니다. 검증된 개발 토폴로지는 Release Hub가 소유한
+전용 ACR 하나를 사용하고, 각 Hub의 Managed Identity에 `AcrPull`을 부여하며, 모든 앱과 Job을
+제품별 다이제스트에 고정합니다. 레지스트리 이전은 Hub 데이터베이스, Key Vault, 네트워크
+또는 설치 권한을 바꾸지 않습니다. FDAI 소스/오프라인 설치기, 본체 인프라 루트, Agent 또는
+클러스터 배포도 바꾸지 않습니다.
 
 Entra 앱 등록이 0개여도 각 루트는 Graph나 디렉터리 state 없이 계획할 수 있고,
 각 원격 앱은 자기 스키마 이행, 서버 기동, 상태/준비 확인과 UI 제공을 수행할 수 있습니다.
@@ -323,6 +513,15 @@ PostgreSQL/Key Vault 관리 ID, 인증서를 검증하는 TLS와 사람 DB 관�
 앱 소유의 제한된 SQL/Key Vault 초기화 명령은 임시 수동 Job에서 실행합니다.
 Terraform 기본 도구로 자원을 선언하고 Azure CLI로 Job을 시작하고 관측합니다.
 초기화 후 임시 권한은 영구 런타임 자원과 별도로 제거합니다.
+
+기동 후 각 제품은 브라우저 세션에 의존하지 않는 자동화를 위해 수동 trusted-operations
+Job 하나를 유지할 수 있습니다. Release Hub는 정확한 비공개 `publish-release` 요청만
+수락합니다. Lifecycle Hub는 정확한 `import-catalog` 또는 `recompute` 요청과, 요청 비밀 대신 행위자와 사유를 받는
+`bind-catalog`, `rebind-catalog`만 수락합니다.
+Job은 Key Vault에서 정확한 버전의 요청 하나를 읽고 해당 Hub의 Managed Identity와 트랜잭션
+저장소만 사용하며, 다이제스트만 포함한 범위가 제한된 증적을 출력합니다. 설치 적용 신원은
+보유하지 않습니다. 동일한 요청을 재시도하면 효과를 추가하지 않고 보존된 게시 또는 가져오기
+결과를 다시 읽습니다. 운영자 등록, 소유권 수락 및 Plan 적용은 계속 별도 경계입니다.
 
 로그인과 Lifecycle의 카탈로그 원본은 명시적으로 선택하는 연결이며 가짜 값을 넣지 않습니다.
 로그인이 없으면 관리 API는 503으로 차단하고 UI는 기능을 사용할 수 없다고 표시합니다.
@@ -752,6 +951,31 @@ cell이 다른 고객의 cell에 영향을 줄 수 없습니다.
    적용을 위한 매 조회에서는 Plan을 가져오거나 작업 기록을 복구하기 전에 같은 독점 상태
    잠금 안에서 실행 방식을 다시 확인합니다. 초기 생성 전에 준비된 기존 방식의 클라이언트는
    실행을 멈춥니다.
+7. 전체 권한 개발 승인에는 기존 워크로드 객체를 종류, 이름, Kubernetes UID로 정확히
+   나열할 수도 있습니다. 이 목록은 변경되지 않은 `NativeScope`의 부분 집합이며, 범위의
+   나머지 객체는 모두 없어야 합니다. Hub는 운영자가 수락한 네이티브 선언 다이제스트를
+   Plan의 `ownership_digests`에 서명합니다. 이름과 UID는 비공개 로컬 승인 안에만 남습니다.
+   에이전트는 `apply-started` 전에 각 UID를 검증하고 리소스 버전과 원래 매니페스트를
+   보존합니다. Terraform이 소유한 필드만 강제로 인수할 수 있는 서버 사전 실행도 수행합니다.
+   Hub가 `apply-started`를 수락한 뒤에는 기존 객체별 인수 체크포인트를 실행하고 승인된
+   부재 객체만 생성합니다. 각 증적은 로컬 승인 다이제스트, 수락된 소유권 다이제스트,
+   Plan ID, 렌더링 다이제스트, UID와 결과 리소스 버전에 연결됩니다.
+   목표 렌더링에는 항상 Agent 소유 표시가 있습니다. 인수 전 롤백 매니페스트는 정확한 종류와
+   이름에 UID 조건 인수 예상값이 있을 때만 Terraform 소유 표시를 유지할 수 있습니다.
+   사전 실행과 롤백은 이 제한된 예외를 동일하게 적용하며, 목록에 없는 미관리 객체는 계속
+   범위 밖으로 처리합니다. 이미 인수한 객체를 롤백으로 복원할 때는 네이티브 소유자가
+   매니페스트를 제출하기 전에 Agent 소유 표시를 다시 적용합니다.
+   상태 이외의 `managedFields`가 없는 기존 객체는 이 정확한 개발 승인에서만 허용합니다. 단일
+   `Terraform` 또는 `HashiCorp` provider manager도 허용하며, 다른 manager는 충돌로 처리합니다.
+   상태만 바뀌어 리소스 버전이 달라지면 UID와 상태 이외의 소스 다이제스트가 정확히 같을 때만
+   최신 버전을 다시 바인딩합니다.
+   기존 Deployment는 인수와 이후의 모든 정확한 UID 업데이트에서 불변 selector를 유지하고 그 일치 label을 목표 Pod 템플릿에 복사합니다.
+   UID나 필드 관리자가 충돌하면 변경 전에 중지합니다. 중단되면 정확한 anchor 소유 표시가
+   있는 객체만 복구하고 UID 조건 롤백으로 보존한 매니페스트를 복원하며, 인수하지 않은
+   객체는 바꾸지 않습니다. 보존된 모든 소유 UID를 롤백 상태로 복원한 뒤 이후 Plan에서 남은
+   객체만 안전하게 재시도합니다. 워크로드를
+   롤백해도 소유 표시는 유지하므로 두 작성자가 조용히 다시 활성화되지 않습니다.
+   소유권 인계를 되돌리는 작업은 별도의 Terraform 가져오기 절차가 담당합니다.
 
 초기 범위는 애플리케이션 패키지의 Deployment와 내부 Service로 제한합니다. 네임스페이스,
 RoleBinding, Azure 리소스, Secret 읽기, DB 마이그레이션 실행, 애플리케이션 전용 렌더러나
@@ -879,6 +1103,60 @@ JSON Patch를 사용합니다. 생성 응답을
 네임스페이스 수명 전체를 원자적으로 잠그는 트랜잭션이 아닙니다. 기준 객체가 사라지거나
 바뀐 경우 정상적인 성공으로 보고하지 않습니다.
 
+### 설치된 이전 네이티브 범위 전환
+
+설치된 개발용 Agent는 영구 상태 파일을 직접 편집하지 않고 이전 네이티브 Entity에서 이미
+수락된 혼합 네이티브 범위 하나로 이동할 수 있습니다. 이 과정은 단방향 준비 단계이며
+Lifecycle Plan이나 워크로드 효과가 아닙니다. 현재 유효한
+`full-authority-development` 승인에서만 사용할 수 있습니다.
+
+전환에는 서로 독립적으로 서명된 두 결정이 필요합니다.
+
+1. `fdai-lifecycle-agent prepare-native-transition`은 잠긴 활성 네이티브 상태, 현재 보고
+   상태, 준비된 새 네이티브 상태, 복구한 설치 키와 정확한 로컬 승인을 읽습니다. 설치, 이전
+   및 새 Entity와 범위 다이제스트, 이전 보고 상태 다이제스트, 수락된 소유권 주장, 신원 복구
+   요청, 복구한 키 ID, 승인된 기존 객체의 종류, 이름, UID 전체 다이제스트를 묶은 설치 서명
+   요청을 기록합니다.
+2. 인증된 운영자는 이 요청을
+   `POST /v1/installations/{installation_id}/native-transition-approval`로 보냅니다.
+   Lifecycle Hub는 복구한 키의 감사 기록, 수락된 네이티브 소유권 감사 기록과 범위, 정확한
+   이전 설치 상태와 새 미설치 보고 상태, 열린 Plan이 없음을 다시 확인합니다. 그런 다음
+   해시 체인 감사 기록 하나를 추가하고 현재 Hub 키로 정확한 승인을 서명합니다. 승인이
+   유효하고 이전 보고 상태 다이제스트가 활성 상태인 동안에는 계획 생성을 보류합니다.
+3. `fdai-lifecycle-agent transition-native-scope`는 두 서명, Hub 키 ID와 세대, 현재 유효한
+   로컬 및 Hub 승인, 정확한 이전 및 새 범위 상태, 보고하지 않은 Plan이나
+   `prepared`/`applying` 저널이 없음을 검증합니다. 로컬 상태를 바꾸기 전에 새 기준 객체
+   UID, 승인된 모든 기존 UID, 범위에 포함된 나머지 객체가 모두 없음을 독립적으로 읽습니다.
+4. Agent는 정확한 이전 네이티브, 워크로드, 보고 상태 바이트를 소유자 전용 롤백 기록에
+   보존하고 대기 의도를 기록합니다. 이후 장애에 안전한 파일 교체로 새 네이티브 상태, 빈
+   워크로드 저널과 새 Entity의 실제 빈 상태를 게시합니다. 다이제스트로 고정한 완료 증적이
+   커밋 지점입니다.
+   전환이 중단되면 실패를 반환하기 전에 이전 바이트를 복원합니다. 완료된 요청을 정확히
+   재시도하면 다시 쓰지 않고 기존 증적을 반환합니다.
+5. 로컬 커밋이 끝나면 Agent는 서명된 승인, 로컬 완료 증적, 전체 네이티브 승인과 새 보고
+   상태를 Agent에 바인딩된 `Agent.Access` 워크로드 신원으로
+   `POST /v1/installations/{installation_id}/native-transition-completion`에 보냅니다.
+   Hub는 설치 행 하나를 잠근 상태에서 전환 및 증적 다이제스트, 이전 및 새 범위, 실행 신원,
+   기존 객체의 권위 있는 UID, 전체 객체 범위, 정확한 이전 관리 Entity 집합, 새 빈 Entity
+   상태와 열린 Plan이 없음을 검증합니다. 그런 다음 트랜잭션 하나에서 이전 Entity의 관리를
+   해제하고 새 상태를 기록하며 Entity 설정을 새 네이티브 Entity로 이전합니다. 같은
+   트랜잭션에서 감사 레코드와 완료 증적도 보존합니다. 불일치, 충돌 또는 중단이 발생하면
+   Hub 쓰기 전체를 롤백합니다. 정확한 재시도에는 보존한 증적을 반환합니다.
+
+범위가 제한된 `operator-hub-canary`에서 `fdai-workloads`로의 개발 전환은 정확한 기존
+객체 7개를 승인하고 범위의 나머지 객체 9개가 없도록 요구합니다. 따라서 다음 일반 서명
+Plan은 기존 혼합 범위 파이프라인으로 7개를 인수하고 9개를 만들 수 있습니다. 잘못된 UID,
+변경된 범위나 상태 다이제스트, 만료된 승인, 누락된 복구 증명, 변경된 Hub 서명, 열린 Plan,
+잘못된 Agent 신원, 잘못된 완료 증적, 적용 중인 저널 또는 불완전한 복구가 있으면 전환을
+차단합니다. 원자적 Hub 완료가 성공할 때까지 이전 Hub 상태에서 계획 생성을 보류하므로,
+로컬 전환이 커밋된 뒤 `EntityNotReported` 계획 공백이 생기지 않습니다. 보존된 롤백 기록은
+감사와 복구를 위한 증적입니다. 이 단방향 전환을 검토 없이 역방향 인계로 바꾸는 명령은
+없습니다.
+
+이전 상태 다이제스트의 1밀리초 미만 정밀도 불일치에 대한 제한된 복구는
+[네이티브 전환 상태 조정](native-transition-state-reconciliation-ko.md)을 참조하세요.
+이 복구는 이전 산출물 순서를 보존하고 중복 없이 정렬된 권위 있는 대상만 생성합니다.
+
 ## 워크로드 렌더링 마이그레이션
 
 이 섹션은 Hub 관리형 설치가 워크로드 렌더링을 Terraform 애플리케이션 단계에서 수명 주기
@@ -928,7 +1206,8 @@ JSON Patch를 사용합니다. 생성 응답을
 
 | 객체 | 범위 | 소유자 |
 |------|------|--------|
-| Deployment, HorizontalPodAutoscaler, PodDisruptionBudget, NetworkPolicy, 내부 Service, ServiceAccount, SecretProviderClass, CronJob, identity-bridge ConfigMap | FDAI 네임스페이스 | 수명 주기 에이전트 |
+| Deployment, HorizontalPodAutoscaler, PodDisruptionBudget, NetworkPolicy, 내부 Service, CronJob | FDAI 네임스페이스 | 수명 주기 에이전트 |
+| ServiceAccount, 환경 ConfigMap, SecretProviderClass와 부트스트랩 Secret, 마이그레이션 신원 바인딩 | FDAI 네임스페이스 | 인프라 선행 조건 루트. 워크로드 소유권을 넘긴 뒤에도 Terraform이 이 객체를 계속 소유하고, 시작 후에는 CSI가 Secret 데이터를 동기화합니다 |
 | Operator API와 Document Ingestion API의 외부 LoadBalancer Service | FDAI 네임스페이스 | 인프라 에이전트. API Management가 이 주소에 바인딩되기 때문입니다 |
 | 실행기의 외부 스케일용 Role과 RoleBinding | FDAI 밖의 지정된 대상 네임스페이스 | 인프라 에이전트. 권한을 부여하기 때문입니다 |
 | 네임스페이스, 인벤토리 조회용 ClusterRole과 ClusterRoleBinding | 클러스터 | 인프라 에이전트 |
@@ -972,7 +1251,24 @@ JSON Patch를 사용합니다. 생성 응답을
 
 1. **인프라:** 인프라 에이전트가 Azure 리소스, 클러스터 범위 객체, 역할 바인딩, 외부 Service에
    대해 추가와 제자리 변경만 적용하고, 목표 Release의 모든 워크로드와 작업에 대한 페더레이션 ID
-   자격 증명을 만듭니다. 그런 다음 설치 바인딩과 그 증적을 기록합니다.
+   자격 증명을 만듭니다. 그런 다음 설치 바인딩과 그 증적을 기록합니다. 공용 인프라 루트는
+   `enable_document_ingestion_workloads`로 선행 조건과 문서 인제스트 Container Apps를 분리합니다.
+   기본값은 계속 `true`입니다. Hub 관리형 설치는 검토한 정확한 계획에서만 `false`로 설정해 신원,
+   스토리지, 비공개 엔드포인트, 역할 바인딩을 수렴시키면서 두 번째 워크로드 렌더러를 만들지 않습니다.
+   기존 설치는 별도 remote state key를 사용하는 `infra/hub-stewardship-prerequisites` 전용 루트를
+   사용합니다. 이 루트는 기존 ACR, Key Vault, Event Hubs, Log Analytics, VNet, AKS 리소스를
+   조회하고 전용 Operator API 신원과 명령 신원을 포함한 워크로드 신원 6개 및 페더레이션 자격
+   증명을 소유합니다. 또한 문서 스토리지와 비공개 엔드포인트, Document Intelligence와 비공개
+   엔드포인트, 역할 범위 DSN 참조, ACS Email, 보존된 네임스페이스에 없던 생성 결과의 정확한
+   ServiceAccount, 환경 ConfigMap, SecretProviderClass, 부트스트랩 Secret을 소유합니다. 비밀 값은
+   Key Vault에서 직접 읽고 변수나 출력이 아닌 보호된 Terraform state에만 보존합니다. 배포별 이름,
+   식별자, 엔드포인트, ConfigMap 데이터, 비밀 이름은 비공개 변수를 통해 전달합니다. 보존
+   소유권 출력과 토폴로지 생성 출력으로 이러한 선행 조건을 수명 주기 에이전트의 객체와
+   분리합니다. Container App, Container App Job, Deployment, Service,
+   HorizontalPodAutoscaler, CronJob은 선언하지 않습니다.
+   운영 VNet이 기존 Blob 비공개 DNS 영역을 사용하고 있으면 문서 스토리지 엔드포인트는
+   애플리케이션 영역과의 연결을 유지합니다. 루트는 겹치는 VNet 연결을 다시 만드는 대신 동일한
+   비공개 IP의 관리형 A 레코드를 운영 영역에 게시합니다.
 2. **스키마 확장:** Release는 데이터베이스 마이그레이션을 Kubernetes Job 템플릿으로 제공하며,
    이 템플릿은 마이그레이션과 카탈로그 도구가 이미 들어 있는 Core 이미지를 사용합니다. Job은 현재
    관리 호스트의 마이그레이션 단계처럼 기존 마이그레이션, 선언된 순서에 따른 서비스 소유
@@ -1017,7 +1313,7 @@ Release에 새로 추가된 워크로드는 1단계에서 페더레이션 ID 자
 2. **Terraform에서 해제:** 인프라 에이전트가 Release에 들어 있는 Hub용 워크로드 루트 변형의
    정확한 계획을 적용합니다. `removed` 블록은 해당 리소스 블록이 설정에 없어야 하므로, 이 변형은
    에이전트 소유 리소스 블록을 각각 `destroy = false`인 `removed` 블록으로 바꿉니다. 이 블록은
-   Terraform 1.7 이상에서 지원되며, 고정된 도구 체인은 1.9.8입니다. 계획에는 삭제와 수정이 없어야
+   Terraform 1.7 이상에서 지원되며, 고정된 도구 체인은 1.16.1입니다. 계획에는 삭제와 수정이 없어야
    합니다.
 3. **인수:** 에이전트는 `fdai-lifecycle-agent` 필드 관리자로 같은 렌더링 결과를 server-side
    apply로 적용합니다. Terraform 필드 관리자가 소유한 필드에서만 충돌을 강제로 넘겨받고, 다른
@@ -1031,6 +1327,36 @@ Release에 새로 추가된 워크로드는 1단계에서 페더레이션 ID 자
 모든 진입점은 실행을 거부하거나 Hub용 변형을 사용합니다. 일반 애플리케이션 단계, 서비스별
 업데이트, 과거 상태 조정이 모두 포함됩니다. 그래서 Terraform과 에이전트가 같은 객체를 함께 쓰지
 않습니다.
+
+표시는 설치 작업 디렉터리의 owner-only 파일 `hub-ownership.json`입니다(스키마
+`fdai.hub-ownership-marker.v1`: 설치 id, 인계 receipt digest, 시각, 기록 digest). AKS 워크로드 루트의
+Terraform 단계를 활성화하는 단일 지점이 이 파일을 확인하므로, 일반 애플리케이션 단계, 서비스별
+업데이트, 과거 상태 조정이 모두 이 파일이 있는 동안 거부됩니다. 읽을 수 없거나 변조됐거나 심볼릭
+링크이거나 그룹이 읽을 수 있는 표시도 거부하므로, 손상으로 객체가 Terraform에 되돌아가지
+않습니다. 같은 인계에 대한 기록은 멱등이고 다른 인계를 덮어쓰지 않으며, 해제에는 롤백 receipt
+digest가 필요합니다.
+
+저장소의 인계 도구는 검토된 객체 목록 하나에서 `destroy = false`인 정확한 `removed` 블록과
+되돌리기용 정확한 `import` 블록을 생성합니다. 계획 검증기는 해제 계획에서 예상한 `forget`
+작업만 허용하고 되돌리기 계획에는 변경이 없어야 합니다. 삭제, 수정, 누락 주소와 알 수 없는 주소는
+안전하게 거부합니다. Agent는 UID, 리소스 버전과 상태 외 필드의 유일한 필드 관리자가 모두
+Terraform으로 유지된 객체만 하나씩 인수합니다. 객체마다 UID, 인수 후 리소스 버전, 렌더링 digest를
+기록하므로 중단되면 마지막 증적 다음부터 재개하고, drift나 알 수 없는 객체가 있으면 멈춥니다. 완료되고
+digest가 유효한 인수 증적만 `record-hub-workload-handoff`가 받아 소유 표시를 만들 수 있습니다.
+되돌리기 import를 검증하기 전에 Agent는 완료한 인수 증적에 결속된 별도 조정 해제 증적을
+기록합니다. 이는 로컬 실행 계약이며 실제 Terraform 상태 해제, 클러스터 인수, 되돌리기 import 또는
+변경 없는 계획이 실행됐다는 근거는 아닙니다.
+
+이전 워크로드 상태가 더 이상 없으면 상태를 직접 편집하거나 `kubectl`로 워크로드를 변경해
+복원하지 않습니다. 생성기가 만든 정확한 비공개 입력과 별도로 선택한 절대 로컬 backend 경로 하나를
+`infra/hub-workload-state-handoff/import`에 사용합니다. import 전용 루트는 `prevent_destroy`를
+적용하고 원하는 필드의 차이를 무시하므로, 처음 수락할 수 있는 계획은 기존 `namespace/name`
+객체를 가져오는 작업만 포함합니다. 해제 단계 전에 이어지는 계획이 완전하고 적용할 수 없으며
+변경이 없는지 확인해야 합니다. 짝을 이루는 `infra/hub-workload-state-handoff/release` 루트는
+각 전체 리소스 블록을 `removed { lifecycle { destroy = false } }`로 바꿉니다. 검증기는 digest로
+고정된 정확한 목록과 `forget` 작업만 허용합니다. 생성된 명령 순서는 최초 import, 해제, 되돌리기
+import, 마지막 변경 없는 계획에 같은 backend를 사용합니다. 각 단계는 비공개 검증 증적을
+보존하며 워크로드 변경 권한을 부여하지 않습니다.
 
 **되돌리기:** 먼저 에이전트가 인수한 객체의 조정을 멈추고, 조정 리스를 놓고, 해제를 기록합니다.
 그런 다음 인프라 에이전트가 같은 주소에 대해 `import` 블록이 있는 정확한 계획을 적용하고, 이어지는
@@ -1052,6 +1378,26 @@ Hub 경로에서 카탈로그 검토와 초기 인벤토리를 실행하는 일�
 다이제스트를 Terraform 입력이 아니라 에이전트의 렌더링 증적에서 도출합니다.
 
 ### 이전 미해결 질문에 대한 결정
+
+분류 관문(`service_migrations.classification`)은 구현되어 있으며 마이그레이션을 import하지 않고
+동작합니다. Release는 `fdai.migration-classification.v1`(`revision`별 `expand` 또는 `contract`)을
+선언합니다. 보류 개정은 이미지의 개정에서 설치가 이미 적용한 버전을 뺀 것이므로, 등록 기준 시점
+이전 개정에는 선언이 필요 없습니다. 분류되지 않은 개정, 축소로 선언된 개정, 확장으로 선언했지만
+정적 분석에서 테이블, 열, 스키마, 타입을 삭제하거나 이름을 바꾸거나 열 타입을 바꾸거나 truncate하는
+것으로 확인된 개정이 있으면 계획은 업그레이드 전체를 안정적인 사유 코드로 거부합니다. 분석은
+`upgrade()`가 도달하는 코드만 읽으므로 삭제하는 `downgrade()`는 영향을 주지 않으며, 선언을 강화하기만
+합니다. 보수적이어서, 스스로 만드는 함수 본문 안에서 삭제하는 개정도 축소로 분류합니다.
+
+구성 요소 Release에는 확장 개정과 제한된 기한만 담는 `fdai.schema-expand-job.v1` 선언 하나를
+포함할 수 있습니다. 수명 주기 에이전트는 검토된 Core 이미지와 기존 데이터베이스 참조로 고정된
+Job을 렌더링하고, Deployment를 전환하기 전에 실행합니다. 완료한 Job에는 release, 분류, 목표
+스키마 주석을 남겨 마이그레이션 증적으로 유지합니다. Core 이미지의 실행기는 선언한 개정 파일을
+import하지 않고 다시 검사하며, PostgreSQL advisory lease 하나를 유지한 상태에서 기존
+마이그레이션, 순서가 정해진 서비스 마이그레이션, 권위 있는 카탈로그 반영을 실행하고 digest만 담은
+증적을 출력합니다. 리스 경합, 파괴적인 선언 개정, Job 실패나 중단은 워크로드 전환을 차단합니다.
+이후 워크로드를 롤백해도 확장된 스키마와 완료한 Job 증적은 유지합니다. 생성한 선행 조건 목록에는
+전용 마이그레이션 ServiceAccount가 포함됩니다. 실제 관리 ID와 데이터베이스 역할 연결은 #2468의
+승인된 설치 인계 범위에 남아 있습니다.
 
 Hub 관리형 수명 주기 담당자가 2026-10-07에 다음과 같이 결정했습니다.
 

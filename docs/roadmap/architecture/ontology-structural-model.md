@@ -28,6 +28,9 @@ or a second source of provider truth. Optional source admission fences reads wit
 
 Workflow authoring records remain outside ontology identity. Saved private drafts, bindings, and catalog-seeded Built-in definitions are Operator authoring records and projections; they cannot create a Resource, ObjectType, LinkType, or action authority.
 
+Readable rule catalog list titles are presentation metadata from the matching rule detail,
+not new ontology properties or identities. Canonical rule IDs and query contracts remain unchanged.
+
 Causal metric joins retain the secured before/after topology views instead of treating any
 topology change as proof of a dependency. An exact cause/effect pair needs one correctly directed,
 verified path within one historical view and the evidence window. A metric comparison belongs
@@ -85,7 +88,7 @@ An AKS diagnostic receipt is typed evidence attached to the selected Resource re
 not create another ObjectType or LinkType, and its content identity cannot replace the Resource UID
 or relationship identity.
 Every canonical ResourceType also has one explicit recorded-state disposition. Missing state is
-never converted into a generic healthy value. The shared Operator workflow adapter may expose an optional `rule.findings-summary` projection with server-recorded counts or explicit `evaluated: false`; that operational summary is not an ontology declaration, relationship, evidence admission, or authority source. The same adapter may attach server-owned scoped Rule coverage counts to a WAF control detail; those counts are an operational read model with the same limits.
+never converted into a generic healthy value; a Resource Health answer orders non-healthy rows first and counts every row, with unrecorded or unresolved targets counted as such and never as healthy. A reviewed query group, such as alert rules, binds one generic operator word to every member type, and a health concept carries its reviewed description and terms so two blind choosers ground it identically. The shared Operator workflow adapter may expose an optional `rule.findings-summary` projection with server-recorded counts or explicit `evaluated: false`; that operational summary is not an ontology declaration, relationship, evidence admission, or authority source. The same adapter may attach server-owned scoped Rule coverage counts to a WAF control detail; those counts are an operational read model with the same limits.
 Operator ontology projection and role selection now live with the focused operations family
 adapter, while Rule, best-practice, CAF, MCSB, and WARA catalog rendering have separate pure
 projection owners. The ownership split changes no declaration identity, relationship direction,

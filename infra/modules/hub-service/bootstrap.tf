@@ -29,6 +29,9 @@ resource "azurerm_postgresql_flexible_server_active_directory_administrator" "bo
   object_id           = azurerm_user_assigned_identity.bootstrap[0].principal_id
   principal_name      = azurerm_user_assigned_identity.bootstrap[0].name
   principal_type      = "ServicePrincipal"
+  depends_on = [
+    azurerm_postgresql_flexible_server_database.hub,
+  ]
 }
 
 resource "azurerm_container_app_job" "bootstrap" {

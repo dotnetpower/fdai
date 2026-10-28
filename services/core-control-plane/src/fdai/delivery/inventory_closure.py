@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ from fdai_service_contracts.inventory_progress import (
     inventory_closure_receipt_digest,
 )
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 from fdai.delivery.inventory_progress import INVENTORY_PROGRESS_GENESIS_DIGEST
 from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE
@@ -43,7 +45,7 @@ class PostgresInventoryClosureVerifierConfig:
 
 
 class PostgresInventoryClosureVerifier:
-    """Read the active generation independently and fail closed on incomplete coverage."""
+    """Independently close an active generation or replay its retained exact receipt."""
 
     def __init__(self, *, config: PostgresInventoryClosureVerifierConfig) -> None:
         self._config = config
@@ -70,7 +72,12 @@ class PostgresInventoryClosureVerifier:
                 record = InventoryProgressRecord.model_validate(row["payload"])
             except (TypeError, ValueError) as exc:
                 raise ValueError("inventory closure progress record is invalid") from exc
-            if record.sequence != expected_sequence or record.previous_digest != previous:
+            if (
+                record.run_id != run_id
+                or record.attempt_id != attempt_id
+                or record.sequence != expected_sequence
+                or record.previous_digest != previous
+            ):
                 raise ValueError("inventory closure progress chain is invalid")
             previous = record.record_digest
             records.append(record)
@@ -80,6 +87,24 @@ class PostgresInventoryClosureVerifier:
         progress_record = await self.latest_progress(run_id=run_id, attempt_id=attempt_id)
         async with await self._connect() as connection:
             await connection.set_read_only(True)
+            retained = await (
+                await connection.execute(
+                    "SELECT value FROM state_kv WHERE key=%s",
+                    (_closure_key(run_id, attempt_id),),
+                )
+            ).fetchone()
+            if retained is not None:
+                receipt = InventoryClosureReceipt.model_validate(retained["value"])
+                if (
+                    receipt.run_id != run_id
+                    or receipt.attempt_id != attempt_id
+                    or receipt.generation_digest != progress_record.generation_digest
+                    or receipt.observed_at < progress_record.started_at
+                    or receipt.observed_at > datetime.now(tz=UTC)
+                    or not _verified_progress(progress_record)
+                ):
+                    raise ValueError("inventory retained closure binding is invalid")
+                return receipt
             async with connection.transaction():
                 await connection.execute(
                     "SELECT set_config('statement_timeout', %s, true)",
@@ -121,18 +146,7 @@ class PostgresInventoryClosureVerifier:
         subscription_scope = _canonical_subscription_scope(active["scopes"])
         scope_digest = "sha256:" + hashlib.sha256(subscription_scope.encode("utf-8")).hexdigest()
         conditions = {
-            "verified_progress": (
-                (
-                    progress_record.state.value == "running"
-                    and progress_record.stage.value == "verify"
-                    and progress_record.fraction < 1.0
-                )
-                or (
-                    progress_record.state.value == "complete"
-                    and progress_record.stage.value == "complete"
-                    and progress_record.fraction == 1.0
-                )
-            ),
+            "verified_progress": _verified_progress(progress_record),
             "active": active["status"] == "active",
             "active_generation": progress_record.generation_digest
             == "sha256:" + hashlib.sha256(str(active["id"]).encode("utf-8")).hexdigest(),
@@ -203,12 +217,47 @@ class PostgresInventoryClosureVerifier:
             receipt_digest=inventory_closure_receipt_digest(**values),
         )
 
+    async def retain(self, *, run_id: str, attempt_id: str) -> InventoryClosureReceipt:
+        """Persist a verified receipt once, before releasing the collector's promotion lock."""
+        receipt = await self.verify(run_id=run_id, attempt_id=attempt_id)
+        async with await self._connect() as connection, connection.transaction():
+            await connection.execute(
+                "INSERT INTO state_kv (key,value) VALUES (%s,%s) ON CONFLICT (key) DO NOTHING",
+                (_closure_key(run_id, attempt_id), Jsonb(receipt.model_dump(mode="json"))),
+            )
+            row = await (
+                await connection.execute(
+                    "SELECT value FROM state_kv WHERE key=%s",
+                    (_closure_key(run_id, attempt_id),),
+                )
+            ).fetchone()
+            if row is None or row["value"] != receipt.model_dump(mode="json"):
+                raise ValueError("inventory retained closure conflicts with verified evidence")
+        return receipt
+
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(
             self._config.dsn,
             row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
         )
+
+
+def _closure_key(run_id: str, attempt_id: str) -> str:
+    binding = hashlib.sha256(
+        json.dumps([run_id, attempt_id], separators=(",", ":")).encode()
+    ).hexdigest()
+    return f"inventory-closure:{binding}"
+
+
+def _verified_progress(record: InventoryProgressRecord) -> bool:
+    return (
+        record.state.value == "running" and record.stage.value == "verify" and record.fraction < 1.0
+    ) or (
+        record.state.value == "complete"
+        and record.stage.value == "complete"
+        and record.fraction == 1.0
+    )
 
 
 def _relationship_coverage_gap_count(metadata: Mapping[str, Any]) -> int:

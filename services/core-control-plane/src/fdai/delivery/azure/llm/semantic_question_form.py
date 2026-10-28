@@ -41,7 +41,7 @@ from fdai.core.conversation.semantic_reasoning_repair import FormRepair
 from fdai.core.conversation.semantic_reasoning_review import extraction_schema
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
 from fdai.core.prompts import PromptReplayManifest
-from fdai.delivery.azure.llm.completion_body import completion_body_params
+from fdai.delivery.azure.llm.completion_body import structured_body_params
 from fdai.delivery.azure.llm.identity_masking import IdentityMask
 from fdai.delivery.azure.llm.input_detection import (
     contained,
@@ -481,11 +481,13 @@ class AzureOpenAIQuestionFormModel:
         utterance: str,
         context: tuple[str, ...],
         locale: str,
+        earlier_results: bool = False,
     ) -> Mapping[str, Any] | None:
         """Ask a third model family whether the question has one plausible reading.
 
-        The reader sees only the masked question and its locale, never the judgment's
-        clarification or the released reading, so it cannot side with either reader.
+        The reader sees only the masked question, its locale, and whether earlier results are
+        in hand, never the judgment's clarification or the released reading, so it cannot side
+        with either reader.
         Without a configured prompt or third family it returns nothing, and the
         judgment's clarification stands.
         """
@@ -499,7 +501,11 @@ class AzureOpenAIQuestionFormModel:
         mask = IdentityMask(utterance, ())
         return await self._complete(
             system_prompt=self._config.ambiguity_system_prompt,
-            user_payload={"utterance": mask.utterance, "locale": locale},
+            user_payload={
+                "utterance": mask.utterance,
+                "locale": locale,
+                **({"earlier_results_available": True} if earlier_results else {}),
+            },
             schema=ambiguity_schema(),
             name="semantic-ambiguity-check",
             max_tokens=self._config.ambiguity_max_tokens,
@@ -594,9 +600,7 @@ class AzureOpenAIQuestionFormModel:
                     body: dict[str, Any] = {
                         "messages": messages,
                         "response_format": dict(response_format),
-                        **completion_body_params(
-                            target.deployment, temperature=0.0, max_tokens=max_tokens
-                        ),
+                        **structured_body_params(target, max_tokens=max_tokens),
                     }
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field

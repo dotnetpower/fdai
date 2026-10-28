@@ -34,6 +34,7 @@ from fdai_deployment_cli.lifecycle_release import (
     LIFECYCLE_RELEASE_SCHEMAS,
     ApplicationRelease,
     HttpWorkload,
+    SchemaExpandMigration,
     parse_lifecycle_release_manifest,
 )
 from fdai_deployment_cli.private_output import read_private_bytes
@@ -159,6 +160,18 @@ def stage_artifact(
     root: Path, kind: InputKind, digest: str, artifact: SignedArtifact, verify: ArtifactVerifier
 ) -> None:
     """Stage independently pinned, signed bytes. Full semantic validation remains at admission."""
+    validate_artifact(kind, digest, artifact, verify)
+    directory = root / f"{kind}s"
+    # Publish the document last; an interrupted pair is rejected again during admission.
+    write_bytes_atomically(directory / f"{digest}.sig", artifact.signature)
+    write_bytes_atomically(directory / f"{digest}.json", artifact.payload)
+
+
+def validate_artifact(
+    kind: InputKind, digest: str, artifact: SignedArtifact, verify: ArtifactVerifier
+) -> None:
+    """Verify the exact bounded signature and digest used by staging and cache reuse."""
+
     if _HEX_DIGEST.fullmatch(digest) is None or kind not in ("release", "configuration"):
         raise ValueError("Signed input kind or digest is invalid.")
     if len(artifact.payload) > MAX_INPUT_BYTES or len(artifact.signature) != 64:
@@ -168,10 +181,6 @@ def stage_artifact(
     document = load_json(artifact.payload, label="signed input")
     if canonical_digest(document) != digest:
         raise ValueError("Signed input does not match the independently approved digest.")
-    directory = root / f"{kind}s"
-    # Publish the document last; an interrupted pair is rejected again during admission.
-    write_bytes_atomically(directory / f"{digest}.sig", artifact.signature)
-    write_bytes_atomically(directory / f"{digest}.json", artifact.payload)
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,6 +194,7 @@ class VerifiedRelease:
     schema_minimum: int | None = None
     schema_maximum: int | None = None
     configuration_schema: ConfigurationSchema | None = None
+    schema_expand: SchemaExpandMigration | None = None
     workloads: Mapping[str, HttpWorkload] = field(default_factory=dict)
     schema_version: str = "fdai.runtime-release.v3"
 
@@ -277,6 +287,7 @@ def verify_release(
         schema_minimum=None if release.schema_range is None else release.schema_range.minimum,
         schema_maximum=None if release.schema_range is None else release.schema_range.maximum,
         configuration_schema=release.configuration_schema,
+        schema_expand=release.schema_expand if isinstance(release, ApplicationRelease) else None,
         workloads=release.workloads if isinstance(release, ApplicationRelease) else {},
         schema_version=release.schema_version,
     )

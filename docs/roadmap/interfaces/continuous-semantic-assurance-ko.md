@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: 835f483ccfbe2be898520b53d54bcf40dbf85bb9
-translation_revised: 2026-10-19
+translation_source_sha: ed493aeeb7d3cfcfcd85009a7e8bac089488714c
+translation_revised: 2026-10-26
 ---
 # 지속형 의미 보증
 
@@ -49,7 +49,7 @@ Corpus 크기는 소스 리비전의 관측 속성입니다. 논리 기대치, �
 저장하지 않고 정확한 Golden 파일 및 온톨로지 릴리스에 연결됩니다. 제외된 선언은 별도로
 계산합니다. 새 ActionType 버전, 검토된 LinkType 의미 특성, 읽을 수 있는 새 ObjectType 속성, 행 한도 때문에 빠진 수를 이제 정확히 돌려주는 reader처럼 릴리스가 산출물 다이제스트를 고정하는 온톨로지 함수 소스의 수정처럼
 온톨로지 릴리스가 바뀌면 선언 묶음도 다시 연결되므로, 같은 변경에서 빌더로 매니페스트를 다시 생성합니다. 소스에서 파생되는 `query.resource_health_inventory` FunctionType에 Resource Health 재조회 펜스를 추가한 변경도 이러한 릴리스 변경입니다.
-E10 상태 목록 모드와 E11 메트릭 컬렉션 판독기 추가도 원본에 결속된 함수 집합과 릴리스
+E10 상태 목록 모드와 E11 메트릭 컬렉션 판독기 추가도 원본에 결속된 함수 집합과 릴리스 `query.resource_state_inventory` 함수 버전을 올리는 것도 같은 릴리스 변경입니다.
 다이제스트를 바꿉니다. 생성된 매니페스트는 해당 정확한 릴리스와 리포지토리 전용 사례 16004개를
 기록합니다. 이 수는 출처 정보이며 자격이나 운영 근거 주장이 아닙니다.
  이 리포지토리 자료 목록은 실행 가능한 캠페인, 운영 환경 연결 또는 인증 증적이
@@ -63,8 +63,9 @@ governed release 신원이 안정적으로 유지되더라도 매니페스트 �
 답변 전용 대기 상태 보완 원본도 원본에 결속된 온톨로지 다이제스트를 바꿉니다. 매니페스트
 재생성은 릴리스와 자료 목록 다이제스트만 갱신하며 질문, 측정된 커버리지, 프로바이더 근거,
 자격 또는 운영 근거 검증 증적을 추가하지 않습니다.
-`governance.override-promote-action-type` 추가는 구조 카탈로그 변경이므로 같은 빌더가 live 보증
-증적을 만들지 않고도 corpus manifest 분모와 원본 다이제스트를 갱신합니다.
+`governance.override-promote-action-type` 또는 `remediate.subscription-tag-add` 추가는 구조
+카탈로그 변경이므로 같은 빌더가 live 보증 증적을 만들지 않고도 corpus manifest 분모와 원본
+다이제스트를 갱신합니다.
 
 이어받기 참조를 받는 함수 버전 1.3.0의 메트릭 컬렉션 판독기와 검토된 정성 메트릭 레시피도 원본에
 결속된 릴리스를 다시 바꿉니다. 다시 생성된 매니페스트는 그 릴리스를 기록하며, 사례 수는 출처 정보로만

@@ -24,6 +24,7 @@ from fdai_deployment_cli import (
     standalone_catalog_review,
     standalone_checkpoint_failure,
     standalone_host,
+    standalone_host_rebind,
     standalone_host_state,
     standalone_host_values,
     standalone_operational_evidence,
@@ -467,6 +468,70 @@ def test_prepare_persists_foundation_adoption_binding() -> None:
     assert '"key_vault_private_access": key_vault_private_access' in source
     assert '"enable_aks_document_storage_private_access": document_storage_private_access' in source
     assert '"document_storage_private_access": document_storage_private_access' in source
+    assert '"resource_group_name": str(app["name"])' in source
+
+
+def test_refresh_private_access_rebinds_only_authoritative_posture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    context = {
+        "subscription_id": "subscription",
+        "resource_group_name": "resource-group",
+        "key_vault_name": "key-vault",
+        "document_storage_account_name": "storage",
+    }
+    variables = {"enable_aks_key_vault_private_access": False}
+    records = {
+        "context.json": context,
+        "application.auto.tfvars.json": variables,
+    }
+    writes: dict[str, dict[str, object]] = {}
+    monkeypatch.setattr(
+        standalone_host_rebind,
+        "private_json",
+        lambda path, _label: records[path.name],
+    )
+    monkeypatch.setattr(
+        standalone_host_rebind.standalone_terraform_environment,
+        "requires_aks_key_vault_private_access",
+        lambda **_: True,
+    )
+    monkeypatch.setattr(
+        standalone_host_rebind.standalone_terraform_environment,
+        "requires_aks_document_storage_private_access",
+        lambda **_: True,
+    )
+
+    def reconcile(
+        selected_context: dict[str, object],
+        selected_variables: dict[str, object],
+        key_vault: bool,
+        document_storage: bool,
+    ) -> bool:
+        assert selected_context is context and selected_variables is variables
+        assert key_vault is True and document_storage is True
+        context["key_vault_private_access"] = True
+        context["document_storage_private_access"] = True
+        return True
+
+    monkeypatch.setattr(standalone_host_rebind, "reconcile_retained_private_access", reconcile)
+    monkeypatch.setattr(
+        standalone_host_rebind,
+        "replace_private_json",
+        lambda path, value: writes.update({path.name: value}),
+    )
+    monkeypatch.setattr(standalone_host_rebind, "focused_private_access", lambda _: True)
+
+    result = standalone_host_rebind.refresh_private_access(
+        SimpleNamespace(),
+        tmp_path,
+        login=lambda *_: None,
+    )
+
+    assert result["state"] == "refreshed"
+    assert result["focused_private_access"] is True
+    assert set(writes) == {"context.json", "application.auto.tfvars.json"}
 
 
 def test_retained_private_access_accepts_partial_apply_tightening() -> None:
@@ -894,6 +959,91 @@ def test_browser_console_binding_rejects_invalid_cross_state_values(
                 "workloads_infra": str(tmp_path / "workloads"),
             },
             tmp_path,
+        )
+
+
+@pytest.mark.parametrize(
+    ("retained_nsg", "observed_nsg", "message"),
+    [
+        ("", "/subscriptions/00000000-0000-0000-0000-000000000001/nsg", "is required"),
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/nsg-one",
+            "/subscriptions/00000000-0000-0000-0000-000000000001/nsg-two",
+            "differs from the browser gateway binding",
+        ),
+        (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/nsg-one",
+            "",
+            "differs from the browser gateway binding",
+        ),
+    ],
+)
+def test_browser_console_binding_rejects_missing_or_replaced_subnet_nsg(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    retained_nsg: str,
+    observed_nsg: str,
+    message: str,
+) -> None:
+    subscription_id = "00000000-0000-0000-0000-000000000001"
+    workloads_tfvars = tmp_path / "workloads.auto.tfvars.json"
+    workloads_tfvars.write_text(
+        json.dumps(
+            {
+                "browser_gateway": {
+                    "enabled": True,
+                    "backend_nsg_id": retained_nsg,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    workloads_tfvars.chmod(0o600)
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_args: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_terraform_output",
+        lambda _infra, name: {
+            "console_default_hostname": "calm-field-012345678.3.azurestaticapps.net",
+            "console_static_web_app_id": (
+                f"/subscriptions/{subscription_id}/resourceGroups/rg-app/providers/"
+                "Microsoft.Web/staticSites/swa-console"
+            ),
+            "aks_subnet_id": (
+                f"/subscriptions/{subscription_id}/resourceGroups/rg-app/providers/"
+                "Microsoft.Network/virtualNetworks/vnet-app/subnets/snet-aks"
+            ),
+            "browser_gateway_operator_url": "https://apim-fdai.azure-api.net",
+            "browser_gateway_ingestion_url": "https://apim-fdai.azure-api.net/ingestion",
+        }[name],
+    )
+    monkeypatch.setattr(
+        standalone_host,
+        "_subnet_network_security_group",
+        lambda *_args, **_kwargs: observed_nsg,
+    )
+
+    with pytest.raises(ValueError, match=message):
+        standalone_host._browser_console_binding(
+            {
+                "subscription_id": subscription_id,
+                "infra": str(tmp_path / "substrate"),
+                "workloads_infra": str(tmp_path / "workloads"),
+            },
+            tmp_path,
+        )
+
+
+def test_require_browser_gateway_backend_nsg_rejects_empty_nsg_when_enabled() -> None:
+    assert (
+        standalone_host.standalone_host_values.require_browser_gateway_backend_nsg(
+            enabled=False, backend_nsg_id=""
+        )
+        == ""
+    )
+    with pytest.raises(ValueError, match="is required when the browser gateway is enabled"):
+        standalone_host.standalone_host_values.require_browser_gateway_backend_nsg(
+            enabled=True, backend_nsg_id="   "
         )
 
 
@@ -1534,6 +1684,7 @@ def test_partial_apply_recovery_returns_separate_residual_review(
         lambda *_: (tmp_path, tmp_path / "application.auto.tfvars.json"),
     )
     monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_operation_targets", lambda *_: ())
     monkeypatch.setattr(standalone_host, "_residual_claim_exists", lambda *_: False)
     monkeypatch.setattr(
         standalone_host,
@@ -1544,6 +1695,23 @@ def test_partial_apply_recovery_returns_separate_residual_review(
     result = standalone_host._recover_apply(SimpleNamespace(stage="substrate"), tmp_path)
 
     assert result is residual
+
+
+def test_applied_application_with_input_rebind_uses_distinct_update_operation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(standalone_host, "_application_successor_prerequisite", lambda *_: True)
+    operation, reconciliation = standalone_host._application_operation(
+        {},
+        tmp_path,
+        stage="application",
+        service=None,
+        update=None,
+    )
+
+    assert operation == "application-input-rebind-update"
+    assert reconciliation is None
 
 
 def test_claimed_apply_blocks_ordinary_replanning(
@@ -1716,6 +1884,12 @@ def test_aks_operational_history_job_is_shadow_and_uses_inventory_identity() -> 
     assert "FDAI_OPERATIONAL_HISTORY_AUTHORITY_RECEIPT" not in job["environment"]
     assert job["secret_environment"] == {"FDAI_DATABASE_URL": "fdai-state-store-dsn"}
     assert job["retry_limit"] == 0
+
+
+def test_aks_browser_gateway_follows_console_selection() -> None:
+    source = inspect.getsource(standalone_host._prepare_aks_application)
+
+    assert '"enabled": console_selected' in source
 
 
 def test_aks_job_rejects_missing_core_image() -> None:
@@ -3900,7 +4074,7 @@ def test_initial_aks_inventory_runs_job_and_requires_independent_complete_readba
     infra = bundle / "infra"
     infra.mkdir(parents=True)
     work_dir = tmp_path / "work"
-    work_dir.mkdir()
+    work_dir.mkdir(mode=0o700)
     for name in ("migration-receipt.json", "application-receipt.json"):
         (work_dir / name).write_text("{}", encoding="utf-8")
     source_revision = "c" * 40
@@ -3973,10 +4147,14 @@ def test_initial_aks_inventory_runs_job_and_requires_independent_complete_readba
     monkeypatch.setattr(standalone_aks_inventory, "vault_name", lambda *_: "vault")
     monkeypatch.setattr(standalone_aks_inventory, "_capture", lambda *_args, **_kwargs: "dsn")
     monkeypatch.setattr(standalone_aks_inventory, "_capture_env", capture_env)
-    monkeypatch.setattr(standalone_aks_inventory, "replace_private_json", lambda *_: None)
 
     result = standalone_host._initial_inventory(SimpleNamespace(), work_dir)
 
+    attempt_path = work_dir / "initial-inventory-attempt.json"
+    attempt = json.loads(attempt_path.read_text(encoding="utf-8"))
+    assert attempt["state"] == "succeeded"
+    assert datetime.fromisoformat(attempt["started_at"]).tzinfo is not None
+    assert attempt_path.stat().st_mode & 0o777 == 0o600
     assert len(execution_calls) == 1
     request = execution_calls[0]
     assert request["template_name"] == "inventory"

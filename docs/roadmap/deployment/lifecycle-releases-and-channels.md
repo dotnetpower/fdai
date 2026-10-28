@@ -12,7 +12,7 @@ channel model, upgrade bundles, and recall.
 > design work. The [local Release Hub](../../../lifecycle/release-hub/README.md) provides manifest
 > registration, development signing, manual built-in/custom channels, recall, a vendor UI, and opt-in
 > pinned export admission by the Lifecycle Hub. It does not implement production authentication,
-> signed catalog roles, registry publication, or recall roll-off.
+> production root-key custody, registry publication, or recall roll-off.
 > FDAI also has signed deployment bundles and offline kits, and their
 > new bundle signatures use `DEV`, `RELEASE_CANDIDATE`, and `RELEASE`. Verification maps legacy
 > `development`, `beta`, and `stable` names without rewriting signed bytes. The deployment CLI
@@ -41,8 +41,10 @@ independent development signing-key provisioning, bundled UI images, and durable
 pin/revision state. A customer operator must approve the exact export pin through a separate
 authenticated trust operation before bounded import; a digest beside the download grants no
 trust. Local loopback defaults and existing manifest/signature/catalog contracts remain unchanged.
-This is not production TUF metadata or root ceremony, automatic polling, registry publication,
-Agent apply, or evidence of a successful Azure deployment.
+Opt-in TUF-style catalog roles (see [Catalog integrity](#catalog-integrity)) replace the single
+development key with threshold offline root keys and separate online snapshot and timestamp keys.
+This is not a production root ceremony, registry publication, Agent apply, or evidence of a
+successful Azure deployment.
 
 | Concern | Decision |
 |---------|----------|
@@ -72,10 +74,93 @@ leaves publication state unchanged.
 
 Renewal appends an attributed `renew` event targeting `catalog`. It advances the revision and
 24-hour expiry, changing the export digest without changing manifests, signatures, channels,
-recalls or the signing key. Customer Hubs retain their old accepted bytes until an operator
-independently approves the new exact pin and explicitly imports it. Renewal never imports,
-plans or applies an installation change and does not replace production signed catalog roles.
+recalls or the signing key. Customer Hubs retain their old accepted bytes until either an
+operator independently approves the new exact pin and explicitly imports it, or
+[automatic adoption](#automatic-catalog-adoption) verifies the signature and the policy allows it.
+Renewal never imports, plans or applies an installation change and does not replace production
+signed catalog roles. An optional Release Hub task can perform the renewal automatically.
 The UI distinguishes read-only **Refresh catalog** from **Renew catalog freshness**.
+
+## Automatic catalog adoption
+
+The manual pin flow above makes a person copy a revision and digest for every catalog change,
+because the export bytes carry unsigned metadata. This section replaces that transcription with
+verification and policy. It keeps the same trust anchor: the Release public key that the customer
+Hub binds at deployment time.
+
+**Direction rule.** Release Hub never calls a customer. The Lifecycle Hub polls Release Hub, the
+installation Agent polls the Lifecycle Hub, and every connection starts inside the customer
+boundary. Release Hub stores no customer callback address, execution identity or schedule. The explicit
+[deployment-request intake](hub-image-deployment.md#see-subscription-deployment-requests) is a
+separate, minimal exception: it retains a reported subscription ID, region, Release/channel,
+input digests and server receipt time for an operator-only list. These self-reported requests
+never enter the public catalog, prove subscription ownership, authorize deployment or report
+operational success. Customer configuration identifiers remain sealed under their existing contract.
+
+| Concern | Decision |
+|---------|----------|
+| Signed export | Release Hub signs the exact export bytes with its Release key. The signed message is `fdai.catalog-export.v1`, a newline, then the body. The detached signature and key id travel in `X-FDAI-Export-Signature` and `X-FDAI-Export-Key-Id` on the same response, so the body and signature cannot come from different revisions. The body and its `ETag` digest are unchanged. |
+| Conditional poll | The Lifecycle Hub sends `If-None-Match` with its accepted digest. An unchanged catalog returns `304` after one cheap position query. Release Hub caches the last signed export by revision and builds at most one export at a time. |
+| Public read | `public_catalog_export` lets Release Hub serve `GET /v1/catalog/export` without a bearer token. The export holds manifests, signatures, channel membership and recalls only. Integrity comes from the signature, and images stay behind registry authorization. The default stays authenticated. |
+| Automatic freshness | An optional Release Hub renewal task appends an attributed `renew` event as `system:timestamp-renewal` when less than half of the validity remains. It re-asserts the already published content and cannot add a Release, channel or recall. With [signed catalog roles](#signed-catalog-roles-in-the-hubs) it re-signs only the timestamp and appends no event. |
+| Periodic check | The Lifecycle Hub checks on `check_interval_seconds` (300 to 86400, default 3600, zero disables) with jitter and capped retry. Each attempt is one bounded request without redirects. |
+| Adoption policy | Rego decides whether a verified candidate may replace the accepted catalog without a person. Input is the signature result, the change summary and the owner's standing authorization. Output is `allow` and the reasons a review is needed. The default is `review`. |
+| Fail closed | A missing signature, a wrong key, an expired candidate, a lower revision, an unavailable policy engine or an expired standing authorization never adopts automatically. The candidate waits for review. |
+| Review | One **Updates** screen shows the candidate revision, expiry, signature result and the change summary. **Review and apply** names the exact revision and digest that the Hub itself verified. If the source moved in the meantime, the Hub refuses and shows the new candidate. |
+| Atomic adoption | One transaction verifies the signature and the manifests, enforces the revision floor, requires that the accepted catalog is still the one the policy assessed, refuses to overwrite an operator-approved pin for the same revision, records the accepted bytes, and appends audit events attributed to the policy or the reviewing operator. |
+| After adoption | The Hub computes a Plan for every enrolled installation. Issuing a Plan never applies it. The Agent still verifies signatures and its local envelope before any effect. |
+
+The standing authorization is the existing human authorization from the constitution. Its
+`authorized_by` and `authorization_expires_at` are configuration, so a change is a reviewed
+deployment change. When it expires, adoption returns to review. Silence never approves.
+
+In `auto` mode, a candidate with a valid signature gets these outcomes. In `review` mode, which
+is the default, every change waits for a person.
+
+| Change | Outcome |
+|--------|---------|
+| First catalog, or the same releases, channels and recalls with a later expiry | Adopt |
+| New Release in an allowed channel, up to `max_new_releases` (not counted for the first catalog) | Adopt |
+| New recall with nothing else changed | Adopt |
+| Membership in a channel outside `allowed_channels`, a new channel outside that list, a removed or replaced Release, removed membership, a lifted or dropped recall or a widened schema range | Review |
+| Expired or missing standing authorization, or an unavailable or invalid policy engine | Review |
+| A missing signature, a signature from another key, a lower revision, an expired candidate or an unreachable source | No candidate; the Updates screen shows the failure and the legacy pin flow remains |
+
+A recall mixed with other changes waits for review, and the screen marks it urgent.
+
+### Configuration and interfaces
+
+The deployment supplies the standing authorization through the Lifecycle Hub `catalog` setting:
+`access` (`managed-identity` by default, or `anonymous`), `check_interval_seconds`, and an
+`adoption` object with `mode`, `allowed_channels`, `max_new_releases`, `authorized_by` and
+`authorization_expires_at`. `auto` requires both authorization fields. Release Hub gains
+`auth.public_catalog_export` and `timestamp_renewal_check_seconds`. Existing configurations keep
+their behavior because every new field is optional. The optional `trust` setting and the Release
+Hub `catalog_roles` setting select [signed catalog roles](#signed-catalog-roles-in-the-hubs).
+
+| Interface | Purpose |
+|-----------|---------|
+| `GET /v1/catalog/updates` | Policy, accepted catalog, last check, candidate with decision and change summary, and recent events |
+| `POST /v1/catalog/updates/check` | Run one bounded poll now |
+| `POST /v1/catalog/updates/apply` | Adopt the reviewed `revision` and `sha256` if the source still offers exactly that candidate; otherwise `409 candidate_changed` |
+| `fdai-lifecycle-hub sign-enrollment` | Sign an enrollment request inside the installation boundary and write only the file the operator uploads |
+| `GET /v1/enrollments/bindable` | List the installations the deployment bound to an Agent, so the operator selects one and types nothing |
+
+**What stays a person's decision.** First trust of the vendor key, the choice of channels and
+standing authorization, installation enrollment, ownership, configuration signing and any
+effect on a workload. **What stays opt-in.** Threshold root keys and TUF snapshot and timestamp
+roles exist as an opt-in mode (see [Catalog integrity](#catalog-integrity)). Without it, the
+single development key signs the export, and the dev profile label stays. The physical
+production root ceremony remains an operator procedure.
+
+**Critique and revision.** Auto-adopting a digest taken from the download response would
+reintroduce the unsigned-metadata gap, so the signature, not the digest, is the evidence.
+Public read exposes release metadata to anyone, which the vendor accepts because it carries no
+image content or customer data and the signature prevents tampering. A mixed recall and release
+change cannot be split because adoption is atomic. Splitting would let unreviewed content ride
+along with a recall, so the design delays adoption and surfaces the recall instead. The renewal
+task is the timestamp role in miniature: it cannot widen content, only keep reviewed content
+fresh. The legacy pin approval and import remain for unsigned exports and offline use.
 
 ## Application package contract
 
@@ -298,6 +383,77 @@ signatures, monotonic versions, and recall-sequence continuity (`recall_sequence
 `StateStoreActionPromotionRegistry.set_catalog_timestamp_expired` returns operator-override
 promotions to shadow mode while timestamp metadata is expired.
 
+**Installation-side freshness.** The installation's Core verifies the public metadata itself, so
+no Agent, Hub or event carries authority for the result. When
+`FDAI_CATALOG_FRESHNESS_METADATA_URL` selects it, the Core fetches that URL, verifies the root
+chain against the pinned `FDAI_CATALOG_FRESHNESS_ROOT_KEY_IDS` (threshold
+`FDAI_CATALOG_FRESHNESS_ROOT_THRESHOLD`, default all keys) and applies `evaluate_catalog_integrity`
+before each promotion refresh, at most once per `FDAI_CATALOG_FRESHNESS_REFRESH_SECONDS` (default
+300, minimum 30). The flag is set when no metadata has been verified, when the signed timestamp,
+snapshot or root has expired on the local clock. A failed fetch, an unpinned root, a bad signature or a lower version never replaces
+the last verified state, so it cannot extend freshness and the local clock still ends it. The
+metadata URL must be `https` (or loopback `http`), carries no credentials, is fetched without
+redirects, and is bounded to 1 MiB. Selecting the feature without a root pin is a startup error;
+leaving it unselected changes nothing. The Core keeps its version floors in memory only, so a
+restart accepts any validly signed, unexpired metadata. Each transition logs
+`catalog_freshness_changed` with a stable reason. The verification code lives in
+`fdai_service_contracts` (`catalog_integrity`, `catalog_roles`, `catalog_metadata`), shared with the
+Hubs. The Container Apps Core service root exposes the settings as the optional `catalog_freshness`
+variable, which requires an `https` URL and unique ed25519 root key ids.
+
+### Signed catalog roles in the Hubs
+
+The Hubs implement these roles as an opt-in mode that replaces the single development key. The
+Lifecycle Hub enters the mode when `catalog.trust` has `mode: "tuf"`. Without it, the single-key
+signed export and the unsigned pin flow behave exactly as before. Release Hub never calls a
+customer, the Lifecycle Hub still polls, Rego still decides automatic adoption, and every failure
+refuses the candidate.
+
+| Role | Holder | What it signs |
+|------|--------|---------------|
+| Root | A threshold of offline keys held by people. No Hub database or process holds a root private key. | The key ids and public keys of every role, the threshold, a version and an expiry. A new root takes effect only when a threshold of the previous root's keys and a threshold of its own keys sign it. |
+| Snapshot | One online key, separate from every other key | The export digest and revision, a version for each channel listing, the digest of each Release manifest and the recall ordinals `1..N` |
+| Timestamp | A second online key | The current snapshot version and digest, with a short expiry (default 24 hours) |
+| Export (targets) | The existing export key, now named in the root as `export_key_ids` | The exact export bytes under `fdai.catalog-export.v1`, and each Release manifest |
+
+Each role signs under its own domain: `fdai.catalog-root.v1`, `fdai.catalog-snapshot.v1` or
+`fdai.catalog-timestamp.v1`, a newline, then the canonical payload. A signature for one role
+cannot stand in for another or for the export. Keys are Ed25519. A key id is `ed25519-` and the
+SHA-256 of the raw public key, so an id cannot name a different key. The root carries the public
+keys. Existing root and snapshot records that omit the new optional `export_key_ids`,
+`public_keys`, `export_digest` and `export_revision` fields keep their canonical payload.
+
+| Concern | Decision |
+|---------|----------|
+| Metadata | `GET /v1/catalog/metadata` returns the root chain, snapshot and timestamp in one document with an `ETag`, under the same public or authenticated rules as the export. Release Hub signs only when the export digest changes, a record is missing or the snapshot has a third of its validity left. Responses are cached by the export digest and the persisted version counters, so a request storm costs one small state query and no signing. |
+| Timestamp renewal | The renewal task re-signs only the timestamp before it expires. It appends no `renew` event, the export and its revision stay byte-identical, and versions only increase across replicas because one locked row holds the counters. |
+| Root ceremony | `fdai-release-hub root keygen`, `build`, `sign` and `verify` run offline. Each holder signs with a private key file of mode `0600`. `install-catalog-root` checks the chain and that the root authorizes the Hub's own snapshot, timestamp and export keys before it stores the public record. |
+| Trust pin | `catalog.trust` holds `mode`, `root_key_ids` and `root_threshold` instead of `release_public_key`. The first root MUST name exactly those keys and that threshold. A later root never changes the pin. |
+| Verification | The Lifecycle Hub verifies the root chain from the pin, the snapshot and timestamp, an export signature by an export key the root names, the export digest and revision that the snapshot binds, the channel listing, the manifest digests, the recall ordinals, and `evaluate_catalog_integrity` for threshold, versions, recall continuity and expiry. |
+| Persisted floors | The Hub persists the highest verified root, snapshot and timestamp versions with their digests, the highest recall ordinal and the channel versions. A lower version is a rollback. The same version with different content is equivocation. Floors survive a restart and advance with adoption. |
+| Policy input | Rego receives `integrity` with `verified`, `expired` and `root_rotation`. New deny reasons are `integrity_not_verified`, `timestamp_expired` and `root_rotation_requires_review`. Without `integrity`, none of them fires. |
+| Expired timestamp | The Hub still verifies the roles. It adopts only a candidate that consists of recalls, refuses an operator apply of anything else, and plans only `recall-rolloff`. The accepted catalog carries an allowed plan-type set, and the planner blocks every other plan type with `catalog_timestamp_expired`. The Updates screen says so. |
+| Root rotation | A rotation verifies like any root, never adopts automatically, and does not advance the persisted root until a person applies it from Updates. |
+| Storage | The optional tables `catalog_integrity_state` (Lifecycle Hub, created by `bind-catalog`) and `catalog_role_root` and `catalog_role_state` (Release Hub, created by `install-catalog-root`) do not move either schema revision, so an older binary ignores them. |
+| Compatibility | A Release Hub with roles installed stops extending the legacy export expiry, so move consumers to `tuf` first. A bound database refuses a changed trust (`bind-catalog` requires explicit rebinding), so switching an existing installation needs a fresh trust binding. |
+
+**Critique and revision.** Naming the online keys in the root, not in configuration, lets a
+rotation retire them, so a Release Hub whose keys the root no longer authorizes refuses to serve
+metadata instead of signing with an unauthorized key. With roles, freshness comes from the signed
+timestamp and snapshot, so the export's own `expires_at` is not enforced in `tuf` mode. Recall
+ordinals count recalls in the export, because event revisions are not contiguous. The continuity
+check catches a withheld or dropped recall, but cannot help when the snapshot and export keys
+are both compromised. One export key signs every manifest, so retiring it needs every manifest
+re-signed, and it stays in `export_key_ids` until then. The root chain is bounded at 32 roots.
+Keys for snapshot and timestamp come from secret references, so a hardware-backed key is an
+operator choice that this design does not enforce.
+
+**Not yet implemented.** A production root ceremony with retained custody receipts, which stays
+an operator procedure. Wiring the installation freshness settings into the AKS workloads (the
+Container Apps Core root already takes `catalog_freshness`), and durable version floors for it. The standalone Release Hub
+root already installs the root through its operation Job, so the legacy paired fixture stays
+unchanged. Database inspection fingerprints the optional role tables when they exist.
+
 ## Schema compatibility
 
 Database migrations stay expand/contract and forward-only. [Deployment](deployment.md) already
@@ -325,8 +481,15 @@ The current Hub planner already passes the parsed Release and installation-repor
 revision through the shared transition validator before signing a Plan. Tolerance endpoints
 are inclusive; an upgrade also refuses a target schema below the current revision. Rollback and
 recall roll-off retain their separate direction rule. The Agent's workload validators hold
-unsupported schema changes before cluster calls. Their narrower same-schema support isn't
-permission to run unimplemented migrations or evidence of an installed rollback.
+unsupported schema changes before cluster calls.
+
+An application component Release may include a strict `fdai.schema-expand-job.v1` object. It binds
+the `fdai.migration-classification.v1` expand-only revision map and an active deadline inside the
+signed manifest. The Agent renders no arbitrary command from that object: it uses a fixed
+Core-image runner and the installation-reviewed runtime references. The completed Kubernetes Job
+is the schema receipt and remains after a workload rollback; the reported schema revision advances
+only when that Job has a valid completion receipt. Contract revisions remain unsupported in this
+phase and require the later restore-checkpoint Plan.
 
 ## Artifact delivery
 

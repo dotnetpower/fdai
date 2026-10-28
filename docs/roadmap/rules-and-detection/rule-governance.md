@@ -239,6 +239,14 @@ An exemption waives an assignment for a scope, like an Azure Policy exemption:
   the shipped default only logs - no network) and the standard append-only audit boundary. It groups
   newly due lookahead items into a versioned digest that names each exact exemption revision and
   requester. Atomic state claims make each item safe across replays or replicas.
+- The Core runtime schedules that coordinator. `fdai.runtime.exemption_lifecycle` runs one sweep per
+  interval (`FDAI_EXEMPTION_LIFECYCLE_INTERVAL_SECONDS`, default 3600; disabled by
+  `FDAI_EXEMPTION_LIFECYCLE_ENABLED=false`) only when the installed catalog holds an exemption, and
+  delivers the digest through the workload's own notification router as one A2 operational alert.
+  The alert's audit id derives from the exact exemption revisions, so a restart, a second replica,
+  or a retried sweep never sends the same digest twice, and a digest that no channel delivered is
+  retried on the next sweep. This scheduled sweep publishes no expiry command and changes no
+  catalog; it grants no authority.
 - Expiry never calls a cloud provider. The coordinator binds the active and expected expired
   exemption revisions to an exact assignment id, version, and scope, then publishes a replay-stable
   `governance.reapply-rule-assignment` proposal through the provider-neutral `EventBus`. Broker
@@ -361,6 +369,25 @@ caller supplies the installation's active policy and authoritative GitHub review
 and exact-head trusted Check Run facts. A successful result is review-only, not activation,
 promotion, or execution permission. Missing App configuration or untrusted evidence in that
 selected integration still blocks the installation review.
+
+## Qualification evidence
+
+An installation qualifies the governance rollout through one review-only record, built by
+`fdai.core.governance_qualification` and `scripts/governance/build-governance-qualification.py`.
+The record binds the installation, management scope, environment class, Rule generation digest,
+ontology release digest, pinned provider revisions, and evidence cutoff before collection.
+
+- **Sources.** Every required provider source is admitted only when it is available, observed no
+  later than the cutoff, and fresh at the cutoff. Unavailable, stale, incomplete, revoked,
+  conflicting, missing, post-cutoff, and conflicting-duplicate sources each become a named hold.
+- **Frozen cohort.** False positives, false negatives, holds, and coverage are measured on a
+  cohort frozen by digest. A changed case set fails closed. A held case is never counted as correct,
+  a worst-case false-negative rate counts held violations as misses, a zero denominator is absent
+  rather than zero, and every rate carries its Wilson 95% interval and the independent-group count.
+- **Record.** The record is `ready_for_review` only when no source is held and the cohort is
+  measured without holds; otherwise every blocker is named. It carries `authority: none`, never
+  approves, promotes, or executes, and changes no mode. Its digest, the source digest, and the
+  measurement digest are the evidence digests the implementation ledger MUST cite.
 
 ## RBAC (who can do what)
 

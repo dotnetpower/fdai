@@ -89,15 +89,23 @@ def _scale_out_request(*, mode: Mode) -> DirectApiRequest:
     )
 
 
-def _tag_request(*, mode: Mode) -> DirectApiRequest:
+def _tag_request(
+    *,
+    mode: Mode,
+    action_type_name: str = "remediate.tag-add",
+) -> DirectApiRequest:
     target = (
-        "scope-0123456789abcdef/resource-group/rg-example/"
-        "providers/microsoft.storage/storageaccounts/storage-app"
+        "scope-0123456789abcdef/subscription"
+        if action_type_name == "remediate.subscription-tag-add"
+        else (
+            "scope-0123456789abcdef/resource-group/rg-example/"
+            "providers/microsoft.storage/storageaccounts/storage-app"
+        )
     )
     return DirectApiRequest(
         action_id=UUID("00000000-0000-0000-0000-000000000003"),
         idempotency_key="operation:tag-one",
-        action_type_name="remediate.tag-add",
+        action_type_name=action_type_name,
         rule_ids=("object-storage.owner-tag.required",),
         resource_ref=target,
         arguments={"tag_name": "environment", "tag_value": "dev"},
@@ -212,6 +220,36 @@ async def test_tag_shadow_plan_uses_exact_logical_target() -> None:
     assert '"target_resource_ref":"scope-0123456789abcdef/resource-group/rg-example/' in body
     assert '"tag_name":"environment"' in body
     assert '"tag_value":"dev"' in body
+
+
+async def test_subscription_tag_shadow_plan_uses_subscription_operation() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "operation_id": "azure.operation.plan",
+                "status": "succeeded",
+                "result": {"status": "planned", "dry_run_receipt": "server-receipt"},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        receipt = await AzureGatewayDirectApiExecutor(
+            config=_config(), identity=_Identity(), http_client=client
+        ).execute(
+            _tag_request(
+                mode=Mode.SHADOW,
+                action_type_name="remediate.subscription-tag-add",
+            )
+        )
+
+    assert receipt.outcome is DirectApiOutcome.SUCCEEDED
+    body = requests[0].read().decode()
+    assert '"operation_id":"azure.subscription.tags.merge"' in body
+    assert '"target_resource_ref":"scope-0123456789abcdef/subscription"' in body
 
 
 async def test_scale_out_maps_exact_vmss_target_to_registered_operation() -> None:

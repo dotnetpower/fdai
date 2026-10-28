@@ -1,0 +1,55 @@
+<policies>
+  <inbound>
+    <base />
+    <cors allow-credentials="false" terminate-unmatched-request="true">
+      <allowed-origins>
+        <origin>${console_origin}</origin>
+      </allowed-origins>
+      <allowed-methods preflight-result-max-age="300">
+        <method>DELETE</method>
+        <method>GET</method>
+        <method>HEAD</method>
+        <method>OPTIONS</method>
+        <method>PATCH</method>
+        <method>POST</method>
+        <method>PUT</method>
+      </allowed-methods>
+      <allowed-headers>
+        <header>Authorization</header>
+        <header>Content-Type</header>
+        <header>Idempotency-Key</header>
+        <header>If-Match</header>
+        <header>If-None-Match</header>
+        <header>Last-Event-ID</header>
+        <header>X-Correlation-ID</header>
+        <header>X-Request-ID</header>
+      </allowed-headers>
+    </cors>
+    <choose>
+      <when condition="@(!(context.Request.Method == &quot;OPTIONS&quot; || (context.Request.Method == &quot;GET&quot; &amp;&amp; context.Request.Url.Path.EndsWith(&quot;/healthz&quot;))))">
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized">
+          <openid-config url="https://login.microsoftonline.com/${tenant_id}/v2.0/.well-known/openid-configuration" />
+          <audiences>
+            <audience>${frontend_audience}</audience>
+          </audiences>
+        </validate-jwt>
+      </when>
+    </choose>
+%{ if service_name == "ingestion" ~}
+    <choose>
+      <when condition="@(!context.Request.Url.Path.EndsWith(&quot;/healthz&quot;))">
+        <rewrite-uri template="@(&quot;/ingestion&quot; + context.Request.Url.Path)" copy-unmatched-params="true" />
+      </when>
+    </choose>
+%{ else ~}
+    <choose>
+      <when condition="@(context.Request.Url.Path == &quot;/documents&quot; || context.Request.Url.Path.StartsWith(&quot;/documents/&quot;))">
+        <set-backend-service base-url="${ingestion_backend_url}" />
+      </when>
+    </choose>
+%{ endif ~}
+  </inbound>
+  <backend><base /></backend>
+  <outbound><base /></outbound>
+  <on-error><base /></on-error>
+</policies>

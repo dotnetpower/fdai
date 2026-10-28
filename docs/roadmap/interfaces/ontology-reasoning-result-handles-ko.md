@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 추론 결과 핸들과 이어 읽기
 translation_of: ontology-reasoning-result-handles.md
-translation_source_sha: 0496e188cabf60f9ffd3ced66f4af26d1d81584d
-translation_revised: 2026-10-02
+translation_source_sha: 854b37fe92d306ba1fd6881eff1efec6621992d5
+translation_revised: 2026-10-26
 ---
 # 온톨로지 추론 결과 핸들과 이어 읽기
 
@@ -98,6 +98,22 @@ H2를 출시하기 전에 위협 검토를 통과해야 합니다.
 
 **종료 조건:** 후속 질문 홀드아웃이 shadow에서 85% 이상 통과하고, 위협 검토 테스트에서 다른 대화
 바인딩이 0건이며, 렌더링 순서 다이제스트가 fixture 그래프에서 Console의 순서와 같습니다.
+
+**활성화:** 형식이 있는 런타임 설정 `conversation.result_handles.enabled`가 결정하며, 이 설정이 승격 스위치입니다.
+환경 기본값은 `FDAI_SEMANTIC_RESULT_HANDLES`이고, 개발 환경은 기본값이 켜짐, 다른 모든 환경은 꺼짐입니다. 감사되는
+Owner 재정의로 값을 바꾸며, 재시작 후 적용되고 작업 권한을 부여하지 않습니다. Core는 설정이 켜져 있고 환경이 상태 저장소
+DSN과 키 자료를 제공할 때만 저장소를 만듭니다. 둘 중 하나가 없으면 후속 질문은 꺼진 채로 두고
+`semantic_result_handles_unavailable`을 기록합니다. 환경 기본값이 Core 시작을 막아서는 안 되기 때문입니다.
+핸들이 없으면 목록 뒤의 "실행 중인 것만" 같은 후속 질문은 연결할 대상이 없어 확인 질문으로 끝납니다. 로컬 실행기는
+무시되는 파일에 보관하는 생성 키를 제공합니다.
+
+후속 질문을 읽는 질문 형식 경로는 현재 로컬 실행 환경에서만 동작하므로, 배포 환경은 그 경로가 승격되기 전에는 이 설정으로
+얻는 것이 없습니다. 그 승격에는 [P5](ontology-reasoning-promotion-program-ko.md#p5-승격과-제거)의 근거가 필요하고,
+배포가 소유하는 키 자료는 이미 준비되어 있습니다. 플랫폼이 무작위 256비트 Key Vault 비밀
+`fdai-result-handle-material`을 만들고, Core ID에만 읽기 권한을 주며, 버전 없는 참조를
+`result_handle_binding` 출력으로 게시합니다. Core 서비스 모듈은 `result_handles.key_secret_id` 값을 컨테이너 앱의
+`FDAI_RESULT_HANDLE_MATERIAL` 비밀로 바인딩합니다. 키를 제공해도 후속 질문이 켜지지는 않습니다. 출력값을 서비스
+tfvars에 복사하는 일은 서비스 배포 워크플로가 이를 주입하기 전까지 수동 배포 단계로 남습니다.
 
 ## H3 속성 후속 질문
 

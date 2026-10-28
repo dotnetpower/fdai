@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -39,11 +40,11 @@ def _bundle(path: Path) -> None:
     for root in ROOTS:
         directory = path / root
         directory.mkdir(parents=True)
-        providers = [(AZURERM, "4.80.0" if root == "infra/bootstrap" else "4.81.0")]
+        providers = [(AZURERM, "4.81.0")]
         if root in {"infra/genesis-foundation", "infra/genesis-runner-image"}:
             providers.append((AZAPI, "2.12.0"))
         if root == "infra/scenario-lab":
-            providers.append((RANDOM, "3.7.2"))
+            providers.append((RANDOM, "3.9.1"))
         if root in {"infra/runtimes/aks/database", "infra/runtimes/aks/workloads"}:
             providers.append((KUBERNETES, "2.38.0"))
         if root == "infra/runtimes/aks/database":
@@ -174,16 +175,28 @@ def test_all_bundled_roots_contribute_locked_providers(tmp_path: Path, platform:
         for path in (tmp_path / "mirror").rglob("*.zip")
     }
     assert artifacts == {
-        f"{AZURERM}/terraform-provider-azurerm_4.80.0_{platform}.zip",
         f"{AZURERM}/terraform-provider-azurerm_4.81.0_{platform}.zip",
         f"{AZAPI}/terraform-provider-azapi_2.12.0_{platform}.zip",
-        f"{RANDOM}/terraform-provider-random_3.7.2_{platform}.zip",
         f"{RANDOM}/terraform-provider-random_3.9.1_{platform}.zip",
         f"{KUBERNETES}/terraform-provider-kubernetes_2.38.0_{platform}.zip",
         f"{TLS}/terraform-provider-tls_4.4.1_{platform}.zip",
     }
     assert _snapshot(bundle) == before
     assert not (tmp_path / "mirror-src").exists()
+
+
+def test_bundled_roots_use_one_version_per_shared_provider() -> None:
+    versions: dict[str, set[str]] = {}
+    for root in ROOTS:
+        content = (ROOT / root / ".terraform.lock.hcl").read_text(encoding="utf-8")
+        for provider, version in re.findall(
+            r'provider "([^"]+)" \{\s*version\s*=\s*"([^"]+)"',
+            content,
+        ):
+            versions.setdefault(provider, set()).add(version)
+
+    assert versions[AZURERM] == {"4.81.0"}
+    assert versions[RANDOM] == {"3.9.1"}
 
 
 @pytest.mark.parametrize("root", ROOTS)

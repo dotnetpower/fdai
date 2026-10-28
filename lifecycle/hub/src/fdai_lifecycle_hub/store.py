@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, replace
 from datetime import datetime, timedelta
-from typing import Self, assert_never
+from typing import Literal, Self, assert_never
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PublicKey
@@ -49,7 +49,9 @@ from fdai_lifecycle_hub.errors import (
     NotPendingError,
     OwnershipUnprovenError,
     PlanDigestMismatchError,
+    ReportAttemptGapError,
     ReportConflictError,
+    ReportProgressionError,
     SchemaMismatchError,
     StateRejectedError,
     UnknownPlanError,
@@ -64,7 +66,11 @@ from fdai_lifecycle_hub.execution_settings import (
 from fdai_lifecycle_hub.migrations import _versions, require_writable_schema
 from fdai_lifecycle_hub.models import PlanEventKind
 from fdai_lifecycle_hub.planning import plan_next
-from fdai_lifecycle_hub.reports import ROLLED_BACK, failure_suppressions
+from fdai_lifecycle_hub.reports import (
+    ROLLED_BACK,
+    failure_suppressions,
+    validate_report_progress,
+)
 
 _UNIQUE_VIOLATION = "23505"
 
@@ -261,6 +267,7 @@ class HubStore:
         verify: KeyProofVerifier,
         now: datetime,
         requested_by: str | None = None,
+        requested_via: Literal["agent", "operator"] | None = None,
     ) -> None:
         """Record a pending request, or audit why its key proof fails and raise."""
 
@@ -268,6 +275,7 @@ class HubStore:
         details = {"installation_key_id": request.installation_key_id}
         if requested_by is not None:
             details["requested_by"] = schemas.actor_name.validate_python(requested_by)
+            details["requested_via"] = requested_via or "operator"
         if (failure := request.proof_failure(verify, now)) is not None:
             with self._write() as session:
                 audit.append(
@@ -532,7 +540,7 @@ class HubStore:
 
         return self._recompute(
             installation_id,
-            lambda session, row: planner(mapping.to_domain(session, row), now),
+            lambda _session, _row, installation: planner(installation, now),
             now=now,
         )
 
@@ -552,7 +560,11 @@ class HubStore:
         inputs. This does not import a package or advance a durable configuration chain head.
         """
 
-        def evaluate(session: Session, row: models.Installation) -> domain.PlanOutcome:
+        def evaluate(
+            session: Session,
+            row: models.Installation,
+            installation: domain.Installation,
+        ) -> domain.PlanOutcome:
             binding = resolve_binding(session, row, binding_version, now)
             recipient = X25519PublicKey.from_public_bytes(
                 bytes.fromhex(binding.installation_encryption_key)
@@ -571,7 +583,6 @@ class HubStore:
                 configuration_key=trusted_key,
                 installation_key_digest=encryption_key_digest(recipient),
             )
-            installation = mapping.to_domain(session, row)
             if now + installation.settings.plan_duration > binding.binding_expires_at:
                 raise KeyBindingError("configuration_binding_expires_before_plan")
             if installation.open_plan is not None:
@@ -606,9 +617,12 @@ class HubStore:
     ) -> domain.PlanOutcome:
         """The configured default: durable activation selects an upgrade input, not authority."""
 
-        def evaluate(session: Session, row: models.Installation) -> domain.PlanOutcome:
+        def evaluate(
+            session: Session,
+            row: models.Installation,
+            installation: domain.Installation,
+        ) -> domain.PlanOutcome:
             selected = persisted_candidate(session, row, catalog, now)
-            installation = mapping.to_domain(session, row)
             candidate = selected[0] if selected else None
             if selected is not None:
                 binding = resolve_binding(session, row, selected[1], now)
@@ -642,7 +656,7 @@ class HubStore:
     def _recompute(
         self,
         installation_id: str,
-        evaluate: Callable[[Session, models.Installation], domain.PlanOutcome],
+        evaluate: Callable[[Session, models.Installation, domain.Installation], domain.PlanOutcome],
         *,
         now: datetime,
         configuration_binding_version: int | None = None,
@@ -652,20 +666,24 @@ class HubStore:
         with self._write() as session:
             row = rows.lock_enrolled(session, installation_id)
             installation = mapping.to_domain(session, row)
-            try:
-                outcome = evaluate(session, row)
-            except KeyBindingError as error:
-                failure = error
-                # Keep the denial durable without withdrawing an unrelated legacy Plan.
+            outcome: domain.PlanOutcome
+            if _native_transition_holds_planning(session, installation, now):
                 outcome = domain.NoEligibleRelease(())
-                audit.append(
-                    session,
-                    now,
-                    "configuration.keys.denied",
-                    installation_id,
-                    installation_id,
-                    {"operation": "planning", "reason": str(error)},
-                )
+            else:
+                try:
+                    outcome = evaluate(session, row, installation)
+                except KeyBindingError as error:
+                    failure = error
+                    # Keep the denial durable without withdrawing an unrelated legacy Plan.
+                    outcome = domain.NoEligibleRelease(())
+                    audit.append(
+                        session,
+                        now,
+                        "configuration.keys.denied",
+                        installation_id,
+                        installation_id,
+                        {"operation": "planning", "reason": str(error)},
+                    )
             evaluation = mapping.evaluation_row(outcome, now)
             match outcome:
                 case domain.Issued(plan=plan):
@@ -803,6 +821,16 @@ class HubStore:
                 if schemas.PlanReport.model_validate(existing, from_attributes=True) != report:
                     raise ReportConflictError(f"attempt {report.attempt} was already reported")
                 return False
+            previous = session.scalars(
+                plan.reports.select().order_by(models.PlanReport.attempt.desc()).limit(1)
+            ).one_or_none()
+            expected_attempt = 1 if previous is None else previous.attempt + 1
+            if report.attempt > expected_attempt:
+                raise ReportAttemptGapError(f"report skipped required attempt {expected_attempt}")
+            try:
+                validate_report_progress(previous, report)
+            except ValueError as error:
+                raise ReportProgressionError(str(error)) from error
             plan.reports.add(models.PlanReport(**report.model_dump(), received_at=now))
             plan.events.add(models.PlanEvent(kind=PlanEventKind.REPORTED, recorded_at=now))
             audit.append(
@@ -856,11 +884,76 @@ def _is_unique_violation(error: IntegrityError) -> bool:
 
 
 def _pending_enrollment(session: Session, row: models.Installation) -> domain.PendingEnrollment:
+    # Records written before `requested_via` existed came only from the operator route.
+    payload = session.scalars(
+        select(models.AuditRecord.payload)
+        .where(
+            models.AuditRecord.action == "enrollment.requested",
+            models.AuditRecord.installation_id == row.installation_id,
+        )
+        .order_by(models.AuditRecord.sequence.desc())
+        .limit(1)
+    ).one_or_none()
+    requested_by = (payload or {}).get("requested_by")
+    requested_via = (payload or {}).get("requested_via", "operator")
     return domain.PendingEnrollment(
         installation=mapping.to_domain(session, row),
         installation_key_id=signing.installation_key_id(row.installation_key),
         requested_at=row.requested_at,
+        requested_by=requested_by if isinstance(requested_by, str) else None,
+        requested_via=requested_via
+        if requested_by and requested_via in ("agent", "operator")
+        else None,
     )
+
+
+def _native_transition_holds_planning(
+    session: Session, installation: domain.Installation, now: datetime
+) -> bool:
+    """Keep an approved transition or state repair Plan-free until completion or expiry."""
+
+    records = session.scalars(
+        select(models.AuditRecord)
+        .where(
+            models.AuditRecord.action.in_(
+                (
+                    "entity.native_transition_approved",
+                    "entity.native_transition_state_reconciliation_approved",
+                )
+            ),
+            models.AuditRecord.installation_id == installation.installation_id,
+        )
+        .order_by(models.AuditRecord.sequence.desc())
+        .limit(2)
+    )
+    for record in records:
+        if record.action == "entity.native_transition_state_reconciliation_approved":
+            completed = session.scalar(
+                select(models.AuditRecord.sequence).where(
+                    models.AuditRecord.installation_id == installation.installation_id,
+                    models.AuditRecord.action == "entity.native_transition_state_reconciled",
+                    models.AuditRecord.subject == record.subject,
+                )
+            )
+            if completed is not None:
+                continue
+        payload = record.payload
+        source_digest = payload.get(
+            "reported_state_digest",
+            payload.get("source_hub_reported_state_digest"),
+        )
+        if source_digest != installation.reported.digest:
+            continue
+        expires_at = payload.get("expires_at")
+        if not isinstance(expires_at, str):
+            return True
+        try:
+            expires = datetime.fromisoformat(expires_at)
+        except ValueError:
+            return True
+        if expires.utcoffset() is None or now < expires:
+            return True
+    return False
 
 
 def _latest_evaluation(session: Session, row: models.Installation) -> domain.Evaluation | None:

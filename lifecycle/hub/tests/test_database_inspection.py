@@ -174,6 +174,29 @@ def test_cli_rejects_query_routing_before_engine_creation(
     assert "example.com" not in printed.err
 
 
+@pytest.mark.parametrize(
+    ("kind", "optional"),
+    [
+        ("release", ["catalog_role_root", "catalog_role_state"]),
+        ("target", ["catalog_integrity_state"]),
+    ],
+)
+def test_signed_role_tables_are_fingerprinted_only_when_present(database, kind, optional):
+    engine, _, _ = database
+    initialize(engine, kind)
+    assert not set(optional) & set(check.observe(engine, kind, "source").tables)
+    if kind == "release":
+        from fdai_release_hub.role_tables import role_metadata as metadata
+    else:
+        from fdai_lifecycle_hub.catalog_integrity_state import metadata
+    metadata.create_all(engine)
+    baseline = check.observe(engine, kind, "source")
+    assert set(optional) <= set(baseline.tables)
+    with engine.begin() as connection:
+        connection.execute(text(f"DROP TABLE {optional[0]}"))
+    assert optional[0] not in check.observe(engine, kind, "source").tables
+
+
 @pytest.mark.parametrize("kind", ["release", "target"])
 def test_empty_product_and_same_state_compare_in_readonly_transaction(database, kind):
     engine, _, schema = database
@@ -234,13 +257,13 @@ def test_persisted_state_changes_and_schema_differences_fail(database):
         alternate.dispose()
 
 
-@pytest.mark.parametrize("revision", [None, 2])
+@pytest.mark.parametrize("revision", [None, 3])
 def test_empty_database_or_wrong_revision_fails_without_mutation(database, revision):
     engine, _, _ = database
     if revision is not None:
         initialize(engine, "release")
         with engine.begin() as connection:
-            connection.execute(text("UPDATE release_hub_schema_revision SET revision = 2"))
+            connection.execute(text("UPDATE release_hub_schema_revision SET revision = 3"))
     before = inspect(engine).get_table_names()
     with pytest.raises(check.InspectionError, match="schema_revision_mismatch"):
         check.observe(engine, "release", "source")
@@ -302,7 +325,7 @@ def test_row_bound_and_multiple_revision_rows_fail(database):
         check.observe(engine, "release", "source")
     with engine.begin() as connection:
         connection.execute(text("TRUNCATE metadata"))
-        connection.execute(text("INSERT INTO release_hub_schema_revision VALUES (2)"))
+        connection.execute(text("INSERT INTO release_hub_schema_revision VALUES (3)"))
     with pytest.raises(check.InspectionError, match="schema_revision_row_count_mismatch"):
         check.observe(engine, "release", "source")
 

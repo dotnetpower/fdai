@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 3f9505ea43637c55089d6130c865ae807d880f04
-translation_revised: 2026-10-15
+translation_source_sha: 068c61c67196782756859b0b4ade6394c42a0fed
+translation_revised: 2026-10-26
 ---
 # 오퍼레이터 콘솔 점진적 대화
 

@@ -277,6 +277,12 @@ export interface InvestigationExecutionTarget {
   };
 }
 
+export interface InvestigationModelCall {
+  readonly stage: string;
+  readonly model?: string;
+  readonly durationMs?: number;
+}
+
 export interface InvestigationActivity {
   readonly activityId: string;
   readonly kind: string;
@@ -290,6 +296,7 @@ export interface InvestigationActivity {
   readonly observedAt?: string;
   readonly execution?: InvestigationExecutionEvidence;
   readonly branchId?: string;
+  readonly modelCall?: InvestigationModelCall;
 }
 
 export interface InvestigationMilestone {
@@ -419,6 +426,8 @@ export interface ModelTrace {
 export interface ModelUsage {
   readonly prompt_tokens?: number;
   readonly completion_tokens?: number;
+  /** Provider-reported prompt tokens served from the prompt cache, when reported. */
+  readonly cached_tokens?: number;
   readonly model_calls?: number;
   readonly total_tokens: number;
 }

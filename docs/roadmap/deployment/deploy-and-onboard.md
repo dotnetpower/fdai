@@ -20,9 +20,31 @@ Each owns its UI/API, private PostgreSQL, resources and state without peer input
 Login/catalog bindings aren't needed for migration, health/readiness or static UI, even without Entra registrations. Management requires authentication; no anonymous APIs are enabled.
 The [single-product procedure](../../../infra/modules/hub-service/README.md) covers immutable images, state preservation, native Terraform/Azure CLI execution and bounded read-only database recovery comparison. The comparison rejects query-level connection-routing overrides, grants no authority and isn't proof of full database equivalence; its private observer, retained evidence and independent security/cleanup readback requirements still apply.
 
-For running Hubs, `app_image` retains the approved serving digest while `image` selects the migration candidate; keep apps and migration Jobs enabled. After manual migration and independent schema verification, activate with `app_image=null` in a new reviewed, sealed plan. Omission preserves single-image defaults. Complete Job checks, globally zero-change dispatch plans, state ownership, authentication and approval remain required.
+For running Hubs, `app_image` retains the approved serving digest while `image` selects the migration candidate; keep apps and migration Jobs enabled. After manual migration and independent schema verification, activate with `app_image=null` in a new reviewed, sealed plan. Omission preserves single-image defaults. Optional `resource_group_name` overrides the default `rg-<prefix>-<hub>` boundary name, and optional `custom_domain` binds a public HTTPS subdomain and optional Azure DNS records while aligning the runtime origin and probe `Host` headers. A Hub accepts only its configured origin host, so the default Container App hostname answers `400` once a custom domain is set; `custom_domain.redirect_default_hostname=true` makes a Hub image that reads `redirect_hosts` answer GET and HEAD on that hostname with a `308` to the fixed origin and refuse everything else. Leave it unset for older images. Complete Job checks, globally zero-change dispatch plans, state ownership, authentication and approval remain required.
 
-Remote development Agents use `operator_auth.agent_principals` to bind an installation, Entra object and client on Lifecycle Hub only. Release Hub rejects these bindings; omission preserves existing authentication. Terraform grants no `Agent.Access`, federated credentials or Kubernetes permissions. Prepare those separately within the approved scope and follow the [Hub operator guide](../../runbooks/hub-lifecycle-operator-guide.md) for namespace-only RBAC, durable state, enrollment and independent readback. This grants no operator or release-apply authority.
+Remote development Agents use `operator_auth.agent_principals` to bind an installation, Entra object and client on Lifecycle Hub only. Release Hub rejects these bindings; omission preserves existing authentication. Terraform grants no `Agent.Access`, federated credentials or Kubernetes permissions. Prepare those separately within the approved scope and follow the [Hub operator guide](../../runbooks/hub-lifecycle-operator-guide.md) for namespace-only RBAC, durable state, enrollment and independent readback. This grants no operator or release-apply authority. The Agent state volume uses a zone-redundant disk class so a Pod rescheduled to another zone can attach it.
+
+For a Hub-managed AKS handoff, `enable_document_ingestion=true` can provision the shared Azure
+prerequisites while `enable_document_ingestion_workloads=false` omits the ingestion API, worker and
+migration Container Apps. The default remains `true` for source/offline Container Apps deployments.
+Use the split only with an exact reviewed plan; it grants no Hub ownership or apply authority.
+For an existing installation, run that plan from `infra/hub-stewardship-prerequisites` with a
+separate remote state key. The root reads the shared platform resources and owns no application
+workload, so it cannot silently re-plan the retained source workloads state.
+When the operations VNet is already linked to an existing Blob private DNS zone, the document
+storage endpoint remains associated with the application zone and the root publishes a managed
+A record for the same private IP in the operations zone instead of attempting a second
+overlapping VNet link.
+
+An optional Lifecycle Hub `operator_auth.development_recovery` input can recover one development
+installation identity whose private key is unavailable. Use it only with the exact
+`full-authority-development` installation, scope, Owner, old and replacement public keys, reason
+and authorization interval. Release Hub rejects this input. The Lifecycle Hub still requires
+replacement-key possession, no open Plan or existing configuration trust, append-only audit and
+first-binding-only single-Owner approval. Remove the input after verified recovery and key
+registration; it is not a production or general enrollment-rotation setting.
+
+The Lifecycle Hub image now needs a digest-pinned `OPA_IMAGE` build argument because the adoption policy runs `opa`; the Release Hub image doesn't contain it. The Lifecycle Hub `catalog` setting adds `access`, `check_interval_seconds` and an `adoption` object whose `auto` mode requires an attributed, expiring `authorized_by` and `authorization_expires_at`. Release Hub adds `auth.public_catalog_export` and `timestamp_renewal_check_seconds`. Each new field is optional and is omitted from the runtime JSON when unset, so older images keep parsing their configuration. See [Automatic catalog adoption](lifecycle-releases-and-channels.md#automatic-catalog-adoption). Signed catalog roles add two more optional inputs: the Lifecycle Hub `catalog.trust` object (`mode = "tuf"`, `root_key_ids`, `root_threshold`) replaces `release_public_key`, and the Release Hub `catalog_roles` object adds separate snapshot-key and timestamp-key secret versions. The offline-signed root is installed through the `install-catalog-root` operation. See [Signed catalog roles](lifecycle-releases-and-channels.md#signed-catalog-roles-in-the-hubs). The Lifecycle Hub operation Job also accepts `bind-catalog` and `rebind-catalog`; they take an attributed `actor` and a `reason` instead of a request secret, and a rebinding keeps the revision floor.
 
 The unchanged [legacy paired fixture](../../../infra/hubs-development/README.md) retains separate networks, identities/keys, migrations, Entra operator/service boundaries and catalog-pin approval for current state owners.
 Neither product requires the fixture; neither replaces an FDAI installer. Local/static checks don't prove Azure network/RBAC isolation, Entra/MI, registry architecture, replica durability or deployment.
@@ -213,13 +235,16 @@ These customer-agnostic helpers keep both deployment routes repeatable:
 
 - [`fdai-up.sh`](../../../scripts/deployment/azure/fdai-up.sh) is the [one-command source deployment](source-deployment.md) after `az login`. Any clone deploys without a key: no integrity signing key selects the durable 30-day Trial, and a usable `secrets/integrity-signing-key.pem` selects a full installation entitlement. It uses bounded concurrency for independent preparation, read-only discovery, provider requests, and policy-probe siblings. Its Genesis checks admit only the clean checkout at the exact deployed commit and never query a CI result or require the GitHub CLI.
   The invocation approves each plan it shows, configures Foundation and tenant bindings, and applies through the manual managed host before requiring a zero-change plan. Approval, apply, cleanup, state, and handoff boundaries remain serial. GitHub repository configuration and workflow dispatch are not part of this path.
-  Without a mode argument it deploys its own checkout from any working directory, selects the entitlement from `secrets/integrity-signing-key.pem` before any Azure call, starts `az login` when no Azure CLI session exists, and builds or signs no kit. It refuses the retired `--signing-key` option; a key holder who needs the application stage before the source build lands builds the signed offline package and passes `--offline-kit`.
+  Without a mode argument it deploys its own checkout from any working directory, selects the entitlement from `secrets/integrity-signing-key.pem` before any Azure call, starts `az login` when no Azure CLI session exists, and builds or signs no kit. It refuses the retired `--signing-key` option.
 - [`check-signing-key.py`](../../../scripts/deployment/release/check-signing-key.py) identifies a candidate private key before a build or deployment consumes it. It reports the packaged roots' fingerprints, which roles a candidate satisfies, and the owner-only custody the build requires. It prints no key material, so it is safe to run on any machine that may hold the key. `--scan secrets` shows whether a clone holds the upstream `integrity` key that selects full entitlement. The development profile pins one signer for both the complete-kit and bundle roles of the offline package; licensing uses the integrity key.
 - [`genesis-up.sh`](../../../scripts/deployment/azure/genesis-up.sh) retains the lower-level 15-stage
   Foundation route. Claims resume verification only and Foundation never implies readiness.
 - [`verify-azure-context.sh`](../../../scripts/deployment/azure/verify-azure-context.sh) binds Azure CLI and `azd` entry points to the approved subscription and tenant pair before mutation; Genesis verifies region availability through the exact subscription-bound ARM locations endpoint without changing the active CLI selection, and policy-probe cleanup parses multi-value TSV as ordered lines before proving absence.
-- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains the direct interactive public
-  `dev` path. It verifies provider locks, supplies the verified principal, and saves owner-only plans. Missing Linux x64 or ARM64 `azd` is installed from the SHA-256-pinned official 1.34.0 archive into `~/.local/bin` without `sudo` or replacement.
+- [`azd-up.sh`](../../../scripts/deployment/azure/azd-up.sh) remains a Core-only `dev` diagnostic.
+  It is not an installation path and the public installer doesn't adopt its state. It verifies
+  provider locks, supplies the verified principal, and saves owner-only plans. Missing Linux x64
+  or ARM64 `azd` is installed from the SHA-256-pinned official 1.34.0 archive into
+  `~/.local/bin` without `sudo` or replacement.
   A failed apply stays fenced until refresh-only readback under a clean descendant records a separate closure. The old plan is never reapplied. An existing policy-private Key Vault routes the deployment to `fdai-up.sh` and its managed host.
   Each apply requires the exact SHA-256 in an interactive terminal, a plan no older than 20 minutes,
   unchanged source and actor bindings, and no unresolved prior attempt. It is not a private, shared,
@@ -233,8 +258,9 @@ These customer-agnostic helpers keep both deployment routes repeatable:
   Both fail closed on unsafe runner storage or deallocation without changing the ops hub or state account.
 - [`check-runner-terraform.sh`](../../../scripts/deployment/azure/check-runner-terraform.sh) runs
   inside the shared `login-deploy-identity.sh` helper before its first Azure call. It refuses a
-  protected workflow on any runner whose Terraform is older than the validated 1.16.1. That includes
-  a Genesis-image runner, which still pins Terraform 1.9.8.
+  protected workflow on any runner whose Terraform is older than the validated 1.16.1. A
+  Genesis-image runner now pins Terraform 1.16.1 and meets that floor; an enrolled runner built
+  from an older image must re-run the runner image plan and apply to pick up the raised pin.
 
 #### Production hardening knobs
 
@@ -576,6 +602,7 @@ correlation, evidence, deduplication, and downstream authority gates remain inde
 | `FDAI_GITOPS_TOKEN` / `FDAI_GITOPS_OWNER` / `FDAI_GITOPS_REPO` / `FDAI_GITHUB_WORKFLOW_TOOLS_ENFORCE` | KV ref + env | deployment | Binds the GitHub change feed and workflow tools for fix/release/security/incident/IRP artifacts. The platform exports the enabled stewardship target and token secret id as `stewardship_gitops_binding`; the protected service workflow validates that object and injects only the Key Vault reference into the independent Core service. The enforce flag never bypasses the ActionType promotion and risk/HIL gates. |
 | `FDAI_RBAC_READERS_GROUP_ID` / `FDAI_RBAC_CONTRIBUTORS_GROUP_ID` / `FDAI_RBAC_APPROVERS_GROUP_ID` / `FDAI_RBAC_OWNERS_GROUP_ID` / `FDAI_RBAC_BREAK_GLASS_GROUP_ID` | env | deployment | Entra ID group object ids for the five human roles (see [user-rbac-and-identity.md](../interfaces/user-rbac-and-identity.md)). Unset group = role unassigned. |
 | `FDAI_STEWARDSHIP_REQUIRE_BINDINGS` / `FDAI_STEWARDSHIP_AUDIT_INTERVAL_SECONDS` / `FDAI_HANDOVER_KNOWLEDGE_INTERVAL_SECONDS` | env | deployment / upstream | Set `FDAI_STEWARDSHIP_REQUIRE_BINDINGS=1` so placeholder identities fail startup. `ENABLE_STEWARDSHIP_GOVERNANCE` runs in Console-governed mode by default without a GitHub App or webhook secret; optional GitOps adapters map `GITOPS_OWNER`, `GITOPS_REPO`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_WEBHOOK_SECRET`, or compatibility `GITOPS_TOKEN` with coordinated-rotation Key Vault exceptions. Terraform also supplies `FDAI_MAINTAINERS`, `FDAI_STEWARD_<AGENT>`, Key Vault references, and the readiness-gated Entra health and content-free handover lifecycle cadences defined in [Agent operational ownership lifecycle](../interfaces/agent-stewardship-operations.md). The cadence defaults are 3600 and 60 seconds and grant no merge, IAM, approval, or execution authority. |
+| `FDAI_CATALOG_FRESHNESS_METADATA_URL` / `_ROOT_KEY_IDS` / `_ROOT_THRESHOLD` / `_REFRESH_SECONDS` | env | deployment / upstream | Optional. The Core verifies the Release Hub's public signed catalog metadata against the pinned ed25519 root key ids and returns operator-override promotions to shadow mode while it is expired or unverified. Terraform sets them from the Core root's `catalog_freshness`; the URL must be `https`. It only lowers authority. See [Lifecycle Releases and Channels](lifecycle-releases-and-channels.md#catalog-integrity). |
 | `FDAI_ENTRA_TENANT_ID` / `FDAI_API_AUDIENCE` | env | deployment | Required for the production Operator API Entra JWT verifier (`EntraJwtVerifier`): the deployment tenant id and the `fdai-api` application (client) ID, which v2 access tokens carry as `aud`. See [user-rbac-and-identity.md#102-api-token-validation](../interfaces/user-rbac-and-identity.md#102-api-token-validation). |
 | `FDAI_ENTRA_ISSUER` / `FDAI_ENTRA_JWKS_URI` | env | deployment | Optional verifier overrides; default to the tenant's v2 issuer + public key set. Set `ISSUER` to `https://sts.windows.net/<tenant>/` for a v1-token app; override `JWKS_URI` only for sovereign / air-gapped clouds. |
 | `FDAI_EXECUTOR_PRINCIPAL_ID` / `FDAI_EXECUTOR_EVENT_ROLE_DEFINITION_ID` / `FDAI_EXECUTOR_SECRET_ROLE_DEFINITION_ID` | env | upstream | Operator API onboarding probe inputs. The probe uses ARG to verify the provisioned resource set and the executor's Event Hubs / Key Vault roles. |
@@ -660,6 +687,29 @@ monthly envelope they produce. This heading remains as a stable target for exist
 - [x] Day-zero semantic baseline - every schema-valid generic catalog entry in the signed exact-revision bundle, enumerated by the [subscription genesis manifest](subscription-genesis-provisioning.md#database-and-semantic-bootstrap).
 - [x] Core -> Isolated Executor **target boundary** - required for the five-service program;
   authority cutover waits for every binary gate and rollback receipt.
+
+## Hub workload state handoff
+
+When an existing AKS workload state snapshot is unavailable, the Hub handoff workflow imports the
+exact approved Deployment, Service, HorizontalPodAutoscaler and CronJob inventory into a private
+state lineage. A separate forget-only release plan must prove zero live destruction. Rollback uses
+the generated import declarations and requires a final zero-change plan.
+Terraform 1.9 import plans may report an existing object in both `before` and `after`; the verifier
+accepts this only when both values are identical, the action is `no-op`, and the import id matches.
+Legacy completed transitions with a sub-millisecond state timestamp mismatch use the authenticated
+reconciliation command. It preserves the immutable transition receipt and rewrites only the
+Agent's durable current state to the Hub-authoritative canonical timestamp and digest.
+Legacy receipt validation keeps the stored receipt digest unchanged while independently verifying
+the millisecond state digest and the full-precision Hub completion digest.
+Equivalent UTC `+00:00` and `Z` forms are accepted only after the stored receipt digest verifies.
+An expired, unconsumed approval may be renewed only when all evidence and live state remain exact.
+The prerequisite root owns only the identities, federated credentials, ServiceAccounts,
+SecretProviderClasses, ConfigMaps and secret bindings that this inventory references. It does not
+create any managed Deployment, Service, HorizontalPodAutoscaler or CronJob.
+The Operator API identity receives `Key Vault Secrets User` only on its exact three generated
+secret resource ids; the root does not grant it vault-wide access.
+The separate Operator command identity receives Event Hubs sender and receiver roles only on the
+five exact change, semantic, human-approval, and pipeline topic bindings.
 
 ## Related docs
 

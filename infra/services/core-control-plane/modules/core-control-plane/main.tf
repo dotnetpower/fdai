@@ -7,6 +7,9 @@ locals {
     local.stewardship_gitops_enabled && var.stewardship_gitops.auth_mode == "static_token"
   )
   license_enabled = trimspace(var.license.token_secret_id) != ""
+  # The key only makes handle encryption possible; the conversation.result_handles.enabled
+  # runtime setting alone decides whether follow-up questions use it.
+  result_handles_enabled = trimspace(var.result_handles.key_secret_id) != ""
   teams_notification_bindings_json = jsonencode({
     (var.teams_notification_binding.channel_id) = {
       kind         = "teams_workflow"
@@ -66,6 +69,10 @@ module "container_app" {
     name                = "stewardship-github-app-private-key"
     identity            = var.identity.resource_id
     key_vault_secret_id = var.stewardship_gitops.app_private_key_secret_id
+    }] : [], local.result_handles_enabled ? [{
+    name                = "result-handle-material"
+    identity            = var.identity.resource_id
+    key_vault_secret_id = var.result_handles.key_secret_id
     }] : [], local.license_enabled ? [{
     name                = "capability-license-token"
     identity            = var.identity.resource_id
@@ -116,7 +123,9 @@ module "container_app" {
     { name = "FDAI_WORKFLOW_RECOVERY_OBSERVER_IDENTITIES", value = "observer:heimdall:azure-container-apps" },
     { name = "FDAI_START_CONSUMER", value = "1" },
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
-    ], trimspace(var.approval_profile_json) == "" ? [] : [
+    ], local.result_handles_enabled ? [
+    { name = "FDAI_RESULT_HANDLE_MATERIAL", secret_name = "result-handle-material" },
+    ] : [], trimspace(var.approval_profile_json) == "" ? [] : [
     { name = "FDAI_APPROVAL_PROFILE_JSON", value = var.approval_profile_json },
     ], trimspace(var.development_authority_profile_json) == "" ? [] : [
     { name = "FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", value = var.development_authority_profile_json },
@@ -134,6 +143,11 @@ module "container_app" {
     { name = "FDAI_LICENSE_IMAGE_DIGEST", value = var.license.image_digest },
     { name = "FDAI_LICENSE_DEPLOYMENT_BINDING", value = var.license.deployment_digest },
     { name = "FDAI_LICENSE_TOKEN_REVISION", value = var.license.token_revision },
+    ], trimspace(var.catalog_freshness.metadata_url) == "" ? [] : [
+    { name = "FDAI_CATALOG_FRESHNESS_METADATA_URL", value = trimspace(var.catalog_freshness.metadata_url) },
+    { name = "FDAI_CATALOG_FRESHNESS_ROOT_KEY_IDS", value = join(",", var.catalog_freshness.root_key_ids) },
+    { name = "FDAI_CATALOG_FRESHNESS_ROOT_THRESHOLD", value = tostring(var.catalog_freshness.root_threshold > 0 ? var.catalog_freshness.root_threshold : length(var.catalog_freshness.root_key_ids)) },
+    { name = "FDAI_CATALOG_FRESHNESS_REFRESH_SECONDS", value = tostring(var.catalog_freshness.refresh_seconds) },
     ], trimspace(var.decision_evidence_container_url) == "" ? [] : [
     { name = "FDAI_DECISION_EVIDENCE_CONTAINER_URL", value = trimspace(var.decision_evidence_container_url) },
     ], var.rca_reader_identity.client_id == "" ? [] : [

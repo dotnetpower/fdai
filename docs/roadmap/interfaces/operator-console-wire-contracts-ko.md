@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: bc31357f7636a16ad5baa9bcd4762dc7f10cba4a
-translation_revised: 2026-10-23
+translation_source_sha: ae57f19c83064bed2b35fd0747492e5928f75788
+translation_revised: 2026-10-28
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -16,6 +16,7 @@ Console 관리형 담당 체계 후보는 아직 Operator 와이어 계약을 �
 사용 불가 상태가 포함될 수 있습니다. Incident 명령이나 승인·실행 권한을 추가하지 않습니다.
 
 의미 요청 1.11.0은 권한이 없는 명시적 `presentation_mode=agent_discussion`을 추가합니다.
+의미 요청 1.12.0은 권한이 없는 선택형 `dialogue_state`를 추가합니다. 원문 유지 window를 넘는 prior turn에 대한 정확한 집계(turn id와 범위 digest이며 턴 본문은 없음)입니다. Operator는 `FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED`가 켜져 있고 모든 Core 소비자가 1.12.0을 받아들인 뒤에만 이를 내보내며, 1.11.0 소비자는 스키마로 거절합니다. Core는 이를 자신의 집계와 비교하는 로그 전용 관찰만 합니다.
 일반 기본값은 요청 직렬화에서 계속 생략합니다. Operator는 Owner와 보관된 인증 영수증을
 요구하고, Core는 현재의 정확한 설치 단위 읽기 허가를 독립적으로 확인합니다. 토론은 기존
 스트림, 취소, 기한과 내구성 최종 투영 필드를 사용하며 Incident 생성이나 행동 초안을 만들지
@@ -68,7 +69,7 @@ Core는 실제 수신기 생존 상태, 보호된 준비 상태, 저장된 비�
 아무것도 바꾸지 않습니다. 요청은 YAML, 역할, 승인 주장을 담지 않으며 IAM, 배포, Azure 권한을
 부여하지 않습니다.
 
-기존 숫자 `usage` 맵은 토큰 합계와 함께 `model_calls`를 포함할 수 있습니다. 이는 기록된
+기존 숫자 `usage` 맵은 토큰 합계와 함께 `model_calls`와 프로바이더가 보고한 `cached_tokens`를 포함할 수 있으며, `cached_tokens`는 호출이 측정한 경우에만 나타납니다. 이는 기록된
 대화 호출 계측이며, 상세 프롬프트 수집, 행동 권한, 독립 운영 근거가 아닙니다. 없는 값은
 사용 불가로 유지하며, 이전 소비자는 추가 숫자 키를 무시해도 답변 검증이나 Incident 처리를
 바꾸지 않습니다.
@@ -253,7 +254,7 @@ Resource 목록이나 선언 목록이 불완전하면 제한 문장은 알려�
 답변 문장은 공급자 lifecycle 상태, 시간대가 있는 시각(UTC), 원본 완전성을 답변 언어로 표시하고
 `execution_authority=false` 표시와 함께 읽기 전용 경계를 설명하는 문장을 제공합니다. Resource
 이름이 없는 최근 변경 행은 참조의 마지막 구간을 표시합니다. wire 행과 기술 상세에는 정확한 공급자
-값이 그대로 남습니다.
+값이 그대로 남으며 집계 행은 그룹의 스칼라 필드로 시작합니다. `GET /me/conversations`는 기존 대화 행과 저널에 남은 semantic turn 세션을 최신순으로 함께 페이지로 반환합니다.
 Operator의 PostgreSQL 제품군 facade도 변경 불가능한 레코드, 행 변환 및 근거 디코딩을 위임하며
 조회 매개 변수, 제안 claim, 재생 순서 또는 wire 필드를 바꾸지 않습니다.
 Operator terminal 표현은 Pantheon 품질 보증, 현지화된 Incident 블록 및 내용이 제거된 읽기
@@ -528,6 +529,10 @@ Operator는 근거 실행, 근거 검증, 답변 준비 같은 의미 턴 자체
 `semantic_turn`이고 `activity_id`가 `semantic:<phase>`이며 `execution` 기록이 없는 `activity`
 이벤트로 보고합니다. 이 이벤트는 읽기가 아니라 워크플로 사실이므로, 클라이언트는 표현 밀도를 정할 때
 이를 관찰된 읽기로 세지 않습니다.
+
+실시간 모델 호출 `activity`는 `stage`와, 알려진 경우 `model`, `duration_ms`를 가진 닫힌 `model_call` 객체도
+전달합니다. 클라이언트는 행 라벨과 상세를 콘솔 언어의 자체 카탈로그로 렌더링하고, 알 수 없는 단계는 서버의 `label`과
+`detail`로 대체합니다.
 
 최종 `done` 이벤트의 `trajectory_detail`에는 `work_progress_shape`, `turn_budget`,
 `context_receipts`가 들어갈 수 있습니다. Operator는 필드마다 따로 검증하고 잘못된 필드만 버립니다.

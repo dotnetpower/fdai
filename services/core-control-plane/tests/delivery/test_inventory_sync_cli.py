@@ -1626,7 +1626,9 @@ async def test_initial_inventory_bypasses_recurring_due_gate(
 
     await _main(["--initial"])
 
-    run_once.assert_awaited_once_with(config, run_lock_timeout_ms=300_000)
+    run_once.assert_awaited_once_with(
+        config, run_lock_timeout_ms=300_000, retain_initial_closure=True
+    )
     due_once.assert_not_awaited()
 
 

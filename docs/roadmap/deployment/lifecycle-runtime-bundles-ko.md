@@ -1,8 +1,8 @@
 ---
 title: 애플리케이션 실행 묶음
 translation_of: lifecycle-runtime-bundles.md
-translation_source_sha: 88891d0044bece4822286013255b3ab9a2ba8568
-translation_revised: 2026-10-23
+translation_source_sha: 4e5cff26f2c3bdd2099bd6c4e8dcb4c7b21d02c7
+translation_revised: 2026-10-26
 ---
 # 애플리케이션 실행 묶음
 
@@ -37,13 +37,20 @@ Plan 검증, dry-run, 적용, 복구와 보고 순서를 동일하게 사용합�
 
 Release v2는 `product`, `release_version`, `source_commit`, `platform_tag`와 선택적인
 설정·DB 스키마 정보를 유지합니다. `components`에는 이름을 가진 레코드 1-64개가 있으며,
-각 레코드는 `image_digest`만 포함합니다. v1의 `workloads`와 달리 sidecar, 초기화
+각 레코드는 필수 `image_digest`와 선택적 `image_ref`를 포함합니다.
+`image_ref`가 있으면 자격 증명 없이 정확히 같은 다이제스트로 고정한 레지스트리 참조여야 합니다.
+변경 가능한 태그만으로는 허용하지 않습니다. 생략하면 기존 구성 요소 매니페스트를 유지합니다.
+[연결된 이미지 초기 설치](hub-image-deployment-ko.md)는 레지스트리 위치를 추정하거나
+대체 이미지를 빌드하지 않으며, 일곱 구성 요소 전체의 서명된 참조를 요구합니다.
+Lifecycle Agent는 독립적으로 승인한 로컬 저장소 바인딩을 계속 사용합니다.
+새 필드는 레지스트리 접근 권한을 부여하거나 로컬 정책 범위를 넓히지 않습니다.
+v1의 `workloads`와 달리 v2는 sidecar, 초기화
 컨테이너나 주기 작업을 HTTP 서비스로 표현하지 않습니다. 알 수 없는 필드, 잘못된 이름·digest,
 중복 JSON 키, 유한하지 않은 값과 기존 크기 제한 위반은 계속 차단합니다.
 
 설치 내부 묶음은 형식, product, namespace와 크기가 제한된 객체 목록을 포함합니다.
 각 객체는 Entity, 종류, 이름과 비공개 구성을 지정합니다. 지원 범위는 Deployment,
-ClusterIP Service와 실행 범위가 제한된 CronJob입니다. 일반·초기화 컨테이너는 저장소,
+ClusterIP Service, 실행 범위가 제한된 CronJob, 범위가 제한된 HorizontalPodAutoscaler입니다. 일반·초기화 컨테이너는 저장소,
 태그나 이미지 주소가 아닌 승인된 release component를 지정합니다. Agent는 기존의
 독립적으로 승인된 Entity/component/저장소 대응 관계로 실제 이미지를 결정합니다.
 
@@ -60,6 +67,51 @@ namespace, 역할, 신원, Secret, PVC나 SecretProviderClass는 생성하지 �
 누락 입력이 드러납니다. 내용을 검사하기 위한 Secret 읽기 권한은 Agent에 부여하지 않습니다.
 비공개 실행 구성은 설치 내부의 보호된 저장소에 보관하며 보고나 Hub 정보로 보내지 않습니다.
 공개 설정은 참조 이름을 드러내지 않고 digest만 포함할 수 있습니다.
+
+## 자동 확장 Deployment
+
+HorizontalPodAutoscaler는 같은 Entity의 같은 이름 Deployment를 가리키는 제한된 객체입니다.
+`minReplicas`와 `maxReplicas`는 1에서 10 사이이고, `Utilization` 목표(1~100)를 가진 `Resource`
+지표(`cpu` 또는 `memory`)를 하나 또는 두 개 둡니다. behavior 정책, 사용자 지정·외부 지표, 묶음
+밖의 대상은 거부합니다.
+
+복제본 수는 autoscaler가 소유합니다. 따라서 autoscaler가 있는 Deployment는 `replicas`를 생략하고,
+`replicas`를 생략한 Deployment는 autoscaler가 있어야 하며 둘 다 고정하면 거부합니다. 렌더러는
+`scaleTargetRef`를 같은 이름의 Deployment에 묶고 Deployment 다음에 autoscaler를 적용합니다.
+Deployment spec을 교체하는 업데이트는 live 복제본 수를 1로 되돌리지 않고 유지합니다. 롤아웃 확인은
+컨트롤러가 보고한 복제본 수를 따르며 0일 때는 완료로 보지 않습니다. 네이티브 범위는
+`autoscaled_components`로 autoscaler를 묶고, 비어 있으면 생략하므로 기존 범위 digest와 승인은
+바뀌지 않습니다. Agent 역할에는 필요한 `autoscaling` `horizontalpodautoscalers` 동사만 추가합니다.
+
+FDAI 토폴로지 생성기는 AKS Terraform 루트와 같은 구성을 만듭니다. 생성된 Core, Operator,
+수집 API, 문서 작업자 Deployment마다 검토된 `replicas`와 `max_replicas` 값으로 같은 이름의
+autoscaler를 하나씩 만들고, 기존 CPU 사용률 목표 70을 적용합니다. Deployment에서는 복제본 수를
+생략하고 네 이름을 `autoscaled_components`에도 기록합니다. 또한 생성기는 네이티브 범위의 모든
+Deployment, Service, CronJob, autoscaler에 대해 digest로 고정된 상태 인계 목록과 정확한
+`namespace/name` import 변수를 기록합니다. 이 파일은 상태 소유권만 기술합니다. Kubernetes 객체를
+가져오거나 수정하거나 삭제하지 않습니다.
+
+## 설치 binding
+
+컨테이너 환경 변수는 정확히 하나의 출처를 가집니다. 기존 `valueFrom` 참조, 크기가 제한된 `value`
+리터럴, `binding` 키 또는 `configuration` 키입니다. `binding`은 설치 소유자가 같은 owner-only 로컬 정책의 비공개
+`installation_binding` 객체(`format: fdai.installation-binding.v1`, 최대 128개 키의 맵)에 제공하는
+값을 가리킵니다. 인프라 에이전트는 검토된 Terraform 출력 키 집합과 정확히 일치하는 값만 새로운
+소유자 전용 파일에 기록하며 기존 binding은 교체하지 않습니다.
+
+binding 키는 소문자 식별자입니다. 값과 리터럴은 출력 가능한 1~1024자이며 자격 증명처럼 보이면
+안 됩니다. userinfo가 있는 URL, `Password=`, `AccountKey=`, `SharedAccessKey=`, PEM 헤더는 거부합니다.
+자격 증명을 뜻하는 이름(secret, password, token, DSN, key, signing 등)의 변수는 Secret 참조만
+받으며 리터럴이나 두 렌더 시점 키는 받지 않습니다. Agent는 묶음이 참조하지 않는 binding 키와
+binding에 없는 참조 키를 정책 로드와 렌더에서 모두 거부하고, 고정된 메시지로 값을 노출하지
+않습니다.
+
+값은 렌더 시점에 일반 환경 값으로 풀리며 묶음에 포함되지 않습니다. 고정한 묶음 digest는 리터럴과
+두 키 이름을 포함하므로 참조를 바꾸면 pin이 바뀌지만 설치 로컬 값이나 서명된 configuration 값을
+바꾸면 바뀌지 않습니다. `configuration` 키는 인증되고 서명된 Entity별 configuration 렌더 값의
+비밀이 아닌 필드 하나를 가리킵니다. Key Vault 조회, 암호화 키 또는 installation binding이 아닙니다.
+알 수 없거나 누락되거나 사용하지 않는 출처, 자격 증명 형태의 출처와 Entity 범위를 벗어난 출처는
+안전하게 거부합니다.
 
 ## Native 소유권과 실행 동작
 

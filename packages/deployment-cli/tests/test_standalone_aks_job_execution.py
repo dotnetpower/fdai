@@ -10,6 +10,7 @@ import pytest
 
 from fdai_deployment_cli import standalone_aks_job_execution
 from fdai_deployment_cli.aks_job_execution import (
+    AksOneShotJob,
     materialize_cronjob_execution,
     protected_cronjob_template_digest,
 )
@@ -235,10 +236,13 @@ def _private_kubeconfig(tmp_path: Path) -> Path:
     return path
 
 
-def _expected_execution() -> object:
+def _expected_execution(
+    purpose: str = "inventory",
+    environment: dict[str, str] | None = None,
+) -> AksOneShotJob:
     return materialize_cronjob_execution(
         _cronjob(),
-        purpose="inventory",
+        purpose=purpose,
         source_revision=_REVISION,
         target_binding=_TARGET,
         expected_template_name="inventory",
@@ -247,7 +251,7 @@ def _expected_execution() -> object:
         expected_command=("python", "-m", "fdai.delivery.inventory_sync_cli"),
         expected_service_account="inventory-job",
         args=("--initial",),
-        environment={"FDAI_INVENTORY_PROGRESS_RUN_ID": f"genesis.{_REVISION}"},
+        environment=environment or {"FDAI_INVENTORY_PROGRESS_RUN_ID": f"genesis.{_REVISION}"},
         require_suspended=False,
         protected_template_digest=_template_digest(),
         protected_identity_binding_digest=str(_identity_binding()["binding_digest"]),
@@ -261,6 +265,20 @@ def _terminal_job() -> dict[str, object]:
         "failed": 2,
         "succeeded": 1,
         "conditions": [{"type": "Complete", "status": "True"}],
+        "completionTime": "2026-09-27T01:00:00Z",
+    }
+    return job
+
+
+def _failed_job(
+    purpose: str = "inventory",
+    environment: dict[str, str] | None = None,
+) -> dict[str, object]:
+    expected = _expected_execution(purpose, environment)
+    job = copy.deepcopy(expected.manifest)
+    job["status"] = {
+        "failed": 2,
+        "conditions": [{"type": "Failed", "status": "True"}],
         "completionTime": "2026-09-27T01:00:00Z",
     }
     return job
@@ -623,3 +641,68 @@ def test_terminal_checkpoint_survives_ttl_deleted_job(
     assert len(replay_commands) == 2
     assert replay_commands[0][2] == "cronjob"
     assert replay_commands[1][2] == "serviceaccount"
+
+
+def test_explicit_failed_job_runs_one_distinct_successor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    kubeconfig = _private_kubeconfig(tmp_path)
+    retry_1_environment = {
+        "FDAI_INVENTORY_PROGRESS_RUN_ID": f"genesis.{_REVISION}",
+        "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": "attempt.retry-1",
+    }
+    retry_2_environment = {
+        "FDAI_INVENTORY_PROGRESS_RUN_ID": f"genesis.{_REVISION}",
+        "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID": "attempt.retry-2",
+    }
+    successor = _expected_execution("inventory-retry-2", retry_2_environment)
+    successor_job = copy.deepcopy(successor.manifest)
+    successor_job["status"] = {
+        "succeeded": 1,
+        "conditions": [{"type": "Complete", "status": "True"}],
+        "completionTime": "2026-09-27T01:05:00Z",
+    }
+    responses = iter(
+        (
+            json.dumps(_cronjob()),
+            json.dumps(_service_account()),
+            "",
+            json.dumps(_failed_job()),
+            json.dumps(_cronjob()),
+            json.dumps(_service_account()),
+            "",
+            json.dumps(_failed_job("inventory-retry-1", retry_1_environment)),
+            json.dumps(_cronjob()),
+            json.dumps(_service_account()),
+            "",
+            json.dumps(successor_job),
+        )
+    )
+    creates: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        standalone_aks_job_execution,
+        "_capture",
+        lambda *_args, **_kwargs: next(responses),
+    )
+    monkeypatch.setattr(
+        standalone_aks_job_execution,
+        "_run",
+        lambda command, **_kwargs: creates.append(command),
+    )
+
+    result = standalone_aks_job_execution.execute_aks_cronjob_once(
+        _context(kubeconfig),
+        tmp_path,
+        **_kwargs(),  # type: ignore[arg-type]
+        failed_successor_limit=2,
+        retry_environments=(retry_1_environment, retry_2_environment),
+    )
+
+    assert result == successor
+    container = result.manifest["spec"]["template"]["spec"]["containers"][0]
+    assert {item["name"]: item["value"] for item in container["env"] if "value" in item}[
+        "FDAI_INVENTORY_PROGRESS_ATTEMPT_ID"
+    ] == "attempt.retry-2"
+    assert len(creates) == 3
+    assert sum(1 for path in tmp_path.glob("*.terminal.json")) == 3

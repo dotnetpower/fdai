@@ -142,6 +142,24 @@ def _owned_wheel(directory: Path, name: str, version: str) -> Path:
     return files[0]
 
 
+def _merge_dependency_wheels(
+    source: Path,
+    pool: Path,
+    check_deadline: Callable[[], float],
+) -> None:
+    for wheel in sorted(source.iterdir(), key=lambda path: path.name):
+        if wheel.suffix != ".whl" or not wheel.is_file() or wheel.is_symlink():
+            raise StagingError("dependency download produced a non-wheel artifact")
+        digest = _digest(wheel, check_deadline)
+        target = pool / wheel.name
+        if target.exists() or target.is_symlink():
+            if target.is_symlink() or _digest(target, check_deadline) != digest:
+                raise StagingError("dependency wheel filename has conflicting content")
+            wheel.unlink()
+            continue
+        os.replace(wheel, target)
+
+
 def stage_runtime_wheelhouse(
     out_dir: Path,
     repo_root: Path | None = None,
@@ -235,8 +253,17 @@ def stage_runtime_wheelhouse(
         locks[relative] = committed
     packages = _packages(repo, locks["uv.lock"])
     _prepare_output(out_dir, repo)
-    for relative in ("build", "requirements", "wheels", ".work", ".work/scratch"):
+    for relative in (
+        "build",
+        "requirements",
+        "wheels",
+        "wheels/shared",
+        ".work",
+        ".work/downloads",
+        ".work/scratch",
+    ):
         (out_dir / relative).mkdir(mode=0o700)
+    wheel_pool = out_dir / "wheels/shared"
     allowed_environment = {
         "PATH",
         "HOME",
@@ -277,9 +304,9 @@ def stage_runtime_wheelhouse(
     for name, package in packages.items():
         requirements = out_dir / "requirements" / f"{name}.txt"
         build = out_dir / "build" / name
-        wheels = out_dir / "wheels" / name
+        downloads = out_dir / ".work/downloads" / name
         build.mkdir(mode=0o700)
-        wheels.mkdir(mode=0o700)
+        downloads.mkdir(mode=0o700)
         with open_work_file(requirements, mode=0o600, replace=False) as output:
             run(
                 [
@@ -336,7 +363,7 @@ def stage_runtime_wheelhouse(
                 "--only-binary=:all:",
                 "--require-hashes",
                 "--dest",
-                str(wheels),
+                str(downloads),
                 "--requirement",
                 str(requirements),
                 "--retries",
@@ -348,20 +375,19 @@ def stage_runtime_wheelhouse(
             env=env,
             stdout=subprocess.DEVNULL,
         )
-        downloaded = list(wheels.iterdir())
+        downloaded = list(downloads.iterdir())
         has_requirements = any(
             line.strip() and not line.lstrip().startswith("#")
             for line in requirements.read_text().splitlines()
         )
         if not downloaded and has_requirements:
             raise StagingError("runtime dependency download produced no wheels")
-        if any(path.suffix != ".whl" or not path.is_file() for path in downloaded):
-            raise StagingError("dependency download produced a non-wheel artifact")
+        _merge_dependency_wheels(downloads, wheel_pool, remaining)
         package.update(
             {
                 "requirements": requirements.relative_to(out_dir).as_posix(),
                 "wheel": wheel.relative_to(out_dir).as_posix(),
-                "dependency_wheels": wheels.relative_to(out_dir).as_posix(),
+                "dependency_wheels": wheel_pool.relative_to(out_dir).as_posix(),
             }
         )
     for relative, committed in locks.items():

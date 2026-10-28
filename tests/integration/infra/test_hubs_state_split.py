@@ -69,6 +69,22 @@ def _declarations(root: Path) -> set[str]:
     }
 
 
+def test_database_owner_is_bound_before_temporary_bootstrap_admin() -> None:
+    boundaries = (INFRA / "modules/hub-service/boundaries.tf").read_text(encoding="utf-8")
+    bootstrap = (INFRA / "modules/hub-service/bootstrap.tf").read_text(encoding="utf-8")
+    database = boundaries.split(
+        'resource "azurerm_postgresql_flexible_server_database" "hub" {', 1
+    )[1].split("\n}", 1)[0]
+    bootstrap_admin = bootstrap.split(
+        'resource "azurerm_postgresql_flexible_server_active_directory_administrator" '
+        '"bootstrap" {',
+        1,
+    )[1].split("\n}", 1)[0]
+
+    assert "azurerm_postgresql_flexible_server_active_directory_administrator.hub" in database
+    assert "azurerm_postgresql_flexible_server_database.hub" in bootstrap_admin
+
+
 def _run(root: Path, *args: str, success: bool = True) -> subprocess.CompletedProcess[str]:
     environment = {
         key: value
@@ -274,6 +290,7 @@ def test_each_resource_has_exactly_one_owner_and_base_has_no_graph() -> None:
         source = "\n".join(file.read_text(encoding="utf-8") for file in path.glob("*.tf"))
         assert re.search(rf'kind\s*=\s*"{kind}"', source)
         assert re.search(r"app_image\s*=\s*var\.app_image", source)
+        assert re.search(r"custom_domain\s*=\s*var\.custom_domain", source)
         assert not _declarations(path)
         assert not re.search(r"\bazuread\b|\bazuread_|terraform_remote_state", source)
         assert not re.search(

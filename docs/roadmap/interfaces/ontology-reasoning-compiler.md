@@ -508,7 +508,7 @@ have run; the frame model no longer reinterprets the utterance without the judgm
 the second reader, and the composition honors the flag only in the local execution venue. The planner then starts the form path beside
 the judgment on every unbound operational turn that needs no document evidence, with its own provider calls and budget scope, an
 absolute deadline, and anchor reads under the same role, purpose, and principal scope as the turn's executor. The planner consults the
-path only after the deterministic pre-frame checks, and an ambiguous judgment's clarification wins over it unless the closed ambiguity reader in
+path only after the deterministic pre-frame checks, and a clarification, whether the judgment's own or one of those checks, wins over it unless the closed ambiguity reader in
 [Review and hold refinements](#review-and-hold-refinements) finds one plausible reading. The path answers only when
 it is released and its single retained compilation holds exactly one goal compiled into one verified batch, with no continuation and no
 limitation. The planner then stamps the plan with the gateway's current cutoff, verifies it again, and answers from that compiled
@@ -528,7 +528,7 @@ and keeps each reached endpoint once. A Resource state filter binds through
 a reviewed state catalog built from the state inventory function's declared concepts and labels, and the collection is
 read through that function, whose state concepts V-PROV and V-SEM check against the bound state. A state filter on
 another ObjectType stays `filter_unsupported:state`, because no reviewed reader holds that lifecycle.
-A count grouped by container groups members by their direct parent, the `from` end of `contains`, and V-SEM rejects
+A count grouped by container groups members by their direct parent, the `from` end of `contains`, answer rows lead with the group, and V-SEM rejects
 an aggregate whose grouping differs from the stated one. The routing preflight's context now also yields newest-first
 within its smaller bound: before, a context longer than that bound skipped the preflight, so after a few long
 answers a standalone question went to the adaptive planner, which could answer it from general knowledge. A trimmed
@@ -605,12 +605,15 @@ rollback release.
 
 When the first reading fails only as a form, because it was invalid, clarified by an unused mention or a
 competing reading, not faithful to the blind review, or mislabeled one mention's kind, the path reads the
-question once more. The second sample passes the same admission, grounding, review, and selection
+question again, at most twice. Each replacement sample passes the same admission, grounding, review, and selection
 rules and never lowers the bar; a reading with an unsupported atom is never resampled, and no turn takes
-more than two samples. The turn records why the replaced sample was declined as a content-free
+more than three samples. The turn records why the replaced sample was declined as a content-free
 `semantic_form_sample_declined` event, so a resampled or held turn stays diagnosable. A form that cites
 an undeclared mention names the citing role, such as `form_goal_filter_cites_an_undeclared_mention`, so
-the one repair and the trace point at the field to fix.
+the one repair and the trace point at the field to fix. In the typed-only local profile no cascade follows,
+so a first reading the T1 reader cannot form ends the turn. With a resolved T2 target, only the replacement
+sample is read by a T2 reader and the turn records `form_escalated`; that form passes the same admission,
+grounding, blind review, and selection, and T1 reads every first sample. Each call picks its token field from the resolved family. The reader prompt states that a measure over everything in scope has a null subject.
 
 A selected compilation may carry only reviewed limitations that the answer states as catalog notices:
 the applied, default, or model-judged history window, a cause that is not established, and an impact
@@ -781,10 +784,12 @@ rounds traced. Each stays in the local profile and grants no authority.
 - **Closed ambiguity reader**: When the judgment ends with a clarification but the path released a reading
   that passes every selection rule, a reader of a third model family answers one closed question from the
   masked question alone, never seeing either reading: whether the question has one plausible reading,
-  several, or is unclear. Only one lets the released reading answer; any other verdict, no answer, a
+  several, or is unclear. When the conversation holds a stored earlier result, the reader is also told
+  only that earlier results are in hand, so a reference such as only the running ones is not ambiguous
+  for naming no kind of resource; it sees neither the earlier text nor the reading. Only one lets the released reading answer; any other verdict, no answer, a
   timeout, or a failure keeps the clarification. The plan takes the gateway's cutoff only after that
   verdict, because the gateway accepts a cutoff only within seconds of its own. The composition gives the check to the reasoning direction
-  reader only when it is neither the judgment and proposer's family nor the blind reviewer's; otherwise the
+  reader only when it is neither the judgment and proposer's family nor the blind reviewer's, else to a T2 reasoner that is neither; without either the
   clarification always wins.
 
 **Current-path plans**

@@ -254,6 +254,7 @@ class ProductionOperatorComposition:
             emit_authentication_receipt_ref=(
                 environment.semantic_authentication_receipt_ref_enabled
             ),
+            emit_dialogue_state=environment.semantic_dialogue_state_enabled,
             publisher=publisher,
             result_source=result_source,
             request_topic=environment.semantic_request_topic or SEMANTIC_REQUEST_TOPIC,
@@ -630,6 +631,7 @@ def _semantic_bridge(
     store: PostgresFamilyStore | None,
     *,
     emit_authentication_receipt_ref: bool,
+    emit_dialogue_state: bool = False,
     publisher: SemanticTurnEventPublisher | None,
     result_source: SemanticTurnResultSource | None,
     request_topic: str,
@@ -664,6 +666,7 @@ def _semantic_bridge(
         builder=SemanticTurnEnvelopeBuilder(
             selection_registry=context_selection_registry,
             emit_authentication_receipt_ref=emit_authentication_receipt_ref,
+            emit_dialogue_state=emit_dialogue_state,
         ),
         relationship_resolver=relationship_resolver,
         runtime_call_observer=runtime_call_observer,

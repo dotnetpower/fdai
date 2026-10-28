@@ -242,7 +242,20 @@ output "runtime_identity_bindings" {
       client_id    = module.operational_evidence_verifier_identity[0].client_id
       principal_id = module.operational_evidence_verifier_identity[0].principal_id
     } : null
+    notification = var.enable_email_notifications ? {
+      resource_id  = module.notification_identity[0].resource_id
+      client_id    = module.notification_identity[0].client_id
+      principal_id = module.notification_identity[0].principal_id
+    } : null
   }
+}
+
+output "notification_email_binding" {
+  description = "Non-secret ACS Email endpoint and sender for a separately stateful runtime renderer. Null unless email notifications are enabled; recipients are a private input and are never an output."
+  value = var.enable_email_notifications ? {
+    endpoint       = "https://${azurerm_communication_service.notifications[0].hostname}"
+    sender_address = "DoNotReply@${azurerm_email_communication_service_domain.notifications[0].from_sender_domain}"
+  } : null
 }
 
 output "container_app_environment_id" {
@@ -402,6 +415,13 @@ output "operator_request_receipt_binding" {
     operator_signing_seed_secret_id = "https://${local.key_vault_name}.vault.azure.net/secrets/fdai-operator-request-operator-signing-seed"
     core_producer_id                = "core-control-plane"
     operator_producer_id            = "operator-service"
+  }
+}
+
+output "result_handle_binding" {
+  description = "Deployment-owned Key Vault secret reference for the result-handle encryption key; set it as result_handles.key_secret_id in the Core service tfvars."
+  value = {
+    key_secret_id = "https://${local.key_vault_name}.vault.azure.net/secrets/fdai-result-handle-material"
   }
 }
 

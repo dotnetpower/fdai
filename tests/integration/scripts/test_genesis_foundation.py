@@ -33,6 +33,9 @@ from genesis_foundation_recovery import (  # noqa: E402
     validate_recovery_plan,
 )
 from genesis_foundation_recovery_plan import (  # noqa: E402
+    _projected_runner_patch_selection,
+    _recovery_variables,
+    _replace_final_projection,
     prepare_recovery_plan,
     require_ip_policy_only,
     require_naming_only,
@@ -326,6 +329,81 @@ def test_recovery_selects_retained_foundation_variables(
     assert recovery_planner._foundation_variables(root).name == expected_name
 
 
+def test_recovery_variables_bind_supported_runner_patch_selection() -> None:
+    state = {
+        "version": 4,
+        "serial": 1,
+        "lineage": "example",
+        "resources": [
+            {
+                "module": "module.bootstrap",
+                "mode": "managed",
+                "type": "azurerm_linux_virtual_machine",
+                "name": "runner",
+                "instances": [
+                    {
+                        "index_key": 0,
+                        "attributes": {
+                            "id": "/subscriptions/example/virtualMachines/runner",
+                            "patch_mode": "AutomaticByPlatform",
+                            "bypass_platform_safety_checks_on_user_schedule_enabled": True,
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    variables = _recovery_variables(
+        {"workload": "example"},
+        state,
+        application_workload="exampleaks",
+    )
+
+    assert variables == {
+        "workload": "example",
+        "application_workload": "exampleaks",
+        "operations_public_ip_tags": {},
+        "runner_patch_mode": "AutomaticByPlatform",
+        "runner_bypass_platform_safety_checks": True,
+    }
+
+
+def test_recovery_plan_reads_tenant_patch_drift_from_runner_before_state() -> None:
+    projection = {
+        "resource_changes": [
+            {
+                "address": "module.bootstrap.azurerm_linux_virtual_machine.runner[0]",
+                "change": {
+                    "actions": ["update"],
+                    "before": {
+                        "patch_mode": "AutomaticByPlatform",
+                        "bypass_platform_safety_checks_on_user_schedule_enabled": True,
+                    },
+                    "after": {
+                        "patch_mode": "AutomaticByPlatform",
+                        "bypass_platform_safety_checks_on_user_schedule_enabled": False,
+                    },
+                },
+            }
+        ]
+    }
+
+    assert _projected_runner_patch_selection(projection) == {
+        "runner_patch_mode": "AutomaticByPlatform",
+        "runner_bypass_platform_safety_checks": True,
+    }
+
+
+def test_recovery_replaces_canonical_projection_after_replan(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    write_private_bytes(tmp_path / "show.stdout", b"initial")
+
+    _replace_final_projection(tmp_path, b"final")
+
+    assert (tmp_path / "show.stdout").read_bytes() == b"final"
+
+
 def test_recovery_requires_original_lock_before_any_planning(tmp_path):
     original = tmp_path / "original"
     original.mkdir()
@@ -602,6 +680,83 @@ def test_residual_foundation_rejects_scope_expansion(recovery_plans, defect):
         entries[0]["previous_address"] = "another"
     with pytest.raises(ValueError):
         validate_recovery_plan(current, original, state, application_workload="exampleaks")
+
+
+def test_recovery_accepts_runner_patch_inputs_from_retained_state(recovery_plans) -> None:
+    original, current, state = copy.deepcopy(recovery_plans)
+    address = "module.bootstrap.azurerm_linux_virtual_machine.runner[0]"
+    original["variables"].update(
+        {
+            "runner_patch_mode": {"value": None},
+            "runner_bypass_platform_safety_checks": {"value": False},
+        }
+    )
+    current["variables"].update(
+        {
+            "runner_patch_mode": {"value": "AutomaticByPlatform"},
+            "runner_bypass_platform_safety_checks": {"value": True},
+        }
+    )
+    original["resource_changes"].append(
+        {
+            "address": address,
+            "type": "azurerm_linux_virtual_machine",
+            "mode": "managed",
+            "change": {
+                "actions": ["create"],
+                "before": None,
+                "after": {
+                    "id": None,
+                    "name": "runner",
+                    "patch_mode": None,
+                    "bypass_platform_safety_checks_on_user_schedule_enabled": False,
+                },
+                "after_unknown": {"id": True},
+            },
+        }
+    )
+    retained_runner = {
+        "id": "/subscriptions/example/virtualMachines/runner",
+        "name": "runner",
+        "patch_mode": None,
+        "bypass_platform_safety_checks_on_user_schedule_enabled": False,
+    }
+    refreshed_runner = {
+        **retained_runner,
+        "patch_mode": "AutomaticByPlatform",
+        "bypass_platform_safety_checks_on_user_schedule_enabled": True,
+    }
+    current["resource_changes"].append(
+        {
+            "address": address,
+            "type": "azurerm_linux_virtual_machine",
+            "mode": "managed",
+            "change": {
+                "actions": ["no-op"],
+                "before": refreshed_runner,
+                "after": refreshed_runner,
+                "after_unknown": {},
+            },
+        }
+    )
+    state["resources"].append(
+        {
+            "module": "module.bootstrap",
+            "mode": "managed",
+            "type": "azurerm_linux_virtual_machine",
+            "name": "runner",
+            "instances": [{"index_key": 0, "attributes": retained_runner}],
+        }
+    )
+
+    result = validate_recovery_plan(
+        current,
+        original,
+        state,
+        application_workload="exampleaks",
+    )
+
+    assert result["preserved_managed_count"] == 2
 
 
 @pytest.fixture(autouse=True)

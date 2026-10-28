@@ -408,6 +408,34 @@ run "split_roles_are_independent_by_default" {
   }
 }
 
+run "hub_managed_prerequisites_omit_ingestion_workloads" {
+  command = plan
+
+  variables {
+    enable_document_ingestion_workloads = false
+  }
+
+  assert {
+    condition = (
+      length(module.ingestion_gateway) == 0 &&
+      length(module.ingestion_identity) == 1 &&
+      length(module.ingestion_worker_identity) == 1 &&
+      length(module.ingestion_migration_identity) == 1 &&
+      length(module.document_storage) == 1
+    )
+    error_message = "Hub-managed ingestion prerequisites must retain identities and storage without Container Apps workloads."
+  }
+
+  assert {
+    condition = (
+      length(azurerm_role_assignment.ingestion_document_data) == 1 &&
+      length(azurerm_role_assignment.ingestion_worker_document_data) == 1 &&
+      length(azurerm_role_assignment.ingestion_migration_kv_secrets_user) == 1
+    )
+    error_message = "Hub-managed ingestion prerequisites must retain the reviewed storage and migration role bindings."
+  }
+}
+
 run "partner_models_use_separate_foundry_account" {
   command = plan
 

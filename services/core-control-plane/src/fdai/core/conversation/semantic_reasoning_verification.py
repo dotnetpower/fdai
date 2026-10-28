@@ -70,6 +70,7 @@ from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
 from .semantic_reasoning_lifecycle import parse_lifecycle
 from .semantic_reasoning_lineage_counts import lineage_traversal_violations
 from .semantic_reasoning_listed_measures import allow_listed_measure
+from .semantic_reasoning_lookup_filters import restates_lookup_subject
 from .semantic_reasoning_measure_checks import (
     expected_measure_arguments,
     is_health_lookup,
@@ -275,7 +276,7 @@ def _allowed_operands(
 ) -> _Allowed:
     allowed = _Allowed()
     cited = [goal.subject] if goal.subject is not None else []
-    cited.extend(item.mention for item in goal.filters)
+    cited.extend(item.mention for item in goal.filters if not restates_lookup_subject(goal, item))
     if collection_anchored(goal) and goal.relation is not None and goal.relation.anchor:
         # A collection anchor's kind selects where the relation starts, not what it returns.
         concept = concepts.binding(goal.relation.anchor)

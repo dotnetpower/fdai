@@ -60,7 +60,7 @@ variable "storage_size" {
 }
 
 variable "tags" {
-  description = "Stable labels projected from deployment ownership tags."
+  description = "Azure resource tags applied to the published Key Vault secrets."
   type        = map(string)
   default     = {}
 }

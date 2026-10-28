@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 417a8906bb464ff3b8c7ee93074b84a7a3f4297d
-translation_revised: 2026-10-15
+translation_source_sha: 651ac4df79411ee012f026937d7f478bd8cf1ce9
+translation_revised: 2026-10-28
 ---
 # 판테온 대화형 숙의
 
@@ -430,6 +430,48 @@ V-CLAIM이 정확한 값, 이름, 참조, 제한 사항 및 전체 행 집계를
 결과는 실시간 클라우드 근거가 아니라고 명시합니다. 생성 전에 두 모델 호출을 예약하고 검토
 사용량은 따로 계측하며 잘못된 생성 응답도 측정 비용을 보존합니다. 운영자 언어는 요청에
 결합됩니다. 이는 구현된 소스 동작이며 실제 품질, 지연, 비용 또는 배포 수락 증적은 아닙니다.
+
+## 구조화된 대화 상태 (관찰 모드)
+
+긴 Console 대화는 현재 truncation 때문에 맥락을 잃습니다. Operator narrator는 최근 history
+12개, Core는 최근 8개만 유지하므로 운영자가 이미 정한 대상, 범위, 시간을 포함해 오래된 turn이
+사라집니다. 설계된 대안은 오래된 turn을 자유 텍스트 요약만이 아니라 typed `DialogueState`로
+압축하는 것입니다. 이 상태는 맥락일 뿐 권한을 부여하지 않으며, 승인과 실행은 매 요청마다 현재
+근거에서 다시 도출합니다.
+
+**상태 필드.** 확정된 intent(goal, target, scope, time, constraints), 유효 시간이 있는 grounded
+ontology entity, 이미 답한 미해결 질문과 clarification, 인용한 근거와 result handle, 압축한 turn
+범위와 digest입니다.
+
+**Tier.** T2는 사용하지 않습니다. T0는 id, role, 압축한 범위의 digest 같은 정확한 집계만 남기며,
+대화 grounding이 어휘 기반 의미 추론을 금지하므로 텍스트에서 의미를 추론하지 않습니다. T1은 작은
+모델로 anchor(target, scope, time, constraint, decision, open question)를 제안할 수 있습니다(MAY).
+각 anchor는 정확한 원문 span을 인용하며, 결정적 코드는 모든 span이 값을 그대로 재현할 때만
+제안을 받아들이고 하나라도 어긋나면 제안 전체를 거절합니다. proposer가 없거나 abstain, 실패,
+거절되면 T0 상태에 typed fallback 사유(`t1_unconfigured`, `t1_abstained`, `t1_failed`,
+`t1_rejected_unverified_anchor`)를 남깁니다. 압축된 모든 turn이 집계되므로 조용히 버려지는 것이
+없습니다. 코딩 세션은 이 경로에서 실제 모델을 호출하지 않습니다.
+
+**저장.** Operator 서비스가 자신의 Postgres 저장소에서 대화 이력을 소유합니다(`conversation_turn`은
+append-only이며 principal 범위로 격리). snapshot은 같은 저장소의 append-only 파생 테이블이며
+principal과 conversation을 키로 하고 원본 turn 범위, digest, 상태 JSON, tier, 생성 시각을 담습니다.
+새 상태는 UPDATE가 아니라 새 행이므로 모든 요청 context를 replay할 수 있습니다. snapshot은 원본
+turn의 보존 정책을 따릅니다. Operator narrator는 이 테이블을 직접 읽고, Core는 Operator 저장소를
+읽지 않으며 Operator가 schema 검증된 `SemanticTurnRequest` 필드로 상태를 전달합니다.
+
+**롤아웃.** 관찰 모드로 시작합니다. 상태를 계산해 기존 truncation receipt 옆에 내용 없는
+집계만 기록하고 요청은 바꾸지 않습니다. 승격은 gate 근거로 authoritative promotion registry를
+통해서만 합니다. Console은 이전 turn이 압축되었음을 표시할 수 있습니다(MAY).
+
+**관찰 모드로 구현된 부분.** `DialogueState` 계약과 verifier(`fdai_service_contracts.dialogue_state`),
+Operator 소유 서비스 migration의 `conversation_dialogue_snapshot` 테이블(update·delete 방지 trigger 포함),
+narrator shadow receipt(`context_selection.dialogue_state_shadow`, 집계와 digest만)와 principal 및
+`conversation_id` 기준의 best-effort snapshot 보존(writer가 조립된 경우), 그리고 Core가 이미 받는 prior turn 중 adaptive history
+window를 넘는 부분의 관찰입니다. 어느 것도 모델 요청을 바꾸지 않습니다. 이제 Operator는 snapshot writer를 로컬 내레이터에 연결하고, 선택형 T1 proposer(`FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED`)는 응답 경로 밖에서 원문 그대로의 인용 anchor를 요청하며 결정적 코드가 위치를 찾아 검증합니다. Operator-Core 요청 스키마 1.12.0은 선택형 `dialogue_state`를 담고(`FDAI_SEMANTIC_DIALOGUE_STATE_ENABLED`로 선택), Core는 전달받은 집계를 자신의 집계와 로그 전용으로 비교합니다. shadow 상태는 Console이 보낸
+history에서 계산하므로, 클라이언트가 슬라이딩 window를 보내면 turn마다 압축 digest가 달라집니다.
+snapshot id는 유지된 window를 제외해 나머지를 중복 제거합니다.
+
+**남은 작업.** 배포 환경의 관찰 모드 비교 근거를 기록하고, 활성 턴이 상태를 사용하게 하며(anchor는 승격이 snapshot을 읽은 뒤에야 Core에 전달됩니다), 상태가 사용될 때 Console 표시를 추가하고, gate 근거 또는 귀속된 운영자 override로 registry를 통해서만 승격합니다.
 
 ## 권한 경계
 

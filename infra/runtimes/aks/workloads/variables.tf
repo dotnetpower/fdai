@@ -9,6 +9,13 @@ variable "namespace" {
   default     = "fdai-runtime"
 }
 
+variable "hub_managed" {
+  description = "True when the Lifecycle Agent owns this namespace's workloads. The Executor then binds no Kubernetes-effect role in the FDAI namespace, so it cannot patch or delete the Hub-managed Deployments; scale targets in other namespaces stay bound."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "executor_external_scale_targets" {
   description = "Explicit existing namespaces and exact Deployment names eligible for Thor-owned scale-only RBAC. Empty by default; requires separate plan approval and revocation."
   type        = map(set(string))
@@ -71,11 +78,14 @@ variable "browser_gateway" {
       can(regex("^[^@[:space:]]+@[^@[:space:]]+[.][^@[:space:]]+$", var.browser_gateway.publisher_email)) &&
       length("apim-${var.browser_gateway.workload}-${var.browser_gateway.environment}-${var.browser_gateway.region_short}-${var.browser_gateway.resource_name_suffix}") <= 50 &&
       (
-        var.browser_gateway.backend_nsg_id == "" ||
+        !var.browser_gateway.enabled ? (
+          var.browser_gateway.backend_nsg_id == "" ||
+          can(regex("^/subscriptions/[0-9a-fA-F-]+/resourceGroups/[^/]+/providers/Microsoft[.]Network/networkSecurityGroups/[^/]+$", var.browser_gateway.backend_nsg_id))
+        ) :
         can(regex("^/subscriptions/[0-9a-fA-F-]+/resourceGroups/[^/]+/providers/Microsoft[.]Network/networkSecurityGroups/[^/]+$", var.browser_gateway.backend_nsg_id))
       )
     )
-    error_message = "browser_gateway requires portable CAF naming tokens, a publisher email, and an optional Azure NSG resource ID."
+    error_message = "browser_gateway requires portable CAF naming tokens, a publisher email, and a non-empty Azure NSG resource ID when enabled."
   }
 
   validation {
@@ -84,11 +94,15 @@ variable "browser_gateway" {
         var.workloads["operator-service"].external &&
         var.workloads["document-ingestion-api"].external &&
         coalesce(var.workloads["operator-service"].service_port, var.workloads["operator-service"].port) == 80 &&
-        coalesce(var.workloads["document-ingestion-api"].service_port, var.workloads["document-ingestion-api"].port) == 80,
+        coalesce(var.workloads["document-ingestion-api"].service_port, var.workloads["document-ingestion-api"].port) == 80 &&
+        can(regex("^[0-9a-fA-F-]{36}$", var.workloads["operator-service"].environment["FDAI_API_AUDIENCE"])) &&
+        can(regex("^https://[^/?#:]+$", var.workloads["operator-service"].environment["FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"])) &&
+        var.workloads["document-ingestion-api"].environment["FDAI_INGESTION_CORS_ALLOW_ORIGINS"] ==
+        var.workloads["operator-service"].environment["FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS"],
         false,
       )
     )
-    error_message = "browser_gateway requires external operator-service and document-ingestion-api workloads on Service port 80."
+    error_message = "browser_gateway requires external Operator and ingestion workloads on Service port 80 with one GUID API audience and the same exact HTTPS Console CORS origin."
   }
 }
 

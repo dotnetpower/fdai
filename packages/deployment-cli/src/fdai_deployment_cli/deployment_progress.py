@@ -23,6 +23,7 @@ from rich.spinner import Spinner
 from rich.table import Table
 from rich.text import Text
 
+from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.foundation_progress import FoundationCheckpoint
 
 StageName = Literal[
@@ -165,6 +166,12 @@ class DeploymentProgress:
         self.detail("Using the authenticated Azure CLI session")
         self.skip("kit", "Source checkout selected; no deployment kit is used")
 
+    def begin_hub(self) -> None:
+        """Distinguish signed service images from checkout-supplied support artifacts."""
+        self.begin("azure")
+        self.detail("Using the authenticated Azure CLI session")
+        self.skip("kit", "Hub signed images and matching checkout support selected; no kit")
+
     def finish_source(self, result: Mapping[str, object]) -> bool:
         """Render ready only for the source coordinator's verified terminal result."""
 
@@ -172,6 +179,44 @@ class DeploymentProgress:
         if ready:
             self.ready()
         return ready
+
+    def timing_receipt(
+        self,
+        *,
+        lane: str,
+        outcome: str,
+        recorded_at: str,
+    ) -> dict[str, object]:
+        """Return bounded duration evidence without granting deployment authority."""
+
+        if not lane or len(lane) > 64 or not outcome or len(outcome) > 128 or not recorded_at:
+            raise ValueError("deployment timing identity is invalid")
+        end = self._ended if self._ended is not None else self._clock()
+        phases = []
+        for name, phase in self._phases.items():
+            if phase.started is None:
+                continue
+            phase_end = phase.ended if phase.ended is not None else end
+            phases.append(
+                {
+                    "name": name,
+                    "state": phase.state,
+                    "elapsed_ms": max(0, round((phase_end - phase.started) * 1000)),
+                }
+            )
+        receipt: dict[str, object] = {
+            "schema_version": "fdai.deployment-timing.v1",
+            "lane": lane,
+            "outcome": outcome,
+            "recorded_at": recorded_at,
+            "total_elapsed_ms": max(0, round((end - self._started) * 1000)),
+            "phases": phases,
+            "timing_evidence_only": True,
+            "apply_authorized": False,
+            "deployment_ready": False,
+        }
+        receipt["receipt_digest"] = canonical_digest(receipt)
+        return receipt
 
     def __enter__(self) -> Self:
         self._token = _CURRENT.set(self)

@@ -72,6 +72,8 @@ npm --prefix lifecycle/release-hub/ui run dev
 The API and UI bind only to `127.0.0.1`. The UI uses port `5291`, proxies the API on `8091`,
 and rejects cross-origin mutation requests. No production authentication or key management is
 implemented. The key is never returned by an API or accepted through a browser form.
+The state path must resolve outside the checkout, be a private directory with no group or other
+access, and contain a key created by `dev-init`. Serve ports must be between 1 and 65535.
 Register an existing `fdai.runtime-release.v3` manifest; registration validates metadata only.
 Artifact archives, SBOM contents, provenance semantics and registry presence remain unverified.
 The optional local label may contain Korean; machine release ids remain canonical SemVer.
@@ -84,7 +86,7 @@ creates a missing key implicitly. Keep the state directory outside source contro
 
 The default commands above remain unauthenticated and loopback-only. A separate
 `python -m fdai_lifecycle_hub.remote` entrypoint supports direct Entra authentication,
-service-owned passwordless PostgreSQL, explicit schema revision 1 migration, attributed
+service-owned passwordless PostgreSQL, explicit schema revision 2 migration, attributed
 publication audit, and a versioned Key Vault development signing-key reference. It rejects
 missing configuration/migration instead of silently creating remote state or keys.
 Its bundled UI uses operator Entra sign-in; the customer service identity can read only
@@ -97,6 +99,59 @@ vaults, and logs, not just separate RGs. This change has not deployed or validat
 Customer pin approval is a separate authenticated operation using an independently obtained
 digest/revision. Automatic polling, production TUF metadata/root ceremony, artifact availability,
 and Agent apply remain unsupported.
+
+### Review clone deployment requests
+
+Open **Deployment requests** to review subscriptions that reported a clone deployment request.
+Every record is **self-reported, ownership unverified**, with status `requested`. It is not
+proof of subscription ownership, approval, deployment execution, or success. Intake never
+changes catalog revision, expiry, channel membership, or installation authority.
+
+`POST /v1/deployment-requests` accepts a JSON object with exactly these fields (2 KiB body limit):
+
+| Field | Accepted value |
+|-------|----------------|
+| `request_id` | Stable lowercase SHA-256 hex, 64 characters |
+| `subscription_id` | Canonical lowercase UUID |
+| `release_id` | Canonical SemVer Release id, at most 64 characters |
+| `channel` | `DEV`, `RELEASE_CANDIDATE`, `RELEASE`, or `custom-name`, at most 64 characters |
+| `region` | Lowercase Azure location token, at most 64 characters |
+| `source_commit` | Lowercase 40-character Git commit hex |
+| `catalog_digest` | Lowercase 64-character SHA-256 hex |
+
+Unknown or duplicate fields, credentials, tenant ids, deployment identities, callbacks, and
+free-form messages are not accepted. New requests require a published, signature-verified,
+non-recalled Release in the selected local catalog channel. The supplied commit and catalog
+digest are self-reported metadata, not a verified source binding or independent trust input.
+Intake allows eight in-flight requests per server process, bounds body reads to ten seconds,
+and caps retained records at 100,000. Busy intake returns `429`, an expired body deadline `408`,
+and exhausted capacity or unavailable storage `503`. Exact retries remain readable at capacity.
+These local bounds do not replace deployment-edge abuse controls or a reviewed retention policy.
+
+The response contains those seven fields plus server-supplied `recorded_at` (UTC),
+`status: "requested"`, and `trust: "self-reported"`. First acceptance returns `201`; an exact
+retry of the same request id returns `200` and the original record, even if the Release has
+since been recalled. Changed metadata under the same id returns `409`. No automatic retry runs.
+
+With an explicitly configured `public_catalog_export` profile, this POST and the existing
+signed catalog export GET are public. All other writes and the request listing retain existing
+vendor authentication. Default authenticated remote and loopback-only local behavior is unchanged.
+Public intake cannot verify that the submitting party owns the named subscription.
+
+Operator-only `GET /v1/deployment-requests` returns
+`{"requests": [...], "limit": 25, "offset": 0, "has_more": false}`. Optional
+`subscription_id` filters by exact canonical UUID; `limit` is 1-100 (default 25) and
+`offset` is 0-100000, matching the retention cap so every retained page is reachable.
+Results sort by `recorded_at` descending, then `request_id` descending.
+Unknown or duplicate query fields are not accepted. Subscription rows never enter catalog
+views or signed exports. The UI supports filtering, pagination, explicit refresh, and
+per-request metadata disclosure, with separate loading, empty, and unavailable states.
+
+Existing revision 1 databases need the explicit remote migration command before serving this
+build. The transactional revision 2 expansion preserves catalog data and adds only the request
+table and indexes. Remote serving does not migrate implicitly; local initialization keeps its
+existing automatic-development-migration behavior. Local tests do not qualify production
+intake abuse protection, retention policy, ownership attestation, or successful Azure deployment.
 
 ### Renew development catalog freshness
 
@@ -142,11 +197,44 @@ Choose the database with the existing `FDAI_LIFECYCLE_HUB_DATABASE_URL` setting.
 no runtime or remote PostgreSQL database is needed. Recall changes the pin and revision. Import
 the newly approved export before recomputing; existing issued Plans are not revoked by this tool.
 
+## Signed catalog roles (opt-in)
+
+With a root installed, the Release Hub also serves `GET /v1/catalog/metadata`: a root chain, a
+snapshot and a timestamp that vouch for the signed export. The root is signed offline by a
+threshold of keys and never touches the Hub; the snapshot and timestamp use two separate online
+keys. The renewal task then re-signs only the timestamp and appends no `renew` event.
+
+```bash
+# Local development Hub first: create its online keys (after dev-init).
+uv run --project lifecycle/release-hub fdai-release-hub tuf-init /private/release-hub
+# Offline, each holder for their own key; outside the checkout.
+uv run --project lifecycle/release-hub fdai-release-hub root keygen --out-dir /private/ceremony --name root
+uv run --project lifecycle/release-hub fdai-release-hub root build --out /private/root-v1.json \
+  --version 1 --threshold 2 --root-public /private/ceremony/root-*.pub.pem \
+  --snapshot-public /private/release-hub/snapshot.pub.pem \
+  --timestamp-public /private/release-hub/timestamp.pub.pem \
+  --export-public /private/release-hub/development.pub.pem
+uv run --project lifecycle/release-hub fdai-release-hub root sign --record /private/root-v1.json \
+  --key /private/ceremony/root-1.pem /private/ceremony/root-2.pem
+uv run --project lifecycle/release-hub fdai-release-hub root verify --record /private/root-v1.json
+# Install the signed root into the local Hub.
+uv run --project lifecycle/release-hub fdai-release-hub install-root /private/release-hub \
+  --root /private/root-v1.json
+```
+
+Private root keys are read only from files with mode `0600` and are never stored in a Hub. A
+remote Release Hub enables `catalog_roles` in its configuration, reads the keys once from
+`FDAI_HUB_CATALOG_SNAPSHOT_KEY` and `FDAI_HUB_CATALOG_TIMESTAMP_KEY`, and installs the root with
+the `install-catalog-root` operation. The role tables are optional and created by that
+operation; they do not move the Release Hub schema revision. A Release Hub with roles installed
+stops extending the legacy export expiry, so move customer Hubs to `catalog.trust` first.
+
 ## Remaining production work
 
-Production signing and root ceremony, authenticated contributor roles, signed catalog freshness
-and anti-rollback state, automated promotion gates, custom channels, capability recall delivery,
-registry mirroring, upgrade bundles and real FDAI workload deployment remain unsupported.
+The production root ceremony with custody receipts, managed custody of the online keys,
+authenticated contributor roles, automated promotion gates, custom channels, capability recall
+delivery, registry mirroring, upgrade bundles and real FDAI workload deployment remain
+unsupported.
 The Recall action records local eligibility withdrawal; it does not cancel issued Plans or
 roll off running installations. An operator must refresh the pinned export before recomputing.
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import secrets
-import time
 from base64 import b64encode
 from datetime import UTC, datetime, timedelta
 
@@ -11,9 +10,15 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from jwt.algorithms import RSAAlgorithm
+from lifecycle.hub.tests.remote_auth_helpers import seed_entra_key_cache
 
-from fdai_lifecycle_hub.configuration_keys import ConfigurationKeyRequest, SignedKeyRequest
-from fdai_lifecycle_hub.remote_auth import RemoteAuth
+from fdai_lifecycle_hub.configuration_keys import (
+    ConfigurationKeyRequest,
+    DevelopmentIdentityRecoveryRequest,
+    SignedDevelopmentIdentityRecovery,
+    SignedKeyRequest,
+)
+from fdai_lifecycle_hub.remote_auth import DevelopmentRecoveryAuthorization, RemoteAuth
 from fdai_lifecycle_hub.signing import installation_key_id, raw_public_key
 
 
@@ -56,7 +61,36 @@ def request_for(
     return request, signed
 
 
-def remote_auth() -> RemoteAuth:
+def recovery_for(
+    replacement: Ed25519PrivateKey,
+    now: datetime,
+    *,
+    installation_id: str,
+    previous_identity_key_id: str,
+    scope: str = "rg-fdai-dev-wus3",
+) -> tuple[DevelopmentIdentityRecoveryRequest, SignedDevelopmentIdentityRecovery]:
+    request = DevelopmentIdentityRecoveryRequest(
+        format="fdai.development-identity-recovery.v1",
+        installation_id=installation_id,
+        scope=scope,
+        request_id=secrets.token_hex(16),
+        previous_identity_key_id=previous_identity_key_id,
+        replacement_identity_public_key=raw_public_key(replacement).hex(),
+        requested_at=now,
+        confirmation=(
+            f"recover installation identity {installation_id} "
+            f"{previous_identity_key_id} {installation_key_id(raw_public_key(replacement))}"
+        ),
+    )
+    return request, SignedDevelopmentIdentityRecovery(
+        signed_payload=b64encode(request.payload).decode(),
+        proof=b64encode(replacement.sign(request.payload)).decode(),
+    )
+
+
+def remote_auth(
+    recovery: DevelopmentRecoveryAuthorization | None = None,
+) -> RemoteAuth:
     return RemoteAuth(
         profile="remote-development",
         tenant_id="00000000-0000-0000-0000-000000000000",
@@ -65,6 +99,7 @@ def remote_auth() -> RemoteAuth:
         spa_client_id="operator-browser",
         operator_scope="Hub.Access",
         operator_ids=frozenset({"requester", "approver"}),
+        development_recovery=recovery,
     )
 
 
@@ -72,10 +107,12 @@ def tokens(app, auth):
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     public["kid"] = "test-only"
-    app.state.entra_verifier._keys = {"test-only": jwt.PyJWK.from_dict(public)}
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        {"test-only": jwt.PyJWK.from_dict(public)},
+    )
 
-    def token(actor="requester", **changes):
+    def token(actor="requester", *, omit=(), **changes):
         now = datetime.now(UTC)
         claims = {
             "iss": auth.issuer,
@@ -91,6 +128,8 @@ def tokens(app, auth):
             "exp": now + timedelta(minutes=5),
         }
         claims.update(changes)
+        for name in omit:
+            claims.pop(name, None)
         return {
             "Authorization": "Bearer "
             + jwt.encode(claims, key, algorithm="RS256", headers={"kid": "test-only"})

@@ -28,6 +28,7 @@ from fdai.agents._framework.provider_adapters import (
 )
 from fdai.agents._framework.registry import PantheonRegistryError, load_pantheon
 from fdai.agents.forseti import Forseti
+from fdai.shared.providers.state_store import AUDIT_CHAIN_ENTRY_FIELDS, is_audit_chain_record
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -1148,7 +1149,7 @@ async def test_state_store_audit_chain_conflict_budget_holds_without_local_fallb
 
 
 async def test_state_store_audit_chain_deadline_holds_without_local_fallback(monkeypatch) -> None:
-    monkeypatch.setattr(audit_chain_rehydrate, "_APPEND_DEADLINE_SECONDS", 0.01)
+    monkeypatch.setattr(audit_chain_rehydrate, "_APPEND_QUEUE_WAIT_SECONDS", 0.01)
     store = InMemoryStateStore()
     chain = StateStoreAuditChainAdapter(store)
     await chain._append_lock.acquire()  # noqa: SLF001 - hold the exact bounded admission seam.
@@ -1278,16 +1279,45 @@ async def test_state_store_audit_chain_migrates_complete_legacy_history(
 async def test_state_store_audit_chain_holds_when_legacy_reader_is_missing(monkeypatch) -> None:
     store = InMemoryStateStore()
     monkeypatch.delattr(InMemoryStateStore, "read_audit_entries")
+    monkeypatch.delattr(InMemoryStateStore, "read_audit_chain_entries")
     with pytest.raises(AuditChainError, match="history reader is required"):
         await _append_saga_entry(StateStoreAuditChainAdapter(store))
     assert await store.read_state(AUDIT_CHECKPOINT_KEY) is None
     assert tuple(store.audit_entries) == ()
 
 
-async def test_state_store_audit_chain_holds_incomplete_legacy_history() -> None:
+async def test_state_store_audit_chain_starts_when_unrelated_audit_rows_exceed_the_bound() -> None:
+    # Every component writes the same audit table, so a fresh runtime can pass the migration
+    # bound with other writers' rows before Saga records its first entry.
+    store = InMemoryStateStore()
+    for index in range(600):
+        await store.append_audit_entry({"action_kind": "unrelated.record", "index": index})
+    appended = await _append_saga_entry(StateStoreAuditChainAdapter(store))
+    assert appended.seq == 0 and appended.prev_hash == "0" * 64
+    assert (await store.read_state(AUDIT_CHECKPOINT_KEY)) is not None
+    assert len(tuple(store.audit_entries)) == 601
+
+
+async def test_state_store_audit_chain_reader_counts_only_chain_records() -> None:
     store = InMemoryStateStore()
     for index in range(513):
         await store.append_audit_entry({"action_kind": "unrelated.record", "index": index})
+    await store.append_audit_entry({"actor": "Saga", "action_kind": "audit.record"})
+    await store.append_audit_entry({"actor": "Other", "action_kind": "audit.record"})
+    records, truncated = await store.read_audit_chain_entries(limit=512)
+    assert len(records) == 1 and truncated is False
+    assert is_audit_chain_record(records[0])
+    assert not is_audit_chain_record({"actor": "Other", "action_kind": "audit.record"})
+
+
+def test_audit_chain_record_fields_match_the_journal_entry_fields() -> None:
+    assert AUDIT_CHAIN_ENTRY_FIELDS == audit_chain_journal._ENTRY_FIELDS
+
+
+async def test_state_store_audit_chain_holds_incomplete_legacy_history() -> None:
+    store = InMemoryStateStore()
+    for _ in range(513):
+        await store.append_audit_entry({"actor": "Saga", "action_kind": "audit.record"})
     rows_before = tuple(store.audit_entries)
     with pytest.raises(AuditChainError, match="bounded migration"):
         await _append_saga_entry(StateStoreAuditChainAdapter(store))

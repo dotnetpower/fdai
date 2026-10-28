@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 from datetime import UTC, datetime
 
 import httpx
@@ -28,18 +29,21 @@ from fdai.delivery.persistence.postgres_inventory_progress import (
 )
 
 
-async def _main() -> None:
+async def _main(*, retain_only: bool = False) -> None:
     dsn = os.environ.get("FDAI_INVENTORY_DSN", "").strip()
     run_id = os.environ.get("FDAI_INVENTORY_PROGRESS_RUN_ID", "").strip()
     attempt_id = os.environ.get("FDAI_INVENTORY_PROGRESS_ATTEMPT_ID", "").strip()
     if not run_id or not attempt_id:
         raise ValueError("inventory closure run and attempt identifiers MUST be supplied")
     progress_container_url = os.environ.get("FDAI_INVENTORY_PROGRESS_CONTAINER_URL", "").strip()
-    if not progress_container_url:
+    if not progress_container_url and not retain_only:
         raise ValueError("inventory closure progress container URL MUST be supplied")
     verifier = PostgresInventoryClosureVerifier(
         config=PostgresInventoryClosureVerifierConfig(dsn=dsn)
     )
+    if retain_only:
+        await verifier.retain(run_id=run_id, attempt_id=attempt_id)
+        return
     receipt = await verifier.verify(run_id=run_id, attempt_id=attempt_id)
     latest = await verifier.latest_progress(run_id=run_id, attempt_id=attempt_id)
     if latest.state.value != "complete":
@@ -66,7 +70,9 @@ async def _main() -> None:
 def main() -> None:
     """Run the read-only closure observer in a process distinct from collection."""
 
-    asyncio.run(_main())
+    if sys.argv[1:] not in ([], ["--retain-only"]):
+        raise ValueError("inventory closure accepts only --retain-only")
+    asyncio.run(_main(retain_only=sys.argv[1:] == ["--retain-only"]))
 
 
 if __name__ == "__main__":

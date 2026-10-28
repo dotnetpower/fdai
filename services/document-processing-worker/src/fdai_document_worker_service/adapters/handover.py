@@ -2,11 +2,129 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+from collections.abc import Mapping
+from typing import Literal, cast
 from uuid import UUID
 
 import psycopg
-from fdai_service_contracts import HandoverDraftArtifact
+from fdai_service_contracts import (
+    HandoverDraftArtifact,
+    StewardDuty,
+    StewardKind,
+    StewardResponsibility,
+    StewardshipAgentInput,
+    StewardshipInput,
+    StewardshipSubject,
+)
+
+_COVERAGE_PROJECTION_KEY = "operator-projection:operations:stewardship.coverage"
+
+
+def stewardship_input_from_projection(projection: object) -> StewardshipInput | None:
+    """Project the Core-materialized stewardship coverage record into a worker baseline."""
+    if not isinstance(projection, Mapping):
+        return None
+    raw_map = projection.get("map")
+    if not isinstance(raw_map, Mapping):
+        return None
+    raw_version = raw_map.get("version", 1)
+    if isinstance(raw_version, bool) or raw_version not in {1, 2}:
+        return None
+    version = cast(Literal[1, 2], raw_version)
+    raw_maintainers = raw_map.get("maintainers")
+    if not isinstance(raw_maintainers, list):
+        return None
+    maintainers = tuple(
+        str(item).strip() for item in raw_maintainers if isinstance(item, str) and item.strip()
+    )
+    if not maintainers:
+        return None
+    raw_agents = raw_map.get("agents")
+    if not isinstance(raw_agents, list):
+        return None
+    agents: list[StewardshipAgentInput] = []
+    for entry in raw_agents:
+        if not isinstance(entry, Mapping):
+            return None
+        name = str(entry.get("name") or "").strip()
+        if not name:
+            return None
+        raw_stewards = entry.get("stewards")
+        if not isinstance(raw_stewards, list):
+            return None
+        stewards: list[StewardshipSubject] = []
+        for subject in raw_stewards:
+            if not isinstance(subject, Mapping):
+                return None
+            oid = str(subject.get("id") or subject.get("oid") or "").strip()
+            kind = str(subject.get("kind") or "").strip()
+            responsibility = str(subject.get("responsibility") or "").strip()
+            raw_duty = subject.get("duty")
+            duty_str = str(raw_duty).strip() if isinstance(raw_duty, str) else ""
+            if not oid or not kind or not responsibility:
+                return None
+            try:
+                stewards.append(
+                    StewardshipSubject(
+                        kind=StewardKind(kind),
+                        oid=oid,
+                        responsibility=StewardResponsibility(responsibility),
+                        duty=(
+                            StewardDuty(duty_str)
+                            if version == 2
+                            and duty_str
+                            and responsibility == StewardResponsibility.ACCOUNTABLE
+                            else None
+                        ),
+                    )
+                )
+            except ValueError:
+                return None
+        raw_reason = entry.get("accept_autonomous_reason")
+        reason = (
+            raw_reason.strip()
+            if isinstance(raw_reason, str) and raw_reason.strip() and not stewards
+            else None
+        )
+        agents.append(
+            StewardshipAgentInput(
+                agent_name=name,
+                stewards=tuple(stewards),
+                accept_autonomous_reason=reason,
+            )
+        )
+    hop_timeout = raw_map.get("hop_timeout_seconds", 900)
+    over_assigned = raw_map.get("over_assigned_max", 5)
+    canonical = json.dumps(
+        {
+            "version": version,
+            "maintainers": maintainers,
+            "agents": [item.model_dump(mode="json") for item in agents],
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    try:
+        return StewardshipInput(
+            version=version,
+            revision=hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16],
+            maintainers=maintainers,
+            agents=tuple(agents),
+            hop_timeout_seconds=(
+                hop_timeout
+                if isinstance(hop_timeout, int) and not isinstance(hop_timeout, bool)
+                else 900
+            ),
+            over_assigned_max=(
+                over_assigned
+                if isinstance(over_assigned, int) and not isinstance(over_assigned, bool)
+                else 5
+            ),
+        )
+    except ValueError:
+        return None
 
 
 class PostgresHandoverDraftStore:
@@ -79,6 +197,22 @@ class PostgresHandoverDraftStore:
         if row is None:
             return None
         return HandoverDraftArtifact.model_validate(row[0])
+
+    async def read_stewardship_input(self) -> StewardshipInput | None:
+        """Read the authoritative Core-materialized stewardship map when env bindings are absent."""
+        async with await psycopg.AsyncConnection.connect(
+            self._dsn,
+            connect_timeout=self._connect_timeout_s,
+        ) as connection:
+            row = await (
+                await connection.execute(
+                    "SELECT value FROM state_kv WHERE key = %s",
+                    (_COVERAGE_PROJECTION_KEY,),
+                )
+            ).fetchone()
+        if row is None:
+            return None
+        return stewardship_input_from_projection(row[0])
 
     async def record_model_usage(
         self,

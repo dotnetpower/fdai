@@ -128,8 +128,9 @@ def test_standalone_run_binding_matches_runner_image_mode() -> None:
 
 @pytest.mark.parametrize("provider_ready", [True, False])
 @pytest.mark.parametrize("expired_approval", [False, True])
-def test_source_advance_never_registers_or_applies_without_exact_approval(
-    tmp_path, monkeypatch, provider_ready, expired_approval
+@pytest.mark.parametrize("register_providers", [False, True])
+def test_source_advance_registers_only_with_scope_authorization(
+    tmp_path, monkeypatch, provider_ready, expired_approval, register_providers
 ):
     source = SimpleNamespace(
         root=ROOT,
@@ -163,6 +164,7 @@ def test_source_advance_never_registers_or_applies_without_exact_approval(
         source_snapshot_digest="a" * 64,
         terraform=tmp_path / "terraform",
         approval_file=None,
+        register_providers=register_providers,
     )
     source_genesis.prepare(args)
     if expired_approval:
@@ -195,8 +197,8 @@ def test_source_advance_never_registers_or_applies_without_exact_approval(
     monkeypatch.setattr(source_genesis, "GenesisChecks", Checks)
 
     def providers(**kwargs):
-        assert kwargs["apply"] is False
-        assert kwargs["profile"] == "foundation"
+        assert kwargs["apply"] is register_providers
+        assert kwargs["profile"] == ("complete" if register_providers else "foundation")
         return SimpleNamespace(
             state="ready" if provider_ready else "review",
             to_mapping=lambda: {"mutation_performed": False},
@@ -550,6 +552,30 @@ def test_network_layout_rejects_incomplete_peer_evidence(monkeypatch) -> None:
         genesis_prepare_inputs.network_layout(ROOT, subscription_id=SUBSCRIPTION)
 
 
+def test_network_layout_reserves_disconnected_peer_prefixes(monkeypatch) -> None:
+    def capture(arguments: tuple[str, ...], *, cwd: Path) -> str:
+        del cwd
+        if arguments[:3] == ("/usr/bin/az", "network", "vnet"):
+            return (
+                '[{"local":["172.29.0.0/16"],"peers":'
+                '[{"state":"Disconnected","prefixes":["172.30.0.0/16"]}]}]'
+            )
+        if arguments[:4] == ("/usr/sbin/ip", "-j", "-4", "route"):
+            return "[]"
+        raise AssertionError(arguments)
+
+    monkeypatch.setattr(genesis_prepare_inputs, "_capture", capture)
+    monkeypatch.setattr(
+        genesis_prepare_inputs,
+        "_subscription_resource_values",
+        lambda **_kwargs: [],
+    )
+
+    layout = genesis_prepare_inputs.network_layout(ROOT, subscription_id=SUBSCRIPTION)
+
+    assert str(layout[0]) == "172.27.0.0/16"
+
+
 @pytest.mark.parametrize(
     ("vnets", "routes", "gateways"),
     [
@@ -592,6 +618,20 @@ def test_network_evidence_allows_exact_ipv4_host_route() -> None:
         [],
         [],
         [{"dst": "192.0.2.1"}],
+    )
+
+
+def test_network_evidence_retains_disconnected_peering_prefixes() -> None:
+    genesis_prepare_inputs._require_complete_network_evidence(
+        [
+            {
+                "local": ["10.0.0.0/16"],
+                "peers": [{"state": "Disconnected", "prefixes": ["10.1.0.0/16"]}],
+            }
+        ],
+        [],
+        [],
+        [{"dst": "default"}],
     )
 
 

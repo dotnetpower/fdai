@@ -606,7 +606,7 @@ def _scope_entry(value: str) -> dict[str, object]:
 
 async def materialize(repo_root: Path) -> None:
     """Publish one complete immutable Operator catalog generation atomically."""
-    dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    dsn = _psycopg_dsn(os.environ.get("FDAI_STATE_STORE_DSN", "").strip())
     if not dsn:
         raise RuntimeError("FDAI_STATE_STORE_DSN MUST be configured")
     snapshots = catalog_snapshots(repo_root)
@@ -632,6 +632,12 @@ async def materialize(repo_root: Path) -> None:
         connect_timeout_s=CATALOG_CONNECT_TIMEOUT_S,
     )
     await _seed_builtin_workflow_definitions(dsn, snapshots=snapshots)
+
+
+def _psycopg_dsn(dsn: str) -> str:
+    """Remove SQLAlchemy's driver qualifier before direct psycopg connections."""
+
+    return dsn.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
 async def _seed_builtin_workflow_definitions(

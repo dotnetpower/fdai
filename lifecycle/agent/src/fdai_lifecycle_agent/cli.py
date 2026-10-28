@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TypedDict, cast, get_args
 
 from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.lifecycle_installation_binding import INSTALLATION_BINDING_FORMAT
 from fdai_deployment_cli.lifecycle_native import SignedNativeScope
 from fdai_deployment_cli.lifecycle_plan import CapabilityMode, LifecycleEffectEnvelope
 from fdai_deployment_cli.lifecycle_release import is_product_id
@@ -31,6 +32,15 @@ from fdai_lifecycle_agent.agent import (
 )
 from fdai_lifecycle_agent.configuration_revision import load_full_revision_binding
 from fdai_lifecycle_agent.dry_run import load_current_state
+from fdai_lifecycle_agent.enrollment_cli import (
+    HubConnector,
+    SourceConnector,
+    connect_in_cluster_source,
+    connect_workload_identity_hub,
+    register_enroll_command,
+    run_enroll,
+)
+from fdai_lifecycle_agent.hub_artifacts import CachedHubArtifactStore
 from fdai_lifecycle_agent.hub_client import HttpHubClient, HubProtocolError
 from fdai_lifecycle_agent.inputs import (
     MAX_INPUT_BYTES,
@@ -41,9 +51,15 @@ from fdai_lifecycle_agent.inputs import (
 )
 from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.native_cli import (
+    ReconciliationCompleter,
+    TransitionCompleter,
+    complete_native_transition,
+    complete_native_transition_reconciliation,
     compose_native_cluster,
     register_native_command,
     run_native_bootstrap,
+    run_native_reconciliation_command,
+    run_native_transition_command,
 )
 from fdai_lifecycle_agent.polling import PollLimits, poll_bounded
 from fdai_lifecycle_agent.reference_cli import register_reference_command, run_reference_command
@@ -77,7 +93,7 @@ _LOCAL_POLICY_KEYS = frozenset(
     }
 )
 _OPTIONAL_LOCAL_POLICY_KEYS = frozenset(
-    {"component_images", "product", "native_scope_digest", "runtime_bundle"}
+    {"component_images", "product", "native_scope_digest", "runtime_bundle", "installation_binding"}
 )
 _MAX_LOCAL_POLICY_BYTES = 64 * 1024
 _EXIT_OK = 0
@@ -93,6 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
     register_reference_command(commands)
     register_native_command(commands)
+    register_enroll_command(commands)
     submit = commands.add_parser(
         "submit-native-proof", help="Deliver a private signed proof without accepting ownership."
     )
@@ -130,9 +147,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     poll.add_argument(
         "--inputs-dir",
-        required=True,
         type=Path,
-        help="Directory with releases/ and configurations/ signed documents.",
+        help="Directory source or private cache for signed Release/configuration documents.",
+    )
+    poll.add_argument(
+        "--artifact-source",
+        choices=("directory", "hub"),
+        default="directory",
+        help="Read pre-staged files, or fetch exact current-Plan artifacts from the Hub.",
     )
     poll.add_argument("--current-state", required=True, type=Path, help="Current-state fixture.")
     poll.add_argument(
@@ -154,7 +176,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--in-cluster", action="store_true", help="Use the projected Kubernetes identity."
     )
     poll.add_argument("--namespace", help="The only namespace to change; required with --apply.")
-    poll.add_argument("--native-approval", type=Path, help="Independent local creation approval.")
+    poll.add_argument(
+        "--native-approval",
+        type=Path,
+        help="Independent local creation and exact existing-object adoption approval.",
+    )
     poll.add_argument("--installation-public-key", type=Path, help="Enrolled identity PEM key.")
     poll.add_argument(
         "--health-timeout-seconds",
@@ -214,6 +240,10 @@ def main(
     connect_reference_source: Callable[
         [str, str], ReferenceStatusSource
     ] = _connect_reference_source,
+    connect_enrollment_source: SourceConnector = connect_in_cluster_source,
+    connect_enrollment_hub: HubConnector = connect_workload_identity_hub,
+    complete_transition: TransitionCompleter = complete_native_transition,
+    complete_reconciliation: ReconciliationCompleter = (complete_native_transition_reconciliation),
 ) -> int:
     """Run the command. ``clock``, ``connect_hub``, and ``connect_cluster`` are seams for tests;
     defaults are real."""
@@ -251,6 +281,13 @@ def main(
             return _EXIT_CONFIGURATION
         logging.info("lifecycle_agent.native_proof_submitted")
         return _EXIT_OK
+    if arguments.command == "enroll":
+        return run_enroll(
+            arguments,
+            clock=clock,
+            connect_source=connect_enrollment_source,
+            connect_hub=connect_enrollment_hub,
+        )
     if arguments.command == "reference-status":
         return run_reference_command(arguments, clock=clock, connect=connect_reference_source)
     if arguments.command == "bootstrap-slot":
@@ -280,6 +317,72 @@ def main(
             )
             print(
                 "Native bootstrap failed; verify local approval, policy, identity and state.",
+                file=sys.stderr,
+            )
+            return _EXIT_CONFIGURATION
+    if arguments.command in {"prepare-native-transition", "transition-native-scope"}:
+
+        def connect_transition(context: str | None, namespace: str, in_cluster: bool) -> Cluster:
+            if in_cluster:
+                return _connect_in_cluster(namespace)
+            if context is None:
+                raise ValueError("Native transition requires an explicit Kubernetes context.")
+            return connect_cluster(context, namespace)
+
+        try:
+            return run_native_transition_command(
+                arguments,
+                clock=clock,
+                connect=connect_transition,
+                complete=complete_transition,
+            )
+        except (ValueError, OSError, WorkloadError, AgentStateError, HubProtocolError) as error:
+            logging.error(
+                "lifecycle_agent.native_transition_failed error_type=%s reason=%s",
+                type(error).__name__,
+                str(error),
+            )
+            print(
+                "Native transition failed; verify Hub approval, recovered identity, "
+                "local approval, inventory and durable state.",
+                file=sys.stderr,
+            )
+            return _EXIT_CONFIGURATION
+    if arguments.command in {
+        "prepare-native-transition-reconciliation",
+        "prepare-native-transition-reconciliation-renewal",
+        "reconcile-native-transition-state",
+    }:
+
+        def connect_reconciliation(
+            context: str | None,
+            namespace: str,
+            in_cluster: bool,
+        ) -> Cluster:
+            if in_cluster:
+                return _connect_in_cluster(namespace)
+            if context is None:
+                raise ValueError(
+                    "Native transition reconciliation requires an explicit Kubernetes context."
+                )
+            return connect_cluster(context, namespace)
+
+        try:
+            return run_native_reconciliation_command(
+                arguments,
+                clock=clock,
+                connect=connect_reconciliation,
+                complete=complete_reconciliation,
+            )
+        except (ValueError, OSError, WorkloadError, AgentStateError, HubProtocolError) as error:
+            logging.error(
+                "lifecycle_agent.native_transition_reconciliation_failed error_type=%s reason=%s",
+                type(error).__name__,
+                str(error),
+            )
+            print(
+                "Native transition reconciliation failed; verify immutable receipts, "
+                "Hub approval, exact inventory, idle state and workload identity.",
                 file=sys.stderr,
             )
             return _EXIT_CONFIGURATION
@@ -316,6 +419,10 @@ def main(
         parser.error("Kubernetes connection options require --apply")
     if (arguments.hub_auth == "workload-identity") != bool(arguments.hub_scope):
         parser.error("--hub-scope is required only with --hub-auth workload-identity")
+    if arguments.artifact_source == "directory" and arguments.inputs_dir is None:
+        parser.error("--inputs-dir is required with --artifact-source directory")
+    if arguments.artifact_source == "hub" and arguments.hub_auth != "workload-identity":
+        parser.error("--artifact-source hub requires --hub-auth workload-identity")
     limits = None
     try:
         if arguments.command == "poll":
@@ -405,10 +512,21 @@ def main(
                 store=WorkloadStore(arguments.state_dir),
                 write_current_state=partial(write_json_atomically, arguments.current_state),
             )
+        artifact_store = (
+            CachedHubArtifactStore(
+                arguments.inputs_dir or arguments.state_dir / "artifact-cache",
+                hub,
+                arguments.installation_id,
+                release_verifier=release_verifier,
+                configuration_verifier=configuration_verifier,
+            )
+            if arguments.artifact_source == "hub"
+            else DirectoryArtifactStore(arguments.inputs_dir)
+        )
         dependencies = AgentDependencies(
             hub=hub,
             state_store=LocalStateStore(arguments.state_dir),
-            artifact_store=DirectoryArtifactStore(arguments.inputs_dir),
+            artifact_store=artifact_store,
             verify_plan_signature=hub_keyring,
             verify_release_signature=release_verifier,
             verify_configuration_signature=configuration_verifier,
@@ -480,6 +598,8 @@ def load_local_policy(path: Path) -> LocalPolicy:
     if document["schema"] != LOCAL_POLICY_SCHEMA:
         raise ValueError("local policy schema is unsupported")
     runtime_bundle = None
+    if "installation_binding" in document and "runtime_bundle" not in document:
+        raise ValueError("an installation binding requires a private runtime bundle")
     if "runtime_bundle" in document:
         try:
             private = read_private_bytes(path, max_bytes=_MAX_LOCAL_POLICY_BYTES)
@@ -493,6 +613,7 @@ def load_local_policy(path: Path) -> LocalPolicy:
             )
         except ValidationError:
             raise ValueError("private local runtime bundle is invalid") from None
+        runtime_bundle = _bind_installation(runtime_bundle, document.get("installation_binding"))
     product = document.get("product")
     if product is not None and not is_product_id(product):
         raise ValueError("local policy product must be an application identifier")
@@ -538,6 +659,25 @@ def load_local_policy(path: Path) -> LocalPolicy:
         native_scope_digest=native_pin,
         runtime_bundle=runtime_bundle,
     )
+
+
+def _bind_installation(bundle: RuntimeBundle, binding: object) -> RuntimeBundle:
+    if binding is None:
+        if bundle.referenced_binding_keys():
+            raise ValueError("the runtime bundle references an installation binding that is absent")
+        return bundle
+    if (
+        not isinstance(binding, dict)
+        or set(binding) != {"format", "values"}
+        or binding["format"] != INSTALLATION_BINDING_FORMAT
+        or not isinstance(binding["values"], dict)
+    ):
+        raise ValueError("installation binding is invalid")
+    try:
+        return bundle.with_installation_binding(binding["values"])
+    except ValueError as error:
+        # The messages are fixed text; a value is never echoed.
+        raise ValueError(str(error)) from None
 
 
 def _strings(value: object, label: str) -> frozenset[str]:

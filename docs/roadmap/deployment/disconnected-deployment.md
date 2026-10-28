@@ -235,6 +235,10 @@ transitive wheel, the signed deployment bundle, the pinned Terraform binary and 
 the policy engine binary, and the software bill of materials, then signs the result with
 `scripts/deployment/release/build-offline-kit.py`. The signed bundle also carries the reviewed
 `config/agent-stewardship.yaml` and `config/architecture-review.yaml` that catalog materialization reads during migration.
+`stage-offline-kit.sh` pins the same Terraform version as
+[the Genesis runner image toolchain](../../../infra/genesis-runner-image/README.md#supported-toolchain),
+so a kit staged after `fdai-up.sh` applies it never ships an executable older than the
+`check-runner-terraform.sh` floor that protected workflows enforce.
 The manifest is minted from the staged tree, so
 it cannot attest to content the verifier would reject, and the release private key never enters the
 kit.

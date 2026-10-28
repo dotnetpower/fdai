@@ -10,6 +10,22 @@ from fdai_deployment_cli.standalone_residual_apply import apply_residual_plan
 from fdai_deployment_cli.standalone_residual_successor import apply_residual_successor
 
 
+def _original_operation(stage: str, work_dir: Path) -> str:
+    """Name the claimed apply a residual review extends.
+
+    A fresh AKS runtime is applied as ``runtime-cluster`` before the ordinary ``runtime``
+    operation, so its retained review and claim carry that name until it receives a receipt.
+    """
+
+    if (
+        stage == "runtime"
+        and (work_dir / "runtime-cluster-claim.json").exists()
+        and not (work_dir / "runtime-cluster-receipt.json").exists()
+    ):
+        return "runtime-cluster"
+    return stage
+
+
 def apply_residual_checkpoint(
     args: argparse.Namespace,
     work_dir: Path,
@@ -29,17 +45,17 @@ def apply_residual_checkpoint(
     stage = str(args.stage)
     context = private_json(work_dir / "context.json", "standalone host context")
     receipt_path = work_dir / f"{stage}-receipt.json"
-    if receipt_path.exists():
+    residual_review_path = work_dir / f"{stage}-residual-review.json"
+    if receipt_path.exists() and not residual_review_path.exists():
         return private_json(receipt_path, "standalone residual apply receipt")
+    original = _original_operation(stage, work_dir)
     original_review = private_json(
-        work_dir / f"{stage}-review.json", "standalone original plan review"
+        work_dir / f"{original}-review.json", "standalone original plan review"
     )
     original_claim = private_json(
-        work_dir / f"{stage}-claim.json", "standalone original apply claim"
+        work_dir / f"{original}-claim.json", "standalone original apply claim"
     )
-    residual_review = private_json(
-        work_dir / f"{stage}-residual-review.json", "standalone residual plan review"
-    )
+    residual_review = private_json(residual_review_path, "standalone residual plan review")
     approval = private_json(absolute_path(args.approval), "standalone residual plan approval")
     successor_path = work_dir / f"{stage}-residual-successor-review.json"
     validate_approval(

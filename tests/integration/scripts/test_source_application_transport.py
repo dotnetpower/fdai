@@ -521,7 +521,7 @@ def source_transfer(tmp_path, monkeypatch):
         "prepare_source_transport",
         lambda *_args, **_kwargs: {
             **local,
-            "archive_ref": "source-transfer.tar",
+            "archive_ref": "source-transfer.tar.gz",
             "state": "prepared",
             "remote_transfer_verified": False,
             "receipt_digest": "f" * 64,
@@ -609,8 +609,20 @@ def test_interrupted_source_copy_is_never_repeated(source_transfer):
     assert not any(isinstance(command, tuple) and command[0] == "mkdir" for command in calls)
 
 
-@pytest.mark.parametrize("stage", ["runner-image-apply", "application-plan"])
-def test_source_coordinator_never_transfers_application_source(source_transfer, monkeypatch, stage):
+@pytest.mark.parametrize(
+    ("stage", "reason_code", "next_action"),
+    [
+        ("runner-image-apply", "runner_review_required", "review_runner_plan"),
+        (
+            "application-plan",
+            "source_application_continuation_ready",
+            "continue_with_original_source_snapshot",
+        ),
+    ],
+)
+def test_source_coordinator_preserves_checkpoint_without_transferring_application_source(
+    source_transfer, monkeypatch, stage, reason_code, next_action
+):
     arguments, _, _, directory = source_transfer
     handoff = json.loads((directory / "foundation-private-handoff.json").read_bytes())
     args = SimpleNamespace(
@@ -650,7 +662,7 @@ def test_source_coordinator_never_transfers_application_source(source_transfer, 
     )
     coordinator = Mock()
     coordinator.run.side_effect = source_genesis.PrivateExecutionWaitError(
-        stage, "review", "review"
+        stage, reason_code, next_action
     )
     receiver = Mock(return_value={"remote_transfer_verified": True})
     monkeypatch.setattr(
@@ -691,9 +703,8 @@ def test_source_coordinator_never_transfers_application_source(source_transfer, 
     assert result["deployment_ready"] is False
     assert "source_host_transfer" not in result
     assert receiver.call_count == 0
-    if stage == "application-plan":
-        assert store.payload["reason_code"] == "prebuilt_runtime_artifacts_required"
-        assert store.payload["next_action"] == "resume_with_signed_kit_and_foundation_adoption"
+    assert store.payload["reason_code"] == reason_code
+    assert store.payload["next_action"] == next_action
     checks.verify_source.assert_called_once()
 
 

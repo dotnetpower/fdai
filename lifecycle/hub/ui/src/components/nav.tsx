@@ -1,5 +1,5 @@
 import {
-  availableReleasesPath, configurationPackagesPath, enrollmentsPath, installationsPath, type Route,
+  availableReleasesPath, configurationPackagesPath, enrollmentsPath, installationsPath, updatesPath, type Route,
 } from "../router";
 import { Link } from "./link";
 import { EnrollmentsIcon, InstallationsIcon } from "./nav-icons";
@@ -48,6 +48,8 @@ export function Nav({ route }: { route: Route }) {
         Enrollment requests
       </Link>
       <div class="side-divider" role="separator" />
+      <Link href={updatesPath()} class={`it ${route.kind === "updates" ? "on" : ""}`}
+        aria-current={route.kind === "updates" ? "page" : undefined}>Updates</Link>
       <Link href="/catalog" class={`it ${route.kind === "catalog" ? "on" : ""}`}
         aria-current={route.kind === "catalog" ? "page" : undefined}>Catalog import</Link>
       <Link href={availableReleasesPath()} class={`it ${route.kind === "releases" ? "on" : ""}`}

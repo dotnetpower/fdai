@@ -113,7 +113,7 @@ validates the closed properties contract, and stores the envelope idempotently. 
 other kinds remain unchanged. Core consumes the existing ready event in a separate at-least-once
 group, ignores documents without a staged typed envelope, and dead-letters mismatched ready facts.
 The normal Pantheon bootstrap supplies the same runtime repository and default payload validator;
-its task supervisor stops and drains this ingress with other required consumers.
+its task supervisor stops and drains this ingress with other required consumers, and an unrelated optional background sweep such as the exemption lifecycle never gates it.
 The existing `document.deleted` fact replays the applied source through independent readback and
 Vidar rollback. A missing or mismatched source cannot silently remain queryable.
 

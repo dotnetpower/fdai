@@ -120,10 +120,17 @@ def bootstrap_native_scope(
                 or LocalStateStore(store.path.parent).load().plans
             ):
                 raise WorkloadError("native_scope_existing_execution_history")
+            approved_existing = {item.key: item for item in approval.existing_resources}
             for kind, name in sorted(scope.resources | {("Service", scope.anchor_name)}):
                 require_budget()
-                if cluster.get(kind, name) is not None:
+                live = cluster.get(kind, name)
+                identity = approved_existing.get((kind, name))
+                if (kind, name) == ("Service", scope.anchor_name):
+                    identity = None
+                if identity is None and live is not None:
                     raise WorkloadError("native_resource_collision")
+                if identity is not None and (live is None or live_uid(live) != identity.uid):
+                    raise WorkloadError("native_adoption_uid_conflict")
             manifest = anchor_manifest(scope)
             require_budget()
             cluster.create(manifest, dry_run=True, before_submit=before_submit)

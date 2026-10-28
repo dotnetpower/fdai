@@ -22,6 +22,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-23 | in-progress | Added the subscription-tag pilot's gateway-independent execution boundary: the isolated Executor applies through its change identity and Core observes through a distinct reader identity. | `current change`; direct adapter, Core observer, runtime composition, focused execution/readback tests and strict typing. | Retain the live Owner park, fresh attestation, Core admission audit, and independent effect receipt under #1623. |
 | 2026-09-29 | in-progress | Made this ledger authoritative by migrating the owner's inline status and merging the diverged mirror, which lacked the 2026-09-29 category-park rows. Merged the duplicate observation-first ceiling rows and the duplicate deployment-source item, and marked the branch-protection proof as deferred to the deployment fork. | `current change`; `migrate-roadmap-implementation-ledgers.py --merge-existing`. | The #1623 live run, governed risk-decision receipts, and the fork's branch-protection evidence. |
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; risk-focused checks passed 113 cases and readiness coordinator checks passed 33 cases. | Prove governance enforcement, add replay-complete metadata, and retain governed runtime evidence. |
 | 2026-08-14 | implemented | Serialized the exact feature vector and the risk-table catalog version into the authority audit payload so a historical decision replays against the revision that classified it. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); focused authority, evaluator, and control-loop authority checks passed 43 cases. | Prove governance enforcement and retain governed runtime receipts. |
@@ -55,7 +56,9 @@ and resumable work while the roadmap owner remains focused on normative design.
   profile and scope; Operator, the decision transaction, and Core refuse every other approval,
   and the admitted self-approval dispatches only after the full current evaluation reruns
   ([`test_development_category_park.py`](../../../services/core-control-plane/tests/core/hil_resume/test_development_category_park.py), [`test_development_category_approval.py`](../../../services/core-control-plane/tests/core/hil_resume/test_development_category_approval.py)).
-- [ ] [#1623](https://github.com/dotnetpower/fdai/issues/1623): Retain one live run in which the
+- [ ] [#2210](https://github.com/dotnetpower/fdai/issues/2210) (moved from the closed
+  [#1623](https://github.com/dotnetpower/fdai/issues/1623), which delivered the park and
+  approval implementation): Retain one live run in which the
   sole Owner approves their own parked request after a fresh sign-in inside the dedicated test
   scope, keeping the park, the attestation, the Core admission audit, and independent effect
   evidence. The run needs a registered direct-API ActionType whose declared blast radius the

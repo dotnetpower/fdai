@@ -7,15 +7,17 @@ installation starts with every Entity unmanaged.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
+
+from fdai_deployment_cli.lifecycle_enrollment import ENROLLMENT_PROOF_WINDOW
 
 from fdai_lifecycle_hub.domain import Installation
 from fdai_lifecycle_hub.signing import installation_key_id
 
 # How far `requested_at` may be from the Hub's clock, in either direction.
-PROOF_CLOCK_WINDOW = timedelta(minutes=5)
+PROOF_CLOCK_WINDOW = ENROLLMENT_PROOF_WINDOW
 
 
 class KeyProofVerifier(Protocol):

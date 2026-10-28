@@ -21,6 +21,7 @@ from fdai_deployment_cli.plan_input import read_plan_input
 from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.profile import load_profile
 from genesis_approval import GenesisApproval, load_genesis_approval
+from genesis_approval_prompt import current_actor_digest
 from genesis_checks import CheckError, GenesisChecks, trusted_tool
 from genesis_runner_image_contract import (
     CLAIM_NAME,
@@ -61,6 +62,15 @@ def _parser() -> argparse.ArgumentParser:
     apply.add_argument("--repository", required=True)
     apply.add_argument("--approval-file", type=Path)
     apply.add_argument("--approve", action="store_true")
+    apply.add_argument(
+        "--auto-approve",
+        action="store_true",
+        help=(
+            "Derive the approval from the current authenticated human Azure operator instead of "
+            "a separate --approval-file. Only reachable for the dev manual single-approver "
+            "profile that this isolated build already requires."
+        ),
+    )
     apply.add_argument("--resume-verification", action="store_true")
     apply.set_defaults(handler=_apply)
     handoff = commands.add_parser("foundation-input")
@@ -252,8 +262,16 @@ def _plan(args: argparse.Namespace) -> int:
 
 
 def _apply(args: argparse.Namespace) -> int:
-    if args.approve == args.resume_verification:
-        raise ValueError("runner image apply requires exactly one approval or verification resume")
+    approval_modes = (bool(args.approve), bool(args.auto_approve), bool(args.resume_verification))
+    if sum(approval_modes) != 1:
+        raise ValueError(
+            "runner image apply requires exactly one of --approve, --auto-approve, or "
+            "--resume-verification"
+        )
+    if args.approve and args.approval_file is None:
+        raise ValueError("runner image --approve requires --approval-file")
+    if args.auto_approve and args.approval_file is not None:
+        raise ValueError("runner image --auto-approve does not accept --approval-file")
     if _DIGEST.fullmatch(args.expected_plan_digest) is None:
         raise ValueError("expected runner image plan digest is invalid")
     _validate_timeout(args.timeout_seconds)
@@ -338,7 +356,9 @@ def _apply(args: argparse.Namespace) -> int:
             raise ValueError(
                 "runner image apply claim already exists; only verification may resume"
             )
-        approval = _require_apply_approval(args.approval_file, review=review)
+        approval = _require_apply_approval(
+            args.approval_file, review=review, auto_approve=args.auto_approve
+        )
         credential_actor_digest = _operator_digest(str(review["run_digest"]), root=root)
         if credential_actor_digest != approval.actor_digest:
             raise ValueError("runner image approver does not match the current Azure operator")
@@ -369,7 +389,9 @@ def _apply(args: argparse.Namespace) -> int:
         )
         # The bounded read cannot extend the review or the human's approval window.
         load_review(work_dir, expected_review_digest=args.expected_review_digest)
-        approval = _require_apply_approval(args.approval_file, review=review)
+        approval = _require_apply_approval(
+            args.approval_file, review=review, auto_approve=args.auto_approve
+        )
         if approval.actor_digest != credential_actor_digest:
             raise ValueError("runner image approver changed during SKU verification")
         claimed_at = _utc_now().replace(microsecond=0).isoformat()
@@ -593,9 +615,29 @@ def _reviewed_region(work_dir: Path) -> str:
     return region
 
 
-def _require_apply_approval(path: Path | None, *, review: Mapping[str, object]) -> GenesisApproval:
-    """Require current exact-evidence authority at the mutating image boundary."""
+def _require_apply_approval(
+    path: Path | None, *, review: Mapping[str, object], auto_approve: bool = False
+) -> GenesisApproval:
+    """Require current exact-evidence authority at the mutating image boundary.
 
+    ``auto_approve`` derives the approval from the currently authenticated human Azure
+    operator instead of a separately authored ``--approval-file``, collapsing the
+    review-then-approve-then-apply sequence into one invocation. It still requires the
+    same authenticated human-type principal that ``current_actor_digest`` enforces, and
+    it is only ever reached under the dev manual single-approver profile this isolated
+    build already requires.
+    """
+
+    if auto_approve:
+        run_binding = str(review["run_digest"])
+        return GenesisApproval(
+            stage="runner-image",
+            actor_digest=current_actor_digest(run_binding),
+            evidence={
+                "review_digest": str(review["review_digest"]),
+                "plan_digest": str(review["plan_digest"]),
+            },
+        )
     approval = load_genesis_approval(
         _absolute(path) if path is not None else None,
         run_binding=str(review["run_digest"]),

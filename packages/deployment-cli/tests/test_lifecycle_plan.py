@@ -822,6 +822,16 @@ def test_decode_round_trips_canonical_plan_payload(plan: LifecyclePlan) -> None:
     assert canonical_plan_payload(decoded) == payload
 
 
+def test_decode_round_trips_native_ownership_digest_binding() -> None:
+    plan = _plan(ownership_digests={"core": "sha256:" + "a" * 64})
+    payload = canonical_plan_payload(plan)
+
+    decoded = decode_canonical_plan_payload(payload, b"synthetic-signature")
+
+    assert decoded.ownership_digests == {"core": "sha256:" + "a" * 64}
+    assert b'"ownership_digests":{"core":"sha256:' in payload
+
+
 def test_decoded_plan_is_admitted_by_existing_admission() -> None:
     payload = canonical_plan_payload(_plan())
     decoded = decode_canonical_plan_payload(payload, b"synthetic-signature")

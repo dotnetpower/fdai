@@ -254,6 +254,10 @@ human operational confirmation and the remaining evidence-backed workload prepar
 The read-only **Available releases** screen projects the already accepted catalog through
 `GET /v1/catalog/releases`, rechecking its pin, signatures and expiry without an outbound import.
 Unavailable catalog trust returns `503`; a verified empty catalog remains a distinct result.
+The **Updates** screen shows the pull-only check, the policy decision and a one-click
+**Review and apply**; see [Automatic catalog adoption](lifecycle-releases-and-channels.md#automatic-catalog-adoption).
+Before any pin is approved and imported, the `503` error is `catalog_not_imported_approve_pin_and_import`,
+not a verification or expiry failure.
 **Configuration packages** uses `GET /v1/configurations` for stored digests, counts, timestamps
 and current installation references, omitting values and sealed identifiers. It explicitly
 states that independent package signature provenance is not recorded. Neither listing proves
@@ -264,11 +268,15 @@ for onboarding/release diagrams, public input provenance and the current manual/
 ## Opt-in installation Agent transport
 
 The local development implementation accepts an explicit `auth.agent_principals` binding for
-each installation. A caller needs the exact application object/client pair, `idtyp=app`, and
-the `Agent.Access` role in a directly verified Entra token. It can only read that installation's
-Plan and submit its state/reports. Operators, catalog identities and Agent identities remain
-distinct; an Agent cannot enroll, approve, publish, import or recompute. Release Hub refuses
-Agent bindings, and an empty binding list preserves existing denial.
+each installation. A caller needs the exact application object/client pair, no delegated `scp`
+claim, and the `Agent.Access` role in a directly verified Entra token. When Entra emits `idtyp`,
+it must be `app`; v2 Managed Identity tokens that omit this optional claim remain application
+tokens because the exact object, client and app role must still match. It can only read that
+installation's Plan and submit its state/reports. It can also propose its own pending
+enrollment, as [Agent-submitted pending enrollment](#agent-submitted-pending-enrollment)
+defines. Operators, catalog identities and Agent identities remain distinct; an Agent cannot
+approve, reject, manage Entities, record ownership, publish, import or recompute. Release Hub
+refuses Agent bindings, and an empty binding list preserves existing denial.
 
 For an explicitly bound installation, the verified operator can submit its signed enrollment to
 `POST /v1/enrollments/{installation_id}/requests`. The existing installation proof, freshness,
@@ -278,7 +286,91 @@ The original Agent enrollment route stays closed, and unbound installations cann
 operator route. The independent Lifecycle Terraform root forwards nonempty Agent bindings;
 empty bindings omit the runtime field for compatibility with older images.
 
-The **Enrollment requests** screen lets the operator enter the bound installation ID and
+`GET /v1/enrollments/bindable` lists the bound installation IDs with their status, so the
+**Enrollment requests** screen offers a selection. `fdai-lifecycle-hub sign-enrollment` signs the
+request inside the installation boundary and writes only the upload file, then prints the key id
+for the approver's independent comparison. It remains the offline path for an installation whose
+Agent cannot reach the Hub. `fdai-lifecycle-agent enroll` is the online path: the installation
+Agent derives the request from its own cluster and submits it, so the operator carries no file.
+
+### Agent-submitted pending enrollment
+
+**Design note.** The previous rule was that an Agent cannot enroll. That rule kept every
+authority-bearing first step with a human, but it made the operator carry a signed file between
+the installation and the Hub and author the reported state by hand. The revised rule is narrower
+than "Agents may enroll": the Agent identity bound to exactly one installation may *propose* that
+installation's enrollment, and a human still decides.
+
+`POST /v1/installations/{installation_id}/enrollment-request` takes the existing
+`SignedEnrollment` body (`signed_payload`, `proof`). It is available only to an application
+identity whose object/client pair is bound to exactly that installation in
+`auth.agent_principals`, with the `Agent.Access` role and no delegated `scp` claim. The handler
+reuses `request_enrollment` with the existing proof, five-minute freshness, matching-id, 64 KiB
+and no-`settings.product` rules. It creates a pending record only and audits the Agent's object
+id as `requested_by` with `requested_via=agent`. The Hub exposes both fields on the pending
+record so the **Enrollment requests** screen shows who proposed it.
+
+**Authority change.** This adds exactly one capability to the Agent identity: creating a pending
+enrollment for its own bound installation. It adds none of approving, rejecting, enrolling,
+managing Entities, recording ownership, setting the product binding, or reading other
+installations. The route is unavailable when no Agent is bound, to unbound or other
+installations, to operator tokens, and on Release Hub.
+
+**Why this is safe.**
+
+- *Pending is not authority.* A pending installation is excluded from the installation list,
+  planning, the Agent plan route and every Entity operation. Only the independently verified key
+  id in a human approval turns it into an enrollment, and every Entity then starts unmanaged.
+- *Two independent factors.* The request needs the workload identity (the Entra token) and the
+  installation private key (the proof). A leaked token cannot produce a valid proof, and a leaked
+  key cannot reach the route without the token.
+- *No overwrite.* One record exists per installation id. A repeat submission, or one for an
+  already pending, enrolled or rejected installation, returns the existing `installation_exists`
+  conflict. An Agent cannot replace an approved key or reset a decision.
+- *The customer owns settings.* The Agent derives Entities and reported state from the cluster,
+  but reads channel, version range, region, allowed regions, windows and configuration from a
+  strict customer-owned declaration file and invents none. It cannot set `settings.product`.
+- *Attribution.* The audit chain records the authenticated Agent object id and that the request
+  came through the Agent, so the approver can distinguish it from an operator submission.
+
+**Critique and revision.**
+
+1. *Key id provenance.* The Agent prints the key id, but a compromised Pod could print any id.
+   The approver therefore compares the id with one obtained independently of the pending
+   request, for example derived from the installation public key in key custody. The command
+   never prints the private key, and the screen shows the key id but keeps the approval field
+   empty.
+2. *Slot squatting.* A compromised bound Agent identity can occupy its installation's slot with
+   a pending request. This denies enrollment but grants nothing; the operator rejects it, and
+   the audit names the principal. Because the identity is bound to one installation, it cannot
+   squat another.
+3. *Cluster-derived state is a claim.* Anyone with namespace write access can label a workload.
+   The Hub already treats reported state as installation claims, and Entities start unmanaged.
+   The Agent reads only labelled Deployments and CronJobs, never Secrets or values, and refuses
+   ambiguous or unbounded observations instead of guessing.
+4. *Uncertain delivery.* The Agent does not retry after an uncertain transport result, because
+   the Hub may have recorded the request. It tells the operator to check the pending list; a
+   re-run after a recorded request returns the conflict, so re-running is safe.
+5. *Rejected alternatives.* Opening the original `/enrollment` route would widen a route that
+   remote authorization deliberately denies to everyone. Accepting an Agent token on the
+   operator route would mix principal classes. Letting the Agent approve its own request
+   would remove the human decision and is not allowed.
+
+Reported state is derived from workloads that carry the `fdai.io/entity` label in the Agent's
+own namespace. The Entity id is the label value, the Release id comes from a canonical SemVer
+`app.kubernetes.io/version` label, the schema revision from an `fdai.io/schema-revision`
+annotation, and artifact digests from `@sha256:` image references. Health comes from the
+Deployment rollout status. A workload without a Release label reports the explicit empty
+state, not an invented version.
+
+**Status.** The route, the `enroll` command, the read-only Role rule and the UI attribution are
+implemented for development with local test evidence only. No operating Hub, Agent Pod, workload
+identity or permission change has been exercised, and the renderer does not yet stamp the Release
+and schema-revision metadata. The
+[implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
+tracks the open work.
+
+The **Enrollment requests** screen lets the operator select the bound installation and
 upload a signed request JSON file of at most 64 KiB. It sends only `signed_payload` and
 `proof`; private keys are never an upload input. Submission has a ten-second deadline and
 does not retry automatically. After an uncertain result, refresh the pending list before
@@ -292,9 +384,106 @@ floor, pending report and rollback journal live with current state on a persiste
 Agent namespace, outside its workload Role. Only namespace-scoped Deployment, Service and Job
 operations are granted. See the [Agent preparation guide](../../../lifecycle/agent/README.md#remote-development-preparation).
 
-These opt-ins have focused local evidence, not live Entra, image, AKS, volume-eviction or workload
-effect evidence. Existing Hub images, revisions, catalog bindings and network allowlists are
-not changed by this preparation. An exact cloud plan and separate approval precede those effects.
+For connected installations, the Agent can select `--artifact-source hub`. After it receives a
+signed Plan, it requests only that Plan's exact Release and active configuration digests through
+its installation-bound `Agent.Access` identity. Lifecycle Hub rechecks the current eligible Plan,
+the accepted Release catalog, and the retained configuration import before returning original
+signed bytes. It doesn't provide an artifact list or another installation's inputs.
+
+The Agent verifies each signature and canonical digest before publishing the bytes to its private
+state volume. A later poll reuses the exact cached files, which removes repeated Hub downloads
+without treating cache presence as trust. Missing, changed, unbound, or unavailable artifacts
+remain retryable input holds and cause no Kubernetes call. Vendor and customer public keys, the
+private runtime bundle, installation policy, and decryption material remain independently
+provisioned installation inputs. This transport does not mirror images or grant apply authority.
+
+The independent [Lifecycle Agent deployment root](../../../infra/lifecycle-agent/README.md) prepares
+one AKS Agent without changing the source/offline workload root. It creates a dedicated
+user-assigned Managed Identity, one workload-federation binding, the exact `Agent.Access` app-role
+assignment, an Agent namespace and persistent state, and a namespace-scoped workload Role. It
+grants no Azure managed-resource role. `enable_agent=false` prepares these prerequisites without
+starting a poller; an exact later plan starts one Recreate-strategy Agent only after enrollment,
+ownership, reported state, signed inputs and a Plan exist. The installation identity private key
+is never a Terraform input. A pre-staged customer configuration signature remains canonical Base64
+through Terraform and uses the Kubernetes provider's binary-secret field; it is never decoded as
+UTF-8 text or exposed as a Terraform command argument. The disabled stage creates its
+`WaitForFirstConsumer` PVC without waiting for `Bound`; binding and independent readiness are
+verified only after a consumer is scheduled. Activation runs a bounded one-shot initializer Job,
+waits for it to complete, and only then creates or updates the Agent Deployment. The Job mounts
+public and private inputs read-only so an optional pre-staged configuration and signature can reach
+the persistent verified cache before the Agent process starts. It also copies the local policy and optional native
+identity inputs to owner-only `0600` files beneath an exact current-UID mode-`0700`
+`/state/private` boundary on the PVC. The main Agent never mounts the Kubernetes Secret and reads
+only those private state files. `fsGroupChangePolicy=OnRootMismatch` prevents kubelet from
+recursively broadening those modes after the PVC root already has the Agent group. The main Agent
+bind-mounts only the required PVC files by `subPath` beneath the image's UID-owned mode-`0700`
+`/config/private` directory, so the group-managed PVC root is never a private-input parent. The
+initializer keeps its private-input and artifact-cache directories in distinct variables; native
+approval and installation identity files cannot drift into the configuration cache. Because the
+initializer is a separate Job, every PVC `subPath` source exists before kubelet prepares the Agent
+Pod. Each run rewrites private inputs from the retained Secret through mode-`0600` temporary files
+and atomic replacement; prior file presence is never treated as trust. An interrupted kubelet
+`subPath` placeholder is removed only when it is an empty directory. Non-empty directories fail
+closed. The Job Pod template binds a digest of every staged input, so policy, approval, native
+state, current state, public identity or configuration changes replace and rerun it. The first 12
+digest characters are also part of the bounded Job name, so provider patch behavior cannot suppress
+the required rerun. After local native bootstrap, the enabled Agent input includes the validated
+`lifecycle-native-scope.json`; the initializer stages it atomically at the Agent state path without
+copying the installation private key into Terraform. All journal, current-state, native-state and
+artifact-cache files live beneath the UID-owned mode-`0700` `/state/agent` directory; the
+group-managed PVC mount root is never passed as the Agent state directory. The main container
+mounts only that `agent` subdirectory at the image's UID-owned mode-`0700` `/agent-state` path, so
+strict readers never traverse the group-writable PVC mount root. A bounded `64Mi` `emptyDir`
+provides writable `/tmp` for Kubernetes dynamic discovery while the image root filesystem remains
+read-only.
+
+After the Hub accepts `apply-started`, the Agent checks Plan expiry again before the first
+Kubernetes mutation. If the prepared Plan has expired, it durably retains and delivers terminal
+`rejected` with `reason_code=plan_expired`, no exact Plan digest, and an empty summary. The Agent
+clears the prepared journal only after the Hub accepts that report; a failure or restart at any
+earlier durable boundary resumes the same report without a Kubernetes mutation. The Hub accepts
+only that no-effect successor and creates no rollback failure suppression; duplicate
+`apply-started` and every other rejected-after-start reason remain invalid.
+
+An expired native approval is a retryable local hold because an attributed operator can renew the
+same exact scope without changing the installation proof or Plan bytes. The Agent re-evaluates both
+new retryable records and legacy non-retryable records carrying this exact reason, including removal
+of its legacy sequence tombstone; all other final rejections remain replay-safe.
+
+`fdai-lifecycle-manager prepare` closes the installation-local preparation boundary before any
+remote effect. From a clean source revision, digest-pinned component images, a reviewed private
+runtime bundle, and independently obtained Hub/Release public keys, it creates a new private
+directory containing the immutable publication request, signed enrollment, customer-signed
+configuration, application-binding request, Entity settings, explicit empty state, native scope
+approval, Agent policy/cache and installation-owned keys. It contacts no Hub, Azure endpoint,
+registry or cluster and deletes a partial destination on failure. Its receipt contains digests
+only and grants no publication, enrollment, ownership, Plan or apply authority. If infrastructure
+and catalog stages outlive the bounded enrollment proof window, `refresh-enrollment` verifies the
+retained proof and key pair, preserves the installation identity and payload, and writes a new
+mode-`0600` proof with only `requested_at` refreshed. It never overwrites the original.
+
+These opt-ins also have one bounded live development-installation receipt. Release Hub published
+and Lifecycle Hub imported the exact signed Release, an installation-bound Managed Identity fetched
+the Plan and artifacts, and the Agent applied and independently observed one ready FDAI Operator
+canary before reporting `applied`. A fresh recompute returned `up-to-date`, and repeated polls
+returned `no-plan`. This evidence covers one retained AKS development installation, not production,
+volume eviction, identity rotation, multi-Entity updates, or configuration-key rotation. The
+installation's existing database Secret reference was bound during workload preparation; future
+private runtime bundles must carry every such dependency before Plan execution. Existing Hub
+images, revisions, catalog bindings and network allowlists change only through exact cloud plans
+and separate approval.
+
+A second bounded receipt qualifies the application-neutral lifecycle on a newly created customer
+development AKS cluster. Release Hub published nginx `2180.0.0`, distinct update `2180.1.0`, and
+controlled-failure `2180.2.0`; Lifecycle Hub imported each exact catalog revision and issued
+installation-bound Plans. The Agent installed and updated nginx, then reported `rolled-back` with
+`health_check_failed` after the failure image became unhealthy. Independent readback confirmed the
+restored `2180.1.0` image digest, Ready 1/1, HTTP 200, and an unchanged Service UID. A new recompute
+returned `waiting` with no Plan, preserving the failure hold. Cross-installation access returned
+403, and Agent and Hub replica replacement retained state without duplicate workload effects. The
+temporary AKS, registry, identities, and node resource group were removed after validation, and
+the Lifecycle Hub trust and network inputs returned to a zero-change plan. This receipt validates
+the nginx gate in #2180; it does not qualify the complete FDAI topology tracked by #2181.
 
 ## Independent product deployment
 
@@ -311,8 +500,13 @@ state locations. Native local backends accept explicit absolute paths in durable
 preserving existing local state without an Azure Storage prerequisite. A remote backend is an
 optional, reviewed Terraform override prepared before candidate freeze, never an active-run switch.
 The shared internal module creates only the selected product's resources. It doesn't read
-the other Hub's state, IDs or NAT address. An approved existing registry is an external input.
-No FDAI source/offline installer, main infrastructure root, Agent or cluster deployment changes.
+the other Hub's state, IDs or NAT address. An approved registry remains an explicit external input
+to both product roots. A product-separated deployment may place the shared Hub image transport in
+the Release Hub resource group without transferring Lifecycle Hub state ownership. The validated
+development topology uses one dedicated Release-Hub-owned ACR, grants each Hub Managed Identity
+`AcrPull`, and pins every app and Job to its product-specific digest. Registry relocation changes
+neither Hub database, Key Vault, network nor installation authority. No FDAI source/offline
+installer, main infrastructure root, Agent or cluster deployment changes.
 
 With zero Entra app registrations, each root plans without Graph or directory state and each
 remote application can migrate its own schema, serve, report health/readiness and provide its UI.
@@ -320,6 +514,15 @@ PostgreSQL/Key Vault managed identities, verified TLS and the human DB administr
 An app-owned bounded SQL/Key Vault bootstrap command runs in a temporary manual Job. Native
 Terraform declares resources; native Azure CLI starts and observes Jobs. Temporary grants are
 removed after initialization, separately from permanent runtime resources.
+
+After startup, each product can retain one manual trusted-operations Job for automation that
+doesn't depend on a browser session. Release Hub accepts only an exact private
+`publish-release` request. Lifecycle Hub accepts only exact `import-catalog` or `recompute`
+requests, plus the binding operations `bind-catalog` and `rebind-catalog`, which take an attributed actor and
+a reason instead of a request secret. The Job reads one exact-version Key Vault request, uses only that Hub's Managed Identity
+and transactional store, emits a bounded digest-only receipt, and has no installation apply
+identity. Exact retries read back the retained publication or import rather than adding another
+effect. Operator enrollment, ownership acceptance and Plan application remain separate boundaries.
 
 Login and Lifecycle's catalog source are optional explicit bindings, not placeholders.
 Without login, management APIs fail closed with 503 and the UI reports their unavailability.
@@ -758,6 +961,21 @@ owner's replacement. A namespace name alone doesn't identify a namespace incarna
    intent; no API request has occurred in that case.
    Every apply poll rechecks native versus legacy mode under the exclusive state lock before
    fetching a Plan or recovering a journal; a legacy client composed before bootstrap stops.
+7. A full-authority development approval may list exact existing objects by kind, name and
+   Kubernetes UID. The list is a subset of the unchanged `NativeScope`; every other object must be
+   absent. The Hub signs the accepted claim digest into the Plan's `ownership_digests`; names and
+   UIDs stay in the private approval. Before `apply-started`, the Agent verifies each UID, captures
+   its resource version and original manifest, and dry-runs only Terraform-owned fields. The desired
+   render always carries the Agent ownership label. A pre-adoption rollback manifest may retain its
+   Terraform label only for an exact kind/name UID-fenced expectation; other objects stay outside.
+   Rollback reapplies the Agent marker. Exact approval accepts empty `managedFields` or a sole
+   `Terraform`/`HashiCorp` manager; others conflict. A status-only resource-version change is rebound only when UID and non-status source digest stay exact. Existing Deployments keep their immutable selector and copy its match labels to the desired Pod template during adoption and every later exact-UID update.
+   After Hub acceptance, the Agent runs the per-object checkpoint and creates only approved absent
+   objects. Each receipt binds the approval and ownership digests, Plan id, render digest, UID and
+   resulting resource version. Conflicting UIDs or field managers stop before mutation. Recovery
+   uses the exact anchor marker and UID-fenced rollback, leaves unadopted objects unchanged, restores
+   every retained owned UID as rollback state, and retries only the residual set. The ownership marker remains after workload rollback; the
+   separate Terraform import procedure owns any reversal of the ownership handoff.
 
 The initial surface is limited to application-package Deployments and internal Services.
 It adds no namespace, RoleBinding, Azure resource, secret read, database migration execution,
@@ -878,6 +1096,61 @@ finish proof generation only when the original API-assigned anchor UID was alrea
 Existing namespace-level RBAC and pre/post anchor checks are not an atomic namespace-lifetime
 transaction. A lost or replaced anchor is never reported as a healthy successful effect.
 
+### Installed legacy native-scope transition
+
+An installed development Agent can move from one legacy native Entity to one already accepted
+mixed native scope without editing its durable files by hand. This is a one-way preparation step,
+not a Lifecycle Plan or a workload effect. It is available only under a current
+`full-authority-development` approval.
+
+The transition uses two separately signed decisions:
+
+1. `fdai-lifecycle-agent prepare-native-transition` reads the locked active native state, current
+   reported state, staged new native state, recovered installation key and exact local approval.
+   It writes an installation-signed request that binds the installation, old and new Entity and
+   scope digests, old reported-state digest, accepted ownership claim, identity-recovery request,
+   recovered key id and the digest of every approved existing kind, name and UID.
+2. An authenticated operator sends that request to
+   `POST /v1/installations/{installation_id}/native-transition-approval`. The Lifecycle Hub
+   rechecks the recovered-key audit, the accepted native-ownership audit and scope, the exact old
+   installed and new uninstalled reported state, and the absence of an open Plan. It appends one
+   hash-chained audit record and signs the exact approval with the current Hub key. Planning stays
+   held while that approval is current and the old reported-state digest remains active.
+3. `fdai-lifecycle-agent transition-native-scope` verifies both signatures, Hub key id and epoch,
+   current local and Hub approvals, exact old and new scope state, and the absence of an unreported
+   Plan or a prepared/applying journal. It independently reads the new anchor UID, all approved
+   existing UIDs, and the absence of every other scoped object before changing local state.
+4. The Agent retains the exact old native, workload and reported-state bytes in an owner-only
+   rollback record, records pending intent, and publishes the new native state, an empty workload
+   journal and a true empty state for the new Entity through crash-safe file replacement. A
+   digest-bound completion receipt is the commit point. An interrupted attempt restores the old bytes before returning a failure;
+   an exact completed retry returns the original receipt without another write.
+5. After the local commit, the Agent sends the signed approval, local completion receipt, exact
+   full native approval and new reported state to
+   `POST /v1/installations/{installation_id}/native-transition-completion` with its bound
+   `Agent.Access` workload identity. Under one installation row lock, the Hub verifies the
+   transition and receipt digests, old and new scopes, execution identity, authoritative existing
+   UIDs, full object scope, exact old managed Entity set, new empty Entity state and absence of an
+   open Plan. One transaction then unmanages the old Entity, records the new state, transfers the
+   Entity settings to the new native Entity, appends the audit record and retains the completion
+   receipt. Any mismatch, conflict or interruption rolls back every Hub write. An exact retry
+   returns the retained receipt.
+
+The bounded `operator-hub-canary` to `fdai-workloads` development transition approves seven exact
+existing objects and requires the other nine scope objects to be absent. The next ordinary signed
+Plan can therefore adopt those seven and create those nine through the existing mixed-scope
+pipeline. A wrong UID, changed scope or state digest, expired approval, missing recovery proof,
+changed Hub signature, wrong Agent identity, wrong completion receipt, open Plan, applying journal
+or incomplete recovery blocks the transition. Planning remains held on the old Hub state until
+atomic Hub completion succeeds, so a locally committed transition can't produce an
+`EntityNotReported` planning gap.
+The retained rollback record is audit and recovery evidence; there is no command that turns this
+one-way transition into an unreviewed reverse handoff.
+
+For the bounded recovery of a legacy sub-millisecond state-digest split, see
+[Native transition state reconciliation](native-transition-state-reconciliation.md).
+It preserves legacy artifact ordering while producing a unique, sorted authoritative target.
+
 ## Workload rendering migration
 
 This section defines how a Hub-managed installation moves workload rendering from the Terraform
@@ -931,7 +1204,8 @@ objects only through exact plans that use `removed` and `import` blocks.
 
 | Objects | Scope | Owner |
 |---------|-------|-------|
-| Deployment, HorizontalPodAutoscaler, PodDisruptionBudget, NetworkPolicy, internal Service, ServiceAccount, SecretProviderClass, CronJob, and the identity-bridge ConfigMap | FDAI namespace | Lifecycle agent |
+| Deployment, HorizontalPodAutoscaler, PodDisruptionBudget, NetworkPolicy, internal Service, and CronJob | FDAI namespace | Lifecycle agent |
+| ServiceAccount, environment ConfigMap, SecretProviderClass and bootstrap Secret, including the migration identity binding | FDAI namespace | Infrastructure prerequisite roots. These objects remain Terraform-owned across workload handoff; CSI synchronizes Secret data after startup. |
 | External LoadBalancer Services for the Operator API and the Document Ingestion API | FDAI namespace | Infrastructure agent, because API Management binds to their addresses |
 | Executor external-scale Roles and RoleBindings | Exact target namespaces outside FDAI | Infrastructure agent, because they grant authority |
 | Namespace, and the inventory-reader ClusterRole and ClusterRoleBinding | Cluster | Infrastructure agent |
@@ -976,7 +1250,27 @@ value.
 1. **Infrastructure:** The infrastructure agent applies only additive and in-place changes to Azure
    resources, cluster-scoped objects, role bindings, and external Services, and creates a federated
    identity credential for every workload and job in the target Release. It then writes the
-   installation binding and its receipt.
+   installation binding and its receipt. The shared infrastructure root separates prerequisites
+   from document-ingestion Container Apps with `enable_document_ingestion_workloads`. Its default
+   remains `true`; a Hub-managed installation sets it to `false` only in a reviewed exact plan so
+   identities, storage, private endpoints and role bindings can converge without creating a second
+   workload renderer.
+   Existing installations use the dedicated `infra/hub-stewardship-prerequisites` root and a
+   separate remote state key. It reads the retained ACR, Key Vault, Event Hubs, Log Analytics,
+   VNet and AKS resources and owns six workload identities and federated credentials, including
+   dedicated Operator API and command identities. It also owns document storage/private endpoints,
+   Document Intelligence/private endpoint, role-scoped DSN references, ACS Email, and the exact
+   generated ServiceAccounts, environment ConfigMaps, SecretProviderClasses and bootstrap Secrets
+   that were absent from the retained namespace. Secret values come directly from Key Vault and
+   remain in protected Terraform state rather than variables or outputs. Deployment-specific
+   names, identifiers, endpoints, ConfigMap data and secret names enter through private variables. Its retained
+   ownership output and topology-generation output keep these prerequisites separate from the
+   Lifecycle Agent's objects. It declares no Container App, Container App Job, Deployment,
+   Service, HorizontalPodAutoscaler or CronJob.
+   When the operations VNet already uses an existing Blob private DNS zone, the document storage
+   endpoint remains associated with the application zone and the root publishes a managed A record
+   for the same private IP in the operations zone rather than attempting a second overlapping VNet
+   link.
 2. **Schema expand:** The Release ships its database migration as a Kubernetes Job template that
    uses the Core image, which already contains the migration and catalog tools. The Job runs the
    legacy migrations, the service-owned migrations in their declared order, and the authoritative
@@ -1025,7 +1319,7 @@ Two exact plans prepare the handoff and run before step 1:
    of the workloads root, which the Release ships. A `removed` block requires its resource block to
    be absent, so that variant replaces each agent-owned resource block with a `removed` block with
    `destroy = false`. Terraform 1.7 and later support these blocks, and the pinned toolchain is
-   1.9.8. The plan must show no destroy and no update.
+   1.16.1. The plan must show no destroy and no update.
 3. **Adopt:** The agent applies the same render with server-side apply under the
    `fdai-lifecycle-agent` field manager. It forces conflicts only on fields that the Terraform field
    manager owns, and stops on any other conflict. It adopts one object at a time and records a
@@ -1039,6 +1333,38 @@ After step 2, the installation records a local Hub ownership marker. Every deplo
 point that would plan the full workloads root refuses to run or uses the Hub variant, including the
 ordinary application stage, per-service update, and historical reconciliation. So Terraform and the
 agent never write the same object.
+
+The marker is the owner-only `hub-ownership.json` in the installation's work directory (schema
+`fdai.hub-ownership-marker.v1`: installation id, handoff receipt digest, time, record digest). The
+single place that activates a Terraform stage for the AKS workloads root checks it, so the ordinary
+application stage, per-service update and historical reconciliation all refuse while it exists. A
+present but unreadable, tampered, symlinked or group-readable marker also refuses, so damage cannot
+hand the objects back to Terraform. Recording is idempotent for the same handoff and never
+overwrites a different one, and release needs a rollback receipt digest.
+
+The repository-side handoff now generates exact `removed` blocks with `destroy = false` and exact
+rollback `import` blocks from one reviewed object inventory. Its plan verifier accepts only the
+expected `forget` actions for release and a zero-change rollback plan; destroy, update, missing and
+unknown addresses fail closed. The Agent adopts one Terraform-owned object at a time only when UID,
+resource version and the sole non-status field manager still match. It records UID, post-adoption
+resource version and render digest after each object so an interruption resumes after the last
+receipt, while drift or an unknown object stops. Only a complete digest-valid adoption receipt can
+drive `record-hub-workload-handoff` and create the ownership marker. These are local executable
+contracts. Before a rollback import can be verified, the Agent records a separate reconciliation
+release receipt bound to the complete adoption receipt. This is not evidence that a live Terraform
+state release, cluster adoption, rollback import or zero-change plan has run.
+
+If the earlier workloads state no longer exists, don't recreate it by editing state or by changing
+workloads with `kubectl`. Use `infra/hub-workload-state-handoff/import` with the generator's exact
+private inputs and one separately selected absolute local backend path. The import-only root has a
+`prevent_destroy` guard and ignores desired-field differences, so its only accepted first plan
+imports the existing `namespace/name` objects. A following plan must be complete, non-applyable,
+and zero-change before the release phase. The paired
+`infra/hub-workload-state-handoff/release` root replaces each whole resource block with
+`removed { lifecycle { destroy = false } }`. Its verifier requires the exact digest-bound
+inventory and only `forget` actions. The generated command sequence reuses the same backend for
+initial import, release, rollback import, and the final zero-change plan. Each phase retains a
+private verification receipt and grants no workload mutation authority.
 
 **Rollback:** First, the agent stops reconciling the adopted objects, releases its reconciliation
 lease, and records the release. Then the infrastructure agent applies an exact plan with `import`
@@ -1062,6 +1388,28 @@ derives its protected CronJob template digests from the agent's render receipt i
 Terraform input.
 
 ### Decisions on earlier open questions
+
+The classification gate (`service_migrations.classification`) is implemented and runs without
+importing a migration. The Release declares `fdai.migration-classification.v1` (`revision` to
+`expand` or `contract`). The pending revisions are the image's revisions minus the versions the
+installation has applied, so the enrollment baseline needs no declaration. The plan rejects the
+whole upgrade with a stable reason code for an unclassified revision, a declared contract revision,
+or a declared expand revision that static analysis finds dropping or renaming a table, column,
+schema or type, changing a column type, or truncating. Analysis reads only what `upgrade()` reaches,
+so a `downgrade()` that drops does not count, and it only ever tightens a declaration. It is
+conservative: a revision that drops inside a function body it creates is classified contract.
+
+The component Release can now carry one bounded `fdai.schema-expand-job.v1` declaration with only
+expand revisions and a finite deadline. The lifecycle agent renders a fixed Job from the reviewed
+Core image and its existing database reference, runs it before any Deployment switch, and retains
+the completed Job with release, classification and schema-target annotations as the migration
+receipt. The Core-image runner rechecks the declared revision files without importing them, holds
+one PostgreSQL advisory lease while it runs the legacy migration, ordered service migrations and
+authoritative catalog materialization, and emits a digest-only receipt. Lease contention, a
+destructive declared revision, Job failure or interruption blocks workload switching. A later
+workload rollback retains the expanded schema and completed Job receipt. The dedicated migration
+ServiceAccount is included in the generated prerequisite inventory; its live managed-identity and
+database-role binding remain part of the authorized installation handoff under #2468.
 
 The Hub-managed lifecycle owner decided these points on 2026-10-07.
 

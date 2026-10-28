@@ -272,6 +272,15 @@ RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
         restart_required=True,
     ),
     RuntimeSettingSpec(
+        "conversation.result_handles.enabled",
+        "FDAI_SEMANTIC_RESULT_HANDLES",
+        "conversation",
+        "boolean",
+        False,
+        restart_required=True,
+        development_default=True,
+    ),
+    RuntimeSettingSpec(
         "conversation.t2_escalation.aggressive_enabled",
         "FDAI_CONVERSATION_T2_AGGRESSIVE_ENABLED",
         "conversation",

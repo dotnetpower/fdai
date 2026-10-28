@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: bc65511d77fb3946db27d5dda8fd82f1c823d69f
-translation_revised: 2026-10-23
+translation_source_sha: 49832366648bdd44744bc90c4efbfa1e86cadb8a
+translation_revised: 2026-10-28
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -84,6 +84,8 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 후보 배포마다 전체 요청을 계산하고 가장 엄격한 결과를 구성된 요청 예산에 적용합니다.
 예산을 넘는 요청은 Incident, ActionProposal, 승인 또는 실행 권한을 만들지 않고 보류됩니다.
 
+Core는 초안을 만드는 턴을 포함한 각 의미 턴의 prior turn도 로그 전용 dialogue-state shadow로 관찰합니다. 내용 없는 개수만 기록하고 모델을 호출하지 않으며 Incident, ActionProposal 또는 ARB workflow를 만들거나 확인하거나 변경하지 않습니다. Operator가 전달하는 선택형 1.12.0 `dialogue_state`도 자신의 집계와 비교하지만 역시 로그 전용입니다.
+
 ![설계 요약. 주요 단계는 오퍼레이터 요청, 문제 대응인가?, Correlation ID 및 선택적 Process ID, Incident registry, Typed ActionProposal, Trust 및 risk gate, 판단, journal, audit, 승격된 executor adapter, 승인 후 재개, Stage stream입니다.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.ko.svg)
 
 ## 구현 상태
@@ -96,7 +98,7 @@ Core는 인시던트 배선 뒤에 기존 런타임 모델에서 선택적인 As
 | 오퍼레이터 확인 인시던트 수명 주기 및 조사 기본 기능 | implemented | `fdai/core/incident/workflow.py`, `fdai/core/investigation/coordinator.py`, `tests/core/incident/test_incident_workflow.py`, `tests/core/investigation/test_coordinator.py` | 범위가 제한된 기본 기능이 존재하고 집중 검사를 통과합니다. |
 | 오퍼레이터 확인 인시던트 생성 전송 | implemented | `fdai_service_contracts.incident_creation`, Core 의미 기반 초안 변환 결과 및 인시던트 생성 소비자, Operator 확인 경로, 원본 확인기 및 보낼 편지함 브리지, 집중 교차 서비스 테스트 | 브라우저는 공개 초안 필드 네 개를 제출합니다. Operator는 principal 소유 원본을 다시 읽고 서명된 operator-request 증적을 담은 권한 없는 요청을 전용 인시던트 토픽에 게시합니다. Core는 증적과 replay 차단 장치를 검증한 뒤 감사되는 인시던트 하나를 생성하거나 재사용합니다. |
 | 서명된 action confirmation 및 poison-halt clear | implemented | `fdai_operator_service/action_confirmation_runtime.py`, `fdai_operator_service/operator_request_receipt.py`, `fdai_operator_service/bus_poison_halt_clear.py`, 집중 Operator route 테스트 | Action confirmation은 범위가 제한된 서명된 operator-request 증적을 첨부하며, 증적 발급기가 구성된 경우에만 권한이 있는 `operator_request` 이벤트를 게시합니다. 그렇지 않으면 readiness가 준비되지 않음으로 보고되고 proposal은 재시도를 위해 게시되지 않은 상태로 남습니다. Owner-only poison-halt clear route는 Core 검증을 위한 수락을 대기열에 넣고, 증적 발급기가 없으면 `503`을 반환하며, Core가 parked-record 근거를 검증하기 전에는 완료를 주장하지 않습니다. |
-| 런타임 작업 격리 | implemented | `fdai/runtime/bootstrap_tasks.py`, 집중 HIL 부하 제어, 런타임 구성 및 부트스트랩 검사 | 인시던트 생성과 채널 독립 승인 만료 처리는 별도의 감독 작업으로 실행됩니다. 어느 작업도 다른 작업에 승인 또는 실행 권한을 부여하지 않습니다. |
+| 런타임 작업 격리 | implemented | `fdai/runtime/bootstrap_tasks.py`, 집중 HIL 부하 제어, 런타임 구성 및 부트스트랩 검사 | 인시던트 생성과 채널 독립 승인 만료 처리는 별도의 감독 작업으로 실행됩니다. 어느 작업도 다른 작업에 승인 또는 실행 권한을 부여하지 않습니다. 선택 사항인 exemption 수명주기 점검은 독립적으로 감독되는 세 번째 작업이며, 그 실패가 앞의 두 작업을 멈추지 않습니다. |
 | Assurance Twin 시작 조립 격리 | implemented | `fdai/runtime/bootstrap_core.py`, Assurance Twin 생산자 및 시작 조립 검사 | Core 시작 조립은 Heimdall의 읽기 전용 자세 생산자도 구성합니다. 이 생산자는 별도의 인벤토리, Rule, 정책, 원본 및 작성기 보호 경계를 사용하며 Operator가 확인한 인시던트 요청, 감사, 승인 또는 실행 경로를 변경하지 않습니다. |
 | 의미 계획 요청 예산 보호 경계 | implemented | `semantic_planning_support.py`, `request_context_fit.py`, `token_metrics.py`, 의미 계획 및 요청 예산 테스트 | Core는 공급자 I/O 전에 가장 엄격한 후보 모델 계산으로 전체 요청을 평가합니다. 보류는 읽기 전용이며 Incident나 작업을 만들거나 확인하지 않습니다. |
 | 통합 오퍼레이터 SRE 작업 및 진행 상황 계약 | in-progress | `fdai/core/incident/sre_request.py`, `fdai/shared/providers/operator_request.py`, 프로세스 내부 집중 Core 검사 | 프로세스 내부 조정기는 인시던트와 조사 작업 동작을 입증합니다. 배포된 관리 리소스 의미 기반 작업 확인에는 독립적으로 검토된 원본과 요청부터 감사까지의 증적이 더 필요합니다. |

@@ -12,7 +12,7 @@ const VARIANT_GLYPH: Partial<Record<Variant, string>> = {
   fail: "✕",
 };
 
-function Badge({ variant, children }: { variant: Variant; children: JSX.Element | string }) {
+export function Badge({ variant, children }: { variant: Variant; children: JSX.Element | string }) {
   const glyph = VARIANT_GLYPH[variant];
   return (
     <span class={`badge ${variant}`}>

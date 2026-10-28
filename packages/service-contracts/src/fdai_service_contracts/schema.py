@@ -184,6 +184,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("operator-core-request", "1.9.0"): "schemas/operator-core-request/1.9.0.json",
     ("operator-core-request", "1.10.0"): "schemas/operator-core-request/1.10.0.json",
     ("operator-core-request", "1.11.0"): "schemas/operator-core-request/1.11.0.json",
+    ("operator-core-request", "1.12.0"): "schemas/operator-core-request/1.12.0.json",
     ("policy-activation", "1.0.0"): "schemas/policy-activation/1.0.0.json",
     ("policy-revision-request", "1.0.0"): "schemas/policy-revision-request/1.0.0.json",
     ("runtime-scope-receipt", "1.0.0"): "schemas/runtime-scope-receipt/1.0.0.json",

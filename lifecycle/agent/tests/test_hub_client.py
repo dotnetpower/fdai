@@ -6,13 +6,31 @@ import json
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
 import httpx
 import pytest
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.lifecycle_enrollment import installation_key_id
+from fdai_deployment_cli.lifecycle_native import NativeApproval, NativeScope
+from fdai_deployment_cli.lifecycle_native_transition import (
+    NativeScopeTransitionApproval,
+    NativeScopeTransitionCompletion,
+    NativeScopeTransitionCompletionReceipt,
+    NativeScopeTransitionReceipt,
+    NativeScopeTransitionReportedState,
+    NativeScopeTransitionRequest,
+    existing_resources_digest,
+    hub_key_id,
+    sign_transition_approval,
+    sign_transition_request,
+)
 
 from fdai_lifecycle_agent.hub_client import (
     MAX_CONCURRENT_WRITE_RETRIES,
     MAX_PLAN_RESPONSE_BYTES,
+    FetchedArtifact,
     HttpHubClient,
     HubProtocolError,
     PlanReport,
@@ -140,9 +158,190 @@ def test_fetch_plan_decodes_base64_fields_from_contract_path() -> None:
     assert seen == ["GET /v1/installations/installation-alpha/plan"]
 
 
+def test_submit_native_transition_completion_returns_durable_hub_receipt() -> None:
+    digest = "sha256:" + "a" * 64
+    installation_key = Ed25519PrivateKey.generate()
+    hub_key = Ed25519PrivateKey.generate()
+    scope = NativeScope(
+        installation_id="installation-alpha",
+        entity_id="fdai-workloads",
+        product="example-app",
+        namespace="fdai-system",
+        components=("operator",),
+        service_components=(),
+    )
+    native_approval = NativeApproval(
+        schema_version="fdai.lifecycle-native-approval.v1",
+        scope=scope,
+        profile="full-authority-development",
+        approved_by="owner",
+        approved_at=datetime(2026, 10, 26, 11, 59, tzinfo=UTC),
+        expires_at=datetime(2026, 10, 26, 13, 0, tzinfo=UTC),
+    )
+    request_values = {
+        "schema_version": "fdai.lifecycle-native-transition-request.v1",
+        "request_id": UUID("00000000-0000-0000-0000-000000000000"),
+        "installation_id": "installation-alpha",
+        "old_entity_id": "operator-hub-canary",
+        "new_entity_id": "fdai-workloads",
+        "old_scope_digest": digest,
+        "new_scope_digest": scope.digest,
+        "old_reported_state_digest": "c" * 64,
+        "ownership_claim_digest": digest,
+        "recovery_request_digest": digest,
+        "recovered_identity_key_id": installation_key_id(
+            installation_key.public_key().public_bytes_raw()
+        ),
+        "existing_resources_digest": existing_resources_digest([]),
+        "requested_at": datetime(2026, 10, 26, 12, 0, tzinfo=UTC),
+        "expires_at": datetime(2026, 10, 26, 12, 10, tzinfo=UTC),
+    }
+    request = NativeScopeTransitionRequest(
+        **request_values,
+        confirmation=(f"transition native scope installation-alpha {digest} {scope.digest}"),
+    )
+    signed_request = sign_transition_request(request, installation_key)
+    hub_public = hub_key.public_key().public_bytes_raw()
+    signed_approval = sign_transition_approval(
+        NativeScopeTransitionApproval(
+            schema_version="fdai.lifecycle-native-transition-approval.v1",
+            request=signed_request,
+            profile="full-authority-development",
+            approved_by="owner",
+            approved_at=datetime(2026, 10, 26, 12, 0, tzinfo=UTC),
+            expires_at=request.expires_at,
+            recovery_audit_digest=digest,
+            ownership_audit_digest=digest,
+            hub_key_id=hub_key_id(hub_public),
+            hub_key_epoch=1,
+        ),
+        hub_key,
+    )
+    state_document = {
+        "schema_revision": 15,
+        "entities": {
+            "fdai-workloads": {
+                "release_id": None,
+                "artifact_digests": [],
+                "health": "unknown",
+            }
+        },
+        "observed_at": "2026-10-26T12:01:00.000Z",
+    }
+    state = NativeScopeTransitionReportedState.model_validate_json(
+        json.dumps({"digest": canonical_digest(state_document), **state_document})
+    )
+    local_document = {
+        "schema_version": "fdai.lifecycle-native-transition-receipt.v1",
+        "request_digest": request.digest,
+        "hub_approval_digest": signed_approval.approval.digest,
+        "installation_id": "installation-alpha",
+        "old_entity_id": "operator-hub-canary",
+        "new_entity_id": "fdai-workloads",
+        "old_scope_digest": digest,
+        "new_scope_digest": scope.digest,
+        "old_reported_state_digest": "c" * 64,
+        "new_reported_state_digest": state.digest,
+        "ownership_claim_digest": digest,
+        "recovery_request_digest": digest,
+        "existing_resources_digest": existing_resources_digest([]),
+        "rollback_record_digest": digest,
+        "completed_at": "2026-10-26T12:00:00Z",
+    }
+    local = NativeScopeTransitionReceipt.model_validate(
+        {
+            **local_document,
+            "record_digest": "sha256:" + canonical_digest(local_document),
+        }
+    )
+    completion = NativeScopeTransitionCompletion(
+        schema_version="fdai.lifecycle-native-transition-completion.v1",
+        approval=signed_approval,
+        transition_receipt=local,
+        native_approval=native_approval,
+        reported_state=state,
+    )
+    receipt_document = {
+        "schema_version": "fdai.lifecycle-native-transition-completion-receipt.v1",
+        "completion_digest": completion.digest,
+        "request_digest": request.digest,
+        "hub_approval_digest": signed_approval.approval.digest,
+        "transition_receipt_digest": local.record_digest,
+        "installation_id": "installation-alpha",
+        "old_entity_id": "operator-hub-canary",
+        "new_entity_id": "fdai-workloads",
+        "old_scope_digest": digest,
+        "new_scope_digest": scope.digest,
+        "old_reported_state_digest": "c" * 64,
+        "new_reported_state_digest": state.digest,
+        "object_scope_digest": digest,
+        "authoritative_uids_digest": digest,
+        "source_settings_digest": "e" * 64,
+        "agent_principal": "agent-executor",
+        "completed_at": "2026-10-26T12:01:00Z",
+    }
+    expected = NativeScopeTransitionCompletionReceipt.model_validate(
+        {
+            **receipt_document,
+            "receipt_digest": "sha256:" + canonical_digest(receipt_document),
+        }
+    )
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(200, content=expected.model_dump_json())
+
+    with _client(httpx.MockTransport(handler)) as client:
+        actual = client.submit_native_transition_completion(
+            "installation-alpha",
+            completion,
+        )
+
+    assert actual == expected
+    assert seen == ["/v1/installations/installation-alpha/native-transition-completion"]
+
+
 def test_fetch_plan_returns_none_for_no_content() -> None:
     with _client(httpx.MockTransport(lambda request: httpx.Response(204))) as client:
         assert client.fetch_plan("installation-alpha") is None
+
+
+def test_fetch_artifact_reads_exact_plan_bound_signed_bytes() -> None:
+    payload = b'{"schema_version":"example.v1"}'
+    signature = b"s" * 64
+    digest = "a" * 64
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url.path)
+        return httpx.Response(
+            200,
+            json={
+                "kind": "release",
+                "digest": digest,
+                "payload": base64.b64encode(payload).decode(),
+                "signature": base64.b64encode(signature).decode(),
+            },
+        )
+
+    with _client(httpx.MockTransport(handler)) as client:
+        artifact = client.fetch_artifact("installation-alpha", "release", digest)
+
+    assert artifact == FetchedArtifact(payload, signature)
+    assert seen == [f"/v1/installations/installation-alpha/artifacts/release/{digest}"]
+
+
+def test_fetch_artifact_returns_none_only_for_not_found() -> None:
+    digest = "a" * 64
+    with _client(httpx.MockTransport(lambda request: httpx.Response(404))) as client:
+        assert client.fetch_artifact("installation-alpha", "configuration", digest) is None
+
+    with (
+        _client(httpx.MockTransport(lambda request: httpx.Response(409))) as client,
+        pytest.raises(HubProtocolError, match="returned 409"),
+    ):
+        client.fetch_artifact("installation-alpha", "configuration", digest)
 
 
 @pytest.mark.parametrize(

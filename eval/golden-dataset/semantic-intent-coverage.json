@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:f9bb79f43983926b7892030ed24aeac35c3c6cadb205bc06acea3c1dcf4dc97a",
+  "inventory_digest": "sha256:759e0bb7381589026dd5542548e006318fa51101e786c5ac25b60840071da3a0",
   "metric_contract": {
     "ambiguity": [
       {
@@ -937,7 +937,7 @@
     "set_recall": "true_positive_items / expected_items"
   },
   "source_digests": {
-    "console/src/deck/backend-types.ts": "sha256:7fe991058956154aae2baa99a7cb74ae8987ee1771474828c20fd3283cecc107",
+    "console/src/deck/backend-types.ts": "sha256:3073f95ebe3b7b5057fa22a50dd9c552d1beae59e1a1a32be76a32abf1d679a4",
     "console/src/deck/presentation-artifact.ts": "sha256:5946d614e455c632368810c25954a233aaa9de60b69b53f0f733d4b06485973c",
     "console/src/deck/presentation-modules/charts.tsx": "sha256:3b0da88ee3469adce74c965bcaeba86b42149b6d9d4158faf2c9b3704c3220f6",
     "console/src/deck/presentation-modules/registry.tsx": "sha256:27c87816f3c0b81aaea57206a2dba342b6f5a40b95ef6751f54ff43735e0ad6d",
@@ -954,7 +954,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:012820b4405cb82ac78736e76be8cd595d58a9ca7d31710bb4efd5435803c307",
     "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py": "sha256:fe9a5288e009fdf4dac438717e0ac3128a0e4caac4885b870604e732591d9aec",
     "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "sha256:4c191e51be8e6515a3508b97ae9e157c3761430cd29f63b78722f09ad9240020",
-    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:db1e4a743aa7bf57df5fdfee6a3793e12937b54fd3f7c0fae2744c6744f0f789",
+    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:321dcf20210a8f977745fe516ef7a9ed30a53867b40f47cde313092583b70765",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:618e049ecfc064c3dcc3972c1508dd1d0a7d48def7e8e1ab4411777f3d260299",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:2a5a515d0ebb49a4389df1ff662e99f3afbd234efaa613c92a722dc91d31795f"
   },

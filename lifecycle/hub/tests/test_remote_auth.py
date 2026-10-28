@@ -3,18 +3,360 @@ from __future__ import annotations
 import json
 import time
 from base64 import b64encode
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from threading import Barrier, Event
+from urllib.parse import urlsplit
 
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from jwt.algorithms import RSAAlgorithm
+from lifecycle.hub.tests.remote_auth_helpers import seed_entra_key_cache
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from fdai_lifecycle_hub.remote_auth import AgentPrincipal, RemoteAuth, secure_app
+from fdai_lifecycle_hub.remote_auth import (
+    MAX_JWKS_STALE_SECONDS,
+    AgentPrincipal,
+    DevelopmentRecoveryAuthorization,
+    EntraVerifier,
+    RemoteAuth,
+    _strict_json,
+    secure_app,
+)
+
+
+def test_development_recovery_authorization_is_exact_bounded_and_operator_owned():
+    now = datetime.now(UTC)
+    replacement = Ed25519PrivateKey.generate().public_key().public_bytes_raw().hex()
+    recovery = DevelopmentRecoveryAuthorization(
+        profile="full-authority-development",
+        installation_id="installation-dev",
+        scope="rg-fdai-dev",
+        operator_id="approved-human",
+        previous_identity_key_id="installation-0123456789abcdef",
+        replacement_identity_public_key=replacement,
+        authorized_at=now,
+        authorization_expires_at=now + timedelta(days=14),
+        allow_single_owner_configuration_approval=True,
+        reason="Recover one exact development installation.",
+    )
+    configured = RemoteAuth(
+        profile="remote-development",
+        tenant_id="00000000-0000-0000-0000-000000000000",
+        audience="hub-api",
+        origin="https://hub.example.com",
+        spa_client_id="browser",
+        operator_scope="Hub.Access",
+        operator_ids=frozenset({"approved-human"}),
+        development_recovery=recovery,
+    )
+
+    assert configured.development_recovery is recovery
+    assert recovery.is_current(
+        installation_id="installation-dev", operator_id="approved-human", now=now
+    )
+    assert not recovery.is_current(installation_id="other", operator_id="approved-human", now=now)
+    with pytest.raises(ValueError, match="invalid"):
+        recovery.model_copy(
+            update={"authorization_expires_at": now + timedelta(days=14, seconds=1)}
+        ).validate_recovery()
+    with pytest.raises(ValueError, match="operator"):
+        configured.model_copy(
+            update={"development_recovery": recovery.model_copy(update={"operator_id": "other"})}
+        ).validate_boundary()
+    with pytest.raises(ValueError, match="does not accept development recovery"):
+        secure_app(Starlette(), configured, vendor=True)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b'{"keys":[],"keys":[]}',
+        b'{"keys":[],"value":NaN}',
+        '{"keys":[]}'.encode("utf-16"),
+    ],
+)
+def test_entra_signing_keys_require_strict_utf8_json(payload):
+    with pytest.raises(ValueError, match="signing-key response is invalid"):
+        _strict_json(payload)
+
+
+def test_entra_signing_keys_reject_duplicate_key_ids(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "duplicate"
+
+    class Response:
+        headers = {"content-encoding": "identity"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        def iter_raw(self):
+            yield json.dumps({"keys": [public, public]}).encode()
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.httpx.stream", lambda *_a, **_k: Response())
+
+    with pytest.raises(ValueError, match="duplicate key id"):
+        EntraVerifier(auth)._refresh()
+
+
+def test_entra_signing_key_trickle_observes_total_refresh_deadline(auth, monkeypatch):
+    class Response:
+        headers = {"content-encoding": "identity"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        def iter_raw(self):
+            yield b"{"
+            yield b'"'
+
+    clock = iter((100.0, 104.0, 105.0))
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: next(clock))
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.httpx.stream", lambda *_a, **_k: Response())
+
+    with pytest.raises(ValueError, match="exceeded its bound"):
+        EntraVerifier(auth)._refresh()
+
+
+def test_entra_unknown_key_refreshes_once_inside_cache_window(auth, monkeypatch):
+    old_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    new_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    old_public = json.loads(RSAAlgorithm.to_jwk(old_key.public_key()))
+    new_public = json.loads(RSAAlgorithm.to_jwk(new_key.public_key()))
+    old_public["kid"] = "old"
+    new_public["kid"] = "new"
+    verifier = EntraVerifier(auth)
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(old_public, algorithm="RS256")},
+        unknown_kid_refresh_after=0,
+    )
+    refreshes = 0
+
+    def refresh():
+        nonlocal refreshes
+        refreshes += 1
+        seed_entra_key_cache(
+            verifier,
+            {"new": jwt.PyJWK.from_dict(new_public, algorithm="RS256")},
+        )
+
+    monkeypatch.setattr(verifier, "_refresh", refresh)
+    now = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "iss": auth.issuer,
+            "aud": auth.audience,
+            "exp": now + timedelta(minutes=5),
+            "iat": now,
+            "nbf": now,
+            "tid": auth.tenant_id,
+            "oid": "approved-human",
+            "sub": "approved-human",
+            "azp": auth.spa_client_id,
+            "ver": "2.0",
+        },
+        new_key,
+        algorithm="RS256",
+        headers={"kid": "new"},
+    )
+
+    assert verifier.verify(token)["oid"] == "approved-human"
+    assert refreshes == 1
+
+
+def test_concurrent_unknown_keys_single_flight_the_jwks_refresh(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "new"
+    verifier = EntraVerifier(auth)
+    verifier._last_successful_refresh = time.monotonic()
+    verifier._refresh_after = time.monotonic() + 600
+    verifier._unknown_kid_refresh_after = 0
+    started = Event()
+    release = Event()
+    barrier = Barrier(9)
+    refreshes = 0
+
+    def refresh():
+        nonlocal refreshes
+        refreshes += 1
+        started.set()
+        assert release.wait(timeout=2)
+        seed_entra_key_cache(
+            verifier,
+            {"new": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        )
+
+    monkeypatch.setattr(verifier, "_refresh", refresh)
+    token = _token(auth, key, kid="new")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_verify_after, barrier, verifier, token) for _ in range(8)]
+        barrier.wait(timeout=2)
+        assert started.wait(timeout=2)
+        release.set()
+        claims = [future.result(timeout=2) for future in futures]
+
+    assert {claim["oid"] for claim in claims} == {"approved-human"}
+    assert refreshes == 1
+
+
+def test_failed_jwks_refresh_retains_keys_and_starts_cooldown(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "old"
+    verifier = EntraVerifier(auth)
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        refreshed_at=50.0,
+        refresh_after=0,
+        unknown_kid_refresh_after=0,
+    )
+    clock = [100.0]
+    refreshes = 0
+
+    def fail_refresh():
+        nonlocal refreshes
+        refreshes += 1
+        raise ValueError("synthetic JWKS failure")
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(verifier, "_refresh", fail_refresh)
+    old_token = _token(auth, key, kid="old")
+    unknown_token = _token(auth, key, kid="unknown")
+
+    assert verifier.verify(old_token)["oid"] == "approved-human"
+    with pytest.raises(ValueError, match="not trusted"):
+        verifier.verify(unknown_token)
+    assert refreshes == 1
+    assert verifier._keys["old"].key is not None
+    assert verifier._refresh_after == 130
+    assert verifier._unknown_kid_refresh_after == 130
+
+    clock[0] = 131
+    assert verifier.verify(old_token)["oid"] == "approved-human"
+    assert refreshes == 2
+
+
+def test_failed_jwks_refresh_rejects_keys_after_stale_deadline(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "old"
+    verifier = EntraVerifier(auth)
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        refreshed_at=100.0,
+        refresh_after=0,
+        unknown_kid_refresh_after=0,
+    )
+    clock = [100.0 + MAX_JWKS_STALE_SECONDS - 1]
+    refreshes = 0
+
+    def fail_refresh():
+        nonlocal refreshes
+        refreshes += 1
+        raise ValueError("synthetic JWKS failure")
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(verifier, "_refresh", fail_refresh)
+    token = _token(auth, key, kid="old")
+
+    assert verifier.verify(token)["oid"] == "approved-human"
+    assert refreshes == 1
+
+    clock[0] += 1
+    with pytest.raises(ValueError, match="exceeded their stale lifetime"):
+        verifier.verify(token)
+    assert refreshes == 1
+
+
+def test_concurrent_expired_keys_fail_closed_after_one_refresh(auth, monkeypatch):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
+    public["kid"] = "old"
+    verifier = EntraVerifier(auth)
+    seed_entra_key_cache(
+        verifier,
+        {"old": jwt.PyJWK.from_dict(public, algorithm="RS256")},
+        refreshed_at=100.0,
+        refresh_after=0,
+        unknown_kid_refresh_after=0,
+    )
+    clock = [100.0 + MAX_JWKS_STALE_SECONDS]
+    started = Event()
+    release = Event()
+    barrier = Barrier(9)
+    refreshes = 0
+
+    def fail_refresh():
+        nonlocal refreshes
+        refreshes += 1
+        started.set()
+        assert release.wait(timeout=2)
+        raise ValueError("synthetic JWKS failure")
+
+    monkeypatch.setattr("fdai_lifecycle_hub.remote_auth.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr(verifier, "_refresh", fail_refresh)
+    token = _token(auth, key, kid="old")
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_verify_after, barrier, verifier, token) for _ in range(8)]
+        barrier.wait(timeout=2)
+        assert started.wait(timeout=2)
+        release.set()
+        errors = [future.exception(timeout=2) for future in futures]
+
+    assert all(
+        isinstance(error, ValueError) and "exceeded their stale lifetime" in str(error)
+        for error in errors
+    )
+    assert refreshes == 1
+
+
+def _verify_after(barrier: Barrier, verifier: EntraVerifier, token: str) -> dict[str, object]:
+    barrier.wait(timeout=2)
+    return verifier.verify(token)
+
+
+def _token(auth: RemoteAuth, key, *, kid: str) -> str:
+    now = datetime.now(UTC)
+    return jwt.encode(
+        {
+            "iss": auth.issuer,
+            "aud": auth.audience,
+            "exp": now + timedelta(minutes=5),
+            "iat": now,
+            "nbf": now,
+            "tid": auth.tenant_id,
+            "oid": "approved-human",
+            "sub": "approved-human",
+            "azp": auth.spa_client_id,
+            "ver": "2.0",
+        },
+        key,
+        algorithm="RS256",
+        headers={"kid": kid},
+    )
 
 
 def test_agent_exact_identity_installation_role_and_methods(auth, protected):
@@ -31,29 +373,40 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
         return JSONResponse({"actor": request.state.principal})
 
     plan = "/v1/installations/installation-alpha/plan"
+    artifact = "/v1/installations/installation-alpha/artifacts/release/" + "a" * 64
     state = "/v1/installations/installation-alpha/state"
     reports = "/v1/installations/installation-alpha/plans/plan-one/reports"
+    completion = "/v1/installations/installation-alpha/native-transition-completion"
+    reconciliation = "/v1/installations/installation-alpha/native-transition-state-reconciliation"
+    plan_detail = "/v1/installations/installation-alpha/plans/plan-one"
     app = secure_app(
         Starlette(
             routes=[
                 Route(plan, ok),
+                Route(artifact, ok),
                 Route(state, ok, methods=["POST"]),
                 Route(reports, ok, methods=["POST"]),
+                Route(completion, ok, methods=["POST"]),
+                Route(reconciliation, ok, methods=["POST"]),
+                Route(plan_detail, ok),
                 Route("/v1/catalog", ok),
             ]
         ),
         config,
         vendor=False,
     )
-    app.state.entra_verifier._keys = original.state.entra_verifier._keys
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
-    service = dict(
-        oid="agent-object", azp="agent-client", scp=None, idtyp="app", roles=["Agent.Access"]
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        original.state.entra_verifier._keys,
     )
+    service = dict(oid="agent-object", azp="agent-client", scp=None, roles=["Agent.Access"])
     with TestClient(app, base_url=config.origin) as client:
         assert client.get(plan, headers=token(**service)).status_code == 200
+        assert client.get(artifact, headers=token(**service)).status_code == 200
         assert client.post(state, headers=token(**service), json={}).status_code == 200
         assert client.post(reports, headers=token(**service), json={}).status_code == 200
+        assert client.post(completion, headers=token(**service), json={}).status_code == 200
+        assert client.post(reconciliation, headers=token(**service), json={}).status_code == 200
         for path in (
             "/v1/catalog",
             "/v1/catalog/releases",
@@ -64,16 +417,18 @@ def test_agent_exact_identity_installation_role_and_methods(auth, protected):
             "/v1/installations/installation-alpha/recompute",
             "/v1/installations/installation-alpha/application-binding",
             "/v1/installations/installation-alpha/native-ownership",
+            plan_detail,
         ):
             assert client.get(path, headers=token(**service)).status_code == 403
             assert client.post(path, headers=token(**service), json={}).status_code == 403
         assert client.post(plan, headers=token(**service), json={}).status_code == 403
+        assert client.post(artifact, headers=token(**service), json={}).status_code == 403
         assert client.get(state, headers=token(**service)).status_code == 403
         assert client.get(plan, headers=token()).status_code == 403
         for changes in (
             {"oid": "other"},
             {"azp": "other"},
-            {"idtyp": None},
+            {"idtyp": "user"},
             {"roles": []},
             {"roles": ["Catalog.Read"]},
             {"scp": "Hub.Access"},
@@ -288,7 +643,7 @@ def test_native_proof_transport_is_agent_only_and_never_accepts_ownership(
         for changes in (
             {"oid": "other"},
             {"azp": "other"},
-            {"idtyp": None},
+            {"idtyp": "user"},
             {"roles": []},
         ):
             assert (
@@ -368,8 +723,10 @@ def enrollment_remote(auth, protected, store, now):
             }
         )
         app = create_app(target_store, remote_auth=config, clock=lambda: now)
-        app.state.entra_verifier._keys = vendor.state.entra_verifier._keys
-        app.state.entra_verifier._refresh_after = time.monotonic() + 600
+        seed_entra_key_cache(
+            app.state.entra_verifier,
+            vendor.state.entra_verifier._keys,
+        )
         return TestClient(app, base_url=config.origin)
 
     return client, token
@@ -495,6 +852,36 @@ def test_operator_submits_bound_enrollment_without_approving_it(
         )
     assert payload["requested_by"] == "approved-human"
     assert store.enrollment_status("installation-alpha").value == "pending"
+
+
+def test_operator_lists_bound_installations_without_typing_ids(
+    enrollment_remote, enrollment, store
+):
+    make_client, token = enrollment_remote
+    with make_client() as client:
+        listed = client.get("/v1/enrollments/bindable", headers=token())
+        assert listed.status_code == 200
+        assert listed.json() == {
+            "installations": [{"installation_id": "installation-alpha", "status": "unrequested"}]
+        }
+        path = "/v1/enrollments/installation-alpha/requests"
+        assert (
+            client.post(path, json=signed_enrollment_body(enrollment), headers=token()).status_code
+            == 202
+        )
+        pending = client.get("/v1/enrollments/bindable", headers=token()).json()
+        assert pending["installations"][0]["status"] == "pending"
+        assert client.get("/v1/enrollments/bindable").status_code == 401
+        agent = token(
+            oid="agent-object",
+            azp="agent-client",
+            scp=None,
+            idtyp="app",
+            roles=["Agent.Access"],
+        )
+        assert client.get("/v1/enrollments/bindable", headers=agent).status_code == 403
+    with make_client(bound=False) as unbound:
+        assert unbound.get("/v1/enrollments/bindable", headers=token()).status_code == 404
 
 
 def test_bound_enrollment_agent_protocol_and_durable_hub_restart(
@@ -748,6 +1135,248 @@ def test_operator_enrollment_keeps_proof_and_request_bounds(
         assert payload["requested_by"] == "approved-human"
 
 
+AGENT_CLAIMS = {
+    "oid": "agent-object",
+    "azp": "agent-client",
+    "scp": None,
+    "idtyp": "app",
+    "roles": ["Agent.Access"],
+}
+AGENT_ENROLLMENT_PATH = "/v1/installations/installation-alpha/enrollment-request"
+
+
+def test_agent_submits_only_a_pending_enrollment_for_its_installation(
+    enrollment_remote, enrollment, store
+):
+    from sqlalchemy import select
+
+    from fdai_lifecycle_hub.models import AuditRecord
+
+    make_client, token = enrollment_remote
+    agent = token(**AGENT_CLAIMS)
+    with make_client() as client:
+        response = client.post(
+            AGENT_ENROLLMENT_PATH, json=signed_enrollment_body(enrollment), headers=agent
+        )
+        assert response.status_code == 202
+        assert response.json() == {
+            "enrollment": "pending",
+            "installation_key_id": enrollment.installation_key_id,
+        }
+        assert client.get("/v1/installations", headers=token()).json() == {"installations": []}
+        assert (
+            client.get("/v1/installations/installation-alpha/plan", headers=agent).status_code
+            == 204
+        )
+        detail = client.get("/v1/enrollments/pending/installation-alpha", headers=token()).json()
+        assert detail["requested_by"] == "agent-object"
+        assert detail["requested_via"] == "agent"
+        assert (
+            client.post(
+                AGENT_ENROLLMENT_PATH, json=signed_enrollment_body(enrollment), headers=agent
+            ).status_code
+            == 409
+        )
+    with store.engine.connect() as connection:
+        payload = connection.scalar(
+            select(AuditRecord.payload).where(AuditRecord.action == "enrollment.requested")
+        )
+    assert payload["requested_by"] == "agent-object"
+    assert payload["requested_via"] == "agent"
+    assert store.enrollment_status("installation-alpha").value == "pending"
+
+
+def test_operator_submission_is_attributed_to_the_operator(enrollment_remote, enrollment, store):
+    make_client, token = enrollment_remote
+    with make_client() as client:
+        assert (
+            client.post(
+                "/v1/enrollments/installation-alpha/requests",
+                json=signed_enrollment_body(enrollment),
+                headers=token(),
+            ).status_code
+            == 202
+        )
+        detail = client.get("/v1/enrollments/pending/installation-alpha", headers=token()).json()
+    assert (detail["requested_by"], detail["requested_via"]) == ("approved-human", "operator")
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"oid": "other"},
+        {"azp": "other"},
+        {"idtyp": "user"},
+        {"roles": []},
+        {"roles": ["Catalog.Read"]},
+        {"roles": None},
+        {"scp": "Hub.Access"},
+    ],
+)
+def test_agent_enrollment_requires_the_exact_binding_role_and_no_delegation(
+    enrollment_remote, enrollment, store, changes
+):
+    make_client, token = enrollment_remote
+    with make_client() as client:
+        response = client.post(
+            AGENT_ENROLLMENT_PATH,
+            json=signed_enrollment_body(enrollment),
+            headers=token(**(AGENT_CLAIMS | changes)),
+        )
+    assert response.status_code == 403
+    assert store.list_pending_enrollments() == ()
+
+
+def test_agent_enrollment_rejects_other_unbound_and_non_agent_callers(
+    enrollment_remote, enrollment, store
+):
+    make_client, token = enrollment_remote
+    body = signed_enrollment_body(enrollment)
+    agent = token(**AGENT_CLAIMS)
+    with make_client() as client:
+        other = "/v1/installations/other-installation/enrollment-request"
+        assert client.post(other, json=body, headers=agent).status_code == 403
+        assert client.post(AGENT_ENROLLMENT_PATH, json=body).status_code == 401
+        assert client.post(AGENT_ENROLLMENT_PATH, json=body, headers=token()).status_code == 403
+        assert client.get(AGENT_ENROLLMENT_PATH, headers=agent).status_code == 403
+        assert client.put(AGENT_ENROLLMENT_PATH, json=body, headers=agent).status_code == 403
+        for headers in (
+            agent | {"Origin": "https://attacker.example"},
+            agent | {"Sec-Fetch-Site": "cross-site"},
+            agent | {"Content-Type": "text/plain"},
+        ):
+            assert (
+                client.post(AGENT_ENROLLMENT_PATH, content=b"{}", headers=headers).status_code
+                == 403
+            )
+    with make_client(bound=False) as unbound:
+        assert unbound.post(AGENT_ENROLLMENT_PATH, json=body, headers=agent).status_code == 403
+    assert store.list_pending_enrollments() == ()
+
+
+def test_agent_enrollment_is_closed_on_release_hub_and_without_a_binding(auth):
+    principal = AgentPrincipal(
+        installation_id="installation-alpha", object_id="agent-object", client_id="agent-client"
+    )
+    with pytest.raises(ValueError, match="Release Hub"):
+        secure_app(
+            Starlette(), auth.model_copy(update={"agent_principals": (principal,)}), vendor=True
+        )
+
+
+@pytest.mark.parametrize(
+    "invalid", ["signature", "stale", "path", "json", "size", "actor", "replay"]
+)
+def test_agent_enrollment_keeps_proof_and_request_bounds(
+    enrollment_remote, enrollment, store, sign, installation, now, invalid
+):
+    from sqlalchemy import select
+
+    from fdai_lifecycle_hub.api import MAX_ENROLLMENT_BYTES
+    from fdai_lifecycle_hub.models import AuditRecord
+
+    make_client, token = enrollment_remote
+    if invalid == "stale":
+        enrollment = sign(installation, now - timedelta(minutes=6))
+    body = signed_enrollment_body(enrollment)
+    if invalid == "signature":
+        body["proof"] = b64encode(b"invalid-signature").decode("ascii")
+    elif invalid == "path":
+        payload = json.loads(enrollment.signed_payload)
+        payload["installation_id"] = "other-installation"
+        body["signed_payload"] = b64encode(json.dumps(payload).encode()).decode("ascii")
+    elif invalid == "actor":
+        body["requested_by"] = "forged-actor"
+    if invalid == "json":
+        content = b"{"
+    elif invalid == "size":
+        content = b" " * (MAX_ENROLLMENT_BYTES + 1)
+    else:
+        content = json.dumps(body).encode()
+    headers = token(**AGENT_CLAIMS) | {"Content-Type": "application/json"}
+    with make_client() as client:
+        if invalid == "replay":
+            assert (
+                client.post(AGENT_ENROLLMENT_PATH, content=content, headers=headers).status_code
+                == 202
+            )
+        response = client.post(AGENT_ENROLLMENT_PATH, content=content, headers=headers)
+    assert response.status_code == (
+        403
+        if invalid in {"signature", "stale"}
+        else 413
+        if invalid == "size"
+        else 409
+        if invalid == "replay"
+        else 422
+    )
+    assert len(store.list_pending_enrollments()) == (1 if invalid == "replay" else 0)
+    if invalid in {"signature", "stale"}:
+        with store.engine.connect() as connection:
+            payload = connection.scalar(
+                select(AuditRecord.payload).where(AuditRecord.action == "enrollment.proof_failed")
+            )
+        assert payload["requested_by"] == "agent-object"
+
+
+def test_agent_can_neither_decide_nor_reach_any_other_route(enrollment_remote, enrollment, store):
+    import re
+
+    from starlette.routing import Route as StarletteRoute
+
+    make_client, token = enrollment_remote
+    agent = token(**AGENT_CLAIMS)
+    allowed = {
+        ("GET", "/v1/installations/{installation_id}/plan"),
+        ("POST", "/v1/installations/{installation_id}/state"),
+        ("POST", "/v1/installations/{installation_id}/plans/{plan_id}/reports"),
+        ("POST", "/v1/installations/{installation_id}/native-proofs"),
+        ("POST", "/v1/installations/{installation_id}/native-transition-completion"),
+        (
+            "POST",
+            "/v1/installations/{installation_id}/native-transition-state-reconciliation",
+        ),
+        ("POST", "/v1/installations/{installation_id}/enrollment-request"),
+    }
+    with make_client() as client:
+        assert (
+            client.post(
+                AGENT_ENROLLMENT_PATH, json=signed_enrollment_body(enrollment), headers=agent
+            ).status_code
+            == 202
+        )
+        reached = set()
+        for route in client.app.routes:
+            if not isinstance(route, StarletteRoute) or not route.path.startswith("/v1/"):
+                continue
+            concrete = re.sub(
+                r"\{([a-z_]+)\}",
+                lambda match: "a" * 64 if "digest" in match[1] else "installation-alpha",
+                route.path,
+            )
+            for method in ("GET", "POST", "PUT", "DELETE"):
+                status = client.request(method, concrete, json={}, headers=agent).status_code
+                if status != 403:
+                    reached.add((method, route.path))
+        assert reached <= allowed
+        for decision in ("approve", "reject"):
+            path = f"/v1/installations/installation-alpha/enrollment/{decision}"
+            body = {
+                "approver": "agent-object",
+                "installation_key_id": enrollment.installation_key_id,
+            }
+            assert client.post(path, json=body | {"reason": "x"}, headers=agent).status_code == 403
+        assert (
+            client.post(
+                "/v1/enrollments/installation-alpha/requests",
+                json=signed_enrollment_body(enrollment),
+                headers=agent,
+            ).status_code
+            == 403
+        )
+    assert store.enrollment_status("installation-alpha").value == "pending"
+
+
 @pytest.fixture
 def auth() -> RemoteAuth:
     return RemoteAuth(
@@ -772,6 +1401,7 @@ def protected(auth):
         Starlette(
             routes=[
                 Route("/v1/catalog/export", ok),
+                Route("/v1/catalog/metadata", ok),
                 Route("/v1/catalog", ok),
                 Route("/v1/releases/change", ok, methods=["POST"]),
             ]
@@ -782,8 +1412,10 @@ def protected(auth):
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public = json.loads(RSAAlgorithm.to_jwk(key.public_key()))
     public["kid"] = "test-only"
-    app.state.entra_verifier._keys = {"test-only": jwt.PyJWK.from_dict(public)}
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        {"test-only": jwt.PyJWK.from_dict(public)},
+    )
 
     def token(**changes):
         now = datetime.now(UTC)
@@ -849,17 +1481,89 @@ def test_direct_jwt_not_aca_headers_and_exact_operator(protected):
         )
 
 
+def _redirecting_app(auth, *hosts):
+    async def ok(request):
+        return JSONResponse({"actor": "reached"})
+
+    return secure_app(
+        Starlette(
+            routes=[Route("/healthz", ok), Route("/v1/catalog", ok, methods=["GET", "POST"])]
+        ),
+        auth.model_copy(update={"redirect_hosts": hosts}),
+        vendor=True,
+    )
+
+
+def test_former_host_redirects_reads_to_the_fixed_origin(auth):
+    former = "old-hub.example.com"
+    with TestClient(
+        _redirecting_app(auth, former), base_url=f"https://{former}", follow_redirects=False
+    ) as client:
+        response = client.get("/healthz")
+        assert response.status_code == 308
+        assert response.headers["location"] == "https://hub.example.com/healthz"
+        assert response.headers["cache-control"] == "no-store"
+        assert client.head("/healthz").status_code == 308
+        assert (
+            client.get("/v1/catalog?x=1&y=%2F").headers["location"]
+            == "https://hub.example.com/v1/catalog?x=1&y=%2F"
+        )
+        # The destination host is never taken from the request path.
+        hostile = client.get("//evil.example.com/x").headers["location"]
+        assert urlsplit(hostile).hostname == "hub.example.com"
+
+
+def test_former_host_does_not_serve_writes_or_other_hosts(auth):
+    former = "old-hub.example.com"
+    app = _redirecting_app(auth, former)
+    with TestClient(app, base_url=f"https://{former}", follow_redirects=False) as client:
+        assert client.post("/v1/catalog").status_code in {400, 401}
+        assert client.delete("/v1/catalog").status_code in {400, 401, 405}
+    with TestClient(
+        app, base_url="https://untrusted.example.com", follow_redirects=False
+    ) as client:
+        assert client.get("/healthz").status_code == 400
+    with TestClient(app, base_url="https://hub.example.com", follow_redirects=False) as client:
+        assert client.get("/healthz").status_code == 200
+
+
+def test_without_redirect_hosts_a_former_host_is_refused(auth):
+    with TestClient(
+        _redirecting_app(auth), base_url="https://old-hub.example.com", follow_redirects=False
+    ) as client:
+        assert client.get("/healthz").status_code in {400, 401}
+
+
+@pytest.mark.parametrize(
+    "hosts",
+    [
+        ("hub.example.com",),
+        ("OLD.example.com",),
+        ("old-hub.example.com", "old-hub.example.com"),
+        ("old-hub.example.com:8443",),
+        ("*.example.com",),
+        ("localhost",),
+        tuple(f"old{n}.example.com" for n in range(5)),
+    ],
+)
+def test_redirect_hosts_must_be_distinct_dns_names_other_than_the_origin(auth, hosts):
+    with pytest.raises(ValueError):
+        auth.model_copy(update={"redirect_hosts": hosts}).model_validate(
+            {**auth.model_dump(), "redirect_hosts": hosts}
+        )
+
+
 def test_service_identity_is_read_export_only(protected):
     app, token = protected
     service = dict(
         oid="customer-service",
         azp="customer-client",
-        idtyp="app",
         scp=None,
         roles=["Catalog.Read"],
     )
     with TestClient(app, base_url="https://hub.example.com") as client:
         assert client.get("/v1/catalog/export", headers=token(**service)).status_code == 200
+        assert client.get("/v1/catalog/metadata", headers=token(**service)).status_code == 200
         assert client.get("/v1/catalog", headers=token(**service)).status_code == 403
         assert (
             client.post("/v1/releases/change", headers=token(**service), json={}).status_code == 403
@@ -868,7 +1572,7 @@ def test_service_identity_is_read_export_only(protected):
             {"oid": "vendor-service"},
             {"azp": "vendor-client"},
             {"roles": []},
-            {"idtyp": None},
+            {"idtyp": "user"},
         ):
             assert (
                 client.get("/v1/catalog/export", headers=token(**(service | changes))).status_code
@@ -908,8 +1612,10 @@ def test_release_catalog_renewal_requires_attributed_vendor_operator(
             )
     original, token = protected
     app = create_app(store, remote_auth=auth, remote_origin=auth.origin)
-    app.state.entra_verifier._keys = original.state.entra_verifier._keys
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        original.state.entra_verifier._keys,
+    )
     payload = {"revision": 0, "confirmation": "renew 0", "reason": "Reviewed current catalog"}
     route = "/v1/catalog/renew"
     revision = 0
@@ -973,8 +1679,10 @@ def test_target_local_curation_requires_current_operator_and_exact_request(
     monkeypatch.setattr("fdai_lifecycle_hub.remote.utc_now", lambda: now)
     app = create_app(store, remote_auth=auth)
     app.routes[0:0] = target_routes(store, target, key)
-    app.state.entra_verifier._keys = original.state.entra_verifier._keys
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        original.state.entra_verifier._keys,
+    )
     target.fetch = lambda _: pytest.fail("Local curation must not fetch or import a source.")
     route = "/v1/catalog/local-channels"
     payload = request_for(target, catalog, now).model_dump()
@@ -1084,8 +1792,10 @@ def test_target_real_api_denies_agent_transport_and_binds_approval_actor(
         }
     )
     app = create_app(store, remote_auth=config, clock=lambda: now)
-    app.state.entra_verifier._keys = vendor.state.entra_verifier._keys
-    app.state.entra_verifier._refresh_after = time.monotonic() + 600
+    seed_entra_key_cache(
+        app.state.entra_verifier,
+        vendor.state.entra_verifier._keys,
+    )
     store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
     installation_id = enrollment.installation.installation_id
     with TestClient(app, base_url="https://hub.example.com") as client:
@@ -1160,3 +1870,35 @@ def test_remote_readiness_rechecks_schema_and_default_business_routes_remain_pro
             connection.exec_driver_sql("DROP TABLE release_hub_schema_revision")
         assert client.get("/readyz").status_code == 503
         assert client.get("/healthz").status_code == 200
+
+
+def test_public_catalog_export_opens_only_the_signed_read_path(auth):
+    async def served(request):
+        return JSONResponse({"served": request.url.path})
+
+    def vendor_app(config, *, vendor=True):
+        return secure_app(
+            Starlette(
+                routes=[
+                    Route("/v1/catalog/export", served, methods=["GET", "POST"]),
+                    Route("/v1/catalog/metadata", served, methods=["GET", "POST"]),
+                    Route("/v1/catalog", served),
+                ]
+            ),
+            config,
+            vendor=vendor,
+        )
+
+    public = auth.model_copy(update={"public_catalog_export": True})
+    with TestClient(vendor_app(public), base_url=public.origin) as client:
+        assert client.get("/v1/catalog/export").status_code == 200
+        assert client.get("/v1/catalog/metadata").status_code == 200
+        assert client.head("/v1/catalog/metadata").status_code == 200
+        assert client.post("/v1/catalog/metadata", json={}).status_code == 401
+        assert client.head("/v1/catalog/export").status_code == 200
+        assert client.post("/v1/catalog/export", json={}).status_code == 401
+        assert client.get("/v1/catalog").status_code == 401
+    with TestClient(vendor_app(auth), base_url=auth.origin) as closed:
+        assert closed.get("/v1/catalog/export").status_code == 401
+    with pytest.raises(ValueError, match="Only Release Hub"):
+        vendor_app(public, vendor=False)

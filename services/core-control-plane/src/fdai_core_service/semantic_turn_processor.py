@@ -105,6 +105,7 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V18,
 )
 from .development_decisions import observe_semantic_decision, record_decision_observations
+from .dialogue_state_shadow import DialogueStateShadow
 from .semantic_answer_presentation import (
     authority_line,
     completeness_text,
@@ -133,6 +134,11 @@ from .semantic_relationship_projection import (
 from .semantic_resource_change_answer import render_resource_change_answer
 from .semantic_resource_condition_answer import (
     render_resource_condition_answer as _render_resource_condition_answer,
+)
+from .semantic_resource_health_summary import (
+    health_summary_lines,
+    order_health_rows,
+    summarize_health_rows,
 )
 from .semantic_result_handle_projection import (
     result_handle_from_technical_details,
@@ -348,6 +354,7 @@ class SemanticTurnProcessor:
         runtime_settings: RuntimeSettingsReader | None = None,
         runtime_readiness: SemanticRuntimeReadiness | None = None,
         context_selection_shadow: SemanticContextShadow | None = None,
+        dialogue_state_shadow: DialogueStateShadow | None = None,
         result_handle_store: ResultHandleStore | None = None,
         result_handles_enabled: bool = False,
         result_handle_ttl_seconds: int = 900,
@@ -371,6 +378,7 @@ class SemanticTurnProcessor:
         self._runtime_settings = runtime_settings
         self._runtime_readiness = runtime_readiness
         self._context_selection_shadow = context_selection_shadow
+        self._dialogue_state_shadow = dialogue_state_shadow
         self._result_handle_store = result_handle_store
         self._result_handles_enabled = result_handles_enabled
         self._result_handle_ttl_seconds = result_handle_ttl_seconds
@@ -903,6 +911,12 @@ class SemanticTurnProcessor:
             )
         )
         prior_turns = _prior_turns(request, requested_at=requested_at)
+        if self._dialogue_state_shadow is not None:
+            self._dialogue_state_shadow.observe(
+                session_id=request.session_id,
+                prior_turns=request.prior_turns,
+                delivered=request.dialogue_state,
+            )
         if self._context_selection_shadow is not None:
             await self._context_selection_shadow.schedule(
                 session_id=request.session_id,
@@ -1029,19 +1043,27 @@ class SemanticTurnProcessor:
             or extensions.technical_details is None
         ):
             return result
-        handle = result_handle_from_technical_details(
-            request,
-            result,
-            technical_details=extensions.technical_details,
-        )
-        if handle is None:
+        try:
+            handle = result_handle_from_technical_details(
+                request,
+                result,
+                technical_details=extensions.technical_details,
+            )
+            if handle is None:
+                return result
+            issued_at = _aware_utc(self._now(), field="semantic processor clock")
+            reference = await store.put(
+                handle,
+                issued_at=issued_at,
+                expires_at=issued_at + timedelta(seconds=self._result_handle_ttl_seconds),
+            )
+        except Exception as error:
+            # A follow-up reference is auxiliary; its failure never withholds a verified answer.
+            _LOGGER.warning(
+                "semantic_result_handle_unavailable",
+                extra={"error_type": type(error).__name__},
+            )
             return result
-        issued_at = _aware_utc(self._now(), field="semantic processor clock")
-        reference = await store.put(
-            handle,
-            issued_at=issued_at,
-            expires_at=issued_at + timedelta(seconds=self._result_handle_ttl_seconds),
-        )
         return result.model_copy(update={"result_handle_ref": reference})
 
     def _projection(
@@ -1931,6 +1953,17 @@ def _semantic_model_extensions(
         for key in usage_keys
     }
     measured = any(observation.usage is not None for observation in observations)
+    # Cached prompt tokens are reported only when some provider call measured them.
+    cache_reported = any(
+        observation.usage is not None and "cached_tokens" in observation.usage
+        for observation in observations
+    )
+    if cache_reported:
+        usage["cached_tokens"] = sum(
+            observation.usage.get("cached_tokens", 0)
+            for observation in observations
+            if observation.usage is not None
+        )
     measured_usage = {**usage, "model_calls": len(observations)} if measured else None
     calls: list[dict[str, object]] = []
     latency_ms = 0
@@ -3033,13 +3066,16 @@ def _render_query_answer(
             return None, None
         table = result.value
         rows: list[dict[str, object]] = []
+        source_rows = (
+            order_health_rows(table.rows) if output_shape == "resource_health_list" else table.rows
+        )
         if inventory_document:
-            projected_rows = table.rows[:1000]
-        elif len(table.rows) <= 40:
-            projected_rows = table.rows
+            projected_rows = source_rows[:1000]
+        elif len(source_rows) <= 40:
+            projected_rows = source_rows
         else:
             projected_rows = (
-                table.rows[-20:] if output_shape == "resource_event_history" else table.rows[:20]
+                source_rows[-20:] if output_shape == "resource_event_history" else source_rows[:20]
             )
         for row_index, row in enumerate(projected_rows, start=1):
             candidate_rows: list[dict[str, object]] = [
@@ -3067,14 +3103,17 @@ def _render_query_answer(
             if len(_answer_json(candidate).encode("utf-8")) > answer_output_limit - reserved:
                 break
             rows = candidate_rows
-        outputs.append(
-            _answer_output(
-                node_id=node_id,
-                table=table,
-                rows=rows,
-                evidence_refs=result.evidence_refs,
-            )
+        shown_output = _answer_output(
+            node_id=node_id,
+            table=table,
+            rows=rows,
+            evidence_refs=result.evidence_refs,
         )
+        if output_shape == "resource_health_list":
+            health_summary = summarize_health_rows(table.rows)
+            if health_summary is not None:
+                shown_output["health_summary"] = health_summary
+        outputs.append(shown_output)
     if rule_search is not None and not projected_rule_search:
         return None, None
     if incident_evidence is not None and not projected_incident:
@@ -3174,11 +3213,20 @@ def _answer_row_values(values: Mapping[str, object]) -> dict[str, object]:
         declaration_values = _ontology_declaration_answer_values(values)
         if declaration_values is not None:
             return declaration_values
+    group = values.get("group")
+    # An aggregate row names its group in a mapping; its scalar fields lead the row.
     projected = {
         field: _redact_answer_scalar(field, value)
-        for field, value in values.items()
+        for field, value in (group.items() if isinstance(group, Mapping) else ())
         if isinstance(field, str) and field and not isinstance(value, Mapping | list)
     }
+    projected.update(
+        {
+            field: _redact_answer_scalar(field, value)
+            for field, value in values.items()
+            if isinstance(field, str) and field and not isinstance(value, Mapping | list)
+        }
+    )
     projected.update(reviewed_structured_cells(values, redact=_redact_answer_scalar))
     if values.get("record_kind") == "excerpt" and values.get("cloud_source") is not None:
         from fdai_service_contracts.cloud_knowledge import CloudSourceEvidence
@@ -3593,6 +3641,7 @@ def _render_general_query_answer(
                 if korean
                 else f"- Verified {returned} of {total} rows."
             )
+            lines.extend(health_summary_lines(output.get("health_summary"), korean=korean))
             lines.extend(verified_rows_table(output, korean=korean, leading=measure_concepts))
             if output.get("source_complete") is False:
                 notice = output.get("source_truncation_reason")

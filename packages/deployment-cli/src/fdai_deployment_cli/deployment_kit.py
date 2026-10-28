@@ -87,7 +87,7 @@ class DeploymentKit:
 
 
 def default_online_kit_url() -> str:
-    """Return the versioned upstream kit URL for the current package and platform."""
+    """Return the versioned upstream kit URL for compatibility callers."""
 
     platform_tag = runtime_platform_tag()
     return (
@@ -99,18 +99,11 @@ def default_online_kit_url() -> str:
 def acquire_deployment_kit(
     *,
     work_dir: Path,
-    online: bool,
     offline_kit: Path | None,
+    online: bool = False,
     online_url: str | None = None,
 ) -> DeploymentKit:
-    """Acquire exactly one source and verify all executable content before use.
-
-    Online mode downloads once, then fully revalidates retained inputs from the same source
-    request on retry. Artifact-offline mode accepts only the supplied local directory or archive
-    and rereads that source on retry without replacing earlier execution copies or falling back
-    to the network. Release and bundle roots always come from the package.
-    Cached bytes never bypass verification, authorize an effect, or replace prior run evidence.
-    """
+    """Verify one selected kit source for internal compatibility callers."""
 
     if online == (offline_kit is not None):
         raise ValueError("select exactly one of online mode or an offline kit")
@@ -118,14 +111,21 @@ def acquire_deployment_kit(
     _require_private_directory(work_dir)
     with acquisition_lock(work_dir):
         return _acquire_deployment_kit(
-            work_dir=work_dir, online=online, offline_kit=offline_kit, online_url=online_url
+            work_dir=work_dir,
+            online=online,
+            offline_kit=offline_kit,
+            online_url=online_url,
         )
 
 
 def _acquire_deployment_kit(
-    *, work_dir: Path, online: bool, offline_kit: Path | None, online_url: str | None
+    *,
+    work_dir: Path,
+    online: bool,
+    offline_kit: Path | None,
+    online_url: str | None,
 ) -> DeploymentKit:
-    """Acquire under the work-directory lock and authenticate before returning any paths."""
+    """Acquire under lock and authenticate before returning any paths."""
 
     kit_root = work_dir / "kit"
     retained_offline_kit_root: Path | None = None

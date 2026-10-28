@@ -144,9 +144,15 @@ exposes only private endpoints, configure the optional
 #### Select the Azure read scope
 
 Set `FDAI_LOCAL_RESOURCE_GROUP=<existing-read-scope>` for every local Console stack. The preparation
-script verifies that group in the active Azure CLI subscription and reads its region. A missing or
+script verifies that group in the pinned local subscription and reads its region. A missing or
 invalid scope stops preparation; it never invents a resource group or silently selects the entire
 subscription.
+
+The Azure CLI default subscription is shared state that other terminals and projects can change, so
+the local stack does not follow it. The first preparation records the subscription of the current
+`az login` as `FDAI_LOCAL_SUBSCRIPTION_ID` in `console/.env.local`, and every later preparation reads
+that subscription explicitly. If the pinned subscription is not available to the login, preparation
+stops and asks for `az login` or a corrected value; edit the value only to move the stack on purpose.
 
 To reuse the same explicit scope from VS Code tasks, add the setting to the gitignored
 `console/.env.local` file described below:

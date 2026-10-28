@@ -11,7 +11,7 @@ from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 
-# Covers the default AKS profile (8 Standard_D4as_v5 nodes at most) at public US rates.
+# Covers the default AKS profile (8 Standard_D4ds_v4 nodes at most) at public US rates.
 DEFAULT_MONTHLY_COST_CEILING = 1500
 
 
@@ -40,7 +40,7 @@ def resolve_work_dir_monthly_cost_ceiling(
     requested: int | None, *, work_dir: Path, adopted_foundation: Path | None
 ) -> int:
     """Resolve the ceiling from the records a run in ``work_dir`` retains, in precedence order."""
-    retained = (
+    retained: tuple[Path, ...] = (
         work_dir / "source-intent.json",
         work_dir / "run/profile.json",
         work_dir / "foundation/profile.json",

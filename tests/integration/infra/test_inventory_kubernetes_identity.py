@@ -147,7 +147,7 @@ def test_external_scale_grant_is_named_and_bound_only_to_thor_runtime() -> None:
     assert 'verbs          = ["get"]' in role
     assert 'verbs          = ["get", "update"]' in role
     assert "namespace = each.key" in role
-    assert "local.executor_kubernetes_effect_enabled" in role
+    assert "local.executor_direct_api_enabled" in role
     assert 'environment["FDAI_EXECUTION_VENUE"] == "deployed"' in role
     assert 'environment["FDAI_KUBERNETES_DIRECT_API_JSON"]).allowed_namespaces' in role
     for forbidden in (

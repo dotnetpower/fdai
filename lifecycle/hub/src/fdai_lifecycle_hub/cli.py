@@ -10,27 +10,33 @@ import argparse
 import json
 import os
 import sys
+from base64 import b64encode
 from collections.abc import Callable, Sequence
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
 from uuid import UUID
 
-from fdai_deployment_cli.contracts import load_json_object
+from fdai_deployment_cli.contracts import canonical_bytes, load_json_object
 from fdai_deployment_cli.lifecycle_native import NativeOwnershipAcceptance
+from fdai_deployment_cli.lifecycle_native_transition import NativeScopeTransitionCompletion
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
+from fdai_deployment_cli.private_output import write_private_bytes
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 
 from fdai_lifecycle_hub import domain, models, schemas
 from fdai_lifecycle_hub.catalog import load_catalog
 from fdai_lifecycle_hub.catalog_import import load_pinned_export
+from fdai_lifecycle_hub.enrollment import PROOF_CLOCK_WINDOW
 from fdai_lifecycle_hub.errors import HubStoreError, SchemaMismatchError
 from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.native_ownership import NativeOwnershipStore
 from fdai_lifecycle_hub.native_proofs import NativeProofStore
+from fdai_lifecycle_hub.native_transition import NativeTransitionStore
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import (
+    HubSigningKey,
     generate_development_key,
     load_private_key,
     load_public_key,
@@ -90,6 +96,20 @@ def _parser() -> argparse.ArgumentParser:
     )
     enroll.add_argument("path", type=Path, help="enrollment request without key and time")
     enroll.add_argument("--key", type=Path, required=True, help="installation private key")
+    sign = command(
+        "sign-enrollment",
+        _sign_enrollment,
+        "sign an enrollment request and write only the file the operator uploads",
+    )
+    sign.add_argument("path", type=Path, help="enrollment request without key and time")
+    sign.add_argument("--key", type=Path, required=True, help="installation private key")
+    sign.add_argument("--out", type=Path, required=True, help="new private output file")
+    submit_enrollment = command(
+        "submit-enrollment",
+        _submit_enrollment,
+        "submit an already signed enrollment request without reading its private key",
+    )
+    submit_enrollment.add_argument("path", type=Path)
 
     approve = command("approve", _approve, "enroll a pending installation")
     approve.add_argument("installation_id")
@@ -122,6 +142,17 @@ def _parser() -> argparse.ArgumentParser:
     native.add_argument("--reason")
     native.add_argument("--confirmation")
     native.add_argument("--operator", required=True)
+
+    complete_transition = command(
+        "complete-native-transition",
+        _complete_native_transition,
+        "atomically finalize an Agent-completed native scope transition",
+    )
+    complete_transition.add_argument("installation_id")
+    complete_transition.add_argument("path", type=Path)
+    complete_transition.add_argument("--agent-principal", required=True)
+    complete_transition.add_argument("--key", type=Path)
+    complete_transition.add_argument("--key-epoch", type=int, default=1)
 
     binding = command(
         "bind-application", _bind_application, "bind an application with a private operator request"
@@ -232,6 +263,52 @@ def _dev_keygen(args: argparse.Namespace) -> int:
     return 0
 
 
+def _submit_enrollment(args: argparse.Namespace) -> int:
+    try:
+        document = schemas.SignedEnrollment.model_validate_json(args.path.read_bytes())
+        request = schemas.enrollment_request(
+            document.signed_payload,
+            document.proof,
+        )
+    except (OSError, ValueError) as error:
+        raise ValueError("signed_enrollment_request_invalid") from error
+    _store().request_enrollment(request, verify=verify_key_proof, now=domain.utc_now())
+    _print(
+        {
+            "pending": request.installation.installation_id,
+            "installation_key_id": request.installation_key_id,
+        }
+    )
+    return 0
+
+
+def _sign_enrollment(args: argparse.Namespace) -> int:
+    """Sign inside the installation boundary and write only the public upload file."""
+
+    template = json.loads(args.path.read_bytes())
+    if not isinstance(template, dict):
+        raise ValueError("an enrollment request must be a JSON object")
+    now = domain.utc_now()
+    request = schemas.sign_enrollment(template, load_private_key(args.key), now)
+    document = {
+        "signed_payload": b64encode(request.signed_payload).decode("ascii"),
+        "proof": b64encode(request.proof).decode("ascii"),
+    }
+    try:
+        write_private_bytes(args.out, canonical_bytes(document))
+    except FileExistsError:
+        raise ValueError("signed_enrollment_output_exists") from None
+    _print(
+        {
+            "signed_file": str(args.out),
+            "installation_id": request.installation.installation_id,
+            "installation_key_id": request.installation_key_id,
+            "submit_before": (now + PROOF_CLOCK_WINDOW).isoformat(),
+        }
+    )
+    return 0
+
+
 def _dev_enroll(args: argparse.Namespace) -> int:
     """Stand in for the installation agent: add the key and time, sign, and submit."""
 
@@ -316,6 +393,47 @@ def _accept_native_ownership(args: argparse.Namespace) -> int:
     )
     _print({"accepted": True, "changed": result["changed"]})
     return 0
+
+
+def _complete_native_transition(args: argparse.Namespace) -> int:
+    try:
+        with args.path.open("rb") as handle:
+            body = handle.read(64 * 1024 + 1)
+        load_json_object(
+            body,
+            label="native transition completion",
+            max_bytes=64 * 1024,
+            strict=True,
+        )
+        command = NativeScopeTransitionCompletion.model_validate_json(body)
+    except (OSError, ValueError) as error:
+        raise ValueError("native_transition_completion_invalid") from error
+    key = _native_transition_key(args)
+    result = NativeTransitionStore(_store()).complete(
+        args.installation_id,
+        command,
+        principal=args.agent_principal,
+        now=domain.utc_now(),
+        key=key,
+    )
+    _print(result.model_dump(mode="json"))
+    return 0
+
+
+def _native_transition_key(args: argparse.Namespace) -> HubSigningKey:
+    if "FDAI_HUB_REMOTE_CONFIG" in os.environ:
+        from fdai_lifecycle_hub.remote import RemoteConfig, remote_key
+
+        try:
+            config = RemoteConfig.model_validate_json(os.environ["FDAI_HUB_REMOTE_CONFIG"])
+        except ValueError:
+            raise ValueError("Trusted Lifecycle CLI remote configuration is invalid.") from None
+        if config.kind != "target" or args.key is not None:
+            raise ValueError("Remote native transition completion uses the configured Hub key.")
+        return remote_key(config.key_epoch)
+    if args.key is None:
+        raise ValueError("Local native transition completion requires --key.")
+    return load_signing_key(args.key, epoch=args.key_epoch)
 
 
 def _bind_application(args: argparse.Namespace) -> int:

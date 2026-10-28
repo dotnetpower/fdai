@@ -123,6 +123,17 @@
     ]
   },
   {
+    "route": "/concepts/functional-readiness-backlog/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/functional-readiness-backlog.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
     "route": "/concepts/functional-readiness/",
     "locale": "en",
     "source_path": "docs/user-guide/concepts/functional-readiness.md",
@@ -502,6 +513,17 @@
     "diagram_ids": [
       "fdai-deterministic-first-01"
     ]
+  },
+  {
+    "route": "/ko/concepts/functional-readiness-backlog/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/functional-readiness-backlog-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
   },
   {
     "route": "/ko/concepts/functional-readiness/",

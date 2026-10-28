@@ -13,6 +13,7 @@ import subprocess
 import sys
 import uuid
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any, Final
 
@@ -21,6 +22,8 @@ from fdai_service_contracts.product_profile import ObservationDataSource, Produc
 from fdai_deployment_cli import (
     aks_readiness,
     catalog_review_profile,
+    hub_image_stage,
+    hub_ownership,
     source_application_inputs,
     standalone_host_values,
     standalone_kubernetes_tools,
@@ -28,26 +31,34 @@ from fdai_deployment_cli import (
     standalone_terraform_environment,
 )
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
+from fdai_deployment_cli import notification_recipients_input as notification_recipients
 from fdai_deployment_cli import operational_evidence_verifier_input as oev
 from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
-from fdai_deployment_cli.standalone_service_update_finalization import (
-    add_finalization_parser,
-)
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     secret_binding_reordered,
-    single_block as _single,
     validate_reconciliation_plan,
+)
+from fdai_deployment_cli.aks_historical_reconciliation import (
+    single_block as _single,
 )
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
+)
+from fdai_deployment_cli.aks_service_update import (
     deployment_snapshot,
     peers_unchanged,
-    service_update_review as _service_update_review,
-    service_update_target as _service_update_target,
-    validated_secret_environment as _validated_secret_env,
     validate_plan_scope,
     validate_update_request,
+)
+from fdai_deployment_cli.aks_service_update import (
+    service_update_review as _service_update_review,
+)
+from fdai_deployment_cli.aks_service_update import (
+    service_update_target as _service_update_target,
+)
+from fdai_deployment_cli.aks_service_update import (
+    validated_secret_environment as _validated_secret_env,
 )
 from fdai_deployment_cli.aks_workload_jobs import (
     aks_kubernetes_direct_api_environment as _aks_kubernetes_direct_api_environment,
@@ -63,12 +74,6 @@ from fdai_deployment_cli.runtime_profile import (
     RuntimeDeploymentProfile,
     legacy_full_product_matches,
     legacy_runtime_profile_digest,
-)
-from fdai_deployment_cli.standalone_development_authority import (
-    apply_initial_development_authority,
-    apply_service_update_development_authority,
-    development_authority_from_args,
-    reconcile_retained_development_authority,
 )
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
@@ -96,6 +101,25 @@ from fdai_deployment_cli.standalone_checkpoint_failure import (
     terraform_failure as _terraform_failure,
 )
 from fdai_deployment_cli.standalone_database_principals import database_reader_principals
+from fdai_deployment_cli.standalone_development_authority import (
+    apply_initial_development_authority,
+    apply_service_update_development_authority,
+    development_authority_from_args,
+    reconcile_retained_development_authority,
+)
+from fdai_deployment_cli.standalone_host_rebind import (
+    bind_installed_license as _bind_installed_license,
+)
+from fdai_deployment_cli.standalone_host_rebind import (
+    pending_application_operation as _pending_application_operation,
+)
+from fdai_deployment_cli.standalone_host_rebind import (
+    prepare_managed_identity_login,
+    refresh_private_access,
+)
+from fdai_deployment_cli.standalone_host_rebind import (
+    reconcile_retained_aks_license_binding as _reconcile_retained_aks_license_binding,
+)
 from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
@@ -180,6 +204,9 @@ from fdai_deployment_cli.standalone_residual_apply import (
 from fdai_deployment_cli.standalone_residual_successor import (
     successor_prerequisite_verified as _residual_successor_prerequisite,
 )
+from fdai_deployment_cli.standalone_service_update_finalization import (
+    add_finalization_parser,
+)
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
 )
@@ -218,6 +245,7 @@ _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 _mapping = standalone_host_values.mapping
 _required_guid = standalone_host_values.required_guid
 _selected_identity = standalone_host_values.selected_identity
+_aks_core_conversation_environment = standalone_host_values.aks_core_conversation_environment
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
 _AKS_RUNTIME_NAMESPACE = "fdai-runtime"
 _STAGES: Final = ("access", "substrate", "runtime", "database", "application")
@@ -251,13 +279,14 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--catalog-review-profile", type=Path)
     prepare.add_argument("--catalog-review-private-key", type=Path)
     prepare.add_argument("--operational-evidence-verifier-input", type=Path)
+    prepare.add_argument("--notification-recipients", type=Path)
     prepare.add_argument("--runtime-platform", default="aks")
     prepare.add_argument("--database-placement", default="postgres-flex")
     prepare.add_argument("--system-node-count", type=int, default=3)
     prepare.add_argument("--system-node-sku", default=None)
     prepare.add_argument("--user-node-min-count", type=int, default=3)
     prepare.add_argument("--user-node-max-count", type=int, default=5)
-    prepare.add_argument("--user-node-sku", default="Standard_D4as_v5")
+    prepare.add_argument("--user-node-sku", default="Standard_D4ds_v4")
     prepare.add_argument("--database-sku")
     prepare.add_argument(
         "--product-add-on",
@@ -272,6 +301,10 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
     )
     prepare.set_defaults(handler=_prepare)
+
+    subcommands.add_parser("refresh-private-access").set_defaults(
+        handler=partial(refresh_private_access, login=_managed_identity_login_from_context)
+    )
 
     source_application_inputs.add_prepare_source_parser(subcommands, _prepare)
 
@@ -350,8 +383,8 @@ def main(argv: list[str] | None = None) -> int:
     update_context.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
     update_context.set_defaults(handler=_service_update_context, read_only=True)
 
-    binding = subcommands.add_parser("deployment-binding")
-    binding.set_defaults(handler=_deployment_binding)
+    subcommands.add_parser("deployment-binding").set_defaults(handler=_deployment_binding)
+    hub_ownership.add_handoff_parser(subcommands)
 
     migrate = subcommands.add_parser("migrate")
     migrate.set_defaults(handler=_migrate)
@@ -369,6 +402,8 @@ def main(argv: list[str] | None = None) -> int:
     license_command.add_argument("--deployment-binding", required=True)
     license_command.add_argument("--installation-binding", default=None)
     license_command.set_defaults(handler=_install_license)
+
+    subcommands.add_parser("bind-installed-license").set_defaults(handler=_bind_installed_license)
 
     verify = subcommands.add_parser("verify")
     verify.set_defaults(handler=_verify)
@@ -414,6 +449,8 @@ def _verify_source_runtime(args: argparse.Namespace, _work_dir: Path) -> dict[st
 
 def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     _private_directory(work_dir)
+    hub_selection = hub_image_stage.prepare_host_inputs(args, work_dir)
+    source_mode = hasattr(args, "source_snapshot")
     handoff = _private_json(_absolute(args.handoff), "Foundation handoff")
     runtime_profile = RuntimeDeploymentProfile.from_prepare_arguments(args)
     enterprise_identity_selected = runtime_profile.product_profile.selects(
@@ -433,6 +470,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         handoff=handoff,
         runner=runner,
     )
+    hub_image_stage.require_foundation_source(hub_selection, foundation.adoption.source_commit)
     initial_inventory_binding = _initial_inventory_binding(foundation.subscription_id)
     foundation_binding_digest = _foundation_binding_digest(
         handoff,
@@ -455,6 +493,10 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         _absolute(verifier_input_path) if verifier_input_path else None
     )
     verifier_input_digest = verifier_input.input_digest if verifier_input is not None else ""
+    recipients_path = getattr(args, "notification_recipients", None)
+    recipients_input = notification_recipients.staged_notification_recipients_from_path(
+        _absolute(recipients_path) if recipients_path else None
+    )
     development_authority = development_authority_from_args(args, absolute=_absolute)
     foundation.login(_managed_identity_login, work_dir)
     suffix = (
@@ -505,6 +547,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         if not retained_context.exists() or not retained_variables.exists():
             raise ValueError("standalone host preparation is incomplete")
         retained = _private_json(retained_context, "standalone host context")
+        hub_image_stage.require_retained_artifact_mode(retained, source_mode, hub_selection)
         retained_values = _private_json(retained_variables, "standalone host Terraform variables")
         posture_changed = _reconcile_retained_private_access(
             retained, retained_values, key_vault_private_access, document_storage_private_access
@@ -529,6 +572,11 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             retained=retained,
             values=retained_values,
         )
+        recipients_changed = notification_recipients.reconcile_retained_notification_recipients(
+            recipients_input,
+            retained=retained,
+            values=retained_values,
+        )
         foundation.adoption.require_context(retained)
         source_changed = source_application_inputs.rebind_source_tree(retained, work_dir)
         authority_changed = reconcile_retained_development_authority(
@@ -539,7 +587,13 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             subscription_id=foundation.subscription_id,
             resource_groups=(str(app["name"]), str(ops["resource_group_name"])),
         )
-        if posture_changed or oev_changed or source_changed or authority_changed:
+        if (
+            posture_changed
+            or oev_changed
+            or recipients_changed
+            or source_changed
+            or authority_changed
+        ):
             _replace_private_json(retained_context, retained)
             _replace_private_json(retained_variables, retained_values)
         _terraform_init(work_dir, retained)
@@ -555,17 +609,11 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             "focused_private_access": _focused_private_access(retained),
             "mutation_performed": False,
             "subscription_ready": False,
+            **(hub_selection.metadata() if hub_selection is not None else {}),
         }
-    source_mode = hasattr(args, "source_snapshot")
     if source_mode:
-        source_snapshot = _absolute(args.source_snapshot)
-        source_artifacts = source_application_inputs.source_host_artifacts(
-            source_snapshot=source_snapshot,
-            snapshot_digest=str(args.source_snapshot_digest),
-            expected_source_commit=foundation.adoption.source_commit,
-            work_dir=work_dir,
-            runtime_support=_absolute(args.runtime_support),
-            runtime_support_digest=str(args.runtime_support_digest),
+        source_artifacts = source_application_inputs.prepare_host_artifacts(
+            args, work_dir, foundation.adoption.source_commit
         )
         source_commit = source_artifacts.source_commit
         infra = source_artifacts.infra
@@ -580,7 +628,6 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         _private_directory(kit_work)
         kit = acquire_deployment_kit(
             work_dir=kit_work,
-            online=False,
             offline_kit=_absolute(args.kit),
         )
         foundation.adoption.require_kit(kit)
@@ -690,6 +737,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     )
     values.update(catalog_review_profile.catalog_review_terraform_values(catalog_profile))
     oev.apply_operational_evidence_verifier_input(values, verifier_input)
+    notification_recipients.apply_notification_recipients(values, recipients_input)
     if adoption is not None:
         values.update(
             resolved_capabilities=adoption[0]["resolved_capabilities"],
@@ -712,11 +760,13 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "key_vault_name": key_vault_name,
         "document_storage_private_access": document_storage_private_access,
         "document_storage_account_name": document_storage_account_name,
+        "resource_group_name": str(app["name"]),
         "entra_binding_digest": entra_binding_digest,
         "application_state_adoption_digest": adoption_digest,
         "catalog_review_profile_digest": catalog_profile.profile_digest,
         "catalog_review_selected": catalog_profile.selected,
         "oev_input_digest": verifier_input_digest,
+        "notification_recipients_digest": notification_recipients.context_digest(recipients_input),
         "development_authority_profile_digest": development_profile_digest,
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
@@ -740,9 +790,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "terraform_data": str(work_dir / "terraform-data"),
     }
     if source_mode:
-        context.update(
-            source_snapshot=str(source_snapshot), source_snapshot_digest=source_artifacts.digest
-        )
+        context.update(source_artifacts.snapshot_metadata())
+    hub_image_stage.bind_host_selection(context, hub_selection)
     _replace_private_json(work_dir / "application.auto.tfvars.json", values)
     _replace_private_json(work_dir / "context.json", context)
     _terraform_init(work_dir, context)
@@ -759,6 +808,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "focused_private_access": _focused_private_access(context),
         "mutation_performed": False,
         "subscription_ready": False,
+        **(hub_selection.metadata() if hub_selection is not None else {}),
     }
 
 
@@ -872,75 +922,6 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     }
 
 
-def _aks_core_conversation_environment(
-    *,
-    application_values: dict[str, Any],
-    substrate_outputs: dict[str, object],
-    semantic_topics: list[object],
-) -> dict[str, str]:
-    """Build a complete Core semantic binding or reject incomplete model outputs."""
-
-    if len(semantic_topics) < 3:
-        raise ValueError("AKS semantic topic output contract is incomplete")
-
-    def required_text(value: object, label: str) -> str:
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"AKS {label} output is unavailable")
-        return value.strip()
-
-    environment = {
-        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": required_text(
-            semantic_topics[0], "semantic request topic"
-        ),
-        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": required_text(
-            semantic_topics[1], "semantic projection topic"
-        ),
-        "FDAI_READ_INVESTIGATION_REQUEST_TOPIC": required_text(
-            semantic_topics[2], "read investigation topic"
-        ),
-        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC": required_text(
-            substrate_outputs.get("semantic_physical"), "semantic physical topic"
-        ),
-    }
-    enable_llm = application_values.get("enable_llm")
-    if not isinstance(enable_llm, bool):
-        raise TypeError("AKS enable_llm setting MUST be a boolean")
-    if not enable_llm:
-        return environment
-
-    endpoint = required_text(substrate_outputs.get("llm_endpoint"), "LLM endpoint")
-    digest = required_text(substrate_outputs.get("resolved_models_sha256"), "resolved-model digest")
-    if re.fullmatch(r"[0-9a-f]{64}", digest) is None:
-        raise ValueError("AKS resolved-model digest MUST be a lowercase SHA-256 digest")
-    model_endpoints = substrate_outputs.get("llm_model_endpoints")
-    if (
-        not isinstance(model_endpoints, dict)
-        or not model_endpoints
-        or any(
-            not isinstance(reference, str)
-            or not reference.strip()
-            or not isinstance(model_endpoint, str)
-            or not model_endpoint.strip()
-            for reference, model_endpoint in model_endpoints.items()
-        )
-    ):
-        raise ValueError("AKS LLM model endpoint outputs are incomplete")
-    environment.update(
-        {
-            "LLM_MODE": "azure",
-            "LLM_RESOLVED_MODELS_PATH": "/app/resolved-models.json",
-            "LLM_RESOLVED_MODELS_SHA256": digest,
-            "FDAI_LLM_ENDPOINT": endpoint,
-            "FDAI_MODEL_ENDPOINTS_JSON": json.dumps(
-                model_endpoints,
-                separators=(",", ":"),
-                sort_keys=True,
-            ),
-        }
-    )
-    return environment
-
-
 def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     context = _private_json(work_dir / "context.json", "standalone host context")
     if _runtime_platform(context) != "aks":
@@ -992,6 +973,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "operational_evidence_verifier_identity": _terraform_json_output(
             substrate, "operational_evidence_verifier_identity"
         ),
+        "notification_email": _terraform_json_output(substrate, "notification_email_binding"),
     }
     if _database_placement(context) == "postgres-flex":
         substrate_outputs.update(
@@ -1023,13 +1005,17 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     )
     operator_api_selected = console_selected or enterprise_identity_selected
     governed_execution_selected = _selects_add_on(context, ProductAddOn.GOVERNED_EXECUTION)
+    notifications_selected = _selects_add_on(context, ProductAddOn.NOTIFICATIONS)
     console_origin = (
         _console_origin(str(substrate_outputs["console_hostname"])) if console_selected else ""
     )
-    backend_nsg_id = _subnet_network_security_group(
-        str(substrate_outputs["aks_subnet_id"]),
-        context=context,
-        cwd=work_dir,
+    backend_nsg_id = standalone_host_values.require_browser_gateway_backend_nsg(
+        enabled=console_selected,
+        backend_nsg_id=_subnet_network_security_group(
+            str(substrate_outputs["aks_subnet_id"]),
+            context=context,
+            cwd=work_dir,
+        ),
     )
     identities = substrate_outputs["identities"]
     topics = substrate_outputs["topics"]
@@ -1045,6 +1031,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     operator_identity = _selected_identity(identities, "operator", operator_api_selected)
     command_identity = _selected_identity(identities, "command", operator_api_selected)
     executor_identity = _selected_identity(identities, "executor", governed_execution_selected)
+    notification_identity = _selected_identity(identities, "notification", notifications_selected)
     inventory_identity = _mapping(identities.get("inventory"), "inventory runtime identity")
     canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
     ingestion_identity = _selected_identity(identities, "ingestion", console_selected)
@@ -1071,6 +1058,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     core_environment.update({**AKS_CORE_STARTUP_READINESS, **receipt_core_env})
     license_environment, license_secrets = aks_license_environment(application_values)
     core_environment.update(license_environment)
+    if notifications_selected:
+        core_environment.update(
+            standalone_host_values.aks_notification_environment(
+                application_values=application_values,
+                email_binding=substrate_outputs["notification_email"],
+                identity=notification_identity,
+            )
+        )
     operator_environment = (
         aks_operator_environment(
             application_values=application_values,
@@ -1096,7 +1091,16 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     refs = _mapping(context.get("image_refs"), "runtime image references")
     workloads = {
         "core-control-plane": _aks_workload(
-            "core", refs, core_identity, core_environment, dsn_secret, "/ready", "/live"
+            "core",
+            refs,
+            core_identity,
+            core_environment,
+            dsn_secret,
+            "/ready",
+            "/live",
+            additional_identities=(
+                {"notification": notification_identity} if notifications_selected else None
+            ),
         ),
     }
     if operator_api_selected:
@@ -1194,6 +1198,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "workloads": workloads,
         "scheduled_jobs": scheduled_jobs,
         "browser_gateway": {
+            "enabled": console_selected,
             "resource_group_name": resource_group,
             "location": application_values["region"],
             "workload": application_values["workload"],
@@ -1220,12 +1225,19 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     workloads_path = work_dir / "workloads.auto.tfvars.json"
     if workloads_path.exists():
         retained_values = _private_json(workloads_path, "workloads.auto.tfvars.json")
+        license_binding_changed = _reconcile_retained_aks_license_binding(
+            retained_values,
+            values,
+        )
+        input_rebind_changed = False
         if retained_values != values:
-            bind_authoritative_backend_nsg(
+            input_rebind_changed = bind_authoritative_backend_nsg(
                 work_dir=work_dir,
                 retained=retained_values,
                 current=values,
             )
+        if license_binding_changed and not input_rebind_changed:
+            _replace_private_json(workloads_path, retained_values)
     else:
         _replace_or_verify_private_json(workloads_path, values)
     _replace_private_json(work_dir / "context.json", context)
@@ -2067,6 +2079,14 @@ def _application_operation(
     )
     if reconciliation is not None:
         return str(reconciliation["operation"]), reconciliation
+    if stage == "application" and service is None and update is None:
+        pending = _pending_application_operation(
+            context,
+            work_dir,
+            input_rebind_pending=_application_successor_prerequisite(work_dir, stage),
+        )
+        if pending is not None:
+            return pending, None
     return (str(update["operation"]) if update is not None else stage), None
 
 
@@ -2580,7 +2600,12 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
     ):
         operation = "runtime-cluster"
     receipt_path = work_dir / f"{operation}-receipt.json"
-    if receipt_path.exists():
+    successor_pending = (
+        stage == "application"
+        and update is None
+        and _application_successor_prerequisite(work_dir, stage)
+    )
+    if receipt_path.exists() and not successor_pending:
         if reconciliation is not None:
             return _historical_reconciliation_receipt(work_dir, context, reconciliation)
         receipt = _private_json(receipt_path, "standalone apply receipt")
@@ -2746,7 +2771,7 @@ def _import_images(_args: argparse.Namespace, work_dir: Path) -> dict[str, objec
     _managed_identity_login_from_context(context, work_dir)
     if not (work_dir / "substrate-receipt.json").exists():
         raise ValueError("image import requires the applied substrate plan")
-    if context.get("artifact_source") == "operator-selected-source":
+    if context.get("artifact_source") in {"operator-selected-source", "hub-signed-images"}:
         return source_application_inputs.write_source_image_import_receipt(
             context=context, work_dir=work_dir, write_json=_replace_private_json
         )
@@ -3457,36 +3482,26 @@ def _browser_console_binding(context: dict[str, object], work_dir: Path) -> dict
     substrate = Path(str(context["infra"]))
     hostname = _terraform_output(substrate, "console_default_hostname")
     resource_id = _terraform_output(substrate, "console_static_web_app_id")
-    static_site_match = re.fullmatch(
-        r"/subscriptions/([^/]+)/resourceGroups/[^/]+/providers/"
-        r"Microsoft[.]Web/staticSites/[^/]+",
-        resource_id,
-        flags=re.IGNORECASE,
-    )
-    if static_site_match is None:
-        raise ValueError("Console Static Web App resource ID is invalid")
-    if static_site_match.group(1).casefold() != str(context["subscription_id"]).casefold():
-        raise ValueError("Console Static Web App belongs to a different subscription")
-
+    workloads_path = work_dir / "workloads.auto.tfvars.json"
+    if workloads_path.is_file():
+        standalone_host_values.verify_browser_gateway_backend_nsg(
+            _private_json(workloads_path, "workloads.auto.tfvars.json"),
+            observed_nsg_id=_subnet_network_security_group(
+                _terraform_output(substrate, "aks_subnet_id"),
+                context=context,
+                cwd=work_dir,
+            ),
+        )
     _activate_terraform_stage("application", context, work_dir)
     workloads = Path(str(context["workloads_infra"]))
-    operator_url = _terraform_output(workloads, "browser_gateway_operator_url").rstrip("/")
-    ingestion_url = _terraform_output(workloads, "browser_gateway_ingestion_url").rstrip("/")
-    operator_match = re.fullmatch(
-        r"https://([a-z0-9](?:[a-z0-9-]*[a-z0-9])?[.]azure-api[.]net)",
-        operator_url,
+    return standalone_host_values.validate_browser_console_binding(
+        subscription_id=str(context["subscription_id"]),
+        hostname=hostname,
+        console_origin=_console_origin(hostname),
+        resource_id=resource_id,
+        operator_url=_terraform_output(workloads, "browser_gateway_operator_url").rstrip("/"),
+        ingestion_url=_terraform_output(workloads, "browser_gateway_ingestion_url").rstrip("/"),
     )
-    if operator_match is None:
-        raise ValueError("browser gateway Operator URL is invalid")
-    if ingestion_url != f"{operator_url}/ingestion":
-        raise ValueError("browser gateway ingestion URL is not bound to the Operator gateway")
-    return {
-        "console_hostname": hostname,
-        "console_origin": _console_origin(hostname),
-        "console_static_web_app_id": resource_id,
-        "operator_api_base_url": operator_url,
-        "ingestion_api_base_url": ingestion_url,
-    }
 
 
 def _terraform_init(work_dir: Path, context: dict[str, object]) -> None:
@@ -3537,7 +3552,7 @@ def _activate_terraform_stage(stage: str, context: dict[str, object], work_dir: 
     elif stage == "database":
         data = context.get("database_terraform_data")
     elif stage == "application" and platform == "aks":
-        data = context.get("workloads_terraform_data")
+        data = hub_ownership.workloads_terraform_data(context, work_dir)
     else:
         data = context.get("terraform_data", str(work_dir / "terraform-data"))
     if not isinstance(data, str) or not data:
@@ -4071,19 +4086,7 @@ def _deployment_binding(_args: argparse.Namespace, work_dir: Path) -> dict[str, 
 
 
 def _managed_identity_login_from_context(context: dict[str, object], work_dir: Path) -> None:
-    _configure_terraform(context)
-    standalone_planned_outputs.bind(
-        Path(str(context["infra"])),
-        variables=work_dir / "application.auto.tfvars.json",
-        data_dir=Path(str(context.get("terraform_data", work_dir / "terraform-data"))),
-    )
-    _managed_identity_login(
-        str(context["subscription_id"]),
-        str(context["tenant_id"]),
-        str(context["client_id"]),
-        str(context["principal_id"]),
-        work_dir,
-    )
+    prepare_managed_identity_login(context, work_dir, login=_managed_identity_login)
 
 
 def _managed_identity_login(

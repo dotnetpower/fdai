@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import importlib
 import json
 import os
@@ -14,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from fdai_deployment_cli import standalone_catalog_checkpoint
+from fdai_deployment_cli import azure_actor, standalone_catalog_checkpoint
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.catalog_review_profile import (
     CatalogReviewDeploymentProfile,
@@ -28,26 +27,36 @@ from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail
 from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
 )
+from fdai_deployment_cli.hub_image_deploy import application_selection, source_binding
+from fdai_deployment_cli.hub_image_trust import HubImageSelection
 from fdai_deployment_cli.license_issue import deployment_license_token as _license_token
+from fdai_deployment_cli.notification_recipients_input import (
+    NotificationRecipientsDeploymentInput,
+)
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     OperationalEvidenceVerifierDeploymentInput,
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
-from fdai_deployment_cli.standalone_approval_input import (
-    wait_for_approval_input as _wait_for_approval_input,
-)
 from fdai_deployment_cli.source_application_inputs import (
     build_source_console,
     prepare_source_recovery_host,
     source_transfer_inputs,
+)
+from fdai_deployment_cli.standalone_application_recovery import (
+    converge_focused_private_access as _converge_focused_private_access,
+)
+from fdai_deployment_cli.standalone_application_recovery import (
+    recover_failed_exact_apply as _recover_failed_exact_apply,
+)
+from fdai_deployment_cli.standalone_approval_input import (
+    wait_for_approval_input as _wait_for_approval_input,
 )
 from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
 from fdai_deployment_cli.standalone_console_publish import publish_verified_console
 from fdai_deployment_cli.standalone_remote_prepare import prepare_remote as _prepare_remote
 from fdai_deployment_cli.standalone_review import validate_plan_review
 from fdai_deployment_cli.standalone_transfer_cleanup import cleanup_remote_transfers, remote_prune
-from fdai_deployment_cli.target import compute_target_binding
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _SSH_USER = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
@@ -67,6 +76,7 @@ def deploy_standalone_application(
     application_state_adoption: ApplicationStateAdoption | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
     operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
+    notification_recipients: NotificationRecipientsDeploymentInput | None = None,
     development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
     clear_development_authority_profile: bool = False,
     control_package: ControlPackage | None = None,
@@ -74,6 +84,7 @@ def deploy_standalone_application(
     source_snapshot_digest: str | None = None,
     source_root: Path | None = None,
     foundation_recovery_directory: Path | None = None,
+    hub_selection: HubImageSelection | None = None,
 ) -> dict[str, object]:
     """Deploy and independently replan the application without a workflow host."""
 
@@ -83,6 +94,7 @@ def deploy_standalone_application(
         database_placement="postgres-flex",
     )
     source_mode = source_snapshot is not None
+    hub_selection = application_selection(hub_selection, source_mode, prepared)
     begin_stage("transfer")
     progress_detail(
         "Verifying the handoff and preparing the source snapshot for Bastion transfer"
@@ -98,7 +110,7 @@ def deploy_standalone_application(
         plan_directory = foundation_recovery_directory.absolute()
         if (
             not source_mode
-            or plan_directory.parent != prepared.root.parent
+            or plan_directory.parent != prepared.root
             or re.fullmatch(r"foundation-recovery-attempt-[1-9][0-9]*", plan_directory.name) is None
             or not plan_directory.is_dir()
             or plan_directory.is_symlink()
@@ -125,6 +137,7 @@ def deploy_standalone_application(
     source_transfer = None
     recovery_host: Path | None = None
     recovery_host_digest: str | None = None
+    transient_paths: tuple[str, ...]
     if source_mode:
         if (
             kit is not None
@@ -159,8 +172,7 @@ def deploy_standalone_application(
         "runtime_profile_digest": selected_runtime.digest,
     }
     if source_mode:
-        work_binding["source_snapshot_digest"] = source_snapshot_digest
-        work_binding["provenance"] = "operator-selected-source"
+        work_binding.update(source_binding(source_snapshot_digest, hub_selection))
     else:
         work_binding["kit_manifest_digest"] = prepared.kit_manifest_digest
     if control_package is not None:
@@ -219,6 +231,7 @@ def deploy_standalone_application(
             source_runtime_support_digest=(
                 source_transfer.runtime_support_digest if source_transfer is not None else None
             ),
+            **({"hub_selection": hub_selection} if hub_selection is not None else {}),
             runtime_profile=selected_runtime,
             application_state_adoption=application_state_adoption,
             remote_adoption_state=remote_adoption_state,
@@ -229,6 +242,7 @@ def deploy_standalone_application(
                 catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
             ),
             operational_evidence_verifier_input=operational_evidence_verifier_input,
+            notification_recipients=notification_recipients,
             development_authority_profile=development_authority_profile,
             clear_development_authority_profile=clear_development_authority_profile,
             control_package=control_package,
@@ -249,44 +263,18 @@ def deploy_standalone_application(
             and host_preparation.get("focused_private_access") is True
         ):
             progress_detail("Converging the focused private data-plane access path")
-            access_recovery = _remote_json(
+            _converge_focused_private_access(
                 tunnel,
-                remote_root,
-                app_work,
-                ("recover-apply", "--stage", "access"),
-                timeout=3600,
+                remote_root=remote_root,
+                app_work=app_work,
+                prepared_root=prepared.root,
+                remote_approval=remote_approval,
+                deadline=deadline,
+                remote_json=_remote_json,
+                plan_after_recovery=_plan_after_recovery,
+                approve_plan=_approve_plan,
+                require_receipt=_require_receipt,
             )
-            if access_recovery.get("state") == "applied":
-                access_receipt = access_recovery
-            else:
-                access_plan, access_apply_command = _plan_after_recovery(
-                    tunnel,
-                    remote_root,
-                    app_work,
-                    access_recovery,
-                    stage="access",
-                    timeout=3600,
-                )
-                deadline.remaining()
-                access_approval = _approve_plan(prepared.root, access_plan, deadline=deadline)
-                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
-                tunnel.copy_to(access_approval, remote_approval, timeout=120)
-                access_receipt = _remote_json(
-                    tunnel,
-                    remote_root,
-                    app_work,
-                    (
-                        access_apply_command,
-                        "--stage",
-                        "access",
-                        "--approval",
-                        remote_approval,
-                    ),
-                    timeout=7200,
-                )
-                access_approval.unlink(missing_ok=True)
-                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
-            _require_receipt(access_receipt, "access")
         begin_stage("substrate")
         progress_detail("Recovering by verification, or planning private infrastructure")
         substrate_recovery = _remote_json(
@@ -314,21 +302,64 @@ def deploy_standalone_application(
             tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
             tunnel.copy_to(substrate_approval, remote_approval, timeout=120)
             progress_detail("Applying the approved infrastructure plan and verifying its effects")
-            substrate_receipt = _remote_json(
-                tunnel,
-                remote_root,
-                app_work,
-                (
-                    substrate_apply_command,
-                    "--stage",
-                    "substrate",
-                    "--approval",
-                    remote_approval,
-                ),
-                timeout=7200,
-            )
-            substrate_approval.unlink(missing_ok=True)
-            tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+            try:
+                substrate_receipt = _remote_json(
+                    tunnel,
+                    remote_root,
+                    app_work,
+                    (
+                        substrate_apply_command,
+                        "--stage",
+                        "substrate",
+                        "--approval",
+                        remote_approval,
+                    ),
+                    timeout=7200,
+                )
+            except ValueError:
+                substrate_approval.unlink(missing_ok=True)
+                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
+                private_access = _remote_json(
+                    tunnel,
+                    remote_root,
+                    app_work,
+                    ("refresh-private-access",),
+                    timeout=deadline.remaining(300),
+                )
+                if private_access.get("focused_private_access") is True:
+                    progress_detail(
+                        "Converging policy-forced private access before effect recovery"
+                    )
+                    _converge_focused_private_access(
+                        tunnel,
+                        remote_root=remote_root,
+                        app_work=app_work,
+                        prepared_root=prepared.root,
+                        remote_approval=remote_approval,
+                        deadline=deadline,
+                        remote_json=_remote_json,
+                        plan_after_recovery=_plan_after_recovery,
+                        approve_plan=_approve_plan,
+                        require_receipt=_require_receipt,
+                    )
+                progress_detail(
+                    "Recovering the failed infrastructure apply without repeating its effect"
+                )
+                substrate_receipt = _recover_failed_exact_apply(
+                    tunnel,
+                    remote_root=remote_root,
+                    app_work=app_work,
+                    prepared_root=prepared.root,
+                    remote_approval=remote_approval,
+                    stage="substrate",
+                    deadline=deadline,
+                    remote_json=_remote_json,
+                    plan_after_recovery=_plan_after_recovery,
+                    approve_plan=_approve_plan,
+                )
+            else:
+                substrate_approval.unlink(missing_ok=True)
+                tunnel.ssh(("rm", "-f", "--", remote_approval), timeout=60)
         _require_receipt(substrate_receipt, "substrate")
         if selected_runtime.runtime_platform.value == "aks":
             begin_stage("runtime")
@@ -645,11 +676,14 @@ def deploy_standalone_application(
                 timeout_seconds=deadline.remaining(),
                 redirect_changed=redirect_changed,
             )
-        transient_paths = (
-            (f"{remote_root}/source-transfer.tar", f"{remote_root}/source-receiver.pyz")
-            if source_mode
-            else (remote_archive,)
-        )
+        if source_mode:
+            assert source_transfer is not None
+            transient_paths = (
+                f"{remote_root}/{source_transfer.archive.name}",
+                f"{remote_root}/source-receiver.pyz",
+            )
+        else:
+            transient_paths = (remote_archive,)
         cleanup_remote_transfers(
             tunnel,
             transient_paths=transient_paths,
@@ -704,6 +738,8 @@ def deploy_standalone_application(
             receipt["kit_manifest_digest"] = kit_verification.manifest_digest
         if kit_runtime is not None:
             receipt["runtime_release_digest"] = kit_runtime.digest
+    if hub_selection is not None:
+        receipt.update(hub_selection.metadata())
     receipt["receipt_digest"] = canonical_digest(receipt)
     deadline.remaining()
     _replace_private_json(prepared.root / "standalone-application-receipt.json", receipt)
@@ -899,40 +935,11 @@ def _import_entra(scripts: Path) -> Any:
 
 
 def _azure_actor_digest(target_binding: str, *, timeout_seconds: int = 60) -> str:
-    result = subprocess.run(
-        (
-            "az",
-            "account",
-            "show",
-            "--query",
-            "{subscription_id:id,tenant_id:tenantId,user_name:user.name,user_type:user.type}",
-            "--output",
-            "json",
-            "--only-show-errors",
-        ),
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=timeout_seconds,
+    return azure_actor.actor_digest(
+        target_binding,
+        timeout_seconds=timeout_seconds,
+        runner=subprocess.run,
     )
-    try:
-        value = json.loads(result.stdout)
-    except json.JSONDecodeError as exc:
-        raise ValueError("authenticated Azure approval actor is unavailable") from exc
-    if not isinstance(value, dict) or result.returncode != 0 or value.get("user_type") != "user":
-        raise ValueError("authenticated Azure approval actor is unavailable")
-    subscription = value.get("subscription_id")
-    tenant = value.get("tenant_id")
-    login = value.get("user_name")
-    if (
-        not isinstance(subscription, str)
-        or not isinstance(tenant, str)
-        or not isinstance(login, str)
-        or not login.strip()
-        or compute_target_binding(tenant_id=tenant, subscription_id=subscription) != target_binding
-    ):
-        raise ValueError("active Azure target does not match the approved plan")
-    return hashlib.sha256(f"{target_binding}:{login.casefold()}".encode()).hexdigest()
 
 
 def _private_json(path: Path, label: str) -> dict[str, Any]:

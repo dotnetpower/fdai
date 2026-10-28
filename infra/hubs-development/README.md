@@ -134,11 +134,26 @@ including elapsed download/lock time for expiry. This generates a Plan only for 
 enrolled, approved, ownership-proven, managed synthetic installation with suitable artifact
 evidence. Publishing a manifest alone never proves an artifact exists.
 
+## Catalog adoption and renewal settings
+
+The development Lifecycle Hub pulls the catalog from the development Release Hub with its
+managed identity; the Release Hub never pushes. Three optional inputs tune that flow, and each
+is written to the Hub configuration only when set:
+
+| Input | Effect |
+|-------|--------|
+| `catalog_check_interval_seconds` | `null` keeps the Hub default, `0` disables checks, otherwise `300` to `86400` |
+| `catalog_adoption` | Null keeps `review`. `mode = "auto"` needs `authorized_by` and an `authorization_expires_at` timestamp with a timezone. That standing authorization is attributed and expires, so renewing it is a deployment change. |
+| `timestamp_renewal_check_seconds` | Release Hub freshness renewal of published content. `0` (default) disables it; otherwise `60` to `3600`. |
+| `catalog_trust` | Replaces `release_public_key` with signed TUF roles: `mode = "tuf"`, 1 to 16 unique `ed25519-<64 hex>` `root_key_ids` and a whole `root_threshold` up to the key count. Name exactly one of the two. |
+| `catalog_roles` | Release Hub serves signed snapshot and timestamp metadata, with optional `timestamp_ttl_seconds` and `snapshot_ttl_seconds`. Needs the `catalog_snapshot_key` and `catalog_timestamp_key` secret versions for the release Hub. This stack has no operation Job, so install the offline-signed root with a one-off `fdai-hub-remote install-catalog-root` run that has the Hub's environment. |
+
 ## Build and validate locally
 
 From the repository root, build each image with the
 [digest-pinned Buildx procedure](../modules/hub-service/README.md#freeze-one-candidate).
-It supplies the required approved `NODE_IMAGE`, `PYTHON_IMAGE` and `UV_IMAGE` digest references;
+It supplies the required approved `NODE_IMAGE`, `PYTHON_IMAGE`, `UV_IMAGE` and `OPA_IMAGE` digest
+references;
 the Dockerfile has no unpinned fallback bases.
 
 | Image | `TARGET` | `IMAGE_TAG` |

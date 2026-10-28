@@ -72,7 +72,22 @@ def _tables(kind: Kind, connection: Connection | None = None) -> list[Table]:
     versions = _versions(namespace)
     if connection is not None:
         _prepared_revision(connection, versions)
+        tables.extend(_present_optional_tables(kind, connection))
     return sorted([*tables, versions], key=lambda table: table.name)
+
+
+def _present_optional_tables(kind: Kind, connection: Connection) -> list[Table]:
+    """Signed-role tables exist only after a Hub first uses signed roles."""
+    if kind == "release":
+        from fdai_release_hub.role_tables import role_metadata
+
+        optional = list(role_metadata.sorted_tables)
+    else:
+        from fdai_lifecycle_hub.catalog_integrity_state import metadata as integrity_metadata
+
+        optional = list(integrity_metadata.sorted_tables)
+    present = inspect(connection)
+    return [table for table in optional if present.has_table(table.name)]
 
 
 def _observe_table(connection: Connection, table: Table) -> TableObservation:

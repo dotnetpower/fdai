@@ -12,7 +12,7 @@ from sqlalchemy.engine import Connection
 
 from fdai_lifecycle_hub.errors import SchemaMigrationPendingError
 
-REVISION = 1
+REVISION = 2
 logger = logging.getLogger(__name__)
 
 
@@ -62,6 +62,10 @@ def migrate(
                 connection.execute(versions.update().values(revision=6, prepared_revision=None))
             return
         if revision == _revision(namespace):
+            return
+        if namespace == "release_hub":
+            initialize(connection)
+            connection.execute(versions.update().values(revision=REVISION))
             return
         _upgrade_legacy(connection, versions, revision)
         if prepare:

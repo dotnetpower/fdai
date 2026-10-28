@@ -1,21 +1,28 @@
 ---
 title: Deploy Quickstart
-description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: d47bb532e1a5d3bde76e495b7c132c11c8d68d50 }, { source: docs/roadmap/deployment/source-deployment.md, sha: d8980873e1c9d0a35d520788053ff0c885891605 }]
+description: Deploy FDAI with signed Release Hub images, an explicit source build, or a signed offline package.
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5e8916d4e4dd468e465ed0ec8388bfb55c6cf912 }, { source: docs/roadmap/deployment/source-deployment.md, sha: a3f745efb0afc86b156d80500aafea28d49bf679 }, { source: docs/roadmap/deployment/hub-image-deployment.md, sha: 073c3c7c2aa71caf864a9e7a8e5d42969f6504c3 }]
 ---
 
 # Deploy Quickstart
 
-> **Deployment distribution:** The [constitution](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](../roadmap/deployment/hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
+> **Deployment distribution:** Ordinary clone deployment selects
+> [Release Hub images](../roadmap/deployment/hub-image-deployment.md). Explicit source builds and
+> signed offline packages retain their [constitutional contracts](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope).
+> Connected image bootstrap does not complete the full
+> [Hub-managed lifecycle](../roadmap/deployment/hub-managed-lifecycle.md).
 
-You can deploy FDAI to your own Azure subscription from a clone of the repository with one command
-line after one interactive Azure sign-in. You don't need a key, a signed kit, a published release,
-or any GitHub setup. Without the upstream integrity signing key, the installation runs a 30-day
+You can deploy FDAI to your own Azure subscription from a clone of the repository after one
+interactive Azure sign-in. By default, the command selects prebuilt images through
+`https://hub.msfdai.com`, using an independently trusted Release public key and a compatible
+published Release. You don't need a private signing key, a signed kit or GitHub setup.
+Explicit source mode needs neither a Hub nor a published Release.
+Without the upstream integrity signing key, the installation runs a 30-day
 Trial and shows an expiry watermark after it ends. With that key at
 `secrets/integrity-signing-key.pem` in your clone, it receives a full entitlement.
 
-Terraform remains the infrastructure source of truth. The deployment command builds the service
-images from your clone in your own registry, shows each plan it applies, moves private data-plane
+Terraform remains the infrastructure source of truth. The deployment command imports signed,
+digest-pinned service images into your own registry, shows each plan it applies, moves private data-plane
 work into the virtual network, and verifies the resulting application before it reports deployment
 readiness.
 
@@ -28,10 +35,11 @@ Review this read scope in the plan.
 
 | Environment | Start with | What you need |
 |-------------|------------|---------------|
-| Any Azure subscription you can sign in to | Run `az login`, then one line: `git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region <region>` | Nothing else. No key, kit, or release |
+| Connected clone deployment | Run `az login`, then `scripts/deployment/azure/fdai-up.sh --hub-public-key <trusted-public.pem> --region <region>` from your clone | Independently trusted Release public key, compatible published Release and registry pull access |
+| Explicit source build in your own subscription | Run `az login`, then `scripts/deployment/azure/fdai-up.sh --source . --region <region>` | No Hub, verification key, kit or published Release |
 | An Azure VM without internet access | Run `fdaictl provision azure --offline-kit <package>` on that VM | One signed offline package from a key holder |
 
-GitHub Actions tests the repository. It is not part of either deployment path.
+GitHub Actions tests the repository. It is not the tenant deployment transport.
 
 > **Hub development validation:** The separate
 > [Release Hub](../../infra/release-hub/README.md) and
@@ -40,7 +48,8 @@ GitHub Actions tests the repository. It is not part of either deployment path.
 > remain unavailable without authentication. The
 > [legacy paired guide](../../infra/hubs-development/README.md) retains its existing authenticated
 > fixture. Neither is a complete Hub-managed FDAI installation or a replacement for either
-> quickstart path. Local evidence isn't Azure or production trust-root acceptance; cloud execution
+> source/offline path. Hub-image bootstrap is documented separately and does not imply a completed
+> managed lifecycle. Local evidence isn't Azure or production trust-root acceptance; cloud execution
 > requires separate approval.
 
 > **Current status:** The one-command source deployment is implemented through application
@@ -87,6 +96,10 @@ Before you start, confirm the following requirements:
   resumes after the role is active.
 - Capacity in the selected Azure region for the required resource types.
 - An interactive Azure session for the intended subscription.
+- For the default image path, an independently approved Release Hub public PEM and a clean checkout
+  matching the signed Release source commit. The key is public; never supply a private key.
+  The selected channel and signed image locations must be reachable. A failed check stops deployment
+  instead of building replacement images. See [Release Hub image deployment](../roadmap/deployment/hub-image-deployment.md).
 
 ### Install the command once
 
@@ -155,18 +168,23 @@ Invalid commands, incomplete arguments, and conflicting artifact sources still r
 
 ### Run the deployment
 
-Sign in, then run one line that clones the repository and starts the deployment in your chosen
-Azure region:
+Obtain the Release public key through your approved trust channel, sign in and check the selected
+subscription, then deploy in your chosen Azure region:
 
 ```bash
 az login
-git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azure/fdai-up.sh --region koreacentral
+az account show --query '{subscription:id,name:name}' --output table
+git clone https://github.com/dotnetpower/fdai.git
+fdai/scripts/deployment/azure/fdai-up.sh \
+  --hub-public-key /trusted/release-hub-public.pem --region koreacentral
 ```
 
-If you already have a clone, run `scripts/deployment/azure/fdai-up.sh --region koreacentral` from
-its root instead. The wrapper prepares your clone's locked environment and runs
-`fdaictl provision azure --source .` with your options. With an installed CLI, you can run that
-command directly from the clone. The activity stream appears automatically in an interactive
+If you already have a clone, run the wrapper from it with the same public-key and region options.
+The wrapper prepares your clone's locked environment and selects Hub images by default.
+For the unchanged Hub-independent build path, explicitly run
+`scripts/deployment/azure/fdai-up.sh --source . --region koreacentral`, or
+`fdaictl provision azure --source <checkout>` with an installed CLI.
+The activity stream appears automatically in an interactive
 terminal as append-only installer events; add `--progress plain` to remove terminal styling while
 keeping the same scrolling records. Quiet preparation and preflight work writes a `still working`
 record every 10 seconds, followed by an explicit completion or failure record. The private work
@@ -183,11 +201,14 @@ The coordinator performs the following operations in one resumable process:
 1. Reads the active tenant and subscription from Azure CLI without accepting either value as a
    command-line secret.
 2. Pins one clean committed snapshot of your clone.
+   In Hub mode, verifies the signed catalog and Release, requires matching source, and records
+   the selected subscription's minimal deployment request before Azure deployment effects.
 3. Selects the Trial or full entitlement mode from your clone's `secrets/` directory.
 4. Runs read-only policy, quota, provider, and target checks.
 5. Shows and applies the Foundation plan: the private state boundary, virtual network, Bastion
    access, deployment identity, and managed deployment host.
-6. Builds the service images from the snapshot in your registry and reads back their digests.
+6. Imports the signed image digests into your registry and reads them back. Explicit source mode
+   builds the service images from the snapshot instead.
 7. Applies migrations and catalogs, starts the Trial or stores the full entitlement, configures
    Entra when selected, and deploys the application by digest.
 8. Verifies image digests, migration and catalog state, service health, and a second zero-change
@@ -196,15 +217,20 @@ The coordinator performs the following operations in one resumable process:
 Your invocation approves each plan the command shows. Deleting or replacing an existing resource
 requires one extra typed confirmation. The command never interprets silence as approval. If an
 apply result is ambiguous, rerunning the same command performs verification-only recovery rather
-than repeating the apply. Rerunning the command later upgrades the same installation from your
-current clone.
+than repeating the apply. Hub-image reruns retain the exact selected catalog; in-place channel
+upgrades and Hub teardown are not implemented. A catalog change needs a separately reviewed run,
+not mode switching or adoption of existing resources. Explicit source mode retains its own
+resume/update contract. A request row is not deployment success:
+Release Hub operators see `requested` / `self-reported` records in **Deployment requests**.
+The request includes the subscription, region, Release/channel and input digests, never Azure
+credentials or customer configuration. It does not prove subscription ownership.
 
 An exact Foundation recovery may use a newer clean checkout for recovery logic. After verified
 state handoff, application deployment still uses the original retained source snapshot and the
 original runtime profile. Recovery does not silently upgrade application bytes or select a signed
 kit.
 
-To check feasibility first, add `--prepare-only` to pin the snapshot without Azure access, or
+For explicit source mode, add `--prepare-only` to pin the snapshot without Azure access, or
 `--preflight-only` to read AKS SKU and quota feasibility without changing resources. A successful
 preparation or preflight is not a deployed application.
 
@@ -214,6 +240,8 @@ with `--add-on` and optional observation sources with `--observation-source`; th
 headless observation-first profile. The partial AKS compute cost review uses a 1500 USD monthly
 ceiling unless you pass `--monthly-cost-ceiling <USD>`. These settings do not deploy resources by
 themselves.
+The `notifications` add-on also needs `--notification-recipients <path>`: a private JSON file
+`{"recipients": ["name@domain"]}` that stays out of the runtime profile and receipts.
 
 Before the Foundation plan, Genesis reads the regional VM catalog and chooses a compatible managed
 host size within the quota budget. The choice is sealed before approval and never changed during
@@ -234,44 +262,10 @@ removes its temporary files without rebuilding the deleted Terraform work tree o
 
 ### Recover a verified public development deployment
 
-This recovery path adopts state from the `azd-up.sh` public development bootstrap and still runs
-through the legacy release-kit acquisition, which is scheduled for removal.
-
-Use application-state adoption only when the contributor deployment has already produced a verified
-`fdai.contributor-recovery.v1` receipt after a failed apply. Run the command from the exact signed kit
-revision that contains the adoption support:
-
-```bash
-fdaictl provision azure \
-  --online \
-  --region <azure-region> \
-  --adopt-runner-image-receipt <verified-runner-image-receipt> \
-  --adopt-application-state <private-terraform-state> \
-  --adopt-application-recovery <private-recovery-receipt> \
-  --adopt-resolved-models <private-resolved-models>
-```
-
-Supply the runner receipt and all three application mode-0600 files together. The coordinator
-verifies their digests, target, resource
-count, resource suffix, and model-capability contract. It creates a private staged copy that removes
-only the application resource group's two ownership records. The original local state remains
-unchanged.
-
-The runner receipt reuses an independently verified managed image without another image apply. A
-new Foundation run keeps its current signed source and records the image's original source, signed
-verifier source, image run, and exact receipt digest as separate provenance.
-
-The managed host accepts the staged state only when the Foundation-owned remote application backend
-doesn't contain a state blob. It writes an immutable claim before the single non-forced state push,
-then reads the state back and verifies its lineage, serial, content, and managed-resource count. If
-the process stops after the claim, run the same command with the same work directory and inputs. The
-host verifies the existing remote state and doesn't repeat the push. A different input, target,
-Foundation binding, nonempty backend, or changed lineage stops recovery for operator review.
-The recovered-state path also stops before approval if either subsequent plan contains a delete or
-replacement action.
-
-Don't delete the existing Azure resources or the original local state to resolve an adoption error.
-Keep the work directory and use the retained claim or receipt to determine the failed boundary.
+`azd-up.sh` remains a Core-only development diagnostic. It isn't an FDAI installation path, and
+`fdaictl provision azure` no longer adopts its state through connected release-kit acquisition.
+Keep its work directory and receipts for diagnosis. Create a supported installation with the
+one-command source path or a signed offline package instead.
 
 ### Trial and full entitlement
 
@@ -366,9 +360,7 @@ The following tools are not public tenant deployment entry points:
 
 - `genesis-up.sh` is a low-level Foundation diagnostic and recovery tool.
 - `azd-up.sh` is a Core-only public development bootstrap on Container Apps. It is not the
-  one-command source deployment.
-- `fdaictl provision azure --online` acquires a published release kit. It is not one of the two
-  installation paths and is scheduled for removal.
+  one-command source deployment and its state isn't adopted by the public installer.
 - `fdai-up.sh` refuses the retired `--signing-key` option and never builds a kit. Build the signed
   offline package separately and pass `--offline-kit` instead.
 - Deployment workflows under `.github/workflows/` are repository CI, release, and historical

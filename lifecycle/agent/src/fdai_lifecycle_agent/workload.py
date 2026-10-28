@@ -10,15 +10,26 @@ import re
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from fdai_deployment_cli.lifecycle_release import HttpWorkload
+
+if TYPE_CHECKING:
+    from fdai_lifecycle_agent.adoption import AdoptionExpectation
 
 FIELD_MANAGER = "fdai-lifecycle-agent"
 MANAGED_BY_LABEL = "app.kubernetes.io/managed-by"
 ENTITY_LABEL = "fdai.io/entity"
 COMPONENT_LABEL = "fdai.io/component"
-API_VERSIONS = {"Deployment": "apps/v1", "Service": "v1", "Job": "batch/v1", "CronJob": "batch/v1"}
+SCHEMA_EXPAND_ANNOTATION = "fdai.io/schema-expand"
+SCHEMA_TARGET_ANNOTATION = "fdai.io/schema-target"
+API_VERSIONS = {
+    "Deployment": "apps/v1",
+    "Service": "v1",
+    "Job": "batch/v1",
+    "CronJob": "batch/v1",
+    "HorizontalPodAutoscaler": "autoscaling/v2",
+}
 CONTAINER_PORT = 8080
 
 _DNS_LABEL = re.compile(r"[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\Z", re.ASCII)
@@ -63,6 +74,13 @@ class Cluster(Protocol):
         ...
 
 
+@runtime_checkable
+class OwnershipTransitionCluster(Cluster, Protocol):
+    def transition_owned(self, kind: str, name: str, uid: str) -> bool: ...
+
+    def transition_live(self, kind: str, name: str, uid: str) -> Manifest | None: ...
+
+
 def is_dns_label(value: str) -> bool:
     """Whether ``value`` can name a namespace or an object of this workload."""
 
@@ -77,6 +95,14 @@ def is_repository(value: str) -> bool:
 
 def object_key(manifest: Manifest) -> ObjectKey:
     return manifest["kind"], manifest["metadata"]["name"]
+
+
+def is_schema_expand_job(manifest: Manifest) -> bool:
+    return (
+        manifest.get("kind") == "Job"
+        and manifest.get("metadata", {}).get("annotations", {}).get(SCHEMA_EXPAND_ANNOTATION)
+        == "true"
+    )
 
 
 def render(
@@ -179,20 +205,29 @@ def _service(metadata: Mapping[str, object], selector: Mapping[str, str]) -> Man
     }
 
 
-def check_scope(manifests: Iterable[Manifest], namespace: str) -> None:
+def check_scope(
+    manifests: Iterable[Manifest],
+    namespace: str,
+    *,
+    unmanaged_adoptions: frozenset[ObjectKey] = frozenset(),
+) -> None:
     """Require agent-managed Deployments, internal Services, Jobs or CronJobs in ``namespace``."""
 
     for manifest in manifests:
         metadata = manifest.get("metadata")
+        kind = manifest.get("kind", "")
+        name = metadata.get("name") if isinstance(metadata, Mapping) else None
         if not (
             isinstance(metadata, Mapping)
-            and API_VERSIONS.get(manifest.get("kind", "")) == manifest.get("apiVersion")
+            and API_VERSIONS.get(kind) == manifest.get("apiVersion")
             and metadata.get("namespace") == namespace
-            and isinstance(metadata.get("name"), str)
+            and isinstance(name, str)
             and isinstance(labels := metadata.get("labels"), Mapping)
-            and labels.get(MANAGED_BY_LABEL) == FIELD_MANAGER
             and (
-                manifest.get("kind") != "Service"
+                labels.get(MANAGED_BY_LABEL) == FIELD_MANAGER or (kind, name) in unmanaged_adoptions
+            )
+            and (
+                kind != "Service"
                 or manifest.get("spec", {}).get("type", "ClusterIP") == "ClusterIP"
             )
         ):
@@ -206,7 +241,10 @@ def rollout_complete(deployment: Manifest) -> bool:
     spec = deployment.get("spec") or {}
     status = deployment.get("status") or {}
     generation = (deployment.get("metadata") or {}).get("generation", 0)
-    replicas = spec.get("replicas", 1)
+    # An autoscaled Deployment omits replicas; the controller-reported count is then the target.
+    replicas = spec["replicas"] if "replicas" in spec else status.get("replicas", 0)
+    if replicas < 1 and "replicas" not in spec:
+        return False
     return status.get("observedGeneration", -1) >= generation and all(
         status.get(field, 0) == replicas
         for field in ("replicas", "updatedReplicas", "availableReplicas", "readyReplicas")
@@ -224,7 +262,13 @@ class Workload:
     monotonic: Callable[[], float] = time.monotonic
     sleep: Callable[[float], None] = time.sleep
 
-    def preflight(self, desired: Sequence[Manifest], previous: Sequence[Manifest]) -> None:
+    def preflight(
+        self,
+        desired: Sequence[Manifest],
+        previous: Sequence[Manifest],
+        *,
+        adoptions: Sequence[AdoptionExpectation] = (),
+    ) -> None:
         """Check before the apply-started report, without changing the cluster.
 
         The change stays in scope, every desired object without a recorded healthy version is
@@ -232,7 +276,12 @@ class Workload:
         server-side dry run of each object.
         """
 
-        check_scope([*desired, *previous], self.namespace)
+        check_scope(desired, self.namespace)
+        check_scope(
+            previous,
+            self.namespace,
+            unmanaged_adoptions=frozenset(item.key for item in adoptions),
+        )
         recorded = {object_key(manifest) for manifest in previous}
         for key in map(object_key, desired):
             if key not in recorded and self.cluster.get(*key) is not None:
@@ -265,10 +314,13 @@ class Workload:
             lambda: self._jobs_complete(jobs), can_continue=can_continue
         ):
             raise WorkloadError("schema_check_failed")
-        for manifest in desired:
-            if manifest["kind"] not in {"Job", "CronJob"}:
-                _check_deadline(can_continue)
-                self.cluster.apply(manifest)
+        # An autoscaler is applied after its target Deployment exists.
+        for manifest in sorted(
+            (item for item in desired if item["kind"] not in {"Job", "CronJob"}),
+            key=lambda item: item["kind"] == "HorizontalPodAutoscaler",
+        ):
+            _check_deadline(can_continue)
+            self.cluster.apply(manifest)
         immediate = tuple(item for item in desired if item["kind"] != "CronJob")
         if not self._wait_until(lambda: self._rolled_out(immediate), can_continue=can_continue):
             return False
@@ -279,19 +331,31 @@ class Workload:
             lambda: self._rolled_out(scheduled), can_continue=can_continue
         ):
             raise WorkloadError("scheduled_activation_unverified")
-        for job in jobs:
+        cleanup_jobs = tuple(job for job in jobs if not is_schema_expand_job(job))
+        for job in cleanup_jobs:
             self.cluster.delete(*object_key(job))
-        if jobs and not self._wait_until(
-            lambda: all(self.cluster.get(*object_key(job)) is None for job in jobs)
+        if cleanup_jobs and not self._wait_until(
+            lambda: all(self.cluster.get(*object_key(job)) is None for job in cleanup_jobs)
         ):
             raise WorkloadError("schema_check_cleanup_failed")
         return True
 
-    def roll_back(self, desired: Sequence[Manifest], previous: Sequence[Manifest]) -> bool:
+    def roll_back(
+        self,
+        desired: Sequence[Manifest],
+        previous: Sequence[Manifest],
+        *,
+        adoptions: Sequence[AdoptionExpectation] = (),
+    ) -> bool:
         """Restore the recorded healthy objects, delete the desired objects that had none, and
         return whether that state was verified in time."""
 
-        check_scope([*desired, *previous], self.namespace)
+        check_scope(desired, self.namespace)
+        check_scope(
+            previous,
+            self.namespace,
+            unmanaged_adoptions=frozenset(item.key for item in adoptions),
+        )
         # A suspended/missing template cannot prove that an earlier activation never ran.
         unproved_scheduled_effect = any(
             item["kind"] == "CronJob" and item.get("spec", {}).get("suspend") is not True
@@ -306,17 +370,37 @@ class Workload:
                 self.cluster.apply(_suspended_schedule(item))
         recorded = {object_key(manifest) for manifest in previous}
         created = [key for key in map(object_key, desired) if key not in recorded]
+        migration_jobs = {
+            object_key(manifest) for manifest in desired if is_schema_expand_job(manifest)
+        }
         for kind, name in created:
-            if kind == "Job":
+            if kind == "Job" and (kind, name) not in migration_jobs:
                 self.cluster.delete(kind, name)
         # A running Job must be absent before restoring or removing any workload.
         if not self._wait_until(
             lambda: all(
-                self.cluster.get(kind, name) is None for kind, name in created if kind == "Job"
+                self.cluster.get(kind, name) is None
+                for kind, name in created
+                if kind == "Job" and (kind, name) not in migration_jobs
             )
         ):
             return False
+        transition = self.cluster if isinstance(self.cluster, OwnershipTransitionCluster) else None
+        adoption_by_key = {item.key: item for item in adoptions}
+        unadopted_previous: list[Manifest] = []
+        previous_to_apply: list[Manifest] = []
         for manifest in previous:
+            key = object_key(manifest)
+            expectation = adoption_by_key.get(key)
+            if (
+                expectation is not None
+                and transition is not None
+                and not transition.transition_owned(*key, expectation.uid)
+            ):
+                unadopted_previous.append(manifest)
+            else:
+                previous_to_apply.append(manifest)
+        for manifest in previous_to_apply:
             self.cluster.apply(
                 _suspended_schedule(manifest)
                 if manifest["kind"] == "CronJob" and unproved_scheduled_effect
@@ -332,13 +416,47 @@ class Workload:
                         _suspended_schedule(item)
                         if item["kind"] == "CronJob" and unproved_scheduled_effect
                         else item
-                        for item in previous
+                        for item in previous_to_apply
                     )
                 )
-                and all(self.cluster.get(kind, name) is None for kind, name in created)
+                and all(
+                    transition is not None
+                    and (expectation := adoption_by_key.get(object_key(item))) is not None
+                    and (live := transition.transition_live(*object_key(item), expectation.uid))
+                    is not None
+                    and _contains(live.get("spec"), item.get("spec"))
+                    for item in unadopted_previous
+                )
+                and all(
+                    self.cluster.get(kind, name) is None
+                    for kind, name in created
+                    if (kind, name) not in migration_jobs
+                )
             )
         )
         return restored and not unproved_scheduled_effect
+
+    def completed_schema_revision(self, desired: Sequence[Manifest]) -> int | None:
+        """Return the retained completed migration receipt's schema target, if any."""
+
+        targets: list[int] = []
+        for manifest in desired:
+            if not is_schema_expand_job(manifest):
+                continue
+            live = self.cluster.get(*object_key(manifest))
+            conditions = [] if live is None else live.get("status", {}).get("conditions", [])
+            if not any(
+                item.get("type") == "Complete" and item.get("status") == "True"
+                for item in conditions
+            ):
+                continue
+            target = (
+                manifest.get("metadata", {}).get("annotations", {}).get(SCHEMA_TARGET_ANNOTATION)
+            )
+            if not isinstance(target, str) or not target.isdecimal():
+                raise WorkloadError("schema_expand_receipt_invalid")
+            targets.append(int(target))
+        return max(targets) if targets else None
 
     def _rolled_out(self, manifests: Sequence[Manifest]) -> bool:
         """Whether every object exists and, for a Deployment, its rollout is complete."""
@@ -377,7 +495,7 @@ class Workload:
             name = metadata.get("name")
             if not isinstance(entity_id, str) or not isinstance(name, str):
                 continue
-            expected_digests.update(_deployment_image_digests(manifest))
+            expected_digests.update(deployment_image_digests(manifest))
             live = self.cluster.get(manifest["kind"], name)
             if (
                 live is None
@@ -386,7 +504,7 @@ class Workload:
             ):
                 drifted.add(entity_id)
             if live is not None:
-                live_digests.setdefault(entity_id, set()).update(_deployment_image_digests(live))
+                live_digests.setdefault(entity_id, set()).update(deployment_image_digests(live))
         return (
             {
                 entity_id: frozenset(live_digests.get(entity_id, set()))
@@ -448,7 +566,7 @@ def _suspended_schedule(manifest: Manifest) -> Manifest:
     return dict(manifest) | {"spec": dict(manifest["spec"]) | {"suspend": True}}
 
 
-def _deployment_image_digests(manifest: Manifest) -> tuple[str, ...]:
+def deployment_image_digests(manifest: Manifest) -> tuple[str, ...]:
     spec = manifest.get("spec") or {}
     if manifest.get("kind") == "CronJob":
         spec = spec.get("jobTemplate", {}).get("spec", {})

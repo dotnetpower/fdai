@@ -96,13 +96,11 @@ def stage_recovered_foundation(
         load_json_object(profile_bytes, label="adopted Foundation profile")
     )
     private_key = read_private_bytes(foundation_directory / "runner_ed25519", max_bytes=65_536)
-    handoff_bytes, handoff = _read_record(
-        recovery_directory / "recovery-private-handoff.json",
-        label="recovered Foundation handoff",
-    )
+    handoff_path, receipt_path = _terminal_foundation_paths(recovery_directory)
+    handoff_bytes, handoff = _read_record(handoff_path, label="terminal Foundation handoff")
     recovery_bytes, recovery = _read_receipt(
-        recovery_directory / "recovery-apply-receipt.json",
-        label="Foundation recovery receipt",
+        receipt_path,
+        label="terminal Foundation apply receipt",
         digest_field="receipt_digest",
     )
     enrollment_bytes, enrollment = _read_receipt(
@@ -179,6 +177,21 @@ def stage_recovered_foundation(
         "subscription_ready": False,
     }
     return FoundationAdoption(prepared=prepared, status=status, receipt=receipt)
+
+
+def _terminal_foundation_paths(directory: Path) -> tuple[Path, Path]:
+    recovery = (
+        directory / "recovery-private-handoff.json",
+        directory / "recovery-apply-receipt.json",
+    )
+    applied = (
+        directory / "foundation-private-handoff.json",
+        directory / "foundation-apply-receipt.json",
+    )
+    available = [pair for pair in (recovery, applied) if all(path.is_file() for path in pair)]
+    if len(available) != 1:
+        raise ValueError("Foundation adoption requires one exact terminal evidence pair")
+    return available[0]
 
 
 def build_foundation_adoption_receipt(

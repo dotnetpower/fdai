@@ -5,7 +5,7 @@ locals {
 
 resource "azurerm_resource_group" "hub" {
   for_each = local.kinds
-  name     = "rg-${var.prefix}-${each.key}"
+  name     = coalesce(var.resource_group_name, "rg-${var.prefix}-${each.key}")
   location = var.location
   tags     = local.tags
 }
@@ -225,6 +225,9 @@ resource "azurerm_postgresql_flexible_server_database" "hub" {
   server_id = azurerm_postgresql_flexible_server.hub[each.key].id
   charset   = "UTF8"
   collation = "en_US.utf8"
+  depends_on = [
+    azurerm_postgresql_flexible_server_active_directory_administrator.hub,
+  ]
 }
 
 resource "azurerm_postgresql_flexible_server_configuration" "log_connections" {
