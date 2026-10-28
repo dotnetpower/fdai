@@ -123,7 +123,7 @@ function AccountDetailsMenu({ auth, iamSelf }: AccountMenuProps) {
         </span>
         <span class="account-trigger-copy">
           <strong>{displayName}</strong>
-          <small>{account.username}</small>
+          <small title={account.username}>{account.username}</small>
         </span>
         <svg viewBox="0 0 16 16" aria-hidden="true">
           <path d="m4 6 4 4 4-4" />
