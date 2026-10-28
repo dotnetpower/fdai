@@ -22,11 +22,15 @@ def guard_reuse_resource_type(
     rules_by_id: Mapping[str, Rule],
     resource_type: str | None,
 ) -> T1Decision:
-    """Downgrade a reuse to an abstain when its rule is unknown or for another resource type."""
+    """Downgrade a reuse to an abstain when its known rule is for another resource type.
+
+    An unknown rule is left to the existing downstream ``t1_reuse_rule_missing`` handling, so
+    this guard changes only the case it can prove wrong.
+    """
     if decision.outcome is not T1Outcome.REUSED or decision.best_match is None:
         return decision
     rule = rules_by_id.get(decision.best_match.action.rule_id)
-    if rule is not None and resource_type is not None and rule.resource_type == resource_type:
+    if rule is None or resource_type is None or rule.resource_type == resource_type:
         return decision
     return replace(
         decision,

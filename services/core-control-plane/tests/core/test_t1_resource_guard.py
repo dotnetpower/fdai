@@ -59,14 +59,15 @@ def test_a_cross_type_reuse_becomes_an_abstain_with_an_explicit_reason() -> None
     assert guarded.best_match is not None  # evidence of the near miss is retained
 
 
-def test_an_unknown_rule_or_unresolved_resource_type_cannot_be_reused() -> None:
+def test_an_unknown_rule_or_unresolved_resource_type_is_left_to_downstream_handling() -> None:
     for rules, resource_type in (({}, "resource-group"), (_rules("resource-group"), None)):
+        decision = _reused()
         guarded = guard_reuse_resource_type(
-            _reused(),
+            decision,
             rules_by_id=rules,
             resource_type=resource_type,  # type: ignore[arg-type]
         )
-        assert guarded.outcome is T1Outcome.ABSTAIN
+        assert guarded is decision
 
 
 def test_a_non_reuse_decision_is_never_changed() -> None:
