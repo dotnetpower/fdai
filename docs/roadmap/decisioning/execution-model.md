@@ -122,6 +122,11 @@ Comes from the trust router.
 | T1 (lightweight similarity) | Upstream catalog ceilings are conservative; overlays may only lower autonomy. Raising authority requires the separate governed promotion path, never a dispatch-time override. |
 | T2 (frontier reasoning) | Catalog loading hard-caps T2 at `shadow_only`; changing that hard cap is a reviewed upstream policy change, not a fork overlay. |
 
+The T2 proposer is bounded by the candidate rules the trust router returns, so an event with no
+matching rule never reaches it: T1 abstains, and the evidence-only T2 root-cause analysis is the
+only adaptive step for that residual case. This keeps every T2 proposal tied to a catalog rule and
+its hard cap. The control loop records why T2 was skipped as `t2_skip_reason` without a tier.
+
 ### 2.2 Axis C - ActionType ceiling
 
 From `ceiling_by_tier` on the ActionType (see
