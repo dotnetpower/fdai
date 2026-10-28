@@ -9,6 +9,7 @@
 #
 # Usage:
 #   scripts/quality/ci/local-preflight.sh [--base <ref>] [--fail-fast] [--skip-lint]
+#                                         [--allow-full-suite]
 #   make ci-preflight [BASE=origin/main]
 #
 # CI-only jobs are not reproduced here: sharded pytest, the database
@@ -23,12 +24,14 @@ cd "$repo_root" || exit 1
 base="origin/main"
 fail_fast=0
 skip_lint=0
+allow_full_suite=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --base) base="${2:?--base requires a ref}"; shift 2 ;;
     --fail-fast) fail_fast=1; shift ;;
     --skip-lint) skip_lint=1; shift ;;
-    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --allow-full-suite) allow_full_suite=1; shift ;;
+    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "local-preflight: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -87,6 +90,9 @@ run_step() {
   local elapsed=$((SECONDS - started))
   if [[ $rc -eq 0 ]]; then
     results+=("PASS  ${elapsed}s  $label")
+  elif [[ $rc -eq 125 ]]; then
+    # tests-for-diff.sh refuses a whole-suite fallback without an explicit request.
+    results+=("SKIP  ${elapsed}s  $label (whole suite selected; rerun with --allow-full-suite)")
   else
     results+=("FAIL  ${elapsed}s  $label")
     failed=1
@@ -114,7 +120,9 @@ if scope python; then
   else
     run_step "ruff format, ruff check, mypy" make lint
   fi
-  run_step "pytest for changed paths" make test-changed DIFF="$range"
+  pytest_args=(--run)
+  [[ $allow_full_suite -eq 1 ]] && pytest_args+=(--allow-full-suite)
+  run_step "pytest for changed paths" bash scripts/automation/tests-for-diff.sh "${pytest_args[@]}" "$range"
 else
   skip_step "ruff + mypy + pytest" "no Python-scoped change"
 fi
