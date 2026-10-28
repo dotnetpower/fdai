@@ -183,7 +183,7 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
         )
         return ControlLoopResult(
             outcome=ControlLoopOutcome.ABSTAINED_ROUTING,
-            tier="t0",
+            tier="abstain",
             decision="abstain",
             resource_type=decision.resource_type,
             reason=reason,

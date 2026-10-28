@@ -3,6 +3,9 @@ region_short   = "<region-token>"
 expires_at_utc = "<yyyy-mm-ddThh:mm:ssZ>"
 resource_group_name = "<scenario-lab-holding-resource-group>"
 
+# Set false and leave runner_vnet null for the lightweight AKS + Stress VM profile.
+data_services_enabled = true
+
 runner_vnet = {
   id                  = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/<ops-rg>/providers/Microsoft.Network/virtualNetworks/<ops-vnet>"
   name                = "<ops-vnet>"

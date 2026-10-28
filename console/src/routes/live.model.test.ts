@@ -171,7 +171,21 @@ describe("Live cockpit model", () => {
       gateCounts: { auto: 1, hil: 1, abstain: 0, deny: 0 },
       tierTotal: 2,
       gateTotal: 2,
+      unroutedCount: 0,
       autoShare: 50,
+    });
+  });
+
+  test("counts abstained routes separately from the T0/T1/T2 tier mix", () => {
+    const state = applyEvent(
+      makeInitialState(3),
+      stageEvent("route", { routed_to: "abstain" }),
+    );
+
+    expect(summarizeCurrentDecisionMix(state.tiles)).toMatchObject({
+      tierCounts: { t0: 0, t1: 0, t2: 0 },
+      tierTotal: 0,
+      unroutedCount: 1,
     });
   });
 
