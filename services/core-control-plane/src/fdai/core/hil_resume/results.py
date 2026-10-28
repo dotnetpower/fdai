@@ -26,6 +26,12 @@ class RequestOutcome(StrEnum):
     ALREADY_PARKED = "already_parked"
     """An exact replay found the same approval request already parked."""
 
+    ALREADY_OPEN = "already_open"
+    """A live request for the same subject exists; the proposal became an observation."""
+
+    REJECTED_SUBJECT = "rejected_subject"
+    """The same subject was rejected and its content is unchanged, so it stays closed."""
+
     APPROVAL_ID_CONFLICT = "approval_id_conflict"
     """The approval ID was already bound to a different request."""
 

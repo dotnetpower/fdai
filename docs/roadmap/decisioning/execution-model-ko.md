@@ -1,8 +1,8 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: ec6eb848bdc9ff63a9947befde54a1c019c58587
-translation_revised: 2026-09-29
+translation_source_sha: c54f442afcb1ca08c016e0e6dcc4f2c2467141a0
+translation_revised: 2026-10-29
 ---
 
 # 실행 모델
@@ -544,6 +544,7 @@ RiskGate 가 `hil` 을 반환하면 실행기 는 실행되지 않고 컨트롤 
 - **멱등적** - 첫 최종 결정이 보류를 해석하고, 중복은 no-op이며 상충 결정은
   거부되므로 승인이 double-apply될 수 없습니다.
 - **승인 ID 점유** - parking은 ID와 requested 감사 기록을 원자적으로 점유합니다. 동일 재생은 채널 push 없이 기존 보류를 반환하고 다른 내용은 audited 충돌이 됩니다.
+- **주체당 열린 요청 1건** - 생성된 승인 ID는 주체 인덱스 `hil_subject:<digest>`도 점유합니다. 다이제스트는 작업 유형, 대상, 작업, 매개변수, 규칙 ID와 버전, 제출자, 개발 및 운영자 정책 다이제스트를 포함하고 이벤트 ID, 작업 ID, 시각, 멱등성 키, 상관관계 ID는 포함하지 않습니다. 유효한 요청이 있는 동안 반복 제안은 제한된 관찰 요약(처음과 마지막 관찰 시각, 횟수, 최근 이벤트 ID 5개)만 갱신하며 새 보류, 알림, 감사 항목을 만들지 않습니다. 만료되거나 시간 초과된 요청, 또는 승인 뒤 조건이 다시 발생한 요청은 `previous_approval_id`를 기록한 다음 계보 revision으로 다시 열리고, 인덱스는 종료된 요청과 종료 사유를 함께 보존합니다. 반려된 주체는 내용이 같은 동안 닫혀 있으며 `hil.request.suppressed_after_rejection`으로 한 번만 감사됩니다. 내용이 바뀌면 다른 주체입니다. 점유만 하고 보류가 기록되지 않은 경우는 60초 동안 유지한 뒤 넘겨받습니다. 호출자가 승인 ID를 직접 지정하면 이 규칙에서 제외됩니다. 이전 중복은 `scripts/deployment/local/supersede-duplicate-approvals.py`가 삭제하지 않고 `superseded_duplicate`로 연결하며, 기본 실행은 보고만 하고 `--apply`를 지정해야 기록합니다.
 - **자기 승인 금지** - `approver_oid == submitter_oid`는 실행 전에 거부되며, 루프는
   system submitter 신원으로 보류하므로 실제 승인자는 항상 구별됩니다.
 

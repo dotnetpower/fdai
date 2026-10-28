@@ -50,6 +50,7 @@ from fdai_operator_service.families.conversation.channel_edge.teams_ingress impo
     normalize_teams_service_url,
 )
 from fdai_operator_service.families.iam.contracts import (
+    MAX_HIL_IDEMPOTENCY_KEY_CHARS,
     HilApprovalDecision,
     HilDecisionOutbox,
     HilDecisionRegistry,
@@ -308,9 +309,9 @@ class TeamsHilCallbackNormalizer:
             audience=self._config.approval_audience,
             delegated_token=delegated_token,
             decision=decision,
-            justification=_text(data, "justification", 1_000),
+            justification=_optional_text(data, "justification", 1_000),
             correlation_id=_text(data, "correlation_id", 256),
-            idempotency_key=_text(data, "idempotency_key", 256),
+            idempotency_key=_text(data, "idempotency_key", MAX_HIL_IDEMPOTENCY_KEY_CHARS),
             action_hash=_text(data, "action_hash", 256),
             service_url=service_url,
             verification_ref=f"teams-service-key:{service_identity.key_id}",
@@ -541,6 +542,18 @@ def _text(value: Mapping[str, Any], key: str, maximum: int) -> str:
     if not isinstance(item, str) or not item.strip() or len(item.strip()) > maximum:
         raise TeamsCallbackError(
             f"Teams activity '{key}' MUST be bounded non-empty text",
+            status_code=400,
+            kind="bad_request",
+        )
+    return item.strip()
+
+
+def _optional_text(value: Mapping[str, Any], key: str, maximum: int) -> str:
+    """Return a bounded text that MAY be blank, such as the optional decision reason."""
+    item = value.get(key)
+    if not isinstance(item, str) or len(item.strip()) > maximum:
+        raise TeamsCallbackError(
+            f"Teams activity '{key}' MUST be bounded text",
             status_code=400,
             kind="bad_request",
         )

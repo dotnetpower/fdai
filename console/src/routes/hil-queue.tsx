@@ -20,6 +20,7 @@ import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/approvals";
+import { decisionFailureMessage } from "./hil-decision-error";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { SlackApprovalHandoff } from "./slack-approval-handoff";
 import {
@@ -531,10 +532,6 @@ function ApprovalCard({
   ] as const;
   const submitDecision = async (decision: "approve" | "reject"): Promise<void> => {
     const reason = justification.trim();
-    if (!reason) {
-      setDecisionError(t("approvals.justificationRequired"));
-      return;
-    }
     const nextIntent = identityForMutationIntent(
       intent,
       `${item.approval_id}\0${decision}\0${reason}`,
@@ -554,7 +551,7 @@ function ApprovalCard({
       if (ownDevelopment) clearDevelopmentReauthentication();
       onDecisionRecorded(receipt);
     } catch (error) {
-      setDecisionError(error instanceof Error ? error.message : String(error));
+      setDecisionError(decisionFailureMessage(error));
       if (ownDevelopment) {
         // A refused or stale sign-in needs a new one; never leave the Owner on a dead approve.
         clearDevelopmentReauthentication();
