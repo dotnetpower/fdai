@@ -1099,3 +1099,20 @@ def test_operator_access_is_opt_in_private_and_minimum_role_scoped() -> None:
     assert "additional_user_principal_ids = local.operator_enabled" in data_services
     assert 'output "operator_dns_routing_domains"' in outputs
     assert "private_dns_zone_name = var.azure_openai_private_dns_zone.name" in data_services
+
+
+def test_lightweight_compute_only_profile_is_configurable() -> None:
+    variables = (LAB_ROOT / "variables.tf").read_text(encoding="utf-8")
+    main = (LAB_ROOT / "main.tf").read_text(encoding="utf-8")
+    data_services = (LAB_ROOT / "data-services.tf").read_text(encoding="utf-8")
+    outputs = (LAB_ROOT / "outputs.tf").read_text(encoding="utf-8")
+    prepare = PREPARE_SCRIPT.read_text(encoding="utf-8")
+
+    assert 'variable "data_services_enabled"' in variables
+    assert "runner_peering_enabled   = var.runner_vnet != null" in main
+    assert "count = local.runner_peering_enabled ? 1 : 0" in main
+    assert "count = var.data_services_enabled ? 1 : 0" in data_services
+    assert (
+        "var.data_services_enabled ? azurerm_mysql_flexible_server.scenario_lab[0].fqdn" in outputs
+    )
+    assert "SCENARIO_LAB_KUBELOGIN_LOGIN_MODE" in prepare

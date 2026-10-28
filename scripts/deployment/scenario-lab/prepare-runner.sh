@@ -53,7 +53,11 @@ az aks get-credentials \
   --overwrite-existing \
   --only-show-errors
 export KUBECONFIG="$kubeconfig"
-kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l msi
+if [[ "${SCENARIO_LAB_KUBELOGIN_LOGIN_MODE:-msi}" == "azurecli" ]]; then
+  kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l azurecli
+else
+  kubelogin convert-kubeconfig --kubeconfig "$kubeconfig" -l msi
+fi
 
 # A replaced or new cluster-scoped Azure RBAC grant can take minutes to reach the Kubernetes API.
 readonly kubernetes_authorization_deadline_seconds=300

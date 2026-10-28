@@ -15,7 +15,7 @@ unrelated resources in that group.
 | Area | Resources |
 |------|-----------|
 | Compute | Dedicated `aks-store-demo` two-node cluster with an authenticated public API endpoint, Chaos Mesh installed after apply, AKS Store Demo with a three-replica order service, private Linux stress VM |
-| Data and AI | Private MySQL Flexible Server, private Azure OpenAI account and one deployment |
+| Data and AI | Private MySQL Flexible Server, private Azure OpenAI account and one deployment (optional; omitted when `data_services_enabled = false`) |
 | Security | Microsoft Entra and Azure RBAC for AKS with local accounts disabled, generated MySQL password in encrypted private state and a mode-0600 runner file, managed-identity role assignments, no VM public IP |
 | Network | Isolated VNet, delegated and private-endpoint subnets, egress-only NAT gateway, bidirectional peering to the VNet-integrated deploy runner, deployment-owned private-endpoint NSG association, and policy-owned NSGs on the AKS, MySQL, and stress subnets |
 | Evidence | Log Analytics, Application Insights, AKS monitoring, MySQL and Azure OpenAI metrics |
