@@ -93,6 +93,43 @@ def test_decision_detail_preserves_exact_identity_and_relationship_direction() -
     assert ("resolved_by", "incoming") in directions
 
 
+def test_lifecycle_free_detail_explains_its_reviewed_authority_classification() -> None:
+    catalog = _shipped_catalog()
+
+    lifecycle_free = build_object_type_detail_projection(
+        ontology=catalog,
+        name="Decision",
+        role=CeilingRole.READER,
+        purpose="operations-review",
+    )
+    declared = build_object_type_detail_projection(
+        ontology=catalog,
+        name="Incident",
+        role=CeilingRole.READER,
+        purpose="operations-review",
+    )
+
+    classification = lifecycle_free["lifecycle_classification"]
+    assert isinstance(classification, dict)
+    assert classification["category"] == "projection_owned"
+    assert str(classification["rationale"]).strip()
+    assert classification["source_refs"]
+    assert "lifecycle_classification" not in declared
+
+
+def test_every_lifecycle_free_object_type_carries_a_classification() -> None:
+    catalog = _shipped_catalog()
+
+    for object_type in catalog.object_types:
+        detail = build_object_type_detail_projection(
+            ontology=catalog,
+            name=object_type.name,
+            role=CeilingRole.READER,
+            purpose="operations-review",
+        )
+        assert ("lifecycle_classification" in detail) is (object_type.lifecycle is None)
+
+
 def test_access_grant_request_detail_preserves_pending_review_facets() -> None:
     catalog = _shipped_catalog()
 

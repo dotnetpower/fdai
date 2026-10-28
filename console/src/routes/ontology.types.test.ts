@@ -249,6 +249,25 @@ describe("ontology view model", () => {
     expect(decoded.mutation_authority).toBe(false);
   });
 
+  it("decodes the reviewed lifecycle classification of a lifecycle-free ObjectType", () => {
+    const classification = {
+      category: "projection_owned",
+      rationale: "A projection owns this record and supplies the writer boundary.",
+      source_refs: ["docs/roadmap/architecture/operating-ontology.md"],
+    };
+    const decoded = decodeOntologyObjectTypeDetail({
+      ...objectTypeDetail(),
+      lifecycle_classification: classification,
+    });
+    expect(decoded.lifecycle_classification).toEqual(classification);
+    expect(decodeOntologyObjectTypeDetail(objectTypeDetail()).lifecycle_classification)
+      .toBeUndefined();
+    expect(() => decodeOntologyObjectTypeDetail({
+      ...objectTypeDetail(),
+      lifecycle_classification: { ...classification, category: "invented" },
+    })).toThrow("category MUST be bounded");
+  });
+
   it("rejects stale release, authority, identity, and reversed relationship claims", () => {
     const digest = `sha256:${"b".repeat(64)}`;
     expect(() => decodeOntologyObjectTypeDetail(objectTypeDetail(), digest)).toThrow(
