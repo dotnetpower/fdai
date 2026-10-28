@@ -1,15 +1,16 @@
 ---
 title: Console Web 알림
 translation_of: console-web-notifications.md
-translation_source_sha: beaf5534d2e7a9ac40c6f3dd76b97489ee5946d4
-translation_revised: 2026-10-28
+translation_source_sha: d84d3b35e7c390864122bb67f0e91ae79595e8a9
+translation_revised: 2026-10-29
 ---
 
 # Console Web 알림
 
 이 문서는 클라이언트 로컬 `console-web` 알림 채널, 개인 선택 화면, 브라우저 기능 게이트,
-로컬 전달 원장 및 알림 클릭 확인을 소유합니다. Core 알림 어댑터, 서버 측 구독 저장소 또는
-실행 권한을 추가하지 않습니다.
+로컬 전달 원장 및 알림 클릭 확인을 소유합니다. 서버 측 구독 저장소나 실행 권한을 추가하지
+않습니다. 별도의 서버 측 [Console 알림함](#console-알림함)은 이 클라이언트 로컬 채널이 아니라
+Core A2 채널입니다.
 
 ## 범위와 소유권
 
@@ -24,6 +25,23 @@ Operator가 principal의 검증된 활성 endpoint를 변환하고 해당 전달
 
 브라우저 채널은 정보 제공 전용입니다. 승인 또는 실행 권한을 부여하지 않으며 로컬 증적은 Core
 `notification.delivery.observed`를 충족하지 않습니다.
+
+## Console 알림함
+
+`console-inbox`는 권한이 없는 Core A2 채널입니다. `operational_alert`, `adapter_health`,
+`kill_switch_state`, `code_security_operational_alert` 메시지마다 사전 마스킹되고 크기가 제한된
+레코드 하나를 추적 상태의 `console-inbox:` 아래에 감사 ID 기준으로 기록하므로 재시도해도
+중복되지 않으며, 최신 200건을 유지합니다. 표시 경계는 비밀로 보이는 내용이나 너무 큰 내용을
+쓰기 전에 거부합니다. 저장된 레코드는 채널의 게시일 뿐 사람이 봤다는 뜻이 아니며 승인, 실행,
+작업 링크를 담지 않습니다.
+
+이 채널은 fan-out 대상이므로 외부 채널이 연결되지 않아도 알림이 "사용 가능한 채널 없음"으로
+에스컬레이션되지 않고, 외부 채널이 실패하면 조용히 사라지지 않고 `partially_delivered`로
+남습니다. `FDAI_CONSOLE_INBOX=0`이면 채널이 제거됩니다. Operator는 Reader 주체에게
+`GET /notifications/inbox`를 제공하며 모든 레코드를 검증하고, Console 헤더의 **알림** 컨트롤과
+Findings 화면은 인증된 모든 읽기 사용자에게 브라우저별 안 읽음 개수와 함께 이를 보여 줍니다.
+외부 효과나 권한이 없으므로 활성화 상태로 시작합니다. A4 다이제스트, 주체별 라우팅, 브라우저가
+닫힌 상태의 Web Push는 범위 밖입니다.
 
 ## 기능과 선택
 

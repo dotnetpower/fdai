@@ -22,12 +22,49 @@ from fdai.core.notifications.matrix import NotificationMatrix
 from fdai.core.notifications.router import ChannelBinding, ChannelRegistry
 from fdai.core.notifications.shadow import ShadowDeliveryRecorder
 from fdai.delivery.integration_readiness import endpoint_is_placeholder
+from fdai.delivery.notifications.console_inbox import (
+    CONSOLE_INBOX_CHANNEL_ID,
+    CONSOLE_INBOX_TRUST_TIERS,
+    StateStoreConsoleInboxChannel,
+)
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.providers.notifications import NotificationChannel
+from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
 _ACS_SCOPE = "https://communication.azure.com/.default"
 _TEAMS_WORKFLOW_SCOPE = "https://service.flow.microsoft.com/.default"
+
+
+def with_console_inbox(
+    registry: ChannelRegistry,
+    state_store: StateStore,
+    environ: Mapping[str, str] | None = None,
+) -> ChannelRegistry:
+    """Bind the no-authority Console inbox next to the configured external channels.
+
+    ``FDAI_CONSOLE_INBOX=0`` removes it. An explicit binding with the same id wins.
+    """
+    source = os.environ if environ is None else environ
+    if source.get("FDAI_CONSOLE_INBOX", "1").strip().casefold() in {"0", "false", "off"}:
+        return registry
+    if CONSOLE_INBOX_CHANNEL_ID in registry.channels:
+        return registry
+    return ChannelRegistry(
+        channels={
+            **registry.channels,
+            CONSOLE_INBOX_CHANNEL_ID: StateStoreConsoleInboxChannel(state_store=state_store),
+        },
+        bindings={
+            **registry.bindings,
+            CONSOLE_INBOX_CHANNEL_ID: ChannelBinding(
+                channel_id=CONSOLE_INBOX_CHANNEL_ID,
+                enabled=True,
+                configured=True,
+                trust_tiers=CONSOLE_INBOX_TRUST_TIERS,
+            ),
+        },
+    )
 
 
 def _validate_incident_notification_route(

@@ -6,8 +6,8 @@ title: Console Web Notifications
 
 This document owns the client-local `console-web` notification channel, its personal selection
 surface, browser capability gates, local delivery ledger, and notification-click acknowledgement.
-It does not add a Core notification adapter, a server-side subscription store, or execution
-authority.
+It does not add a server-side subscription store or execution authority. The separate
+server-side [Console inbox](#console-inbox) is a Core A2 channel, not this client-local channel.
 
 ## Scope and ownership
 
@@ -22,6 +22,23 @@ verified active endpoint for the principal and its delivery path consumes the sa
 
 The browser channel is informational. It never grants approval or execution authority and its
 local receipts never satisfy Core `notification.delivery.observed`.
+
+## Console inbox
+
+`console-inbox` is a no-authority Core A2 channel. It writes one pre-redacted, bounded record per
+`operational_alert`, `adapter_health`, `kill_switch_state`, or `code_security_operational_alert`
+message under `console-inbox:` in tracked state, keyed by the audit id so a retry never duplicates
+it, and keeps the newest 200. The presentation boundary rejects secret-like or oversized content
+before any write. A stored record is the channel's publication and never claims that a person saw
+it; it carries no approval, execution, or action link.
+
+Because it is a fan-out target, an alert is no longer escalated as having no eligible channel when
+no external channel is bound, and a failing external channel appears as `partially_delivered`
+rather than a silent loss. `FDAI_CONSOLE_INBOX=0` removes the channel. Operator serves
+`GET /notifications/inbox` to Reader principals, validating every record, and the Console header
+**Alerts** control and the Findings page list it for every authenticated reader, with a per-browser
+unread count. It starts enabled because it has no external effect or authority. A4 digests, per-
+principal routing, and closed-browser Web Push remain out of scope.
 
 ## Capability and selection
 

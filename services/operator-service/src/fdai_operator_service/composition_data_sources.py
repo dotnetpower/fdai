@@ -71,6 +71,7 @@ def _build_data_sources(
                 "/hil-queue",
                 "/incidents",
                 "/incidents/stream",
+                "/notifications/inbox",
                 "/kpi",
                 "/kpi/llm-cost",
                 "/rca",

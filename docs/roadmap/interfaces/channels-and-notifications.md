@@ -362,7 +362,9 @@ The explicit client-local `console-web` channel is owned by
 principal-and-browser selection surface, the header is a synchronized shortcut, and only
 `runtime-observed` approval, denial, and failure frames are eligible. Its bounded local display and
 click receipts never satisfy Core delivery, approval, or execution evidence. Organization-managed
-A2/A4 routes remain separate channel-as-audience bindings.
+A2/A4 routes remain separate channel-as-audience bindings. The server-side `console-inbox` A2
+channel is a separate Core adapter that stores bounded alert records for the Console; see
+[Console inbox](console-web-notifications.md#console-inbox).
 
 ## 5. Channel Interfaces (contracts)
 

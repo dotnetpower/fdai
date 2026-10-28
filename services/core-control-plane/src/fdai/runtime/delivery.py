@@ -32,6 +32,7 @@ from fdai.runtime.notification_registry import (
 from fdai.runtime.notification_registry import (
     build_notification_delivery_store as build_notification_delivery_store,
 )
+from fdai.runtime.notification_registry import with_console_inbox
 from fdai.shared.providers.direct_api import DirectApiExecutor
 from fdai.shared.providers.idempotency import IdempotencyStore
 from fdai.shared.providers.resource_lock import ResourceLock
@@ -782,6 +783,7 @@ def _build_notification_router(
         endpoint_overrides,
         StateStoreShadowDeliveryRecorder(state_store=audit_store),
     )
+    registry = with_console_inbox(registry, audit_store)
     _validate_incident_notification_route(matrix, registry)
     require_fanout_for_governed_direct_line(matrix, registry)
     return NotificationRouter(

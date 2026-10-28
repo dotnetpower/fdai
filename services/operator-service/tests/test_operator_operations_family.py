@@ -82,6 +82,7 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/detection-coverage", "handler"),
     (("GET", "HEAD"), "/detection-readiness", "handler"),
     (("GET", "HEAD"), "/findings", "handler"),
+    (("GET", "HEAD"), "/notifications/inbox", "handler"),
     (("GET", "HEAD"), "/operations/runtime-state", "runtime_operational_state"),
     (("GET", "HEAD"), "/automation-blueprints", "handler"),
     (("POST",), "/automation-blueprints/accept", "handler"),
@@ -319,7 +320,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 57
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 58
 
 
 def test_findings_route_requires_reader_authentication_and_never_submits_actions() -> None:
@@ -337,6 +338,20 @@ def test_findings_route_requires_reader_authentication_and_never_submits_actions
     assert query.limit == 2
     assert query.cursor == cursor
     assert client.post("/findings", headers=HEADERS, json={}).status_code == 405
+    assert not dependencies.proposals
+
+
+def test_console_inbox_route_requires_reader_authentication_and_is_read_only() -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+    assert client.get("/notifications/inbox").status_code == 401
+    assert not dependencies.queries
+    response = client.get("/notifications/inbox?limit=5", headers=HEADERS)
+    assert response.status_code == 200
+    query = dependencies.queries[-1]
+    assert query.operation == "notification.inbox"
+    assert query.roles == frozenset({OperatorRole.READER})
+    assert client.post("/notifications/inbox", headers=HEADERS, json={}).status_code == 405
     assert not dependencies.proposals
 
 
