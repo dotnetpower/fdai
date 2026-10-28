@@ -399,3 +399,19 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.equal(dfsWrite.from, "document-dfs-pe");
   assert.equal(dfsWrite.to, "document-storage");
 });
+
+test("Azure resource network flow marks unprovisioned elements as planned", async () => {
+  const spec = parseDiagram(await readFile(networkFlowUrl, "utf8"));
+  const layout = await layoutDiagram(spec);
+  const svg = await renderSvg(spec, layout, "en");
+  const planned = spec.nodes.filter((node) => node.status === "planned").map((node) => node.id);
+
+  assert.deepEqual(planned.sort(), ["application-gateway", "managed-grafana", "waf-policy"]);
+  for (const id of planned) {
+    const node = spec.nodes.find((candidate) => candidate.id === id)!;
+    assert.match(node.label.en, /\(planned\)$/u);
+    assert.match(node.label.ko, /\(계획\)$/u);
+  }
+  assert.equal([...svg.matchAll(/<g class="diagram-node[^>]* data-status="planned"/gu)].length, planned.length);
+  assert.match(svg, /\[data-status="planned"\] > image \{ opacity: 0\.62; \}/u);
+});

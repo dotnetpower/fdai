@@ -1,18 +1,18 @@
 {
   "id": "fdai-azure-resource-network-flow",
   "kind": "deployment",
-  "version": 1,
-  "updated": "2026-08-20",
+  "version": 2,
+  "updated": "2026-10-28",
   "locales": {
     "en": {
       "title": "FDAI Azure resource network flow",
       "description": "Azure resources, private-endpoint flows, five independent FDAI services, and governed delivery channels for FDAI private networking.",
-      "alt": "An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A planned private Application Gateway protected by a WAF policy routes requests to the Operator Service and Document Ingestion API. A VNet-integrated Container Apps environment runs the Core Control Plane, Operator Service, Document Ingestion API, Document Processing Worker, Isolated Executor, and scheduled jobs. The Core has no effect identity, and the Isolated Executor alone may hold explicitly approved effect roles. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed fix pull requests."
+      "alt": "An operator signs in with Microsoft Entra ID and uses the FDAI Web Console. A planned private Application Gateway with a WAF policy would route requests to the Operator Service and Document Ingestion API. Five FDAI services run in a VNet-integrated Container Apps environment, and only the Isolated Executor may hold approved effect roles. Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, PostgreSQL, and optional ADLS Gen2 storage connect through private endpoints. Resource Graph, Application Insights and Log Analytics, a planned Managed Grafana, approval channels, and Git providers complete the paths."
     },
     "ko": {
       "title": "FDAI Azure resource network flow",
       "description": "FDAI private networking의 Azure resource, private endpoint, 5개 독립 FDAI service 및 통제된 전달 채널입니다.",
-      "alt": "운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. 계획된 비공개 Application Gateway는 WAF 정책으로 보호되며 Operator Service와 Document Ingestion API로 요청을 전달합니다. VNet에 통합된 Container Apps 환경에서는 Core Control Plane, Operator Service, Document Ingestion API, Document Processing Worker, Isolated Executor 및 예약 작업이 실행됩니다. Core에는 실제 변경을 수행할 신원이 없고 Isolated Executor만 명시적으로 승인된 변경 역할을 보유할 수 있습니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 선택적인 ADLS Gen2 저장소는 전용 비공개 엔드포인트를 통해 연결됩니다. Azure Resource Graph는 인벤토리를 제공하고 Application Insights와 Log Analytics는 관측 데이터를 수집하며 Azure Managed Grafana는 모니터링 데이터를 읽습니다. 이메일, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다."
+      "alt": "운영자는 Microsoft Entra ID로 로그인해 FDAI Web Console을 사용합니다. WAF 정책을 갖춘 사설 Application Gateway는 계획된 구성이며 도입하면 Operator Service와 Document Ingestion API로 요청을 전달합니다. FDAI 서비스 다섯 개는 VNet에 통합된 Container Apps 환경에서 실행되고 승인된 변경 역할은 격리된 실행기만 보유할 수 있습니다. Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, PostgreSQL 및 선택적 ADLS Gen2는 프라이빗 엔드포인트로 연결됩니다. Resource Graph, Application Insights와 Log Analytics, 계획된 Managed Grafana, 승인 채널, Git 제공자가 나머지 경로를 구성합니다."
     }
   },
   "assets": {
@@ -63,9 +63,10 @@
     {
       "id": "application-gateway",
       "kind": "azure-service",
+      "status": "planned",
       "label": {
-        "en": "Application Gateway",
-        "ko": "Application Gateway"
+        "en": "Application Gateway (planned)",
+        "ko": "Application Gateway (계획)"
       },
       "description": {
         "en": "Private ingress for operator and ingestion requests",
@@ -75,9 +76,10 @@
     {
       "id": "waf-policy",
       "kind": "azure-service",
+      "status": "planned",
       "label": {
-        "en": "WAF policy",
-        "ko": "WAF policy"
+        "en": "WAF policy (planned)",
+        "ko": "WAF 정책 (계획)"
       },
       "description": {
         "en": "Managed protection attached to Application Gateway",
@@ -89,7 +91,7 @@
       "kind": "process",
       "label": {
         "en": "Scheduled jobs",
-        "ko": "예약 job"
+        "ko": "예약 작업"
       },
       "description": {
         "en": "Inventory, detection, canary, measurement, and resilience jobs",
@@ -233,11 +235,11 @@
       "kind": "service",
       "label": {
         "en": "Blob (optional)",
-        "ko": "Blob (optional)"
+        "ko": "Blob (선택)"
       },
       "description": {
         "en": "Blob (optional)",
-        "ko": "Blob (optional)"
+        "ko": "Blob (선택)"
       }
     },
     {
@@ -245,11 +247,11 @@
       "kind": "service",
       "label": {
         "en": "DFS (optional)",
-        "ko": "DFS (optional)"
+        "ko": "DFS (선택)"
       },
       "description": {
         "en": "DFS (optional)",
-        "ko": "DFS (optional)"
+        "ko": "DFS (선택)"
       }
     },
     {
@@ -329,7 +331,7 @@
       "kind": "store",
       "label": {
         "en": "ADLS Gen2 (optional)",
-        "ko": "ADLS Gen2 (optional)"
+        "ko": "ADLS Gen2 (선택)"
       },
       "description": {
         "en": "Quarantine, governed source, and derived filesystems",
@@ -341,7 +343,7 @@
       "kind": "azure-service",
       "label": {
         "en": "Managed identities",
-        "ko": "Managed identity"
+        "ko": "관리 ID"
       },
       "description": {
         "en": "Separate executor, inventory, read, command, and job principals",
@@ -375,9 +377,10 @@
     {
       "id": "managed-grafana",
       "kind": "azure-service",
+      "status": "planned",
       "label": {
-        "en": "Managed Grafana",
-        "ko": "Managed Grafana"
+        "en": "Managed Grafana (planned)",
+        "ko": "Managed Grafana (계획)"
       },
       "description": {
         "en": "Governed dashboards over Azure Monitor data",
@@ -509,7 +512,7 @@
       "kind": "event",
       "label": {
         "en": "Kafka private link",
-        "ko": "Kafka private link"
+        "ko": "Kafka 프라이빗 링크"
       },
       "step": 3
     },
@@ -576,7 +579,7 @@
       "kind": "request",
       "label": {
         "en": "Private data plane",
-        "ko": "Private data plane"
+        "ko": "프라이빗 데이터 플레인"
       },
       "step": 4
     },
@@ -623,7 +626,7 @@
       "kind": "write",
       "label": {
         "en": "PostgreSQL private link",
-        "ko": "PostgreSQL private link"
+        "ko": "PostgreSQL 프라이빗 링크"
       }
     },
     {

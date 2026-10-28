@@ -1,0 +1,195 @@
+{
+  "id": "fdai-code-dependency-boundaries",
+  "kind": "component",
+  "version": 1,
+  "updated": "2026-10-28",
+  "locales": {
+    "en": {
+      "title": "FDAI code and data dependency direction",
+      "description": "Delivery adapters and core logic both depend on shared contracts, and only the composition root wires concrete providers into them at startup.",
+      "alt": "The composition root reads validated configuration and injects concrete providers into the delivery adapters and the core. The delivery adapters implement persistence, Azure access, GitOps, notifications, ChatOps, and Operator APIs behind shared contracts. The core holds decision and coordination logic and depends only on shared contracts, never on Azure SDKs or UI code. Shared contracts define versioned event, action, rule, workflow, and provider contracts and never import the core. The rule catalog and policies hold governed data, so a rule or action type can be added without rewriting the control loop."
+    },
+    "ko": {
+      "title": "FDAI 코드 및 데이터 의존 방향",
+      "description": "전달 어댑터와 코어는 모두 공유 계약에 의존하며 시작 시점에 실제 공급자를 연결하는 곳은 컴포지션 루트뿐입니다.",
+      "alt": "컴포지션 루트는 검증된 설정을 읽고 실제 공급자를 전달 어댑터와 코어에 주입합니다. 전달 어댑터는 공유 계약 뒤에서 영속화, Azure 접근, GitOps, 알림, ChatOps, 조회 API를 구현합니다. 코어는 판단과 조율 로직을 담고 공유 계약에만 의존하며 Azure SDK나 UI 코드를 가져오지 않습니다. 공유 계약은 버전이 관리되는 이벤트, 작업, 규칙, 워크플로, 공급자 계약을 정의하고 코어를 가져오지 않습니다. 규칙 카탈로그와 정책은 관리 대상 데이터를 담고 있어 컨트롤 루프를 다시 쓰지 않고도 규칙이나 작업 유형을 추가할 수 있습니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-code-dependency-boundaries.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-code-dependency-boundaries.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "composition-root",
+      "kind": "process",
+      "shape": "card",
+      "tone": "execution",
+      "badge": 1,
+      "label": {
+        "en": "Composition root",
+        "ko": "컴포지션 루트"
+      },
+      "description": {
+        "en": "Composition root",
+        "ko": "컴포지션 루트"
+      },
+      "content": [
+        {
+          "en": "Reads validated configuration",
+          "ko": "검증된 설정 읽기"
+        },
+        {
+          "en": "Selects and injects concrete providers",
+          "ko": "실제 공급자를 선택해 주입"
+        }
+      ]
+    },
+    {
+      "id": "delivery",
+      "kind": "process",
+      "shape": "card",
+      "tone": "interpretation",
+      "badge": 2,
+      "label": {
+        "en": "Delivery adapters",
+        "ko": "전달 어댑터"
+      },
+      "description": {
+        "en": "Delivery adapters",
+        "ko": "전달 어댑터"
+      },
+      "content": [
+        {
+          "en": "Persistence, Azure access, and GitOps",
+          "ko": "영속화, Azure 접근, GitOps"
+        },
+        {
+          "en": "Notifications, ChatOps, and Operator APIs",
+          "ko": "알림, ChatOps, 조회 API"
+        }
+      ]
+    },
+    {
+      "id": "core",
+      "kind": "process",
+      "shape": "card",
+      "tone": "policy",
+      "badge": 3,
+      "label": {
+        "en": "Core logic",
+        "ko": "코어 로직"
+      },
+      "description": {
+        "en": "Core logic",
+        "ko": "코어 로직"
+      },
+      "content": [
+        {
+          "en": "Decision and coordination logic",
+          "ko": "판단과 조율 로직"
+        },
+        {
+          "en": "No Azure SDK or UI imports",
+          "ko": "Azure SDK와 UI를 가져오지 않음"
+        }
+      ]
+    },
+    {
+      "id": "shared-contracts",
+      "kind": "process",
+      "shape": "card",
+      "tone": "model",
+      "badge": 4,
+      "label": {
+        "en": "Shared contracts",
+        "ko": "공유 계약"
+      },
+      "description": {
+        "en": "Shared contracts",
+        "ko": "공유 계약"
+      },
+      "content": [
+        {
+          "en": "Event, action, rule, workflow, and provider contracts",
+          "ko": "이벤트, 작업, 규칙, 워크플로, 공급자 계약"
+        },
+        {
+          "en": "Never imports the core",
+          "ko": "코어를 가져오지 않음"
+        }
+      ]
+    },
+    {
+      "id": "catalog",
+      "kind": "store",
+      "shape": "card",
+      "tone": "store",
+      "badge": 5,
+      "label": {
+        "en": "Rule catalog and policies",
+        "ko": "규칙 카탈로그 및 정책"
+      },
+      "description": {
+        "en": "Rule catalog and policies",
+        "ko": "규칙 카탈로그 및 정책"
+      },
+      "content": [
+        {
+          "en": "Rules, policies, and action types as reviewed data",
+          "ko": "검토를 거친 데이터로 관리되는 규칙, 정책, 작업 유형"
+        },
+        {
+          "en": "Add entries without rewriting the control loop",
+          "ko": "컨트롤 루프를 다시 쓰지 않고 항목 추가"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "wire-delivery",
+      "from": "composition-root",
+      "to": "delivery",
+      "kind": "dependency",
+      "label": {
+        "en": "injects providers",
+        "ko": "공급자 주입"
+      }
+    },
+    {
+      "id": "wire-core",
+      "from": "composition-root",
+      "to": "core",
+      "kind": "dependency",
+      "label": {
+        "en": "wires dependencies",
+        "ko": "의존성 연결"
+      }
+    },
+    {
+      "id": "delivery-contracts",
+      "from": "delivery",
+      "to": "shared-contracts",
+      "kind": "dependency",
+      "label": {
+        "en": "implements",
+        "ko": "구현"
+      }
+    },
+    {
+      "id": "core-contracts",
+      "from": "core",
+      "to": "shared-contracts",
+      "kind": "dependency",
+      "label": {
+        "en": "depends on",
+        "ko": "의존"
+      }
+    }
+  ]
+}
