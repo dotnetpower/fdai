@@ -19,6 +19,8 @@ from psycopg.rows import dict_row
 _WATERMARK_KEY = "measurement:pattern_growth:watermark"
 _RESPONSE_WATERMARK_KEY = "measurement:dynamic_learning:watermark"
 _OUTCOME_KIND = "measurement.action_outcome.v1"
+_CONTEXT_KIND = "measurement.growth_context.v1"
+_CONTEXT_FIELDS = ("embedding_projection", "params", "rule_id", "incident_id", "operational_case")
 _SUPPORTED_RESPONSE_VERSIONS = {"1.0.0", "1.1.0"}
 
 
@@ -272,9 +274,23 @@ class PostgresVerifiedPatternBuilder:
                 (_OUTCOME_KIND, action_id),
             )
             row = await cursor.fetchone()
-        if row is None:
-            return None
-        return {**_mapping(row["entry"]), "recorded_at": row["created_at"]}
+            if row is None:
+                return None
+            context_cursor = await connection.execute(
+                "SELECT entry FROM audit_log WHERE action_kind = %s "
+                "AND entry->>'action_id' = %s ORDER BY seq DESC LIMIT 1",
+                (_CONTEXT_KIND, action_id),
+            )
+            context = await context_cursor.fetchone()
+        merged = merge_growth_context(
+            _mapping(row["entry"]), _mapping(context["entry"]) if context is not None else {}
+        )
+        return {**merged, "recorded_at": row["created_at"]}
+
+
+def merge_growth_context(outcome: Mapping[str, Any], context: Mapping[str, Any]) -> dict[str, Any]:
+    """Overlay the recorded growth context under the verified outcome; the outcome wins."""
+    return {**{key: context[key] for key in _CONTEXT_FIELDS if key in context}, **outcome}
 
 
 def _mapping(value: object) -> Mapping[str, Any]:
@@ -368,4 +384,5 @@ __all__ = [
     "PostgresResponseOutcomeSource",
     "PostgresVerifiedOutcomeSource",
     "PostgresVerifiedPatternBuilder",
+    "merge_growth_context",
 ]
