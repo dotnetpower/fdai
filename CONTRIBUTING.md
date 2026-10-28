@@ -60,6 +60,7 @@ The [`Makefile`](Makefile) provides local validation entry points:
 | `make gates` | Repository hygiene, localization, and architecture boundary checks. |
 | `make test`  | Parallel unit tests, serial live-DB integration tests, and the safety-core coverage floor. |
 | `make operator` | Console and CLI tests, type checks, builds, and the console entry-bundle budget. |
+| `make ci-preflight` | The CI jobs your committed diff triggers, scoped by the same resolver as CI: static contracts, structural gates, lint, changed-path pytest, and console/CLI checks. Refuses a branch that is behind its base. Run it once on the final commit before a push. |
 
 The full CI pipeline lives in
 [.github/workflows/ci.yml](.github/workflows/ci.yml). During ordinary development, run the

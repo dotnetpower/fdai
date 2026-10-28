@@ -7,7 +7,7 @@
 
 
 .PHONY: dev-up dev-down dev-logs dev-nuke help workflow-status workflow-preflight \
-	lint format test test-changed service-test service-test-all operator gates check derived-refresh derived-check \
+	lint format test test-changed ci-preflight service-test service-test-all operator gates check derived-refresh derived-check \
 	validation-status validation-run \
 	validation-all worktree-maintenance worktree-cleanup artifact-maintenance artifact-cleanup \
 	roadmap-verification-sync roadmap-verification-status \
@@ -62,6 +62,9 @@ test: ## pytest with safety-core branch coverage (--cov-fail-under=90 matches CI
 
 test-changed: ## pytest paths affected by changes (optional: DIFF=origin/main...HEAD)
 	@bash scripts/automation/tests-for-diff.sh --run $(DIFF)
+
+ci-preflight: ## run the CI jobs this diff triggers locally before push (optional: BASE=origin/main)
+	@bash scripts/quality/ci/local-preflight.sh --base $(or $(BASE),origin/main)
 
 service-test: ## run one service-owned suite (SERVICE=<service-id>)
 	@test -n "$(SERVICE)" || (echo "SERVICE is required" >&2; exit 2)
