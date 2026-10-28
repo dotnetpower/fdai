@@ -41,6 +41,9 @@ export function decodeAuditPage(value: unknown): AuditPage {
         event_id: apiString(item, "event_id", "audit item"),
         correlation_id: apiNullableString(item, "correlation_id", "audit item"),
         actor: apiString(item, "actor", "audit item"),
+        ...(item["actor_display"] === undefined
+          ? {}
+          : { actor_display: apiNullableString(item, "actor_display", "audit item") }),
         action_kind: apiString(item, "action_kind", "audit item"),
         mode: apiMode(item["mode"]),
         entry: apiRecord(item["entry"], "audit item.entry") as Record<string, unknown>,
