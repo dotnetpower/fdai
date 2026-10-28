@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: e6365ad316b757a33977b9eaf2d8c3e5568c4b04
+translation_source_sha: 7f8051de3bff192e29a446bbae88126cada11775
 translation_revised: 2026-10-28
 ---
 # 독립 운영 근거 발급
@@ -673,6 +673,7 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 - 새 에이전트나 토픽, `owns`, `subscribes`, 역할 바인딩 변경이 없고, 실행 권한이나 승격 권한도 부여하지 않습니다.
 - `deployment-apply` 정책, 그 워크플로 증명, 그 컨테이너를 재사용하지 않습니다.
 - Operator `conversation_dialogue_snapshot` 테이블은 운영 근거 역할이 없습니다. 파생된 대화 맥락이며 발급, 권한 부여, 재확인, 증명을 추가하지 않습니다. 1.12.0 `dialogue_state` 요청 필드도 운영 근거를 담지 않습니다.
+- 분석기가 파생한 현재 Finding 색인과 Reader용 `GET /findings` 조회는 운영 근거 역할이 없으며 발급, 권한 부여, 읽기 검증이나 증명 권한을 갖지 않습니다.
 - 소비자는 기존 자체 검토 거부를 포함해 계속 차단 상태를 유지하며, 보류 사유에 유형만 추가됩니다.
 - 범위 밖: 원본 이력(#1021), Console 워크플로(#1023), Pattern-T1 수용(#1024), P0-P6 자격 검증(#1026).
   테넌트 값, 비밀, 실제 Azure, 모델, 배포 활동도 포함하지 않습니다.
