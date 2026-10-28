@@ -135,10 +135,16 @@ export function secondaryEvidencePostureIssueKind(
   return null;
 }
 
+/** A review-only draft is never verified, but it is not a failed or unsupported answer either. */
+export function isActionDraftVerification(verification: AnswerVerification | undefined): boolean {
+  return verification?.status === "unverified" && verification.reason_code === "semantic_action_draft";
+}
+
 export function verificationAttentionKind(
   verification: AnswerVerification,
   semanticReceipt?: SemanticProjectionReceipt,
 ): VerificationIssueKind | null {
+  if (isActionDraftVerification(verification)) return null;
   if (verification.status === "unverified") {
     return verificationIssueKind(verification.reason_code);
   }
@@ -163,6 +169,7 @@ export function verificationPrimaryLabel(
     }
     return t(`deck.grounded.verificationStatus.${verification.status}`);
   }
+  if (isActionDraftVerification(verification)) return t("deck.grounded.verificationStatus.actionDraft");
   return t(`deck.grounded.verificationStatus.${verificationIssueKind(verification.reason_code)}`);
 }
 
@@ -170,5 +177,6 @@ export function unverifiedDetailLabel(
   verification: AnswerVerification,
   claims: string,
 ): string {
+  if (isActionDraftVerification(verification)) return t("deck.grounded.verificationLabel.actionDraft");
   return verificationIssueDetailLabel(verificationIssueKind(verification.reason_code), claims);
 }

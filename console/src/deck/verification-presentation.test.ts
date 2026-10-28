@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { AnswerVerification, SemanticProjectionReceipt } from "./backend";
 import {
   evidencePostureIssueKind,
+  isActionDraftVerification,
   unverifiedDetailLabel,
+  verificationAttentionKind,
   verificationIssueKind,
   verificationPrimaryLabel,
 } from "./verification-presentation";
@@ -119,5 +121,17 @@ describe("verification presentation", () => {
     expect(evidencePostureIssueKind(semanticReceipt("stale"))).toBe("staleEvidence");
     expect(verificationPrimaryLabel(value, semanticReceipt("stale"))).toBe("Stale evidence");
     expect(verificationPrimaryLabel(value, semanticReceipt("fresh"))).toBe("Consistent");
+  });
+
+  it("presents a review-only draft as a draft, never as an unsupported claim", () => {
+    const draft = verification("semantic_action_draft");
+
+    expect(isActionDraftVerification(draft)).toBe(true);
+    expect(verificationAttentionKind(draft)).toBeNull();
+    expect(verificationPrimaryLabel(draft)).toBe("Draft for review");
+    expect(unverifiedDetailLabel(draft, "")).toBe(
+      "Review-only draft; nothing is created until you confirm it",
+    );
+    expect(isActionDraftVerification(verification("semantic_reading_unavailable"))).toBe(false);
   });
 });

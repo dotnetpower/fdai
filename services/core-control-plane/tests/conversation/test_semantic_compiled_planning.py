@@ -16,6 +16,7 @@ from fdai.core.conversation.intent_graph import build_intent_graph
 from fdai.core.conversation.semantic_judgment_coverage import UNCOVERED_CONSTRAINT_CODE
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import (
+    BoundIncident,
     SemanticPlanningDisposition,
     SemanticPlanningOutcome,
 )
@@ -682,3 +683,47 @@ def test_typed_only_still_drafts_an_accepted_incident_creation_request() -> None
         "severity": "sev2",
         "target": "aks-store-demo",
     }
+
+
+def test_typed_only_does_not_end_a_bound_incident_turn_as_an_unavailable_read() -> None:
+    utterance = "Report the evidenced facts of incident-a"
+    start = utterance.index("incident-a")
+    judgment = SemanticJudgmentProposal.model_validate(
+        _proposal(
+            primary_intent="query.incident_evidence",
+            targets=[
+                {
+                    "kind": "incident_id",
+                    "value": "incident-a",
+                    "source_start": start,
+                    "source_end": start + len("incident-a"),
+                }
+            ],
+            requested_facets=["facts", "missing_evidence"],
+        )
+    )
+    path = _Path(result=None, typed_only=True)
+    manifest, _definition = _typed_fixture(groups=(_VM_GROUP,))
+    service = SemanticPlanningService(
+        model=_Model(frame=_frame(), plan=None),  # type: ignore[arg-type]
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        now=lambda: NOW,
+        semantic_judgment=_Boundary(  # type: ignore[arg-type]
+            SemanticJudgmentDisposition.ACCEPTED, proposal=judgment
+        ),
+        compiled_answers=path,  # type: ignore[arg-type]
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        locale="en",
+        bound_incident=BoundIncident(incident_id="incident-a", correlation_id="correlation-a"),
+    )
+
+    # A bound conversation never starts the form path, so ending it here would hold every question.
+    assert path.starts == []
+    assert outcome.reason != "semantic_reading_unavailable"
