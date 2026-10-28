@@ -180,7 +180,7 @@ export function RuleCatalogBody({
         header: t("governance.rules.column.rule"),
         render: (rule) => (
           <span class="rule-table-identity" data-rule-key={`${rule.origin}:${rule.id}`}>
-            <code>{rule.id}</code>
+            <span>{rule.title?.trim() || rule.id}</span>
             <small>{t("governance.rules.column.provenance")}: {rule.provenance.source_url || rule.source}</small>
           </span>
         ),

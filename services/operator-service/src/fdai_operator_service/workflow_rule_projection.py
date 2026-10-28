@@ -216,6 +216,7 @@ def _rule_catalog_payload(
     stored: Mapping[str, object],
     request: WorkflowReadRequest,
 ) -> dict[str, object]:
+    """Include the matching detail's optional title in list rows without changing stored records."""
     rules_value = stored.get("rules")
     details_value = stored.get("details")
     if not isinstance(rules_value, list) or not isinstance(details_value, dict):
@@ -262,6 +263,12 @@ def _rule_catalog_payload(
     ]
     offset = request.offset or 0
     limit = request.limit or 100
+    summaries: list[dict[str, object]] = []
+    for item in matched[offset : offset + limit]:
+        detail = details_value.get(f"{item.get('origin')}:{item.get('id')}")
+        explanation = detail.get("explanation") if isinstance(detail, dict) else None
+        title = explanation.get("title") if isinstance(explanation, dict) else None
+        summaries.append({**item, "title": title if isinstance(title, str) else None})
     return {
         "total": len(rules),
         "filtered_total": len(matched),
@@ -274,7 +281,7 @@ def _rule_catalog_payload(
             "by_severity": _rule_counts(rules, "severity"),
             "by_source": _rule_counts(rules, "source"),
         },
-        "rules": matched[offset : offset + limit],
+        "rules": summaries,
     }
 
 

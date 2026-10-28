@@ -1,5 +1,8 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+const ruleId = "managed-identity.role-assignment.no-privileged-subscription-scope";
+const ruleTitle = "Workload identity must not hold a privileged subscription-scoped role";
+
 const facets = {
   by_origin: { collected: 8487, active: 61 },
   by_category: {
@@ -29,6 +32,7 @@ async function installRuleCatalogFixture(
   options: {
     readonly ruleStatus?: number;
     readonly waitForRules?: Promise<void>;
+    readonly title?: string | null;
   } = {},
 ): Promise<void> {
   const handleApi = async (route: Route): Promise<void> => {
@@ -57,7 +61,8 @@ async function installRuleCatalogFixture(
         resource_type_count: 372,
         facets,
         rules: [{
-          id: "managed-identity.role-assignment.no-privileged-subscription-scope",
+          id: ruleId,
+          title: options.title === undefined ? ruleTitle : options.title,
           origin: "active",
           version: "1.0.0",
           source: "mcsb",
@@ -80,6 +85,43 @@ async function installRuleCatalogFixture(
   };
   await page.route("**/api/**", handleApi);
   await page.route("**/rules*", handleApi);
+}
+
+test("shows the readable rule title without changing its identity or provenance", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installRuleCatalogFixture(page);
+  await page.goto("/rules");
+
+  const identity = page.locator(`[data-rule-key="active:${ruleId}"]`);
+  await expect(identity.locator(":scope > span")).toHaveText(ruleTitle);
+  await expect(identity).not.toContainText(ruleId);
+  await expect(identity.locator("small")).toContainText(
+    "https://learn.microsoft.com/azure/role-based-access-control/best-practices",
+  );
+  await expect(identity.locator(":scope > span")).toHaveCSS("white-space", "normal");
+  await page.screenshot({
+    path: testInfo.outputPath("readable-rule-title.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: `Rule detail: ${ruleId}` }).press("Enter");
+  await expect(page).toHaveURL(new RegExp(`rule=${ruleId.replaceAll(".", "\\.")}`));
+  await expect(page.getByRole("dialog", { name: "Rule detail" })).toContainText(ruleId);
+
+  await page.goto("/rules?locale=ko");
+  await expect(page.getByRole("columnheader", { name: "규칙", exact: true })).toBeVisible();
+  await expect(identity.locator(":scope > span")).toHaveText(ruleTitle);
+  await page.screenshot({
+    path: testInfo.outputPath("readable-rule-title-ko.png"),
+    fullPage: true,
+  });
+});
+
+for (const title of [null, "", "   "]) {
+  test(`falls back to the rule ID when the title is ${JSON.stringify(title)}`, async ({ page }) => {
+    await installRuleCatalogFixture(page, { title });
+    await page.goto("/rules");
+    await expect(page.locator(`[data-rule-key="active:${ruleId}"] > span`)).toHaveText(ruleId);
+  });
 }
 
 test("keeps the Source filter bounded as source options grow", async ({ page }) => {
