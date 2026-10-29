@@ -19,6 +19,7 @@ from fdai.runtime.notification_registry import with_console_inbox
 from fdai.shared.providers.notifications import (
     ChannelDeliveryError,
     ChannelKind,
+    Link,
     NotificationMessage,
     Severity,
     TrustTier,
@@ -71,6 +72,18 @@ async def test_send_writes_one_content_minimal_record_and_is_idempotent() -> Non
     assert first.delivered and second.delivered
     assert first.channel_kind is ChannelKind.CONSOLE
     assert first.provider_message_id == second.provider_message_id == record["inbox_id"]
+
+
+async def test_a_local_http_link_never_makes_the_alert_undeliverable_and_is_not_stored() -> None:
+    store = InMemoryStateStore()
+    channel = StateStoreConsoleInboxChannel(state_store=store)
+    link = Link(label="Incidents", url="http://127.0.0.1:5273/incidents")
+
+    receipt = await channel.send(_message(links=(link,)))
+
+    rows = await store.read_states(CONSOLE_INBOX_PREFIX, limit=10)
+    assert receipt.delivered and len(rows) == 1
+    assert "127.0.0.1" not in str(rows[0])
 
 
 async def test_secret_like_content_is_rejected_before_any_write() -> None:
