@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 1e75a9567b22ba595c6892317bcac81a1d80dbc8
-translation_revised: 2026-10-29
+translation_source_sha: e67806624902c6f86a5c156d14771f61ec6a74dd
+translation_revised: 2026-10-30
 ---
 
 # 콘솔 운영
@@ -551,6 +551,8 @@ Exact 참조, 계획 다이제스트, stop 조건, 영향 한도, 잠금 범위 
   로드가 끝나면 준비 상태, 관찰 수, 요청 완료 시각, 담당 화면 링크, 이름이 붙은 리소스, 의미가 드러나는 역할 표, 출처 설명을 같은 계층에 둡니다.
   구성된 결과만 차이를 `누락`으로 표시하고, 프로브가 없거나 실패하면 저장소 기준을 `필수`로 표시하며 관찰 수는 사용할 수 없음으로 유지합니다.
   `Sample`은 합성 데이터임을 명시하고 정규 토큰을 유지하며, 테넌트 준비 상태를 주장하지 않고 `다시 불러오기`를 제공합니다.
+
+알림을 클릭하면 등록된 Console 기본 경로 안에서 이벤트 유형에 맞는 목적지를 엽니다. 승인 알림은 라이브 Approvals 대기열을 엽니다. 거부 및 실패 알림은 상관관계가 연결된 Audit를 열고, Finding 알림은 Detection Coverage를 엽니다. 클릭 허용 목록과 경계는 [Console Web 알림 설계](console-web-notifications-ko.md)에서 확인하세요.
 
 서버 상태가 사용할 수 있는 운영 기능을 결정합니다. 브라우저는 사용성을 위해 컨트롤을 숨길 수 있지만 모든 제출은 권한 확인과 개정 번호 검사를 반복합니다. SSE는 영향받은 출처 참조를 무효화하고 클라이언트가 권위 있는 상태를 다시 읽게 할 수 있습니다.
 

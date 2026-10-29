@@ -552,6 +552,8 @@ The current `Operations` navigation group remains the single product surface. Ad
   Only configured results label gaps `Missing`; absent or failed probes show the repository baseline as `Required` with unavailable counts.
   Keep `Sample` explicitly synthetic, retain canonical tokens, and offer `Retry loading` without claiming tenant readiness.
 
+Notification clicks stay within the registered Console base path and use event-specific destinations. Approval alerts open the live Approvals queue. Denial and failure alerts open correlated Audit, and Finding alerts open Detection Coverage. See the [Console Web Notifications design](console-web-notifications.md) for the click allowlist and boundary.
+
 Server state determines available operations. The browser may hide unavailable controls for usability, but every submission repeats authorization and revision checks. SSE can invalidate affected source references so the client refetches authoritative state.
 
 An SSE invalidation frame contains `event_id`, `source_family`, opaque `source_id`,
