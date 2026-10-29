@@ -7,6 +7,7 @@ from types import MethodType
 from typing import Any
 
 import pytest
+from fdai.core.ontology_platform.operational_history_lifecycle import NoCurrentIncarnationError
 from fdai.delivery.persistence import postgres_observation_lifecycle as lifecycle_module
 from fdai.delivery.persistence.postgres_observation_lifecycle import (
     _fact_family,
@@ -47,6 +48,32 @@ def _full_observation(
         source_identity="test.inventory",
         source_event_id=f"event:{scope_ref}:{resource_name}",
         source_revision="revision-1",
+        effective_at=NOW,
+        observed_at=NOW,
+        evidence_cutoff=NOW,
+        recorded_at=NOW,
+        ingested_at=NOW,
+        scope_ref=scope_ref,
+    )
+
+
+def _partial_observation(*, scope_ref: str) -> NormalizedInventoryObservation:
+    resource_ref = f"{scope_ref}/resource-1"
+    return NormalizedInventoryObservation.create(
+        idempotency_key=f"event:{resource_ref}:partial",
+        subject_kind=InventoryObservationSubjectKind.OBJECT,
+        observation_kind=InventoryObservationKind.PARTIAL,
+        mutation_kind=InventoryMutationKind.UPSERT,
+        subject_ref=resource_ref,
+        subject_type="compute.vm",
+        properties={"state": "ready"},
+        property_mask=("state",),
+        properties_complete=False,
+        links_complete=False,
+        tombstone_confirmed=False,
+        source_identity="test.inventory",
+        source_event_id=f"event:{resource_ref}:partial",
+        source_revision="revision-2",
         effective_at=NOW,
         observed_at=NOW,
         evidence_cutoff=NOW,
@@ -177,6 +204,18 @@ async def test_retained_binding_replay_does_not_reclassify_late_observations() -
             ([observation.observation_id],),
         )
     ]
+
+
+async def test_partial_observation_without_current_incarnation_is_typed() -> None:
+    observation = _partial_observation(scope_ref="provider/subscription/example")
+
+    with pytest.raises(NoCurrentIncarnationError) as error:
+        await lifecycle_module._object_incarnation(
+            _Connection(),  # type: ignore[arg-type]
+            observation,
+        )
+
+    assert error.value.reason_code == "no_current_incarnation"
 
 
 async def test_projection_closes_pending_correction_with_content_addressed_receipt() -> None:

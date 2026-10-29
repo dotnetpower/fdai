@@ -14,6 +14,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from fdai.core.ontology_platform.operational_history_lifecycle import (
+    NoCurrentIncarnationError,
     ObservationPartition,
     ObservationPartitionKind,
     ObservationPartitionState,
@@ -507,7 +508,9 @@ async def _object_incarnation(
             )
         if incarnation_id is None:
             if observation.observation_kind is not InventoryObservationKind.FULL:
-                raise ValueError("sparse or tombstone observation has no current incarnation")
+                raise NoCurrentIncarnationError(
+                    "sparse or tombstone observation has no current incarnation"
+                )
             incarnation = build_resource_incarnation(
                 resource_ref=observation.subject_ref,
                 resource_type=observation.subject_type,
@@ -558,13 +561,17 @@ async def _current_incarnation(
             (resource_ref,),
         )
         if await prior_cursor.fetchone() is not None:
-            raise ValueError("relationship observation endpoint has no current incarnation")
+            raise NoCurrentIncarnationError(
+                "relationship observation endpoint has no current incarnation"
+            )
         incarnation_id = await _materialize_snapshot_incarnation(
             connection,
             resource_ref=resource_ref,
         )
         if incarnation_id is None:
-            raise ValueError("relationship observation endpoint has no current incarnation")
+            raise NoCurrentIncarnationError(
+                "relationship observation endpoint has no current incarnation"
+            )
         return incarnation_id
     return str(row["incarnation_id"])
 

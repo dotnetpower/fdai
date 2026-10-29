@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: de21c8baca18333fea7075bf52a1c4f509487225
-translation_revised: 2026-10-16
+translation_source_sha: d22ab6e89b0b8abdddb46a3e71f191e1596c7e35
+translation_revised: 2026-10-30
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -542,6 +542,10 @@ digest를 가진 변경 불가능한 내용 기반 주소 산출물을 기록합
 근거 참조를 보존합니다. 표현 계층은 완전하고 충돌이 없으며 합성이 아닌 관측에 대해서만
 `from_state -> to_state`를 표시할 수 있습니다. 파생되었거나 검증되지 않은 행은 미확정 상태를
 유지하며 관측 상태 주장으로 바뀌지 않습니다.
+
+검증된 현재 Resource incarnation에 연결할 수 없는 관측은 `NoCurrentIncarnationError`로
+거부합니다. 영속성 어댑터는 연결 실패를 빈 결과로 성공 처리하지 않습니다. 대기 중 복구는 해당
+관측의 실패를 집계하고 다른 관측을 계속 처리합니다.
 
 `query.resource_health_inventory`도 현재 가용성에 대해 같은 읽기 전용 경계를 따릅니다. 이
 FunctionType은 하나의 대상 집합 다이제스트, 쿼리 개정, 기한, 커버리지 계약으로 보안이 적용된
