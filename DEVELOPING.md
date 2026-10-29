@@ -282,8 +282,17 @@ make check               # lint + gates + test + operator (broad local run)
 ```
 
 `make ci-preflight` merges nothing and pushes nothing. It stops when your branch is behind its
-base, because a base update after the push costs a second CI attempt. Sharded pytest, the database
-integration shards, the coverage floor, gitleaks, and Terraform validation remain CI-only.
+base, because a base update after the push costs a second CI attempt. `scripts/verify.sh --fast`
+runs the Terraform fmt, Trivy, and Checkov commands for `infra/` changes and reports a missing
+scanner as skipped, so a scanner finding costs seconds instead of a CI round trip. Sharded pytest,
+the database integration shards, the coverage floor, gitleaks, and `terraform validate` and
+`terraform test` remain CI-only.
+
+CI splits pytest by file using measured weights in
+`scripts/quality/ci/pytest-shard-durations.json`. After large test additions, run the regression
+suite once with `--durations=0` and regenerate them with
+`python3 scripts/quality/ci/update-pytest-shard-durations.py <log>`; stale weights leave one shard
+much slower than the rest, and the slowest shard sets the CI wall time.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md#everyday-workflow) for the per-target
 breakdown.
