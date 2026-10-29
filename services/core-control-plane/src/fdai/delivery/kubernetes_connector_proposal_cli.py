@@ -15,6 +15,10 @@ from fdai_service_contracts.observer_deployment import (
     ObserverDeploymentProposal,
 )
 
+from fdai.delivery.kubernetes_connector_management_runtime import (
+    collect_azure_preflight,
+    collect_ownership_preflight,
+)
 from fdai.delivery.kubernetes_connector_observed import build_observer_evidence
 from fdai.delivery.kubernetes_connector_planning import propose_observer_deployment
 from fdai.delivery.kubernetes_connector_preflight_runtime import (
@@ -79,6 +83,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     capacity.add_argument("--config", type=Path, required=True)
     storage = operations.add_parser("collect-storage-preflight")
     storage.add_argument("--config", type=Path, required=True)
+    azure = operations.add_parser("collect-azure-preflight")
+    azure.add_argument("--config", type=Path, required=True)
+    ownership = operations.add_parser("collect-ownership-preflight")
+    ownership.add_argument("--config", type=Path, required=True)
     args = parser.parse_args(argv)
     proposal: ObserverDeploymentProposal | None
     try:
@@ -89,6 +97,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "collect-read-preflight": collect_read_preflight,
             "collect-admission-preflight": collect_admission_preflight,
             "collect-gateway-preflight": collect_gateway_preflight,
+            "collect-azure-preflight": collect_azure_preflight,
+            "collect-ownership-preflight": collect_ownership_preflight,
         }
         if args.operation in collectors:
             collector = collectors[args.operation]

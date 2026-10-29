@@ -1,8 +1,8 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 13995998860058e6b3551156faca6eb282ed83dd
-translation_revised: 2026-10-29
+translation_source_sha: 19aa63b9bc85dfb49cf5f0be053d3f5c8ad9a2d6
+translation_revised: 2026-10-30
 ---
 # AKS 역방향 커넥터
 
@@ -91,6 +91,25 @@ Observer 제안 발견은 기존 알림 라우터와 채널별 영속 전달 저
 역할로 제한된 Console 변환 결과는 제안 출처를 사용할 수 없는 상태와 현재 제안이 0건인
 상태를 구분합니다. 현재 제안이 없으면 관측 근거가 도착한 뒤에만 화면이 갱신되며 이 화면에서
 Observer를 설치하거나 실행 권한을 부여할 수 없다고 설명합니다.
+
+지금까지 운영자가 단언하던 제약은 서명된 수집기 두 개가 다룹니다. 각 사실은 필요 조건만 관찰하므로
+Azure 근거는 방법을 거부하거나 `unknown`으로 둘 수 있지만 방법을 허가하지는 못합니다.
+
+- `collect-azure-preflight`는 읽기 전용 관리 리더로 AKS 리소스 하나를 읽고 `azure_policy`,
+  `run_command_authorized`, `private_egress`, `public_egress`를 냅니다. `run_command_authorized`는
+  ARM이 command invoke를 끄거나 배포 프로필이 허용하지 않으면 `denied`, 둘 다 켜져 있고 클러스터가
+  실행 중일 때만 `allowed`, 그 밖에는 `unknown`입니다. `azure_policy`는 클러스터 범위에 적용되는
+  할당을 나열하고, 정의와 정책 집합 구성원의 효과를 매개변수를 거쳐 해석하며, `DoNotEnforce` 할당과
+  Kubernetes 데이터 평면(승인은 별도 사실입니다)은 제외합니다. 거부 가능한 클러스터 범위 정책,
+  해석되지 않은 효과, 불완전한 나열은 `unknown`이 되어 검토자가 결정합니다. 경로 사실은 gateway
+  주소를 분류합니다. 사설 주소는 `private_egress`를 허용하고 `public_egress`를 거부하며, 공인 주소는
+  공용 아웃바운드 유형이 필요하고 사용자 정의 경로는 `unknown`입니다. 수집기가 이 네 이름을 소유하므로
+  검토된 수신 증명이 같은 이름을 제공해서는 안 됩니다.
+- `collect-ownership-preflight`는 관찰자 네임스페이스와 CronJob을 읽고, 둘 다 없거나 설치 프로그램
+  소유 레이블이 있을 때만 `allowed`입니다. 레이블이 없거나 다른 소유자의 객체는 `denied`입니다.
+
+두 사실도 다른 수집기와 같이 5분간 유효하며, 정확한 사실 이름과 출처를 나열한 배포 소유 grant로
+서명됩니다.
 
 ## 스냅샷 실행 구성
 
