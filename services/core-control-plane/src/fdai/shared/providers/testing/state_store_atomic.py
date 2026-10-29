@@ -8,6 +8,43 @@ from typing import Any
 
 
 class InMemoryStateAtomicMixin:
+    async def compare_and_set_state_pair_with_audit(
+        self: Any,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        second_key: str,
+        second_value: Mapping[str, Any],
+        expected_second_revision: int,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if expected_revision < 0 or expected_second_revision < 0 or key == second_key:
+            raise ValueError("state pair expected revisions or keys are invalid")
+        with self._lock:
+            first = self._state.get(key)
+            second = self._state.get(second_key)
+            first_revision = first.get("revision", 0) if first is not None else 0
+            second_revision = second.get("revision", 0) if second is not None else 0
+            if (
+                first_revision != expected_revision
+                or second_revision != expected_second_revision
+                or (expected_revision == 0 and first is not None)
+                or (expected_second_revision == 0 and second is not None)
+            ):
+                return False
+            snapshot = self._snapshot_keys_locked(key, second_key)
+            audit_length_before = len(self._audit)
+            try:
+                self._write_locked(key, value)
+                self._write_locked(second_key, second_value)
+                self._append_audit_locked(audit_entry)
+            except Exception:
+                self._restore_keys_locked(snapshot)
+                del self._audit[audit_length_before:]
+                raise
+            return True
+
     async def compare_and_set_state_with_audit_and_insert_before(
         self: Any,
         key: str,

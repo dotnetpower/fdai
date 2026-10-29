@@ -124,6 +124,58 @@ async def test_saga_shared_chain_and_bounded_reader_on_postgres(saga_database: s
         await second_store.aclose()
 
 
+async def test_state_pair_audit_writer_commits_atomically_without_time_window(
+    saga_database: str,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    try:
+        await store.write_state("saga:aggregate:pending", {"revision": 1, "groups": {}})
+        await store.write_state("saga:audit:checkpoint", {"revision": 1, "head": "before"})
+        audit_entry = {"actor": "Saga", "action_kind": "audit.aggregate"}
+        assert await store.compare_and_set_state_pair_with_audit(
+            "saga:aggregate:pending",
+            {"revision": 2, "groups": {"a": {"count": 1}}},
+            expected_revision=1,
+            second_key="saga:audit:checkpoint",
+            second_value={"revision": 2, "head": "after"},
+            expected_second_revision=1,
+            audit_entry=audit_entry,
+        )
+        assert await store.read_state("saga:aggregate:pending") == {
+            "revision": 2,
+            "groups": {"a": {"count": 1}},
+        }
+        assert await store.read_state("saga:audit:checkpoint") == {
+            "revision": 2,
+            "head": "after",
+        }
+        records, _ = await store.read_audit_entries(limit=10)
+        assert records[-1] == audit_entry
+
+        assert not await store.compare_and_set_state_pair_with_audit(
+            "saga:aggregate:pending",
+            {"revision": 3, "groups": {}},
+            expected_revision=2,
+            second_key="saga:audit:checkpoint",
+            second_value={"revision": 3, "head": "conflict"},
+            expected_second_revision=1,
+            audit_entry={"actor": "Saga", "action_kind": "audit.must_not_append"},
+        )
+        assert await store.read_state("saga:aggregate:pending") == {
+            "revision": 2,
+            "groups": {"a": {"count": 1}},
+        }
+        assert await store.read_state("saga:audit:checkpoint") == {
+            "revision": 2,
+            "head": "after",
+        }
+        records, _ = await store.read_audit_entries(limit=10)
+        assert records == (audit_entry,)
+    finally:
+        await store.aclose()
+
+
+@pytest.mark.integration
 async def test_temporal_state_pair_linearizes_before_expiry(saga_database: str) -> None:
     store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
     now = datetime.now(tz=UTC)

@@ -283,6 +283,15 @@ its equality filter; PostgreSQL evaluates it with `#>>` over a bound path array,
 filters are unchanged. No segment may start with a digit, so PostgreSQL never reads one as an array
 index.
 
+`StateStorePairAuditWriter` is an optional `StateStore` capability. Its
+`compare_and_set_state_pair_with_audit` operation compares two state-row revisions, updates both
+rows, and appends one audit record in the same transaction. A revision conflict changes neither row
+and appends no audit record. Saga uses it to remove one group while retaining the bounded
+pending-ledger row and advancing the audit checkpoint. An adapter without this capability cannot
+enable aggregation and continues to append verdicts individually. When this capability is present,
+Saga also revision-fences each subject-bound audit append against concurrent aggregate staging;
+a changed ledger revision makes the append retry after the new group is sealed.
+
 The shared `MetricProviderError` contract owns bounded failure metadata; Azure transports classify it and the Analyzer redacts identities.
 The [metric diagnostics contract](aks-diagnostic-evidence-plane.md#safe-metric-failure-diagnostics) preserves legacy providers, empty results, and fail-closed behavior.
 `RoutedMetricProvider` also recognizes an additive concrete-provider `serves(query)` capability

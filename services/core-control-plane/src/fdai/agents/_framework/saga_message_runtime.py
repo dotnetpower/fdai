@@ -126,6 +126,7 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
         _issue_close_promotion_evidence_producer_bound: Any
         _issue_timeout_seconds: Any
         _last_audit_outbox_recovered: Any
+        _no_rule_match_aggregator: Any
         _last_issue_close_eligibility_recovered: Any
         _load_durable_fingerprint: Any
         _materialize_handoff: Any
@@ -230,6 +231,8 @@ class SagaMessageRuntimeMixin(_AgentMixinBase):
         principal = str(payload.get("producer_principal", "unknown"))
         correlation_id = str(payload.get("correlation_id") or "")
         self.record_behavior("typed_message:accepted")
+        if topic == "object.verdict" and await self._no_rule_match_aggregator.stage(topic, payload):
+            return
         if (
             topic == "object.event"
             and payload.get("event_type") != INCIDENT_INTERVENTION_EVENT_TYPE
