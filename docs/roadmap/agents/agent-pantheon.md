@@ -543,7 +543,7 @@ One topic per object type, named `object.<type>`. Every message carries `correla
 The bus stamps authenticated `producer_principal` and integer `envelope_schema_version` while preserving a payload's `schema_version`; mutations require non-empty `correlation_id`, `resource_id`, and `idempotency_key`. Operational audit rows written outside that authenticated bus path preserve the mechanical `actor` and record the accountable Pantheon member separately as `owner_agent`; they never synthesize `producer_principal`. Saga's durable chain mirror records `actor: Saga` and keeps the authenticated source publisher in `principal` without changing the audited payload or its digest.
 Saga serializes each provider-backed append through a shared revision and atomic head-plus-audit commit. Its bounded local mirror becomes visible only after that commit, so terminal observation cannot outrun persisted audit evidence.
 
-#### Bounded no-op verdict aggregation
+#### Bounded no-op decision aggregation
 
 Saga may aggregate only an authenticated Forseti `object.verdict` with `reason: no_rule_match`,
 `risk_verdict: hil`, an empty `action_type`, `resolved_autonomy_ceiling: shadow_only`, a non-empty

@@ -220,14 +220,7 @@ or service boundary and never deletes audit entries.
 return detached audit bodies oldest-first from one snapshot, with a limit of 1-512 and an explicit
 truncation result. A partial read cannot prove absence or complete history. Saga uses this only
 to verify bounded legacy migration; its shared journal otherwise uses existing atomic revision
-CAS-with-audit. Agents never import a concrete persistence adapter or gain another authority.
-
-Saga's optional `StateStorePairAuditWriter` records repeated Forseti `no_rule_match` verdicts as a
-bounded digest-only aggregate. It atomically revision-checks the pending aggregate ledger and audit
-checkpoint while appending the summary; a shared `StateStore` revision fence orders this write
-against individual subject-bound audit appends. Without the optional writer, Saga keeps individual
-verdict audits. An unreadable or pending aggregate, audit inbox, or audit outbox keeps audit
-completeness from reporting `complete`. This audit path grants no action authority.
+CAS-with-audit. Agents never import a concrete persistence adapter or gain another authority; see [Project Structure Dependency Injection](project-structure-dependency-injection.md) for Saga's optional aggregate-audit seam.
 
 Scalar Dynamic feedback stays in `core/assurance_twin/model_registry.py` and the existing Norns-owned
 measurement runner. Its model row stores a versioned, bounded, digest-only event checkpoint with
