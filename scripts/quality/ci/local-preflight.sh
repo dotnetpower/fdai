@@ -52,7 +52,8 @@ fi
 remote="${base%%/*}"
 branch="${base#*/}"
 if [[ "$remote" != "$base" ]] && git remote get-url "$remote" >/dev/null 2>&1; then
-  git fetch --quiet "$remote" "$branch" || echo "local-preflight: fetch failed; using the cached $base." >&2
+  git fetch --quiet "$remote" "+refs/heads/$branch:refs/remotes/$remote/$branch" ||
+    echo "local-preflight: fetch failed; using the cached $base." >&2
 fi
 if ! git rev-parse --verify --quiet "$base" >/dev/null; then
   echo "local-preflight: base ref not found: $base" >&2
