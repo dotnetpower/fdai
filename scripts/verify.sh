@@ -164,9 +164,17 @@ run_gate() {
             PENDING_CACHE+=("$cache_file")
         fi
     else
+        local code=$?
         NAMES+=("$name")
-        RESULTS+=("FAIL")
-        overall=1
+        if [[ "$code" == 125 ]]; then
+            RESULTS+=("ENVIRONMENT_FAULT")
+            overall=125
+        else
+            RESULTS+=("FAIL")
+            if [[ "$overall" != 125 ]]; then
+                overall=1
+            fi
+        fi
     fi
     local duration_ms=$(( $(date +%s%3N) - started_ms ))
     printf 'gate duration: %d ms\n' "$duration_ms"
@@ -384,6 +392,8 @@ if [[ $overall -eq 0 && $structural_deferred -eq 1 ]]; then
     exit 126
 elif [[ $overall -eq 0 ]]; then
     printf '\nverify.sh: all gates green\n'
+elif [[ $overall -eq 125 ]]; then
+    printf '\nverify.sh: validation environment is incomplete; results are not a pass\n' >&2
 else
     printf '\nverify.sh: at least one gate failed\n' >&2
 fi
