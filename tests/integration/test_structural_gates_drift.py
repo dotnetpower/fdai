@@ -82,15 +82,20 @@ def test_pre_push_hook_invokes_all_structural_gates() -> None:
 
 def test_operator_api_boundary_gate_is_in_executed_pre_push_loop() -> None:
     body = (_REPO_ROOT / "scripts" / "automation" / "run-pre-push-structural-gates.sh").read_text()
-    loop_start = body.index("for gate_path in \\")
-    loop_end = body.index("\ndo\n", loop_start)
-    loop_paths = body[loop_start:loop_end]
-    assert "scripts/quality/architecture/check-operator-api-boundaries.py \\\n" in loop_paths
-    execution_block = body[loop_end : body.index("done", loop_end)]
+    list_start = body.index("gates=(")
+    list_end = body.index("\n)\n", list_start)
+    gate_list = body[list_start:list_end]
+    assert "  scripts/quality/architecture/check-operator-api-boundaries.py\n" in gate_list
+    # Every listed gate is started by the same concurrent runner, never skipped by an early exit.
+    run_start = body.index("run_gate() {")
+    run_end = body.index("\n}\n", run_start)
+    execution_block = body[run_start:run_end]
     assert 'gate_command=(uv run --extra dev python "$gate_path")' in execution_block
     assert 'gate_command=(python3 "$gate_path")' not in execution_block
-    assert 'output="$(CHECK_QUIET=1 timeout 600 "${gate_command[@]}" 2>&1)"' in execution_block
-    assert "/tmp/" not in execution_block  # noqa: S108 - shared temp paths are forbidden here
+    assert 'CHECK_QUIET=1 timeout 600 "${gate_command[@]}"' in execution_block
+    assert '>"$results/$gate.out"' in execution_block
+    assert 'run_gate "$gate_path" &' in body
+    assert "/tmp/" not in body  # noqa: S108 - shared temp paths are forbidden here
     assert "exec python3 scripts/automation/local_validation_cache.py structural" in body
 
 
