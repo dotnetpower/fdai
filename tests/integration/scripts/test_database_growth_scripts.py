@@ -6,6 +6,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -65,3 +66,43 @@ def test_scripts_accept_only_the_loopback_development_database(
 
 def test_dev_status_reports_database_growth() -> None:
     assert "report-database-growth.py" in (_LOCAL / "dev-status.sh").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("operation", ["_count", "_bounds"])
+def test_compaction_reads_have_connection_and_statement_deadlines(
+    operation: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load("compact_database_read_deadlines", "compact-local-database.py")
+    connect = MagicMock()
+    connect.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = (0,)
+    monkeypatch.setattr(module.psycopg, "connect", connect)
+
+    arguments = ("runtime-dsn", "example:") if operation == "_count" else ("runtime-dsn",)
+    getattr(module, operation)(*arguments)
+
+    assert connect.call_args.kwargs["connect_timeout"] == 5
+    assert "statement_timeout=30000" in connect.call_args.kwargs["options"]
+    assert "lock_timeout=1000" in connect.call_args.kwargs["options"]
+
+
+async def test_compaction_vacuum_has_connection_and_lock_deadlines(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load("compact_database_vacuum_deadlines", "compact-local-database.py")
+    connect = MagicMock()
+    store = MagicMock()
+    store.aclose = AsyncMock()
+    monkeypatch.setattr(module.psycopg, "connect", connect)
+    monkeypatch.setattr(module, "PostgresStateStore", lambda **kwargs: store)
+    monkeypatch.setattr(module, "_dsn", lambda variable="FDAI_STATE_STORE_DSN": variable)
+    monkeypatch.setattr(module, "_bounds", lambda dsn: {})
+
+    report = await module._run(apply=True, vacuum=True)
+
+    assert report["vacuumed"] == "state_kv"
+    assert connect.call_args.args == ("FDAI_DATABASE_URL",)
+    assert connect.call_args.kwargs["autocommit"] is True
+    assert connect.call_args.kwargs["connect_timeout"] == 5
+    assert "statement_timeout=30000" in connect.call_args.kwargs["options"]
+    assert "lock_timeout=1000" in connect.call_args.kwargs["options"]
+    store.aclose.assert_awaited_once()

@@ -34,6 +34,8 @@ from psycopg.conninfo import conninfo_to_dict
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _DSN_ENV = "FDAI_STATE_STORE_DSN"
 _OWNER_DSN_ENV = "FDAI_DATABASE_URL"
+_CONNECT_TIMEOUT_SECONDS = 5
+_CONNECTION_OPTIONS = "-c statement_timeout=30000 -c lock_timeout=1000"
 
 
 def _dsn(variable: str = _DSN_ENV) -> str:
@@ -52,7 +54,9 @@ def _dsn(variable: str = _DSN_ENV) -> str:
 
 
 def _count(dsn: str, prefix: str) -> int:
-    with psycopg.connect(dsn) as connection:
+    with psycopg.connect(
+        dsn, connect_timeout=_CONNECT_TIMEOUT_SECONDS, options=_CONNECTION_OPTIONS
+    ) as connection:
         connection.execute("SET default_transaction_read_only = on")
         row = connection.execute(
             "SELECT count(*) FROM state_kv WHERE key LIKE %s", (prefix.replace("%", r"\%") + "%",)
@@ -62,7 +66,9 @@ def _count(dsn: str, prefix: str) -> int:
 
 def _bounds(dsn: str) -> dict[str, int]:
     # The covered generation is whole in the newest window, so keep two of them.
-    with psycopg.connect(dsn) as connection:
+    with psycopg.connect(
+        dsn, connect_timeout=_CONNECT_TIMEOUT_SECONDS, options=_CONNECTION_OPTIONS
+    ) as connection:
         connection.execute("SET default_transaction_read_only = on")
         latest = connection.execute(
             "SELECT COALESCE(MAX((value->>'expected_denominator')::int), 0) "
@@ -99,7 +105,12 @@ async def _run(*, apply: bool, vacuum: bool) -> dict[str, object]:
     report: dict[str, object] = {"mode": "apply" if apply else "dry-run", "prefixes": prefixes}
     if apply and vacuum:
         # Only the table owner may rewrite state_kv; the runtime role cannot.
-        with psycopg.connect(_dsn(_OWNER_DSN_ENV), autocommit=True) as connection:
+        with psycopg.connect(
+            _dsn(_OWNER_DSN_ENV),
+            autocommit=True,
+            connect_timeout=_CONNECT_TIMEOUT_SECONDS,
+            options=_CONNECTION_OPTIONS,
+        ) as connection:
             connection.execute("VACUUM (FULL, ANALYZE) state_kv")
         report["vacuumed"] = "state_kv"
     return report
