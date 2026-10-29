@@ -132,6 +132,10 @@ applied; new environments should let Terraform create the stack directly.
 
 ## Continuous infrastructure checks
 
+The ACA CI runner root commits `infra/ci-runner-aca/.terraform.lock.hcl` to retain the selected
+provider version and package checksums. Review generated lockfile changes with dependency updates;
+the lockfile is not Terraform state or approval to change infrastructure.
+
 The required [`CI` workflow](../../../.github/workflows/ci.yml) runs Terraform format and validation
 for the platform, bootstrap, and scenario-lab roots. Its path-scoped `terraform-validate` job then
 runs Trivy and Checkov only when infrastructure or its CI controls change. The scanners use no
