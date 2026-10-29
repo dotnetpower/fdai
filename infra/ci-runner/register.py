@@ -32,6 +32,7 @@ def registration_script(repository: str, runner_name: str, parallelism: int = 1)
 set -euo pipefail
 ulimit -c 0
 test -f /var/lib/fdai-ci-bootstrap-ready
+python3 /opt/fdai-ci/verify-toolchain.py --manifest /opt/fdai-ci/toolchain.json
 /usr/local/sbin/fdai-ci-storage
 if (( $(nproc) < {parallelism * 3 + 1} )); then
   echo "Insufficient CPU capacity for the requested runner resource limits" >&2

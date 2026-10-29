@@ -1,28 +1,23 @@
 #cloud-config
-package_update: true
-packages:
-  - build-essential
-  - ca-certificates
-  - curl
-  - docker.io
-  - git
-  - jq
-  - libbz2-dev
-  - libffi-dev
-  - libicu74
-  - liblzma-dev
-  - libpq-dev
-  - libreadline-dev
-  - libsqlite3-dev
-  - libssl-dev
-  - python3-pip
-  - python3-venv
-  - unzip
-  - xz-utils
-  - zip
-  - zlib1g-dev
-
 write_files:
+  - path: /opt/fdai-ci/toolchain.json
+    owner: root:root
+    permissions: "0644"
+    content: |
+      ${indent(6, toolchain_manifest)}
+
+  - path: /opt/fdai-ci/verify-toolchain.py
+    owner: root:root
+    permissions: "0755"
+    content: |
+      ${indent(6, toolchain_verifier)}
+
+  - path: /opt/fdai-ci/provision-toolchain.sh
+    owner: root:root
+    permissions: "0755"
+    content: |
+      ${indent(6, toolchain_provisioner)}
+
   - path: /usr/local/sbin/fdai-ci-storage
     owner: root:root
     permissions: "0755"
@@ -42,6 +37,7 @@ write_files:
     content: |
       #!/usr/bin/env bash
       set -euo pipefail
+      /opt/fdai-ci/provision-toolchain.sh
       useradd --create-home --shell /bin/bash fdairunner
       usermod -aG docker fdairunner
       /usr/local/sbin/fdai-ci-storage
@@ -59,4 +55,4 @@ write_files:
       touch /var/lib/fdai-ci-bootstrap-ready
 
 runcmd:
-  - [timeout, "900", /opt/fdai-ci/bootstrap.sh]
+  - [timeout, "1800", /opt/fdai-ci/bootstrap.sh]
