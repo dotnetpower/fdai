@@ -102,6 +102,24 @@ jobs:
         if: runner.environment == 'self-hosted'
         run: python3 infra/ci-runner/verify-toolchain.py
 
+      # A fresh checkout stamps every file with the checkout time, which invalidates all cached
+      # bytecode. Content-derived times keep unchanged files valid, so a cold shard starts in
+      # about 20 s instead of 70 s.
+      - name: Stamp tracked Python sources with content-derived times
+        run: python3 scripts/quality/ci/stamp-source-mtimes.py
+
+      - name: Restore cached bytecode
+        id: bytecode
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            **/__pycache__
+            !.venv/**
+            !**/node_modules/**
+          key: bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-${{ github.sha }}
+          restore-keys: |
+            bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-
+
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -145,6 +163,18 @@ jobs:
 
       - name: Run regression shard
         run: bash scripts/quality/ci/run-python-tests.sh
+
+      - name: Save cached bytecode
+        if: >-
+          !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+          matrix.shard == 1 && steps.bytecode.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            **/__pycache__
+            !.venv/**
+            !**/node_modules/**
+          key: bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-${{ github.sha }}
 
   protected-ci-source:
     name: verify self-hosted CI source
@@ -242,6 +272,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Stamp tracked Python sources with content-derived times
+        run: python3 scripts/quality/ci/stamp-source-mtimes.py
+
+      - name: Restore cached bytecode
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            **/__pycache__
+            !.venv/**
+            !**/node_modules/**
+          key: bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-${{ github.sha }}
+          restore-keys: |
+            bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -870,6 +914,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Stamp tracked Python sources with content-derived times
+        run: python3 scripts/quality/ci/stamp-source-mtimes.py
+
+      - name: Restore cached bytecode
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            **/__pycache__
+            !.venv/**
+            !**/node_modules/**
+          key: bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-${{ github.sha }}
+          restore-keys: |
+            bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0

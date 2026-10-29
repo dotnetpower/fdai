@@ -221,6 +221,13 @@ if [[ -n "$missing_tools" ]]; then
     exit 125
 fi
 
+# Gates call bare python3; a system interpreter without the project dependencies (for example
+# jsonschema) fails them for reasons unrelated to the diff. Prefer the project environment, but
+# only after the toolchain check so it never hides a missing tool.
+if [[ -x "$repo_root/.venv/bin/python3" ]]; then
+    export PATH="$repo_root/.venv/bin:$PATH"
+fi
+
 python_runner=(python3)
 managed_bash=(bash)
 if command -v uv >/dev/null 2>&1; then

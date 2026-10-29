@@ -289,10 +289,20 @@ the database integration shards, the coverage floor, gitleaks, and `terraform va
 `terraform test` remain CI-only.
 
 CI splits pytest by file using measured weights in
-`scripts/quality/ci/pytest-shard-durations.json`. After large test additions, run the regression
-suite once with `--durations=0` and regenerate them with
-`python3 scripts/quality/ci/update-pytest-shard-durations.py <log>`; stale weights leave one shard
-much slower than the rest, and the slowest shard sets the CI wall time.
+`scripts/quality/ci/pytest-shard-durations.json`, covering the regression, coverage, and
+integration modes. After large test additions, run each mode once with `--durations=0` and
+regenerate the weights with
+`python3 scripts/quality/ci/update-pytest-shard-durations.py <log> [<log> ...]`; stale weights
+leave one shard much slower than the rest, and the slowest shard sets the CI wall time.
+
+CI also restores cached Python bytecode. `scripts/quality/ci/stamp-source-mtimes.py` gives each
+tracked Python file a modification time derived from its content, so a fresh checkout does not
+invalidate the cache: a cold shard starts in about 20 s instead of 70 s. The bytecode cache is
+written only by protected-`main` runs and only read elsewhere.
+
+`scripts/automation/run-pre-push-structural-gates.sh` runs its independent gates concurrently
+(`FDAI_STRUCTURAL_JOBS` bounds the parallelism; the default is the CPU count up to 6), which cut
+the structural stage of a push from 81 s to 29 s.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md#everyday-workflow) for the per-target
 breakdown.
