@@ -2559,6 +2559,51 @@ def test_a_collection_select_lists_every_members_observed_state() -> None:
     assert batch.frame.output_shape == "resource_state_list"
 
 
+def test_a_whole_scope_health_form_compiles_without_a_subject() -> None:
+    utterance = "overall health"
+    form = {
+        "mentions": [],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": None,
+                "subject_scope": "collection",
+                "measure": {"kind": "health", "cue": span(utterance, "health")},
+                "cue": span(utterance, "overall"),
+                "confidence": 0.93,
+            }
+        ],
+    }
+    admission = admitted(form, utterance)
+    goal = compile_question_form(
+        admission,
+        concepts=concepts(),
+        manifest=production_manifest(
+            health_labels=(
+                ("resource_health.healthy", ("Available",)),
+                ("resource_health.unhealthy", ("Unavailable",)),
+            )
+        ),
+        verifier=plan_verifier(),
+        purpose=PURPOSE,
+        evaluation_time=NOW,
+        default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+        utterance=utterance,
+        anchors=synthetic_anchors(admission),
+    ).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    assert batch.frame.output_shape == "resource_health_list"
+    health = batch.plan.nodes[-1]
+    assert json.loads(health.arguments_json)["arguments"] == {
+        "health_concepts": ["resource_health.healthy", "resource_health.unhealthy"],
+        "state_concepts": [],
+    }
+
+
 def test_a_collection_select_lists_every_members_health_over_every_reviewed_concept() -> None:
     utterance = "Show the health of the VMs"
     form = _listing_form(utterance, "health", "health")

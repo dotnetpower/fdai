@@ -46,6 +46,12 @@ class ObservationPinKind(StrEnum):
     REPLAY_LEASE = "replay_lease"
 
 
+class NoCurrentIncarnationError(ValueError):
+    """Raised when an observation cannot bind to a verified current incarnation."""
+
+    reason_code = "no_current_incarnation"
+
+
 @dataclass(frozen=True, slots=True)
 class ResourceIncarnation:
     """One immutable lifecycle identity for a provider resource identity."""
@@ -649,6 +655,7 @@ def _sha256(value: Mapping[str, object]) -> str:
 
 
 __all__ = [
+    "NoCurrentIncarnationError",
     "ObservationCheckpoint",
     "ObservationCorrectionReceipt",
     "ObservationPartition",
