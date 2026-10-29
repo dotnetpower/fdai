@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: a71d1d0f82b79f0adc025ffb5cc87d0c5525ef4e
+translation_source_sha: e199d1ab65de07e09a5e6d748c09c05dfbe52707
 translation_revised: 2026-10-30
 ---
 # 온톨로지 구조 모델
@@ -66,6 +66,8 @@ WARA 리소스 교차표는 검토된 정확한 공급자 ID, 명시적인 정�
 있으며 워크로드 자식으로 전체 구독 범위를 입증하지 않습니다. 도표 설명의 노드와 연결선은
 별도 표시 데이터이며 온톨로지 인스턴스나 관찰된 관계가 아닙니다. 그림은 리소스 존재,
 그래프 전체성, 권한을 제공하지 않습니다.
+추가한 모든 정식 종류에는 명시적인 Console 계층, 역할 유형별 색, 안정적인 약어도 있습니다.
+이 연결은 관계나 공급자 범위를 바꾸지 않고 종류의 의미를 유지합니다.
 
 ![설계 요약. 주요 단계는 Resource, ResourceType, ResourceClass, Query, 탐색형 관계 탐색, 순서가 있는 형식화된 경로, LinkType, 정방향 및 역방향 역할, 의미 특성입니다.](../../diagrams/generated/fdai-roadmap-architecture-ontology-structural-model-01.ko.svg)
 

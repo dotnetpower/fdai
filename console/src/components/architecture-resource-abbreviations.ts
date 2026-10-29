@@ -1,6 +1,9 @@
 // Source: https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations
 // CSP-neutral types without a one-to-one CAF row use an explicit, stable extension below.
+import { WARA_ARCHITECTURE_ABBREVIATIONS } from "./architecture-wara-resources";
+
 export const ARCHITECTURE_RESOURCE_ABBREVIATIONS = {
+  ...WARA_ARCHITECTURE_ABBREVIATIONS,
   subscription: "sub",
   "resource-group": "rg",
   "virtual-network": "vnet",

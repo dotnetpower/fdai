@@ -1,6 +1,11 @@
 import { routeHref } from "../router";
 import { hasArchitectureResourceAbbreviation } from "./architecture-resource-abbreviations";
 import {
+  WARA_ARCHITECTURE_COLOR_TOKENS,
+  WARA_ARCHITECTURE_COLORS,
+  WARA_ARCHITECTURE_LAYERS,
+} from "./architecture-wara-resources";
+import {
   ARCHITECTURE_TOPOLOGY_COLUMN_PITCH,
   ARCHITECTURE_TOPOLOGY_ROW_PITCH,
   architectureTopologyNodeDimensions,
@@ -140,7 +145,8 @@ export type ArchitectureResourceColorToken =
   | "certificate"
   | "log-analytics"
   | "azure-monitor"
-  | "search";
+  | "search"
+  | keyof typeof WARA_ARCHITECTURE_COLOR_TOKENS;
 export type ArchitectureNodeShape =
   | "block"
   | "compact"
@@ -167,6 +173,7 @@ export const ARCHITECTURE_LAYERS: readonly ArchitectureLayer[] = [
 ];
 
 const TYPE_LAYER: Readonly<Record<string, ArchitectureLayer>> = {
+  ...WARA_ARCHITECTURE_LAYERS,
   subscription: "scope",
   "resource-group": "scope",
   "virtual-network": "network",
@@ -308,6 +315,7 @@ const TYPE_LAYER: Readonly<Record<string, ArchitectureLayer>> = {
 };
 
 const TYPE_COLOR_TOKEN: Readonly<Record<string, ArchitectureResourceColorToken>> = {
+  ...WARA_ARCHITECTURE_COLORS,
   subscription: "subscription",
   "resource-group": "resource-group",
   "virtual-network": "virtual-network",
@@ -451,6 +459,7 @@ const TYPE_COLOR_TOKEN: Readonly<Record<string, ArchitectureResourceColorToken>>
 export const RESOURCE_COLOR_TOKENS: Readonly<
   Record<ArchitectureResourceColorToken, { readonly label: string; readonly color: string }>
 > = {
+  ...WARA_ARCHITECTURE_COLOR_TOKENS,
   generic: { label: "Other resource", color: "#697586" },
   subscription: { label: "Subscription", color: "#FF9300" },
   "resource-group": { label: "Resource group", color: "#50E6FF" },

@@ -41,12 +41,15 @@ def test_shipped_vocabulary_exposes_a_bilingual_database_group() -> None:
 
     assert set(database.values) == {
         "cache",
+        "database.dedicated-infrastructure",
+        "database.vm-cluster",
         "mysql-server",
         "nosql-database",
         "postgresql-server",
         "redis-enterprise",
         "sql-database",
         "sql-server",
+        "sql-managed-instance",
     }
     assert "database" in database.terms
     assert "db" in database.terms

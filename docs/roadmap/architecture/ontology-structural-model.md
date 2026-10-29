@@ -62,6 +62,8 @@ identities, explicit canonical alternatives and a source-only subscription alias
 types have exact `contains` producers; a workload child cannot establish a full subscription scope.
 Illustrated guidance uses separate presentation nodes and edges, not ontology instances or
 observed relationships. A diagram never supplies resource existence, graph completeness or authority.
+Every added canonical type also has an explicit Console layer, role-family color and stable
+abbreviation. These bindings preserve type meaning without changing relationships or provider scope.
 
 ![Design at a glance. The main stages are Resource, ResourceType, ResourceClass, Query, Exploratory traversal, Ordered typed path, LinkType, Forward and reverse roles, Semantic traits.](../../diagrams/generated/fdai-roadmap-architecture-ontology-structural-model-01.en.svg)
 
