@@ -57,6 +57,7 @@ matrix:
         - pagerduty-primary
         - email-oncall
         - webhook-observability
+        - console-inbox
       on_all_fail: hil_escalate
 
     # Adapter-health / kill-switch state broadcasts share the ops lane.
@@ -66,6 +67,7 @@ matrix:
       channels:
         - teams-ops-prd
         - pagerduty-primary
+        - console-inbox
       on_all_fail: hil_escalate
 
     kill_switch_state:
@@ -75,6 +77,7 @@ matrix:
         - teams-ops-prd
         - pagerduty-primary
         - email-oncall
+        - console-inbox
       on_all_fail: hil_escalate
 
     # Code-security findings: urgent or coverage-incomplete scans. Bodies carry
@@ -85,6 +88,7 @@ matrix:
       channels:
         - teams-ops-prd
         - email-oncall
+        - console-inbox
       on_all_fail: hil_escalate
 
     # A3 - chat command responses (bidirectional, medium auth). The

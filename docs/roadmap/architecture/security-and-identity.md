@@ -139,7 +139,7 @@ create a separate exact-plan `AccessGrantRequest`; a distinct protected deployer
   ownership revision candidate, and the request is bound to the candidate digest the Owner
   reviewed. Core rechecks the stored role and digest, records one receipt per request, and grants
   no IAM, deployment, or Azure authority.
-- **Current analyzer Findings and availability expectations**: the Operator serves Findings through a Reader-authorized, read-only projection, and expectations change only through the existing Owner-only, revision-checked, audited Runtime Settings path; reading a Finding, selecting a notification channel, or storing an expectation grants no execution, approval, or Incident authority.
+- **Current analyzer Findings and availability expectations**: the Operator serves Findings through a Reader-authorized, read-only projection, and expectations change only through the existing Owner-only, revision-checked, audited Runtime Settings path; reading a Finding, selecting a notification channel, or storing an expectation grants no execution, approval, or Incident authority. The Core `console-inbox` A2 channel stores only pre-redacted, bounded, no-authority alert records that Operator serves to Reader principals; reading one grants none of those authorities either.
 - Autonomous deployments must respect platform policy (e.g. Azure Policy `deny`); provide a
   **policy-exemption workflow** (requestable, time-boxed, audited, owner-approved) rather than
   bypassing controls.

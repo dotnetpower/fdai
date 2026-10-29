@@ -36,7 +36,9 @@ topology change as proof of a dependency. An exact cause/effect pair needs one c
 verified path within one historical view and the evidence window. A metric comparison belongs
 only to its exact effect identity, unit, and current interval. Missing paths, invalid relationship
 evidence, failed correlation checks, and unevaluated competitors remain unresolved. These checks
-add no declaration kind, inverse relationship, causal proof, or execution authority.
+add no declaration kind, inverse relationship, causal proof, or execution authority. The Operator
+`GET /notifications/inbox` Console inbox projection is tracked state outside the ontology and adds no
+ObjectType or LinkType.
 
 An independently issued competitor assessment can resolve the competitor limitation only
 when every named competitor is accounted for and refuted within the exact resource, metric,

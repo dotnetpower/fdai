@@ -35,6 +35,7 @@ from fdai_operator_service.code_security_review_projection import (
     CODE_SECURITY_OPERATIONS,
     read_code_security_projection,
 )
+from fdai_operator_service.console_inbox_projection import read_console_inbox
 from fdai_operator_service.dashboard_aggregation import aggregate_dashboard
 from fdai_operator_service.dashboard_source import (
     MEASUREMENT_KINDS,
@@ -114,6 +115,8 @@ class RuntimeProjectionReader:
             return await self._detection_readiness()
         if query.operation == "finding.list":
             return await read_findings(self._fetch_all, query)
+        if query.operation == "notification.inbox":
+            return await read_console_inbox(self._fetch_all, query)
         if query.operation == "configuration-baselines":
             return await self._configuration_baselines()
         if query.operation == "runtime.operational-state":

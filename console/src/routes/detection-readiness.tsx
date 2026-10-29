@@ -1,4 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
+import { ConsoleInbox } from "../components/console-inbox";
 import { CurrentFindings } from "../components/finding-attention";
 
 import { isOptionalOperatorApiUnavailable, OperatorApiError, type OperatorApiClient } from "../api";
@@ -253,6 +254,7 @@ export function DetectionReadinessRoute({
     <div class="stack detection-readiness-route">
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
       <CurrentFindings client={client} enabled={dataMode === "live"} />
+      <ConsoleInbox client={client} enabled={dataMode === "live"} />
       <AsyncBoundary state={state} resourceLabel={t("resourceLabel")}>
         {(data) => (
           <DetectionReadinessBody

@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 0b1a2766be42a43d9dd114157302b3f31a04f386
-translation_revised: 2026-10-28
+translation_source_sha: a78ecfd5e2bd2c32769bdfa5047f3d0025590862
+translation_revised: 2026-10-29
 ---
 
 # 개발 워크플로 보증
@@ -26,7 +26,8 @@ Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory e
 >
 > 로컬 제품 기본값은 헤드리스 관찰 우선 프로필입니다. Console 전체 스택, 알림, 엔터프라이즈
 > 신원 및 `governed-execution`은 서로 독립적인 명시적 추가 기능이며 개발 도구나 패키지
-> 존재 여부로 선택할 수 없습니다.
+> 존재 여부로 선택할 수 없습니다. 권한이 없는 `console-inbox` 알림 채널은 외부 효과가 없으므로 예외이며
+> 기본으로 활성화되고 `FDAI_CONSOLE_INBOX=0`으로 해제합니다.
 
 ## 설계 개요
 

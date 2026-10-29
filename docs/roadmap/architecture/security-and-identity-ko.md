@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 26dd771f2413d048bb793ee872bce83ed9d13fcd
+translation_source_sha: 14d08ce75d4390030687d7749eda6e36be0b797b
 translation_revised: 2026-10-29
 ---
 
@@ -140,7 +140,7 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - **Console 관리형 담당 체계 활성화**: Owner 역할만 담당 체계 개정 후보의 활성화를 요청할 수 있으며,
   요청은 Owner가 검토한 후보 다이제스트에 묶입니다. Core가 저장된 역할과 다이제스트를 다시 확인하고
   요청마다 수신 기록 하나를 남기며 IAM, 배포, Azure 권한은 부여하지 않습니다.
-- **현재 분석기 Finding과 가용성 기대 상태**: Operator는 Reader 권한으로 인가된 읽기 전용 조회로
+- **현재 분석기 Finding과 가용성 기대 상태**: Operator는 Reader 권한으로 인가된 읽기 전용 조회로 Core의 `console-inbox` A2 채널은 사전 마스킹되고 크기가 제한된 무권한 알림 레코드만 저장하며 Operator가 이를 Reader 주체에게 제공합니다. 이를 읽는 것도 위 권한을 부여하지 않습니다.
   현재 Finding을 제공하며, 기대 상태는 기존 Owner 전용 Runtime Settings 경로에서 버전 확인과 감사를
   거쳐서만 변경합니다. Finding 조회, 브라우저 알림 채널 선택이나 기대 상태 저장은 리소스 실행,
   승인 또는 Incident 권한을 부여하지 않습니다.

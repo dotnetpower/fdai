@@ -221,6 +221,8 @@ async def test_console_governed_merge_effects_record_a_notification_without_chat
 
     for name in ("FDAI_CHATOPS_WEBHOOK_URL", "FDAI_TEAMS_APPROVAL_ACTIVITY_URL"):
         monkeypatch.delenv(name, raising=False)
+    # The Console inbox would otherwise deliver; this case pins the no-channel outcome.
+    monkeypatch.setenv("FDAI_CONSOLE_INBOX", "0")
     store = InMemoryStateStore()
     merge = _merge("console-no-chatops")
     await store.write_state(f"stewardship_merge:{merge.delivery_id}", merge.model_dump(mode="json"))

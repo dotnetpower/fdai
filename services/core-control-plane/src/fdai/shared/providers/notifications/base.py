@@ -48,6 +48,8 @@ class ChannelKind(StrEnum):
     SMS = "sms"
     DIRECT_LINE = "direct_line"
     """Customer-agnostic custom channel reached through Bot Framework Direct Line (A2/A4 only)."""
+    CONSOLE = "console"
+    """Console web inbox: a bounded server record read back by the Operator (A2 only)."""
 
 
 class TrustTier(StrEnum):

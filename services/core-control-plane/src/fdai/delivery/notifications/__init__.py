@@ -27,6 +27,11 @@ from .bindings import (
     default_notification_bindings_from_env,
     parse_notification_bindings,
 )
+from .console_inbox import (
+    CONSOLE_INBOX_CHANNEL_ID,
+    CONSOLE_INBOX_PREFIX,
+    StateStoreConsoleInboxChannel,
+)
 from .direct_line import (
     DIRECT_LINE_TRUST_TIERS,
     DirectLineConfig,
@@ -58,6 +63,9 @@ from .teams import (
 from .webhook import GenericWebhookChannel, GenericWebhookConfig
 
 __all__ = [
+    "CONSOLE_INBOX_CHANNEL_ID",
+    "CONSOLE_INBOX_PREFIX",
+    "StateStoreConsoleInboxChannel",
     "DIRECT_LINE_TRUST_TIERS",
     "NOTIFICATION_TRUST_TIERS",
     "AzureCommunicationEmailChannel",
