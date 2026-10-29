@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: da8146ea5c2ee136fd686ac16b02d5338ea1dd73
+translation_source_sha: c292f3b71074e8b595f20ebb67dc2062613d393f
 translation_revised: 2026-10-30
 ---
 # 프로젝트 구조
@@ -19,7 +19,10 @@ Core는 발견 근거 판정과 `ontology_platform/inventory_projection_bounds.p
 담당하며, 인코딩된 레코드의 바이트 사전 검사는 전달 계층에 남습니다. 런타임은 제한된 UTC 및
 단조 시계 허용 구간과 같은 레코드의 Settings 개정 검사를 담당합니다. 에이전트는 최종 게시를
 소유하고 기존 비공개 예산 도우미가 예약 완료와 반환을 처리합니다. 서비스, 증명 발급자 또는
-권한을 추가하지 않습니다.
+권한을 추가하지 않습니다. Core의 `ontology_platform/operational_history_lifecycle.py`는 검증된
+현재 Resource incarnation에 연결할 수 없는 관측을 나타내는 `NoCurrentIncarnationError`를
+정의합니다. PostgreSQL 관측 어댑터는 연결할 수 없을 때 이 오류를 발생시킵니다. 대기 중 복구는
+해당 관측의 실패를 집계하고 이벤트를 게시하지 않지만, 나머지 관측은 계속 처리합니다.
 컨트롤 루프의 종료 처리는 정상 실행뿐 아니라 충돌, 실행 전 근거 기록 실패, 워크플로 안전장치
 미충족으로 조기에 보류할 때도 원래 승인 판정을 전달합니다. 내부 종료 메서드는 형식이 지정된
 이 값을 필수로 받으며, 효과를 평가할 수 없다는 이유로 판단 보류 값으로 바꾸지 않습니다.
