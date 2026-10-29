@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 19aa63b9bc85dfb49cf5f0be053d3f5c8ad9a2d6
+translation_source_sha: 6f860e7553548b1db7e45f1e30904c43d6d8d825
 translation_revised: 2026-10-30
 ---
 # AKS 역방향 커넥터
@@ -296,6 +296,37 @@ Job을 지웁니다. observer가 수락 또는 중복 전달을 기록했을 때
 적용하는 것은 `deactivate`를 실행할 때까지 거부되므로 업그레이드는 `deactivate`, 새 계획 `apply`, 읽기 확인,
 `verify` 순서입니다. 로컬 잠금은 한 호스트 안에서만 직렬화하며, 다른 호스트의 동시 작업은
 server-side 충돌에 의존합니다.
+
+## Gateway 배포
+
+Gateway는 승인된 관찰자 recipe가 아니라 일반적인 제한 워크로드입니다. Kubernetes API 권한이
+필요 없으므로 recipe에 RBAC 객체가 없습니다. 토큰이 없는 ServiceAccount, 읽기 전용 루트 파일
+시스템을 쓰는 non-root Deployment, Service, NetworkPolicy로 구성됩니다.
+`render_gateway_installation`은 클러스터를 건드리지 않고 이를 렌더링합니다. 관찰자와 같은
+digest 고정 material 번들을 쓰며, 서버 인증서와 키는 번들의 `client.pem`과 `client.key`입니다.
+상태 저장소 DSN은 값이 아니라 Secret 참조이고, gateway는 배포 venue가 아니면 loopback 데이터베이스만
+허용하므로 컨테이너가 deployed venue를 설정합니다.
+
+노출 방식은 관측된 네트워크 토폴로지를 따르며 공개 주소를 열지 않습니다. 두 방식 모두 내부 로드
+밸런서 주소를 씁니다.
+
+| 관측된 토폴로지 | 노출 방식 | 사유 |
+|----------------|-----------|------|
+| 관찰자와 gateway가 같은 네트워크 | 내부 로드 밸런서 | `same_network` |
+| 네트워크가 피어링됨(`Connected`) | 내부 로드 밸런서 | `peered` |
+| 주소 공간이 겹치지 않고 아직 피어링 전 | 내부 로드 밸런서, 피어링 필요 | `peering_possible` |
+| 주소 공간이 겹침 | Private Link 서비스 | `address_overlap` |
+| 관찰자 네트워크를 읽을 수 없음 | Private Link 서비스 | `observer_network_unreadable` |
+
+Private Link는 네트워크 사이의 경로가 필요 없으므로 피어링이 불가능하거나 관찰자 네트워크를 읽을 수
+없을 때(예: 다른 테넌트) 답이 됩니다. 잘못되었거나 알 수 없는 접두사는 서로 겹치지 않는다고 보지 않고
+겹치는 것으로 취급합니다. 렌더러는 결정과 다른 노출 방식을 거부하며, Private Link 서비스에는 NAT
+서브넷과 자동 승인할 구독이 필요합니다.
+
+인그레스는 원격 네트워크에는 주소 블록을, 같은 클러스터의 관찰자에는 네임스페이스와 레이블 피어를
+허용합니다. 정책 엔진은 Pod 주소를 주소 블록으로 매칭하지 않기 때문입니다. 관찰자의 origin, 송신
+규칙, gateway가 일치하도록 Service 포트는 Pod 포트와 같습니다. 클러스터 안의 상태 저장소도 같은
+방식으로 선택합니다. 이 recipe는 네임스페이스, Secret, 데이터베이스, 스키마를 만들지 않습니다.
 
 ## 승인된 운영 작업
 

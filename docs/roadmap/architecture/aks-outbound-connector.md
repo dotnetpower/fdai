@@ -310,6 +310,40 @@ Applying a changed or repeated plan to an active observer is refused until `deac
 upgrade is: `deactivate`, `apply` the new plan, read it back, `verify`. The local
 lock serializes one host only; concurrent operators on other hosts rely on server-side conflicts.
 
+## Gateway deployment
+
+The gateway is an ordinary restricted workload, not a governed observer recipe. It needs no
+Kubernetes API permission, so its recipe has no RBAC objects: a ServiceAccount without a token, a
+non-root Deployment with a read-only root file system, a Service, and a NetworkPolicy.
+`render_gateway_installation` renders it without touching a cluster. It uses the same
+digest-pinned material bundle as the observer; the server certificate and key are the bundle's
+`client.pem` and `client.key`. The state-store DSN is a Secret reference, never a value, and the
+container sets the deployed execution venue because a gateway otherwise accepts only a loopback
+database.
+
+Exposure follows observed network topology and never opens a public address. Both choices use an
+internal load balancer address.
+
+| Observed topology | Exposure | Reason |
+|-------------------|----------|--------|
+| Observer and gateway share a network | Internal load balancer | `same_network` |
+| The networks are peered (`Connected`) | Internal load balancer | `peered` |
+| Disjoint address spaces, not yet peered | Internal load balancer, peering required | `peering_possible` |
+| Overlapping address space | Private Link service | `address_overlap` |
+| Observer network cannot be read | Private Link service | `observer_network_unreadable` |
+
+Private Link needs no route between the networks, so it is the answer whenever peering is
+impossible or the observer's network is unreadable (for example in another tenant). Invalid or
+unknown prefixes count as overlap, never as disjoint. The renderer refuses an exposure that
+differs from the decision, and a Private Link service needs its NAT subnet and the subscriptions
+it may auto-approve.
+
+Ingress admits address blocks for remote networks and namespace and label peers for observers in
+the same cluster, because a policy engine does not match Pod addresses with an address block. The
+Service port equals the Pod port so an observer's origin, its egress rule, and the gateway agree.
+An in-cluster state store is selected the same way. The recipe does not create the namespace, the
+Secrets, the database, or its schema.
+
 ## Governed operations
 
 Read work and managed-resource changes have distinct schemas and queues. Read work has bounded
