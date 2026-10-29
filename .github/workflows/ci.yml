@@ -102,24 +102,6 @@ jobs:
         if: runner.environment == 'self-hosted'
         run: python3 infra/ci-runner/verify-toolchain.py
 
-      # A fresh checkout stamps every file with the checkout time, which invalidates all cached
-      # bytecode. Content-derived times keep unchanged files valid, so a cold shard starts in
-      # about 20 s instead of 70 s.
-      - name: Stamp tracked Python sources with content-derived times
-        run: python3 scripts/quality/ci/stamp-source-mtimes.py
-
-      - name: Restore cached bytecode
-        id: bytecode
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            **/__pycache__
-            !.venv/**
-            !**/node_modules/**
-          key: bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-${{ github.sha }}
-          restore-keys: |
-            bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-
-
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -136,6 +118,29 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --extra dev --extra pdf-report --frozen
+
+      - &bytecode-context
+        name: Verify and stamp tracked Python sources
+        id: bytecode-context
+        run: uv run --frozen python scripts/quality/ci/stamp-source-mtimes.py --github-output "$GITHUB_OUTPUT"
+
+      - &restore-bytecode
+        name: Restore cached bytecode
+        id: bytecode
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            **/__pycache__
+            .fdai/ci-bytecode-sources.json
+            !.venv/**
+            !**/node_modules/**
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.bytecode-context.outputs.key }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-${{ steps.bytecode-context.outputs.key }}-
+
+      - &validate-bytecode
+        name: Validate restored bytecode sources
+        run: uv run --frozen python scripts/quality/ci/stamp-source-mtimes.py --validate-restored
 
       - name: Set up Node.js for TypeScript analysis
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -166,15 +171,16 @@ jobs:
 
       - name: Save cached bytecode
         if: >-
-          !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+          success() && github.event_name == 'push' && github.ref == 'refs/heads/main' &&
           matrix.shard == 1 && steps.bytecode.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             **/__pycache__
+            .fdai/ci-bytecode-sources.json
             !.venv/**
             !**/node_modules/**
-          key: bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.bytecode-context.outputs.key }}-${{ github.sha }}
 
   protected-ci-source:
     name: verify self-hosted CI source
@@ -273,20 +279,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Stamp tracked Python sources with content-derived times
-        run: python3 scripts/quality/ci/stamp-source-mtimes.py
-
-      - name: Restore cached bytecode
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            **/__pycache__
-            !.venv/**
-            !**/node_modules/**
-          key: bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-${{ github.sha }}
-          restore-keys: |
-            bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-
-
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -303,6 +295,10 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --extra dev --frozen
+
+      - *bytecode-context
+      - *restore-bytecode
+      - *validate-bytecode
 
       - name: Set up Node.js for TypeScript analysis
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -915,20 +911,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Stamp tracked Python sources with content-derived times
-        run: python3 scripts/quality/ci/stamp-source-mtimes.py
-
-      - name: Restore cached bytecode
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            **/__pycache__
-            !.venv/**
-            !**/node_modules/**
-          key: bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-${{ github.sha }}
-          restore-keys: |
-            bytecode-${{ runner.os }}-${{ runner.arch }}-py313-${{ hashFiles('uv.lock') }}-
-
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -945,6 +927,10 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --extra dev --frozen
+
+      - *bytecode-context
+      - *restore-bytecode
+      - *validate-bytecode
 
       - name: Run alembic upgrade head
         run: uv run alembic upgrade head
