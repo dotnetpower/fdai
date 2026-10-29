@@ -462,7 +462,8 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards()
         if job_name == "python-tests":
             assert " ".join(job["if"].split()) == (
                 "needs.changes.outputs.python == 'true' && "
-                "(vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true' || "
+                "((vars.FDAI_CI_ELASTIC_RUNNER_ENABLED != 'true' && "
+                "vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true') || "
                 "github.ref != 'refs/heads/main' || github.event_name == 'pull_request')"
             )
         else:

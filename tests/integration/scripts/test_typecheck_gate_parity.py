@@ -71,6 +71,7 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
     } == {
         "python-tests",
         "python-tests-ssd",
+        "python-tests-elastic",
         "python-coverage-shards",
         "governance-runtime-contracts",
         "db-integration",
