@@ -277,6 +277,10 @@ An approval is one of two kinds. A `sign-approval` signed by an enrolled approve
 executor that may use it, and the executor must be a different identity from the approver. The
 single-operator development profile may instead pass `--development-self-approval` with the
 reviewed digest; the result reports `approval_mode` as `signed` or `development_self_issued`.
+The `install` operation is that single-operator flow in one command: with the reviewed
+`--approve-recipe-digest` it applies, activates, and smoke-verifies, each step with its own
+short-lived approval, claim, and audit record. A failed or unverified smoke run suspends the
+observer again rather than leaving an unproven installation active, and the command exits nonzero.
 Before the first mutating call, the apply and `activate` operations write an exclusive claim, so an
 approval is single use. A claim without an outcome means the result is unknown: the operator runs
 `verify` and requests a fresh approval, and the same approval is never replayed. Once the observer

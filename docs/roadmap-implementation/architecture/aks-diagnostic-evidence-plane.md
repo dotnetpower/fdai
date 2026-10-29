@@ -30,6 +30,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-30 | implemented | Added the single-operator observer `install` command; no diagnostic collection or metric semantics changed. | See the aks-outbound-connector ledger. | Platform and workload plan application and Pod-level evidence remain as listed below. |
 | 2026-10-30 | implemented | Added Event lifecycle history transfer for the outbound observer; no diagnostic assessment or metric semantics changed. | See the aks-outbound-connector ledger. | Platform and workload plan application and Pod-level evidence remain as listed below. |
 | 2026-10-30 | implemented | Added the connector gateway recipe and exposure decision; no diagnostic collection or metric semantics changed. | See the aks-outbound-connector ledger. | Platform and workload plan application and Pod-level evidence remain as listed below. |
 | 2026-10-30 | implemented | Added signed Azure management and ownership constraint collectors for observer deployment proposals; no diagnostic collection or metric semantics changed. | See the aks-outbound-connector ledger. | Platform and workload plan application and Pod-level evidence remain as listed below. |
