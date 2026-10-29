@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d31391f1c148d68762aa88e7a0dc59703f9ab0f7
+translation_source_sha: 264edc0b8ed228acc84c9d880630c8b8c3146642
 translation_revised: 2026-10-30
 ---
 # 에이전트 판테온
@@ -554,7 +554,10 @@ Source digest는 감사 체인의 엄격한 정본 JSON SHA-256을 사용하며,
 
 영속 대기 원장 한 행에는 스키마 버전과 revision, 최대 64개의 집계 기록을 저장합니다.
 각 기록은 `group_digest`를 키로 하며 `subject_digest`, `source_digest`, `count`, Saga가 UTC로
-받은 `first_seen_at` 및 `last_seen_at`을 포함합니다. `count`는 고유한 원본 판정 수가 아니라
+받은 `first_seen_at` 및 `last_seen_at`을 포함합니다. Saga의 시계가 뒤로 조정되면
+`last_seen_at`은 지금까지 관측한 시각 중 가장 늦은 값을 유지하며, 해당 전달도
+`count`에 포함됩니다.
+`count`는 고유한 원본 판정 수가 아니라
 재전달을 포함해 Saga가 인증한 메시지 전달 횟수입니다. Saga는 처리 전에 `idempotency_key`
 중복을 제거하지 않으므로 같은 키로 재전달된 메시지도 별도 전달로 셉니다. 이는 현재 메시지별
 감사 기록 동작과 일치합니다.
