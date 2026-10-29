@@ -521,6 +521,36 @@ from an immutable provider identity, generation, or independently verified lifec
 Object and relationship observations refer to the incarnation. Name matching, event order alone,
 or an inferred recreation cannot join two lifecycles.
 
+### Snapshot membership and bounded journal writes
+
+A promoted full snapshot is also a durable boundary for full-observation history. Core keeps a
+compact immutable generation and member index so history reads can reconstruct one full observation
+per member and generation without copying unchanged provider properties into the append-only
+journal. The index records the exact source, observation kind, scopes, resource types, coverage,
+generation watermark, and per-member semantic digest and freshness metadata. It does not duplicate
+the full provider payload or create lifecycle bindings.
+
+Promotion compares each current member with the preceding generation only when source, observation
+kind, scopes, resource types, and full-coverage boundary match exactly. A new or semantically changed
+member adds one full journal observation and lifecycle binding. Existing resource deletion rules
+remain authoritative. A relationship tombstone is added only when matching complete generations
+prove that the relationship disappeared; subset scans and incomplete relationship coverage cannot
+confirm absence. Generation-level completeness and relationship-drop classifications stay in
+snapshot metadata rather than rewriting every member record.
+
+The generation watermark is committed with its membership and appended changes. Replay selects the
+latest full snapshot observation for each member at or before that watermark, validates a complete
+one-to-one membership match and the stored semantic digests, then applies the generation's freshness
+metadata. Overlay and change observations remain separate and continue to replay from their existing
+event-time boundary. Missing members, mismatched digests, or an invalid fence hold replay rather than
+producing a partial graph.
+
+History reads synthesize the same per-generation full observations that the previous full-row write
+path exposed, including their original observation times. A whole-snapshot semantic digest match
+continues to reuse its prior journal generation and does not create a new history event. Legacy
+generations keep their exact-generation replay path. The journal and lifecycle bindings remain
+append-only; unchanged members add neither journal rows nor lifecycle bindings.
+
 ### Retention policy and partition lifecycle
 
 A deployment-owned retention policy registry assigns each fact family its purpose, hot and warm
