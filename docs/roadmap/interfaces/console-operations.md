@@ -109,7 +109,7 @@ Operations reuses existing objects and links:
 Do not add a generic `WorkItem`, `OperationRequest`, duplicate `Approval`, universal mutable status
 table, or new approval topic. Each source keeps its own schema, revision, lifecycle, and owner.
 
-The Ontology instance workspace is the default `/ontology` read-only operational view. It mounts without the declaration graph request; semantic-model, declaration, ActionType, and Catalog topology references stay behind one labeled native disclosure with existing deep links.
+The Ontology instance workspace is the default `/ontology` read-only operational view. It mounts without the declaration graph request; semantic-model, declaration, ActionType, and Catalog topology references stay behind one labeled native disclosure with existing deep links. ObjectType details show a lifecycle owner only when the declaration includes one. The reviewed lifecycle classification and rationale remain separate metadata and grant no owner or authority.
 Reference loading or failure never removes the path back to instances. Direction backgrounds fill the complete graph viewport independently from shorter SVG geometry. Directory bounds and refresh state remain compact in the toolbar, while coverage and legend details start collapsed. Its graph-first layout, selected resource and Inspector-owned collapse state are presentation controls only;
 none of these controls create links, change query scope, or grant mutation authority.
 For an `llm-model-deployment`, the card, tooltip, Inspector, and screen context use the same bounded
