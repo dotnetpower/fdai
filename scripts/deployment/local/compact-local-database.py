@@ -3,7 +3,8 @@
 
 The default run only reports how many rows each bound would remove. ``--apply`` deletes the
 oldest rows past each bound, using the same newest-N windows the running services use, and
-``--vacuum`` then rewrites ``state_kv`` to return the space. Only loopback port 5432 database
+``--vacuum`` tunes local vacuum thresholds and rewrites ``state_kv`` to return the space.
+Only loopback port 5432 database
 ``fdai`` is accepted, and no connection value is printed. Evidence tables, the audit log, and
 the inventory journal are never touched.
 """
@@ -111,6 +112,11 @@ async def _run(*, apply: bool, vacuum: bool) -> dict[str, object]:
             connect_timeout=_CONNECT_TIMEOUT_SECONDS,
             options=_CONNECTION_OPTIONS,
         ) as connection:
+            connection.execute(
+                "ALTER TABLE state_kv SET (autovacuum_vacuum_scale_factor=0.01, "
+                "autovacuum_vacuum_threshold=1000, toast.autovacuum_vacuum_scale_factor=0.01, "
+                "toast.autovacuum_vacuum_threshold=1000)"
+            )
             connection.execute("VACUUM (FULL, ANALYZE) state_kv")
         report["vacuumed"] = "state_kv"
     return report

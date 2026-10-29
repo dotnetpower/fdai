@@ -122,6 +122,12 @@ database bound by default. Exceeding `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES` bl
 with an actionable message and preserves the existing database and broker. An ordinary start
 or restart never authorizes deletion. `dev-status.sh` reports the size, the largest tables, and growth since the last report, warning at 75% of the bound, and `compact-local-database.py` applies the services' newest-N state retention to existing rows (dry run by default; `--vacuum` rewrites `state_kv` through the table-owner role). It never touches evidence tables, the audit log, or the inventory journal.
 
+Compaction connections have a five-second connection deadline, a 30-second statement deadline,
+and a one-second lock deadline. `--vacuum` also sets the local `state_kv` and TOAST autovacuum
+scale factors to 0.01 with a 1,000-row threshold, so obsolete row versions become reusable sooner.
+These table-local settings do not change retention or authorize evidence deletion. A rewrite can
+recover unused space, but subsequent writes can grow the database again.
+
 Only an explicit `prepare-console-state.sh --allow-recreate` request permits discarding that
 disposable local generation after services stop and backup/history requirements are reviewed.
 The entire database and dedicated broker generation are then recreated before the canonical

@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 79ade28588ac258bf7ea16822d2bcc96fe085476
-translation_revised: 2026-10-29
+translation_source_sha: 342538d9640c7c93d7a03e4589460b58f1c1d810
+translation_revised: 2026-10-30
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -129,6 +129,12 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 개발 데이터베이스의 2 GiB 상한을 검사합니다. `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`를
 초과하면 조치 방법을 안내하며 준비를 차단하고, 기존 데이터베이스와 브로커는 보존합니다.
 일반적인 시작이나 재시작은 삭제 권한을 부여하지 않습니다. `dev-status.sh`는 크기, 가장 큰 테이블, 직전 보고 이후의 증가량을 보여 주고 상한의 75%에서 경고합니다. `compact-local-database.py`는 서비스가 쓰는 최근 N건 보존 한도를 기존 행에 적용하며(기본은 보고만 하고 `--vacuum`은 테이블 소유자 역할로 `state_kv`를 다시 씁니다), 증거 테이블, 감사 로그, 인벤토리 journal은 건드리지 않습니다.
+
+정리 도구는 접속에 5초, SQL 실행에 30초, 잠금 대기에 1초 제한을 적용합니다. `--vacuum`은
+로컬 `state_kv`와 TOAST의 자동 VACUUM 비율을 0.01, 기준 행 수를 1,000으로 설정해 더 이상
+보이지 않는 이전 행 버전의 공간을 더 일찍 재사용하게 합니다. 이 테이블별 설정은 보존 기간을
+바꾸거나 증거 삭제를 허용하지 않습니다. 테이블 재작성으로 빈 공간을 회수할 수 있지만,
+후속 쓰기로 데이터베이스가 다시 커질 수 있습니다.
 
 서비스를 중지하고 백업 및 이력 보존 요구 사항을 검토한 뒤 명시적으로
 `prepare-console-state.sh --allow-recreate`를 요청한 경우에만 폐기 가능한 로컬 세대를

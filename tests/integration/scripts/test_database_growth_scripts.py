@@ -105,4 +105,10 @@ async def test_compaction_vacuum_has_connection_and_lock_deadlines(
     assert connect.call_args.kwargs["connect_timeout"] == 5
     assert "statement_timeout=30000" in connect.call_args.kwargs["options"]
     assert "lock_timeout=1000" in connect.call_args.kwargs["options"]
+    connection = connect.return_value.__enter__.return_value
+    assert connection.execute.call_args_list[0].args[0] == (
+        "ALTER TABLE state_kv SET (autovacuum_vacuum_scale_factor=0.01, "
+        "autovacuum_vacuum_threshold=1000, toast.autovacuum_vacuum_scale_factor=0.01, "
+        "toast.autovacuum_vacuum_threshold=1000)"
+    )
     store.aclose.assert_awaited_once()
