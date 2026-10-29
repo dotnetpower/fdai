@@ -1,8 +1,8 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 51d69a3281873f5dfcc1abd9aa6c6194fe4442a9
-translation_revised: 2026-10-08
+translation_source_sha: 36c1e485b25bedebdd77d823ddff4a44b60f6c17
+translation_revised: 2026-10-30
 ---
 
 # 규칙 카탈로그 수집(Rule 카탈로그 수집)
@@ -41,7 +41,8 @@ FDAI가 체크리스트, 모범 사례, 정책, 베이스라인을 어떻게 **�
 WARA는 별도의 비공개 질문 카탈로그가 아니라 Azure Proactive Resiliency Library(APRL)를
 사용합니다. FDAI는 리소스 종류, 자문 영향도, 제품 그룹 검증 여부, 자동화 가용성, 태그,
 출처 다이제스트, 선택적 Azure Resource Graph 쿼리 다이제스트를 포함한 고정 APRL 권고
-메타데이터 전체를 가져옵니다. 쿼리 본문은 외부에 유지되며 실행되지 않습니다. APRL 권고는
+메타데이터 전체를 가져옵니다. 자동 점검 본문 143개, 실행되지 않는 수동 참고 본문 229개,
+null 참조 21개를 프레임워크 메타데이터와 구분하여 모두 기록합니다. APRL 권고는
 일반 Rule, 증거, 의미, 회귀, shadow, 승격 게이트를 통과하기 전까지 실행 가능한 Rule이 아닙니다.
 
 파생 [WARA 평가 교차워크](wara-assessment-ko.md)는 이 고정 카탈로그를 다시 작성하지 않고

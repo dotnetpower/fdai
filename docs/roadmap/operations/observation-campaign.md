@@ -38,6 +38,12 @@ observation owner, producer, scope, or authority. The inverse schema condition a
 `assurance-twin` producer for the `assurance-twin.posture` kind, so it cannot impersonate a campaign
 or inventory activity.
 
+The expanded WARA exact-query bindings require independently observed target coverage and reviewed
+field, region, SKU and array prerequisites before an empty result can mean satisfied. The 57 ARG
+bindings and separate Rule binding remain WARA-owned, not campaign collectors. Signed manual
+fallback, unsigned Collector context and illustrated guidance never substitute for campaign
+readiness or live observation; unavailable prerequisites keep the affected assessment unknown.
+
 Operational cohort source bindings are also separate from this campaign registry. A cohort
 binding references one reviewed exporter workflow and a stable logical source id for assigned
 metrics or guards. It does not turn campaign readiness, an empty source result, or a broad provider

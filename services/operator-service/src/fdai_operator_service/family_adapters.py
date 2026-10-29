@@ -284,6 +284,26 @@ class PostgresWorkflowAdapters:
                 )
                 projection_key = "operator-projection:workflow:wara.list"
                 payload = _wara_catalog_payload(stored, request)
+                guidance = payload.get("guidance")
+                if request.operation is WorkflowOperation.WARA_DETAIL and isinstance(
+                    guidance, dict
+                ):
+                    catalog_revision = stored.get("_revision", stored.get("revision"))
+                    if not isinstance(catalog_revision, str) or not catalog_revision:
+                        raise HTTPException(
+                            status_code=503,
+                            detail="authoritative workflow projection has no revision",
+                        )
+                    joined_revision = hashlib.sha256(
+                        json.dumps(
+                            {
+                                "catalog_revision": catalog_revision,
+                                "guidance": guidance["content_digest"],
+                            },
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ).encode()
+                    ).hexdigest()
             elif request.operation in {
                 WorkflowOperation.MCSB_LIST,
                 WorkflowOperation.MCSB_DETAIL,

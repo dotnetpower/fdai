@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 427a72dbb0443f4e006e49ccccabf26f3cbb82a5
-translation_revised: 2026-10-04
+translation_source_sha: e4bfdf5b175abae4880d44d85b1b9b939214b63c
+translation_revised: 2026-10-30
 ---
 
 # 권한 인식 관측 캠페인
@@ -33,6 +33,12 @@ translation_revised: 2026-10-04
 | 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 일회 실행은 캠페인이 완료됐을 때만 성공하고 반복 모드는 부분 커버리지를 기록한 뒤 계속 실행합니다. 유효한 기존 배포 Job 이름은 유지하며 환경 이름 때문에 길이 제한을 넘을 때만 축약된 `caj-<workload>-<env>-observation` 형식을 사용합니다. |
 | Agent Activity 관측 변환 결과 | validated | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, `console/src/hooks/sse-client.ts`, 집중 Operator 및 Console 테스트, production-adapter Playwright, 인증된 표준 스택 검사 | 스키마 `1.3.0`은 안정적인 활동 인스턴스를 전이 id와 분리하고 측정된 0, 기록 안 됨, 사용 불가 결과를 구분하며 현재 활동을 중앙 Live SSE 스냅샷 및 delta 경로로 전달합니다. 보존 이력은 명시적인 bounded GET으로 유지됩니다. |
 | 통제된 실제 캠페인 근거 | in-progress | 로컬 캠페인 `campaign-20260819t005835689445-9e1850c2`, 카탈로그 digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`, 인증된 Agent Activity | 보존된 로컬 캠페인은 출처 10개가 모두 준비되고 최신인 상태로 완료됐으며 사유 코드가 없고 성공한 빈 상태도 명시적으로 유지합니다. 동등한 배포 개정 번호 근거는 열려 있습니다. |
+
+확장된 WARA 정확 쿼리 연결은 독립적으로 관찰한 대상 커버리지와 검토된 필드, 지역,
+SKU, 배열 선행 조건을 확인한 뒤에만 빈 결과를 충족으로 해석합니다. ARG 연결 57개와
+별도 Rule 연결은 캠페인 수집기가 아니라 WARA가 소유합니다. 서명된 수동 대체 경로,
+서명되지 않은 Collector 맥락, 도표 설명은 캠페인 준비 상태나 실시간 관찰을 대신하지
+않으며 선행 조건을 사용할 수 없으면 해당 평가를 알 수 없음으로 유지합니다.
 
 공유 활동 스키마의 Assurance Twin 소유권 조건은 이 캠페인의 `1.3.0` 관측 도메인
 계약과 분리됩니다. 캠페인 출처를 추가하거나 관측 소유자, 생산자, 범위 또는 권한을 넓히지

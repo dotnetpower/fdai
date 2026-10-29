@@ -79,7 +79,23 @@ describe("WARA control contract", () => {
     expect(decoded.controls[0]?.satisfaction).toBe("unknown");
     expect(decoded.controls[0]?.source_url).toContain("/aprl/");
     expect(decoded.controls[0]?.manual_evidence?.kind).toBe("expert_assessment");
+    expect(decoded.controls[0]?.manual_evidence?.role).toBe("required");
     expect(decoded.inventory.active_recommendations).toBe(1);
+  });
+
+  test("preserves optional manual fallback without changing automation or satisfaction", () => {
+    const decoded = decodeWaraResponse(response([{
+      ...CONTROL,
+      automation_available: true,
+      manual_evidence: { ...CONTROL.manual_evidence, role: "fallback" },
+    }]));
+    expect(decoded.controls[0]?.manual_evidence?.role).toBe("fallback");
+    expect(decoded.controls[0]?.automation_available).toBe(true);
+    expect(decoded.controls[0]?.satisfaction).toBe("unknown");
+    expect(() => decodeWaraResponse(response([{
+      ...CONTROL,
+      manual_evidence: { ...CONTROL.manual_evidence, role: "execute" },
+    }]))).toThrow(/manual_evidence.role/);
   });
 
   test("rejects any execution authority", () => {
@@ -90,6 +106,11 @@ describe("WARA control contract", () => {
 
   test("rejects duplicate recommendation ids", () => {
     expect(() => decodeWaraResponse(response([CONTROL, CONTROL]))).toThrow(/ids MUST be unique/);
+  });
+
+  test("rejects large guidance on list rows instead of silently carrying detail payloads", () => {
+    expect(() => decodeWaraResponse(response([{ ...CONTROL, guidance: {} }]))).toThrow(/detail only/);
+    expect(decodeWaraResponse(response([{ ...CONTROL, guidance: null }])).controls[0]).not.toHaveProperty("guidance");
   });
 
   test("rejects malformed manual evidence", () => {

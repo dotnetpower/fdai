@@ -162,6 +162,32 @@ def test_unclassified_resource_missing_state_has_a_distinct_reason() -> None:
     assert states["operational"]["reason"] == "resource_type_unclassified"
 
 
+@pytest.mark.parametrize(
+    "resource_type",
+    sorted(
+        PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES
+        & PROVIDER_AVAILABILITY_STATE_NOT_EXPOSED_RESOURCE_TYPES
+    ),
+)
+def test_unreviewed_state_paths_do_not_promote_generic_provider_values(resource_type: str) -> None:
+    states = recorded_resource_states(
+        {
+            "properties": {
+                "state": "Running",
+                "runningStatus": "Running",
+                "provisioningState": "Succeeded",
+                "availabilityState": "Available",
+            },
+        },
+        resource_type=resource_type,
+        now=NOW,
+    )
+    assert states["provisioning"]["value"] == "Succeeded"
+    for axis in ("operational", "availability"):
+        assert states[axis]["value"] is None
+        assert states[axis]["reason"] == f"provider_{axis}_state_not_exposed"
+
+
 def test_missing_state_separates_source_provider_and_applicability_outcomes() -> None:
     mapped = recorded_resource_states({}, resource_type="compute.container-app", now=NOW)
     application_insights = recorded_resource_states(

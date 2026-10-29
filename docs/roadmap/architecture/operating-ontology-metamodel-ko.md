@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 779fc7a48a54ba6ce6c98198eead658b9a41ab3f
-translation_revised: 2026-10-04
+translation_source_sha: 96da7e53790488cdcc48ec4013ee25f811c8fd47
+translation_revised: 2026-10-30
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -97,7 +97,12 @@ account로 별도로 해석합니다. 같은 엔드포인트 pair라도 출처�
 다이제스트와 겹침 수를 전진시키지만 의미 승격이나 그래프 변경 권한은 부여하지 않습니다. 최상위
 검토는 완전한 mapping 카탈로그를 고정하므로 Kubernetes 전용 mapping 변경도 Azure 후보 수나
 권한을 바꾸지 않고 다이제스트를 다시 생성합니다. `routes_to`를 다대다로 바꾸는 경우에도 같은 replay 전용 갱신을 적용합니다. mapping과 검토 다이제스트는 바뀌지만 후보 수와 권한은 그대로 유지됩니다.
-리소스와 잘못된 프로바이더 경로는 provider parent 또는 provider root 후보를 만들지 않습니다.
+WARA는 CDN origin group, 갤러리 이미지와 버전, 파일 용량 풀과 볼륨, 네트워크 흐름 로그,
+애플리케이션 슬롯에 명시적인 상위 포함 관계 mapping 7개를 추가합니다. 보존된 원본 스냅샷과
+범위 정보를 사용해 `ProviderSchemaRelationshipReview.build`로 관계 검토를 다시 생성한 뒤,
+내용 주소 기반 산출물과 인덱스 포인터를 함께 게시합니다. 이 재생 과정은 엔드포인트 쌍
+908개와 `review_required` 상태, 권한을 부여하지 않는 경계를 그대로 유지합니다.
+최상위 리소스와 잘못된 프로바이더 경로는 provider parent 또는 provider root 후보를 만들지 않습니다.
 이 exact mapping과 wildcard 포함 관계 mapping이 같은 하위를 점유하면 exact mapping이 wildcard
 후보를 shadow합니다. 이 규칙은 `contains` one-to-many cardinality를 보존하고 저장된 간선을
 `Resource.parent_id`와 정렬합니다. 서로 다른 하위 id를 가진 포함 관계 mapping은 계속 함께 적용됩니다.
@@ -311,6 +316,7 @@ declaration-kind 제안이 됩니다.
 | 2026-08-27 | implemented | 남은 review gap을 닫았습니다. Unresolved 및 source-less ARM reference는 candidate generation을 incomplete로 만들고, provider type version은 globally sorted union을 사용하며, rebuild, graph, execution 및 migration authority literal을 runtime에서 강제합니다. | `current change`; generation, direction-shadow model, promotion assessment 및 집중 adversarial 검사(`38 passed`), Ruff, formatter 및 strict mypy | Complete release-bound 실제 generation 근거와 governed human review를 확보해야 합니다. Live 또는 remote generation은 만들지 않았습니다. |
 | 2026-08-27 | implemented | Watcher receipt authority gap을 닫았습니다. `ProviderSchemaRefreshReceipt.grants_authority`를 runtime에서 `Literal[False]`로 강제하고 serialization도 항상 false를 출력합니다. | `current change`; `provider_schema_watcher.py`; `test_provider_schema_watcher.py`(`11 passed`); Ruff, formatter, strict mypy 및 pre-commit hooks 통과 | Deployed watcher 및 Saga 근거를 확보해야 합니다. Live 또는 remote validation은 수행하지 않았습니다. |
 | 2026-10-04 | implemented | 두 번째 경로를 추가하지 않고 기존 kinetic receipt writer binding을 정산했습니다. 일반 dispatch와 HIL resume은 provider 실행 전에 pre-dispatch receipt를 보존하고, writer 실패는 모든 executor를 차단하며, exact V2 plan이 없는 legacy Action은 reconstruct되지 않고 unavailable로 남고, terminal lineage는 receipt를 Heimdall의 independent observation에 결합합니다. | `current change`; [`_execution.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_execution.py); [`dispatch.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/dispatch.py); [`kinetic_safety.py`](../../../services/core-control-plane/src/fdai/delivery/kinetic_safety.py); [`reconciliation_request.py`](../../../services/core-control-plane/src/fdai/delivery/reconciliation_request.py); [`operational_lineage.py`](../../../services/core-control-plane/src/fdai/delivery/operational_lineage.py); `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/core/test_control_loop_direct_api_dispatch.py services/core-control-plane/tests/core/hil_resume/test_coordinator.py -k kinetic_safety`(`5 passed`, `79 deselected`); `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/delivery/test_kinetic_safety.py services/core-control-plane/tests/delivery/test_reconciliation_artifacts.py services/core-control-plane/tests/delivery/test_reconciliation_request.py services/core-control-plane/tests/delivery/test_reconciliation_observations.py services/core-control-plane/tests/delivery/test_operational_lineage.py`(`46 passed`). | 이 항목의 남은 작업은 없습니다. 운영 metamodel assurance에는 별도의 cross-service 및 live-assurance receipt 보존이 여전히 필요합니다. |
+| 2026-10-30 | implemented | 명시적인 WARA 상위 포함 관계 mapping 7개를 추가한 뒤 공급자 관계 검토를 재생했습니다. mapping 다이제스트와 내용 주소 기반 검토 포인터를 함께 갱신했으며 원본 스냅샷, 엔드포인트 쌍 908개, 권한을 부여하지 않는 의미는 그대로 유지했습니다. | `current change`; #2677; 검토 `sha256:f6c21e3e0e1b5adc4c963466f0ff6c4ce7e53d12141467ee4bfa4621399daf19`; 수정 검증 테스트 270개 중 배포 산출물 재생 및 정확한 mapping 방향 테스트를 통과했습니다. | 독립적인 의미 검토와 기존 승격 절차는 여전히 필요합니다. 이번 재생성은 승격이나 그래프 변경 권한을 부여하지 않습니다. |
 
 ### 남은 작업
 

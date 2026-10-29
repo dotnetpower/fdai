@@ -13,6 +13,9 @@
 #     (any hex tail). This is the documented placeholder for tests.
 #   - Any GUID inside a fenced code block that is clearly a UUID5 namespace
 #     literal is still blocked - the rule is generic-scope, not context.
+#   - Exact public APRL recommendation IDs in the named WARA guidance
+#     authoring, generated-data, and regression surfaces below. Membership
+#     comes from the independently pinned public catalog, never from guidance.
 #
 # Any other GUID-shaped run (8-4-4-4-12 hex) in a tracked text file fails
 # this check. Rationale: the pattern is the same shape Azure uses for
@@ -91,6 +94,8 @@ allow_re='^00000000-0000-0000-0000-[0-9a-f]{12}$'
 
 errors=0
 hits=""
+declare -A public_wara_guids=()
+public_wara_loaded=false
 batch_size="${FDAI_TEXT_GATE_BATCH_SIZE:-256}"
 if ! [[ "$batch_size" =~ ^[1-9][0-9]*$ ]]; then
   echo "check-guids: FDAI_TEXT_GATE_BATCH_SIZE must be a positive integer" >&2
@@ -120,6 +125,37 @@ if [[ -n "$hits" ]]; then
     if [[ "$guid" == "6b1b6f2c-5a3e-4a91-8f1a-8b8a7e2f9d10" ]]; then
       continue
     fi
+    path="${hit%%:*}"
+    case "$path" in
+      rule-catalog/guidance/azure-wara/authoring-manifest.json|rule-catalog/guidance/azure-wara/coverage.json|scripts/catalog/wara_guidance_pilots.py|packages/service-contracts/src/fdai_service_contracts/data/wara-guidance-[0-9][0-9].json|packages/service-contracts/tests/test_wara_guidance_corpus.py|console/src/routes/wara-guidance.fixture.ts)
+        if [[ "$public_wara_loaded" == false ]]; then
+          if ! public_wara_text="$(python3 - <<'PY'
+import hashlib
+import json
+from pathlib import Path
+
+body = Path("rule-catalog/collected/wara-aprl/azure-wara.json").read_bytes()
+expected = "bdfc7883d077c2a07c48d815fdfd6725c7ccfd6e0b83373177f9b956e94fb48b"
+if hashlib.sha256(body).hexdigest() != expected:
+    raise SystemExit("check-guids: public WARA catalog source pin is invalid")
+catalog = json.loads(body)
+identities = {item["id"] for area in catalog["areas"] for item in area["controls"]}
+if catalog["id"] != "azure-wara" or len(identities) != 456:
+    raise SystemExit("check-guids: public WARA catalog identities are incomplete")
+print("\n".join(sorted(identities)))
+PY
+          )"; then
+            echo "check-guids: cannot verify public WARA recommendation identities" >&2
+            exit 1
+          fi
+          while IFS= read -r public_guid; do
+            public_wara_guids["$public_guid"]=1
+          done <<< "$public_wara_text"
+          public_wara_loaded=true
+        fi
+        [[ -n "${public_wara_guids[$guid]:-}" ]] && continue
+        ;;
+    esac
     echo "check-guids: $hit" >&2
     errors=$((errors + 1))
   done <<< "$hits"

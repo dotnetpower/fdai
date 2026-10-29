@@ -8,8 +8,9 @@ import logging
 import os
 import sys
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Protocol
 
 import httpx
@@ -24,6 +25,7 @@ from fdai.core.wara import (
     WaraAssessmentService,
     WaraScopedResource,
 )
+from fdai.core.wara.models import WaraEvidenceReceipt
 from fdai.core.wara.runtime import WARA_ASSESSMENT_TOPIC, WaraAssessmentResult
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
@@ -38,6 +40,8 @@ from fdai.delivery.persistence.postgres_wara_scope import (
     WaraScopeUnavailableError,
 )
 from fdai.delivery.repo_assets import repo_asset_root
+from fdai.delivery.wara_manual_evidence import SignedWaraManualEvidenceSource
+from fdai.delivery.wara_report import WaraFileReportSink
 from fdai.delivery.wara_rule_evidence import (
     load_release_wara_rule_bindings,
     with_wara_rule_evidence,
@@ -84,6 +88,21 @@ class WaraScopeSource(Protocol):
         *,
         now: datetime | None = None,
     ) -> WaraResolvedScope: ...
+
+
+class WaraManualEvidenceSource(Protocol):
+    async def read(
+        self, request: WaraAssessmentRequest, catalog: WaraAssessmentCatalog
+    ) -> tuple[WaraEvidenceReceipt, ...]: ...
+
+
+class WaraReportSink(Protocol):
+    async def write(
+        self,
+        result: WaraAssessmentResult,
+        catalog: WaraAssessmentCatalog,
+        request: WaraAssessmentRequest,
+    ) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,6 +251,8 @@ async def execute_wara_assessment_tick(
     evaluator_bindings: WaraEvaluatorBindingCatalog,
     now: datetime | None = None,
     rule_evidence: WaraRuleEvidenceSource | None = None,
+    manual_evidence_source: WaraManualEvidenceSource | None = None,
+    report_sink: WaraReportSink | None = None,
 ) -> WaraTickReport:
     """Resolve all configured scopes before publishing any shadow assessment."""
 
@@ -262,6 +283,11 @@ async def execute_wara_assessment_tick(
                 workload_tags=settings.workload_tags[scope.workload_id],
                 evaluated_at=evaluated_at,
             )
+            if manual_evidence_source is not None:
+                request = replace(
+                    request,
+                    evidence=await manual_evidence_source.read(request, catalog),
+                )
             if rule_evidence is not None:
                 request, _status = await with_wara_rule_evidence(
                     request,
@@ -271,7 +297,10 @@ async def execute_wara_assessment_tick(
                     catalog=catalog,
                     bindings=rule_evidence.bindings,
                 )
-            results.append(await service.assess(request))
+            result = await service.assess(request)
+            if report_sink is not None:
+                await report_sink.write(result, catalog, request)
+            results.append(result)
 
     counts: dict[str, int] = {}
     for result in results:
@@ -285,6 +314,31 @@ async def run_once(environ: Mapping[str, str] | None = None) -> WaraTickReport:
 
     environment = os.environ if environ is None else environ
     settings = WaraJobSettings.from_environ(environment)
+    evidence_file = environment.get("FDAI_WARA_MANUAL_EVIDENCE_FILE", "")
+    trust_file = environment.get("FDAI_WARA_MANUAL_TRUST_FILE", "")
+    if bool(evidence_file) != bool(trust_file):
+        raise WaraJobConfigurationError(
+            "WARA manual evidence and trust files must be configured together"
+        )
+    manual_source = (
+        SignedWaraManualEvidenceSource(
+            evidence_file=Path(evidence_file), trust_file=Path(trust_file)
+        )
+        if evidence_file
+        else None
+    )
+    output_directory = environment.get("FDAI_WARA_REPORT_DIRECTORY", "")
+    collector_context = environment.get("FDAI_WARA_COLLECTOR_CONTEXT_FILE", "")
+    if collector_context and not output_directory:
+        raise WaraJobConfigurationError("WARA collector context requires a report directory")
+    report_sink = (
+        WaraFileReportSink(
+            output_directory=Path(output_directory),
+            collector_context=Path(collector_context) if collector_context else None,
+        )
+        if output_directory
+        else None
+    )
     catalog, queries, evaluator_bindings = _load_wara_assets()
     rule_bindings = load_release_wara_rule_bindings(_REPO_ROOT, catalog=catalog, queries=queries)
     runtime = WaraAssessmentRuntime(catalog, evaluator_bindings, rule_bindings)
@@ -333,6 +387,8 @@ async def run_once(environ: Mapping[str, str] | None = None) -> WaraTickReport:
                 service=service,
                 catalog=catalog,
                 evaluator_bindings=evaluator_bindings,
+                manual_evidence_source=manual_source,
+                report_sink=report_sink,
                 rule_evidence=WaraRuleEvidenceSource(
                     bindings=rule_bindings,
                     state_store=state_store,

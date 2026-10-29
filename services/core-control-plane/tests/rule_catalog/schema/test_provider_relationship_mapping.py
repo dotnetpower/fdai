@@ -116,7 +116,22 @@ def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() 
 
 def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
     loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
-    assert len(loaded.mappings) == 112
+    assert len(loaded.mappings) == 119
+    wara_children = {
+        "azure.cdn-profile-contains-origin-group",
+        "azure.image-gallery-contains-image",
+        "azure.gallery-image-contains-version",
+        "azure.file-account-contains-capacity-pool",
+        "azure.file-capacity-pool-contains-volume",
+        "azure.network-watcher-contains-flow-log",
+        "azure.app-service-contains-slot",
+    }
+    for mapping in loaded.mappings:
+        if mapping.mapping_id in wara_children:
+            assert mapping.link_type == "contains"
+            assert mapping.endpoint_orientation is EndpointOrientation.REFERENCED_TO_OWNER
+            assert mapping.source_property_path == "id.providerParent"
+    assert wara_children <= {mapping.mapping_id for mapping in loaded.mappings}
 
     special_link_types = {
         "azure.vnet-peered-with-vnet": "peered_with",
@@ -148,7 +163,7 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
         for mapping in loaded.mappings
         if mapping.endpoint_orientation is EndpointOrientation.REFERENCED_TO_OWNER
     }
-    assert referenced_to_owner == {
+    assert referenced_to_owner == wara_children | {
         "azure.aks-contains-agent-pool",
         "azure.arm-cognitive-account-contains-model-deployment",
         "azure.cognitive-account-contains-model-deployment",

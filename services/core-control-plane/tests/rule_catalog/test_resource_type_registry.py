@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -97,6 +98,43 @@ def test_shipped_vocabulary_covers_common_azure_inventory_types() -> None:
         "data-collection-rule",
     ):
         assert registry.get(type_id).query_terms
+
+
+def test_shipped_vocabulary_covers_exact_wara_resource_identities() -> None:
+    registry = _shipped()
+    framework_path = REPO_ROOT / "rule-catalog/collected/wara-aprl/azure-wara.json"
+    framework = json.loads(framework_path.read_text(encoding="utf-8"))
+    provider_types = {
+        control["wara"]["resource_type"].casefold()
+        for area in framework["areas"]
+        for control in area["controls"]
+        if control["wara"]["state"] == "Active"
+    }
+    declared = {
+        entry.azure_arm_type.casefold() for entry in registry if entry.azure_arm_type is not None
+    }
+
+    assert len(provider_types) == 80
+    assert provider_types - declared == {"microsoft.subscription/subscriptions"}
+    assert all(parent in registry.ids() for entry in registry for parent in entry.typical_parents)
+
+
+@pytest.mark.parametrize(
+    ("provider_type", "canonical_type"),
+    [
+        ("Microsoft.Cdn/profiles/originGroups", "network.cdn-origin-group"),
+        ("Microsoft.Compute/galleries/images/versions", "compute.gallery-image-version"),
+        ("Microsoft.NetApp/netAppAccounts/capacityPools/volumes", "file-volume"),
+        ("Microsoft.Network/networkWatchers/flowLogs", "observability.network-flow-log"),
+        ("Microsoft.Web/sites/slots", "compute.app-slot"),
+    ],
+)
+def test_wara_child_types_do_not_resolve_to_their_parent(
+    provider_type: str, canonical_type: str
+) -> None:
+    registry = _shipped()
+
+    assert resolve_azure_resource_type(registry, arm_type=provider_type) == canonical_type
 
 
 def test_shipped_vocabulary_classifies_reviewed_provider_native_types() -> None:
@@ -385,11 +423,10 @@ def test_typical_parents_reference_only_registered_ids() -> None:
 
 def test_non_scope_typical_parents_have_producers_or_reviewed_unavailability() -> None:
     registry = _shipped()
-    by_arm_type = {
-        entry.azure_arm_type.casefold(): entry.id
-        for entry in registry.types
-        if entry.azure_arm_type is not None
-    }
+    by_arm_type: dict[str, set[str]] = {}
+    for entry in registry.types:
+        if entry.azure_arm_type is not None:
+            by_arm_type.setdefault(entry.azure_arm_type.casefold(), set()).add(entry.id)
     type_ids = registry.ids()
     catalog = load_provider_relationship_mapping_catalog(
         REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
@@ -399,14 +436,14 @@ def test_non_scope_typical_parents_have_producers_or_reviewed_unavailability() -
         if mapping.link_type != "contains" or "*" in mapping.source_provider_types:
             continue
         source_types = {
-            by_arm_type.get(item, item)
+            type_id
             for item in mapping.source_provider_types
-            if item in by_arm_type or item in type_ids
+            for type_id in by_arm_type.get(item, {item} if item in type_ids else set())
         }
         target_types = {
-            by_arm_type.get(item, item)
+            type_id
             for item in mapping.target_provider_types
-            if item in by_arm_type or item in type_ids
+            for type_id in by_arm_type.get(item, {item} if item in type_ids else set())
         }
         for source_type in source_types:
             for target_type in target_types:

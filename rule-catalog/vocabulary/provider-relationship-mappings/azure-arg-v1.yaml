@@ -71,6 +71,97 @@ mappings:
     freshness: *freshness
     completeness: *completeness
 
+  - mapping_id: azure.cdn-profile-contains-origin-group
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Cdn/profiles/originGroups]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Cdn/profiles]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.image-gallery-contains-image
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Compute/galleries/images]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Compute/galleries]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.gallery-image-contains-version
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Compute/galleries/images/versions]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Compute/galleries/images]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.file-account-contains-capacity-pool
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.NetApp/netAppAccounts/capacityPools]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.NetApp/netAppAccounts]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.file-capacity-pool-contains-volume
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.NetApp/netAppAccounts/capacityPools/volumes]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.NetApp/netAppAccounts/capacityPools]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.network-watcher-contains-flow-log
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Network/networkWatchers/flowLogs]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Network/networkWatchers]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
+  - mapping_id: azure.app-service-contains-slot
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Web/sites/slots]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Web/sites]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.resource-attached-to-managed-identity
     provider: azure
     source_identity: azure-resource-graph
@@ -1598,6 +1689,6 @@ mappings:
 
 review:
   reviewer_identity: fdai-provider-relationship-review
-  reviewed_at: 2026-09-13T00:00:00Z
-  immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:f794c4c95576e31dd6caaecb5593cbfdb1d6f7e8000bf7a0d5ee5aae45ab7b32
+  reviewed_at: 2026-10-29T16:33:55Z
+  immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1-wara-scope
+  content_hash: sha256:107737b66dbf1cc53cc7b7ec71c7ed7e14ef97b0d38943b25c6fdec72d7c3e85

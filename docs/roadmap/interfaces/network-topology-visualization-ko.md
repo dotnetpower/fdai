@@ -1,8 +1,8 @@
 ---
 title: 네트워크 토폴로지 시각화
 translation_of: network-topology-visualization.md
-translation_source_sha: 49895762f95d4ea977ec60eb98476659e0774e89
-translation_revised: 2026-09-22
+translation_source_sha: 019bad0d5258febe9ca3e5d027854c58cd7b31a9
+translation_revised: 2026-10-30
 ---
 # 네트워크 토폴로지 시각화
 
@@ -26,6 +26,9 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 `partial` 또는 `unknown`입니다.
 모든 정본 Kubernetes ResourceType에는 명시적인 런타임 계층, AKS 색상 토큰 및 안정적인 약어가
 있습니다. 아키텍처 지도는 새로 카탈로그에 추가된 유형을 일반 시각화 대체 경로로 숨기지 않습니다.
+WARA에 추가한 정식 종류 42개는 하나의 형식화된 레지스트리에서 Console 계층, 역할 유형별 색상
+토큰, 안정적인 약어를 정의합니다. 이 연결은 리소스별 역할을 구분하지만 관측된 토폴로지,
+가용성, 실행 권한을 입증하지는 않습니다.
 
 ## 구현 상태
 
@@ -55,6 +58,7 @@ Console은 인벤토리 리소스와 타입이 지정된 관계만으로 범위�
 | 2026-08-22 | implemented | 두 VNet을 포함한 밀집 fixture로 live 지도와 내보내기의 남은 동등성 공백을 닫았습니다. 하나의 공유 obstacle-aware router가 두 화면에서 관련 없는 node card를 우회하고, peer VNet 경계는 직접 header corridor를 사용하며, peering 및 dependency 방향은 화살표를 유지하고 attachment endpoint는 dot을 유지합니다. 내보내기는 runtime fetch 없이 검토된 모든 SVG 원문을 포함합니다. | `current change`; 검토된 icon embedding 및 sanitizer 검사 3개, network route, map, focus, layout 및 path 검사 71개, Console 타입 검사와 운영 빌드, 데스크톱, 제한된 데스크톱 및 모바일 순차 Playwright와 직접 검토한 capture 5개. 다운로드 SVG는 포함된 공식 icon, 타입 지정 marker, legend 및 리소스 이름과 id 부재를 확인했고, 다운로드 PNG는 nonblank 기준을 넘었습니다. | Console 범위를 `validated`로 바꾸기 전에 정확한 소스에 연결된 관리되는 데스크톱 및 모바일 Console 근거를 보존합니다. |
 | 2026-08-23 | implemented | 선택한 network branch를 중심으로 Ontology Instances 그래프를 강화했습니다. 이제 VNet context는 직접 포함한 Subnet과 해당 Subnet에 연결된 Private Endpoint 및 NIC만 포함하고, peer branch를 재귀적으로 확장하지 않으며, 상호 `peered_with` 레코드는 하나의 node occurrence를 공유합니다. viewport는 일반 마우스 휠 확대 및 축소, 노드를 고정한 빈 캔버스 이동, 모바일에서 10%까지 축소되는 전체 맞춤을 제공합니다. | `current change`; `npm --prefix console test -- --run src/routes/ontology-instance-graph.model.test.ts src/routes/ontology-instances.model.test.ts src/routes/ontology-instance-resource-icons.test.ts` 테스트 37개 통과, Console 타입 검사와 운영 빌드 통과, 인증된 `1440x900`, `993x641`, `390x844` 검사에서 중복 resource id 0개, node 충돌 0개, 문서 overflow 0개와 관측 branch의 VNet level 0, Subnet level 1, NIC level 2를 측정했습니다. | 이 범위의 상태를 `validated`로 올리기 전에 정확한 소스에 연결된 관리되는 receipt를 보존합니다. |
 | 2026-08-23 | implemented | Private DNS zone group 아이콘을 바로잡고 활성 Resource 유형 전체를 감사했습니다. 정확한 V24 Azure asset 7개를 추가해 API Management, Disk Snapshots, NAT, SQL Database, SQL Server, Subscriptions 및 Logic Apps를 지원합니다. DNS zone group은 정확한 DNS Zones 제품군을 사용하고 Azure Monitor workspace는 Azure Monitor를 사용합니다. Role assignment, data collection endpoint 및 분류되지 않은 resource는 검증된 archive에 정확한 제품 아이콘이 없거나 유형 자체가 의도적으로 분류되지 않았으므로 명시적인 일반 대체 아이콘을 유지합니다. 그래프 도구 모음은 기본 전체 화면 명령 하나만 제공하고 일반 마우스 휠 입력이 확대 및 축소를 담당합니다. 선택한 인스턴스 상세 패널은 보기 상태를 버리지 않고 접을 수 있습니다. | `current change`; Azure asset 무결성 검사 107개, 아이콘, 보기 제어 및 지역화 포커스 테스트 통과. 인증된 `1440x900`, `993x641`, `390x844` 검사에서 각 화면 크기와 일치하는 전체 화면 경계, 44 px 모바일 컨트롤, 상세 패널 공간 회수, 마우스 휠 확대 및 축소, 문서 overflow 0을 측정했습니다. | 이 범위의 상태를 `validated`로 올리기 전에 정확한 소스에 연결된 관리되는 증적을 보존합니다. |
+| 2026-10-30 | implemented | 하나의 형식화된 레지스트리를 통해 WARA 리소스와 중간 상위 종류 42개 모두에 명시적인 계층, 역할 유형별 색상, 약어를 연결했습니다. | `current change`; #2677; 아키텍처 모델 및 레지스트리 집중 테스트 98개와 전체 Console 테스트 4175개를 통과했습니다. TypeScript 검사와 프로덕션 빌드도 통과했습니다. | 전달을 완료하려면 정확한 최종 SHA의 CI가 통과해야 합니다. 이 시각 매핑은 실제 인벤토리, 도달 가능성, 가용성의 근거가 아닙니다. |
 
 ### 남은 작업
 

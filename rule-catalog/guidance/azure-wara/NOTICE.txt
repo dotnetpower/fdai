@@ -1,0 +1,55 @@
+FDAI WARA guidance attribution
+
+The recommendation titles, descriptions, benefits and source metadata in the
+WARA guidance package include material from the Azure Proactive Resiliency
+Library v2 (APRL), published by Microsoft under the MIT License.
+
+Public source:
+https://github.com/Azure/Azure-Proactive-Resiliency-Library-v2
+
+Pinned source revision:
+1f421a90c157bc8894b3a47b05ba08b8650a0bd5
+
+Exact public license reference:
+https://github.com/Azure/Azure-Proactive-Resiliency-Library-v2/blob/1f421a90c157bc8894b3a47b05ba08b8650a0bd5/LICENSE
+
+The following copyright and permission notice is reproduced from that license:
+
+MIT License
+
+Copyright (c) Microsoft Corporation.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE
+
+FDAI additions and limitations
+
+The mechanism explanations, per-recommendation observation bindings and typed
+conceptual diagrams are repository-authored additions. No private presentation,
+customer screenshot or third-party diagram is copied. The diagrams are not
+Microsoft-authored figures or discovered deployment topologies.
+
+The source metadata is retained with English fallback and ASCII punctuation
+normalization. Shared service and mechanism context is reused across related
+recommendations; it is not 456 independent technical or live-environment
+validations. The generated coverage report records the three individually
+authored pilots, sixteen expanded conditional guides, their scoped public
+documentation review and the remaining review limits.
+
+This package is advisory reference content, not a finding, an approval or a
+grant of operational execution rights.

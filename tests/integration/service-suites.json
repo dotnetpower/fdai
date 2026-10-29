@@ -170,6 +170,7 @@
           "services/operator-service/tests/test_framework_mcsb_assessment_projection.py",
           "services/operator-service/tests/test_framework_rule_coverage_projection.py",
           "services/operator-service/tests/test_wara_projection.py",
+          "services/operator-service/tests/test_wara_guidance_projection.py",
           "services/operator-service/tests/test_python_task_capability.py",
           "services/operator-service/tests/test_bus_poison_halt_clear.py"
         ],

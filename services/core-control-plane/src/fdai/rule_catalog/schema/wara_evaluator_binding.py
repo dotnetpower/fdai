@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -32,6 +32,52 @@ class WaraEvaluatorSemantics(StrEnum):
     MATCHING_ROWS_FAILED = "matching_rows_failed"
 
 
+class WaraObservationRequirement(BaseModel):
+    """Observed field and eligibility proof required before interpreting an empty result.
+
+    Wildcards require a nonempty array and validate every element, never a selected prefix.
+    Absent fields are unknown, even when the pinned query would silently discard them.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: Annotated[
+        str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_]*(?:\.(?:[A-Za-z][A-Za-z0-9_]*|[0-9]+|\*))*$")
+    ]
+    value_type: Literal["string", "boolean", "number", "array", "object"]
+    allowed_values: tuple[str, ...] = ()
+    expected_boolean: bool | None = None
+    minimum_items: Annotated[int, Field(ge=0, le=10000)] = 0
+    maximum_items: Annotated[int | None, Field(ge=0, le=10000)] = None
+    allowed_items: tuple[str, ...] = ()
+    unique_items: bool = False
+    minimum_length: Annotated[int, Field(ge=0, le=4096)] = 0
+    forbidden_keys: tuple[Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]+$")], ...] = ()
+    required_keys: tuple[Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]+$")], ...] = ()
+    allow_null: bool = False
+
+    @model_validator(mode="after")
+    def validate_constraints(self) -> WaraObservationRequirement:
+        if self.allowed_values and self.value_type != "string":
+            raise ValueError("WARA allowed values require a string observation")
+        if self.expected_boolean is not None and self.value_type != "boolean":
+            raise ValueError("WARA expected boolean requires a boolean observation")
+        if (
+            self.minimum_items
+            or self.maximum_items is not None
+            or self.allowed_items
+            or self.unique_items
+        ) and self.value_type != "array":
+            raise ValueError("WARA item constraints require an array observation")
+        if self.maximum_items is not None and self.maximum_items < self.minimum_items:
+            raise ValueError("WARA maximum items MUST cover minimum items")
+        if self.minimum_length and self.value_type != "string":
+            raise ValueError("WARA minimum length requires a string observation")
+        if (self.forbidden_keys or self.required_keys) and self.value_type != "object":
+            raise ValueError("WARA key constraints require an object observation")
+        return self
+
+
 class WaraEvaluatorBinding(BaseModel):
     """One reviewed evaluator bound to an exact APRL query generation."""
 
@@ -45,6 +91,9 @@ class WaraEvaluatorBinding(BaseModel):
     resource_id_column: Annotated[str, Field(pattern=r"^id$")]
     reviewer: Annotated[str, Field(pattern=_IDENTIFIER)]
     review_state: Annotated[str, Field(pattern=r"^reviewed-exact$")]
+    observation_requirements: Annotated[
+        tuple[WaraObservationRequirement, ...], Field(min_length=1, max_length=32)
+    ]
 
     @property
     def key(self) -> tuple[str, str]:
@@ -132,5 +181,6 @@ __all__ = [
     "WaraEvaluatorBinding",
     "WaraEvaluatorBindingCatalog",
     "WaraEvaluatorSemantics",
+    "WaraObservationRequirement",
     "load_wara_evaluator_bindings",
 ]

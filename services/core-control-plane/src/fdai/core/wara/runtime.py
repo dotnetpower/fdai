@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import Any
@@ -151,7 +152,6 @@ class WaraAssessmentRuntime:
         evidence: tuple[WaraEvidenceReceipt, ...],
     ) -> WaraControlResult:
         limitations: list[str] = []
-        mapping = record.applicability
         binding = _binding_for(record, self._evaluator_bindings)
         rule_binding = _rule_binding_for(record, self._rule_bindings)
         evaluator_ref, blocked_reasons = _resolved_query_evaluator(record, binding)
@@ -162,13 +162,9 @@ class WaraAssessmentRuntime:
             blocked_reasons = tuple(
                 reason for reason in blocked_reasons if reason != "missing_exact_evaluator"
             )
-        matching = tuple(
-            resource
-            for resource in request.resources
-            if resource.provider_resource_type.casefold() == mapping.normalized_provider_type
-            and set(record.workload_tags).issubset(resource.workload_tags)
-        )
-        if mapping.disposition is not ResourceTypeDisposition.CANONICAL:
+        matching = _matching_resources(record, request)
+        canonical_mapping = _canonical_mapping_is_admitted(record)
+        if not canonical_mapping:
             limitations.append("unsupported_resource_type")
         if not matching:
             limitations.append("scope_not_observed")
@@ -177,16 +173,38 @@ class WaraAssessmentRuntime:
             if rule_binding is not None
             else _query_is_admitted(record, binding, evaluator_ref, blocked_reasons)
         )
-        if record.disposition is WaraDisposition.AMBIGUOUS_OR_BLOCKED and not query_admitted:
-            limitations.append("crosswalk_blocked")
+        admitted = tuple(
+            receipt
+            for receipt in evidence
+            if _receipt_admitted(
+                receipt,
+                request,
+                record,
+                evaluator_ref=evaluator_ref,
+                rule_bound=rule_binding is not None,
+                automatic_admitted=query_admitted,
+            )
+        )
+        manual_fallback = record.automation_available and any(
+            receipt.evidence_kind not in {"provider_observation", "rule"} for receipt in admitted
+        )
+        if manual_fallback:
+            limitations.append("manual_evidence_fallback")
+        query_blocked = (
+            record.disposition is WaraDisposition.AMBIGUOUS_OR_BLOCKED and not query_admitted
+        )
+        if query_blocked:
+            limitations.append(
+                "automatic_evaluation_unavailable" if manual_fallback else "crosswalk_blocked"
+            )
             if record.query_review is not None:
                 limitations.extend(blocked_reasons)
         applicability = (
             WaraApplicabilityStatus.APPLICABLE
-            if matching and mapping.disposition is ResourceTypeDisposition.CANONICAL
+            if matching and canonical_mapping
             else WaraApplicabilityStatus.UNKNOWN
         )
-        if record.disposition is WaraDisposition.AMBIGUOUS_OR_BLOCKED and not query_admitted:
+        if query_blocked and not manual_fallback:
             return _control_result(
                 record,
                 applicability,
@@ -205,17 +223,6 @@ class WaraAssessmentRuntime:
                 evidence,
                 limitations,
             )
-        admitted = tuple(
-            receipt
-            for receipt in evidence
-            if _receipt_admitted(
-                receipt,
-                request,
-                record,
-                evaluator_ref=evaluator_ref,
-                rule_bound=rule_binding is not None,
-            )
-        )
         if not admitted:
             limitations.append("evidence_unavailable_or_inadmissible")
             return _control_result(
@@ -455,22 +462,15 @@ def build_wara_read_plan(
         raise ValueError("WARA read plan evaluator bindings digest mismatch")
     if (
         review is None
+        or not _canonical_mapping_is_admitted(record)
         or review.safety_classification is not QuerySafetyClassification.READ_ONLY_BOUNDED
         or evaluator_ref is None
         or blocked_reasons
         or not _query_is_admitted(record, binding, evaluator_ref, blocked_reasons)
     ):
         raise ValueError("WARA recommendation has no admitted read-only query")
-    matching = tuple(
-        sorted(
-            resource.resource_id
-            for resource in request.resources
-            if resource.provider_resource_type.casefold()
-            == record.applicability.normalized_provider_type
-            and set(record.workload_tags).issubset(resource.workload_tags)
-        )
-    )
-    if not matching:
+    resources = _matching_resources(record, request)
+    if not resources:
         raise ValueError("WARA read plan has no exact resource scope")
     return WaraReadPlan(
         recommendation_id=record.aprl_guid,
@@ -488,13 +488,63 @@ def build_wara_read_plan(
             )
         ),
         workload_id=request.workload_id,
-        resource_ids=matching,
-        provider_resource_types=(record.applicability.normalized_provider_type,),
+        resource_ids=tuple(sorted(resource.resource_id for resource in resources)),
+        provider_resource_types=tuple(
+            sorted({resource.provider_resource_type.casefold() for resource in resources})
+        ),
         inventory_generation=request.inventory_generation,
         maximum_rows=review.maximum_rows,
         timeout_seconds=review.timeout_seconds,
         evidence_freshness_ceiling_seconds=(review.evidence_freshness_ceiling_seconds),
     )
+
+
+def _canonical_mapping_is_admitted(record: WaraRecommendationCrosswalk) -> bool:
+    mapping = record.applicability
+    candidates = mapping.canonical_resource_types or (
+        (mapping.canonical_resource_type,) if mapping.canonical_resource_type is not None else ()
+    )
+    return mapping.disposition is ResourceTypeDisposition.CANONICAL and bool(candidates)
+
+
+def _matching_resources(
+    record: WaraRecommendationCrosswalk,
+    request: WaraAssessmentRequest,
+) -> tuple[WaraScopedResource, ...]:
+    """Match only exact targets already bound into the authorized observed scope."""
+
+    mapping = record.applicability
+    subscription_scoped = (
+        mapping.normalized_provider_type
+        in {"microsoft.subscription/subscriptions", "microsoft.resources/subscriptions"}
+        or "microsoft.resources/subscriptions" in mapping.provider_resource_types
+    )
+    provider_types = mapping.provider_resource_types or (
+        ("microsoft.resources/subscriptions",)
+        if subscription_scoped
+        else (mapping.normalized_provider_type,)
+    )
+    matching = []
+    for resource in request.resources:
+        if resource.provider_resource_type.casefold() not in provider_types:
+            continue
+        if not set(record.workload_tags).issubset(resource.workload_tags):
+            continue
+        # A workload child never proves a subscription target or complete subscription scope.
+        if subscription_scoped:
+            if resource.provider_resource_type.casefold() != "microsoft.resources/subscriptions":
+                continue
+            if (
+                re.fullmatch(
+                    r"/subscriptions/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}",
+                    resource.resource_id,
+                    flags=re.IGNORECASE,
+                )
+                is None
+            ):
+                continue
+        matching.append(resource)
+    return tuple(matching)
 
 
 def wara_observation_to_evidence(
@@ -617,6 +667,7 @@ def _receipt_admitted(
     record: WaraRecommendationCrosswalk,
     *,
     evaluator_ref: str | None,
+    automatic_admitted: bool,
     rule_bound: bool = False,
 ) -> bool:
     if (
@@ -633,10 +684,12 @@ def _receipt_admitted(
         or receipt.recorded_at > request.recorded_at
     ):
         return False
-    requirement = record.manual_evidence
-    if requirement is not None:
+    if receipt.evidence_kind not in {"provider_observation", "rule"}:
+        requirement = record.manual_evidence
         if (
-            receipt.evidence_kind != requirement.kind
+            requirement is None
+            or requirement.blocked_reason is not None
+            or receipt.evidence_kind != requirement.kind
             or receipt.producer != requirement.authoritative_producer
             or receipt.freshness_ceiling_seconds != requirement.freshness_ceiling_seconds
         ):
@@ -644,7 +697,7 @@ def _receipt_admitted(
         freshness_ceiling_seconds = requirement.freshness_ceiling_seconds
     else:
         review = record.query_review
-        if review is None or evaluator_ref is None:
+        if not automatic_admitted or review is None or evaluator_ref is None:
             return False
         if (
             receipt.evidence_kind != ("rule" if rule_bound else "provider_observation")

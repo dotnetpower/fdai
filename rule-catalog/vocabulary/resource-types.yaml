@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.5.2"
+version: "0.6.0"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 query_groups:
@@ -735,6 +735,260 @@ types:
     description: Managed search index and query service.
     azure_arm_type: Microsoft.Search/searchServices
     query_terms: [ai search, azure ai search, cognitive search, search service, search services, 검색 서비스]
+    typical_parents: [resource-group]
+
+  # WARA/APRL resource identities, including exact child resource types.
+  - id: directory.managed-domain
+    category: security
+    description: Managed directory domain providing domain join and directory authentication.
+    azure_arm_type: Microsoft.AAD/domainServices
+    query_terms: [managed domain, managed domains, 관리형 도메인]
+    typical_parents: [resource-group]
+  - id: application-configuration
+    category: compute
+    description: Managed application configuration and feature-flag store.
+    azure_arm_type: Microsoft.AppConfiguration/configurationStores
+    query_terms: [application configuration store, app configuration, 앱 구성 저장소]
+    typical_parents: [resource-group]
+  - id: automation-account
+    category: governance
+    description: Managed automation account hosting scheduled operational runbooks.
+    azure_arm_type: Microsoft.Automation/automationAccounts
+    query_terms: [automation account, automation accounts, 자동화 계정]
+    typical_parents: [resource-group]
+  - id: compute.private-virtualization-cloud
+    category: compute
+    description: Dedicated managed private cloud for virtualized workloads.
+    azure_arm_type: Microsoft.AVS/privateClouds
+    query_terms: [private virtualization cloud, azure vmware solution, 프라이빗 가상화 클라우드]
+    typical_parents: [resource-group]
+  - id: compute.batch-account
+    category: compute
+    description: Account coordinating pools and jobs for batch computation.
+    azure_arm_type: Microsoft.Batch/batchAccounts
+    query_terms: [batch account, batch accounts, 배치 계정]
+    typical_parents: [resource-group]
+  - id: network.cdn-profile
+    category: network
+    description: Content delivery profile containing edge routing and origin configuration.
+    azure_arm_type: Microsoft.Cdn/profiles
+    query_terms: [cdn profile, content delivery profile, 콘텐츠 배달 프로필]
+    typical_parents: [resource-group]
+  - id: network.cdn-origin-group
+    category: network
+    description: Exact child group of backend origins in a content delivery profile.
+    azure_arm_type: Microsoft.Cdn/profiles/originGroups
+    query_terms: [cdn origin group, origin groups, 원본 그룹]
+    typical_parents: [network.cdn-profile]
+  - id: compute.image-gallery
+    category: compute
+    description: Gallery distributing reusable machine images and their versions.
+    azure_arm_type: Microsoft.Compute/galleries
+    query_terms: [compute image gallery, image galleries, 컴퓨팅 이미지 갤러리]
+    typical_parents: [resource-group]
+  - id: compute.gallery-image-version
+    category: compute
+    description: Exact version of an image definition within a compute gallery.
+    azure_arm_type: Microsoft.Compute/galleries/images/versions
+    query_terms: [gallery image version, image versions, 갤러리 이미지 버전]
+    typical_parents: [compute.gallery-image]
+  - id: compute.gallery-image
+    category: compute
+    description: Machine image definition containing versions within one compute gallery.
+    azure_arm_type: Microsoft.Compute/galleries/images
+    query_terms: [gallery image definition, gallery image definitions, 갤러리 이미지 정의]
+    typical_parents: [compute.image-gallery]
+  - id: analytics.workspace
+    category: compute
+    description: Managed workspace for distributed data engineering and analytics.
+    azure_arm_type: Microsoft.Databricks/workspaces
+    query_terms: [analytics workspace, databricks workspace, 분석 작업 영역]
+    typical_parents: [resource-group]
+  - id: compute.desktop-host-pool
+    category: compute
+    description: Pool of session hosts serving managed virtual desktops.
+    azure_arm_type: Microsoft.DesktopVirtualization/hostPools
+    query_terms: [desktop host pool, host pools, 데스크톱 호스트 풀]
+    typical_parents: [resource-group]
+  - id: compute.desktop-scaling-plan
+    category: compute
+    description: Schedule and capacity policy for scaling virtual desktop session hosts.
+    azure_arm_type: Microsoft.DesktopVirtualization/scalingPlans
+    query_terms: [desktop scaling plan, desktop autoscale, 데스크톱 크기 조정 계획]
+    typical_parents: [resource-group]
+  - id: iot-hub
+    category: compute
+    description: Managed device messaging and connectivity hub.
+    azure_arm_type: Microsoft.Devices/IotHubs
+    query_terms: [iot hub, device hub, IoT 허브]
+    typical_parents: [resource-group]
+  - id: event-topic
+    category: compute
+    description: Managed event distribution topic with subscribed event handlers.
+    azure_arm_type: Microsoft.EventGrid/topics
+    query_terms: [event grid custom topic, custom event topics, 사용자 지정 이벤트 토픽]
+    typical_parents: [resource-group]
+  - id: activity-log-alert
+    category: observability
+    description: Alert rule evaluating control-plane activity and service health events.
+    azure_arm_type: Microsoft.Insights/activityLogAlerts
+    query_terms: [activity log alert, activity log alerts, 활동 로그 경고]
+    typical_parents: [resource-group]
+  - id: ml-model-registry
+    category: compute
+    description: Registry distributing versioned machine learning models and environments.
+    azure_arm_type: Microsoft.MachineLearningServices/registries
+    query_terms: [machine learning registry, model registry, 기계 학습 레지스트리]
+    typical_parents: [resource-group]
+  - id: ml-workspace
+    category: compute
+    description: Managed workspace for machine learning experiments and deployments.
+    azure_arm_type: Microsoft.MachineLearningServices/workspaces
+    query_terms: [machine learning workspace, ml workspace, 기계 학습 작업 영역]
+    typical_parents: [resource-group]
+  - id: file-volume
+    category: storage
+    description: Exact managed file volume within a storage account capacity pool.
+    azure_arm_type: Microsoft.NetApp/netAppAccounts/capacityPools/volumes
+    query_terms: [managed file volume, netapp volume, 관리형 파일 볼륨]
+    typical_parents: [storage.file-capacity-pool]
+  - id: storage.file-account
+    category: storage
+    description: Managed file storage account containing provisioned capacity pools.
+    azure_arm_type: Microsoft.NetApp/netAppAccounts
+    query_terms: [managed file storage account, netapp account, 관리형 파일 저장소 계정]
+    typical_parents: [resource-group]
+  - id: storage.file-capacity-pool
+    category: storage
+    description: Provisioned capacity pool containing managed file volumes.
+    azure_arm_type: Microsoft.NetApp/netAppAccounts/capacityPools
+    query_terms: [file storage capacity pool, file capacity pools, 파일 저장소 용량 풀]
+    typical_parents: [storage.file-account]
+  - id: network.connection
+    category: network
+    description: Network gateway connection linking private or remote network endpoints.
+    azure_arm_type: Microsoft.Network/connections
+    query_terms: [gateway connection, network connections, 게이트웨이 연결]
+    typical_parents: [resource-group]
+  - id: network.ddos-protection-plan
+    category: network
+    description: Distributed denial-of-service protection plan for protected networks.
+    azure_arm_type: Microsoft.Network/ddosProtectionPlans
+    query_terms: [ddos protection plan, ddos plans, DDoS 보호 계획]
+    typical_parents: [resource-group]
+  - id: network.private-circuit
+    category: network
+    description: Dedicated private network connectivity circuit.
+    azure_arm_type: Microsoft.Network/expressRouteCircuits
+    query_terms: [private network circuit, expressroute circuit, 프라이빗 네트워크 회선]
+    typical_parents: [resource-group]
+  - id: network.private-circuit-gateway
+    category: network
+    description: Gateway terminating private connectivity circuits in a virtual hub.
+    azure_arm_type: Microsoft.Network/expressRouteGateways
+    query_terms: [virtual hub expressroute gateway, private circuit gateway, 프라이빗 회선 게이트웨이]
+    typical_parents: [resource-group]
+  - id: network.private-peering-port
+    category: network
+    description: Dedicated physical peering port for private network circuits.
+    azure_arm_type: Microsoft.Network/expressRoutePorts
+    query_terms: [expressroute port, private peering port, 프라이빗 피어링 포트]
+    typical_parents: [resource-group]
+  - id: observability.network-flow-log
+    category: observability
+    description: Exact network watcher child defining network flow log collection.
+    azure_arm_type: Microsoft.Network/networkWatchers/flowLogs
+    query_terms: [network flow log, flow logs, 네트워크 흐름 로그]
+    typical_parents: [observability.network-monitor]
+  - id: network.user-vpn-gateway
+    category: network
+    description: Point-to-site gateway connecting remote users to a virtual hub.
+    azure_arm_type: Microsoft.Network/p2sVpnGateways
+    query_terms: [point to site vpn gateway, user vpn gateway, 사용자 VPN 게이트웨이]
+    typical_parents: [resource-group]
+  - id: network.dns-routing-profile
+    category: network
+    description: DNS-based traffic routing profile for regional service endpoints.
+    azure_arm_type: Microsoft.Network/trafficManagerProfiles
+    query_terms: [traffic manager profile, dns routing profile, DNS 라우팅 프로필]
+    typical_parents: [resource-group]
+  - id: network.virtual-hub
+    category: network
+    description: Managed transit hub connecting networks and gateway services.
+    azure_arm_type: Microsoft.Network/virtualHubs
+    query_terms: [virtual hub, virtual hubs, 가상 허브]
+    typical_parents: [resource-group]
+  - id: network.virtual-router
+    category: network
+    description: Managed virtual router exchanging routes between network peers.
+    azure_arm_type: Microsoft.Network/virtualRouters
+    query_terms: [virtual router, virtual routers, 가상 라우터]
+    typical_parents: [resource-group]
+  - id: network.site-vpn-gateway
+    category: network
+    description: Site-to-site VPN gateway connecting remote sites to a virtual hub.
+    azure_arm_type: Microsoft.Network/vpnGateways
+    query_terms: [site to site vpn gateway, site vpn gateway, 사이트 VPN 게이트웨이]
+    typical_parents: [resource-group]
+  - id: network.vpn-site
+    category: network
+    description: Remote network site and links participating in managed VPN connectivity.
+    azure_arm_type: Microsoft.Network/vpnSites
+    query_terms: [vpn site, vpn sites, VPN 사이트]
+    typical_parents: [resource-group]
+  - id: observability.traffic-collector
+    category: observability
+    description: Managed traffic collector for private connectivity flow telemetry.
+    azure_arm_type: Microsoft.NetworkFunction/azureTrafficCollectors
+    query_terms: [traffic collector, traffic collectors, 트래픽 수집기]
+    typical_parents: [resource-group]
+  - id: backup-vault
+    category: storage
+    description: Recovery vault governing protected workloads and their backup copies.
+    azure_arm_type: Microsoft.RecoveryServices/vaults
+    query_terms: [recovery services vault, backup vault, 백업 자격 증명 모음]
+    typical_parents: [resource-group]
+  - id: realtime-messaging-service
+    category: compute
+    description: Managed real-time messaging service for connected application clients.
+    azure_arm_type: Microsoft.SignalRService/SignalR
+    query_terms: [signalr service, realtime messaging service, 실시간 메시징 서비스]
+    typical_parents: [resource-group]
+  - id: sql-managed-instance
+    category: database
+    description: Managed SQL database engine instance with instance-level compatibility.
+    azure_arm_type: Microsoft.Sql/managedInstances
+    query_terms: [sql managed instance, sql managed instances, SQL 관리형 인스턴스]
+    typical_parents: [resource-group]
+  - id: stream-analytics-job
+    category: compute
+    description: Managed streaming data transformation and analytics job.
+    azure_arm_type: Microsoft.StreamAnalytics/streamingJobs
+    query_terms: [stream analytics job, streaming analytics, 스트림 분석 작업]
+    typical_parents: [resource-group]
+  - id: compute.image-template
+    category: compute
+    description: Build template for creating and distributing machine images.
+    azure_arm_type: Microsoft.VirtualMachineImages/imageTemplates
+    query_terms: [image template, image builder template, 이미지 템플릿]
+    typical_parents: [resource-group]
+  - id: compute.app-slot
+    category: compute
+    description: Exact deployment slot child of a managed web or function application.
+    azure_arm_type: Microsoft.Web/sites/slots
+    query_terms: [deployment slot, application slot, 배포 슬롯]
+    typical_parents: [compute.web-app, compute.function]
+  - id: database.dedicated-infrastructure
+    category: database
+    description: Dedicated cloud database infrastructure hosting managed database clusters.
+    azure_arm_type: Oracle.Database/cloudExadataInfrastructures
+    query_terms: [dedicated database infrastructure, oracle database infrastructure, 전용 데이터베이스 인프라]
+    typical_parents: [resource-group]
+  - id: database.vm-cluster
+    category: database
+    description: Managed database virtual machine cluster on dedicated infrastructure.
+    azure_arm_type: Oracle.Database/cloudVmClusters
+    query_terms: [database vm cluster, database virtual machine cluster, 데이터베이스 VM 클러스터]
     typical_parents: [resource-group]
 
   # ── governance / scope ───────────────────────────────────────────────

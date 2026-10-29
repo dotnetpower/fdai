@@ -44,8 +44,12 @@ def test_crosswalk_exactly_accounts_for_pinned_wara_inventory() -> None:
     assert len(catalog.recommendations) == 393
     assert len(catalog.resource_type_mappings) == 80
     assert len(queries.queries) == 143
+    assert len(queries.reference_queries) == 229
+    assert len(queries.null_query_guids) == 21
     assert sum(item.automation_available for item in catalog.recommendations) == 143
-    assert sum(item.manual_evidence is not None for item in catalog.recommendations) == 250
+    assert sum(item.manual_evidence is not None for item in catalog.recommendations) == 393
+    assert sum(item.manual_evidence.role == "required" for item in catalog.recommendations) == 250
+    assert sum(item.manual_evidence.role == "fallback" for item in catalog.recommendations) == 143
     assert all(
         item.query_review is not None
         for item in catalog.recommendations
@@ -68,7 +72,13 @@ def test_exact_evaluator_overlay_is_pinned_to_generated_catalog() -> None:
         queries=queries,
     )
 
-    assert len(overlay.bindings) == 3
+    reviews = json.loads(
+        (EVALUATOR_BINDINGS.parent / "evaluation-semantics.json").read_text(encoding="utf-8")
+    )["reviews"]
+    assert len(reviews) == 143
+    assert len(overlay.bindings) == sum(review["binding_status"] == "bound" for review in reviews)
+    assert len(overlay.bindings) > 3
+    assert all(binding.observation_requirements for binding in overlay.bindings)
     assert all(
         binding.semantics is WaraEvaluatorSemantics.MATCHING_ROWS_FAILED
         for binding in overlay.bindings
@@ -111,7 +121,13 @@ def test_resource_types_are_reviewed_without_broadening_ambiguous_identity() -> 
     mappings = {item.normalized_provider_type: item for item in catalog.resource_type_mappings}
 
     assert mappings["microsoft.compute/virtualmachines"].canonical_resource_type == "compute.vm"
-    assert mappings["microsoft.web/sites"].disposition is ResourceTypeDisposition.AMBIGUOUS
+    sites = mappings["microsoft.web/sites"]
+    assert sites.disposition is ResourceTypeDisposition.CANONICAL
+    assert sites.canonical_resource_type is None
+    assert sites.canonical_resource_types == ("compute.function", "compute.web-app")
+    subscription = mappings["microsoft.subscription/subscriptions"]
+    assert subscription.canonical_resource_type == "subscription"
+    assert subscription.provider_resource_types == ("microsoft.resources/subscriptions",)
     assert mappings["microsoft.sql/servers/databases"].requires_exact_child_scope is True
     assert (
         mappings["microsoft.sql/servers/databases"].parent_provider_type == "microsoft.sql/servers"

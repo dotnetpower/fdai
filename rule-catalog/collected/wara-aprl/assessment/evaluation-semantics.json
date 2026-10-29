@@ -1,0 +1,5024 @@
+{
+  "schema_version": "1.0.0",
+  "source_revision": "1f421a90c157bc8894b3a47b05ba08b8650a0bd5",
+  "automated_identities_digest": "sha256:a2ff0c67023f088126acf89a9933ca4d409e145c1bb80168ff744c5885fd89fe",
+  "reviewed_rule_bindings_digest": "sha256:8a9ca580865783ddff2eb66d9ed541dd8b327459a30b7f615afe8bf29876bfc8",
+  "reviews": [
+    {
+      "aprl_guid": "005ccbbd-aeab-46ef-80bd-9bd4479412ec",
+      "query_digest": "sha256:c6aaca9d4585f75a7c20f273b7b7c3b004163a5e5d635b1d8f30b7a907b43207",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Taint absence is not User pool mode; null scaling/count fields disappear.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Taint absence is not User pool mode; null scaling/count fields disappear."
+      ]
+    },
+    {
+      "aprl_guid": "029208c8-5186-4a76-8ee8-6e3445fef4dd",
+      "query_digest": "sha256:a4d22359560a50e9343a678ba34905d74d0d1b41892a2d860ff60b131bd1ae3b",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Alert scopes/criteria/enabled-state completeness is independently unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Alert scopes/criteria/enabled-state completeness is independently unproven.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "03f4a7d8-c5b4-7842-8e6e-14997a34842b",
+      "query_digest": "sha256:25ed0dbc4c75cdaa5c3ababa58090820e4cfe43aec9064a99694a4840924a8e2",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Anonymous pull enabled is the failing boolean state.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ContainerRegistry/registries",
+            "microsoft.containerregistry/registries"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.anonymousPullEnabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "0611251f-e70f-4243-8ddd-cfe894bec2e7",
+      "query_digest": "sha256:203439804a78ff45ba4f0a78ed60de9fc44fe80fdd1a5e3ee42290f648ab5667",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Standard/Premium AKS requirement is production-only; typed eligibility missing.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Standard/Premium AKS requirement is production-only; typed eligibility missing."
+      ]
+    },
+    {
+      "aprl_guid": "06b77be9-56a3-4d41-b362-8b295c5a283d",
+      "query_digest": "sha256:11c44f3696aa56f2f2392fb3c44298828498c7709039d31af9edca9a2df93291",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Flow-log existence is not enabled logging; related-set coverage is unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Flow-log existence is not enabled logging; related-set coverage is unproven.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "0a535241-8dc4-4058-af03-f2fff0abad2a",
+      "query_digest": "sha256:5ff3633c6efc849d8b2ae49d2c1fb5ef788d654fef6da910b1954af376120972",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Slot config inner join hides missing config; exact child lineage is unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Slot config inner join hides missing config; exact child lineage is unproven.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "0b80b67c-afbe-4988-ad58-a85a146b681e",
+      "query_digest": "sha256:a403f9255366af6fa4314ab2e3d5cb12c7197f4dfe855bc1796ad82a8b4c857b",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "App config inner join hides missing config; related-source coverage is unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "App config inner join hides missing config; related-source coverage is unproven.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "0bee356b-7348-4799-8cab-0c71ffe13018",
+      "query_digest": "sha256:365a799c5e02c5078cbd5c65ec2f6799ab6a774b32dd0ee64d84e4dbd8f5cd1e",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Provisioned ExpressRoute Direct bandwidth exceeding port bandwidth fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/ExpressRoutePorts",
+            "microsoft.network/expressrouteports"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.provisionedBandwidthInGbps",
+          "value_type": "number",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.bandwidthInGbps",
+          "value_type": "number",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "10f02bc6-e2e7-004d-a2c2-f9bf9f16b915",
+      "query_digest": "sha256:38b6075025ab516214a87e0e5fcdc5024b2971cd1e221c899e6fc9ef7caf4642",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Every observed backend HTTP settings entry must enable connection draining.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/applicationGateways",
+            "microsoft.network/applicationgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.backendHttpSettingsCollection",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.backendHttpSettingsCollection.*.properties.connectionDraining.enabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "122d11d7-b91f-8747-a562-f56b79bcfbdc",
+      "query_digest": "sha256:db9c334a03dce541b06868813b4b222a9d7d36af214f16ffc735bb4abcd3e012",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "An explicitly null OS managed-disk association fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Compute/virtualMachines",
+            "microsoft.compute/virtualmachines"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.storageProfile.osDisk.managedDisk",
+          "value_type": "object",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [
+            "id"
+          ],
+          "allow_null": true
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "1422c567-782c-7148-ac7c-5fc14cf45adc",
+      "query_digest": "sha256:928f8058cf6ac50991e05eb4fc80105d9b1921ff4c2ec785d1543e0083da660b",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Zone predicate does not prove Flexible mode; AKS eligibility is unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Zone predicate does not prove Flexible mode; AKS eligibility is unproven."
+      ]
+    },
+    {
+      "aprl_guid": "1549b91f-2ea0-4d4f-ba2a-4596becbe3de",
+      "query_digest": "sha256:80013320b105c0c54f28bcf2f5ef43c008279e9bc9773ea711276e3246e37f4a",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only observed GeoRedundant vaults are eligible; disabled cross-region restore fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.RecoveryServices/vaults",
+            "microsoft.recoveryservices/vaults"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.redundancySettings.standardTierStorageRedundancy",
+          "value_type": "string",
+          "allowed_values": [
+            "GeoRedundant"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.redundancySettings.crossRegionRestore",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "15e2712c-f3ea-4a8d-9081-11e822b1ccfb",
+      "query_digest": "sha256:6e6d654d1d336f774ce9593edff759ef33db60f801d15f317f73aefaac1bb1ec",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "GeoZone-only predicate rejects Zone although recommendation permits it.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "GeoZone-only predicate rejects Zone although recommendation permits it."
+      ]
+    },
+    {
+      "aprl_guid": "17e877f7-3a89-4205-8a24-0670de54ddcd",
+      "query_digest": "sha256:57daed4d0495184051d517e5b2272abcae05ebb82833dcbb2a34a91f2a1cd41b",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Protected-item absence cannot prove complete VM replication/test coverage.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Protected-item absence cannot prove complete VM replication/test coverage.",
+        "provider_requires_resources_table",
+        "undeclared_resource_type"
+      ]
+    },
+    {
+      "aprl_guid": "1981f704-97b9-b645-9c57-33f8ded9261a",
+      "query_digest": "sha256:71649dfa6a9af3b147ed5e98d91871a2aff46987a396abcbe91db7dfccd5ec92",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "VM-name backup join can collide across ARM ids; recovery coverage unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "VM-name backup join can collide across ARM ids; recovery coverage unproven.",
+        "provider_requires_resources_table",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "1adba190-5c4c-e646-8527-dd1b2a6d8b15",
+      "query_digest": "sha256:5596843cae8a7af7a7a831bfe603e5f11056acd2c8f048b599b83714cd174608",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Public-IP result ids differ from VM target ids; exact relationship needed.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Public-IP result ids differ from VM target ids; exact relationship needed."
+      ]
+    },
+    {
+      "aprl_guid": "1cca00d2-d9ab-8e42-a788-5d40f49405cb",
+      "query_digest": "sha256:d5f7ff1477e15a34726edbc8bc3e5d16562bcd2556984ab51f775ed83b996850",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Explicit false or null soft-delete state fails; absence remains unknown.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.KeyVault/vaults",
+            "microsoft.keyvault/vaults"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableSoftDelete",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": true
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "2102a57a-a056-4d5e-afe5-9df9f92177ca",
+      "query_digest": "sha256:087df95fbae5423be91e6c95c4d839b365ff4ca850533d54e97c355940f32a6a",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "The query's lowercase free SKU fails; unknown casing and SKU names abstain.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.AppConfiguration/configurationStores",
+            "microsoft.appconfiguration/configurationstores"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "free",
+            "standard",
+            "premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "21fb841b-ba70-1f4e-a460-1f72fb41aa51",
+      "query_digest": "sha256:8209b5bb6e8f15b45aaf56a68a4aea6ee67247d52ae38e2d65f9b57c6bbbb542",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Every observed distribution must expose at least one replication region; one fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.VirtualMachineImages/imageTemplates",
+            "microsoft.virtualmachineimages/imagetemplates"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.distribute",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.distribute.*.replicationRegions",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.distribute.*.replicationRegions.*",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "22a769ed-0ecb-8b49-bafe-8f52e6373d9c",
+      "query_digest": "sha256:3eccf9427f8660f4bad7f197056733ecc9c3bdfbe7e76c2913d968e32f3f433a",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Every scoped flow log needs explicit enabled and Succeeded provisioning state.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/networkWatchers/flowlogs",
+            "microsoft.network/networkwatchers/flowlogs"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.provisioningState",
+          "value_type": "string",
+          "allowed_values": [
+            "Succeeded",
+            "Failed",
+            "Updating",
+            "Deleting"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "23b2dfc7-7e5d-9443-9f62-980ca621b561",
+      "query_digest": "sha256:5b204199e0743d6aa2d5d366d863a669917699f7e4517126b69bde654076a1ff",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Alert scope/condition/enabled-state coverage and containment are unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Alert scope/condition/enabled-state coverage and containment are unproven.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "269a9f1a-6675-460a-831e-b05a887a8c4b",
+      "query_digest": "sha256:b106fde34c33a41f043e2cdd9d55dd19e07ce8ad2ab1d9b626bc4ed991daafbf",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Cluster-name backup join can collide across ARM ids; coverage unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Cluster-name backup join can collide across ARM ids; coverage unproven.",
+        "provider_requires_resources_table",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "273f6b30-68e0-4241-85ea-acf15ffb60bf",
+      "query_digest": "sha256:798f9c446c71be690e17dce9469b8b9881f6c6c431d5bd59e908126b8dae3cc6",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "VMSS nonmembership does not prove production replica topology is insufficient.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "VMSS nonmembership does not prove production replica topology is insufficient."
+      ]
+    },
+    {
+      "aprl_guid": "281a2713-c0e0-3c48-b596-19f590c46671",
+      "query_digest": "sha256:0a2b6dba71b9bd1b4bea6b4850a99291c6dbbe5af393e3f03de5e41116d24061",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only VPN gateways are eligible; an explicitly false activeActive value fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/virtualNetworkGateways",
+            "microsoft.network/virtualnetworkgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.gatewayType",
+          "value_type": "string",
+          "allowed_values": [
+            "Vpn",
+            "vpn"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "VpnGw1",
+            "VpnGw2",
+            "VpnGw3",
+            "VpnGw4",
+            "VpnGw5",
+            "VpnGw1AZ",
+            "VpnGw2AZ",
+            "VpnGw3AZ",
+            "VpnGw4AZ",
+            "VpnGw5AZ"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.activeActive",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "2ab85a67-26be-4ed2-a0bb-101b2513ec63",
+      "query_digest": "sha256:89ba7b2d3d04d6c7a0d20e1703907f31898b66e5ab1375dab52bedc8c7f5b1c4",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Fullouter replica join needs complete related inventory and exact source ids.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Fullouter replica join needs complete related inventory and exact source ids.",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "2ad78dec-5a4d-4a30-8fd1-8584335ad781",
+      "query_digest": "sha256:59c0c4130cf5711e9d7212ed8bdd13c899b40e15f5df056c2e423b777e7ed0fc",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Legacy storage has valid exceptions; Consider guidance is not decisive failure.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Legacy storage has valid exceptions; Consider guidance is not decisive failure."
+      ]
+    },
+    {
+      "aprl_guid": "2bd0be95-a825-6f47-a8c6-3db1fb5eb387",
+      "query_digest": "sha256:c344e639e1e09eef46bcd92506870c4831832916151f57b2b5e4eeab6319a497",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "isnull(zones) misses empty arrays; zero rows cannot prove zone assignment.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "isnull(zones) misses empty arrays; zero rows cannot prove zone assignment."
+      ]
+    },
+    {
+      "aprl_guid": "302fda08-ee65-4fbe-a916-6dc0b33169c4",
+      "query_digest": "sha256:d629186e9f404ec47ca073e3c4ad32a86bd21ba9eb0b2021ac7b077445389d34",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Advisor absence is not capacity satisfaction; coverage/eligibility unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Advisor absence is not capacity satisfaction; coverage/eligibility unproven.",
+        "provider_requires_resources_table",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "31f4ac4b-29cb-4588-8de2-d8fe6f13ceb3",
+      "query_digest": "sha256:52a78b4dcc293683bdd49f0e72b270aac1fe11e537c2fa7c625196915b9ccbcf",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Advisor absence is not configured geo backup; coverage/lineage unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Advisor absence is not configured geo backup; coverage/lineage unproven.",
+        "provider_requires_resources_table",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "3201dba8-d1da-4826-98a4-104066545170",
+      "query_digest": "sha256:c966e63b8c8520c4acc2e266d37c3ae247d433d890c2cf4b7b59e2627a6fffae",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Production CPU requirements and A/B-series workload eligibility are unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Production CPU requirements and A/B-series workload eligibility are unproven."
+      ]
+    },
+    {
+      "aprl_guid": "3263a64a-c256-de48-9818-afd3cbc55c2a",
+      "query_digest": "sha256:31416d6b3def4158502b8930c4678597476d50c33fce5c9e0dbc418c4c0709f5",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Shared disks are a review list, not failures; guest cluster controls unobserved.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Shared disks are a review list, not failures; guest cluster controls unobserved.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "36ea6c09-ef6e-d743-9cfb-bd0c928a430b",
+      "query_digest": "sha256:f63f655d15536749e381e99229800e2ed8aec04178ec10a21ba74148ac21fb20",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Replication anti-join needs complete child replicas and cross-region lineage.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Replication anti-join needs complete child replicas and cross-region lineage.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "38c3bca1-97a1-eb42-8cd3-838b243f35ba",
+      "query_digest": "sha256:0b4b0e6fdb381a9dab21f3408ad480258a3480c2dc6e66bbe8e01bd83265f98a",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Basic load-balancer SKU fails; Standard satisfies the SKU measurement.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/loadBalancers",
+            "microsoft.network/loadbalancers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Basic",
+            "Standard"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "3c8fa7c6-6b78-a24a-a63f-348a7c71acb9",
+      "query_digest": "sha256:bde5011f903b902ab3904b189457305473036df8aeb8e6e83aaefe9e5c873921",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Alert coverage/enabled state unproven; recommendationId is also malformed.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Alert coverage/enabled state unproven; recommendationId is also malformed.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "3e115044-a3aa-433e-be01-ce17d67e50da",
+      "query_digest": "sha256:be968c65dbbb033eae55491b7069173d8d4f19aab1fdbbfea6778a5abb6876ed",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Maintenance assignment/configuration sources lack independent completeness.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Maintenance assignment/configuration sources lack independent completeness.",
+        "provider_requires_resources_table",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "3f85a51c-e286-9f44-b4dc-51d00768696c",
+      "query_digest": "sha256:882a10fb91fb3246ba2358f146001ba9ee7c1601e179090f8ca838c9f41e4867",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Autoscale join omits absent settings; complete associated set is unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Autoscale join omits absent settings; complete associated set is unproven.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "41a22a5e-5e08-9647-92d0-2ffe9ef1bdad",
+      "query_digest": "sha256:adf19d80f5a531ef897f50d86dfc365cf63db4e1cf232af61f4f3a3a47472538",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "IP forwarding is valid for NVAs; role and complete NIC relations are unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "IP forwarding is valid for NVAs; role and complete NIC relations are unproven.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "4232eb32-3241-4049-9e14-9b8005817b56",
+      "query_digest": "sha256:4255ecfcddb3566793275de914561864ca344488b6b4c670a5a411cbb420de2a",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Warning/critical alert union lacks complete enabled scopes and criteria proof.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Warning/critical alert union lacks complete enabled scopes and criteria proof.",
+        "missing_declared_table",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "43663217-a1d3-844b-80ea-571a2ce37c6c",
+      "query_digest": "sha256:2f10719ff1c3bc377aeef98b34abd7d3ae377276739e71cf42b28b6697fe3423",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Known Cosmos region entries need two regions, or three with Strong consistency.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DocumentDB/databaseAccounts",
+            "microsoft.documentdb/databaseaccounts"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.locations",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.locations.*.locationName",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.consistencyPolicy.defaultConsistencyLevel",
+          "value_type": "string",
+          "allowed_values": [
+            "Strong",
+            "BoundedStaleness",
+            "Session",
+            "ConsistentPrefix",
+            "Eventual"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "47d100a5-7f85-5742-967a-67eb5081240a",
+      "query_digest": "sha256:e6f5e9fc84f2eb02fc5d22ae63c49016fc575ca093891e735d5a0d027e0b6b19",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only pinned supported regions are eligible; an explicitly empty zone array fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.NetApp/netAppAccounts/capacityPools/volumes",
+            "microsoft.netapp/netappaccounts/capacitypools/volumes"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "zones",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [
+            "1",
+            "2",
+            "3"
+          ],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "488dcc8b-f2e3-40ce-bf95-73deb2db095f",
+      "query_digest": "sha256:2d2792003750b4b9d854b9b35d6689641a1375e3778e758f0510cf5974600347",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only pinned supported regions are eligible; non-ZRS image storage fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Compute/galleries/images/versions",
+            "microsoft.compute/galleries/images/versions"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.publishingProfile.storageAccountType",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard_LRS",
+            "Standard_ZRS",
+            "Premium_LRS"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "4bae5a28-5cf4-40d9-bcf1-623d28f6d917",
+      "query_digest": "sha256:d5bb3630b93b4d7f3fde4a67775cee844f35f1bfd62bab493ac7c14dad453474",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "VPN/PIP inner join hides missing PIPs; complete associations are unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "VPN/PIP inner join hides missing PIPs; complete associations are unproven.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "4ee5d535-c47b-470a-9557-4a3dd297d62f",
+      "query_digest": "sha256:78b4e4ba34a38fd9a5d6ad0c67e16af091f980e15a1f905f7bc8c0f577a96d19",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "CPU alert scopes/criteria/enabled-state lack independent completeness proof.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "CPU alert scopes/criteria/enabled-state lack independent completeness proof.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "4f63619f-5001-439c-bacb-8de891287727",
+      "query_digest": "sha256:53614cc5a3389ecba256a342c4b1d551e1dadcadf4fbccee1ba8cbf874b91c50",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Result /agentPools child ids differ from cluster scope; attribution required.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Result /agentPools child ids differ from cluster scope; attribution required."
+      ]
+    },
+    {
+      "aprl_guid": "52ab9e5c-eec0-3148-8bd7-b6dd9e1be870",
+      "query_digest": "sha256:27df68d105eab8e292b3f0f902e841d8bd47342b8410871529b2d34629d65ee3",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Assignment coverage unproven; substring isolated-SKU eligibility is heuristic.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Assignment coverage unproven; substring isolated-SKU eligibility is heuristic.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "5a44bd30-ae6a-4b81-9b68-dc3a8ffca4d8",
+      "query_digest": "sha256:9061aa24a2bed3f46aed996af6bca292aafebdf132b2b7a7999b3d2fcb00979d",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only pinned supported regions are eligible; fewer than two explicit zones fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Cache/Redis",
+            "microsoft.cache/redis"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "zones",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [
+            "1",
+            "2",
+            "3"
+          ],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "5b1933a6-90e4-f642-a01f-e58594e5aab2",
+      "query_digest": "sha256:0e96fa34ba467482c4d36b7560b390a57c34080c40695e99c486ea80e07e2a1f",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only VPN gateways in pinned supported regions are eligible; non-AZ tier fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/virtualNetworkGateways",
+            "microsoft.network/virtualnetworkgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.gatewayType",
+          "value_type": "string",
+          "allowed_values": [
+            "Vpn"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.sku.tier",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "5b422a7f-8caa-3d48-becb-511599e5bba9",
+      "query_digest": "sha256:06d55a68a59f10d1f3230413e85283512625c79b9db45632c9d03066ec7a6da9",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "An observed endpoint array with fewer than two entries fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/trafficManagerProfiles",
+            "microsoft.network/trafficmanagerprofiles"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.endpoints",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.endpoints.*.name",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "5c96afc3-7d2e-46ff-a4c7-9c32850c441b",
+      "query_digest": "sha256:720413be50cd4790cf0d84170c2888bd4439ad293cc631eb7bddc6d4a598bb0c",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Disabled MySQL geo-redundant backup fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforMySQL/flexibleServers",
+            "microsoft.dbformysql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.backup.geoRedundantBackup",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "5cea1501-6fe4-4ec4-ac8f-f72320eb18d3",
+      "query_digest": "sha256:fcf3c20e055966ba2f5045db8a6f11e529ea229a6c222dccef890103383b60ee",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Basic public-IP SKU fails; Standard satisfies the SKU measurement.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/publicIPAddresses",
+            "microsoft.network/publicipaddresses"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Basic",
+            "Standard"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "5d40d3d4-179d-4cf5-ac24-901210f512e7",
+      "query_digest": "sha256:90250cf6c5d93bfc330bf8b2de6e86656486ec5db7da4c0ddda7c556be635cf7",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Title/query test SKU but longDescription specifies Autoscale configuration.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Title/query test SKU but longDescription specifies Autoscale configuration."
+      ]
+    },
+    {
+      "aprl_guid": "5ee083cd-6ac3-4a83-8913-9549dd36cf56",
+      "query_digest": "sha256:59b84fac6417ef66bf58766bf2e562b32caccabc423894871afa467bb336303c",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Selects hasCriticalAddonsOnly including empty taints, not a reliable failure.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Selects hasCriticalAddonsOnly including empty taints, not a reliable failure."
+      ]
+    },
+    {
+      "aprl_guid": "60077378-7cb1-4b35-89bb-393884d9921d",
+      "query_digest": "sha256:f6164562e5e0052551428a4d5cf459551a34ed5b4391c2f4335d993a72ffb34a",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Both of the two ExpressRoute Direct link admin states must be observed; Disabled fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/ExpressRoutePorts",
+            "microsoft.network/expressrouteports"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.links",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 2,
+          "maximum_items": 2,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.links.0.properties.adminState",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.links.1.properties.adminState",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "621dbc78-3745-4d32-8eac-9e65b27b7512",
+      "query_digest": "sha256:e4585f490af926c53820948a53c66e3c5e18fe09b2d1961db1c544e529f7926b",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Frontend/PIP union joins lack complete related sets and zone eligibility.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Frontend/PIP union joins lack complete related sets and zone eligibility.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "63491f70-22e4-3b4a-8b0c-845450e46fac",
+      "query_digest": "sha256:66faa5b448fba6eff0d7c5aefd2b269fc8579e8e3c9af08941ea832d022f0d4e",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only pinned supported regions are eligible; Disabled registry zone redundancy fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ContainerRegistry/registries",
+            "microsoft.containerregistry/registries"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.zoneRedundancy",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "6a8b3db9-5773-413a-a127-4f7032f34bbd",
+      "query_digest": "sha256:344b4d3a0625636828efec3e1a4380c5abe66a9d6305219b5baaea39158d9014",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Premium tier alone does not prove configured SignalR zone redundancy.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Premium tier alone does not prove configured SignalR zone redundancy."
+      ]
+    },
+    {
+      "aprl_guid": "6cd57b65-ef84-4088-9ada-c0d8de74c2f7",
+      "query_digest": "sha256:af7ebaaab66d61b95496725383d5a6ac2d64fbd47c55b5a85bfad1875cefd293",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Grafana Standard-tier and supported-region zone capability are not proven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Grafana Standard-tier and supported-region zone capability are not proven."
+      ]
+    },
+    {
+      "aprl_guid": "6d82d042-6d61-ad49-86f0-6a5455398081",
+      "query_digest": "sha256:5a1f17dfbc919b6d03990015d3c81afbbc7ccaea0580d25d59c7119cd0bc5562",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Counts explicit addresses but omits backendIPConfigurations membership.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Counts explicit addresses but omits backendIPConfigurations membership."
+      ]
+    },
+    {
+      "aprl_guid": "70fcfe6d-00e9-5544-a63a-fff42b9f2edb",
+      "query_digest": "sha256:0b1445eba4c803f6cc8b022b3aaab74e2790434f43b150f831ec021be3bed9c1",
+      "decision": "t0_rule",
+      "binding_status": "existing_t0_rule",
+      "rationale": "Existing reviewed T0 purge-protection Rule handles absent or non-true values.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "72827434-c773-4345-9493-34848ddf5803",
+      "query_digest": "sha256:f71132ef48dc127e8ba747190097bbf8b83b18b8cceb878fc8aeb0577c6664c9",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Advisor absence is not a snapshot policy; independent coverage is unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Advisor absence is not a snapshot policy; independent coverage is unproven.",
+        "provider_requires_resources_table",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "73d1bb04-7d3e-0d47-bc0d-63afe773b5fe",
+      "query_digest": "sha256:020356c22fe9ea656d808a7fb222dad93fb954416f4277df4c645d068f0d8125",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Source cannot confirm guest NIC drivers; listed rows need guest evidence.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Source cannot confirm guest NIC drivers; listed rows need guest evidence.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "740f2c1c-8857-4648-80eb-47d2c56d5a50",
+      "query_digest": "sha256:3ea4f575154a2f1c75df74343add3190f7971b6c47c807c46a0bcdae60a8aa40",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only Premium APIM in pinned supported regions is eligible; fewer than two zones fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ApiManagement/service",
+            "microsoft.apimanagement/service"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "zones",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [
+            "1",
+            "2",
+            "3"
+          ],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "7893f0b3-8622-1d47-beed-4b50a19f7895",
+      "query_digest": "sha256:63389d9a0a8918c4721b0a676063082dd8788c44dc880f84dc6c796cea613788",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Source explicitly permits necessary v1 exceptions; typed exception scope missing.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Source explicitly permits necessary v1 exceptions; typed exception scope missing."
+      ]
+    },
+    {
+      "aprl_guid": "7f7ae535-a5ba-4665-b7e0-c451dbdda01f",
+      "query_digest": "sha256:dc5c8bca3ad6317d6a57a0c127581ba7e697eb77b81ada7a7771329d2f2e3c43",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Taints do not prove System mode; minCount <3 is not the stated count test.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Taints do not prove System mode; minCount <3 is not the stated count test."
+      ]
+    },
+    {
+      "aprl_guid": "8176a79d-8645-4e52-96be-a10fc0204fe5",
+      "query_digest": "sha256:3baaaabd6420efa9afc83cbbfd6a2d348e6cafc6ea1785202aa22340650f32c7",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Disabled MySQL storage auto-grow fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforMySQL/flexibleServers",
+            "microsoft.dbformysql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.storage.autoGrow",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "820f4743-1f94-e946-ae0b-45efafd87962",
+      "query_digest": "sha256:9b151735c2abec52fcdabac3244de4970a4ac044561cd5a78d52bffec6f3b8d8",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only non-AKS VMSS with complete tags are eligible; disabled automatic repair fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Compute/virtualMachineScaleSets",
+            "microsoft.compute/virtualmachinescalesets"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "tags",
+          "value_type": "object",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [
+            "aks-managed-poolName"
+          ],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.automaticRepairsPolicy.enabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "823b0cff-05c0-2e4e-a1e7-9965e1cfa16f",
+      "query_digest": "sha256:4eae9eb34858c70d6684ce37f40264fc70d9f100e21da7a706a88d6158e39a1d",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Observed Application Gateway autoscale minimum capacity of at most one fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/applicationGateways",
+            "microsoft.network/applicationgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard_v2",
+            "WAF_v2"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.autoscaleConfiguration.minCapacity",
+          "value_type": "number",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "8364fd0a-7c0e-e240-9d95-4bf965aec243",
+      "query_digest": "sha256:188c00911003446b2d2094d086386189a1902e2b2f0b8868673e569a28cb414b",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Subnet join/mv-expand may omit prefixes; exact related-set coverage unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Subnet join/mv-expand may omit prefixes; exact related-set coverage unproven.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "84636c6c-b317-4722-b603-7b1ffc16384b",
+      "query_digest": "sha256:7c1561037948e4051feb2e60060e7105b941611d18341f2a4ffe30a40662ec16",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Supported-region condition lacks an authoritative region capability guard.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Supported-region condition lacks an authoritative region capability guard."
+      ]
+    },
+    {
+      "aprl_guid": "847a8d88-21c4-bc48-a94e-562206edd767",
+      "query_digest": "sha256:0a676718314e9456ded2b944afc21c00685efe8452f7a9697e4bc8e1e520052f",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "An explicitly empty custom health-probe array fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/applicationGateways",
+            "microsoft.network/applicationgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.probes",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "855ca19a-6518-4f2e-9e5a-01796fbca9f8",
+      "query_digest": "sha256:02749d7a5189e9e66d7647b4544f7d796cd0355cf183c4bfb51104415ab2a51e",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Two-instance App Service is production-only; typed eligibility missing.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Two-instance App Service is production-only; typed eligibility missing."
+      ]
+    },
+    {
+      "aprl_guid": "88856605-53d8-4bbd-a75b-4a7b14939d32",
+      "query_digest": "sha256:c3d8d1b8ac3a2850d92fc90e3265aae1a57ceeaf6d564152a2a79c75c15115a5",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only pinned supported regions are eligible; MySQL HA mode other than ZoneRedundant fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforMySQL/flexibleServers",
+            "microsoft.dbformysql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.highAvailability.mode",
+          "value_type": "string",
+          "allowed_values": [
+            "Disabled",
+            "SameZone",
+            "ZoneRedundant"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "88cb90c2-3b99-814b-9820-821a63f600dd",
+      "query_digest": "sha256:779866095039a7911d589fb5a86056eaae0b3b50c037f6701c3c284abec07ecf",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only supported-region Premium/Isolated plans are eligible; explicit false zone redundancy fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Web/serverFarms",
+            "microsoft.web/serverfarms"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Premium",
+            "PremiumV2",
+            "PremiumV3",
+            "Isolated",
+            "IsolatedV2"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.zoneRedundant",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "8bb4a57b-55e4-d24e-9c19-2679d8bc779f",
+      "query_digest": "sha256:6f63d153dd35e8b4fe50dddfc73470388386cc24f276d1a0c513a1129c85ef86",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "NSG alert scopes/conditions/enabled-state and inherited coverage are unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "NSG alert scopes/conditions/enabled-state and inherited coverage are unproven.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "8d319a05-677b-944f-b9b4-ca0fb42e883c",
+      "query_digest": "sha256:953c621187e0c118fb318d55445a98851305f18af95b81f4af876a1d2a12ad06",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Outbound rules do not prove production NAT necessity; eligibility unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Outbound rules do not prove production NAT necessity; eligibility unproven."
+      ]
+    },
+    {
+      "aprl_guid": "902c82ff-4910-4b61-942d-0d6ef7f39b67",
+      "query_digest": "sha256:af23173376f49b7b4bfef5b97c8a17f4f1256bbdd877d67b048acaccba78ff4c",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Only agentPoolProfiles[0] is tested, not every eligible node pool.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Only agentPoolProfiles[0] is tested, not every eligible node pool."
+      ]
+    },
+    {
+      "aprl_guid": "921631f6-ed59-49a5-94c1-f0f3ececa580",
+      "query_digest": "sha256:60d7629fefd312c26950719764ec8b05cd063b6b53db9de409d4b289cc7abe34",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Nested region eligibility/serverless exclusion require complete capabilities.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Nested region eligibility/serverless exclusion require complete capabilities."
+      ]
+    },
+    {
+      "aprl_guid": "9437634c-d69e-2747-b13e-631c13182150",
+      "query_digest": "sha256:6e416cea1c0450af7393d5a06c31b0cf6d330b29efeda8a941f125a553d93ac8",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "CDN hostname/child join lacks complete domains and canonical target lineage.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "CDN hostname/child join lacks complete domains and canonical target lineage.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "94794d2a-eff0-2345-9b67-6f9349d0a627",
+      "query_digest": "sha256:1b0c70a3f38cbc5798427c0216ea0591028a26cd3fc70991acc46a3e92585a59",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Extension anti-join lacks complete arrays and non-AKS/health eligibility.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Extension anti-join lacks complete arrays and non-AKS/health eligibility.",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "9729c89d-8118-41b4-a39b-e12468fa872b",
+      "query_digest": "sha256:71a327af96d9ce30a8671f09114111e9ef9110ed9d73c3410d6dd5ed8e4fb614",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Explicit alert rows require manual scope review; not decisive failures.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Explicit alert rows require manual scope review; not decisive failures.",
+        "provider_requires_resources_table",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "98bd7098-49d6-491b-86f1-b143d6b1a0ff",
+      "query_digest": "sha256:9409e36adda483a61824af809dcadd02a6309d74cac0d74b9793558e53c94d93",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Pinned query is comment-only under-development; no executable measurement.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Pinned query is comment-only under-development; no executable measurement.",
+        "missing_declared_table",
+        "provider_requires_resources_table"
+      ]
+    },
+    {
+      "aprl_guid": "9cabded7-a1fc-6e4a-944b-d7dd98ea31a2",
+      "query_digest": "sha256:2ed22a6d091a8e402cdf936246e1bd97c4c6f54e41b9785d0e60aad6d26de9d4",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only observed multi-region single-write accounts are eligible; disabled automatic failover fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DocumentDB/databaseAccounts",
+            "microsoft.documentdb/databaseaccounts"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.locations",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 2,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.locations.*.locationName",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableMultipleWriteLocations",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": false,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableAutomaticFailover",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "9ce78192-74a0-104c-b5bb-9a443f941649",
+      "query_digest": "sha256:a3fac80822d7a7d349d920ded7e36880c185189e5cb4f13f1be9fcbac2aa6ec8",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Disabled multi-write is a design review candidate, not an unsuitable design.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Disabled multi-write is a design review candidate, not an unsuitable design."
+      ]
+    },
+    {
+      "aprl_guid": "9e39919b-78af-4a0b-b70f-c548dae97c25",
+      "query_digest": "sha256:c39ff8b96a675522bc0b1f14dfe1b39cf3217507c079c5099cfb4ceb5d1b8ddf",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "mv-expand targets a scalar softDeleteState; executable semantics unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "mv-expand targets a scalar softDeleteState; executable semantics unproven."
+      ]
+    },
+    {
+      "aprl_guid": "9ec5b4c8-3dd8-473a-86ee-3273290331b9",
+      "query_digest": "sha256:49dd5b26247121fd401b106355f4b956fb81912302e30d1784a09ab5917ffe59",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only the four pinned AVS regions are eligible; non-DualZone availability fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.AVS/privateClouds",
+            "microsoft.avs/privateclouds"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.availability.strategy",
+          "value_type": "string",
+          "allowed_values": [
+            "SingleZone",
+            "DualZone"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "germanywestcentral",
+            "uksouth",
+            "westeurope"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "a1d91661-32d4-430b-b3b6-5adeb0975df7",
+      "query_digest": "sha256:693d331da32f769f2e2540932f5b1dbee36cd7d7a0125a11c847e23fce99a76f",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "repositorySiteName slot grouping lacks exact ARM identity/child completeness.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "repositorySiteName slot grouping lacks exact ARM identity/child completeness.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "a3058909-fcf8-4450-88b5-499f57449178",
+      "query_digest": "sha256:d8f384336874a65045b9b8ce312cce42d40259dfc9e6501ccaa4afbc30e194a4",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "At least two explicitly observed Entra Domain Services replica sets are required.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.AAD/domainServices",
+            "microsoft.aad/domainservices"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.replicaSets",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.replicaSets.*.location",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "a7bfcc18-b0d8-4d37-81f3-8131ed8bead5",
+      "query_digest": "sha256:1bd7b00afb1307f7d1946a877c530018c46e31ca33ce045d20ba4dea466a7277",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Returns VMSS ids for cluster scope via heuristic name/resource-group joins.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Returns VMSS ids for cluster scope via heuristic name/resource-group joins.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "a8d25876-7951-b646-b4e8-880c9031596b",
+      "query_digest": "sha256:913fc90b1fad158abc9c855b73fd97ff755fb1ddc21c8c2837766d0bb930b9c9",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Absent association and production migration eligibility are unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Absent association and production migration eligibility are unproven."
+      ]
+    },
+    {
+      "aprl_guid": "ab984130-c57b-6c4a-8d04-6723b4e1bdb6",
+      "query_digest": "sha256:f25c264ce452d7bdf10ca7a025e38d6bbe8450a11801766b6d0bbd742f2f48d2",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Standard NetApp network is production-only; typed eligibility missing.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Standard NetApp network is production-only; typed eligibility missing."
+      ]
+    },
+    {
+      "aprl_guid": "b002c030-72e6-4a37-8217-1cb276c43169",
+      "query_digest": "sha256:2e1d901f36939772a822f8a6a34e70ebf632eccf881fd422612df4dcc276b561",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Enabled CSI drivers do not prove existing in-tree volumes were migrated.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Enabled CSI drivers do not prove existing in-tree volumes were migrated."
+      ]
+    },
+    {
+      "aprl_guid": "b1e1378d-4572-4414-bebd-b8872a6d4d1c",
+      "query_digest": "sha256:d98e026e5e2c01096e52ecba6fd090c0b3e7e76e46336a592b7729fa25406bd6",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "DPS hostname fullouter join lacks complete linked hubs and exact identities.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "DPS hostname fullouter join lacks complete linked hubs and exact identities.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "b2113023-a553-2e41-9789-597e2fb54c31",
+      "query_digest": "sha256:d25cbd900693e7760080d9a19d66c1b5195f48bdaa47e14a906ce50d113fdf85",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Explicit plan SKU tier is compared with the pinned Standard/Premium/IsolatedV2 predicate.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Web/serverFarms",
+            "microsoft.web/serverfarms"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Free",
+            "Shared",
+            "Basic",
+            "Standard",
+            "Premium",
+            "PremiumV2",
+            "PremiumV3",
+            "Isolated",
+            "IsolatedV2"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "b2bad57d-7e03-4c0f-9024-597c9eb295bb",
+      "query_digest": "sha256:e3231ff31e425f57e9b118715b9d88e1c5d6f6f01c55ab7f422ee50b532739fb",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Disabled PostgreSQL custom maintenance window fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforPostgreSQL/flexibleServers",
+            "microsoft.dbforpostgresql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.maintenanceWindow.customWindow",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "b2fb3e60-97ec-e34d-af29-b16a0d61c2ac",
+      "query_digest": "sha256:4daa0a977d011783bc0ee0ac319208d48b82f8eee4921092671f326ca77e5a61",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "An explicitly empty NetApp backup policy id fails; omitted policy fields remain unknown.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.NetApp/netAppAccounts/capacityPools/volumes",
+            "microsoft.netapp/netappaccounts/capacitypools/volumes"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.dataProtection.backup.backupPolicyId",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "b376281d-bfec-4695-8f90-9a44544fdfa4",
+      "query_digest": "sha256:a68c08a44c5a1413293af36cdb43ab78ab584f271c9edd24a4d86de0f5d74520",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Replica count alone does not prove AI Search region zone capability.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Replica count alone does not prove AI Search region zone capability."
+      ]
+    },
+    {
+      "aprl_guid": "b49a39fd-f431-4b61-9062-f2157849d845",
+      "query_digest": "sha256:ee091457b82f0c282457a4b94a7b96086fb4f1eecf3605148aaf87958c42139a",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Production image eligibility and complete per-region replicas are required.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Production image eligibility and complete per-region replicas are required."
+      ]
+    },
+    {
+      "aprl_guid": "b49a8653-cc43-48c9-8513-a2d2e3f14dd1",
+      "query_digest": "sha256:f30a8616fad8e8480351e9368606aace694c64f112f7dd139353a89bf7e39af5",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Known MySQL replication role None is the source query's no-replica finding.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforMySQL/flexibleServers",
+            "microsoft.dbformysql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.replicationRole",
+          "value_type": "string",
+          "allowed_values": [
+            "None",
+            "Source"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "b5a63aa0-c58e-244f-b8a6-cbba0560a6db",
+      "query_digest": "sha256:1252f18dfb279233074dfde9e763a83e203849e9a2edc7584b203884f7af0a9f",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only Uniform VMSS is eligible; explicit true strict zone balance fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Compute/virtualMachineScaleSets",
+            "microsoft.compute/virtualmachinescalesets"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.orchestrationMode",
+          "value_type": "string",
+          "allowed_values": [
+            "Uniform"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.zoneBalance",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "b60ae773-9917-4bca-8a42-7cb45365a917",
+      "query_digest": "sha256:9409e36adda483a61824af809dcadd02a6309d74cac0d74b9793558e53c94d93",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Pinned query is comment-only under-development; no executable measurement.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Pinned query is comment-only under-development; no executable measurement.",
+        "missing_declared_table",
+        "provider_requires_resources_table"
+      ]
+    },
+    {
+      "aprl_guid": "b72214bb-e879-5f4b-b9cd-642db84f36f4",
+      "query_digest": "sha256:02b85f1d58a210b54ad17377a847932538f9329d29e585ebe5d583812d9038e0",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "DCR/association/extension joins lack independent completeness and lineage.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "DCR/association/extension joins lack independent completeness and lineage.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "b89c9acc-0aba-fb44-9ff2-3dbfcf97dce7",
+      "query_digest": "sha256:f3bdc017a118c6bf5aa6f1f46eabe63e81605f69c0b83e03b3ff4cb76d9d2ce1",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Only first private-link connection tested; later failed connections omitted.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Only first private-link connection tested; later failed connections omitted."
+      ]
+    },
+    {
+      "aprl_guid": "baf3bfc0-32a2-4c0c-926d-c9bf0b49808e",
+      "query_digest": "sha256:108851d20ca5cb2af71928b0d10b83ad207a1a0ee14d7d551eecfe3827d85083",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Known non-Premium APIM SKU fails the pinned Premium-tier measurement.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ApiManagement/service",
+            "microsoft.apimanagement/service"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Consumption",
+            "Developer",
+            "Basic",
+            "Standard",
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "bb4c8db4-f821-475b-b1ea-16e95358665e",
+      "query_digest": "sha256:b79c677e8babe90323f480fde4e78d598ed4dfe57099261b29aaa87b6a287a6c",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only non-free lowercase App Configuration SKUs are eligible; explicit false/null purge protection fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.AppConfiguration/configurationStores",
+            "microsoft.appconfiguration/configurationstores"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "standard",
+            "premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enablePurgeProtection",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": true
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "bb6deb9d-24fa-4ee8-bc23-ac3ebc7fdf8e",
+      "query_digest": "sha256:0987d0bde08dbd076744c258e43c2c0e905c2b38fac98924d00b8e5109f45465",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Standard Entra Domain Services SKU fails; Enterprise and Premium satisfy.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.AAD/domainServices",
+            "microsoft.aad/domainservices"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.sku",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard",
+            "Enterprise",
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "bbe668b7-eb5c-c746-8b82-70afdedf0cae",
+      "query_digest": "sha256:276020cc99c6db60d4b83d1fae743c17ee45cadb222266345b25b8986996cbc2",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Advisor absence is not zone redundancy; independent coverage is unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Advisor absence is not zone redundancy; independent coverage is unproven.",
+        "provider_requires_resources_table",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "c0085c32-84c0-c247-bfa9-e70977cbf108",
+      "query_digest": "sha256:128a67fb7b9df2b549b9b908a1e5ffde2115aab11501fc15027eaabf8aca8964",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only pinned supported regions are eligible; explicit false SQL database zone redundancy fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Sql/servers/databases",
+            "microsoft.sql/servers/databases"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.zoneRedundant",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "c041d596-6c97-4c5f-b4b3-9cd37628f2e2",
+      "query_digest": "sha256:2f8f07453efa5e23afee2c42c50f62f55e3d95032130d3817da284de34ff6ea7",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Bare subscription id/count requires a full census, not workload-only scope.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Bare subscription id/count requires a full census, not workload-only scope.",
+        "provider_requires_resources_table",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "c14de326-2729-4be7-a91f-4ea185d24b10",
+      "query_digest": "sha256:eea38d9b78027229c4a291b2fe55220eed6f15461c9a73e9088753637612b3d0",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Redirect is VNet-local only; public/private endpoints validly use Proxy.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Redirect is VNet-local only; public/private endpoints validly use Proxy."
+      ]
+    },
+    {
+      "aprl_guid": "c22db132-399b-4e7c-995d-577a60881be8",
+      "query_digest": "sha256:e4952e98ce5ce5cb0fdeb84d07e0f83c344cb09f6224c38f93e0386f81aaad92",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Non-kubenet does not prove dynamic Azure CNI or overlay mode.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Non-kubenet does not prove dynamic Azure CNI or overlay mode."
+      ]
+    },
+    {
+      "aprl_guid": "c31f76a0-48cd-9f44-aa43-99ee904db9bc",
+      "query_digest": "sha256:48728768f123983d8253108e087e4a7826739d4a240a661c2bcba0f9ab4eac32",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Flags every non-WORLD endpoint, not absence of one All World fallback.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Flags every non-WORLD endpoint, not absence of one All World fallback."
+      ]
+    },
+    {
+      "aprl_guid": "c63b81fb-7afc-894c-a840-91bb8a8dcfaf",
+      "query_digest": "sha256:50d31ce717109b31a458b2f92c1928690ae7a7dfe34a457dec32486661c40b2c",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only Regional public IPs in pinned supported regions are eligible; fewer than two explicit zones fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/publicIPAddresses",
+            "microsoft.network/publicipaddresses"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Regional"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "zones",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [
+            "1",
+            "2",
+            "3"
+          ],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "c6c4b962-5af4-447a-9d74-7b9c53a5dff5",
+      "query_digest": "sha256:cb3fb29b56fd9f7ae3b713eb9eb7c4d1ad261d580431c6220f18a912694d0219",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Name-based auto-heal config inner join lacks exact lineage/completeness.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Name-based auto-heal config inner join lacks exact lineage/completeness.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "c72b7fee-1fa0-5b4b-98e5-54bcae95bb74",
+      "query_digest": "sha256:bbbf938021ede2c2f9505727a5bf72f60408f88f4cb50660d82a40c4ca0c0223",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Missing optional virtualHub metadata is not proven non-hub eligibility.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Missing optional virtualHub metadata is not proven non-hub eligibility."
+      ]
+    },
+    {
+      "aprl_guid": "c9c00f2a-3888-714b-a72b-b4c9e8fcffb2",
+      "query_digest": "sha256:918167aa6c4081c3400c95c0d80696eead0b399c8e2630f97f2413ea9bc989b5",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only pinned supported regions are eligible; fewer than two Application Gateway zones fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/applicationGateways",
+            "microsoft.network/applicationgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "zones",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [
+            "1",
+            "2",
+            "3"
+          ],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "ca87914f-aac4-4783-ab67-82a6f936f194",
+      "query_digest": "sha256:696084807d5ceda7c21fcacc05b0c9e75eaa13bd7ef9ea2cef4473bbcc07face",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only pinned supported regions are eligible; non-ZoneRedundant PostgreSQL HA fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforPostgreSQL/flexibleServers",
+            "microsoft.dbforpostgresql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.highAvailability.mode",
+          "value_type": "string",
+          "allowed_values": [
+            "Disabled",
+            "SameZone",
+            "ZoneRedundant"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "cfe22a65-b1db-fd41-9e8e-d573922709ae",
+      "query_digest": "sha256:5f96cb68ee1fb840c2249e5de3058e3d3a28995fdf342c79212c89ff46026728",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "ASR protected-item anti-join lacks complete coverage and security eligibility.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "ASR protected-item anti-join lacks complete coverage and security eligibility.",
+        "provider_requires_resources_table",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "d37db635-157f-584d-9bce-4f6fc8c65ce5",
+      "query_digest": "sha256:6da8b6806a10b32ee0ca3d881e9a21636e3f7327636ce991060cb10a7e80ad22",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Requires full gateway/connection/circuit visibility and peering lineage.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Requires full gateway/connection/circuit visibility and peering lineage.",
+        "missing_declared_table",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "d40c769d-2f08-4980-8d8f-a386946276e6",
+      "query_digest": "sha256:95df6edfa33c42978ad13467d21831908faf69b56f9ab2dfd81b0abe87fac7f6",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only a directly observed ExpressRoute port association is eligible; false direct-port rate limit fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/expressRouteCircuits",
+            "microsoft.network/expressroutecircuits"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.expressRoutePort",
+          "value_type": "object",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [
+            "id"
+          ],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableDirectPortRateLimit",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "dac421ec-2832-4c37-839e-b6dc5a38f2fa",
+      "query_digest": "sha256:b478d00e65a4c2f490c64eb3d58848bec9e3c633078f9b5aa7725594e242de10",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Classic ApplicationInsights ingestion mode fails; LogAnalytics satisfies the migration measurement.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Insights/components",
+            "microsoft.insights/components"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.IngestionMode",
+          "value_type": "string",
+          "allowed_values": [
+            "ApplicationInsights",
+            "LogAnalytics"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "dcaf8128-94bd-4d53-9235-3a0371df6b74",
+      "query_digest": "sha256:d54d8231620f61d989d4e635745b6419b26e25eb42f1a1815dbfc77c4585fa60",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Stringified false flags are nonempty; zero rows do not prove enabled state.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Stringified false flags are nonempty; zero rows do not prove enabled state."
+      ]
+    },
+    {
+      "aprl_guid": "df0ff862-814d-45a3-95e4-4fad5a244ba6",
+      "query_digest": "sha256:3744e3699067a107a8213f4709c3c5a35411407b944e86db5eb11fda4d88dd5b",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "VM-name/managedBy disk join collides across ids and omits shared associations.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "VM-name/managedBy disk join collides across ids and omits shared associations.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "dfedbeb1-1519-fc47-86a5-52f96cf07105",
+      "query_digest": "sha256:57f48d740c03ae4f6c49a3e7cbbe6656ab901922ebc7617cc23099eaa762d215",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "NIC inner join needs complete exact relations plus VM/OS eligibility.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "NIC inner join needs complete exact relations plus VM/OS eligibility.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "e30317d2-c502-4dfe-a2d3-0a737cc79545",
+      "query_digest": "sha256:f084b1e77257da67ef90f9d5b03f7f0b69a87592e0acb21a1ebe174430004dfa",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only Regular NetApp volumes are eligible; explicit remote-region state must prove CRR.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.NetApp/netAppAccounts/capacityPools/volumes",
+            "microsoft.netapp/netappaccounts/capacitypools/volumes"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.volumeType",
+          "value_type": "string",
+          "allowed_values": [
+            "Regular"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.dataProtection.replication.remoteVolumeRegion",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "e35cf148-8eee-49d1-a1c9-956160f99e0b",
+      "query_digest": "sha256:59e85426b7328c86c3c9a2ce68d654bde32cfa1acdb6a38e15ba1bfda675244b",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "APIM platform stv1 fails; observed stv2 satisfies the migration measurement.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ApiManagement/service",
+            "microsoft.apimanagement/service"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.platformVersion",
+          "value_type": "string",
+          "allowed_values": [
+            "stv1",
+            "stv2"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "e3d742e1-dacd-9b48-b6b1-510ec9f87c96",
+      "query_digest": "sha256:741812edb5bceb3773b8c2e76c1bb56b28e9214389b757cfde0c83367daf40ac",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Advisor absence is not cross-zone replication; coverage/lineage unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Advisor absence is not cross-zone replication; coverage/lineage unproven.",
+        "provider_requires_resources_table",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "e48a7227-5ec7-463a-b955-ee7cb598ded4",
+      "query_digest": "sha256:98d25ffc45ef318c2fe6e6d1fcf2d55d83041f75f0699d025d6fa099025815f4",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Explicit null Stream Analytics cluster id fails; an observed id satisfies; omitted fields abstain.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.StreamAnalytics/streamingjobs",
+            "microsoft.streamanalytics/streamingjobs"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.cluster.id",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": true
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "e544520b-8505-7841-9e77-1f1974ee86ec",
+      "query_digest": "sha256:dcca9e2b9dc95d2c1fb706cbbed1518217acb18609a71b6580fc38f6d78d0015",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only single-write accounts without analytical storage are eligible; Periodic backup fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DocumentDB/databaseAccounts",
+            "microsoft.documentdb/databaseaccounts"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableMultipleWriteLocations",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": false,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableAnalyticalStorage",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": false,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.backupPolicy.type",
+          "value_type": "string",
+          "allowed_values": [
+            "Periodic",
+            "Continuous"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "e6c7e1cc-2f47-264d-aa50-1da421314472",
+      "query_digest": "sha256:5d79d71d8c15bf66e5b00d12ab185c17898e3518d16ae4c841dc3d76004261b7",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Known LRS storage SKUs fail; known zone/geo-redundant SKUs satisfy.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Storage/storageAccounts",
+            "microsoft.storage/storageaccounts"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard_LRS",
+            "Premium_LRS",
+            "Standard_GRS",
+            "Standard_RAGRS",
+            "Standard_ZRS",
+            "Standard_GZRS",
+            "Standard_RAGZRS",
+            "Premium_ZRS"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "e7495e1c-0c75-0946-b266-b429b5c7f3bf",
+      "query_digest": "sha256:f08ee2627fdb668c19b2b1e05a0e25c2c52691535b3911e11a648d356073816b",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only non-AKS VMSS with complete tags are eligible; Uniform orchestration fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Compute/virtualMachineScaleSets",
+            "microsoft.compute/virtualmachinescalesets"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "tags",
+          "value_type": "object",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [
+            "aks-managed-poolName"
+          ],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.orchestrationMode",
+          "value_type": "string",
+          "allowed_values": [
+            "Uniform",
+            "Flexible"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "e7dbd21f-b27a-4b8c-a901-cedb1e6d8e1e",
+      "query_digest": "sha256:26e52c6c8114e42d0583bd1720f48c6c37d2f5ba4f5bd1b23fa6f3067a894f15",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Explicit false IoT Hub fallback-route enabled state fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Devices/IotHubs",
+            "microsoft.devices/iothubs"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.routing.fallbackRoute.isEnabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "e7f0fd54-fba0-054e-9ab8-e676f2851f88",
+      "query_digest": "sha256:f158cc601663f2cc57b1b5afaec99c626d11ddfce4f1fd841f59df2302c482de",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Explicit disabled registry soft-delete status fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ContainerRegistry/registries",
+            "microsoft.containerregistry/registries"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.policies.softDeletePolicy.status",
+          "value_type": "string",
+          "allowed_values": [
+            "enabled",
+            "disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "eb005943-40a8-194b-9db2-474d430046b7",
+      "query_digest": "sha256:b8764b5d09674d43bd70050904f5dbbecb62c42c2b84f806023e1142996606a7",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Critical production workload eligibility for Premium tier is unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Critical production workload eligibility for Premium tier is unproven."
+      ]
+    },
+    {
+      "aprl_guid": "ee66ff65-9aa3-2345-93c1-25827cf79f44",
+      "query_digest": "sha256:5f1dd96fd2b1b7a9369b5819d00f76bedf566f3b3b3a09df8381283da14c0a4c",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Autoscale anti-join lacks complete settings and exact non-AKS eligibility.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Autoscale anti-join lacks complete settings and exact non-AKS eligibility.",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "eeba3a49-fef0-481f-a471-7ff01139b474",
+      "query_digest": "sha256:3d4e47b74b11af713064e796f10ffcbeafadcb6acc9416d4df3568bb834340f3",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Non-Free IoT Hub requirement is production-only; typed eligibility missing.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Non-Free IoT Hub requirement is production-only; typed eligibility missing."
+      ]
+    },
+    {
+      "aprl_guid": "f05a3e6d-49db-2740-88e2-2b13706c1f67",
+      "query_digest": "sha256:9a4ff982340a7f08bae9015744c4a5a72a64a16c8121412942d54c924a2495ae",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Every endpoint monitor status must be observed; a known non-Online status fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/trafficManagerProfiles",
+            "microsoft.network/trafficmanagerprofiles"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.endpoints",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.endpoints.*.properties.endpointMonitorStatus",
+          "value_type": "string",
+          "allowed_values": [
+            "Online",
+            "Degraded",
+            "CheckingEndpoint",
+            "Inactive",
+            "Disabled",
+            "Stopped"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "f075a1bd-de9e-4819-9a1d-1ac41037a74f",
+      "query_digest": "sha256:a0b87c4c3280cf63b9864ac4d7522e8181b3297b1775865f55f437a216bc220f",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Known TLS 1.0/1.1 minima fail; TLS 1.2/1.3 satisfy the minimum-version measurement.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ServiceBus/namespaces",
+            "microsoft.servicebus/namespaces"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.minimumTlsVersion",
+          "value_type": "string",
+          "allowed_values": [
+            "1.0",
+            "1.1",
+            "1.2",
+            "1.3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "f4201965-a88d-449d-b3b4-021394719eb2",
+      "query_digest": "sha256:1daf70546abda3c2d924f719b284390c90c49fc8dbfa3e5e8b4b03643e3a3de9",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only pinned supported regions are eligible; explicit false environment zone redundancy fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.App/managedenvironments",
+            "microsoft.app/managedenvironments"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.zoneRedundant",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "f8c2e6d9-4b3a-45d6-b9e2-8e7f3a1c2d04",
+      "query_digest": "sha256:be752d5b9f42e017941ca2de440336410dccfd5ffe3dd466833e4e072532d4de",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "VPN maintenance joins need complete assignment/configuration sources.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "VPN maintenance joins need complete assignment/configuration sources.",
+        "provider_requires_resources_table",
+        "undeclared_resource_type",
+        "unsupported_join"
+      ]
+    },
+    {
+      "aprl_guid": "f8f834a9-c761-4e84-b2cb-ac55494d0c37",
+      "query_digest": "sha256:9497d86d1f1fbc9d4848e2a55d11d97a618c360a68b2d6da48c9791827147f07",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "SQL managed-instance region/tier capability for zone redundancy is not proven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "SQL managed-instance region/tier capability for zone redundancy is not proven."
+      ]
+    },
+    {
+      "aprl_guid": "fa0cf4f5-0b21-47b7-89a9-ee936f193ce1",
+      "query_digest": "sha256:d6d63386736e9c050bc12375b8c2723e528bf37da9c56d5cfd90cfd053164d77",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Source selects ZRS/nonempty zones after LRS filtering, contradicting intent.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Source selects ZRS/nonempty zones after LRS filtering, contradicting intent."
+      ]
+    },
+    {
+      "aprl_guid": "fbfef3df-04a5-41b2-a8fd-b8541eb04956",
+      "query_digest": "sha256:0c1be0f34d6375315e761ad9e6e6813f7500ffd662253aae9f9b86d0ae139487",
+      "decision": "exact_query",
+      "binding_status": "bound",
+      "rationale": "Only Standard Event Hub tier is eligible; explicit false auto-inflate state fails.",
+      "resource_identity": "exact_scoped_resource_id",
+      "empty_result_meaning": "satisfied_only_after_all_typed_observation_and_eligibility_guards",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.EventHub/namespaces",
+            "microsoft.eventhub/namespaces"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.isAutoInflateEnabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ],
+      "blockers": []
+    },
+    {
+      "aprl_guid": "fd049c28-ae6d-48f0-a641-cc3ba1a3fe1d",
+      "query_digest": "sha256:d1e6e3525186638d25379e3b6b22608f3f9792ec65dca694320f1d1c1cded204",
+      "decision": "blocked",
+      "binding_status": "blocked",
+      "rationale": "Name-based health config inner join hides missing config; lineage unproven.",
+      "resource_identity": "not_admitted",
+      "empty_result_meaning": "no_query_satisfaction_verdict",
+      "observation_requirements": [],
+      "blockers": [
+        "Name-based health config inner join hides missing config; lineage unproven.",
+        "unsupported_join"
+      ]
+    }
+  ],
+  "review_digest": "sha256:9c4a189328b1d5edc7f962a5e2b6ecd3bb725cdf43ab904fb0e492d377737f0a"
+}

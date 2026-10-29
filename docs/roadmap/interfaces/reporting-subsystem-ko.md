@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 4deaed94261f5727e2e76e05b4a136298e4d9ec3
-translation_revised: 2026-10-28
+translation_source_sha: 0daf96891292259441c1d57e0a95ba78687541e1
+translation_revised: 2026-10-30
 ---
 # 리포팅 서브시스템
 
@@ -267,11 +267,17 @@ patch 컨트롤, 우선순위별 교정, CVE 적용 가능성, 데이터 출처 
 | `html` | `text/html; charset=utf-8` | 독립 `<article>` 조각 |
 | `text` | `text/plain; charset=utf-8` | stdout 친화 요약 |
 | `ndjson` | `application/x-ndjson` | 헤더 라인 + 위젯별 한 라인 |
+| `xlsx` **(WARA 파일 저장)** | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | 텍스트 전용 셀, 전체 메타데이터와 위젯 오류 시트 |
+| `pptx` **(WARA 파일 저장)** | `application/vnd.openxmlformats-officedocument.presentationml.presentation` | 오류와 알 수 없음을 포함한 전체 내용의 페이지 분할 |
 | `prometheus` **(명시적 선택)** | `text/plain; version=0.0.4` | scalar / timeseries만; 기본 등록 X |
 | `pdf` **(대상 명시적 선택)** | `application/pdf` | 독립 Operator Service 어댑터이며 `pdf-report` extra가 설치되고 등록된 경우에만 표시 |
 
 포크는 `FormatEncoder`를 구현하고 `FormatRegistry.register`를
-호출해 `pdf` / `xlsx` / 무엇이든 추가합니다.
+호출해 다른 형식을 추가합니다.
+
+정기 WARA 파일 저장 경로는 JSON 및 CSV와 같은 `RenderedReport`를 사용하는 delivery 소유
+Office 인코더를 등록합니다. Core 기본 형식은 바뀌지 않습니다. Excel 셀 상한을 넘으면 내용을
+줄이지 않고 명시적인 오류를 반환합니다. 독립 Operator 대상은 지원하는 HTTP 형식을 별도로 등록합니다.
 
 검토된 대상 어댑터는 다른 서비스 구현을 가져오지 않고 `core/` 밖의
 `services/operator-service/src/fdai_operator_service/reporting/pdf_format.py`에 위치합니다.
@@ -619,6 +625,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| WARA delivery Office 인코더와 전체 파일 내보내기 | implemented | `delivery/wara_office_formats.py`; `core/wara/report.py`; `delivery/wara_report.py`; Office 및 내보내기 집중 테스트 16개 통과 | MIT 라이선스인 openpyxl과 python-pptx로 Office 자동화 없이 실제 XLSX/PPTX를 생성합니다. 명시된 상한 안에서 WARA 결과 393개, 메타데이터, 오류, 사용 불가 원본을 보존합니다. Core 기본 형식과 독립 Operator HTTP 형식 등록은 바뀌지 않습니다. |
 | Core 계약, 레지스트리, engine, widget 및 기본 format | implemented | `services/core-control-plane/src/fdai/core/reporting/`; `services/core-control-plane/tests/core/reporting/` | Focused 테스트는 카탈로그 로딩, 한도, 치환, widget별 격리, 데이터 원본 계약, widget, format 및 hardening safeguard를 다룹니다. |
 | 선언형 report 카탈로그 및 스키마 | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting 카탈로그 테스트 | 검토된 YAML report와 기능 메타데이터가 범위가 제한된 스키마를 통해 로드됩니다. |
 | Operator API 읽기 경로 및 Console Reports 보기 | validated | `fdai_operator_service/reporting/incident_rca_projection.py`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator 및 Console 테스트 | 인증된 GET-only inventory, registry, audit-backed Incident RCA rendering 및 Console presentation이 변경 권한 없이 통과했습니다. |
@@ -631,6 +638,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-30 | implemented | JSON/CSV와 같은 읽기 전용 보고서를 사용하는 delivery 소유 XLSX/PPTX 인코더와 비공개 WARA 저장 경로를 추가했습니다. | `current change`; Office 재읽기, 수식 안전성, 셀/8 MiB/슬라이드 1,000개 상한, 393행 내보내기, 파일 권한을 집중 테스트 16개로 확인했습니다. strict mypy와 Ruff도 통과했습니다. | 해당 대상에서 Office HTTP 형식을 제공하기 전에 독립 대상 어댑터를 등록하고 인증된 HTTP 검증 결과를 보존합니다. |
 | 2026-10-21 | not-applicable | Core 비공개 설치 사용권 수락 저장소를 보고 데이터 원본 및 Operator 접근 권한과 구분했습니다. 보고 기능은 바뀌지 않습니다. | 현재의 영문 및 한국어 담당 문서; #2352; 사용권 소스 커밋 `4975461319283d8a2d82565f6bf775eaf6fd484b`; 사용권/PG/런타임/CLI 집중 테스트 443개와 마이그레이션 재고 검사 74개 통과. | 기존 보고 종료 조건은 유지됩니다. 로컬 수락은 운영 결과를 제공하지 않습니다. |
 | 2026-09-28 | implemented | Core 소유 삽입 전용 운영 근거 증명 테이블 다섯 개를 공유 service migration inventory에 등록했으며 reporting source, widget, 경로 또는 쓰기 권한에는 추가하지 않았습니다. | `current change`; `tests/integration/services/test_service_migration_inventory.py` 73개 통과, 루프백 PostgreSQL 역할 테스트에서 검증기 역할만 증명 기록을 삽입함을 확인했습니다. | reporting 동작이나 datasource 근거는 바뀌지 않았습니다. |
 | 2026-09-22 | implemented | Core 소유 Rule 활성화 receipt table을 공유 service migration inventory에 등록했으며 reporting source, widget, 경로 또는 쓰기 권한에는 추가하지 않았습니다. | `current change`; service migration inventory 73개 통과, 실제 PostgreSQL role 테스트에서 Operator에 receipt table 직접 접근이 없음을 확인. | Reporting 동작이나 data source 근거는 변경되지 않았습니다. |

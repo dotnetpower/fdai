@@ -58,6 +58,7 @@ from fdai.delivery.ontology_evidence_health_projection import (
     build_object_type_evidence_health_projection,
 )
 from fdai.delivery.ontology_release_diff_projection import build_release_diff_registry
+from fdai.delivery.wara_rule_evidence import load_release_wara_rule_bindings
 from fdai.rule_catalog.schema.best_practice_catalog import load_best_practice_catalog
 from fdai.rule_catalog.schema.framework_assessment import (
     load_framework_assessment_catalog,
@@ -184,6 +185,9 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         catalog=wara_assessment,
         queries=wara_queries,
     )
+    wara_rules = load_release_wara_rule_bindings(
+        repo_root, catalog=wara_assessment, queries=wara_queries
+    )
     mcsb_catalogs = load_mcsb_catalogs(
         catalog_root / "compliance/mcsb",
         strict=False,
@@ -247,7 +251,7 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
             )
         ),
         WARA_LIST_KEY: _revisioned(
-            _wara_snapshot(wara_framework, wara_assessment, wara_evaluators)
+            _wara_snapshot(wara_framework, wara_assessment, wara_evaluators, wara_rules)
         ),
         MCSB_LIST_KEY: _revisioned(_mcsb_snapshot(mcsb_catalogs)),
         MCSB_ASSESSMENT_LIST_KEY: _revisioned(

@@ -1,5 +1,5 @@
 schema_version: "1.0.0"
-version: "0.3.1"
+version: "0.3.2"
 classes:
   - id: class.resource
     description: Reviewed cloud or runtime resource identity.
@@ -7,11 +7,18 @@ classes:
     description: Resource that supplies compute, hosting, integration, or runtime capacity.
     members:
       - ai-project
+      - analytics.workspace
       - app-service-plan
+      - automation-account
       - bot-service
       - communication-service
       - compute.container-app-environment
       - compute.container-app-job
+      - compute.batch-account
+      - compute.desktop-host-pool
+      - compute.desktop-scaling-plan
+      - compute.image-template
+      - compute.private-virtualization-cloud
       - compute.vm-extension
       - compute.vm-run-command
       - compute.vm-shutdown-schedule
@@ -19,6 +26,8 @@ classes:
       - email-service
       - event-grid-topic
       - event-hub
+      - event-topic
+      - iot-hub
       - kubernetes-node-pool
       - kubernetes.cron-job
       - kubernetes.daemon-set
@@ -37,6 +46,8 @@ classes:
       - kubernetes.stateful-set
       - llm-endpoint
       - llm-model-deployment
+      - ml-workspace
+      - realtime-messaging-service
       - static-web-app
       - web-search-service
       - workflow.api-connection
@@ -46,12 +57,15 @@ classes:
     description: Resource that stores or serves structured operational data.
     members:
       - cache
+      - database.dedicated-infrastructure
+      - database.vm-cluster
       - mysql-server
       - nosql-database
       - postgresql-server
       - redis-enterprise
       - search-service
       - sql-database
+      - sql-managed-instance
       - sql-server
     specializes: [class.resource]
   - id: class.governance-resource
@@ -68,6 +82,10 @@ classes:
       - api-gateway
       - network.application-gateway
       - network.bastion-host
+      - network.cdn-origin-group
+      - network.cdn-profile
+      - network.connection
+      - network.ddos-protection-plan
       - network.dns-resolver
       - network.dns-resolver-inbound-endpoint
       - network.dns-zone
@@ -77,14 +95,23 @@ classes:
       - network.nat-gateway
       - network.nsg
       - network.private-access-scope
+      - network.private-circuit
+      - network.private-circuit-gateway
       - network.private-dns-zone
       - network.private-dns-zone-group
       - network.private-dns-zone-link
+      - network.private-peering-port
       - network.route-table
       - network.registered-domain
       - network.subnet
+      - network.dns-routing-profile
+      - network.site-vpn-gateway
+      - network.user-vpn-gateway
+      - network.virtual-hub
       - network.virtual-network-gateway
+      - network.virtual-router
       - network.vnet
+      - network.vpn-site
       - kubernetes.endpoint-slice
       - kubernetes.ingress
       - kubernetes.ingress-class
@@ -94,6 +121,7 @@ classes:
     description: Resource that collects, evaluates, or routes operational evidence.
     members:
       - action-group
+      - activity-log-alert
       - alert-rule
       - anomaly-alert-rule
       - application-insights
@@ -107,8 +135,10 @@ classes:
       - observability.dashboard
       - observability.dashboard-service
       - observability.network-monitor
+      - observability.network-flow-log
       - observability.query-pack
       - observability.solution
+      - observability.traffic-collector
       - observability.workbook
       - prometheus-rule-group
       - service-bus-namespace
@@ -118,6 +148,7 @@ classes:
     members:
       - authorization.role-assignment
       - certificate
+      - directory.managed-domain
       - managed-certificate
       - managed-identity
       - secret-store
@@ -127,11 +158,20 @@ classes:
     description: Resource that retains images, objects, files, disks, or snapshots.
     members:
       - container-registry
+      - application-configuration
+      - backup-vault
+      - compute.gallery-image
+      - compute.gallery-image-version
       - compute.image
+      - compute.image-gallery
       - disk
       - disk-snapshot
       - file-share
+      - file-volume
+      - ml-model-registry
       - object-storage
+      - storage.file-account
+      - storage.file-capacity-pool
       - kubernetes.persistent-volume
       - kubernetes.persistent-volume-claim
       - kubernetes.storage-class
@@ -143,11 +183,13 @@ classes:
     description: Compute-hosted application workload.
     members:
       - compute.vm
+      - compute.app-slot
       - compute.vm-scale-set
       - compute.container-app
       - compute.function
       - compute.web-app
       - kubernetes-cluster
+      - stream-analytics-job
     specializes: [class.compute-resource, class.workload]
   - id: class.network-endpoint
     description: Network endpoint with an independently observed resource identity.

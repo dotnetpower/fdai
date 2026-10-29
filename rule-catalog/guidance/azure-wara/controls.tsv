@@ -1,0 +1,457 @@
+# GUID prefix|mechanism|diagram focus|recommendation-specific observation
+a3058909|replication|Domain replica sets|Replica-set locations and peered VNet reachability from each application's region
+bb6deb9d|sku|Enterprise domain SKU|Managed-domain SKU supports replica sets before a replica-set deployment is planned
+740f2c1c|zone|Premium API gateways|Premium tier, selected zones, gateway units and zone-level request availability
+af4f88cb|region|Regional API gateways|Gateway deployments, backend dependencies and tested routing in each selected region
+badd9a1f|cache|API response cache|Cache lookup and store policies, expiry, hit ratio and behavior when the cache is unavailable
+baf3bfc0|sku|API Management Premium|Premium SKU eligibility for availability zones, regional capacity and migration impact
+c79680ea|autoscale|API gateway units|Autoscale minimum and maximum units, scaling signals and backend capacity under load
+e35cf148|lifecycle|API platform stv2|Platform version, network prerequisites and a validated stv1-to-stv2 migration plan
+8dbcd94b|probe|Container health probes|Startup, liveness and readiness probe behavior for slow starts and failed dependencies
+f4201965|zone|Container Apps environment|Environment zone-redundancy configuration and replica placement, not merely an app replica count
+2102a57a|sku|App Configuration tier|Standard-tier capabilities, request quota and expected application configuration availability
+bb4c8db4|retention|Configuration purge protection|Purge-protection setting and recovery behavior during the configured retention period
+67205887|recovery-plan|Automation dependencies|Recoverable runbooks, modules, credentials references, schedules and dependent regional resources
+029208c8|capacity|AVS memory headroom|Private-cloud memory utilization, workload reservations and remaining host-failure headroom
+29d7a115|capacity|AVS cloud capacity|Current host counts against private-cloud limits and lead time for capacity expansion
+4232eb32|monitor|vSAN datastore usage|Datastore utilization warning thresholds and free capacity needed for rebuilds
+4ee5d535|capacity|AVS CPU headroom|CPU utilization trends, peak demand and host-failure capacity before adding workloads
+74fcb9f2|monitor|AVS Service Health|Service Health alert scope, event types and tested notification delivery for AVS
+9ec5b4c8|zone|AVS stretched cluster|Supported stretched-cluster topology, zone placement, vSAN policy and failure-domain behavior
+a5ef7c05|security|AVS deletion lock|Delete lock on the containing resource group and the documented unlock and recovery procedure
+e0ac2f57|encryption|vSAN key rotation|Key version, automatic rotation policy and continued vSAN key access after rotation
+f86355e3|capacity|AVS cluster host limit|Cluster host count, supported maximum and expansion lead time
+fa4ab927|logs|AVS syslog delivery|Diagnostic settings route AVS syslog to a destination with recent accepted events
+fcc2e257|dns|AVS private DNS servers|Multiple private-zone DNS servers and successful resolution when one server is unavailable
+3464854d|capacity|Batch quota|Account and VM-family quotas against planned dedicated and low-priority pool sizes
+71cfab8f|zone|Batch pool zones|Pool allocation policy and actual node distribution across supported availability zones
+5a44bd30|zone|Redis zone redundancy|Supported Redis tier, zone-redundancy state and client reconnection during a node failure
+c474fc96|private-network|Redis private access|Private endpoint approval, private DNS resolution and client connectivity without public access
+cabc1f98|maintenance|Redis update window|Maintenance schedule, client retry behavior and patch completion outside and inside the window
+1ad74c3c|logs|Front Door access logs|Access and diagnostic log categories, destination configuration and recent request records
+1bd2b7e8|security|Front Door WAF policy|WAF policy association, managed rules and prevention impact on legitimate traffic
+1cfe7834|private-network|Front Door private origin|Premium-tier Private Link support, connection approval and origin access restrictions
+24ab9f11|security|HTTPS redirect|HTTP-to-HTTPS redirect routes, redirect loops and preservation of paths and query strings
+29d65c41|encryption|Managed TLS certificate|Managed certificate association, validation status and renewal ownership for each custom domain
+38f3d542|probe|Single-origin probe policy|Origin-group member count and documented consequences of disabling probes for a single origin
+4638c2c0|encryption|Customer TLS key version|Certificate secret version, expiry and successful propagation of the intended certificate
+5225bba3|probe|Origin health endpoint|Probe endpoint detects a backend that cannot serve real requests without expensive side effects
+52bc9a7b|lifecycle|Front Door API and SDK|Supported API and SDK versions and regression tests for existing route behavior
+5357ae22|monitor|Front Door WAF signals|WAF match and block rates, false-positive review and alert delivery
+5783defe|probe|HEAD health probes|HEAD-method support on the probe path and equivalent health semantics without response bodies
+82fa3cff|lifecycle|Front Door migration|Classic-to-Standard-or-Premium migration dependencies, routing parity and rollback
+b515690d|security|Front Door geo-filter|Geo-filter rule scope, exceptions and impact on legitimate clients and proxies
+cd6a32af|dns|Origin host identity|Origin host header, certificate name and application redirects align with the intended frontend name
+d9bd6780|encryption|End-to-end TLS|TLS on both client-to-edge and edge-to-origin legs with origin certificate validation
+042c034e|ai-capacity|Global provisioned model|Provisioned throughput, model and version support, utilization and Global processing constraints
+081fc8a4|ai-routing|Global Standard PAYG|Global Standard deployment type, model availability, quotas and permitted processing geography
+0c193899|ai-overflow|Provisioned overflow route|Explicit overflow route to a compatible PAYG deployment, throttling signals and bounded retry policy
+61187af4|region|Regional model deployments|Gateway routing plus primary and secondary deployment eligibility, quotas, model compatibility and residency
+72b1b4ad|monitor|Azure OpenAI telemetry|Latency, token utilization, throttling, errors and deployment-level alert coverage
+8aa9744b|ai-batch|Global Batch requests|Batch-supported models, asynchronous deadlines, job completion and allowed processing geography
+ac3add17|ai-residency|Data Zone Standard|Selected data zone, model support, quota and policy-approved processing geography
+3263a64a|storage-layout|Shared cluster disks|Shared disk settings are used only by supported clustered servers with coordination and fencing
+fa0cf4f5|zone|Zone-redundant disks|Disk redundancy SKU, regional ZRS support and the independent VM recovery procedure
+1c5e1e58|security|Trusted Launch image|Image security type, generation and guest compatibility before enabling Trusted Launch
+488dcc8b|zone|Image version ZRS|Image-version storage account type and ZRS availability in each target region
+b14ee8ed|replication|Image regional replicas|Image-version replication status in the recovery region and independent VM deployment ability
+b3c3ba1d|capacity|Image replica counts|Per-region replica count against concurrent deployment demand and replication completion
+b49a39fd|capacity|Production image replicas|At least three source-recommended image replicas where applicable and successful deployment under load
+122d11d7|storage-layout|Managed VM disks|OS and data disk resource types, migration compatibility and disk attachment after recovery
+1981f704|backup|VM backup policy|Protected VM registration, successful recovery points, retention and an application-consistent restore test
+273f6b30|replication|VMSS Flex application VMs|At least two VM instances, workload distribution and behavior when one instance is unavailable
+2bd0be95|zone|VM zone placement|VM and dependency placement across zones and application availability during a zonal failure
+2de8fa5e|scheduled-events|VM Scheduled Events|In-guest event polling, event acknowledgement and graceful workload drain before maintenance
+302fda08|capacity|Primary compute reservation|Capacity reservation group association, exact VM SKU and region and sufficient reserved quantity
+3201dba8|sku|Sustained-CPU VM SKU|VM-series CPU performance characteristics against sustained production demand, not only average usage
+41a22a5e|network-route|NIC IP forwarding|IP forwarding is justified by an NVA role and paired with guest forwarding and reviewed routes
+4ea2878f|storage-layout|Database data disks|Database data and logs placement on appropriate data disks instead of the OS disk
+52ab9e5c|maintenance|Dedicated or Isolated Host|Host-scope eligibility, maintenance assignment completeness and source Medium impact
+587ca3e4|capacity|Recovery-region reservation|Reserved recovery-region SKU and quantity against failover demand and other quota constraints
+5f7e8a12|lifecycle|Azure Linux VM Agent|Supported guest agent version and extension provisioning after the agent update
+70b1d2be|private-network|VM disk private access|Disk network-access policy, private endpoint association and authorized private export paths
+73d1bb04|lifecycle|AccelNet guest NIC driver|Guest NIC driver version and connectivity after the manual driver update
+9ab499d8|sku|Azure Boost compute|Supported Boost VM size and measured workload behavior during maintenance-sensitive operation
+a8d25876|deployment|Availability-set migration|VMSS Flex compatibility, instance distribution, workload cutover and recovery from failed migration
+b72214bb|monitor|VM Insights|Agent and data-collection configuration, guest performance records and alert coverage
+cfe22a65|replication|Site Recovery VM replica|Replication health, recovery-point age, target dependencies and an isolated test failover
+df0ff862|sku|Premium or Ultra data disks|Disk SKU support, latency, throughput and IOPS against mission-critical workload requirements
+dfedbeb1|network-capacity|Accelerated Networking|Supported VM and guest NIC configuration and observed network performance
+1422c567|zone|VMSS Flex zones|Flexible orchestration and placement across zones with application dependencies reviewed separately
+3f85a51c|autoscale|Predictive scale forecast|Predictive autoscale mode, forecast history and load validation before enabling automatic scaling
+820f4743|selfheal|VMSS automatic repair|Health signal, repair action, grace period and prevention of repeated destructive repair loops
+83d61669|lifecycle|VMSS image lifecycle|Image publisher retirement date, replacement compatibility and rolling-upgrade health
+94794d2a|probe|VMSS application health|Application Health extension or supported probe and instance-level health transitions
+a7bfcc18|storage-layout|AKS ephemeral OS disk|Supported VM SKU, cache or temporary-disk capacity and persistence outside ephemeral OS storage
+b5a63aa0|autoscale|VMSS zone balancing|Zone-balance setting and scale success when one zone lacks capacity
+e4ffd7b0|maintenance|Azure guest orchestration|Guest patch orchestration setting, platform prerequisites and completed patch assessments
+e7495e1c|deployment|Flexible orchestration|Flexible mode support for the required VMSS features, instance operations and rollout behavior
+ee66ff65|autoscale|VMSS custom autoscale|Metric rules, minimum and maximum instances, cooldown and scale-in behavior under load
+03f4a7d8|identity|Registry anonymous access|Anonymous pull is disabled and intended authenticated pull identities still work
+36ea6c09|replication|Registry geo-replicas|Premium registry replica locations, replication health and image pulls from the alternate region
+3ef86f16|capacity|Registry storage usage|Registry storage consumption, retention policy and cleanup exclusions for deployed image digests
+44107155|logs|Registry diagnostics|Registry diagnostic categories, destination and recent repository and login events
+63491f70|zone|Registry zone redundancy|Supported registry tier and region plus the service's current zone-redundancy behavior
+8e389532|topology|Registry resource group|Dedicated registry resource-group boundary and lifecycle permissions independent of consumers
+a5a0101a|topology|Repository namespaces|Repository namespace ownership, permissions and image-reference stability
+d594cde6|monitor|Registry health|Registry availability, storage and request-error metrics with actionable alerts
+e7f0fd54|retention|Registry soft delete|Soft-delete retention policy and supported recovery of accidentally deleted artifacts
+eb005943|sku|Registry Premium tier|Premium capabilities needed by the workload, quota headroom and pull performance
+005ccbbd|capacity|AKS user-node count|User-node minimums, application placement, resource requests and available failure headroom
+0611251f|sku|AKS service tier|Standard or Premium tier selection and the scope and prerequisites of its availability commitment
+269a9f1a|backup|AKS workload backups|Backup extension and vault configuration, supported volumes and Kubernetes resource restore
+26ebaf1f|security|AKS policy compliance|Policy add-on, assigned definitions and remediation impact on currently running workloads
+4f63619f|zone|AKS zone placement|Node pools span supported zones and workloads and volumes can tolerate loss of one zone
+5ee083cd|topology|AKS system isolation|System and user node-pool modes, taints and tolerations keep application pods off system capacity
+5f3cbd68|deployment|AKS GitOps reconciliation|Reviewed desired state, repository access and reconciliation status without bypassing admission controls
+7f7ae535|capacity|AKS system-node count|System-node minimums and sufficient capacity for critical cluster components during node loss
+902c82ff|autoscale|AKS cluster autoscaler|Per-pool minimums and maximums, pending-pod signals, quota and scale-down constraints
+9200aca6|replication|Application pod replicas|Multiple ready replicas and placement across failure domains, not only desired replica count
+928fcc6f|topology|Pod topology spread|Topology keys, skew, scheduling policy and observed placement across nodes or zones
+9a1c17e5|capacity|Kubernetes resource quota|Namespace resource quotas, admission rejection behavior and application resource requests
+a01afc4c|capacity|AKS subscription cores|Regional and VM-family quota cover maximum node-pool scale plus upgrade surge
+a08a06a0|draining|Pod disruption budget|PDB selectors and allowed disruptions permit safe voluntary maintenance without assuming protection from involuntary failures
+b002c030|lifecycle|Azure CSI volumes|Persistent volume driver, supported CSI migration path, attachment and data integrity after migration
+b4639ca7|capacity|AKS virtual nodes|Virtual-node prerequisites, workload compatibility and capacity limits of the ACI integration
+bcfe71f1|replication|Production deployments|Ready application replicas, failure-domain distribution and service routing during replica loss
+c22db132|network-capacity|AKS CNI address capacity|CNI allocation mode, pod and node address demand and subnet headroom during maximum scale and upgrades
+ca324d71|identity|AKS local credentials|Local accounts disabled, Microsoft Entra access tested and emergency access procedure preserved
+cd6791b1|probe|Pod lifecycle probes|Separate startup, readiness and liveness semantics and observed behavior during slow start and failure
+d3111036|zone|AKS persistent-volume ZRS|StorageClass and disk redundancy plus application recovery and volume reattachment across zones
+dcaf8128|monitor|AKS telemetry|Container and control-plane monitoring coverage, recent ingestion and actionable workload alerts
+e620fa98|network-capacity|AKS subnet headroom|Address demand for configured maximum nodes and pod allocation plus upgrade surge
+f46b0d1d|lifecycle|Azure Linux node image|Supported Azure Linux version, image lifecycle and compatibility of workloads and extensions
+6cd57b65|zone|Managed Grafana replicas|Supported Grafana tier and zone-redundancy state with dashboard and data-source availability
+028593be|capacity|Databricks alternate SKUs|Approved alternate driver and worker VM SKUs with compatible runtime and sufficient quota
+0e835cc2|lifecycle|Databricks supported runtime|Runtime support status, LTS suitability and job regression results before upgrading
+12e9d852|pipeline|Streaming checkpoints|Durable checkpoint location, compatible stream restart and recovery without duplicate downstream effects
+14310ba6|storage-layout|Production data ownership|Production datasets reside in governed durable storage rather than default DBFS folders
+1b0d0893|data-integrity|Layered data architecture|Raw, curated and serving layers have explicit quality checks, lineage and recovery boundaries
+20193ff9|monitor|Databricks workload signals|Job, cluster and data-quality signals reach tested monitoring and notification channels
+362ad2b6|autoscale|SQL warehouse scaling|Warehouse minimum and maximum capacity, queue time and observed scale behavior
+397cdebb|topology|Workspace subscriptions|Workspace subscription boundaries isolate policy, quota and administrative failure domains
+3d3e53b5|pipeline|Local process lifecycle|Automatic job termination does not discard required user-defined local-process work
+42aedaa8|deployment|Databricks desired state|Versioned workspace and job deployment definitions can recreate the workload with reviewed dependencies
+4cbb7744|capacity|Production model serving|Serving capacity, model readiness, request latency and scaling under representative load
+4fdb7112|recovery-plan|Databricks recovery pattern|Selected active-passive or other recovery pattern covers workspace configuration, data and orchestration
+5877a510|sku|Databricks SSD workers|Driver and worker VM storage characteristics meet shuffle and local-I/O requirements
+5c72f0d6|autoscale|Batch cluster scaling|Batch cluster worker bounds and job behavior during both expansion and contraction
+5e722c4f|private-network|Workspace VNet isolation|Separate workspace VNet, subnets, required control-plane paths and private data access
+7e52d64d|data-integrity|Rescued ingestion records|Malformed or unexpected fields are captured by Auto Loader or pipeline rescue logic instead of silently lost
+7fb90127|logs|Databricks cluster logs|Durable cluster-log delivery, destination permissions and records retained after cluster termination
+84e44da6|retry|Databricks job retries|Job retry count, timeout, idempotent outputs and terminal failure notification
+8aa63c34|topology|Databricks control-plane locality|Workspace and control-plane region alignment and supported in-region migration, not secondary-workspace failover
+932d45d6|backup|Databricks workspace export|Workspace asset exports and independently protected external data with validated workspace recreation
+a18d60f8|restore-test|Delta ETL recovery|Available Delta versions, retention boundaries and tested ETL restart from the selected version
+a42297c4|data-integrity|Data expectations|Constraints and expectations reject or quarantine invalid data with visible failure records
+b5af7e26|capacity|Critical worker availability|Critical production compute does not rely on interruptible Spot capacity without a validated recovery design
+b7e1d13f|data-integrity|Schema lifecycle|Schema enforcement and controlled evolution preserve downstream compatibility and data lineage
+c0e22580|pipeline|Workflow task recovery|Task dependencies, repair-run state and replay behavior after partial workflow failure
+cd77db98|autoscale|Pipeline enhanced scaling|Supported enhanced autoscaling configuration and throughput during backlog growth and recovery
+da4ea916|data-integrity|Delta transaction storage|Transactional Delta tables, schema controls and recoverable history for the workload
+e93fe702|data-integrity|Authoritative data lineage|Authoritative dataset ownership and lifecycle of copies prevent stale operational data silos
+e94da1f8|topology|Managed service ownership|Managed-service responsibilities and remaining application recovery and data-protection obligations
+5c96afc3|backup|MySQL geo backup|Geo-redundant backup availability, retention and tested restore in the documented paired-region scope
+8176a79d|capacity|MySQL storage auto-grow|Auto-grow setting, maximum storage limits and capacity alerts before storage exhaustion
+82a9a0f2|maintenance|MySQL maintenance schedule|Custom maintenance window, permitted changes and client reconnection behavior
+88856605|zone|MySQL zone HA|Supported tier and region, standby placement and application behavior during managed failover
+b49a8653|replication|MySQL read replicas|Replica location, replication lag and explicitly planned promotion and application connection changes
+2ab85a67|replication|PostgreSQL read replicas|Replica topology, lag and promotion behavior without treating read replication as a backup
+31f4ac4b|backup|PostgreSQL geo backup|Geo-redundant backup configuration, restore availability and recovery-point age
+6293a3cc|capacity|PostgreSQL auto-grow|Storage growth configuration, maximum limits and alerts for remaining capacity
+b2bad57d|maintenance|PostgreSQL maintenance|Maintenance window, supported scheduling limits and reconnect behavior
+ca87914f|zone|PostgreSQL zone HA|Zone-redundant standby support, health and application reconnection after failover
+013ac34e|deployment|AVD validation pool|Validation host-pool designation, staged update coverage and production promotion criteria
+38721758|replication|Stateful AVD recovery|Replication scope for stateful hosts and consistent recovery of profiles and application dependencies
+939cb85c|topology|Host-pool directory OU|Unique organizational unit, applied policies and isolation from other host-pool changes
+979ff8be|maintenance|AVD agent updates|Host-pool agent-update schedule, maintenance windows and successful session-host updates
+499769ae|autoscale|Regional AVD scaling|Scaling-plan region matches host pools and regional load and capacity constraints
+02568a5d|recovery-plan|IoT Hub failover|Operator decision criteria, device reconnection, data-loss expectations and tested failback
+214cbc46|zone|IoT Hub zones|Region and tier zone support and device connectivity during a zonal disruption
+783c6c18|backup|Device identity export|Fresh device-identity export, protected storage and validated import or recovery procedure
+b1e1378d|deployment|Device provisioning|Device Provisioning Service enrollment, allocation policy and device reprovisioning behavior
+e7dbd21f|network-route|IoT fallback route|Fallback-route enabled state and delivery of messages that match no custom route; source title polarity requires review
+eeba3a49|sku|IoT paid tier|Required paid-tier features, quotas and production throughput rather than the Free tier
+43663217|region|Cosmos DB regions|At least two account regions, regional capacity and SDK routing preferences
+7eb32cf9|settings|Cosmos client singleton|Long-lived SDK client lifecycle and connection reuse across application requests
+921631f6|zone|Cosmos DB zone support|Per-region availability-zone configuration and support for the selected account capabilities
+9cabded7|region|Cosmos managed failover|Single-write multi-region account failover setting, priority order and client behavior
+9ce78192|replication|Cosmos multi-region writes|Multi-write eligibility, conflict-resolution policy and write behavior during regional partition
+c006604a|pipeline|Cosmos query pagination|Continuation tokens and complete page consumption without dropping remaining query results
+deaea200|monitor|Cosmos DB health|Availability, throttling, latency and replication signals scoped to database and region
+e544520b|backup|Cosmos continuous backup|Continuous-backup mode, supported account features, retention and point-in-time restore test
+fa6ac22f|retry|Cosmos client retry|SDK retry policy honors throttling delays with bounded attempts and idempotent application writes
+54c3191b|logs|Event Grid diagnostics|Topic diagnostic settings, delivery-failure logs and verified destination ingestion
+92162eb5|pipeline|Event Grid dead letter|Dead-letter storage access, failed-delivery records and a reviewed replay procedure
+b2069f64|private-network|Event Grid private ingress|Private endpoint approval, DNS and publisher access for the supported topic configuration
+84636c6c|zone|Event Hubs zones|Namespace tier and regional zone support plus current service redundancy behavior
+fbfef3df|autoscale|Event Hubs auto-inflate|Standard-tier auto-inflate setting, maximum throughput units and observed throughput pressure
+be448849|monitor|Resource Health alerts|Resource Health event scope, status transitions and tested notification delivery
+092f5c85|lifecycle|Insights connection strings|Connection-string based instrumentation and continued telemetry without exposing credentials
+dac421ec|lifecycle|Workspace-based Insights|Workspace-based Application Insights migration, retention and continuity of telemetry queries
+00c3d2b0|private-network|Key Vault private access|Approved private endpoint, DNS and authorized application secret access
+1cca00d2|retention|Key Vault soft delete|Soft-delete state, retention period and recovery of a test deleted object
+1dc0821d|logs|Key Vault audit logs|Diagnostic categories, destination permissions and recent authorized and denied access records
+70fcfe6d|retention|Key Vault purge protection|Purge protection prevents permanent deletion during retention and is not a substitute for key backup
+e7091145|topology|Application vault isolation|Vault separation by application and environment with independent access and lifecycle policies
+611c7c96|replication|ML registry replicas|Registry replication regions and model artifact availability from each recovery location
+13794a63|capacity|Secondary ML compute|Recovery-region compute definitions, quota, VM-family availability and deployment lead time
+48ea6480|capacity|ML quota requests|Azure Machine Learning quota request status and granted regional limits before planned scaling
+675d249a|region|Secondary ML workspace|Secondary workspace, data, identity and model dependencies recreated and reachable
+6e2af91f|lifecycle|ML compute lifecycle|VM-series retirement horizon and tested supported replacements for training and serving
+6e4f0fd1|capacity|ML regional quotas|Both selected regions have adequate service and VM-family quota for recovery demand
+98f15850|pipeline|Training checkpoints|Durable model checkpoints, checkpoint interval and successful resumed training
+a86ed26a|recovery-plan|ML regional dependencies|Workspaces, registries, data, compute, identity and serving routes included in the recovery plan
+cf2569bb|lifecycle|Retiring NC compute|NC and NC_Promo usage, replacement SKU eligibility and migration validation
+2f579fc9|monitor|NetApp performance|Volume throughput, latency, capacity and workload usage trends with actionable thresholds
+47d100a5|zone|NetApp zone design|Volume zone placement and the chosen application's independent zone-failure recovery design
+60f36f9b|maintenance|NetApp maintenance resilience|Client reconnect and retry behavior during planned service maintenance
+687ae58f|security|NetApp policy scope|Applicable Azure Policy assignments, evaluation results and reviewed remediation changes
+72827434|backup|NetApp snapshots|Snapshot schedule, retention, application consistency and a tested snapshot restore
+8bb690e8|topology|NetApp compute proximity|Volume and compute zone placement optimizes latency without being mistaken for cross-zone redundancy
+ab984130|network-capacity|NetApp Standard networking|Volume network features, upgrade prerequisites and required network connectivity
+af426a99|capacity|NetApp service level|Service level and volume quota yield the throughput required by observed application demand
+b2fb3e60|backup|NetApp backup policy|Backup policy, completed off-volume backup copies and restore behavior
+cfa2244b|security|NetApp export access|Export policy or SMB permissions restrict default access to intended clients
+d1e7ccc3|storage-layout|SMB continuous availability|Supported application and SMB continuous-availability share settings plus client recovery behavior
+e30317d2|replication|NetApp cross-region replica|Replication schedule, lag, destination readiness and controlled break-and-resync procedure
+e3d742e1|replication|NetApp cross-zone replica|Supported zone pair, replica health and explicit application failover procedure
+10f02bc6|draining|Gateway backend draining|Connection-draining setting and timeout preserve in-flight requests during backend removal
+233a7008|encryption|Gateway TLS listeners|HTTPS listener and backend TLS settings with valid certificate chains
+5d035919|logs|Application Gateway logs|Access, performance and firewall diagnostic categories reach a queryable destination
+7893f0b3|lifecycle|Application Gateway v2|v1 migration prerequisites, frontend and backend parity and cutover rollback
+823b0cff|autoscale|Gateway autoscale|v2 autoscale bounds, capacity-unit demand and behavior during traffic bursts
+8364fd0a|network-capacity|Gateway subnet capacity|Dedicated v2 subnet has source-recommended /24 sizing or a documented equivalent capacity analysis
+847a8d88|probe|Gateway backend probe|Probe host, protocol, path and accepted status reflect real backend readiness
+8d9223c4|security|Gateway WAF association|WAF policy mode, listener association and false-positive handling
+c9c00f2a|zone|Gateway zone redundancy|v2 SKU, zone configuration, public-IP compatibility and backend availability across zones
+1b2dbf4a|security|Firewall VNet DDoS|DDoS protection-plan association and applicable public-IP protection scope
+3a63560a|security|Firewall policy hierarchy|Parent and child rule inheritance, effective policy and controlled exceptions
+3c8fa7c6|monitor|Firewall metrics|Firewall health, throughput and SNAT utilization with operational alert thresholds
+8faace2d|monitor|Firewall latency probe|AZFW Latency Probe trend, baseline and correlation with independently observed request latency
+c72b7fee|zone|Firewall zone placement|Supported Firewall SKU, multiple-zone selection and dependent route availability
+d2e4a38e|network-capacity|Firewall SNAT ports|Public-IP allocation and measured SNAT port utilization support the required outbound connections
+0e57956d|region|Recovery-region Bastion|Bastion deployment and secure administrative reachability in the secondary VNet
+c9b0c6f6|zone|Bastion zones|Supported Bastion SKU and regional zone configuration
+f6a14b32|network-route|ExpressRoute FastPath|Connection FastPath setting, supported gateway and feature limitations along the data path
+ae054bf2|monitor|DDoS protection signals|DDoS attack metrics, alert thresholds and incident notification delivery
+bdd38c02|dns|Regional DNS resolvers|Independent regional resolver endpoints, forwarding rules and tested resolution-path failover
+7d09523b|dns-ttl|Public DNS cache lifetime|Record TTL and measured resolver-cache expiry fit the application's recovery-time target
+0e19cc41|network-redundancy|Distinct edge devices|Primary and secondary physical connections terminate on different customer edge devices
+26cb547f|monitor|ExpressRoute maintenance|Service Health maintenance notifications cover the circuit and reach the responsible operator
+2a5bf650|network-redundancy|ExpressRoute BFD|BFD support and configuration on both peers with measured failure detection and reconvergence
+4d703025|network-redundancy|Diverse peering locations|Multiple ExpressRoute circuits use different peering locations and independent paths to the workload
+9771a435|monitor|ExpressRoute circuit health|Circuit status, BGP availability, throughput and alert delivery
+d40c769d|network-capacity|ExpressRoute rate limits|Per-circuit shaping and aggregate bandwidth avoid oversubscription on ExpressRoute Direct
+f06a2bbe|network-redundancy|Active-active circuit paths|Both circuit connections have active BGP sessions and carry the intended traffic
+17e8d380|monitor|ExpressRoute gateway health|Gateway health, throughput and connection-level metrics with actionable alerts
+560a76a7|network-route|VNet-to-VNet path|VNet communication uses the intended peering or transit path instead of unintended ExpressRoute hairpinning
+9987c813|network-redundancy|Gateway peering diversity|Gateway connects circuits in diverse peering locations with tested path failover
+0bee356b|network-capacity|Direct port oversubscription|Aggregate circuit bandwidth and measured traffic remain within physical ExpressRoute Direct port capacity
+222fbb78|network-redundancy|Direct distinct edges|Physical links attach to separate edge devices with independent failure paths
+55815823|monitor|ExpressRoute Direct ports|Port status, optical levels, bandwidth and tested notification delivery
+60077378|network-redundancy|Direct enabled links|Both ExpressRoute Direct links have Enabled administrative state and healthy operational status
+859886df|network-redundancy|Direct active-active links|Both physical links and BGP paths participate in the intended active-active design
+cce3353a|network-redundancy|Direct peering diversity|Independent peering locations protect against a location-wide outage
+537b4d94|security|Gateway WAF false positives|Blocked legitimate requests are traced to exact WAF rule matches before narrowing exclusions
+d0cfe47f|security|Front Door WAF false positives|Front Door WAF log matches identify false positives without broadly disabling protection
+38c3bca1|sku|Standard Load Balancer|Standard SKU compatibility, public-IP SKU and migration prerequisites
+621dbc78|zone|Load Balancer frontend zones|Standard frontend IP zone configuration is zone-redundant and backend placement is reviewed independently
+6d82d042|replication|Load balancer backend pool|At least two healthy backend instances with appropriate probes and failure-domain separation
+8d319a05|network-capacity|NAT-based outbound access|NAT Gateway association and SNAT utilization replace implicit assumptions about Load Balancer outbound rules
+babf75d6|monitor|NAT Gateway monitoring|SNAT connection counts, dropped packets, availability and actionable capacity alerts
+52ac35e8|security|NSG resource locks|Lock level protects the intended NSG operations without blocking required emergency changes
+8291c1fa|security|NSG custom rules|Effective rules include reviewed workload-specific access beyond the platform default rules
+8bb4a57b|monitor|NSG change alerts|Activity Log changes to NSGs reach an alert and identify the changed rule and actor
+d2976d3e|logs|NSG diagnostic settings|Supported diagnostic categories and destination ingestion, separately from current VNet flow-log guidance
+1e28bbc1|monitor|Connection Monitor probes|Source and destination tests exercise required network paths and alert on measured failures
+22a769ed|logs|Failed flow-log delivery|Flow-log state, destination access and recent records explain Failed or Disabled configurations
+4e133bd0|topology|Regional Network Watcher|Network Watcher coverage exists in every region with relevant networking resources
+bf0b7dbd|logs|VNet traffic analytics|VNet flow logs and traffic-analytics workspace configuration produce recent analyzed records
+fd43ea32|monitor|Virtual Hub P2S health|P2S gateway tunnel, connection and bandwidth metrics with tested alerts
+2820f6d6|security|Private DNS protection|Least-privilege zone and record access with reviewed locks and recovery procedures
+3538aa48|dns-ttl|Private DNS cache lifetime|Private record TTL, intermediate caches and measured recovery against RTO
+a2341513|dns|Cross-region VNet links|Explicit links or resolver paths from required regional VNets, independently of VM autoregistration
+ab896e8c|monitor|Private DNS health|Query and record metrics plus application-side name-resolution checks
+b89c9acc|private-network|Private endpoint state|Provisioning state and connection approval are healthy; DNS and data-plane reachability are separately verified
+1adba190|network-capacity|Outbound SNAT capacity|NAT Gateway attachment, public-IP capacity and observed SNAT usage under peak concurrency
+5cea1501|lifecycle|Standard public IP migration|Basic-to-Standard IP migration dependencies, address continuity and associated load-balancer compatibility
+c63b81fb|zone|Zone-redundant public IP|Standard public-IP SKU and zone settings align with the consuming service's zone support
+23b2dfc7|monitor|Route table change alerts|Activity Log route changes identify the affected route table and reach the operator
+1ad9d7b7|region|Traffic Manager regional endpoints|A healthy endpoint outside the primary region and a tested DNS-based failover path
+5b422a7f|replication|Traffic Manager endpoint set|More than one eligible endpoint with functioning probes and appropriate routing policy
+9437634c|network-route|Global routing ownership|Avoid unnecessary Traffic Manager and Front Door layering or document its routing and probe semantics
+c31f76a0|network-route|Geographic routing fallback|Geographic profile has an All World fallback so unmatched client geographies have an intended destination
+f05a3e6d|probe|Traffic Manager status|Endpoint monitor status is Online for expected healthy endpoints and probe behavior matches the application
+30ec8a5e|monitor|Virtual Hub health|Hub routing and connected gateway health with independent path checks
+f29e56a1|lifecycle|Standard Virtual WAN|Basic-to-Standard upgrade compatibility, hub connectivity and routing validation
+194c14ac|network-route|VNet communication transit|VNet-to-VNet routing avoids unintended ExpressRoute traversal and unnecessary external dependencies
+1c34faa8|monitor|VNet ExpressRoute gateway|ExpressRoute gateway health, throughput and connection state
+281a2713|network-redundancy|Active-active VPN gateway|Both gateway instances and on-premises tunnels are configured and tested
+3e115044|maintenance|ExpressRoute gateway updates|Supported customer-controlled gateway maintenance configuration and effective assignments
+4bae5a28|zone|VPN public-IP zones|Zone-redundant Standard public IPs support the selected zone-redundant VPN gateway
+5b1933a6|zone|VPN gateway AZ SKU|Supported AZ gateway SKU and deployment settings match the intended zone-resilient topology
+9186dae0|monitor|VPN Service Health|Gateway service events are in scope for Service Health notifications
+9eab120e|monitor|VPN tunnel health|Tunnel availability, ingress and egress and dropped packets are monitored with actionable alerts
+af11fc4c|network-redundancy|On-premises VPN pair|Independent VPN concentrators and tunnels avoid a single customer-side failure point
+bbe668b7|zone|ExpressRoute gateway AZ SKU|Zone-redundant ExpressRoute gateway SKU and its supporting public-IP prerequisites
+d37db635|network-redundancy|Gateway circuit diversity|ExpressRoute circuits at different peering locations can independently reach the gateway
+f8c2e6d9|maintenance|VPN gateway updates|Customer-controlled VPN maintenance window and supported gateway assignments
+06b77be9|logs|Virtual Network flow logs|VNet flow-log configuration, storage destination and recent flow records
+24ae3773|private-network|PaaS private endpoint|Supported Private Endpoint path, DNS and application access before changing service-endpoint access
+69ea1185|security|Public endpoint DDoS|DDoS protection plan and supported public-IP coverage for internet-exposed workloads
+f0bf9ae6|security|Subnet NSG association|Applicable subnets have intended NSG associations and required service exceptions are documented
+2226d069|network-redundancy|Route Server BGP mesh|Both NVA instances peer with both Route Server instances and learned routes survive a peer loss
+b8ff662a|monitor|Route Server metrics|BGP peer status, route counts and alerts for routing degradation
+f0d4f766|monitor|Virtual Hub S2S gateway|Site-to-site gateway and tunnel health, bandwidth and tested notifications
+02bdbdb8|network-redundancy|Diverse VPN site links|Different VPN site links terminate on independent on-premises concentrators
+1ceea4b5|logs|ExpressRoute traffic collection|Traffic Collector policy includes the intended Direct or provider circuits and exports recent flow data
+4b77191c|monitor|Log Analytics health|Workspace health status alert and an independent path for notification when ingestion fails
+b36fd2ac|data-export|Log Analytics geo export|Data export rules, supported tables and GRS or GZRS destination with recent exported records
+c99d730b|probe|Oracle infrastructure state|Infrastructure lifecycle state is Available during normal operation and nonavailable states have an explained cause
+4b33324a|probe|Oracle VM cluster state|VM cluster lifecycle state is Available during normal operation, separately from database transaction health
+1549b91f|restore-test|Cross Region Restore|GRS vault and Cross Region Restore eligibility plus actual access to secondary-region recovery points
+17e877f7|restore-test|Site Recovery test failover|Isolated target-network test validates VM boot, dependencies and application performance without production cutover
+2912472d|lifecycle|Backup Monitor alerts|Built-in Azure Monitor alert configuration replaces classic alerts and reaches the intended action group
+9e39919b|retention|Backup vault soft delete|Vault soft-delete configuration, retained backup items and recovery of a deleted protected item
+e93bb813|network-capacity|Recovery static addresses|Failover VM static addresses are available in the target subnet and do not conflict with existing allocations
+b376281d|zone|AI Search replicas|Replica count, tier and region support availability-zone distribution for the documented service behavior
+dff62efe|region|Regional AI Search services|Independent search services, synchronized index ingestion and explicit application routing
+20057905|zone|Service Bus zones|Namespace tier and region support and actual zone-redundancy behavior
+d810e3a8|autoscale|Service Bus capacity|Premium messaging-unit scaling where supported, workload metrics and capacity ceilings
+f075a1bd|encryption|Service Bus TLS minimum|Namespace minimum TLS version is at least 1.2 and all producers and consumers remain compatible
+6a8b3db9|zone|SignalR zone redundancy|Supported tier and region, zone-redundancy state and client reconnection behavior
+15e2712c|backup|SQL MI backup redundancy|Backup-storage redundancy is ZRS or GZRS where eligible; restore readiness is verified independently
+257cd903|region|SQL MI regional recovery|Secondary managed instance, failover group, replication health and application reconnect procedure
+9fad5392|encryption|SQL MI key backups|Recoverable TDE key material and permissions remain available independently of the primary vault
+c14de326|network-route|SQL MI Redirect connections|Redirect connection policy and required network ports improve data-path access without bypassing policy
+c9afeb1e|monitor|SQL MI reliability metrics|Instance resource use, availability and database errors with near-real-time actionable alerts
+f8f834a9|zone|SQL MI zone redundancy|Supported service tier, hardware and region plus zone-redundancy configuration
+0f838324|recovery-plan|SQL failover policy|Customer-managed failover policy, replication lag and operator decision criteria for data-loss tradeoffs
+74c2491d|replication|SQL geo-readable secondary|Secondary database region, replication health and a documented promotion procedure
+7e7daec9|monitor|SQL Database metrics|Database resource saturation, errors and availability with alert delivery
+943c168a|region|SQL failover group scope|Related databases share the intended failover group with replication and listener endpoints verified
+c0085c32|zone|SQL Database zone HA|Supported tier and region and zone-redundancy configuration without assuming cross-region recovery
+cbb17a29|retry|SQL transient retries|Bounded transient-error retry, backoff and transaction idempotency
+d6ef87aa|encryption|SQL Database key backups|TDE key backup, recoverable versions and permissions needed for database restoration
+de266d8a|network-route|SQL failover listeners|Applications use the intended read-write or read-only failover-group listener and reconnect after role change
+03263c57|retention|Storage soft delete|Applicable blob, container or file-share soft-delete policy and tested recovery within retention
+1b965cb9|restore-test|Blob point-in-time restore|GPv2 account prerequisites, supported blob types and a tested restore inside the retention window
+2ad78dec|lifecycle|StorageV2 migration|Legacy account upgrade compatibility, supported workloads and post-upgrade access behavior
+5587ef77|sku|Premium block blob tier|Supported Premium block blob account type and measured high-performance workload requirements
+8ebda7c0|retention|Blob version lifecycle|Versioning and lifecycle rules retain recoverable versions without unbounded version accumulation
+96cb8331|monitor|Blob storage monitoring|Blob availability, latency, errors and capacity signals for all intended accounts
+dc55be60|private-network|Storage private access|Private endpoints for the required storage subresources, DNS zones and authorized application paths
+e6c7e1cc|replication|Storage redundancy mode|Selected LRS, ZRS, GRS or GZRS behavior matches zone and region recovery objectives and failover limits
+5d40d3d4|lifecycle|Stream Analytics StandardV2|SKU migration prerequisites, query compatibility and output continuity
+e48a7227|topology|Dedicated stream cluster|Dedicated Stream Analytics cluster isolation, capacity and recovery obligations
+5ada5ffa|topology|Subscription hierarchy|Subscription placement under the intended management group and inherited governance controls
+9729c89d|monitor|Subscription Service Health|Relevant services, regions and event types in Service Health alerts with tested destinations
+98bd7098|topology|Resource group metadata region|Resource-group metadata location and recovery management dependencies, not an assumption that all regional resources must always match
+c041d596|capacity|Citrix subscription scale|Source-recommended VDA count limit and a reviewed partitioning plan against current vendor support limits
+19b6df57|lifecycle|Generation 2 image source|Generation 2 source image support for the intended VM SKU, guest and image-build pipeline
+21fb841b|deployment|Regional image templates|Image-build templates and dependencies recreated in the secondary region with a successful build
+07243659|capacity|App Service vertical scaling|Impact of plan SKU changes, restarts and capacity transitions is reviewed instead of assuming seamless scaling
+6320abf6|autoscale|App Service scale rules|Plan-supported autoscale or automatic scaling, minimums, limits and application load response
+855ca19a|replication|App Service worker minimum|Minimum worker count of two where applicable and healthy application instances behind routing
+88cb90c2|zone|App Service zone support|Plan tier, region, zone-redundancy setting and sufficient instance count
+b2113023|sku|App Service production tier|Standard or Premium plan features and capacity meet the production workload's requirements
+dbe3fd66|topology|Production plan isolation|Production and test applications use independent plans and do not share worker capacity
+0a535241|settings|Slot application settings|Slot-specific configuration and sticky-setting behavior remain correct before and after a slot swap
+0b06a688|settings|Functions unique host ID|Host IDs are unique for function apps sharing storage and do not collide after name truncation
+0b80b67c|settings|Web application settings|Application configuration is externalized into reviewed app settings without disclosing secret values
+3f9ddb59|storage-layout|Application log storage|Log storage is isolated from application data and remains writable under log bursts
+493f6079|logs|Web diagnostics|Application and platform diagnostic logging is enabled with recent queryable records
+52f368ee|deployment|Functions warmup trigger|Supported hosting plan and warmup-trigger execution initialize dependencies before traffic
+78a5c033|topology|Web and API isolation|Web frontend and API hosting boundaries permit independent scaling and failure isolation
+7c608f46|settings|Functions runtime setting|FUNCTIONS_WORKER_RUNTIME matches the deployed language worker and application artifact
+a1d91661|deployment|Staging slot rollout|Slot configuration, warmup, validation and controlled swap preserve production behavior
+a7e8bb3d|monitor|Web application performance|Request latency, errors, dependency failures and saturation have actionable thresholds
+aab6b4a4|security|Web access restrictions|Effective ingress restrictions allow intended clients and administrative paths without exposing public access
+c6c4b962|selfheal|Functions auto-heal|Supported auto-heal rules, trigger thresholds and restart behavior do not conceal repeated failures
+c9a278b7|lifecycle|Functions supported runtime|Functions host and language versions remain supported and pass regression tests after upgrade
+fd049c28|probe|App Service health check|Health-check path, authentication behavior and unhealthy-instance handling reflect application readiness
+47176883|monitor|ML online endpoint telemetry|Application Insights instrumentation and recent endpoint request, latency and failure telemetry
+89928e61|monitor|ML regional telemetry|Separate regional Application Insights resources support primary and secondary workspace monitoring
+a6c8f3f3|region|Search DNS routing|Traffic Manager endpoint health, regional search services and client DNS cache behavior
+0025ed2e|backup|FSLogix share backups|Azure Files backup policy covers profile shares with recoverable and tested profile data
+0714d039|recovery-plan|AVD regional recovery|Session hosts, profiles, identity, networking and user reconnection included in a tested BCDR plan
+0bf1a2bb|monitor|AVD health events|AVD Service Health and Resource Health coverage with independent notification delivery
+0cf72d91|monitor|AVD Insights workbook|Required agents, data collection and recent session and host metrics in the workbook
+1c6c97d7|network-route|AVD control-plane paths|Effective static routes allow required AVD control-plane connectivity without unintended network detours
+1f57434f|region|AVD vault resilience|Required regional vault dependencies and secret-recovery procedures available during host-pool recovery
+204b56b0|topology|AVD scale units|Scale-unit boundaries include host pools, profiles and dependencies with explicit capacity limits
+2831dab9|deployment|Immutable session-host images|New validated image versions replace hosts with controlled session drain and rollback
+37d1091b|private-network|AVD production and DR isolation|Separate address spaces and NSGs preserve required recovery connectivity without overlapping routes
+3835b4b3|network-route|RDP Shortpath transport|Supported managed or public-network Shortpath mode, UDP connectivity and observed transport choice
+483f5a00|logs|FSLogix event collection|Storage diagnostics and session-host FSLogix events reach the intended monitoring destinations
+7d9c96a6|backup|App attach share recovery|Dedicated app-attach share and its backup or replication path are included in the DR plan
+89b4d8f6|topology|Regional AVD workspaces|Production and recovery Log Analytics workspaces have independent regional collection paths
+99bf5c94|dns|AVD regional DNS pair|At least two reachable DNS servers across zones in each host region and tested resolution after a server loss
+9b2301af|storage-layout|AVD SMB continuity|ANF continuous availability is supported and enabled for the relevant SMB workload
+c15b2b73|settings|FSLogix baseline|Supported standard FSLogix profile settings, share permissions and profile attachment behavior
+d51e0a70|lifecycle|FSLogix manual updates|Validated FSLogix version and controlled manual rollout with session-host compatibility checks
+d61f6ee8|zone|AVD directory controllers|Multiple domain controllers across zones per region and successful host authentication after a failure
+db1727d1|network-route|AVD regional route tables|Effective route tables or Route Server paths exist for both production and recovery regions
+e1a34ac6|dns|AVD DNS replication|Regional DNS data and resolver configuration remain available without relying on one primary site
+e718ac1a|network-route|AVD outbound and UDP|Required control-plane connectivity and Shortpath UDP traffic pass the intended firewall and NSG paths
+ed1f0327|storage-layout|FSLogix account isolation|One source-recommended FSLogix share per account with capacity and failure-domain implications reviewed
+ef4b3561|capacity|AVD resource headroom|Session-host concurrency, profile storage and regional service quotas cover peak and recovery demand
+ff916698|storage-layout|Host-pool profile shares|Each host pool has an explicitly assigned dedicated FSLogix share with tested permissions
+0943aa90|storage-layout|vSAN failure tolerance|Storage policy failures-to-tolerate setting is supportable by current cluster host count
+1f25a3d8|backup|HCX pre-change snapshot|Supported HCX backup or snapshot is taken before the planned operation and can be restored
+6be9a543|network-route|HCX management boundary|Management networks are not extended by HCX Network Extension
+6f573d60|network-redundancy|AVS ExpressRoute paths|Circuit, peering location and customer-edge diversity follow the intended resilient design
+726abfe3|network-redundancy|AVS Interconnect zones|Supported private-cloud interconnect joins the intended availability-zone deployments
+91c84596|network-redundancy|Stretched-cluster circuits|At least two circuits at different peering locations support stretched-cluster connectivity
+bce16eee|network-redundancy|HCX extension HA|HCX Network Extension HA configuration and tested appliance failover
+bdac462a|region|Dual-region AVS clouds|Independent regional private clouds, data replication and explicit workload recovery procedures
+c2794660|identity|Dual LDAPS sources|Independent supported LDAPS identity sources and authentication continuity after one source fails
+37eec891|identity|HPC directory availability|Supported highly available directory configuration and head-node authentication during directory failure
+4c78fab4|storage-layout|HPC shared job metadata|All head nodes can access durable shared job metadata with appropriate permissions
+a48b1be6|replication|HPC head nodes|Multiple head nodes and supported failover preserve job orchestration
+b02b5a0e|autoscale|HPC compute growth|Automatic cluster growth and shrink thresholds preserve job completion and required capacity
+02bfe908|maintenance|Oracle rolling updates|Rolling infrastructure update sequence preserves required database service capacity
+0583239a|backup|Oracle recovery service|Supported Autonomous Recovery Service protection, recovery-point freshness and restore evidence
+1bfdf86c|network-capacity|Oracle address planning|Subnet and address allocation covers current and future infrastructure and cluster requirements
+2322a597|monitor|Oracle metric thresholds|Critical database metrics have workload-specific thresholds and a reviewed capacity response
+768a5b06|zone|Data Guard observer placement|Observer is placed in a different availability zone from database failure domains
+bbe4014f|encryption|Exadata vault keys|Encryption keys remain accessible with recoverable versions and reviewed vault availability
+ccf0fece|replication|Data Guard across zones|Cross-zone Data Guard transport, protection mode and replication lag support the recovery objective
+dfeb9c7a|replication|Oracle regional replication|Vendor-supported cross-region replication and measured data-loss and recovery tradeoffs
+094400a5|replication|SAP synchronous database pair|SYNC replication state, supported topology and application-consistent failover behavior
+0fabc52e|deployment|SAP recovery infrastructure|Versioned recovery infrastructure or preprovisioned resources meet tested deployment lead-time targets
+1b8a3051|settings|Pacemaker placement constraints|Unwanted location constraints are identified and removed only after validating cluster placement intent
+2e4c2171|probe|HANA load-balancer probe|Supported HANA HA load-balancer rules and probe ports match the cluster failover configuration
+41f0d88e|recovery-plan|SAP component protection|Application components have explicitly distinguished backup or ASR protection in the recovery location
+4884cada|settings|SAP NetApp timeout values|SAP and ANF timeout settings follow the supported client and application guidance
+49bd34ab|replication|SAP application-server VMs|Two or more application-server VMs in VMSS Flex with healthy workload distribution
+5663a808|restore-test|SAP HA failure tests|Controlled cluster, VM and dependency failures meet the documented application recovery objectives
+5c2e52d0|probe|ASCS load-balancer probe|ASCS load-balancer rules, probe ports and floating-IP behavior align with the supported cluster design
+6648fe61|selfheal|HANA Pacemaker cluster|Supported cluster resources, fencing and replication state before controlled HANA failover
+697deb1d|storage-layout|SAP database disk layout|Database data and log disk layout, caching and throughput match supported vendor guidance
+6b589ce6|scheduled-events|SAP maintenance notifications|Scheduled Events are consumed and mapped to supported drain or failover procedures
+820b4c0c|capacity|SAP recovery VM capacity|Recovery-region reservations, VM-family quotas and critical role sizing are sufficient
+9d8f6678|selfheal|ASCS Pacemaker cluster|Cluster resources, fencing, shared storage and supported ASCS failover behavior
+a9b649a5|zone|SAP zone architecture|Application, database and shared-file dependencies tolerate the intended zone loss
+b60ae773|sku|SAP single-instance storage|All applicable OS and data disks use supported Premium SSD or Ultra configurations
+c27134b7|monitor|SAP DR monitoring|End-to-end replication, target capacity and recovery dependency monitoring have tested alerts
+c300e949|recovery-plan|SAP tested DR procedure|Documented recovery and failback meet measured RPO and RTO for the full SAP workload
+e09ca960|storage-layout|SAP shared-file HA|Supported highly available shared-file service spans intended failure domains
+ee4dc309|recovery-plan|SAP recovery file copies|Shared-file backup or replication is selected explicitly; source description only addresses monitoring
+fb8bdcee|replication|SAP asynchronous DR copy|Vendor-supported ASYNC database replication, lag and explicit data-loss acceptance at failover
+2c41b97c|recovery-targets|Reliability objectives|Business-approved availability, recovery time and recovery point targets are explicit and measurable
+340fe5c3|autoscale|Reliable scaling design|Load forecasts, bottlenecks, scale limits and failure headroom are validated together
+3d6adb0a|zone|Workload zone design|End-to-end zone-failure design includes compute, state, networking and operational dependencies
+4e1094dd|pipeline|Background work isolation|Background jobs have durable state, retry boundaries and bounded impact on interactive requests
+5f95df03|recovery-plan|Workload BCDR plan|Recovery and failback procedures cover dependencies and meet tested business recovery objectives
+66ae4a5c|retry|Transient fault handling|Timeout, retry, backoff and idempotency policies distinguish transient from persistent failures
+74415e66|workload-flows|Critical workload flows|User and system flows are ranked by business criticality with their dependencies and failure effects
+7b5008cf|selfheal|Self-preservation controls|Health signals trigger bounded recovery or load shedding without cascading destructive loops
+7db74a6a|restore-test|Reliability test strategy|Representative failure tests have hypotheses, stop conditions, rollback and measured outcomes
+7f0b9ea3|partition|Data partition strategy|Partition keys, workload distribution and cross-partition recovery avoid hot spots and hidden coupling
+8c0a0a4c|workload-flows|Business reliability alignment|Business objectives and critical flows justify the chosen reliability investment and risk acceptance
+90adebf7|monitor|Workload monitoring design|Critical flows have symptom and dependency signals, actionable alerts and tested notification paths
+df93ae26|region|Workload regional design|Independent regional dependencies, data strategy and explicit traffic-switch procedures
+e404ef3f|replication|Workload redundancy design|Independent redundant components cover the intended failure domains without shared hidden dependencies
+f5fbe3d4|fault-analysis|Failure-mode analysis|Prioritized failure modes include probability, impact, detection, mitigation and residual risk

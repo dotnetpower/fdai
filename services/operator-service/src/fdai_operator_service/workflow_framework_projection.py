@@ -6,6 +6,7 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import cast
 
+from fdai_service_contracts.wara_guidance import wara_guidance_detail
 from starlette.exceptions import HTTPException
 
 from fdai_operator_service.families.workflow.contracts import (
@@ -218,7 +219,13 @@ def _wara_catalog_payload(
                 status_code=404,
                 detail=f"unknown WARA recommendation {recommendation_id!r}",
             )
-        return dict(selected)
+        try:
+            return wara_guidance_detail(dict(selected))
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="WARA guidance source validation failed",
+            ) from exc
 
     filter_fields = (
         "resource_type",
