@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 19aa63b9bc85dfb49cf5f0be053d3f5c8ad9a2d6
+translation_source_sha: de273cf5e24323741a5cfcc6251b9f574a371428
 translation_revised: 2026-10-30
 ---
 # AKS 역방향 커넥터
@@ -79,6 +79,17 @@ Event 커서가 만료됐거나 순서가 누락되거나 스키마를 지원하
 전환에는 최신의 완전한 세대가 필요하며 두 번째 기록기를 만들지 않습니다. 미래 관측,
 오래된 세대, 식별 불일치, 같은 키의 다른 내용은 거부합니다. 동일 재시도는 안전하게 처리하고
 원래 관측 시각을 새로 갱신하지 않습니다.
+
+Kubernetes Event 이력은 별도의 `lifecycle.events` capability입니다. 관찰자는 데이터베이스 접근도
+cursor도 갖지 않습니다. 매 주기에 snapshot을 보낸 뒤 gateway에서 영속 cursor를 받고, 그 지점에서
+제한된 watch 구간 하나를 수집해 내용 안전한 batch를 되돌려 보냅니다. Event 메시지는 전달하지
+않습니다. Gateway는 클러스터당 단일 영속 writer로서 저장소의 lease를 얻고 관찰자가 기대한
+sequence를 확인한 뒤 멱등한 관측 식별자로 batch를 원자적으로 추가합니다. 그래서 응답이 유실되어도
+재시도가 안전하고 오래되었거나 중복된 batch는 거부됩니다. 만료된 cursor나 너무 큰 구간은 불완전
+coverage 구간으로 기록되므로 공백이 부재로 읽히지 않습니다. 관찰자에는 Event에 대한 `list`와
+`watch`만 필요하고, 등록 정보에 `lifecycle.events` capability가 있어야 합니다. 없으면 관찰자는
+`not_enrolled`를 보고하고 snapshot 경로는 영향을 받지 않습니다. Event 실패는 주기 출력에 보고되지만
+전달된 snapshot을 가리지 않습니다.
 
 ## 제약 기반 배포 제안
 
@@ -255,8 +266,12 @@ python -m fdai.delivery.kubernetes_connector_apply_cli apply --inputs ... --prop
 승인은 두 종류입니다. 등록된 승인자 키(`ObserverApproverGrant`: 승인자, 키, 대상, 작업 집합, 유효
 기간, 철회)가 `sign-approval`로 서명한 승인은 사용할 실행자를 지정하며, 실행자는 승인자와 다른
 신원이어야 합니다. 단일 운영자 개발 프로필은 검토한 digest와 함께 `--development-self-approval`을
-쓸 수 있고, 결과의 `approval_mode`가 `signed` 또는 `development_self_issued`로 표시됩니다. 적용과
-`activate`는 첫 변경 호출 전에 배타적 claim을 기록하므로 승인은 한 번만 쓸 수 있습니다. 결과 없는
+쓸 수 있고, 결과의 `approval_mode`가 `signed` 또는 `development_self_issued`로 표시됩니다.
+`install` 작업은 이 단일 운영자 흐름을 명령 하나로 실행합니다. 검토한 `--approve-recipe-digest`로
+적용, 활성화, smoke 검증을 순서대로 수행하며 단계마다 짧은 승인, claim, 감사 기록을 따로 둡니다.
+smoke 실행이 실패하거나 검증되지 않으면 검증되지 않은 설치를 활성 상태로 두지 않고 관찰자를 다시
+중지하며 명령은 0이 아닌 코드로 종료합니다.
+적용과 `activate`는 첫 변경 호출 전에 배타적 claim을 기록하므로 승인은 한 번만 쓸 수 있습니다. 결과 없는
 claim은 결과를 알 수 없다는 뜻이며, 운영자는 `verify`로 확인하고 새 승인을 받아야 하고 같은 승인을
 다시 쓰지 않습니다. 관찰자 네임스페이스가 있으면 작업은 그 안의 Kubernetes `Lease`(10분, 만료되었을
 때만 인수)도 잡아 두 호스트가 한 대상을 동시에 다루지 못합니다. 네임스페이스가 생기기 전에는 호스트
@@ -265,7 +280,8 @@ claim은 결과를 알 수 없다는 뜻이며, 운영자는 `verify`로 확인�
 사용합니다(Azure RBAC만 필요하고 네트워크 경로는 필요 없습니다. Azure Policy가 command invoke를
 막을 수 있습니다). `gitops`는 `export`로 자격 증명 없는 검토용 문서를 만듭니다.
 
-효과가 생기기 전에 명령은 문서가 observer 전용 recipe(읽기 전용 `list`/`get` 동사, Secret 읽기 없음,
+효과가 생기기 전에 명령은 문서가 observer 전용 recipe(읽기 전용 `list`/`get` 동사와 Event 한정
+`watch`, Secret 읽기 없음,
 비특권, 호스트 네임스페이스 없음, 고정 이미지, 중지된 CronJob)와 같은지, `kube-system` UID가 맞는지,
 네임스페이스를 이 설치 도구가 소유하는지 다시 확인합니다. 그다음 고정 field manager와 강제 충돌 없이
 server-side apply로 적용하므로 다른 소유자는 보존됩니다. 네임스페이스가 없으면 restricted Pod Security
@@ -296,6 +312,37 @@ Job을 지웁니다. observer가 수락 또는 중복 전달을 기록했을 때
 적용하는 것은 `deactivate`를 실행할 때까지 거부되므로 업그레이드는 `deactivate`, 새 계획 `apply`, 읽기 확인,
 `verify` 순서입니다. 로컬 잠금은 한 호스트 안에서만 직렬화하며, 다른 호스트의 동시 작업은
 server-side 충돌에 의존합니다.
+
+## Gateway 배포
+
+Gateway는 승인된 관찰자 recipe가 아니라 일반적인 제한 워크로드입니다. Kubernetes API 권한이
+필요 없으므로 recipe에 RBAC 객체가 없습니다. 토큰이 없는 ServiceAccount, 읽기 전용 루트 파일
+시스템을 쓰는 non-root Deployment, Service, NetworkPolicy로 구성됩니다.
+`render_gateway_installation`은 클러스터를 건드리지 않고 이를 렌더링합니다. 관찰자와 같은
+digest 고정 material 번들을 쓰며, 서버 인증서와 키는 번들의 `client.pem`과 `client.key`입니다.
+상태 저장소 DSN은 값이 아니라 Secret 참조이고, gateway는 배포 venue가 아니면 loopback 데이터베이스만
+허용하므로 컨테이너가 deployed venue를 설정합니다.
+
+노출 방식은 관측된 네트워크 토폴로지를 따르며 공개 주소를 열지 않습니다. 두 방식 모두 내부 로드
+밸런서 주소를 씁니다.
+
+| 관측된 토폴로지 | 노출 방식 | 사유 |
+|----------------|-----------|------|
+| 관찰자와 gateway가 같은 네트워크 | 내부 로드 밸런서 | `same_network` |
+| 네트워크가 피어링됨(`Connected`) | 내부 로드 밸런서 | `peered` |
+| 주소 공간이 겹치지 않고 아직 피어링 전 | 내부 로드 밸런서, 피어링 필요 | `peering_possible` |
+| 주소 공간이 겹침 | Private Link 서비스 | `address_overlap` |
+| 관찰자 네트워크를 읽을 수 없음 | Private Link 서비스 | `observer_network_unreadable` |
+
+Private Link는 네트워크 사이의 경로가 필요 없으므로 피어링이 불가능하거나 관찰자 네트워크를 읽을 수
+없을 때(예: 다른 테넌트) 답이 됩니다. 잘못되었거나 알 수 없는 접두사는 서로 겹치지 않는다고 보지 않고
+겹치는 것으로 취급합니다. 렌더러는 결정과 다른 노출 방식을 거부하며, Private Link 서비스에는 NAT
+서브넷과 자동 승인할 구독이 필요합니다.
+
+인그레스는 원격 네트워크에는 주소 블록을, 같은 클러스터의 관찰자에는 네임스페이스와 레이블 피어를
+허용합니다. 정책 엔진은 Pod 주소를 주소 블록으로 매칭하지 않기 때문입니다. 관찰자의 origin, 송신
+규칙, gateway가 일치하도록 Service 포트는 Pod 포트와 같습니다. 클러스터 안의 상태 저장소도 같은
+방식으로 선택합니다. 이 recipe는 네임스페이스, Secret, 데이터베이스, 스키마를 만들지 않습니다.
 
 ## 승인된 운영 작업
 

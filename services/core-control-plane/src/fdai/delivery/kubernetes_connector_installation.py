@@ -26,7 +26,9 @@ from fdai_service_contracts.observer_deployment import (
 from pydantic import Field, field_validator, model_validator
 
 from fdai.delivery.kubernetes_connector_material import MATERIAL_FILES, material_digest
-from fdai.delivery.kubernetes_connector_read_preflight import snapshot_read_attributes
+from fdai.delivery.kubernetes_connector_read_preflight import (
+    snapshot_read_attributes,
+)
 from fdai.delivery.kubernetes_connector_runtime import (
     ConnectorRuntimeConfig,
     _unique_fields,
@@ -254,6 +256,8 @@ def render_observer_installation(
         {"apiGroups": [group], "resources": sorted(resources), "verbs": ["list"]}
         for group, resources in sorted(groups.items())
     ]
+    # Lifecycle history needs a bounded Event watch; it is the only resource with `watch`.
+    rules.append({"apiGroups": [""], "resources": ["events"], "verbs": ["list", "watch"]})
     rules.append(
         {
             "apiGroups": [""],
@@ -326,7 +330,7 @@ def render_observer_installation(
                 **common,
                 "name": "observer",
                 "command": ["python", "-m", "fdai.delivery.kubernetes_connector_cli"],
-                "args": ["observe-once", "--config", "/private/material/config.json"],
+                "args": ["observe", "--config", "/private/material/config.json"],
                 "env": [{"name": "PYTHONDONTWRITEBYTECODE", "value": "1"}],
                 "volumeMounts": [
                     {"name": "private-material", "mountPath": "/private", "readOnly": True},

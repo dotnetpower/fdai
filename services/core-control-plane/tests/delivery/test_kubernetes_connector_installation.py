@@ -134,8 +134,12 @@ def test_installation_preview_is_deterministic_non_root_and_read_only(tmp_path) 
     resources = {item["kind"]: item for item in result["documents"]}
     assert len(resources) == 6
     for rule in resources["ClusterRole"]["rules"]:
-        assert set(rule["verbs"]) <= {"list", "get"}
+        watched = rule["resources"] == ["events"]
+        assert set(rule["verbs"]) <= ({"list", "get", "watch"} if watched else {"list", "get"})
         assert not {"*", "secrets", "configmaps"} & set(rule["resources"])
+    assert [rule for rule in resources["ClusterRole"]["rules"] if "watch" in rule["verbs"]] == [
+        {"apiGroups": [""], "resources": ["events"], "verbs": ["list", "watch"]}
+    ]
     job = resources["CronJob"]["spec"]
     assert job["suspend"] is True
     assert job["concurrencyPolicy"] == "Forbid"

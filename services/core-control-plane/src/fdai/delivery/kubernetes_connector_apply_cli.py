@@ -49,6 +49,7 @@ _STOPPING = frozenset({"deactivate", "recover", "rollback", "uninstall"})
 _FAILED_STATES = frozenset(
     {"image_pull_failed", "job_failed", "completed_without_delivery", "not_finished"}
 )
+_FAILED_RESULTS = _FAILED_STATES | {"install_failed_deactivated"}
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -66,6 +67,7 @@ def _parser() -> argparse.ArgumentParser:
             "export",
             "wait-observed",
             "sign-approval",
+            "install",
         ),
     )
     parser.add_argument("--inputs", type=Path)
@@ -237,6 +239,81 @@ def _sign(args: argparse.Namespace, now: datetime) -> dict[str, object]:
     return {"state": "approval_signed", "signed_approval": signed.model_dump(mode="json")}
 
 
+def _install(
+    args: argparse.Namespace,
+    inputs: ObserverInstallationInput,
+    rendered: dict[str, Any],
+    common: dict[str, Any],
+    clock: Callable[[], datetime],
+) -> dict[str, object]:
+    """Single-operator install: apply, activate, then smoke-verify; stop safely on failure.
+
+    The operator approves one reviewed recipe digest up front. Each step still gets its own
+    short-lived approval, claim, and audit record. A failed or unverified smoke run suspends the
+    observer again instead of leaving an unproven installation active.
+    """
+    if not args.development_self_approval:
+        raise ValueError(
+            "install is the single-operator flow and needs --development-self-approval; "
+            "use apply, activate, and verify with signed approvals otherwise"
+        )
+    if args.approve_recipe_digest is None:
+        raise ValueError("install requires --approve-recipe-digest from the dry-run")
+    transport = _transport(inputs, args)
+    steps: dict[str, object] = {}
+    steps["apply"] = apply_observer_installation(
+        rendered,
+        inputs,
+        _issue(args, inputs, rendered, operation="apply", now=clock()),
+        transport=transport,
+        material_directory=_need(args.material_directory, "material-directory"),
+        cluster_uid=_need(args.cluster_uid, "cluster-uid"),
+        **common,
+    )
+    steps["activate"] = activate_observer(
+        rendered,
+        inputs,
+        _issue(args, inputs, rendered, operation="activate", now=clock()),
+        transport=transport,
+        **common,
+    )
+    verified = verify_observer(
+        rendered,
+        inputs,
+        _issue(args, inputs, rendered, operation="verify", now=clock()),
+        transport=transport,
+        **common,
+    )
+    steps["verify"] = verified
+    state = str(verified["state"])
+    if state in _FAILED_STATES:
+        steps["deactivate"] = deactivate_observer(
+            inputs,
+            _issue(args, inputs, None, operation="deactivate", now=clock()),
+            transport=transport,
+            **common,
+        )
+        state = "install_failed_deactivated"
+    return {
+        "schema_version": "1.0.0",
+        "operation": "install",
+        "state": state,
+        "approval_mode": "development_self_issued",
+        "recipe_digest": rendered["recipe_digest"],
+        "steps": {name: _brief(value) for name, value in steps.items()},
+        "operational_success": False,
+        "observation_required": True,
+    }
+
+
+def _brief(value: object) -> object:
+    return (
+        {key: value[key] for key in ("state", "operation") if key in value}
+        if isinstance(value, dict)
+        else value
+    )
+
+
 def _export(args: argparse.Namespace, now: datetime) -> dict[str, object]:
     inputs, rendered = _render(args, now)
     if inputs.method != "gitops":
@@ -335,6 +412,8 @@ def run(args: argparse.Namespace, *, now: datetime | None = None) -> dict[str, o
         args.approve_recipe_digest != rendered["recipe_digest"]
     ):
         raise ValueError("the approved recipe digest differs from the current rendered recipe")
+    if args.operation == "install":
+        return _install(args, inputs, rendered, common, clock)
     if args.operation in {"activate", "verify"}:
         if not approved:
             raise ValueError(
@@ -367,7 +446,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = run(args)
         print(json.dumps(result, indent=2, sort_keys=True))
-        return 1 if result.get("state") in _FAILED_STATES else 0
+        return 1 if result.get("state") in _FAILED_RESULTS else 0
     except (KeyboardInterrupt, SystemExit):
         raise
     except ValueError as exc:

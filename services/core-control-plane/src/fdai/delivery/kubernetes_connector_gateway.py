@@ -8,11 +8,21 @@ import json
 import ssl
 from collections.abc import Callable
 from datetime import datetime
+from typing import Literal
 
 from aiohttp import web
 from fdai_service_contracts.cluster_connector import ConnectorEvidence
 from fdai_service_contracts.compatibility import canonical_digest
 
+from fdai.delivery.kubernetes_connector_events import (
+    BATCH_PATH,
+    CURSOR_PATH,
+    LifecycleEventInbox,
+    encode_cursor,
+)
+from fdai.delivery.kubernetes_connector_events import (
+    CAPABILITY as EVENTS_CAPABILITY,
+)
 from fdai.delivery.kubernetes_connector_gateway_probe import (
     GATEWAY_PROBE_PATH,
     GatewayProbe,
@@ -24,6 +34,7 @@ from fdai.delivery.kubernetes_connector_snapshot import (
 )
 
 MAX_TRANSFER_BYTES = 2 * 8_388_608 + 32_768
+MAX_EVENT_BYTES = 2_097_152
 
 
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -41,6 +52,7 @@ def create_connector_gateway(
     registrations: ConnectorRegistrationReader,
     now: Callable[[], datetime],
     max_concurrent_requests: int = 4,
+    events: LifecycleEventInbox | None = None,
 ) -> web.Application:
     """Build ingress that admits only actual verified TLS client certificates.
 
@@ -69,10 +81,16 @@ def create_connector_gateway(
                     registration = await registrations.read(principal)
                     if registration is None:
                         raise web.HTTPForbidden(text="connector enrollment unavailable")
+                    is_events = request.path in {CURSOR_PATH, BATCH_PATH}
+                    if is_events and events is None:
+                        raise web.HTTPNotFound(text="lifecycle events are not served")
+                    capability: Literal["inventory.snapshot", "lifecycle.events"] = (
+                        EVENTS_CAPABILITY if is_events else "inventory.snapshot"
+                    )
                     registration.admit(
                         principal_ref=principal,
                         scope=registration.scope,
-                        capability="inventory.snapshot",
+                        capability=capability,
                         now=now(),
                     )
                     if (
@@ -81,13 +99,28 @@ def create_connector_gateway(
                     ):
                         raise web.HTTPUnsupportedMediaType(text="uncompressed JSON required")
                     body = bytearray()
-                    limit = 1024 if request.path == GATEWAY_PROBE_PATH else MAX_TRANSFER_BYTES
+                    limit = (
+                        1024
+                        if request.path in {GATEWAY_PROBE_PATH, CURSOR_PATH}
+                        else MAX_EVENT_BYTES
+                        if request.path == BATCH_PATH
+                        else MAX_TRANSFER_BYTES
+                    )
                     async for chunk in request.content.iter_chunked(65_536):
                         if len(body) + len(chunk) > limit:
                             raise web.HTTPRequestEntityTooLarge(
                                 max_size=limit, actual_size=len(body) + len(chunk)
                             )
                         body.extend(chunk)
+                    if is_events and events is not None:
+                        if request.path == CURSOR_PATH:
+                            cursor = await events.cursor(principal)
+                            return web.Response(
+                                body=encode_cursor(cursor), content_type="application/json"
+                            )
+                        return web.json_response(
+                            await events.accept(principal, bytes(body)), status=201
+                        )
                     value = json.loads(body, object_pairs_hook=_unique_object)
                     if request.path == GATEWAY_PROBE_PATH:
                         probe = GatewayProbe.model_validate(value)
@@ -144,4 +177,7 @@ def create_connector_gateway(
     )
     app.router.add_post("/v1/connector/snapshots", receive)
     app.router.add_post(GATEWAY_PROBE_PATH, receive)
+    if events is not None:
+        app.router.add_post(CURSOR_PATH, receive)
+        app.router.add_post(BATCH_PATH, receive)
     return app

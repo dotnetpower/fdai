@@ -79,6 +79,18 @@ source selection per cluster; failover requires a fresh, complete generation, no
 Future observations, stale generations, mismatched identity, and same-key different-content replay
 are rejected. Identical retry remains safe and does not refresh the original observation time.
 
+Kubernetes Event history is the separate `lifecycle.events` capability. The observer holds no
+database access and no cursor. Each cycle, after the snapshot, asks the gateway for the durable
+cursor, collects one bounded watch window from it, and sends the content-safe batch back; Event
+messages are never forwarded. The gateway is the single durable writer per cluster: it acquires the
+store's lease, checks the observer's expected sequence, and appends the batch atomically with
+idempotent observation identities, so a lost response is safe to retry and a stale or duplicate
+batch is rejected. An expired cursor or oversized window becomes an incomplete coverage segment, so
+a gap is recorded instead of being read as absence. The observer needs `list` and `watch` on Events
+only, and an enrollment must list the `lifecycle.events` capability; without it the observer
+reports `not_enrolled` and the snapshot path is unaffected. An Event failure is reported in the
+cycle output but never hides a delivered snapshot.
+
 ## Constraint-based deployment proposals
 
 The complete constraint model and proposal contract are in [AKS Outbound Connector Deployment Proposals](aks-outbound-connector-deployment-proposals.md).
@@ -265,6 +277,10 @@ An approval is one of two kinds. A `sign-approval` signed by an enrolled approve
 executor that may use it, and the executor must be a different identity from the approver. The
 single-operator development profile may instead pass `--development-self-approval` with the
 reviewed digest; the result reports `approval_mode` as `signed` or `development_self_issued`.
+The `install` operation is that single-operator flow in one command: with the reviewed
+`--approve-recipe-digest` it applies, activates, and smoke-verifies, each step with its own
+short-lived approval, claim, and audit record. A failed or unverified smoke run suspends the
+observer again rather than leaving an unproven installation active, and the command exits nonzero.
 Before the first mutating call, the apply and `activate` operations write an exclusive claim, so an
 approval is single use. A claim without an outcome means the result is unknown: the operator runs
 `verify` and requests a fresh approval, and the same approval is never replayed. Once the observer
@@ -276,7 +292,8 @@ and `managed_host` run `kubectl` with a kubeconfig, `run_command` uses `az aks c
 uses `export` to write reviewable documents without credentials.
 
 Before any effect, the command re-checks the documents against the observer-only recipe (read-only
-`list`/`get` verbs, no Secret reads, non-privileged, no host namespaces, pinned image, suspended
+`list`/`get` verbs, plus `watch` on Events only, no Secret reads, non-privileged, no host
+namespaces, pinned image, suspended
 CronJob), the `kube-system` UID, and a namespace that this installer owns. It then applies with
 server-side apply, a fixed field manager, and no forced conflicts, so another owner is preserved.
 A missing namespace is created first with the restricted Pod Security level; the rest is dry-run
@@ -309,6 +326,40 @@ it. Removing the namespace deletes the volume claim and, under a `Delete` reclai
 Applying a changed or repeated plan to an active observer is refused until `deactivate` runs, so an
 upgrade is: `deactivate`, `apply` the new plan, read it back, `verify`. The local
 lock serializes one host only; concurrent operators on other hosts rely on server-side conflicts.
+
+## Gateway deployment
+
+The gateway is an ordinary restricted workload, not a governed observer recipe. It needs no
+Kubernetes API permission, so its recipe has no RBAC objects: a ServiceAccount without a token, a
+non-root Deployment with a read-only root file system, a Service, and a NetworkPolicy.
+`render_gateway_installation` renders it without touching a cluster. It uses the same
+digest-pinned material bundle as the observer; the server certificate and key are the bundle's
+`client.pem` and `client.key`. The state-store DSN is a Secret reference, never a value, and the
+container sets the deployed execution venue because a gateway otherwise accepts only a loopback
+database.
+
+Exposure follows observed network topology and never opens a public address. Both choices use an
+internal load balancer address.
+
+| Observed topology | Exposure | Reason |
+|-------------------|----------|--------|
+| Observer and gateway share a network | Internal load balancer | `same_network` |
+| The networks are peered (`Connected`) | Internal load balancer | `peered` |
+| Disjoint address spaces, not yet peered | Internal load balancer, peering required | `peering_possible` |
+| Overlapping address space | Private Link service | `address_overlap` |
+| Observer network cannot be read | Private Link service | `observer_network_unreadable` |
+
+Private Link needs no route between the networks, so it is the answer whenever peering is
+impossible or the observer's network is unreadable (for example in another tenant). Invalid or
+unknown prefixes count as overlap, never as disjoint. The renderer refuses an exposure that
+differs from the decision, and a Private Link service needs its NAT subnet and the subscriptions
+it may auto-approve.
+
+Ingress admits address blocks for remote networks and namespace and label peers for observers in
+the same cluster, because a policy engine does not match Pod addresses with an address block. The
+Service port equals the Pod port so an observer's origin, its egress rule, and the gateway agree.
+An in-cluster state store is selected the same way. The recipe does not create the namespace, the
+Secrets, the database, or its schema.
 
 ## Governed operations
 

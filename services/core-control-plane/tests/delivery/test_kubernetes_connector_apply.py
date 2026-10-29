@@ -309,7 +309,8 @@ def test_approval_cannot_outlive_thirty_minutes_or_omit_the_manifest(installatio
 
 
 @pytest.mark.parametrize(
-    "case", ["digest", "extra", "privileged", "secret-read", "suspend", "draft", "namespace"]
+    "case",
+    ["digest", "extra", "privileged", "secret-read", "suspend", "draft", "namespace", "watch-pods"],
 )
 def test_tampered_or_draft_manifest_is_refused_before_any_cluster_call(installation, case) -> None:
     inputs, rendered, *_ = installation
@@ -324,6 +325,8 @@ def test_tampered_or_draft_manifest_is_refused_before_any_cluster_call(installat
         pod["containers"][0]["securityContext"]["privileged"] = True
     elif case == "secret-read":
         documents["ClusterRole"]["rules"][0]["resources"].append("secrets")
+    elif case == "watch-pods":
+        documents["ClusterRole"]["rules"][0]["verbs"].append("watch")
     elif case == "suspend":
         documents["CronJob"]["spec"]["suspend"] = False
     elif case == "draft":
