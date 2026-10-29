@@ -214,6 +214,9 @@ Exit gate:
 
 - package install, enable, disable, upgrade, and rollback receipts bind the exact wheel, manifest,
   ontology release, runtime configuration, and source revision;
+- the observation workflow waits up to 20 minutes for the `required` check on the exact target
+  revision to succeed, and starts platform authentication and observation only after that check
+  passes;
 - a live observation-mode cohort reports sample counts, autonomy outcomes, recovery attempts,
   approval reasons, effect settlement, rollbacks, policy escapes, and objective regressions;
 - independent reviewers approve package activation and separately review each ActionType promotion;
