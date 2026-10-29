@@ -373,7 +373,7 @@
     "identityAuthority": "Identity and authority",
     "lifecycle": "Lifecycle",
     "noLifecycleDeclared": "No lifecycle contract is declared. Catalog as code remains the declaration authority.",
-    "lifecycleClassification": "Lifecycle authority",
+    "lifecycleClassification": "Lifecycle classification",
     "lifecycleCategory_catalog_as_code": "Catalog as code",
     "lifecycleCategory_event_bus_registry": "Event-bus registry",
     "lifecycleCategory_projection_owned": "Projection owned",

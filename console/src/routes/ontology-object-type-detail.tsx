@@ -181,12 +181,7 @@ function OntologyObjectTypeWorkbench({ data }: { readonly data: WorkbenchData })
           <div><dt>{t("ontology.detail.key")}</dt><dd><code>{declaration.key}</code></dd></div>
           <div>
             <dt>{t("ontology.detail.lifecycleOwner")}</dt>
-            <dd>
-              {recordString(lifecycle, "owner")
-                ?? (lifecycleClassification
-                  ? lifecycleCategoryLabel(lifecycleClassification)
-                  : t("ontology.detail.noLifecycle"))}
-            </dd>
+            <dd>{lifecycleOwnerSummary(lifecycle)}</dd>
           </div>
           <div><dt>{t("ontology.detail.authority")}</dt><dd>{t("ontology.detail.readOnly")}</dd></div>
         </dl>
@@ -449,6 +444,10 @@ function evidenceReasonLabel(reason: string): string {
 
 function lifecycleCategoryLabel(classification: OntologyLifecycleClassification): string {
   return t(`ontology.detail.lifecycleCategory_${classification.category}`);
+}
+
+export function lifecycleOwnerSummary(lifecycle: UnknownRecord | undefined): string {
+  return recordString(lifecycle, "owner") ?? t("ontology.detail.noLifecycle");
 }
 
 function LifecycleClassificationDetail(
