@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 3c6fc87b200a21617567d6fea377e577fb2ef243
+translation_source_sha: de273cf5e24323741a5cfcc6251b9f574a371428
 translation_revised: 2026-10-30
 ---
 # AKS 역방향 커넥터
@@ -266,8 +266,12 @@ python -m fdai.delivery.kubernetes_connector_apply_cli apply --inputs ... --prop
 승인은 두 종류입니다. 등록된 승인자 키(`ObserverApproverGrant`: 승인자, 키, 대상, 작업 집합, 유효
 기간, 철회)가 `sign-approval`로 서명한 승인은 사용할 실행자를 지정하며, 실행자는 승인자와 다른
 신원이어야 합니다. 단일 운영자 개발 프로필은 검토한 digest와 함께 `--development-self-approval`을
-쓸 수 있고, 결과의 `approval_mode`가 `signed` 또는 `development_self_issued`로 표시됩니다. 적용과
-`activate`는 첫 변경 호출 전에 배타적 claim을 기록하므로 승인은 한 번만 쓸 수 있습니다. 결과 없는
+쓸 수 있고, 결과의 `approval_mode`가 `signed` 또는 `development_self_issued`로 표시됩니다.
+`install` 작업은 이 단일 운영자 흐름을 명령 하나로 실행합니다. 검토한 `--approve-recipe-digest`로
+적용, 활성화, smoke 검증을 순서대로 수행하며 단계마다 짧은 승인, claim, 감사 기록을 따로 둡니다.
+smoke 실행이 실패하거나 검증되지 않으면 검증되지 않은 설치를 활성 상태로 두지 않고 관찰자를 다시
+중지하며 명령은 0이 아닌 코드로 종료합니다.
+적용과 `activate`는 첫 변경 호출 전에 배타적 claim을 기록하므로 승인은 한 번만 쓸 수 있습니다. 결과 없는
 claim은 결과를 알 수 없다는 뜻이며, 운영자는 `verify`로 확인하고 새 승인을 받아야 하고 같은 승인을
 다시 쓰지 않습니다. 관찰자 네임스페이스가 있으면 작업은 그 안의 Kubernetes `Lease`(10분, 만료되었을
 때만 인수)도 잡아 두 호스트가 한 대상을 동시에 다루지 못합니다. 네임스페이스가 생기기 전에는 호스트

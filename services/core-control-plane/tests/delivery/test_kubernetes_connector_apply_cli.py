@@ -257,3 +257,88 @@ def test_uninstall_is_a_target_bound_operation(tmp_path, case, monkeypatch) -> N
         arguments(tmp_path, "uninstall", built, approve_target_ref=built[0].target_ref), now=LATER
     )
     assert seen == {"op": "uninstall"}
+
+
+def test_install_applies_activates_and_verifies_in_one_reviewed_command(
+    tmp_path, case, monkeypatch
+) -> None:
+    built, cluster = case
+    write_proposal(tmp_path, built)
+    digest = built[1]["recipe_digest"]
+    monkeypatch.setattr(cli, "verify_observer", lambda *a, **k: {"state": "delivered"})
+    result = cli.run(arguments(tmp_path, "install", built, approve_recipe_digest=digest), now=LATER)
+    assert result["state"] == "delivered"
+    assert result["approval_mode"] == "development_self_issued"
+    assert list(result["steps"]) == ["apply", "activate", "verify"]
+    job = cluster.objects[("cronjob", built[0].namespace, built[0].name)]
+    assert job["spec"]["suspend"] is False
+    operations = [
+        json.loads(line)["operation"]
+        for line in (tmp_path / "audit.jsonl").read_text().splitlines()
+    ]
+    assert {"apply", "activate"} <= set(operations)
+
+
+def test_a_failed_smoke_run_suspends_the_observer_again(
+    tmp_path, case, monkeypatch, capsys
+) -> None:
+    built, cluster = case
+    write_proposal(tmp_path, built)
+    digest = built[1]["recipe_digest"]
+    monkeypatch.setattr(cli, "verify_observer", lambda *a, **k: {"state": "image_pull_failed"})
+    result = cli.run(arguments(tmp_path, "install", built, approve_recipe_digest=digest), now=LATER)
+    assert result["state"] == "install_failed_deactivated"
+    assert list(result["steps"]) == ["apply", "activate", "verify", "deactivate"]
+    job = cluster.objects[("cronjob", built[0].namespace, built[0].name)]
+    assert job["spec"]["suspend"] is True
+
+
+def test_install_exits_nonzero_for_a_failed_install(tmp_path, case, monkeypatch, capsys) -> None:
+    built, _ = case
+    write_proposal(tmp_path, built)
+    monkeypatch.setattr(cli, "verify_observer", lambda *a, **k: {"state": "job_failed"})
+    monkeypatch.setattr(
+        cli,
+        "_parser",
+        lambda: type(
+            "P",
+            (),
+            {
+                "parse_args": lambda self, argv=None: arguments(
+                    tmp_path,
+                    "install",
+                    built,
+                    approve_recipe_digest=built[1]["recipe_digest"],
+                )
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        cli, "datetime", type("D", (), {"now": staticmethod(lambda tz=None: LATER)})
+    )
+    assert cli.main([]) == 1
+    assert json.loads(capsys.readouterr().out)["state"] == "install_failed_deactivated"
+
+
+def test_install_refuses_without_the_flag_or_the_reviewed_digest(tmp_path, case) -> None:
+    built, cluster = case
+    write_proposal(tmp_path, built)
+    with pytest.raises(ValueError, match="requires --approve-recipe-digest"):
+        cli.run(arguments(tmp_path, "install", built), now=LATER)
+    with pytest.raises(ValueError, match="needs --development-self-approval"):
+        cli.run(
+            arguments(
+                tmp_path,
+                "install",
+                built,
+                approve_recipe_digest=built[1]["recipe_digest"],
+                development_self_approval=False,
+            ),
+            now=LATER,
+        )
+    with pytest.raises(ValueError, match="differs from the current"):
+        cli.run(
+            arguments(tmp_path, "install", built, approve_recipe_digest="sha256:" + "0" * 64),
+            now=LATER,
+        )
+    assert cluster.effects() == []
