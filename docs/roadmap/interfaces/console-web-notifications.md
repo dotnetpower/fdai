@@ -140,11 +140,12 @@ navigates an unrelated same-origin window outside a subpath deployment. It focus
 returned by navigation; if navigation cannot produce a window, it opens the same validated target.
 It never treats a fire-and-forget `postMessage()` call as acknowledgement delivery.
 
-Navigation admits only the scoped Approvals, Audit, and legacy Incident routes. Previously displayed
-notifications retain their original Incident destination. When that live Incident selection is
-unavailable, **View related audit history** opens the same correlation in Audit without inventing
-an Incident, changing filters, or claiming operational success. Sample selections do not expose
-this live-evidence recovery link.
+Navigation admits only the scoped Approvals, Audit, legacy Incident, and Detection Coverage routes.
+Current-Finding notifications use the scoped `/detection-coverage` route; no other Console
+destinations are admitted. Previously displayed notifications retain their original Incident
+destination. When that live Incident selection is unavailable, **View related audit history** opens
+the same correlation in Audit without inventing an Incident, changing filters, or claiming
+operational success. Sample selections do not expose this live-evidence recovery link.
 
 ## Failure and recovery
 

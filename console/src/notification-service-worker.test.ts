@@ -84,18 +84,21 @@ describe("notification service worker boundary", () => {
     expect([...context.handlers.keys()].sort()).toEqual(["activate", "install", "notificationclick"]);
   });
 
-  test("opens only scoped Approvals, Audit, and legacy Incident routes", () => {
+  test("opens only scoped Approvals, Audit, legacy Incident, and Finding routes", () => {
     const root = loadWorker();
     expect(root.safeTarget?.("/incidents?status=all")?.href).toBe(
       "https://console.example.com/incidents?status=all",
     );
     expect(root.safeTarget?.("/approvals?data=live")?.pathname).toBe("/approvals");
+    expect(root.safeTarget?.("/detection-coverage?finding=finding-1&data=live")?.pathname)
+      .toBe("/detection-coverage");
     expect(root.safeTarget?.("//attacker.example/approvals")).toBeNull();
     expect(root.safeTarget?.("/approvals/other")).toBeNull();
     expect(root.safeTarget?.("//attacker.example/incidents")).toBeNull();
     expect(root.safeTarget?.("/audit?correlation=corr-1")?.pathname).toBe("/audit");
     expect(root.safeTarget?.("//attacker.example/audit")).toBeNull();
     expect(root.safeTarget?.("/audit/other")).toBeNull();
+    expect(root.safeTarget?.("/detection-coverage/other")).toBeNull();
 
     const nested = loadWorker("https://console.example.com/fdai/");
     expect(nested.safeTarget?.("/fdai/incidents?status=all")?.pathname).toBe("/fdai/incidents");
@@ -104,6 +107,10 @@ describe("notification service worker boundary", () => {
     expect(nested.safeTarget?.("/approvals?data=live")).toBeNull();
     expect(nested.safeTarget?.("/fdai/audit?correlation=corr-1")?.pathname).toBe("/fdai/audit");
     expect(nested.safeTarget?.("/audit?correlation=corr-1")).toBeNull();
+    expect(nested.safeTarget?.("/fdai/detection-coverage?finding=finding-1&data=live")?.pathname)
+      .toBe("/fdai/detection-coverage");
+    expect(nested.safeTarget?.("/detection-coverage?finding=finding-1&data=live")).toBeNull();
+    expect(nested.safeTarget?.("/fdai/detection-coverage/other")).toBeNull();
   });
 
   test("opens correlated audit evidence with the click acknowledgement", async () => {
