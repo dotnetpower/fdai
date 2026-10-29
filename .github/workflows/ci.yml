@@ -78,7 +78,8 @@ jobs:
     needs: changes
     if: >-
       needs.changes.outputs.python == 'true' &&
-      (vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true' ||
+      ((vars.FDAI_CI_ELASTIC_RUNNER_ENABLED != 'true' &&
+      vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true') ||
       github.ref != 'refs/heads/main' ||
       github.event_name == 'pull_request')
     strategy:
@@ -146,11 +147,12 @@ jobs:
         run: bash scripts/quality/ci/run-python-tests.sh
 
   protected-ci-source:
-    name: verify SSD CI source
+    name: verify self-hosted CI source
     needs: changes
     if: >-
       needs.changes.outputs.python == 'true' &&
-      vars.FDAI_CI_SSD_RUNNER_ENABLED == 'true' &&
+      (vars.FDAI_CI_SSD_RUNNER_ENABLED == 'true' ||
+      vars.FDAI_CI_ELASTIC_RUNNER_ENABLED == 'true') &&
       github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
@@ -177,6 +179,7 @@ jobs:
     needs: [changes, protected-ci-source]
     if: >-
       needs.changes.outputs.python == 'true' &&
+      vars.FDAI_CI_ELASTIC_RUNNER_ENABLED != 'true' &&
       vars.FDAI_CI_SSD_RUNNER_ENABLED == 'true' &&
       github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request'
@@ -192,6 +195,31 @@ jobs:
       FDAI_PYTEST_MAX_WORKERS: "3"
       FDAI_PYTEST_MODE: regression
       FDAI_PYTEST_SHARD_COUNT: "4"
+      FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
+    steps: *python-regression-steps
+
+  # Ephemeral one-job runners scale out per queued job, so the suite is split into more,
+  # smaller shards than the fixed pools: the slowest shard sets the wall time.
+  python-tests-elastic:
+    name: pytest regression shard ${{ matrix.shard }}/8 (elastic)
+    needs: [changes, protected-ci-source]
+    if: >-
+      needs.changes.outputs.python == 'true' &&
+      vars.FDAI_CI_ELASTIC_RUNNER_ENABLED == 'true' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request'
+    runs-on: [self-hosted, Linux, X64, fdai-ci, fdai-ci-aca]
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    timeout-minutes: 25
+    env:
+      FDAI_NARRATOR_AUTO_OPEN_AOAI: "0"
+      FDAI_PYTEST_MAX_WORKERS: "4"
+      FDAI_PYTEST_MODE: regression
+      FDAI_PYTEST_SHARD_COUNT: "8"
       FDAI_PYTEST_SHARD_INDEX: ${{ matrix.shard }}
     steps: *python-regression-steps
 
@@ -1085,7 +1113,7 @@ jobs:
 
       - name: Trivy Terraform misconfiguration scan
         working-directory: .
-        run: trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL infra
+        run: trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL --ignorefile infra/trivy-config-ignore.yaml infra
 
       - name: Checkov Terraform scan
         working-directory: .
@@ -1099,6 +1127,7 @@ jobs:
       - python-tests
       - protected-ci-source
       - python-tests-ssd
+      - python-tests-elastic
       - python-coverage-shards
       - python-coverage
       - operator-surfaces

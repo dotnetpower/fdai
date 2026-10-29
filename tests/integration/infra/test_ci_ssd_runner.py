@@ -18,6 +18,7 @@ assert SPEC is not None and SPEC.loader is not None
 REGISTER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REGISTER)
 _ELIGIBLE = (
+    "vars.FDAI_CI_ELASTIC_RUNNER_ENABLED != 'true' && "
     "vars.FDAI_CI_SSD_RUNNER_ENABLED == 'true' && "
     "github.ref == 'refs/heads/main' && github.event_name != 'pull_request'"
 )
@@ -30,7 +31,8 @@ def test_workflow_routes_all_main_regression_shards_without_moving_prs() -> None
     assert job["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
     assert " ".join(job["if"].split()) == (
         "needs.changes.outputs.python == 'true' && "
-        "(vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true' || "
+        "((vars.FDAI_CI_ELASTIC_RUNNER_ENABLED != 'true' && "
+        "vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true') || "
         "github.ref != 'refs/heads/main' || github.event_name == 'pull_request')"
     )
     ssd = workflow["jobs"]["python-tests-ssd"]

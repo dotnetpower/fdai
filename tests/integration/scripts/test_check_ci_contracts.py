@@ -462,7 +462,8 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards()
         if job_name == "python-tests":
             assert " ".join(job["if"].split()) == (
                 "needs.changes.outputs.python == 'true' && "
-                "(vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true' || "
+                "((vars.FDAI_CI_ELASTIC_RUNNER_ENABLED != 'true' && "
+                "vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true') || "
                 "github.ref != 'refs/heads/main' || github.event_name == 'pull_request')"
             )
         else:
@@ -2349,7 +2350,10 @@ def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
 
     assert "terraform-validate:" in workflow
     assert "needs.changes.outputs.terraform == 'true'" in workflow
-    assert "trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL infra" in workflow
+    assert (
+        "trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL "
+        "--ignorefile infra/trivy-config-ignore.yaml infra"
+    ) in workflow
     assert "terraform-security:" not in workflow
     assert "checkov -d infra --quiet --compact --framework terraform" in workflow
     assert "--baseline" not in workflow

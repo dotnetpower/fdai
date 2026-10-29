@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 5e6fece718e8f141c70f327c56ba1cc7a80fe5ba
+translation_source_sha: 9a485e7f6d932ca258027e3ea86e7f75c2669f7d
 translation_revised: 2026-10-29
 ---
 # 배포 리소스 규약
@@ -383,6 +383,14 @@ OS 디스크는 Premium SSD를 사용합니다. 로컬 임시 SSD에는 삭제�
 보호된 Run Command로 이를 적용하며, 실패 시 닫히는 검증기가 등록 전과 모든 자체 호스팅 회귀 테스트 작업
 시작 시점에 실행됩니다. 항목이 없거나, 고정 버전이 다르거나, 다른 계정이 쓸 수 있는 도구가 있는 러너는
 테스트를 실행하기 전에 거부됩니다. 따라서 새로 만들거나 재구성한 러너가 실행 도중에 실패하지 않습니다.
+
+선택적 탄력 러너는 [`infra/ci-runner-aca`](../../../infra/ci-runner-aca/README.md)에서 고정 풀을 대체하며,
+대기 중인 작업 수에 따라 0개에서 선언된 상한까지 확장되는 일회용 Container Apps Job 실행으로 구성합니다.
+이미지는 같은 도구 체인 매니페스트로 빌드하고, 레지스트리 풀 외의 배포 ID를 갖지 않으며, GitHub
+자격 증명을 Terraform과 워크플로 코드에 노출하지 않습니다. 보호된 main의 회귀 테스트는 샤드 4개 대신
+8개로 실행되며, 측정한 가장 느린 샤드는 총 계산량이 같은 조건에서 667초에서 약 330초로 줄었습니다.
+`FDAI_CI_ELASTIC_RUNNER_ENABLED` 변수가 SSD 풀보다 먼저 이 러너를 선택하며, 포크에도 안전한
+풀 리퀘스트 가드가 마련되기 전까지 풀 리퀘스트는 GitHub 호스팅 실행을 유지합니다.
 
 선택적 가속은 회귀 테스트 샤드 4개를 같은 VM의 리스너 최대 5개로 구성한 풀로 이동합니다.
 각 샤드는 pytest 워커 3개를 사용합니다. 리스너마다 실행 파일, 작업 공간, 캐시 경로를 분리하고,
