@@ -1113,7 +1113,7 @@ jobs:
 
       - name: Trivy Terraform misconfiguration scan
         working-directory: .
-        run: trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL infra
+        run: trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL --ignorefile infra/trivy-config-ignore.yaml infra
 
       - name: Checkov Terraform scan
         working-directory: .

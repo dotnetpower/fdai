@@ -1,0 +1,12 @@
+# Scoped Trivy misconfiguration exceptions for `trivy config ... infra` (paths are relative to
+# the scanned `infra` directory). Vulnerability exceptions stay in the repository-root
+# .trivyignore.yaml, which also gates image rebuilds.
+misconfigurations:
+  - id: DS-0002
+    paths:
+      - "ci-runner-aca/Dockerfile"
+    statement: >-
+      The ephemeral CI runner entrypoint must start as root so the job credential held by PID 1
+      is unreadable by the unprivileged `runner` account that executes workflow code; it drops
+      to `runner` before any workflow code runs. A final USER instruction would expose that
+      credential through /proc/1/environ. Covered by test_ci_runner_elastic.py.

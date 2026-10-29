@@ -2350,7 +2350,10 @@ def test_infrastructure_scan_blocks_medium_high_and_critical_findings() -> None:
 
     assert "terraform-validate:" in workflow
     assert "needs.changes.outputs.terraform == 'true'" in workflow
-    assert "trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL infra" in workflow
+    assert (
+        "trivy config --exit-code 1 --severity MEDIUM,HIGH,CRITICAL "
+        "--ignorefile infra/trivy-config-ignore.yaml infra"
+    ) in workflow
     assert "terraform-security:" not in workflow
     assert "checkov -d infra --quiet --compact --framework terraform" in workflow
     assert "--baseline" not in workflow

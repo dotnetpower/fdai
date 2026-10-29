@@ -112,3 +112,14 @@ def test_credential_script_never_places_the_secret_in_arguments_or_terraform() -
     subprocess.run(  # noqa: S603 - syntax check of tracked scripts
         ["/usr/bin/bash", "-n", str(INFRA / "set-credential.sh")], check=True
     )
+
+
+def test_the_root_user_exception_is_scoped_to_one_rule_and_one_file() -> None:
+    ignore = yaml.safe_load((ROOT / "infra/trivy-config-ignore.yaml").read_text(encoding="utf-8"))
+    assert [(item["id"], item["paths"]) for item in ignore["misconfigurations"]] == [
+        ("DS-0002", ["ci-runner-aca/Dockerfile"])
+    ]
+    assert set(ignore) == {"misconfigurations"}
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "--ignorefile infra/trivy-config-ignore.yaml infra" in workflow
+    assert "USER " not in DOCKERFILE and "runuser -u runner" in ENTRYPOINT
