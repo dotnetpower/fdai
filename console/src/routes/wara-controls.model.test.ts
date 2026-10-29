@@ -108,6 +108,11 @@ describe("WARA control contract", () => {
     expect(() => decodeWaraResponse(response([CONTROL, CONTROL]))).toThrow(/ids MUST be unique/);
   });
 
+  test("rejects large guidance on list rows instead of silently carrying detail payloads", () => {
+    expect(() => decodeWaraResponse(response([{ ...CONTROL, guidance: {} }]))).toThrow(/detail only/);
+    expect(decodeWaraResponse(response([{ ...CONTROL, guidance: null }])).controls[0]).not.toHaveProperty("guidance");
+  });
+
   test("rejects malformed manual evidence", () => {
     expect(() => decodeWaraResponse(response([{
       ...CONTROL,

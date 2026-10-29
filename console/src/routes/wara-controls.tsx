@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import {
@@ -12,10 +12,12 @@ import {
   type Column,
   type PillKind,
 } from "../components/ui";
-import { currentRoute, navigate, replaceRouteState } from "../router";
+import { currentRoute, navigate, pushRouteState, replaceRouteState } from "../router";
 import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components";
 import { SEVERITY_PILL } from "./rule-catalog-types";
+import { WaraGuidanceContent } from "./wara-guidance";
+import { verifyWaraGuidanceDigest } from "./wara-guidance.model";
 import {
   decodeWaraDetail,
   decodeWaraResponse,
@@ -130,7 +132,9 @@ export function WaraControlsRoute({ client }: { readonly client: OperatorApiClie
       try {
         const value = decodeWaraDetail(
           await client.panel<unknown>(`/wara-controls/${encodeURIComponent(selected)}`),
+          selected,
         );
+        await verifyWaraGuidanceDigest(value.guidance);
         if (!cancelled) setDetail({ status: "ready", data: value });
       } catch (error) {
         if (!cancelled) {
@@ -176,11 +180,18 @@ export function WaraControlsRoute({ client }: { readonly client: OperatorApiClie
         selected={selected}
         onFilter={updateFilter}
         onSearch={setSearchInput}
-        onSelect={(id) => navigate(waraHref(filters, id, offset))}
+        onSelect={(id) => {
+          setDetail({ status: "loading" });
+          pushRouteState(waraHref(filters, id, offset));
+          setSelected(id);
+        }}
         onPage={(nextOffset) => navigate(waraHref(filters, selected, nextOffset))}
       />
       {selected !== null ? (
-        <WaraDrawer detail={detail} onClose={() => navigate(waraHref(filters, null, offset))} />
+        <WaraDrawer detail={detail} onClose={() => {
+          pushRouteState(waraHref(filters, null, offset));
+          setSelected(null);
+        }} />
       ) : null}
     </div>
   );
@@ -213,7 +224,7 @@ function WaraControlsBody({
         key: "recommendation",
         header: t("governance.rules.wara.column.recommendation"),
         render: (item) => (
-          <span class="wara-recommendation-identity">
+          <span class="wara-recommendation-identity" data-recommendation-id={item.id}>
             <span class="wara-recommendation-title">{item.title}</span>
             <small class="muted">
               <Tooltip content={item.id} placement="top"><code>{item.id.slice(0, 8)}</code></Tooltip>
@@ -322,7 +333,8 @@ function WaraControlsBody({
 
 function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonly onClose: () => void }) {
   const panelRef = useRef<HTMLElement>(null);
-  useEffect(() => {
+  const [expanded, setExpanded] = useState(false);
+  useLayoutEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
     return () => previous?.focus?.();
@@ -335,13 +347,16 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
       return;
     }
     if (event.key !== "Tab" || panelRef.current === null) return;
-    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
+    const focusables = Array.from(panelRef.current.querySelectorAll<HTMLElement>(
+      'summary, a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )).filter((element) => {
+      const closed = element.closest("details:not([open])");
+      return element.getClientRects().length > 0 && (closed === null || element === closed.querySelector(":scope > summary"));
+    });
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
     if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -352,9 +367,9 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
 
   return (
     <div class="drawer-overlay" onClick={onClose}>
-      <aside id="wara-control-detail" ref={panelRef} tabIndex={-1} class="rule-drawer" role="dialog" aria-modal="true" aria-label={t("governance.rules.wara.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
+      <aside id="wara-control-detail" ref={panelRef} tabIndex={-1} class={`rule-drawer wara-drawer${expanded ? " is-expanded" : ""}`} role="dialog" aria-modal="true" aria-label={t("governance.rules.wara.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
         <header class="rule-drawer-head">
-          <h3 class="mono">{detail.status === "ready" ? detail.data.id : t("governance.rules.wara.detail.title")}</h3>
+          <p class="wara-drawer-label">{t("governance.rules.wara.detail.title")}</p>
           <button type="button" class="btn" onClick={onClose}>{t("governance.common.close")}</button>
         </header>
         <div class="rule-drawer-body">
@@ -364,44 +379,23 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
             <ErrorState message={t("governance.rules.wara.detail.loadFailed", { message: detail.message })} />
           ) : (
             <div class="stack">
+              <WaraGuidanceContent control={detail.data} expanded={expanded} onExpand={() => setExpanded((value) => !value)} />
+              <section class="wara-runtime">
+              <h3>{t("governance.rules.wara.guidance.runtime")}</h3>
+              <p>{t("governance.rules.wara.detail.boundary")}</p>
               <div class="pill-row">
                 <StatusPill kind={SATISFACTION_PILL[detail.data.satisfaction]} label={displayValue("controlStatus", detail.data.satisfaction)} />
                 <StatusPill kind="info" label={displayValue("waraMapping", detail.data.mapping_disposition)} />
                 <StatusPill kind="neutral" label={displayValue("controlEvaluation", detail.data.evaluation_status)} />
               </div>
-              <section class="rule-overview">
-                <h4 class="rule-overview-title">{detail.data.title}</h4>
-                <p class="rule-overview-desc">{t("governance.rules.wara.detail.boundary")}</p>
-              </section>
               <dl class="detail-grid">
-                <dt>{t("governance.rules.wara.column.resourceType")}</dt><dd><code>{detail.data.resource_type}</code></dd>
-                <dt>{t("governance.rules.wara.column.control")}</dt><dd>{detail.data.recommendation_control}</dd>
-                <dt>{t("governance.rules.wara.column.impact")}</dt><dd>{detail.data.impact}</dd>
+                <dt>{t("governance.rules.wara.filter.applicability")}</dt><dd>{displayValue("controlApplicability", detail.data.applicability)}</dd>
                 <dt>{t("governance.rules.wara.detail.evaluationScope")}</dt><dd><code>{detail.data.evaluation_scope ?? "-"}</code></dd>
                 <dt>{t("governance.rules.wara.detail.evaluatedAt")}</dt><dd><code>{detail.data.evaluated_at ?? "-"}</code></dd>
                 <dt>{t("governance.rules.wara.detail.evidenceComplete")}</dt><dd>{displayValue("boolean", String(detail.data.evidence_complete))}</dd>
                 <dt>{t("governance.rules.wara.detail.evidenceRefs")}</dt><dd>{detail.data.evidence_refs.join(", ") || "-"}</dd>
                 <dt>{t("governance.rules.wara.detail.limitations")}</dt><dd>{detail.data.limitations.join(", ") || "-"}</dd>
               </dl>
-              <DetailSection title={t("governance.rules.wara.detail.source")}>
-                <dl class="detail-grid">
-                  <DetailRow
-                    label={t("governance.rules.wara.detail.aprlSource")}
-                    value={<a href={detail.data.source_url} target="_blank" rel="noreferrer">{detail.data.source_path}</a>}
-                  />
-                  <DetailRow label={t("governance.rules.wara.detail.sourceVersion")} value={detail.data.source_version} mono />
-                  <DetailRow label={t("governance.rules.wara.detail.sourceRevision")} value={detail.data.source_revision} mono />
-                  <DetailRow label={t("governance.rules.wara.detail.sourceDigest")} value={detail.data.source_digest} mono />
-                  <DetailRow label={t("governance.rules.wara.detail.retrievedAt")} value={detail.data.retrieved_at} mono />
-                  <DetailRow label={t("governance.rules.wara.detail.license")} value={detail.data.source_license} />
-                  <DetailRow
-                    label={t("governance.rules.wara.detail.learnMore")}
-                    value={detail.data.learn_more_url === null ? "-" : <a href={detail.data.learn_more_url} target="_blank" rel="noreferrer">{detail.data.learn_more_name}</a>}
-                  />
-                  <DetailRow label={t("governance.rules.wara.detail.queryDigest")} value={detail.data.query_digest ?? "-"} mono />
-                  <DetailRow label={t("governance.rules.wara.detail.evaluator")} value={detail.data.evaluator_ref ?? "-"} mono />
-                </dl>
-              </DetailSection>
               {detail.data.manual_evidence !== null ? (
                 <DetailSection title={t(detail.data.manual_evidence.role === "fallback"
                   ? "governance.rules.wara.detail.manualFallback"
@@ -416,6 +410,26 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
                   </dl>
                 </DetailSection>
               ) : null}
+              </section>
+              <details class="wara-technical">
+                <summary>{t("governance.rules.wara.guidance.technical")}</summary>
+                <dl class="detail-grid">
+                  <DetailRow label={t("governance.rules.wara.guidance.recommendationId")} value={detail.data.id} mono />
+                  <DetailRow label={t("governance.rules.wara.column.resourceType")} value={detail.data.resource_type} mono />
+                  <DetailRow label={t("governance.rules.wara.column.control")} value={detail.data.recommendation_control} />
+                  <DetailRow label={t("governance.rules.wara.column.impact")} value={detail.data.impact} />
+                  <DetailRow label={t("governance.rules.wara.detail.aprlSource")} value={<a href={detail.data.source_url} target="_blank" rel="noreferrer">{detail.data.source_path}</a>} />
+                  <DetailRow label={t("governance.rules.wara.detail.sourceVersion")} value={detail.data.source_version} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.sourceRevision")} value={detail.data.source_revision} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.sourceDigest")} value={detail.data.source_digest} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.retrievedAt")} value={detail.data.retrieved_at} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.license")} value={detail.data.source_license} />
+                  <DetailRow label={t("governance.rules.wara.detail.learnMore")} value={detail.data.learn_more_url === null ? "-" : <a href={detail.data.learn_more_url} target="_blank" rel="noreferrer">{detail.data.learn_more_name}</a>} />
+                  <DetailRow label={t("governance.rules.wara.detail.queryDigest")} value={detail.data.query_digest ?? "-"} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.evaluator")} value={detail.data.evaluator_ref ?? "-"} mono />
+                  {detail.data.guidance ? <DetailRow label={t("governance.rules.wara.guidance.contentDigest")} value={detail.data.guidance.content_digest} mono /> : null}
+                </dl>
+              </details>
             </div>
           )}
         </div>

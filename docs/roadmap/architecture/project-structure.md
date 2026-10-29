@@ -905,6 +905,11 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 The WARA job accepts `WaraManualEvidenceSource` and `WaraReportSink` in
 `delivery/wara_assessment_cli.py`. Deployment adapters supply signed exact-scope manual receipts
 or private read-only report outputs; neither seam grants approval or execution authority.
+`fdai_service_contracts.wara_guidance` separately carries an inert source-pinned public corpus and
+typed explanatory diagrams. Operator attaches one matching guide to the existing WARA detail
+read; Core's public-guide report builder and delivery-owned Office renderer reuse the same data.
+This shared package adds no cross-service implementation import, upload/document-ingestion path,
+ontology observation, assessment writer or operational authority.
 
 Var's optional `CloudApplicationAuthorizationSource` reads exact human policy/request inputs from the separate document database.
 API owns inputs; Var approves, Saga audits and Muninn indexes. Worker visibility fences the same policy.

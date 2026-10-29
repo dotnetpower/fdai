@@ -57,6 +57,12 @@ permission and independently approved scan permission remain separate from ontol
 
 ## Design at a glance
 
+The WARA resource crosswalk now resolves all 80 source types through reviewed exact provider
+identities, explicit canonical alternatives and a source-only subscription alias. Additional child
+types have exact `contains` producers; a workload child cannot establish a full subscription scope.
+Illustrated guidance uses separate presentation nodes and edges, not ontology instances or
+observed relationships. A diagram never supplies resource existence, graph completeness or authority.
+
 ![Design at a glance. The main stages are Resource, ResourceType, ResourceClass, Query, Exploratory traversal, Ordered typed path, LinkType, Forward and reverse roles, Semantic traits.](../../diagrams/generated/fdai-roadmap-architecture-ontology-structural-model-01.en.svg)
 
 The model separates exact identity, aggregation, behavior, language, topology hints, query execution, and presentation. Each concern has one canonical representation and one bounded consumer contract.

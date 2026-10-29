@@ -273,6 +273,8 @@ def _wara_snapshot(
                 "id": control.id,
                 "title": control.title,
                 "recommendation_control": metadata.control,
+                "description": control.description,
+                "potential_benefits": metadata.potential_benefits,
                 "impact": metadata.impact,
                 "resource_type": metadata.resource_type,
                 "lifecycle": metadata.state.casefold(),

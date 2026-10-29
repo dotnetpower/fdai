@@ -23,6 +23,11 @@ presentation metadata and do not change WAF or CAF control mappings, assessment 
 
 ## Design at a glance
 
+The shared catalog materializer exposes WARA's exact query and Rule evaluator identities and
+distinguishes required manual evidence from optional signed fallback. Its illustrated detail
+guidance is an inert source-pinned shared record, not another assessment specification or evidence
+writer. These WARA additions do not change WAF/CAF requirements, admission, results or authority.
+
 The shared assessment boundary has six deterministic stages:
 
 1. Load one pinned framework and its reviewed, content-addressed evidence specification catalog.

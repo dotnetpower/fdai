@@ -1,0 +1,100 @@
+.wara-drawer.rule-drawer { width: min(1280px, calc(100vw - 32px)); max-width: none; }
+.wara-drawer.is-expanded { width: calc(100vw - 32px); }
+.wara-drawer .rule-drawer-head { gap: 16px; }
+.wara-drawer .wara-drawer-label { font-size: var(--cs-type-panel-title-size); font-weight: 600; overflow-wrap: anywhere; min-width: 0; margin: 0; }
+.wara-drawer .rule-drawer-body { padding: 24px; }
+.wara-drawer .detail-grid { grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); }
+.wara-drawer dd, .wara-drawer code { overflow-wrap: anywhere; min-width: 0; }
+.wara-drawer .wara-technical { margin-top: 40px; border-top: 1px solid var(--border); padding-top: 24px; }
+.wara-technical > summary { cursor: pointer; font-size: var(--cs-type-section-title-size); font-weight: 600; padding: 8px 0; }
+.wara-runtime { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border); }
+.wara-runtime > h3 { font-size: var(--cs-type-section-title-size); margin: 0 0 16px; }
+.wara-runtime .pill-row { margin: 16px 0; }
+.wara-guidance-content { min-width: 0; }
+.wara-guidance-content p, .wara-guidance-content li { line-height: var(--cs-type-body-line-height); }
+.wara-guidance-section { margin: 0 0 32px; min-width: 0; }
+.wara-guidance-section > h3, .wara-guidance-sources h3 { font-size: var(--cs-type-section-title-size); margin: 0 0 16px; }
+.wara-guidance-explanation { margin-bottom: 24px; }
+.wara-guidance-explanation > h3 { margin-bottom: 8px; }
+.wara-guidance-title { font-size: var(--cs-type-page-title-size); line-height: var(--cs-type-page-title-line-height); margin: 0 0 8px; overflow-wrap: anywhere; }
+.wara-guidance-intro-columns { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 32px; }
+.wara-guidance-lead { font-size: var(--cs-type-lead-size); line-height: var(--cs-type-lead-line-height); max-width: 76ch; }
+.wara-guidance-section p { max-width: 80ch; margin: 12px 0; }
+.wara-guidance-content ul, .wara-guidance-content ol { margin: 0; padding-left: 24px; }
+.wara-guidance-content li + li { margin-top: 10px; }
+.wara-guidance-content li { overflow-wrap: anywhere; }
+.wara-guidance-context, .wara-guidance-unavailable { color: var(--fg-muted); }
+.wara-guidance-history { margin: 0 0 16px; padding: 16px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; }
+.wara-guidance-unavailable { padding: 16px; background: var(--bg-soft, var(--cs-shade)); border: 1px solid var(--border); border-radius: 6px; }
+.wara-guidance-comparison { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.wara-guidance-comparison th, .wara-guidance-comparison td { width: 50%; text-align: left; vertical-align: top; padding: 16px; overflow-wrap: anywhere; border: 1px solid var(--border); line-height: var(--cs-type-body-line-height); }
+.wara-guidance-comparison th { background: var(--bg-soft, var(--cs-shade)); font-size: var(--cs-type-body-size); }
+.wara-guidance-procedures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; }
+.wara-guidance-configuration-context { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.8fr); gap: 32px; }
+.wara-guidance-sources { padding-top: 24px; border-top: 1px solid var(--border); }
+.wara-guidance-sources p { color: var(--fg-muted); font-size: var(--cs-type-compact-size); }
+.wara-guidance-figure { margin: 24px 0 0; padding: 16px; background: var(--bg-soft, var(--cs-shade)); border: 1px solid var(--border); border-radius: 8px; container-type: inline-size; }
+.wara-guidance-figure-head { display: flex; justify-content: space-between; align-items: start; gap: 24px; margin-bottom: 16px; }
+.wara-guidance-figure-head h4 { margin: 4px 0 0; font-size: var(--cs-type-section-title-size); line-height: var(--cs-type-section-title-line-height); }
+.wara-guidance-eyebrow { margin: 0; color: var(--fg-muted); font-size: var(--cs-type-label-size); }
+.wara-guidance-figure button { flex-shrink: 0; }
+.wara-guidance-graph { position: relative; display: grid; grid-template-columns: repeat(var(--guidance-columns), minmax(0, 1fr)); gap: 48px; padding: 32px 0 8px 40px; }
+.wara-guidance-graph-column { display: flex; flex-direction: column; justify-content: center; gap: 24px; min-width: 0; }
+.wara-guidance-connectors { position: absolute; inset: 0; color: var(--cs-steel); pointer-events: none; overflow: visible; }
+.wara-guidance-node { position: relative; z-index: 1; background: var(--bg-card, var(--cs-card)); border: 1px solid var(--cs-text-soft); border-radius: 6px; padding: 12px; min-width: 0; overflow-wrap: anywhere; }
+.wara-guidance-node strong { display: block; font-size: var(--cs-type-panel-title-size); line-height: var(--cs-type-panel-title-line-height); }
+.wara-guidance-node p { margin: 8px 0 0; font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
+.wara-guidance-node-more { display: block; margin-top: 8px; padding: 0; background: transparent; border: 0; color: var(--accent); font: inherit; font-size: var(--cs-type-compact-size); text-align: left; text-decoration: underline; cursor: pointer; }
+.wara-guidance-explanations { margin: 24px 0; }
+.wara-guidance-explanations h3 { font-size: var(--cs-type-section-title-size); margin: 0 0 16px; }
+.wara-guidance-explanations dl { margin: 16px 0; max-width: 80ch; }
+.wara-guidance-explanations dt { font-weight: 600; margin: 24px 0 8px; }
+.wara-guidance-explanations dd { margin: 0; line-height: var(--cs-type-body-line-height); overflow-wrap: anywhere; }
+.wara-guidance-node-role { display: block; color: var(--fg-muted); font-size: var(--cs-type-label-size); margin-bottom: 8px; }
+.wara-guidance-figure figcaption { margin-top: 16px; }
+.wara-guidance-figure figcaption > p { margin: 8px 0 0; }
+.wara-guidance-legend { display: flex; gap: 24px; flex-wrap: wrap; font-size: var(--cs-type-compact-size); color: var(--fg-muted); }
+.wara-guidance-legend span::before { content: ""; display: inline-block; vertical-align: middle; width: 24px; border-top: 2px solid var(--cs-steel); margin-right: 8px; }
+.wara-guidance-legend span + span::before { border-top-style: dashed; }
+.wara-guidance-relationships { margin: 8px 0 24px; }
+.wara-guidance-relationships summary { cursor: pointer; padding: 8px 0; }
+.wara-guidance-relationships ol { margin-top: 12px; }
+@media (max-width: 1312px) {
+  .wara-guidance-figure-head button { display: none; }
+  .wara-guidance-configuration-context { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .wara-guidance-intro-columns { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+@container (max-width: 619px) {
+  .wara-guidance-graph { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .wara-guidance-graph-column { gap: 32px; }
+  .wara-guidance-figure-head { flex-direction: column; gap: 16px; }
+}
+@media (max-width: 720px) {
+  .wara-drawer.rule-drawer, .wara-drawer.is-expanded { width: 100vw; }
+  .wara-drawer .rule-drawer-body { padding: 24px 16px; }
+  .wara-drawer .rule-drawer-head { padding: 16px; }
+  .wara-drawer .wara-drawer-label { font-size: var(--cs-type-compact-size); }
+  .wara-drawer .detail-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .wara-drawer .detail-grid dd { margin: 0 0 12px; }
+  .wara-guidance-figure { padding: 16px; }
+  .wara-guidance-procedures { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .wara-guidance-comparison th, .wara-guidance-comparison td { padding: 12px; }
+  .wara-drawer button, .wara-drawer summary { min-height: 44px; }
+}
+@media (forced-colors: active) {
+  .wara-guidance-connectors { color: CanvasText; }
+  .wara-guidance-node { border-color: CanvasText; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wara-drawer { animation: none; }
+}
+@media print {
+  body:has(.wara-drawer) :not(:has(.wara-drawer)):not(.wara-drawer):not(.wara-drawer *) { display: none !important; }
+  body:has(.wara-drawer) :has(.wara-drawer) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+  .wara-drawer.rule-drawer, .wara-drawer.is-expanded { display: block; position: static; width: 100%; height: auto; overflow: visible; border: 0; box-shadow: none; animation: none; }
+  .wara-drawer .rule-drawer-head button, .wara-guidance-figure button { display: none; }
+  .wara-drawer .rule-drawer-body { overflow: visible; padding: 24px 0; }
+  .wara-guidance-figure, .wara-guidance-comparison tr, .wara-guidance-node { break-inside: avoid; page-break-inside: avoid; }
+  .wara-guidance-section h3, .wara-runtime h3 { break-after: avoid; }
+  .wara-guidance-figure { print-color-adjust: exact; }
+}

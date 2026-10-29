@@ -1,5 +1,6 @@
 import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
+import { decodeWaraGuidance, type WaraGuidance } from "./wara-guidance.model";
 import {
   panelArray,
   panelBoolean,
@@ -49,6 +50,9 @@ export interface WaraManualEvidence {
 export interface WaraControl {
   readonly id: string;
   readonly title: string;
+  readonly description?: string | null;
+  readonly potential_benefits?: string | null;
+  readonly guidance?: WaraGuidance | null;
   readonly recommendation_control: string;
   readonly impact: string;
   readonly resource_type: string;
@@ -196,6 +200,8 @@ function decodeControl(value: unknown, index: number): WaraControl {
   return {
     id: panelNonEmptyString(raw, "id", label),
     title: panelNonEmptyString(raw, "title", label),
+    description: raw["description"] === undefined ? null : panelNullableString(raw, "description", label),
+    potential_benefits: raw["potential_benefits"] === undefined ? null : panelNullableString(raw, "potential_benefits", label),
     recommendation_control: panelNonEmptyString(raw, "recommendation_control", label),
     impact: panelNonEmptyString(raw, "impact", label),
     resource_type: panelNonEmptyString(raw, "resource_type", label),
@@ -257,7 +263,13 @@ export function decodeWaraResponse(value: unknown): WaraResponse {
   const total = panelNonNegativeInteger(root, "total", "WARA controls");
   const filteredTotal = panelNonNegativeInteger(root, "filtered_total", "WARA controls");
   const limit = panelNonNegativeInteger(root, "limit", "WARA controls");
-  const controls = panelArray(root["controls"], "WARA controls.items").map(decodeControl);
+  const controls = panelArray(root["controls"], "WARA controls.items").map((value, index) => {
+    const raw = panelRecord(value, `WARA controls[${index}]`);
+    if (raw["guidance"] !== undefined && raw["guidance"] !== null) {
+      throw new OperatorApiError(502, "invalid Operator API response: WARA guidance belongs on detail only");
+    }
+    return decodeControl(value, index);
+  });
   if (filteredTotal > total || controls.length > filteredTotal || controls.length > limit) {
     throw new OperatorApiError(502, "invalid Operator API response: WARA totals do not reconcile");
   }
@@ -320,8 +332,13 @@ export function decodeWaraResponse(value: unknown): WaraResponse {
   };
 }
 
-export function decodeWaraDetail(value: unknown): WaraControl {
-  return decodeControl(value, 0);
+export function decodeWaraDetail(value: unknown, selectedId?: string): WaraControl {
+  const control = decodeControl(value, 0);
+  if (selectedId !== undefined && control.id !== selectedId) {
+    throw new OperatorApiError(502, "invalid Operator API response: WARA detail does not match the selected recommendation");
+  }
+  const raw = panelRecord(value, "WARA detail");
+  return { ...control, guidance: decodeWaraGuidance(raw["guidance"], control) };
 }
 
 export function waraStateFromSearch(search: URLSearchParams): {

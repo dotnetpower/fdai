@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 77443a9f70f4f596adc31b38a0107cba22a3eaab
-translation_revised: 2026-10-28
+translation_source_sha: 494a2f7c21048bcc65de608dde73b6956cab6414
+translation_revised: 2026-10-30
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -27,6 +27,11 @@ CAF 평가 근거, 결과, 권한을 바꾸지 않습니다.
 제목은 표시용 메타데이터이며 WAF 또는 CAF 컨트롤 매핑, 평가 근거나 결과를 바꾸지 않습니다.
 
 ## 설계 요약
+
+공통 카탈로그 자료화 경로는 WARA의 정확한 쿼리·Rule 평가기 ID를 표시하고 필수 수동
+근거와 선택적인 서명된 대체 경로를 구분합니다. 상세 도표 설명은 원본과 결속된 실행되지
+않는 공통 레코드이며 별도 평가 명세나 근거 작성기가 아닙니다. 이 WARA 확장은
+WAF/CAF 요구 사항, 수락, 결과, 권한을 바꾸지 않습니다.
 
 공유 평가 경계는 다음 여섯 개의 결정론적 단계를 사용합니다.
 

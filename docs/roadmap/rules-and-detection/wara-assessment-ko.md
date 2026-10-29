@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 1acb329051949fd5ee00c7ee5ed459c3e05413da
+translation_source_sha: 2e18f3cc0c35b40b131b956154c97902b1938392
 translation_revised: 2026-10-30
 ---
 # WARA 근거 기반 평가
@@ -365,6 +365,7 @@ Operator 대화 상태 snapshot과 요청 필드는 평가 출처, 발견 사항
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
 | 제공 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/wara-assessment.md) |
+| 원본과 결속된 설명 및 도표 | [도표를 포함한 WARA 설명](wara-illustrated-guidance-ko.md) |
 | 고정 원본 수집 | [규칙 카탈로그 수집](rule-catalog-collection-ko.md) |
 | 프레임워크 온톨로지 변환 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
 | 읽기 전용 Operator 동작 | [FDAI Console 대화](../interfaces/operator-console-ko.md) |

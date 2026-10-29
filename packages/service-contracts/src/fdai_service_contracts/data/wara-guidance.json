@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0.0",
+  "framework_revision": "1f421a90c157bc8894b3a47b05ba08b8650a0bd5",
+  "framework_digest": "sha256:bdfc7883d077c2a07c48d815fdfd6725c7ccfd6e0b83373177f9b956e94fb48b",
+  "catalog_digest": "sha256:9a90c5a3dab8d6ed4d7e4b386985795bbb7c7e2688aaa8fa2a970d7016f0eb7b",
+  "shards": [
+    {
+      "path": "wara-guidance-00.json",
+      "digest": "sha256:28018e4a76246c91698fd51be4a1c2e3351ece7b61709757a9f53d331d72551f",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-01.json",
+      "digest": "sha256:c9375778777047907e758847f1dd4c3f504a3580a3938f0b220dd0d21d43adc1",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-02.json",
+      "digest": "sha256:dfdd36925620fd057445640df0ca648c54d5498811a67c70fa722cb923cd71db",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-03.json",
+      "digest": "sha256:42dfb45cf34428af305758cc2dcbbfc4de9425c05c907b78e77282687b4c9056",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-04.json",
+      "digest": "sha256:4ac55fd813a98bbdf801cbdcab7da903ab69d98ad2ab4da42d7fbf4e6d65a478",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-05.json",
+      "digest": "sha256:9c00f549624b2fe1c14050423d8980fd1b0f3f9760bb51c1a7ced7d1fbbf43a2",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-06.json",
+      "digest": "sha256:a833f8d70de66fcaf7fa08b9bb8682e3049b6038297b94b566899533d625a2b0",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-07.json",
+      "digest": "sha256:9efd1793f9366ecd7d769b6d295fd764fd6b633e228e39047eff33fae447692a",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-08.json",
+      "digest": "sha256:b3df9848060692570a73c39bea2e2070b53f3795dcbadf9eacb429e262e4fd54",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-09.json",
+      "digest": "sha256:fb6defbc640cb7acc849e5cfdf72c5e425519126717d2028e6f7539fd0221c6b",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-10.json",
+      "digest": "sha256:946082e10a0fa99856dfd2d70dd06693f422b69ae1dc574999b48137b1c0f5e3",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-11.json",
+      "digest": "sha256:a83583c00fdb000ba797b3a6008a279414e4696b848bd43f9b9184b9b9b089da",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-12.json",
+      "digest": "sha256:8bdf5233be9bb0cbd532055e1ddc3419ba3c3b023ce033415a8511dae804243a",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-13.json",
+      "digest": "sha256:d26bec8dc20f8348ca266f791e6922332158f5b6ddbd0ed00ca73a29311d32c5",
+      "count": 32
+    },
+    {
+      "path": "wara-guidance-14.json",
+      "digest": "sha256:3d5ab19c58b5ce97c760b7d43dd2e6d2faaf22eea638b0c78b89d0237bd7c3fa",
+      "count": 8
+    }
+  ]
+}

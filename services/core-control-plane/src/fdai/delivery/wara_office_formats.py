@@ -6,7 +6,9 @@ import csv
 import io
 import json
 import textwrap
+from typing import Literal
 
+from fdai_service_contracts.wara_guidance import GuidanceDiagram
 from openpyxl import Workbook
 from pptx import Presentation
 from pptx.presentation import Presentation as PresentationDocument
@@ -15,6 +17,10 @@ from pptx.util import Inches, Pt
 from fdai.core.reporting.formats.csv_format import CsvFormatEncoder
 from fdai.core.reporting.formats.json_format import JsonFormatEncoder
 from fdai.core.reporting.models import RenderedReport
+from fdai.delivery.wara_guidance_presentation import (
+    guidance_diagram_slides,
+    guidance_text_slides,
+)
 
 _MAXIMUM_SLIDES = 1_000
 
@@ -86,6 +92,8 @@ class PptxFormatEncoder:
         presentation = Presentation()
         presentation.slide_width = Inches(13.333)
         presentation.slide_height = Inches(7.5)
+        if "public-guidance" in report.tags:
+            return self._guidance(presentation, report)
         metadata = json.dumps(_metadata(report), ensure_ascii=False, sort_keys=True, indent=2)
         self._slides(presentation, report.name, metadata)
         pending = list(report.widgets)
@@ -103,6 +111,36 @@ class PptxFormatEncoder:
                 json.dumps(material, ensure_ascii=False, sort_keys=True, indent=2),
             )
             pending[0:0] = widget.children
+        output = io.BytesIO()
+        presentation.save(output)
+        return output.getvalue()
+
+    @staticmethod
+    def _guidance(presentation: PresentationDocument, report: RenderedReport) -> bytes:
+        selected_locale = report.variables.get("locale", "en")
+        if selected_locale not in {"en", "ko"}:
+            raise ValueError("WARA guidance presentation locale is invalid")
+        locale: Literal["en", "ko"] = "ko" if selected_locale == "ko" else "en"
+        guidance_text_slides(
+            presentation,
+            report.name,
+            report.description
+            + "\n\n"
+            + "\n".join(f"{key}: {value}" for key, value in report.variables.items()),
+        )
+        for widget in report.widgets:
+            if widget.error is not None:
+                raise ValueError("WARA guidance presentation cannot hide a widget error")
+            if widget.type == "wara_guidance_diagram":
+                diagram = GuidanceDiagram.model_validate(widget.data.get("diagram"))
+                guidance_diagram_slides(presentation, diagram, locale)
+            elif widget.type == "wara_guidance_text":
+                body = widget.data.get("body")
+                if not isinstance(body, str):
+                    raise ValueError("WARA guidance presentation text is malformed")
+                guidance_text_slides(presentation, widget.title, body)
+            else:
+                raise ValueError("WARA guidance presentation widget is unsupported")
         output = io.BytesIO()
         presentation.save(output)
         return output.getvalue()

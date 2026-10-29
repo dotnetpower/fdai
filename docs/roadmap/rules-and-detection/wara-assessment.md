@@ -376,6 +376,7 @@ The Operator dialogue-state snapshot and request field add no assessment source,
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/wara-assessment.md) |
+| Source-bound explanations and diagrams | [Illustrated WARA guidance](wara-illustrated-guidance.md) |
 | Pinned source collection | [Rule Catalog Collection](rule-catalog-collection.md) |
 | Framework ontology projection | [FDAI Operating Ontology](../architecture/operating-ontology.md) |
 | Read-only operator behavior | [FDAI Console Conversations](../interfaces/operator-console.md) |

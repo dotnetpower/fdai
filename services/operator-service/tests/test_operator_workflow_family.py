@@ -1005,7 +1005,7 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
     assert wara_list.payload["inventory"]["active_recommendations"] == 1
     assert wara_list.payload["facets"]["by_product_group_verified"] == {"true": 1}
     assert wara_list.payload["facets"]["by_automation_available"] == {"false": 1}
-    assert wara_detail.payload == wara_control
+    assert wara_detail.payload == {**wara_control, "guidance": None}
     assert wara_detail.provenance.revision == "wara-revision"
     assert caf_list.payload["filtered_total"] == 1
     assert caf_list.payload["controls"][0]["control_id"] == "strategy"
