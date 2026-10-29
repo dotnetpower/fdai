@@ -9,6 +9,7 @@ that a person has seen the message, and it carries no approval or execution link
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -55,7 +56,9 @@ class StateStoreConsoleInboxChannel:
         self._retained = retained
 
     async def send(self, message: NotificationMessage) -> DeliveryReceipt:
-        envelope = render_presentation(message, channel_id=self.channel_id)
+        # Links are never stored, and the https-only link rule protects external channels, so a
+        # local or relative Console link must not make the whole alert undeliverable.
+        envelope = render_presentation(replace(message, links=()), channel_id=self.channel_id)
         key = console_inbox_key(message)
         record: dict[str, Any] = {
             "schema_version": "1.0.0",

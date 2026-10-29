@@ -363,7 +363,8 @@ principal-and-browser selection surface, the header is a synchronized shortcut, 
 `runtime-observed` approval, denial, and failure frames are eligible. Its bounded local display and
 click receipts never satisfy Core delivery, approval, or execution evidence. Organization-managed
 A2/A4 routes remain separate channel-as-audience bindings. The server-side `console-inbox` A2
-channel is a separate Core adapter that stores bounded alert records for the Console; see
+channel is a separate Core adapter that stores bounded alert records for the Console and drops message links, because the https-only link rule
+belongs to external channels; see
 [Console inbox](console-web-notifications.md#console-inbox).
 
 ## 5. Channel Interfaces (contracts)
