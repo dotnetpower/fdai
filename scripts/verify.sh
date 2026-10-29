@@ -252,6 +252,7 @@ else
 fi
 
 run_gate_scoped "ci-contracts" '^(\.github/workflows/|Dockerfile$|\.dockerignore$|resolved-models.*\.json$|scripts/quality/ci/|services/core-control-plane/tests/persistence/|services/core-control-plane/src/fdai/)' python3 scripts/quality/ci/check-ci-contracts.py
+run_gate_scoped "terraform-security" '^(infra/|\.github/workflows/ci\.yml$|scripts/quality/repository/check-terraform-security\.sh$)' bash scripts/quality/repository/check-terraform-security.sh
 run_gate_scoped "issue-lifecycle" '^(\.github/ISSUE_TEMPLATE/|\.github/workflows/issue-lifecycle\.yml$|\.github/copilot-instructions\.md$|CONTRIBUTING\.md$|scripts/quality/repository/check-issue-lifecycle\.py$)' "${python_runner[@]}" scripts/quality/repository/check-issue-lifecycle.py
 run_gate_scoped_or_deferred "design-routes" '^(\.github/instructions/|scripts/lib/design-routes\.json$|scripts/quality/architecture/check-design-routes\.py$|docs/)' python3 scripts/quality/architecture/check-design-routes.py
 run_gate_scoped "package-assurance" '^(config/package-assurance\.json$|pyproject\.toml$|services/[^/]+/pyproject\.toml$|packages/[^/]+/pyproject\.toml$|extensions/[^/]+/pyproject\.toml$|scripts/quality/architecture/check-package-assurance\.py$|tests/integration/scripts/test_package_assurance\.py$)' "${python_runner[@]}" scripts/quality/architecture/check-package-assurance.py
