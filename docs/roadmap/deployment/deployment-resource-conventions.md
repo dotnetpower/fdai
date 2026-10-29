@@ -400,9 +400,17 @@ replaces the fixed pool with ephemeral one-job Container Apps Job executions tha
 with queued jobs, up to a declared ceiling. It builds its image from the same toolchain manifest,
 holds no deployment identity beyond registry pull, and keeps the GitHub credential out of
 Terraform and out of workflow code. Protected-main regression then runs as eight shards instead of
-four; the slowest measured shard fell from 667 s to about 330 s at the same total compute. The
+four. Preliminary benchmarks reported 667 s versus about 330 s, but included failed tests and
+mixed runner sizes; these are not a successful rollout or a controlled throughput comparison. The
 `FDAI_CI_ELASTIC_RUNNER_ENABLED` variable selects it ahead of the SSD pool; pull requests keep
 GitHub-hosted execution until a fork-safe pull-request guard exists.
+
+The no-hosted cutover separates trusted control jobs, ephemeral non-Docker tests, and isolated
+Docker-capable VM jobs. `scripts/quality/ci/check-runner-cutover.py` reports remaining hosted jobs
+and missing pools from complete snapshots without reading credentials or changing authority.
+Keep existing capacity until real GitHub work proves registration, successful execution,
+bounded queue-driven scale-out, deregistration, and scale-in. An unavailable credential or
+incomplete admission design keeps this operational transition blocked, not completed.
 
 Optional acceleration moves all four regression shards to a pool of up to five listeners
 on the same VM. Each shard uses three pytest workers; each listener has separate distribution,

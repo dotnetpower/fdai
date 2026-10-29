@@ -26,8 +26,9 @@ Same commit, cold start, heaviest regression shard, `westus3`:
 | 4 vCPU Container Apps execution, 4 at once | 602-652 s, no queueing |
 | 4 vCPU VM, 4 at once | 667-730 s |
 
-An eight-shard split cut the slowest shard from 667 s to about 330 s at the same total compute.
-Cold start is about 20 s plus a 20 s image pull for this 750 MB image.
+An initial eight-shard trial recorded a slowest shard of about 330 s, but used mixed runner sizes
+and included test failures. These figures are preliminary timing observations, not passing
+throughput or rollout evidence. One image pull for the 750 MB image took about 20 s.
 
 ## Isolation and credentials
 

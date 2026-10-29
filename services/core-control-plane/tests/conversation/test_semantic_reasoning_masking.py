@@ -751,10 +751,13 @@ def test_raw_redaction_replaces_containers_before_the_rules_see_them(text: str) 
 @pytest.mark.parametrize("text", ('pwd="' * 12500, 'pwd=\\\\"' * 8000, 'pwd= "' * 8000))
 def test_chained_swallowed_keys_redact_in_linear_time(text: str) -> None:
     import json
+    import os
     import subprocess
     import sys
 
     # Isolate tracing/profiling and other worker threads, not the implementation under test.
+    environment = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
+    environment.pop("PYTHONTRACEMALLOC", None)
     result = subprocess.run(  # noqa: S603 - fixed code and synthetic test input
         [
             sys.executable,
@@ -778,6 +781,7 @@ print(json.dumps(measurements))
         input=json.dumps(text),
         capture_output=True,
         text=True,
+        env=environment,
         timeout=30,
         check=True,
     )
