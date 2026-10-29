@@ -42,6 +42,7 @@ def test_manifest_covers_the_tools_and_libraries_that_broke_main_ci() -> None:
     assert {"pango-1.0", "pangoft2-1.0"} <= set(MANIFEST["libraries"])
     assert "libpango-1.0-0" in MANIFEST["apt_packages"]
     assert "tzdata" in MANIFEST["apt_packages"]
+    assert "tzdata-legacy" in MANIFEST["apt_packages"]
     assert {"Etc/UTC", "America/Buenos_Aires"} <= set(MANIFEST["timezones"])
     assert MANIFEST["pinned_tools"]["terraform"]["sha256"]
     assert len(MANIFEST["pinned_tools"]["az"]["apt_key_fingerprint"]) == 40

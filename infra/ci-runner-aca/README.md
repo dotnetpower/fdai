@@ -42,7 +42,8 @@ throughput or rollout evidence. One image pull for the 750 MB image took about 2
 - Labels and workflow conditions are routing controls, not security boundaries. This runner serves
   protected `main` pushes behind the protected-source guard. Do not route fork pull requests to it.
 - Rotate the credential on its expiry by rerunning `set-credential.sh`.
-- The image includes `tzdata`, and the shared verifier checks required IANA timezone names
+- The image includes `tzdata` and Ubuntu's `tzdata-legacy` aliases, and the shared verifier
+  checks required IANA timezone names
   before registration. `tini` is PID 1 and reaps orphaned service children; the runner still
   executes workflow code without root permissions. A completed Actions job and a successful
   container exit are separate outcomes, so verify both before enabling the route.
