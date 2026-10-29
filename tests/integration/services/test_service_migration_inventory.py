@@ -166,6 +166,8 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "inventory_progress_event",
         "inventory_observation_correction_receipt",
         "inventory_observation_journal",
+        "inventory_observation_snapshot_generation",
+        "inventory_observation_snapshot_member",
         "inventory_change_event_receipt",
         "inventory_observation_lifecycle_binding",
         "inventory_observation_pending_tombstone",
@@ -1754,6 +1756,10 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
     document_intent_migration = inventory_module.load_revision_metadata(
         MIGRATION_ROOT / "branches/core-control-plane/versions/20261019_core_document_intent.py"
     )
+    snapshot_membership_migration = inventory_module.load_revision_metadata(
+        MIGRATION_ROOT
+        / "branches/core-control-plane/versions/20261029_core_inventory_snapshot_membership.py"
+    )
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
     }
@@ -1798,6 +1804,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         | set(licensing_entitlement_state_migration.owned_tables)
         | set(accepted_entitlement_migration.owned_tables)
         | set(document_intent_migration.owned_tables)
+        | set(snapshot_membership_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")

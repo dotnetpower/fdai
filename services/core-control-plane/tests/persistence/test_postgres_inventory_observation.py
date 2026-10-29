@@ -12,9 +12,13 @@ from fdai.delivery.inventory_configuration_events import (
     INVENTORY_CONFIGURATION_DELIVERY_KEY,
     configuration_delivery_record,
 )
-from fdai.delivery.inventory_semantic_digest import inventory_semantic_digest
+from fdai.delivery.inventory_semantic_digest import (
+    inventory_semantic_digest,
+    inventory_subject_semantic_digest,
+)
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence import postgres_inventory_observation as observation_module
+from fdai.delivery.persistence import postgres_inventory_snapshot_membership as membership_module
 from fdai.delivery.persistence.postgres_inventory_observation import (
     _INSERT_OBSERVATION_SQL,
     InventoryObservationAppendResult,
@@ -127,6 +131,175 @@ def test_semantic_digest_ignores_reconciliation_clocks_but_not_resource_state() 
 
     assert inventory_semantic_digest(first) == inventory_semantic_digest(repeated)
     assert inventory_semantic_digest(first) != inventory_semantic_digest(changed)
+    first_record = observation_module._snapshot_records(first, scope_refs=("scope-test",))[0]
+    repeated_record = observation_module._snapshot_records(repeated, scope_refs=("scope-test",))[0]
+    changed_record = observation_module._snapshot_records(changed, scope_refs=("scope-test",))[0]
+    assert inventory_subject_semantic_digest(first_record) == inventory_subject_semantic_digest(
+        repeated_record
+    )
+    assert inventory_subject_semantic_digest(first_record) != inventory_subject_semantic_digest(
+        changed_record
+    )
+
+
+def test_snapshot_membership_reconstructs_full_record_and_freshness_metadata() -> None:
+    fact = StateFactMetadata(
+        lane=StateFactLane.OBSERVED,
+        authority=StateFactAuthority.PROVIDER,
+        source_identity="provider",
+        source_revision="revision-1",
+        effective_at=NOW,
+        recorded_at=NOW,
+        evidence_cutoff=NOW,
+        freshness_ceiling_seconds=300,
+        completeness=1.0,
+        synthetic=False,
+        evidence_refs=("receipt:resource-1",),
+    )
+    observation = PromotedInventoryObservation(
+        generation="generation-membership",
+        resources=(
+            ResourceRecord(
+                resource_id="resource-1",
+                type="compute.vm",
+                props={
+                    "state": "ready",
+                    STATE_FACT_METADATA_PROPERTY: {"state": fact.to_mapping()},
+                },
+                last_seen=NOW.isoformat(),
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=NOW,
+    )
+    record = observation_module._snapshot_records(observation, scope_refs=("scope-test",))[0]
+    member_values = membership_module._member_values(observation.generation, record)
+    member: dict[str, Any] = dict(
+        zip(
+            (
+                "generation_id",
+                "subject_kind",
+                "subject_ref",
+                "subject_type",
+                "semantic_digest",
+                "provider_ref",
+                "scope_ref",
+                "observed_at",
+                "freshness_properties",
+                "from_id",
+                "from_type",
+                "link_type",
+                "to_id",
+                "to_type",
+            ),
+            member_values,
+            strict=True,
+        )
+    )
+    member.update(
+        recorded_at=record.recorded_at,
+        links_complete=record.links_complete,
+        journal_record={
+            "observation_id": record.observation_id,
+            "content_digest": record.content_digest,
+            "idempotency_key": record.idempotency_key,
+            "subject_kind": record.subject_kind.value,
+            "observation_kind": record.observation_kind.value,
+            "mutation_kind": record.mutation_kind.value,
+            "subject_ref": record.subject_ref,
+            "subject_type": record.subject_type,
+            "properties": record.properties,
+            "property_mask": record.property_mask,
+            "properties_complete": record.properties_complete,
+            "links_complete": record.links_complete,
+            "tombstone_confirmed": record.tombstone_confirmed,
+            "provider_ref": record.provider_ref,
+            "scope_ref": record.scope_ref,
+            "operation": record.operation,
+            "operation_status": record.operation_status,
+            "source_identity": record.source_identity,
+            "source_event_id": record.source_event_id,
+            "source_revision": record.source_revision,
+            "effective_at": record.effective_at,
+            "observed_at": record.observed_at,
+            "evidence_cutoff": record.evidence_cutoff,
+            "recorded_at": record.recorded_at,
+            "ingested_at": record.ingested_at,
+            "provider_event_at": record.provider_event_at,
+            "from_id": record.from_id,
+            "from_type": record.from_type,
+            "link_type": record.link_type,
+            "to_id": record.to_id,
+            "to_type": record.to_type,
+        },
+    )
+
+    reconstructed = membership_module._reconstruct_record(member)
+
+    assert reconstructed == record
+
+
+async def test_object_history_merges_reconstructed_generations_with_journal_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot_record = _projection_record("snapshot-generation", "resource-a")
+    journal_record = NormalizedInventoryObservation.create(
+        idempotency_key="provider-change:resource-a",
+        subject_kind=InventoryObservationSubjectKind.OBJECT,
+        observation_kind=InventoryObservationKind.CHANGE_HINT,
+        mutation_kind=InventoryMutationKind.UPSERT,
+        subject_ref="resource-a",
+        subject_type="compute.vm",
+        properties={"state": "running"},
+        property_mask=("state",),
+        properties_complete=False,
+        links_complete=False,
+        tombstone_confirmed=False,
+        source_identity="provider.change",
+        source_event_id="provider-event-1",
+        source_revision="provider-revision-1",
+        effective_at=NOW + timedelta(minutes=1),
+        observed_at=NOW + timedelta(minutes=1),
+        evidence_cutoff=NOW + timedelta(minutes=1),
+        recorded_at=NOW + timedelta(minutes=1),
+        ingested_at=NOW + timedelta(minutes=1),
+    )
+
+    class _HistoryConnection:
+        def __init__(self) -> None:
+            self.query = ""
+
+        async def execute(self, query: str, _params: object = None) -> _Cursor:
+            self.query = query
+            return _Cursor([{"journal": True}])
+
+    connection = _HistoryConnection()
+    monkeypatch.setattr(observation_module, "_observation", lambda _row: journal_record)
+
+    async def load_snapshot_history(
+        *_args: object,
+        **_kwargs: object,
+    ) -> tuple[NormalizedInventoryObservation, ...]:
+        return (snapshot_record,)
+
+    monkeypatch.setattr(
+        observation_module,
+        "_load_snapshot_history_records",
+        load_snapshot_history,
+    )
+    journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+
+    observations = await journal.load_object_observations(
+        connection,  # type: ignore[arg-type]
+        resource_id="resource-a",
+        after=NOW - timedelta(minutes=1),
+    )
+
+    assert observations == (snapshot_record, journal_record)
+    assert "inventory_observation_snapshot_generation" in connection.query
 
 
 async def test_unchanged_snapshot_reuses_prior_journal_without_new_lifecycle_rows(
@@ -221,6 +394,16 @@ async def test_unchanged_snapshot_reuses_prior_journal_without_new_lifecycle_row
     monkeypatch.setattr(observation_module, "_append_records", append)
     monkeypatch.setattr(observation_module, "bind_observation_lifecycle", bind)
     monkeypatch.setattr(observation_module, "_retained_generation_watermark", generation_watermark)
+    memberships: list[dict[str, Any]] = []
+
+    async def store_membership(
+        _connection: object,
+        **values: object,
+    ) -> int:
+        memberships.append(values)
+        return int(values["journal_high_watermark"])
+
+    monkeypatch.setattr(observation_module, "_store_snapshot_membership", store_membership)
     monkeypatch.setattr(observation_module, "_update_watermark_state", update_watermark)
     monkeypatch.setattr(observation_module, "_global_projection_watermark", projection_watermark)
     monkeypatch.setattr(
@@ -233,13 +416,152 @@ async def test_unchanged_snapshot_reuses_prior_journal_without_new_lifecycle_row
 
     assert result.reused_journal_generation == "generation-base"
     assert appended == [()]
-    assert bound == [()]
+    assert bound == []
+    assert len(memberships) == 1
+    assert len(memberships[0]["records"]) == 1
     metadata_update = next(
         query
         for query in connection.executions
         if "UPDATE inventory_snapshot SET metadata" in query
     )
     assert metadata_update
+
+
+async def test_promoted_snapshot_appends_only_changed_members_and_covered_link_tombstones(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observation = PromotedInventoryObservation(
+        generation="generation-current",
+        resources=(
+            ResourceRecord(resource_id="resource-1", type="compute.vm", props={"state": "ready"}),
+            ResourceRecord(resource_id="resource-2", type="compute.vm", props={"state": "running"}),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=NOW,
+    )
+    current_records = observation_module._snapshot_records(observation, scope_refs=("scope-test",))
+    unchanged = next(item for item in current_records if item.subject_ref == "resource-1")
+    changed = next(item for item in current_records if item.subject_ref == "resource-2")
+    previous_members = {
+        ("object", "resource-1"): {
+            "semantic_digest": inventory_subject_semantic_digest(unchanged),
+        },
+        ("object", "resource-2"): {
+            "semantic_digest": "sha256:" + "0" * 64,
+        },
+        ("relationship", "relationship:removed"): {
+            "subject_ref": "relationship:removed",
+            "link_type": "depends_on",
+            "scope_ref": "scope-test",
+            "from_id": "resource-1",
+            "from_type": "compute.vm",
+            "to_id": "resource-3",
+            "to_type": "compute.vm",
+        },
+    }
+
+    class _DeltaConnection(_Connection):
+        async def execute(self, query: str, params: object = None) -> _Cursor:
+            self.executions.append(query)
+            if "s.status='active' AND s.id=%s" in query:
+                return _Cursor(
+                    [
+                        {
+                            "id": observation.generation,
+                            "source": "test.inventory",
+                            "observation_kind": "observed",
+                            "started_at": NOW,
+                            "scopes": ["scope-test"],
+                            "resource_types": ["compute.vm"],
+                            "metadata": {
+                                "projection_complete": True,
+                                "coverage_scope": "full_provider_scope",
+                            },
+                        }
+                    ]
+                )
+            return _Cursor([])
+
+    connection = _DeltaConnection({})
+    journal = PostgresInventoryObservationJournal(
+        config=PostgresInventorySnapshotStoreConfig(dsn="postgresql://unused")
+    )
+    appended: list[Sequence[NormalizedInventoryObservation]] = []
+    bound: list[Sequence[NormalizedInventoryObservation]] = []
+    memberships: list[dict[str, Any]] = []
+
+    async def connect(_self: object) -> _DeltaConnection:
+        return connection
+
+    async def append(
+        _connection: object,
+        records: Sequence[NormalizedInventoryObservation],
+    ) -> InventoryObservationAppendResult:
+        appended.append(records)
+        return InventoryObservationAppendResult(11, 0)
+
+    async def bind(
+        _connection: object,
+        records: Sequence[NormalizedInventoryObservation],
+        *,
+        allow_oi16_synthetic: bool = False,
+    ) -> frozenset[str]:
+        del allow_oi16_synthetic
+        bound.append(records)
+        return frozenset()
+
+    async def retained_watermark(*_args: object, **_kwargs: object) -> int:
+        return 11
+
+    async def update_watermark(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    async def projection_watermark(*_args: object, **_kwargs: object) -> int:
+        return 11
+
+    async def load_previous(
+        *_args: object,
+        **_kwargs: object,
+    ) -> tuple[dict[tuple[str, str], dict[str, Any]], bool]:
+        return previous_members, True
+
+    async def no_reuse(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    async def store_membership(
+        _connection: object,
+        **values: object,
+    ) -> int:
+        memberships.append(values)
+        return int(values["journal_high_watermark"])
+
+    monkeypatch.setattr(PostgresInventoryObservationJournal, "_connect", connect)
+    monkeypatch.setattr(observation_module, "_reusable_journal_generation", no_reuse)
+    monkeypatch.setattr(observation_module, "_load_previous_snapshot_members", load_previous)
+    monkeypatch.setattr(observation_module, "_append_records", append)
+    monkeypatch.setattr(observation_module, "bind_observation_lifecycle", bind)
+    monkeypatch.setattr(observation_module, "_retained_generation_watermark", retained_watermark)
+    monkeypatch.setattr(observation_module, "_update_watermark_state", update_watermark)
+    monkeypatch.setattr(observation_module, "_global_projection_watermark", projection_watermark)
+    monkeypatch.setattr(
+        observation_module,
+        "_active_scope_projection_watermark",
+        projection_watermark,
+    )
+    monkeypatch.setattr(observation_module, "_store_snapshot_membership", store_membership)
+
+    await journal.append_promoted_snapshot(observation)
+
+    assert [item.subject_ref for item in appended[0]] == [
+        changed.subject_ref,
+        "relationship:removed",
+    ]
+    assert appended[0][1].observation_kind is InventoryObservationKind.TOMBSTONE
+    assert appended[0][1].tombstone_confirmed is True
+    assert bound == appended
+    assert len(memberships) == 1
+    assert len(memberships[0]["records"]) == len(current_records)
 
 
 class _Cursor:
@@ -1358,8 +1680,10 @@ def test_active_snapshot_bootstrap_rejects_incomplete_legacy_evidence(
         )
 
 
+@pytest.mark.parametrize("membership_mode", [False, True])
 async def test_active_projection_replay_accepts_only_the_explicit_legacy_bootstrap_fence(
     monkeypatch: pytest.MonkeyPatch,
+    membership_mode: bool,
 ) -> None:
     generation = "snapshot-bootstrap"
     record = _projection_record(generation, "resource-a")
@@ -1368,6 +1692,7 @@ async def test_active_projection_replay_accepts_only_the_explicit_legacy_bootstr
         "completed_at": NOW,
         "metadata": {
             "projection_complete": True,
+            **({"journal_replay_schema_version": 2} if membership_mode else {}),
             "relationship_drop_classifications": [],
             "relationship_coverage": {
                 "total_candidates": 0,
@@ -1413,6 +1738,23 @@ async def test_active_projection_replay_accepts_only_the_explicit_legacy_bootstr
 
     journal._connect = MethodType(connect, journal)  # type: ignore[method-assign]
     monkeypatch.setattr(observation_module, "_observation", lambda _row: record)
+    if membership_mode:
+
+        async def load_membership(
+            _connection: object,
+            *,
+            generation_id: str,
+            limit: int,
+        ) -> tuple[NormalizedInventoryObservation, ...]:
+            assert generation_id == generation
+            assert limit > 0
+            return (record,)
+
+        monkeypatch.setattr(
+            observation_module,
+            "_load_snapshot_generation_records",
+            load_membership,
+        )
 
     replay = await journal.load_active_projection_replay(
         journal_high_watermark=7,
@@ -1422,6 +1764,10 @@ async def test_active_projection_replay_accepts_only_the_explicit_legacy_bootstr
     assert replay.observation.generation == generation
     assert replay.journal_high_watermark == 7
     assert replay.projection_high_watermark == 7
+    if membership_mode:
+        assert not any(
+            "FROM inventory_observation_journal" in query for query in connection.executions
+        )
 
     with pytest.raises(ValueError, match="durably fenced"):
         await journal.load_active_projection_replay()

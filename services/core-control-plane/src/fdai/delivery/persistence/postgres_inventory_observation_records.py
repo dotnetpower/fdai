@@ -216,6 +216,45 @@ def confirmed_tombstone(
     )
 
 
+def confirmed_relationship_tombstone(
+    row: Mapping[str, Any],
+    *,
+    generation: str,
+    confirmed_at: datetime,
+    recorded_at: datetime,
+) -> NormalizedInventoryObservation:
+    """Normalize one relationship deletion confirmed by complete snapshot coverage."""
+
+    subject_ref = str(row["subject_ref"])
+    return NormalizedInventoryObservation.create(
+        idempotency_key=f"inventory-relationship-tombstone-confirmation:{subject_ref}:{generation}",
+        subject_kind=InventoryObservationSubjectKind.RELATIONSHIP,
+        observation_kind=InventoryObservationKind.TOMBSTONE,
+        mutation_kind=InventoryMutationKind.DELETE,
+        subject_ref=subject_ref,
+        subject_type=str(row["link_type"]),
+        properties={},
+        property_mask=(),
+        properties_complete=False,
+        links_complete=True,
+        tombstone_confirmed=True,
+        scope_ref=str(row["scope_ref"]) if row["scope_ref"] is not None else None,
+        source_identity="inventory.reconciliation",
+        source_event_id=f"snapshot:{generation}",
+        source_revision=generation,
+        effective_at=confirmed_at,
+        observed_at=confirmed_at,
+        evidence_cutoff=confirmed_at,
+        recorded_at=recorded_at,
+        ingested_at=recorded_at,
+        from_id=str(row["from_id"]),
+        from_type=str(row["from_type"]),
+        link_type=str(row["link_type"]),
+        to_id=str(row["to_id"]),
+        to_type=str(row["to_type"]),
+    )
+
+
 def mapping(value: object) -> Mapping[str, Any]:
     """Decode one JSON object while rejecting scalar or sequence values."""
 
