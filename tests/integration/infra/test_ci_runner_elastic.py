@@ -95,6 +95,8 @@ def test_image_is_built_from_the_declared_toolchain_with_a_pinned_runner() -> No
     assert "sha256sum --check --strict" in DOCKERFILE
     assert re.search(r"RUNNER_SHA256=[a-f0-9]{64}", DOCKERFILE)
     assert "USER " not in DOCKERFILE
+    assert "python3 tini unzip" in DOCKERFILE
+    assert 'ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/opt/fdai-ci/entrypoint.sh"]' in DOCKERFILE
     build = (INFRA / "build-image.sh").read_text(encoding="utf-8")
     assert "infra/ci-runner" in build and "az acr build" in build
     subprocess.run(  # noqa: S603 - syntax check of tracked scripts

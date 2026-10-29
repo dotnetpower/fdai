@@ -390,6 +390,9 @@ through Azure protected environment parameters, not Terraform or command-line va
 
 Every runner converges on one declared toolchain: `toolchain.json` lists the packages,
 shared libraries, and checksum- or fingerprint-pinned tools that regression jobs need.
+The manifest includes timezone data and required IANA names. Container-based runners also use
+an init process to reap orphaned children; a service-runner cleanup check should not depend on
+the host VM's init system being present inside the container.
 An idempotent provisioner applies it during cloud-init or through protected Run Command, and
 a fail-closed verifier runs before enrollment and at the start of each self-hosted regression
 job. A runner that lacks any item, runs a different pinned version, or holds a tool that another

@@ -9,7 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Bootstrap prerequisites the provisioner itself needs before it reads the manifest.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl gnupg jq python3 unzip \
+ && apt-get install -y --no-install-recommends ca-certificates curl gnupg jq python3 tini unzip \
  && rm -rf /var/lib/apt/lists/*
 
 # The same manifest, provisioner, and verifier every VM runner uses: one declared toolchain.
@@ -34,4 +34,4 @@ COPY entrypoint.sh /opt/fdai-ci/entrypoint.sh
 RUN chmod 0755 /opt/fdai-ci/entrypoint.sh
 
 # Starts as root only to read the registration credential; the job runs as `runner`.
-ENTRYPOINT ["/opt/fdai-ci/entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/opt/fdai-ci/entrypoint.sh"]

@@ -21,12 +21,14 @@
     "libssl-dev",
     "python3-pip",
     "python3-venv",
+    "tzdata",
     "unzip",
     "xz-utils",
     "zip",
     "zlib1g-dev"
   ],
   "libraries": ["pango-1.0", "pangoft2-1.0", "harfbuzz-subset"],
+  "timezones": ["Etc/UTC", "America/Buenos_Aires"],
   "system_tools": ["bash", "git", "jq", "python3", "timeout"],
   "pinned_tools": {
     "az": {

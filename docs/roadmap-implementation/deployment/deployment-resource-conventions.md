@@ -170,6 +170,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-10-29 | implemented | Added a read-only no-hosted cutover prerequisite checker and separated control, non-Docker, and Docker-capable pools in the rollout contract. Corrected preliminary benchmark claims: failing tests and mixed runner sizes do not prove successful throughput or operational cutover. | Current change in `check-runner-cutover.py` and its seven focused tests; the live runner inventory still reports hosted jobs and no proven elastic execution. | Operator credential entry, safe PR admission, real queue-driven scaling, deregistration, and scale-in remain blocked and are not claimed complete; see #2657 and #2663. |
 
+| 2026-10-30 | implemented | Repaired live elastic-runner image prerequisites: declare and verify timezone data and use `tini` as PID 1 to reap orphaned service children. | Current change in `infra/ci-runner/toolchain.json`, `verify-toolchain.py`, and `infra/ci-runner-aca/Dockerfile`; 22 focused tests passed. Exact failed image reproduction confirmed an unreaped zombie and missing `America/Buenos_Aires` data; run `40904690911` attempt 1 passed six of eight real elastic shards, with these two environment failures. | Publish and verify the repaired image, then retain a successful exact-source elastic run and lifecycle observations before enabling the route; see #2657. |
+
 ### Remaining work
 
 - [ ] Complete protected delivery of the job-local OPA compatibility fix, verify the enabled opt-in
