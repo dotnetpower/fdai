@@ -69,6 +69,42 @@ runners for new runs. Queued jobs keep their selected label and need an explicit
 Rebuild the image with `build-image.sh` and a new tag whenever `infra/ci-runner/toolchain.json`
 changes. Destroying this root needs separate destructive-action approval.
 
+## Complete the no-hosted-runner cutover
+
+The current implementation routes only protected-main regression shards to the optional elastic
+pool. Other jobs and pull requests still select hosted runners. Infrastructure creation and manual
+container benchmarks do not establish a completed GitHub-runner rollout.
+
+Use three separate capabilities rather than sending every job to Container Apps:
+
+| Pool | Jobs | Admission and verification |
+|---|---|---|
+| Trusted self-hosted control | Change scope, source verification, required aggregator | Protected controls run before candidate code; no deployment credentials |
+| Ephemeral Container Apps | Non-Docker pytest and static checks | One registered runner per job, approved exact source, bounded concurrency |
+| Isolated ephemeral VM | Database service containers and Docker-dependent jobs | No deployment identity or network peering; one job per disposable environment |
+
+Preserve required checks for untrusted fork PRs. Do not silently skip them or run unreviewed code
+on the trusted control pool. A safe admission design and the operator-entered credential are
+prerequisites, not reasons to weaken source verification.
+
+Before changing routing or shrinking the existing VM:
+
+1. Run `scripts/quality/ci/check-runner-cutover.py` with the current workflow and a complete
+   runner inventory. Remaining hosted jobs and missing pools keep the result unavailable.
+2. Verify a real GitHub job registers and succeeds on the selected exact source and image.
+   Record the runner capabilities, test count, configured ceiling, and expected stop condition.
+3. Use a bounded burst of 1, 4, then 8 jobs. Record scheduling delay, initialization, execution,
+   failures, and slot usage separately. Stop on failure or deadline; a faster failed run is not
+   performance evidence.
+4. Observe ephemeral deregistration and zero idle executions after the queue drains. Check quota
+   and costs independently; do not assume queue length overrides the configured ceiling.
+5. Keep the existing pool until the no-hosted inventory, safe PR admission, successful jobs,
+   scale-out, and scale-in have all been observed. Then drain it before reducing capacity.
+
+The cutover checker reads no credential values and makes no routing, scaling, or approval changes.
+Its report is a prerequisite inventory, not installation authority or proof of the complete
+operational lifecycle.
+
 ## Related docs
 
 | To learn about | Read |

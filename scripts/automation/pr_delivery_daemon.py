@@ -202,7 +202,7 @@ def _wait(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     operations = parser.add_subparsers(dest="operation", required=True)
-    for operation in ("start", "run", "status", "wait"):
+    for operation in ("start", "start-and-wait", "run", "status", "wait"):
         command = operations.add_parser(operation)
         _add_config_arguments(command)
     return parser
@@ -214,9 +214,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         config = _config_from_args(args)
         if args.operation == "start":
             return _start(config)
-        if args.operation == "status":
+        if args.operation == "start-and-wait":
+            result = _start(config)
+            if result != 0:
+                return result
+        elif args.operation == "status":
             return _status(config)
-        if args.operation == "wait":
+        if args.operation in {"wait", "start-and-wait"}:
             stop_event = threading.Event()
             signal.signal(signal.SIGINT, lambda *_: stop_event.set())
             signal.signal(signal.SIGTERM, lambda *_: stop_event.set())

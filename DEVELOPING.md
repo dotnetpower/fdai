@@ -283,8 +283,8 @@ make check               # lint + gates + test + operator (broad local run)
 
 `make ci-preflight` merges nothing and pushes nothing. It stops when your branch is behind its
 base, because a base update after the push costs a second CI attempt. `scripts/verify.sh --fast`
-runs the Terraform fmt, Trivy, and Checkov commands for `infra/` changes and reports a missing
-scanner as skipped, so a scanner finding costs seconds instead of a CI round trip. Sharded pytest,
+runs the Terraform fmt, Trivy, and Checkov commands for `infra/` changes. A missing scanner or a
+version that differs from CI is an environment fault (exit 125), not a pass. Sharded pytest,
 the database integration shards, the coverage floor, gitleaks, and `terraform validate` and
 `terraform test` remain CI-only.
 
@@ -295,14 +295,38 @@ regenerate the weights with
 `python3 scripts/quality/ci/update-pytest-shard-durations.py <log> [<log> ...]`; stale weights
 leave one shard much slower than the rest, and the slowest shard sets the CI wall time.
 
-CI also restores cached Python bytecode. `scripts/quality/ci/stamp-source-mtimes.py` gives each
-tracked Python file a modification time derived from its content, so a fresh checkout does not
-invalidate the cache: a cold shard starts in about 20 s instead of 70 s. The bytecode cache is
-written only by protected-`main` runs and only read elsewhere.
+CI also restores cached Python bytecode. `scripts/quality/ci/stamp-source-mtimes.py` verifies
+indexed Python bytes before stamping them and binds the cache to the workspace, interpreter,
+pytest version, and configuration. Pytest's rewritten bytecode retains absolute filenames, so
+another workspace cannot reuse it. A full-source manifest invalidates changed or removed files,
+including same-size changes whose truncated timestamp hash collides. Only successful
+protected-`main` runs write the cache. A rejected or unavailable cache changes no test assertions.
 
 `scripts/automation/run-pre-push-structural-gates.sh` runs its independent gates concurrently
 (`FDAI_STRUCTURAL_JOBS` bounds the parallelism; the default is the CPU count up to 6), which cut
-the structural stage of a push from 81 s to 29 s.
+the structural stage of a push from 81 s to 29 s in the measured workload. Parallelism accepts
+1-64 workers; `FDAI_STRUCTURAL_TIMEOUT_SECONDS` bounds the complete stage (default 600 s).
+Cancellation and deadline expiry terminate only that stage's isolated worker groups.
+
+Start the delivery coordinator and attach its waiter sequentially. The combined
+`scripts/automation/pr_delivery_daemon.py start-and-wait` command performs the lock-owned startup
+handoff before waiting and preserves a nonzero terminal exit status. Run it in an attached
+asynchronous terminal when monitoring a PR. A changed base SHA alone never warrants another push;
+the coordinator updates the base only when GitHub reports the policy-blocking `BEHIND` state.
+
+For CI evidence, export one exact run and every job page, then use
+`scripts/quality/ci/summarize-ci-run.py`. Comparisons require successful complete runs with the
+same revision, workflow, job scope, runner labels, explicit environment identity, and test count.
+Scheduling delay is reported separately from consumed runner-slot time; failed runs are not
+speedup evidence.
+
+Before removing hosted runners, use `scripts/quality/ci/check-runner-cutover.py` with the current
+workflow, a complete runner inventory, and a successful elastic-run receipt. It names remaining
+hosted jobs and unavailable pools without reading credentials or changing routing. The target
+topology separates trusted control jobs, ephemeral non-Docker tests, and isolated Docker-capable
+VM jobs. A runner image or Terraform apply alone does not prove registration, queue-driven
+scale-out, successful work, deregistration, or scale-in. Keep the existing pool until these
+observations and a safe pull-request admission design are available.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md#everyday-workflow) for the per-target
 breakdown.
