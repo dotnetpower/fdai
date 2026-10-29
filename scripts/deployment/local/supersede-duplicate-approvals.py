@@ -3,14 +3,15 @@
 
 The default run only reports what would change. ``--apply`` links each older duplicate to the
 newest open request of the same subject, keeps every record, and writes one audit entry per
-change. Only loopback port 5432 database ``fdai`` is accepted, and no connection value is
-printed.
+change. Only loopback host and host-address entries on port 5432 for database ``fdai`` are
+accepted, and no connection value is printed.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import ipaddress
 import json
 import os
 import sys
@@ -27,6 +28,17 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _DSN_ENV = "FDAI_STATE_STORE_DSN"
 
 
+def _all_loopback_hostaddrs(raw: str) -> bool:
+    """Return whether every comma-separated libpq host address is a loopback IP."""
+    for address in raw.split(","):
+        try:
+            if not ipaddress.ip_address(address.strip()).is_loopback:
+                return False
+        except ValueError:
+            return False
+    return True
+
+
 def _dsn() -> str:
     raw = os.environ.get(_DSN_ENV, "").strip()
     if not raw:
@@ -35,6 +47,7 @@ def _dsn() -> str:
     info = conninfo_to_dict(dsn)
     if (
         str(info.get("host") or "") not in _LOOPBACK_HOSTS
+        or (bool(info.get("hostaddr")) and not _all_loopback_hostaddrs(str(info["hostaddr"])))
         or str(info.get("port") or "5432") != "5432"
         or str(info.get("dbname") or "") != "fdai"
     ):
