@@ -1,7 +1,7 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 6f860e7553548b1db7e45f1e30904c43d6d8d825
+translation_source_sha: 3c6fc87b200a21617567d6fea377e577fb2ef243
 translation_revised: 2026-10-30
 ---
 # AKS 역방향 커넥터
@@ -79,6 +79,17 @@ Event 커서가 만료됐거나 순서가 누락되거나 스키마를 지원하
 전환에는 최신의 완전한 세대가 필요하며 두 번째 기록기를 만들지 않습니다. 미래 관측,
 오래된 세대, 식별 불일치, 같은 키의 다른 내용은 거부합니다. 동일 재시도는 안전하게 처리하고
 원래 관측 시각을 새로 갱신하지 않습니다.
+
+Kubernetes Event 이력은 별도의 `lifecycle.events` capability입니다. 관찰자는 데이터베이스 접근도
+cursor도 갖지 않습니다. 매 주기에 snapshot을 보낸 뒤 gateway에서 영속 cursor를 받고, 그 지점에서
+제한된 watch 구간 하나를 수집해 내용 안전한 batch를 되돌려 보냅니다. Event 메시지는 전달하지
+않습니다. Gateway는 클러스터당 단일 영속 writer로서 저장소의 lease를 얻고 관찰자가 기대한
+sequence를 확인한 뒤 멱등한 관측 식별자로 batch를 원자적으로 추가합니다. 그래서 응답이 유실되어도
+재시도가 안전하고 오래되었거나 중복된 batch는 거부됩니다. 만료된 cursor나 너무 큰 구간은 불완전
+coverage 구간으로 기록되므로 공백이 부재로 읽히지 않습니다. 관찰자에는 Event에 대한 `list`와
+`watch`만 필요하고, 등록 정보에 `lifecycle.events` capability가 있어야 합니다. 없으면 관찰자는
+`not_enrolled`를 보고하고 snapshot 경로는 영향을 받지 않습니다. Event 실패는 주기 출력에 보고되지만
+전달된 snapshot을 가리지 않습니다.
 
 ## 제약 기반 배포 제안
 
@@ -265,7 +276,8 @@ claim은 결과를 알 수 없다는 뜻이며, 운영자는 `verify`로 확인�
 사용합니다(Azure RBAC만 필요하고 네트워크 경로는 필요 없습니다. Azure Policy가 command invoke를
 막을 수 있습니다). `gitops`는 `export`로 자격 증명 없는 검토용 문서를 만듭니다.
 
-효과가 생기기 전에 명령은 문서가 observer 전용 recipe(읽기 전용 `list`/`get` 동사, Secret 읽기 없음,
+효과가 생기기 전에 명령은 문서가 observer 전용 recipe(읽기 전용 `list`/`get` 동사와 Event 한정
+`watch`, Secret 읽기 없음,
 비특권, 호스트 네임스페이스 없음, 고정 이미지, 중지된 CronJob)와 같은지, `kube-system` UID가 맞는지,
 네임스페이스를 이 설치 도구가 소유하는지 다시 확인합니다. 그다음 고정 field manager와 강제 충돌 없이
 server-side apply로 적용하므로 다른 소유자는 보존됩니다. 네임스페이스가 없으면 restricted Pod Security

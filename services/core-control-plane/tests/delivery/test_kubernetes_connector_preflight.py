@@ -415,7 +415,7 @@ async def test_real_tls_authorization_collection(tmp_path) -> None:
     from aiohttp import web
     from fdai.delivery.kubernetes_connector_read_preflight import (
         KubernetesObserverReadPreflight,
-        snapshot_read_attributes,
+        observer_read_attributes,
     )
 
     from .test_kubernetes_connector_gateway import certificates
@@ -460,7 +460,7 @@ async def test_real_tls_authorization_collection(tmp_path) -> None:
         )
         fact = await probe.collect()
         assert fact.state == "allowed"
-        assert len(calls) == len(snapshot_read_attributes()) + 2
+        assert len(calls) == len(observer_read_attributes()) + 2
     finally:
         await runner.cleanup()
 
@@ -485,7 +485,7 @@ async def test_read_preflight_uses_real_request_shape_and_exact_cluster(case, ex
     import httpx
     from fdai.delivery.kubernetes_connector_read_preflight import (
         KubernetesObserverReadPreflight,
-        snapshot_read_attributes,
+        observer_read_attributes,
     )
 
     class Auth:
@@ -512,7 +512,7 @@ async def test_read_preflight_uses_real_request_shape_and_exact_cluster(case, ex
                 },
             )
         value = json.loads(request.content)
-        assert value["spec"]["resourceAttributes"] in snapshot_read_attributes()
+        assert value["spec"]["resourceAttributes"] in observer_read_attributes()
         if case == "redirect":
             return httpx.Response(307, headers={"Location": "https://other.example"})
         if case == "oversized":
@@ -537,7 +537,7 @@ async def test_read_preflight_uses_real_request_shape_and_exact_cluster(case, ex
     assert fact.state == expected
     assert fact.source == "kubernetes_api"
     if expected in {"allowed", "denied"}:
-        assert len(requests) == len(snapshot_read_attributes()) + 2
+        assert len(requests) == len(observer_read_attributes()) + 2
     assert "test-token" not in fact.model_dump_json()
     assert "not retained" not in fact.model_dump_json()
 

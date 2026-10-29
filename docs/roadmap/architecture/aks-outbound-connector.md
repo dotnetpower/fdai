@@ -79,6 +79,18 @@ source selection per cluster; failover requires a fresh, complete generation, no
 Future observations, stale generations, mismatched identity, and same-key different-content replay
 are rejected. Identical retry remains safe and does not refresh the original observation time.
 
+Kubernetes Event history is the separate `lifecycle.events` capability. The observer holds no
+database access and no cursor. Each cycle, after the snapshot, asks the gateway for the durable
+cursor, collects one bounded watch window from it, and sends the content-safe batch back; Event
+messages are never forwarded. The gateway is the single durable writer per cluster: it acquires the
+store's lease, checks the observer's expected sequence, and appends the batch atomically with
+idempotent observation identities, so a lost response is safe to retry and a stale or duplicate
+batch is rejected. An expired cursor or oversized window becomes an incomplete coverage segment, so
+a gap is recorded instead of being read as absence. The observer needs `list` and `watch` on Events
+only, and an enrollment must list the `lifecycle.events` capability; without it the observer
+reports `not_enrolled` and the snapshot path is unaffected. An Event failure is reported in the
+cycle output but never hides a delivered snapshot.
+
 ## Constraint-based deployment proposals
 
 The complete constraint model and proposal contract are in [AKS Outbound Connector Deployment Proposals](aks-outbound-connector-deployment-proposals.md).
@@ -276,7 +288,8 @@ and `managed_host` run `kubectl` with a kubeconfig, `run_command` uses `az aks c
 uses `export` to write reviewable documents without credentials.
 
 Before any effect, the command re-checks the documents against the observer-only recipe (read-only
-`list`/`get` verbs, no Secret reads, non-privileged, no host namespaces, pinned image, suspended
+`list`/`get` verbs, plus `watch` on Events only, no Secret reads, non-privileged, no host
+namespaces, pinned image, suspended
 CronJob), the `kube-system` UID, and a namespace that this installer owns. It then applies with
 server-side apply, a fixed field manager, and no forced conflicts, so another owner is preserved.
 A missing namespace is created first with the restricted Pod Security level; the rest is dry-run

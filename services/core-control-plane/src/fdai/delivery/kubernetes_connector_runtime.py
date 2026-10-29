@@ -9,6 +9,7 @@ import json
 import os
 import ssl
 import stat
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Literal, Self
@@ -238,6 +239,57 @@ async def observe_once(config: ConnectorRuntimeConfig) -> dict[str, object]:
             await sender.aclose()
 
 
+async def observe_events_once(
+    config: ConnectorRuntimeConfig, *, now: Callable[[], datetime] = lambda: datetime.now(UTC)
+) -> dict[str, object]:
+    """Collect one bounded Event window from the gateway's durable cursor and send it back."""
+    from fdai.delivery.kubernetes_connector_events import ConnectorEventTransport
+    from fdai.delivery.kubernetes_lifecycle_collection import KubernetesLifecycleCollector
+
+    if config.role != "observer":
+        raise ValueError("connector observer role required")
+    registrations = FileConnectorRegistrations(config.registration_path)
+    principal = config.observer_principal_ref or ""
+    registration = await registrations.read(principal)
+    if registration is None:
+        raise ValueError("connector observer enrollment is unavailable")
+    if "lifecycle.events" not in registration.capabilities:
+        return {"status": "not_enrolled", "capability": "lifecycle.events"}
+    registration.admit(
+        principal_ref=principal,
+        scope=registration.scope,
+        capability="lifecycle.events",
+        now=now(),
+    )
+    if config.api_ca_path is None or config.api_token_path is None:
+        raise ValueError("connector observer file references are incomplete")
+    sender = ConnectorEventTransport(
+        ConnectorTransportConfig(config.gateway_origin or "", "mtls"),
+        tls_context=connector_tls(config),
+    )
+    try:
+        async with httpx.AsyncClient(
+            verify=str(config.api_ca_path), trust_env=False, follow_redirects=False
+        ) as client:
+            cursor = await sender.cursor()
+            batch = await KubernetesLifecycleCollector(
+                api_server=config.api_server or "",
+                cluster_ref=registration.scope.cluster_ref,
+                auth=ServiceAccountTokenAuth(config.api_token_path),
+                http_client=client,
+            ).collect(cursor)
+            acknowledgment = await sender.send(batch)
+        return {
+            "status": acknowledgment["status"],
+            "sequence": acknowledgment["sequence"],
+            "observations": acknowledgment["observations"],
+            "coverage_gap": acknowledgment["coverage_gap"],
+            "limitation": batch.limitation,
+        }
+    finally:
+        await sender.aclose()
+
+
 def build_snapshot_inbox(
     config: ConnectorRuntimeConfig, store: StateStore
 ) -> ConnectorSnapshotInbox:
@@ -273,10 +325,21 @@ def run_gateway(config: ConnectorRuntimeConfig) -> None:
         config=PostgresStateStoreConfig(dsn=dsn, connect_timeout_s=3, statement_timeout_ms=5000)
     )
     registrations = FileConnectorRegistrations(config.registration_path)
+    from fdai.delivery.kubernetes_connector_events import LifecycleEventInbox
+    from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
+        PostgresKubernetesLifecycleConfig,
+        PostgresKubernetesLifecycleStore,
+    )
+
     app = create_connector_gateway(
         inbox=build_snapshot_inbox(config, store),
         registrations=registrations,
         now=lambda: datetime.now(UTC),
+        events=LifecycleEventInbox(
+            PostgresKubernetesLifecycleStore(config=PostgresKubernetesLifecycleConfig(dsn=dsn)),
+            registrations=registrations,
+            now=lambda: datetime.now(UTC),
+        ),
     )
     web.run_app(
         app,
