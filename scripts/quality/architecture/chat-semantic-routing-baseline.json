@@ -555,13 +555,6 @@
       "issue": 252
     },
     {
-      "path": "services/core-control-plane/src/fdai/rule_catalog/schema/wara_assessment.py",
-      "disposition": "retain",
-      "owner": "rule-catalog-schema",
-      "reason": "Retains strict schema classification of external ARG queries against the WARA assessment catalog.",
-      "issue": 252
-    },
-    {
       "path": "services/core-control-plane/src/fdai/shared/contracts/models/forecast_outcome.py",
       "disposition": "retain",
       "owner": "forecast-outcome-contract",
