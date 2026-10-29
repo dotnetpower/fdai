@@ -22,6 +22,10 @@ authorizes the normal repository path through:
 5. protected merge when every required check and review permits it; and
 6. cleanup of the merged local topic branch.
 
+A delivery request includes creating and switching to a task-owned PR branch in the active
+checkout without a separate approval prompt. Creating or reusing another worktree still requires
+explicit approval.
+
 A request explicitly limited to `commit only`, `push only`, `open a PR`, or `do not merge` stops at
 that boundary. Delivery authorization never implies deployment, release, live Azure access, secret
 access, an admin bypass, or a force-push.

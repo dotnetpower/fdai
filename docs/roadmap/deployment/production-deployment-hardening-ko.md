@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 8ac7d3b0f180573288db35ee0b2273424d1db56a
-translation_revised: 2026-10-15
+translation_source_sha: a907ffba3f61eb365b226cb746f581af81ba6df0
+translation_revised: 2026-10-30
 ---
 # 운영 배포 강화
 
@@ -134,6 +134,10 @@ Communication Service, Email Service, Azure-managed domain, association, notific
 Terraform이 stack을 직접 생성하도록 합니다.
 
 ## 지속적인 인프라 검사
+
+ACA CI 실행기 루트는 `infra/ci-runner-aca/.terraform.lock.hcl`을 커밋하여 선택한 공급자 버전과
+패키지 체크섬을 유지합니다. 의존성을 업데이트할 때 생성된 잠금 파일 변경도 함께 검토합니다.
+잠금 파일은 Terraform 상태나 인프라 변경 승인을 대신하지 않습니다.
 
 필수 [`CI` workflow](../../../.github/workflows/ci.yml)는 platform, bootstrap 및 scenario-lab
 루트에서 Terraform 형식과 검증을 실행합니다. 경로 범위가 지정된 `terraform-validate`
