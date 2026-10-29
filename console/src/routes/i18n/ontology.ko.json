@@ -373,7 +373,7 @@
     "identityAuthority": "식별 및 권한",
     "lifecycle": "수명주기",
     "noLifecycleDeclared": "선언된 수명주기 계약이 없습니다. 선언 권한은 catalog as code에 유지됩니다.",
-    "lifecycleClassification": "수명주기 권한",
+    "lifecycleClassification": "수명주기 분류",
     "lifecycleCategory_catalog_as_code": "Catalog as code",
     "lifecycleCategory_event_bus_registry": "이벤트 버스 레지스트리",
     "lifecycleCategory_projection_owned": "프로젝션 소유",
