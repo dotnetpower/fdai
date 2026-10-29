@@ -117,6 +117,7 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
     if TYPE_CHECKING:
         _append_ingress_retention_audit: Any
         _append_issue_audit: Any
+        _audit_inbox_pending: Any
         _audit_outbox_pending: Any
         _clock: Any
         _durable_state_store: Any
@@ -130,6 +131,7 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
         _issue_close_promotion_evidence_producer_bound: Any
         _issue_timeout_seconds: Any
         _last_audit_outbox_recovered: Any
+        _no_rule_match_aggregator: Any
         _last_issue_close_eligibility_recovered: Any
         _load_durable_fingerprint: Any
         _materialize_handoff: Any
@@ -151,9 +153,14 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
     async def recover_audit_outbox(self, *, limit: int = _AUDIT_OUTBOX_PENDING_SCAN_LIMIT) -> int:
         """Republish durable audit-entry intents left unpublished by a crash."""
 
-        if self._durable_state_store is None or self.bus is None:
+        await self._no_rule_match_aggregator.refresh()
+        if self._durable_state_store is None:
+            self._audit_inbox_pending = 0
             return 0
         await self._recover_audit_inbox(limit=limit)
+        await self._refresh_audit_inbox_pending()
+        if self.bus is None:
+            return 0
         published = 0
         attempted = 0
         attempted_keys: set[str] = set()
@@ -226,10 +233,30 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
                     expected_revision=current["revision"],
                 )
         self.record_behavior("audit_inbox:deferred")
+        await self._refresh_audit_inbox_pending()
         _LOG.warning(
             "saga_audit_append_deferred",
             extra={"topic": topic, "recovery_id": key.removeprefix(_AUDIT_INBOX_PREFIX)},
         )
+
+    async def _refresh_audit_inbox_pending(self) -> None:
+        store = self._durable_state_store
+        if store is None:
+            self._audit_inbox_pending = 0
+            return
+        _, pending = await store.read_state_page(
+            _AUDIT_INBOX_PREFIX,
+            limit=1,
+            field="status",
+            value="pending",
+        )
+        _, recovering = await store.read_state_page(
+            _AUDIT_INBOX_PREFIX,
+            limit=1,
+            field="status",
+            value="recovering",
+        )
+        self._audit_inbox_pending = pending + recovering
 
     async def _recover_audit_inbox(self, *, limit: int) -> None:
         """Retry oldest retained messages under a fenced lease, never a cached seal."""
@@ -307,6 +334,18 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
         correlation_id: str,
         payload: dict[str, Any],
     ) -> None:
+        ordered_append = getattr(
+            getattr(self, "_no_rule_match_aggregator", None),
+            "append_ordered_audit",
+            None,
+        )
+        if callable(ordered_append) and await ordered_append(
+            principal=principal,
+            topic=topic,
+            correlation_id=correlation_id,
+            payload=payload,
+        ):
+            return
         result = self.audit_chain.append(
             principal=principal,
             topic=topic,

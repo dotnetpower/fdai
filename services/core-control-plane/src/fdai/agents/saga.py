@@ -95,6 +95,7 @@ from fdai.agents._framework.saga_handoff_runtime import SagaHandoffRuntimeMixin
 from fdai.agents._framework.saga_issue_maintenance import SagaIssueMaintenanceMixin
 from fdai.agents._framework.saga_issue_runtime import SagaIssueRuntimeMixin
 from fdai.agents._framework.saga_message_runtime import SagaMessageRuntimeMixin
+from fdai.agents._framework.saga_verdict_aggregation import SagaVerdictAggregator
 from fdai.shared.providers.state_store import StateStore
 
 
@@ -169,8 +170,14 @@ class Saga(
         self._clock = clock
         self._issue_timeout_seconds = issue_timeout_seconds
         self._audit_outbox_pending = 0
+        self._audit_inbox_pending = 0
         self._last_audit_outbox_recovered = 0
         self._last_chain_verified_entries = 0
+        self._no_rule_match_aggregator = SagaVerdictAggregator(
+            store=durable_state_store,
+            audit_chain=self.audit_chain,
+            clock=self._clock,
+        )
         self._forecast_audit_keys: BoundedLruSet[str] = BoundedLruSet(_FORECAST_AUDIT_FENCE_SIZE)
 
     @property

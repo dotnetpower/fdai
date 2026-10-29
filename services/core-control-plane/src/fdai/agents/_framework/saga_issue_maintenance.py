@@ -112,6 +112,7 @@ class SagaIssueMaintenanceMixin(_AgentMixinBase):
         _append_audit: Any
         _append_ingress_retention_audit: Any
         _append_issue_audit: Any
+        _audit_inbox_pending: Any
         _audit_outbox_pending: Any
         _clock: Any
         _durable_state_store: Any
@@ -125,7 +126,9 @@ class SagaIssueMaintenanceMixin(_AgentMixinBase):
         _issue_close_promotion_evidence_producer_bound: Any
         _issue_timeout_seconds: Any
         _last_audit_outbox_recovered: Any
+        _last_chain_verified_entries: Any
         _last_issue_close_eligibility_recovered: Any
+        _no_rule_match_aggregator: Any
         _load_durable_fingerprint: Any
         _materialize_handoff: Any
         _mutate_github_issue: Any
@@ -522,6 +525,7 @@ class SagaIssueMaintenanceMixin(_AgentMixinBase):
     async def maintenance_tick(self) -> None:
         await Agent.maintenance_tick(self)
         await self.recover_audit_outbox(limit=_AUDIT_OUTBOX_MAINTENANCE_PAGE)
+        await self._no_rule_match_aggregator.flush_pending()
         verify = getattr(self.audit_chain, "verify", None)
         if callable(verify):
             verify()
@@ -551,6 +555,16 @@ class SagaIssueMaintenanceMixin(_AgentMixinBase):
         entries = len(self.audit_chain.entries)
         durable = self.durable_audit
         verified_entries = self._last_chain_verified_entries
+        aggregate_count = self._no_rule_match_aggregator.pending_count
+        aggregate_revision = self._no_rule_match_aggregator.revision
+        aggregate_readable = self._no_rule_match_aggregator.readable
+        audit_complete = (
+            durable
+            and aggregate_readable
+            and aggregate_count == 0
+            and self._audit_inbox_pending == 0
+            and self._audit_outbox_pending == 0
+        )
         integrity_kpi = (
             {
                 "value": 1.0,
@@ -581,6 +595,13 @@ class SagaIssueMaintenanceMixin(_AgentMixinBase):
                 "evidence_state": integrity_kpi["evidence_state"],
             },
             "pending_audit_outbox": self._audit_outbox_pending,
+            "pending_audit_inbox": self._audit_inbox_pending,
+            "audit_completeness": {
+                "status": "complete" if audit_complete else "incomplete",
+            },
+            "pending_verdict_aggregates": aggregate_count,
+            "pending_verdict_aggregate_revision": aggregate_revision,
+            "pending_verdict_aggregate_readable": aggregate_readable,
             "last_audit_outbox_recovered": self._last_audit_outbox_recovered,
             "audit_outbox_scan_limit": _AUDIT_OUTBOX_PENDING_SCAN_LIMIT,
             "fingerprint_index_size": len(self._fingerprint_index),

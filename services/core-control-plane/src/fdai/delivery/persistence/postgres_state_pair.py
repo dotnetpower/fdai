@@ -15,6 +15,34 @@ class _RollbackTransactionError(RuntimeError):
 class PostgresStatePairMixin:
     """Mixin for authority records that must become visible together."""
 
+    async def compare_and_set_state_pair_with_audit(
+        self: Any,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        second_key: str,
+        second_value: Mapping[str, Any],
+        expected_second_revision: int,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if expected_revision < 0 or expected_second_revision < 0 or key == second_key:
+            raise ValueError("state pair expected revisions or keys are invalid")
+        try:
+            async with self._connection() as conn:
+                async with conn.transaction():
+                    await self._set_statement_timeout(conn)
+                    first_changed = await _write_state_revision(conn, key, value, expected_revision)
+                    second_changed = await _write_state_revision(
+                        conn, second_key, second_value, expected_second_revision
+                    )
+                    if not first_changed or not second_changed:
+                        raise _RollbackTransactionError()
+                    await self._append_audit_in_transaction(conn, dict(audit_entry))
+        except _RollbackTransactionError:
+            return False
+        return True
+
     async def compare_and_set_state_with_audit_and_insert(
         self: Any,
         key: str,
@@ -296,6 +324,17 @@ async def _update_state_revision(
         (json.dumps(dict(value), default=str), key, str(expected_revision)),
     )
     return await cursor.fetchone() is not None
+
+
+async def _write_state_revision(
+    conn: Any,
+    key: str,
+    value: Mapping[str, Any],
+    expected_revision: int,
+) -> bool:
+    if expected_revision == 0:
+        return await _insert_state(conn, key, value)
+    return await _update_state_revision(conn, key, value, expected_revision)
 
 
 async def _upsert_state_when_field_matches(

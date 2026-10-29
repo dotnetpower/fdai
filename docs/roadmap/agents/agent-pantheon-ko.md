@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: fb6c1eb52a19cc29a47ead6b60abbfc34e2ab5f1
-translation_revised: 2026-10-23
+translation_source_sha: eeea580e3e9d7adb4320480cea698811a3849322
+translation_revised: 2026-10-30
 ---
 # 에이전트 판테온
 
@@ -539,6 +539,74 @@ Huginn은 자체 표준 시간대 UTC 시계로 수집 시각을 기록하며 �
 객체 타입마다 `object.<type>` 토픽 하나를 사용합니다. 모든 메시지는 `correlation_id`, `idempotency_key`, `producer_principal`을 carry하며 Thor는 `correlation_id:state`로 retry-safe 전이를 유지합니다.
 버스는 인증된 `producer_principal`과 정수 `envelope_schema_version`을 기록하고 페이로드의 `schema_version`은 보존합니다. 변경은 비어 있지 않은 `correlation_id`, `resource_id`, `idempotency_key`가 필요합니다. 이 인증된 버스 경로 밖에서 기록하는 운영 감사 행은 기계 실행자 `actor`를 보존하고 책임 Pantheon 구성원을 `owner_agent`로 별도 기록하며 `producer_principal`을 만들어내지 않습니다. Saga의 영속 감사 체인 복사본은 `actor: Saga`를 기록하고, 감사 대상 페이로드나 다이제스트를 바꾸지 않은 채 인증된 원본 발행자를 `principal`에 보존합니다.
 Saga는 공유 리비전을 사용해 공급자 기반 감사 항목 추가를 직렬화하고 head와 감사 행을 원자적으로 확정합니다. 범위가 제한된 로컬 복사본은 확정 뒤에만 공개하므로 최종 상태 관측이 영속 감사 근거보다 앞설 수 없습니다.
+
+#### 범위가 제한된 no-op 결정 집계
+
+Saga는 인증된 Forseti `object.verdict` 중 `reason: no_rule_match`,
+`risk_verdict: hil`, 빈 `action_type`, `resolved_autonomy_ceiling: shadow_only`를 만족하고,
+비어 있지 않은 문자열 `resource_id`와 `correlation_id`가 있으며 `action_id`가 없는 기록만
+집계할 수 있습니다. 대상 digest는 `resource_id`의 정확한 UTF-8 바이트에 적용한 SHA-256입니다.
+Source digest는 감사 체인의 엄격한 정본 JSON SHA-256을 사용하며, 이때 `resource_id`,
+`correlation_id`, `idempotency_key`를 제거합니다. 그룹 digest는 같은 정본 JSON SHA-256을
+적용한 `_digest({"schema_version":"1.0.0","subject_digest":subject_digest,"source_digest":source_digest})`입니다.
+판정 내용이나 대상이 다르면 별도 그룹으로 집계합니다. 정규화 버전을 고정하므로 원본
+`correlation_id`가 달라도 집계 ID는 동일하게 유지됩니다.
+
+영속 대기 원장 한 행에는 스키마 버전과 revision, 최대 64개의 집계 기록을 저장합니다.
+각 기록은 `group_digest`를 키로 하며 `subject_digest`, `source_digest`, `count`, Saga가 UTC로
+받은 `first_seen_at` 및 `last_seen_at`을 포함합니다. `count`는 고유한 원본 판정 수가 아니라
+재전달을 포함해 Saga가 인증한 메시지 전달 횟수입니다. Saga는 처리 전에 `idempotency_key`
+중복을 제거하지 않으므로 같은 키로 재전달된 메시지도 별도 전달로 셉니다. 이는 현재 메시지별
+감사 기록 동작과 일치합니다.
+각 전달은 compare-and-set으로 원장을 갱신합니다. 재시작하면 영속 count를 읽으며 이미
+임시 저장한 전달을 다시 계산하지 않습니다. 이 원장은 체인 항목이 아닌 임시 저장 기록입니다.
+집계 경로를 사용하려면 일반 상태 CAS와 함께 선택적 `StateStorePairAuditWriter` 기능도
+필요합니다. 이 기능이 없는 어댑터는 각 메시지를 개별 감사 항목으로 계속 추가합니다.
+
+감사 기능이 영속적이고 집계 원장 snapshot을 읽을 수 있으며, 대기 집계 그룹과 감사 inbox,
+감사 outbox 수가 모두 0일 때만 health의 `audit_completeness.status`가 `complete`입니다.
+그 외에는 `incomplete`로 표시합니다. `pending_verdict_aggregates`는 대기 그룹 수입니다.
+`pending_verdict_aggregate_revision`은 마지막으로 성공적으로 읽거나 커밋한
+snapshot의 revision입니다. `pending_verdict_aggregate_readable`은 health 확인에서 원장을
+성공적으로 읽었는지 나타냅니다. 읽기에 실패하거나 아직 성공한 snapshot이 없으면
+`incomplete`를 보고합니다.
+이전의 `complete` snapshot이 최신 읽기 실패를 가리지 않습니다. 이 상태는 Saga 인스턴스별
+snapshot이지 실시간 전역 상태를 뜻하지 않습니다. 체인 검증 KPI는 봉인된 체인 구간만
+설명합니다.
+
+Saga는 대기 집계가 있는 대상에 다른 기록을 추가하기 전에 해당 대상의 집계를 최대 64개
+봉인합니다. 이전 집계가 남아 있거나 봉인에 실패하면 기록 순서를 바꾸어 추가하지 않고 기존
+감사 inbox에 메시지를 보류합니다. 새 그룹이 64개 한도에 도달하면 Saga는
+`first_seen_at`, `group_digest` 순으로 가장 오래된 그룹부터 봉인합니다. 이 봉인에 실패하면
+새 판정을 같은 inbox에 보류합니다. 각 유지 관리 틱은 체인을 검증하기 전에 대기 그룹을
+최대 64개 봉인합니다. 남은 그룹이 있으면 완전성은 `incomplete`로 유지되며 봉인 시간은
+보장하지 않습니다. 임시 저장 또는 봉인에 실패하면 기존 감사 inbox를 사용하므로 영속
+상태가 확정되기 전에 메시지를 감사 완료로 처리하지 않습니다. 이 완전성 신호는 액션 권한을
+부여하거나 바꾸지 않습니다. Saga는 감사 기록과 대기 원장의 revision도 함께 확인합니다.
+동시에 집계 판정이 추가되면 기록을 다시 시도하기 전에 새 그룹을 먼저 봉인합니다.
+
+봉인한 payload에는 `schema_version: 1.0.0`, `aggregate_type: forseti.no_rule_match`,
+`subject_digest`, `source_digest`,
+`count`, `first_seen_at`, `last_seen_at`이 포함되며 원시 리소스 ID나 correlation ID는
+포함되지 않습니다. 봉인은 pending 원장과 감사 체크포인트의 revision을 원자적으로 확인하고,
+원장 행은 유지하면서 해당 그룹 하나를 제거하며 체크포인트를 전진시키고 payload를 감사
+항목으로 추가합니다. 상태 쌍과 감사 항목은 함께 커밋됩니다. revision이 충돌하면 두 상태
+행을 모두 변경하지 않고 감사 항목도 추가하지 않습니다. 동시에 봉인하는 경우 한 실행만
+커밋할 수 있습니다. 나머지는 두 상태 행을 다시 읽으며 중복 항목을 추가하지 않습니다.
+재시작하면 봉인되지 않은 그룹을 이어서 처리합니다.
+
+집계 조건에 맞지 않는 판정과 타입이 지정된 다른 모든 기록은 개별 감사 항목으로 유지합니다.
+상태 변경과 액션 수명 주기 기록도 집계하지 않습니다. 집계는 반복된 no-op 결정을 정확한
+횟수와 관측 구간을 가진 하나의 재생 단위로 표현하며 액션을 실행할 수 없습니다. 집계 항목의
+`correlation_id`는 합성 값인 `aggregate:<group_digest>:<chain_seq>`입니다. 재생 과정은 원래 correlation ID나
+개별 전달을 복원하지 않으며, 집계 페이로드에는 원시 리소스 ID나 correlation ID를 보존하지
+않습니다. correlation ID 인덱스는 합성 ID만 보관하므로 `entries_for_correlation`과
+`replay_for_correlation`은 원본 correlation ID로 이 항목을 찾지 못합니다. 따라서 Saga의 읽기
+전용 correlation 조회에는 집계된 no-op verdict가 나타나지 않을 수 있습니다. 이 개별 전달 단위
+조회 손실은 의도적으로 명시한 제한이며, 조건에 맞는 액션 없는 no-op verdict에만 적용됩니다.
+액션, 상태 전이 및 다른 감사 기록의 correlation 조회는 기존대로 유지합니다. 체인 검증은
+봉인된 aggregate payload의 digest와 체인 연결을 검사합니다. 대기 중인 집계는 검증된 구간
+밖에 명시적으로 남습니다.
 Owned-topic 생산자 검사는 끌 수 없고 알 수 없는 `object.*` 구독은 등록에 실패합니다. Ordered 변경 소비자는 poison 기록을 보관한 뒤 중지해 후속 변경의 추월을 막습니다.
 Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합니다. 오퍼레이터 redrive도 소유자, 묶음, 스키마를 다시 검사하고 실패하면 원본 페이로드만 다시 보관합니다.
 권한을 수반하는 모든 소비자는 동작하기 전에 입력 토픽의 레지스트리 소유자를 다시 인증합니다.

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ba72958aff86fe8856cd7ae660f0c0e52dcbb04f
+translation_source_sha: 04f05334163133c55a9b71592b75e53a5b019ed6
 translation_revised: 2026-10-30
 ---
 # 프로젝트 구조
@@ -224,6 +224,13 @@ PostgreSQL은 한 스냅샷에서 저장소와 분리된 감사 본문을 오래
 이력을 입증할 수는 없습니다. Saga는 제한된 이전 이력의 이행을 검증할 때만 이 인터페이스를
 사용하며, 공유 기록은 기존의 감사 포함 원자적 리비전 CAS를 사용합니다. 에이전트가 구체적인
 저장소 어댑터를 import하거나 별도 권한을 얻지는 않습니다.
+
+Saga의 선택적 `StateStorePairAuditWriter`는 Forseti의 반복된 `no_rule_match` 판정을 범위가
+제한된 다이제스트 집계로 기록합니다. 이 기능은 대기 집계 원장과 감사 체크포인트의 revision을
+원자적으로 비교하면서 요약 감사 기록을 추가합니다. 공유 `StateStore` revision fence는 이 쓰기와
+대상이 지정된 개별 감사 추가의 순서를 맞춥니다. 기능이 없는 어댑터에서는 Saga가 개별 판정
+감사를 유지합니다. 집계 원장, 감사 inbox 또는 outbox를 읽을 수 없거나 처리 대기 중이면 감사
+완전성은 `complete`를 보고하지 않습니다. 이 감사 경로는 Action 권한을 부여하지 않습니다.
 
 스칼라 Dynamic 피드백은 `core/assurance_twin/model_registry.py`와 기존 Norns 소유 측정
 실행기에 둡니다. 모델 행의 버전이 있는 이벤트 체크포인트에는 다이제스트만 저장하고 크기를
