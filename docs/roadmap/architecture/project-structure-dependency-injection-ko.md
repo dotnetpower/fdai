@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: ff8f436d86d086757288df37d5dd2f457ff3cda4
-translation_revised: 2026-10-29
+translation_source_sha: 2877d528ea6450775ef930e4d7041c0bbe4ec72b
+translation_revised: 2026-10-30
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -293,6 +293,15 @@ import를 모아도 작업 정체성, 문서 수집, 출처 소유권, 구성 �
 필드 필터는 바뀌지 않습니다. 경로 구간은 숫자로 시작할 수 없으므로 PostgreSQL이 구간을 배열 색인으로
 읽지 않습니다. 이 보호 경계는 작업 권한을 부여하지 않으며,
 Terraform 계획은 검토 입력이 아닙니다.
+
+`StateStorePairAuditWriter`는 선택적 `StateStore` 기능입니다. 이 기능의
+`compare_and_set_state_pair_with_audit` 작업은 두 상태 행의 revision을 비교하고, 두 행을
+갱신하며, 감사 기록 하나를 같은 트랜잭션에서 추가합니다. revision이 충돌하면 두 행을 모두
+변경하지 않고 감사 기록도 추가하지 않습니다. Saga는 이 기능으로 범위가 제한된 대기 집계
+원장 행을 유지하면서 그룹 하나를 제거하고 감사 체크포인트를 전진시킵니다. 이 기능이 없는
+어댑터는 집계를 사용할 수 없으며 verdict를 개별 감사 항목으로 계속 추가합니다. 이 기능이
+있으면 Saga는 대상이 지정된 감사 기록과 대기 집계 원장의 revision을 함께 확인합니다.
+동시에 집계 판정이 추가되어 revision이 달라지면 새 그룹을 봉인한 뒤 기록을 다시 시도합니다.
 
 `AssuranceTwinConfirmationStore`는 프로덕션 및 메모리 내 `StateStore` 구현의 선택적
 기능입니다. 보존 근거 행과 provisional Heimdall/Forseti 대상 행을 원자적으로 확인하거나

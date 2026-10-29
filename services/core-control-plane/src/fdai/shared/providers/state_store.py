@@ -457,6 +457,25 @@ class AssuranceTwinConfirmationStore(Protocol):
 
 
 @runtime_checkable
+class StateStorePairAuditWriter(Protocol):
+    """Optional atomic writer for two state revisions and one audit record."""
+
+    async def compare_and_set_state_pair_with_audit(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        second_key: str,
+        second_value: Mapping[str, Any],
+        expected_second_revision: int,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        """Commit both revision checks and the audit append as one transaction."""
+        ...
+
+
+@runtime_checkable
 class StateStoreKeysetReader(Protocol):
     """Optional retention-only reader; existing StateStore implementations remain valid."""
 

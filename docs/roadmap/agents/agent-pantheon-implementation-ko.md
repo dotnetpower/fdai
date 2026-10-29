@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 175867339e72d18842ec8d447cec8ebb78c87cb5
-translation_revised: 2026-10-29
+translation_source_sha: 3e1e81d0c4bd60a5a1b745ef004f9fd3ff31c441
+translation_revised: 2026-10-30
 ---
 
 # 에이전트 판테온 구현 계획
@@ -134,11 +134,13 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 | Phase-2 전문 에이전트 sampling 및 scenario generation | implemented | `agents/{freyr.py,loki.py}`; `_framework/{capacity_utilization,loki_scheduling,loki_adversarial}.py`; `test_sensing_specialist_contracts.py`; `test_loki_recurring_scheduler.py`; `test_loki_adversarial_generation.py` | Freyr는 주입된 읽기 전용 sampler로 표본을 수집하고 capacity forecast 또는 shadow/HIL scale proposal을 냅니다. Loki는 always-HIL 제안 또는 hold를 예약하고 기본 바인딩이 없는 off-path port로 비활성 adversarial scenario 후보를 생성할 수 있습니다. |
 | Phase-2 replay, cost, backlog 제어 | implemented | `agents/{forseti.py,odin.py,muninn.py,thor.py}`; `_framework/{forseti_what_if,thor_persistence}.py`; `test_forseti_retrospective_what_if.py`; `test_wave7_workflows.py`; `muninn.py` compaction regressions | Cost annotation은 Forseti, Odin, Thor를 지나며 명시적으로 유지됩니다. Retrospective what-if replay는 비활성입니다. Muninn publication outbox compaction과 provider replay 근거는 보존 상태를 제한합니다. 영속 poison-halt 저장소는 opt-in으로 남습니다. |
 | 검토된 Forseti 과거 재생 소스 | implemented | `delivery/forseti_historical_replay.py`; `runtime/bootstrap_forseti_replay.py`; 소스·what-if·초기화·레이아웃 검사 64개 통과 | 정확한 해시와 원본 리비전에 결속된 보관 기록 하나가 최근 512개 변환 결과로 대체되지 않고 검토된 완전한 유한 구간을 제공할 수 있습니다. 실제 검토 보관 기록과 배포된 프로바이더 수락은 외부 조건으로 남습니다. |
+| Saga no-rule-match 감사 집계 | implemented | [`saga_verdict_aggregation.py`](../../../services/core-control-plane/src/fdai/agents/_framework/saga_verdict_aggregation.py); [`test_saga_verdict_aggregation.py`](../../../services/core-control-plane/tests/agents/test_saga_verdict_aggregation.py); PostgreSQL pair-audit 통합 테스트 | Forseti의 no-rule-match 판정 전달을 범위가 제한된 영속 원장에 저장하고 감사 체인에 원자적으로 봉인합니다. 대상별 revision fence가 동시 집계를 직렬화하며, inbox 복구와 완전성 health를 집중 테스트로 확인했습니다. 에이전트 역할, 토픽 소유권, 작업 권한은 바꾸지 않았습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-30 | implemented | Forseti의 no-rule-match 판정을 범위가 제한된 방식으로 집계하도록 구현했습니다. 영속 임시 저장, 감사 체인 원자 봉인, 대상별 감사 revision fence, inbox 복구와 완전성 health를 추가했습니다. 에이전트 역할, 토픽, 소유권, 작업 권한은 바꾸지 않았습니다. | `현재 변경`; `test_saga_verdict_aggregation.py` 9개 통과; `test_saga_audit_backpressure.py` 7개 통과; `test_framework_layout.py` 14개 통과; PostgreSQL pair-audit 통합 테스트 1개 통과; Ruff와 strict mypy 통과. | 패키지를 커밋하고 PR CI를 확인한 뒤 #2651 근거를 조정하고 이슈를 종료합니다. |
 | 2026-10-27 | implemented | Huginn의 제한된 대기 복구 패스에서 보존된 인벤토리 claim을 각각 독립적으로 재처리하도록 격리했습니다. 결정적으로 실패하는 claim 하나가 같은 페이지의 나머지 claim을 더 이상 막지 않습니다. 실패한 claim은 보존된 증거와 함께 대기 상태로 남고 `ingress_recovery:claim_failed`가 기록되며, 페이지 처리가 끝난 뒤 첫 실패를 다시 발생시킵니다. 역할, 토픽, 소유권, 권한은 바꾸지 않았습니다. | `현재 변경`; Huginn 복구 테스트 7개와 에이전트 레이아웃 테스트 통과; Ruff 검사와 형식 확인 통과. | 현재 incarnation이 없는 관측을 가진 claim의 격리 또는 타입 지정 거부, 그리고 로컬 인벤토리 스냅샷이 갱신되는지에 대한 라이브 확인. |
 | 2026-10-19 | implemented | 실행 계획의 타입 지정 메타데이터를 Operator와 Bragi를 거쳐 Norns의 이동 주간 집계 및 Mimir의 기존 후보 입력에 연결했습니다. 현재 게시 게이트, 원본 재현, 담당 원장 실패 재시도, 유한한 기한과 일반 답변의 전송 한도를 보존합니다. | `현재 변경`; 반복 질의, 의미 처리기 및 브리지, 학습, 발행, 초기화, 배치 및 일치 여부 선택자 571개 통과, 건너뛴 검사 없음; 실제 격리 PostgreSQL 시나리오 4개와 소스 10개의 mypy 통과 | 설치 환경 전송과 실제 집단을 검증해야 합니다. 일일 작업, 운영 결정과 상위 H02 안정화는 미완료로 유지합니다. |
 | 2026-10-19 | implemented | 에이전트 역할, 토픽, 모델 정책과 권한을 바꾸지 않고 영속 복구를 포함한 기존 Bragi-to-Norns 교정문 경계를 강화했습니다. | `현재 변경`; 발행, 소비, outbox, ingress, 초기화, 적격성, 배치와 일치 여부 집중 검사 91개; 두 소스 strict mypy | 실제 운영의 권위 있는 동의와 실제 의미 기반 검토 입력을 연결해야 합니다. 배포 환경 재시작, 현재 동의 재확인과 H02 반복 질의 검증은 별도 조건으로 남습니다. |

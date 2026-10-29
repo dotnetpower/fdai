@@ -15,7 +15,7 @@ from fdai.agents._framework.audit_chain_journal import (
     load_journal,
     verify_entries,
 )
-from fdai.shared.providers.state_store import StateStore
+from fdai.shared.providers.state_store import StateStore, StateStorePairAuditWriter
 
 _APPEND_DEADLINE_SECONDS = 2.0
 _APPEND_QUEUE_WAIT_SECONDS = 30.0
@@ -126,6 +126,93 @@ class StateStoreAuditChainAdapter:
         finally:
             self._append_lock.release()
         raise AuditAppendDeferredError("durable audit append contention budget exhausted")
+
+    async def append_with_state_pair(
+        self,
+        *,
+        state_key: str,
+        state_value: dict[str, Any],
+        expected_state_revision: int,
+        correlation_id_prefix: str | None = None,
+        correlation_id: str | None = None,
+        principal: str = "Saga",
+        topic: str = "object.audit-entry",
+        payload: dict[str, Any],
+    ) -> AuditEntry | None:
+        """Append one audit entry while atomically changing a second state row."""
+        if not isinstance(self.store, StateStorePairAuditWriter):
+            return None
+        if expected_state_revision < 1:
+            raise ValueError("state revision MUST be >= 1")
+        if (correlation_id_prefix is None) == (correlation_id is None):
+            raise ValueError("supply exactly one audit correlation identifier")
+        snapshot = deepcopy(payload)
+        payload_digest = _digest(snapshot)
+        loop = asyncio.get_running_loop()
+        if self._queued_appends >= _APPEND_QUEUE_LIMIT:
+            raise AuditAppendDeferredError("durable audit append queue is full")
+        self._queued_appends += 1
+        try:
+            async with asyncio.timeout(_APPEND_QUEUE_WAIT_SECONDS):
+                await self._append_lock.acquire()
+        except TimeoutError as exc:
+            raise AuditAppendDeferredError("durable audit append queue deadline exceeded") from exc
+        finally:
+            self._queued_appends -= 1
+        deadline = loop.time() + _APPEND_DEADLINE_SECONDS
+        try:
+            for attempt in range(8):
+                if loop.time() >= deadline:
+                    raise AuditAppendDeferredError("durable audit append deadline exceeded")
+                journal = await load_journal(self.store)
+                if journal is None:
+                    await asyncio.sleep(0.005 * (attempt + 1))
+                    continue
+                entry_correlation_id = (
+                    f"{correlation_id_prefix}:{journal.length}"
+                    if correlation_id_prefix is not None
+                    else correlation_id
+                )
+                if entry_correlation_id is None:
+                    raise ValueError("audit correlation identifier is required")
+                entry = AuditEntry(
+                    seq=journal.length,
+                    prev_hash=journal.head_hash,
+                    entry_hash="",
+                    principal=principal,
+                    topic=topic,
+                    correlation_id=entry_correlation_id,
+                    payload_digest=payload_digest,
+                )
+                entry = replace(entry, entry_hash=entry_hash(entry))
+                advanced = journal.advanced(entry)
+                committed = await self.store.compare_and_set_state_pair_with_audit(
+                    AUDIT_CHECKPOINT_KEY,
+                    advanced.encode(),
+                    expected_revision=journal.revision,
+                    second_key=state_key,
+                    second_value=state_value,
+                    expected_second_revision=expected_state_revision,
+                    audit_entry={
+                        "actor": "Saga",
+                        "action_kind": "audit.record",
+                        "seq": entry.seq,
+                        "prev_hash": entry.prev_hash,
+                        "entry_hash": entry.entry_hash,
+                        "principal": entry.principal,
+                        "topic": entry.topic,
+                        "correlation_id": entry.correlation_id,
+                        "payload_digest": payload_digest,
+                        "payload": snapshot,
+                    },
+                )
+                if committed:
+                    self._install(advanced)
+                    return entry
+                return None
+        finally:
+            self._append_lock.release()
+        raise AuditAppendDeferredError("durable audit initialization contention budget exhausted")
 
     def _install(self, journal: AuditJournal) -> None:
         self.entries = list(journal.entries)

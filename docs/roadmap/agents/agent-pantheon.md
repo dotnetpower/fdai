@@ -542,6 +542,74 @@ A best-effort `AgentHandlerObserver` reports handler lifecycle without changing 
 One topic per object type, named `object.<type>`. Every message carries `correlation_id`, `idempotency_key`, and `producer_principal`; Thor uses `correlation_id:state` for retry-safe transitions.
 The bus stamps authenticated `producer_principal` and integer `envelope_schema_version` while preserving a payload's `schema_version`; mutations require non-empty `correlation_id`, `resource_id`, and `idempotency_key`. Operational audit rows written outside that authenticated bus path preserve the mechanical `actor` and record the accountable Pantheon member separately as `owner_agent`; they never synthesize `producer_principal`. Saga's durable chain mirror records `actor: Saga` and keeps the authenticated source publisher in `principal` without changing the audited payload or its digest.
 Saga serializes each provider-backed append through a shared revision and atomic head-plus-audit commit. Its bounded local mirror becomes visible only after that commit, so terminal observation cannot outrun persisted audit evidence.
+
+#### Bounded no-op decision aggregation
+
+Saga may aggregate only an authenticated Forseti `object.verdict` with `reason: no_rule_match`,
+`risk_verdict: hil`, an empty `action_type`, `resolved_autonomy_ceiling: shadow_only`, a non-empty
+string `resource_id` and `correlation_id`, and no `action_id`. The subject digest is SHA-256 of
+the exact UTF-8 bytes of `resource_id`. The source digest uses the audit chain's strict canonical
+JSON SHA-256 after removing `resource_id`, `correlation_id`, and `idempotency_key`; the group
+digest is `_digest({"schema_version":"1.0.0","subject_digest":subject_digest,"source_digest":source_digest})`,
+using that same canonical JSON SHA-256. Different verdict content or subjects therefore remains in
+a separate aggregate. This versioned normalization keeps aggregate identity stable when source
+correlation values change.
+
+One durable pending-ledger row contains its schema version and revision plus at most 64 aggregate
+records keyed by `group_digest`. Each record contains `subject_digest`, `source_digest`, `count`,
+and Saga-received UTC `first_seen_at` / `last_seen_at` values. `count` measures authenticated Saga
+deliveries, including redeliveries, rather than distinct source verdicts. Saga does not deduplicate
+`idempotency_key` before processing, so a same-key redelivery counts as another delivery, matching
+the current per-delivery audit behavior. Each delivery updates the ledger with compare-and-set; a
+restart reloads its durable count and does not count the staged delivery again. This ledger is
+staging, not a chain entry. The aggregation path requires the optional `StateStorePairAuditWriter`
+capability as well as ordinary state CAS; adapters without it keep appending each message
+individually.
+
+Health reports `audit_completeness.status` as `complete` only when audit is durable, the aggregate
+ledger snapshot is readable, and the pending aggregate group, audit inbox, and audit outbox counts
+are all zero; otherwise it reports `incomplete`. It exposes
+`pending_verdict_aggregates` (the number of groups) and `pending_verdict_aggregate_revision` from
+the latest successfully read or committed snapshot, and `pending_verdict_aggregate_readable`
+indicates whether that health check read the ledger successfully. A failed read or a missing
+initial snapshot reports `incomplete`; a previous complete snapshot cannot mask a failed refresh.
+This is a per-instance snapshot, not a real-time global claim. The chain-verification KPI continues
+to describe only the sealed chain prefix.
+
+Before Saga appends another record for a subject with pending aggregates, it seals that subject's
+groups, up to 64. If earlier groups remain or sealing cannot commit, Saga defers that record through
+the existing audit inbox rather than appending it out of order. When a new group arrives at the
+64-record limit, Saga first seals the oldest group, ordered by `first_seen_at` then `group_digest`;
+if that seal cannot commit, it defers the incoming verdict through the same inbox. Each
+maintenance tick seals at most 64 pending groups before verifying the chain. Remaining groups keep
+completeness `incomplete`, with no sealing-time guarantee implied. A staging or sealing failure uses
+the existing audit inbox, so a message is not treated as audited before durable state commits.
+Saga also revision-fences a subject's audit append with the pending ledger. A concurrent aggregate
+delivery invalidates the append attempt, so Saga seals the new group before retrying the record.
+This completeness signal does not grant or change action authority.
+
+The sealed payload contains `schema_version: 1.0.0`, `aggregate_type: forseti.no_rule_match`,
+`subject_digest`, `source_digest`, `count`, `first_seen_at`, and `last_seen_at`; it contains no raw
+resource or correlation identifier. Sealing atomically revision-checks the pending ledger and audit
+checkpoint, removes exactly one group from the ledger while retaining the ledger row, advances the
+checkpoint, and appends that payload as one audit entry. The state pair and audit entry commit
+together; a revision conflict changes neither state row and appends no audit entry. Only one
+concurrent sealer can commit; a loser reloads both state rows and does not append a duplicate. A
+restart resumes any unsealed group.
+
+Every non-matching verdict and every other typed record remains an individual audit entry,
+including state changes and action lifecycle records. An aggregate is one replay unit for a
+repeated no-op decision, with its exact count and observation interval; it cannot execute an
+action. Its `correlation_id` is the synthetic `aggregate:<group_digest>:<chain_seq>` value. Replay
+does not reconstruct each original correlation id or delivery, and the aggregate payload does not
+retain raw resource or correlation identifiers. The correlation index contains the aggregate only
+under its synthetic id; `entries_for_correlation` and `replay_for_correlation` do not find it by
+any source correlation id. The read-only Saga correlation view can therefore omit these aggregated
+no-op verdicts. This loss of per-delivery correlation lookup is explicit and applies only to
+eligible actionless no-op verdicts; issue deduplication remains based on individually audited
+`object.issue` records, and action, state-transition, and other audit records retain their original
+correlation lookup. Chain verification checks the sealed aggregate payload digest and chain links;
+pending aggregates remain explicitly outside that verified prefix.
 Owned-topic producer checks cannot be disabled, and unknown `object.*` subscriptions fail registration. Ordered mutation consumers stop after parking poison so later mutations cannot pass it.
 Dead-letter writes retry with bounded backoff before consumer restart. Operator redrive repeats owner, envelope, and schema checks and re-parks only the original payload.
 Every authority-bearing consumer re-authenticates the registry owner for the input topic before it

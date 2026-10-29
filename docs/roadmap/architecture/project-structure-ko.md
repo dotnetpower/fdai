@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 09302d397d9fed73c531d60425aceab397c5e0c7
+translation_source_sha: da8146ea5c2ee136fd686ac16b02d5338ea1dd73
 translation_revised: 2026-10-30
 ---
 # 프로젝트 구조
@@ -223,7 +223,8 @@ PostgreSQL은 한 스냅샷에서 저장소와 분리된 감사 본문을 오래
 1-512개로 제한하고 생략된 행이 있는지 명시합니다. 일부만 읽은 결과로 기록의 부재나 전체
 이력을 입증할 수는 없습니다. Saga는 제한된 이전 이력의 이행을 검증할 때만 이 인터페이스를
 사용하며, 공유 기록은 기존의 감사 포함 원자적 리비전 CAS를 사용합니다. 에이전트가 구체적인
-저장소 어댑터를 import하거나 별도 권한을 얻지는 않습니다.
+저장소 어댑터를 import하거나 별도 권한을 얻지는 않습니다. Saga의 선택적 집계 감사 경계는
+[프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)에서 설명합니다.
 
 스칼라 Dynamic 피드백은 `core/assurance_twin/model_registry.py`와 기존 Norns 소유 측정
 실행기에 둡니다. 모델 행의 버전이 있는 이벤트 체크포인트에는 다이제스트만 저장하고 크기를
