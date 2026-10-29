@@ -38,6 +38,8 @@ RUNNER_ENTRY_POINTS = (
 )
 APPROVED_ACTIONS = {
     "actions/attest": ("f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6", "v4.2.0"),
+    "actions/cache/restore": ("55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6.1.0"),
+    "actions/cache/save": ("55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6.1.0"),
     "actions/checkout": ("3d3c42e5aac5ba805825da76410c181273ba90b1", "v7.0.1"),
     "actions/configure-pages": ("45bfe0192ca1faeb007ade9deae92b16b8254a0d", "v6.0.0"),
     "actions/deploy-pages": ("cd2ce8fcbc39b97be8ca5fce6e763baed58fa128", "v5.0.0"),

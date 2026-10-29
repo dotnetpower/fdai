@@ -36,6 +36,11 @@ set -uo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root" || exit 1
+# Gates call bare python3; a system interpreter without the project dependencies (for example
+# jsonschema) fails them for reasons unrelated to the diff. Prefer the project environment.
+if [[ -x "$repo_root/.venv/bin/python3" ]]; then
+    export PATH="$repo_root/.venv/bin:$PATH"
+fi
 export PYTHONPATH="$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
 
 MODE="fast"

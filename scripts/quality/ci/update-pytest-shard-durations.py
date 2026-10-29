@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
 """Regenerate pytest shard weights from a measured full-suite run.
 
-Run the whole regression suite once with durations enabled, then feed the log here:
+Run the suite once per CI mode (regression, coverage, integration) with durations enabled, then
+feed every log here:
 
-    FDAI_PYTEST_MODE=regression FDAI_PYTEST_XDIST=1 bash scripts/quality/ci/run-python-tests.sh \
-        --durations=0 --durations-min=0.01 | tee pytest.log
-    python3 scripts/quality/ci/update-pytest-shard-durations.py pytest.log
+    FDAI_PYTEST_MODE=regression bash scripts/quality/ci/run-python-tests.sh \
+        --durations=0 --durations-min=0.01 | tee regression.log
+    FDAI_PYTEST_MODE=coverage bash scripts/quality/ci/run-python-tests.sh \
+        --durations=0 --durations-min=0.01 | tee coverage.log
+    python3 scripts/quality/ci/update-pytest-shard-durations.py regression.log coverage.log
+
+Integration mode needs the loopback validation database; run it through
+``scripts/automation/with-local-test-database.py``.
 
 The shard plugin prices a file by its recorded seconds, so stale or missing weights make one
 shard much slower than the rest and the slowest shard sets the CI wall time.
@@ -58,7 +64,13 @@ def build_weights(totals: dict[str, float], repository_root: Path) -> dict[str, 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("log", type=Path, help="pytest output that includes --durations=0")
+    parser.add_argument(
+        "logs",
+        type=Path,
+        nargs="+",
+        help="pytest output that includes --durations=0, one per mode (regression, coverage, "
+        "integration); a file measured in several keeps its largest value",
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -67,9 +79,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repository-root", type=Path, default=Path(__file__).parents[3])
     arguments = parser.parse_args(argv)
 
-    totals = parse_durations(
-        arguments.log.read_text(encoding="utf-8", errors="replace").splitlines()
-    )
+    totals: dict[str, float] = {}
+    for log in arguments.logs:
+        measured = parse_durations(log.read_text(encoding="utf-8", errors="replace").splitlines())
+        for path, seconds in measured.items():
+            totals[path] = max(seconds, totals.get(path, 0.0))
     if not totals:
         print("no duration lines found; run pytest with --durations=0", file=sys.stderr)
         return 1

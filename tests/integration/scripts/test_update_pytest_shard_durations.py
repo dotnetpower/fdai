@@ -88,3 +88,34 @@ def test_committed_weights_split_into_balanced_shards(count: int) -> None:
     ideal = sum(loads) / count
     assert max(loads) <= max(1.2 * ideal, max(weights.values()))
     assert min(loads) >= 0.5 * ideal
+
+
+def test_logs_from_several_modes_merge_keeping_the_largest_value(tmp_path: Path) -> None:
+    for name in ("test_a.py", "test_b.py", "test_c.py"):
+        (tmp_path / name).write_text("", encoding="utf-8")
+    regression = tmp_path / "regression.log"
+    regression.write_text(
+        "  3.00s call     test_a.py::test_x\n  1.00s call     test_b.py::test_y\n", encoding="utf-8"
+    )
+    coverage = tmp_path / "coverage.log"
+    coverage.write_text(
+        "  2.00s call     test_a.py::test_x\n  4.00s call     test_c.py::test_z\n", encoding="utf-8"
+    )
+    output = tmp_path / "weights.json"
+    arguments = [str(regression), str(coverage)]
+    assert (
+        UPDATE.main([*arguments, "--output", str(output), "--repository-root", str(tmp_path)]) == 0
+    )
+    assert json.loads(output.read_text(encoding="utf-8"))["files"] == {
+        "test_a.py": 3.0,
+        "test_b.py": 1.0,
+        "test_c.py": 4.0,
+    }
+
+
+def test_committed_weights_cover_regression_coverage_and_integration_files() -> None:
+    files = set(WEIGHTS["files"])
+    assert "services/core-control-plane/tests/scenarios/test_v2026_09_replay.py" in files
+    assert "lifecycle/hub/tests/test_native_transition.py" in files
+    assert "tests/integration/test_semantic_evidence_manifest_parity.py" in files
+    assert len(files) > 450
