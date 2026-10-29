@@ -755,11 +755,13 @@ def test_chained_swallowed_keys_redact_in_linear_time(text: str) -> None:
     from fdai.delivery.azure.llm.input_detection import redact_text
     from fdai.delivery.azure.llm.semantic_question_form import _exposes_secret
 
-    started = time.monotonic()
+    # CPU time, not wall time: a runner that preempts this worker must not fail a
+    # backtracking guard. Runs alone in about 0.4 s, so 3 s still catches super-linear growth.
+    started = time.process_time()
     redact_text(text)
     _exposes_secret(text)
 
-    assert time.monotonic() - started < 3.0
+    assert time.process_time() - started < 3.0
 
 
 @pytest.mark.parametrize(
