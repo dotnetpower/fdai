@@ -155,6 +155,37 @@ def test_environment_identity_verifies_installed_content(tmp_path: Path) -> None
     assert inputs.installed_digest(venv) != before
 
 
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("FDAI_STRUCTURAL_JOBS", "3"), ("FDAI_STRUCTURAL_TIMEOUT_SECONDS", "120")],
+)
+def test_structural_limits_survive_the_isolated_environment_and_bind_the_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, value: str
+) -> None:
+    executable = tmp_path / "tool"
+    executable.write_bytes(b"tool")
+    monkeypatch.setattr(inputs.shutil, "which", lambda _name, **_kwargs: str(executable))
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+    monkeypatch.delenv(name, raising=False)
+    _, before = inputs.execution_environment(tmp_path)
+    monkeypatch.setenv(name, value)
+    environment, after = inputs.execution_environment(tmp_path)
+    assert environment[name] == value
+    assert before != after
+
+
+@pytest.mark.parametrize("value", ["", "0", "-1", "1.5", "01", "99999"])
+def test_invalid_structural_limits_are_refused_at_the_cache_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    executable = tmp_path / "tool"
+    executable.write_bytes(b"tool")
+    monkeypatch.setattr(inputs.shutil, "which", lambda _name, **_kwargs: str(executable))
+    monkeypatch.setenv("FDAI_STRUCTURAL_JOBS", value)
+    with pytest.raises(ValueError, match="FDAI_STRUCTURAL_JOBS"):
+        inputs.execution_environment(tmp_path)
+
+
 def test_environment_identity_can_omit_bytecode_caches(tmp_path: Path) -> None:
     venv = tmp_path / "venv"
     (venv / "bin").mkdir(parents=True)

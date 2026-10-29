@@ -423,6 +423,60 @@ def test_daemon_never_enables_auto_merge_before_a_pending_check_fails(tmp_path: 
     assert not any(command[:3] == ("gh", "pr", "merge") for command in fake.commands)
 
 
+def test_base_movement_without_a_policy_block_preserves_the_tested_head(tmp_path: Path) -> None:
+    fake = FakeRunner(
+        tmp_path,
+        [
+            _payload(base=_B, auto_merge=False, checks=[{"status": "IN_PROGRESS"}]),
+            _payload(base=_C, auto_merge=False),
+            _payload(base=_C, state="MERGED", merge_commit=_C),
+        ],
+    )
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+    coordinator._wait_for_query_slot = lambda: True  # type: ignore[method-assign]
+    coordinator.stop_event.wait = lambda _seconds: False  # type: ignore[method-assign]
+    assert coordinator.run() == 0
+    assert fake.head == _A
+    assert fake.pushes == 0
+    assert not any(command[:3] == ("git", "merge", "--no-edit") for command in fake.commands)
+
+
+@pytest.mark.parametrize("start_result", [0, 1])
+def test_combined_start_and_wait_orders_the_handoff(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, start_result: int
+) -> None:
+    config = _config(FakeRunner(tmp_path, []))
+    calls: list[str] = []
+    monkeypatch.setattr(daemon, "_config_from_args", lambda _: config)
+
+    def start(_config: object) -> int:
+        calls.append("start")
+        return start_result
+
+    def wait(_config: object, **_kwargs: object) -> int:
+        calls.append("wait")
+        return 7
+
+    monkeypatch.setattr(daemon, "_start", start)
+    monkeypatch.setattr(daemon, "_wait", wait)
+    monkeypatch.setattr(daemon.signal, "signal", lambda *_args: None)
+    result = daemon.main(
+        [
+            "start-and-wait",
+            "--repo",
+            "example/project",
+            "--pr-number",
+            "42",
+            "--topic-branch",
+            "feat/example",
+            "--worktree",
+            str(config.worktree),
+        ]
+    )
+    assert calls == (["start", "wait"] if start_result == 0 else ["start"])
+    assert result == (7 if start_result == 0 else 1)
+
+
 @pytest.mark.parametrize("merge_state", ["CLEAN", "BEHIND"])
 def test_daemon_refuses_existing_auto_merge_before_waiting_or_replacing_head(
     tmp_path: Path,
@@ -834,4 +888,4 @@ def test_daemon_entry_point_runs_by_repository_path() -> None:
     )
 
     assert result.returncode == 0
-    assert "{start,run,status,wait}" in result.stdout
+    assert "{start,start-and-wait,run,status,wait}" in result.stdout

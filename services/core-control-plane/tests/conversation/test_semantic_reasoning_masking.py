@@ -750,18 +750,46 @@ def test_raw_redaction_replaces_containers_before_the_rules_see_them(text: str) 
 
 @pytest.mark.parametrize("text", ('pwd="' * 12500, 'pwd=\\\\"' * 8000, 'pwd= "' * 8000))
 def test_chained_swallowed_keys_redact_in_linear_time(text: str) -> None:
-    import time
+    import json
+    import os
+    import subprocess
+    import sys
 
-    from fdai.delivery.azure.llm.input_detection import redact_text
-    from fdai.delivery.azure.llm.semantic_question_form import _exposes_secret
-
-    # CPU time, not wall time: a runner that preempts this worker must not fail a
-    # backtracking guard. Runs alone in about 0.4 s, so 3 s still catches super-linear growth.
-    started = time.process_time()
-    redact_text(text)
-    _exposes_secret(text)
-
-    assert time.process_time() - started < 3.0
+    # Isolate tracing/profiling and other worker threads, not the implementation under test.
+    environment = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
+    environment.pop("PYTHONTRACEMALLOC", None)
+    result = subprocess.run(  # noqa: S603 - fixed code and synthetic test input
+        [
+            sys.executable,
+            "-c",
+            """
+import json, sys, time
+from fdai.delivery.azure.llm.input_detection import redact_text
+from fdai.delivery.azure.llm.semantic_question_form import _exposes_secret
+text = json.loads(sys.stdin.read())
+measurements = {}
+for function in (redact_text, _exposes_secret):
+    elapsed = []
+    for divisor in (4, 2, 1):
+        started = time.thread_time()
+        function(text[:len(text) // divisor])
+        elapsed.append(time.thread_time() - started)
+    measurements[function.__name__] = elapsed
+print(json.dumps(measurements))
+""",
+        ],
+        input=json.dumps(text),
+        capture_output=True,
+        text=True,
+        env=environment,
+        timeout=30,
+        check=True,
+    )
+    measurements = json.loads(result.stdout)
+    assert sum(elapsed[-1] for elapsed in measurements.values()) < 3.0, measurements
+    for name, elapsed in measurements.items():
+        for smaller, larger in zip(elapsed, elapsed[1:], strict=False):
+            assert larger <= smaller * 3.25 + 0.02, (name, elapsed)
 
 
 @pytest.mark.parametrize(

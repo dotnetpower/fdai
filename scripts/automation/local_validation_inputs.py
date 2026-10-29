@@ -29,6 +29,8 @@ TOOLS = (
     "tr",
     "timeout",
     "env",
+    "setsid",
+    "sleep",
 )
 GATE_ENVIRONMENT = (
     "FILE_LOC_WARN",
@@ -196,6 +198,22 @@ def execution_environment(state: Path) -> tuple[dict[str, str], str]:
             if name in os.environ
         }
     )
+    for name, ceiling in (
+        ("FDAI_STRUCTURAL_JOBS", 64),
+        ("FDAI_STRUCTURAL_TIMEOUT_SECONDS", 3600),
+    ):
+        value = os.environ.get(name)
+        if value is None:
+            continue
+        if (
+            not value.isascii()
+            or not value.isdecimal()
+            or len(value) > 4
+            or value.startswith("0")
+            or not 1 <= int(value) <= ceiling
+        ):
+            raise ValueError(f"{name} must be an integer from 1 to {ceiling}")
+        environment[name] = value
     certificate_digest = None
     if certificate_file := environment.get("SSL_CERT_FILE"):
         certificate_path = Path(certificate_file).resolve()
