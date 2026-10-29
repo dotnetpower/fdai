@@ -149,6 +149,10 @@ resource "azurerm_linux_virtual_machine" "ci" {
   custom_data = base64encode(templatefile("${path.module}/cloud-init.yaml.tftpl", {
     runner_version = var.runner_version
     runner_sha256  = var.runner_sha256
+
+    toolchain_manifest    = file("${path.module}/toolchain.json")
+    toolchain_verifier    = file("${path.module}/verify-toolchain.py")
+    toolchain_provisioner = file("${path.module}/provision-toolchain.sh")
   }))
 
   depends_on = [

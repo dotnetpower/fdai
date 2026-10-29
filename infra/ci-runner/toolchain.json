@@ -1,0 +1,55 @@
+{
+  "schema_version": "fdai.ci-runner-toolchain.v1",
+  "apt_packages": [
+    "build-essential",
+    "ca-certificates",
+    "curl",
+    "docker.io",
+    "git",
+    "gnupg",
+    "jq",
+    "libbz2-dev",
+    "libffi-dev",
+    "libharfbuzz-subset0",
+    "libicu74",
+    "liblzma-dev",
+    "libpango-1.0-0",
+    "libpangoft2-1.0-0",
+    "libpq-dev",
+    "libreadline-dev",
+    "libsqlite3-dev",
+    "libssl-dev",
+    "python3-pip",
+    "python3-venv",
+    "unzip",
+    "xz-utils",
+    "zip",
+    "zlib1g-dev"
+  ],
+  "libraries": ["pango-1.0", "pangoft2-1.0", "harfbuzz-subset"],
+  "system_tools": ["bash", "git", "jq", "python3", "timeout"],
+  "pinned_tools": {
+    "az": {
+      "version": "2.88.0",
+      "version_args": ["--version"],
+      "apt_key_fingerprint": "BC528686B50D79E339D3721CEB3E94ADBE1229CF"
+    },
+    "azd": {
+      "version": "1.34.0",
+      "version_args": ["version"]
+    },
+    "gh": {
+      "version": "2.100.0",
+      "version_args": ["--version"]
+    },
+    "terraform": {
+      "version": "1.16.1",
+      "version_args": ["version"],
+      "sha256": "745d33b4b02b7980c62a38ec1beea24ee084ea8caf3f503c200554bd9a0cbe49"
+    },
+    "uv": {
+      "version": "0.12.11",
+      "version_args": ["--version"]
+    }
+  }
+}
