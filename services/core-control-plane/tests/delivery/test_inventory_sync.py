@@ -914,6 +914,12 @@ async def test_promotion_enrichment_stages_verified_links_before_single_writer_o
                         reason=None,
                     ),
                     InventoryProjectionSourceState(
+                        source="azure_resource_health",
+                        status=InventoryProjectionSourceStatus.UNAVAILABLE,
+                        observed_at=None,
+                        reason="resource_health_identity_unavailable",
+                    ),
+                    InventoryProjectionSourceState(
                         source="azure_model_serving_metrics",
                         status=InventoryProjectionSourceStatus.AVAILABLE,
                         observed_at=observation.recorded_at,
@@ -941,13 +947,20 @@ async def test_promotion_enrichment_stages_verified_links_before_single_writer_o
         "runtime_calls"
     ]
     assert [link.link_type for link in observed[0].links] == ["runtime_calls"]
+    assert store.promoted_manifests[0].metadata["projection_complete"] is True
     assert store.promoted_manifests[0].metadata["derived_source_states"] == [
         {
             "source": "runtime_call_graph",
             "status": "available",
             "observed_at": observed[0].recorded_at.isoformat(),
             "reason": None,
-        }
+        },
+        {
+            "source": "azure_resource_health",
+            "status": "unavailable",
+            "observed_at": None,
+            "reason": "resource_health_identity_unavailable",
+        },
     ]
     assert store.promoted_manifests[0].metadata["additive_source_states"] == [
         {

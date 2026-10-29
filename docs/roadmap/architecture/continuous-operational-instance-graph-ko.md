@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph.md
-translation_source_sha: 49a35c7cf98c8909bb231bcb6255f92af0871e62
-translation_revised: 2026-10-29
+translation_source_sha: abd0457be598c0198368bd411407f45890b1f2d2
+translation_revised: 2026-10-30
 ---
 # 지속형 운영 인스턴스 그래프
 
@@ -462,8 +462,12 @@ Ontology projection은 같은 세대를 `relationship_complete=false`로 전진�
 서로 일치하지 않으면 증적을 만들지 않습니다. 공급자 레코드에
 `diffDiskSettings.option=Local`이 선언된 가상 머신은 ephemeral local storage를 사용하므로
 해당 `managedDisk.id`에서 관리 디스크 관계 후보를 만들지 않습니다.
-부분 원본 세대, 객체 충돌 또는 저장된 관계의 다중성 위반은 계속 차단되며 이전
-그래프를 보존합니다. Kubernetes EndpointSlice와 Ingress 배열 mapping은 정확히 해석된 모든 backend를 다대다 LinkType의 개별 `routes_to` 연결로 구체화합니다. 변환 결과는 관측된 전체 목적지 집합을 보존하며 backend 하나를 선택하는 방식은 프로바이더 사실을 버리므로 cardinality 불일치를 해결할 수 없습니다.
+부분 기본 인벤토리 세대, 객체 충돌 또는 저장된 관계의 다중성 위반은 계속 차단되며 이전
+그래프를 보존합니다. 완전한 기본 세대에도 사용 불가 상태인 선택적 변환 출처를 기록할 수
+있습니다. 이 상태는 활성 세대와 함께 저장되며, 출처별 `scope_digest`를 제공한 경우 해당 값을
+보존합니다. 이 기록은 부분 기본 세대를 승격시키거나 누락된 출처 값을 부재의 근거로 바꾸지
+않습니다. 각 출처의 `observed_at`은 해당 출처의 관측 시각이며 출처 간 최신성을 보장하지
+않습니다. Kubernetes EndpointSlice와 Ingress 배열 mapping은 정확히 해석된 모든 backend를 다대다 LinkType의 개별 `routes_to` 연결로 구체화합니다. 변환 결과는 관측된 전체 목적지 집합을 보존하며 backend 하나를 선택하는 방식은 프로바이더 사실을 버리므로 cardinality 불일치를 해결할 수 없습니다.
 
 컨테이너 환경 변수 값이 소유 Resource 자신을 가리키면 의존 관계 후보가 아니라 자기 식별
 참조로 처리합니다. 정확한 ARM ID와 대상으로 유일하게 해석되는 엔드포인트 별칭에 모두
