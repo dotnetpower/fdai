@@ -31,6 +31,9 @@ _MANUAL_KIND = {
     "Security": ("security_review", 2_592_000),
     "ServiceUpgradeAndRetirement": ("service_lifecycle_review", 2_592_000),
 }
+_SOURCE_PROVIDER_ALIASES = {
+    "microsoft.subscription/subscriptions": ("microsoft.resources/subscriptions",),
+}
 
 
 def _load_object(path: Path) -> dict[str, Any]:
@@ -84,11 +87,48 @@ def _validate_source_registry(path: Path) -> None:
             raise ValueError(f"{source_id} source license is not admitted for embedding")
 
 
+def _validate_published_item(control: dict[str, Any], published: dict[str, Any]) -> None:
+    """Reconcile a separately pinned public snapshot against the imported source."""
+
+    metadata = control["wara"]
+    fields = {
+        "recommendationTypeId": "recommendation_type_id",
+        "recommendationControl": "control",
+        "recommendationImpact": "impact",
+        "recommendationResourceType": "resource_type",
+        "recommendationMetadataState": "state",
+        "pgVerified": "product_group_verified",
+        "automationAvailable": "automation_available",
+    }
+    for source, target in fields.items():
+        if published.get(source) != metadata.get(target):
+            raise ValueError(f"published WARA field drift for {control['id']}:{source}")
+    text_fields = {
+        "description": control["title"],
+        "longDescription": control["description"],
+        "potentialBenefits": metadata["potential_benefits"],
+    }
+    for field, expected in text_fields.items():
+        if not isinstance(published.get(field), str) or published[field].strip() != expected:
+            raise ValueError(f"published WARA field drift for {control['id']}:{field}")
+    if sorted(published.get("tags", [])) != metadata["tags"]:
+        raise ValueError(f"published WARA tag drift for {control['id']}")
+    expected_links = (
+        [{"name": metadata["learn_more_name"], "url": metadata["learn_more_url"]}]
+        if metadata["learn_more_name"] is not None
+        else []
+    )
+    if (published.get("learnMoreLink") or []) != expected_links:
+        raise ValueError(f"published WARA learn-more drift for {control['id']}")
+
+
 def build_catalog(
     framework_path: Path,
     published_path: Path,
     resource_types_path: Path,
     source_registry_path: Path,
+    *,
+    published_object_digest: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Build conservative reviewed assessment and external query catalogs."""
 
@@ -108,8 +148,9 @@ def build_catalog(
     if actual_counts != _EXPECTED:
         raise ValueError(f"pinned WARA inventory changed: {actual_counts!r}")
     published_body = published_path.read_bytes()
-    published_digest = f"sha256:{hashlib.sha256(published_body).hexdigest()}"
-    if published_digest != inventory.get("published_active_digest"):
+    input_digest = f"sha256:{hashlib.sha256(published_body).hexdigest()}"
+    published_digest = str(inventory["published_active_digest"])
+    if input_digest != (published_object_digest or published_digest):
         raise ValueError("published WARA object digest does not match pinned catalog")
     published = _load_array(published_path)
     published_by_id = {str(item.get("aprlGuid")): item for item in published}
@@ -143,6 +184,8 @@ def build_catalog(
     resource_mappings: dict[str, dict[str, Any]] = {}
     recommendations: list[dict[str, Any]] = []
     queries: list[dict[str, Any]] = []
+    reference_queries: list[dict[str, Any]] = []
+    null_query_guids: list[str] = []
     umbrella_relations: list[dict[str, Any]] = []
 
     for control in sorted(active, key=lambda item: str(item["id"])):
@@ -151,22 +194,28 @@ def build_catalog(
         published_item = published_by_id.get(guid)
         if published_item is None:
             raise ValueError(f"active WARA GUID {guid!r} missing from published object")
+        _validate_published_item(control, published_item)
         provider_type = str(metadata["resource_type"])
         normalized_type = provider_type.casefold()
-        canonical_candidates = canonical_types.get(normalized_type, ())
-        canonical_type = canonical_candidates[0] if len(canonical_candidates) == 1 else None
-        resource_disposition = (
-            "canonical"
-            if canonical_type is not None
-            else "ambiguous"
-            if canonical_candidates
-            else "unsupported"
+        provider_types = _SOURCE_PROVIDER_ALIASES.get(normalized_type, (normalized_type,))
+        canonical_candidates = tuple(
+            sorted(
+                {
+                    candidate
+                    for provider in provider_types
+                    for candidate in canonical_types.get(provider, ())
+                }
+            )
         )
+        canonical_type = canonical_candidates[0] if len(canonical_candidates) == 1 else None
+        resource_disposition = "canonical" if canonical_candidates else "unsupported"
         parent_type = _parent_provider_type(normalized_type)
         mapping = {
             "normalized_provider_type": normalized_type,
             "disposition": resource_disposition,
             "canonical_resource_type": canonical_type,
+            "canonical_resource_types": list(canonical_candidates),
+            "provider_resource_types": list(provider_types),
             "parent_provider_type": parent_type,
             "requires_exact_child_scope": parent_type is not None,
         }
@@ -176,14 +225,24 @@ def build_catalog(
         )
         automated = bool(metadata["automation_available"])
         query_review: dict[str, Any] | None = None
-        manual_evidence: dict[str, Any] | None = None
+        query = published_item.get("query")
+        if query is not None and not isinstance(query, str):
+            raise ValueError(f"WARA GUID {guid!r} has an invalid query body")
+        body_digest = _sha256_text(query) if isinstance(query, str) else None
+        if body_digest != metadata.get("query_digest"):
+            raise ValueError(f"WARA query digest drift for {guid}")
+        if isinstance(query, str):
+            body = {
+                "aprl_guid": guid,
+                "body_digest": body_digest,
+                "body_base64": base64.b64encode(query.encode("utf-8")).decode("ascii"),
+            }
+            (queries if automated else reference_queries).append(body)
+        else:
+            null_query_guids.append(guid)
         if automated:
-            query = published_item.get("query")
             if not isinstance(query, str) or not query.strip():
                 raise ValueError(f"automated WARA GUID {guid!r} has no query body")
-            body_digest = _sha256_text(query)
-            if body_digest != metadata.get("query_digest"):
-                raise ValueError(f"WARA query digest drift for {guid}")
             classification, safety_reasons, tables, query_resource_types = classify_wara_query(
                 query,
                 declared_provider_type=normalized_type,
@@ -200,29 +259,22 @@ def build_catalog(
                 "evaluator_ref": None,
                 "blocked_reasons": sorted({*safety_reasons, "missing_exact_evaluator"}),
             }
-            queries.append(
-                {
-                    "aprl_guid": guid,
-                    "body_digest": body_digest,
-                    "body_base64": base64.b64encode(query.encode("utf-8")).decode("ascii"),
-                }
-            )
-        else:
-            control_name = str(metadata["control"])
-            kind, freshness = _MANUAL_KIND.get(
-                control_name,
-                ("expert_assessment", 2_592_000),
-            )
-            manual_evidence = {
-                "kind": kind,
-                "authoritative_producer": "workload-evidence-owner",
-                "scope_contract": "exact-workload-and-resource-scope",
-                "freshness_ceiling_seconds": freshness,
-                "digest_required": True,
-                "failure_behavior": "unknown",
-                "accountable_owner_slot": "workload-reliability-owner",
-                "blocked_reason": None,
-            }
+        control_name = str(metadata["control"])
+        kind, freshness = _MANUAL_KIND.get(
+            control_name,
+            ("expert_assessment", 2_592_000),
+        )
+        manual_evidence: dict[str, Any] = {
+            "role": "fallback" if automated else "required",
+            "kind": kind,
+            "authoritative_producer": "workload-evidence-owner",
+            "scope_contract": "exact-workload-and-resource-scope",
+            "freshness_ceiling_seconds": freshness,
+            "digest_required": True,
+            "failure_behavior": "unknown",
+            "accountable_owner_slot": "workload-reliability-owner",
+            "blocked_reason": None,
+        }
         tags = sorted(str(item) for item in metadata.get("tags", []))
         recommendation = {
             "aprl_guid": guid,
@@ -269,7 +321,10 @@ def build_catalog(
         "schema_version": "1.0.0",
         "source_revision": str(framework["sources"][0]["resolved_ref"]),
         "published_active_digest": published_digest,
+        "published_object_digest": input_digest,
         "queries": sorted(queries, key=lambda item: str(item["aprl_guid"])),
+        "reference_queries": sorted(reference_queries, key=lambda item: str(item["aprl_guid"])),
+        "null_query_guids": sorted(null_query_guids),
     }
     query_catalog["queries_digest"] = canonical_digest(query_catalog)
     source_catalog_digest = f"sha256:{hashlib.sha256(framework_path.read_bytes()).hexdigest()}"
@@ -282,6 +337,7 @@ def build_catalog(
         "redistribution": "embeddable",
         "source_catalog_digest": source_catalog_digest,
         "published_active_digest": published_digest,
+        "published_object_digest": input_digest,
         "queries_digest": query_catalog["queries_digest"],
         "expected_counts": _EXPECTED,
         "resource_type_mappings": [resource_mappings[key] for key in sorted(resource_mappings)],
@@ -309,6 +365,10 @@ def main() -> None:
     )
     parser.add_argument("--published-object", type=Path, required=True)
     parser.add_argument(
+        "--published-object-digest",
+        help="Explicit SHA-256 pin for an equivalent separately retrieved public snapshot",
+    )
+    parser.add_argument(
         "--resource-types",
         type=Path,
         default=Path("rule-catalog/vocabulary/resource-types.yaml"),
@@ -329,6 +389,7 @@ def main() -> None:
         args.published_object,
         args.resource_types,
         args.source_registry,
+        published_object_digest=args.published_object_digest,
     )
     _write_json(args.output_root / "crosswalk.json", crosswalk)
     _write_json(args.output_root / "queries.json", queries)

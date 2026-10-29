@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -133,8 +134,10 @@ def test_settings_fail_closed_without_one_consistent_nonempty_scope(
 @pytest.mark.asyncio
 async def test_tick_collects_exact_arg_evidence_and_publishes_shadow_result() -> None:
     catalog, queries, bindings = _load_wara_assets()
-    binding = bindings.bindings[0]
-    record = next(item for item in catalog.recommendations if item.aprl_guid == binding.aprl_guid)
+    record = next(
+        item for item in catalog.recommendations if item.title == "Disable anonymous pull access"
+    )
+    binding = next(item for item in bindings.bindings if item.aprl_guid == record.aprl_guid)
     provider_id = (
         f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/rg-example/providers/"
         f"{record.provider_resource_type}/example"
@@ -154,7 +157,17 @@ async def test_tick_collects_exact_arg_evidence_and_publishes_shadow_result() ->
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        rows = [{"id": provider_id}] if "_fdai_wara_coverage" in body["query"] else []
+        rows = (
+            [
+                {
+                    "id": provider_id,
+                    "_fdai_requirement_0": "microsoft.containerregistry/registries",
+                    "_fdai_requirement_1": False,
+                }
+            ]
+            if "_fdai_wara_coverage" in body["query"]
+            else []
+        )
         return httpx.Response(
             200,
             json={"data": rows, "count": len(rows), "totalRecords": len(rows)},
@@ -163,6 +176,9 @@ async def test_tick_collects_exact_arg_evidence_and_publishes_shadow_result() ->
     state_store = InMemoryStateStore()
     event_bus = InMemoryEventBus()
     runtime = WaraAssessmentRuntime(catalog, bindings)
+    manual_source = AsyncMock()
+    manual_source.read.return_value = ()
+    report_sink = AsyncMock()
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         provider = AzureResourceGraphWaraObservationProvider(
             identity=StaticWorkloadIdentity(audience=AUDIENCE),
@@ -183,11 +199,18 @@ async def test_tick_collects_exact_arg_evidence_and_publishes_shadow_result() ->
             catalog=catalog,
             evaluator_bindings=bindings,
             now=AT,
+            manual_evidence_source=manual_source,
+            report_sink=report_sink,
         )
 
     assert report.workload_count == 1
-    assert report.aggregate_counts["evaluation.evaluated"] == 1
-    assert report.aggregate_counts["satisfaction.satisfied"] == 1
+    assert report.aggregate_counts["evaluation.evaluated"] >= 1
+    assert report.aggregate_counts["satisfaction.satisfied"] >= 1
+    manual_source.read.assert_awaited_once()
+    report_sink.write.assert_awaited_once()
+    exported = report_sink.write.call_args.args[0]
+    target = next(item for item in exported.controls if item.recommendation_id == binding.aprl_guid)
+    assert target.satisfaction.value == "satisfied"
     assert state_store.audit_entries[0]["entry"]["execution_authority"] is False
     events = [event async for event in event_bus.subscribe(WARA_ASSESSMENT_TOPIC, "test-consumer")]
     assert len(events) == 1

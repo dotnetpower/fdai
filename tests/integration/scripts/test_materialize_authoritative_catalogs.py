@@ -331,12 +331,20 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
     assert all(control["source_url"].startswith("https://") for control in wara["controls"])
     assert all(control["source_license"] == "MIT" for control in wara["controls"])
     assert any(control["learn_more_url"] is not None for control in wara["controls"])
-    assert sum(control["manual_evidence"] is not None for control in wara["controls"]) == 250
-    assert sum(control["evaluator_ref"] is not None for control in wara["controls"]) == 3
+    assert sum(control["manual_evidence"] is not None for control in wara["controls"]) == 393
+    assert sum(control["evaluator_ref"] is not None for control in wara["controls"]) == 58
     assert all(
         "manual_evidence_required" in control["limitations"]
         for control in wara["controls"]
-        if control["manual_evidence"] is not None
+        if control["manual_evidence"] is not None and not control["automation_available"]
+    )
+    assert (
+        sum(
+            control["manual_evidence"] is not None
+            and control["manual_evidence"]["role"] == "fallback"
+            for control in wara["controls"]
+        )
+        == 143
     )
     assert wara["evaluation_source"] == "not_connected"
 

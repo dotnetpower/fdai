@@ -35,7 +35,8 @@ reference-only controls until a deployment supplies applicability and typed evid
 WARA uses the Azure Proactive Resiliency Library (APRL) rather than a separate closed question
 catalog. FDAI imports all pinned APRL recommendation metadata, including resource type, advisory
 impact, product-group verification, automation availability, tags, source digest, and optional
-Azure Resource Graph query digest. The query body remains external and inert. An APRL recommendation
+Azure Resource Graph query digest. All 143 automated query bodies, 229 inert manual reference
+bodies and 21 null references are accounted for separately from framework metadata. An APRL recommendation
 does not become an executable Rule until it passes the normal Rule, evidence, semantic, regression,
 shadow, and promotion gates.
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from fdai.rule_catalog.schema.wara_assessment import WaraQueryCatalog, canonical
 from fdai.rule_catalog.schema.wara_evaluator_binding import (
     WaraEvaluatorBindingCatalog,
     WaraEvaluatorSemantics,
+    WaraObservationRequirement,
 )
 from fdai.shared.providers.wara_assessment import (
     WaraObservationError,
@@ -137,11 +139,14 @@ class AzureResourceGraphWaraObservationProvider:
                 coverage_rows = await self._fetch_rows(
                     plan=plan,
                     subscriptions=subscriptions,
-                    query=_scope_coverage_query(plan.resource_ids),
+                    query=_scope_coverage_query(
+                        plan.resource_ids, requirements=binding.observation_requirements
+                    ),
                 )
                 coverage_ids = _validate_scope_coverage(
                     coverage_rows,
                     resource_ids=plan.resource_ids,
+                    requirements=binding.observation_requirements,
                 )
                 rows = await self._fetch_rows(
                     plan=plan,
@@ -157,6 +162,7 @@ class AzureResourceGraphWaraObservationProvider:
             resource_ids=plan.resource_ids,
             resource_id_column=binding.resource_id_column,
         )
+        ordered_coverage_rows = sorted(coverage_rows, key=lambda row: str(row["id"]))
         evidence_digest = canonical_digest(
             {
                 "evaluator_bindings_digest": plan.evaluator_bindings_digest,
@@ -166,6 +172,7 @@ class AzureResourceGraphWaraObservationProvider:
                 "recommendation_id": plan.recommendation_id,
                 "resource_ids": list(plan.resource_ids),
                 "scope_coverage_ids": coverage_ids,
+                "scope_coverage_rows": ordered_coverage_rows,
                 "rows": normalized_rows,
                 "semantics": binding.semantics.value,
                 "workload_id": plan.workload_id,
@@ -332,13 +339,24 @@ def _scope_query(
     )
 
 
-def _scope_coverage_query(resource_ids: tuple[str, ...]) -> str:
+def _scope_coverage_query(
+    resource_ids: tuple[str, ...],
+    *,
+    requirements: tuple[WaraObservationRequirement, ...] = (),
+) -> str:
     scope = _scope_literals(resource_ids)
+    projections = ["id=tostring(id)"]
+    for index, requirement in enumerate(requirements):
+        prefix = requirement.path.split(".*", 1)[0].split(".")
+        expression = prefix[0]
+        for segment in prefix[1:]:
+            expression += f"[{segment}]" if segment.isdecimal() else f".{segment}"
+        projections.append(f"_fdai_requirement_{index}={expression}")
     return (
         "// _fdai_wara_coverage\n"
         "Resources\n"
         f"| where tostring(id) in~ ({scope})\n"
-        "| project id=tostring(id)\n"
+        f"| project {', '.join(projections)}\n"
         f"| take {len(resource_ids) + 1}"
     )
 
@@ -355,6 +373,7 @@ def _validate_scope_coverage(
     rows: tuple[Mapping[str, Any], ...],
     *,
     resource_ids: tuple[str, ...],
+    requirements: tuple[WaraObservationRequirement, ...] = (),
 ) -> list[str]:
     expected = {resource_id.casefold() for resource_id in resource_ids}
     observed: list[str] = []
@@ -365,9 +384,85 @@ def _validate_scope_coverage(
                 "WARA ARG coverage returned a row outside the exact resource scope"
             )
         observed.append(resource_id.casefold())
+        for index, requirement in enumerate(requirements):
+            column = f"_fdai_requirement_{index}"
+            if column not in row:
+                raise WaraObservationError("WARA ARG required observation column is absent")
+            suffix = requirement.path.split(".*", 1)
+            remaining = ("*" + suffix[1]).split(".") if len(suffix) == 2 else []
+            if not _requirement_is_observed(row[column], remaining, requirement):
+                raise WaraObservationError(
+                    "WARA ARG required field or eligible resource set is unproven"
+                )
     if len(observed) != len(set(observed)) or set(observed) != expected:
         raise WaraObservationError("WARA ARG resource scope coverage is incomplete")
     return sorted(observed)
+
+
+def _requirement_is_observed(
+    value: Any, remaining: list[str], requirement: WaraObservationRequirement
+) -> bool:
+    if remaining:
+        segment, *tail = remaining
+        if segment == "*":
+            return (
+                isinstance(value, list)
+                and bool(value)
+                and all(_requirement_is_observed(item, tail, requirement) for item in value)
+            )
+        if segment.isdecimal():
+            return (
+                isinstance(value, list)
+                and int(segment) < len(value)
+                and _requirement_is_observed(value[int(segment)], tail, requirement)
+            )
+        return (
+            isinstance(value, Mapping)
+            and segment in value
+            and _requirement_is_observed(value[segment], tail, requirement)
+        )
+    if value is None:
+        return requirement.allow_null
+    if requirement.value_type == "string":
+        return (
+            isinstance(value, str)
+            and len(value) >= requirement.minimum_length
+            and (not requirement.allowed_values or value in requirement.allowed_values)
+        )
+    if requirement.value_type == "boolean":
+        return isinstance(value, bool) and (
+            requirement.expected_boolean is None or value is requirement.expected_boolean
+        )
+    if requirement.value_type == "number":
+        return (
+            isinstance(value, int | float)
+            and not isinstance(value, bool)
+            and (isinstance(value, int) or math.isfinite(value))
+        )
+    if requirement.value_type == "array":
+        return (
+            isinstance(value, list)
+            and len(value) >= requirement.minimum_items
+            and (requirement.maximum_items is None or len(value) <= requirement.maximum_items)
+            and (
+                not requirement.allowed_items
+                or all(
+                    isinstance(item, str) and item in requirement.allowed_items for item in value
+                )
+            )
+            and (
+                not requirement.unique_items
+                or len({json.dumps(item, sort_keys=True) for item in value}) == len(value)
+            )
+        )
+    return (
+        isinstance(value, Mapping)
+        and all(
+            isinstance(value.get(key), str) and bool(value[key])
+            for key in requirement.required_keys
+        )
+        and not any(key in value for key in requirement.forbidden_keys)
+    )
 
 
 def _response_object(response: httpx.Response, page: int) -> Mapping[str, Any]:

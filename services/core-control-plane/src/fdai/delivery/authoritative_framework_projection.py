@@ -14,6 +14,7 @@ from fdai.rule_catalog.schema.framework_catalog import FrameworkDefinition
 from fdai.rule_catalog.schema.mcsb_catalog import McsbCatalog
 from fdai.rule_catalog.schema.wara_assessment import WaraAssessmentCatalog
 from fdai.rule_catalog.schema.wara_evaluator_binding import WaraEvaluatorBindingCatalog
+from fdai.rule_catalog.schema.wara_rule_binding import WaraRuleBindingCatalog
 from fdai.shared.contracts.models import BestPractice
 
 
@@ -224,8 +225,19 @@ def _wara_snapshot(
     framework: Any,
     assessment: WaraAssessmentCatalog,
     evaluator_bindings: WaraEvaluatorBindingCatalog,
+    rule_bindings: WaraRuleBindingCatalog | None = None,
 ) -> dict[str, object]:
+    if rule_bindings is not None and (
+        rule_bindings.source_revision != assessment.source_revision
+        or rule_bindings.crosswalk_digest != assessment.crosswalk_digest
+    ):
+        raise ValueError("WARA Rule projection bindings do not match the assessment catalog")
     crosswalk = {item.aprl_guid: item for item in assessment.recommendations}
+    rule_by_guid = (
+        {binding.aprl_guid: binding for binding in rule_bindings.bindings}
+        if rule_bindings is not None
+        else {}
+    )
     controls: list[dict[str, object]] = []
     for resolved in framework.resolved_controls():
         control = resolved.control
@@ -239,18 +251,23 @@ def _wara_snapshot(
             if query_review is not None
             else None
         )
+        rule_binding = rule_by_guid.get(control.id)
         limitations = (
             ["disabled_catalog_history"]
             if metadata.state == "Disabled"
             else ["manual_evidence_required"]
-            if mapping is not None and mapping.manual_evidence is not None
+            if mapping is not None
+            and mapping.manual_evidence is not None
+            and mapping.manual_evidence.role == "required"
             else ["not_evaluated"]
-            if evaluator_binding is not None
+            if evaluator_binding is not None or rule_binding is not None
             else sorted(query_review.blocked_reasons)
             if query_review is not None
             else ["crosswalk_missing"]
         )
         manual_evidence = mapping.manual_evidence if mapping is not None else None
+        if manual_evidence is not None and manual_evidence.role == "fallback":
+            limitations.append("manual_evidence_fallback_available")
         controls.append(
             {
                 "id": control.id,
@@ -290,12 +307,15 @@ def _wara_snapshot(
                 "evaluator_ref": (
                     evaluator_binding.evaluator_ref
                     if evaluator_binding is not None
+                    else rule_binding.evaluator_ref
+                    if rule_binding is not None
                     else query_review.evaluator_ref
                     if query_review is not None
                     else None
                 ),
                 "manual_evidence": (
                     {
+                        "role": manual_evidence.role.value,
                         "kind": manual_evidence.kind,
                         "authoritative_producer": manual_evidence.authoritative_producer,
                         "scope_contract": manual_evidence.scope_contract,

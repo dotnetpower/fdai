@@ -403,7 +403,9 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
                 </dl>
               </DetailSection>
               {detail.data.manual_evidence !== null ? (
-                <DetailSection title={t("governance.rules.wara.detail.manualEvidence")}>
+                <DetailSection title={t(detail.data.manual_evidence.role === "fallback"
+                  ? "governance.rules.wara.detail.manualFallback"
+                  : "governance.rules.wara.detail.manualEvidence")}>
                   <dl class="detail-grid">
                     <DetailRow label={t("governance.rules.wara.detail.evidenceKind")} value={detail.data.manual_evidence.kind} mono />
                     <DetailRow label={t("governance.rules.wara.detail.evidenceProducer")} value={detail.data.manual_evidence.authoritative_producer} mono />

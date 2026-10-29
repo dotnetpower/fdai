@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "source_revision": "1f421a90c157bc8894b3a47b05ba08b8650a0bd5",
-  "crosswalk_digest": "sha256:f35d85799f01eefa91882094725509b11594f19c32df2660037775eacdc5a661",
+  "crosswalk_digest": "sha256:429456e5cd77d38b374b9e35c0c8ef7c235f6650aa41d5744ec963ddc592ae0d",
   "bindings": [
     {
       "aprl_guid": "03f4a7d8-c5b4-7842-8e6e-14997a34842b",
@@ -11,7 +11,97 @@
       "semantics": "matching_rows_failed",
       "resource_id_column": "id",
       "reviewer": "fdai-maintainers",
-      "review_state": "reviewed-exact"
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ContainerRegistry/registries",
+            "microsoft.containerregistry/registries"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.anonymousPullEnabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "0bee356b-7348-4799-8cab-0c71ffe13018",
+      "query_digest": "sha256:365a799c5e02c5078cbd5c65ec2f6799ab6a774b32dd0ee64d84e4dbd8f5cd1e",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/ExpressRoutePorts",
+            "microsoft.network/expressrouteports"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.provisionedBandwidthInGbps",
+          "value_type": "number",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.bandwidthInGbps",
+          "value_type": "number",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
     },
     {
       "aprl_guid": "10f02bc6-e2e7-004d-a2c2-f9bf9f16b915",
@@ -21,7 +111,54 @@
       "semantics": "matching_rows_failed",
       "resource_id_column": "id",
       "reviewer": "fdai-maintainers",
-      "review_state": "reviewed-exact"
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/applicationGateways",
+            "microsoft.network/applicationgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.backendHttpSettingsCollection",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.backendHttpSettingsCollection.*.properties.connectionDraining.enabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
     },
     {
       "aprl_guid": "122d11d7-b91f-8747-a562-f56b79bcfbdc",
@@ -31,8 +168,3642 @@
       "semantics": "matching_rows_failed",
       "resource_id_column": "id",
       "reviewer": "fdai-maintainers",
-      "review_state": "reviewed-exact"
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Compute/virtualMachines",
+            "microsoft.compute/virtualmachines"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.storageProfile.osDisk.managedDisk",
+          "value_type": "object",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [
+            "id"
+          ],
+          "allow_null": true
+        }
+      ]
+    },
+    {
+      "aprl_guid": "1549b91f-2ea0-4d4f-ba2a-4596becbe3de",
+      "query_digest": "sha256:80013320b105c0c54f28bcf2f5ef43c008279e9bc9773ea711276e3246e37f4a",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.RecoveryServices/vaults",
+            "microsoft.recoveryservices/vaults"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.redundancySettings.standardTierStorageRedundancy",
+          "value_type": "string",
+          "allowed_values": [
+            "GeoRedundant"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.redundancySettings.crossRegionRestore",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "1cca00d2-d9ab-8e42-a788-5d40f49405cb",
+      "query_digest": "sha256:d5f7ff1477e15a34726edbc8bc3e5d16562bcd2556984ab51f775ed83b996850",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.KeyVault/vaults",
+            "microsoft.keyvault/vaults"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableSoftDelete",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": true
+        }
+      ]
+    },
+    {
+      "aprl_guid": "2102a57a-a056-4d5e-afe5-9df9f92177ca",
+      "query_digest": "sha256:087df95fbae5423be91e6c95c4d839b365ff4ca850533d54e97c355940f32a6a",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.AppConfiguration/configurationStores",
+            "microsoft.appconfiguration/configurationstores"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "free",
+            "standard",
+            "premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "21fb841b-ba70-1f4e-a460-1f72fb41aa51",
+      "query_digest": "sha256:8209b5bb6e8f15b45aaf56a68a4aea6ee67247d52ae38e2d65f9b57c6bbbb542",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.VirtualMachineImages/imageTemplates",
+            "microsoft.virtualmachineimages/imagetemplates"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.distribute",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.distribute.*.replicationRegions",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.distribute.*.replicationRegions.*",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "22a769ed-0ecb-8b49-bafe-8f52e6373d9c",
+      "query_digest": "sha256:3eccf9427f8660f4bad7f197056733ecc9c3bdfbe7e76c2913d968e32f3f433a",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/networkWatchers/flowlogs",
+            "microsoft.network/networkwatchers/flowlogs"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.provisioningState",
+          "value_type": "string",
+          "allowed_values": [
+            "Succeeded",
+            "Failed",
+            "Updating",
+            "Deleting"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "281a2713-c0e0-3c48-b596-19f590c46671",
+      "query_digest": "sha256:0a2b6dba71b9bd1b4bea6b4850a99291c6dbbe5af393e3f03de5e41116d24061",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/virtualNetworkGateways",
+            "microsoft.network/virtualnetworkgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.gatewayType",
+          "value_type": "string",
+          "allowed_values": [
+            "Vpn",
+            "vpn"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "VpnGw1",
+            "VpnGw2",
+            "VpnGw3",
+            "VpnGw4",
+            "VpnGw5",
+            "VpnGw1AZ",
+            "VpnGw2AZ",
+            "VpnGw3AZ",
+            "VpnGw4AZ",
+            "VpnGw5AZ"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.activeActive",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "38c3bca1-97a1-eb42-8cd3-838b243f35ba",
+      "query_digest": "sha256:0b4b0e6fdb381a9dab21f3408ad480258a3480c2dc6e66bbe8e01bd83265f98a",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/loadBalancers",
+            "microsoft.network/loadbalancers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Basic",
+            "Standard"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "43663217-a1d3-844b-80ea-571a2ce37c6c",
+      "query_digest": "sha256:2f10719ff1c3bc377aeef98b34abd7d3ae377276739e71cf42b28b6697fe3423",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DocumentDB/databaseAccounts",
+            "microsoft.documentdb/databaseaccounts"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.locations",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.locations.*.locationName",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.consistencyPolicy.defaultConsistencyLevel",
+          "value_type": "string",
+          "allowed_values": [
+            "Strong",
+            "BoundedStaleness",
+            "Session",
+            "ConsistentPrefix",
+            "Eventual"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "47d100a5-7f85-5742-967a-67eb5081240a",
+      "query_digest": "sha256:e6f5e9fc84f2eb02fc5d22ae63c49016fc575ca093891e735d5a0d027e0b6b19",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.NetApp/netAppAccounts/capacityPools/volumes",
+            "microsoft.netapp/netappaccounts/capacitypools/volumes"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "zones",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [
+            "1",
+            "2",
+            "3"
+          ],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "488dcc8b-f2e3-40ce-bf95-73deb2db095f",
+      "query_digest": "sha256:2d2792003750b4b9d854b9b35d6689641a1375e3778e758f0510cf5974600347",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Compute/galleries/images/versions",
+            "microsoft.compute/galleries/images/versions"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.publishingProfile.storageAccountType",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard_LRS",
+            "Standard_ZRS",
+            "Premium_LRS"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "5a44bd30-ae6a-4b81-9b68-dc3a8ffca4d8",
+      "query_digest": "sha256:9061aa24a2bed3f46aed996af6bca292aafebdf132b2b7a7999b3d2fcb00979d",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Cache/Redis",
+            "microsoft.cache/redis"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "zones",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [
+            "1",
+            "2",
+            "3"
+          ],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "5b1933a6-90e4-f642-a01f-e58594e5aab2",
+      "query_digest": "sha256:0e96fa34ba467482c4d36b7560b390a57c34080c40695e99c486ea80e07e2a1f",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/virtualNetworkGateways",
+            "microsoft.network/virtualnetworkgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.gatewayType",
+          "value_type": "string",
+          "allowed_values": [
+            "Vpn"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.sku.tier",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "5b422a7f-8caa-3d48-becb-511599e5bba9",
+      "query_digest": "sha256:06d55a68a59f10d1f3230413e85283512625c79b9db45632c9d03066ec7a6da9",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/trafficManagerProfiles",
+            "microsoft.network/trafficmanagerprofiles"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.endpoints",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.endpoints.*.name",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "5c96afc3-7d2e-46ff-a4c7-9c32850c441b",
+      "query_digest": "sha256:720413be50cd4790cf0d84170c2888bd4439ad293cc631eb7bddc6d4a598bb0c",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforMySQL/flexibleServers",
+            "microsoft.dbformysql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.backup.geoRedundantBackup",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "5cea1501-6fe4-4ec4-ac8f-f72320eb18d3",
+      "query_digest": "sha256:fcf3c20e055966ba2f5045db8a6f11e529ea229a6c222dccef890103383b60ee",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/publicIPAddresses",
+            "microsoft.network/publicipaddresses"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Basic",
+            "Standard"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "60077378-7cb1-4b35-89bb-393884d9921d",
+      "query_digest": "sha256:f6164562e5e0052551428a4d5cf459551a34ed5b4391c2f4335d993a72ffb34a",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/ExpressRoutePorts",
+            "microsoft.network/expressrouteports"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.links",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 2,
+          "maximum_items": 2,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.links.0.properties.adminState",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.links.1.properties.adminState",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "63491f70-22e4-3b4a-8b0c-845450e46fac",
+      "query_digest": "sha256:66faa5b448fba6eff0d7c5aefd2b269fc8579e8e3c9af08941ea832d022f0d4e",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ContainerRegistry/registries",
+            "microsoft.containerregistry/registries"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.zoneRedundancy",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "740f2c1c-8857-4648-80eb-47d2c56d5a50",
+      "query_digest": "sha256:3ea4f575154a2f1c75df74343add3190f7971b6c47c807c46a0bcdae60a8aa40",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ApiManagement/service",
+            "microsoft.apimanagement/service"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "zones",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [
+            "1",
+            "2",
+            "3"
+          ],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "8176a79d-8645-4e52-96be-a10fc0204fe5",
+      "query_digest": "sha256:3baaaabd6420efa9afc83cbbfd6a2d348e6cafc6ea1785202aa22340650f32c7",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforMySQL/flexibleServers",
+            "microsoft.dbformysql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.storage.autoGrow",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "820f4743-1f94-e946-ae0b-45efafd87962",
+      "query_digest": "sha256:9b151735c2abec52fcdabac3244de4970a4ac044561cd5a78d52bffec6f3b8d8",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Compute/virtualMachineScaleSets",
+            "microsoft.compute/virtualmachinescalesets"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "tags",
+          "value_type": "object",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [
+            "aks-managed-poolName"
+          ],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.automaticRepairsPolicy.enabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "823b0cff-05c0-2e4e-a1e7-9965e1cfa16f",
+      "query_digest": "sha256:4eae9eb34858c70d6684ce37f40264fc70d9f100e21da7a706a88d6158e39a1d",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/applicationGateways",
+            "microsoft.network/applicationgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard_v2",
+            "WAF_v2"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.autoscaleConfiguration.minCapacity",
+          "value_type": "number",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "847a8d88-21c4-bc48-a94e-562206edd767",
+      "query_digest": "sha256:0a676718314e9456ded2b944afc21c00685efe8452f7a9697e4bc8e1e520052f",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/applicationGateways",
+            "microsoft.network/applicationgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.probes",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "88856605-53d8-4bbd-a75b-4a7b14939d32",
+      "query_digest": "sha256:c3d8d1b8ac3a2850d92fc90e3265aae1a57ceeaf6d564152a2a79c75c15115a5",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforMySQL/flexibleServers",
+            "microsoft.dbformysql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.highAvailability.mode",
+          "value_type": "string",
+          "allowed_values": [
+            "Disabled",
+            "SameZone",
+            "ZoneRedundant"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "88cb90c2-3b99-814b-9820-821a63f600dd",
+      "query_digest": "sha256:779866095039a7911d589fb5a86056eaae0b3b50c037f6701c3c284abec07ecf",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Web/serverFarms",
+            "microsoft.web/serverfarms"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Premium",
+            "PremiumV2",
+            "PremiumV3",
+            "Isolated",
+            "IsolatedV2"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.zoneRedundant",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "9cabded7-a1fc-6e4a-944b-d7dd98ea31a2",
+      "query_digest": "sha256:2ed22a6d091a8e402cdf936246e1bd97c4c6f54e41b9785d0e60aad6d26de9d4",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DocumentDB/databaseAccounts",
+            "microsoft.documentdb/databaseaccounts"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.locations",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 2,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.locations.*.locationName",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableMultipleWriteLocations",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": false,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableAutomaticFailover",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "9ec5b4c8-3dd8-473a-86ee-3273290331b9",
+      "query_digest": "sha256:49dd5b26247121fd401b106355f4b956fb81912302e30d1784a09ab5917ffe59",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.AVS/privateClouds",
+            "microsoft.avs/privateclouds"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.availability.strategy",
+          "value_type": "string",
+          "allowed_values": [
+            "SingleZone",
+            "DualZone"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "germanywestcentral",
+            "uksouth",
+            "westeurope"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "a3058909-fcf8-4450-88b5-499f57449178",
+      "query_digest": "sha256:d8f384336874a65045b9b8ce312cce42d40259dfc9e6501ccaa4afbc30e194a4",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.AAD/domainServices",
+            "microsoft.aad/domainservices"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.replicaSets",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.replicaSets.*.location",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "b2113023-a553-2e41-9789-597e2fb54c31",
+      "query_digest": "sha256:d25cbd900693e7760080d9a19d66c1b5195f48bdaa47e14a906ce50d113fdf85",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Web/serverFarms",
+            "microsoft.web/serverfarms"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Free",
+            "Shared",
+            "Basic",
+            "Standard",
+            "Premium",
+            "PremiumV2",
+            "PremiumV3",
+            "Isolated",
+            "IsolatedV2"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "b2bad57d-7e03-4c0f-9024-597c9eb295bb",
+      "query_digest": "sha256:e3231ff31e425f57e9b118715b9d88e1c5d6f6f01c55ab7f422ee50b532739fb",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforPostgreSQL/flexibleServers",
+            "microsoft.dbforpostgresql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.maintenanceWindow.customWindow",
+          "value_type": "string",
+          "allowed_values": [
+            "Enabled",
+            "Disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "b2fb3e60-97ec-e34d-af29-b16a0d61c2ac",
+      "query_digest": "sha256:4daa0a977d011783bc0ee0ac319208d48b82f8eee4921092671f326ca77e5a61",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.NetApp/netAppAccounts/capacityPools/volumes",
+            "microsoft.netapp/netappaccounts/capacitypools/volumes"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.dataProtection.backup.backupPolicyId",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "b49a8653-cc43-48c9-8513-a2d2e3f14dd1",
+      "query_digest": "sha256:f30a8616fad8e8480351e9368606aace694c64f112f7dd139353a89bf7e39af5",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforMySQL/flexibleServers",
+            "microsoft.dbformysql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.replicationRole",
+          "value_type": "string",
+          "allowed_values": [
+            "None",
+            "Source"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "b5a63aa0-c58e-244f-b8a6-cbba0560a6db",
+      "query_digest": "sha256:1252f18dfb279233074dfde9e763a83e203849e9a2edc7584b203884f7af0a9f",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Compute/virtualMachineScaleSets",
+            "microsoft.compute/virtualmachinescalesets"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.orchestrationMode",
+          "value_type": "string",
+          "allowed_values": [
+            "Uniform"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.zoneBalance",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "baf3bfc0-32a2-4c0c-926d-c9bf0b49808e",
+      "query_digest": "sha256:108851d20ca5cb2af71928b0d10b83ad207a1a0ee14d7d551eecfe3827d85083",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ApiManagement/service",
+            "microsoft.apimanagement/service"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Consumption",
+            "Developer",
+            "Basic",
+            "Standard",
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "bb4c8db4-f821-475b-b1ea-16e95358665e",
+      "query_digest": "sha256:b79c677e8babe90323f480fde4e78d598ed4dfe57099261b29aaa87b6a287a6c",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.AppConfiguration/configurationStores",
+            "microsoft.appconfiguration/configurationstores"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "standard",
+            "premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enablePurgeProtection",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": true
+        }
+      ]
+    },
+    {
+      "aprl_guid": "bb6deb9d-24fa-4ee8-bc23-ac3ebc7fdf8e",
+      "query_digest": "sha256:0987d0bde08dbd076744c258e43c2c0e905c2b38fac98924d00b8e5109f45465",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.AAD/domainServices",
+            "microsoft.aad/domainservices"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.sku",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard",
+            "Enterprise",
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "c0085c32-84c0-c247-bfa9-e70977cbf108",
+      "query_digest": "sha256:128a67fb7b9df2b549b9b908a1e5ffde2115aab11501fc15027eaabf8aca8964",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Sql/servers/databases",
+            "microsoft.sql/servers/databases"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Premium"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.zoneRedundant",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "c63b81fb-7afc-894c-a840-91bb8a8dcfaf",
+      "query_digest": "sha256:50d31ce717109b31a458b2f92c1928690ae7a7dfe34a457dec32486661c40b2c",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/publicIPAddresses",
+            "microsoft.network/publicipaddresses"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Regional"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "zones",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [
+            "1",
+            "2",
+            "3"
+          ],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "c9c00f2a-3888-714b-a72b-b4c9e8fcffb2",
+      "query_digest": "sha256:918167aa6c4081c3400c95c0d80696eead0b399c8e2630f97f2413ea9bc989b5",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/applicationGateways",
+            "microsoft.network/applicationgateways"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "zones",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [
+            "1",
+            "2",
+            "3"
+          ],
+          "unique_items": true,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "ca87914f-aac4-4783-ab67-82a6f936f194",
+      "query_digest": "sha256:696084807d5ceda7c21fcacc05b0c9e75eaa13bd7ef9ea2cef4473bbcc07face",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DBforPostgreSQL/flexibleServers",
+            "microsoft.dbforpostgresql/flexibleservers"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.highAvailability.mode",
+          "value_type": "string",
+          "allowed_values": [
+            "Disabled",
+            "SameZone",
+            "ZoneRedundant"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "d40c769d-2f08-4980-8d8f-a386946276e6",
+      "query_digest": "sha256:95df6edfa33c42978ad13467d21831908faf69b56f9ab2dfd81b0abe87fac7f6",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/expressRouteCircuits",
+            "microsoft.network/expressroutecircuits"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.expressRoutePort",
+          "value_type": "object",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [
+            "id"
+          ],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableDirectPortRateLimit",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "dac421ec-2832-4c37-839e-b6dc5a38f2fa",
+      "query_digest": "sha256:b478d00e65a4c2f490c64eb3d58848bec9e3c633078f9b5aa7725594e242de10",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Insights/components",
+            "microsoft.insights/components"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.IngestionMode",
+          "value_type": "string",
+          "allowed_values": [
+            "ApplicationInsights",
+            "LogAnalytics"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "e30317d2-c502-4dfe-a2d3-0a737cc79545",
+      "query_digest": "sha256:f084b1e77257da67ef90f9d5b03f7f0b69a87592e0acb21a1ebe174430004dfa",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.NetApp/netAppAccounts/capacityPools/volumes",
+            "microsoft.netapp/netappaccounts/capacitypools/volumes"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.volumeType",
+          "value_type": "string",
+          "allowed_values": [
+            "Regular"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.dataProtection.replication.remoteVolumeRegion",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "e35cf148-8eee-49d1-a1c9-956160f99e0b",
+      "query_digest": "sha256:59e85426b7328c86c3c9a2ce68d654bde32cfa1acdb6a38e15ba1bfda675244b",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ApiManagement/service",
+            "microsoft.apimanagement/service"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.platformVersion",
+          "value_type": "string",
+          "allowed_values": [
+            "stv1",
+            "stv2"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "e48a7227-5ec7-463a-b955-ee7cb598ded4",
+      "query_digest": "sha256:98d25ffc45ef318c2fe6e6d1fcf2d55d83041f75f0699d025d6fa099025815f4",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.StreamAnalytics/streamingjobs",
+            "microsoft.streamanalytics/streamingjobs"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.cluster.id",
+          "value_type": "string",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": true
+        }
+      ]
+    },
+    {
+      "aprl_guid": "e544520b-8505-7841-9e77-1f1974ee86ec",
+      "query_digest": "sha256:dcca9e2b9dc95d2c1fb706cbbed1518217acb18609a71b6580fc38f6d78d0015",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.DocumentDB/databaseAccounts",
+            "microsoft.documentdb/databaseaccounts"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableMultipleWriteLocations",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": false,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.enableAnalyticalStorage",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": false,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.backupPolicy.type",
+          "value_type": "string",
+          "allowed_values": [
+            "Periodic",
+            "Continuous"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "e6c7e1cc-2f47-264d-aa50-1da421314472",
+      "query_digest": "sha256:5d79d71d8c15bf66e5b00d12ab185c17898e3518d16ae4c841dc3d76004261b7",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Storage/storageAccounts",
+            "microsoft.storage/storageaccounts"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.name",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard_LRS",
+            "Premium_LRS",
+            "Standard_GRS",
+            "Standard_RAGRS",
+            "Standard_ZRS",
+            "Standard_GZRS",
+            "Standard_RAGZRS",
+            "Premium_ZRS"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "e7495e1c-0c75-0946-b266-b429b5c7f3bf",
+      "query_digest": "sha256:f08ee2627fdb668c19b2b1e05a0e25c2c52691535b3911e11a648d356073816b",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Compute/virtualMachineScaleSets",
+            "microsoft.compute/virtualmachinescalesets"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "tags",
+          "value_type": "object",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [
+            "aks-managed-poolName"
+          ],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.orchestrationMode",
+          "value_type": "string",
+          "allowed_values": [
+            "Uniform",
+            "Flexible"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "e7dbd21f-b27a-4b8c-a901-cedb1e6d8e1e",
+      "query_digest": "sha256:26e52c6c8114e42d0583bd1720f48c6c37d2f5ba4f5bd1b23fa6f3067a894f15",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Devices/IotHubs",
+            "microsoft.devices/iothubs"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.routing.fallbackRoute.isEnabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "e7f0fd54-fba0-054e-9ab8-e676f2851f88",
+      "query_digest": "sha256:f158cc601663f2cc57b1b5afaec99c626d11ddfce4f1fd841f59df2302c482de",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ContainerRegistry/registries",
+            "microsoft.containerregistry/registries"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.policies.softDeletePolicy.status",
+          "value_type": "string",
+          "allowed_values": [
+            "enabled",
+            "disabled"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "f05a3e6d-49db-2740-88e2-2b13706c1f67",
+      "query_digest": "sha256:9a4ff982340a7f08bae9015744c4a5a72a64a16c8121412942d54c924a2495ae",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.Network/trafficManagerProfiles",
+            "microsoft.network/trafficmanagerprofiles"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.endpoints",
+          "value_type": "array",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 1,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.endpoints.*.properties.endpointMonitorStatus",
+          "value_type": "string",
+          "allowed_values": [
+            "Online",
+            "Degraded",
+            "CheckingEndpoint",
+            "Inactive",
+            "Disabled",
+            "Stopped"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "f075a1bd-de9e-4819-9a1d-1ac41037a74f",
+      "query_digest": "sha256:a0b87c4c3280cf63b9864ac4d7522e8181b3297b1775865f55f437a216bc220f",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.ServiceBus/namespaces",
+            "microsoft.servicebus/namespaces"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.minimumTlsVersion",
+          "value_type": "string",
+          "allowed_values": [
+            "1.0",
+            "1.1",
+            "1.2",
+            "1.3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "f4201965-a88d-449d-b3b4-021394719eb2",
+      "query_digest": "sha256:1daf70546abda3c2d924f719b284390c90c49fc8dbfa3e5e8b4b03643e3a3de9",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.App/managedenvironments",
+            "microsoft.app/managedenvironments"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.zoneRedundant",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "location",
+          "value_type": "string",
+          "allowed_values": [
+            "australiaeast",
+            "brazilsouth",
+            "canadacentral",
+            "centralindia",
+            "centralus",
+            "chinanorth3",
+            "eastasia",
+            "eastus",
+            "eastus2",
+            "francecentral",
+            "germanywestcentral",
+            "israelcentral",
+            "italynorth",
+            "japaneast",
+            "japanwest",
+            "koreacentral",
+            "mexicocentral",
+            "newzealandnorth",
+            "northeurope",
+            "norwayeast",
+            "polandcentral",
+            "qatarcentral",
+            "southafricanorth",
+            "southcentralus",
+            "southeastasia",
+            "spaincentral",
+            "swedencentral",
+            "switzerlandnorth",
+            "uaenorth",
+            "uksouth",
+            "usgovvirginia",
+            "westeurope",
+            "westus2",
+            "westus3"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
+    },
+    {
+      "aprl_guid": "fbfef3df-04a5-41b2-a8fd-b8541eb04956",
+      "query_digest": "sha256:0c1be0f34d6375315e761ad9e6e6813f7500ffd662253aae9f9b86d0ae139487",
+      "evaluator_ref": "azure-resource-graph.matching-rows-failed.v1",
+      "provider": "azure_resource_graph",
+      "semantics": "matching_rows_failed",
+      "resource_id_column": "id",
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact",
+      "observation_requirements": [
+        {
+          "path": "type",
+          "value_type": "string",
+          "allowed_values": [
+            "Microsoft.EventHub/namespaces",
+            "microsoft.eventhub/namespaces"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "sku.tier",
+          "value_type": "string",
+          "allowed_values": [
+            "Standard"
+          ],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 1,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        },
+        {
+          "path": "properties.isAutoInflateEnabled",
+          "value_type": "boolean",
+          "allowed_values": [],
+          "expected_boolean": null,
+          "minimum_items": 0,
+          "maximum_items": null,
+          "allowed_items": [],
+          "unique_items": false,
+          "minimum_length": 0,
+          "forbidden_keys": [],
+          "required_keys": [],
+          "allow_null": false
+        }
+      ]
     }
   ],
-  "overlay_digest": "sha256:060e5d393a3597786d0e084b7598e8f419021995f94a97f3b30b2b5a993fc75c"
+  "overlay_digest": "sha256:2f6b007456863baabe51b17e56d4ed1f7c0a7751804046e1573a856d6a7ff638"
 }

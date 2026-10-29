@@ -32,6 +32,14 @@ SUBSCRIPTION_ID = "00000000-0000-0000-0000-000000000001"
 AUDIENCE = "https://management.azure.com/.default"
 
 
+def _coverage_row(resource_id: str) -> dict[str, object]:
+    return {
+        "id": resource_id,
+        "_fdai_requirement_0": "microsoft.containerregistry/registries",
+        "_fdai_requirement_1": False,
+    }
+
+
 def _bound_runtime():
     framework = load_framework_catalog(
         ROOT / "rule-catalog/collected/wara-aprl",
@@ -120,7 +128,9 @@ async def test_zero_rows_are_satisfied_with_exact_scoped_query() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         captured.append(request)
         body = json.loads(request.content)
-        rows = [{"id": plan.resource_ids[0]}] if "_fdai_wara_coverage" in body["query"] else []
+        rows = (
+            [_coverage_row(plan.resource_ids[0])] if "_fdai_wara_coverage" in body["query"] else []
+        )
         return httpx.Response(
             200,
             json={"data": rows, "count": len(rows), "totalRecords": len(rows)},
@@ -244,7 +254,9 @@ async def test_string_truncation_flag_fails_closed_without_continuation() -> Non
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        rows = [{"id": plan.resource_ids[0]}] if "_fdai_wara_coverage" in body["query"] else []
+        rows = (
+            [_coverage_row(plan.resource_ids[0])] if "_fdai_wara_coverage" in body["query"] else []
+        )
         return httpx.Response(
             200,
             json={
@@ -270,7 +282,7 @@ async def test_matching_rows_fail_and_feed_shadow_runtime() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         if "_fdai_wara_coverage" in body["query"]:
-            return httpx.Response(200, json={"data": [{"id": plan.resource_ids[0]}]})
+            return httpx.Response(200, json={"data": [_coverage_row(plan.resource_ids[0])]})
         return httpx.Response(
             200,
             json={"data": [{"id": plan.resource_ids[0], "name": "example"}]},
@@ -303,7 +315,7 @@ async def test_pagination_cannot_multiply_the_read_plan_deadline() -> None:
         return httpx.Response(
             200,
             json={
-                "data": ([{"id": plan.resource_ids[0]}] if calls == 1 else []),
+                "data": ([_coverage_row(plan.resource_ids[0])] if calls == 1 else []),
             },
         )
 
@@ -325,13 +337,17 @@ async def test_receipt_digest_is_independent_of_row_order() -> None:
 
     def first_handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        data = [{"id": plan.resource_ids[0]}] if "_fdai_wara_coverage" in body["query"] else rows
+        data = (
+            [_coverage_row(plan.resource_ids[0])]
+            if "_fdai_wara_coverage" in body["query"]
+            else rows
+        )
         return httpx.Response(200, json={"data": data})
 
     def second_handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         data = (
-            [{"id": plan.resource_ids[0]}]
+            [_coverage_row(plan.resource_ids[0])]
             if "_fdai_wara_coverage" in body["query"]
             else list(reversed(rows))
         )
@@ -368,7 +384,7 @@ async def test_out_of_scope_or_truncated_rows_fail_closed() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         if "_fdai_wara_coverage" in body["query"]:
-            return httpx.Response(200, json={"data": [{"id": plan.resource_ids[0]}]})
+            return httpx.Response(200, json={"data": [_coverage_row(plan.resource_ids[0])]})
         return next(violation_responses)
 
     provider, client = _provider(httpx.MockTransport(handler))

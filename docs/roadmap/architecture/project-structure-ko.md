@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ba72958aff86fe8856cd7ae660f0c0e52dcbb04f
+translation_source_sha: e62bfb6033a87c29b686e59346c896e174ad497c
 translation_revised: 2026-10-30
 ---
 # 프로젝트 구조
@@ -896,6 +896,10 @@ FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_con
    기록하세요. 붉은 파이프라인을 풀려고 임계값을 낮추는 것은 거버넌스 회귀입니다.
 
 ## 의존성 주입을 통한 커스터마이제이션
+
+WARA 작업은 `delivery/wara_assessment_cli.py`에서 `WaraManualEvidenceSource`와
+`WaraReportSink`를 받습니다. 배포 어댑터는 서명된 정확한 범위의 수동 증적이나 비공개 읽기 전용
+보고서 출력을 제공하며 두 인터페이스 모두 승인 권한이나 실행 권한을 부여하지 않습니다.
 
 Var의 선택적 `CloudApplicationAuthorizationSource`는 별도 문서 데이터베이스에서 정확한 사람 정책 및 요청 입력을 읽습니다.
 API가 입력을 소유하고 Var가 권한을 확인하며 Saga가 감사하고 Muninn이 색인을 생성합니다. 워커는 같은 정책을 트랜잭션으로 보호합니다.

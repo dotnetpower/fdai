@@ -37,6 +37,7 @@ export type WaraEvaluation = (typeof WARA_EVALUATIONS)[number];
 export type WaraSatisfaction = (typeof WARA_SATISFACTION)[number];
 
 export interface WaraManualEvidence {
+  readonly role?: "required" | "fallback";
   readonly kind: string;
   readonly authoritative_producer: string;
   readonly scope_contract: string;
@@ -151,6 +152,13 @@ function decodeControl(value: unknown, index: number): WaraControl {
     : (() => {
         const requirement = panelRecord(manualEvidenceValue, `${label}.manual_evidence`);
         return {
+          role: requirement["role"] === undefined
+            ? "required" as const
+            : decodeEnum(
+                panelNonEmptyString(requirement, "role", `${label}.manual_evidence`),
+                ["required", "fallback"] as const,
+                `${label}.manual_evidence.role`,
+              ),
           kind: panelNonEmptyString(requirement, "kind", `${label}.manual_evidence`),
           authoritative_producer: panelNonEmptyString(
             requirement,

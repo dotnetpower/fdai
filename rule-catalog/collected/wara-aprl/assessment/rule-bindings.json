@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "source_revision": "1f421a90c157bc8894b3a47b05ba08b8650a0bd5",
-  "crosswalk_digest": "sha256:f35d85799f01eefa91882094725509b11594f19c32df2660037775eacdc5a661",
+  "crosswalk_digest": "sha256:429456e5cd77d38b374b9e35c0c8ef7c235f6650aa41d5744ec963ddc592ae0d",
   "bindings": [
     {
       "aprl_guid": "70fcfe6d-00e9-5544-a63a-fff42b9f2edb",
@@ -24,5 +24,5 @@
       "review_state": "reviewed-exact"
     }
   ],
-  "overlay_digest": "sha256:2bcf36c86215f3bb53ed25a0bd2767c562cff2a199ec4b29dfaa193fee82d2b3"
+  "overlay_digest": "sha256:d8025c93369e18a58ca91ccf7a4e612814292d9fc3999fa8da617fcb5889edaf"
 }

@@ -265,11 +265,17 @@ and lowers completeness; it never becomes an implicit passing control.
 | `html` | `text/html; charset=utf-8` | Standalone `<article>` fragment |
 | `text` | `text/plain; charset=utf-8` | Stdout-friendly summary |
 | `ndjson` | `application/x-ndjson` | Header line + one line per widget |
+| `xlsx` **(WARA file sink)** | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | Text-only cells; complete metadata and widget error sheets |
+| `pptx` **(WARA file sink)** | `application/vnd.openxmlformats-officedocument.presentationml.presentation` | Paginated complete content, including errors and unknowns |
 | `prometheus` **(opt-in)** | `text/plain; version=0.0.4` | Scalar / timeseries widgets only; NOT registered by default |
 | `pdf` **(target opt-in)** | `application/pdf` | Independent Operator Service adapter; advertised only when the `pdf-report` extra is installed and registered |
 
-A fork adds `pdf` / `xlsx` / whatever by implementing `FormatEncoder`
+A fork adds further formats by implementing `FormatEncoder`
 and calling `FormatRegistry.register`.
+
+The scheduled WARA file sink registers delivery-owned Office encoders with the same `RenderedReport`
+as JSON and CSV. Core default formats remain unchanged. Oversized Excel cells fail explicitly instead
+of being shortened. Independent Operator targets register their own supported HTTP formats.
 
 The reviewed target adapter lives at
 `services/operator-service/src/fdai_operator_service/reporting/pdf_format.py`, outside
@@ -618,6 +624,7 @@ never crash serialization or misorder a chart. Each item is covered in
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| WARA delivery Office encoders and complete file exports | implemented | `delivery/wara_office_formats.py`; `core/wara/report.py`; `delivery/wara_report.py`; focused Office/export cohort 16 passed | The MIT-licensed openpyxl and python-pptx dependencies produce real XLSX/PPTX without Office automation. All 393 WARA results, metadata, errors and unavailable sources are preserved within explicit budgets. Core default formats and independent Operator HTTP format registration are unchanged. |
 | Private intent storage/report-source separation | not-applicable | #2268; Core intent table ownership and the paired source-boundary note above | No report datasource, widget, format, route, or operational result is registered by private intent persistence. Future report consumption needs explicit source integration and current admission. |
 | Core contracts, registries, engine, widgets, and default formats | implemented | `services/core-control-plane/src/fdai/core/reporting/`; `services/core-control-plane/tests/core/reporting/` | Focused tests cover catalog loading, bounds, substitution, per-widget isolation, datasource contracts, widgets, formats, and hardening safeguards. |
 | Declarative report catalog and schema | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting catalog tests | Reviewed YAML reports and capability metadata load through the bounded schema. |
@@ -631,6 +638,7 @@ never crash serialization or misorder a chart. Each item is covered in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-30 | implemented | Added bounded delivery-owned XLSX/PPTX encoders and the private WARA sink over the same read-only report as JSON/CSV. | `current change`; Office round trips, formula safety, cell/8 MiB/1,000-slide ceilings, 393-row exports and file permissions passed in the 16-test focused cohort; strict mypy and Ruff passed. | Register an independent target adapter and retain its authenticated HTTP evidence before advertising Office formats from that target. |
 | 2026-10-21 | not-applicable | Distinguished Core-private installation-entitlement acceptance storage from report datasources and Operator access. No report surface changes. | Current paired owning note; #2352; licensing source commit `4975461319283d8a2d82565f6bf775eaf6fd484b`; 443 focused licensing/PG/runtime/CLI tests and 74 migration inventory checks passed. | Existing reporting exits remain unchanged; local acceptance supplies no operational result. |
 | 2026-10-19 | not-applicable | Documented the three Core-owned private intent/provenance tables as non-report storage, without changing report registries or output qualification. | Current documentation change; #2268; paired source-boundary note and scoped route/translation/ledger checks. | Existing reporting datasource and freshness gates remain; private SDK persistence/readback is not report availability or operational-outcome evidence. |
 | 2026-09-28 | implemented | Registered the five Core-owned insert-only operational evidence proof tables in the shared service-migration inventory without adding them to reporting sources, widgets, routes, or write authority. | `current change`; `tests/integration/services/test_service_migration_inventory.py` passed 73 cases, and the loopback PostgreSQL role test proved only the verifier role inserts proof records. | No reporting behavior or datasource evidence changed. |

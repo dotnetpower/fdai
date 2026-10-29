@@ -628,6 +628,7 @@
         "queryDigest": "Query digest",
         "evaluator": "Exact evaluator",
         "manualEvidence": "Required manual evidence",
+        "manualFallback": "Optional manual review",
         "evidenceKind": "Evidence kind",
         "evidenceProducer": "Authoritative producer",
         "evidenceScope": "Scope contract",

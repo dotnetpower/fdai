@@ -6,7 +6,6 @@ import base64
 import binascii
 import hashlib
 import json
-import re
 from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
@@ -14,29 +13,16 @@ from typing import Annotated, Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from fdai.rule_catalog.schema.framework_catalog import FrameworkDefinition
+from fdai.rule_catalog.schema.wara_query_admission import (
+    lexical_review,
+    source_resource_types,
+    tokenize_query,
+)
 
 _SHA256 = r"^sha256:[a-f0-9]{64}$"
 _UUID = r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
 _GIT_REF = r"^[a-f0-9]{40}$"
 _IDENTIFIER = r"^[a-z0-9][a-z0-9._:-]{0,255}$"
-_ALLOWED_TABLES = frozenset(
-    {
-        "advisorresources",
-        "maintenanceresources",
-        "recoveryservicesresources",
-        "resourcecontainers",
-        "resources",
-    }
-)
-_FORBIDDEN_QUERY_PATTERNS = (
-    ("mutation_command", re.compile(r"(?i)\b(delete|drop|alter|create|update|patch)\b")),
-    ("control_command", re.compile(r"(?im)^\s*(set|execute|invoke)\b")),
-    (
-        "dynamic_endpoint",
-        re.compile(r"(?i)\b(externaldata|http_request|cluster\s*\(|database\s*\()"),
-    ),
-    ("unsupported_join", re.compile(r"(?i)\b(join|union)\b")),
-)
 
 
 def canonical_digest(value: object) -> str:
@@ -111,9 +97,15 @@ class WaraQuerySafetyReview(BaseModel):
         return self
 
 
+class WaraManualEvidenceRole(StrEnum):
+    REQUIRED = "required"
+    FALLBACK = "fallback"
+
+
 class WaraManualEvidenceRequirement(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
+    role: WaraManualEvidenceRole = WaraManualEvidenceRole.REQUIRED
     kind: Annotated[str, Field(pattern=_IDENTIFIER)]
     authoritative_producer: Annotated[str, Field(pattern=_IDENTIFIER)]
     scope_contract: Annotated[str, Field(pattern=_IDENTIFIER)]
@@ -130,15 +122,25 @@ class WaraApplicabilityMapping(BaseModel):
     normalized_provider_type: Annotated[str, Field(min_length=1, max_length=256)]
     disposition: ResourceTypeDisposition
     canonical_resource_type: str | None
+    canonical_resource_types: tuple[str, ...] = ()
+    provider_resource_types: tuple[str, ...] = ()
     parent_provider_type: str | None
     requires_exact_child_scope: bool
 
     @model_validator(mode="after")
     def validate_mapping(self) -> WaraApplicabilityMapping:
-        if (self.disposition is ResourceTypeDisposition.CANONICAL) != (
-            self.canonical_resource_type is not None
+        candidates = self.canonical_resource_types
+        if candidates != tuple(sorted(set(candidates))):
+            raise ValueError("canonical_resource_types MUST be unique and ordered")
+        if (self.disposition is ResourceTypeDisposition.CANONICAL) != bool(candidates):
+            raise ValueError("canonical disposition MUST match canonical candidates")
+        singleton = candidates[0] if len(candidates) == 1 else None
+        if self.canonical_resource_type != singleton:
+            raise ValueError("canonical_resource_type MUST match the sole canonical candidate")
+        if not self.provider_resource_types or self.provider_resource_types != tuple(
+            sorted(set(self.provider_resource_types))
         ):
-            raise ValueError("canonical disposition MUST match canonical_resource_type presence")
+            raise ValueError("provider_resource_types MUST be nonempty, unique and ordered")
         if self.requires_exact_child_scope != (self.parent_provider_type is not None):
             raise ValueError("child-scope flag MUST match parent provider type presence")
         return self
@@ -174,8 +176,17 @@ class WaraRecommendationCrosswalk(BaseModel):
             raise ValueError("workload_tags MUST be unique and ordered")
         if self.automation_available != (self.query_review is not None):
             raise ValueError("automation_available MUST match query_review presence")
-        if self.automation_available == (self.manual_evidence is not None):
-            raise ValueError("non-automated recommendations require manual_evidence")
+        if self.manual_evidence is None:
+            raise ValueError("all active recommendations require a manual evidence contract")
+        expected_role = (
+            WaraManualEvidenceRole.FALLBACK
+            if self.automation_available
+            else WaraManualEvidenceRole.REQUIRED
+        )
+        if self.manual_evidence.role is not expected_role:
+            raise ValueError("manual evidence role MUST preserve the upstream automation axis")
+        if self.manual_evidence.kind in {"provider_observation", "rule"}:
+            raise ValueError("manual evidence cannot use an automated evidence kind")
         if self.mapping_state is WaraMappingState.FULL and not (
             self.rule_refs or self.objective_refs
         ):
@@ -191,14 +202,7 @@ class WaraRecommendationCrosswalk(BaseModel):
         return self
 
 
-class WaraResourceTypeMapping(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    normalized_provider_type: Annotated[str, Field(min_length=1, max_length=256)]
-    disposition: ResourceTypeDisposition
-    canonical_resource_type: str | None
-    parent_provider_type: str | None
-    requires_exact_child_scope: bool
+class WaraResourceTypeMapping(WaraApplicabilityMapping):
     reviewer: Annotated[str, Field(pattern=_IDENTIFIER)]
 
 
@@ -248,6 +252,7 @@ class WaraAssessmentCatalog(BaseModel):
     redistribution: Annotated[str, Field(pattern=r"^embeddable$")]
     source_catalog_digest: Annotated[str, Field(pattern=_SHA256)]
     published_active_digest: Annotated[str, Field(pattern=_SHA256)]
+    published_object_digest: Annotated[str, Field(pattern=_SHA256)]
     queries_digest: Annotated[str, Field(pattern=_SHA256)]
     expected_counts: WaraExpectedCounts
     resource_type_mappings: tuple[WaraResourceTypeMapping, ...]
@@ -286,7 +291,10 @@ class WaraQueryCatalog(BaseModel):
     schema_version: Annotated[str, Field(pattern=r"^1\.0\.0$")]
     source_revision: Annotated[str, Field(pattern=_GIT_REF)]
     published_active_digest: Annotated[str, Field(pattern=_SHA256)]
+    published_object_digest: Annotated[str, Field(pattern=_SHA256)]
     queries: tuple[WaraQueryBody, ...]
+    reference_queries: tuple[WaraQueryBody, ...]
+    null_query_guids: tuple[Annotated[str, Field(pattern=_UUID)], ...]
     queries_digest: Annotated[str, Field(pattern=_SHA256)]
 
 
@@ -302,38 +310,16 @@ def classify_wara_query(
 ]:
     """Classify one external ARG query without executing it."""
 
-    reasons = [name for name, pattern in _FORBIDDEN_QUERY_PATTERNS if pattern.search(query)]
-    tables = tuple(
-        sorted(
-            {
-                match.casefold()
-                for match in re.findall(
-                    r"(?im)^\s*(advisorresources|maintenanceresources|"
-                    r"recoveryservicesresources|resourcecontainers|resources)\b",
-                    query,
-                )
-            }
-        )
-    )
-    if not tables:
-        reasons.append("missing_declared_table")
-    if set(tables) - _ALLOWED_TABLES:
-        reasons.append("undeclared_table")
-    resource_types = tuple(
-        sorted(
-            {
-                item.casefold()
-                for item in re.findall(
-                    r"(?i)\b(?:microsoft|oracle)\.[a-z0-9.]+(?:/[a-z0-9._-]+)+",
-                    query,
-                )
-            }
-        )
-    )
+    try:
+        tokens = tokenize_query(query)
+    except ValueError:
+        return QuerySafetyClassification.BLOCKED, ("malformed_query",), (), ()
+    reasons, tables = lexical_review(tokens)
+    resource_types = source_resource_types(tokens)
     if declared_provider_type is not None and any(
         item != declared_provider_type.casefold() for item in resource_types
     ):
-        reasons.append("undeclared_resource_type")
+        reasons.add("undeclared_resource_type")
     classification = (
         QuerySafetyClassification.BLOCKED
         if reasons
@@ -377,6 +363,11 @@ def load_wara_assessment_catalog(
         raise ValueError("WARA crosswalk and query catalog digests differ")
     if catalog.source_revision != queries.source_revision:
         raise ValueError("WARA crosswalk and query source revisions differ")
+    if (
+        catalog.published_object_digest != queries.published_object_digest
+        or catalog.published_active_digest != queries.published_active_digest
+    ):
+        raise ValueError("WARA published object digests differ")
 
     records = catalog.recommendations
     ids = tuple(item.aprl_guid for item in records)
@@ -403,6 +394,17 @@ def load_wara_assessment_catalog(
     automated_ids = {item.aprl_guid for item in records if item.automation_available}
     if set(query_by_id) != automated_ids:
         raise ValueError("WARA query bodies MUST exactly cover automated recommendations")
+    reference_by_id = {item.aprl_guid: item for item in queries.reference_queries}
+    null_ids = set(queries.null_query_guids)
+    if len(reference_by_id) != len(queries.reference_queries) or len(null_ids) != len(
+        queries.null_query_guids
+    ):
+        raise ValueError("WARA reference and null query GUIDs MUST be unique")
+    manual_ids = set(ids) - automated_ids
+    if set(reference_by_id) & null_ids or set(reference_by_id) | null_ids != manual_ids:
+        raise ValueError(
+            "WARA reference and null query bodies MUST partition manual recommendations"
+        )
     for record in records:
         if record.query_review is not None:
             query = query_by_id[record.aprl_guid]
@@ -427,6 +429,14 @@ def load_wara_assessment_catalog(
 
     if framework is not None:
         _validate_framework_alignment(catalog, framework)
+        all_bodies = {**query_by_id, **reference_by_id}
+        for resolved in framework.resolved_controls():
+            metadata = resolved.control.wara
+            if metadata is None or metadata.state != "Active":
+                continue
+            body = all_bodies.get(resolved.control.id)
+            if metadata.query_digest != (body.body_digest if body is not None else None):
+                raise ValueError("WARA framework query source digest mismatch")
     if framework_path is not None:
         digest = f"sha256:{hashlib.sha256(framework_path.read_bytes()).hexdigest()}"
         if catalog.source_catalog_digest != digest:
@@ -466,6 +476,19 @@ def _validate_framework_alignment(
     active_ids = {control.id for control in controls}
     if active_ids != {item.aprl_guid for item in catalog.recommendations}:
         raise ValueError("WARA framework active GUIDs do not match crosswalk")
+    records = {record.aprl_guid: record for record in catalog.recommendations}
+    for control in controls:
+        metadata = control.wara
+        if metadata is None:
+            raise ValueError("active WARA control requires source metadata")
+        record = records[control.id]
+        if (
+            record.automation_available != metadata.automation_available
+            or record.provider_resource_type != metadata.resource_type
+            or record.source_digest != metadata.source_digest
+            or record.source_path != metadata.source_path
+        ):
+            raise ValueError(f"{control.id}: WARA framework source metadata mismatch")
     disabled = sum(
         resolved.control.wara is not None and resolved.control.wara.state == "Disabled"
         for resolved in framework.resolved_controls()

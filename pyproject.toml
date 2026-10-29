@@ -42,6 +42,7 @@ dev = [
     "jsonschema>=4.23,<5",
     "kubernetes>=35,<37",
     "markdown-it-py>=4,<5",
+    "openpyxl>=3.1,<4",
     "opentelemetry-api>=1.45.1,<2",
     "opentelemetry-exporter-otlp-proto-grpc>=1.45.1,<2",
     "opentelemetry-sdk>=1.45.1,<2",
@@ -55,6 +56,7 @@ dev = [
     "pytesseract>=0.3.13,<1",
     # Root CI collects the independently locked deployment CLI's progress tests.
     "pyte>=0.8,<0.9",
+    "python-pptx>=1,<2",
     "pyyaml>=6.0,<7",
     "rich>=14,<15",
     "sqlalchemy>=2.0,<3",
@@ -71,6 +73,7 @@ dev = [
     "ruff>=0.7,<1",
     # jsonschema ships no inline type hints; the stub package covers mypy --strict.
     "types-jsonschema>=4.23,<5",
+    "types-openpyxl>=3.1,<4",
     # PyYAML ships no inline type hints; the stub package keeps the loader
     # in `rule_catalog/schema/action_type.py` under mypy --strict.
     "types-PyYAML>=6.0,<7",

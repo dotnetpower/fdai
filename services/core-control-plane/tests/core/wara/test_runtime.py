@@ -130,6 +130,146 @@ def _admitted_evidence(request, record):
     )
 
 
+def test_site_candidate_union_uses_exact_observed_provider_identity() -> None:
+    runtime, catalog, _ = _runtime_and_record()
+    record = next(
+        item
+        for item in catalog.recommendations
+        if item.applicability.normalized_provider_type == "microsoft.web/sites"
+        and item.manual_evidence is not None
+    )
+    assert record.applicability.canonical_resource_type is None
+    assert record.applicability.canonical_resource_types == ("compute.function", "compute.web-app")
+    request = replace(
+        _request(record),
+        crosswalk_digest=catalog.crosswalk_digest,
+        resources=(
+            WaraScopedResource(
+                resource_id="resource:site",
+                provider_resource_type="Microsoft.Web/Sites",
+                workload_tags=record.workload_tags,
+            ),
+        ),
+    )
+    evidence = _admitted_evidence(request, record)
+    result = runtime.assess(replace(request, evidence=(evidence,)))
+    control = next(item for item in result.controls if item.recommendation_id == record.aprl_guid)
+    assert control.applicability is WaraApplicabilityStatus.APPLICABLE
+    assert control.satisfaction is WaraSatisfactionStatus.SATISFIED
+
+    for different_type in (
+        "microsoft.web/sites/slots",
+        "microsoft.web/sites/config",
+        "compute.web-app",
+    ):
+        child_request = replace(
+            request,
+            resources=(
+                WaraScopedResource(
+                    resource_id="resource:site-child",
+                    provider_resource_type=different_type,
+                    workload_tags=record.workload_tags,
+                ),
+            ),
+        )
+        child_result = runtime.assess(child_request)
+        child = next(
+            item for item in child_result.controls if item.recommendation_id == record.aprl_guid
+        )
+        assert child.applicability is WaraApplicabilityStatus.UNKNOWN
+        assert child.satisfaction is WaraSatisfactionStatus.UNKNOWN
+
+
+@pytest.mark.parametrize(
+    ("provider_type", "resource_id", "expected"),
+    [
+        (
+            "Microsoft.Resources/subscriptions",
+            "/subscriptions/00000000-0000-0000-0000-000000000000",
+            WaraApplicabilityStatus.APPLICABLE,
+        ),
+        (
+            "Microsoft.Subscription/subscriptions",
+            "/subscriptions/00000000-0000-0000-0000-000000000000",
+            WaraApplicabilityStatus.UNKNOWN,
+        ),
+        (
+            "Microsoft.Resources/subscriptions",
+            "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example",
+            WaraApplicabilityStatus.UNKNOWN,
+        ),
+        (
+            "Microsoft.Resources/subscriptions",
+            "resource:subscription",
+            WaraApplicabilityStatus.UNKNOWN,
+        ),
+        (
+            "Microsoft.Compute/virtualMachines",
+            "/subscriptions/00000000-0000-0000-0000-000000000000"
+            "/resourceGroups/example/providers/Microsoft.Compute/virtualMachines/example",
+            WaraApplicabilityStatus.UNKNOWN,
+        ),
+    ],
+)
+def test_subscription_alias_requires_an_explicit_observed_subscription_target(
+    provider_type: str, resource_id: str, expected: WaraApplicabilityStatus
+) -> None:
+    runtime, catalog, _ = _runtime_and_record()
+    record = next(
+        item
+        for item in catalog.recommendations
+        if item.applicability.normalized_provider_type == "microsoft.subscription/subscriptions"
+        and item.manual_evidence is not None
+    )
+    request = replace(
+        _request(record),
+        crosswalk_digest=catalog.crosswalk_digest,
+        resources=(
+            WaraScopedResource(
+                resource_id=resource_id,
+                provider_resource_type=provider_type,
+                workload_tags=record.workload_tags,
+            ),
+        ),
+    )
+    result = runtime.assess(request)
+    control = next(item for item in result.controls if item.recommendation_id == record.aprl_guid)
+    assert control.applicability is expected
+    assert control.satisfaction is WaraSatisfactionStatus.UNKNOWN
+    if expected is WaraApplicabilityStatus.UNKNOWN:
+        assert "scope_not_observed" in control.limitations
+
+
+def test_read_plan_preserves_singleton_mapping_compatibility_and_exact_provider_types() -> None:
+    runtime, catalog, bindings, record = _runtime_and_bound_record()
+    request = replace(
+        _request(record),
+        crosswalk_digest=catalog.crosswalk_digest,
+        evaluator_bindings_digest=bindings.overlay_digest,
+    )
+    legacy = record.model_copy(
+        update={
+            "applicability": record.applicability.model_copy(
+                update={"canonical_resource_types": (), "provider_resource_types": ()}
+            )
+        }
+    )
+    assert runtime.build_read_plan(legacy, request) == runtime.build_read_plan(record, request)
+    plan = runtime.build_read_plan(record, request)
+    assert plan.provider_resource_types == (request.resources[0].provider_resource_type.casefold(),)
+    assert plan.resource_ids == (request.resources[0].resource_id,)
+
+    unsupported = record.model_copy(
+        update={
+            "applicability": record.applicability.model_copy(
+                update={"disposition": ResourceTypeDisposition.UNSUPPORTED}
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="no admitted read-only query"):
+        runtime.build_read_plan(unsupported, request)
+
+
 def test_shadow_assessment_is_replayable_and_has_no_execution_authority() -> None:
     runtime, catalog, record = _runtime_and_record()
     base = replace(_request(record), crosswalk_digest=catalog.crosswalk_digest)
@@ -441,13 +581,26 @@ async def test_service_collects_exact_observations_before_assessment() -> None:
     assert control.satisfaction is WaraSatisfactionStatus.SATISFIED
     assert result.evaluated_at == AT + timedelta(milliseconds=1)
     assert result.recorded_at == AT + timedelta(milliseconds=1)
-    assert len(provider.plans) == 1
+    expected_guids = {
+        candidate.aprl_guid
+        for candidate in catalog.recommendations
+        if candidate.query_review is not None
+        and bindings.resolve(candidate.aprl_guid, candidate.query_review.body_digest) is not None
+        and candidate.applicability.disposition is ResourceTypeDisposition.CANONICAL
+        and request.resources[0].provider_resource_type.casefold()
+        in candidate.applicability.provider_resource_types
+        and set(candidate.workload_tags).issubset(request.resources[0].workload_tags)
+    }
+    assert record.aprl_guid in expected_guids
+    assert {plan.recommendation_id for plan in provider.plans} == expected_guids
+    assert len(provider.plans) == len(expected_guids)
     assert audit_entry["observation_attempts"] == [
         {
-            "recommendation_id": record.aprl_guid,
+            "recommendation_id": guid,
             "status": "observed",
             "reason": None,
         }
+        for guid in sorted(expected_guids)
     ]
 
 

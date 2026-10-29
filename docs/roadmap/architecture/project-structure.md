@@ -902,6 +902,10 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 ## Customization via Dependency Injection
 
+The WARA job accepts `WaraManualEvidenceSource` and `WaraReportSink` in
+`delivery/wara_assessment_cli.py`. Deployment adapters supply signed exact-scope manual receipts
+or private read-only report outputs; neither seam grants approval or execution authority.
+
 Var's optional `CloudApplicationAuthorizationSource` reads exact human policy/request inputs from the separate document database.
 API owns inputs; Var approves, Saga audits and Muninn indexes. Worker visibility fences the same policy.
 Missing sources reject the explicit lane; manual defaults and Thor authority remain unchanged.

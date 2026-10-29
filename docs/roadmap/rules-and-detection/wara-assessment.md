@@ -70,7 +70,10 @@ Similarity in titles never proves equivalence. WAF umbrella controls relate to A
 through explicit relationship records and do not replace, merge, or double-count APRL GUIDs.
 
 All case-normalized APRL resource types have one reviewed result. An exact match to the canonical
-provider mapping selects the provider-neutral resource type. Every other type remains
+provider mapping selects the provider-neutral resource type or its explicit candidate set when
+one provider type legitimately represents several semantic types. Reviewed source aliases preserve
+the original APRL identity and require an independently observed exact target; a subscription alias
+never expands a workload subset into a complete subscription. Every other type remains
 `unsupported` or `ambiguous`; it is never broadened to all resources. Subscription-scoped WAF and
 specialized-workload recommendations additionally require matching workload tags. Parent and child
 provider identities remain distinct, and a child-resource recommendation can match only the exact
@@ -79,7 +82,10 @@ child scope.
 ## Query admission
 
 External Azure Resource Graph query bodies are stored separately from framework metadata and bound
-by SHA-256 digest. Static review rejects mutation or control commands, dynamic endpoints,
+by SHA-256 digest. All published strings are retained: 143 automated bodies and 229 inert manual
+reference bodies, with 21 explicit null references. Reference preservation never enables execution.
+Static review lexes comments, strings and identifiers before classifying commands; malformed
+lexical structures remain blocked. Static review rejects mutation or control commands, dynamic endpoints,
 undeclared tables, unsupported joins, and missing result bounds. Accepted syntax produces only a
 provider-neutral read plan containing:
 
@@ -96,6 +102,9 @@ membership functions.
 Static safety does not prove product semantics. Until an exact evaluator is reviewed, the
 recommendation remains blocked even when its query is read-only. Query success is an observation
 receipt, not a satisfaction result or operational success.
+Exact bindings additionally pin required values and region, SKU or array eligibility. An independent
+bounded coverage read must observe those prerequisites for every target; missing values, unknown
+eligibility or incomplete/duplicate array members keep an empty finding result unknown.
 
 Every one of the 143 records with `automation_available: true` carries the pinned query body
 reference and digest, static safety classification, and either an exact evaluator binding or a
@@ -118,6 +127,17 @@ or unassigned owner never produces a satisfied result.
 
 Every one of the 250 records with `automation_available: false` carries a typed manual evidence
 requirement or an explicit blocked reason regardless of its crosswalk disposition.
+
+Automated records also declare a separate manual-review fallback. It never changes the upstream
+automation flag, admits a blocked query, or counts as automatic implementation coverage. A current
+trusted manual attestation can decide a held recommendation; conflicting automatic and manual
+outcomes remain unknown.
+
+The scheduled job can read signed manual receipts from a deployment-installed producer trust
+binding. Ed25519 verification, key revocation/validity, workload scope, source revision, crosswalk,
+inventory generation and per-recommendation producer/kind checks precede ordinary runtime
+qualification. An authentic signature never makes stale, conflicting or synthetic evidence valid.
+The [evidence and export runbook](../../runbooks/wara-assessment-evidence.md) documents this input.
 
 The initial Operator catalog projection preserves that requirement as structured read-only data.
 The Console detail view shows the evidence kind, authoritative producer, exact scope contract,
@@ -150,6 +170,12 @@ event and recorded times, aggregate counts, limitations, and `execution_authorit
 Deterministic replay recomputes the result digest from the same request and evidence set.
 
 ## Ontology and authority boundary
+
+The scheduled report sink exports the same complete 393-control result as JSON, CSV, XLSX and
+PPTX, retaining unknowns, limitations and source/time/digest identity. Native WARA Collector
+Advisor, outage, retirement, support-ticket and Service Health inputs are bounded subscription
+context only: unsigned imports remain unverified, expose counts rather than private ticket
+content, and never satisfy a recommendation. Unconnected sources remain explicitly unavailable.
 
 Reviewed mappings can project `FrameworkControl -> ControlObjective` links with explicit full,
 partial, or unmapped state. Assessment results are projection-owned observations, not framework
