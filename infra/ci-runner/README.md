@@ -9,6 +9,9 @@ validation, not FDAI deployment or managed-resource execution.
 |---|---|
 | `main.tf` | Separate resource group, unpeered network, outbound NAT, and VM |
 | `cloud-init.yaml.tftpl` | Checked runner download, Linux dependencies, and SSD storage guard |
+| `toolchain.json` | Single declared source for packages, libraries, and pinned tools every runner needs |
+| `provision-toolchain.sh` | Idempotent root provisioner for new VMs (cloud-init) and existing VMs (Run Command) |
+| `verify-toolchain.py` | Fail-closed conformance check run before registration and at the start of each self-hosted regression job |
 | `register.py` | Short-lived GitHub registration over protected Azure Run Command parameters |
 
 ## Isolation and storage
@@ -42,6 +45,15 @@ work is outside those service limits; database/container jobs stay on GitHub-hos
 The shared OPA action installs its checksum-pinned binary under each job's `RUNNER_TEMP` and
 exports it through `GITHUB_PATH`. It needs no sudo permission and does not race over a shared
 `/tmp/opa` file when several listeners run together.
+
+## Keep runners conformant
+
+Add a package, library, or pinned tool to `toolchain.json` only; never to a single VM by hand.
+To converge an existing VM, run `provision-toolchain.sh` as root through protected Run Command
+with the three toolchain files; it ends with the verifier and exits non-zero on any drift.
+The verifier applies the repository's trusted-tool rules: executables must be root-owned and
+not group or world writable under `/usr/bin` or `/usr/local/bin`. Registration refuses a drifted
+runner, and the regression job fails in seconds instead of midway through the suite.
 
 ## Provision and register
 

@@ -388,6 +388,13 @@ The OS disk uses Premium SSD. Local temporary SSD storage holds disposable works
 the runner refuses to start if that mount is missing. Enrollment uses a short-lived token passed
 through Azure protected environment parameters, not Terraform or command-line values.
 
+Every runner converges on one declared toolchain: `toolchain.json` lists the packages,
+shared libraries, and checksum- or fingerprint-pinned tools that regression jobs need.
+An idempotent provisioner applies it during cloud-init or through protected Run Command, and
+a fail-closed verifier runs before enrollment and at the start of each self-hosted regression
+job. A runner that lacks any item, runs a different pinned version, or holds a tool that another
+account can write is rejected before it runs tests, so a new or rebuilt runner cannot fail midway.
+
 Optional acceleration moves all four regression shards to a pool of up to five listeners
 on the same VM. Each shard uses three pytest workers; each listener has separate distribution,
 workspace, and cache paths and a systemd limit of 3 CPUs and 12 GiB RAM.
