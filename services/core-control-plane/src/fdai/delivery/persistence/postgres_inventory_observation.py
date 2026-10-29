@@ -13,11 +13,16 @@ from psycopg.rows import dict_row
 
 from fdai.delivery.inventory_configuration_events import (
     INVENTORY_CONFIGURATION_DELIVERY_KEY,
-    configuration_delivery_key,
     configuration_delivery_pending,
 )
-from fdai.delivery.inventory_semantic_digest import inventory_semantic_digest
+from fdai.delivery.inventory_semantic_digest import (
+    inventory_semantic_digest,
+    inventory_subject_semantic_digest,
+)
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
+from fdai.delivery.persistence.postgres_inventory_observation_records import (
+    confirmed_relationship_tombstone as _confirmed_relationship_tombstone,
+)
 from fdai.delivery.persistence.postgres_inventory_observation_records import (
     confirmed_tombstone as _confirmed_tombstone,
 )
@@ -58,7 +63,6 @@ from fdai.delivery.persistence.postgres_inventory_projection_replay import (
     InventoryProjectionReplayInput,
     build_projection_replay_observation,
     projection_freshness_ceiling,
-    projection_replay_drops,
 )
 from fdai.delivery.persistence.postgres_inventory_projection_replay import (
     manifest_watermarks as _manifest_watermarks,
@@ -70,24 +74,35 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
     _PROMOTION_LOCK,
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.delivery.persistence.postgres_inventory_snapshot_membership import (
+    load_previous_snapshot_members as _load_previous_snapshot_members,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot_membership import (
+    load_snapshot_generation_records as _load_snapshot_generation_records,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot_membership import (
+    load_snapshot_history_records as _load_snapshot_history_records,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot_membership import (
+    store_snapshot_membership as _store_snapshot_membership,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot_recovery import (
+    rebase_recovery_metadata as _rebase_recovery_metadata,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot_recovery import (
+    reusable_journal_generation as _reusable_journal_generation,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot_recovery import (
+    snapshot_recovery_observation as _snapshot_recovery_observation,
+)
 from fdai.delivery.persistence.postgres_observation_lifecycle import (
     bind_observation_lifecycle,
     close_observation_corrections,
-)
-from fdai.shared.providers.inventory import (
-    LinkRecord,
-    RelationshipDrop,
-    RelationshipDropReason,
-    ResourceRecord,
 )
 from fdai.shared.providers.inventory_observation import (
     InventoryObservationKind,
     InventoryObservationSubjectKind,
     NormalizedInventoryObservation,
-)
-from fdai.shared.providers.state_evidence import (
-    LINK_OBSERVATION_METADATA_PROPERTY,
-    LinkObservationMetadata,
 )
 
 _INSERT_OBSERVATION_SQL = _WRITE_INSERT_OBSERVATION_SQL
@@ -219,17 +234,32 @@ class PostgresInventoryObservationJournal:
         after: datetime,
     ) -> tuple[NormalizedInventoryObservation, ...]:
         cursor = await connection.execute(
-            _SELECT_OBSERVATIONS
-            + " WHERE subject_kind='object' AND subject_ref=%s AND effective_at>%s "
-            "ORDER BY effective_at, "
-            "(observation_kind='tombstone')::int, source_event_id, content_digest "
-            "LIMIT %s",
+            _SELECT_OBJECT_HISTORY_OBSERVATIONS,
             (resource_id, after, _MAX_REPLAY_OBSERVATIONS + 1),
         )
         rows = await cursor.fetchall()
         if len(rows) > _MAX_REPLAY_OBSERVATIONS:
             raise ValueError("inventory observation replay exceeds its per-resource bound")
-        return tuple(_observation(row) for row in rows)
+        observations = [_observation(row) for row in rows]
+        observations.extend(
+            await _load_snapshot_history_records(
+                connection,
+                resource_id=resource_id,
+                after=after,
+                limit=_MAX_REPLAY_OBSERVATIONS,
+            )
+        )
+        if len(observations) > _MAX_REPLAY_OBSERVATIONS:
+            raise ValueError("inventory observation replay exceeds its per-resource bound")
+        observations.sort(
+            key=lambda item: (
+                item.effective_at,
+                item.observation_kind is InventoryObservationKind.TOMBSTONE,
+                item.source_event_id,
+                item.content_digest,
+            )
+        )
+        return tuple(observations)
 
     async def load_active_projection_replay(
         self,
@@ -259,21 +289,33 @@ class PostgresInventoryObservationJournal:
                 generation = str(snapshot["id"])
                 metadata = dict(_mapping(snapshot["metadata"]))
                 journal_generation = str(metadata.get("journal_source_generation") or generation)
-                cursor = await connection.execute(
-                    _SELECT_OBSERVATIONS + " WHERE source_identity='inventory.reconciliation' "
-                    "AND source_revision=%s AND source_event_id=%s "
-                    "AND observation_kind='full' AND mutation_kind='upsert' "
-                    "ORDER BY subject_kind, subject_ref "
-                    "LIMIT %s",
-                    (
-                        journal_generation,
-                        f"snapshot:{journal_generation}",
-                        MAX_ACTIVE_PROJECTION_OBSERVATIONS + 1,
-                    ),
-                )
-                rows = await cursor.fetchall()
-                if len(rows) > MAX_ACTIVE_PROJECTION_OBSERVATIONS:
-                    raise ValueError("active inventory projection replay exceeds its bound")
+                membership_records: tuple[NormalizedInventoryObservation, ...] | None = None
+                rows: Sequence[Mapping[str, Any]] = ()
+                if metadata.get("journal_replay_schema_version") == 2:
+                    membership_records = await _load_snapshot_generation_records(
+                        connection,
+                        generation_id=generation,
+                        limit=MAX_ACTIVE_PROJECTION_OBSERVATIONS,
+                    )
+                    if membership_records is None:
+                        raise ValueError("active inventory snapshot membership is unavailable")
+                    rows = ()
+                else:
+                    cursor = await connection.execute(
+                        _SELECT_OBSERVATIONS + " WHERE source_identity='inventory.reconciliation' "
+                        "AND source_revision=%s AND source_event_id=%s "
+                        "AND observation_kind='full' AND mutation_kind='upsert' "
+                        "ORDER BY subject_kind, subject_ref "
+                        "LIMIT %s",
+                        (
+                            journal_generation,
+                            f"snapshot:{journal_generation}",
+                            MAX_ACTIVE_PROJECTION_OBSERVATIONS + 1,
+                        ),
+                    )
+                    rows = await cursor.fetchall()
+                    if len(rows) > MAX_ACTIVE_PROJECTION_OBSERVATIONS:
+                        raise ValueError("active inventory projection replay exceeds its bound")
                 state_cursor = await connection.execute(
                     "SELECT value FROM state_kv WHERE key=%s",
                     (INVENTORY_OBSERVATION_WATERMARK_KEY,),
@@ -283,7 +325,12 @@ class PostgresInventoryObservationJournal:
                     "SELECT value FROM state_kv WHERE key='inventory-ontology:manifest'"
                 )
                 manifest_row = await manifest_cursor.fetchone()
-        if not rows:
+        records = (
+            membership_records
+            if membership_records is not None
+            else tuple(_observation(row) for row in rows)
+        )
+        if not records:
             raise ValueError("active inventory snapshot has no replayable journal records")
         state = _mapping(state_row["value"]) if state_row is not None else {}
         if manifest_row is None:
@@ -296,7 +343,7 @@ class PostgresInventoryObservationJournal:
             recorded_at=snapshot["completed_at"],
             metadata=metadata,
             prior_manifest=manifest,
-            records=tuple(_observation(row) for row in rows),
+            records=records,
         )
         prior_journal_watermark, prior_projection_watermark = _manifest_watermarks(manifest)
         target_journal_watermark = (
@@ -444,26 +491,81 @@ class PostgresInventoryObservationJournal:
                     semantic_digest=semantic_digest,
                 )
                 journal_source_generation = reused_journal_generation or observation.generation
+                scope_refs = tuple(str(value) for value in snapshot["scopes"])
+                snapshot_records = _snapshot_records(observation, scope_refs=scope_refs)
+                links_complete = observation.complete and not observation.relationship_drops
+                history_visible = reused_journal_generation is None
+                coverage_scope = metadata.get("coverage_scope")
+                if coverage_scope is not None and not isinstance(coverage_scope, str):
+                    raise ValueError("inventory snapshot coverage scope is malformed")
                 metadata["semantic_content_digest"] = semantic_digest
                 metadata["journal_source_generation"] = journal_source_generation
+                metadata["journal_replay_schema_version"] = 2
                 await connection.execute(
                     "UPDATE inventory_snapshot SET metadata=%s::jsonb WHERE id=%s",
                     (json.dumps(metadata, sort_keys=True), observation.generation),
                 )
-                records = (
-                    ()
-                    if reused_journal_generation is not None
-                    else _snapshot_records(
-                        observation,
-                        scope_refs=tuple(str(value) for value in snapshot["scopes"]),
+                records: tuple[NormalizedInventoryObservation, ...]
+                if reused_journal_generation is not None:
+                    records = ()
+                else:
+                    previous = await _load_previous_snapshot_members(
+                        connection,
+                        source=str(snapshot["source"]),
+                        observation_kind=str(snapshot["observation_kind"]),
+                        scopes=scope_refs,
+                        resource_types=tuple(str(value) for value in snapshot["resource_types"]),
+                        coverage_scope=metadata.get("coverage_scope"),
                     )
-                )
+                    previous_members, previous_links_complete = (
+                        previous if previous is not None else ({}, False)
+                    )
+                    current_by_key = {
+                        (item.subject_kind.value, item.subject_ref): item
+                        for item in snapshot_records
+                    }
+                    changed_records = tuple(
+                        item
+                        for item in snapshot_records
+                        if (
+                            (
+                                prior := previous_members.get(
+                                    (item.subject_kind.value, item.subject_ref)
+                                )
+                            )
+                            is None
+                            or str(prior["semantic_digest"])
+                            != inventory_subject_semantic_digest(item)
+                        )
+                    )
+                    relation_tombstones: tuple[NormalizedInventoryObservation, ...] = ()
+                    if coverage_scope not in (None, "full_provider_scope"):
+                        raise ValueError("inventory snapshot coverage scope is malformed")
+                    if (
+                        coverage_scope == "full_provider_scope"
+                        and links_complete
+                        and previous_links_complete
+                        and previous is not None
+                    ):
+                        relation_tombstones = tuple(
+                            _confirmed_relationship_tombstone(
+                                prior,
+                                generation=observation.generation,
+                                confirmed_at=snapshot["started_at"],
+                                recorded_at=observation.recorded_at,
+                            )
+                            for (subject_kind, subject_ref), prior in previous_members.items()
+                            if subject_kind == InventoryObservationSubjectKind.RELATIONSHIP.value
+                            and (subject_kind, subject_ref) not in current_by_key
+                        )
+                    records = (*changed_records, *relation_tombstones)
                 result = await _append_records(connection, records)
-                await bind_observation_lifecycle(
-                    connection,
-                    records,
-                    allow_oi16_synthetic=self._allow_oi16_synthetic,
-                )
+                if records:
+                    await bind_observation_lifecycle(
+                        connection,
+                        records,
+                        allow_oi16_synthetic=self._allow_oi16_synthetic,
+                    )
                 high_watermark = result.high_watermark
                 covered_types = tuple(str(value) for value in snapshot["resource_types"])
                 if metadata.get("coverage_scope") == "full_provider_scope":
@@ -517,6 +619,21 @@ class PostgresInventoryObservationJournal:
                         connection,
                         generation=observation.generation,
                     ),
+                )
+                await _store_snapshot_membership(
+                    connection,
+                    generation_id=observation.generation,
+                    source=str(snapshot["source"]),
+                    observation_kind=str(snapshot["observation_kind"]),
+                    scopes=scope_refs,
+                    resource_types=covered_types,
+                    coverage_scope=metadata.get("coverage_scope"),
+                    semantic_content_digest=semantic_digest,
+                    journal_high_watermark=high_watermark,
+                    recorded_at=observation.recorded_at,
+                    history_visible=history_visible,
+                    links_complete=links_complete,
+                    records=snapshot_records,
                 )
                 await _update_watermark_state(
                     connection,
@@ -617,133 +734,6 @@ async def _retained_generation_watermark(
     return _nonnegative_int(row["watermark"])
 
 
-def _snapshot_recovery_observation(
-    *,
-    generation: str,
-    recorded_at: datetime,
-    metadata: Mapping[str, Any],
-    prior_manifest: Mapping[str, Any],
-    resource_rows: Sequence[Mapping[str, Any]],
-    link_rows: Sequence[Mapping[str, Any]],
-) -> PromotedInventoryObservation:
-    if len(resource_rows) + len(link_rows) > MAX_ACTIVE_PROJECTION_OBSERVATIONS:
-        raise ValueError("pending inventory snapshot replay exceeds its bound")
-    resources = tuple(
-        ResourceRecord(
-            resource_id=str(row["resource_id"]),
-            type=str(row["resource_type"]),
-            props=_mapping(row["props"]),
-            provider_ref=str(row["provider_ref"]) if row["provider_ref"] is not None else None,
-            last_seen=(row["last_seen"].isoformat() if row["last_seen"] is not None else None),
-        )
-        for row in resource_rows
-    )
-    links: list[LinkRecord] = []
-    relationship_drops = list(projection_replay_drops(metadata, prior_manifest))
-    for row in link_rows:
-        properties = dict(_mapping(row["props"]))
-        raw_observation = properties.pop(LINK_OBSERVATION_METADATA_PROPERTY, None)
-        if not isinstance(raw_observation, Mapping):
-            relationship_drops.append(
-                RelationshipDrop(reason=RelationshipDropReason.UNVERIFIED_METADATA)
-            )
-            continue
-        links.append(
-            LinkRecord(
-                from_id=str(row["from_id"]),
-                from_type=str(row["from_type"]),
-                link_type=str(row["link_type"]),
-                to_id=str(row["to_id"]),
-                to_type=str(row["to_type"]),
-                link_props=properties,
-                observation_metadata=LinkObservationMetadata.from_mapping(raw_observation),
-            )
-        )
-    return PromotedInventoryObservation(
-        generation=generation,
-        resources=resources,
-        links=tuple(links),
-        complete=True,
-        relationship_drops=tuple(relationship_drops),
-        recorded_at=recorded_at,
-        state_base_generation=(
-            str(metadata["state_base_generation"])
-            if metadata.get("state_base_generation") is not None
-            else None
-        ),
-        state_base_generation_checked="state_base_generation" in metadata,
-    )
-
-
-async def _reusable_journal_generation(
-    connection: psycopg.AsyncConnection[Any],
-    *,
-    snapshot: Mapping[str, Any],
-    semantic_digest: str,
-) -> str | None:
-    cursor = await connection.execute(
-        "SELECT s.id, s.metadata FROM inventory_snapshot s "
-        "WHERE s.id<>%s AND s.status='superseded' AND s.source=%s "
-        "AND s.observation_kind=%s AND s.scopes=%s::jsonb "
-        "AND s.resource_types=%s::jsonb "
-        "AND s.metadata->>'semantic_content_digest'=%s "
-        "AND s.metadata->>'projection_complete'='true' "
-        "ORDER BY s.completed_at DESC, s.id DESC LIMIT 1",
-        (
-            str(snapshot["id"]),
-            str(snapshot["source"]),
-            str(snapshot["observation_kind"]),
-            json.dumps(snapshot["scopes"]),
-            json.dumps(snapshot["resource_types"]),
-            semantic_digest,
-        ),
-    )
-    row = await cursor.fetchone()
-    if row is None:
-        return None
-    metadata = _mapping(row["metadata"])
-    prior_generation = str(row["id"])
-    delivery_cursor = await connection.execute(
-        "SELECT value FROM state_kv WHERE key=%s",
-        (configuration_delivery_key(prior_generation),),
-    )
-    delivery_row = await delivery_cursor.fetchone()
-    if delivery_row is None:
-        return None
-    delivery = _mapping(delivery_row["value"])
-    configuration_delivery_pending(delivery, generation=prior_generation)
-    if delivery.get("generation") != prior_generation or delivery.get("status") != "completed":
-        return None
-    source_generation = metadata.get("journal_source_generation") or row["id"]
-    if (
-        not isinstance(source_generation, str)
-        or not source_generation.strip()
-        or len(source_generation) > 256
-    ):
-        raise ValueError("inventory journal source generation is malformed")
-    retained = await connection.execute(
-        "SELECT 1 FROM inventory_observation_journal "
-        "WHERE source_revision=%s AND source_event_id=%s LIMIT 1",
-        (source_generation, f"snapshot:{source_generation}"),
-    )
-    return source_generation if await retained.fetchone() is not None else None
-
-
-def _rebase_recovery_metadata(
-    metadata: Mapping[str, Any],
-    manifest: Mapping[str, Any],
-) -> dict[str, Any]:
-    rebased = dict(metadata)
-    expected_base = metadata.get("state_base_generation")
-    actual_base = manifest.get("generation")
-    if actual_base == expected_base:
-        return rebased
-    if not isinstance(actual_base, str) or not actual_base.strip():
-        raise ValueError("pending inventory ontology base generation changed")
-    rebased["state_base_generation"] = actual_base
-    return rebased
-
-
 _SELECT_OBSERVATIONS = (
     "SELECT observation_id, content_digest, idempotency_key, subject_kind, "
     "observation_kind, mutation_kind, subject_ref, subject_type, properties, "
@@ -752,6 +742,23 @@ _SELECT_OBSERVATIONS = (
     "source_revision, effective_at, observed_at, evidence_cutoff, recorded_at, ingested_at, "
     "provider_event_at, "
     "from_id, from_type, link_type, to_id, to_type FROM inventory_observation_journal"
+)
+_SELECT_OBJECT_HISTORY_OBSERVATIONS = (
+    "SELECT observation_id, content_digest, idempotency_key, subject_kind, "
+    "observation_kind, mutation_kind, subject_ref, subject_type, properties, "
+    "property_mask, properties_complete, links_complete, tombstone_confirmed, "
+    "provider_ref, scope_ref, operation, operation_status, source_identity, source_event_id, "
+    "source_revision, effective_at, observed_at, evidence_cutoff, recorded_at, ingested_at, "
+    "provider_event_at, from_id, from_type, link_type, to_id, to_type "
+    "FROM inventory_observation_journal "
+    "WHERE subject_kind='object' AND subject_ref=%s AND effective_at>%s "
+    "AND NOT (source_identity='inventory.reconciliation' "
+    "AND source_event_id LIKE 'snapshot:%%' AND EXISTS ("
+    "SELECT 1 FROM inventory_observation_snapshot_generation AS generation "
+    "WHERE generation.generation_id=source_revision)) "
+    "ORDER BY effective_at, "
+    "(observation_kind='tombstone')::int, source_event_id, content_digest "
+    "LIMIT %s"
 )
 
 

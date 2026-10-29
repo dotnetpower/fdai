@@ -8,6 +8,10 @@ from collections.abc import Mapping
 from typing import Any
 
 from fdai.delivery.inventory_sync_models import PromotedInventoryObservation
+from fdai.shared.providers.inventory_observation import (
+    InventoryObservationSubjectKind,
+    NormalizedInventoryObservation,
+)
 from fdai.shared.providers.state_evidence import (
     LINK_OBSERVATION_METADATA_PROPERTY,
     STATE_FACT_METADATA_PROPERTY,
@@ -28,6 +32,42 @@ _LINK_OBSERVATION_FIELDS = frozenset(
         "verification_receipt_ref",
     }
 )
+
+
+def inventory_subject_semantic_digest(record: NormalizedInventoryObservation) -> str:
+    """Hash one snapshot subject without generation identity or freshness-only metadata."""
+
+    properties = record.properties
+    if record.subject_kind is InventoryObservationSubjectKind.OBJECT:
+        body = {
+            "subject_kind": record.subject_kind.value,
+            "id": record.subject_ref,
+            "type": record.subject_type,
+            "props": _resource_properties(properties),
+            "provider_ref": record.provider_ref,
+        }
+    elif record.subject_kind is InventoryObservationSubjectKind.RELATIONSHIP:
+        raw_metadata = properties.get(LINK_OBSERVATION_METADATA_PROPERTY)
+        if raw_metadata is not None and not isinstance(raw_metadata, Mapping):
+            raise ValueError("inventory relationship observation metadata MUST be an object")
+        link_properties = {
+            key: value
+            for key, value in properties.items()
+            if key != LINK_OBSERVATION_METADATA_PROPERTY
+        }
+        body = {
+            "subject_kind": record.subject_kind.value,
+            "from_id": record.from_id,
+            "from_type": record.from_type,
+            "link_type": record.link_type,
+            "to_id": record.to_id,
+            "to_type": record.to_type,
+            "props": _link_properties(link_properties, raw_metadata),
+        }
+    else:
+        raise ValueError("inventory subject semantic digest requires a snapshot member")
+    encoded = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def inventory_semantic_digest(observation: PromotedInventoryObservation) -> str:
@@ -123,4 +163,4 @@ def _state_fact(value: Mapping[str, Any]) -> dict[str, Any]:
     return {key: item for key, item in value.items() if key not in _STATE_FACT_OBSERVATION_FIELDS}
 
 
-__all__ = ["inventory_semantic_digest"]
+__all__ = ["inventory_semantic_digest", "inventory_subject_semantic_digest"]

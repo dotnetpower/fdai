@@ -847,7 +847,8 @@
       ],
       "docs_update_routes": [
         "semantic-assurance-corpus",
-        "operator-governance-profiles"
+        "operator-governance-profiles",
+        "service-migration-ownership"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
@@ -2193,7 +2194,8 @@
         "reporting-subsystem",
         "narrator-preference-persistence",
         "operational-evidence-issuance",
-        "operator-governance-profiles"
+        "operator-governance-profiles",
+        "service-migration-ownership"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/conversation-attachments.md",
@@ -2527,7 +2529,8 @@
       "docs_update_routes": [
         "narrator-preference-persistence",
         "operational-evidence-issuance",
-        "operator-governance-profiles"
+        "operator-governance-profiles",
+        "service-migration-ownership"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/reporting-subsystem.md"
@@ -2704,8 +2707,7 @@
         "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
-        "docs/roadmap/architecture/continuous-operational-instance-graph.md",
-        "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md"
+        "docs/roadmap/architecture/continuous-operational-instance-graph.md"
       ],
       "docs_update_routes": [
         "conversation-attachments",
