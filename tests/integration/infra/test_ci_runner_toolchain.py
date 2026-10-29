@@ -41,6 +41,9 @@ def test_manifest_covers_the_tools_and_libraries_that_broke_main_ci() -> None:
     assert {"az", "azd", "gh", "terraform", "uv"} <= set(MANIFEST["pinned_tools"])
     assert {"pango-1.0", "pangoft2-1.0"} <= set(MANIFEST["libraries"])
     assert "libpango-1.0-0" in MANIFEST["apt_packages"]
+    assert "tzdata" in MANIFEST["apt_packages"]
+    assert "tzdata-legacy" in MANIFEST["apt_packages"]
+    assert {"Etc/UTC", "America/Buenos_Aires"} <= set(MANIFEST["timezones"])
     assert MANIFEST["pinned_tools"]["terraform"]["sha256"]
     assert len(MANIFEST["pinned_tools"]["az"]["apt_key_fingerprint"]) == 40
 
@@ -86,6 +89,21 @@ def test_verifier_accepts_a_conforming_runner(tmp_path: Path) -> None:
     _executable(tmp_path, "sh", "sh")
     _executable(tmp_path, "demo", "demo 1.2.3")
     assert VERIFY.verify(_manifest(), (tmp_path,)) == []
+
+
+def test_verifier_refuses_missing_timezone_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _executable(tmp_path, "sh", "sh")
+    _executable(tmp_path, "demo", "demo 1.2.3")
+    manifest = _manifest()
+    manifest["timezones"] = ["America/Buenos_Aires"]
+
+    def missing(_name: str) -> None:
+        raise VERIFY.ZoneInfoNotFoundError("missing timezone")
+
+    monkeypatch.setattr(VERIFY, "ZoneInfo", missing)
+    assert VERIFY.verify(manifest, (tmp_path,)) == ["missing-timezone:America/Buenos_Aires"]
 
 
 def test_verifier_reports_every_finding_at_once(tmp_path: Path) -> None:

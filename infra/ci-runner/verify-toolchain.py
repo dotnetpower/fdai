@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 TRUSTED_ROOTS = (Path("/usr/bin"), Path("/usr/local/bin"))
 DEFAULT_MANIFEST = Path(__file__).with_name("toolchain.json")
@@ -82,6 +83,11 @@ def verify(manifest: dict[str, object], roots: tuple[Path, ...] = TRUSTED_ROOTS)
     for library in manifest["libraries"]:  # type: ignore[union-attr]
         if ctypes.util.find_library(str(library)) is None:
             findings.append(f"missing-library:{library}")
+    for timezone in manifest.get("timezones", []):  # type: ignore[union-attr]
+        try:
+            ZoneInfo(str(timezone))
+        except ZoneInfoNotFoundError:
+            findings.append(f"missing-timezone:{timezone}")
     return findings
 
 

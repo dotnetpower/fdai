@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 61e65b0f31a2d99378f2f53c4be425273d16d7dd
-translation_revised: 2026-10-29
+translation_source_sha: be56b6f4ffa1acc14010a1a0987a2ee107a16778
+translation_revised: 2026-10-30
 ---
 # 배포 리소스 규약
 
@@ -377,6 +377,10 @@ NIC에 한정된 Trivy `AZU-0068` 주석은 검사기의 한계를 기록합니�
 OS 디스크는 Premium SSD를 사용합니다. 로컬 임시 SSD에는 삭제되어도 재생성할 수 있는 작업 공간과
 캐시를 저장합니다. 해당 디스크가 마운트되지 않으면 러너가 시작되지 않습니다. 등록할 때는 수명이 짧은
 토큰을 Azure의 보호된 환경 매개변수로 전달하며, Terraform이나 명령줄 값에 넣지 않습니다.
+
+매니페스트에는 시간대 데이터와 필요한 IANA 이름도 포함합니다. 컨테이너 기반 러너는 초기화 프로세스로
+고아 자식 프로세스를 회수합니다. 서비스 러너의 정리 검사는 컨테이너 안에 호스트 VM의 초기화 시스템이
+있다고 가정하지 않습니다.
 
 모든 러너는 선언된 하나의 도구 체인으로 수렴합니다. `toolchain.json`에 회귀 테스트 작업에 필요한 패키지,
 공유 라이브러리, 체크섬 또는 지문으로 고정한 도구를 나열합니다. 멱등 프로비저너가 cloud-init이나
