@@ -395,6 +395,15 @@ a fail-closed verifier runs before enrollment and at the start of each self-host
 job. A runner that lacks any item, runs a different pinned version, or holds a tool that another
 account can write is rejected before it runs tests, so a new or rebuilt runner cannot fail midway.
 
+An optional elastic runner in [`infra/ci-runner-aca`](../../../infra/ci-runner-aca/README.md)
+replaces the fixed pool with ephemeral one-job Container Apps Job executions that scale from zero
+with queued jobs, up to a declared ceiling. It builds its image from the same toolchain manifest,
+holds no deployment identity beyond registry pull, and keeps the GitHub credential out of
+Terraform and out of workflow code. Protected-main regression then runs as eight shards instead of
+four; the slowest measured shard fell from 667 s to about 330 s at the same total compute. The
+`FDAI_CI_ELASTIC_RUNNER_ENABLED` variable selects it ahead of the SSD pool; pull requests keep
+GitHub-hosted execution until a fork-safe pull-request guard exists.
+
 Optional acceleration moves all four regression shards to a pool of up to five listeners
 on the same VM. Each shard uses three pytest workers; each listener has separate distribution,
 workspace, and cache paths and a systemd limit of 3 CPUs and 12 GiB RAM.
