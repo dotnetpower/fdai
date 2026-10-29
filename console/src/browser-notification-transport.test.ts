@@ -164,10 +164,17 @@ describe("Console notification receiver", () => {
     const { sessionNotificationClickTarget } = await import("./browser-notification-transport");
     expect(sessionNotificationClickTarget({ ...data, path: "/fdai/audit" }, "/fdai/"))
       .toContain("http://localhost:5273/fdai/audit#fdai-notification-ack");
+    expect(sessionNotificationClickTarget({
+      ...data,
+      path: "/fdai/detection-coverage?finding=finding-1&data=live",
+    }, "/fdai/")).toContain(
+      "http://localhost:5273/fdai/detection-coverage?finding=finding-1&data=live#fdai-notification-ack",
+    );
     for (const invalid of [
       { ...data, path: "//example.com/audit" },
       { ...data, path: "/settings" },
       { ...data, path: "/audit" },
+      { ...data, path: "/fdai/detection-coverage/other" },
       { ...data, path: "/fdai/audit", acknowledgement_token: "bad" },
       { ...data, path: "/fdai/audit", channel_id: "other" },
     ]) {
