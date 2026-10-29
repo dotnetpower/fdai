@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 74f8882bb0eb35ef1daec55d8f71c8a7e85162df
+translation_source_sha: 2883e3030903500b251a7742b0444f484a0bb88e
 translation_revised: 2026-10-29
 ---
 
@@ -364,7 +364,8 @@ event-ingest, trust 라우팅, risk gating, 감사에 진입하며 웹훅은 액
 거부 및 실패 프레임만 알림 대상입니다. 범위가 제한된 로컬 표시·클릭 증적은 Core 전달, 승인
 또는 실행 근거를 충족하지 않습니다. 조직에서 관리하는 A2/A4 경로는 별도의
 channel-as-audience 바인딩으로 유지합니다. 서버 측 `console-inbox` A2 채널은 Console용 알림
-레코드를 제한된 크기로 저장하는 별도의 Core 어댑터입니다.
+레코드를 제한된 크기로 저장하는 별도의 Core 어댑터이며, https 전용 링크 규칙은 외부 채널의
+것이므로 메시지 링크는 저장하지 않습니다.
 [Console 알림함](console-web-notifications-ko.md#console-알림함)을 참고하세요.
 
 ## 5. 채널 인터페이스 (계약)
