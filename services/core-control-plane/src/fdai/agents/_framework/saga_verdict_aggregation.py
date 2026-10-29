@@ -121,10 +121,15 @@ class SagaVerdictAggregator:
                             "last_seen_at": timestamp,
                         }
                     else:
+                        last_seen_at = max(
+                            existing["last_seen_at"],
+                            timestamp,
+                            key=datetime.fromisoformat,
+                        )
                         next_groups[group_digest] = {
                             **existing,
                             "count": existing["count"] + 1,
-                            "last_seen_at": timestamp,
+                            "last_seen_at": last_seen_at,
                         }
                     updated = _encode_ledger(revision + 1, next_groups)
                     try:

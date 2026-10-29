@@ -560,11 +560,12 @@ records keyed by `group_digest`. Each record contains `subject_digest`, `source_
 and Saga-received UTC `first_seen_at` / `last_seen_at` values. `count` measures authenticated Saga
 deliveries, including redeliveries, rather than distinct source verdicts. Saga does not deduplicate
 `idempotency_key` before processing, so a same-key redelivery counts as another delivery, matching
-the current per-delivery audit behavior. Each delivery updates the ledger with compare-and-set; a
-restart reloads its durable count and does not count the staged delivery again. This ledger is
-staging, not a chain entry. The aggregation path requires the optional `StateStorePairAuditWriter`
-capability as well as ordinary state CAS; adapters without it keep appending each message
-individually.
+the current per-delivery audit behavior. If the Saga clock moves backward, `last_seen_at` retains
+the greatest timestamp observed so far while the delivery count still increases. Each delivery
+updates the ledger with compare-and-set; a restart reloads its durable count and does not count the
+staged delivery again. This ledger is staging, not a chain entry. The aggregation path requires the
+optional `StateStorePairAuditWriter` capability as well as ordinary state CAS; adapters without it
+keep appending each message individually.
 
 Health reports `audit_completeness.status` as `complete` only when audit is durable, the aggregate
 ledger snapshot is readable, and the pending aggregate group, audit inbox, and audit outbox counts

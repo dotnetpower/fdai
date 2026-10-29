@@ -190,6 +190,43 @@ async def test_repeated_delivery_survives_restart_and_seals_without_source_ident
     assert restarted.health()["audit_completeness"]["status"] == "complete"
 
 
+async def test_clock_regression_preserves_aggregate_timestamp_range() -> None:
+    store = InMemoryStateStore()
+    first_seen = datetime(2026, 10, 29, 12, 0, tzinfo=UTC)
+    clock_value = [first_seen]
+    saga, _ = saga_for(store, clock=lambda: clock_value[0])
+    await saga.recover_audit_outbox()
+
+    await saga.on_typed_message(
+        "object.verdict",
+        verdict(correlation_id="source-correlation-1"),
+    )
+    clock_value[0] = datetime(2026, 10, 29, 11, 59, tzinfo=UTC)
+    await saga.on_typed_message(
+        "object.verdict",
+        verdict(correlation_id="source-correlation-2"),
+    )
+
+    ledger = await store.read_state(_VERDICT_AGGREGATE_KEY)
+    assert ledger is not None
+    group = next(iter(ledger["groups"].values()))
+    assert group["count"] == 2
+    assert group["first_seen_at"] == first_seen.isoformat()
+    assert group["last_seen_at"] == first_seen.isoformat()
+
+    restarted, _ = saga_for(store, clock=lambda: clock_value[0])
+    await restarted.recover_audit_outbox()
+    await restarted.maintenance_tick()
+
+    assert len(restarted.audit_chain.entries) == 1
+    restarted.audit_chain.verify()
+    records, truncated = await store.read_audit_chain_entries(limit=10)
+    assert not truncated
+    assert records[-1]["payload"]["count"] == 2
+    assert records[-1]["payload"]["first_seen_at"] == first_seen.isoformat()
+    assert records[-1]["payload"]["last_seen_at"] == first_seen.isoformat()
+
+
 async def test_subject_order_seals_changed_and_nonmatching_verdicts_individually() -> None:
     store = InMemoryStateStore()
     saga, _ = saga_for(store)
