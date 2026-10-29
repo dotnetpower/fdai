@@ -885,7 +885,7 @@ _SELECT_OBJECT_HISTORY_OBSERVATIONS = (
     "FROM inventory_observation_journal "
     "WHERE subject_kind='object' AND subject_ref=%s AND effective_at>%s "
     "AND NOT (source_identity='inventory.reconciliation' "
-    "AND source_event_id LIKE 'snapshot:%' AND EXISTS ("
+    "AND source_event_id LIKE 'snapshot:%%' AND EXISTS ("
     "SELECT 1 FROM inventory_observation_snapshot_generation AS generation "
     "WHERE generation.generation_id=source_revision)) "
     "ORDER BY effective_at, "

@@ -221,12 +221,16 @@ def test_snapshot_membership_reconstructs_full_record_and_freshness_metadata() -
             "source_identity": record.source_identity,
             "source_event_id": record.source_event_id,
             "source_revision": record.source_revision,
-            "effective_at": record.effective_at,
-            "observed_at": record.observed_at,
-            "evidence_cutoff": record.evidence_cutoff,
-            "recorded_at": record.recorded_at,
-            "ingested_at": record.ingested_at,
-            "provider_event_at": record.provider_event_at,
+            "effective_at": record.effective_at.isoformat(),
+            "observed_at": record.observed_at.isoformat(),
+            "evidence_cutoff": record.evidence_cutoff.isoformat(),
+            "recorded_at": record.recorded_at.isoformat(),
+            "ingested_at": record.ingested_at.isoformat(),
+            "provider_event_at": (
+                record.provider_event_at.isoformat()
+                if record.provider_event_at is not None
+                else None
+            ),
             "from_id": record.from_id,
             "from_type": record.from_type,
             "link_type": record.link_type,

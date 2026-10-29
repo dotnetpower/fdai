@@ -36,7 +36,7 @@ _SELECT_JOURNAL_RECORD = (
     "WHERE journal.subject_kind=member.subject_kind "
     "AND journal.subject_ref=member.subject_ref "
     "AND journal.source_identity='inventory.reconciliation' "
-    "AND journal.source_event_id LIKE 'snapshot:%' "
+    "AND journal.source_event_id LIKE 'snapshot:%%' "
     "AND journal.observation_kind='full' AND journal.mutation_kind='upsert' "
     "AND journal.watermark<=generation.journal_high_watermark "
     "ORDER BY journal.watermark DESC LIMIT 1"
@@ -336,7 +336,7 @@ def _reconstruct_record(row: Mapping[str, Any]) -> NormalizedInventoryObservatio
     raw_record = row.get("journal_record")
     if raw_record is None:
         raise ValueError("inventory snapshot member has no journal source record")
-    prior = observation_from_row(_mapping(raw_record))
+    prior = observation_from_row(_journal_record_mapping(raw_record))
     if (
         prior.observation_kind is not InventoryObservationKind.FULL
         or inventory_subject_semantic_digest(prior) != str(row["semantic_digest"])
@@ -383,6 +383,24 @@ def _reconstruct_record(row: Mapping[str, Any]) -> NormalizedInventoryObservatio
         to_id=str(row["to_id"]) if row["to_id"] is not None else None,
         to_type=str(row["to_type"]) if row["to_type"] is not None else None,
     )
+
+
+def _journal_record_mapping(raw_record: object) -> dict[str, Any]:
+    """Restore timestamp types from the JSONB representation returned by PostgreSQL."""
+
+    record = dict(_mapping(raw_record))
+    for field in (
+        "effective_at",
+        "observed_at",
+        "evidence_cutoff",
+        "recorded_at",
+        "ingested_at",
+        "provider_event_at",
+    ):
+        value = record.get(field)
+        if isinstance(value, str):
+            record[field] = datetime.fromisoformat(value)
+    return record
 
 
 def _member_values(
