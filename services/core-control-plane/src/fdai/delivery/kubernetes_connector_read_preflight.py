@@ -36,6 +36,15 @@ def snapshot_read_attributes() -> tuple[dict[str, str], ...]:
     )
 
 
+def observer_read_attributes() -> tuple[dict[str, str], ...]:
+    """The inventory reads plus the Event list and watch that lifecycle history needs."""
+    return (
+        *snapshot_read_attributes(),
+        {"group": "", "resource": "events", "verb": "list"},
+        {"group": "", "resource": "events", "verb": "watch"},
+    )
+
+
 def _without_empty(value: object) -> object:
     """The API server omits empty strings such as the core group from an echoed review spec."""
     if isinstance(value, dict):
@@ -101,7 +110,7 @@ class KubernetesObserverReadPreflight:
                 headers = dict(await self._auth.headers())
                 headers["Accept-Encoding"] = "identity"
                 await self._identity(client, headers)
-                for attributes in snapshot_read_attributes():
+                for attributes in observer_read_attributes():
                     value = await self._request(
                         client,
                         "POST",

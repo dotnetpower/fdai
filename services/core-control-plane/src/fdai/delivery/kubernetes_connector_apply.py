@@ -203,8 +203,7 @@ def _verified_documents(
     containers = [*pod["initContainers"], *pod["containers"]]
     if (
         any(
-            not {"list", "get"} >= set(rule["verbs"])
-            or {"*", "secrets", "configmaps"} & set(rule["resources"])
+            not _allowed_verbs(rule) or {"*", "secrets", "configmaps"} & set(rule["resources"])
             for rule in rules
         )
         or by_kind["CronJob"]["spec"]["suspend"] is not True
@@ -216,6 +215,12 @@ def _verified_documents(
     ):
         raise ValueError("observer apply manifest violates the observer-only safety recipe")
     return [dict(item) for item in documents]
+
+
+def _allowed_verbs(rule: Mapping[str, Any]) -> bool:
+    """Read-only verbs only; `watch` is allowed solely on Events for lifecycle history."""
+    allowed = {"list", "get"} | ({"watch"} if list(rule["resources"]) == ["events"] else set())
+    return bool(allowed >= set(rule["verbs"]))
 
 
 def _labels(inputs: ObserverInstallationInput) -> dict[str, str]:
