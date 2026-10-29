@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 추론 승격 프로그램
 translation_of: ontology-reasoning-promotion-program.md
-translation_source_sha: bd2e9238ee1afe738879ef9b6d7b7fb030c57d27
-translation_revised: 2026-10-02
+translation_source_sha: 9313a2771cbcb02b241dafa41f3912d3658f62be
+translation_revised: 2026-10-29
 ---
 # 온톨로지 추론 승격 프로그램
 
@@ -178,6 +178,8 @@ Owner는 4단계 전에 결정합니다.
 
 **종료 조건:** 결정이 원장에서 연결되고, `test_semantic_reasoning_masking.py`의 인코딩 형태 회귀 스위트가
 선택한 탐지기로 통과합니다.
+이 스위트의 역추적 방어 검사는 벽시계 시간이 아니라 CPU 시간을 제한하므로, 공유 러너에서 스케줄러 선점이 일어나도
+실패하지 않고 선형을 넘는 증가는 계속 잡아냅니다.
 
 **결정(2026-10-01):** 테넌트 내 모델 배포의 심층 방어로 패턴을 유지하며, 배포 경계가 주요 통제입니다.
 이 선택지는 모든 단계를 구현하라는 Owner의 지시에 따라 채택했습니다. 대체 탐지기는 자체 공급망 검토가

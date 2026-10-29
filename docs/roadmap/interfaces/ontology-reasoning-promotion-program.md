@@ -189,6 +189,8 @@ and evidence, so the Owner decides before Wave 4:
 
 **Exit:** the decision is linked from the ledger, and the encoded-shape regression suite in
 `test_semantic_reasoning_masking.py` passes against the chosen detector.
+The suite's backtracking guard bounds CPU time rather than wall time, so scheduler preemption on a
+shared runner cannot fail it while super-linear growth still does.
 
 **Decision (2026-10-01):** The patterns stay as defense in depth for the in-tenant model deployment,
 and the deployment boundary is the primary control. This option was adopted under the Owner's
