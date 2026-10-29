@@ -92,6 +92,28 @@ The role-gated Console projection distinguishes an unavailable proposal source f
 empty proposal set. When no current proposal exists, the view explains that it updates only after
 observer evidence arrives and that it cannot install an observer or grant execution authority.
 
+Two signed collectors cover constraints that were previously operator-asserted. Each fact is a
+necessary-condition observation, so Azure evidence can deny or stay `unknown` but never grants a
+method.
+
+- `collect-azure-preflight` reads one AKS resource through a read-only management reader. It emits
+  `azure_policy`, `run_command_authorized`, `private_egress`, and `public_egress`.
+  `run_command_authorized` is `denied` when ARM disables command invoke or the deployment profile
+  does not permit it, `allowed` only for a running cluster with both enabled, and `unknown`
+  otherwise. `azure_policy` enumerates the assignments in force at the cluster scope, resolves each
+  definition and policy-set member effect through its parameters, and ignores `DoNotEnforce`
+  assignments and the Kubernetes data plane (admission is its own fact). A deny-capable
+  cluster-scope policy, an unresolved effect, or an incomplete enumeration yields `unknown`, so a
+  reviewer decides. Route facts classify the gateway address: a private address allows
+  `private_egress` and denies `public_egress`; a public address needs a public outbound type, and a
+  user-defined route stays `unknown`. The collector owns these four names, so a reviewed receipt
+  must not supply them.
+- `collect-ownership-preflight` reads the observer namespace and CronJob and is `allowed` only when
+  each is absent or labeled as installer-owned. An unlabeled or foreign-owned object is `denied`.
+
+Both facts live five minutes like the other collectors and are signed under a deployment-owned
+grant that lists the exact fact names and sources.
+
 ## Snapshot runtime
 
 Preflight design critique identified a dependency cycle: admission cannot be verified before its
