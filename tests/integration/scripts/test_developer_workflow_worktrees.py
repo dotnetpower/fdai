@@ -645,3 +645,165 @@ def test_reconciler_fail_closed_edge_cases(
     assert not reconcile._reconcile_service_suites_conflict(
         repo, merge_base=empty_sha, head_sha=empty_sha, base_sha=empty_sha
     )
+
+
+def test_ten_round_hardening_invariants(
+    repo: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scripts.automation import parallel_worktree_reconcile as reconcile
+
+    # Round 2: _docs_update_targets expands graduated service aliases and ignores conftest/derived.
+    routes_file = repo / "scripts" / "lib" / "design-routes.json"
+    routes_file.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "routes": [
+                    {
+                        "id": "operator-logical",
+                        "paths": ["services/core-control-plane/src/fdai/delivery/operator_api/**"],
+                        "must_read": [".github/copilot-instructions.md"],
+                        "docs_update": ["docs/roadmap/interfaces/operator-console.md"],
+                        "validate": [],
+                    }
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert (
+        worktrees._docs_update_targets(repo, ["services/operator-service/tests/conftest.py"]) == []
+    )
+    assert worktrees._docs_update_targets(
+        repo,
+        ["services/operator-service/src/fdai_operator_service/dev/factory.py"],
+    ) == ["docs/roadmap/interfaces/operator-console.md"]
+
+    # Round 3: _status_line_paths splits rename and copy porcelain entries.
+    assert worktrees._status_line_paths("R  old/name.py -> new/name.py") == (
+        "old/name.py",
+        "new/name.py",
+    )
+    assert worktrees._status_line_paths("C  src.py -> dst.py") == ("src.py", "dst.py")
+    assert worktrees._status_line_paths("??") == ()
+
+    # Round 4: _table_row_cells rejects reserved headers and empty cells.
+    assert reconcile._table_row_cells("| Area | State | Evidence | Notes |") is None
+    assert reconcile._table_row_cells("| Date | State | Change | Evidence | Remaining |") is None
+    assert reconcile._table_row_cells("| Area |  | Evidence | Notes |") is None
+
+    # Round 5: _reconcile_ledger_conflict rejects mirrored ledger when owner keeps inline status.
+    owner_doc = repo / "docs" / "roadmap" / "deployment" / "inline.md"
+    owner_doc.parent.mkdir(parents=True, exist_ok=True)
+    owner_doc.write_text("# Inline Owner\n\n## Implementation status\n", encoding="utf-8")
+    mirror_rel = "docs/roadmap-implementation/deployment/inline.md"
+    mirror_doc = repo / mirror_rel
+    mirror_doc.parent.mkdir(parents=True, exist_ok=True)
+    mirror_doc.write_text("# Mirror\n", encoding="utf-8")
+    head_sha = _git(repo, "rev-parse", "HEAD")
+    assert not reconcile._reconcile_ledger_conflict(
+        repo, mirror_rel, head_sha=head_sha, base_sha=head_sha
+    )
+    owner_doc.unlink()
+    mirror_doc.unlink()
+
+    # Round 6: translation scope and heading-level mismatch guards.
+    assert not reconcile._is_in_translation_scope("docs/internals/memo-ko.md")
+    assert not reconcile._is_in_translation_scope("docs/roadmap-implementation/a/b-ko.md")
+    assert reconcile._is_in_translation_scope("README-ko.md")
+    assert reconcile._heading_levels("```md\n# ignored\n```\n# H1\n## H2\n") == [1, 2]
+
+    _write_doc_pair(
+        repo,
+        "docs/heading.md",
+        "# Title\n\n## Section 1\n\nBody 1.\n\n\n\n## Section 2\n\nBody 2.\n",
+        "# 제목\n\n## 섹션 1\n\n본문 1.\n\n\n\n## 섹션 2\n\n본문 2.\n",
+        revised="2026-10-20",
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "--quiet", "-m", "add heading doc")
+    wt_heading = tmp_path / "wt-heading"
+    _git(repo, "worktree", "add", "--quiet", "-b", "feat/heading", str(wt_heading), "main")
+    _write_doc_pair(
+        repo,
+        "docs/heading.md",
+        "# Title\n\n## Section 1\n\nMain 1.\n\n\n\n## Section 2\n\nBody 2.\n",
+        "# 제목\n\n## 섹션 1\n\n메인 1.\n\n\n\n## 섹션 2\n\n본문 2.\n",
+        revised="2026-10-30",
+    )
+    _git(repo, "add", ".")
+    _git(repo, "commit", "--quiet", "-m", "main heading update")
+    # Worktree introduces an extra H3 in Korean so heading levels diverge.
+    _write_doc_pair(
+        wt_heading,
+        "docs/heading.md",
+        "# Title\n\n## Section 1\n\nBody 1.\n\n\n\n## Section 2\n\nBranch 2.\n",
+        "# 제목\n\n## 섹션 1\n\n본문 1.\n\n\n\n## 섹션 2\n\n### 추가 소제목\n\n브랜치 2.\n",
+        revised="2026-10-31",
+    )
+    _git(wt_heading, "add", ".")
+    _git(wt_heading, "commit", "--quiet", "-m", "branch heading mismatch")
+    mismatch_res = reconcile.sync_worktree_base(wt_heading, base_ref="refs/heads/main")
+    assert mismatch_res["status"] == "blocked"
+    assert mismatch_res["reason_code"] == "unresolved_merge_conflict"
+
+    # Round 9: ref-injection / invalid ref tokens are rejected before git invocation.
+    for bad_ref in ("--upload-pack=evil", "refs/heads/a..b", "refs/heads/bad ref", ""):
+        assert reconcile.resolve_base_ref(repo, bad_ref) is None
+        assert (
+            reconcile.sync_worktree_base(wt_heading, base_ref=bad_ref)["reason_code"]
+            == "base_ref_unavailable"
+        )
+
+    # Round 1: fast_forward_failed, merge_failed, and merge_commit_failed fail closed.
+    real_git = reconcile.git
+
+    def simulate_git_failures(target: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+        if arguments[:2] == ("merge", "--ff-only"):
+            return subprocess.CompletedProcess(["git", *arguments], 1, "", "ff failed")
+        if arguments[:3] == ("merge", "--no-commit", "--no-ff"):
+            return subprocess.CompletedProcess(["git", *arguments], 1, "", "merge failed")
+        return real_git(target, *arguments)
+
+    monkeypatch.setattr(reconcile, "git", simulate_git_failures)
+    assert (
+        reconcile.sync_worktree_base(wt_heading, base_ref="refs/heads/main")["reason_code"]
+        == "merge_failed"
+    )
+    wt_ff_fail = tmp_path / "wt-ff-fail"
+    real_git(repo, "worktree", "add", "--quiet", "-b", "feat/ff-fail", str(wt_ff_fail), "HEAD~1")
+    assert (
+        reconcile.sync_worktree_base(wt_ff_fail, base_ref="refs/heads/main")["reason_code"]
+        == "fast_forward_failed"
+    )
+
+    def simulate_commit_or_merge_base_failure(
+        target: Path, *arguments: str
+    ) -> subprocess.CompletedProcess[str]:
+        if arguments[:2] == ("commit", "--no-edit"):
+            return subprocess.CompletedProcess(["git", *arguments], 1, "", "commit blocked")
+        return real_git(target, *arguments)
+
+    monkeypatch.setattr(reconcile, "git", simulate_commit_or_merge_base_failure)
+    wt_clean = tmp_path / "wt-clean-commit-fail"
+    real_git(
+        repo,
+        "worktree",
+        "add",
+        "--quiet",
+        "-b",
+        "feat/clean-commit-fail",
+        str(wt_clean),
+        "HEAD~1",
+    )
+    (wt_clean / "extra.txt").write_text("extra\n", encoding="utf-8")
+    real_git(wt_clean, "add", "extra.txt")
+    real_git(wt_clean, "commit", "--quiet", "-m", "branch extra")
+    assert (
+        reconcile.sync_worktree_base(wt_clean, base_ref="refs/heads/main")["reason_code"]
+        == "merge_commit_failed"
+    )
+    monkeypatch.setattr(reconcile, "git", real_git)

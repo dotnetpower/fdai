@@ -20,14 +20,25 @@ from scripts.automation.developer_workflow_repository import (  # noqa: E402
     git_common_dir,
 )
 from scripts.automation.parallel_worktree_reconcile import (  # noqa: E402
-    resolve_base_ref as _resolve_base_ref,
+    _load_script_module,
+    sync_worktree_base,
 )
 from scripts.automation.parallel_worktree_reconcile import (  # noqa: E402
-    sync_worktree_base,
+    resolve_base_ref as _resolve_base_ref,
 )
 
 MAX_WORKTREES = 64
 __all__ = ["main", "sync_worktree_base", "worktrees_diagnostic"]
+
+
+def _status_line_paths(line: str) -> tuple[str, ...]:
+    if len(line) <= 3:
+        return ()
+    raw_path = line[3:]
+    if (line[0] in {"R", "C"} or line[1] in {"R", "C"}) and " -> " in raw_path:
+        old_path, new_path = raw_path.split(" -> ", 1)
+        return (old_path, new_path)
+    return (raw_path,)
 
 
 def _is_internal_scratch_worktree(path: Path, common_dir: Path) -> bool:
@@ -63,9 +74,10 @@ def _worktree_changed_paths(
     head_sha: str,
     status_lines: list[str],
 ) -> list[str]:
-    paths = {line[3:] for line in status_lines if len(line) > 3}
+    paths = {path for line in status_lines for path in _status_line_paths(line) if path}
     committed = git(
         worktree,
+        "--no-optional-locks",
         "diff",
         "--name-only",
         "--diff-filter=ACMRTD",
@@ -86,6 +98,17 @@ def _docs_update_targets(repo_root: Path, changed_paths: list[str]) -> list[str]
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return []
+    doc_impact = _load_script_module(
+        "check_design_doc_impact",
+        "scripts/quality/architecture/check-design-doc-impact.py",
+    )
+    behavior_paths = [
+        path
+        for path in changed_paths
+        if path not in doc_impact.DERIVED_OUTPUT_PATHS and not doc_impact.is_test_support_only(path)
+    ]
+    if not behavior_paths:
+        return []
     docs: set[str] = set()
     for route in manifest.get("routes", ()):
         if not isinstance(route, dict):
@@ -95,8 +118,9 @@ def _docs_update_targets(repo_root: Path, changed_paths: list[str]) -> list[str]
             continue
         patterns = tuple(route.get("paths", ())) + tuple(route.get("optional_paths", ()))
         if any(
-            pattern == "**" or fnmatch.fnmatchcase(path, str(pattern))
-            for path in changed_paths
+            pattern == "**" or fnmatch.fnmatchcase(candidate, str(pattern))
+            for path in behavior_paths
+            for candidate in doc_impact._route_paths(path)
             for pattern in patterns
         ):
             docs.update(required_docs)
@@ -157,7 +181,13 @@ def worktrees_diagnostic(
             if branch_ref.startswith("refs/heads/")
             else "detached"
         )
-        status_res = git(wt_path, "status", "--porcelain=v1", "--untracked-files=normal")
+        status_res = git(
+            wt_path,
+            "--no-optional-locks",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=normal",
+        )
         status_lines = status_res.stdout.splitlines() if status_res.returncode == 0 else []
         dirty = bool(status_lines)
         counts = git(wt_path, "rev-list", "--left-right", "--count", f"{base_sha}...{head_sha}")

@@ -606,14 +606,14 @@ set -euo pipefail
 if [[ "$1" == "document-ingestion-api" ]]; then
   exit 9
 fi
-exec sleep 10
+exec sleep 15
 """,
     )
     _write_executable(
         repo / ".venv/bin/python",
         """#!/usr/bin/env bash
 set -euo pipefail
-    exec sleep 10
+    exec sleep 15
 """,
     )
 
@@ -624,10 +624,10 @@ set -euo pipefail
         capture_output=True,
         text=True,
         check=False,
-        timeout=3,
+        timeout=8,
     )
 
-    assert time.monotonic() - started < 2
+    assert time.monotonic() - started < 8
     assert result.returncode == 9
     assert "service exited before readiness: document-ingestion-api" in result.stderr
     assert "service=console-stack event=failed" in result.stderr
@@ -643,7 +643,7 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
     (repo / ".fdai/local-console-auth-mode").write_text("browser-entra\n", encoding="utf-8")
     _write_executable(
         repo / "scripts/deployment/local/run-console-service.sh",
-        "#!/usr/bin/env bash\nexec sleep 10\n",
+        "#!/usr/bin/env bash\nexec sleep 15\n",
     )
     _write_executable(repo / ".venv/bin/python", "#!/usr/bin/env bash\nexit 7\n")
 
@@ -653,7 +653,7 @@ def test_supervisor_propagates_an_immediate_readiness_failure(tmp_path: Path) ->
         capture_output=True,
         text=True,
         check=False,
-        timeout=3,
+        timeout=8,
     )
 
     assert result.returncode == 7

@@ -456,3 +456,23 @@ def test_locked_state_uses_overflow_slot_and_shares_receipts_under_contention(
             assert second_state == first_state / "slot-1"
             assert cache.receipt_directory(second_state) == cache.receipt_directory(first_state)
             assert not second_state.is_relative_to(repository / ".fdai")
+
+
+def test_prune_receipts_tolerates_concurrent_deletion_and_flock_oserror_closes_fd(
+    repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    for index in range(cache.MAX_RECEIPTS + 3):
+        (receipts / f"r-{index}.json").write_text("{}", encoding="utf-8")
+    cache.prune_receipts(receipts)
+    assert len(list(receipts.glob("*.json"))) == cache.MAX_RECEIPTS
+
+    def fail_flock(_fd: int, _op: int) -> None:
+        raise OSError("filesystem does not support flock")
+
+    monkeypatch.setattr(cache.fcntl, "flock", fail_flock)
+    with cache.locked_state(repository) as fallback_state:
+        assert fallback_state.is_relative_to(repository / ".fdai")

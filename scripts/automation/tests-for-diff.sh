@@ -180,7 +180,7 @@ while IFS= read -r file; do
     # Data and automation paths have Python consumers even though the changed
     # files themselves are not Python modules.
     case "$file" in
-        scripts/*.py|scripts/*.sh|scripts/lib/*|scripts/quality/*.txt|scripts/quality/*.allowlist)
+        scripts/*.py|scripts/*.sh|scripts/lib/*|scripts/quality/*.txt|scripts/quality/*.allowlist|tools/fdai-sdlc-rs/*)
             if [[ -d tests/integration/scripts ]]; then
                 add_test "tests/integration/scripts"
             else

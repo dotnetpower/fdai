@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 9fd369a0db3fbbea6617ca5fb29d71d91ebbeb06
+translation_source_sha: 5e33e2c1a5a3829ae868b1390a80f31587e48ac0
 translation_revised: 2026-10-31
 ---
 
@@ -400,9 +400,17 @@ extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비�
 사용 중일 때만 캐시되지 않는 비공개 checkout으로 전환합니다. 관련 hook 명령은 그룹마다 환경 준비를
 한 번만 수행합니다. 로드맵 소유 문서가 상태 섹션을 `docs/roadmap-implementation/<area>/<name>.md`로
 위임한 경우 해당 원장을 갱신하면 설계 영향 검사를 충족하므로 쌍을 이루는 규범 설계 문서를 인위적으로
-수정할 필요가 없습니다. 명시적 `developer_workflow_worktrees.py sync`는 깨끗한 토픽 worktree를
-base와 동기화하고 사전 병합이 검증된 `translation_source_sha` 머리말 충돌, 추가 전용 구현 원장 표
-행 및 추가 전용 `service-suites.json` 등록만 조정하며 그 외의 충돌에서는 fail-closed로 중단합니다.
+수정할 필요가 없습니다. `rustc`를 사용할 수 있으면 `scripts/automation/sdlc_rust_accelerator.py`가
+무의존성 `tools/fdai-sdlc-rs` 크레이트를 `fdai-local-validation/bin` 아래의 다이제스트 고정 소유자
+전용 바이너리로 한 번 컴파일하여 `tracked_snapshot`, `installed_digest`, `check-translations.sh`를
+병렬 가속하며, `rustc`가 없거나 `FDAI_DISABLE_RUST_ACCELERATOR=1`이 설정되면 기존 Python 및 셸
+구현으로 투명하게 전환합니다. 읽기 전용 `developer-workflow.py worktrees` 검사는 `--no-optional-locks`를
+사용하고 분리된 서비스 경로 별칭을 확장하며 rename/copy porcelain 경로를 분리하므로 worktree의
+`index.lock`과 경합하지 않습니다. 명시적 `developer_workflow_worktrees.py sync`는 Git 호출 전에 ref
+형식을 검증하고 깨끗한 토픽 worktree를 base와 동기화하며, 병합된 마크다운 제목 수준이 일치하는 범위 내
+사전 병합 검증 `translation_source_sha` 머리말 충돌, 위임된 소유 문서의 추가 전용 구현 원장 데이터 행,
+그리고 추가 전용 `service-suites.json` 등록만 조정하고 병합/커밋 실패나 그 외 충돌에서는 fail-closed로
+중단합니다.
 집중 게이트
 캐시 식별자는 게이트마다가 아니라 묶음 실행 전후에 한 번씩 계산합니다. 순수 검사는 내용에,
 이력 검사는 리비전과 참조에도 연결됩니다. 입력이 바뀌면 묶음을 수락하지 않습니다.
