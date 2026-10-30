@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 0f2696ef9e1e7c62021ce7a2ee50296d08928afd
-translation_revised: 2026-10-23
+translation_source_sha: 26c96ac2ab6bb2132dee52e1b80b67e2b8c8a35f
+translation_revised: 2026-10-31
 ---
 
 # 액션 온톨로지
@@ -287,7 +287,7 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 - `remediate.enable-backup-protection`
 - `remediate.enable-zone-redundancy`
 - `remediate.enable-rbac`
-- `remediate.restrict-network-access`
+- `remediate.restrict-network-access` 및 `remediate.kubernetes-network-policy`
 - `remediate.remove-orphan-resource`
 - `remediate.set-tls-policy`
 - `remediate.enable-purge-protection`

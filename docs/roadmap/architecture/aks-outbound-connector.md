@@ -397,6 +397,23 @@ Kubernetes acceptance, per-target convergence, and actual connectivity remain se
 DNS, identity, API, gateway, audit, and recovery dependencies are explicit allowlist requirements,
 not a blanket port-443 exception. Initial enforcement is limited to one selected namespace.
 
+The shadow-first `remediate.kubernetes-network-policy` ActionType binds this contract to a
+`snapshot_restore` rollback plan (`SegmentationRollbackPlan`): `delete_created_policy` when creating
+a new `NetworkPolicy` or `restore_prior_policy` when updating an existing `fdai-segmentation`-owned
+policy, while refusing foreign-owned policies. `inspect_aks_policy_engine` evaluates the cluster's
+ARM `networkProfile` into a `PolicyEngineCapabilityFact` and denies clusters where Azure CNI has no
+policy engine (`policy_engine_missing`), because `NetworkPolicy` objects are inert there.
+`ManagementDependencyAllowlist` and `render_segmentation_network_policy` always include and verify
+the observer's DNS (`kube-dns` plus `dns_cidrs`), Kubernetes API (`api_cidrs`), and connector
+gateway (`gateway_cidrs` or `gateway_peer`) egress rules so self-lockout cannot occur.
+`render_executor_installation` and `verify_executor_documents` render the cluster Executor in a
+single target namespace with a namespace-scoped `Role` and `RoleBinding` (`networkpolicies` and
+`leases` only, never a `ClusterRole` or `Secret`/`ConfigMap` read) and `replicas: 0` while in
+`shadow` mode. `render_segmentation_probe_job` renders a restricted, token-less TCP probe `Job`
+without shell text, and `evaluate_segmentation_scenario` compares `assess_policy_flow` predictions
+against independent positive and negative probe observations, requiring `agreement_rate == 1.0` and
+zero policy escapes.
+
 ## Failure and lifecycle behavior
 
 On gateway loss, observation may continue within storage limits while new mutations stop. Existing

@@ -12,7 +12,7 @@ The content-free document ready event and worker-owned intent envelope are sourc
 independent operational evidence. Exact-diff review and readback cannot satisfy intervention,
 recurrence, or effect-verification evidence.
 
-Source-only corpus regeneration does not issue [typed-selection read qualification](../interfaces/governed-typed-selection-read.md); independent admission still checks the exact source, model and scope binding.
+Source-only corpus regeneration does not issue [typed-selection read qualification](../interfaces/governed-typed-selection-read.md); independent admission still checks the exact source, model and scope binding. Adding the shadow-only `remediate.kubernetes-network-policy` ActionType refreshes repository corpus provenance only and issues no verifier admission.
 
 > **Status:** Implemented. The owner reviewed the design for exit criterion 1 of
 > [#1022](https://github.com/dotnetpower/fdai/issues/1022) on 2026-09-28; see [Review decisions](#review-decisions).

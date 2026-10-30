@@ -548,12 +548,7 @@ Rollout order: the Operator emits the optional content-free `authentication_rece
 
 ## Runtime rendering
 
-The optional [outbound snapshot connector](../architecture/aks-outbound-connector.md) runs from
-the existing Core distribution and does not change runtime selection or deployment authority.
-Inventory composition can explicitly select its certificate-authenticated stored source instead
-of direct Kubernetes bindings or subscription discovery, never both. The observer receives no
-central database identity; the dedicated gateway uses the Core-owned store. Default renderers do
-not install or enable these workloads yet, and local TLS/DB evidence is not deployment readiness.
+The optional [outbound snapshot connector](../architecture/aks-outbound-connector.md) and its shadow-only `remediate.kubernetes-network-policy` ActionType run from the existing Core distribution and do not change runtime selection, profile defaults, or deployment authority. Inventory composition can explicitly select its certificate-authenticated stored source instead of direct Kubernetes bindings or subscription discovery, never both. The observer receives no central database identity; the dedicated gateway uses the Core-owned store. Default renderers do not install or enable these workloads yet, and local TLS/DB evidence is not deployment readiness.
 Subscription discovery in the inventory Job reuses its prior AKS binding through the existing
 state store, so a per-run Job process skips the credential call for an unchanged cluster. The cache
 holds the API server, ARM etag, and digest-verified public cluster CA only; credentials still come

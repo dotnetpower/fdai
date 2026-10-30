@@ -268,6 +268,23 @@
         "symbol": "routes",
         "value": "tool.run-python-on-vm"
       }
+    },
+    "core-kubernetes-segmentation-shadow": {
+      "runtime_surface": "core",
+      "route_status": "conditional",
+      "mode_support": {
+        "shadow": "conditional",
+        "enforce": "unsupported"
+      },
+      "activation_conditions": [
+        "An active policy engine (Cilium, Calico, or Azure Network Policy), preserved DNS/API/gateway management dependencies, a namespace-scoped Executor Role without Secret reads, and independent positive and negative probe observations must all be present."
+      ],
+      "source_assertion": {
+        "kind": "constant_value",
+        "path": "services/core-control-plane/src/fdai/delivery/kubernetes_connector_segmentation.py",
+        "symbol": "SEGMENTATION_ACTION_TYPE",
+        "value": "remediate.kubernetes-network-policy"
+      }
     }
   },
   "support_profiles": {
@@ -779,6 +796,35 @@
           }
         ]
       }
+    },
+    "kubernetes-segmentation-shadow": {
+      "delivery_status": "shadow_only",
+      "effect_observation": {
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/kubernetes_connector_segmentation.py",
+            "symbol": "assess_segmentation_probes"
+          }
+        ]
+      },
+      "recovery": {
+        "status": "source_only",
+        "refs": [
+          {
+            "path": "services/core-control-plane/src/fdai/delivery/kubernetes_connector_segmentation.py",
+            "symbol": "build_segmentation_rollback_plan"
+          }
+        ]
+      },
+      "evidence": {
+        "level": "focused_tests",
+        "refs": [
+          {
+            "path": "services/core-control-plane/tests/delivery/test_kubernetes_connector_segmentation.py"
+          }
+        ]
+      }
     }
   },
   "actions": {
@@ -1022,6 +1068,12 @@
         "core-pr-native": "pr-native-shadow"
       },
       "note": "Generic PR-native shadow path only."
+    },
+    "remediate.kubernetes-network-policy@1.0.0": {
+      "bindings": {
+        "core-kubernetes-segmentation-shadow": "kubernetes-segmentation-shadow"
+      },
+      "note": "Shadow-only namespace NetworkPolicy action. Rejects clusters without an active policy engine, preserves observer DNS/API/gateway egress dependencies, renders a namespace-scoped Executor without Secret access, and requires independent positive/negative probe agreement and a rollback plan."
     },
     "remediate.restrict-network-access@1.0.0": {
       "bindings": {

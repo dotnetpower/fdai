@@ -299,7 +299,7 @@ Remediation and configuration-drift actions. Most are rule-fired; reviewed pilot
 - `remediate.enable-backup-protection`
 - `remediate.enable-zone-redundancy`
 - `remediate.enable-rbac`
-- `remediate.restrict-network-access`
+- `remediate.restrict-network-access` and `remediate.kubernetes-network-policy`
 - `remediate.remove-orphan-resource`
 - `remediate.set-tls-policy`
 - `remediate.enable-purge-protection`
