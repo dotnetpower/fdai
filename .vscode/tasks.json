@@ -2,7 +2,8 @@
   // FDAI developer tasks. The folderOpen tasks make trunk-based
   // (no-branch) collaboration safe out of the box and restore optional WSL
   // private DNS. Start the complete local Console topology explicitly:
-  //   - "hooks: install" wires the shared pre-commit and pre-push gates.
+  //   - "hooks: install" wires the shared gates without depending on a shell.
+  //     Git tracks executable permissions for the hooks and auto-pull script.
   //   - "git: auto-pull" keeps local `main` close to the remote so
   //     conflicts surface early. It only rebases a clean working tree.
   // Trust the workspace so its committed automatic-task policy can run.
@@ -11,8 +12,12 @@
     {
       "label": "hooks: install (core.hooksPath)",
       "hide": true,
-      "type": "shell",
-      "command": "git config core.hooksPath .githooks && chmod +x .githooks/* scripts/automation/git-auto-pull.sh 2>/dev/null; echo 'pre-commit and pre-push hooks installed (core.hooksPath=.githooks)'",
+      "type": "process",
+      "command": "git",
+      "args": ["config", "--local", "core.hooksPath", ".githooks"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "problemMatcher": [],
       "presentation": {
         "reveal": "silent",
@@ -37,25 +42,6 @@
       },
       "runOptions": {
         "runOn": "folderOpen"
-      }
-    },
-    {
-      "label": "dev-access: configure VPN on folder open",
-      "hide": true,
-      "type": "shell",
-      "command": "bash tools/dev-access/scripts/vscode-startup.sh",
-      "problemMatcher": "$gcc",
-      "presentation": {
-        "reveal": "silent",
-        "revealProblems": "onProblem",
-        "panel": "dedicated",
-        "group": "dev-access",
-        "close": true,
-        "showReuseMessage": false
-      },
-      "runOptions": {
-        "runOn": "folderOpen",
-        "instanceLimit": 1
       }
     },
     {
@@ -116,7 +102,7 @@
     {
       "label": "design mocks: serve (5373)",
       "type": "shell",
-      "command": "python3 -u -m http.server 5373 --bind 127.0.0.1",
+      "command": "bash scripts/deployment/local/start-design-mocks.sh",
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -129,7 +115,7 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": "^Serving HTTP on 127\\.0\\.0\\.1 port 5373",
-          "endsPattern": "^Serving HTTP on 127\\.0\\.0\\.1 port 5373"
+          "endsPattern": "^Serving HTTP on 127\\.0\\.0\\.1 port 5373|service=design-mocks event=reused$"
         }
       },
       "presentation": {

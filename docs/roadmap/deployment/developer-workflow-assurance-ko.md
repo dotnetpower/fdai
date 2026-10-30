@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: a78ecfd5e2bd2c32769bdfa5047f3d0025590862
-translation_revised: 2026-10-29
+translation_source_sha: bbd9ad08dc0619f48f55092fa25a942fbf218b42
+translation_revised: 2026-10-30
 ---
 
 # 개발 워크플로 보증
@@ -36,6 +36,13 @@ Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory e
 각 작업은 한 인스턴스만 허용하며 해당 Uvicorn 루프백 URL로 준비 상태를 보고합니다.
 어느 작업도 폴더를 열 때 자동 실행되거나 Console 스택을 시작하거나 서명 키를
 초기화하지 않으며, 진단 권한이나 실행 권한도 변경하지 않습니다.
+
+작업 영역을 열 때 hook 설치는 Git 인자와 작업 디렉터리를 명시한 프로세스 작업으로
+실행합니다. 실행 권한을 변경하거나 성공 메시지로 실패를 가리지 않고 Git의 성공 또는 실패
+종료 코드를 그대로 반환합니다. 폴더를 열 때 자동 실행하는 작업은 hook 설치와 깨끗한
+작업 트리의 Git 자동 pull뿐이며, VPN 설정과 서버 시작은 명시적으로 실행합니다.
+디자인 목 작업은 관리형 실행기가 출력한 최초 시작 및 확인된 재사용 준비 신호를 모두
+인식합니다. Console 스택을 시작하거나 개발 진단 권한을 변경하지 않습니다.
 
 [GitHub 연결기 검증](../../runbooks/knowledge-github-sources-ko.md)은 테스트 전용 API 및 신원
 고정본과 별도로 승인된 공개 저장소 실시간 검사를 분리합니다. 테스트는 연결, 차단 및 UI
