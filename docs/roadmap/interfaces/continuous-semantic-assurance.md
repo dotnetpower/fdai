@@ -64,9 +64,9 @@ beside a scope gap.
 The answer-local pending-state coverage source also changes the source-bound ontology digest. Its
 manifest regeneration updates release and inventory digests only; it adds no question, measured
 coverage, provider evidence, qualification, or operational-evidence admission.
-Adding `governance.override-promote-action-type` or `remediate.subscription-tag-add` is a structural
-catalog change, so the same builder refreshes the corpus manifest denominator and source digests
-without creating a live assurance receipt.
+Adding `governance.override-promote-action-type`, `remediate.subscription-tag-add`, or
+`remediate.kubernetes-network-policy` is a structural catalog change, so the same builder refreshes
+the corpus manifest denominator and source digests without creating a live assurance receipt.
 This repository-only inventory is not an executable campaign, a production binding, or a
 certification receipt.
 
