@@ -34,6 +34,11 @@ def _evidence() -> dict:
         "short_lived_registration_broker": True,
         "controller_scope_verified": True,
         "active_routes": dict(POLICY["jobs"]),
+        "routing_variables": {},
+        "active_workflow_routes": {
+            ".github/workflows/ci.yml": dict(POLICY["jobs"]),
+            **POLICY["workflow_jobs"],
+        },
         "quotas": {"container_cpu": 500, "vm_cpu": 66},
         "pools": {
             name: {
@@ -51,6 +56,22 @@ def _evidence() -> dict:
             for name, item in POLICY["pools"].items()
         },
     }
+
+
+@pytest.mark.parametrize("minutes", [0, 361, True, 360.5])
+def test_job_execution_budget_must_fit_the_worker_lifetime(minutes) -> None:
+    workflow = copy.deepcopy(WORKFLOW)
+    workflow["jobs"]["changes"]["timeout-minutes"] = minutes
+    with pytest.raises(ValueError):
+        CHECK.validate_policy(POLICY, workflow)
+
+
+@pytest.mark.parametrize("low", [-1, 9, True])
+def test_low_demand_reserve_cannot_exceed_warm_capacity(low) -> None:
+    policy = copy.deepcopy(POLICY)
+    policy["pools"]["general"]["warm_idle_low"] = low
+    with pytest.raises(ValueError):
+        CHECK.validate_policy(policy, WORKFLOW)
 
 
 def test_policy_accounts_for_every_ci_job_and_docker_capability() -> None:
@@ -85,12 +106,25 @@ def test_service_container_job_cannot_be_routed_to_non_docker_pool() -> None:
 
 def test_ready_evidence_is_an_observation_and_never_grants_execution() -> None:
     workflow = copy.deepcopy(WORKFLOW)
-    for name, pool in POLICY["jobs"].items():
-        workflow["jobs"][name]["runs-on"] = POLICY["pools"][pool]["labels"]
-    receipt = CHECK.assess(POLICY, workflow, _evidence(), NOW)
+    evidence = _evidence()
+    evidence["routing_variables"] = {"FDAI_CI_POOLS_ENABLED": "true"}
+    other = {
+        ".github/workflows/container-supply-chain.yml": yaml.safe_load(
+            (ROOT / ".github/workflows/container-supply-chain.yml").read_text()
+        )
+    }
+    receipt = CHECK.assess(POLICY, workflow, evidence, NOW, other)
     assert receipt["ready"] is True
     assert receipt["routing_changed"] is False
     assert receipt["authority"] == "none"
+
+
+def test_full_cutover_cannot_ignore_candidate_and_canary_inventory() -> None:
+    evidence = _evidence()
+    evidence["routing_variables"] = {"FDAI_CI_POOLS_ENABLED": "true"}
+    receipt = CHECK.assess(POLICY, WORKFLOW, evidence, NOW)
+    assert not receipt["ready"]
+    assert "complete-validation-workflow-inventory-unverified" in receipt["blockers"]
 
 
 def test_snapshot_claims_cannot_override_the_actual_workflow_runner_selection() -> None:

@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from importlib import resources
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 from urllib.parse import unquote, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -336,6 +337,49 @@ def assert_wara_guidance_framework(catalog: WaraGuidanceCatalog, framework_body:
         raise ValueError("WARA guidance framework digest does not match the catalog")
 
 
+@lru_cache(maxsize=1)
+def _korean_titles_by_id() -> dict[str, tuple[str, str, str, str]]:
+    return {
+        entry.recommendation_id: (
+            entry.title.ko,
+            entry.source_revision,
+            entry.source_digest,
+            entry.lifecycle,
+        )
+        for entry in packaged_wara_guidance().entries
+        if entry.title.ko is not None
+    }
+
+
+def localized_wara_titles(controls: Iterable[Mapping[str, object]]) -> dict[str, str]:
+    """Return Korean titles keyed by recommendation id for controls whose exact source matches.
+
+    A control whose revision, digest or lifecycle differs from the packaged guide is omitted, so
+    a stale title is never attached. An unavailable packaged catalog yields no titles instead of
+    failing the list, because titles are display text and never part of an assessment.
+    """
+
+    try:
+        known = _korean_titles_by_id()
+    except ValueError:
+        return {}
+    titles: dict[str, str] = {}
+    for control in controls:
+        recommendation_id = control.get("id")
+        record = known.get(recommendation_id) if isinstance(recommendation_id, str) else None
+        if (
+            record is not None
+            and (
+                control.get("source_revision"),
+                control.get("source_digest"),
+                control.get("lifecycle"),
+            )
+            == record[1:]
+        ):
+            titles[cast(str, recommendation_id)] = record[0]
+    return titles
+
+
 def wara_guidance_detail(control: dict[str, object]) -> dict[str, object]:
     """Attach one exact-source public guide without changing stored evaluation fields."""
 
@@ -367,6 +411,7 @@ __all__ = [
     "WaraGuidance",
     "WaraGuidanceCatalog",
     "assert_wara_guidance_framework",
+    "localized_wara_titles",
     "load_wara_guidance",
     "packaged_wara_guidance",
     "wara_guidance_detail",

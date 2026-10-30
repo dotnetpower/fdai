@@ -118,6 +118,16 @@ def test_pre_push_validates_workflow_contract_changes_before_structural_gates() 
     assert contract_check in body
     assert regression_test in body
     assert body.index(contract_check) < body.index(structural_check)
+    regression_command = body.split("uv run --extra dev pytest -q --no-cov", 1)[1]
+    for path in (
+        "tests/integration/scripts/test_ci_pool_routing.py",
+        "tests/integration/scripts/test_ci_pool_canary.py",
+        "tests/integration/infra/test_ci_runner_elastic.py",
+        "tests/integration/infra/test_ci_ssd_runner.py",
+        "tests/integration/services/test_service_images.py",
+    ):
+        assert path in body.split(contract_check, 1)[0]
+        assert path in regression_command.split("'; then", 1)[0]
 
 
 def test_pre_push_clears_repo_local_git_environment_before_validation(tmp_path: Path) -> None:

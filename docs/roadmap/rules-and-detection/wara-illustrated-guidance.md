@@ -56,16 +56,23 @@ leave the custom diagram active without attaching a broken or unapproved image. 
 accepts reviewed, content-addressed PNGs of at most 2 MiB and verifies both package and Console copies.
 Synthetic image tests demonstrate transport and export behavior only, not Microsoft image approval.
 
-The VM backup guide ships the unchanged 898-by-400 Learn architecture PNG in both the Console
-static assets and the shared export package. Its review records the public article's source
-mapping, the repository's CC BY 4.0 notice and the image's extension-based backup scope.
-The visible source link opens the containing document, not the media file. Rendering doesn't
-fetch a remote image. Original English image labels remain unchanged, with Korean alternative
-text, a caption and an explicit language notice. This single selection doesn't approve the
-remaining 455 recommendations. Refresh preserves reviewed selections but requires renewed review
+Sixteen guides ship an unchanged official Learn PNG in both the Console static assets and the
+shared export package. The VM backup image records the public article's source mapping, the
+repository's CC BY 4.0 notice and the image's extension-based backup scope. The other fifteen are
+recorded in `reference-image-reviews.json`: each names the recommendation, the exact cited
+document and image, and the bilingual alternative text and caption written for it after a visual
+review. `scripts/catalog/wara_guidance_image_selection.py --fetch` collects the public evidence for
+each decision and refuses to ship an image unless the Learn article identifies its public
+Microsoft Docs source repository and published revision, that repository's license and notice grant
+the content under CC BY 4.0, and the repository holds byte-identical image content. The manifest
+records the revision, repository path, digest and scope. Images whose labels show third-party
+product marks stay unapproved. The visible source link opens the containing document, not the media
+file. Rendering doesn't fetch a remote image. Original English image labels remain unchanged, with
+Korean alternative text, a caption and an explicit language notice. These selections don't approve
+the remaining 440 recommendations. Refresh preserves reviewed selections but requires renewed review
 when their framework revision or exact cited documents change.
 
-Custom diagrams use meaningful reading order, separated orthogonal routes and explicit relationship
+Custom diagrams use meaningful reading order, separated curved routes and explicit relationship
 descriptions. Node intrusion alone is not a sufficient acceptance test: routing, crossings, shared
 segments, label association and bilingual readability need focused checks. Desktop acceptance
 precedes constrained and mobile layouts. Missing authenticated-browser evidence remains explicit.
@@ -124,6 +131,8 @@ and visible document/license links. Full attribution remains available in a disc
 A native modal offers the unchanged image at original size, keyboard-scrollable on narrow screens;
 Escape closes only that modal and returns focus to its opener. The containing recommendation
 stays open, and illustrative guidance remains separate from the actual environment assessment.
+
+In Korean, the recommendation list and the row action label show the guide's Korean title, with the source title in a tooltip and kept searchable. The Operator attaches it only when the control's revision, digest and lifecycle match the packaged guide, and omits it when the guide is unavailable.
 
 The document reading surface follows the Console type scale: 24px title, 16px summary and section
 headings, 14px body text, and no text below 12px. The diagram legend names the relationship styles

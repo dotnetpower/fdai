@@ -365,7 +365,23 @@ def test_manual_supply_chain_publication_has_one_exact_source_revision() -> None
         "${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}"
     )
     assert text.count(source_expression) == 2
-    assert text.count("github.sha") == 3
+    workflow = yaml.safe_load(text)
+    jobs = workflow["jobs"]
+    assert workflow["env"]["TARGET_COMMIT_SHA"] == source_expression
+    for name in ("select-images", "build-scan-attest"):
+        assert "TARGET_COMMIT_SHA" not in jobs[name].get("env", {})
+        assert all("TARGET_COMMIT_SHA" not in step.get("env", {}) for step in jobs[name]["steps"])
+        assert any(
+            step.get("with", {}).get("ref") == "${{ env.TARGET_COMMIT_SHA }}"
+            for step in jobs[name]["steps"]
+            if step.get("uses", "").startswith("actions/checkout@")
+        )
+    production_guard = next(
+        step
+        for step in jobs["build-scan-attest"]["steps"]
+        if step.get("name") == "Verify protected workflow source"
+    )
+    assert production_guard["with"]["target-commit-sha"] == "${{ env.TARGET_COMMIT_SHA }}"
 
 
 def test_core_provenance_contains_only_canonical_resolved_models_digest() -> None:

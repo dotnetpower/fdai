@@ -1,0 +1,220 @@
+{
+  "schema_version": "1.0.0",
+  "reviewed_by_scope": "Visual suitability was reviewed per image against the recommendation it illustrates. Machine evidence (published revision, repository path, byte-identical repository copy, license files) is collected and verified by scripts/catalog/wara_guidance_image_selection.py.",
+  "english_in_image_notice": {
+    "en": "The original image contains English labels. The Korean alternative text and caption explain its scope; the image itself has not been translated.",
+    "ko": "원본 이미지의 표시는 영어입니다. 한국어 대체 텍스트와 캡션으로 설명 범위를 안내하며, 이미지 자체를 번역한 것은 아닙니다."
+  },
+  "reviews": [
+    {
+      "recommendation_id": "1b965cb9-7629-214e-b682-6bf6e450a100",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/storage/blobs/point-in-time-restore-overview",
+      "image_url": "https://learn.microsoft.com/en-us/azure/storage/blobs/media/point-in-time-restore-overview/point-in-time-restore-diagram.png",
+      "illustrates": "the point-in-time restore effect on block blob containers",
+      "alt": {
+        "en": "Point-in-time restore: after write and delete operations over n days, some or all containers of a storage account are restored to the container state from n days earlier.",
+        "ko": "시점 복원: n일 동안 쓰기와 삭제 작업이 일어난 뒤, 스토리지 계정의 일부 또는 모든 컨테이너를 n일 전의 컨테이너 상태로 복원합니다."
+      },
+      "caption": {
+        "en": "Official point-in-time restore concept for block blobs. It illustrates the restore effect only; it does not show that point-in-time restore and its prerequisites are enabled in your storage account or that a restore has succeeded.",
+        "ko": "블록 Blob 시점 복원의 공식 개념도입니다. 복원 효과만 보여 주며, 사용자의 스토리지 계정에서 시점 복원과 필수 선행 설정이 켜져 있다거나 복원이 성공했다는 사실은 입증하지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "2a5bf650-586d-db4c-a292-d922be7d3e0e",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/expressroute/expressroute-bfd",
+      "image_url": "https://learn.microsoft.com/en-us/azure/expressroute/media/expressroute-bfd/bfd-need.png",
+      "illustrates": "why Bidirectional Forwarding Detection shortens link failure detection on ExpressRoute private peering",
+      "alt": {
+        "en": "An ExpressRoute private peering HA pair between the partner or customer edge and the Microsoft edge. When one link fails, detection takes less than a second with BFD and a minimum of a few tens of seconds (default 3 minutes) without it.",
+        "ko": "파트너 또는 고객 에지와 Microsoft 에지 사이의 ExpressRoute 프라이빗 피어링 HA 쌍입니다. 링크 하나에 장애가 나면 BFD를 사용할 때는 1초 미만, 사용하지 않을 때는 최소 수십 초(기본 3분)가 걸려 장애를 감지합니다."
+      },
+      "caption": {
+        "en": "Official BFD failure-detection illustration. The timings are the documented values for the pictured peering; they do not show that BFD is configured on your edge devices or ExpressRoute circuits.",
+        "ko": "BFD 장애 감지에 대한 공식 그림입니다. 표시된 시간은 그림의 피어링에 대해 문서화된 값이며, 사용자의 에지 장치나 ExpressRoute 회로에 BFD가 구성되어 있다는 사실은 입증하지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "9e39919b-78af-4a0b-b70f-c548dae97c25",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/backup/secure-by-default",
+      "image_url": "https://learn.microsoft.com/en-us/azure/backup/media/secure-by-default/backup-item-delete-flow.png",
+      "illustrates": "the soft delete states and transitions of an Azure Backup item",
+      "alt": {
+        "en": "Soft delete flow for a backup item: stopping backup and deleting data makes an active item soft-deleted and retained for the soft delete retention period. Undeleting within the period leads to stop backup with retain data, resuming returns the item to active, and purging after the period makes it permanently deleted.",
+        "ko": "백업 항목의 일시 삭제 흐름입니다. 백업을 중지하고 데이터를 삭제하면 활성 항목이 일시 삭제 상태가 되어 보존 기간 동안 유지됩니다. 보존 기간 안에 삭제를 취소하면 데이터 보존 상태의 백업 중지가 되고, 다시 시작하면 활성으로 돌아가며, 보존 기간이 지난 뒤 제거하면 영구 삭제됩니다."
+      },
+      "caption": {
+        "en": "Official soft delete state flow for Azure Backup items. It explains states and transitions; it does not show the soft delete setting, the retention period or the state of any item in your vaults.",
+        "ko": "Azure Backup 항목의 일시 삭제 상태 흐름에 대한 공식 그림입니다. 상태와 전환을 설명할 뿐, 일시 삭제 설정, 보존 기간 또는 사용자 자격 증명 모음에 있는 항목의 상태는 보여 주지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "e7f0fd54-fba0-054e-9ab8-e676f2851f88",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/container-registry/container-registry-soft-delete-policy",
+      "image_url": "https://learn.microsoft.com/en-us/azure/container-registry/media/container-registry-soft-delete/02-soft-delete.png",
+      "illustrates": "the Azure Container Registry soft delete artifact lifecycle",
+      "alt": {
+        "en": "Azure Container Registry soft delete lifecycle: deleting an artifact moves it from Active to Soft-Deleted, restoring returns it to Active, and when the retention period expires it becomes permanently deleted.",
+        "ko": "Azure Container Registry 일시 삭제 수명 주기입니다. 아티팩트를 삭제하면 활성에서 일시 삭제 상태가 되고, 복원하면 활성으로 돌아가며, 보존 기간이 끝나면 영구 삭제됩니다."
+      },
+      "caption": {
+        "en": "Official artifact lifecycle for the registry soft delete policy. It explains the states; it does not show that the policy is enabled on your registry or how long artifacts are retained.",
+        "ko": "레지스트리 일시 삭제 정책의 아티팩트 수명 주기에 대한 공식 그림입니다. 상태를 설명할 뿐, 사용자의 레지스트리에서 정책이 사용 설정되어 있거나 아티팩트를 얼마나 보존하는지는 보여 주지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "1ceea4b5-1d8b-4be0-9bbe-9594557be51a",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/expressroute/traffic-collector",
+      "image_url": "https://learn.microsoft.com/en-us/azure/expressroute/media/traffic-collector/main-diagram.png",
+      "illustrates": "how ExpressRoute Traffic Collector receives flow logs and delivers them to Log Analytics",
+      "alt": {
+        "en": "ExpressRoute Traffic Collector receives flow logs from two ExpressRoute circuits carrying Microsoft peering and Azure private peering traffic and sends them to an Azure Log Analytics workspace.",
+        "ko": "ExpressRoute Traffic Collector가 Microsoft 피어링과 Azure 프라이빗 피어링 트래픽을 전달하는 ExpressRoute 회로 두 개에서 흐름 로그를 받아 Azure Log Analytics 작업 영역으로 보냅니다."
+      },
+      "caption": {
+        "en": "Official Traffic Collector architecture. It illustrates the log flow only; it does not show that Traffic Collector is deployed, linked to your circuits or sending logs to a workspace.",
+        "ko": "Traffic Collector 아키텍처에 대한 공식 그림입니다. 로그 흐름만 보여 주며, Traffic Collector가 배포되어 있거나 사용자의 회로에 연결되어 있거나 작업 영역으로 로그를 보내고 있다는 사실은 입증하지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "f6a14b32-a727-4ace-b5fa-7b1c6bdff402",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/expressroute/about-fastpath",
+      "image_url": "https://learn.microsoft.com/en-us/azure/expressroute/media/about-fastpath/fastpath-vnet-peering.png",
+      "illustrates": "the ExpressRoute FastPath data path with virtual network peering",
+      "alt": {
+        "en": "ExpressRoute with FastPath and virtual network peering: traffic from the on-premises network through the ExpressRoute circuit and the Microsoft edge reaches VMs in spoke virtual networks directly over FastPath, instead of through the hub virtual network's ExpressRoute gateway and Azure Firewall.",
+        "ko": "FastPath와 가상 네트워크 피어링을 사용하는 ExpressRoute입니다. 온-프레미스 네트워크에서 ExpressRoute 회로와 Microsoft 에지를 거친 트래픽이 허브 가상 네트워크의 ExpressRoute 게이트웨이와 Azure Firewall을 거치지 않고 FastPath로 스포크 가상 네트워크의 VM에 직접 도달합니다."
+      },
+      "caption": {
+        "en": "Official FastPath data-path diagram. It illustrates the path only; it does not show that FastPath is enabled on your connection or that your traffic uses it.",
+        "ko": "FastPath 데이터 경로에 대한 공식 그림입니다. 경로만 보여 주며, 사용자의 연결에서 FastPath가 사용 설정되어 있거나 트래픽이 이를 사용한다는 사실은 입증하지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "e6c7e1cc-2f47-264d-aa50-1da421314472",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy",
+      "image_url": "https://learn.microsoft.com/en-us/azure/storage/common/media/storage-redundancy/geo-zone-redundant-storage.png",
+      "illustrates": "geo-zone-redundant storage as one zone- and region-redundant option",
+      "alt": {
+        "en": "Geo-zone-redundant storage: three copies of the data are kept in separate availability zones of the primary region (ZRS) and geo-replicated to a single datacenter in the secondary region, where three copies are kept with locally redundant storage (LRS).",
+        "ko": "지역 영역 중복 스토리지입니다. 데이터 복사본 세 개를 주 지역의 서로 다른 가용성 영역에 보관하고(ZRS), 보조 지역의 데이터센터 한 곳으로 지역 복제하여 로컬 중복 스토리지(LRS)로 복사본 세 개를 보관합니다."
+      },
+      "caption": {
+        "en": "Official GZRS illustration. It shows one redundancy option; it does not describe other options and does not show which redundancy your storage accounts use.",
+        "ko": "GZRS에 대한 공식 그림입니다. 중복 옵션 하나만 보여 주며, 다른 옵션을 설명하지 않고 사용자의 스토리지 계정이 어떤 중복 방식을 쓰는지도 보여 주지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "4f63619f-5001-439c-bacb-8de891287727",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/aks/reliability-availability-zones-configure",
+      "image_url": "https://learn.microsoft.com/en-us/azure/aks/media/availability-zones/aks-node-pools.png",
+      "illustrates": "zone-spanning, zone-aligned and regional AKS node pool placement across availability zones",
+      "alt": {
+        "en": "AKS node pool placement across three availability zones: a zone-spanning pool (A) has nodes in all three zones, zone-aligned pools (X, Y and Z) each stay within one zone, and a regional pool (R) is not tied to a zone.",
+        "ko": "세 가용성 영역에 걸친 AKS 노드 풀 배치입니다. 영역 확장 풀(A)은 세 영역 모두에 노드를 두고, 영역 정렬 풀(X, Y, Z)은 각각 한 영역에 머물며, 지역 풀(R)은 특정 영역에 묶이지 않습니다."
+      },
+      "caption": {
+        "en": "Official AKS node pool placement models. It illustrates the options only; it does not show how your cluster's node pools are configured or that they run across zones.",
+        "ko": "AKS 노드 풀 배치 모델에 대한 공식 그림입니다. 선택 가능한 방식만 보여 주며, 사용자 클러스터의 노드 풀 구성이나 여러 영역에서의 실행 여부는 보여 주지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "6b589ce6-c847-4cee-af35-f6e8eb1cf983",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/virtual-machines/linux/scheduled-events",
+      "image_url": "https://learn.microsoft.com/en-us/azure/virtual-machines/linux/media/scheduled-events/scheduled-events-timeline.png",
+      "illustrates": "the maintenance events timeline seen through Scheduled Events",
+      "alt": {
+        "en": "Maintenance events timeline. The customer view through Scheduled Events shows scheduled, approve event, started, completed and restore workload; the Azure system view shows other tenants approving or reaching the timeout, the update operation, impact, and probation and stabilization. The timeline is expanded and not to scale.",
+        "ko": "유지 관리 이벤트 타임라인입니다. 고객 관점(예약된 이벤트)에서는 예약됨, 이벤트 승인, 시작됨, 완료됨, 워크로드 복원이 표시되고, Azure 시스템 관점에서는 다른 테넌트의 승인 또는 제한 시간 도달, 업데이트 작업, 영향, 관찰 및 안정화가 표시됩니다. 타임라인은 세부 정보를 위해 확장되어 있으며 간격은 실제 비율이 아닙니다."
+      },
+      "caption": {
+        "en": "Official maintenance event timeline. It is not to scale and does not show that your workload queries Scheduled Events or handles them.",
+        "ko": "유지 관리 이벤트에 대한 공식 타임라인입니다. 실제 비율이 아니며, 사용자의 워크로드가 예약된 이벤트를 조회하거나 처리한다는 사실은 보여 주지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "847a8d88-21c4-bc48-a94e-562206edd767",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/application-gateway/application-gateway-probe-overview",
+      "image_url": "https://learn.microsoft.com/en-us/azure/application-gateway/media/application-gateway-probe-overview/appgatewayprobe.png",
+      "illustrates": "how Application Gateway health probes steer requests to healthy backend targets",
+      "alt": {
+        "en": "Application Gateway sends health probes to each VM in a backend pool: VM1 and VM2 answer HTTP 200 OK and are healthy, VM3 answers HTTP 500 and is unhealthy, so user requests are sent only to VM1 and VM2.",
+        "ko": "Application Gateway가 백 엔드 풀의 각 VM에 상태 프로브를 보냅니다. VM1과 VM2는 HTTP 200 OK로 응답해 정상이고 VM3은 HTTP 500으로 응답해 비정상이므로 사용자 요청은 VM1과 VM2로만 전달됩니다."
+      },
+      "caption": {
+        "en": "Official health probe illustration. It explains probe behavior; it does not show your probe configuration or the current health of your backend pool.",
+        "ko": "상태 프로브에 대한 공식 그림입니다. 프로브 동작을 설명할 뿐, 사용자의 프로브 구성이나 백 엔드 풀의 현재 상태는 보여 주지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "726abfe3-adae-4a6d-8eb8-4b27a7214ca1",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/azure-vmware/connect-multiple-private-clouds-same-region",
+      "image_url": "https://learn.microsoft.com/en-us/azure/azure-vmware/media/networking/avs-interconnect.png",
+      "illustrates": "AVS Interconnect between private clouds in one Azure region",
+      "alt": {
+        "en": "Three Azure VMware Solution private clouds (A, B and C) in a single Azure region connected as an AVS Interconnect mesh by three AVS Interconnect links; AVS Interconnect gives the highest throughput and lowest latency between private clouds in the same region.",
+        "ko": "하나의 Azure 지역에 있는 Azure VMware Solution 프라이빗 클라우드 세 개(A, B, C)가 AVS Interconnect 링크 세 개로 메시를 이룹니다. AVS Interconnect는 같은 지역의 프라이빗 클라우드 사이에서 가장 높은 처리량과 가장 낮은 대기 시간을 제공합니다."
+      },
+      "caption": {
+        "en": "Official AVS Interconnect topology. It illustrates the topology only; it does not show that your private clouds are connected this way.",
+        "ko": "AVS Interconnect 토폴로지에 대한 공식 그림입니다. 토폴로지만 보여 주며, 사용자의 프라이빗 클라우드가 이렇게 연결되어 있다는 사실은 입증하지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "b36fd2ac-dd83-664a-ab48-ff7b8d3b189d",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/azure-monitor/logs/logs-data-export",
+      "image_url": "https://learn.microsoft.com/en-us/azure/azure-monitor/logs/media/logs-data-export/data-export-overview.png",
+      "illustrates": "the Log Analytics data export flow",
+      "alt": {
+        "en": "Log Analytics data export: incoming data enters the Azure Monitor ingestion pipeline and the Log Analytics workspace, and the pipeline exports data to a storage account or an event hub.",
+        "ko": "Log Analytics 데이터 내보내기입니다. 들어오는 데이터는 Azure Monitor 수집 파이프라인과 Log Analytics 작업 영역으로 들어가고, 파이프라인이 데이터를 스토리지 계정이나 이벤트 허브로 내보냅니다."
+      },
+      "caption": {
+        "en": "Official data export overview. It shows the export destinations; it does not show that an export rule exists or that your destination account uses geo-redundant storage.",
+        "ko": "데이터 내보내기에 대한 공식 개요 그림입니다. 내보내기 대상만 보여 주며, 내보내기 규칙이 있다거나 대상 계정이 지역 중복 스토리지를 쓴다는 사실은 보여 주지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "dcaf8128-94bd-4d53-9235-3a0371df6b74",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/aks/monitor-aks",
+      "image_url": "https://learn.microsoft.com/en-us/azure/aks/media/monitor-aks/aks-monitor-data-v2.png",
+      "illustrates": "the AKS monitoring levels and the tools that collect data for each",
+      "alt": {
+        "en": "AKS monitoring by level: network, cluster-level components, managed cluster components, Kubernetes objects and workloads, and application. Each level lists its monitoring tools, such as Managed service for Prometheus, Container insights, resource logs, Application insights, Network Watcher and Traffic Analytics, which feed Azure Managed Grafana and the Azure portal.",
+        "ko": "수준별 AKS 모니터링입니다. 네트워크, 클러스터 수준 구성 요소, 관리형 클러스터 구성 요소, Kubernetes 개체와 워크로드, 애플리케이션 수준마다 Managed service for Prometheus, Container insights, 리소스 로그, Application insights, Network Watcher, Traffic Analytics 같은 모니터링 도구가 나열되고, 그 데이터는 Azure Managed Grafana와 Azure Portal에 표시됩니다."
+      },
+      "caption": {
+        "en": "Official AKS monitoring overview. It describes which tools collect data at each level; it does not show that any of them is enabled on your cluster.",
+        "ko": "AKS 모니터링에 대한 공식 개요 그림입니다. 수준별로 어떤 도구가 데이터를 수집하는지 설명할 뿐, 사용자의 클러스터에서 이들이 사용 설정되어 있다는 사실은 보여 주지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "1bd2b7e8-400f-e64a-99a2-c572f7b08a62",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/frontdoor/web-application-firewall",
+      "image_url": "https://learn.microsoft.com/en-us/azure/frontdoor/media/overview/front-door-overview.png",
+      "illustrates": "Web Application Firewall protection at the Azure Front Door edge",
+      "alt": {
+        "en": "Web Application Firewall on Azure Front Door: a client request to www.contoso.com reaches a Front Door edge location where the Web Application Firewall inspects it, and path-based routes such as /search/* and /statics/* then cross the Microsoft global network to backends in an Azure region, on-premises or another cloud.",
+        "ko": "Azure Front Door의 Web Application Firewall입니다. www.contoso.com으로 가는 클라이언트 요청이 Front Door 에지 위치에 도달하면 Web Application Firewall이 요청을 검사하고, /search/*와 /statics/* 같은 경로 기반 경로가 Microsoft 글로벌 네트워크를 지나 Azure 지역, 온-프레미스 또는 다른 클라우드의 백 엔드로 이어집니다."
+      },
+      "caption": {
+        "en": "Official Front Door overview with Web Application Firewall. It illustrates where WAF sits; it does not show that a WAF policy is attached to your Front Door profile or its mode.",
+        "ko": "Web Application Firewall을 포함한 Front Door에 대한 공식 개요 그림입니다. WAF의 위치만 보여 주며, 사용자의 Front Door 프로필에 WAF 정책이 연결되어 있다거나 그 모드가 무엇인지는 보여 주지 않습니다."
+      }
+    },
+    {
+      "recommendation_id": "4e133bd0-8762-bc40-a95b-b29142427d73",
+      "source_document_url": "https://learn.microsoft.com/en-us/azure/network-watcher/network-watcher-overview",
+      "image_url": "https://learn.microsoft.com/en-us/azure/network-watcher/media/network-watcher-overview/network-watcher-capabilities.png",
+      "illustrates": "the Azure Network Watcher capability groups",
+      "alt": {
+        "en": "Azure Network Watcher capabilities: monitoring (Connection monitor, Topology), network diagnostic tools (NSG diagnostics, Effective security rules, VPN troubleshoot, Connection troubleshoot, IP flow verify, Packet capture, Next hop) and traffic (Flow logs, Traffic analytics).",
+        "ko": "Azure Network Watcher 기능입니다. 모니터링(연결 모니터, 토폴로지), 네트워크 진단 도구(NSG 진단, 유효 보안 규칙, VPN 문제 해결, 연결 문제 해결, IP 흐름 확인, 패킷 캡처, 다음 홉), 트래픽(흐름 로그, 트래픽 분석)으로 구성됩니다."
+      },
+      "caption": {
+        "en": "Official Network Watcher capability overview. It lists the capabilities; it does not show in which regions Network Watcher is enabled for your subscription.",
+        "ko": "Network Watcher 기능에 대한 공식 개요 그림입니다. 기능만 나열하며, 사용자의 구독에서 어떤 지역에 Network Watcher가 사용 설정되어 있는지는 보여 주지 않습니다."
+      }
+    }
+  ]
+}

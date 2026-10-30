@@ -14,6 +14,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Stable optional-package facades | implemented | `config/package-assurance.json`; existing Code Assurance and Cost Governance facades; independent-service checks | Fork composition can use reviewed authority-neutral public exports without editing Core or coupling discoverability to runtime authority. |
 | Deployment-specific adapters and promotion evidence | not-applicable | [Customer-Agnostic Scope](../../../.github/instructions/generic-scope.instructions.md) | These belong to each downstream distribution and deployment, not this upstream procedural guide. |
 
+| CI execution profile independence | implemented | `config/ci-runner-pools.json`, CI workflow selectors and `test_ci_pool_routing.py` in the current change | Fork signals do not enable pools, change publication authority or select a deployment target. Explicit operator configuration and independently verified pool acceptance remain separate from distribution customization. |
+
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
@@ -22,6 +24,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-09-26 | implemented | Documented stable authority-neutral extension facades as a supported downstream seam while preserving the framework-surface lock and Core import prohibition. | `current change`; package assurance policy and checker, existing extension facades, synchronized guide translation. | Downstream distributions still own their implementations, values, and deployment evidence. |
 | 2026-09-12 | implemented | Clarified that protected Cost Governance lifecycle and observation workflows are upstream delivery controls rather than downstream customization seams. | `current change`; W7 workflows, generic scope policy, protected-path and design-route checks. | Downstream forks continue to use supported package, provider, policy-data, and deployment inputs without relabeling evidence or bypassing review. |
 | 2026-08-19 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and aligned the guide with the machine-readable framework surface, current seam cookbook, and historical standard-set compatibility boundary. | `current change`; the sources and focused checks listed in the scope table. | No implementation work is owned by this guide; downstream distributions supply their own adapters and evidence. |
+
+| 2026-10-30 | implemented | Clarified that elastic CI runner selection is an independent operator configuration and preserves native PR approval, production source verification and deployment boundaries. | Current guide pair, workflow selectors and focused CI routing/admission tests passed. | Pool deployment and acceptance remain owned by the [deployment ledger](../deployment/deployment-resource-conventions.md), not this procedural guide. |
 
 ### Remaining work
 

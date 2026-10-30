@@ -326,6 +326,10 @@ run_gate_scoped "report-format-boundary" '^(services/core-control-plane/src/fdai
 # skipping it.
 run_gate_scoped "rule-semantics" '^(rule-catalog/catalog/|policies/|services/core-control-plane/src/fdai/rule_catalog/schema/rego_semantics\.py$|scripts/catalog/sync-rule-semantics\.py$)' uv run python scripts/catalog/sync-rule-semantics.py --check
 
+# Generated WARA guidance and its coverage report bind every wara_guidance_*.py authoring script
+# and shipped image by digest; editing one without regenerating fails the corpus regressions.
+run_gate_scoped "wara-guidance-generated" '^(scripts/catalog/(build_)?wara_guidance_[a-z_]*\.py$|packages/service-contracts/src/fdai_service_contracts/(data/wara-guidance|reference_image_assets\.py$|wara_guidance\.py$)|rule-catalog/guidance/azure-wara/|rule-catalog/collected/wara-aprl/)' uv run python scripts/catalog/build_wara_guidance.py --check
+
 run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
 run_gate "readable-hangul" python3 scripts/quality/localization/check-readable-hangul.py
 run_gate "guids"        bash scripts/quality/repository/check-guids.sh

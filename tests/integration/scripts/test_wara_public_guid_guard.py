@@ -52,8 +52,10 @@ def _check(root, path, text):
         "rule-catalog/guidance/azure-wara/coverage.json",
         "rule-catalog/guidance/azure-wara/reader-text-ko.json",
         "rule-catalog/guidance/azure-wara/reference-images.json",
+        "rule-catalog/guidance/azure-wara/reference-image-reviews.json",
         "packages/service-contracts/src/fdai_service_contracts/data/wara-guidance-00.json",
         "scripts/catalog/wara_guidance_pilots.py",
+        "scripts/catalog/wara_guidance_image_selection.py",
         "scripts/catalog/wara_guidance_image_manifest.py",
         "packages/service-contracts/tests/test_wara_guidance_corpus.py",
         "packages/service-contracts/tests/test_wara_guidance_images.py",
@@ -78,8 +80,10 @@ def test_known_public_guid_is_not_globally_allowlisted(repository) -> None:
         "packages/service-contracts/src/fdai_service_contracts/data/wara-guidance-00.json",
         "rule-catalog/guidance/azure-wara/reader-text-ko.json",
         "rule-catalog/guidance/azure-wara/reference-images.json",
+        "rule-catalog/guidance/azure-wara/reference-image-reviews.json",
         "packages/service-contracts/tests/test_wara_guidance_images.py",
         "scripts/catalog/wara_guidance_image_manifest.py",
+        "scripts/catalog/wara_guidance_image_selection.py",
     ],
 )
 def test_unknown_guid_remains_blocked_inside_generated_public_data(repository, path) -> None:

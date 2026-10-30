@@ -227,6 +227,29 @@ test("illustrates three public pilots in English and Korean, desktop before resp
   await testInfo.attach("synthetic-guidance-geometry", { path: measurementPath, contentType: "application/json" });
 });
 
+test("lists recommendations with their Korean title in Korean and the source title in English (isolated fixtures)", async ({ page }) => {
+  const controls = waraPilotControls();
+  await installFixture(page, controls);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const locale of ["ko", "en"] as const) {
+    await page.goto(`/rules?view=controls&framework=azure-wara&locale=${locale}`);
+    await expect(page.locator(".wara-controls-view .data-table")).toBeVisible();
+    await expect(page.locator(".wara-controls-view .data-table thead")).toContainText(locale === "ko" ? "권고" : "Recommendation");
+    await expect(page.locator(".wara-controls-view .data-table thead")).not.toContainText(/원문 제목|source title/i);
+    for (const control of controls) {
+      const row = page.locator(`[data-recommendation-id="${control.id}"]`);
+      const expected = locale === "ko" ? control.title_ko! : control.title;
+      expect(control.title_ko).toBeTruthy();
+      await expect(row.locator(".wara-recommendation-title")).toHaveText(expected);
+      if (locale === "ko") {
+        await expect(row.locator(".wara-recommendation-title")).not.toHaveText(control.title);
+        await expect(page.getByRole("button", { name: new RegExp(control.title_ko!.slice(0, 6)) }).first()).toBeVisible();
+      }
+    }
+    await page.screenshot({ animations: "disabled", path: test.info().outputPath(`list-${locale}.png`) });
+  }
+});
+
 test("missing guidance preserves base explanation; malformed or mismatched assets visibly fail", async ({ page }) => {
   const controls = waraPilotControls();
   const control = controls[0]!;
@@ -313,6 +336,7 @@ for (const locale of ["en", "ko"] as const) test(`smokes all 456 installed guide
   const rows: unknown[] = [];
   const families = new Set<string>();
   let disabled = 0;
+  let officialImages = 0;
   try {
     for (const [index, control] of controls.entries()) {
       await page.evaluate((id) => {
@@ -335,6 +359,16 @@ for (const locale of ["en", "ko"] as const) test(`smokes all 456 installed guide
         const supplement = drawer.locator(".wara-guidance-supplement");
         await supplement.locator(":scope > summary").click();
         await expect(supplement).toHaveAttribute("open");
+        const image = control.guidance!.reference_image;
+        const official = drawer.locator(".wara-guidance-source-figure");
+        await expect(official.getByRole("img", { name: guidanceText(image.alt, locale), exact: true })).toBeVisible();
+        expect(await official.locator(".wara-guidance-image-frame img").evaluate((element) => (element as HTMLImageElement).complete && (element as HTMLImageElement).naturalWidth > 0), control.id).toBe(true);
+        await expect(official.locator("header a")).toHaveAttribute("href", image.source_document_url);
+        await expect(official.getByRole("button", { name: locale === "ko" ? "이미지 확대" : "Enlarge image", exact: true })).toBeVisible();
+        await expect(official).toContainText(guidanceText(image.caption, locale));
+        expect(await official.evaluate((element) => element.scrollWidth <= element.clientWidth), control.id).toBe(true);
+        await official.screenshot({ animations: "disabled", path: testInfo.outputPath(`official-${control.id.slice(0, 8)}-${locale}.png`) });
+        officialImages += 1;
       }
       const figure = drawer.locator(".wara-guidance-figure");
       await expect(figure.locator("[data-guidance-edge]")).toHaveCount(control.guidance!.diagram.edges.length);
@@ -364,6 +398,7 @@ for (const locale of ["en", "ko"] as const) test(`smokes all 456 installed guide
     expect(rows).toHaveLength(456);
     expect(disabled).toBe(63);
     expect(families.size).toBe(45);
+    expect(officialImages).toBe(16);
   } finally {
     const path = testInfo.outputPath("full-corpus-desktop-smoke.json");
     writeFileSync(path, JSON.stringify({
@@ -502,11 +537,14 @@ test("serves the packaged official VM backup image without a remote image reques
   await page.emulateMedia({ media: "screen" });
 });
 
-test("keeps reading regions from overlapping at every layout boundary width (packaged image)", async ({ page }) => {
-  test.setTimeout(120_000);
-  const control = waraCorpusControls().find((item) => item.title === "Backup VMs with Azure Backup service")!;
-  await installFixture(page, [control]);
-  for (const width of [641, 700, 720, 730, 760, 800, 900, 1000, 1100, 1110, 1120, 1130, 1160, 1200, 1280, 1312, 1313, 1400]) {
+test("keeps reading regions from overlapping at every layout boundary width (packaged images of different sizes)", async ({ page }) => {
+  test.setTimeout(300_000);
+  // The original VM backup image, a small portrait diagram and a very large landscape diagram.
+  const titles = ["Backup VMs with Azure Backup service", "Enable the WAF", "Deploy AKS cluster across availability zones"];
+  const controls = waraCorpusControls().filter((item) => titles.includes(item.title) && item.guidance?.reference_image);
+  expect(controls).toHaveLength(3);
+  await installFixture(page, controls);
+  for (const control of controls) for (const width of [641, 700, 720, 730, 760, 800, 900, 1000, 1100, 1110, 1120, 1130, 1160, 1200, 1280, 1312, 1313, 1400]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto(`/rules?view=controls&framework=azure-wara&recommendation=${control.id}`);
     await expect(page.locator(".wara-guidance-image-frame img")).toBeVisible();
@@ -532,7 +570,7 @@ test("keeps reading regions from overlapping at every layout boundary width (pac
       if (body.scrollWidth > body.clientWidth) found.push("document overflows horizontally");
       return found;
     });
-    expect(overlaps, `viewport ${width}`).toEqual([]);
+    expect(overlaps, `${control.id} at viewport ${width}`).toEqual([]);
   }
 });
 

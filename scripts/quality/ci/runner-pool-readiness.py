@@ -13,6 +13,12 @@ from typing import Any
 
 import yaml
 
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.quality.ci import ci_pool_canary, ci_pool_routes  # noqa: E402
+
 DEFAULT_POLICY = Path("config/ci-runner-pools.json")
 
 
@@ -42,6 +48,7 @@ def validate_policy(policy: dict[str, Any], workflow: dict[str, Any]) -> None:
     seen: set[tuple[str, ...]] = set()
     for name, pool in policy["pools"].items():
         warm = integer(pool["warm_idle"], f"{name}.warm_idle")
+        low = integer(pool.get("warm_idle_low", warm), f"{name}.warm_idle_low")
         ceiling = integer(pool["maximum"], f"{name}.maximum", minimum=1)
         integer(pool["cpu_per_runner"], f"{name}.cpu_per_runner", minimum=1)
         if pool["quota_group"] not in {"container_cpu", "vm_cpu"}:
@@ -51,6 +58,7 @@ def validate_policy(policy: dict[str, Any], workflow: dict[str, Any]) -> None:
         if (
             ceiling > 128
             or warm > ceiling
+            or low > warm
             or not isinstance(labels, list)
             or not labels
             or not all(isinstance(item, str) and item for item in labels)
@@ -68,6 +76,8 @@ def validate_policy(policy: dict[str, Any], workflow: dict[str, Any]) -> None:
     if set(workflow["jobs"]) != set(policy["jobs"]):
         raise ValueError("job routing inventory differs from the complete CI workflow")
     for name, job in workflow["jobs"].items():
+        if integer(job.get("timeout-minutes", 360), f"{name}.timeout-minutes", minimum=1) > 360:
+            raise ValueError("runner pool CI jobs must finish within six hours")
         pool = policy["jobs"][name]
         if pool not in expected:
             raise ValueError(f"unknown pool for job: {name}")
@@ -90,6 +100,7 @@ def assess(
     workflow: dict[str, Any],
     evidence: dict[str, Any],
     now: datetime,
+    workflows: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     validate_policy(policy, workflow)
     if not isinstance(evidence, dict):
@@ -155,6 +166,12 @@ def assess(
     ):
         if evidence.get(field) is not True:
             blockers.append(f"{field}-unverified")
+    routing_variables = evidence.get("routing_variables", {})
+    enabled = isinstance(routing_variables, dict) and (
+        routing_variables.get("FDAI_CI_POOLS_ENABLED") == "true"
+    )
+    if not enabled:
+        blockers.append("pool-flag-not-observed-enabled")
     actual_routes = evidence["active_routes"]
     if set(actual_routes) != set(policy["jobs"]):
         raise ValueError("active routing evidence is incomplete")
@@ -162,12 +179,26 @@ def assess(
         if actual_routes[name] != expected:
             blockers.append(f"{name}:route-not-on-{expected}")
         selection = workflow["jobs"][name]["runs-on"]
-        if (
-            not isinstance(selection, list)
-            or not all(isinstance(label, str) for label in selection)
-            or set(selection) != set(policy["pools"][expected]["labels"])
+        if selection != policy["pools"][expected]["labels"] and not (
+            enabled
+            and selection
+            == ci_pool_routes.runner_expression(
+                policy["pools"][expected]["labels"], ci_pool_routes.LEGACY_RUNNERS.get(name)
+            )
         ):
             blockers.append(f"{name}:workflow-source-route-not-on-{expected}")
+    documents = {ci_pool_routes.CI: workflow, **(workflows or {})}
+    if set(documents) != set(ci_pool_routes.VALIDATION_WORKFLOWS):
+        blockers.append("complete-validation-workflow-inventory-unverified")
+    else:
+        blockers.extend(ci_pool_routes.routing_errors(policy, documents))
+        observed_routes = evidence.get("active_workflow_routes")
+        expected_routes = {
+            path: ci_pool_routes.job_routes(policy, path)
+            for path in ci_pool_routes.VALIDATION_WORKFLOWS
+        }
+        if observed_routes != expected_routes:
+            blockers.append("complete-validation-workflow-routes-unverified")
     return {
         "ready": not blockers,
         "blockers": blockers,
@@ -247,6 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     operation = parser.add_mutually_exclusive_group(required=True)
     operation.add_argument("--evidence", type=Path)
     operation.add_argument("--burst-receipt", type=Path)
+    operation.add_argument("--canary-receipt", type=Path)
     operation.add_argument("--check-policy", action="store_true")
     args = parser.parse_args(argv)
     try:
@@ -259,14 +291,22 @@ def main(argv: list[str] | None = None) -> int:
             result = validate_burst(
                 policy, json.loads(args.burst_receipt.read_text(encoding="utf-8"))
             )
+        elif args.canary_receipt:
+            result = ci_pool_canary.validate_receipt(
+                json.loads(args.canary_receipt.read_text(encoding="utf-8")), policy["slo"]
+            )
         else:
             result = assess(
                 policy,
                 workflow,
                 json.loads(args.evidence.read_text(encoding="utf-8")),
                 datetime.now(UTC),
+                {
+                    path: yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+                    for path in ci_pool_routes.VALIDATION_WORKFLOWS
+                },
             )
-    except (OSError, ValueError, KeyError, TypeError) as error:
+    except (OSError, ValueError, KeyError, TypeError, ci_pool_canary.CanaryError) as error:
         print(f"runner-pools: invalid or incomplete evidence: {error}", file=sys.stderr)
         return 2
     print(json.dumps(result, sort_keys=True))

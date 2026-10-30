@@ -15,7 +15,7 @@ tag="${2:-$(git -C "$repository_root" rev-parse --short=12 HEAD)}"
 context="$(mktemp -d)"
 trap 'rm -rf "$context"' EXIT
 cp "$repository_root"/infra/ci-runner/{toolchain.json,verify-toolchain.py,provision-toolchain.sh} "$context/"
-cp "$repository_root"/infra/ci-runner-aca/{Dockerfile,entrypoint.sh} "$context/"
+cp "$repository_root"/infra/ci-runner-aca/{Dockerfile,entrypoint.sh,broker-entrypoint.py} "$context/"
 
 az acr build --registry "$registry" --image "fdai-ci-runner:${tag}" --platform linux/amd64 "$context"
 echo "fdai-ci-runner:${tag}"

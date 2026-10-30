@@ -85,6 +85,32 @@ def test_workflow_verifies_self_hosted_runners_before_the_regression_shard() -> 
     assert names.index(gate["name"]) < names.index("Run regression shard")
 
 
+def test_ci_terraform_installations_match_the_shared_runner_manifest() -> None:
+    workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    versions = [
+        step["with"]["terraform_version"]
+        for job in workflow["jobs"].values()
+        for step in job.get("steps", [])
+        if step.get("uses", "").startswith("hashicorp/setup-terraform@")
+    ]
+    assert versions
+    assert set(versions) == {MANIFEST["pinned_tools"]["terraform"]["version"]}
+
+
+def test_ci_validates_and_tests_the_controller_root_without_live_credentials() -> None:
+    workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
+    steps = [step for job in workflow["jobs"].values() for step in job.get("steps", [])]
+    step = next(
+        step
+        for step in steps
+        if step.get("name") == "terraform validate and test (runner controller, mocked providers)"
+    )
+    assert "ci-runner-controller init -backend=false -input=false -lockfile=readonly" in step["run"]
+    assert "ci-runner-controller validate" in step["run"]
+    assert "ci-runner-controller test" in step["run"]
+    assert "apply" not in step["run"]
+
+
 def test_verifier_accepts_a_conforming_runner(tmp_path: Path) -> None:
     _executable(tmp_path, "sh", "sh")
     _executable(tmp_path, "demo", "demo 1.2.3")

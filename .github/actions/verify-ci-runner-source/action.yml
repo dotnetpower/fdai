@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Verify CI candidate source
+description: Admit exact CI revisions without executing candidate code.
+
+inputs:
+  target-commit-sha:
+    description: Exact github.sha of this CI run, including the PR merge commit.
+    required: true
+  workflow-path:
+    description: Explicitly allowed CI validation workflow (ci.yml or container-supply-chain.yml).
+    required: true
+  origin-url:
+    description: Credential-free HTTPS Git URL of this run's repository.
+    required: true
+  github-token:
+    description: Read-only token for repository, Actions, and pull request evidence.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Admit exact CI source
+      shell: bash
+      env:
+        CI_VERIFIER_PATH: ${{ github.action_path }}
+        CI_TARGET_SHA: ${{ inputs.target-commit-sha }}
+        CI_WORKFLOW_PATH: ${{ inputs.workflow-path }}
+        CI_ORIGIN_URL: ${{ inputs.origin-url }}
+        CI_GITHUB_TOKEN: ${{ inputs.github-token }}
+        CI_REPOSITORY: ${{ github.repository }}
+        CI_REPOSITORY_ID: ${{ github.repository_id }}
+        CI_RUN_ID: ${{ github.run_id }}
+        CI_RUN_ATTEMPT: ${{ github.run_attempt }}
+        CI_EVENT_NAME: ${{ github.event_name }}
+        CI_REF: ${{ github.ref }}
+        CI_SHA: ${{ github.sha }}
+        CI_WORKFLOW_REF: ${{ github.workflow_ref }}
+        CI_WORKFLOW_SHA: ${{ github.workflow_sha }}
+        CI_ACTOR: ${{ github.actor }}
+        CI_ACTOR_ID: ${{ github.actor_id }}
+        CI_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+      run: python3 -I "$CI_VERIFIER_PATH/verify.py"

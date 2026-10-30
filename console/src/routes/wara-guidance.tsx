@@ -1,7 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { getLocale } from "../i18n";
 import { t } from "./i18n/governance";
-import type { WaraControl } from "./wara-controls.model";
+import { waraDisplayTitle, type WaraControl } from "./wara-controls.model";
 import { WaraGuidanceDiagram } from "./wara-guidance-diagram";
 import { WaraGuidanceReferenceImage } from "./wara-guidance-image";
 import { guidanceMissingKoreanFields, guidanceText, type GuidanceText } from "./wara-guidance.model";
@@ -28,7 +28,7 @@ export function WaraGuidanceContent({ control, expanded, onExpand }: {
   const locale = getLocale();
   return <div class="wara-guidance-content" data-recommendation-id={control.id} data-locale={locale}>
     {control.lifecycle === "disabled" ? <p class="wara-guidance-history" role="note">{t("governance.rules.wara.guidance.disabledHistory")}</p> : null}
-    <h2 class="wara-guidance-title">{guidance ? guidanceText(guidance.title, locale) : control.title}</h2>
+    <h2 class="wara-guidance-title">{guidance ? guidanceText(guidance.title, locale) : waraDisplayTitle(control, locale)}</h2>
     <Section name="explanation">
       {guidance ? <div class="wara-guidance-intro">
         <div class="wara-guidance-intro-columns">
